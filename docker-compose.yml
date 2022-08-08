@@ -1,0 +1,20 @@
+version: '3'
+services:
+  validator-0:
+    image: ghcr.io/futureversecom/root-network
+    volumes:
+    - ./data/relay-0:/mnt/data
+    - ./chain-specs:/mnt/chain-specs/:ro
+    command:
+      - --alice
+      - --validator
+      - --chain=dev
+      - --base-path=/mnt/data
+      - --name=validator-0
+      - --unsafe-ws-external
+      - --unsafe-rpc-external
+      - --rpc-cors=all
+    ports:
+      - "9933:9933"
+      - "9944:9944"
+      - "30333:30333"
