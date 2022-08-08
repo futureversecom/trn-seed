@@ -6,12 +6,12 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 
 use root_primitives::Balance;
 use root_runtime::{
-	AccountId, AssetsConfig, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
-	SessionConfig, SessionKeys, Signature, SudoConfig, SystemConfig,
-	WASM_BINARY,
 	constants::{
-		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, ONE_MYCL, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE,
+		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, ONE_MYCL, XRP_ASSET_ID, XRP_DECIMALS,
+		XRP_MINIMUM_BALANCE,
 	},
+	AccountId, AssetsConfig, BalancesConfig, GenesisConfig, SessionConfig, SessionKeys, Signature,
+	SudoConfig, SystemConfig, WASM_BINARY,
 };
 
 // The URL for the telemetry server.
@@ -39,17 +39,25 @@ where
 
 /// Generate a set of runtime session keys (stash/controller, aura, grandpa)
 pub fn authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
-	(get_account_id_from_seed::<ecdsa::Public>(s), get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+	(
+		get_account_id_from_seed::<ecdsa::Public>(s),
+		get_from_seed::<AuraId>(s),
+		get_from_seed::<GrandpaId>(s),
+	)
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "MYCL".into());
+	properties.insert("tokenDecimals".into(), MYCL_DECIMALS.into());
+
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Development",
+		"Root Dev",
 		// ID
-		"dev",
+		"root_dev",
 		ChainType::Development,
 		move || {
 			testnet_genesis(
@@ -65,7 +73,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
 				],
-				true,
+				false,
 			)
 		},
 		// Bootnodes
@@ -76,7 +84,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		None,
 		None,
 		// Properties
-		None,
+		Some(properties),
 		// Extensions
 		None,
 	))
@@ -84,12 +92,15 @@ pub fn development_config() -> Result<ChainSpec, String> {
 
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "MYCL".into());
+	properties.insert("tokenDecimals".into(), MYCL_DECIMALS.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Local Testnet",
+		"Root Local",
 		// ID
-		"local_testnet",
+		"root_local",
 		ChainType::Local,
 		move || {
 			testnet_genesis(
@@ -113,7 +124,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
-				true,
+				false,
 			)
 		},
 		// Bootnodes
@@ -124,7 +135,64 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		None,
 		// Properties
 		None,
+		Some(properties),
+		// Extensions
 		None,
+	))
+}
+
+pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
+	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "MYCL".into());
+	properties.insert("tokenDecimals".into(), MYCL_DECIMALS.into());
+
+	Ok(ChainSpec::from_genesis(
+		// Name
+		"Porcini",
+		// ID
+		"porcini",
+		ChainType::Live,
+		move || {
+			testnet_genesis(
+				wasm_binary,
+				// Initial PoA authorities
+				vec![
+					authority_keys_from_seed("Alice"),
+					authority_keys_from_seed("Bob"),
+					authority_keys_from_seed("Charlie"),
+					authority_keys_from_seed("Dave"),
+					authority_keys_from_seed("Eve"),
+				],
+				// Sudo account
+				get_account_id_from_seed::<ecdsa::Public>("Alice"),
+				// Pre-funded accounts
+				vec![
+					get_account_id_from_seed::<ecdsa::Public>("Alice"),
+					get_account_id_from_seed::<ecdsa::Public>("Bob"),
+					get_account_id_from_seed::<ecdsa::Public>("Charlie"),
+					get_account_id_from_seed::<ecdsa::Public>("Dave"),
+					get_account_id_from_seed::<ecdsa::Public>("Eve"),
+					get_account_id_from_seed::<ecdsa::Public>("Ferdie"),
+					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Charlie//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Dave//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
+				],
+				false,
+			)
+		},
+		// Bootnodes
+		vec![],
+		// Telemetry
+		None,
+		// Protocol ID
+		None,
+		// Properties
+		None,
+		Some(properties),
 		// Extensions
 		None,
 	))
@@ -163,13 +231,11 @@ fn testnet_genesis(
 			code: wasm_binary.to_vec(),
 		},
 		balances: BalancesConfig { balances: endowed_balances },
-		aura: AuraConfig {
-			authorities: initial_authorities.iter().map(|x| (x.1.clone())).collect(),
-		},
+		// aura & grandpa initialization handled by session
+		//  otherwise causes: Thread 'main' panicked at 'Authorities are already initialized!'
+		aura: Default::default(),
 		assets: AssetsConfig { assets, accounts: endowed_assets, metadata },
-		grandpa: GrandpaConfig {
-			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
-		},
+		grandpa: Default::default(),
 		nft: Default::default(),
 		session: SessionConfig {
 			keys: initial_authorities

@@ -331,22 +331,22 @@ construct_runtime! {
 	{
 		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Authorship: pallet_authorship::{Pallet, Call, Storage},
 
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
-		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
+		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 
-		// Collator
-		Authorship: pallet_authorship::{Pallet, Call, Storage},
+		// Validators
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
 		Aura: pallet_aura::{Pallet, Storage, Config<T>},
 		Grandpa: pallet_grandpa,
 
 		// World
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 		Sudo: pallet_sudo,
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
+		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 }

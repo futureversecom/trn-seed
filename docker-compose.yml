@@ -1,10 +1,11 @@
+# two node local network (alice + bob validators)
 version: '3'
 services:
   validator-0:
-    image: ghcr.io/futureversecom/root-network
+    image: ghcr.io/futureversecom/root-network:0.0.1-rc0
     volumes:
-    - ./data/relay-0:/mnt/data
-    - ./chain-specs:/mnt/chain-specs/:ro
+    - ./data/validator-0:/mnt/data
+    - ./chain-spec:/mnt/chain-spec/:ro
     command:
       - --alice
       - --validator
@@ -18,3 +19,14 @@ services:
       - "9933:9933"
       - "9944:9944"
       - "30333:30333"
+  validator-1:
+    image: ghcr.io/futureversecom/root-network:0.0.1-rc0
+    volumes:
+    - ./data/validator-1:/mnt/data
+    - ./chain-spec:/mnt/chain-spec/:ro
+    command:
+      - --bob
+      - --validator
+      - --chain=dev
+      - --base-path=/mnt/data
+      - --name=validator-1

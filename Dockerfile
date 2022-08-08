@@ -22,7 +22,7 @@ RUN cargo build "--$PROFILE"
 FROM gcr.io/distroless/cc
 LABEL maintainer="support@centrality.ai"
 LABEL org.opencontainers.image.source=https://github.com/futureversecom/root-network
-COPY --from=0 /root-network/target/release/root-node /usr/local/bin
+COPY --from=0 /root-network/target/release/root-node /
 
 EXPOSE 30333 9933 9944
-ENTRYPOINT ["/usr/local/bin/root-node"]
+ENTRYPOINT ["/root-node"]
