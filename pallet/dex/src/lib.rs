@@ -298,11 +298,13 @@ pub mod pallet {
 					max_amount_b,
 					min_share_increment,
 				),
-				TradingPairStatus::<_, _>::Provisioning(_) =>
+				TradingPairStatus::<_, _>::Provisioning(_) => {
 					Self::do_add_provision(&who, asset_id_a, asset_id_b, max_amount_a, max_amount_b)
-						.map(|_| Self::convert_to_enabled_if_possible(trading_pair)),
-				TradingPairStatus::<_, _>::NotEnabled =>
-					Err(Error::<T>::NotEnabledTradingPair.into()),
+						.map(|_| Self::convert_to_enabled_if_possible(trading_pair))
+				},
+				TradingPairStatus::<_, _>::NotEnabled => {
+					Err(Error::<T>::NotEnabledTradingPair.into())
+				},
 			}?;
 			Ok(().into())
 		}
@@ -467,8 +469,9 @@ pub mod pallet {
 					TradingPairStatuses::<T>::remove(trading_pair);
 					Self::deposit_event(Event::DisableTradingPair(trading_pair));
 				},
-				TradingPairStatus::<_, _>::NotEnabled =>
-					return Err(Error::<T>::NotEnabledTradingPair.into()),
+				TradingPairStatus::<_, _>::NotEnabled => {
+					return Err(Error::<T>::NotEnabledTradingPair.into())
+				},
 			};
 			Ok(().into())
 		}
@@ -488,21 +491,21 @@ impl<T: Config> Pallet<T> {
 			Self::trading_pair_statuses(trading_pair)
 		{
 			// check if able to be converted to Enable status
-			if frame_system::Pallet::<T>::block_number() >= provision_parameters.not_before &&
-				!provision_parameters.accumulated_provision.0.is_zero() &&
-				!provision_parameters.accumulated_provision.1.is_zero() &&
-				(provision_parameters.accumulated_provision.0 >=
-					provision_parameters.target_provision.0 ||
-					provision_parameters.accumulated_provision.1 >=
-						provision_parameters.target_provision.1)
+			if frame_system::Pallet::<T>::block_number() >= provision_parameters.not_before
+				&& !provision_parameters.accumulated_provision.0.is_zero()
+				&& !provision_parameters.accumulated_provision.1.is_zero()
+				&& (provision_parameters.accumulated_provision.0
+					>= provision_parameters.target_provision.0
+					|| provision_parameters.accumulated_provision.1
+						>= provision_parameters.target_provision.1)
 			{
 				let lp_share_asset_id = Self::lp_token_id(trading_pair)
 					.expect("lp_token_id must be Some if TradingPairStatus is Provisioning");
 
 				let mut total_shares_issued: Balance = Default::default();
 				for (who, contribution) in ProvisioningPool::<T>::drain_prefix(trading_pair) {
-					let share_amount = if provision_parameters.accumulated_provision.0 >
-						provision_parameters.accumulated_provision.1
+					let share_amount = if provision_parameters.accumulated_provision.0
+						> provision_parameters.accumulated_provision.1
 					{
 						let initial_price_1_in_0: Price = Price::checked_from_rational(
 							provision_parameters.accumulated_provision.0,
@@ -582,8 +585,8 @@ impl<T: Config> Pallet<T> {
 		};
 
 		ensure!(
-			contribution_0 >= provision_parameters.min_contribution.0 ||
-				contribution_1 >= provision_parameters.min_contribution.1,
+			contribution_0 >= provision_parameters.min_contribution.0
+				|| contribution_1 >= provision_parameters.min_contribution.1,
 			Error::<T>::InvalidContributionIncrement
 		);
 
@@ -717,9 +720,9 @@ impl<T: Config> Pallet<T> {
 				};
 
 			ensure!(
-				!share_increment.is_zero() &&
-					!pool_0_increment.is_zero() &&
-					!pool_1_increment.is_zero(),
+				!share_increment.is_zero()
+					&& !pool_0_increment.is_zero()
+					&& !pool_1_increment.is_zero(),
 				Error::<T>::InvalidLiquidityIncrement,
 			);
 			ensure!(share_increment >= min_share_increment, Error::<T>::UnacceptableShareIncrement);
@@ -766,7 +769,7 @@ impl<T: Config> Pallet<T> {
 		min_withdrawn_b: Balance,
 	) -> DispatchResult {
 		if remove_share.is_zero() {
-			return Ok(())
+			return Ok(());
 		}
 		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 		let lp_share_asset_id =
