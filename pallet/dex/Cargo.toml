@@ -8,7 +8,7 @@ repository = "https://github.com/futureversecom/root-network"
 description = "Root Network DEX module"
 
 [dependencies]
-serde = { version = "1.0.102", optional = true }
+serde = { version = "1.0.143", optional = true }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false  }
