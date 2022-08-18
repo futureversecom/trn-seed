@@ -24,6 +24,8 @@ pub fn next_asset_uuid(next_id: u32, parachain_id: u32) -> Option<u32> {
 	if next_id + 1_u32 > MAX_U22 || parachain_id > MAX_U10 {
 		return None
 	}
-	let next_global_uuid: u32 = (next_id << 10) + parachain_id;
+
+	// next_id is the first 22 bits, parachain_id is the last 10 bits
+	let next_global_uuid: u32 = (next_id << 10) | parachain_id;
 	Some(next_global_uuid)
 }

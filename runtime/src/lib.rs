@@ -239,6 +239,7 @@ parameter_types! {
 }
 impl pallet_assets_ext::Config for Runtime {
 	type Event = Event;
+	type ParachainId = WorldId;
 	type MaxHolds = MaxHolds;
 	type MyclAssetId = MyclAssetId;
 	type PalletId = AssetsExtPalletId;
