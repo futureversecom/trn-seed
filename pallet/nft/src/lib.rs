@@ -63,7 +63,7 @@ pub struct NoopTransferSubscriber;
 impl OnTransferSubscriber for NoopTransferSubscriber {
 	fn on_nft_transfer(_token_id: &TokenId) {
 		// TODO Replace with token-approvals pallet
-		// https://github.com/futureverse-root/parachains/issues/11
+		// https://github.com/futureversecom/parachains/issues/11
 	}
 }
 
@@ -642,10 +642,10 @@ pub mod pallet {
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
 		#[pallet::weight(
-			T::WeightInfo::sell()
-			.saturating_add(
-			T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
-			)
+		T::WeightInfo::sell()
+		.saturating_add(
+		T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
+		)
 		)]
 		#[transactional]
 		pub fn sell(
@@ -770,10 +770,10 @@ pub mod pallet {
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
 		#[pallet::weight(
-			T::WeightInfo::sell()
-			.saturating_add(
-			T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
-			)
+		T::WeightInfo::sell()
+		.saturating_add(
+		T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
+		)
 		)]
 		#[transactional]
 		pub fn auction(
