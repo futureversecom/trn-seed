@@ -1,3 +1,9 @@
+use crate::{
+	mock::{
+		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, MyclAssetId, Test,
+	},
+	Error, Holds, NextAssetId,
+};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
 	traits::{
@@ -6,16 +12,8 @@ use frame_support::{
 	},
 	PalletId,
 };
+use root_pallet_common::{CreateExt, Hold};
 use sp_runtime::traits::{AccountIdConversion, Zero};
-
-use root_pallet_common::Hold;
-
-use crate::{
-	mock::{
-		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, MyclAssetId, Test,
-	},
-	Error, Holds,
-};
 
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");
 
@@ -418,9 +416,9 @@ fn place_and_release_hold_multiple_assets_and_pallets() {
 			assert_eq!(AssetsExt::balance(doge_asset_id, &alice), initial_balance);
 			// storage cleared
 			assert!(
-				!Holds::<Test>::contains_key(dn_asset_id, alice)
-					&& !Holds::<Test>::contains_key(doge_asset_id, alice)
-					&& !Holds::<Test>::contains_key(xrp_asset_id, alice)
+				!Holds::<Test>::contains_key(dn_asset_id, alice) &&
+					!Holds::<Test>::contains_key(doge_asset_id, alice) &&
+					!Holds::<Test>::contains_key(xrp_asset_id, alice)
 			);
 		});
 }
@@ -567,5 +565,70 @@ fn transfer_asset_does_not_exist() {
 			AssetsExt::transfer(MyclAssetId::get() + 1, &alice, &bob, 100, true,),
 			pallet_assets::Error::<Test>::Unknown,
 		);
+	});
+}
+
+#[test]
+fn next_asset_uuid_works() {
+	test_ext().build().execute_with(|| {
+		// This tests assumes parachain_id is set to 100 in mock
+
+		// check default value (set upon build)
+		assert_eq!(<NextAssetId<Test>>::get(), 1);
+
+		// asset uuid structure:
+		// | 22 asset_id bits | 10 parachain_id bits |
+		// |          1           |   100   |
+		// 0b000000000000000000001_0001100100
+
+		// Test with first asset_uuid is equivalent to expected binary
+		let expected_result = 0b000000000000000000001_0001100100 as u32;
+		assert_eq!(AssetsExt::next_asset_uuid().unwrap(), expected_result);
+
+		// Test with max available for 22 bits
+		let next_asset_id = (1 << 22) - 2;
+		assert_eq!(next_asset_id, 0b0000000000_1111111111111111111110 as u32);
+		<NextAssetId<Test>>::put(next_asset_id);
+		let expected_result = 0b1111111111111111111110_0001100100 as u32;
+		assert_eq!(AssetsExt::next_asset_uuid().unwrap(), expected_result);
+
+		// Next asset_uuid should fail (Reaches 22 bits max)
+		let next_asset_id = (1 << 22) - 1;
+		assert_eq!(next_asset_id, 0b0000000000_1111111111111111111111 as u32);
+		<NextAssetId<Test>>::put(next_asset_id);
+		assert_noop!(AssetsExt::next_asset_uuid(), Error::<Test>::NoAvailableIds);
+	});
+}
+
+#[test]
+fn create() {
+	test_ext().build().execute_with(|| {
+		// This tests assumes parachain_id is set to 100 in mock
+
+		// check default value (set upon build)
+		assert_eq!(<NextAssetId<Test>>::get(), 1);
+
+		// asset uuid structure:
+		// | 22 asset_id bits | 10 parachain_id bits |
+		// |          1           |   100   |
+		// 0b000000000000000000001_0001100100
+
+		// Test with first asset_uuid is equivalent to expected binary
+		let expected_result = 0b000000000000000000001_0001100100 as u32;
+		assert_eq!(AssetsExt::next_asset_uuid().unwrap(), expected_result);
+
+		pub const ALICE: MockAccountId = 1;
+
+		// create token & verify asset_uuid increment
+		let usdc = <AssetsExt as CreateExt>::create(ALICE).unwrap();
+		assert_eq!(usdc, 1 << 10 | 100);
+		assert_eq!(AssetsExt::minimum_balance(usdc), 1);
+		assert_eq!(AssetsExt::total_issuance(usdc), 0);
+
+		// create token & verify asset_uuid increment
+		let weth = <AssetsExt as CreateExt>::create(ALICE).unwrap();
+		assert_eq!(weth, 2 << 10 | 100);
+		assert_eq!(AssetsExt::minimum_balance(weth), 1);
+		assert_eq!(AssetsExt::total_issuance(usdc), 0);
 	});
 }

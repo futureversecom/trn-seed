@@ -25,6 +25,7 @@ root-primitives = { path = "../../primitives", default-features = false }
 root-pallet-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
+cumulus-primitives-core = { git = "https://github.com/futureversecom/cumulus", branch = "polkadot-v0.9.23" }
 sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 

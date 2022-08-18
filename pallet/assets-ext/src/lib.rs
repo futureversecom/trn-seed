@@ -22,9 +22,9 @@ use frame_support::{
 	},
 	PalletId,
 };
-use root_pallet_common::{CreateExt, Hold, TransferExt};
-use root_primitives::{AssetId, Balance};
-use sp_runtime::traits::{AccountIdConversion, Zero};
+use root_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
+use root_primitives::{AssetId, Balance, ParachainId};
+use sp_runtime::traits::{AccountIdConversion, One, Zero};
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -46,6 +46,25 @@ pub mod pallet {
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		_phantom: sp_std::marker::PhantomData<T>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			GenesisConfig { _phantom: Default::default() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			NextAssetId::<T>::put(1_u32);
+		}
+	}
+
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config:
@@ -54,6 +73,8 @@ pub mod pallet {
 	{
 		/// The overarching event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// The parachain_id being used by this parachain
+		type ParachainId: Get<ParachainId>;
 		/// The maximum * of holds per asset & account
 		#[pallet::constant]
 		type MaxHolds: Get<u32>;
@@ -79,8 +100,7 @@ pub mod pallet {
 
 	/// The total units issued in the system.
 	#[pallet::storage]
-	#[pallet::getter(fn world_asset_id)]
-	pub type WorldAssetId<T: Config> = StorageValue<_, AssetId, ValueQuery>;
+	pub type NextAssetId<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -118,6 +138,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// No more Ids are available, they've been exhausted
+		NoAvailableIds,
 		/// Hold balance is less then the required amount
 		BalanceLow,
 		/// The account to alter does not exist
@@ -132,6 +154,15 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// Returns the AssetId unique across parachains
+	pub fn next_asset_uuid() -> Result<AssetId, DispatchError> {
+		let asset_id = <NextAssetId<T>>::get();
+		match next_asset_uuid(asset_id, T::ParachainId::get().into()) {
+			Some(next_asset_id) => Ok(next_asset_id),
+			None => Err(Error::<T>::NoAvailableIds.into()),
+		}
+	}
+
 	/// Create a hold on some amount of asset from who
 	///
 	/// If a hold already exists, it will be increased by `amount`
@@ -469,76 +500,31 @@ impl<T: Config> Hold for Pallet<T> {
 	}
 }
 
-/// A helper function that utilizes the current asset id in the context of the function `f` and
-/// increments it after `f` has successfully completed execution.
-///
-/// * `world_asset_id` - the next world asset id to be used for function f
-/// * `f` - a function that takes a world asset id and returns a world asset id
-fn with_asset_id(
-	world_asset_id: &mut u32,
-	f: impl FnOnce(u32) -> DispatchResult,
-) -> Result<u32, DispatchResult> {
-	let current_world_asset_id = world_asset_id.clone();
-	*world_asset_id += 1;
-
-	f(current_world_asset_id)?; // return error if f fails
-
-	Ok(current_world_asset_id)
-
-	// // convert to base2 string (34 digits - including `0b` prefix) with leading 0s
-	// let base2 = format!("{:#034b}", world_asset_id);
-
-	// // extract first 22 bits (22 digits) for asset ID excluding `0b` prefix
-	// let mut asset_id = u32::from_str_radix(&base2[2..=23], 2).unwrap();
-
-	// f(asset_id)?; // return error if f fails
-
-	// // TODO safely increment asset id - detecting u22 overflow
-	// asset_id += 1;
-
-	// // convert 10-bit parachin ID to base2 string (12 digits - including `0b` prefix) with
-	// // leading 0s
-	// let mut base2 = format!("{:#012b}", PARACHAIN_ID);
-
-	// // convert back to base2 string (34 digits - including `0b` prefix) with leading 0s
-	// base2 = format!("{:#024b}", asset_id) + &base2;
-
-	// // update world_asset_id with incremented asset id for next usage
-	// *world_asset_id = u32::from_str_radix(&base2, 2).unwrap();
-
-	// Ok(current_world_asset_id)
-}
-
 impl<T: Config> CreateExt for Pallet<T> {
 	type AccountId = <T as frame_system::Config>::AccountId;
 
 	fn create(owner: Self::AccountId) -> Result<u32, DispatchError> {
 		let min_balance = 1;
 
-		// Update the next asset id
-		let result: Result<u32, DispatchResult> = WorldAssetId::<T>::mutate(|world_asset_id| {
-			with_asset_id(world_asset_id, |asset_id| {
-				// Create the asset
-				<pallet_assets::Pallet<T> as fungibles::Create<_>>::create(
-					asset_id,
-					owner.clone(),
-					true,
-					min_balance,
-				)
-			})
+		let next_asset_id = Self::next_asset_uuid()?;
+
+		// create the asset
+		<pallet_assets::Pallet<T> as fungibles::Create<_>>::create(
+			next_asset_id,
+			owner.clone(),
+			true,
+			min_balance,
+		)?;
+
+		// update the next id, will not overflow, asserted prior qed.
+		<NextAssetId<T>>::mutate(|i| *i += u32::one());
+
+		Self::deposit_event(Event::CreateAsset {
+			asset_id: next_asset_id,
+			creator: owner,
+			initial_balance: min_balance,
 		});
 
-		match result {
-			Ok(asset_id) => {
-				// dispatch create event
-				Self::deposit_event(Event::CreateAsset {
-					asset_id,
-					creator: owner,
-					initial_balance: min_balance,
-				});
-				Ok(asset_id)
-			},
-			Err(err) => Err(err.unwrap_err()),
-		}
+		Ok(next_asset_id)
 	}
 }
