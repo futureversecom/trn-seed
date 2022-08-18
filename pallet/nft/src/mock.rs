@@ -111,6 +111,7 @@ parameter_types! {
 
 impl pallet_assets_ext::Config for Test {
 	type Event = Event;
+	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type MyclAssetId = MyclAssetId;
 	type PalletId = AssetsExtPalletId;
