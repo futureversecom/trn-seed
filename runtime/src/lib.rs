@@ -645,9 +645,7 @@ impl_runtime_apis! {
 		}
 
 		fn account_basic(address: H160) -> EVMAccount {
-			// this balance is scaled up so that eth tooling expecting an 18dp asset
-			// is compatible with the 4dp cpay value
-			// TODO Check scaling for XRP
+			// scaling is handled by the EvmCurrencyScaler inside pallet_evm
 			EVM::account_basic(&address).0
 		}
 
