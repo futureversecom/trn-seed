@@ -28,7 +28,6 @@ serde_json = "1.0"
 pallet-assets-ext = { path = "../assets-ext" }
 pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
-cumulus-primitives-core = { git = "https://github.com/futureversecom/cumulus", branch = "polkadot-v0.9.23" }
 
 [features]
 default = ["std"]

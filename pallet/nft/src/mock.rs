@@ -14,7 +14,6 @@
  */
 
 use crate as pallet_nft;
-use cumulus_primitives_core::ParaId;
 use frame_support::{parameter_types, PalletId};
 use frame_system::{limits, EnsureRoot};
 use root_pallet_common::OnTransferSubscriber;
@@ -139,7 +138,7 @@ parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
-	pub const TestParachainId: ParaId = ParaId::new(100);
+	pub const TestParachainId: root_primitives::ParachainId = 100;
 }
 
 impl crate::Config for Test {
