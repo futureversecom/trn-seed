@@ -2,11 +2,9 @@
 members = [
 	"client",
 	"primitives",
-	"pallet/assets-ext",
-	"pallet/common",
-	"pallet/dex",
-	"pallet/nft",
+	"pallet/*",
 	"runtime",
+	"evm-precompiles/*"
 ]
 
 [profile.release]

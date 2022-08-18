@@ -975,9 +975,9 @@ fn buy_with_marketplace_royalties() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
-				initial_balance_owner + sale_price
-					- marketplace_entitlement * sale_price
-					- royalties_schedule.clone().entitlements[0].1 * sale_price
+				initial_balance_owner + sale_price -
+					marketplace_entitlement * sale_price -
+					royalties_schedule.clone().entitlements[0].1 * sale_price
 			);
 			assert_eq!(AssetsExt::total_issuance(MyclAssetId::get()), presale_issuance);
 		});
@@ -1126,8 +1126,8 @@ fn buy_with_royalties() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
-				initial_balance_seller + sale_price
-					- royalties_schedule
+				initial_balance_seller + sale_price -
+					royalties_schedule
 						.clone()
 						.entitlements
 						.into_iter()
@@ -1556,8 +1556,8 @@ fn auction_royalty_payments() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
-				reserve_price
-					- royalties_schedule
+				reserve_price -
+					royalties_schedule
 						.entitlements
 						.into_iter()
 						.map(|(_, e)| e * reserve_price)

@@ -253,5 +253,8 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: Some(root_key),
 		},
+		base_fee: Default::default(),
+		ethereum: root_runtime::EthereumConfig {},
+		evm: root_runtime::EVMConfig { accounts: Default::default() },
 	}
 }
