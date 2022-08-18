@@ -11,7 +11,7 @@ evm = { git = "https://github.com/rust-blockchain/evm", rev = "01bcbd2205a212c34
 impl-trait-for-tuples = "0.2.2"
 log = "0.4"
 num_enum = { version = "0.5.3", default-features = false }
-sha3 = { version = "0.9", default-features = false }
+sha3 = { version = "0.10", default-features = false }
 
 # Moonbeam
 precompile-utils-macro = { path = "macro" }

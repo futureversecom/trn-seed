@@ -4764,7 +4764,7 @@ dependencies = [
  "parity-scale-codec",
  "precompile-utils-macro",
  "rlp",
- "sha3 0.9.1",
+ "sha3 0.10.2",
  "sp-core",
  "sp-io",
  "sp-std",
