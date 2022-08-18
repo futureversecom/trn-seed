@@ -109,9 +109,11 @@ parameter_types! {
 	pub const MaxHolds: u32 = 16;
 	pub const MyclAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
+	pub const TestParachainId: u32 = 100;
 }
 impl pallet_assets_ext::Config for Test {
 	type Event = Event;
+	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type MyclAssetId = MyclAssetId;
 	type PalletId = AssetsExtPalletId;
