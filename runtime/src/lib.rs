@@ -8,13 +8,23 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::{Decode, Encode};
-use pallet_evm::{runner::stack::Runner, EnsureAddressNever, EvmConfig};
+use fp_rpc::TransactionStatus;
+use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
+use pallet_evm::{
+	runner::stack::Runner, Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator,
+	Runner as RunnerT,
+};
 use sp_api::impl_runtime_apis;
-use sp_core::{OpaqueMetadata, U256};
+use sp_core::{OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
-	traits::{BlakeTwo256, Block as BlockT, IdentityLookup},
-	transaction_validity::{TransactionSource, TransactionValidity},
+	traits::{
+		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup,
+		PostDispatchInfoOf,
+	},
+	transaction_validity::{
+		InvalidTransaction, TransactionSource, TransactionValidity, TransactionValidityError,
+	},
 	ApplyExtrinsicResult,
 };
 use sp_std::prelude::*;
@@ -25,7 +35,9 @@ use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
-	construct_runtime, parameter_types,
+	construct_runtime,
+	dispatch::GetDispatchInfo,
+	parameter_types,
 	traits::{ConstU32, Everything, IsInVec, KeyOwnerProofSystem, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -506,9 +518,10 @@ pub type SignedExtra = (
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+pub type UncheckedExtrinsic =
+	fp_self_contained::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
+pub type CheckedExtrinsic = fp_self_contained::CheckedExtrinsic<AccountId, Call, SignedExtra, H160>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -618,6 +631,152 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl fp_rpc::ConvertTransactionRuntimeApi<Block> for Runtime {
+		fn convert_transaction(transaction: EthereumTransaction) -> <Block as BlockT>::Extrinsic {
+			UncheckedExtrinsic::new_unsigned(
+				pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
+			)
+		}
+	}
+
+	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
+		fn chain_id() -> u64 {
+			<Runtime as pallet_evm::Config>::ChainId::get()
+		}
+
+		fn account_basic(address: H160) -> EVMAccount {
+			// this balance is scaled up so that eth tooling expecting an 18dp asset
+			// is compatible with the 4dp cpay value
+			// TODO Check scaling for XRP
+			EVM::account_basic(&address).0
+		}
+
+		fn gas_price() -> U256 {
+			BaseFee::min_gas_price().0
+		}
+
+		fn account_code_at(address: H160) -> Vec<u8> {
+			EVM::account_codes(address)
+		}
+
+		fn author() -> H160 {
+			<pallet_evm::Pallet<Runtime>>::find_author()
+		}
+
+		fn storage_at(address: H160, index: U256) -> H256 {
+			let mut tmp = [0u8; 32];
+			index.to_big_endian(&mut tmp);
+			EVM::account_storages(address, H256::from_slice(&tmp[..]))
+		}
+
+		fn call(
+			from: H160,
+			to: H160,
+			data: Vec<u8>,
+			value: U256,
+			gas_limit: U256,
+			max_fee_per_gas: Option<U256>,
+			max_priority_fee_per_gas: Option<U256>,
+			nonce: Option<U256>,
+			estimate: bool,
+			access_list: Option<Vec<(H160, Vec<H256>)>>,
+		) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
+			let config = if estimate {
+				let mut config = <Runtime as pallet_evm::Config>::config().clone();
+				config.estimate = true;
+				Some(config)
+			} else {
+				None
+			};
+
+			<Runtime as pallet_evm::Config>::Runner::call(
+				from,
+				to,
+				data,
+				value,
+				gas_limit.low_u64(),
+				max_fee_per_gas,
+				max_priority_fee_per_gas,
+				nonce,
+				access_list.unwrap_or_default(),
+				false,
+				false,
+				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
+			).map_err(|err| err.error.into())
+		}
+
+		fn create(
+			from: H160,
+			data: Vec<u8>,
+			value: U256,
+			gas_limit: U256,
+			max_fee_per_gas: Option<U256>,
+			max_priority_fee_per_gas: Option<U256>,
+			nonce: Option<U256>,
+			estimate: bool,
+			access_list: Option<Vec<(H160, Vec<H256>)>>,
+		) -> Result<pallet_evm::CreateInfo, sp_runtime::DispatchError> {
+			let config = if estimate {
+				let mut config = <Runtime as pallet_evm::Config>::config().clone();
+				config.estimate = true;
+				Some(config)
+			} else {
+				None
+			};
+
+			<Runtime as pallet_evm::Config>::Runner::create(
+				from,
+				data,
+				value,
+				gas_limit.low_u64(),
+				max_fee_per_gas,
+				max_priority_fee_per_gas,
+				nonce,
+				access_list.unwrap_or_default(),
+				false,
+				false,
+				config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config()),
+			).map_err(|err| err.error.into())
+		}
+
+		fn current_transaction_statuses() -> Option<Vec<TransactionStatus>> {
+			Ethereum::current_transaction_statuses()
+		}
+
+		fn current_block() -> Option<pallet_ethereum::Block> {
+			Ethereum::current_block()
+		}
+
+		fn current_receipts() -> Option<Vec<pallet_ethereum::Receipt>> {
+			Ethereum::current_receipts()
+		}
+
+		fn current_all() -> (
+			Option<pallet_ethereum::Block>,
+			Option<Vec<pallet_ethereum::Receipt>>,
+			Option<Vec<TransactionStatus>>
+		) {
+			(
+				Ethereum::current_block(),
+				Ethereum::current_receipts(),
+				Ethereum::current_transaction_statuses()
+			)
+		}
+
+		fn extrinsic_filter(
+			xts: Vec<<Block as BlockT>::Extrinsic>,
+		) -> Vec<EthereumTransaction> {
+			xts.into_iter().filter_map(|xt| match xt.0.function {
+				Call::Ethereum(transact { transaction }) => Some(transaction),
+				_ => None
+			}).collect::<Vec<EthereumTransaction>>()
+		}
+
+		fn elasticity() -> Option<Permill> {
+			Some(BaseFee::elasticity())
+		}
+	}
+
 	impl fg_primitives::GrandpaApi<Block> for Runtime {
 		fn grandpa_authorities() -> GrandpaAuthorityList {
 			Grandpa::grandpa_authorities()
@@ -646,5 +805,94 @@ impl_runtime_apis! {
 			// with no values).
 			None
 		}
+	}
+}
+
+impl fp_self_contained::SelfContainedCall for Call {
+	type SignedInfo = H160;
+
+	fn is_self_contained(&self) -> bool {
+		match self {
+			Call::Ethereum(call) => call.is_self_contained(),
+			_ => false,
+		}
+	}
+
+	fn check_self_contained(&self) -> Option<Result<Self::SignedInfo, TransactionValidityError>> {
+		match self {
+			Call::Ethereum(call) => call.check_self_contained(),
+			_ => None,
+		}
+	}
+
+	fn validate_self_contained(
+		&self,
+		signed_info: &Self::SignedInfo,
+		dispatch_info: &DispatchInfoOf<Self>,
+		len: usize,
+	) -> Option<TransactionValidity> {
+		match self {
+			Call::Ethereum(ref call) =>
+				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
+			_ => None,
+		}
+	}
+
+	fn pre_dispatch_self_contained(
+		&self,
+		signed_info: &Self::SignedInfo,
+		dispatch_info: &DispatchInfoOf<Self>,
+		len: usize,
+	) -> Option<Result<(), TransactionValidityError>> {
+		match self {
+			Call::Ethereum(call) =>
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			_ => None,
+		}
+	}
+
+	fn apply_self_contained(
+		self,
+		info: Self::SignedInfo,
+	) -> Option<sp_runtime::DispatchResultWithInfo<PostDispatchInfoOf<Self>>> {
+		match self {
+			call @ Call::Ethereum(pallet_ethereum::Call::transact { .. }) => Some(
+				call.dispatch(Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(info))),
+			),
+			_ => None,
+		}
+	}
+}
+
+fn validate_self_contained_inner(
+	call: &Call,
+	eth_call: &pallet_ethereum::Call<Runtime>,
+	signed_info: &<Call as fp_self_contained::SelfContainedCall>::SignedInfo,
+	dispatch_info: &DispatchInfoOf<Call>,
+	len: usize,
+) -> TransactionValidity {
+	if let pallet_ethereum::Call::transact { ref transaction } = eth_call {
+		// Previously, ethereum transactions were contained in an unsigned
+		// extrinsic, we now use a new form of dedicated extrinsic defined by
+		// frontier, but to keep the same behavior as before, we must perform
+		// the controls that were performed on the unsigned extrinsic.
+		use sp_runtime::traits::SignedExtension as _;
+		let input_len = match transaction {
+			pallet_ethereum::Transaction::Legacy(t) => t.input.len(),
+			pallet_ethereum::Transaction::EIP2930(t) => t.input.len(),
+			pallet_ethereum::Transaction::EIP1559(t) => t.input.len(),
+		};
+		let extra_validation =
+			SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
+		// Then, do the controls defined by the ethereum pallet.
+		let self_contained_validation = eth_call
+			.validate_self_contained(signed_info, dispatch_info, len)
+			.ok_or(TransactionValidityError::Invalid(InvalidTransaction::BadProof))??;
+
+		Ok(extra_validation.combine_with(self_contained_validation))
+	} else {
+		Err(TransactionValidityError::Unknown(
+			sp_runtime::transaction_validity::UnknownTransaction::CannotLookup,
+		))
 	}
 }
