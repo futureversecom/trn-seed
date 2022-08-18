@@ -7,8 +7,10 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use codec::{Decode, Encode};
+use pallet_evm::{runner::stack::Runner, EnsureAddressNever, EvmConfig};
 use sp_api::impl_runtime_apis;
-use sp_core::OpaqueMetadata;
+use sp_core::{OpaqueMetadata, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{BlakeTwo256, Block as BlockT, IdentityLookup},
@@ -49,6 +51,13 @@ pub use root_primitives::{
 
 pub mod constants;
 use constants::{MyclAssetId, DAYS, HOURS, ONE_MYCL, SLOT_DURATION};
+
+// Implementations of some helper traits passed into runtime modules as associated types.
+pub mod impls;
+use impls::{AddressMapping, EthereumFindAuthor, EvmCurrencyScaler};
+
+pub mod precompiles;
+use precompiles::FutureversePrecompiles;
 
 /// This runtime version.
 #[sp_version::runtime_version]
@@ -323,6 +332,128 @@ impl pallet_sudo::Config for Runtime {
 	type Call = Call;
 }
 
+// Start frontier/EVM stuff
+
+/// Current approximation of the gas/s consumption considering
+/// EVM execution over compiled WASM (on 4.4Ghz CPU).
+/// Given the 500ms Weight, from which 75% only are used for transactions,
+/// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
+pub const GAS_PER_SECOND: u64 = 40_000_000;
+
+/// Approximate ratio of the amount of Weight per Gas.
+/// u64 works for approximations because Weight is a very small unit compared to gas.
+pub const WEIGHT_PER_GAS: u64 = WEIGHT_PER_SECOND / GAS_PER_SECOND;
+
+pub struct FutureverseGasWeightMapping;
+
+impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
+	fn gas_to_weight(gas: u64) -> Weight {
+		gas.saturating_mul(WEIGHT_PER_GAS)
+	}
+	fn weight_to_gas(weight: Weight) -> u64 {
+		u64::try_from(weight.wrapping_div(WEIGHT_PER_GAS)).unwrap_or(u32::MAX as u64)
+	}
+}
+
+/// This is unused while Futureverse fullness is inconsistent
+pub struct BaseFeeThreshold;
+impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
+	fn lower() -> Permill {
+		Permill::zero()
+	}
+	fn ideal() -> Permill {
+		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
+		Permill::from_parts(50_000)
+	}
+	fn upper() -> Permill {
+		Permill::one()
+	}
+}
+
+parameter_types! {
+	/// Floor network base fee per gas
+	/// 0.00015 XRP per gas
+	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
+	pub const IsBaseFeeActive: bool = false;
+}
+impl pallet_base_fee::Config for Runtime {
+	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
+	type IsActive = IsBaseFeeActive;
+	type Event = Event;
+	type Threshold = BaseFeeThreshold;
+}
+
+parameter_types! {
+	/// Ethereum ChainId
+	/// 3999 (local/dev/default)
+	/// TODO: Configured on live chains via one-time setStorage tx at key `:EthereumChainId:`
+	pub storage EthereumChainId: u64 = 3_999;
+	pub BlockGasLimit: U256
+		= U256::from(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT / WEIGHT_PER_GAS);
+	pub PrecompilesValue: FutureversePrecompiles<Runtime> = FutureversePrecompiles::<_>::new();
+}
+
+/// Modified london config with higher contract create fee
+const fn cennznet_london() -> EvmConfig {
+	let mut c = EvmConfig::london();
+	c.gas_transaction_create = 2_000_000;
+	c
+}
+
+pub static ROOT_EVM_CONFIG: EvmConfig = cennznet_london();
+
+impl pallet_evm::Config for Runtime {
+	type FeeCalculator = BaseFee;
+	type GasWeightMapping = FutureverseGasWeightMapping;
+	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
+	type CallOrigin = EnsureAddressNever<AccountId>;
+	type WithdrawOrigin = EnsureAddressNever<AccountId>;
+	type AddressMapping = AddressMapping<AccountId>;
+	type Currency = EvmCurrencyScaler<Balances>;
+	type Event = Event;
+	type Runner = Runner<Self>;
+	type PrecompilesType = FutureversePrecompiles<Self>;
+	type PrecompilesValue = PrecompilesValue;
+	type ChainId = EthereumChainId;
+	type BlockGasLimit = BlockGasLimit;
+	type OnChargeTransaction = ();
+	type FindAuthor = EthereumFindAuthor<Aura>;
+	// internal EVM config
+	fn config() -> &'static EvmConfig {
+		&ROOT_EVM_CONFIG
+	}
+}
+
+impl pallet_ethereum::Config for Runtime {
+	type Event = Event;
+	type StateRoot = pallet_ethereum::IntermediateStateRoot<Runtime>;
+}
+
+pub struct TransactionConverter;
+
+impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
+	fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> UncheckedExtrinsic {
+		UncheckedExtrinsic::new_unsigned(
+			pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
+		)
+	}
+}
+
+impl fp_rpc::ConvertTransaction<sp_runtime::OpaqueExtrinsic> for TransactionConverter {
+	fn convert_transaction(
+		&self,
+		transaction: pallet_ethereum::Transaction,
+	) -> sp_runtime::OpaqueExtrinsic {
+		let extrinsic = UncheckedExtrinsic::new_unsigned(
+			pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
+		);
+		let encoded = extrinsic.encode();
+		sp_runtime::OpaqueExtrinsic::decode(&mut &encoded[..])
+			.expect("Encoded extrinsic is always valid")
+	}
+}
+// end frontier/EVM stuff
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -348,6 +479,11 @@ construct_runtime! {
 		Sudo: pallet_sudo,
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
+
+		// EVM
+		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
+		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
+		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
 	}
 }
 
