@@ -18,6 +18,7 @@ use cumulus_primitives_core::ParaId;
 use frame_support::{parameter_types, PalletId};
 use frame_system::{limits, EnsureRoot};
 use root_pallet_common::OnTransferSubscriber;
+use root_primitives::{AssetId, Balance, TokenId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
