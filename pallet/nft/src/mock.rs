@@ -137,7 +137,7 @@ parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
-	pub const TestParachainId: root_primitives::ParachainId = 100;
+	pub const TestParachainId: u32 = 100;
 }
 
 impl crate::Config for Test {
