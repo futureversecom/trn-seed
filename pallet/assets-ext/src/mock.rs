@@ -1,5 +1,4 @@
 //! A mock runtime for integration testing common runtime functionality
-use cumulus_primitives_core::ParaId;
 use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
 use frame_system::{limits, EnsureRoot};
 use sp_core::H256;
@@ -101,7 +100,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const TestParachainId: ParaId = ParaId::new(100);
+	pub const TestParachainId: root_primitives::ParachainId = 100;
 	pub const MyclAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 	pub const MaxHolds: u32 = 16;
