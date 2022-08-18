@@ -141,13 +141,13 @@ parameter_types! {
 }
 
 impl crate::Config for Test {
-	type Event = Event;
 	type DefaultListingDuration = DefaultListingDuration;
+	type Event = Event;
 	type MultiCurrency = AssetsExt;
-	type WeightInfo = ();
 	type OnTransferSubscription = MockTransferSubscriber;
-	type ParachainId = TestParachainId;
 	type PalletId = NftPalletId;
+	type ParachainId = TestParachainId;
+	type WeightInfo = ();
 }
 
 #[derive(Default)]
