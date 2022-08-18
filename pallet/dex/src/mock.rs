@@ -9,7 +9,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	Perbill,
 };
-use types::TradingPair;
 
 pub(crate) use root_primitives::{AssetId, Balance, Index};
 
@@ -17,16 +16,7 @@ pub type MockAccountId = u64;
 
 pub const ALICE: MockAccountId = 1;
 pub const BOB: MockAccountId = 2;
-pub const Mycl: AssetId = 1;
-pub const pBTC: AssetId = 101;
-pub const pETH: AssetId = 102;
-pub const pUSDC: AssetId = 103;
-
-parameter_types! {
-	pub static pUSDCBTCPair: TradingPair = TradingPair::new(pUSDC, pBTC);
-	pub static pUSDCETHPair: TradingPair = TradingPair::new(pUSDC, pETH);
-	pub static pETHBTCPair: TradingPair = TradingPair::new(pETH, pBTC);
-}
+// pub const MYCL: AssetId = 1;
 
 mod dex {
 	pub use super::super::*;
@@ -106,27 +96,31 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
+	pub const TestParachainId: u32 = 100;
 	pub const MaxHolds: u32 = 16;
 	pub const MyclAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 }
 impl pallet_assets_ext::Config for Test {
 	type Event = Event;
+	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type MyclAssetId = MyclAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 
 parameter_types! {
-	pub const GetExchangeFee: (u32, u32) = (1, 100);
+	pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXPalletId: PalletId = PalletId(*b"mock/dex");
+	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
 }
 impl Config for Test {
 	type Event = Event;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type DEXPalletId = DEXPalletId;
+	type DEXBurnPalletId = DEXBurnPalletId;
 	type WeightInfo = ();
 	type MultiCurrency = AssetsExt;
 }
@@ -148,58 +142,25 @@ construct_runtime!(
 	}
 );
 
-pub struct ExtBuilder;
+#[derive(Default)]
+pub struct TestExt;
 
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		ExtBuilder
-	}
-}
-
-/*
-impl ExtBuilder {
+impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::default()
-			.build_storage::<Runtime>()
-			.unwrap();
+		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-		t.into()
-	}
-}
-*/
-
-impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-		let mut ext = sp_io::TestExternalities::new(t);
-		// ext.execute_with(|| GenericAsset::create(Origin::signed(1), pUSDC, 1, 1));
-		// ext.execute_with(|| Assets::create(Origin::signed(1), pETH, 1, 1));
-		// ext.execute_with(|| Assets::create(Origin::signed(1), pBTC, 1, 1));
-		// ext.execute_with(|| {
-		// 	Assets::create(
-		// 		Origin::signed(1),
-		// 		pUSDCBTCPair::get().get_dex_share_asset_id().unwrap(),
-		// 		1,
-		// 		1,
-		// 	)
-		// });
-		// ext.execute_with(|| {
-		// 	Assets::create(
-		// 		Origin::signed(1),
-		// 		pUSDCBTCPair::get().get_dex_share_asset_id().unwrap(),
-		// 		1,
-		// 		1,
-		// 	)
-		// });
-		// ext.execute_with(|| {
-		// 	Assets::create(
-		// 		Origin::signed(1),
-		// 		pUSDCBTCPair::get().get_dex_share_asset_id().unwrap(),
-		// 		1,
-		// 		1,
-		// 	)
-		// });
+		let mut ext: sp_io::TestExternalities = storage.into();
+		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
+		ext.execute_with(|| pallet_assets_ext::GenesisConfig::<Test>::default().build());
 		ext
 	}
 }
+
+// Check the system event record contains `event`
+// pub(crate) fn has_event(event: pallet_assets::Event<Test>) -> bool {
+// 	System::events()
+// 		.into_iter()
+// 		.map(|r| r.event)
+// 		.find(|e| *e == Event::Assets(event.clone()))
+// 		.is_some()
+// }

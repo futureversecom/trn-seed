@@ -1,1320 +1,846 @@
 #![cfg(test)]
 
 use super::*;
+use crate::mock::AssetsExt;
 use frame_support::{assert_noop, assert_ok};
-use mock::{
-	pBTC, pETH, pETHBTCPair, pUSDC, pUSDCBTCPair, pUSDCETHPair, Dex, Event, ExtBuilder, Origin,
-	System, Test, ALICE, BOB,
-};
-/*
-use mock::{
-	AUSDBTCPair, AUSDDOTPair, DexModule, Event, ExtBuilder, Origin, Runtime, System, Tokens, ACA, ALICE,
-	AUSD, BOB, PBTC, PDOT,
-};
-*/
-//use orml_traits::MultiReservableCurrency;
-use sp_runtime::traits::BadOrigin;
+use mock::{Dex, Event as MockEvent, MockAccountId, Origin, System, Test, TestExt, ALICE, BOB};
+use sp_runtime::{traits::BadOrigin, ArithmeticError};
 
-#[test]
-fn test_run() {
-	ExtBuilder::default().build().execute_with(|| assert_eq!(1, 1));
+/// x * 10e18
+fn to_eth(amount: u128) -> u128 {
+	amount * 1_000_000_000_000_000_000_u128
 }
 
 #[test]
-fn list_provisioning_work() {
-	ExtBuilder::default().build().execute_with(|| {
+fn test_run() {
+	TestExt::default().build().execute_with(|| assert_eq!(1, 1));
+}
+
+#[test]
+fn disable_trading_pair() {
+	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
+		// create 2 tokens
+		let usdc = AssetsExt::create(ALICE).unwrap();
+		let weth = AssetsExt::create(ALICE).unwrap();
+
+		// normal user can not disable trading_pair
+		assert_noop!(Dex::disable_trading_pair(Origin::signed(ALICE), usdc, weth), BadOrigin);
+
+		// lp token must exist
 		assert_noop!(
-			Dex::list_trading_pair(
-				Origin::signed(ALICE),
-				pUSDC,
-				pETH,
-				1_000_000_000_000u128,
-				1_000_000_000_000u128,
-				5_000_000_000_000u128,
-				2_000_000_000_000u128,
-				10,
-			),
-			BadOrigin
+			Dex::disable_trading_pair(Origin::root(), usdc, weth),
+			Error::<Test>::LiquidityProviderTokenNotCreated
 		);
 
+		// manually create LP token and enable it
+		TradingPairLPToken::<Test>::insert(TradingPair::new(usdc, weth), Some(3));
+		TradingPairStatuses::<Test>::insert(
+			TradingPair::new(usdc, weth),
+			TradingPairStatus::Enabled,
+		);
+
+		// disable trading pair successful
+		assert_ok!(Dex::disable_trading_pair(Origin::root(), usdc, weth));
+		System::assert_last_event(MockEvent::Dex(crate::Event::DisableTradingPair(
+			TradingPair::new(usdc, weth),
+		)));
 		assert_eq!(
-			Dex::trading_pair_statuses(pUSDCETHPair::get()),
-			TradingPairStatus::<_, _>::NotEnabled
-		);
-		assert_ok!(Dex::list_trading_pair(
-			Origin::root(),
-			pUSDC,
-			pETH,
-			1_000_000_000_000u128,
-			1_000_000_000_000u128,
-			5_000_000_000_000u128,
-			2_000_000_000_000u128,
-			10,
-		));
-		// assert_eq!(
-		// 	Dex::trading_pair_statuses(pUSDCETHPair::get()),
-		// 	TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
-		// 		min_contribution: (1_000_000_000_000u128, 1_000_000_000_000u128),
-		// 		target_provision: (5_000_000_000_000u128, 2_000_000_000_000u128),
-		// 		accumulated_provision: (0, 0),
-		// 		not_before: 10,
-		// 	})
-		// );
-		System::assert_last_event(Event::Dex(crate::Event::ListTradingPair(pUSDCETHPair::get())));
-
-		assert_noop!(
-			Dex::list_trading_pair(
-				Origin::root(),
-				pUSDC,
-				pUSDC,
-				1_000_000_000_000u128,
-				1_000_000_000_000u128,
-				5_000_000_000_000u128,
-				2_000_000_000_000u128,
-				10,
-			),
-			Error::<Test>::NotAllowedList
+			Dex::trading_pair_statuses(TradingPair::new(usdc, weth)),
+			TradingPairStatus::NotEnabled
 		);
 
+		// disabling trading pair will fail if already disabled
 		assert_noop!(
-			Dex::list_trading_pair(
-				Origin::root(),
-				pUSDC,
-				pETH,
-				1_000_000_000_000u128,
-				1_000_000_000_000u128,
-				5_000_000_000_000u128,
-				2_000_000_000_000u128,
-				10,
-			),
+			Dex::disable_trading_pair(Origin::root(), usdc, weth),
+			Error::<Test>::MustBeEnabled,
+		);
+	});
+}
+
+#[test]
+fn reenable_trading_pair() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(ALICE).unwrap();
+		let weth = AssetsExt::create(ALICE).unwrap();
+
+		// normal user can not enable trading_pair
+		assert_noop!(Dex::reenable_trading_pair(Origin::signed(ALICE), usdc, weth), BadOrigin);
+
+		// lp token must exist
+		assert_noop!(
+			Dex::reenable_trading_pair(Origin::root(), usdc, weth),
+			Error::<Test>::LiquidityProviderTokenNotCreated
+		);
+
+		// check that pair LP token does not exist
+		assert_eq!(Dex::lp_token_id(TradingPair::new(usdc, weth)).is_some(), false);
+
+		// manually create LP token and enable it
+		TradingPairLPToken::<Test>::insert(TradingPair::new(usdc, weth), Some(3));
+		TradingPairStatuses::<Test>::insert(
+			TradingPair::new(usdc, weth),
+			TradingPairStatus::Enabled,
+		);
+
+		// re-enabling should fail for not-enabled trading pair
+		assert_noop!(
+			Dex::reenable_trading_pair(Origin::root(), usdc, weth),
+			Error::<Test>::MustBeNotEnabled,
+		);
+
+		// manually disable trading pair
+		<TradingPairStatuses<Test>>::insert(
+			TradingPair::new(usdc, weth),
+			TradingPairStatus::NotEnabled,
+		);
+
+		// a disabled trading pair can be re-enabled
+		assert_ok!(Dex::reenable_trading_pair(Origin::root(), usdc, weth));
+		assert_eq!(
+			Dex::trading_pair_statuses(TradingPair::new(usdc, weth)),
+			TradingPairStatus::Enabled
+		);
+		System::assert_last_event(MockEvent::Dex(crate::Event::EnableTradingPair(
+			TradingPair::new(usdc, weth),
+		)));
+
+		// cannot enable again
+		assert_noop!(
+			Dex::reenable_trading_pair(Origin::root(), weth, usdc),
 			Error::<Test>::MustBeNotEnabled
 		);
 	});
 }
 
 #[test]
-fn enable_diabled_trading_pair_work() {
-	ExtBuilder::default().build().execute_with(|| {
+fn add_liquidity() {
+	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		assert_noop!(Dex::enable_trading_pair(Origin::signed(ALICE), pUSDC, pETH), BadOrigin);
+		// create 2 tokens
+		let usdc = AssetsExt::create(ALICE).unwrap();
+		let weth = AssetsExt::create(BOB).unwrap();
 
-		assert_eq!(
-			Dex::trading_pair_statuses(pUSDCETHPair::get()),
-			TradingPairStatus::<_, _>::NotEnabled
-		);
-		assert_noop!(
-			Dex::enable_trading_pair(Origin::root(), pUSDC, pETH),
-			Error::<Test>::LiquidityProviderTokenNotCreated
-		);
-
-		assert_ok!(Dex::list_trading_pair(Origin::root(), pUSDC, pETH, 1, 1, 1, 1, 100));
-
-		// assert_ok!(Dex::enable_trading_pair(Origin::root(), pUSDC, pETH));
-
-		// assert_eq!(
-		// 	Dex::trading_pair_statuses(pUSDCETHPair::get()),
-		// 	TradingPairStatus::<_, _>::Enabled
-		// );
-		// System::assert_last_event(Event::Dex(crate::Event::EnableTradingPair(pUSDCETHPair::
-		// get())));
-
-		// assert_noop!(
-		// 	Dex::enable_trading_pair(Origin::root(), pETH, pUSDC),
-		// 	Error::<Test>::MustBeNotEnabled
-		// );
-	});
-}
-
-// #[test]
-// fn enable_provisioning_without_provision_work() {
-// 	ExtBuilder::default().build().execute_with(|| {
-// 		System::set_block_number(1);
-
-// 		assert_ok!(Dex::list_trading_pair(
-// 			Origin::root(),
-// 			PUSD,
-// 			pETH,
-// 			1_000_000_000_000u128,
-// 			1_000_000_000_000u128,
-// 			5_000_000_000_000u128,
-// 			2_000_000_000_000u128,
-// 			10,
-// 		));
-// 		assert_ok!(Dex::list_trading_pair(
-// 			Origin::root(),
-// 			PUSD,
-// 			PBTC,
-// 			1_000_000_000_000u128,
-// 			1_000_000_000_000u128,
-// 			5_000_000_000_000u128,
-// 			2_000_000_000_000u128,
-// 			10,
-// 		));
-// 		assert_ok!(Dex::add_liquidity(
-// 			Origin::signed(ALICE),
-// 			PUSD,
-// 			PBTC,
-// 			1_000_000_000_000u128,
-// 			1_000_000_000_000u128,
-// 			0u128, //not used
-// 			false, //not used
-// 		));
-
-// 		assert_eq!(
-// 			Dex::trading_pair_statuses(PUSDDOTPair::get()),
-// 			TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
-// 				min_contribution: (1_000_000_000_000u128, 1_000_000_000_000u128),
-// 				target_provision: (5_000_000_000_000u128, 2_000_000_000_000u128),
-// 				accumulated_provision: (0, 0),
-// 				not_before: 10,
-// 			})
-// 		);
-// 		assert_ok!(Dex::enable_trading_pair(Origin::root(), PUSD, PDOT));
-// 		assert_eq!(
-// 			Dex::trading_pair_statuses(PUSDDOTPair::get()),
-// 			TradingPairStatus::<_, _>::Enabled
-// 		);
-// 		System::assert_last_event(Event::Dex(crate::Event::EnableTradingPair(PUSDDOTPair::get())));
-
-// 		assert_noop!(
-// 			Dex::enable_trading_pair(Origin::root(), PUSD, PBTC),
-// 			Error::<Test>::MustBeNotEnabled
-// 		);
-// 	});
-// }
-
-/*
-#[test]
-fn end_provisioning_trading_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		System::set_block_number(1);
-
-		assert_ok!(Dex::list_trading_pair(
-			Origin::root(),
-			PUSD,
-			PDOT,
-			1_000_000_000_000u128,
-			1_000_000_000_000u128,
-			5_000_000_000_000u128,
-			2_000_000_000_000u128,
-			10,
-		));
-		assert_eq!(
-			Dex::trading_pair_statuses(PUSDDOTPair::get()),
-			TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
-				min_contribution: (1_000_000_000_000u128, 1_000_000_000_000u128),
-				target_provision: (5_000_000_000_000u128, 2_000_000_000_000u128),
-				accumulated_provision: (0, 0),
-				not_before: 10,
-			})
-		);
-
-		assert_ok!(Dex::list_trading_pair(
-			Origin::root(),
-			PUSD,
-			PBTC,
-			1_000_000_000_000u128,
-			1_000_000_000_000u128,
-			5_000_000_000_000u128,
-			2_000_000_000_000u128,
-			10,
-		));
-		assert_ok!(Dex::add_provision(
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(1)));
+		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(1)));
+		assert_ok!(Dex::add_liquidity(
 			Origin::signed(ALICE),
-			PUSD,
-			PBTC,
-			1_000_000_000_000u128,
-			2_000_000_000_000u128
+			usdc,
+			weth,
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			0u128, //not used
 		));
 
-		assert_noop!(
-			Dex::end_provisioning(Origin::root(), PUSD, PBTC),
-			Error::<Test>::UnqualifiedProvision
-		);
-		System::set_block_number(10);
-
+		// adding LP enables trading pair
 		assert_eq!(
-			Dex::trading_pair_statuses(PUSDBTCPair::get()),
-			TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
-				min_contribution: (1_000_000_000_000u128, 1_000_000_000_000u128),
-				target_provision: (5_000_000_000_000u128, 2_000_000_000_000u128),
-				accumulated_provision: (1_000_000_000_000u128, 2_000_000_000_000u128),
-				not_before: 10,
-			})
-		);
-		assert_eq!(
-			Dex::initial_share_exchange_rates(PUSDBTCPair::get()),
-			Default::default()
-		);
-		assert_eq!(Dex::liquidity_pool(PUSDBTCPair::get()), (0, 0));
-		assert_eq!(Assets::total_issuance(PUSDBTCPair::get().dex_share_currency_id()), 0);
-		assert_eq!(
-			Assets::free_balance(PUSDBTCPair::get().dex_share_currency_id(), &Dex::account_id()),
-			0
+			Dex::trading_pair_statuses(TradingPair::new(usdc, weth)),
+			TradingPairStatus::Enabled
 		);
 
-		assert_ok!(Dex::end_provisioning(
-			Origin::root(),
-			PUSD,
-			PBTC
-		));
-		System::assert_last_event(Event::Dex(crate::Event::ProvisioningToEnabled(
-			PUSDBTCPair::get(),
-			1_000_000_000_000u128,
-			2_000_000_000_000u128,
-			2_000_000_000_000u128,
-		)));
-		assert_eq!(
-			Dex::trading_pair_statuses(PUSDBTCPair::get()),
-			TradingPairStatus::<_, _>::Enabled
-		);
-		assert_eq!(
-			Dex::initial_share_exchange_rates(PUSDBTCPair::get()),
-			(ExchangeRate::one(), ExchangeRate::checked_from_rational(1, 2).unwrap())
-		);
-		assert_eq!(
-			Dex::liquidity_pool(PUSDBTCPair::get()),
-			(1_000_000_000_000u128, 2_000_000_000_000u128)
-		);
-		assert_eq!(
-			Assets::total_issuance(PUSDBTCPair::get().dex_share_currency_id()),
-			2_000_000_000_000u128
-		);
-		assert_eq!(
-			Assets::free_balance(PUSDBTCPair::get().dex_share_currency_id(), &Dex::account_id()),
-			2_000_000_000_000u128
-		);
-	});
-}
+		// System::assert_has_event(MockEvent::Assets(pallet_assets::Event::Transferred {
+		// 	asset_id: usdc,
+		// 	from: ALICE,
+		// 	to: Dex::account_id(),
+		// 	amount: 1_000_000_000_000u128,
+		// }));
 
-#[test]
-fn disable_trading_pair_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		System::set_block_number(1);
+		// System::assert_has_event(MockEvent::Assets(pallet_assets::Event::Transferred {
+		// 	asset_id: weth,
+		// 	from: ALICE,
+		// 	to: Dex::account_id(),
+		// 	amount: 1_000_000_000_000u128,
+		// }));
 
-		assert_ok!(Dex::enable_trading_pair(
-			Origin::root(),
-			PUSD,
-			PDOT
-		));
-		assert_eq!(
-			Dex::trading_pair_statuses(PUSDDOTPair::get()),
-			TradingPairStatus::<_, _>::Enabled
-		);
-
-		assert_noop!(
-			Dex::disable_trading_pair(Origin::signed(ALICE), PUSD, PDOT),
-			BadOrigin
-		);
-
-		assert_ok!(Dex::disable_trading_pair(
-			Origin::root(),
-			PUSD,
-			PDOT
-		));
-		assert_eq!(
-			Dex::trading_pair_statuses(PUSDDOTPair::get()),
-			TradingPairStatus::<_, _>::NotEnabled
-		);
-		System::assert_last_event(Event::Dex(crate::Event::DisableTradingPair(PUSDDOTPair::get())));
-
-		assert_noop!(
-			Dex::disable_trading_pair(Origin::root(), PUSD, PDOT),
-			Error::<Test>::MustBeEnabled
-		);
-
-		assert_ok!(Dex::list_trading_pair(
-			Origin::root(),
-			PUSD,
-			PBTC,
-			1_000_000_000_000u128,
-			1_000_000_000_000u128,
-			5_000_000_000_000u128,
-			2_000_000_000_000u128,
-			10,
-		));
-		assert_noop!(
-			Dex::disable_trading_pair(Origin::root(), PUSD, PBTC),
-			Error::<Test>::MustBeEnabled
-		);
-	});
-}
-
-#[test]
-fn add_provision_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		System::set_block_number(1);
-
-		assert_noop!(
-			Dex::add_provision(
-				Origin::signed(ALICE),
-				PUSD,
-				PDOT,
-				5_000_000_000_000u128,
-				1_000_000_000_000u128,
-			),
-			Error::<Test>::MustBeProvisioning
-		);
-
-		assert_ok!(Dex::list_trading_pair(
-			Origin::root(),
-			PUSD,
-			PDOT,
-			5_000_000_000_000u128,
-			1_000_000_000_000u128,
-			5_000_000_000_000_000u128,
-			1_000_000_000_000_000u128,
-			10,
-		));
-
-		assert_noop!(
-			Dex::add_provision(
-				Origin::signed(ALICE),
-				PUSD,
-				PDOT,
-				4_999_999_999_999u128,
-				999_999_999_999u128,
-			),
-			Error::<Test>::InvalidContributionIncrement
-		);
-
-		assert_eq!(
-			Dex::trading_pair_statuses(PUSDDOTPair::get()),
-			TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
-				min_contribution: (5_000_000_000_000u128, 1_000_000_000_000u128),
-				target_provision: (5_000_000_000_000_000u128, 1_000_000_000_000_000u128),
-				accumulated_provision: (0, 0),
-				not_before: 10,
-			})
-		);
-		assert_eq!(Dex::provisioning_pool(PUSDDOTPair::get(), ALICE), (0, 0));
-		assert_eq!(Assets::free_balance(PUSD, &ALICE), 1_000_000_000_000_000_000u128);
-		assert_eq!(Assets::free_balance(PDOT, &ALICE), 1_000_000_000_000_000_000u128);
-		assert_eq!(Assets::free_balance(PUSD, &Dex::account_id()), 0);
-		assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 0);
-		let alice_ref_count_0 = System::consumers(&ALICE);
-
-		assert_ok!(Dex::add_provision(
-			Origin::signed(ALICE),
-			PUSD,
-			PDOT,
-			5_000_000_000_000u128,
-			0,
-		));
-		assert_eq!(
-			Dex::trading_pair_statuses(PUSDDOTPair::get()),
-			TradingPairStatus::<_, _>::Provisioning(TradingPairProvisionParameters {
-				min_contribution: (5_000_000_000_000u128, 1_000_000_000_000u128),
-				target_provision: (5_000_000_000_000_000u128, 1_000_000_000_000_000u128),
-				accumulated_provision: (5_000_000_000_000u128, 0),
-				not_before: 10,
-			})
-		);
-		assert_eq!(
-			Dex::provisioning_pool(PUSDDOTPair::get(), ALICE),
-			(5_000_000_000_000u128, 0)
-		);
-		assert_eq!(Assets::free_balance(PUSD, &ALICE), 999_995_000_000_000_000u128);
-		assert_eq!(Assets::free_balance(PDOT, &ALICE), 1_000_000_000_000_000_000u128);
-		assert_eq!(
-			Assets::free_balance(PUSD, &Dex::account_id()),
-			5_000_000_000_000u128
-		);
-		assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 0);
-		let alice_ref_count_1 = System::consumers(&ALICE);
-		assert_eq!(alice_ref_count_1, alice_ref_count_0 + 1);
-		System::assert_last_event(Event::Dex(crate::Event::AddProvision(
+		System::assert_last_event(MockEvent::Dex(crate::Event::AddLiquidity(
 			ALICE,
-			PUSD,
-			5_000_000_000_000u128,
-			PDOT,
-			0,
+			usdc,
+			to_eth(1),
+			weth,
+			to_eth(1),
+			999_999_999_999_999_000u128, // lp token shares
 		)));
+
+		// the created lp token should be the 3rd created token (first 22bit) + 100 (last 10bits)
+		assert_eq!(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), 3 << 10 | 100);
+
+		// check that the next asset id should be 4 (2 assets + 1 lp token)
+
+		// lp token is the same token independent of trading pair token ordering
+		assert_eq!(
+			Dex::lp_token_id(TradingPair::new(usdc, weth)),
+			Dex::lp_token_id(TradingPair::new(weth, usdc))
+		);
+
+		// verify Alice now has LP tokens
+		assert_eq!(
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			999_999_999_999_999_000u128,
+		);
+
+		// mint tokens to new user
+		assert_ok!(AssetsExt::mint_into(usdc, &BOB, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(weth, &BOB, to_eth(2)));
+
+		// add liquidity to new user fails - as they expect too much lp tokens
+		assert_noop!(
+			Dex::add_liquidity(
+				Origin::signed(BOB),
+				usdc,
+				weth,
+				to_eth(2),
+				to_eth(2),
+				to_eth(2),
+				to_eth(2),
+				to_eth(2) + 1, // min lp tokens expected too high
+			),
+			Error::<Test>::UnacceptableShareIncrement
+		);
+
+		// add liquidity to new user succeeds - as min expected lp tokens saisfied
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(BOB),
+			usdc,
+			weth,
+			to_eth(2),
+			to_eth(2),
+			to_eth(2),
+			to_eth(2),
+			to_eth(2), // mint lp tokens satisfied
+		));
+
+		// verify Bob now has LP tokens
+		assert_eq!(
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &BOB),
+			to_eth(2),
+		);
+
+		// bob should have more LP tokens than Alice as Bob provisioned more liquidity
+		assert_eq!(
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE)
+				< AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &BOB),
+			true
+		);
+
+		// disable trading pair
+		TradingPairStatuses::<Test>::insert(
+			TradingPair::new(usdc, weth),
+			TradingPairStatus::NotEnabled,
+		);
+
+		// user cannot add liquidity to disabled pair
+		assert_noop!(
+			Dex::add_liquidity(
+				Origin::signed(BOB),
+				usdc,
+				weth,
+				2_000_000_000_000u128,
+				2_000_000_000_000u128,
+				2_000_000_000_000u128,
+				2_000_000_000_000u128,
+				0u128, //not used
+			),
+			Error::<Test>::MustBeEnabled
+		);
 	});
 }
 
 #[test]
-fn claim_dex_share_work() {
-	ExtBuilder::default().build().execute_with(|| {
+fn remove_liquidity_simple() {
+	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		assert_ok!(Dex::list_trading_pair(
-			Origin::root(),
-			PUSD,
-			PDOT,
-			5_000_000_000_000u128,
-			1_000_000_000_000u128,
-			5_000_000_000_000_000u128,
-			1_000_000_000_000_000u128,
-			0,
-		));
+		// create 2 tokens (by different users)
+		let usdc = AssetsExt::create(ALICE).unwrap();
+		let weth = AssetsExt::create(BOB).unwrap();
 
-		assert_ok!(Dex::add_provision(
+		// add liquidity as user
+		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(2)));
+		assert_ok!(Dex::add_liquidity(
 			Origin::signed(ALICE),
-			PUSD,
-			PDOT,
-			1_000_000_000_000_000u128,
-			200_000_000_000_000u128,
+			usdc,
+			weth,
+			to_eth(2),
+			to_eth(2),
+			to_eth(2),
+			to_eth(2),
+			1_999_999_999_999_999_000u128, // min expected LP token shares
 		));
-		assert_ok!(Dex::add_provision(
-			Origin::signed(BOB),
-			PUSD,
-			PDOT,
-			4_000_000_000_000_000u128,
-			800_000_000_000_000u128,
+		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
+		assert_eq!(AssetsExt::balance(lp_token_id, &ALICE), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &ALICE), 0);
+		assert_eq!(AssetsExt::balance(weth, &ALICE), 0);
+
+		// providing all-1 LP token shares should succeed
+		assert_ok!(Dex::remove_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			1_999_999_999_999_999_000u128, // all lp -1 to retrieve input tokens
+			0u128,                         // ignoring expected input token liquidity
+			0u128,                         // ignoring expected input token liquidity
 		));
 
-		assert_noop!(
-			Dex::claim_dex_share(Origin::signed(ALICE), ALICE, PUSD, PDOT),
-			Error::<Test>::StillProvisioning
-		);
-
-		assert_ok!(Dex::end_provisioning(
-			Origin::root(),
-			PUSD,
-			PDOT
-		));
-
-		let lp_currency_id = PUSDDOTPair::get().dex_share_currency_id();
+		System::assert_last_event(MockEvent::Dex(crate::Event::RemoveLiquidity(
+			ALICE,
+			usdc,
+			1_999_999_999_999_999_000u128,
+			weth,
+			1_999_999_999_999_999_000u128,
+			1_999_999_999_999_999_000u128,
+		)));
 
 		assert_eq!(
-			InitialShareExchangeRates::<Test>::contains_key(PUSDDOTPair::get()),
-			true
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			0,
 		);
-		assert_eq!(
-			Dex::initial_share_exchange_rates(PUSDDOTPair::get()),
-			(ExchangeRate::one(), ExchangeRate::saturating_from_rational(5, 1))
-		);
-		assert_eq!(
-			Assets::free_balance(lp_currency_id, &Dex::account_id()),
-			10_000_000_000_000_000u128
-		);
-		assert_eq!(
-			Dex::provisioning_pool(PUSDDOTPair::get(), ALICE),
-			(1_000_000_000_000_000u128, 200_000_000_000_000u128)
-		);
-		assert_eq!(
-			Dex::provisioning_pool(PUSDDOTPair::get(), BOB),
-			(4_000_000_000_000_000u128, 800_000_000_000_000u128)
-		);
-		assert_eq!(Assets::free_balance(lp_currency_id, &ALICE), 0);
-		assert_eq!(Assets::free_balance(lp_currency_id, &BOB), 0);
+		assert_eq!(AssetsExt::balance(usdc, &ALICE), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(weth, &ALICE), 1_999_999_999_999_999_000u128);
+	});
+}
 
-		let alice_ref_count_0 = System::consumers(&ALICE);
-		let bob_ref_count_0 = System::consumers(&BOB);
+#[test]
+fn remove_liquidity_full() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
 
-		assert_ok!(Dex::claim_dex_share(Origin::signed(ALICE), ALICE, PUSD, PDOT));
-		assert_eq!(
-			Assets::free_balance(lp_currency_id, &Dex::account_id()),
-			8_000_000_000_000_000u128
-		);
-		assert_eq!(Dex::provisioning_pool(PUSDDOTPair::get(), ALICE), (0, 0));
-		assert_eq!(Assets::free_balance(lp_currency_id, &ALICE), 2_000_000_000_000_000u128);
-		assert_eq!(System::consumers(&ALICE), alice_ref_count_0 - 1);
-		assert_eq!(
-			InitialShareExchangeRates::<Test>::contains_key(PUSDDOTPair::get()),
-			true
-		);
+		// create 2 tokens (by different users)
+		let usdc = AssetsExt::create(ALICE).unwrap();
+		let weth = AssetsExt::create(BOB).unwrap();
 
-		assert_ok!(Dex::disable_trading_pair(
-			Origin::root(),
-			PUSD,
-			PDOT
-		));
-		assert_ok!(Dex::claim_dex_share(Origin::signed(BOB), BOB, PUSD, PDOT));
-		assert_eq!(Assets::free_balance(lp_currency_id, &Dex::account_id()), 0);
-		assert_eq!(Dex::provisioning_pool(PUSDDOTPair::get(), BOB), (0, 0));
-		assert_eq!(Assets::free_balance(lp_currency_id, &BOB), 8_000_000_000_000_000u128);
-		assert_eq!(System::consumers(&BOB), bob_ref_count_0 - 1);
+		// fails if no LP tokens withdrawn
 		assert_eq!(
-			InitialShareExchangeRates::<Test>::contains_key(PUSDDOTPair::get()),
+			Dex::remove_liquidity(Origin::signed(ALICE), usdc, weth, 0u128, 2u128, 2u128).is_ok(),
 			false
 		);
-	});
-}
 
-#[test]
-fn get_liquidity_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		LiquidityPool::<Test>::insert(PUSDDOTPair::get(), (1000, 20));
-		assert_eq!(Dex::liquidity_pool(PUSDDOTPair::get()), (1000, 20));
-		assert_eq!(Dex::get_liquidity(PUSD, PDOT), (1000, 20));
-		assert_eq!(Dex::get_liquidity(PDOT, PUSD), (20, 1000));
-	});
-}
-
-#[test]
-fn get_target_amount_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(Dex::get_target_amount(10000, 0, 1000), 0);
-		assert_eq!(Dex::get_target_amount(0, 20000, 1000), 0);
-		assert_eq!(Dex::get_target_amount(10000, 20000, 0), 0);
-		assert_eq!(Dex::get_target_amount(10000, 1, 1000000), 0);
-		assert_eq!(Dex::get_target_amount(10000, 20000, 10000), 9949);
-		assert_eq!(Dex::get_target_amount(10000, 20000, 1000), 1801);
-	});
-}
-
-#[test]
-fn get_supply_amount_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(Dex::get_supply_amount(10000, 0, 1000), 0);
-		assert_eq!(Dex::get_supply_amount(0, 20000, 1000), 0);
-		assert_eq!(Dex::get_supply_amount(10000, 20000, 0), 0);
-		assert_eq!(Dex::get_supply_amount(10000, 1, 1), 0);
-		assert_eq!(Dex::get_supply_amount(10000, 20000, 9949), 9999);
-		assert_eq!(Dex::get_target_amount(10000, 20000, 9999), 9949);
-		assert_eq!(Dex::get_supply_amount(10000, 20000, 1801), 1000);
-		assert_eq!(Dex::get_target_amount(10000, 20000, 1000), 1801);
-	});
-}
-
-#[test]
-fn get_target_amounts_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.build()
-		.execute_with(|| {
-			LiquidityPool::<Test>::insert(PUSDDOTPair::get(), (50000, 10000));
-			LiquidityPool::<Test>::insert(PUSDBTCPair::get(), (100000, 10));
-			assert_noop!(
-				Dex::get_target_amounts(&vec![PDOT], 10000, None),
-				Error::<Test>::InvalidTradingPathLength,
-			);
-			assert_noop!(
-				Dex::get_target_amounts(&vec![PDOT, PUSD, PBTC, PDOT], 10000, None),
-				Error::<Test>::InvalidTradingPathLength,
-			);
-			assert_noop!(
-				Dex::get_target_amounts(&vec![PDOT, PUSD, ACA], 10000, None),
-				Error::<Test>::MustBeEnabled,
-			);
-			assert_eq!(
-				Dex::get_target_amounts(&vec![PDOT, PUSD], 10000, None),
-				Ok(vec![10000, 24874])
-			);
-			assert_eq!(
-				Dex::get_target_amounts(&vec![PDOT, PUSD], 10000, Ratio::checked_from_rational(50, 100)),
-				Ok(vec![10000, 24874])
-			);
-			assert_noop!(
-				Dex::get_target_amounts(&vec![PDOT, PUSD], 10000, Ratio::checked_from_rational(49, 100)),
-				Error::<Test>::ExceedPriceImpactLimit,
-			);
-			assert_eq!(
-				Dex::get_target_amounts(&vec![PDOT, PUSD, PBTC], 10000, None),
-				Ok(vec![10000, 24874, 1])
-			);
-			assert_noop!(
-				Dex::get_target_amounts(&vec![PDOT, PUSD, PBTC], 100, None),
-				Error::<Test>::ZeroTargetAmount,
-			);
-			assert_noop!(
-				Dex::get_target_amounts(&vec![PDOT, PBTC], 100, None),
-				Error::<Test>::InsufficientLiquidity,
-			);
-		});
-}
-
-#[test]
-fn calculate_amount_for_big_number_work() {
-	ExtBuilder::default().build().execute_with(|| {
-		LiquidityPool::<Test>::insert(
-			PUSDDOTPair::get(),
-			(171_000_000_000_000_000_000_000, 56_000_000_000_000_000_000_000),
+		// remove liquidity fails if LP token doesnt exist
+		assert_noop!(
+			Dex::remove_liquidity(Origin::signed(ALICE), usdc, weth, 1u128, 2u128, 2u128,),
+			Error::<Test>::InvalidAssetId
 		);
-		assert_eq!(
-			Dex::get_supply_amount(
-				171_000_000_000_000_000_000_000,
-				56_000_000_000_000_000_000_000,
-				1_000_000_000_000_000_000_000
+
+		// maually create and enable LP token
+		let lp_token_id = AssetsExt::create(ALICE).unwrap();
+		TradingPairLPToken::<Test>::insert(TradingPair::new(usdc, weth), Some(lp_token_id));
+		TradingPairStatuses::<Test>::insert(
+			TradingPair::new(usdc, weth),
+			TradingPairStatus::Enabled,
+		);
+
+		// add liquidity as user
+		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(2)));
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			to_eth(2),
+			to_eth(2),
+			to_eth(2),
+			to_eth(2),
+			1_999_999_999_999_999_000u128, // min expected LP token shares
+		));
+		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(); // TODO remove
+		assert_eq!(AssetsExt::balance(lp_token_id, &ALICE), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &ALICE), 0);
+		assert_eq!(AssetsExt::balance(weth, &ALICE), 0);
+
+		// remove liquidity fails if user expects more balance of a token than they have
+		assert_noop!(
+			Dex::remove_liquidity(
+				Origin::signed(ALICE),
+				usdc,
+				weth,
+				1u128,
+				to_eth(2) + 1, // more balance than user had LPed
+				0u128,
 			),
-			3_140_495_867_768_595_041_323
+			Error::<Test>::InsufficientWithdrawnAmountA
 		);
-		assert_eq!(
-			Dex::get_target_amount(
-				171_000_000_000_000_000_000_000,
-				56_000_000_000_000_000_000_000,
-				3_140_495_867_768_595_041_323
+
+		assert_noop!(
+			Dex::remove_liquidity(
+				Origin::signed(ALICE),
+				usdc,
+				weth,
+				1u128,
+				0u128,
+				to_eth(2) + 1, // more balance than user had LPed
 			),
-			1_000_000_000_000_000_000_000
+			Error::<Test>::InsufficientWithdrawnAmountB
 		);
+
+		assert_noop!(
+			Dex::remove_liquidity(
+				Origin::signed(ALICE),
+				usdc,
+				weth,
+				100u128, // provided LP token shares too low to retrieve input tokens
+				2_000_000_000_000u128,
+				2_000_000_000_000u128,
+			),
+			Error::<Test>::InsufficientWithdrawnAmountA
+		);
+
+		// providing all-1 LP token shares should succeed
+		assert_ok!(Dex::remove_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			1_999_999_999_999_999_000u128 - 1, // all lp -1 to retrieve input tokens
+			0u128,                             // ignoring expected input token liquidity
+			0u128,                             // ignoring expected input token liquidity
+		));
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::RemoveLiquidity(
+			ALICE,
+			usdc,
+			1_999_999_999_999_998_999_u128,
+			weth,
+			1_999_999_999_999_998_999_u128,
+			1_999_999_999_999_998_999_u128,
+		)));
+
+		assert_eq!(
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			1,
+		);
+		assert_eq!(AssetsExt::balance(usdc, &ALICE), 1_999_999_999_999_998_999_u128);
+		assert_eq!(AssetsExt::balance(weth, &ALICE), 1_999_999_999_999_998_999_u128);
+
+		// disable trading pair
+		TradingPairStatuses::<Test>::insert(
+			TradingPair::new(usdc, weth),
+			TradingPairStatus::NotEnabled,
+		);
+
+		// can still successfully remove liquidity if trading pair is disabled
+		// remove last lp token remaining
+		assert_ok!(Dex::remove_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			1,
+			0u128, // ignoring expected input token liquidity
+			0u128, // ignoring expected input token liquidity
+		));
+
+		// removing all liquidity should imply user has recieved all input tokens
+		assert_eq!(
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			0u128,
+		);
+		// do not get 100% tokens back as some lost due to minimum liquidity minting
+		assert_eq!(AssetsExt::balance(usdc, &ALICE), 1_999_999_999_999_999_000_u128);
+		assert_eq!(AssetsExt::balance(weth, &ALICE), 1_999_999_999_999_999_000_u128);
 	});
 }
 
 #[test]
-fn get_supply_amounts_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.build()
-		.execute_with(|| {
-			LiquidityPool::<Test>::insert(PUSDDOTPair::get(), (50000, 10000));
-			LiquidityPool::<Test>::insert(PUSDBTCPair::get(), (100000, 10));
-			assert_noop!(
-				Dex::get_supply_amounts(&vec![PDOT], 10000, None),
-				Error::<Test>::InvalidTradingPathLength,
-			);
-			assert_noop!(
-				Dex::get_supply_amounts(&vec![PDOT, PUSD, PBTC, PDOT], 10000, None),
-				Error::<Test>::InvalidTradingPathLength,
-			);
-			assert_noop!(
-				Dex::get_supply_amounts(&vec![PDOT, PUSD, ACA], 10000, None),
-				Error::<Test>::MustBeEnabled,
-			);
-			assert_eq!(
-				Dex::get_supply_amounts(&vec![PDOT, PUSD], 24874, None),
-				Ok(vec![10000, 24874])
-			);
-			assert_eq!(
-				Dex::get_supply_amounts(&vec![PDOT, PUSD], 25000, Ratio::checked_from_rational(50, 100)),
-				Ok(vec![10102, 25000])
-			);
-			assert_noop!(
-				Dex::get_supply_amounts(&vec![PDOT, PUSD], 25000, Ratio::checked_from_rational(49, 100)),
-				Error::<Test>::ExceedPriceImpactLimit,
-			);
-			assert_noop!(
-				Dex::get_supply_amounts(&vec![PDOT, PUSD, PBTC], 10000, None),
-				Error::<Test>::ZeroSupplyAmount,
-			);
-			assert_noop!(
-				Dex::get_supply_amounts(&vec![PDOT, PBTC], 10000, None),
-				Error::<Test>::InsufficientLiquidity,
-			);
-		});
-}
+fn swap_with_exact_supply() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
 
-#[test]
-fn _swap_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.build()
-		.execute_with(|| {
-			LiquidityPool::<Test>::insert(PUSDDOTPair::get(), (50000, 10000));
+		let weth = AssetsExt::create(ALICE).unwrap();
+		let usdc = AssetsExt::create(ALICE).unwrap();
 
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (50000, 10000));
-			assert_noop!(
-				Dex::_swap(PUSD, PDOT, 50000, 5001),
-				Error::<Test>::InvariantCheckFailed
-			);
-			assert_ok!(Dex::_swap(PUSD, PDOT, 50000, 5000));
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (100000, 5000));
-			assert_ok!(Dex::_swap(PDOT, PUSD, 100, 800));
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (99200, 5100));
-		});
-}
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(100)));
 
-#[test]
-fn _swap_by_path_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.build()
-		.execute_with(|| {
-			LiquidityPool::<Test>::insert(PUSDDOTPair::get(), (50000, 10000));
-			LiquidityPool::<Test>::insert(PUSDBTCPair::get(), (100000, 10));
+		// provide liquidity - note: differing amount of input tokens - ratio 1:2
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(ALICE),
+			weth,
+			usdc,
+			to_eth(1),
+			to_eth(2),
+			to_eth(1),
+			to_eth(2),
+			0u128,
+		));
+		assert_eq!(AssetsExt::balance(weth, &ALICE), to_eth(100) - to_eth(1));
+		assert_eq!(AssetsExt::balance(usdc, &ALICE), to_eth(100) - to_eth(2));
 
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (50000, 10000));
-			assert_eq!(Dex::get_liquidity(PUSD, PBTC), (100000, 10));
-			assert_ok!(Dex::_swap_by_path(&vec![PDOT, PUSD], &vec![10000, 25000]));
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (25000, 20000));
-			assert_ok!(Dex::_swap_by_path(&vec![PDOT, PUSD, PBTC], &vec![100000, 20000, 1]));
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (5000, 120000));
-			assert_eq!(Dex::get_liquidity(PUSD, PBTC), (120000, 9));
-		});
-}
-
-#[test]
-fn add_liquidity_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.build()
-		.execute_with(|| {
-			System::set_block_number(1);
-
-			assert_noop!(
-				Dex::add_liquidity(Origin::signed(ALICE), ACA, PUSD, 100_000_000, 100_000_000, 0, false),
-				Error::<Test>::MustBeEnabled
-			);
-			assert_noop!(
-				Dex::add_liquidity(Origin::signed(ALICE), PUSD, PDOT, 0, 100_000_000, 0, false),
-				Error::<Test>::InvalidLiquidityIncrement
-			);
-
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (0, 0));
-			assert_eq!(Assets::free_balance(PUSD, &Dex::account_id()), 0);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 0);
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &ALICE),
-				0
-			);
-			assert_eq!(
-				Assets::reserved_balance(PUSDDOTPair::get().dex_share_currency_id(), &ALICE),
-				0
-			);
-			assert_eq!(Assets::free_balance(PUSD, &ALICE), 1_000_000_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &ALICE), 1_000_000_000_000_000_000);
-
-			assert_ok!(Dex::add_liquidity(
-				Origin::signed(ALICE),
-				PUSD,
-				PDOT,
-				5_000_000_000_000,
-				1_000_000_000_000,
-				0,
-				false,
-			));
-			System::assert_last_event(Event::Dex(crate::Event::AddLiquidity(
-				ALICE,
-				PUSD,
-				5_000_000_000_000,
-				PDOT,
-				1_000_000_000_000,
-				10_000_000_000_000,
-			)));
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(5_000_000_000_000, 1_000_000_000_000)
-			);
-			assert_eq!(Assets::free_balance(PUSD, &Dex::account_id()), 5_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 1_000_000_000_000);
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &ALICE),
-				10_000_000_000_000
-			);
-			assert_eq!(
-				Assets::reserved_balance(PUSDDOTPair::get().dex_share_currency_id(), &ALICE),
-				0
-			);
-			assert_eq!(Assets::free_balance(PUSD, &ALICE), 999_995_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &ALICE), 999_999_000_000_000_000);
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &BOB),
-				0
-			);
-			assert_eq!(
-				Assets::reserved_balance(PUSDDOTPair::get().dex_share_currency_id(), &BOB),
-				0
-			);
-			assert_eq!(Assets::free_balance(PUSD, &BOB), 1_000_000_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &BOB), 1_000_000_000_000_000_000);
-
-			assert_noop!(
-				Dex::add_liquidity(Origin::signed(BOB), PUSD, PDOT, 4, 1, 0, true,),
-				Error::<Test>::InvalidLiquidityIncrement,
-			);
-
-			assert_noop!(
-				Dex::add_liquidity(
-					Origin::signed(BOB),
-					PUSD,
-					PDOT,
-					50_000_000_000_000,
-					8_000_000_000_000,
-					80_000_000_000_001,
-					true,
-				),
-				Error::<Test>::UnacceptableShareIncrement
-			);
-
-			assert_ok!(Dex::add_liquidity(
+		// swap should fail if user does not have sufficient balance of input tokens
+		assert_noop!(
+			Dex::swap_with_exact_supply(
 				Origin::signed(BOB),
-				PUSD,
-				PDOT,
-				50_000_000_000_000,
-				8_000_000_000_000,
-				80_000_000_000_000,
-				true,
-			));
-			System::assert_last_event(Event::Dex(crate::Event::AddLiquidity(
-				BOB,
-				PUSD,
-				40_000_000_000_000,
-				PDOT,
-				8_000_000_000_000,
-				80_000_000_000_000,
-			)));
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(45_000_000_000_000, 9_000_000_000_000)
-			);
-			assert_eq!(Assets::free_balance(PUSD, &Dex::account_id()), 45_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 9_000_000_000_000);
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &BOB),
-				0
-			);
-			assert_eq!(
-				Assets::reserved_balance(PUSDDOTPair::get().dex_share_currency_id(), &BOB),
-				80_000_000_000_000
-			);
-			assert_eq!(Assets::free_balance(PUSD, &BOB), 999_960_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &BOB), 999_992_000_000_000_000);
-		});
-}
+				to_eth(1), // input weth <- insufficient balance
+				10u128,    // expected usdc
+				vec![weth, usdc],
+			),
+			pallet_assets::Error::<Test>::NoAccount
+		);
 
-#[test]
-fn remove_liquidity_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.build()
-		.execute_with(|| {
-			System::set_block_number(1);
+		// mint weth for 2nd user and allow them to perform swap against usdc
+		assert_ok!(AssetsExt::mint_into(weth, &BOB, to_eth(2)));
+		assert_eq!(AssetsExt::balance(usdc, &BOB), 0); // no balance initially for bob
 
-			assert_ok!(Dex::add_liquidity(
-				Origin::signed(ALICE),
-				PUSD,
-				PDOT,
-				5_000_000_000_000,
-				1_000_000_000_000,
-				0,
-				false
-			));
-			assert_noop!(
-				Dex::remove_liquidity(
-					Origin::signed(ALICE),
-					PUSDDOTPair::get().dex_share_currency_id(),
-					PDOT,
-					100_000_000,
-					0,
-					0,
-					false,
-				),
-				Error::<Test>::InvalidCurrencyId
-			);
-
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(5_000_000_000_000, 1_000_000_000_000)
-			);
-			assert_eq!(Assets::free_balance(PUSD, &Dex::account_id()), 5_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 1_000_000_000_000);
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &ALICE),
-				10_000_000_000_000
-			);
-			assert_eq!(Assets::free_balance(PUSD, &ALICE), 999_995_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &ALICE), 999_999_000_000_000_000);
-
-			assert_noop!(
-				Dex::remove_liquidity(
-					Origin::signed(ALICE),
-					PUSD,
-					PDOT,
-					8_000_000_000_000,
-					4_000_000_000_001,
-					800_000_000_000,
-					false,
-				),
-				Error::<Test>::UnacceptableLiquidityWithdrawn
-			);
-			assert_noop!(
-				Dex::remove_liquidity(
-					Origin::signed(ALICE),
-					PUSD,
-					PDOT,
-					8_000_000_000_000,
-					4_000_000_000_000,
-					800_000_000_001,
-					false,
-				),
-				Error::<Test>::UnacceptableLiquidityWithdrawn
-			);
-			assert_ok!(Dex::remove_liquidity(
-				Origin::signed(ALICE),
-				PUSD,
-				PDOT,
-				8_000_000_000_000,
-				4_000_000_000_000,
-				800_000_000_000,
-				false,
-			));
-			System::assert_last_event(Event::Dex(crate::Event::RemoveLiquidity(
-				ALICE,
-				PUSD,
-				4_000_000_000_000,
-				PDOT,
-				800_000_000_000,
-				8_000_000_000_000,
-			)));
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(1_000_000_000_000, 200_000_000_000)
-			);
-			assert_eq!(Assets::free_balance(PUSD, &Dex::account_id()), 1_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 200_000_000_000);
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &ALICE),
-				2_000_000_000_000
-			);
-			assert_eq!(Assets::free_balance(PUSD, &ALICE), 999_999_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &ALICE), 999_999_800_000_000_000);
-
-			assert_ok!(Dex::remove_liquidity(
-				Origin::signed(ALICE),
-				PUSD,
-				PDOT,
-				2_000_000_000_000,
-				0,
-				0,
-				false,
-			));
-			System::assert_last_event(Event::Dex(crate::Event::RemoveLiquidity(
-				ALICE,
-				PUSD,
-				1_000_000_000_000,
-				PDOT,
-				200_000_000_000,
-				2_000_000_000_000,
-			)));
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (0, 0));
-			assert_eq!(Assets::free_balance(PUSD, &Dex::account_id()), 0);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 0);
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &ALICE),
-				0
-			);
-			assert_eq!(Assets::free_balance(PUSD, &ALICE), 1_000_000_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &ALICE), 1_000_000_000_000_000_000);
-
-			assert_ok!(Dex::add_liquidity(
+		// swap should fail if user expects more output tokens than they can get
+		assert_noop!(
+			Dex::swap_with_exact_supply(
 				Origin::signed(BOB),
-				PUSD,
-				PDOT,
-				5_000_000_000_000,
-				1_000_000_000_000,
-				0,
-				true
-			));
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &BOB),
-				0
-			);
-			assert_eq!(
-				Assets::reserved_balance(PUSDDOTPair::get().dex_share_currency_id(), &BOB),
-				10_000_000_000_000
-			);
-			assert_ok!(Dex::remove_liquidity(
+				to_eth(1), // input weth
+				to_eth(1), // min expected usdc <- too much
+				vec![weth, usdc],
+			),
+			Error::<Test>::InsufficientTargetAmount
+		);
+
+		// swap succeeds if user has sufficient balance of input tokens
+		// and min expected output tokens are provided
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(BOB),
+			to_eth(1), // input weth
+			0u128,     // min expected usdc
+			vec![weth, usdc],
+		));
+
+		let out_usdc_amount_1 = 998_497_746_619_929_894_u128;
+
+		// verify swap event and user balances
+		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
+			BOB,
+			vec![weth, usdc],
+			to_eth(1),
+			out_usdc_amount_1,
+		)));
+		assert_eq!(AssetsExt::balance(weth, &BOB), to_eth(1));
+		assert_eq!(AssetsExt::balance(usdc, &BOB), out_usdc_amount_1);
+
+		// verify dex trading pair liquidity changes (usdc removed, weth added)
+		assert_eq!(
+			Dex::get_liquidity(weth, usdc),
+			(
+				// init weth liquidity + user deposited weth
+				to_eth(1) + to_eth(1),
+				// init usdc liquidity - user withdrawn usdc
+				to_eth(2) - out_usdc_amount_1,
+			)
+		);
+
+		// user b swaps again with same params
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(BOB),
+			to_eth(1), // input weth
+			10u128,    // min expected usdc
+			vec![weth, usdc],
+		));
+
+		let out_usdc_amount_2 = 333_165_747_954_597_896_u128;
+
+		// verify swap event and user balances
+		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
+			BOB,
+			vec![weth, usdc],
+			to_eth(1),
+			out_usdc_amount_2,
+		)));
+		assert_eq!(AssetsExt::balance(weth, &BOB), 0);
+		assert_eq!(AssetsExt::balance(usdc, &BOB), out_usdc_amount_1 + out_usdc_amount_2);
+		assert_eq!(AssetsExt::balance(usdc, &BOB), 1_331_663_494_574_527_790u128);
+
+		// verify that 2nd swap returns less output tokens than first
+		// - due to shift in constant product -> resulting in higher slippage
+		assert_eq!(out_usdc_amount_1 > out_usdc_amount_2, true);
+	});
+}
+
+#[test]
+fn swap_with_exact_target() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		// create tokens (by different users)
+		let usdc = AssetsExt::create(ALICE).unwrap();
+		let weth = AssetsExt::create(ALICE).unwrap();
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(100)));
+
+		// provide liquidity - note: differing amount of input tokens - ratio 2:1
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(ALICE),
+			weth,
+			usdc,
+			to_eth(8),
+			to_eth(4),
+			to_eth(8),
+			to_eth(4),
+			0u128,
+		));
+
+		// swap should fail if user does not have sufficient balance of input tokens
+		assert_noop!(
+			Dex::swap_with_exact_target(
 				Origin::signed(BOB),
-				PUSD,
-				PDOT,
-				2_000_000_000_000,
-				0,
-				0,
-				true,
-			));
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &BOB),
-				0
-			);
-			assert_eq!(
-				Assets::reserved_balance(PUSDDOTPair::get().dex_share_currency_id(), &BOB),
-				8_000_000_000_000
-			);
-		});
+				10u128,                // expected usdc
+				1_000_000_000_000u128, // max input weth <- insufficient balance
+				vec![weth, usdc],
+			),
+			pallet_assets::Error::<Test>::NoAccount
+		);
+
+		// mint weth for 2nd user and allow them to perform swap against usdc
+		assert_ok!(AssetsExt::mint_into(weth, &BOB, to_eth(20)));
+
+		// swap should fail if eqiuvalent tokens asked for are not available
+		assert_noop!(
+			Dex::swap_with_exact_target(
+				Origin::signed(BOB),
+				to_eth(4), // expected <- too much
+				to_eth(4), // max input weth willing to give
+				vec![weth, usdc],
+			),
+			ArithmeticError::DivisionByZero
+		);
+
+		// fails if too much output tokens are expected
+		assert_noop!(
+			Dex::swap_with_exact_target(
+				Origin::signed(BOB),
+				to_eth(1) / 2,
+				to_eth(1), // max input weth willing to give
+				vec![weth, usdc],
+			),
+			Error::<Test>::ExcessiveSupplyAmount
+		);
+
+		// swap succeeds if user has sufficient balance of input tokens
+		// and expected output tokens are provided
+		assert_ok!(Dex::swap_with_exact_target(
+			Origin::signed(BOB),
+			to_eth(1), // want usdc
+			to_eth(5), // max input weth willing to give
+			vec![weth, usdc],
+		));
+
+		let in_weth_amount_1 = 2_674_690_738_883_316_617_u128;
+
+		// verify swap event and user balances
+		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
+			BOB,
+			vec![weth, usdc],
+			in_weth_amount_1, // supply amount
+			to_eth(1),        // target amount
+		)));
+		assert_eq!(AssetsExt::balance(weth, &BOB), to_eth(20) - in_weth_amount_1);
+		assert_eq!(AssetsExt::balance(weth, &BOB), 17_325_309_261_116_683_383_u128);
+		assert_eq!(AssetsExt::balance(usdc, &BOB), to_eth(1));
+
+		// verify dex trading pair liquidity changes (weth added, usdc removed)
+		assert_eq!(
+			Dex::get_liquidity(usdc, weth),
+			(to_eth(4) - to_eth(1), to_eth(8) + in_weth_amount_1)
+		);
+
+		// user b swaps again with same params
+		assert_ok!(Dex::swap_with_exact_target(
+			Origin::signed(BOB),
+			to_eth(1), // want usdc
+			to_eth(6), // max input weth willing to give
+			vec![weth, usdc],
+		));
+
+		let in_weth_amount_2 = 5_353_405_586_200_259_086_u128;
+
+		// verify swap event and user balances
+		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
+			BOB,
+			vec![weth, usdc],
+			in_weth_amount_2, // supply amount
+			to_eth(1),        // target amount
+		)));
+		assert_eq!(
+			AssetsExt::balance(weth, &BOB),
+			to_eth(20) - in_weth_amount_1 - in_weth_amount_2
+		);
+		assert_eq!(AssetsExt::balance(weth, &BOB), 11_971_903_674_916_424_297_u128);
+		assert_eq!(AssetsExt::balance(usdc, &BOB), to_eth(2));
+
+		// verify that 2nd swap requires more input tokens than first for the same output
+		// - due to shift in constant product -> resulting in higher slippage
+		assert_eq!(in_weth_amount_1 < in_weth_amount_2, true);
+	});
 }
 
+/// multiple_swaps_with_multiple_lp is a complicated test which verifies
+/// - that multiple users can add lp
+/// - that multiple users can swap against that lp
+/// - that lp can be removed by all lp owners
 #[test]
-fn do_swap_with_exact_supply_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.build()
-		.execute_with(|| {
-			System::set_block_number(1);
+fn multiple_swaps_with_multiple_lp() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
 
-			assert_ok!(Dex::add_liquidity(
-				Origin::signed(ALICE),
-				PUSD,
-				PDOT,
-				500_000_000_000_000,
-				100_000_000_000_000,
-				0,
-				false,
-			));
-			assert_ok!(Dex::add_liquidity(
-				Origin::signed(ALICE),
-				PUSD,
-				PBTC,
-				100_000_000_000_000,
-				10_000_000_000,
-				0,
-				false,
-			));
+		pub const CHARLIE: MockAccountId = 3;
+		pub const DANNY: MockAccountId = 4;
+		pub const ELLIOT: MockAccountId = 5;
 
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(500_000_000_000_000, 100_000_000_000_000)
-			);
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PBTC),
-				(100_000_000_000_000, 10_000_000_000)
-			);
-			assert_eq!(
-				Assets::free_balance(PUSD, &Dex::account_id()),
-				600_000_000_000_000
-			);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 100_000_000_000_000);
-			assert_eq!(Assets::free_balance(PBTC, &Dex::account_id()), 10_000_000_000);
-			assert_eq!(Assets::free_balance(PUSD, &BOB), 1_000_000_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &BOB), 1_000_000_000_000_000_000);
-			assert_eq!(Assets::free_balance(PBTC, &BOB), 1_000_000_000_000_000_000);
+		// create tokens
+		let usdc = AssetsExt::create(ALICE).unwrap();
+		let weth = AssetsExt::create(ALICE).unwrap();
 
-			assert_noop!(
-				Dex::do_swap_with_exact_supply(
-					&BOB,
-					&[PDOT, PUSD],
-					100_000_000_000_000,
-					250_000_000_000_000,
-					None
-				),
-				Error::<Test>::InsufficientTargetAmount
-			);
-			assert_noop!(
-				Dex::do_swap_with_exact_supply(
-					&BOB,
-					&[PDOT, PUSD],
-					100_000_000_000_000,
-					0,
-					Ratio::checked_from_rational(10, 100)
-				),
-				Error::<Test>::ExceedPriceImpactLimit,
-			);
-			assert_noop!(
-				Dex::do_swap_with_exact_supply(&BOB, &[PDOT, PUSD, PBTC, PDOT], 100_000_000_000_000, 0, None),
-				Error::<Test>::InvalidTradingPathLength,
-			);
-			assert_noop!(
-				Dex::do_swap_with_exact_supply(&BOB, &[PDOT, ACA], 100_000_000_000_000, 0, None),
-				Error::<Test>::MustBeEnabled,
-			);
+		// mint 100 tokens to alice
+		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(100)));
 
-			assert_ok!(Dex::do_swap_with_exact_supply(
-				&BOB,
-				&[PDOT, PUSD],
-				100_000_000_000_000,
-				200_000_000_000_000,
-				None
-			));
-			System::assert_last_event(Event::Dex(crate::Event::Swap(
-				BOB,
-				vec![PDOT, PUSD],
-				100_000_000_000_000,
-				248_743_718_592_964,
-			)));
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(251_256_281_407_036, 200_000_000_000_000)
-			);
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PBTC),
-				(100_000_000_000_000, 10_000_000_000)
-			);
-			assert_eq!(
-				Assets::free_balance(PUSD, &Dex::account_id()),
-				351_256_281_407_036
-			);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 200_000_000_000_000);
-			assert_eq!(Assets::free_balance(PBTC, &Dex::account_id()), 10_000_000_000);
-			assert_eq!(Assets::free_balance(PUSD, &BOB), 1_000_248_743_718_592_964);
-			assert_eq!(Assets::free_balance(PDOT, &BOB), 999_900_000_000_000_000);
-			assert_eq!(Assets::free_balance(PBTC, &BOB), 1_000_000_000_000_000_000);
+		// mint 100 tokens to bob
+		assert_ok!(AssetsExt::mint_into(usdc, &BOB, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(weth, &BOB, to_eth(100)));
 
-			assert_ok!(Dex::do_swap_with_exact_supply(
-				&BOB,
-				&[PDOT, PUSD, PBTC],
-				200_000_000_000_000,
-				1,
-				None
-			));
-			System::assert_last_event(Event::Dex(crate::Event::Swap(
-				BOB,
-				vec![PDOT, PUSD, PBTC],
-				200_000_000_000_000,
-				5_530_663_837,
-			)));
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(126_259_437_892_983, 400_000_000_000_000)
-			);
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PBTC),
-				(224_996_843_514_053, 4_469_336_163)
-			);
-			assert_eq!(
-				Assets::free_balance(PUSD, &Dex::account_id()),
-				351_256_281_407_036
-			);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 400_000_000_000_000);
-			assert_eq!(Assets::free_balance(PBTC, &Dex::account_id()), 4_469_336_163);
-			assert_eq!(Assets::free_balance(PUSD, &BOB), 1_000_248_743_718_592_964);
-			assert_eq!(Assets::free_balance(PDOT, &BOB), 999_700_000_000_000_000);
-			assert_eq!(Assets::free_balance(PBTC, &BOB), 1_000_000_005_530_663_837);
-		});
+		// mint 10 tokens to charlie
+		assert_ok!(AssetsExt::mint_into(usdc, &CHARLIE, to_eth(50)));
+		assert_ok!(AssetsExt::mint_into(weth, &CHARLIE, to_eth(50)));
+
+		// mint 10 tokens to danny
+		assert_ok!(AssetsExt::mint_into(usdc, &DANNY, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(weth, &DANNY, to_eth(10)));
+
+		// mint 10 tokens to elliot
+		assert_ok!(AssetsExt::mint_into(usdc, &ELLIOT, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(weth, &ELLIOT, to_eth(10)));
+
+		// alice provides liquidity for USDC/WETH pair - in ratio 1:3
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			to_eth(10),
+			to_eth(30),
+			to_eth(10),
+			to_eth(30),
+			0u128
+		));
+
+		// bob provides liquidity for USDC/WETH pair - in ratio 1:3
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(BOB),
+			usdc,
+			weth,
+			to_eth(10),
+			to_eth(30),
+			to_eth(10),
+			to_eth(30),
+			0u128
+		));
+
+		let lp_usdc_weth = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
+
+		// lp providers alice have lp tokens
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &ALICE), 17_320_508_075_688_771_935_u128);
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &BOB), 17_320_508_075_688_772_935_u128);
+
+		// charlie swaps 5 USDC for WETH
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(CHARLIE),
+			to_eth(5), // max input weth willing to give
+			0u128,
+			vec![usdc, weth],
+		));
+		assert_eq!(AssetsExt::balance(usdc, &CHARLIE), to_eth(50) - to_eth(5));
+		assert_eq!(AssetsExt::balance(weth, &CHARLIE), 61_971_182_709_625_775_465_u128);
+
+		// elliot swaps x USDC for 5 WETH
+		assert_ok!(Dex::swap_with_exact_target(
+			Origin::signed(ELLIOT),
+			to_eth(5), // exact want amount of weth
+			to_eth(5),
+			vec![usdc, weth],
+		));
+		assert_eq!(AssetsExt::balance(usdc, &ELLIOT), 7_086_228_804_778_169_590_u128);
+		assert_eq!(AssetsExt::balance(weth, &ELLIOT), to_eth(10) + to_eth(5));
+
+		let (reserve_0, reserve_1) = Dex::get_liquidity(usdc, weth);
+		assert_eq!(reserve_0, 27_913_771_195_221_830_410_u128);
+		assert_eq!(reserve_1, 43_028_817_290_374_224_535_u128);
+
+		// charlie provides liquidity for USDC/WETH pair - in different ratio
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(CHARLIE),
+			usdc,
+			weth,
+			to_eth(2),
+			to_eth(4),
+			to_eth(1),
+			to_eth(2),
+			0u128
+		));
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &CHARLIE), 2_482_001_869_909_090_520_u128);
+
+		// danny swaps x USDC for 2 WETH
+		assert_ok!(Dex::swap_with_exact_target(
+			Origin::signed(DANNY),
+			to_eth(2), // exact want amount of weth
+			to_eth(2),
+			vec![usdc, weth],
+		));
+		assert_eq!(AssetsExt::balance(usdc, &DANNY), 8_639_648_189_269_446_680_u128);
+		assert_eq!(AssetsExt::balance(weth, &DANNY), to_eth(10) + to_eth(2));
+
+		// elliot fails to remove any liquidity (he has none)
+		assert_noop!(
+			Dex::remove_liquidity(
+				Origin::signed(ELLIOT),
+				usdc,
+				weth,
+				AssetsExt::balance(lp_usdc_weth, &ELLIOT),
+				to_eth(10),
+				to_eth(10),
+			),
+			Error::<Test>::InsufficientLiquidityBurnt
+		);
+
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &CHARLIE), 2_482_001_869_909_090_520_u128);
+		// charlie removes all his liquidity
+		assert_ok!(Dex::remove_liquidity(
+			Origin::signed(CHARLIE),
+			usdc,
+			weth,
+			AssetsExt::balance(lp_usdc_weth, &CHARLIE),
+			to_eth(1),
+			to_eth(1),
+		));
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &CHARLIE), 0u128);
+		assert_eq!(AssetsExt::balance(usdc, &CHARLIE), 45_090_951_542_141_088_801_u128);
+		assert_eq!(AssetsExt::balance(weth, &CHARLIE), 61_837_465_032_443_069_536_u128);
+
+		// alice removes all her liquidity
+		assert_ok!(Dex::remove_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			AssetsExt::balance(lp_usdc_weth, &ALICE),
+			to_eth(10),
+			to_eth(10),
+		));
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &ALICE), 0u128);
+		assert_eq!(AssetsExt::balance(usdc, &ALICE), 104_591_585_731_905_646_622_u128);
+		assert_eq!(AssetsExt::balance(weth, &ALICE), 90_581_267_483_778_464_043_u128);
+
+		// bob removes all his liquidity
+		assert_ok!(Dex::remove_liquidity(
+			Origin::signed(BOB),
+			usdc,
+			weth,
+			AssetsExt::balance(lp_usdc_weth, &BOB),
+			to_eth(10),
+			to_eth(10),
+		));
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &BOB), 0u128);
+		assert_eq!(AssetsExt::balance(usdc, &BOB), 104_591_585_731_905_647_464_u128);
+		assert_eq!(AssetsExt::balance(weth, &BOB), 90_581_267_483_778_465_232_u128);
+	});
 }
-
-#[test]
-fn do_swap_with_exact_target_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.build()
-		.execute_with(|| {
-			System::set_block_number(1);
-
-			assert_ok!(Dex::add_liquidity(
-				Origin::signed(ALICE),
-				PUSD,
-				PDOT,
-				500_000_000_000_000,
-				100_000_000_000_000,
-				0,
-				false,
-			));
-			assert_ok!(Dex::add_liquidity(
-				Origin::signed(ALICE),
-				PUSD,
-				PBTC,
-				100_000_000_000_000,
-				10_000_000_000,
-				0,
-				false,
-			));
-
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(500_000_000_000_000, 100_000_000_000_000)
-			);
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PBTC),
-				(100_000_000_000_000, 10_000_000_000)
-			);
-			assert_eq!(
-				Assets::free_balance(PUSD, &Dex::account_id()),
-				600_000_000_000_000
-			);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 100_000_000_000_000);
-			assert_eq!(Assets::free_balance(PBTC, &Dex::account_id()), 10_000_000_000);
-			assert_eq!(Assets::free_balance(PUSD, &BOB), 1_000_000_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &BOB), 1_000_000_000_000_000_000);
-			assert_eq!(Assets::free_balance(PBTC, &BOB), 1_000_000_000_000_000_000);
-
-			assert_noop!(
-				Dex::do_swap_with_exact_target(
-					&BOB,
-					&[PDOT, PUSD],
-					250_000_000_000_000,
-					100_000_000_000_000,
-					None
-				),
-				Error::<Test>::ExcessiveSupplyAmount
-			);
-			assert_noop!(
-				Dex::do_swap_with_exact_target(
-					&BOB,
-					&[PDOT, PUSD],
-					250_000_000_000_000,
-					200_000_000_000_000,
-					Ratio::checked_from_rational(10, 100)
-				),
-				Error::<Test>::ExceedPriceImpactLimit,
-			);
-			assert_noop!(
-				Dex::do_swap_with_exact_target(
-					&BOB,
-					&[PDOT, PUSD, PBTC, PDOT],
-					250_000_000_000_000,
-					200_000_000_000_000,
-					None
-				),
-				Error::<Test>::InvalidTradingPathLength,
-			);
-			assert_noop!(
-				Dex::do_swap_with_exact_target(&BOB, &[PDOT, ACA], 250_000_000_000_000, 200_000_000_000_000, None),
-				Error::<Test>::MustBeEnabled,
-			);
-
-			assert_ok!(Dex::do_swap_with_exact_target(
-				&BOB,
-				&[PDOT, PUSD],
-				250_000_000_000_000,
-				200_000_000_000_000,
-				None
-			));
-			System::assert_last_event(Event::Dex(crate::Event::Swap(
-				BOB,
-				vec![PDOT, PUSD],
-				101_010_101_010_102,
-				250_000_000_000_000,
-			)));
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(250_000_000_000_000, 201_010_101_010_102)
-			);
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PBTC),
-				(100_000_000_000_000, 10_000_000_000)
-			);
-			assert_eq!(
-				Assets::free_balance(PUSD, &Dex::account_id()),
-				350_000_000_000_000
-			);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 201_010_101_010_102);
-			assert_eq!(Assets::free_balance(PBTC, &Dex::account_id()), 10_000_000_000);
-			assert_eq!(Assets::free_balance(PUSD, &BOB), 1_000_250_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &BOB), 999_898_989_898_989_898);
-			assert_eq!(Assets::free_balance(PBTC, &BOB), 1_000_000_000_000_000_000);
-
-			assert_ok!(Dex::do_swap_with_exact_target(
-				&BOB,
-				&[PDOT, PUSD, PBTC],
-				5_000_000_000,
-				2_000_000_000_000_000,
-				None
-			));
-			System::assert_last_event(Event::Dex(crate::Event::Swap(
-				BOB,
-				vec![PDOT, PUSD, PBTC],
-				137_654_580_386_993,
-				5_000_000_000,
-			)));
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PDOT),
-				(148_989_898_989_898, 338_664_681_397_095)
-			);
-			assert_eq!(
-				Dex::get_liquidity(PUSD, PBTC),
-				(201_010_101_010_102, 5_000_000_000)
-			);
-			assert_eq!(
-				Assets::free_balance(PUSD, &Dex::account_id()),
-				350_000_000_000_000
-			);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 338_664_681_397_095);
-			assert_eq!(Assets::free_balance(PBTC, &Dex::account_id()), 5_000_000_000);
-			assert_eq!(Assets::free_balance(PUSD, &BOB), 1_000_250_000_000_000_000);
-			assert_eq!(Assets::free_balance(PDOT, &BOB), 999_761_335_318_602_905);
-			assert_eq!(Assets::free_balance(PBTC, &BOB), 1_000_000_005_000_000_000);
-		});
-}
-
-#[test]
-fn initialize_added_liquidity_pools_genesis_work() {
-	ExtBuilder::default()
-		.initialize_enabled_trading_pairs()
-		.initialize_added_liquidity_pools(ALICE)
-		.build()
-		.execute_with(|| {
-			System::set_block_number(1);
-
-			assert_eq!(Dex::get_liquidity(PUSD, PDOT), (1000000, 2000000));
-			assert_eq!(Assets::free_balance(PUSD, &Dex::account_id()), 2000000);
-			assert_eq!(Assets::free_balance(PDOT, &Dex::account_id()), 3000000);
-			assert_eq!(
-				Assets::free_balance(PUSDDOTPair::get().dex_share_currency_id(), &ALICE),
-				2000000
-			);
-		});
-}
-*/
