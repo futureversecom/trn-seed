@@ -11,25 +11,25 @@ use precompile_utils::precompile_set::*;
 /// The following distribution has been decided for the precompiles
 /// 0-1023: Ethereum Mainnet Precompiles
 pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
-    R,
-    (
-        // Skip precompiles if out of range.
-        PrecompilesInRangeInclusive<
-            (AddressU64<1>, AddressU64<65535>),
-            (
-                // Ethereum precompiles:
-                // We allow DELEGATECALL to stay compliant with Ethereum behavior.
-                PrecompileAt<AddressU64<1>, ECRecover, ForbidRecursion, AllowDelegateCall>,
-                PrecompileAt<AddressU64<2>, Sha256, ForbidRecursion, AllowDelegateCall>,
-                PrecompileAt<AddressU64<3>, Ripemd160, ForbidRecursion, AllowDelegateCall>,
-                PrecompileAt<AddressU64<4>, Identity, ForbidRecursion, AllowDelegateCall>,
-                PrecompileAt<AddressU64<5>, Modexp, ForbidRecursion, AllowDelegateCall>,
-                PrecompileAt<AddressU64<9>, Blake2F, ForbidRecursion, AllowDelegateCall>,
-                // Non-Futureverse specific nor Ethereum precompiles :
-                PrecompileAt<AddressU64<1024>, Sha3FIPS256>,
-                PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
-                // Futureverse specific precompiles:
-            ),
-        >,
-    ),
+	R,
+	(
+		// Skip precompiles if out of range.
+		PrecompilesInRangeInclusive<
+			(AddressU64<1>, AddressU64<65535>),
+			(
+				// Ethereum precompiles:
+				// We allow DELEGATECALL to stay compliant with Ethereum behavior.
+				PrecompileAt<AddressU64<1>, ECRecover, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<2>, Sha256, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<3>, Ripemd160, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<4>, Identity, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<5>, Modexp, ForbidRecursion, AllowDelegateCall>,
+				PrecompileAt<AddressU64<9>, Blake2F, ForbidRecursion, AllowDelegateCall>,
+				// Non-Futureverse specific nor Ethereum precompiles :
+				PrecompileAt<AddressU64<1024>, Sha3FIPS256>,
+				PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
+				// Futureverse specific precompiles:
+			),
+		>,
+	),
 >;
