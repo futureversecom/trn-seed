@@ -265,10 +265,12 @@ parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000);	// 0.3%
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXPalletId: PalletId = PalletId(*b"root/dex");
+	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
 }
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
 	type DEXPalletId = DEXPalletId;
+	type DEXBurnPalletId = DEXBurnPalletId;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type WeightInfo = pallet_dex::weights::PlugWeight<Runtime>;
@@ -831,8 +833,9 @@ impl fp_self_contained::SelfContainedCall for Call {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			Call::Ethereum(ref call) =>
-				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
+			Call::Ethereum(ref call) => {
+				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))
+			},
 			_ => None,
 		}
 	}
@@ -844,8 +847,9 @@ impl fp_self_contained::SelfContainedCall for Call {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			Call::Ethereum(call) =>
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			Call::Ethereum(call) => {
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}

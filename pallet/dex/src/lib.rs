@@ -6,7 +6,6 @@
 pub use pallet::*;
 
 use frame_support::{
-	log,
 	pallet_prelude::*,
 	traits::fungibles::{self, Inspect, Mutate, Transfer},
 	transactional, PalletId,
@@ -17,16 +16,15 @@ use root_primitives::{AssetId, Balance};
 use scale_info::TypeInfo;
 use sp_core::U256;
 use sp_runtime::{
-	traits::{AccountIdConversion, UniqueSaturatedInto, Zero},
-	DispatchError, DispatchResult, FixedPointNumber, FixedU128, RuntimeDebug, SaturatedConversion,
+	traits::{AccountIdConversion, Zero},
+	ArithmeticError, DispatchError, DispatchResult, FixedU128, RuntimeDebug, SaturatedConversion,
 };
-
-use sp_std::{convert::TryInto, prelude::*, vec};
+use sp_std::{cmp::min, convert::TryInto, prelude::*, vec};
 
 mod mock;
 mod tests;
 mod types;
-use types::TradingPair;
+use types::{SafeMath, TradingPair};
 pub mod weights;
 pub use weights::WeightInfo;
 pub type Price = FixedU128;
@@ -34,34 +32,18 @@ pub type ExchangeRate = FixedU128;
 pub type Ratio = FixedU128;
 pub type Rate = FixedU128;
 
-/// Parameters of TradingPair in Provisioning status
-#[derive(Encode, Decode, Clone, Copy, RuntimeDebug, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-pub struct TradingPairProvisionParameters<Balance, BlockNumber> {
-	/// limit contribution per time.
-	min_contribution: (Balance, Balance),
-	/// target provision that trading pair could to be Enabled.
-	target_provision: (Balance, Balance),
-	/// accumulated provision amount for this Provisioning trading pair.
-	accumulated_provision: (Balance, Balance),
-	/// The number of block that status can be converted to Enabled.
-	not_before: BlockNumber,
-}
-
 /// Status for TradingPair
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-pub enum TradingPairStatus<Balance, BlockNumber> {
+pub enum TradingPairStatus {
 	/// Default status,
 	/// can withdraw liquidity, re-enable and list this trading pair.
 	NotEnabled,
-	/// TradingPair is Provisioning,
-	/// can add provision and disable this trading pair.
-	Provisioning(TradingPairProvisionParameters<Balance, BlockNumber>),
 	/// TradingPair is Enabled,
 	/// can add/remove liquidity, trading and disable this trading pair.
 	Enabled,
 }
 
-impl<Balance, BlockNumber> Default for TradingPairStatus<Balance, BlockNumber> {
+impl Default for TradingPairStatus {
 	fn default() -> Self {
 		Self::NotEnabled
 	}
@@ -72,8 +54,6 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	// pub trait Config: frame_system::Config + plug_utils::Config { // TODO verify this is not
-	// needed
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Trading fee rate
@@ -92,6 +72,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type DEXPalletId: Get<PalletId>;
 
+		/// The DEX's burn id, to provide for a redundant, unredeemable minter/burner address.
+		#[pallet::constant]
+		type DEXBurnPalletId: Get<PalletId>;
+
 		/// Weight information for the extrinsic call in this module.
 		type WeightInfo: WeightInfo;
 
@@ -104,20 +88,34 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Trading pair is in NotEnabled status
-		NotEnabledTradingPair,
 		/// Trading pair must be in Enabled status
 		MustBeEnabled,
-		/// Trading pair must be in Provisioning status
-		MustBeProvisioning,
 		/// Trading pair must be in NotEnabled status
 		MustBeNotEnabled,
-		/// This trading pair is not allowed to be listed
-		NotAllowedList,
-		/// The increment of provision is invalid
-		InvalidContributionIncrement,
+		/// Insufficient input amount
+		InsufficientInputAmount,
+		/// Must provide non-zero amount of liquidity
+		InvalidInputAmounts,
+		/// Insufficent amount
+		InsufficientAmount,
+		/// Insufficient asset_a liquidity amount
+		InsufficientAmountA,
+		/// Insufficient asset_b liquidity amount
+		InsufficientAmountB,
+		/// Insufficient liquidity burnt
+		InsufficientLiquidityBurnt,
+		/// Insufficient withdraw amount for token A
+		InsufficientWithdrawnAmountA,
+		/// Insufficient withdraw amount for token B
+		InsufficientWithdrawnAmountB,
+		/// Insufficient output amount
+		InsufficientOutputAmount,
 		/// The increment of liquidity is invalid
 		InvalidLiquidityIncrement,
+		/// Invalid constant product K
+		InvalidConstantProduct,
+		// Identical token address
+		IdenticalTokenAddress,
 		/// Invalid Asset id
 		InvalidAssetId,
 		/// Invalid trading path length
@@ -126,8 +124,6 @@ pub mod pallet {
 		InsufficientTargetAmount,
 		/// Supply amount is more than max_supply_amount
 		ExcessiveSupplyAmount,
-		/// The swap will cause unacceptable price impact
-		ExceedPriceImpactLimit,
 		/// Liquidity is not enough
 		InsufficientLiquidity,
 		/// The supply amount is zero
@@ -136,10 +132,6 @@ pub mod pallet {
 		ZeroTargetAmount,
 		/// The share increment is unacceptable
 		UnacceptableShareIncrement,
-		/// The liquidity withdrawn is unacceptable
-		UnacceptableLiquidityWithdrawn,
-		/// The swap dosen't meet the invariant check
-		InvariantCheckFailed,
 		/// The Liquidity Provider token does not exist
 		LiquidityProviderTokenNotCreated,
 	}
@@ -150,11 +142,11 @@ pub mod pallet {
 		/// add provision success \[who, asset_id_0, contribution_0,
 		/// asset_id_1, contribution_1\]
 		AddProvision(T::AccountId, AssetId, Balance, AssetId, Balance),
-		/// Add liquidity success. \[who, asset_id_0, pool_0_increment,
-		/// asset_id_1, pool_1_increment, share_increment\]
+		/// Add liquidity success. \[who, asset_id_0, reserve_0_increment,
+		/// asset_id_1, reserve_1_increment, share_increment\]
 		AddLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance),
 		/// Remove liquidity from the trading pool success. \[who,
-		/// asset_id_0, pool_0_decrement, asset_id_1, pool_1_decrement,
+		/// asset_id_0, reserve_0_decrement, asset_id_1, reserve_1_decrement,
 		/// share_decrement\]
 		RemoveLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance),
 		/// Use supply Asset to swap target Asset. \[trader, trading_path,
@@ -162,8 +154,6 @@ pub mod pallet {
 		Swap(T::AccountId, Vec<AssetId>, Balance, Balance),
 		/// Enable trading pair. \[trading_pair\]
 		EnableTradingPair(TradingPair),
-		/// List trading pair. \[trading_pair\]
-		ListTradingPair(TradingPair),
 		/// Disable trading pair. \[trading_pair\]
 		DisableTradingPair(TradingPair),
 		/// Provisioning trading pair convert to Enabled. \[trading_pair,
@@ -183,25 +173,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn trading_pair_statuses)]
-	pub type TradingPairStatuses<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		TradingPair,
-		TradingPairStatus<Balance, T::BlockNumber>,
-		ValueQuery,
-	>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn provisioning_pool)]
-	pub type ProvisioningPool<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		TradingPair,
-		Twox64Concat,
-		T::AccountId,
-		(Balance, Balance),
-		ValueQuery,
-	>;
+	pub type TradingPairStatuses<T: Config> =
+		StorageMap<_, Twox64Concat, TradingPair, TradingPairStatus, ValueQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -211,44 +184,43 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		/// Trading with DEX, swap with exact supply amount. Specify your input; retrieve variable
+		/// output.
+		/// - note: analogous to Uniswapv2 `swapExactTokensForTokens`
 		///
 		/// - `path`: trading path.
-		/// - `supply_amount`: exact supply amount.
-		/// - `min_target_amount`: acceptable minimum target amount.
+		/// - `amount_in`: exact supply amount.
+		/// - `amount_out_min`: acceptable minimum target amount.
 		#[pallet::weight(<T as Config>::WeightInfo::swap_with_exact_supply(path.len() as u32))]
 		#[transactional]
 		pub fn swap_with_exact_supply(
 			origin: OriginFor<T>,
+			#[pallet::compact] amount_in: Balance,
+			#[pallet::compact] amount_out_min: Balance,
 			path: Vec<AssetId>,
-			#[pallet::compact] supply_amount: Balance,
-			#[pallet::compact] min_target_amount: Balance,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			let _ = Self::do_swap_with_exact_supply(
-				&who,
-				&path,
-				supply_amount,
-				min_target_amount,
-				None,
-			)?;
+			Self::do_swap_with_exact_supply(&who, amount_in, amount_out_min, &path)?;
 			Ok(().into())
 		}
 
-		/// Trading with DEX, swap with exact target amount
+		/// Trading with DEX, swap with exact target amount. Specify your output; supply variable
+		/// input.
+		/// - note: analogous to Uniswapv2 `swapTokensForExactTokens`
 		///
+		/// - `amount_out`: exact target amount.
+		/// - `amount_in_max`: acceptable maximum supply amount.
 		/// - `path`: trading path.
-		/// - `target_amount`: exact target amount.
-		/// - `max_supply_amount`: acceptable maximum supply amount.
 		#[pallet::weight(<T as Config>::WeightInfo::swap_with_exact_target(path.len() as u32))]
 		#[transactional]
 		pub fn swap_with_exact_target(
 			origin: OriginFor<T>,
+			#[pallet::compact] amount_out: Balance,
+			#[pallet::compact] amount_in_max: Balance,
 			path: Vec<AssetId>,
-			#[pallet::compact] target_amount: Balance,
-			#[pallet::compact] max_supply_amount: Balance,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_swap_with_exact_target(&who, &path, target_amount, max_supply_amount, None)?;
+			Self::do_swap_with_exact_target(&who, amount_out, amount_in_max, &path)?;
 			Ok(().into())
 		}
 
@@ -259,68 +231,74 @@ pub mod pallet {
 		/// assets in liquidity pool.
 		/// - Add provision success will record the provision, issue shares to caller in the initial
 		///   price when trading pair convert to Enabled.
+		/// - Creates and enables TradingPair LP token if it does not exist for trading pair.
+		/// - Fails to add liquidity for `NotEnabled` trading pair.
 		///
 		/// - `asset_id_a`: Asset id A.
 		/// - `asset_id_b`: Asset id B.
-		/// - `max_amount_a`: maximum Asset A amount allowed to inject to liquidity pool.
-		/// - `max_amount_b`: maximum Asset A amount allowed to inject to liquidity pool.
+		/// - `amount_a_desired`: amount a desired to add.
+		/// - `amount_b_desired`: amount b desired to add.
+		/// - `amount_a_min`: amount a minimum willing to add.
+		/// - `amount_b_min`: amount b minimum willing to add.
+		/// - `min_share_increment`: minimum expected lp token shares to be recieved.
 		#[pallet::weight(<T as Config>::WeightInfo::add_liquidity())]
 		#[transactional]
 		pub fn add_liquidity(
 			origin: OriginFor<T>,
 			asset_id_a: AssetId,
 			asset_id_b: AssetId,
-			#[pallet::compact] max_amount_a: Balance,
-			#[pallet::compact] max_amount_b: Balance,
-			#[pallet::compact] min_share_increment: Balance,
+			#[pallet::compact] amount_a_desired: Balance,
+			#[pallet::compact] amount_b_desired: Balance,
+			#[pallet::compact] amount_a_min: Balance,
+			#[pallet::compact] amount_b_min: Balance,
+			#[pallet::compact] min_share_increment: Balance, /* TODO: may not need this (not
+			                                                  * used in uniswapv2) */
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+
+			ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
+			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
+
 			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
-			let lp_token_id = Self::lp_token_id(&trading_pair);
 
-			// check whether token exists (must have allocated, non-zero ID)
-			ensure!(lp_token_id.is_some(), Error::<T>::LiquidityProviderTokenNotCreated);
+			// create trading pair if non-existent
+			if Self::lp_token_id(&trading_pair).is_none() {
+				// create a new token and return the asset id
+				let lp_asset_id = T::MultiCurrency::create(Self::account_id())?;
+				TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
+				TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
+			}
 
-			let lp_token_id = lp_token_id.unwrap();
-
-			// check if lp token liquidity exists by looking at non-zero supply
-			ensure!(
-				!T::MultiCurrency::total_issuance(lp_token_id).is_zero(),
-				Error::<T>::LiquidityProviderTokenNotCreated
-			);
-
-			match Self::trading_pair_statuses(trading_pair) {
-				TradingPairStatus::<_, _>::Enabled => Self::do_add_liquidity(
-					&who,
-					asset_id_a,
-					asset_id_b,
-					max_amount_a,
-					max_amount_b,
-					min_share_increment,
-				),
-				TradingPairStatus::<_, _>::Provisioning(_) =>
-					Self::do_add_provision(&who, asset_id_a, asset_id_b, max_amount_a, max_amount_b)
-						.map(|_| Self::convert_to_enabled_if_possible(trading_pair)),
-				TradingPairStatus::<_, _>::NotEnabled =>
-					Err(Error::<T>::NotEnabledTradingPair.into()),
-			}?;
+			Self::do_add_liquidity(
+				&who,
+				asset_id_a,
+				asset_id_b,
+				amount_a_desired,
+				amount_b_desired,
+				amount_a_min,
+				amount_b_min,
+				min_share_increment,
+			)?;
 			Ok(().into())
 		}
 
 		/// Remove liquidity from specific liquidity pool in the form of burning
 		/// shares, and withdrawing currencies in trading pairs from liquidity
 		/// pool in proportion, and withdraw liquidity incentive interest.
+		/// - note: liquidity can still be withdrawn for `NotEnabled` trading pairs.
 		///
 		/// - `asset_id_a`: Asset id A.
 		/// - `asset_id_b`: Asset id B.
-		/// - `remove_share`: liquidity amount to remove.
+		/// - `remove_liquidity`: liquidity amount to remove.
+		/// - `min_withdrawn_a`: minimum amount of asset A to be withdrawn from LP token.
+		/// - `min_withdrawn_b`: minimum amount of asset B to be withdrawn from LP token.
 		#[pallet::weight(<T as Config>::WeightInfo::remove_liquidity())]
 		#[transactional]
 		pub fn remove_liquidity(
 			origin: OriginFor<T>,
 			asset_id_a: AssetId,
 			asset_id_b: AssetId,
-			#[pallet::compact] remove_share: Balance,
+			#[pallet::compact] remove_liquidity: Balance,
 			#[pallet::compact] min_withdrawn_a: Balance,
 			#[pallet::compact] min_withdrawn_b: Balance,
 		) -> DispatchResultWithPostInfo {
@@ -329,74 +307,22 @@ pub mod pallet {
 				&who,
 				asset_id_a,
 				asset_id_b,
-				remove_share,
+				remove_liquidity,
 				min_withdrawn_a,
 				min_withdrawn_b,
 			)?;
 			Ok(().into())
 		}
 
-		/// List a new trading pair, trading pair will become Enabled status
-		/// after provision process.
-		#[pallet::weight((<T as Config>::WeightInfo::list_trading_pair(), DispatchClass::Operational))]
+		/// Re enable a `NotEnabled` trading pair.
+		/// - Requires LP token to be created and in the `NotEnabled` status
+		/// - Only root can enable a disabled trading pair
+		///
+		/// - `asset_id_a`: Asset id A.
+		/// - `asset_id_b`: Asset id B.
+		#[pallet::weight((<T as Config>::WeightInfo::reenable_trading_pair(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn list_trading_pair(
-			origin: OriginFor<T>,
-			asset_id_a: AssetId,
-			asset_id_b: AssetId,
-			min_contribution_a: Balance,
-			min_contribution_b: Balance,
-			target_provision_a: Balance,
-			target_provision_b: Balance,
-			not_before: T::BlockNumber,
-		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
-
-			ensure!(asset_id_a != asset_id_b, Error::<T>::NotAllowedList);
-
-			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
-
-			let dex_share_asset_id = Self::lp_token_id(&trading_pair).unwrap_or({
-				// create a new token and return the asset id
-				let lp_asset_id = T::MultiCurrency::create(Self::account_id())?;
-				TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
-				lp_asset_id
-			});
-
-			ensure!(
-				matches!(
-					Self::trading_pair_statuses(trading_pair),
-					TradingPairStatus::<_, _>::NotEnabled
-				),
-				Error::<T>::MustBeNotEnabled
-			);
-			ensure!(
-				T::MultiCurrency::total_issuance(dex_share_asset_id).is_zero(),
-				Error::<T>::NotAllowedList
-			);
-
-			let (min_contribution, target_provision) = if asset_id_a == trading_pair.0 {
-				((min_contribution_a, min_contribution_b), (target_provision_a, target_provision_b))
-			} else {
-				((min_contribution_b, min_contribution_a), (target_provision_b, target_provision_a))
-			};
-
-			TradingPairStatuses::<T>::insert(
-				trading_pair,
-				TradingPairStatus::Provisioning(TradingPairProvisionParameters {
-					min_contribution,
-					target_provision,
-					accumulated_provision: Default::default(),
-					not_before,
-				}),
-			);
-			Self::deposit_event(Event::ListTradingPair(trading_pair));
-			Ok(().into())
-		}
-
-		#[pallet::weight((<T as Config>::WeightInfo::enable_trading_pair(), DispatchClass::Operational))]
-		#[transactional]
-		pub fn enable_trading_pair(
+		pub fn reenable_trading_pair(
 			origin: OriginFor<T>,
 			asset_id_a: AssetId,
 			asset_id_b: AssetId,
@@ -410,19 +336,23 @@ pub mod pallet {
 				Error::<T>::LiquidityProviderTokenNotCreated
 			);
 
-			ensure!(
-				matches!(
-					Self::trading_pair_statuses(trading_pair),
-					TradingPairStatus::<_, _>::NotEnabled
-				),
-				Error::<T>::MustBeNotEnabled
-			);
-
-			TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
-			Self::deposit_event(Event::EnableTradingPair(trading_pair));
+			match Self::trading_pair_statuses(&trading_pair) {
+				TradingPairStatus::Enabled => return Err(Error::<T>::MustBeNotEnabled.into()),
+				// will enabled Disabled trading_pair
+				TradingPairStatus::NotEnabled => {
+					TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
+					Self::deposit_event(Event::EnableTradingPair(trading_pair));
+				},
+			};
 			Ok(().into())
 		}
 
+		/// Disable an `Enabled` trading pair.
+		/// - Requires LP token to be created and in the `Enabled` status
+		/// - Only root can disable trading pair
+		///
+		/// - `asset_id_a`: Asset id A.
+		/// - `asset_id_b`: Asset id B.
 		#[pallet::weight((<T as Config>::WeightInfo::disable_trading_pair(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn disable_trading_pair(
@@ -431,44 +361,21 @@ pub mod pallet {
 			asset_id_b: AssetId,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
+
 			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 
-			match Self::trading_pair_statuses(trading_pair) {
+			ensure!(
+				Self::lp_token_id(&trading_pair).is_some(),
+				Error::<T>::LiquidityProviderTokenNotCreated
+			);
+
+			match Self::trading_pair_statuses(&trading_pair) {
 				// will disable Enabled trading_pair
-				TradingPairStatus::<_, _>::Enabled => {
+				TradingPairStatus::Enabled => {
 					TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::NotEnabled);
 					Self::deposit_event(Event::DisableTradingPair(trading_pair));
 				},
-				// will disable Provisioning trading_pair
-				TradingPairStatus::<_, _>::Provisioning(_) => {
-					let module_account_id = Self::account_id();
-
-					// refund provision
-					for (who, contribution) in ProvisioningPool::<T>::drain_prefix(trading_pair) {
-						T::MultiCurrency::transfer(
-							trading_pair.0,
-							&module_account_id,
-							&who,
-							contribution.0,
-							false,
-						)?;
-						T::MultiCurrency::transfer(
-							trading_pair.1,
-							&module_account_id,
-							&who,
-							contribution.1,
-							false,
-						)?;
-
-						// decrease ref count
-						frame_system::Pallet::<T>::dec_consumers(&who);
-					}
-
-					TradingPairStatuses::<T>::remove(trading_pair);
-					Self::deposit_event(Event::DisableTradingPair(trading_pair));
-				},
-				TradingPairStatus::<_, _>::NotEnabled =>
-					return Err(Error::<T>::NotEnabledTradingPair.into()),
+				TradingPairStatus::NotEnabled => return Err(Error::<T>::MustBeEnabled.into()),
 			};
 			Ok(().into())
 		}
@@ -480,280 +387,162 @@ impl<T: Config> Pallet<T> {
 		T::DEXPalletId::get().into_account_truncating()
 	}
 
-	/// Access status of specific trading_pair,
-	/// if status is Provisioning and able to be `Enabled`, update it and
-	/// return `Enabled`
-	fn convert_to_enabled_if_possible(trading_pair: TradingPair) {
-		if let TradingPairStatus::<_, _>::Provisioning(provision_parameters) =
-			Self::trading_pair_statuses(trading_pair)
-		{
-			// check if able to be converted to Enable status
-			if frame_system::Pallet::<T>::block_number() >= provision_parameters.not_before &&
-				!provision_parameters.accumulated_provision.0.is_zero() &&
-				!provision_parameters.accumulated_provision.1.is_zero() &&
-				(provision_parameters.accumulated_provision.0 >=
-					provision_parameters.target_provision.0 ||
-					provision_parameters.accumulated_provision.1 >=
-						provision_parameters.target_provision.1)
-			{
-				let lp_share_asset_id = Self::lp_token_id(trading_pair)
-					.expect("lp_token_id must be Some if TradingPairStatus is Provisioning");
-
-				let mut total_shares_issued: Balance = Default::default();
-				for (who, contribution) in ProvisioningPool::<T>::drain_prefix(trading_pair) {
-					let share_amount = if provision_parameters.accumulated_provision.0 >
-						provision_parameters.accumulated_provision.1
-					{
-						let initial_price_1_in_0: Price = Price::checked_from_rational(
-							provision_parameters.accumulated_provision.0,
-							provision_parameters.accumulated_provision.1,
-						)
-						.unwrap_or_default();
-						initial_price_1_in_0
-							.saturating_mul_int(contribution.1)
-							.saturating_add(contribution.0)
-					} else {
-						let initial_price_0_in_1: Price = Price::checked_from_rational(
-							provision_parameters.accumulated_provision.1,
-							provision_parameters.accumulated_provision.0,
-						)
-						.unwrap_or_default();
-						initial_price_0_in_1
-							.saturating_mul_int(contribution.0)
-							.saturating_add(contribution.1)
-					};
-
-					// issue shares to contributor
-					let res = T::MultiCurrency::mint_into(lp_share_asset_id, &who, share_amount);
-					match res {
-						Ok(_) => {
-							total_shares_issued = total_shares_issued.saturating_add(share_amount);
-						},
-						Err(e) => {
-							log::warn!(
-								target: "dex",
-								"deposit: failed to deposit {:?} {:?} to {:?}: {:?}. \
-								This is unexpected but should be safe",
-								share_amount, lp_share_asset_id, who.clone(), e
-							);
-						},
-					}
-
-					// decrease ref count
-					frame_system::Pallet::<T>::dec_consumers(&who);
-				}
-
-				// inject provision to liquidity pool
-				LiquidityPool::<T>::mutate(trading_pair, |(pool_0, pool_1)| {
-					*pool_0 = pool_0.saturating_add(provision_parameters.accumulated_provision.0);
-					*pool_1 = pool_1.saturating_add(provision_parameters.accumulated_provision.1);
-				});
-
-				// update trading_pair to Enabled status
-				TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::<_, _>::Enabled);
-
-				Self::deposit_event(Event::ProvisioningToEnabled(
-					trading_pair,
-					provision_parameters.accumulated_provision.0,
-					provision_parameters.accumulated_provision.1,
-					total_shares_issued,
-				));
-			}
-		}
-	}
-
-	/// Add provision to Provisioning TradingPair
-	fn do_add_provision(
-		who: &T::AccountId,
-		asset_id_a: AssetId,
-		asset_id_b: AssetId,
-		contribution_a: Balance,
-		contribution_b: Balance,
-	) -> DispatchResult {
-		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
-		let mut provision_parameters = match Self::trading_pair_statuses(trading_pair) {
-			TradingPairStatus::<_, _>::Provisioning(provision_parameters) => provision_parameters,
-			_ => return Err(Error::<T>::MustBeProvisioning.into()),
-		};
-		let (contribution_0, contribution_1) = if asset_id_a == trading_pair.0 {
-			(contribution_a, contribution_b)
-		} else {
-			(contribution_b, contribution_a)
-		};
-
-		ensure!(
-			contribution_0 >= provision_parameters.min_contribution.0 ||
-				contribution_1 >= provision_parameters.min_contribution.1,
-			Error::<T>::InvalidContributionIncrement
-		);
-
-		ProvisioningPool::<T>::try_mutate_exists(
-			trading_pair,
-			&who,
-			|maybe_pool| -> DispatchResult {
-				let existed = maybe_pool.is_some();
-				let mut pool = maybe_pool.unwrap_or_default();
-				pool.0 = pool.0.saturating_add(contribution_0);
-				pool.1 = pool.1.saturating_add(contribution_1);
-
-				let module_account_id = Self::account_id();
-				T::MultiCurrency::transfer(
-					trading_pair.0,
-					&who,
-					&module_account_id,
-					contribution_0,
-					false,
-				)?;
-				T::MultiCurrency::transfer(
-					trading_pair.1,
-					&who,
-					&module_account_id,
-					contribution_1,
-					false,
-				)?;
-
-				*maybe_pool = Some(pool);
-
-				if !existed && maybe_pool.is_some() {
-					if frame_system::Pallet::<T>::inc_consumers(&who).is_err() {
-						// No providers for the locks. This is impossible under normal circumstances
-						// since the funds that are under the lock will themselves be stored in the
-						// account and therefore will need a reference.
-						log::warn!(
-            "Warning: Attempt to introduce lock consumer reference, yet no providers. \
-						This is unexpected but should be safe."
-          );
-					}
-				}
-
-				provision_parameters.accumulated_provision.0 =
-					provision_parameters.accumulated_provision.0.saturating_add(contribution_0);
-				provision_parameters.accumulated_provision.1 =
-					provision_parameters.accumulated_provision.1.saturating_add(contribution_1);
-
-				TradingPairStatuses::<T>::insert(
-					trading_pair,
-					TradingPairStatus::<_, _>::Provisioning(provision_parameters),
-				);
-
-				Self::deposit_event(Event::AddProvision(
-					who.clone(),
-					trading_pair.0,
-					contribution_0,
-					trading_pair.1,
-					contribution_1,
-				));
-				Ok(())
-			},
-		)
+	pub fn burn_account_id() -> T::AccountId {
+		T::DEXBurnPalletId::get().into_account_truncating()
 	}
 
 	fn do_add_liquidity(
 		who: &T::AccountId,
 		asset_id_a: AssetId,
 		asset_id_b: AssetId,
-		max_amount_a: Balance,
-		max_amount_b: Balance,
+		amount_a_desired: Balance,
+		amount_b_desired: Balance,
+		amount_a_min: Balance,
+		amount_b_min: Balance,
 		min_share_increment: Balance,
 	) -> DispatchResult {
+		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
+
 		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 		let lp_share_asset_id =
 			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
 
 		ensure!(
-			matches!(Self::trading_pair_statuses(trading_pair), TradingPairStatus::<_, _>::Enabled),
+			matches!(Self::trading_pair_statuses(&trading_pair), TradingPairStatus::Enabled),
 			Error::<T>::MustBeEnabled,
 		);
 
-		LiquidityPool::<T>::try_mutate(trading_pair, |(pool_0, pool_1)| -> DispatchResult {
-			let total_shares = T::MultiCurrency::total_issuance(lp_share_asset_id);
-			let (max_amount_0, max_amount_1) = if asset_id_a == trading_pair.0 {
-				(max_amount_a, max_amount_b)
+		// match trading-pair to inputs - to match reserves in liquidity pool
+		let (
+			asset_id_a,
+			asset_id_b,
+			amount_a_desired,
+			amount_b_desired,
+			amount_a_min,
+			amount_b_min,
+		) = if asset_id_a == trading_pair.0 {
+			(
+				asset_id_a,
+				asset_id_b,
+				U256::from(amount_a_desired),
+				U256::from(amount_b_desired),
+				U256::from(amount_a_min),
+				U256::from(amount_b_min),
+			)
+		} else {
+			(
+				asset_id_b,
+				asset_id_a,
+				U256::from(amount_b_desired),
+				U256::from(amount_a_desired),
+				U256::from(amount_b_min),
+				U256::from(amount_a_min),
+			)
+		};
+
+		let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
+
+		// _addLiquidity func in uniswap-v2-router
+		let (amount_a, amount_b) = if reserve_a.is_zero() && reserve_b.is_zero() {
+			(amount_a_desired, amount_b_desired)
+		} else {
+			// let amount_b_optimal = UniswapV2Library.quote(amountADesired, reserveA,
+			// reserveB);
+			ensure!(amount_a_desired.gt(&U256::zero()), Error::<T>::InsufficientAmount);
+			ensure!(reserve_a > 0_u128 && reserve_b > 0_u128, Error::<T>::InsufficientLiquidity);
+			let amount_b_optimal =
+				amount_a_desired.mul(U256::from(reserve_b))?.div(U256::from(reserve_a))?;
+
+			if amount_b_optimal <= amount_b_desired {
+				ensure!(amount_b_optimal >= amount_b_min, Error::<T>::InsufficientAmountB);
+				(amount_a_desired, amount_b_optimal)
 			} else {
-				(max_amount_b, max_amount_a)
-			};
-			let (pool_0_increment, pool_1_increment, share_increment): (Balance, Balance, Balance) =
-				if total_shares.is_zero() {
-					let share_amount = if max_amount_0 > max_amount_1 {
-						let initial_price_1_in_0: Price =
-							Price::checked_from_rational(max_amount_0, max_amount_1)
-								.unwrap_or_default();
-						initial_price_1_in_0
-							.saturating_mul_int(max_amount_1)
-							.saturating_add(max_amount_0)
-					} else {
-						let initial_price_0_in_1: Price =
-							Price::checked_from_rational(max_amount_1, max_amount_0)
-								.unwrap_or_default();
-						initial_price_0_in_1
-							.saturating_mul_int(max_amount_0)
-							.saturating_add(max_amount_1)
-					};
+				// uint256 amountAOptimal = UniswapV2Library.quote(amountBDesired, reserveB,
+				// reserveA);
+				ensure!(amount_b_desired.gt(&U256::zero()), Error::<T>::InsufficientAmount);
+				ensure!(
+					reserve_a > 0_u128 && reserve_b > 0_u128,
+					Error::<T>::InsufficientLiquidity
+				);
+				let amount_a_optimal =
+					amount_a_desired.mul(U256::from(reserve_a))?.div(U256::from(reserve_b))?;
+				ensure!(amount_a_optimal <= amount_a_desired, Error::<T>::InsufficientAmount); // TODO - verify assert
+				ensure!(amount_a_optimal >= amount_a_min, Error::<T>::InsufficientAmountA);
+				(amount_a_optimal, amount_b_desired)
+			}
+		};
 
-					(max_amount_0, max_amount_1, share_amount)
-				} else {
-					let price_0_1 =
-						Price::checked_from_rational(*pool_1, *pool_0).unwrap_or_default();
-					let input_price_0_1 = Price::checked_from_rational(max_amount_1, max_amount_0)
-						.unwrap_or_default();
+		let module_account_id = Self::account_id();
+		T::MultiCurrency::transfer(
+			asset_id_a,
+			who,
+			&module_account_id,
+			amount_a.saturated_into(),
+			false,
+		)?;
+		T::MultiCurrency::transfer(
+			asset_id_b,
+			who,
+			&module_account_id,
+			amount_b.saturated_into(),
+			false,
+		)?;
 
-					if input_price_0_1 <= price_0_1 {
-						// max_amount_0 may be too much, calculate the actual amount_0
-						let price_1_0 =
-							Price::checked_from_rational(*pool_0, *pool_1).unwrap_or_default();
-						let amount_0 = price_1_0.saturating_mul_int(max_amount_1);
-						let share_increment = Ratio::checked_from_rational(amount_0, *pool_0)
-							.and_then(|n| n.checked_mul_int(total_shares))
-							.unwrap_or_default();
-						(amount_0, max_amount_1, share_increment)
-					} else {
-						// max_amount_1 is too much, calculate the actual amount_1
-						let amount_1 = price_0_1.saturating_mul_int(max_amount_0);
-						let share_increment = Ratio::checked_from_rational(amount_1, *pool_1)
-							.and_then(|n| n.checked_mul_int(total_shares))
-							.unwrap_or_default();
-						(max_amount_0, amount_1, share_increment)
-					}
-				};
+		let balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
+		let balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
+		let amount_0 = balance_0.sub(reserve_a)?;
+		let amount_1 = balance_1.sub(reserve_b)?;
 
-			ensure!(
-				!share_increment.is_zero() &&
-					!pool_0_increment.is_zero() &&
-					!pool_1_increment.is_zero(),
-				Error::<T>::InvalidLiquidityIncrement,
-			);
-			ensure!(share_increment >= min_share_increment, Error::<T>::UnacceptableShareIncrement);
+		let total_supply = U256::from(T::MultiCurrency::total_issuance(lp_share_asset_id));
 
-			let module_account_id = Self::account_id();
-			T::MultiCurrency::transfer(
-				trading_pair.0,
-				who,
-				&module_account_id,
-				pool_0_increment,
-				false,
+		let liquidity: Balance = if total_supply.is_zero() {
+			// liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
+			let liquidity = (U256::from(amount_0).mul(U256::from(amount_1)))?
+				.integer_sqrt()
+				.sub(U256::from(MINIMUM_LIQUIDITY_AMOUNT))?
+				.saturated_into();
+			// mint 0 address MINIMUM_LIQUIDITY_AMOUNT - required to increase total issuance
+			T::MultiCurrency::mint_into(
+				lp_share_asset_id,
+				&Self::burn_account_id(),
+				MINIMUM_LIQUIDITY_AMOUNT,
 			)?;
-			T::MultiCurrency::transfer(
-				trading_pair.1,
-				who,
-				&module_account_id,
-				pool_1_increment,
-				false,
-			)?;
-			T::MultiCurrency::mint_into(lp_share_asset_id, who, share_increment)?;
+			liquidity
+		} else {
+			// liquidity = Math.min(amount0.mul(_totalSupply) / _reserve0,
+			// amount1.mul(_totalSupply) / _reserve1);
+			min(
+				U256::from(amount_0).mul(U256::from(total_supply))?.div(U256::from(reserve_a))?,
+				U256::from(amount_1).mul(U256::from(total_supply))?.div(U256::from(reserve_b))?,
+			)
+			.saturated_into()
+		};
 
-			*pool_0 = pool_0.saturating_add(pool_0_increment);
-			*pool_1 = pool_1.saturating_add(pool_1_increment);
+		ensure!(!liquidity.is_zero(), Error::<T>::InvalidLiquidityIncrement,);
+		ensure!(liquidity >= min_share_increment, Error::<T>::UnacceptableShareIncrement);
 
-			Self::deposit_event(Event::AddLiquidity(
-				who.clone(),
-				trading_pair.0,
-				pool_0_increment,
-				trading_pair.1,
-				pool_1_increment,
-				share_increment,
-			));
-			Ok(())
-		})
+		// mint lp tokens to user
+		T::MultiCurrency::mint_into(lp_share_asset_id, who, liquidity)?;
+
+		let result = LiquidityPool::<T>::try_mutate(
+			trading_pair,
+			|(reserve_a, reserve_b)| -> DispatchResult {
+				// update reserves
+				*reserve_a = balance_0;
+				*reserve_b = balance_1;
+
+				Self::deposit_event(Event::AddLiquidity(
+					who.clone(),
+					trading_pair.0,
+					amount_0,
+					trading_pair.1,
+					amount_1,
+					liquidity,
+				));
+				Ok(())
+			},
+		);
+		result
 	}
 
 	#[transactional]
@@ -761,334 +550,389 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		asset_id_a: AssetId,
 		asset_id_b: AssetId,
-		remove_share: Balance,
+		remove_liquidity: Balance,
 		min_withdrawn_a: Balance,
 		min_withdrawn_b: Balance,
 	) -> DispatchResult {
-		if remove_share.is_zero() {
-			return Ok(())
-		}
 		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 		let lp_share_asset_id =
 			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
 
-		LiquidityPool::<T>::try_mutate(trading_pair, |(pool_0, pool_1)| -> DispatchResult {
-			let (min_withdrawn_0, min_withdrawn_1) = if asset_id_a == trading_pair.0 {
-				(min_withdrawn_a, min_withdrawn_b)
+		ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
+
+		// transfer lp tokens to dex
+		let module_account_id = Self::account_id();
+		T::MultiCurrency::transfer(
+			lp_share_asset_id,
+			&who,
+			&module_account_id,
+			remove_liquidity,
+			false,
+		)?;
+
+		// match trading-pair to inputs - to match reserves in liquidity pool
+		let (asset_id_a, asset_id_b, min_withdrawn_a, min_withdrawn_b) =
+			if asset_id_a == trading_pair.0 {
+				(asset_id_a, asset_id_b, min_withdrawn_a, min_withdrawn_b)
 			} else {
-				(min_withdrawn_b, min_withdrawn_a)
+				(asset_id_b, asset_id_a, min_withdrawn_b, min_withdrawn_a)
 			};
-			let total_shares = T::MultiCurrency::total_issuance(lp_share_asset_id);
-			let proportion =
-				Ratio::checked_from_rational(remove_share, total_shares).unwrap_or_default();
-			let pool_0_decrement = proportion.saturating_mul_int(*pool_0);
-			let pool_1_decrement = proportion.saturating_mul_int(*pool_1);
-			let module_account_id = Self::account_id();
 
-			ensure!(
-				pool_0_decrement >= min_withdrawn_0 && pool_1_decrement >= min_withdrawn_1,
-				Error::<T>::UnacceptableLiquidityWithdrawn,
-			);
+		let mut balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
+		let mut balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
+		let liquidity = T::MultiCurrency::balance(lp_share_asset_id, &module_account_id);
+		let total_supply = T::MultiCurrency::total_issuance(lp_share_asset_id);
 
-			T::MultiCurrency::burn_from(lp_share_asset_id, &who, remove_share)?; // TODO verify owner is correct
-			T::MultiCurrency::transfer(
-				trading_pair.0,
-				&module_account_id,
-				&who,
-				pool_0_decrement,
-				false,
-			)?;
-			T::MultiCurrency::transfer(
-				trading_pair.1,
-				&module_account_id,
-				&who,
-				pool_1_decrement,
-				false,
-			)?;
+		// amount0 = liquidity.mul(balance0) / _totalSupply;
+		let amount_0 = U256::from(liquidity)
+			.mul(U256::from(balance_0))?
+			.div(U256::from(total_supply))?
+			.saturated_into();
 
-			*pool_0 = pool_0.saturating_sub(pool_0_decrement);
-			*pool_1 = pool_1.saturating_sub(pool_1_decrement);
+		// amount1 = liquidity.mul(balance1) / _totalSupply;
+		let amount_1 = U256::from(liquidity)
+			.mul(U256::from(balance_1))?
+			.div(U256::from(total_supply))?
+			.saturated_into();
 
-			Self::deposit_event(Event::RemoveLiquidity(
-				who.clone(),
-				trading_pair.0,
-				pool_0_decrement,
-				trading_pair.1,
-				pool_1_decrement,
-				remove_share,
-			));
-			Ok(())
-		})
+		ensure!(amount_0 > 0 && amount_1 > 0, Error::<T>::InsufficientLiquidityBurnt);
+		ensure!(amount_0 >= min_withdrawn_a, Error::<T>::InsufficientWithdrawnAmountA);
+		ensure!(amount_1 >= min_withdrawn_b, Error::<T>::InsufficientWithdrawnAmountB);
+
+		T::MultiCurrency::burn_from(lp_share_asset_id, &module_account_id, remove_liquidity)?;
+		T::MultiCurrency::transfer(asset_id_a, &module_account_id, who, amount_0, false)?;
+		T::MultiCurrency::transfer(asset_id_b, &module_account_id, who, amount_1, false)?;
+
+		balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
+		balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
+
+		let result = LiquidityPool::<T>::try_mutate(
+			trading_pair,
+			|(reserve_0, reserve_1)| -> DispatchResult {
+				*reserve_0 = balance_0;
+				*reserve_1 = balance_1;
+
+				Self::deposit_event(Event::RemoveLiquidity(
+					who.clone(),
+					trading_pair.0,
+					amount_0,
+					trading_pair.1,
+					amount_1,
+					remove_liquidity,
+				));
+				Ok(())
+			},
+		);
+		result
 	}
 
 	fn get_liquidity(asset_id_a: AssetId, asset_id_b: AssetId) -> (Balance, Balance) {
 		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
-		let (pool_0, pool_1) = Self::liquidity_pool(trading_pair);
+		let (reserve_0, reserve_1) = Self::liquidity_pool(trading_pair);
 		if asset_id_a == trading_pair.0 {
-			(pool_0, pool_1)
+			(reserve_0, reserve_1)
 		} else {
-			(pool_1, pool_0)
+			(reserve_1, reserve_0)
 		}
 	}
 
-	/// Get how much target amount will be got for specific supply amount
-	/// and price impact
-	fn get_target_amount(
-		supply_pool: Balance,
-		target_pool: Balance,
-		supply_amount: Balance,
-	) -> Balance {
-		if supply_amount.is_zero() || supply_pool.is_zero() || target_pool.is_zero() {
-			Zero::zero()
-		} else {
-			let (fee_numerator, fee_denominator) = T::GetExchangeFee::get();
-			let supply_amount_with_fee = supply_amount.saturating_mul(
-				fee_denominator.saturating_sub(fee_numerator).unique_saturated_into(),
-			);
-			let numerator: U256 =
-				U256::from(supply_amount_with_fee).saturating_mul(U256::from(target_pool));
-			let denominator: U256 = U256::from(supply_pool)
-				.saturating_mul(U256::from(fee_denominator))
-				.saturating_add(U256::from(supply_amount_with_fee));
+	/// Given an input amount of an asset and pair reserves, returns the maximum output amount of
+	/// the other asset
+	fn get_amount_out(
+		amount_in: Balance,
+		reserve_in: Balance,
+		reserve_out: Balance,
+	) -> sp_std::result::Result<Balance, DispatchError> {
+		ensure!(amount_in > 0, Error::<T>::InsufficientInputAmount);
+		ensure!(reserve_in > 0 && reserve_out > 0, Error::<T>::InsufficientLiquidity);
 
-			numerator
-				.checked_div(denominator)
-				.and_then(|n| TryInto::<Balance>::try_into(n).ok())
-				.unwrap_or_else(Zero::zero)
-		}
+		// uniswapv2 getAmountOut code ⬇︎
+		// uint256 amountInWithFee = amountIn.mul(997);
+		// uint256 numerator = amountInWithFee.mul(reserveOut);
+		// uint256 denominator = reserveIn.mul(1000).add(amountInWithFee);
+		// amountOut = numerator / denominator;
+
+		let (fee_numerator, fee_denominator) = T::GetExchangeFee::get(); // 3 / 1000 = 0.3%
+
+		let amount_in_with_fee =
+			U256::from(amount_in).mul(U256::from(fee_denominator.sub(fee_numerator)?))?;
+		let numerator = U256::from(amount_in_with_fee).mul(U256::from(reserve_out))?;
+		let denominator = U256::from(reserve_in)
+			.mul(U256::from(fee_denominator))?
+			.add(amount_in_with_fee)?;
+		let amount_out = (numerator.div(denominator)?).saturated_into();
+
+		Ok(amount_out)
 	}
 
 	/// Get how much supply amount will be paid for specific target amount.
-	fn get_supply_amount(
-		supply_pool: Balance,
-		target_pool: Balance,
-		target_amount: Balance,
-	) -> Balance {
-		if target_amount.is_zero() || supply_pool.is_zero() || target_pool.is_zero() {
-			Zero::zero()
-		} else {
-			let (fee_numerator, fee_denominator) = T::GetExchangeFee::get();
-			let numerator: U256 = U256::from(supply_pool)
-				.saturating_mul(U256::from(target_amount))
-				.saturating_mul(U256::from(fee_denominator));
-			let denominator: U256 = U256::from(target_pool)
-				.saturating_sub(U256::from(target_amount))
-				.saturating_mul(U256::from(fee_denominator.saturating_sub(fee_numerator)));
+	fn get_amount_in(
+		amount_out: Balance,
+		reserve_in: Balance,
+		reserve_out: Balance,
+	) -> sp_std::result::Result<Balance, DispatchError> {
+		ensure!(amount_out > 0, Error::<T>::InsufficientInputAmount);
+		ensure!(reserve_in > 0 && reserve_out > 0, Error::<T>::InsufficientLiquidity);
 
-			numerator
-				.checked_div(denominator)
-				.and_then(|r| r.checked_add(U256::one())) // add 1 to result so that correct the possible losses caused by remainder
-				// discarding in
-				.and_then(|n| TryInto::<Balance>::try_into(n).ok())
-				.unwrap_or_else(Zero::zero)
-		}
+		// uint256 numerator = reserveIn.mul(amountOut).mul(1000);
+		// uint256 denominator = reserveOut.sub(amountOut).mul(997);
+		// amountIn = (numerator / denominator).add(1);
+
+		let (fee_numerator, fee_denominator) = T::GetExchangeFee::get(); // 3 / 1000 = 0.3%
+		let numerator = U256::from(reserve_in)
+			.mul(U256::from(amount_out))?
+			.mul(U256::from(fee_denominator))?;
+		let denominator = U256::from(reserve_out)
+			.sub(U256::from(amount_out))?
+			.mul(U256::from(fee_denominator.sub(fee_numerator)?))?;
+		let amount_in = numerator.div(denominator)?.add(U256::from(1u32))?.saturated_into();
+
+		Ok(amount_in)
 	}
 
-	fn get_target_amounts(
+	fn get_amounts_out(
+		amount_in: Balance,
 		path: &[AssetId],
-		supply_amount: Balance,
-		price_impact_limit: Option<Ratio>,
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		let path_length = path.len();
 		ensure!(
 			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
 			Error::<T>::InvalidTradingPathLength
 		);
-		let mut target_amounts: Vec<Balance> = vec![Zero::zero(); path_length];
-		target_amounts[0] = supply_amount;
+		let mut amounts: Vec<Balance> = vec![Zero::zero(); path_length];
+		amounts[0] = amount_in;
 
 		let mut i: usize = 0;
-		while i + 1 < path_length {
+		while i < path_length - 1 {
+			// trading pair in path must be enabled
 			ensure!(
 				matches!(
-					Self::trading_pair_statuses(TradingPair::new(path[i], path[i + 1])),
-					TradingPairStatus::<_, _>::Enabled
+					Self::trading_pair_statuses(&TradingPair::new(path[i], path[i + 1])),
+					TradingPairStatus::Enabled
 				),
 				Error::<T>::MustBeEnabled
 			);
-			let (supply_pool, target_pool) = Self::get_liquidity(path[i], path[i + 1]);
+
+			let (reserve_in, reserve_out) = Self::get_liquidity(path[i], path[i + 1]);
+
+			// might not need this check - as sufficient checks occur when adding/removing liquidity
 			ensure!(
-				!supply_pool.is_zero() && !target_pool.is_zero(),
+				!reserve_in.is_zero() && !reserve_out.is_zero(),
 				Error::<T>::InsufficientLiquidity
 			);
-			let target_amount =
-				Self::get_target_amount(supply_pool, target_pool, target_amounts[i]);
-			ensure!(!target_amount.is_zero(), Error::<T>::ZeroTargetAmount);
 
-			// invariant check to ensure the constant product formulas (k = x * y)
-			let invariant_before_swap: U256 =
-				U256::from(supply_pool).saturating_mul(U256::from(target_pool));
-			let invariant_after_swap: U256 =
-				U256::from(supply_pool.saturating_add(target_amounts[i]))
-					.saturating_mul(U256::from(target_pool.saturating_sub(target_amount)));
-			ensure!(
-				invariant_after_swap >= invariant_before_swap,
-				Error::<T>::InvariantCheckFailed,
-			);
+			let amount_out = Self::get_amount_out(amounts[i], reserve_in, reserve_out)?;
+			ensure!(!amount_out.is_zero(), Error::<T>::ZeroTargetAmount);
+			amounts[i + 1] = amount_out;
 
-			// check price impact if limit exists
-			if let Some(limit) = price_impact_limit {
-				let price_impact = Ratio::checked_from_rational(target_amount, target_pool)
-					.unwrap_or_else(Ratio::zero);
-				ensure!(price_impact <= limit, Error::<T>::ExceedPriceImpactLimit);
-			}
-
-			target_amounts[i + 1] = target_amount;
 			i += 1;
 		}
 
-		Ok(target_amounts)
+		Ok(amounts)
 	}
 
-	fn get_supply_amounts(
+	fn get_amounts_in(
+		amount_out: Balance,
 		path: &[AssetId],
-		target_amount: Balance,
-		price_impact_limit: Option<Ratio>,
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		let path_length = path.len();
 		ensure!(
 			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
 			Error::<T>::InvalidTradingPathLength
 		);
-		let mut supply_amounts: Vec<Balance> = vec![Zero::zero(); path_length];
-		supply_amounts[path_length - 1] = target_amount;
+		let mut amounts: Vec<Balance> = vec![Zero::zero(); path_length];
+		amounts[path_length - 1] = amount_out;
 
 		let mut i: usize = path_length - 1;
 		while i > 0 {
+			// trading pair in path must be enabled
 			ensure!(
 				matches!(
-					Self::trading_pair_statuses(TradingPair::new(path[i - 1], path[i])),
-					TradingPairStatus::<_, _>::Enabled
+					Self::trading_pair_statuses(&TradingPair::new(path[i - 1], path[i])),
+					TradingPairStatus::Enabled
 				),
 				Error::<T>::MustBeEnabled
 			);
-			let (supply_pool, target_pool) = Self::get_liquidity(path[i - 1], path[i]);
+
+			let (reserve_in, reserve_out) = Self::get_liquidity(path[i - 1], path[i]);
+
+			// might not need this check - as sufficient checks occur when adding/removing liquidity
 			ensure!(
-				!supply_pool.is_zero() && !target_pool.is_zero(),
+				!reserve_in.is_zero() && !reserve_out.is_zero(),
 				Error::<T>::InsufficientLiquidity
 			);
-			let supply_amount =
-				Self::get_supply_amount(supply_pool, target_pool, supply_amounts[i]);
-			ensure!(!supply_amount.is_zero(), Error::<T>::ZeroSupplyAmount);
 
-			// invariant check to ensure the constant product formulas (k = x * y)
-			let invariant_before_swap: U256 =
-				U256::from(supply_pool).saturating_mul(U256::from(target_pool));
-			let invariant_after_swap: U256 = U256::from(supply_pool.saturating_add(supply_amount))
-				.saturating_mul(U256::from(target_pool.saturating_sub(supply_amounts[i])));
-			ensure!(
-				invariant_after_swap >= invariant_before_swap,
-				Error::<T>::InvariantCheckFailed,
-			);
+			let amount_in = Self::get_amount_in(amounts[i], reserve_in, reserve_out)?;
+			ensure!(!amount_in.is_zero(), Error::<T>::ZeroSupplyAmount);
+			amounts[i - 1] = amount_in;
 
-			// check price impact if limit exists
-			if let Some(limit) = price_impact_limit {
-				let price_impact = Ratio::checked_from_rational(supply_amounts[i], target_pool)
-					.unwrap_or_else(Ratio::zero);
-				ensure!(price_impact <= limit, Error::<T>::ExceedPriceImpactLimit);
-			};
-
-			supply_amounts[i - 1] = supply_amount;
 			i -= 1;
 		}
 
-		Ok(supply_amounts)
+		Ok(amounts)
 	}
 
-	fn _swap(
-		supply_asset_id: AssetId,
-		target_asset_id: AssetId,
-		supply_increment: Balance,
-		target_decrement: Balance,
-	) {
-		let trading_pair = TradingPair::new(supply_asset_id, target_asset_id);
-		LiquidityPool::<T>::mutate(trading_pair, |(pool_0, pool_1)| {
-			if supply_asset_id == trading_pair.0 {
-				*pool_0 = pool_0.saturating_add(supply_increment);
-				*pool_1 = pool_1.saturating_sub(target_decrement);
-			} else {
-				*pool_0 = pool_0.saturating_sub(target_decrement);
-				*pool_1 = pool_1.saturating_add(supply_increment);
-			}
-		});
-	}
-
-	fn _swap_by_path(path: &[AssetId], amounts: &[Balance]) {
+	// Uniwapv2 `_swap` implementation in rust
+	// TODO: may need re-entrancy lock for this function
+	fn _swap(amounts: &[Balance], path: &[AssetId], to: &T::AccountId) -> DispatchResult {
 		let mut i: usize = 0;
-		while i + 1 < path.len() {
-			let (supply_asset_id, target_asset_id) = (path[i], path[i + 1]);
-			let (supply_increment, target_decrement) = (amounts[i], amounts[i + 1]);
-			Self::_swap(supply_asset_id, target_asset_id, supply_increment, target_decrement);
+		while i < path.len() - 1 {
+			let (input, output) = (path[i], path[i + 1]);
+			let amount_out = amounts[i + 1];
+
+			ensure!(input != output, Error::<T>::IdenticalTokenAddress);
+
+			let trading_pair = TradingPair::new(input, output);
+			let (amount_0_out, amount_1_out) =
+				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
+
+			let module_account_id = Self::account_id();
+
+			let to = if i < path.len() - 2 { &module_account_id } else { to };
+
+			// IUniswapV2Pair(UniswapV2Library.pairFor(factory, input, output)).swap(amount0Out,
+			// amount1Out, to, new bytes(0));
+
+			ensure!(amount_0_out > 0 || amount_1_out > 0, Error::<T>::InsufficientOutputAmount);
+
+			let (reserve_0, reserve_1) = LiquidityPool::<T>::get(trading_pair);
+
+			ensure!(
+				amount_0_out < reserve_0 && amount_1_out < reserve_1,
+				Error::<T>::InsufficientLiquidity
+			);
+
+			// require(to != _token0 && to != _token1, "UniswapV2: INVALID_TO");
+			// ^ dont need this check as AssetId is different to AccountId
+
+			if amount_0_out > 0 {
+				// optimistically transfer tokens
+				T::MultiCurrency::transfer(
+					trading_pair.0,
+					&module_account_id,
+					&to,
+					amount_0_out,
+					false,
+				)?;
+			}
+			if amount_1_out > 0 {
+				// optimistically transfer tokens
+				T::MultiCurrency::transfer(
+					trading_pair.1,
+					&module_account_id,
+					&to,
+					amount_1_out,
+					false,
+				)?;
+			}
+
+			let balance_0 = T::MultiCurrency::balance(trading_pair.0, &module_account_id);
+			let balance_1 = T::MultiCurrency::balance(trading_pair.1, &module_account_id);
+
+			// uint256 amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0
+			// - amount0Out) : 0; uint256 amount1In = balance1 > _reserve1 - amount1Out ?
+			// balance1
+			// - (_reserve1 - amount1Out) : 0; require(amount0In > 0 || amount1In > 0,
+			// "UniswapV2: INSUFFICIENT_INPUT_AMOUNT");
+			let subtractor = U256::from(reserve_0).sub(U256::from(amount_0_out))?.saturated_into();
+			let amount_0_in = if balance_0 > subtractor {
+				U256::from(balance_0).sub(U256::from(subtractor))?.saturated_into()
+			} else {
+				0u128
+			};
+
+			let subtractor = U256::from(reserve_1).sub(U256::from(amount_1_out))?.saturated_into();
+			let amount_1_in = if balance_1 > subtractor {
+				U256::from(balance_1).sub(U256::from(subtractor))?.saturated_into()
+			} else {
+				0u128
+			};
+
+			ensure!(amount_0_in > 0 || amount_1_in > 0, Error::<T>::InsufficientInputAmount);
+
+			// scope for reserve{0,1}Adjusted, avoids stack too deep errors
+			// uint256 balance0Adjusted = balance0.mul(1000).sub(amount0In.mul(3));
+			// uint256 balance1Adjusted = balance1.mul(1000).sub(amount1In.mul(3));
+			// require(balance0Adjusted.mul(balance1Adjusted) >=
+			// uint256(_reserve0).mul(_reserve1).mul(1000**2), "UniswapV2: K");
+
+			let (fee_numerator, fee_denominator) = T::GetExchangeFee::get(); // -> 3 / 1000 = 0.3%
+			let balance_0_adjusted = U256::from(balance_0)
+				.mul(U256::from(fee_denominator))?
+				.sub(U256::from(amount_0_in).mul(U256::from(fee_numerator))?)?;
+			let balance_1_adjusted = U256::from(balance_1)
+				.mul(U256::from(fee_denominator))?
+				.sub(U256::from(amount_1_in).mul(U256::from(fee_numerator))?)?;
+
+			ensure!(
+				balance_0_adjusted.mul(balance_1_adjusted)?
+					>= U256::from(reserve_0).mul(U256::from(reserve_1))?.mul(
+						U256::from(fee_denominator)
+							.checked_pow(U256::from(2_u32))
+							.ok_or(ArithmeticError::Overflow)?
+					)?,
+				Error::<T>::InvalidConstantProduct
+			);
+
+			let _ = LiquidityPool::<T>::try_mutate(
+				trading_pair,
+				|(reserve_0, reserve_1)| -> DispatchResult {
+					*reserve_0 = balance_0;
+					*reserve_1 = balance_1;
+					Ok(())
+				},
+			);
+
 			i += 1;
 		}
+		Ok(())
 	}
 
 	/// Ensured atomic.
 	#[transactional]
 	fn do_swap_with_exact_supply(
 		who: &T::AccountId,
+		amount_in: Balance,
+		min_amount_out: Balance,
 		path: &[AssetId],
-		supply_amount: Balance,
-		min_target_amount: Balance,
-		price_impact_limit: Option<Ratio>,
 	) -> sp_std::result::Result<Balance, DispatchError> {
-		let amounts = Self::get_target_amounts(&path, supply_amount, price_impact_limit)?;
-		ensure!(
-			amounts[amounts.len() - 1] >= min_target_amount,
-			Error::<T>::InsufficientTargetAmount
-		);
+		let amounts = Self::get_amounts_out(amount_in, &path)?;
+
+		// INSUFFICIENT_OUTPUT_AMOUNT
+		ensure!(amounts[amounts.len() - 1] >= min_amount_out, Error::<T>::InsufficientTargetAmount);
+
+		// transfer tokens to module account (uniswapv2 trading pair)
 		let module_account_id = Self::account_id();
-		let actual_target_amount = amounts[amounts.len() - 1];
+		T::MultiCurrency::transfer(path[0], who, &module_account_id, amounts[0], false)?;
 
-		T::MultiCurrency::transfer(path[0], who, &module_account_id, supply_amount, false)?;
-		Self::_swap_by_path(&path, &amounts);
-		T::MultiCurrency::transfer(
-			path[path.len() - 1],
-			&module_account_id,
-			who,
-			actual_target_amount,
-			false,
-		)?;
-
+		Self::_swap(&amounts, &path, who)?;
 		Self::deposit_event(Event::Swap(
 			who.clone(),
 			path.to_vec(),
-			supply_amount,
-			actual_target_amount,
+			amount_in,
+			amounts[amounts.len() - 1],
 		));
-		Ok(actual_target_amount)
+		Ok(amounts[amounts.len() - 1])
 	}
 
 	/// Ensured atomic.
 	#[transactional]
 	fn do_swap_with_exact_target(
 		who: &T::AccountId,
+		amount_out: Balance,
+		amount_in_max: Balance,
 		path: &[AssetId],
-		target_amount: Balance,
-		max_supply_amount: Balance,
-		price_impact_limit: Option<Ratio>,
 	) -> sp_std::result::Result<Balance, DispatchError> {
-		let amounts = Self::get_supply_amounts(&path, target_amount, price_impact_limit)?;
-		ensure!(amounts[0] <= max_supply_amount, Error::<T>::ExcessiveSupplyAmount);
+		let amounts = Self::get_amounts_in(amount_out, &path)?;
+
+		// EXCESSIVE_INPUT_AMOUNT
+		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
+
 		let module_account_id = Self::account_id();
-		let actual_supply_amount = amounts[0];
+		T::MultiCurrency::transfer(path[0], who, &module_account_id, amounts[0], false)?;
 
-		T::MultiCurrency::transfer(path[0], who, &module_account_id, actual_supply_amount, false)?;
-		Self::_swap_by_path(&path, &amounts);
-		T::MultiCurrency::transfer(
-			path[path.len() - 1],
-			&module_account_id,
-			who,
-			target_amount,
-			false,
-		)?;
-
-		Self::deposit_event(Event::Swap(
-			who.clone(),
-			path.to_vec(),
-			actual_supply_amount,
-			target_amount,
-		));
-		Ok(actual_supply_amount)
+		Self::_swap(&amounts, &path, who)?;
+		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out));
+		Ok(amounts[0])
 	}
 }
