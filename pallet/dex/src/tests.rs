@@ -4,7 +4,7 @@ use super::*;
 use crate::mock::AssetsExt;
 use frame_support::{assert_noop, assert_ok};
 use mock::{Dex, Event as MockEvent, MockAccountId, Origin, System, Test, TestExt, ALICE, BOB};
-use sp_runtime::{traits::BadOrigin, ArithmeticError};
+use sp_runtime::{traits::BadOrigin, ArithmeticError, DispatchError};
 
 /// x * 10e18
 fn to_eth(amount: u128) -> u128 {
@@ -225,8 +225,8 @@ fn add_liquidity() {
 
 		// bob should have more LP tokens than Alice as Bob provisioned more liquidity
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE)
-				< AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &BOB),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE) <
+				AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &BOB),
 			true
 		);
 
@@ -844,3 +844,225 @@ fn multiple_swaps_with_multiple_lp() {
 		assert_eq!(AssetsExt::balance(weth, &BOB), 90_581_267_483_778_465_232_u128);
 	});
 }
+
+// macro swap with exact supply
+// - `$name`: name of the test
+// - `$liquidity`: LP user adds liquidity with $liquidity[0] and $liquidity[1]
+// - `$amount_in`: user mints $amount_in tokens
+// - `$amount_out_min`: user swaps $amount_in tokens for atleast $amount_out_min tokens
+// - `$amount_out`: user checks that $amount_out tokens were received - or error if swap fails
+macro_rules! swap_with_exact_supply_multi {
+	(
+		$name:ident,
+		$liquidity:expr,
+		$amount_in:expr,
+		$amount_out_min:expr,
+		$amount_out:expr,
+	) => {
+		#[test]
+		fn $name() {
+			TestExt::default().build().execute_with(|| {
+				System::set_block_number(1);
+
+				let (lp_amount_token_1, lp_amount_token_2) = $liquidity;
+
+				// create tokens
+				let token_0 = AssetsExt::create(ALICE).unwrap();
+				let token_1 = AssetsExt::create(ALICE).unwrap();
+
+				// mint input tokens to alice for LP
+				assert_ok!(AssetsExt::mint_into(token_0, &ALICE, lp_amount_token_1));
+				assert_ok!(AssetsExt::mint_into(token_1, &ALICE, lp_amount_token_2));
+
+				// add liquidity
+				assert_ok!(Dex::add_liquidity(
+					Origin::signed(ALICE),
+					token_0,
+					token_1,
+					lp_amount_token_1,
+					lp_amount_token_2,
+					lp_amount_token_1,
+					lp_amount_token_2,
+					0u128
+				));
+
+				// mint input tokens to bob for swap
+				assert_ok!(AssetsExt::mint_into(token_0, &BOB, $amount_in));
+
+				let result: Result<u128, DispatchError> = $amount_out;
+
+				match result {
+					Ok(amount_out) => {
+						assert_ok!(Dex::swap_with_exact_supply(
+							Origin::signed(BOB),
+							$amount_in,
+							$amount_out_min,
+							vec![token_0, token_1],
+						));
+
+						assert_eq!(AssetsExt::balance(token_0, &BOB), 0u128);
+						assert_eq!(AssetsExt::balance(token_1, &BOB), amount_out);
+					},
+					Err(err) => {
+						assert_noop!(
+							Dex::swap_with_exact_supply(
+								Origin::signed(BOB),
+								$amount_in,
+								$amount_out_min,
+								vec![token_0, token_1],
+							),
+							err
+						);
+					},
+				}
+			});
+		}
+	};
+}
+
+swap_with_exact_supply_multi!(
+	swap_with_exact_supply_1,
+	(to_eth(100), to_eth(100)),
+	to_eth(10),
+	to_eth(9),
+	Ok(9_066_108_938_801_491_315_u128),
+);
+
+swap_with_exact_supply_multi!(
+	swap_with_exact_supply_2,
+	(to_eth(100), to_eth(100)),
+	to_eth(10),
+	to_eth(10),
+	Err(Error::<Test>::InsufficientTargetAmount.into()),
+);
+
+swap_with_exact_supply_multi!(
+	swap_with_exact_supply_3,
+	(to_eth(1), to_eth(1)),
+	to_eth(10),
+	to_eth(2),
+	Err(Error::<Test>::InsufficientTargetAmount.into()),
+);
+
+swap_with_exact_supply_multi!(
+	swap_with_exact_supply_4,
+	(to_eth(1), to_eth(1)),
+	to_eth(10),
+	to_eth(0u128),
+	Ok(908_842_297_174_111_212_u128),
+);
+
+// macro swap with exact supply
+// - `$name`: name of the test
+// - `$liquidity`: LP user adds liquidity with $liquidity[0] and $liquidity[1]
+// - `$amount_out`: exact amount of output tokens wanted
+// - `$amount_in_max`: maximum input tokens user willing to pay for exact amount of tokens
+// - `$amount_in`: actual amount of input tokens utilised in swap - or error if swap fails
+macro_rules! swap_with_exact_target_multi {
+	(
+		$name:ident,
+		$liquidity:expr,
+		$amount_out:expr,
+		$amount_in_max:expr,
+		$amount_in:expr,
+	) => {
+		#[test]
+		fn $name() {
+			TestExt::default().build().execute_with(|| {
+				System::set_block_number(1);
+
+				let (lp_amount_token_1, lp_amount_token_2) = $liquidity;
+
+				// create tokens
+				let token_0 = AssetsExt::create(ALICE).unwrap();
+				let token_1 = AssetsExt::create(ALICE).unwrap();
+
+				// mint input tokens to alice for LP
+				assert_ok!(AssetsExt::mint_into(token_0, &ALICE, lp_amount_token_1));
+				assert_ok!(AssetsExt::mint_into(token_1, &ALICE, lp_amount_token_2));
+
+				// add liquidity
+				assert_ok!(Dex::add_liquidity(
+					Origin::signed(ALICE),
+					token_0,
+					token_1,
+					lp_amount_token_1,
+					lp_amount_token_2,
+					lp_amount_token_1,
+					lp_amount_token_2,
+					0u128
+				));
+
+				// mint input tokens to bob for swap
+				assert_ok!(AssetsExt::mint_into(token_0, &BOB, $amount_in_max));
+
+				let result: Result<u128, DispatchError> = $amount_in;
+
+				match result {
+					Ok(amount_in) => {
+						assert_ok!(Dex::swap_with_exact_target(
+							Origin::signed(BOB),
+							$amount_out,
+							$amount_in_max,
+							vec![token_0, token_1],
+						));
+
+						assert_eq!(AssetsExt::balance(token_0, &BOB), amount_in);
+						assert_eq!(AssetsExt::balance(token_1, &BOB), $amount_out);
+					},
+					Err(err) => {
+						assert_noop!(
+							Dex::swap_with_exact_target(
+								Origin::signed(BOB),
+								$amount_out,
+								$amount_in_max,
+								vec![token_0, token_1],
+							),
+							err
+						);
+					},
+				}
+			});
+		}
+	};
+}
+
+swap_with_exact_target_multi!(
+	swap_with_exact_target_1,
+	(to_eth(100), to_eth(100)),
+	to_eth(9),
+	to_eth(10),
+	Ok(80_130_501_394_292_768_u128),
+);
+
+swap_with_exact_target_multi!(
+	swap_with_exact_target_2,
+	(to_eth(100), to_eth(100)),
+	to_eth(10),
+	to_eth(10),
+	Err(Error::<Test>::ExcessiveSupplyAmount.into()),
+);
+
+swap_with_exact_target_multi!(
+	swap_with_exact_target_3,
+	(to_eth(1), to_eth(1)),
+	to_eth(2),
+	to_eth(10),
+	Err(DispatchError::Arithmetic(ArithmeticError::Underflow)),
+);
+
+swap_with_exact_target_multi!(
+	swap_with_exact_target_4,
+	(to_eth(10), to_eth(10)),
+	to_eth(10),
+	to_eth(0u128),
+	Err(DispatchError::Arithmetic(ArithmeticError::DivisionByZero)),
+);
+
+swap_with_exact_target_multi!(
+	swap_with_exact_target_5,
+	(to_eth(100), to_eth(100)),
+	to_eth(10),
+	to_eth(20),
+	Ok(8_855_455_254_652_847_431_u128),
+);
