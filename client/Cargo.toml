@@ -11,7 +11,7 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "root-node"
+name = "seed"
 path = "src/main.rs"
 
 [dependencies]
