@@ -265,10 +265,12 @@ parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000);	// 0.3%
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXPalletId: PalletId = PalletId(*b"root/dex");
+	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
 }
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
 	type DEXPalletId = DEXPalletId;
+	type DEXBurnPalletId = DEXBurnPalletId;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type WeightInfo = pallet_dex::weights::PlugWeight<Runtime>;

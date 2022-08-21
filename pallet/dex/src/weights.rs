@@ -28,7 +28,7 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for module_dex.
 pub trait WeightInfo {
-	fn enable_trading_pair() -> Weight;
+	fn reenable_trading_pair() -> Weight;
 	fn disable_trading_pair() -> Weight;
 	fn list_trading_pair() -> Weight;
 	fn add_liquidity() -> Weight;
@@ -42,7 +42,7 @@ pub trait WeightInfo {
 /// Weights for module_dex using the Acala node and recommended hardware.
 pub struct PlugWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for PlugWeight<T> {
-	fn enable_trading_pair() -> Weight {
+	fn reenable_trading_pair() -> Weight {
 		(28_975_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -94,8 +94,9 @@ impl<T: frame_system::Config> WeightInfo for PlugWeight<T> {
 }
 
 // For backwards compatibility and tests
+// TODO - re-review and/or remove after tests are implemented
 impl WeightInfo for () {
-	fn enable_trading_pair() -> Weight {
+	fn reenable_trading_pair() -> Weight {
 		(28_975_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
