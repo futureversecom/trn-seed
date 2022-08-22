@@ -73,3 +73,5 @@ jobs:
             docker tag $IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$RELEASE_TAG
             docker push $IMAGE_NAME:$RELEASE_TAG
           fi
+          # clean up images
+          docker image prune --filter label=stage=build

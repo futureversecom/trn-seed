@@ -4,14 +4,14 @@ version = "0.0.1"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 publish = false
-repository = "https://github.com/futureversecom/seed-network"
+repository = "https://github.com/futureversecom/seed"
 build = "build.rs"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "seed-node"
+name = "seed"
 path = "src/main.rs"
 
 [dependencies]
