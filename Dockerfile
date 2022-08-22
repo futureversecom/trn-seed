@@ -1,5 +1,6 @@
-FROM  rustlang/rust:nightly AS builder
-ARG NODE_BUILD_DIR=/root-network
+FROM rustlang/rust:nightly AS builder
+LABEL stage=build
+ARG NODE_BUILD_DIR=/seed-build
 ARG PROFILE=release
 ARG RUST_NIGHTLY=nightly-2022-03-01
 ARG RUST_VERSION=stable
@@ -14,15 +15,14 @@ RUN apt-get update && \
     rustup install $RUST_NIGHTLY && \
     rustup default $RUST_VERSION && \
     rustup target add --toolchain $RUST_NIGHTLY wasm32-unknown-unknown && \
-    rustup target add --toolchain $RUST_VERSION x86_64-unknown-linux-musl && \
     mkdir -p ${NODE_BUILD_DIR}/.cargo
 ENV CARGO_HOME=${NODE_BUILD_DIR}/.cargo
 RUN cargo build "--$PROFILE"
 
-FROM gcr.io/distroless/cc
+FROM debian:buster-slim
 LABEL maintainer="support@centrality.ai"
-LABEL org.opencontainers.image.source=https://github.com/futureversecom/root-network
-COPY --from=0 /root-network/target/release/root-node /
+LABEL org.opencontainers.image.source=https://github.com/futureversecom/seed
+COPY --from=0 /seed-build/target/release/seed /usr/bin/
 
 EXPOSE 30333 9933 9944
-ENTRYPOINT ["/root-node"]
+ENTRYPOINT ["/usr/bin/seed"]
