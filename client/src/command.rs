@@ -3,13 +3,13 @@ use crate::{
 	cli::{Cli, Subcommand},
 	service,
 };
-use root_runtime::Block;
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
+use seed_runtime::Block;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Root Node".into()
+		"Seed 🌱".into()
 	}
 
 	fn impl_version() -> String {
@@ -25,7 +25,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/futureversecom/root-network".into()
+		"https://github.com/futureversecom/seed".into()
 	}
 
 	fn copyright_start_year() -> i32 {
@@ -43,7 +43,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&root_runtime::VERSION
+		&seed_runtime::VERSION
 	}
 }
 
@@ -61,21 +61,23 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, .. } =
-					service::new_partial(&config)?;
+					service::new_partial(&config, &cli)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
 		Some(Subcommand::ExportBlocks(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, .. } = service::new_partial(&config)?;
+				let PartialComponents { client, task_manager, .. } =
+					service::new_partial(&config, &cli)?;
 				Ok((cmd.run(client, config.database), task_manager))
 			})
 		},
 		Some(Subcommand::ExportState(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
-				let PartialComponents { client, task_manager, .. } = service::new_partial(&config)?;
+				let PartialComponents { client, task_manager, .. } =
+					service::new_partial(&config, &cli)?;
 				Ok((cmd.run(client, config.chain_spec), task_manager))
 			})
 		},
@@ -83,7 +85,7 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, import_queue, .. } =
-					service::new_partial(&config)?;
+					service::new_partial(&config, &cli)?;
 				Ok((cmd.run(client, import_queue), task_manager))
 			})
 		},
@@ -95,7 +97,7 @@ pub fn run() -> sc_cli::Result<()> {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let PartialComponents { client, task_manager, backend, .. } =
-					service::new_partial(&config)?;
+					service::new_partial(&config, &cli)?;
 				let aux_revert = Box::new(|client, _, blocks| {
 					sc_finality_grandpa::revert(client, blocks)?;
 					Ok(())
@@ -125,9 +127,9 @@ pub fn run() -> sc_cli::Result<()> {
 			runner.sync_run(|config| cmd.run::<Block>(&config))
 		},
 		None => {
-			let runner = cli.create_runner(&cli.run)?;
+			let runner = cli.create_runner(&cli.run.base)?;
 			runner.run_node_until_exit(|config| async move {
-				service::new_full(config).map_err(sc_cli::Error::Service)
+				service::new_full(config, &cli).map_err(sc_cli::Error::Service)
 			})
 		},
 	}

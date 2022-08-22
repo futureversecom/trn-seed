@@ -25,7 +25,7 @@ on:
 
 env:
   REGISTRY: "ghcr.io"
-  IMAGE_NAME: "futureversecom/root-network"
+  IMAGE_NAME: "futureversecom/seed"
 
 jobs:
   build-image:
@@ -74,4 +74,4 @@ jobs:
             docker push $IMAGE_NAME:$RELEASE_TAG
           fi
           # clean up images
-          docker image prune --filter label=stage=build
+          docker image prune --filter label=stage=build -f

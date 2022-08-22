@@ -1544,6 +1544,111 @@ dependencies = [
 ]
 
 [[package]]
+name = "fc-consensus"
+version = "2.0.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.23#631035328e059f46120274040dee63c46291cf19"
+dependencies = [
+ "async-trait",
+ "fc-db",
+ "fp-consensus",
+ "fp-rpc",
+ "sc-client-api",
+ "sc-consensus",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-runtime",
+ "thiserror",
+]
+
+[[package]]
+name = "fc-db"
+version = "2.0.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.23#631035328e059f46120274040dee63c46291cf19"
+dependencies = [
+ "fp-storage",
+ "kvdb-rocksdb",
+ "parity-db",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "sc-client-db",
+ "sp-core",
+ "sp-database",
+ "sp-runtime",
+]
+
+[[package]]
+name = "fc-mapping-sync"
+version = "2.0.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.23#631035328e059f46120274040dee63c46291cf19"
+dependencies = [
+ "fc-db",
+ "fp-consensus",
+ "fp-rpc",
+ "futures",
+ "futures-timer",
+ "log",
+ "sc-client-api",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "fc-rpc"
+version = "2.0.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.23#631035328e059f46120274040dee63c46291cf19"
+dependencies = [
+ "ethereum",
+ "ethereum-types",
+ "evm",
+ "fc-db",
+ "fc-rpc-core",
+ "fp-rpc",
+ "fp-storage",
+ "futures",
+ "hex",
+ "jsonrpsee",
+ "libsecp256k1",
+ "log",
+ "lru",
+ "parity-scale-codec",
+ "prometheus",
+ "rand 0.8.5",
+ "rlp",
+ "sc-client-api",
+ "sc-network",
+ "sc-rpc",
+ "sc-service",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-storage",
+ "substrate-prometheus-endpoint",
+ "tokio",
+]
+
+[[package]]
+name = "fc-rpc-core"
+version = "1.1.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.23#631035328e059f46120274040dee63c46291cf19"
+dependencies = [
+ "ethereum",
+ "ethereum-types",
+ "jsonrpsee",
+ "rlp",
+ "rustc-hex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "fdlimit"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4079,9 +4184,9 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "parity-scale-codec",
- "root-pallet-common",
- "root-primitives",
  "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -4160,9 +4265,9 @@ dependencies = [
  "pallet-assets-ext",
  "pallet-balances",
  "parity-scale-codec",
- "root-pallet-common",
- "root-primitives",
  "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
  "serde",
  "sp-core",
  "sp-io",
@@ -4292,9 +4397,9 @@ dependencies = [
  "pallet-assets-ext",
  "pallet-balances",
  "parity-scale-codec",
- "root-pallet-common",
- "root-primitives",
  "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
  "serde",
  "serde_json",
  "sp-core",
@@ -5318,132 +5423,6 @@ checksum = "620f4129485ff1a7128d184bc687470c21c7951b64779ebc9cfdad3dcd920290"
 dependencies = [
  "libc",
  "librocksdb-sys",
-]
-
-[[package]]
-name = "root-client"
-version = "0.0.1"
-dependencies = [
- "clap",
- "frame-benchmarking",
- "frame-benchmarking-cli",
- "frame-system",
- "jsonrpsee",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc",
- "root-primitives",
- "root-runtime",
- "sc-basic-authorship",
- "sc-cli",
- "sc-client-api",
- "sc-consensus",
- "sc-consensus-aura",
- "sc-executor",
- "sc-finality-grandpa",
- "sc-keystore",
- "sc-rpc",
- "sc-rpc-api",
- "sc-service",
- "sc-telemetry",
- "sc-transaction-pool",
- "sc-transaction-pool-api",
- "sp-api",
- "sp-block-builder",
- "sp-blockchain",
- "sp-consensus",
- "sp-consensus-aura",
- "sp-core",
- "sp-finality-grandpa",
- "sp-inherents",
- "sp-keyring",
- "sp-runtime",
- "sp-timestamp",
- "substrate-build-script-utils",
- "substrate-frame-rpc-system",
- "syn",
- "try-runtime-cli",
-]
-
-[[package]]
-name = "root-pallet-common"
-version = "1.0.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "root-primitives",
- "scale-info",
- "sp-std",
-]
-
-[[package]]
-name = "root-primitives"
-version = "1.0.0"
-dependencies = [
- "hex",
- "impl-serde",
- "libsecp256k1",
- "log",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-consensus-aura",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "substrate-wasm-builder",
-]
-
-[[package]]
-name = "root-runtime"
-version = "0.1.0"
-dependencies = [
- "fp-rpc",
- "fp-self-contained",
- "frame-executive",
- "frame-support",
- "frame-system",
- "frame-system-rpc-runtime-api",
- "frame-try-runtime",
- "log",
- "pallet-assets",
- "pallet-assets-ext",
- "pallet-aura",
- "pallet-authorship",
- "pallet-balances",
- "pallet-base-fee",
- "pallet-dex",
- "pallet-ethereum",
- "pallet-evm",
- "pallet-evm-precompile-blake2",
- "pallet-evm-precompile-modexp",
- "pallet-evm-precompile-sha3fips",
- "pallet-evm-precompile-simple",
- "pallet-grandpa",
- "pallet-nft",
- "pallet-session",
- "pallet-sudo",
- "pallet-timestamp",
- "pallet-transaction-payment",
- "pallet-transaction-payment-rpc-runtime-api",
- "parity-scale-codec",
- "precompile-utils",
- "root-primitives",
- "rustc-hex",
- "scale-info",
- "serde",
- "sp-api",
- "sp-block-builder",
- "sp-consensus-aura",
- "sp-core",
- "sp-inherents",
- "sp-io",
- "sp-offchain",
- "sp-runtime",
- "sp-session",
- "sp-std",
- "sp-transaction-pool",
- "sp-version",
- "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -6571,6 +6550,142 @@ checksum = "0160a13a177a45bfb43ce71c01580998474f556ad854dcbca936dd2841a5c556"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "seed-client"
+version = "0.0.1"
+dependencies = [
+ "clap",
+ "fc-consensus",
+ "fc-db",
+ "fc-mapping-sync",
+ "fc-rpc",
+ "fc-rpc-core",
+ "fp-consensus",
+ "fp-rpc",
+ "fp-storage",
+ "frame-benchmarking",
+ "frame-benchmarking-cli",
+ "frame-system",
+ "futures",
+ "jsonrpsee",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc",
+ "sc-basic-authorship",
+ "sc-cli",
+ "sc-client-api",
+ "sc-consensus",
+ "sc-consensus-aura",
+ "sc-executor",
+ "sc-finality-grandpa",
+ "sc-keystore",
+ "sc-network",
+ "sc-rpc",
+ "sc-rpc-api",
+ "sc-service",
+ "sc-telemetry",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
+ "seed-primitives",
+ "seed-runtime",
+ "sp-api",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-finality-grandpa",
+ "sp-inherents",
+ "sp-keyring",
+ "sp-runtime",
+ "sp-timestamp",
+ "substrate-build-script-utils",
+ "substrate-frame-rpc-system",
+ "syn",
+ "try-runtime-cli",
+]
+
+[[package]]
+name = "seed-pallet-common"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-primitives",
+ "sp-std",
+]
+
+[[package]]
+name = "seed-primitives"
+version = "1.0.0"
+dependencies = [
+ "hex",
+ "impl-serde",
+ "libsecp256k1",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "substrate-wasm-builder",
+]
+
+[[package]]
+name = "seed-runtime"
+version = "0.1.0"
+dependencies = [
+ "fp-rpc",
+ "fp-self-contained",
+ "frame-executive",
+ "frame-support",
+ "frame-system",
+ "frame-system-rpc-runtime-api",
+ "frame-try-runtime",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-aura",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-base-fee",
+ "pallet-dex",
+ "pallet-ethereum",
+ "pallet-evm",
+ "pallet-evm-precompile-blake2",
+ "pallet-evm-precompile-modexp",
+ "pallet-evm-precompile-sha3fips",
+ "pallet-evm-precompile-simple",
+ "pallet-grandpa",
+ "pallet-nft",
+ "pallet-session",
+ "pallet-sudo",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "pallet-transaction-payment-rpc-runtime-api",
+ "parity-scale-codec",
+ "precompile-utils",
+ "rustc-hex",
+ "scale-info",
+ "seed-primitives",
+ "serde",
+ "sp-api",
+ "sp-block-builder",
+ "sp-consensus-aura",
+ "sp-core",
+ "sp-inherents",
+ "sp-io",
+ "sp-offchain",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+ "sp-transaction-pool",
+ "sp-version",
+ "substrate-wasm-builder",
 ]
 
 [[package]]

@@ -25,7 +25,7 @@ use frame_support::{
 	},
 };
 use pallet_evm::AddressMapping as AddressMappingT;
-use root_primitives::{AccountId, Balance};
+use seed_primitives::{AccountId, Balance};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	traits::{SaturatedConversion, Zero},

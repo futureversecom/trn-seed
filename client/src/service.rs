@@ -1,17 +1,32 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use root_runtime::{self, RuntimeApi};
-use sc_client_api::{BlockBackend, ExecutorProvider};
+use futures::{future, StreamExt};
+
+use fc_consensus::FrontierBlockImport;
+use fc_db::Backend as FrontierBackend;
+use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
+use fc_rpc::{EthTask, OverrideHandle};
+use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
+use sc_cli::SubstrateCli;
+use sc_client_api::{BlockBackend, BlockchainEvents, ExecutorProvider};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
+use sc_service::{error::Error as ServiceError, BasePath, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
-use std::{sync::Arc, time::Duration};
+use std::{
+	collections::BTreeMap,
+	path::PathBuf,
+	sync::{Arc, Mutex},
+	time::Duration,
+};
 
-use root_primitives::opaque::Block;
+use seed_primitives::opaque::Block;
+use seed_runtime::{self, RuntimeApi};
+
+use crate::cli::Cli;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -25,11 +40,11 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 	type ExtendHostFunctions = ();
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		root_runtime::api::dispatch(method, data)
+		seed_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		root_runtime::native_version()
+		seed_runtime::native_version()
 	}
 }
 
@@ -37,9 +52,29 @@ pub(crate) type FullClient =
 	sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+pub type ConsensusResult = (
+	FrontierBlockImport<
+		Block,
+		sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
+		FullClient,
+	>,
+	sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
+);
+
+pub(crate) fn db_config_dir(config: &Configuration) -> PathBuf {
+	config
+		.base_path
+		.as_ref()
+		.map(|base_path| base_path.config_dir(config.chain_spec.id()))
+		.unwrap_or_else(|| {
+			BasePath::from_project("", "", &Cli::executable_name())
+				.config_dir(config.chain_spec.id())
+		})
+}
 
 pub fn new_partial(
 	config: &Configuration,
+	cli: &Cli,
 ) -> Result<
 	sc_service::PartialComponents<
 		FullClient,
@@ -48,14 +83,11 @@ pub fn new_partial(
 		sc_consensus::DefaultImportQueue<Block, FullClient>,
 		sc_transaction_pool::FullPool<Block, FullClient>,
 		(
-			sc_finality_grandpa::GrandpaBlockImport<
-				FullBackend,
-				Block,
-				FullClient,
-				FullSelectChain,
-			>,
-			sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
 			Option<Telemetry>,
+			ConsensusResult,
+			Arc<FrontierBackend<Block>>,
+			Option<FilterPool>,
+			(FeeHistoryCache, FeeHistoryCacheLimit),
 		),
 	>,
 	ServiceError,
@@ -105,6 +137,12 @@ pub fn new_partial(
 		client.clone(),
 	);
 
+	let frontier_backend =
+		Arc::new(FrontierBackend::open(&config.database, &db_config_dir(config))?);
+	let filter_pool: Option<FilterPool> = Some(Arc::new(Mutex::new(BTreeMap::new())));
+	let fee_history_cache: FeeHistoryCache = Arc::new(Mutex::new(BTreeMap::new()));
+	let fee_history_cache_limit: FeeHistoryCacheLimit = cli.run.fee_history_limit;
+
 	let (grandpa_block_import, grandpa_link) = sc_finality_grandpa::block_import(
 		client.clone(),
 		&(client.clone() as Arc<_>),
@@ -112,11 +150,17 @@ pub fn new_partial(
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
+	let frontier_block_import = FrontierBlockImport::new(
+		grandpa_block_import.clone(),
+		client.clone(),
+		frontier_backend.clone(),
+	);
+
 	let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
 
 	let import_queue =
 		sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
-			block_import: grandpa_block_import.clone(),
+			block_import: frontier_block_import.clone(),
 			justification_import: Some(Box::new(grandpa_block_import.clone())),
 			client: client.clone(),
 			create_inherent_data_providers: move |_, ()| async move {
@@ -147,7 +191,13 @@ pub fn new_partial(
 		keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (grandpa_block_import, grandpa_link, telemetry),
+		other: (
+			telemetry,
+			(frontier_block_import, grandpa_link),
+			frontier_backend,
+			filter_pool,
+			(fee_history_cache, fee_history_cache_limit),
+		),
 	})
 }
 
@@ -159,7 +209,7 @@ fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, ServiceError> {
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -168,8 +218,15 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		mut keystore_container,
 		select_chain,
 		transaction_pool,
-		other: (block_import, grandpa_link, mut telemetry),
-	} = new_partial(&config)?;
+		other:
+			(
+				mut telemetry,
+				(block_import, grandpa_link),
+				frontier_backend,
+				filter_pool,
+				(fee_history_cache, fee_history_cache_limit),
+			),
+	} = new_partial(&config, cli)?;
 
 	if let Some(url) = &config.keystore_remote {
 		match remote_keystore(url) {
@@ -222,15 +279,43 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 	let name = config.network.node_name.clone();
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
+	let overrides = crate::rpc::overrides_handle(client.clone());
+	let block_data_cache = Arc::new(fc_rpc::EthBlockDataCacheTask::new(
+		task_manager.spawn_handle(),
+		overrides.clone(),
+		50,
+		50,
+		prometheus_registry.clone(),
+	));
 
 	let rpc_extensions_builder = {
 		let client = client.clone();
 		let pool = transaction_pool.clone();
+		let is_authority = role.is_authority();
+		let network = network.clone();
+		let filter_pool = filter_pool.clone();
+		let frontier_backend = frontier_backend.clone();
+		let overrides = overrides.clone();
+		let fee_history_cache = fee_history_cache.clone();
+		let max_past_logs = cli.run.max_past_logs;
 
-		Box::new(move |deny_unsafe, _| {
-			let deps =
-				crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
-			crate::rpc::create_full(deps).map_err(Into::into)
+		Box::new(move |deny_unsafe, subscription_task_executor| {
+			let deps = crate::rpc::FullDeps {
+				backend: frontier_backend.clone(),
+				block_data_cache: block_data_cache.clone(),
+				client: client.clone(),
+				fee_history_cache: fee_history_cache.clone(),
+				fee_history_cache_limit,
+				filter_pool: filter_pool.clone(),
+				graph: pool.pool().clone(),
+				is_authority,
+				max_past_logs,
+				network: network.clone(),
+				overrides: overrides.clone(),
+				pool: pool.clone(),
+				deny_unsafe,
+			};
+			crate::rpc::create_full(deps, subscription_task_executor).map_err(Into::into)
 		})
 	};
 
@@ -241,11 +326,22 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
 		rpc_builder: rpc_extensions_builder,
-		backend,
+		backend: backend.clone(),
 		system_rpc_tx,
 		config,
 		telemetry: telemetry.as_mut(),
 	})?;
+
+	spawn_frontier_tasks(
+		&task_manager,
+		client.clone(),
+		backend,
+		frontier_backend,
+		filter_pool,
+		overrides,
+		fee_history_cache,
+		fee_history_cache_limit,
+	);
 
 	if role.is_authority() {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
@@ -343,4 +439,54 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 
 	network_starter.start_network();
 	Ok(task_manager)
+}
+
+fn spawn_frontier_tasks(
+	task_manager: &TaskManager,
+	client: Arc<FullClient>,
+	backend: Arc<FullBackend>,
+	frontier_backend: Arc<FrontierBackend<Block>>,
+	filter_pool: Option<FilterPool>,
+	overrides: Arc<OverrideHandle<Block>>,
+	fee_history_cache: FeeHistoryCache,
+	fee_history_cache_limit: FeeHistoryCacheLimit,
+) {
+	task_manager.spawn_essential_handle().spawn(
+		"frontier-mapping-sync-worker",
+		None,
+		MappingSyncWorker::new(
+			client.import_notification_stream(),
+			Duration::new(seed_runtime::constants::MILLISECS_PER_BLOCK / 1_000, 0),
+			client.clone(),
+			backend,
+			frontier_backend.clone(),
+			3,
+			0,
+			SyncStrategy::Normal,
+		)
+		.for_each(|()| future::ready(())),
+	);
+
+	// Spawn Frontier EthFilterApi maintenance task.
+	if let Some(filter_pool) = filter_pool {
+		// Each filter is allowed to stay in the pool for 100 blocks.
+		const FILTER_RETAIN_THRESHOLD: u64 = 100;
+		task_manager.spawn_essential_handle().spawn(
+			"frontier-filter-pool",
+			None,
+			EthTask::filter_pool_task(client.clone(), filter_pool, FILTER_RETAIN_THRESHOLD),
+		);
+	}
+
+	// Spawn Frontier FeeHistory cache maintenance task.
+	task_manager.spawn_essential_handle().spawn(
+		"frontier-fee-history",
+		None,
+		EthTask::fee_history_task(
+			client.clone(),
+			overrides,
+			fee_history_cache,
+			fee_history_cache_limit,
+		),
+	);
 }

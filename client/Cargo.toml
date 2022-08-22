@@ -1,10 +1,10 @@
 [package]
-name = "root-client"
+name = "seed-client"
 version = "0.0.1"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 publish = false
-repository = "https://github.com/futureversecom/root-network"
+repository = "https://github.com/futureversecom/seed"
 build = "build.rs"
 
 [package.metadata.docs.rs]
@@ -15,12 +15,14 @@ name = "seed"
 path = "src/main.rs"
 
 [dependencies]
+futures = "0.3.21"
 # TODO: remove after substrate update w https://github.com/paritytech/substrate/pull/11707
 syn = "=1.0.97"
 clap = { version = "3.1.18", features = ["derive"] }
 
 sc-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", features = ["wasmtime"] }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
+sc-network = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 sc-executor = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", features = ["wasmtime"] }
 sc-service = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", features = ["wasmtime"] }
 sc-telemetry = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
@@ -41,6 +43,16 @@ sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "po
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
 
+# Frontier
+fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-db = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-mapping-sync = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-rpc-core = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fp-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fp-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fp-storage = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.13.0", features = ["server"] }
 sc-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
@@ -57,8 +69,8 @@ frame-benchmarking = { git = "https://github.com/futureversecom/substrate", bran
 frame-benchmarking-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", optional = true }
 
 # Local Dependencies
-root-primitives = { path = "../primitives" }
-root-runtime = { path = "../runtime" }
+seed-primitives = { path = "../primitives" }
+seed-runtime = { path = "../runtime" }
 
 # CLI-specific dependencies
 try-runtime-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", optional = true }
@@ -71,4 +83,4 @@ default = []
 runtime-benchmarks = ["frame-benchmarking", "frame-benchmarking-cli"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = ["root-runtime/try-runtime", "try-runtime-cli"]
+try-runtime = ["seed-runtime/try-runtime", "try-runtime-cli"]

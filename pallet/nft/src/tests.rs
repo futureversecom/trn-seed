@@ -21,7 +21,7 @@ use frame_support::{
 	assert_noop, assert_ok,
 	traits::{fungibles::Inspect, NamedReservableCurrency, OnInitialize},
 };
-use root_primitives::TokenId;
+use seed_primitives::TokenId;
 use sp_runtime::{Permill, TokenError};
 use sp_std::collections::btree_map::BTreeMap;
 

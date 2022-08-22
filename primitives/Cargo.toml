@@ -1,5 +1,5 @@
 [package]
-name = "root-primitives"
+name = "seed-primitives"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"

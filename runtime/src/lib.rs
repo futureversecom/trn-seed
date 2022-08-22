@@ -57,7 +57,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 
 // Export for chain_specs
-pub use root_primitives::{
+pub use seed_primitives::{
 	AccountId, Address, AssetId, AuraId, Balance, BlockNumber, Hash, Index, Signature,
 };
 
@@ -249,7 +249,7 @@ parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
-	pub const WorldId: root_primitives::ParachainId = 100;
+	pub const WorldId: seed_primitives::ParachainId = 100;
 }
 impl pallet_nft::Config for Runtime {
 	type DefaultListingDuration = DefaultListingDuration;
@@ -415,7 +415,7 @@ const fn cennznet_london() -> EvmConfig {
 	c
 }
 
-pub static ROOT_EVM_CONFIG: EvmConfig = cennznet_london();
+pub static SEED_EVM_CONFIG: EvmConfig = cennznet_london();
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
@@ -435,7 +435,7 @@ impl pallet_evm::Config for Runtime {
 	type FindAuthor = EthereumFindAuthor<Aura>;
 	// internal EVM config
 	fn config() -> &'static EvmConfig {
-		&ROOT_EVM_CONFIG
+		&SEED_EVM_CONFIG
 	}
 }
 

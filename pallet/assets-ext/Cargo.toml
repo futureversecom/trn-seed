@@ -3,7 +3,7 @@ name = "pallet-assets-ext"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
-repository = "https://github.com/futureversecom/root-network"
+repository = "https://github.com/futureversecom/seed-network"
 description = "Extended functionality for pallet-assets"
 
 [package.metadata.docs.rs]
@@ -21,8 +21,8 @@ pallet-balances = { git = "https://github.com/futureversecom/substrate", default
 sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.23" }
 
-root-primitives = { path = "../../primitives", default-features = false }
-root-pallet-common = { path = "../common", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
 sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.23" }
@@ -39,6 +39,6 @@ std = [
 	"pallet-balances/std",
 	"sp-runtime/std",
 	"sp-std/std",
-	"root-pallet-common/std",
-	"root-primitives/std",
+	"seed-pallet-common/std",
+	"seed-primitives/std",
 ]
