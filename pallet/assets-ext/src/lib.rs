@@ -22,8 +22,8 @@ use frame_support::{
 	},
 	PalletId,
 };
-use root_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
-use root_primitives::{AssetId, Balance, ParachainId};
+use seed_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
+use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
 use sp_std::prelude::*;
 

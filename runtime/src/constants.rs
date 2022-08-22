@@ -20,14 +20,14 @@ pub use currency::*;
 
 parameter_types! {
 	/// Getter for the MYCL asset Id
-	pub const MyclAssetId: root_primitives::AssetId = currency::MYCL_ASSET_ID;
+	pub const MyclAssetId: seed_primitives::AssetId = currency::MYCL_ASSET_ID;
 	/// Getter for the XRP asset Id
-	pub const XrpAssetId: root_primitives::AssetId = currency::XRP_ASSET_ID;
+	pub const XrpAssetId: seed_primitives::AssetId = currency::XRP_ASSET_ID;
 }
 
 pub mod currency {
 	//! root network currency constants
-	use root_primitives::{AssetId, Balance};
+	use seed_primitives::{AssetId, Balance};
 	/// Decimal places of MYCL
 	pub const MYCL_DECIMALS: u8 = 6;
 	/// The MYCL asset id within the root network
@@ -49,7 +49,7 @@ pub mod currency {
 /// Common constants of parachains.
 mod constants {
 	use frame_support::weights::{constants::WEIGHT_PER_SECOND, Weight};
-	use root_primitives::BlockNumber;
+	use seed_primitives::BlockNumber;
 	use sp_runtime::Perbill;
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by

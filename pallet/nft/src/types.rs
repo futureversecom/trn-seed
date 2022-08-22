@@ -17,7 +17,7 @@
 
 use crate::Config;
 
-use root_primitives::{AssetId, Balance, BlockNumber, SerialNumber, TokenId};
+use seed_primitives::{AssetId, Balance, BlockNumber, SerialNumber, TokenId};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;

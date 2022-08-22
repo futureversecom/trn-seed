@@ -26,7 +26,7 @@ use fc_rpc::{EthBlockDataCacheTask, OverrideHandle, RuntimeApiStorageOverride};
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 
 // Runtime
-use root_primitives::{opaque::Block, AccountId, Balance, Hash, Index};
+use seed_primitives::{opaque::Block, AccountId, Balance, Hash, Index};
 
 /// Full client dependencies.
 pub struct FullDeps<C, P, A: ChainApi> {
@@ -138,7 +138,7 @@ where
 			client.clone(),
 			pool.clone(),
 			graph,
-			Some(root_runtime::TransactionConverter),
+			Some(seed_runtime::TransactionConverter),
 			network.clone(),
 			Default::default(), // signers
 			overrides.clone(),

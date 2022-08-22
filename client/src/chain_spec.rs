@@ -4,8 +4,8 @@ use sp_core::{ecdsa, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
-use root_primitives::Balance;
-use root_runtime::{
+use seed_primitives::Balance;
+use seed_runtime::{
 	constants::{
 		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, ONE_MYCL, XRP_ASSET_ID, XRP_DECIMALS,
 		XRP_MINIMUM_BALANCE,
@@ -57,7 +57,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		// Name
 		"Root Dev",
 		// ID
-		"root_dev",
+		"seed_dev",
 		ChainType::Development,
 		move || {
 			testnet_genesis(
@@ -100,7 +100,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 		// Name
 		"Root Local",
 		// ID
-		"root_local",
+		"seed_local",
 		ChainType::Local,
 		move || {
 			testnet_genesis(
@@ -202,7 +202,7 @@ pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AccountId, AuraId, GrandpaId)>,
-	root_key: AccountId,
+	seed_key: AccountId,
 	accounts_to_fund: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
@@ -211,8 +211,8 @@ fn testnet_genesis(
 		(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), XRP_DECIMALS),
 	];
 	let assets = vec![
-		(MYCL_ASSET_ID, root_key, true, MYCL_MINIMUM_BALANCE),
-		(XRP_ASSET_ID, root_key, true, XRP_MINIMUM_BALANCE),
+		(MYCL_ASSET_ID, seed_key, true, MYCL_MINIMUM_BALANCE),
+		(XRP_ASSET_ID, seed_key, true, XRP_MINIMUM_BALANCE),
 	];
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
@@ -251,10 +251,10 @@ fn testnet_genesis(
 		},
 		sudo: SudoConfig {
 			// Assign network admin rights.
-			key: Some(root_key),
+			key: Some(seed_key),
 		},
 		base_fee: Default::default(),
-		ethereum: root_runtime::EthereumConfig {},
-		evm: root_runtime::EVMConfig { accounts: Default::default() },
+		ethereum: seed_runtime::EthereumConfig {},
+		evm: seed_runtime::EVMConfig { accounts: Default::default() },
 	}
 }

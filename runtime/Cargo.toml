@@ -1,5 +1,5 @@
 [package]
-name = "root-runtime"
+name = "seed-runtime"
 version = "0.1.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
@@ -56,7 +56,7 @@ pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 
-root-primitives = { path = "../primitives", default-features = false }
+seed-primitives = { path = "../primitives", default-features = false }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
@@ -97,7 +97,7 @@ std = [
 	"pallet-assets-ext/std",
 	"pallet-dex/std",
 	"pallet-nft/std",
-	"root-primitives/std",
+	"seed-primitives/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",
 	"pallet-base-fee/std",

@@ -29,8 +29,8 @@
 //! number)
 
 use frame_support::{ensure, traits::Get, transactional, PalletId};
-use root_pallet_common::{Hold, OnTransferSubscriber, TransferExt};
-use root_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
+use seed_pallet_common::{Hold, OnTransferSubscriber, TransferExt};
+use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
 	DispatchResult, PerThing, Permill,

@@ -23,8 +23,8 @@ use std::{
 	time::Duration,
 };
 
-use root_primitives::opaque::Block;
-use root_runtime::{self, RuntimeApi};
+use seed_primitives::opaque::Block;
+use seed_runtime::{self, RuntimeApi};
 
 use crate::cli::Cli;
 
@@ -40,11 +40,11 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
 	type ExtendHostFunctions = ();
 
 	fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-		root_runtime::api::dispatch(method, data)
+		seed_runtime::api::dispatch(method, data)
 	}
 
 	fn native_version() -> sc_executor::NativeVersion {
-		root_runtime::native_version()
+		seed_runtime::native_version()
 	}
 }
 
@@ -456,7 +456,7 @@ fn spawn_frontier_tasks(
 		None,
 		MappingSyncWorker::new(
 			client.import_notification_stream(),
-			Duration::new(root_runtime::constants::MILLISECS_PER_BLOCK / 1_000, 0),
+			Duration::new(seed_runtime::constants::MILLISECS_PER_BLOCK / 1_000, 0),
 			client.clone(),
 			backend,
 			frontier_backend.clone(),

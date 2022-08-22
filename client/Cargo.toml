@@ -1,17 +1,17 @@
 [package]
-name = "root-client"
+name = "seed-client"
 version = "0.0.1"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 publish = false
-repository = "https://github.com/futureversecom/root-network"
+repository = "https://github.com/futureversecom/seed-network"
 build = "build.rs"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "root-node"
+name = "seed-node"
 path = "src/main.rs"
 
 [dependencies]
@@ -72,8 +72,8 @@ frame-benchmarking = { git = "https://github.com/futureversecom/substrate", bran
 frame-benchmarking-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", optional = true }
 
 # Local Dependencies
-root-primitives = { path = "../primitives" }
-root-runtime = { path = "../runtime" }
+seed-primitives = { path = "../primitives" }
+seed-runtime = { path = "../runtime" }
 
 # CLI-specific dependencies
 try-runtime-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", optional = true }
@@ -86,4 +86,4 @@ default = []
 runtime-benchmarks = ["frame-benchmarking", "frame-benchmarking-cli"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = ["root-runtime/try-runtime", "try-runtime-cli"]
+try-runtime = ["seed-runtime/try-runtime", "try-runtime-cli"]

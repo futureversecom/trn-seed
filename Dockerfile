@@ -1,5 +1,5 @@
 FROM  rustlang/rust:nightly AS builder
-ARG NODE_BUILD_DIR=/root-network
+ARG NODE_BUILD_DIR=/seed-network
 ARG PROFILE=release
 ARG RUST_NIGHTLY=nightly-2022-03-01
 ARG RUST_VERSION=stable
@@ -21,8 +21,8 @@ RUN cargo build "--$PROFILE"
 
 FROM gcr.io/distroless/cc
 LABEL maintainer="support@centrality.ai"
-LABEL org.opencontainers.image.source=https://github.com/futureversecom/root-network
-COPY --from=0 /root-network/target/release/root-node /
+LABEL org.opencontainers.image.source=https://github.com/futureversecom/seed-network
+COPY --from=0 /seed-network/target/release/seed-node /
 
 EXPOSE 30333 9933 9944
-ENTRYPOINT ["/root-node"]
+ENTRYPOINT ["/seed-node"]

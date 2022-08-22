@@ -3,9 +3,9 @@ use crate::{
 	cli::{Cli, Subcommand},
 	service,
 };
-use root_runtime::Block;
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
+use seed_runtime::Block;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
@@ -43,7 +43,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-		&root_runtime::VERSION
+		&seed_runtime::VERSION
 	}
 }
 
