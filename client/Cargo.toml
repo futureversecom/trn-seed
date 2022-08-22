@@ -18,7 +18,7 @@ path = "src/main.rs"
 futures = "0.3.21"
 # TODO: remove after substrate update w https://github.com/paritytech/substrate/pull/11707
 syn = "=1.0.97"
-clap = { version = "3.1.18", features = ["derive"] }
+clap = { version = "3.2.17", features = ["derive"] }
 
 sc-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", features = ["wasmtime"] }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
