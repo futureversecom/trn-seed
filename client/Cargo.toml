@@ -15,12 +15,14 @@ name = "root-node"
 path = "src/main.rs"
 
 [dependencies]
+futures = "0.3.21"
 # TODO: remove after substrate update w https://github.com/paritytech/substrate/pull/11707
 syn = "=1.0.97"
 clap = { version = "3.1.18", features = ["derive"] }
 
 sc-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", features = ["wasmtime"] }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
+sc-network = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 sc-executor = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", features = ["wasmtime"] }
 sc-service = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", features = ["wasmtime"] }
 sc-telemetry = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
@@ -40,6 +42,19 @@ sp-inherents = { git = "https://github.com/futureversecom/substrate", branch = "
 sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
+
+# Frontier
+fc-cli = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-db = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-mapping-sync = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fc-rpc-core = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fp-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fp-dynamic-fee = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fp-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fp-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+fp-storage = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.13.0", features = ["server"] }
