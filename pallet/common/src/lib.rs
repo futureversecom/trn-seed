@@ -5,7 +5,7 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::DispatchResult, pallet_prelude::DispatchError, traits::fungibles::Transfer, PalletId,
 };
-use root_primitives::{AssetId, Balance, TokenId};
+use seed_primitives::{AssetId, Balance, TokenId};
 
 pub mod utils;
 
@@ -14,7 +14,7 @@ pub mod utils;
 #[macro_export]
 macro_rules! log {
 	($level:tt, $patter:expr $(, $values:expr)* $(,)?) => {
-		root_pallet_common::logger::$level!(
+		seed_pallet_common::logger::$level!(
 			target: crate::LOG_TARGET,
 			$patter $(, $values)*
 		)

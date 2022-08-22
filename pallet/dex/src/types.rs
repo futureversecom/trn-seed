@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::{Decode, Encode, MaxEncodedLen};
-use root_primitives::AssetId;
 use scale_info::TypeInfo;
+use seed_primitives::AssetId;
 use sp_core::U256;
 use sp_runtime::{ArithmeticError, DispatchError, RuntimeDebug};
 

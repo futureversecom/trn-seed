@@ -12,7 +12,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use root_pallet_common::{CreateExt, Hold};
+use seed_pallet_common::{CreateExt, Hold};
 use sp_runtime::traits::{AccountIdConversion, Zero};
 
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");

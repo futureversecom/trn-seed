@@ -2,7 +2,7 @@
 version: '3'
 services:
   validator-0:
-    image: ghcr.io/futureversecom/root-network:0.0.1-rc0
+    image: ghcr.io/futureversecom/seed:latest
     volumes:
     - ./data/validator-0:/mnt/data
     - ./chain-spec:/mnt/chain-spec/:ro
@@ -20,7 +20,7 @@ services:
       - "9944:9944"
       - "30333:30333"
   validator-1:
-    image: ghcr.io/futureversecom/root-network:0.0.1-rc0
+    image: ghcr.io/futureversecom/seed:latest
     volumes:
     - ./data/validator-1:/mnt/data
     - ./chain-spec:/mnt/chain-spec/:ro

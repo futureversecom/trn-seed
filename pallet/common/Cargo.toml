@@ -1,9 +1,9 @@
 [package]
-name = "root-pallet-common"
+name = "seed-pallet-common"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
-repository = "https://github.com/futureversecom/root-network"
+repository = "https://github.com/futureversecom/seed-network"
 description = "Common types and traits used across multiple pallets"
 
 [package.metadata.docs.rs]
@@ -17,7 +17,7 @@ scale-info = { version = "2.1.1", default-features = false, features = ["derive"
 frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.23" }
 sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.23" }
 
-root-primitives = { path = "../../primitives", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
 
 [features]
 default = ["std"]
@@ -26,5 +26,5 @@ std = [
 	"scale-info/std",
 	"frame-support/std",
 	"sp-std/std",
-	"root-primitives/std",
+	"seed-primitives/std",
 ]

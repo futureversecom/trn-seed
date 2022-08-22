@@ -11,9 +11,9 @@ use frame_support::{
 	transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
-use root_pallet_common::CreateExt;
-use root_primitives::{AssetId, Balance};
 use scale_info::TypeInfo;
+use seed_pallet_common::CreateExt;
+use seed_primitives::{AssetId, Balance};
 use sp_core::U256;
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},

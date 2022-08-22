@@ -4,7 +4,7 @@ version = "2.0.1"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 license = "GPL-3.0"
-repository = "https://github.com/futureversecom/root-network"
+repository = "https://github.com/futureversecom/seed-network"
 description = "Root Network NFT pallet"
 
 [dependencies]
@@ -20,8 +20,8 @@ frame-support = { git = "https://github.com/futureversecom/substrate", branch = 
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false  }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
-root-primitives = { path = "../../primitives", default-features = false }
-root-pallet-common = { path = "../common", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
 serde_json = "1.0"
@@ -32,8 +32,8 @@ pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = 
 [features]
 default = ["std"]
 std = [
-	"root-primitives/std",
-	"root-pallet-common/std",
+	"seed-primitives/std",
+	"seed-pallet-common/std",
 	"codec/std",
 	"serde",
 	"sp-core/std",

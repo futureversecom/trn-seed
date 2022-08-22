@@ -15,8 +15,8 @@
 
 use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
-use root_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
-use root_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
+use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
+use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 use sp_std::collections::btree_map::BTreeMap;
 

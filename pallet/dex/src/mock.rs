@@ -10,7 +10,7 @@ use sp_runtime::{
 	Perbill,
 };
 
-pub(crate) use root_primitives::{AssetId, Balance, Index};
+pub(crate) use seed_primitives::{AssetId, Balance, Index};
 
 pub type MockAccountId = u64;
 

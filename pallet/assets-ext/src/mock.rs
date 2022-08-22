@@ -7,7 +7,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-pub(crate) use root_primitives::{AssetId, Balance, Index};
+pub(crate) use seed_primitives::{AssetId, Balance, Index};
 
 use crate::{self as pallet_assets_ext};
 
@@ -100,7 +100,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const TestParachainId: root_primitives::ParachainId = 100;
+	pub const TestParachainId: seed_primitives::ParachainId = 100;
 	pub const MyclAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 	pub const MaxHolds: u32 = 16;

@@ -16,8 +16,8 @@
 use crate as pallet_nft;
 use frame_support::{parameter_types, PalletId};
 use frame_system::{limits, EnsureRoot};
-use root_pallet_common::OnTransferSubscriber;
-use root_primitives::{AssetId, Balance, TokenId};
+use seed_pallet_common::OnTransferSubscriber;
+use seed_primitives::{AssetId, Balance, TokenId};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
