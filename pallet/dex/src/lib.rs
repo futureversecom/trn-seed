@@ -465,7 +465,7 @@ impl<T: Config> Pallet<T> {
 					Error::<T>::InsufficientLiquidity
 				);
 				let amount_a_optimal =
-					amount_a_desired.mul(U256::from(reserve_a))?.div(U256::from(reserve_b))?;
+					amount_b_desired.mul(U256::from(reserve_a))?.div(U256::from(reserve_b))?;
 				ensure!(amount_a_optimal <= amount_a_desired, Error::<T>::InsufficientAmount); // TODO - verify assert
 				ensure!(amount_a_optimal >= amount_a_min, Error::<T>::InsufficientAmountA);
 				(amount_a_optimal, amount_b_desired)
