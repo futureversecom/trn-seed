@@ -9,7 +9,7 @@ use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Root Node".into()
+		"Seed 🌱".into()
 	}
 
 	fn impl_version() -> String {
@@ -25,7 +25,7 @@ impl SubstrateCli for Cli {
 	}
 
 	fn support_url() -> String {
-		"https://github.com/futureversecom/root-network".into()
+		"https://github.com/futureversecom/seed".into()
 	}
 
 	fn copyright_start_year() -> i32 {

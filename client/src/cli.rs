@@ -21,14 +21,6 @@ pub struct Cli {
 
 	#[clap(flatten)]
 	pub run: RunCmd,
-
-	/// Maximum number of logs in a query (EVM).
-	#[clap(long, default_value = "10000")]
-	pub max_past_logs: u32,
-
-	/// Maximum fee history cache size (EVM).
-	#[clap(long, default_value = "2048")]
-	pub fee_history_limit: u64,
 }
 
 #[derive(Debug, clap::Subcommand)]
