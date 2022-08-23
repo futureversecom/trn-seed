@@ -118,6 +118,34 @@ fn reenable_trading_pair() {
 }
 
 #[test]
+fn quote() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		// quote fails if amount_a is 0
+		assert_noop!(Dex::quote(U256::zero(), 0, 0), Error::<Test>::InsufficientAmount);
+
+		// quote fails if either reserves are 0
+		assert_noop!(Dex::quote(U256::from(100), 0, 0), Error::<Test>::InsufficientLiquidity);
+		assert_noop!(
+			Dex::quote(U256::from(100), 0, 100_u128),
+			Error::<Test>::InsufficientLiquidity
+		);
+		assert_noop!(
+			Dex::quote(U256::from(100), 100_u128, 0),
+			Error::<Test>::InsufficientLiquidity
+		);
+
+		// quote succeeds if amount and reserves are non-zero
+		assert_eq!(Dex::quote(U256::from(100), 100_u128, 100_u128), Ok(U256::from(100)));
+		assert_eq!(Dex::quote(U256::from(200), 100_u128, 100_u128), Ok(U256::from(200)));
+		assert_eq!(Dex::quote(U256::from(1), 100_u128, 100_u128), Ok(U256::from(1)));
+		assert_eq!(Dex::quote(U256::from(200), 1_u128, 1_u128), Ok(U256::from(200)));
+		assert_eq!(Dex::quote(U256::from(200), 1_u128, 200_u128), Ok(U256::from(40_000)));
+	});
+}
+
+#[test]
 fn add_liquidity() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
