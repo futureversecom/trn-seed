@@ -19,7 +19,7 @@ use frame_support::{
 		fungible::{self, Inspect as _, Mutate as _, Unbalanced as _},
 		fungibles::{self, Inspect, Mutate, Transfer, Unbalanced},
 		tokens::{DepositConsequence, WithdrawConsequence},
-		NamedReservableCurrency,
+		NamedReservableCurrency, ReservableCurrency,
 	},
 	transactional, PalletId,
 };
@@ -160,6 +160,11 @@ pub mod pallet {
 		#[transactional]
 		pub fn create_asset(origin: OriginFor<T>) -> DispatchResult {
 			let who = frame_system::ensure_signed(origin)?;
+
+			// reserves some native currency from the user - as this should be a costly operation
+			let deposit = T::AssetDeposit::get();
+			T::Currency::reserve(&who, deposit)?;
+
 			Self::create(who)?;
 			Ok(().into())
 		}
