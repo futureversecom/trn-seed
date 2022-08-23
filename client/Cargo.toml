@@ -41,7 +41,7 @@ sp-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "
 sp-inherents = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
-pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
+pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 
 # Frontier
 fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }

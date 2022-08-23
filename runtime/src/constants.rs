@@ -51,6 +51,7 @@ mod constants {
 	use frame_support::weights::{constants::WEIGHT_PER_SECOND, Weight};
 	use seed_primitives::BlockNumber;
 	use sp_runtime::Perbill;
+
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
 	/// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
@@ -59,6 +60,7 @@ mod constants {
 	/// Change this to adjust the block time.
 	pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = 4 * HOURS;
 
 	// Time is measured by number of blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
