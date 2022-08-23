@@ -677,7 +677,7 @@ impl<T: Config> Pallet<T> {
 		reserve_in: Balance,
 		reserve_out: Balance,
 	) -> sp_std::result::Result<Balance, DispatchError> {
-		ensure!(amount_out > 0, Error::<T>::InsufficientInputAmount);
+		ensure!(amount_out > 0, Error::<T>::InsufficientOutputAmount);
 		ensure!(reserve_in > 0 && reserve_out > 0, Error::<T>::InsufficientLiquidity);
 
 		// uint256 numerator = reserveIn.mul(amountOut).mul(1000);
