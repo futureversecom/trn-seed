@@ -391,6 +391,22 @@ impl<T: Config> Pallet<T> {
 		T::DEXBurnPalletId::get().into_account_truncating()
 	}
 
+	/// Given some amount of an asset and pair reserves, returns an equivalent amount of the other
+	/// asset
+	fn quote(
+		amount_a: U256,
+		reserve_a: u128,
+		reserve_b: u128,
+	) -> sp_std::result::Result<U256, DispatchError> {
+		// require(amountA > 0, "UniswapV2Library: INSUFFICIENT_AMOUNT");
+		// require(reserveA > 0 && reserveB > 0, "UniswapV2Library: INSUFFICIENT_LIQUIDITY");
+		// amountB = amountA.mul(reserveB) / reserveA;
+		ensure!(amount_a.gt(&U256::zero()), Error::<T>::InsufficientAmount);
+		ensure!(reserve_a > 0_u128 && reserve_b > 0_u128, Error::<T>::InsufficientLiquidity);
+		let amount_b = amount_a.mul(U256::from(reserve_b))?.div(U256::from(reserve_a))?;
+		Ok(amount_b)
+	}
+
 	fn do_add_liquidity(
 		who: &T::AccountId,
 		asset_id_a: AssetId,
@@ -448,24 +464,14 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// let amount_b_optimal = UniswapV2Library.quote(amountADesired, reserveA,
 			// reserveB);
-			ensure!(amount_a_desired.gt(&U256::zero()), Error::<T>::InsufficientAmount);
-			ensure!(reserve_a > 0_u128 && reserve_b > 0_u128, Error::<T>::InsufficientLiquidity);
-			let amount_b_optimal =
-				amount_a_desired.mul(U256::from(reserve_b))?.div(U256::from(reserve_a))?;
-
+			let amount_b_optimal = Self::quote(amount_a_desired, reserve_a, reserve_b)?;
 			if amount_b_optimal <= amount_b_desired {
 				ensure!(amount_b_optimal >= amount_b_min, Error::<T>::InsufficientAmountB);
 				(amount_a_desired, amount_b_optimal)
 			} else {
 				// uint256 amountAOptimal = UniswapV2Library.quote(amountBDesired, reserveB,
 				// reserveA);
-				ensure!(amount_b_desired.gt(&U256::zero()), Error::<T>::InsufficientAmount);
-				ensure!(
-					reserve_a > 0_u128 && reserve_b > 0_u128,
-					Error::<T>::InsufficientLiquidity
-				);
-				let amount_a_optimal =
-					amount_a_desired.mul(U256::from(reserve_a))?.div(U256::from(reserve_b))?;
+				let amount_a_optimal = Self::quote(amount_b_desired, reserve_b, reserve_a)?;
 				ensure!(amount_a_optimal <= amount_a_desired, Error::<T>::InsufficientAmount); // TODO - verify assert
 				ensure!(amount_a_optimal >= amount_a_min, Error::<T>::InsufficientAmountA);
 				(amount_a_optimal, amount_b_desired)
