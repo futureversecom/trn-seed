@@ -281,6 +281,49 @@ fn add_liquidity() {
 	});
 }
 
+/// https://github.com/futureversecom/seed/issues/15
+#[test]
+fn add_liquidity_issue_15() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(ALICE).unwrap();
+		let weth = AssetsExt::create(BOB).unwrap();
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(10)));
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			0u128, //not used
+		));
+
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			to_eth(2),
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			0u128, //not used
+		));
+		assert_eq!(
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			1_999_999_999_999_999_000_u128,
+		);
+		assert_eq!(AssetsExt::balance(usdc, &ALICE), 8_000_000_000_000_000_000_u128);
+		assert_eq!(AssetsExt::balance(weth, &ALICE), 8_000_000_000_000_000_000_u128);
+	});
+}
+
 #[test]
 fn remove_liquidity_simple() {
 	TestExt::default().build().execute_with(|| {
