@@ -137,6 +137,7 @@ interface IERC721 is IERC165 {
 }
 ```
 
+```solidity
 interface IERC721 is IERC165 {
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId);
@@ -163,3 +164,4 @@ getApproved(uint256 tokenId) external view returns (address operator);
 setApprovalForAll(address operator, bool _approved) external;
 isApprovedForAll(address owner, address operator) external view returns (bool);
 safeTransferFrom(address from,address to,uint256 tokenId,bytes calldata data) external;
+```
