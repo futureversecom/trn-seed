@@ -25,6 +25,7 @@ use frame_support::{
 	},
 };
 use pallet_evm::AddressMapping as AddressMappingT;
+use precompile_utils::{Address, ErcIdConversion};
 use seed_primitives::{AccountId, Balance};
 use sp_core::{H160, U256};
 use sp_runtime::{
@@ -200,5 +201,43 @@ where
 {
 	fn into_account_id(address: H160) -> AccountId {
 		address.into()
+	}
+}
+
+impl<RuntimeId> ErcIdConversion<RuntimeId> for Runtime
+where
+	RuntimeId: From<u32> + Into<u32>,
+{
+	type EvmId = Address;
+
+	// Get runtime Id from EVM address
+	fn evm_id_to_runtime_id(
+		evm_id: Self::EvmId,
+		precompile_address_prefix: &[u8],
+	) -> Option<RuntimeId> {
+		let h160_address: H160 = evm_id.into();
+		let (prefix_part, id_part) = h160_address.as_fixed_bytes().split_at(4);
+
+		if prefix_part == precompile_address_prefix {
+			let mut buf = [0u8; 4];
+			buf.copy_from_slice(&id_part[..4]);
+			let runtime_id: RuntimeId = u32::from_be_bytes(buf).into();
+
+			Some(runtime_id)
+		} else {
+			None
+		}
+	}
+	// Get EVM address from runtime_id (i.e. asset_id or collection_id)
+	fn runtime_id_to_evm_id(
+		runtime_id: RuntimeId,
+		precompile_address_prefix: &[u8],
+	) -> Self::EvmId {
+		let mut buf = [0u8; 20];
+		let id: u32 = runtime_id.into();
+		buf[0..4].copy_from_slice(precompile_address_prefix);
+		buf[4..8].copy_from_slice(&id.to_be_bytes());
+
+		H160::from(buf).into()
 	}
 }
