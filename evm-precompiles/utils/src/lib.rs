@@ -26,6 +26,7 @@ pub use fp_evm::{
 use pallet_evm::AddressMapping;
 use sp_core::H160;
 
+pub mod constants;
 pub mod costs;
 pub mod data;
 pub mod handle;
@@ -96,6 +97,20 @@ pub trait StatefulPrecompile {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput>;
 }
 
+/// Convert EVM addresses into Runtime Id identifiers and vice versa
+pub trait ErcIdConversion<RuntimeId> {
+	/// ID type used by EVM
+	type EvmId;
+	// Get runtime Id from EVM id
+	fn evm_id_to_runtime_id(
+		evm_id: Self::EvmId,
+		precompile_address_prefix: &[u8],
+	) -> Option<RuntimeId>;
+	// Get EVM id from runtime Id
+	fn runtime_id_to_evm_id(runtime_id: RuntimeId, precompile_address_prefix: &[u8])
+		-> Self::EvmId;
+}
+
 pub mod prelude {
 	pub use crate::{
 		data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter},
@@ -105,7 +120,7 @@ pub mod prelude {
 		modifier::{check_function_modifier, FunctionModifier},
 		revert,
 		substrate::RuntimeHelper,
-		succeed, EvmResult, StatefulPrecompile,
+		succeed, ErcIdConversion, EvmResult, StatefulPrecompile,
 	};
 	pub use pallet_evm::PrecompileHandle;
 	pub use precompile_utils_macro::{generate_function_selector, keccak256};
