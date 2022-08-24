@@ -18,6 +18,8 @@ jobs:
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'check coverage') }} || ${{ github.event.push && github.ref == 'refs/heads/main' }}
     steps:
       - uses: xt0rted/pull-request-comment-branch@v1
+        # this is allowed to fail on 'main'
+        continue-on-error: ${{ github.ref == 'refs/heads/main' }}
         id: comment-branch
       - name: Check out
         uses: actions/checkout@v3
