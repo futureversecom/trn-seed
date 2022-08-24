@@ -22,7 +22,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
         with:
-          ref: ${{ steps.comment-branch.outputs.head_ref || "main" }}
+          ref: ${{ steps.comment-branch.outputs.head_ref || 'main' }}
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
