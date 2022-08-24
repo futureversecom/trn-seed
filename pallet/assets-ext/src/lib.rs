@@ -11,6 +11,7 @@
 //! substrate at this time
 
 #![cfg_attr(not(feature = "std"), no_std)]
+pub use pallet::*;
 
 use frame_support::{
 	pallet_prelude::*,
@@ -18,10 +19,11 @@ use frame_support::{
 		fungible::{self, Inspect as _, Mutate as _, Unbalanced as _},
 		fungibles::{self, Inspect, Mutate, Transfer, Unbalanced},
 		tokens::{DepositConsequence, WithdrawConsequence},
-		NamedReservableCurrency,
+		NamedReservableCurrency, ReservableCurrency,
 	},
-	PalletId,
+	transactional, PalletId,
 };
+use frame_system::pallet_prelude::OriginFor;
 use seed_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
 use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
@@ -31,8 +33,6 @@ use sp_std::prelude::*;
 mod mock;
 #[cfg(test)]
 mod test;
-
-pub use pallet::*;
 
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
 /// derivations e.g. `Ord`
@@ -150,6 +150,24 @@ pub mod pallet {
 		MaxHolds,
 		/// Failed to create a new asset
 		CreateAssetFailed,
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Creates a new asset with unique ID according to the network asset id scheme.
+		/// Caller is assigned a min_balance of 1 upon creating the asset.
+		#[pallet::weight((16_000_000 as Weight).saturating_add(T::DbWeight::get().reads_writes(1, 2)))]
+		#[transactional]
+		pub fn create_asset(origin: OriginFor<T>) -> DispatchResult {
+			let who = frame_system::ensure_signed(origin)?;
+
+			// reserves some native currency from the user - as this should be a costly operation
+			let deposit = T::AssetDeposit::get();
+			T::Currency::reserve(&who, deposit)?;
+
+			Self::create(who)?;
+			Ok(().into())
+		}
 	}
 }
 
