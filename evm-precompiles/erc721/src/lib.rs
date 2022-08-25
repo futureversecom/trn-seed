@@ -12,7 +12,7 @@ use sp_runtime::traits::SaturatedConversion;
 use sp_std::marker::PhantomData;
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*, ExitRevert};
-use seed_primitives::{CollectionUuid, SerialNumber};
+use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -61,9 +61,12 @@ impl<T> Default for Erc721PrecompileSet<T> {
 impl<Runtime> PrecompileSet for Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
-	Runtime: pallet_nft::Config + pallet_evm::Config + frame_system::Config,
+	Runtime: pallet_nft::Config
+		+ pallet_evm::Config
+		+ frame_system::Config
+		+ pallet_token_approvals::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>>,
+	Runtime::Call: From<pallet_nft::Call<Runtime>> + From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -98,9 +101,9 @@ where
 						Action::Name => Self::name(collection_id, handle),
 						Action::Symbol => Self::symbol(collection_id, handle),
 						Action::TokenURI => Self::token_uri(collection_id, handle),
-						Action::TransferFrom |
-						Action::Approve |
-						Action::GetApproved |
+						Action::Approve => Self::approve(collection_id, handle),
+						Action::GetApproved => Self::get_approved(collection_id, handle),
+						Action::TransferFrom => Self::transfer_from(collection_id, handle),
 						Action::SafeTransferFrom |
 						Action::SafeTransferFromCallData |
 						Action::IsApprovedForAll |
@@ -134,9 +137,12 @@ impl<Runtime> Erc721PrecompileSet<Runtime> {
 impl<Runtime> Erc721PrecompileSet<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
-	Runtime: pallet_nft::Config + pallet_evm::Config + frame_system::Config,
+	Runtime: pallet_nft::Config
+		+ pallet_evm::Config
+		+ frame_system::Config
+		+ pallet_token_approvals::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>>,
+	Runtime::Call: From<pallet_nft::Call<Runtime>> + From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -202,6 +208,146 @@ where
 			exit_status: ExitSucceed::Returned,
 			output: EvmDataWriter::new().write(amount).build(),
 		})
+	}
+
+	fn transfer_from(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		let mut input = handle.read_input()?;
+		input.expect_arguments(3)?;
+
+		let from: H160 = input.read::<Address>()?.into();
+		let to: H160 = input.read::<Address>()?.into();
+		let serial_number = input.read::<U256>()?;
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::MAX.into() {
+			return Err(error("expected token id <= 2^32").into())
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		let token_id = (collection_id, serial_number);
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let approved_account: Option<Runtime::AccountId> =
+			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
+
+		// Build call with origin.
+		if handle.context().caller == from ||
+			Some(Runtime::AccountId::from(handle.context().caller)) == approved_account
+		{
+			// Dispatch call (if enough gas).
+			RuntimeHelper::<Runtime>::try_dispatch(
+				handle,
+				Some(Runtime::AccountId::from(from)).into(),
+				pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
+			)?;
+		} else {
+			return Err(error("caller not approved").into())
+		}
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER,
+			handle.context().caller,
+			to,
+			EvmDataWriter::new().write(serial_number).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			output: EvmDataWriter::new().write(true).build(),
+		})
+	}
+
+	fn approve(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		let mut input = handle.read_input()?;
+		input.expect_arguments(2)?;
+
+		let to: H160 = input.read::<Address>()?.into();
+		let serial_number = input.read::<U256>()?;
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::MAX.into() {
+			return Err(error("expected token id <= 2^32").into())
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+
+		let token_id: TokenId = (collection_id, serial_number);
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			None.into(),
+			pallet_token_approvals::Call::<Runtime>::erc721_approval {
+				caller: handle.context().caller.into(),
+				operator_account: to.into(),
+				token_id,
+			},
+		)?;
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_APPROVAL,
+			handle.context().caller,
+			to,
+			EvmDataWriter::new().write(serial_number).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			output: EvmDataWriter::new().write(true).build(),
+		})
+	}
+
+	fn get_approved(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		let mut input = handle.read_input()?;
+		input.expect_arguments(1)?;
+		let serial_number = input.read::<U256>()?;
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::MAX.into() {
+			return Err(error("expected token id <= 2^32").into())
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
+			collection_id,
+			serial_number,
+		)) {
+			Some(approved_account) => Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				output: EvmDataWriter::new()
+					.write(Address::from(Into::<H160>::into(approved_account)))
+					.build(),
+			}),
+			None => Ok(PrecompileOutput {
+				exit_status: ExitSucceed::Returned,
+				output: alloc::format!("No accounts approved").as_bytes().to_vec(),
+			}),
+		}
 	}
 
 	fn name(
