@@ -11,8 +11,8 @@ use precompile_utils::{
 };
 
 parameter_types! {
-	pub Erc721AssetPrefix: &'static [u8; 4] = ERC721_PRECOMPILE_ADDRESS_PREFIX;
-	pub Erc20AssetPrefix: &'static [u8; 4] = ERC20_PRECOMPILE_ADDRESS_PREFIX;
+	pub Erc721AssetPrefix: &'static [u8] = ERC721_PRECOMPILE_ADDRESS_PREFIX;
+	pub Erc20AssetPrefix: &'static [u8] = ERC20_PRECOMPILE_ADDRESS_PREFIX;
 }
 
 /// The PrecompileSet installed in the Futureverse runtime.
