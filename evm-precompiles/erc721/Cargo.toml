@@ -9,6 +9,7 @@ repository = "https://github.com/futureversecom/seed"
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
 pallet-nft = { path = "../../pallet/nft", default-features = false }
+pallet-token-approvals = { path = "../../pallet/token-approvals", default-features = false }
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
 pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
 precompile-utils = { path = "../utils", default-features = false }

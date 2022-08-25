@@ -4394,6 +4394,7 @@ dependencies = [
  "num_enum",
  "pallet-evm",
  "pallet-nft",
+ "pallet-token-approvals",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
