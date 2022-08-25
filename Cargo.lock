@@ -4374,6 +4374,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-evm",
+ "pallet-token-approvals",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
