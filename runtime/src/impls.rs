@@ -213,7 +213,7 @@ where
 	// Get runtime Id from EVM address
 	fn evm_id_to_runtime_id(
 		evm_id: Self::EvmId,
-		precompile_address_prefix: &[u8],
+		precompile_address_prefix: &[u8; 4],
 	) -> Option<RuntimeId> {
 		let h160_address: H160 = evm_id.into();
 		let (prefix_part, id_part) = h160_address.as_fixed_bytes().split_at(4);
@@ -231,7 +231,7 @@ where
 	// Get EVM address from runtime_id (i.e. asset_id or collection_id)
 	fn runtime_id_to_evm_id(
 		runtime_id: RuntimeId,
-		precompile_address_prefix: &[u8],
+		precompile_address_prefix: &[u8; 4],
 	) -> Self::EvmId {
 		let mut buf = [0u8; 20];
 		let id: u32 = runtime_id.into();
