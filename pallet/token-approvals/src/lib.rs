@@ -22,25 +22,25 @@
 //! to allow for easier precompiling of ERC-721 and ERC-20 tokens, this module handles approvals on
 //! Seed for token transfers.
 
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{IsTokenOwner, OnTransferSubscriber};
-use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
+use seed_primitives::{AssetId, Balance, TokenId};
 use sp_runtime::DispatchResult;
-use sp_std::prelude::*;
 
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
+pub use pallet::*;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -61,7 +61,10 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
+	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: frame_system::Config {
+		/// The system event type
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// NFT ownership interface
 		type IsTokenOwner: IsTokenOwner<AccountId = Self::AccountId>;
 	}
@@ -70,18 +73,6 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn erc721_approvals)]
 	pub type ERC721Approvals<T: Config> = StorageMap<_, Twox64Concat, TokenId, T::AccountId>;
-
-	// Account with transfer approval for an NFT collection of another account
-	#[pallet::storage]
-	#[pallet::getter(fn erc721_approvals_for_all)]
-	pub type ERC721ApprovalsForAll<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		Twox64Concat,
-		CollectionUuid,
-		Vec<T::AccountId>,
-	>;
 
 	// Mapping from account/ asset_id to an approved balance of another account
 	#[pallet::storage]
@@ -102,12 +93,6 @@ pub mod pallet {
 		Erc721ApprovalSet {
 			caller: T::AccountId,
 			token_id: TokenId,
-			operator_account: T::AccountId,
-		},
-		/// Erc721 approval for all was set
-		Erc721ApprovalForAllSet {
-			caller: T::AccountId,
-			collection_id: CollectionUuid,
 			operator_account: T::AccountId,
 		},
 		/// Erc20 approval was set
@@ -137,7 +122,7 @@ pub mod pallet {
 		/// Mapping from token_id to operator
 		/// clears approval on transfer
 		/// mapping(uint256 => address) private _tokenApprovals;
-		#[weight = 125_000_000]
+		#[pallet::weight(125_000_000)]
 		pub fn erc721_approval(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
@@ -148,7 +133,12 @@ pub mod pallet {
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			// Check that origin owns NFT
 			ensure!(T::IsTokenOwner::is_owner(&caller, &token_id), Error::<T>::NotTokenOwner);
-			ERC721Approvals::<T>::insert(token_id, operator_account);
+			ERC721Approvals::<T>::insert(token_id, &operator_account);
+			Self::deposit_event(Event::<T>::Erc721ApprovalSet {
+				caller,
+				token_id,
+				operator_account,
+			});
 			Ok(())
 		}
 
@@ -165,7 +155,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 			ensure!(caller != spender, Error::<T>::CallerNotOperator);
-			ERC20Approvals::<T>::insert((caller, asset_id), spender, amount);
+			ERC20Approvals::<T>::insert((&caller, asset_id), &spender, amount);
+			Self::deposit_event(Event::<T>::Erc20ApprovalSet { caller, asset_id, amount, spender });
 			Ok(())
 		}
 
@@ -179,26 +170,8 @@ pub mod pallet {
 			asset_id: AssetId,
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
-			ERC20Approvals::<T>::remove((caller, asset_id), spender);
-			Ok(())
-		}
-
-		/// Sets approval over an entire collection
-		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
-		#[pallet::weight(175_000_000)]
-		pub fn erc721_approval_for_all(
-			origin: OriginFor<T>,
-			caller: T::AccountId,
-			operator_account: T::AccountId,
-			collection_uuid: CollectionUuid,
-		) -> DispatchResult {
-			let _ = ensure_none(origin)?;
-			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
-			let approvals = Self::erc721_approvals_for_all(&caller, collection_uuid);
-			ensure!(!approvals.contains(&operator_account), Error::<T>::AlreadyApproved);
-
-			ERC721ApprovalsForAll::<T>::append(caller, collection_uuid, operator_account.clone());
-
+			ERC20Approvals::<T>::remove((&caller, asset_id), &spender);
+			Self::deposit_event(Event::<T>::Erc20ApprovalRemove { caller, asset_id, spender });
 			Ok(())
 		}
 	}
