@@ -255,7 +255,7 @@ impl pallet_nft::Config for Runtime {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
-	type OnTransferSubscription = pallet_nft::NoopTransferSubscriber;
+	type OnTransferSubscription = TokenApprovals;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type WeightInfo = ();
@@ -275,6 +275,11 @@ impl pallet_dex::Config for Runtime {
 	type TradingPathLimit = TradingPathLimit;
 	type WeightInfo = pallet_dex::weights::PlugWeight<Runtime>;
 	type MultiCurrency = AssetsExt;
+}
+
+impl pallet_token_approvals::Config for Runtime {
+	type Event = Event;
+	type IsTokenOwner = Nft;
 }
 
 parameter_types! {
@@ -494,6 +499,7 @@ construct_runtime! {
 		Sudo: pallet_sudo,
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
+		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage, Config<T>, Event<T>},
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
