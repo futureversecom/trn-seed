@@ -8,6 +8,7 @@ use frame_support::{
 		fungibles::{Inspect, InspectMetadata},
 		OriginTrait,
 	},
+	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use pallet_evm::PrecompileSet;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
@@ -69,7 +70,11 @@ where
 	Runtime: pallet_assets_ext::Config<AssetId = AssetId>
 		+ pallet_evm::Config
 		+ frame_system::Config
-		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>,
+		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
+		+ pallet_token_approvals::Config,
+	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::Call: From<pallet_token_approvals::Call<Runtime>>,
+	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
@@ -105,8 +110,9 @@ where
 						Action::Name => Self::name(asset_id, handle),
 						Action::Symbol => Self::symbol(asset_id, handle),
 						Action::Decimals => Self::decimals(asset_id, handle),
-						Action::Allowance | Action::Approve | Action::TransferFrom =>
-							return Some(Err(error("function not implemented yet").into())),
+						Action::Allowance => Self::allowance(asset_id, handle),
+						Action::Approve => Self::approve(asset_id, handle),
+						Action::TransferFrom => Self::transfer_from(asset_id, handle),
 					}
 				};
 
@@ -143,7 +149,11 @@ where
 	Runtime: pallet_assets_ext::Config<AssetId = AssetId>
 		+ pallet_evm::Config
 		+ frame_system::Config
-		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>,
+		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
+		+ pallet_token_approvals::Config,
+	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::Call: From<pallet_token_approvals::Call<Runtime>>,
+	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
@@ -200,6 +210,78 @@ where
 		})
 	}
 
+	fn allowance(
+		asset_id: AssetId,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		// Read input.
+		let mut input = handle.read_input()?;
+		input.expect_arguments(2)?;
+
+		let owner: Runtime::AccountId = H160::from(input.read::<Address>()?).into();
+		let spender: Runtime::AccountId = H160::from(input.read::<Address>()?).into();
+
+		// Fetch info.
+		let amount: U256 = pallet_token_approvals::Pallet::<Runtime>::erc20_approvals(
+			(&owner, &asset_id),
+			&spender,
+		)
+		.unwrap_or_default()
+		.into();
+
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			output: EvmDataWriter::new().write(amount).build(),
+		})
+	}
+
+	fn approve(
+		asset_id: AssetId,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		let mut input = handle.read_input()?;
+		input.expect_arguments(2)?;
+
+		let spender: H160 = input.read::<Address>()?.into();
+		let amount: U256 = input.read()?;
+
+		// Amount saturate if too high.
+		let amount: Balance = amount.saturated_into();
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			None.into(),
+			pallet_token_approvals::Call::<Runtime>::erc20_approval {
+				caller: handle.context().caller.into(),
+				spender: spender.into(),
+				asset_id,
+				amount,
+			},
+		)?;
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_APPROVAL,
+			handle.context().caller,
+			spender,
+			EvmDataWriter::new().write(amount).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			output: EvmDataWriter::new().write(true).build(),
+		})
+	}
+
 	fn transfer(
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
@@ -226,6 +308,85 @@ where
 			SELECTOR_LOG_TRANSFER,
 			handle.context().caller,
 			to,
+			EvmDataWriter::new().write(amount).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(PrecompileOutput {
+			exit_status: ExitSucceed::Returned,
+			output: EvmDataWriter::new().write(true).build(),
+		})
+	}
+
+	fn transfer_from(
+		asset_id: AssetId,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		let mut input = handle.read_input()?;
+		input.expect_arguments(3)?;
+		let from: H160 = input.read::<Address>()?.into();
+		let to: H160 = input.read::<Address>()?.into();
+		let amount: Balance = input.read::<U256>()?.saturated_into();
+
+		{
+			// Convert address types into Runtime::AccountId
+			let from: Runtime::AccountId = from.into();
+			let to: Runtime::AccountId = to.into();
+			let caller: Runtime::AccountId = handle.context().caller.into();
+
+			// Check if caller is approved
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+			let current_approved_amount: Balance =
+				pallet_token_approvals::Pallet::<Runtime>::erc20_approvals(
+					(&from.clone(), &asset_id),
+					&caller,
+				)
+				.ok_or(revert("Caller not approved for amount"))?;
+			let new_approved_amount: Balance = current_approved_amount
+				.checked_sub(amount)
+				.ok_or(revert("Caller not approved for amount"))?;
+
+			if new_approved_amount.is_zero() {
+				// New balance is 0, remove approval
+				RuntimeHelper::<Runtime>::try_dispatch(
+					handle,
+					None.into(),
+					pallet_token_approvals::Call::<Runtime>::erc20_remove_approval {
+						caller: from.clone(),
+						asset_id,
+						spender: caller,
+					},
+				)?;
+			} else {
+				// New balance has changed, update approval to represent difference
+				RuntimeHelper::<Runtime>::try_dispatch(
+					handle,
+					None.into(),
+					pallet_token_approvals::Call::<Runtime>::erc20_approval {
+						caller: from.clone(),
+						spender: caller,
+						asset_id,
+						amount: new_approved_amount,
+					},
+				)?;
+			}
+
+			let _ = <pallet_assets_ext::Pallet<Runtime> as TransferExt>::split_transfer(
+				&from,
+				asset_id,
+				&[(to.clone(), amount)],
+			)
+			.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?;
+		}
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER,
+			H160::from(from),
+			H160::from(to),
 			EvmDataWriter::new().write(amount).build(),
 		)
 		.record(handle)?;
