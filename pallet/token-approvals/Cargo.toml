@@ -21,10 +21,12 @@ sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "po
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
 
 [dev-dependencies]
-pallet-assets-ext = { path = "../assets-ext" }
 pallet-nft = { path = "../nft" }
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 hex-literal = { version = "0.3.1" }
+pallet-assets-ext = { path = "../assets-ext" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 
 [features]
 default = ["std"]
