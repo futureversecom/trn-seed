@@ -3,6 +3,7 @@ name = "seed-runtime"
 version = "0.1.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
+repository = "https://github.com/futureversecom/seed"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
