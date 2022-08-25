@@ -1,33 +1,30 @@
 /* Copyright 2021 Centrality Investments Limited
-*
-* Licensed under the LGPL, Version 3.0 (the "License");
-* you may not use this file except in compliance with the License.
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-* You may obtain a copy of the License at the root of this project source code,
-* or at:
-*     https://centrality.ai/licenses/gplv3.txt
-*     https://centrality.ai/licenses/lgplv3.txt
-*/
+ *
+ * Licensed under the LGPL, Version 3.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * You may obtain a copy of the License at the root of this project source code,
+ * or at:
+ *     https://centrality.ai/licenses/gplv3.txt
+ *     https://centrality.ai/licenses/lgplv3.txt
+ */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! CENNZnet token approvals
+//! Seed token approvals
 //!
-//! Module for handling approvals on CENNZnet to allow for ERC-721 and ERC-20 crossover
+//! Module for handling approvals on Seed network to allow for ERC-721 and ERC-20 crossover
 //!
 //! Ethereum standards allow for token transfers of accounts on behalf of the token owner
-//! to allow for easier precompiling of ERC-721 and ERC-20 tokens, this module handles approvals on CENNZnet
-//! for token transfers.
+//! to allow for easier precompiling of ERC-721 and ERC-20 tokens, this module handles approvals on
+//! Seed for token transfers.
 
-use cennznet_primitives::types::{AccountId, AssetId, Balance, CollectionId, SerialNumber, SeriesId, TokenId};
-use crml_support::{IsTokenOwner, MultiCurrency, OnTransferSubscriber, PrefixedAddressMapping};
-use frame_support::{decl_error, decl_module, decl_storage, ensure};
 use frame_system::pallet_prelude::*;
-use pallet_evm::AddressMapping;
-use sp_core::H160;
+use seed_pallet_common::{IsTokenOwner, OnTransferSubscriber};
+use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::DispatchResult;
 use sp_std::prelude::*;
 
@@ -36,128 +33,190 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// The module's configuration trait.
-pub trait Config: frame_system::Config {
-	/// Handles a multi-currency fungible asset system
-	type MultiCurrency: MultiCurrency<AccountId = AccountId, CurrencyId = AssetId, Balance = Balance>;
-	/// NFT ownership interface
-	type IsTokenOwner: IsTokenOwner<AccountId = AccountId>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+	use super::*;
+	use frame_support::pallet_prelude::*;
 
-impl<T: Config> OnTransferSubscriber for Module<T> {
-	/// Do anything that needs to be done after an NFT has been transferred
-	fn on_nft_transfer(token_id: &TokenId) {
-		// Set approval to none
-		Self::remove_erc721_approval(token_id);
+	#[pallet::pallet]
+	#[pallet::generate_store(pub (super) trait Store)]
+	#[pallet::without_storage_info]
+	pub struct Pallet<T>(_);
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		_phantom: sp_std::marker::PhantomData<T>,
 	}
-}
 
-decl_error! {
-	/// Error for the token-approvals module.
-	pub enum Error for Module<T: Config> {
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			GenesisConfig { _phantom: Default::default() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {}
+	}
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// NFT ownership interface
+		type IsTokenOwner: IsTokenOwner<AccountId = Self::AccountId>;
+	}
+
+	// Account with transfer approval for a single NFT
+	#[pallet::storage]
+	#[pallet::getter(fn erc721_approvals)]
+	pub type ERC721Approvals<T: Config> = StorageMap<_, Twox64Concat, TokenId, T::AccountId>;
+
+	// Account with transfer approval for an NFT collection of another account
+	#[pallet::storage]
+	#[pallet::getter(fn erc721_approvals_for_all)]
+	pub type ERC721ApprovalsForAll<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Twox64Concat,
+		CollectionUuid,
+		Vec<T::AccountId>,
+	>;
+
+	// Mapping from account/ asset_id to an approved balance of another account
+	#[pallet::storage]
+	#[pallet::getter(fn erc20_approvals)]
+	pub type ERC20Approvals<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		(T::AccountId, AssetId),
+		Twox64Concat,
+		T::AccountId,
+		Balance,
+	>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// Erc721 approval was set
+		Erc721ApprovalSet {
+			caller: T::AccountId,
+			token_id: TokenId,
+			operator_account: T::AccountId,
+		},
+		/// Erc721 approval for all was set
+		Erc721ApprovalForAllSet {
+			caller: T::AccountId,
+			collection_id: CollectionUuid,
+			operator_account: T::AccountId,
+		},
+		/// Erc20 approval was set
+		Erc20ApprovalSet {
+			caller: T::AccountId,
+			asset_id: AssetId,
+			amount: Balance,
+			spender: T::AccountId,
+		},
+		/// Erc20 approval was removed
+		Erc20ApprovalRemove { caller: T::AccountId, asset_id: AssetId, spender: T::AccountId },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
 		/// The account is not the owner of the token
 		NotTokenOwner,
 		/// The caller account can't be the same as the operator account
 		CallerNotOperator,
+		/// Address is already approved
+		AlreadyApproved,
 	}
-}
 
-// This module's storage items.
-decl_storage! {
-	trait Store for Module<T: Config> as TokenApprovals {
-		// Account with transfer approval for a single NFT
-		pub ERC721Approvals get(fn erc721_approvals): map hasher(twox_64_concat) (CollectionId, SeriesId, SerialNumber) => H160;
-		// Account with transfer approval for an NFT series of another account
-		pub ERC721ApprovalsForAll get(fn erc721_approvals_for_all): double_map hasher(twox_64_concat) H160, hasher(twox_64_concat) (CollectionId, SeriesId) => Vec<H160>;
-		// Mapping from account/ asset_id to an approved balance of another account
-		pub ERC20Approvals get(fn erc20_approvals): double_map hasher(twox_64_concat) (H160, AssetId), hasher(twox_64_concat) H160 => Balance;
-	}
-}
-
-// The module's dispatchable functions.
-decl_module! {
-	/// The module declaration.
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
-		type Error = Error<T>;
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
 		/// Set approval for a single NFT
 		/// Mapping from token_id to operator
 		/// clears approval on transfer
+		/// mapping(uint256 => address) private _tokenApprovals;
 		#[weight = 125_000_000]
 		pub fn erc721_approval(
-			origin,
-			caller: H160,
-			operator_account: H160,
+			origin: OriginFor<T>,
+			caller: T::AccountId,
+			operator_account: T::AccountId,
 			token_id: TokenId,
 		) -> DispatchResult {
-			// mapping(uint256 => address) private _tokenApprovals;
-
 			let _ = ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			// Check that origin owns NFT
-			let owner = PrefixedAddressMapping::into_account_id(caller);
-			ensure!(T::IsTokenOwner::check_ownership(&owner, &token_id), Error::<T>::NotTokenOwner);
-			ERC721Approvals::insert(token_id, operator_account);
+			ensure!(T::IsTokenOwner::is_owner(&caller, &token_id), Error::<T>::NotTokenOwner);
+			ERC721Approvals::<T>::insert(token_id, operator_account);
 			Ok(())
 		}
 
 		/// Set approval for an account to transfer an amount of tokens on behalf of the caller
 		/// Mapping from caller to spender and amount
 		/// mapping(address => mapping(address => uint256)) private _allowances;
-		#[weight = 100_000_000]
+		#[pallet::weight(100_000_000)]
 		pub fn erc20_approval(
-			origin,
-			caller: H160,
-			spender: H160,
+			origin: OriginFor<T>,
+			caller: T::AccountId,
+			spender: T::AccountId,
 			asset_id: AssetId,
 			amount: Balance,
 		) -> DispatchResult {
-			// mapping(address => mapping(address => uint256)) private _allowances;
 			let _ = ensure_none(origin)?;
 			ensure!(caller != spender, Error::<T>::CallerNotOperator);
-			ERC20Approvals::insert((caller, asset_id), spender, amount);
+			ERC20Approvals::<T>::insert((caller, asset_id), spender, amount);
 			Ok(())
 		}
 
 		/// Removes an approval over an account and asset_id
-		#[weight = 100_000_000]
+		/// mapping(address => mapping(address => uint256)) private _allowances;
+		#[pallet::weight(100_000_000)]
 		pub fn erc20_remove_approval(
-			origin,
-			caller: H160,
-			spender: H160,
+			origin: OriginFor<T>,
+			caller: T::AccountId,
+			spender: T::AccountId,
 			asset_id: AssetId,
 		) -> DispatchResult {
-			// mapping(address => mapping(address => uint256)) private _allowances;
 			let _ = ensure_none(origin)?;
-			ERC20Approvals::remove((caller, asset_id), spender);
+			ERC20Approvals::<T>::remove((caller, asset_id), spender);
 			Ok(())
 		}
 
-		// #[weight = 175_000_000]
-		// pub fn erc721_approval_for_all(
-		// 	origin,
-		// 	caller: H160,
-		// 	operator_account: H160,
-		// 	collection_id: CollectionId,
-		// 	series_id: SeriesId,
-		// ) -> DispatchResult {
-		// 	let _ = ensure_none(origin)?;
-		// 	// mapping(address => mapping(address => bool)) private _operatorApprovals;
-		// 	ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
-		// 	let approvals = Self::erc721_approvals_for_all(&caller, (collection_id, series_id));
-		// 	ensure!(!approvals.contains(&operator_account), Error::<T>::AlreadyApproved);
-		//
-		// 	ERC721ApprovalsForAll::<T>::append(caller, (collection_id, series_id), operator_account.clone());
-		//
-		// 	Ok(())
-		// }
+		/// Sets approval over an entire collection
+		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
+		#[pallet::weight(175_000_000)]
+		pub fn erc721_approval_for_all(
+			origin: OriginFor<T>,
+			caller: T::AccountId,
+			operator_account: T::AccountId,
+			collection_uuid: CollectionUuid,
+		) -> DispatchResult {
+			let _ = ensure_none(origin)?;
+			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
+			let approvals = Self::erc721_approvals_for_all(&caller, collection_uuid);
+			ensure!(!approvals.contains(&operator_account), Error::<T>::AlreadyApproved);
+
+			ERC721ApprovalsForAll::<T>::append(caller, collection_uuid, operator_account.clone());
+
+			Ok(())
+		}
 	}
 }
 
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
 	/// Removes the approval of a single NFT
 	/// Triggered by transferring the token
 	pub fn remove_erc721_approval(token_id: &TokenId) {
 		// Check that origin owns NFT
-		ERC721Approvals::remove(token_id);
+		ERC721Approvals::<T>::remove(token_id);
+	}
+}
+
+impl<T: Config> OnTransferSubscriber for Pallet<T> {
+	/// Do anything that needs to be done after an NFT has been transferred
+	fn on_nft_transfer(token_id: &TokenId) {
+		// Set approval to none
+		Self::remove_erc721_approval(token_id);
 	}
 }
