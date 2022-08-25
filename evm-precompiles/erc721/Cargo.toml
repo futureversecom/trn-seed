@@ -32,6 +32,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"pallet-nft/std",
+	"pallet-token-approvals/std",
 	"fp-evm/std",
 	"pallet-evm/std",
 	"frame-support/std",
