@@ -1,19 +1,3 @@
-// Copyright 2019-2022 Centrality Investments Ltd.
-// This file is part of CENNZnet.
-
-// CENNZnet is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// CENNZnet is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with CENNZnet.  If not, see <http://www.gnu.org/licenses/>.
-
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
@@ -57,12 +41,12 @@ pub enum Action {
 /// The following distribution has been decided for the precompiles
 /// 0-1023: Ethereum Mainnet Precompiles
 /// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither CENNZnet specific
-/// 2048-4095 CENNZnet specific precompiles
+/// 2048-4095 Seed specific precompiles
 /// NFT precompile addresses can only fall between
 /// 	0xAAAAAAAA00000000000000000000000000000000 - 0xAAAAAAAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-/// The precompile for NFT series (X,Y) where X & Y are a u32 (i.e.8 bytes), if 0XFFFFFFFF +
-/// Bytes(CollectionId) + Bytes(SeriesId) In order to route the address to Erc721Precompile<R>, we
-/// check whether the CollectionId + SeriesId exist in crml-nft pallet
+/// The precompile for NFT series X where X is a u32 (i.e.4 bytes), if 0XFFFFFFFF +
+/// Bytes(CollectionUuid) In order to route the address to Erc721Precompile<R>, we
+/// check whether the CollectionUuid exists in pallet-nft
 
 /// This means that every address that starts with 0xAAAAAAAA will go through an additional db read,
 /// but the probability for this to happen is 2^-32 for random addresses
@@ -111,10 +95,10 @@ where
 					match selector {
 						Action::OwnerOf => Self::owner_of(collection_id, handle),
 						Action::BalanceOf => Self::balance_of(collection_id, handle),
-						Action::TransferFrom => Self::transfer_from(collection_id, handle),
 						Action::Name => Self::name(collection_id, handle),
 						Action::Symbol => Self::symbol(collection_id, handle),
 						Action::TokenURI => Self::token_uri(collection_id, handle),
+						Action::TransferFrom |
 						Action::Approve |
 						Action::GetApproved |
 						Action::SafeTransferFrom |
@@ -217,59 +201,6 @@ where
 		Ok(PrecompileOutput {
 			exit_status: ExitSucceed::Returned,
 			output: EvmDataWriter::new().write(amount).build(),
-		})
-	}
-
-	fn transfer_from(
-		collection_id: CollectionUuid,
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
-		// Parse input.
-		let mut input = handle.read_input()?;
-		input.expect_arguments(3)?;
-
-		let from: H160 = input.read::<Address>()?.into();
-		let to: H160 = input.read::<Address>()?.into();
-		let serial_number = input.read::<U256>()?;
-
-		// For now we only support Ids < u32 max
-		// since `u32` is the native `SerialNumber` type used by the NFT module.
-		// it's not possible for the module to issue Ids larger than this
-		if serial_number > u32::MAX.into() {
-			return Err(error("expected token id <= 2^32").into())
-		}
-		let serial_number: SerialNumber = serial_number.saturated_into();
-		let token_id = (collection_id, serial_number);
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
-		// Build call with origin.
-		// TODO Implement token_approvals check
-		if handle.context().caller == from {
-			// Dispatch call (if enough gas).
-			RuntimeHelper::<Runtime>::try_dispatch(
-				handle,
-				Some(from.into()).into(),
-				pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
-			)?;
-		} else {
-			return Err(error("caller not approved").into())
-		}
-
-		log3(
-			handle.code_address(),
-			SELECTOR_LOG_TRANSFER,
-			handle.context().caller,
-			to,
-			EvmDataWriter::new().write(serial_number).build(),
-		)
-		.record(handle)?;
-
-		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new().write(true).build(),
 		})
 	}
 
