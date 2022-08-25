@@ -3,7 +3,7 @@ name = "precompile-utils"
 version = "0.1.0"
 authors = [ "PureStake", "CENNZnet Developers" ]
 edition = "2021"
-repository = "https://github.com/futureversecom/parachains"
+repository = "https://github.com/futureversecom/seed"
 description = "Utils to write EVM precompiles."
 
 [dependencies]
