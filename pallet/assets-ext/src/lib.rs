@@ -11,6 +11,7 @@
 //! substrate at this time
 
 #![cfg_attr(not(feature = "std"), no_std)]
+pub use pallet::*;
 
 use frame_support::{
 	pallet_prelude::*,
@@ -18,10 +19,11 @@ use frame_support::{
 		fungible::{self, Inspect as _, Mutate as _, Unbalanced as _},
 		fungibles::{self, Inspect, Mutate, Transfer, Unbalanced},
 		tokens::{DepositConsequence, WithdrawConsequence},
-		NamedReservableCurrency,
+		NamedReservableCurrency, ReservableCurrency,
 	},
-	PalletId,
+	transactional, PalletId,
 };
+use frame_system::pallet_prelude::OriginFor;
 use seed_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
 use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
@@ -31,8 +33,6 @@ use sp_std::prelude::*;
 mod mock;
 #[cfg(test)]
 mod test;
-
-pub use pallet::*;
 
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
 /// derivations e.g. `Ord`
@@ -78,9 +78,9 @@ pub mod pallet {
 		/// The maximum * of holds per asset & account
 		#[pallet::constant]
 		type MaxHolds: Get<u32>;
-		/// The mycelium asset Id (managed by pallet-balances)
+		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
-		type MyclAssetId: Get<AssetId>;
+		type NativeAssetId: Get<AssetId>;
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -150,6 +150,24 @@ pub mod pallet {
 		MaxHolds,
 		/// Failed to create a new asset
 		CreateAssetFailed,
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		/// Creates a new asset with unique ID according to the network asset id scheme.
+		/// Caller is assigned a min_balance of 1 upon creating the asset.
+		#[pallet::weight((16_000_000 as Weight).saturating_add(T::DbWeight::get().reads_writes(1, 2)))]
+		#[transactional]
+		pub fn create_asset(origin: OriginFor<T>) -> DispatchResult {
+			let who = frame_system::ensure_signed(origin)?;
+
+			// reserves some native currency from the user - as this should be a costly operation
+			let deposit = T::AssetDeposit::get();
+			T::Currency::reserve(&who, deposit)?;
+
+			Self::create(who)?;
+			Ok(().into())
+		}
 	}
 }
 
@@ -288,7 +306,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 	type Balance = Balance;
 
 	fn total_issuance(asset_id: AssetId) -> Balance {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::total_issuance()
 		} else {
 			<pallet_assets::Pallet<T>>::total_issuance(asset_id)
@@ -296,7 +314,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 	}
 
 	fn minimum_balance(asset_id: AssetId) -> Balance {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _> as fungible::Inspect<_>>::minimum_balance()
 		} else {
 			<pallet_assets::Pallet<T>>::minimum_balance(asset_id)
@@ -304,7 +322,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 	}
 
 	fn balance(asset_id: AssetId, who: &T::AccountId) -> Balance {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::balance(who)
 		} else {
 			<pallet_assets::Pallet<T>>::balance(asset_id, who)
@@ -312,7 +330,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 	}
 
 	fn reducible_balance(asset_id: AssetId, who: &T::AccountId, keep_alive: bool) -> Balance {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _> as fungible::Inspect<_>>::reducible_balance(
 				who, keep_alive,
 			)
@@ -329,7 +347,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 		amount: Balance,
 		mint: bool,
 	) -> DepositConsequence {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::can_deposit(who, amount, mint)
 		} else {
 			<pallet_assets::Pallet<T>>::can_deposit(asset_id, who, amount, mint)
@@ -341,7 +359,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 		who: &T::AccountId,
 		amount: Balance,
 	) -> WithdrawConsequence<Balance> {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::can_withdraw(who, amount)
 		} else {
 			<pallet_assets::Pallet<T>>::can_withdraw(asset_id, who, amount)
@@ -351,7 +369,7 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 
 impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 	fn mint_into(asset_id: AssetId, who: &T::AccountId, amount: Balance) -> DispatchResult {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::mint_into(who, amount)
 		} else {
 			<pallet_assets::Pallet<T>>::mint_into(asset_id, who, amount)
@@ -363,7 +381,7 @@ impl<T: Config> Mutate<T::AccountId> for Pallet<T> {
 		who: &T::AccountId,
 		amount: Balance,
 	) -> Result<Balance, DispatchError> {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::burn_from(who, amount)
 		} else {
 			<pallet_assets::Pallet<T>>::burn_from(asset_id, who, amount)
@@ -379,7 +397,7 @@ impl<T: Config> Transfer<T::AccountId> for Pallet<T> {
 		amount: Balance,
 		keep_alive: bool,
 	) -> Result<Balance, DispatchError> {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _> as fungible::Transfer<_>>::transfer(
 				source, dest, amount, keep_alive,
 			)
@@ -399,7 +417,7 @@ impl<T: Config> TransferExt for Pallet<T> {
 		asset_id: AssetId,
 		transfers: &[(Self::AccountId, Balance)],
 	) -> DispatchResult {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			let total = transfers.iter().map(|x| x.1).sum::<Balance>();
 			<pallet_balances::Pallet<T, _>>::decrease_balance(who, total)?;
 			for (payee, amount) in transfers.into_iter() {
@@ -428,7 +446,7 @@ impl<T: Config> Hold for Pallet<T> {
 		asset_id: AssetId,
 		amount: Balance,
 	) -> DispatchResult {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			<pallet_balances::Pallet<T, _>>::reserve_named(&pallet_id.0, who, amount)?;
 		} else {
 			Self::place_hold(pallet_id, asset_id, who, amount)?;
@@ -449,7 +467,7 @@ impl<T: Config> Hold for Pallet<T> {
 		asset_id: AssetId,
 		amount: Balance,
 	) -> DispatchResult {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			ensure!(
 				<pallet_balances::Pallet<T, _>>::unreserve_named(&pallet_id.0, who, amount)
 					.is_zero(),
@@ -474,7 +492,7 @@ impl<T: Config> Hold for Pallet<T> {
 		asset_id: AssetId,
 		spends: &[(Self::AccountId, Balance)],
 	) -> DispatchResult {
-		if asset_id == T::MyclAssetId::get() {
+		if asset_id == T::NativeAssetId::get() {
 			let total = spends.iter().map(|x| x.1).sum::<Balance>();
 			ensure!(
 				<pallet_balances::Pallet<T, _>>::unreserve_named(&pallet_id.0, who, total)

@@ -28,6 +28,11 @@ parameter_types! {
 pub mod currency {
 	//! root network currency constants
 	use seed_primitives::{AssetId, Balance};
+
+	/// The MYCL token name
+	pub const MYCL_NAME: &str = "Mycelium";
+	/// The MYCL token symbol
+	pub const MYCL_SYMBOL: &str = "MYCL";
 	/// Decimal places of MYCL
 	pub const MYCL_DECIMALS: u8 = 6;
 	/// The MYCL asset id within the root network
@@ -37,6 +42,10 @@ pub mod currency {
 	/// One whole MYCL token in units
 	pub const ONE_MYCL: Balance = (10 as Balance).pow(MYCL_DECIMALS as u32);
 
+	/// The XRP token name
+	pub const XRP_NAME: &str = "XRP";
+	/// The XRP token symbol
+	pub const XRP_SYMBOL: &str = "XRP";
 	/// Decimal places of XRP
 	pub const XRP_DECIMALS: u8 = 6;
 	/// XRP asset Id within the root network

@@ -1,6 +1,7 @@
 use crate::{
 	mock::{
-		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, MyclAssetId, Test,
+		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, NativeAssetId,
+		Test,
 	},
 	Error, Holds, NextAssetId,
 };
@@ -28,11 +29,11 @@ fn transfer() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, 1_000_000)])
 		.build()
 		.execute_with(|| {
-			// MYCL transfer
-			let alice_balance = AssetsExt::balance(MyclAssetId::get(), &alice);
-			assert_ok!(AssetsExt::transfer(MyclAssetId::get(), &alice, &bob, 100, true));
-			assert_eq!(alice_balance - 100, AssetsExt::balance(MyclAssetId::get(), &alice),);
-			assert_eq!(100, AssetsExt::balance(MyclAssetId::get(), &bob),);
+			// native token transfer
+			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice);
+			assert_ok!(AssetsExt::transfer(NativeAssetId::get(), &alice, &bob, 100, true));
+			assert_eq!(alice_balance - 100, AssetsExt::balance(NativeAssetId::get(), &alice),);
+			assert_eq!(100, AssetsExt::balance(NativeAssetId::get(), &bob),);
 
 			// XRP transfer
 			assert_ok!(AssetsExt::transfer(xrp_asset_id, &alice, &bob, 100, true));
@@ -54,7 +55,7 @@ fn transfer_insufficient_funds() {
 		.build()
 		.execute_with(|| {
 			assert_noop!(
-				AssetsExt::transfer(MyclAssetId::get(), &alice, &bob, initial_balance + 1, true),
+				AssetsExt::transfer(NativeAssetId::get(), &alice, &bob, initial_balance + 1, true),
 				pallet_balances::Error::<Test>::InsufficientBalance
 			);
 			assert_noop!(
@@ -76,15 +77,15 @@ fn transfer_held_funds() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(MyclAssetId::get());
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_noop!(
-				AssetsExt::transfer(MyclAssetId::get(), &alice, &bob, hold_amount, true),
+				AssetsExt::transfer(NativeAssetId::get(), &alice, &bob, hold_amount, true),
 				pallet_balances::Error::<Test>::InsufficientBalance
 			);
 
@@ -114,11 +115,11 @@ fn place_hold() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(MyclAssetId::get());
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_eq!(Balances::reserved_balance_named(&TEST_PALLET_ID.0, &alice), hold_amount,);
@@ -163,7 +164,7 @@ fn place_hold_insufficient_funds() {
 				<AssetsExt as Hold>::place_hold(
 					TEST_PALLET_ID,
 					&alice,
-					MyclAssetId::get(),
+					NativeAssetId::get(),
 					initial_balance + 1
 				),
 				pallet_balances::Error::<Test>::InsufficientBalance
@@ -191,20 +192,20 @@ fn release_hold() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(MyclAssetId::get());
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				hold_amount
 			));
-			assert_eq!(AssetsExt::balance(MyclAssetId::get(), &alice), initial_balance,);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), initial_balance,);
 
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
@@ -234,27 +235,27 @@ fn release_hold_partial() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(MyclAssetId::get());
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				5
 			));
 			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				5
 			));
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &alice, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &alice, false),
 				initial_balance - hold_amount + 5 + 5,
 			);
 
@@ -289,18 +290,18 @@ fn release_hold_insufficient_funds() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(MyclAssetId::get());
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_err!(
 				<AssetsExt as Hold>::release_hold(
 					TEST_PALLET_ID,
 					&alice,
-					MyclAssetId::get(),
+					NativeAssetId::get(),
 					hold_amount * 2
 				),
 				Error::<Test>::BalanceLow
@@ -436,22 +437,22 @@ fn spend_hold() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(MyclAssetId::get());
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			let spends = [(bob, 50_000), (charlie, 10_000)];
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				&spends,
 			));
 			for (payee, amount) in spends {
-				assert_eq!(AssetsExt::balance(MyclAssetId::get(), &payee), amount);
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &payee), amount);
 			}
 
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
@@ -506,19 +507,19 @@ fn spend_hold_insufficient_funds() {
 		.with_asset(xrp_asset_id, "XRP", &[(alice, initial_balance)])
 		.build()
 		.execute_with(|| {
-			let hold_amount = initial_balance - AssetsExt::minimum_balance(MyclAssetId::get());
+			let hold_amount = initial_balance - AssetsExt::minimum_balance(NativeAssetId::get());
 			let spends = [(bob, hold_amount - 10), (charlie, 11)];
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&alice,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				hold_amount
 			));
 			assert_err!(
 				<AssetsExt as Hold>::spend_hold(
 					TEST_PALLET_ID,
 					&alice,
-					MyclAssetId::get(),
+					NativeAssetId::get(),
 					&spends,
 				),
 				Error::<Test>::BalanceLow
@@ -535,7 +536,7 @@ fn spend_hold_insufficient_funds() {
 				<AssetsExt as Hold>::spend_hold(
 					TEST_PALLET_ID,
 					&alice,
-					MyclAssetId::get(),
+					NativeAssetId::get(),
 					&spends,
 				),
 				Error::<Test>::BalanceLow
@@ -549,7 +550,7 @@ fn place_hold_asset_does_not_exist() {
 
 	test_ext().build().execute_with(|| {
 		assert_noop!(
-			<AssetsExt as Hold>::place_hold(TEST_PALLET_ID, &alice, MyclAssetId::get() + 1, 100),
+			<AssetsExt as Hold>::place_hold(TEST_PALLET_ID, &alice, NativeAssetId::get() + 1, 100),
 			pallet_assets::Error::<Test>::Unknown,
 		);
 	});
@@ -562,7 +563,7 @@ fn transfer_asset_does_not_exist() {
 
 	test_ext().build().execute_with(|| {
 		assert_noop!(
-			AssetsExt::transfer(MyclAssetId::get() + 1, &alice, &bob, 100, true,),
+			AssetsExt::transfer(NativeAssetId::get() + 1, &alice, &bob, 100, true,),
 			pallet_assets::Error::<Test>::Unknown,
 		);
 	});
