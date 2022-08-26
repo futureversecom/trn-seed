@@ -101,7 +101,7 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const TestParachainId: seed_primitives::ParachainId = 100;
-	pub const MyclAssetId: AssetId = 1;
+	pub const NativeAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 	pub const MaxHolds: u32 = 16;
 }
@@ -109,7 +109,7 @@ impl crate::Config for Test {
 	type Event = Event;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
-	type MyclAssetId = MyclAssetId;
+	type NativeAssetId = NativeAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -131,7 +131,7 @@ impl TestExt {
 		self.assets.push(AssetsFixture::new(id, name.as_bytes(), endowments));
 		self
 	}
-	/// Configure some MYCL balances
+	/// Configure some native token balances
 	pub fn with_balances(mut self, balances: &[(MockAccountId, Balance)]) -> Self {
 		self.balances = balances.to_vec();
 		self
