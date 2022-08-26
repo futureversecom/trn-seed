@@ -104,7 +104,7 @@ impl pallet_assets::Config for Test {
 }
 
 parameter_types! {
-	pub const MyclAssetId: AssetId = 1;
+	pub const NativeAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 	pub const MaxHolds: u32 = 16;
 }
@@ -113,7 +113,7 @@ impl pallet_assets_ext::Config for Test {
 	type Event = Event;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
-	type MyclAssetId = MyclAssetId;
+	type NativeAssetId = NativeAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -157,7 +157,7 @@ pub struct TestExt {
 }
 
 impl TestExt {
-	/// Configure some MYCL balances
+	/// Configure some native token balances
 	pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
 		self.balances = balances.to_vec();
 		self
