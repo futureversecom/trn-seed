@@ -4,6 +4,9 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  push:
+    branches:
+    - main
   issue_comment:
     types:
     - created
@@ -11,10 +14,17 @@ on:
 jobs:
   coverage:
     runs-on: self-hosted
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'check coverage') }}
+    # Run on the PR branch that was commented, otherwise run on push to 'main'
+    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'check coverage') }} || ${{ github.event.push && github.ref == 'refs/heads/main' }}
     steps:
+      - uses: xt0rted/pull-request-comment-branch@v1
+        # this is allowed to fail on 'main'
+        continue-on-error: ${{ github.ref == 'refs/heads/main' }}
+        id: comment-branch
       - name: Check out
         uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.comment-branch.outputs.head_ref || 'main' }}
       - name: Install toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -28,9 +38,10 @@ jobs:
       # generate test coverage
       - name: Coverage (assess)
         run: |
-          cargo tarpaulin --avoid-cfg-tarpaulin --skip-clean --all-features --workspace --locked
+          cargo tarpaulin --avoid-cfg-tarpaulin --skip-clean --workspace --locked --out Xml
       # upload coverage info
       - name: Coverage (upload)
         uses: codecov/codecov-action@v3.1.0
         with:
+          token: ${{ secrets.CODECOV_TOKEN }} 
           fail_ci_if_error: true
