@@ -49,7 +49,7 @@ pub fn scale_wei_to_6dp(value: Balance) -> Balance {
 	}
 }
 
-/// Wraps spending currency (MYCL) for use by the EVM
+/// Wraps spending currency (XRP) for use by the EVM
 /// Scales balances into 18dp equivalents which ethereum tooling and contracts expect
 pub struct EvmCurrencyScaler<I: Inspect<AccountId>>(PhantomData<I>);
 impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<AccountId>
