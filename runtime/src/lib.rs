@@ -497,7 +497,7 @@ construct_runtime! {
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Event<T>},
+		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Event<T>, Config<T>},
 
 		// Validators
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
