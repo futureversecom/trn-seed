@@ -67,51 +67,51 @@ describe("ERC20 Precompile", function () {
     console.log(`Connected to Root network`);
     console.log(`Genesis hash: ${api.genesisHash.toHex()}`);
   });
-  //
-  // it('name, symbol, decimals', async () => {
-  //   expect(
-  //       await xrpToken.decimals()
-  //   ).to.equal(6);
-  //
-  //   expect(
-  //       await xrpToken.name()
-  //   ).to.equal("XRP");
-  //
-  //   expect(
-  //       await xrpToken.symbol()
-  //   ).to.equal("XRP");
-  // });
-  //
-  // it('XRP transfer, balanceOf', async () => {
-  //   const receiverAddress = await Wallet.createRandom().getAddress();
-  //   const transferAmount = 12345;
-  //   await expect(
-  //       xrpToken.transfer(receiverAddress, transferAmount)
-  //   ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, receiverAddress, transferAmount);
-  //
-  //   expect(await xrpToken.balanceOf(receiverAddress)).to.be.equal(transferAmount);
-  // }).timeout(15000);
-  //
-  // it('approve and transferFrom', async () => {
-  //   let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
-  //   precompileCaller = await factory.deploy();
-  //   console.log(`contract address=${precompileCaller.address}`);
-  //
-  //   let approvedAmount = 12345;
-  //   await expect(
-  //       xrpToken.approve(precompileCaller.address, approvedAmount)
-  //   ).to.emit(xrpToken, 'Approval').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
-  //
-  //   expect(
-  //       await xrpToken.allowance(seedSigner.address, precompileCaller.address)
-  //   ).to.equal(approvedAmount);
-  //
-  //   await expect(
-  //       precompileCaller.takeXRP(approvedAmount)
-  //   ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
-  //
-  // }).timeout(15000);
-  //
+
+  it('name, symbol, decimals', async () => {
+    expect(
+        await xrpToken.decimals()
+    ).to.equal(6);
+
+    expect(
+        await xrpToken.name()
+    ).to.equal("XRP");
+
+    expect(
+        await xrpToken.symbol()
+    ).to.equal("XRP");
+  });
+
+  it('XRP transfer, balanceOf', async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const transferAmount = 12345;
+    await expect(
+        xrpToken.transfer(receiverAddress, transferAmount)
+    ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, receiverAddress, transferAmount);
+
+    expect(await xrpToken.balanceOf(receiverAddress)).to.be.equal(transferAmount);
+  }).timeout(15000);
+
+  it('approve and transferFrom', async () => {
+    let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
+    precompileCaller = await factory.deploy();
+    console.log(`contract address=${precompileCaller.address}`);
+
+    let approvedAmount = 12345;
+    await expect(
+        xrpToken.approve(precompileCaller.address, approvedAmount)
+    ).to.emit(xrpToken, 'Approval').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
+
+    expect(
+        await xrpToken.allowance(seedSigner.address, precompileCaller.address)
+    ).to.equal(approvedAmount);
+
+    await expect(
+        precompileCaller.takeXRP(approvedAmount)
+    ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
+
+  }).timeout(15000);
+
   // it('XRP transfer amounts via EVM', async () => {
   //   // fund the contract with some XRP
   //   let endowment = utils.parseEther('6');
@@ -149,11 +149,8 @@ describe("ERC20 Precompile", function () {
       [utils.parseEther('1.0000009999'), utils.parseEther('1.000001')],
     ];
     let total: BigNumber = BigNumber.from(0);
-    // 10000000000000
-    // 0.000009000000000000
+
     for (const [payment, expected] of payments) {
-      let before_balance = await jsonProvider.getBalance(receiverAddress);
-      console.log(`before balance: ${before_balance}`);
       console.log(`Sending tx with balance: ${payment}`);
       let tx = await seedSigner.sendTransaction(
           {

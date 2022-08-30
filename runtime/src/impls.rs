@@ -71,14 +71,16 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 	/// Get the balance of `who`.
 	/// Scaled up so values match expectations of an 18dp asset
 	fn balance(who: &AccountId) -> Self::Balance {
-		Self::reducible_balance(who, true)
+		Self::reducible_balance(who, false)
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
 	/// Scaled up so values match expectations of an 18dp asset
-	fn reducible_balance(who: &AccountId, keep_alive: bool) -> Self::Balance {
+	/// keep_alive has been hardcoded to false to provide a similar experience to users coming
+	/// from Ethereum (Following POLA principles)
+	fn reducible_balance(who: &AccountId, _keep_alive: bool) -> Self::Balance {
 		// Careful for overflow!
-		let raw = I::reducible_balance(who, keep_alive);
+		let raw = I::reducible_balance(who, false);
 		U256::from(raw).saturating_mul(U256::from(XRP_UNIT_VALUE)).saturated_into()
 	}
 
