@@ -225,7 +225,7 @@ fn testnet_genesis(
 		endowed_assets.push((
 			MYCL_ASSET_ID,
 			account,
-			1_000_000 * 10_u32.pow(XRP_DECIMALS as u32) as Balance,
+			1_000_000 * 10_u32.pow(MYCL_DECIMALS as u32) as Balance,
 		));
 		endowed_balances.push((account, 1_000_000 * ONE_XRP));
 	}
