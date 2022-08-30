@@ -1,11 +1,15 @@
 import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
-import { expect } from "chai";
+import {expect} from "chai";
 import { ethers } from "hardhat";
+import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
+import web3 from 'web3';
 
-import { ApiPromise, HttpProvider, WsProvider } from '@polkadot/api';
-import { Keyring } from '@polkadot/keyring';
+import { ApiPromise, HttpProvider, WsProvider, Keyring } from '@polkadot/api';
 import { u8aToHex, stringToHex, hexToU8a } from '@polkadot/util';
+import { AddressOrPair } from "@polkadot/api/types";
+import { JsonRpcProvider, Provider } from "@ethersproject/providers";
+import PrecompileCaller from '../artifacts/contracts/PrecompileCaller.sol/PrecompileCaller.json';
 
 const typedefs = {
   AccountId: 'EthereumAccountId',
@@ -24,121 +28,147 @@ const typedefs = {
 };
 
 describe("ERC20 Precompile", function () {
-  // We define a fixture to reuse the same setup in every test.
-  // We use loadFixture to run this setup once, snapshot that state,
-  // and reset Hardhat Network to that snapshot in every test.
-  async function deployOneYearLockFixture() {
-    const wsProvider = new WsProvider('ws://localhost:9944');
-    const api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
+  let api: ApiPromise;
+  let keyring: Keyring;
+  let alice: AddressOrPair;
+  let bob: AddressOrPair;
+  let seedSigner: Wallet;
+  let xrpToken: Contract;
+  let precompileCaller: Contract;
+  let jsonProvider: Provider;
+  const xrpTokenAddress = web3.utils.toChecksumAddress('0xCCCCCCCC00000002000000000000000000000000');
+  const erc20Abi = [
+    'event Transfer(address indexed from, address indexed to, uint256 value)',
+    'event Approval(address indexed owner, address indexed spender, uint256 value)',
+    'function approve(address spender, uint256 amount) public returns (bool)',
+    'function allowance(address owner, address spender) public view returns (uint256)',
+    'function balanceOf(address who) public view returns (uint256)',
+    'function name() public view returns (string memory)',
+    'function symbol() public view returns (string memory)',
+    'function decimals() public view returns (uint8)',
+    'function transfer(address who, uint256 amount)',
+  ];
+  // Setup api instance and keyring wallet addresses for alice and bob
+  before(async () => {
+    // Setup providers for jsonRPCs and WS
+    jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
+    const wsProvider = new WsProvider(`ws://localhost:9944`);
 
-    const keyring = new Keyring({ type: 'ethereum' });
-    const ALICE = keyring
-      .addFromSeed(hexToU8a('0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854'), { name: 'Alice default' });
+    seedSigner = new Wallet('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf').connect(jsonProvider); // 'development' seed
+    xrpToken = new Contract(xrpTokenAddress, erc20Abi, seedSigner);
+    console.log(`signer address: ${seedSigner.address}`)
 
-    let txHash = await api.tx.assetsExt.createAsset().signAndSend(ALICE);
-    console.log(txHash);
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
 
-    // TODO - get asset id from last event and save it in a variable
+    keyring = new Keyring({ type: 'ethereum' });
+    // alice = keyring.addFromSeed(hexToU8a('0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854'));
+    // bob = keyring.addFromSeed(hexToU8a('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf'));
 
-    console.log(api.genesisHash.toHex());
-  }
-
-  describe("Deployment", function () {
-    it("Should set the right unlockTime", async function () {
-      await loadFixture(deployOneYearLockFixture);
-
-      expect(1).to.equal(1);
-    });
-
-    // it("Should set the right owner", async function () {
-    //   const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-
-    //   expect(await lock.owner()).to.equal(owner.address);
-    // });
-
-    // it("Should receive and store the funds to lock", async function () {
-    //   const { lock, lockedAmount } = await loadFixture(
-    //     deployOneYearLockFixture
-    //   );
-
-    //   expect(await ethers.provider.getBalance(lock.address)).to.equal(
-    //     lockedAmount
-    //   );
-    // });
-
-    // it("Should fail if the unlockTime is not in the future", async function () {
-    //   // We don't use the fixture here because we want a different deployment
-    //   const latestTime = await time.latest();
-    //   const Lock = await ethers.getContractFactory("Lock");
-    //   await expect(Lock.deploy(latestTime, { value: 1 })).to.be.revertedWith(
-    //     "Unlock time should be in the future"
-    //   );
-    // });
+    console.log(`Connected to Root network`);
+    console.log(`Genesis hash: ${api.genesisHash.toHex()}`);
   });
-
-  // describe("Withdrawals", function () {
-  //   describe("Validations", function () {
-  //     it("Should revert with the right error if called too soon", async function () {
-  //       const { lock } = await loadFixture(deployOneYearLockFixture);
-
-  //       await expect(lock.withdraw()).to.be.revertedWith(
-  //         "You can't withdraw yet"
-  //       );
-  //     });
-
-  //     it("Should revert with the right error if called from another account", async function () {
-  //       const { lock, unlockTime, otherAccount } = await loadFixture(
-  //         deployOneYearLockFixture
-  //       );
-
-  //       // We can increase the time in Hardhat Network
-  //       await time.increaseTo(unlockTime);
-
-  //       // We use lock.connect() to send a transaction from another account
-  //       await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-  //         "You aren't the owner"
-  //       );
-  //     });
-
-  //     it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-  //       const { lock, unlockTime } = await loadFixture(
-  //         deployOneYearLockFixture
-  //       );
-
-  //       // Transactions are sent using the first signer by default
-  //       await time.increaseTo(unlockTime);
-
-  //       await expect(lock.withdraw()).not.to.be.reverted;
-  //     });
-  //   });
-
-  //   describe("Events", function () {
-  //     it("Should emit an event on withdrawals", async function () {
-  //       const { lock, unlockTime, lockedAmount } = await loadFixture(
-  //         deployOneYearLockFixture
-  //       );
-
-  //       await time.increaseTo(unlockTime);
-
-  //       await expect(lock.withdraw())
-  //         .to.emit(lock, "Withdrawal")
-  //         .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-  //     });
-  //   });
-
-  //   describe("Transfers", function () {
-  //     it("Should transfer the funds to the owner", async function () {
-  //       const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-  //         deployOneYearLockFixture
-  //       );
-
-  //       await time.increaseTo(unlockTime);
-
-  //       await expect(lock.withdraw()).to.changeEtherBalances(
-  //         [owner, lock],
-  //         [lockedAmount, -lockedAmount]
-  //       );
-  //     });
-  //   });
+  //
+  // it('name, symbol, decimals', async () => {
+  //   expect(
+  //       await xrpToken.decimals()
+  //   ).to.equal(6);
+  //
+  //   expect(
+  //       await xrpToken.name()
+  //   ).to.equal("XRP");
+  //
+  //   expect(
+  //       await xrpToken.symbol()
+  //   ).to.equal("XRP");
   // });
+  //
+  // it('XRP transfer, balanceOf', async () => {
+  //   const receiverAddress = await Wallet.createRandom().getAddress();
+  //   const transferAmount = 12345;
+  //   await expect(
+  //       xrpToken.transfer(receiverAddress, transferAmount)
+  //   ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, receiverAddress, transferAmount);
+  //
+  //   expect(await xrpToken.balanceOf(receiverAddress)).to.be.equal(transferAmount);
+  // }).timeout(15000);
+  //
+  // it('approve and transferFrom', async () => {
+  //   let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
+  //   precompileCaller = await factory.deploy();
+  //   console.log(`contract address=${precompileCaller.address}`);
+  //
+  //   let approvedAmount = 12345;
+  //   await expect(
+  //       xrpToken.approve(precompileCaller.address, approvedAmount)
+  //   ).to.emit(xrpToken, 'Approval').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
+  //
+  //   expect(
+  //       await xrpToken.allowance(seedSigner.address, precompileCaller.address)
+  //   ).to.equal(approvedAmount);
+  //
+  //   await expect(
+  //       precompileCaller.takeXRP(approvedAmount)
+  //   ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
+  //
+  // }).timeout(15000);
+  //
+  // it('XRP transfer amounts via EVM', async () => {
+  //   // fund the contract with some XRP
+  //   let endowment = utils.parseEther('6');
+  //   let endowTx = await seedSigner.sendTransaction(
+  //       {
+  //         to: precompileCaller.address,
+  //         value: endowment,
+  //         gasLimit: 500000,
+  //       }
+  //   );
+  //   await endowTx.wait();
+  //   // expect(await jsonProvider.getBalance(precompileCaller.address)).to.be.equal(endowment);
+  //   console.log('endowed 6 XRP');
+  //
+  //   const receiverAddress = await Wallet.createRandom().getAddress();
+  //   let tx = await precompileCaller.sendXRPAmounts(receiverAddress);
+  //   await tx.wait();
+  // }).timeout(12000);
+
+  it('XRP transfer amounts via transaction', async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    // pairs of (input amount, actual transferred amount)
+    // shows the behaviour of the xrp scaling rules
+    let payments = [
+      [utils.parseEther('1.000000'), utils.parseEther('1.000000')],
+      // transfer smallest unit of xrp
+      [utils.parseEther('0.000001'), utils.parseEther('0.000001')],
+      // transfer 1.234567 xrp
+      [utils.parseEther('1.234567'), utils.parseEther('1.234567')],
+      // transfer < the smallest unit of xrp 0.000001, rounds up
+      [utils.parseEther('0.00000099'), utils.parseEther('0.000001')],
+      // transfer amounts with some part < the smallest unit of xrp
+      [utils.parseEther('1.0000005'), utils.parseEther('1.000001')],
+      [utils.parseEther('1.00000050000001'), utils.parseEther('1.000001')],
+      [utils.parseEther('1.0000009999'), utils.parseEther('1.000001')],
+    ];
+    let total: BigNumber = BigNumber.from(0);
+    // 10000000000000
+    // 0.000009000000000000
+    for (const [payment, expected] of payments) {
+      let before_balance = await jsonProvider.getBalance(receiverAddress);
+      console.log(`before balance: ${before_balance}`);
+      console.log(`Sending tx with balance: ${payment}`);
+      let tx = await seedSigner.sendTransaction(
+          {
+            to: receiverAddress,
+            value: payment,
+          }
+      );
+      await tx.wait();
+      let balance = await jsonProvider.getBalance(receiverAddress);
+      total = total.add(expected);
+      console.log(`input:       ${payment.toString()}\nreal:        ${expected.toString()}\nnew expected:${total.toString()}\nnew balance: ${balance}\n`);
+      expect(balance).to.be.equal(total.toString());
+
+      // sleep, prevents nonce issues
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }).timeout(60 * 1000_00000000000000);
 });

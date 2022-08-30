@@ -29,14 +29,8 @@ const config: HardhatUserConfig = {
     seed: {
       url: 'http://localhost:9933',
       accounts: [`0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854`],
-      // accounts: process.env.MAINNET_PRIVATE_KEY !== undefined ? [process.env.MAINNET_PRIVATE_KEY] : [],
-      // gasPrice: utils.parseUnits("50", "gwei").toNumber(),
       chainId: 3999,
     },
-  },
-  gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
-    currency: "USD",
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
