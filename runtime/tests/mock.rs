@@ -1,0 +1,256 @@
+//! Integration runtime mock storage
+//! Defines mock genesis state for the real seed runtime config
+
+use frame_support::traits::{fungibles::Inspect as _, GenesisBuild};
+use sp_core::{
+	ecdsa,
+	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
+	Encode, Pair,
+};
+use sp_runtime::{generic::Era, Perbill};
+
+use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
+use seed_primitives::{AccountId, AccountId20, Balance, Index};
+use seed_runtime::{
+	constants::*, AssetsExt, Balances, CheckedExtrinsic, Runtime, SessionKeys, SignedExtra,
+	StakerStatus, System, Timestamp, UncheckedExtrinsic,
+};
+
+/// The genesis block timestamp
+pub const INIT_TIMESTAMP: u64 = 30_000;
+/// A genesis block hash for the first mock block, useful for extrinsic signatures
+pub(crate) const GENESIS_HASH: [u8; 32] = [69u8; 32];
+/// The default validator staked amount
+pub const VALIDATOR_BOND: Balance = 100_000 * ONE_XRP;
+/// The default XRP balance of mock accounts
+pub const INITIAL_XRP_BALANCE: Balance = 1_000_000 * ONE_XRP;
+/// The default MYCL balance of mock accounts
+pub const INITIAL_MYCL_BALANCE: Balance = INITIAL_XRP_BALANCE;
+
+pub struct ExtBuilder {
+	/// Extra accounts to initialize with XRP and MYCL balances (default: Alice-Charlie),
+	/// authorities are always funded
+	accounts_to_fund: Vec<AccountId>,
+	// The initial authority set (default: {Alice, Bob})
+	initial_authorities: Vec<AuthorityKeys>,
+	/// Whether to make stakers invulnerable
+	invulnerable: bool,
+	/// Initial sudo account
+	root_account: AccountId,
+}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		let dev_uris = vec!["Alice", "Bob", "Charlie"];
+		let initial_authorities: Vec<AuthorityKeys> =
+			dev_uris.iter().map(|s| authority_keys_from_seed(s)).collect();
+		Self {
+			// fund Alice-Ferdie
+			accounts_to_fund: initial_authorities.iter().map(|x| x.0.clone()).collect(),
+			// Alice
+			root_account: initial_authorities[0].0,
+			// Alice & Bob
+			initial_authorities: initial_authorities.into_iter().take(2).collect(),
+			invulnerable: true,
+		}
+	}
+}
+
+impl ExtBuilder {
+	// set invulnerables off (it's on by default)
+	pub fn invulnerables_off(mut self) -> Self {
+		self.invulnerable = false;
+		self
+	}
+	pub fn initial_authorities(mut self, initial_authorities: &[AuthorityKeys]) -> Self {
+		self.initial_authorities = initial_authorities.to_vec();
+		self
+	}
+	pub fn accounts_to_fund(mut self, accounts: &[AccountId]) -> Self {
+		self.accounts_to_fund = accounts.to_vec();
+		self
+	}
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+
+		// balances + asset setup
+		let metadata = vec![
+			(MYCL_ASSET_ID, b"Mycelium".to_vec(), b"MYCL".to_vec(), MYCL_DECIMALS),
+			(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), XRP_DECIMALS),
+		];
+		let assets = vec![
+			(MYCL_ASSET_ID, self.root_account, true, MYCL_MINIMUM_BALANCE),
+			(XRP_ASSET_ID, self.root_account, true, XRP_MINIMUM_BALANCE),
+		];
+
+		let stashes: Vec<AccountId> =
+			self.initial_authorities.iter().map(|x| x.0.clone()).collect();
+		// ensure stashes will be funded too, ignore duplicates
+		let mut accounts_to_fund = self.accounts_to_fund.clone();
+		for s in stashes.iter() {
+			if accounts_to_fund.iter().find(|acc| *acc == s).is_none() {
+				accounts_to_fund.push(*s);
+			}
+		}
+
+		let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
+		let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
+		for account in accounts_to_fund {
+			endowed_balances.push((account, INITIAL_MYCL_BALANCE));
+			endowed_assets.push((XRP_ASSET_ID, account, INITIAL_XRP_BALANCE));
+		}
+		pallet_balances::GenesisConfig::<Runtime> { balances: endowed_balances }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+		pallet_assets::GenesisConfig::<Runtime> { assets, accounts: endowed_assets, metadata }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
+		// staking setup
+		let invulnerables = if self.invulnerable { stashes } else { vec![] };
+		pallet_staking::GenesisConfig::<Runtime> {
+			minimum_validator_count: 1,
+			validator_count: self.initial_authorities.len() as u32,
+			stakers: self
+				.initial_authorities
+				.clone()
+				.iter()
+				.map(|x| (x.0.clone(), x.0.clone(), VALIDATOR_BOND, StakerStatus::Validator))
+				.collect(),
+			slash_reward_fraction: Perbill::from_percent(10),
+			invulnerables,
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		pallet_session::GenesisConfig::<Runtime> {
+			keys: self
+				.initial_authorities
+				.into_iter()
+				.map(|(stash, aura, im_online, grandpa)| {
+					(
+						stash,
+						stash, // use as controller too
+						SessionKeys { aura, im_online, grandpa },
+					)
+				})
+				.collect::<Vec<_>>(),
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| {
+			// Ensure a test genesis hash exists in storage.
+			// This allows signed extrinsics to validate.
+			System::set_parent_hash(GENESIS_HASH.into());
+			Timestamp::set_timestamp(INIT_TIMESTAMP);
+		});
+
+		// OCW setup
+		// setup offchain worker for staking election and offence reports
+		let (offchain, _state) = testing::TestOffchainExt::new();
+		ext.register_extension(OffchainWorkerExt::new(offchain.clone()));
+		ext.register_extension(OffchainDbExt::new(offchain));
+		let (pool, _state) = testing::TestTransactionPoolExt::new();
+		ext.register_extension(TransactionPoolExt::new(pool));
+
+		ext
+	}
+}
+
+pub fn alice() -> AccountId {
+	get_account_id_from_seed::<ecdsa::Public>("Alice")
+}
+
+pub fn bob() -> AccountId {
+	get_account_id_from_seed::<ecdsa::Public>("Bob")
+}
+
+pub fn charlie() -> AccountId {
+	get_account_id_from_seed::<ecdsa::Public>("Charlie")
+}
+
+/// Constructs transaction `SignedExtra` payload.
+pub fn signed_extra(nonce: Index, tip: Balance) -> SignedExtra {
+	(
+		frame_system::CheckNonZeroSender::new(),
+		frame_system::CheckSpecVersion::new(),
+		frame_system::CheckTxVersion::new(),
+		frame_system::CheckGenesis::new(),
+		frame_system::CheckEra::from(Era::Immortal),
+		frame_system::CheckNonce::from(nonce),
+		frame_system::CheckWeight::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::from(tip),
+	)
+}
+
+// TODO: re-use ethy-keystore for this
+/// Sign `xt` with chain metadata and its embedded signer (provided keyring knows about it)
+pub fn sign_xt(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
+	let func = xt.clone().function;
+	match xt.signed {
+		fp_self_contained::CheckedSignature::Signed(signed, extra) => {
+			let pair = get_pair_from_signer(&signed);
+			let raw_payload =
+				sp_runtime::generic::SignedPayload::new(xt.function, extra.clone()).unwrap();
+			let signature = raw_payload.using_encoded(|b| {
+				// b is SCALE encoded payload or blake2(encoded_payload)
+				// Ethereum signature scheme equivalence requires keccak256 hashing all transaction
+				// data for signing
+				let msg = &sp_io::hashing::keccak_256(b);
+				pair.sign_prehashed(msg)
+			});
+
+			fp_self_contained::UncheckedExtrinsic::new_signed(func, signed, signature.into(), extra)
+		},
+		fp_self_contained::CheckedSignature::Unsigned =>
+			fp_self_contained::UncheckedExtrinsic::new_unsigned(xt.function),
+		_ => unimplemented!(),
+	}
+}
+
+// quick and dirty get ecdsa keypair matching some known accounts
+fn get_pair_from_signer(signer: &AccountId20) -> ecdsa::Pair {
+	let alice = alice();
+	let bob = bob();
+	let charlie = charlie();
+	if signer == &alice {
+		ecdsa::Pair::from_string(&"//Alice", None).unwrap()
+	} else if signer == &bob {
+		ecdsa::Pair::from_string(&"//Bob", None).unwrap()
+	} else if signer == &charlie {
+		ecdsa::Pair::from_string(&"//Charlie", None).unwrap()
+	} else {
+		unimplemented!("unknown signer, add to keyring");
+	}
+}
+
+#[test]
+fn fund_authorities_and_accounts() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Alice, Bob, Charlie funded
+		assert_eq!(Balances::total_issuance(), INITIAL_XRP_BALANCE * 3);
+		assert_eq!(AssetsExt::total_issuance(MYCL_ASSET_ID), INITIAL_MYCL_BALANCE * 3);
+
+		assert_eq!(AssetsExt::balance(MYCL_ASSET_ID, &alice()), INITIAL_MYCL_BALANCE);
+		assert_eq!(AssetsExt::balance(MYCL_ASSET_ID, &bob()), INITIAL_MYCL_BALANCE);
+		assert_eq!(AssetsExt::balance(MYCL_ASSET_ID, &charlie()), INITIAL_MYCL_BALANCE);
+
+		assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &alice()), INITIAL_XRP_BALANCE);
+		assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &bob()), INITIAL_XRP_BALANCE);
+		assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &charlie()), INITIAL_XRP_BALANCE);
+
+		// Alice, Bob staked
+		assert_eq!(
+			AssetsExt::reducible_balance(MYCL_ASSET_ID, &alice(), false),
+			INITIAL_MYCL_BALANCE - VALIDATOR_BOND
+		);
+		assert_eq!(
+			AssetsExt::reducible_balance(MYCL_ASSET_ID, &bob(), false),
+			INITIAL_MYCL_BALANCE - VALIDATOR_BOND
+		);
+	});
+}
