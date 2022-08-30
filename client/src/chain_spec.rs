@@ -22,6 +22,9 @@ use seed_runtime::{
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
+/// Type alias for the stash, controller + session key types tuple used by validators
+pub type AuthorityKeys = (AccountId, AuraId, ImOnlineId, GrandpaId);
+
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
@@ -40,7 +43,7 @@ where
 }
 
 /// Generate a set of runtime session keys (stash/controller, aura, grandpa)
-pub fn authority_keys_from_seed(s: &str) -> (AccountId, AuraId, ImOnlineId, GrandpaId) {
+pub fn authority_keys_from_seed(s: &str) -> AuthorityKeys {
 	(
 		get_account_id_from_seed::<ecdsa::Public>(s),
 		get_from_seed::<AuraId>(s),

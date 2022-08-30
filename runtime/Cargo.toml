@@ -70,8 +70,16 @@ seed-primitives = { path = "../primitives", default-features = false }
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
 
+[dev-dependencies]
+seed-client = { path = "../client", default-features = false }
+# When running tests for the seed-runtime use the "fast_epoch" feature.
+# This save us from cases such as 24 hour eras in staking/session tests.
+# https://github.com/rust-lang/cargo/issues/2911#issuecomment-749580481
+seed-runtime = { path = ".", features = ["fast_epoch"] }
+
 [features]
 default = [ "std" ]
+fast_epoch = []
 std = [
 	"codec/std",
 	"log/std",
