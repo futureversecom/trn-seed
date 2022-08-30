@@ -95,7 +95,7 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 }
 
 /// Currency impl for EVM usage
-/// It proxies to the inner curreny impl while leaving some unused methods
+/// It proxies to the inner currency impl while leaving some unused methods
 /// unimplemented
 impl<I> Currency<AccountId> for EvmCurrencyScaler<I>
 where
@@ -239,5 +239,28 @@ where
 		buf[4..8].copy_from_slice(&id.to_be_bytes());
 
 		H160::from(buf).into()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn wei_to_xrp_units_scaling() {
+		let amounts_18 = vec![
+			1000000500000000000u128, // fractional bits <  0.0001
+			1000000000000000001u128, // fractional bits <  0.0001
+			1000001000000000000u128, // fractional bits at 0.0001
+			1000000000000000000u128, // no fractional bits < 0.0001
+			999u128,                 // entirely < 0.0001
+			1u128,
+			0u128,
+		];
+		let amounts_4 = vec![1000001_u128, 1000001, 1000001, 1000000, 1, 1, 0];
+		for (amount_18, amount_4) in amounts_18.into_iter().zip(amounts_4.into_iter()) {
+			println!("{:?}/{:?}", amount_18, amount_4);
+			assert_eq!(scale_wei_to_6dp(amount_18), amount_4);
+		}
 	}
 }
