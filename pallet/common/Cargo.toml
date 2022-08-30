@@ -14,8 +14,8 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive
 scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.26" }
-sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.26" }
+frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
+sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
 
 seed-primitives = { path = "../../primitives", default-features = false }
 
