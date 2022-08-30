@@ -40,15 +40,15 @@ sp-transaction-pool = { git = "https://github.com/futureversecom/substrate", def
 sp-version = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
 
 # EVM support
-fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
-fp-self-contained = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
-pallet-base-fee = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
-pallet-ethereum = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
-pallet-evm-precompile-blake2 = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
-pallet-evm-precompile-modexp = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
-pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
-pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.26" }
+fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+fp-self-contained = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-base-fee = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-ethereum = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-evm-precompile-blake2 = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-evm-precompile-modexp = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
 precompile-utils = { path = "../evm-precompiles/utils", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 
