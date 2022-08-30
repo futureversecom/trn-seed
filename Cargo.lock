@@ -1527,13 +1527,13 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 [[package]]
 name = "evm"
 version = "0.35.0"
-source = "git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
+source = "git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
 dependencies = [
  "auto_impl",
  "ethereum",
- "evm-core 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26)",
- "evm-gasometer 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26)",
- "evm-runtime 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26)",
+ "evm-core 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27)",
+ "evm-gasometer 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27)",
+ "evm-runtime 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27)",
  "log",
  "parity-scale-codec",
  "primitive-types",
@@ -1565,7 +1565,7 @@ dependencies = [
 [[package]]
 name = "evm-core"
 version = "0.35.0"
-source = "git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
+source = "git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
 dependencies = [
  "parity-scale-codec",
  "primitive-types",
@@ -1586,10 +1586,10 @@ dependencies = [
 [[package]]
 name = "evm-gasometer"
 version = "0.35.0"
-source = "git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
+source = "git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
 dependencies = [
- "evm-core 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26)",
- "evm-runtime 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26)",
+ "evm-core 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27)",
+ "evm-runtime 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27)",
  "primitive-types",
 ]
 
@@ -1607,10 +1607,10 @@ dependencies = [
 [[package]]
 name = "evm-runtime"
 version = "0.35.0"
-source = "git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
+source = "git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
 dependencies = [
  "auto_impl",
- "evm-core 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26)",
+ "evm-core 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27)",
  "primitive-types",
  "sha3 0.10.2",
 ]
@@ -5234,7 +5234,7 @@ name = "precompile-utils"
 version = "0.1.0"
 dependencies = [
  "affix",
- "evm 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.26)",
+ "evm 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27)",
  "fp-evm",
  "frame-support 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
  "frame-system 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
