@@ -56,7 +56,11 @@ describe("ERC20 Precompile", function () {
 
     seedSigner = new Wallet('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf').connect(jsonProvider); // 'development' seed
     xrpToken = new Contract(xrpTokenAddress, erc20Abi, seedSigner);
-    console.log(`signer address: ${seedSigner.address}`)
+    console.log(`signer address: ${seedSigner.address}`);
+
+    let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
+    precompileCaller = await factory.deploy();
+    console.log(`contract address=${precompileCaller.address}`);
 
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
 
@@ -92,11 +96,26 @@ describe("ERC20 Precompile", function () {
     expect(await xrpToken.balanceOf(receiverAddress)).to.be.equal(transferAmount);
   }).timeout(15000);
 
-  it('approve and transferFrom', async () => {
-    let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
-    precompileCaller = await factory.deploy();
-    console.log(`contract address=${precompileCaller.address}`);
+  it('XRP transfer amounts via EVM', async () => {
+    // fund the contract with some XRP
+    let endowment = utils.parseEther('8');
+    let endowTx = await seedSigner.sendTransaction(
+        {
+          to: precompileCaller.address,
+          value: endowment,
+          gasLimit: 500000,
+        }
+    );
+    await endowTx.wait();
+    expect(await jsonProvider.getBalance(precompileCaller.address)).to.be.equal(endowment);
+    console.log('endowed 8 XRP');
 
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    let tx = await precompileCaller.sendXRPAmounts(receiverAddress);
+    await tx.wait();
+  }).timeout(12000);
+
+  it('approve and transferFrom', async () => {
     let approvedAmount = 12345;
     await expect(
         xrpToken.approve(precompileCaller.address, approvedAmount)
@@ -111,25 +130,6 @@ describe("ERC20 Precompile", function () {
     ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
 
   }).timeout(15000);
-
-  // it('XRP transfer amounts via EVM', async () => {
-  //   // fund the contract with some XRP
-  //   let endowment = utils.parseEther('6');
-  //   let endowTx = await seedSigner.sendTransaction(
-  //       {
-  //         to: precompileCaller.address,
-  //         value: endowment,
-  //         gasLimit: 500000,
-  //       }
-  //   );
-  //   await endowTx.wait();
-  //   // expect(await jsonProvider.getBalance(precompileCaller.address)).to.be.equal(endowment);
-  //   console.log('endowed 6 XRP');
-  //
-  //   const receiverAddress = await Wallet.createRandom().getAddress();
-  //   let tx = await precompileCaller.sendXRPAmounts(receiverAddress);
-  //   await tx.wait();
-  // }).timeout(12000);
 
   it('XRP transfer amounts via transaction', async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
@@ -167,5 +167,5 @@ describe("ERC20 Precompile", function () {
       // sleep, prevents nonce issues
       await new Promise(r => setTimeout(r, 500));
     }
-  }).timeout(60 * 1000_00000000000000);
+  }).timeout(60 * 1000);
 });

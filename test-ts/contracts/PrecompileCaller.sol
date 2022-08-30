@@ -34,14 +34,14 @@ contract PrecompileCaller {
     // destination should have 0 balance to start.
     function sendXRPAmounts(address payable destination) public payable {
         assert(address(destination).balance == 0);
-        uint64[8] memory amounts_18 = [1 ether, 1000050000000000000 wei, 1000000000000000001 wei, 1000100000000000000 wei, 1000000000000000000 wei, 999 wei, 1 wei, 0 wei];
-	    uint16[8] memory amounts_4 = [10000, 10001, 10001, 10001, 10000, 1, 1, 0];
+        uint64[8] memory amounts_18 = [1 ether, 1000000500000000000 wei, 1000000000000000001 wei, 1000001000000000000 wei, 1000000000000000000 wei, 999 wei, 1 wei, 0 wei];
+	    uint24[8] memory amounts_6 = [1000000, 1000001, 1000001, 1000001, 1000000, 1, 1, 0];
         uint256 total;
 
-        for(uint i; i < 6; i++) {
+        for(uint i; i < 8; i++) {
             (bool sent, bytes memory _data) = destination.call{value: uint256(amounts_18[i])}("");
             require(sent, "Failed to send XRP");
-            total += (uint256(amounts_4[i]) * uint256(1e14));
+            total += (uint256(amounts_6[i]) * uint256(1e12));
             require(total == address(destination).balance, "unexpected balance");
         }
     }
