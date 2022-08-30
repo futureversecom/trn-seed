@@ -15,10 +15,10 @@ name = "seed"
 path = "src/main.rs"
 
 [dependencies]
-futures = "0.3.23"
+futures = "0.3.24"
 # TODO: remove after substrate update w https://github.com/paritytech/substrate/pull/11707
 syn = "1.0.99"
-clap = { version = "3.2.17", features = ["derive"] }
+clap = { version = "3.2.18", features = ["derive"] }
 
 sc-cli = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.26" }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.26" }

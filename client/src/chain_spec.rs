@@ -7,8 +7,8 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 use seed_primitives::Balance;
 use seed_runtime::{
 	constants::{
-		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, ONE_MYCL, XRP_ASSET_ID, XRP_DECIMALS,
-		XRP_MINIMUM_BALANCE,
+		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
+		XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	AccountId, AssetsConfig, BalancesConfig, GenesisConfig, SessionConfig, SessionKeys, Signature,
 	SudoConfig, SystemConfig, WASM_BINARY,
@@ -50,8 +50,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), "MYCL".into());
-	properties.insert("tokenDecimals".into(), MYCL_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -93,8 +93,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), "MYCL".into());
-	properties.insert("tokenDecimals".into(), MYCL_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -144,8 +144,8 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), "MYCL".into());
-	properties.insert("tokenDecimals".into(), MYCL_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -207,8 +207,13 @@ fn testnet_genesis(
 	_enable_println: bool,
 ) -> GenesisConfig {
 	let metadata = vec![
-		(MYCL_ASSET_ID, b"Mycelium".to_vec(), b"MYCL".to_vec(), MYCL_DECIMALS),
-		(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), XRP_DECIMALS),
+		(
+			MYCL_ASSET_ID,
+			MYCL_NAME.as_bytes().to_vec(),
+			MYCL_SYMBOL.as_bytes().to_vec(),
+			MYCL_DECIMALS,
+		),
+		(XRP_ASSET_ID, XRP_NAME.as_bytes().to_vec(), XRP_SYMBOL.as_bytes().to_vec(), XRP_DECIMALS),
 	];
 	let assets = vec![
 		(MYCL_ASSET_ID, seed_key, true, MYCL_MINIMUM_BALANCE),
@@ -235,6 +240,7 @@ fn testnet_genesis(
 		//  otherwise causes: Thread 'main' panicked at 'Authorities are already initialized!'
 		aura: Default::default(),
 		assets: AssetsConfig { assets, accounts: endowed_assets, metadata },
+		assets_ext: Default::default(),
 		grandpa: Default::default(),
 		nft: Default::default(),
 		session: SessionConfig {

@@ -15,7 +15,8 @@
 
 use super::*;
 use crate::mock::{
-	has_event, AccountId, AssetsExt, Balances, MyclAssetId, Nft, NftPalletId, System, Test, TestExt,
+	has_event, AccountId, AssetsExt, Balances, NativeAssetId, Nft, NftPalletId, System, Test,
+	TestExt,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -98,12 +99,12 @@ fn make_new_simple_offer(
 		Some(buyer).into(),
 		token_id,
 		offer_amount,
-		MyclAssetId::get(),
+		NativeAssetId::get(),
 		marketplace_id
 	));
 	let offer = SimpleOffer {
 		token_id,
-		asset_id: MyclAssetId::get(),
+		asset_id: NativeAssetId::get(),
 		amount: offer_amount,
 		buyer,
 		marketplace_id,
@@ -115,7 +116,7 @@ fn make_new_simple_offer(
 	assert!(has_event(Event::<Test>::Offer {
 		offer_id: next_offer_id,
 		amount: offer_amount,
-		asset_id: MyclAssetId::get(),
+		asset_id: NativeAssetId::get(),
 		marketplace_id,
 		buyer,
 	}));
@@ -419,7 +420,7 @@ fn transfer_fails_prechecks() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(5),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			1_000,
 			None,
 			None,
@@ -505,7 +506,7 @@ fn burn_fails_prechecks() {
 			Some(token_owner).into(),
 			vec![(collection_id, 0)],
 			None,
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			1_000,
 			None,
 			None,
@@ -548,7 +549,7 @@ fn sell() {
 				Some(collection_owner).into(),
 				tokens.clone(),
 				None,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				1_000,
 				None,
 				None,
@@ -588,7 +589,7 @@ fn sell_multiple_fails() {
 				Some(collection_owner).into(),
 				vec![],
 				None,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				1_000,
 				None,
 				None
@@ -602,7 +603,7 @@ fn sell_multiple_fails() {
 				Some(collection_owner).into(),
 				vec![(collection_id, 1), (collection_id_2, 1),],
 				None,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				1_000,
 				None,
 				None,
@@ -622,7 +623,7 @@ fn sell_multiple() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(5),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			1_000,
 			None,
 			None,
@@ -632,7 +633,7 @@ fn sell_multiple() {
 			listing_id,
 			marketplace_id: None,
 			price: 1_000,
-			payment_asset: MyclAssetId::get(),
+			payment_asset: NativeAssetId::get(),
 			seller: token_owner,
 		}));
 
@@ -640,7 +641,7 @@ fn sell_multiple() {
 		assert!(Nft::open_collection_listings(collection_id, listing_id).unwrap());
 
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
-			payment_asset: MyclAssetId::get(),
+			payment_asset: NativeAssetId::get(),
 			fixed_price: 1_000,
 			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			buyer: Some(5),
@@ -678,7 +679,7 @@ fn sell_fails() {
 				Some(token_owner + 1).into(),
 				vec![token_id],
 				Some(5),
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				1_000,
 				None,
 				None
@@ -691,7 +692,7 @@ fn sell_fails() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(5),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			1_000,
 			None,
 			None,
@@ -701,7 +702,7 @@ fn sell_fails() {
 				Some(token_owner).into(),
 				vec![token_id],
 				Some(5),
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				1_000,
 				None,
 				None
@@ -714,7 +715,7 @@ fn sell_fails() {
 			Nft::auction(
 				Some(token_owner).into(),
 				vec![token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				1_000,
 				None,
 				None
@@ -733,7 +734,7 @@ fn cancel_sell() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(5),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			1_000,
 			None,
 			None
@@ -769,7 +770,7 @@ fn sell_closes_on_schedule() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(5),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			1_000,
 			Some(listing_duration),
 			None
@@ -798,7 +799,7 @@ fn updates_fixed_price() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(5),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			1_000,
 			None,
 			None
@@ -811,7 +812,7 @@ fn updates_fixed_price() {
 		}));
 
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
-			payment_asset: MyclAssetId::get(),
+			payment_asset: NativeAssetId::get(),
 			fixed_price: 1_500,
 			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			buyer: Some(5),
@@ -843,7 +844,7 @@ fn update_fixed_price_fails() {
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
 			vec![token_id],
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			reserve_price,
 			Some(System::block_number() + 1),
 			None,
@@ -866,7 +867,7 @@ fn update_fixed_price_fails_not_owner() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(5),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			1_000,
 			None,
 			None
@@ -937,7 +938,7 @@ fn buy_with_marketplace_royalties() {
 
 			let marketplace_account = 20;
 			let initial_balance_marketplace =
-				AssetsExt::reducible_balance(MyclAssetId::get(), &marketplace_account, false);
+				AssetsExt::reducible_balance(NativeAssetId::get(), &marketplace_account, false);
 			let marketplace_entitlement: Permill = Permill::from_float(0.5);
 			assert_ok!(Nft::register_marketplace(
 				Some(marketplace_account).into(),
@@ -951,35 +952,35 @@ fn buy_with_marketplace_royalties() {
 				Some(token_owner).into(),
 				vec![token_id],
 				Some(buyer),
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				sale_price,
 				None,
 				Some(marketplace_id).into(),
 			));
 
 			let initial_balance_owner =
-				AssetsExt::reducible_balance(MyclAssetId::get(), &collection_owner, false);
+				AssetsExt::reducible_balance(NativeAssetId::get(), &collection_owner, false);
 			let initial_balance_b1 =
-				AssetsExt::reducible_balance(MyclAssetId::get(), &beneficiary_1, false);
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false);
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
-			let presale_issuance = AssetsExt::total_issuance(MyclAssetId::get());
+			let presale_issuance = AssetsExt::total_issuance(NativeAssetId::get());
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &marketplace_account, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &marketplace_account, false),
 				initial_balance_marketplace + marketplace_entitlement * sale_price
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &beneficiary_1, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
 				initial_balance_b1 + royalties_schedule.clone().entitlements[0].1 * sale_price
 			);
 			// token owner gets sale price less royalties
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				initial_balance_owner + sale_price -
 					marketplace_entitlement * sale_price -
 					royalties_schedule.clone().entitlements[0].1 * sale_price
 			);
-			assert_eq!(AssetsExt::total_issuance(MyclAssetId::get()), presale_issuance);
+			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 		});
 }
 
@@ -1014,7 +1015,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 					Some(token_owner).into(),
 					vec![token_id],
 					Some(buyer),
-					MyclAssetId::get(),
+					NativeAssetId::get(),
 					sale_price,
 					None,
 					Some(marketplace_id).into(),
@@ -1039,7 +1040,7 @@ fn buy() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(buyer),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			price,
 			None,
 			None
@@ -1047,7 +1048,7 @@ fn buy() {
 
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 		// no royalties, all proceeds to token owner
-		assert_eq!(AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false), price);
+		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false), price);
 
 		// listing removed
 		assert!(Nft::listings(listing_id).is_none());
@@ -1093,39 +1094,39 @@ fn buy_with_royalties() {
 				Some(token_owner).into(),
 				vec![token_id],
 				Some(buyer),
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				sale_price,
 				None,
 				None
 			));
 
 			let initial_balance_owner =
-				AssetsExt::reducible_balance(MyclAssetId::get(), &collection_owner, false);
+				AssetsExt::reducible_balance(NativeAssetId::get(), &collection_owner, false);
 			let initial_balance_b1 =
-				AssetsExt::reducible_balance(MyclAssetId::get(), &beneficiary_1, false);
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false);
 			let initial_balance_b2 =
-				AssetsExt::reducible_balance(MyclAssetId::get(), &beneficiary_2, false);
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false);
 			let initial_balance_seller =
-				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false);
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false);
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
-			let presale_issuance = AssetsExt::total_issuance(MyclAssetId::get());
+			let presale_issuance = AssetsExt::total_issuance(NativeAssetId::get());
 			// royalties distributed according to `entitlements` map
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &collection_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &collection_owner, false),
 				initial_balance_owner + royalties_schedule.clone().entitlements[0].1 * sale_price
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &beneficiary_1, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
 				initial_balance_b1 + royalties_schedule.clone().entitlements[1].1 * sale_price
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &beneficiary_2, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
 				initial_balance_b2 + royalties_schedule.clone().entitlements[2].1 * sale_price
 			);
 			// token owner gets sale price less royalties
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				initial_balance_seller + sale_price -
 					royalties_schedule
 						.clone()
@@ -1134,7 +1135,7 @@ fn buy_with_royalties() {
 						.map(|(_, e)| e * sale_price)
 						.sum::<Balance>()
 			);
-			assert_eq!(AssetsExt::total_issuance(MyclAssetId::get()), presale_issuance);
+			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 
 			// listing removed
 			assert!(Nft::listings(listing_id).is_none());
@@ -1173,7 +1174,7 @@ fn buy_fails_prechecks() {
 				Some(token_owner).into(),
 				vec![token_id],
 				Some(buyer),
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				price,
 				None,
 				None
@@ -1200,7 +1201,7 @@ fn sell_to_anybody() {
 			Some(token_owner).into(),
 			vec![token_id],
 			None,
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			price,
 			None,
 			None
@@ -1209,7 +1210,7 @@ fn sell_to_anybody() {
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 
 		// paid
-		assert!(AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false).is_zero());
+		assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
 
 		// listing removed
 		assert!(Nft::listings(listing_id).is_none());
@@ -1245,19 +1246,19 @@ fn buy_with_overcommitted_royalties() {
 			Some(token_owner).into(),
 			vec![token_id],
 			Some(buyer),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			price,
 			None,
 			None
 		));
 
-		let presale_issuance = AssetsExt::total_issuance(MyclAssetId::get());
+		let presale_issuance = AssetsExt::total_issuance(NativeAssetId::get());
 
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 		assert!(bad_schedule.calculate_total_entitlement().is_zero());
-		assert_eq!(AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false), price);
-		assert!(AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false).is_zero());
-		assert_eq!(AssetsExt::total_issuance(MyclAssetId::get()), presale_issuance);
+		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false), price);
+		assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
+		assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 	})
 }
 
@@ -1272,7 +1273,7 @@ fn cancel_auction() {
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
 			vec![token_id],
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			reserve_price,
 			Some(System::block_number() + 1),
 			None,
@@ -1326,7 +1327,7 @@ fn auction_bundle() {
 		assert_ok!(Nft::auction(
 			Some(collection_owner).into(),
 			tokens.clone(),
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			price,
 			Some(1),
 			None,
@@ -1366,7 +1367,7 @@ fn auction_bundle_fails() {
 			Nft::auction(
 				Some(collection_owner).into(),
 				vec![],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				1_000,
 				None,
 				None
@@ -1379,7 +1380,7 @@ fn auction_bundle_fails() {
 			Nft::auction(
 				Some(collection_owner).into(),
 				vec![(collection_id, 1), (collection_id_2, 1),],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				1_000,
 				None,
 				None
@@ -1407,7 +1408,7 @@ fn auction() {
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
 				vec![token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
 				None,
@@ -1436,11 +1437,11 @@ fn auction() {
 
 			// no royalties, all proceeds to token owner
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				winning_bid
 			);
 			// bidder2 funds should be all gone (unreserved and transferred)
-			assert!(AssetsExt::reducible_balance(MyclAssetId::get(), &bidder_2, false).is_zero());
+			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &bidder_2, false).is_zero());
 			assert!(Balances::reserved_balance_named(&NftPalletId::get().0, &bidder_2).is_zero());
 			// listing metadata removed
 			assert!(Nft::listings(listing_id).is_none());
@@ -1455,7 +1456,7 @@ fn auction() {
 			assert!(has_event(Event::<Test>::AuctionSold {
 				collection_id,
 				listing_id,
-				payment_asset: MyclAssetId::get(),
+				payment_asset: NativeAssetId::get(),
 				hammer_price: winning_bid,
 				winner: bidder_2
 			}));
@@ -1480,7 +1481,7 @@ fn bid_auto_extends() {
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
 				vec![token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				Some(2),
 				None,
@@ -1526,7 +1527,7 @@ fn auction_royalty_payments() {
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
 				vec![token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
 				None,
@@ -1539,23 +1540,23 @@ fn auction_royalty_payments() {
 			let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
 			// royalties paid out
-			let presale_issuance = AssetsExt::total_issuance(MyclAssetId::get());
+			let presale_issuance = AssetsExt::total_issuance(NativeAssetId::get());
 			// royalties distributed according to `entitlements` map
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &collection_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &collection_owner, false),
 				royalties_schedule.entitlements[0].1 * reserve_price
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &beneficiary_1, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
 				royalties_schedule.entitlements[1].1 * reserve_price
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &beneficiary_2, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
 				royalties_schedule.entitlements[2].1 * reserve_price
 			);
 			// token owner gets sale price less royalties
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				reserve_price -
 					royalties_schedule
 						.entitlements
@@ -1563,10 +1564,10 @@ fn auction_royalty_payments() {
 						.map(|(_, e)| e * reserve_price)
 						.sum::<Balance>()
 			);
-			assert!(AssetsExt::reducible_balance(MyclAssetId::get(), &bidder, false).is_zero());
+			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &bidder, false).is_zero());
 			assert!(Balances::reserved_balance_named(&NftPalletId::get().0, &bidder).is_zero());
 
-			assert_eq!(AssetsExt::total_issuance(MyclAssetId::get()), presale_issuance);
+			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 
 			// listing metadata removed
 			assert!(!Listings::<Test>::contains_key(listing_id));
@@ -1592,7 +1593,7 @@ fn close_listings_at_removes_listing_data() {
 		let listings = vec![
 			// an open sale which won't be bought before closing
 			Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
-				payment_asset: MyclAssetId::get(),
+				payment_asset: NativeAssetId::get(),
 				fixed_price: price,
 				buyer: None,
 				close: System::block_number() + 1,
@@ -1603,7 +1604,7 @@ fn close_listings_at_removes_listing_data() {
 			}),
 			// an open auction which has no bids before closing
 			Listing::<Test>::Auction(AuctionListing::<Test> {
-				payment_asset: MyclAssetId::get(),
+				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
 				seller: 1,
@@ -1613,7 +1614,7 @@ fn close_listings_at_removes_listing_data() {
 			}),
 			// an open auction which has a winning bid before closing
 			Listing::<Test>::Auction(AuctionListing::<Test> {
-				payment_asset: MyclAssetId::get(),
+				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
 				seller: 1,
@@ -1677,7 +1678,7 @@ fn auction_fails_prechecks() {
 			Nft::auction(
 				Some(token_owner).into(),
 				vec![missing_token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
 				None,
@@ -1690,7 +1691,7 @@ fn auction_fails_prechecks() {
 			Nft::auction(
 				Some(token_owner + 1).into(),
 				vec![token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
 				None,
@@ -1702,7 +1703,7 @@ fn auction_fails_prechecks() {
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
 			vec![token_id],
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			reserve_price,
 			Some(1),
 			None,
@@ -1712,7 +1713,7 @@ fn auction_fails_prechecks() {
 			Nft::auction(
 				Some(token_owner).into(),
 				vec![token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
 				None,
@@ -1726,7 +1727,7 @@ fn auction_fails_prechecks() {
 				Some(token_owner).into(),
 				vec![token_id],
 				None,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				None,
 				None,
@@ -1757,7 +1758,7 @@ fn bid_fails_prechecks() {
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
 				vec![token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
 				None,
@@ -1773,7 +1774,7 @@ fn bid_fails_prechecks() {
 			assert_ok!(AssetsExt::place_hold(
 				NftPalletId::get(),
 				&bidder,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price
 			));
 			assert_noop!(
@@ -1783,7 +1784,7 @@ fn bid_fails_prechecks() {
 			assert_ok!(AssetsExt::release_hold(
 				NftPalletId::get(),
 				&bidder,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price
 			));
 
@@ -1814,7 +1815,7 @@ fn bid_no_balance_should_fail() {
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
 			vec![token_id],
-			MyclAssetId::get(),
+			NativeAssetId::get(),
 			reserve_price,
 			Some(1),
 			None,
@@ -1993,7 +1994,7 @@ fn get_collection_listings() {
 				Some(owner).into(),
 				vec![token_id],
 				None,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				price,
 				Some(close),
 				None,
@@ -2009,7 +2010,7 @@ fn get_collection_listings() {
 		for id in 0..limit {
 			let token_id: Vec<TokenId> = vec![(collection_id, id as u32)];
 			let expected_listing = FixedPriceListing {
-				payment_asset: MyclAssetId::get(),
+				payment_asset: NativeAssetId::get(),
 				fixed_price: price,
 				close: close + 1,
 				buyer: None,
@@ -2053,7 +2054,7 @@ fn get_collection_listings_over_limit() {
 				Some(owner).into(),
 				vec![token_id],
 				None,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				price,
 				Some(close),
 				None,
@@ -2188,7 +2189,7 @@ fn make_simple_offer() {
 			assert_eq!(Nft::token_offers(token_id).unwrap(), vec![offer_id]);
 			// Check funds have been locked
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
 				initial_balance_buyer - offer_amount
 			);
 			assert_eq!(
@@ -2204,14 +2205,14 @@ fn make_simple_offer_insufficient_funds_should_fail() {
 		let (_, token_id, _) = setup_token();
 		let buyer: u64 = 3;
 		let offer_amount: Balance = 100;
-		assert_eq!(AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false), 0);
+		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 0);
 
 		assert_noop!(
 			Nft::make_simple_offer(
 				Some(buyer).into(),
 				token_id,
 				offer_amount,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				None
 			),
 			pallet_balances::Error::<Test>::InsufficientBalance
@@ -2225,14 +2226,14 @@ fn make_simple_offer_zero_amount_should_fail() {
 		let (_, token_id, _) = setup_token();
 		let buyer: u64 = 3;
 		let offer_amount: Balance = 0;
-		assert_eq!(AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false), 0);
+		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 0);
 
 		assert_noop!(
 			Nft::make_simple_offer(
 				Some(buyer).into(),
 				token_id,
 				offer_amount,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				None
 			),
 			Error::<Test>::ZeroOffer
@@ -2251,7 +2252,7 @@ fn make_simple_offer_token_owner_should_fail() {
 				Some(token_owner).into(),
 				token_id,
 				offer_amount,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				None
 			),
 			Error::<Test>::IsTokenOwner
@@ -2275,7 +2276,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 				Some(token_owner).into(),
 				vec![token_id],
 				None,
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				sell_price,
 				None,
 				None,
@@ -2284,7 +2285,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 			make_new_simple_offer(offer_amount, token_id, buyer, None);
 			// Check funds have been locked
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
 				initial_balance_buyer - offer_amount
 			);
 			assert_eq!(
@@ -2310,7 +2311,7 @@ fn make_simple_offer_on_auction_should_fail() {
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
 				vec![token_id],
-				MyclAssetId::get(),
+				NativeAssetId::get(),
 				reserve_price,
 				Some(System::block_number() + 1),
 				None,
@@ -2321,7 +2322,7 @@ fn make_simple_offer_on_auction_should_fail() {
 					Some(buyer).into(),
 					token_id,
 					offer_amount,
-					MyclAssetId::get(),
+					NativeAssetId::get(),
 					None
 				),
 				Error::<Test>::TokenOnAuction
@@ -2351,7 +2352,7 @@ fn cancel_offer() {
 			assert_eq!(Nft::offers(offer_id), None);
 			// Check funds have been unlocked after offer cancelled
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
 				initial_balance_buyer
 			);
 			assert!(Balances::reserved_balance_named(&NftPalletId::get().0, &buyer).is_zero());
@@ -2395,13 +2396,13 @@ fn cancel_offer_multiple_offers() {
 
 			// Check funds have been unlocked after offer cancelled
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer_1, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer_1, false),
 				initial_balance_buyer_1
 			);
 			assert!(Balances::reserved_balance_named(&NftPalletId::get().0, &buyer_1).is_zero());
 			// Check buyer_2 funds have not been unlocked
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer_2, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer_2, false),
 				initial_balance_buyer_2 - offer_amount_2
 			);
 			assert_eq!(
@@ -2445,7 +2446,7 @@ fn accept_offer() {
 				offer_id,
 				token_id,
 				amount: offer_amount,
-				asset_id: MyclAssetId::get()
+				asset_id: NativeAssetId::get()
 			}));
 
 			// Check storage has been removed
@@ -2453,12 +2454,12 @@ fn accept_offer() {
 			assert!(Nft::offers(offer_id).is_none());
 			// Check funds have been transferred
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
 				initial_balance_buyer - offer_amount
 			);
 			assert!(Balances::reserved_balance_named(&NftPalletId::get().0, &buyer).is_zero());
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				offer_amount
 			);
 		});
@@ -2490,7 +2491,7 @@ fn accept_offer_multiple_offers() {
 				offer_id: offer_id_2,
 				token_id,
 				amount: offer_amount_2,
-				asset_id: MyclAssetId::get()
+				asset_id: NativeAssetId::get()
 			}));
 			// Check storage has been removed
 			let offer_vector: Vec<OfferId> = vec![offer_id_1];
@@ -2500,11 +2501,11 @@ fn accept_offer_multiple_offers() {
 
 			// Check funds have been transferred
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer_2, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer_2, false),
 				initial_balance_buyer_2 - offer_amount_2
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer_1, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer_1, false),
 				initial_balance_buyer_1 - offer_amount_1
 			);
 			assert_eq!(
@@ -2513,7 +2514,7 @@ fn accept_offer_multiple_offers() {
 			);
 			assert!(Balances::reserved_balance_named(&NftPalletId::get().0, &buyer_2).is_zero());
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				offer_amount_2
 			);
 
@@ -2555,16 +2556,16 @@ fn accept_offer_pays_marketplace_royalties() {
 			assert_eq!(Nft::offers(offer_id), None);
 			// Check funds have been transferred with royalties
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &buyer, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
 				initial_balance_buyer - offer_amount
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &marketplace_account, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &marketplace_account, false),
 				entitlements * offer_amount
 			);
 			assert!(Balances::reserved_balance_named(&NftPalletId::get().0, &buyer).is_zero());
 			assert_eq!(
-				AssetsExt::reducible_balance(MyclAssetId::get(), &token_owner, false),
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				offer_amount - (entitlements * offer_amount)
 			);
 		});
