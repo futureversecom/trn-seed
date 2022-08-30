@@ -50,10 +50,7 @@ pub use precompile_utils_macro::{generate_function_selector, keccak256};
 /// be used instead.
 #[must_use]
 pub fn revert(output: impl AsRef<[u8]>) -> PrecompileFailure {
-	PrecompileFailure::Revert {
-		exit_status: ExitRevert::Reverted,
-		output: encoded_revert(output),
-	}
+	PrecompileFailure::Revert { exit_status: ExitRevert::Reverted, output: encoded_revert(output) }
 }
 
 pub fn encoded_revert(output: impl AsRef<[u8]>) -> Vec<u8> {
@@ -64,10 +61,7 @@ pub fn encoded_revert(output: impl AsRef<[u8]>) -> Vec<u8> {
 
 #[must_use]
 pub fn succeed(output: impl AsRef<[u8]>) -> PrecompileOutput {
-	PrecompileOutput {
-		exit_status: ExitSucceed::Returned,
-		output: output.as_ref().to_owned(),
-	}
+	PrecompileOutput { exit_status: ExitSucceed::Returned, output: output.as_ref().to_owned() }
 }
 
 /// Alias for Result returning an EVM precompile error.
@@ -86,20 +80,16 @@ pub trait StatefulPrecompile {
 }
 
 pub mod prelude {
-	pub use {
-		crate::{
-			data::{
-				Address, BoundedBytes, BoundedVec, Bytes, EvmData, EvmDataReader, EvmDataWriter,
-			},
-			handle::PrecompileHandleExt,
-			logs::{log0, log1, log2, log3, log4, LogExt},
-			modifier::{check_function_modifier, FunctionModifier},
-			read_args, read_struct, revert,
-			revert::{BacktraceExt, InjectBacktrace, MayRevert, Revert, RevertExt, RevertReason},
-			substrate::{RuntimeHelper, TryDispatchError},
-			succeed, EvmResult, StatefulPrecompile,
-		},
-		pallet_evm::PrecompileHandle,
-		precompile_utils_macro::{generate_function_selector, keccak256},
+	pub use crate::{
+		data::{Address, BoundedBytes, BoundedVec, Bytes, EvmData, EvmDataReader, EvmDataWriter},
+		handle::PrecompileHandleExt,
+		logs::{log0, log1, log2, log3, log4, LogExt},
+		modifier::{check_function_modifier, FunctionModifier},
+		read_args, read_struct, revert,
+		revert::{BacktraceExt, InjectBacktrace, MayRevert, Revert, RevertExt, RevertReason},
+		substrate::{RuntimeHelper, TryDispatchError},
+		succeed, EvmResult, StatefulPrecompile,
 	};
+	pub use pallet_evm::PrecompileHandle;
+	pub use precompile_utils_macro::{generate_function_selector, keccak256};
 }

@@ -14,18 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
-use {
-	crate::{
-		data::xcm::{network_id_from_bytes, network_id_to_bytes},
-		prelude::*,
-		revert::Backtrace,
-	},
-	hex_literal::hex,
-	pallet_evm::Context,
-	sp_core::{H160, H256, U256},
-	sp_std::convert::TryInto,
-	xcm::latest::{Junction, Junctions, NetworkId},
+use crate::{
+	data::xcm::{network_id_from_bytes, network_id_to_bytes},
+	prelude::*,
+	revert::Backtrace,
 };
+use hex_literal::hex;
+use pallet_evm::Context;
+use sp_core::{H160, H256, U256};
+use sp_std::convert::TryInto;
+use xcm::latest::{Junction, Junctions, NetworkId};
 
 fn u256_repeat_byte(byte: u8) -> U256 {
 	let value = H256::repeat_byte(byte);
@@ -374,11 +372,8 @@ fn read_address_array_size_too_big() {
 	match reader.read::<Vec<Address>>().in_field("field") {
 		Ok(_) => panic!("should not parse correctly"),
 		Err(err) => {
-			assert_eq!(
-				err.to_string(),
-				"field[5]: Tried to read address out of bounds"
-			)
-		}
+			assert_eq!(err.to_string(), "field[5]: Tried to read address out of bounds")
+		},
 	}
 }
 
@@ -390,10 +385,7 @@ fn write_address_nested_array() {
 			Address(H160::repeat_byte(0x22)),
 			Address(H160::repeat_byte(0x33)),
 		],
-		vec![
-			Address(H160::repeat_byte(0x44)),
-			Address(H160::repeat_byte(0x55)),
-		],
+		vec![Address(H160::repeat_byte(0x44)), Address(H160::repeat_byte(0x55))],
 	];
 	let writer_output = EvmDataWriter::new().write(array.clone()).build();
 	assert_eq!(writer_output.len(), 0x160);
@@ -422,10 +414,7 @@ fn read_address_nested_array() {
 			Address(H160::repeat_byte(0x22)),
 			Address(H160::repeat_byte(0x33)),
 		],
-		vec![
-			Address(H160::repeat_byte(0x44)),
-			Address(H160::repeat_byte(0x55)),
-		],
+		vec![Address(H160::repeat_byte(0x44)), Address(H160::repeat_byte(0x55))],
 	];
 	let writer_output = EvmDataWriter::new().write(array.clone()).build();
 
@@ -446,10 +435,7 @@ fn write_multiple_arrays() {
 
 	let array2 = vec![H256::repeat_byte(0x44), H256::repeat_byte(0x55)];
 
-	let writer_output = EvmDataWriter::new()
-		.write(array1.clone())
-		.write(array2.clone())
-		.build();
+	let writer_output = EvmDataWriter::new().write(array1.clone()).write(array2.clone()).build();
 
 	assert_eq!(writer_output.len(), 0x120);
 
@@ -477,10 +463,7 @@ fn read_multiple_arrays() {
 
 	let array2 = vec![H256::repeat_byte(0x44), H256::repeat_byte(0x55)];
 
-	let writer_output = EvmDataWriter::new()
-		.write(array1.clone())
-		.write(array2.clone())
-		.build();
+	let writer_output = EvmDataWriter::new().write(array1.clone()).write(array2.clone()).build();
 
 	// offset 0x20
 	// offset 0x40
@@ -728,10 +711,7 @@ fn read_complex_solidity_function() {
 		reader.read::<MultiLocation>().unwrap(),
 		MultiLocation {
 			parents: 1,
-			interior: vec![
-				Bytes::from(&hex!("00000003e8")[..]),
-				Bytes::from(&hex!("0403")[..]),
-			],
+			interior: vec![Bytes::from(&hex!("00000003e8")[..]), Bytes::from(&hex!("0403")[..]),],
 		}
 	);
 
@@ -755,14 +735,10 @@ fn read_complex_solidity_function() {
 
 #[test]
 fn junctions_decoder_works() {
-	let writer_output = EvmDataWriter::new()
-		.write(Junctions::X1(Junction::OnlyChild))
-		.build();
+	let writer_output = EvmDataWriter::new().write(Junctions::X1(Junction::OnlyChild)).build();
 
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: Junctions = reader
-		.read::<Junctions>()
-		.expect("to correctly parse Junctions");
+	let parsed: Junctions = reader.read::<Junctions>().expect("to correctly parse Junctions");
 
 	assert_eq!(parsed, Junctions::X1(Junction::OnlyChild));
 
@@ -771,35 +747,20 @@ fn junctions_decoder_works() {
 		.build();
 
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: Junctions = reader
-		.read::<Junctions>()
-		.expect("to correctly parse Junctions");
+	let parsed: Junctions = reader.read::<Junctions>().expect("to correctly parse Junctions");
 
-	assert_eq!(
-		parsed,
-		Junctions::X2(Junction::OnlyChild, Junction::OnlyChild)
-	);
+	assert_eq!(parsed, Junctions::X2(Junction::OnlyChild, Junction::OnlyChild));
 
 	let writer_output = EvmDataWriter::new()
-		.write(Junctions::X3(
-			Junction::OnlyChild,
-			Junction::OnlyChild,
-			Junction::OnlyChild,
-		))
+		.write(Junctions::X3(Junction::OnlyChild, Junction::OnlyChild, Junction::OnlyChild))
 		.build();
 
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: Junctions = reader
-		.read::<Junctions>()
-		.expect("to correctly parse Junctions");
+	let parsed: Junctions = reader.read::<Junctions>().expect("to correctly parse Junctions");
 
 	assert_eq!(
 		parsed,
-		Junctions::X3(
-			Junction::OnlyChild,
-			Junction::OnlyChild,
-			Junction::OnlyChild
-		),
+		Junctions::X3(Junction::OnlyChild, Junction::OnlyChild, Junction::OnlyChild),
 	);
 }
 
@@ -808,31 +769,18 @@ fn junction_decoder_works() {
 	let writer_output = EvmDataWriter::new().write(Junction::Parachain(0)).build();
 
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: Junction = reader
-		.read::<Junction>()
-		.expect("to correctly parse Junctions");
+	let parsed: Junction = reader.read::<Junction>().expect("to correctly parse Junctions");
 
 	assert_eq!(parsed, Junction::Parachain(0));
 
 	let writer_output = EvmDataWriter::new()
-		.write(Junction::AccountId32 {
-			network: NetworkId::Any,
-			id: [1u8; 32],
-		})
+		.write(Junction::AccountId32 { network: NetworkId::Any, id: [1u8; 32] })
 		.build();
 
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: Junction = reader
-		.read::<Junction>()
-		.expect("to correctly parse Junctions");
+	let parsed: Junction = reader.read::<Junction>().expect("to correctly parse Junctions");
 
-	assert_eq!(
-		parsed,
-		Junction::AccountId32 {
-			network: NetworkId::Any,
-			id: [1u8; 32],
-		}
-	);
+	assert_eq!(parsed, Junction::AccountId32 { network: NetworkId::Any, id: [1u8; 32] });
 
 	let writer_output = EvmDataWriter::new()
 		.write(Junction::AccountIndex64 {
@@ -842,16 +790,11 @@ fn junction_decoder_works() {
 		.build();
 
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: Junction = reader
-		.read::<Junction>()
-		.expect("to correctly parse Junctions");
+	let parsed: Junction = reader.read::<Junction>().expect("to correctly parse Junctions");
 
 	assert_eq!(
 		parsed,
-		Junction::AccountIndex64 {
-			network: NetworkId::Any,
-			index: u64::from_be_bytes([1u8; 8]),
-		}
+		Junction::AccountIndex64 { network: NetworkId::Any, index: u64::from_be_bytes([1u8; 8]) }
 	);
 
 	let writer_output = EvmDataWriter::new()
@@ -862,9 +805,7 @@ fn junction_decoder_works() {
 		.build();
 
 	let mut reader = EvmDataReader::new(&writer_output);
-	let parsed: Junction = reader
-		.read::<Junction>()
-		.expect("to correctly parse Junctions");
+	let parsed: Junction = reader.read::<Junction>().expect("to correctly parse Junctions");
 
 	assert_eq!(
 		parsed,
@@ -877,18 +818,13 @@ fn junction_decoder_works() {
 
 #[test]
 fn network_id_decoder_works() {
-	assert_eq!(
-		network_id_from_bytes(network_id_to_bytes(NetworkId::Any)),
-		Ok(NetworkId::Any)
-	);
+	assert_eq!(network_id_from_bytes(network_id_to_bytes(NetworkId::Any)), Ok(NetworkId::Any));
 
 	assert_eq!(
 		network_id_from_bytes(network_id_to_bytes(NetworkId::Named(
 			b"myname".to_vec().try_into().expect("name not too long")
 		))),
-		Ok(NetworkId::Named(
-			b"myname".to_vec().try_into().expect("name not too long")
-		))
+		Ok(NetworkId::Named(b"myname".to_vec().try_into().expect("name not too long")))
 	);
 
 	assert_eq!(
@@ -911,11 +847,8 @@ fn test_check_function_modifier() {
 	};
 
 	let payable_error = || Revert::new(RevertReason::custom("Function is not payable"));
-	let static_error = || {
-		Revert::new(RevertReason::custom(
-			"Can't call non-static function in static context",
-		))
-	};
+	let static_error =
+		|| Revert::new(RevertReason::custom("Can't call non-static function in static context"));
 
 	// Can't call non-static functions in static context.
 	assert_eq!(
@@ -926,10 +859,7 @@ fn test_check_function_modifier() {
 		check_function_modifier(&context(0), true, FunctionModifier::NonPayable),
 		Err(static_error())
 	);
-	assert_eq!(
-		check_function_modifier(&context(0), true, FunctionModifier::View),
-		Ok(())
-	);
+	assert_eq!(check_function_modifier(&context(0), true, FunctionModifier::View), Ok(()));
 
 	// Static check is performed before non-payable check.
 	assert_eq!(
@@ -947,10 +877,7 @@ fn test_check_function_modifier() {
 	);
 
 	// Can't send funds to non payable function
-	assert_eq!(
-		check_function_modifier(&context(1), false, FunctionModifier::Payable),
-		Ok(())
-	);
+	assert_eq!(check_function_modifier(&context(1), false, FunctionModifier::Payable), Ok(()));
 	assert_eq!(
 		check_function_modifier(&context(1), false, FunctionModifier::NonPayable),
 		Err(payable_error())
@@ -961,18 +888,9 @@ fn test_check_function_modifier() {
 	);
 
 	// Any function can be called without funds.
-	assert_eq!(
-		check_function_modifier(&context(0), false, FunctionModifier::Payable),
-		Ok(())
-	);
-	assert_eq!(
-		check_function_modifier(&context(0), false, FunctionModifier::NonPayable),
-		Ok(())
-	);
-	assert_eq!(
-		check_function_modifier(&context(0), false, FunctionModifier::View),
-		Ok(())
-	);
+	assert_eq!(check_function_modifier(&context(0), false, FunctionModifier::Payable), Ok(()));
+	assert_eq!(check_function_modifier(&context(0), false, FunctionModifier::NonPayable), Ok(()));
+	assert_eq!(check_function_modifier(&context(0), false, FunctionModifier::View), Ok(()));
 }
 
 #[test]
@@ -1006,10 +924,7 @@ fn read_dynamic_size_tuple() {
 
 	let mut reader = EvmDataReader::new(&data);
 
-	assert_eq!(
-		reader.read::<(u8, Vec<Bytes>)>().unwrap(),
-		(1, vec![Bytes(vec![0x01])])
-	);
+	assert_eq!(reader.read::<(u8, Vec<Bytes>)>().unwrap(), (1, vec![Bytes(vec![0x01])]));
 }
 
 #[test]
@@ -1029,9 +944,7 @@ fn write_static_size_tuple() {
 
 #[test]
 fn write_dynamic_size_tuple() {
-	let output = EvmDataWriter::new()
-		.write((1u8, vec![Bytes(vec![0x01])]))
-		.build();
+	let output = EvmDataWriter::new().write((1u8, vec![Bytes(vec![0x01])])).build();
 
 	// (uint8, bytes[]) encoded by web3
 	let data = hex!(
