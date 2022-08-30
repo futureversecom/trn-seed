@@ -184,7 +184,7 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	{
 		if let Some(author_index) = F::find_author(digests) {
 			if let Some(stash) = Session::validators().get(author_index as usize) {
-				return Some(Into::<H160>::into(*stash));
+				return Some(Into::<H160>::into(*stash))
 			}
 		}
 		None
