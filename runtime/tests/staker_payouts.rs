@@ -5,7 +5,7 @@ use frame_support::{
 	dispatch::RawOrigin,
 	traits::{fungible::Inspect, Get, OffchainWorker, OnFinalize, OnInitialize},
 };
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, Zero};
 use sp_staking::{EraIndex, SessionIndex};
 
 use seed_primitives::BlockNumber;
@@ -124,12 +124,9 @@ fn era_payout_redistributes_era_tx_fees() {
 		assert_eq!(alice_era0_balance + tx_fee_pot_era0_balance / 2, Balances::balance(&alice()),);
 		assert_eq!(bob_era0_balance + tx_fee_pot_era0_balance / 2, Balances::balance(&bob()),);
 
-<<<<<<< HEAD
 		// all rewards claimed
 		assert!(Balances::balance(&TxFeePotId::get().into_account_truncating()).is_zero());
 
-=======
->>>>>>> Add new files
 		// after payout, issuance ok
 		assert_eq!(genesis_issuance, Balances::total_issuance());
 	});
