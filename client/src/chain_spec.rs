@@ -7,8 +7,8 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 use seed_primitives::Balance;
 use seed_runtime::{
 	constants::{
-		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_XRP,
-		XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
+		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
+		ONE_XRP, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	AccountId, AssetsConfig, BalancesConfig, GenesisConfig, SessionConfig, SessionKeys, Signature,
 	SudoConfig, SystemConfig, WASM_BINARY,
@@ -222,11 +222,7 @@ fn testnet_genesis(
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 	for account in accounts_to_fund {
-		endowed_assets.push((
-			MYCL_ASSET_ID,
-			account,
-			1_000_000 * 10_u32.pow(MYCL_DECIMALS as u32) as Balance,
-		));
+		endowed_assets.push((MYCL_ASSET_ID, account, 1_000_000 * ONE_MYCL));
 		endowed_balances.push((account, 1_000_000 * ONE_XRP));
 	}
 
