@@ -63,9 +63,11 @@ where
 		// However while Substrate handle checking weight while not making the sender pay for it,
 		// the EVM doesn't. It seems this safer to always record the costs to avoid unmetered
 		// computations.
+		// TODO Change to `Dispatched call failed with error: {:?}", e` when:
+		// https://github.com/futureversecom/seed/pull/34 is merged
 		let used_weight = call
 			.dispatch(origin)
-			.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?
+			.map_err(|_| revert(alloc::format!("Dispatched call failed")))?
 			.actual_weight;
 
 		let used_gas =

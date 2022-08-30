@@ -28,10 +28,6 @@ const typedefs = {
 };
 
 describe("ERC20 Precompile", function () {
-  let api: ApiPromise;
-  let keyring: Keyring;
-  let alice: AddressOrPair;
-  let bob: AddressOrPair;
   let seedSigner: Wallet;
   let xrpToken: Contract;
   let precompileCaller: Contract;
@@ -48,7 +44,7 @@ describe("ERC20 Precompile", function () {
     'function decimals() public view returns (uint8)',
     'function transfer(address who, uint256 amount)',
   ];
-  // Setup api instance and keyring wallet addresses for alice and bob
+  // Setup api instance
   before(async () => {
     // Setup providers for jsonRPCs and WS
     jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
@@ -61,15 +57,6 @@ describe("ERC20 Precompile", function () {
     let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
     precompileCaller = await factory.deploy();
     console.log(`contract address=${precompileCaller.address}`);
-
-    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
-
-    keyring = new Keyring({ type: 'ethereum' });
-    // alice = keyring.addFromSeed(hexToU8a('0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854'));
-    // bob = keyring.addFromSeed(hexToU8a('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf'));
-
-    console.log(`Connected to Root network`);
-    console.log(`Genesis hash: ${api.genesisHash.toHex()}`);
   });
 
   it('name, symbol, decimals', async () => {
