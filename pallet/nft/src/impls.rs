@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
-			return Default::default()
+			return Default::default();
 		}
 	}
 
@@ -228,7 +228,7 @@ impl<T: Config> Pallet<T> {
 			owned_tokens.append(&mut owned_in_collection);
 		}
 
-		return owned_tokens
+		return owned_tokens;
 	}
 
 	/// Remove a single fixed price listing and all it's metadata
@@ -385,7 +385,7 @@ impl<T: Config> Pallet<T> {
 					None => Vec::new(),
 				};
 
-				return Some(TokenInfo { owner, royalties })
+				return Some(TokenInfo { owner, royalties });
 			}
 		}
 		None
@@ -422,12 +422,13 @@ impl<T: Config> Pallet<T> {
 			.collect();
 
 		let new_cursor = match last_id {
-			Some(id) =>
+			Some(id) => {
 				if highest_cursor != id {
 					Some(highest_cursor + 1)
 				} else {
 					None
-				},
+				}
+			},
 			None => None,
 		};
 		(new_cursor, response)

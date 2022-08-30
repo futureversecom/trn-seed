@@ -531,7 +531,7 @@ pub mod pallet {
 					);
 				}
 			} else {
-				return Err(Error::<T>::NoCollection.into())
+				return Err(Error::<T>::NoCollection.into());
 			}
 
 			let owner = token_owner.unwrap_or(origin);
@@ -660,7 +660,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
-				return Err(Error::<T>::NoToken.into())
+				return Err(Error::<T>::NoToken.into());
 			}
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace_id)?;
@@ -756,7 +756,7 @@ pub mod pallet {
 					seller: listing.seller,
 				});
 			} else {
-				return Err(Error::<T>::NotForFixedPriceSale.into())
+				return Err(Error::<T>::NotForFixedPriceSale.into());
 			}
 			Ok(())
 		}
@@ -787,7 +787,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
-				return Err(Error::<T>::NoToken.into())
+				return Err(Error::<T>::NoToken.into());
 			}
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace_id)?;
@@ -898,7 +898,7 @@ pub mod pallet {
 				});
 				Ok(())
 			} else {
-				return Err(Error::<T>::NotForAuction.into())
+				return Err(Error::<T>::NotForAuction.into());
 			}
 		}
 

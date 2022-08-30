@@ -417,9 +417,9 @@ fn place_and_release_hold_multiple_assets_and_pallets() {
 			assert_eq!(AssetsExt::balance(doge_asset_id, &alice), initial_balance);
 			// storage cleared
 			assert!(
-				!Holds::<Test>::contains_key(dn_asset_id, alice) &&
-					!Holds::<Test>::contains_key(doge_asset_id, alice) &&
-					!Holds::<Test>::contains_key(xrp_asset_id, alice)
+				!Holds::<Test>::contains_key(dn_asset_id, alice)
+					&& !Holds::<Test>::contains_key(doge_asset_id, alice)
+					&& !Holds::<Test>::contains_key(xrp_asset_id, alice)
 			);
 		});
 }
