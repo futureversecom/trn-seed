@@ -192,6 +192,7 @@ parameter_types! {
 	pub const OperationalFeeMultiplier: u8 = 5;
 }
 impl pallet_transaction_payment::Config for Runtime {
+	type Event = Event;
 	// TODO: need currency instance linked to XRP for default case...
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, ()>;
 	type WeightToFee = IdentityFee<Balance>;
@@ -408,9 +409,9 @@ parameter_types! {
 }
 impl pallet_base_fee::Config for Runtime {
 	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
-	type IsActive = IsBaseFeeActive;
 	type Event = Event;
 	type Threshold = BaseFeeThreshold;
+	type DefaultElasticity = ();
 }
 
 parameter_types! {
@@ -505,7 +506,7 @@ construct_runtime! {
 		Grandpa: pallet_grandpa,
 
 		// World
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		Sudo: pallet_sudo,
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
