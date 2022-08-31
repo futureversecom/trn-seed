@@ -60,7 +60,17 @@ mod constants {
 	/// Change this to adjust the block time.
 	pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+
+	// AKA blocks per session
+	#[cfg(not(feature = "fast_epoch"))] // this is the default
 	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = 4 * HOURS;
+	#[cfg(feature = "fast_epoch")]
+	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = MINUTES / 3; // 5 slots per epoch
+
+	#[cfg(not(feature = "fast_epoch"))] // this is the default
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 6;
+	#[cfg(feature = "fast_epoch")]
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 2;
 
 	// Time is measured by number of blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);

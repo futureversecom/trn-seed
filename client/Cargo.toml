@@ -10,6 +10,9 @@ build = "build.rs"
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "seed"
 path = "src/main.rs"
@@ -80,6 +83,8 @@ substrate-build-script-utils = { git = "https://github.com/futureversecom/substr
 
 [features]
 default = []
+# build client with fast epoch time
+fast_epoch = ["seed-runtime/fast_epoch"]
 runtime-benchmarks = ["frame-benchmarking", "frame-benchmarking-cli"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
