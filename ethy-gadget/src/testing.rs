@@ -9,7 +9,7 @@ use seed_primitives::ethy::crypto::{
 	AuthorityId as Public, AuthorityPair as Pair, AuthoritySignature as Signature,
 };
 
-/// Set of test accounts using [`cennznet_primitives::eth::crypto`] types.
+/// Set of test accounts using [`seed_primitives::ethy::crypto`] types.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter)]
 pub(crate) enum Keyring {

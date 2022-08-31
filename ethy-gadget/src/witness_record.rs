@@ -164,11 +164,13 @@ impl WitnessRecord {
 
 #[cfg(test)]
 mod test {
-	use super::{Signature, WitnessRecord};
-	use cennznet_primitives::eth::{crypto::AuthorityPair, Witness};
 	use sp_application_crypto::Pair;
 
-	fn mock_signers() -> Vec<AuthorityPair> {
+	use seed_primitives::ethy::{crypto::AuthorityPair, Witness};
+
+	use super::{Signature, WitnessRecord};
+
+	fn dev_signers() -> Vec<AuthorityPair> {
 		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
 		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
 		let charlie_pair = AuthorityPair::from_string("//Charlie", None).unwrap();
@@ -177,17 +179,17 @@ mod test {
 
 	#[test]
 	fn proof_signatures_ordered_by_validator_index() {
-		let mock_validators = mock_signers();
+		let validators = dev_signers();
 		let event_id = 5_u64;
 		let digest = [1_u8; 32];
 		let validator_set_id = 5_u64;
 
 		let mut witness_record = WitnessRecord::default();
-		// this deteremines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
-		witness_record.set_validators(mock_validators.iter().map(|x| x.public()).collect());
+		// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
+		witness_record.set_validators(validators.iter().map(|x| x.public()).collect());
 
 		// note signatures in reverse order
-		for validator_pair in mock_validators.iter().rev() {
+		for validator_pair in validators.iter().rev() {
 			witness_record.note(&Witness {
 				digest,
 				event_id,
@@ -199,7 +201,7 @@ mod test {
 
 		assert_eq!(
 			witness_record.signatures_for(event_id, &digest),
-			mock_validators.into_iter().map(|p| p.sign(&digest)).collect::<Vec<Signature>>(),
+			validators.into_iter().map(|p| p.sign(&digest)).collect::<Vec<Signature>>(),
 		);
 	}
 }

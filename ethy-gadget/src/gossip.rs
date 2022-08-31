@@ -221,9 +221,9 @@ mod tests {
 	use sc_network::PeerId;
 	use sc_network_gossip::{ValidationResult, Validator, ValidatorContext};
 	use sc_network_test::{Block, Hash};
-
-	use cennznet_primitives::eth::Witness;
 	use sp_core::keccak_256;
+
+	use seed_primitives::ethy::Witness;
 
 	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
 	use crate::{assert_validation_result, testing::Keyring};

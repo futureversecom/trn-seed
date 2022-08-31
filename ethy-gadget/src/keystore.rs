@@ -147,7 +147,7 @@ mod tests {
 	use sp_core::{ecdsa, keccak_256};
 	use sp_keystore::SyncCryptoStore;
 
-	use cennznet_primitives::eth::{
+	use seed_primitives::ethy::{
 		crypto::{AuthorityId as Public, AuthorityPair as Pair},
 		ETH_BRIDGE_KEY_TYPE,
 	};

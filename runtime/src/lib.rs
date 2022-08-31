@@ -675,13 +675,13 @@ parameter_types! {
 }
 
 /// Modified london config with higher contract create fee
-const fn cennznet_london() -> EvmConfig {
+const fn seed_london() -> EvmConfig {
 	let mut c = EvmConfig::london();
 	c.gas_transaction_create = 2_000_000;
 	c
 }
 
-pub static SEED_EVM_CONFIG: EvmConfig = cennznet_london();
+pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
