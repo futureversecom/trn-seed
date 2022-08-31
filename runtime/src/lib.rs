@@ -65,7 +65,8 @@ pub mod keys {
 	pub use super::{AuraId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	AccountId, Address, AssetId, AuraId, Balance, BlockNumber, Hash, Index, Signature,
+	ethy::crypto::AuthorityId as EthBridgeId, AccountId, Address, AssetId, AuraId, Balance,
+	BlockNumber, Hash, Index, Signature,
 };
 
 mod bag_thresholds;
@@ -1079,6 +1080,14 @@ impl_runtime_apis! {
 			// defined our key owner proof type as a bottom type (i.e. a type
 			// with no values).
 			None
+		}
+	}
+
+	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
+		fn validator_set() -> seed_primitives::ethy::ValidatorSet<EthBridgeId> {
+			// TODO: integrate with eth-bridge pallet
+			// EthBridge::validator_set()
+			seed_primitives::ethy::ValidatorSet::empty()
 		}
 	}
 }

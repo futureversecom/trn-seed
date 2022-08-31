@@ -70,6 +70,8 @@ frame-benchmarking = { git = "https://github.com/futureversecom/substrate", opti
 frame-benchmarking-cli = { git = "https://github.com/futureversecom/substrate", optional = true , branch = "polkadot-v0.9.27" }
 
 # Local Dependencies
+ethy-gadget = { path = "../ethy-gadget" }
+ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 seed-primitives = { path = "../primitives" }
 seed-runtime = { path = "../runtime" }
 

@@ -4,6 +4,7 @@ members = [
 	"primitives",
 	"pallet/*",
 	"runtime",
+  "ethy-gadget",
 	"evm-precompiles/*"
 ]
 
