@@ -5,6 +5,7 @@ pub use opaque::*;
 pub use signature::*;
 pub use types::*;
 
+pub mod ethy;
 mod signature;
 
 mod types {

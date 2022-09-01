@@ -287,6 +287,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		50,
 		prometheus_registry.clone(),
 	));
+	let (event_proof_sender, event_proof_stream) =
+		ethy_gadget::notification::EthyEventProofStream::channel();
 
 	let rpc_extensions_builder = {
 		let client = client.clone();
@@ -299,7 +301,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		let fee_history_cache = fee_history_cache.clone();
 		let max_past_logs = cli.run.max_past_logs;
 
-		Box::new(move |deny_unsafe, subscription_task_executor| {
+		move |deny_unsafe, subscription_task_executor: sc_rpc::SubscriptionTaskExecutor| {
 			let deps = crate::rpc::FullDeps {
 				backend: frontier_backend.clone(),
 				block_data_cache: block_data_cache.clone(),
@@ -314,9 +316,13 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 				overrides: overrides.clone(),
 				pool: pool.clone(),
 				deny_unsafe,
+				ethy: crate::rpc::EthyDeps {
+					event_proof_stream: event_proof_stream.clone(),
+					subscription_executor: subscription_task_executor.clone(),
+				},
 			};
 			crate::rpc::create_full(deps, subscription_task_executor).map_err(Into::into)
-		})
+		}
 	};
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
@@ -325,7 +331,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		keystore: keystore_container.sync_keystore(),
 		task_manager: &mut task_manager,
 		transaction_pool: transaction_pool.clone(),
-		rpc_builder: rpc_extensions_builder,
+		rpc_builder: Box::new(rpc_extensions_builder),
 		backend: backend.clone(),
 		system_rpc_tx,
 		config,
@@ -335,7 +341,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 	spawn_frontier_tasks(
 		&task_manager,
 		client.clone(),
-		backend,
+		backend.clone(),
 		frontier_backend,
 		filter_pool,
 		overrides,
@@ -360,7 +366,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _, _>(
 			StartAuraParams {
 				slot_duration,
-				client,
+				client: client.clone(),
 				select_chain,
 				block_import,
 				proposer_factory,
@@ -399,8 +405,23 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 	let keystore =
 		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
 
+	let ethy_params = ethy_gadget::EthyParams {
+		client,
+		backend,
+		key_store: keystore.clone(),
+		network: network.clone(),
+		event_proof_sender,
+		prometheus_registry: prometheus_registry.clone(),
+		_phantom: std::marker::PhantomData,
+	};
+	// Start the ETHY bridge gadget.
+	task_manager.spawn_essential_handle().spawn_blocking(
+		"ethy-gadget",
+		None,
+		ethy_gadget::start_ethy_gadget::<_, _, _, _>(ethy_params),
+	);
+
 	let grandpa_config = sc_finality_grandpa::Config {
-		// FIXME #1578 make this available through chainspec
 		gossip_duration: Duration::from_millis(333),
 		justification_period: 512,
 		name: Some(name),
