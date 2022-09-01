@@ -6,19 +6,25 @@ edition = "2018"
 repository = "https://github.com/futureversecom/seed"
 
 [dependencies]
+pallet-nft = { path = "../../pallet/nft", default-features = false }
+pallet-token-approvals = { path = "../../pallet/token-approvals", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
+
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
-pallet-nft = { path = "../../pallet/nft", default-features = false }
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
 precompile-utils = { path = "../utils", default-features = false }
+num_enum = { version = "0.5.3", default-features = false }
+
+# Substrate
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
 sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
-num_enum = { version = "0.5.3", default-features = false }
-seed-primitives = { path = "../../primitives", default-features = false }
+
+# Frontier
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.23" }
 
 [features]
 default = ["std"]
@@ -26,6 +32,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"pallet-nft/std",
+	"pallet-token-approvals/std",
 	"fp-evm/std",
 	"pallet-evm/std",
 	"frame-support/std",

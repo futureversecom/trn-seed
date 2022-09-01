@@ -4374,6 +4374,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-evm",
+ "pallet-token-approvals",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -4394,6 +4395,7 @@ dependencies = [
  "num_enum",
  "pallet-evm",
  "pallet-nft",
+ "pallet-token-approvals",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -4499,6 +4501,28 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
+]
+
+[[package]]
+name = "pallet-token-approvals"
+version = "2.0.1"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-nft",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -6708,6 +6732,7 @@ dependencies = [
  "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
+ "pallet-token-approvals",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "parity-scale-codec",

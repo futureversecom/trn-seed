@@ -3,6 +3,7 @@ name = "seed-runtime"
 version = "0.1.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
+repository = "https://github.com/futureversecom/seed"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -57,6 +58,7 @@ rustc-hex = { version = "2.1.0", default-features = false }
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
+pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 
 seed-primitives = { path = "../primitives", default-features = false }
 
@@ -99,6 +101,7 @@ std = [
 	"pallet-assets-ext/std",
 	"pallet-dex/std",
 	"pallet-nft/std",
+	"pallet-token-approvals/std",
 	"seed-primitives/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",

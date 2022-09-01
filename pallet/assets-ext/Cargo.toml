@@ -3,7 +3,7 @@ name = "pallet-assets-ext"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
-repository = "https://github.com/futureversecom/seed-network"
+repository = "https://github.com/futureversecom/seed"
 description = "Extended functionality for pallet-assets"
 
 [package.metadata.docs.rs]
