@@ -18,7 +18,6 @@ use crate::{prelude::*, revert::Backtrace};
 use hex_literal::hex;
 use pallet_evm::Context;
 use sp_core::{H160, H256, U256};
-use sp_std::convert::TryInto;
 
 fn u256_repeat_byte(byte: u8) -> U256 {
 	let value = H256::repeat_byte(byte);
