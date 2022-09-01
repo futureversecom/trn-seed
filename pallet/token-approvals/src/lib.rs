@@ -26,7 +26,7 @@ use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{IsTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, TokenId};
-use sp_runtime::DispatchResult;
+use sp_runtime::{traits::Zero, DispatchResult};
 
 #[cfg(test)]
 mod mock;
@@ -43,28 +43,9 @@ pub mod pallet {
 	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
-	#[pallet::genesis_config]
-	pub struct GenesisConfig<T: Config> {
-		_phantom: sp_std::marker::PhantomData<T>,
-	}
-
-	#[cfg(feature = "std")]
-	impl<T: Config> Default for GenesisConfig<T> {
-		fn default() -> Self {
-			GenesisConfig { _phantom: Default::default() }
-		}
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-		fn build(&self) {}
-	}
-
 	#[pallet::config]
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: frame_system::Config {
-		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// NFT ownership interface
 		type IsTokenOwner: IsTokenOwner<AccountId = Self::AccountId>;
 	}
@@ -86,34 +67,20 @@ pub mod pallet {
 		Balance,
 	>;
 
-	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-		/// Erc721 approval was set
-		Erc721ApprovalSet {
-			caller: T::AccountId,
-			token_id: TokenId,
-			operator_account: T::AccountId,
-		},
-		/// Erc20 approval was set
-		Erc20ApprovalSet {
-			caller: T::AccountId,
-			asset_id: AssetId,
-			amount: Balance,
-			spender: T::AccountId,
-		},
-		/// Erc20 approval was removed
-		Erc20ApprovalRemove { caller: T::AccountId, asset_id: AssetId, spender: T::AccountId },
-	}
-
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The account is not the owner of the token
 		NotTokenOwner,
 		/// The caller account can't be the same as the operator account
 		CallerNotOperator,
+		/// The caller is not approved for the requested amount
+		ApprovedAmountTooLow,
+		/// The caller isn't approved for any amount
+		CallerNotApproved,
 		/// Address is already approved
 		AlreadyApproved,
+		/// There is no approval set for this token
+		ApprovalDoesntExist,
 	}
 
 	#[pallet::call]
@@ -134,11 +101,6 @@ pub mod pallet {
 			// Check that origin owns NFT
 			ensure!(T::IsTokenOwner::is_owner(&caller, &token_id), Error::<T>::NotTokenOwner);
 			ERC721Approvals::<T>::insert(token_id, &operator_account);
-			Self::deposit_event(Event::<T>::Erc721ApprovalSet {
-				caller,
-				token_id,
-				operator_account,
-			});
 			Ok(())
 		}
 
@@ -156,22 +118,39 @@ pub mod pallet {
 			let _ = ensure_none(origin)?;
 			ensure!(caller != spender, Error::<T>::CallerNotOperator);
 			ERC20Approvals::<T>::insert((&caller, asset_id), &spender, amount);
-			Self::deposit_event(Event::<T>::Erc20ApprovalSet { caller, asset_id, amount, spender });
 			Ok(())
 		}
 
 		/// Removes an approval over an account and asset_id
 		/// mapping(address => mapping(address => uint256)) private _allowances;
 		#[pallet::weight(100_000_000)]
-		pub fn erc20_remove_approval(
+		pub fn erc20_update_approval(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
 			spender: T::AccountId,
 			asset_id: AssetId,
+			amount: Balance,
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
-			ERC20Approvals::<T>::remove((&caller, asset_id), &spender);
-			Self::deposit_event(Event::<T>::Erc20ApprovalRemove { caller, asset_id, spender });
+			let new_approved_amount = Self::erc20_approvals((&caller, asset_id), &spender)
+				.ok_or(Error::<T>::CallerNotApproved)?
+				.checked_sub(amount)
+				.ok_or(Error::<T>::ApprovedAmountTooLow)?;
+			if new_approved_amount.is_zero() {
+				ERC20Approvals::<T>::remove((&caller, asset_id), &spender);
+			} else {
+				ERC20Approvals::<T>::insert((&caller, asset_id), &spender, new_approved_amount);
+			}
+			Ok(())
+		}
+
+		/// Public method which allows users to remove approvals on a token they own
+		#[pallet::weight(100_000_000)]
+		pub fn erc721_remove_approval(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(ERC721Approvals::<T>::contains_key(token_id), Error::<T>::ApprovalDoesntExist);
+			ensure!(T::IsTokenOwner::is_owner(&origin, &token_id), Error::<T>::NotTokenOwner);
+			Self::remove_erc721_approval(&token_id);
 			Ok(())
 		}
 	}
