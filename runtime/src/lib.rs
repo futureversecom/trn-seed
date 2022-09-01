@@ -208,6 +208,7 @@ parameter_types! {
 }
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, TxFeePot>;
+	type Event = Event;
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
@@ -657,9 +658,9 @@ parameter_types! {
 }
 impl pallet_base_fee::Config for Runtime {
 	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
-	type IsActive = IsBaseFeeActive;
 	type Event = Event;
 	type Threshold = BaseFeeThreshold;
+	type DefaultElasticity = ();
 }
 
 parameter_types! {
@@ -756,8 +757,8 @@ construct_runtime! {
 		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
 
 		// World
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Historical: pallet_session::historical::{Pallet},

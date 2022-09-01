@@ -18,67 +18,49 @@
 
 extern crate alloc;
 
-use alloc::borrow::ToOwned;
-pub use fp_evm::{
-	Context, ExitError, ExitRevert, ExitSucceed, PrecompileFailure, PrecompileHandle,
-	PrecompileOutput,
-};
-use pallet_evm::AddressMapping;
-use sp_core::H160;
-
 pub mod costs;
-pub mod data;
 pub mod handle;
 pub mod logs;
 pub mod modifier;
 pub mod precompile_set;
+pub mod revert;
 pub mod substrate;
 
-pub use ::log::*;
-pub use data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter};
-pub use handle::PrecompileHandleExt;
-pub use precompile_utils_macro::{generate_function_selector, keccak256};
+#[cfg(feature = "testing")]
+pub mod solidity;
+
+#[cfg(feature = "testing")]
+pub mod testing;
 
 #[cfg(test)]
 mod tests;
 
-/// Return an error with provided (static) text.
-/// Using the `revert` function of `Gasometer` is prefered as erroring
-/// consumed all the gas limit and the error message is not easily
-/// retrievable.
-#[must_use]
-pub fn error<T: Into<alloc::borrow::Cow<'static, str>>>(text: T) -> PrecompileFailure {
-	PrecompileFailure::Error { exit_status: ExitError::Other(text.into()) }
-}
+use crate::alloc::{borrow::ToOwned, vec::Vec};
+use fp_evm::{ExitRevert, ExitSucceed, PrecompileFailure, PrecompileHandle, PrecompileOutput};
 
+pub mod data;
+
+pub use data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter};
+pub use fp_evm::Precompile;
+pub use precompile_utils_macro::{generate_function_selector, keccak256};
+
+/// Generated a `PrecompileFailure::Revert` with proper encoding for the output.
+/// If the revert needs improved formatting such as backtraces, `Revert` type should
+/// be used instead.
 #[must_use]
 pub fn revert(output: impl AsRef<[u8]>) -> PrecompileFailure {
-	PrecompileFailure::Revert {
-		exit_status: ExitRevert::Reverted,
-		output: output.as_ref().to_owned(),
-	}
+	PrecompileFailure::Revert { exit_status: ExitRevert::Reverted, output: encoded_revert(output) }
+}
+
+pub fn encoded_revert(output: impl AsRef<[u8]>) -> Vec<u8> {
+	EvmDataWriter::new_with_selector(revert::RevertSelector::Generic)
+		.write::<Bytes>(Bytes(output.as_ref().to_owned()))
+		.build()
 }
 
 #[must_use]
 pub fn succeed(output: impl AsRef<[u8]>) -> PrecompileOutput {
 	PrecompileOutput { exit_status: ExitSucceed::Returned, output: output.as_ref().to_owned() }
-}
-
-/// trait for reversible address mapping from CENNZnet to Ethereum
-pub trait AddressMappingReversibleExt<A>: AddressMapping<A> {
-	fn from_account_id(address: A) -> H160;
-}
-
-/// Represents modifiers a Solidity function can be annotated with.
-#[derive(Copy, Clone, PartialEq, Eq)]
-pub enum FunctionModifier {
-	/// Function that doesn't modify the state.
-	View,
-	/// Function that modifies the state but refuse receiving funds.
-	/// Correspond to a Solidity function with no modifiers.
-	NonPayable,
-	/// Function that modifies the state and accept funds.
-	Payable,
 }
 
 /// Alias for Result returning an EVM precompile error.
@@ -98,13 +80,13 @@ pub trait StatefulPrecompile {
 
 pub mod prelude {
 	pub use crate::{
-		data::{Address, Bytes, EvmData, EvmDataReader, EvmDataWriter},
-		error,
+		data::{Address, BoundedBytes, BoundedVec, Bytes, EvmData, EvmDataReader, EvmDataWriter},
 		handle::PrecompileHandleExt,
 		logs::{log0, log1, log2, log3, log4, LogExt},
 		modifier::{check_function_modifier, FunctionModifier},
-		revert,
-		substrate::RuntimeHelper,
+		read_args, read_struct, revert,
+		revert::{BacktraceExt, InjectBacktrace, MayRevert, Revert, RevertExt, RevertReason},
+		substrate::{RuntimeHelper, TryDispatchError},
 		succeed, EvmResult, StatefulPrecompile,
 	};
 	pub use pallet_evm::PrecompileHandle;

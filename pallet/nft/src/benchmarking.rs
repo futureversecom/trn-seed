@@ -20,7 +20,6 @@ use super::*;
 
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_system::RawOrigin;
-use parachains_common::CollectionUuid;
 use sp_runtime::Permill;
 
 use crate::Module as Nft;
@@ -37,7 +36,7 @@ const QUANTITY: u32 = 100;
 fn setup_collection<T: Config>(
 	owner: T::AccountId,
 ) -> (CollectionUuid, RoyaltiesSchedule<T::AccountId>) {
-	let collection_id = <Nft<T>>::next_collection_id();
+	let collection_id = <Nft<T>>::next_collection_uuid();
 	let collection_name = [1_u8; MAX_COLLECTION_NAME_LENGTH as usize].to_vec();
 	let metadata_scheme = MetadataScheme::IpfsDir(
 		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
