@@ -301,10 +301,6 @@ where
 			&to.clone().into(),
 			amount,
 			false,
-		let _ = <pallet_assets_ext::Pallet<Runtime> as TransferExt>::split_transfer(
-			&origin,
-			asset_id,
-			&[(to.clone().into(), amount)],
 		)
 		.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?;
 
