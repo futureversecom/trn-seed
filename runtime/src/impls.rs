@@ -16,22 +16,23 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
-use crate::{Runtime, Session};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		tokens::{fungible::Inspect, DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, SignedImbalance, WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, OnUnbalanced, SignedImbalance, WithdrawReasons,
 	},
 };
 use pallet_evm::AddressMapping as AddressMappingT;
-use seed_primitives::{AccountId, Balance};
 use sp_core::{H160, U256};
 use sp_runtime::{
-	traits::{SaturatedConversion, Zero},
+	traits::{AccountIdConversion, SaturatedConversion, Zero},
 	ConsensusEngineId,
 };
 use sp_std::{marker::PhantomData, prelude::*};
+
+use crate::{Runtime, Session, SlashPotId};
+use seed_primitives::{AccountId, Balance};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -200,5 +201,21 @@ where
 {
 	fn into_account_id(address: H160) -> AccountId {
 		address.into()
+	}
+}
+
+/// Alias for pallet-balances NegativeImbalance
+type NegativeImbalance = pallet_balances::NegativeImbalance<Runtime>;
+
+/// Handles negative imbalances resulting from slashes by moving the amount to a predestined holding
+/// account
+pub struct SlashImbalanceHandler;
+/// On slash move funds to a dedicated slash pot, it could be managed by treasury later
+impl OnUnbalanced<NegativeImbalance> for SlashImbalanceHandler {
+	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+		<Runtime as pallet_staking::Config>::Currency::resolve_creating(
+			&SlashPotId::get().into_account_truncating(),
+			amount,
+		);
 	}
 }

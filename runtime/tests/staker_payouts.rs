@@ -5,14 +5,14 @@ use frame_support::{
 	dispatch::RawOrigin,
 	traits::{fungible::Inspect, Get, OffchainWorker, OnFinalize, OnInitialize},
 };
-use sp_runtime::traits::{AccountIdConversion, Zero};
+use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, SessionIndex};
 
-use seed_primitives::BlockNumber;
+use seed_primitives::{Balance, BlockNumber};
 use seed_runtime::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
 	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, Executive, Session,
-	SessionLength as Period, SessionsPerEra, Staking, System, Timestamp, TxFeePotId,
+	SessionLength as Period, SessionsPerEra, Staking, System, Timestamp, TxFeePot, SlashDeferDuration
 };
 
 mod mock;
@@ -102,8 +102,7 @@ fn era_payout_redistributes_era_tx_fees() {
 		assert_ok!(Executive::apply_extrinsic(xt));
 
 		// Tx fees are taken from the user and added to the 'tx fee pot'
-		let tx_fee_pot_era0_balance =
-			Balances::balance(&TxFeePotId::get().into_account_truncating());
+		let tx_fee_pot_era0_balance = TxFeePot::era_pot_balance();
 		assert!(
 			tx_fee_pot_era0_balance > 0 &&
 				Balances::balance(&charlie()) + tx_fee_pot_era0_balance ==
@@ -125,7 +124,7 @@ fn era_payout_redistributes_era_tx_fees() {
 		assert_eq!(bob_era0_balance + tx_fee_pot_era0_balance / 2, Balances::balance(&bob()),);
 
 		// all rewards claimed
-		assert!(Balances::balance(&TxFeePotId::get().into_account_truncating()).is_zero());
+		assert!(TxFeePot::total_pot_balance().is_zero());
 
 		// after payout, issuance ok
 		assert_eq!(genesis_issuance, Balances::total_issuance());
@@ -133,12 +132,47 @@ fn era_payout_redistributes_era_tx_fees() {
 }
 
 #[test]
-fn era_payouts_are_independent() {
-	// ensure previous era payouts don't affect subsequent eras
-}
+fn era_payout_does_not_carry_over() {
+	// setup stakers ✅
+	ExtBuilder::default().build().execute_with(|| {
+		let genesis_issuance = Balances::total_issuance();
 
-#[test]
-fn applied_slash_stores_stake() {
-	// slash validator
-	// check stake stored
+		// run through eras 0, 1, 2, create a tx and accrue fees
+		let mut era_payouts = Vec::<Balance>::default();
+		for next_era_index in 1_u32..=3 {
+			let charlie_nonce = next_era_index - 1; // nonce starts at 0
+			let xt = sign_xt(CheckedExtrinsic {
+				signed: fp_self_contained::CheckedSignature::Signed(
+					charlie(),
+					signed_extra(charlie_nonce, 5 * ONE_XRP),
+				),
+				function: Call::System(frame_system::Call::remark {
+					remark: b"hello chain".to_vec(),
+				}),
+			});
+			assert_ok!(Executive::apply_extrinsic(xt));
+
+			era_payouts.push(TxFeePot::era_pot_balance());
+			// all block author points to alice
+			Staking::reward_by_ids([(alice(), 100)]);
+			start_active_era(next_era_index);
+		}
+
+		let mut alice_balance = Balances::balance(&alice());
+		for (era_index, era_payout) in era_payouts.iter().enumerate() {
+			assert_ok!(Staking::payout_stakers(
+				RawOrigin::Signed(alice()).into(),
+				alice(),
+				era_index as u32
+			));
+			assert_eq!(alice_balance + era_payout, Balances::balance(&alice()));
+			alice_balance += era_payout;
+		}
+
+		// all fees paid out, pot is at zero again
+		assert!(TxFeePot::total_pot_balance().is_zero());
+
+		// after payout, issuance ok
+		assert_eq!(genesis_issuance, Balances::total_issuance());
+	});
 }
