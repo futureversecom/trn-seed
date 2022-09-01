@@ -96,8 +96,8 @@ impl ExtBuilder {
 		let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 		let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 		for account in accounts_to_fund {
-			endowed_balances.push((account, INITIAL_MYCL_BALANCE));
-			endowed_assets.push((XRP_ASSET_ID, account, INITIAL_XRP_BALANCE));
+			endowed_balances.push((account, INITIAL_XRP_BALANCE));
+			endowed_assets.push((MYCL_ASSET_ID, account, INITIAL_MYCL_BALANCE));
 		}
 		pallet_balances::GenesisConfig::<Runtime> { balances: endowed_balances }
 			.assimilate_storage(&mut t)
@@ -245,12 +245,12 @@ fn fund_authorities_and_accounts() {
 
 		// Alice, Bob staked
 		assert_eq!(
-			AssetsExt::reducible_balance(MYCL_ASSET_ID, &alice(), false),
-			INITIAL_MYCL_BALANCE - VALIDATOR_BOND
+			AssetsExt::reducible_balance(XRP_ASSET_ID, &alice(), false),
+			INITIAL_XRP_BALANCE - VALIDATOR_BOND
 		);
 		assert_eq!(
-			AssetsExt::reducible_balance(MYCL_ASSET_ID, &bob(), false),
-			INITIAL_MYCL_BALANCE - VALIDATOR_BOND
+			AssetsExt::reducible_balance(XRP_ASSET_ID, &bob(), false),
+			INITIAL_XRP_BALANCE - VALIDATOR_BOND
 		);
 	});
 }

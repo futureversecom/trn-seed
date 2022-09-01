@@ -12,8 +12,7 @@ use seed_primitives::{Balance, BlockNumber};
 use seed_runtime::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
 	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, Executive, Session,
-	SessionLength as Period, SessionsPerEra, SlashDeferDuration, Staking, System, Timestamp,
-	TxFeePot,
+	SessionLength as Period, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
 };
 
 mod mock;
