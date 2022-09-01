@@ -10,14 +10,15 @@ build = "build.rs"
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "seed"
 path = "src/main.rs"
 
 [dependencies]
 futures = "0.3.24"
-# TODO: remove after substrate update w https://github.com/paritytech/substrate/pull/11707
-syn = "1.0.97"
 clap = { version = "3.2.18", features = ["derive"] }
 
 sc-cli = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
@@ -41,7 +42,7 @@ sp-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "
 sp-inherents = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
+pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate" , branch = "polkadot-v0.9.27" }
 
 # Frontier
 fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
@@ -80,6 +81,8 @@ substrate-build-script-utils = { git = "https://github.com/futureversecom/substr
 
 [features]
 default = []
+# build client with fast epoch time
+fast_epoch = ["seed-runtime/fast_epoch"]
 runtime-benchmarks = ["frame-benchmarking", "frame-benchmarking-cli"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
