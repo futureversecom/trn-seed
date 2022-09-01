@@ -64,6 +64,7 @@ rustc-hex = { version = "2.1.0", default-features = false }
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
+pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 
 seed-primitives = { path = "../primitives", default-features = false }
 
@@ -123,6 +124,7 @@ std = [
 	"pallet-assets-ext/std",
 	"pallet-dex/std",
 	"pallet-nft/std",
+	"pallet-tx-fee-pot/std",
 	"seed-primitives/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",

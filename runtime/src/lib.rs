@@ -10,13 +10,11 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
-use frame_support::traits::{Currency, OnUnbalanced};
 use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
 use pallet_evm::{
 	runner::stack::Runner, Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator,
 	Runner as RunnerT,
 };
-use pallet_staking::EraPayout;
 use sp_api::impl_runtime_apis;
 use sp_core::{OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
@@ -79,7 +77,7 @@ use constants::{
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{AddressMapping, EthereumFindAuthor, EvmCurrencyScaler};
+use impls::{AddressMapping, EthereumFindAuthor, EvmCurrencyScaler, SlashImbalanceHandler};
 
 pub mod precompiles;
 use precompiles::FutureversePrecompiles;
@@ -464,7 +462,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 	type SignedMaxWeight =
 		<Self::MinerConfig as pallet_election_provider_multi_phase::MinerConfig>::MaxWeight;
 	type MinerConfig = Self;
-	type SlashHandler = SlashPot;
+	type SlashHandler = SlashImbalanceHandler;
 	type RewardHandler = (); // nothing to do upon rewards
 	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = ();
@@ -501,71 +499,6 @@ parameter_types! {
 	/// Holds XRP transaction fees for distribution to validators according to stake & undistributed reward remainders
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
 }
-
-type NegativeImbalance = pallet_balances::NegativeImbalance<Runtime>;
-type PositiveImbalance = pallet_balances::PositiveImbalance<Runtime>;
-
-pub struct TxFeePot;
-/// On era reward payout offset minted tokens from the tx fee pot to maintain total issuance
-impl OnUnbalanced<PositiveImbalance> for TxFeePot {
-	fn on_nonzero_unbalanced(total_rewarded: PositiveImbalance) {
-		use frame_support::traits::{fungible::Mutate, Imbalance};
-		use sp_runtime::traits::AccountIdConversion;
-		// burn `amount` from TxFeePot, reducing total issuance immediately
-		// later `total_rewarded` will be dropped keeping total issuance constant
-		if let Err(_err) = <Runtime as pallet_staking::Config>::Currency::burn_from(
-			&TxFeePotId::get().into_account_truncating(),
-			total_rewarded.peek(),
-		) {
-			// tx fee pot did not have enough to reward the amount, this should not happen...
-			// there's no way to error out here, just log it
-			log::error!("💸 staking payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}", total_rewarded.peek())
-		}
-	}
-}
-
-impl EraPayout<Balance> for TxFeePot {
-	/// Determine the payout for this era.
-	///
-	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
-	/// paid out ("the rest").
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		use frame_support::traits::fungible::Inspect;
-		use sp_runtime::traits::{AccountIdConversion, Zero};
-		// this trait is coupled to the idea of polkadot's inflation schedule
-		// on root network we simply redistribute the era's tx fees
-		(Balances::balance(&TxFeePotId::get().into_account_truncating()), Zero::zero())
-	}
-}
-
-/// On tx fee settlement, move funds to tx fee pot address
-impl OnUnbalanced<NegativeImbalance> for TxFeePot {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
-		use sp_runtime::traits::AccountIdConversion;
-		// this amount was burned (`withdraw`) when paying tx fees (incl. tip)
-		<Runtime as pallet_staking::Config>::Currency::resolve_creating(
-			&TxFeePotId::get().into_account_truncating(),
-			amount,
-		);
-	}
-}
-
-pub struct SlashPot;
-/// On slash move funds to treasury pot
-impl OnUnbalanced<NegativeImbalance> for SlashPot {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
-		use sp_runtime::traits::AccountIdConversion;
-		<Runtime as pallet_staking::Config>::Currency::resolve_creating(
-			&SlashPotId::get().into_account_truncating(),
-			amount,
-		);
-	}
-}
-
 type SlashCancelOrigin = EnsureRoot<AccountId>;
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
@@ -591,7 +524,7 @@ impl pallet_staking::Config for Runtime {
 	// 1) if there are no reporters, this handler is given the whole slashed imbalance
 	// 2) any indivisible slash imbalance (not sent to reporter(s)) is sent here
 	// StakingPot nullifies the imbalance to keep issuance of XRP constant (vs. burnt)
-	type Slash = SlashPot;
+	type Slash = SlashImbalanceHandler;
 	type UnixTime = Timestamp;
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
@@ -657,6 +590,10 @@ impl pallet_aura::Config for Runtime {
 impl pallet_sudo::Config for Runtime {
 	type Event = Event;
 	type Call = Call;
+}
+
+impl pallet_tx_fee_pot::Config for Runtime {
+	type TxFeePotId = TxFeePotId;
 }
 
 // Start frontier/EVM stuff
@@ -813,6 +750,7 @@ construct_runtime! {
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>},
+		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
