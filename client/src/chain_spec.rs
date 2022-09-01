@@ -242,7 +242,6 @@ fn testnet_genesis(
 		assets: AssetsConfig { assets, accounts: endowed_assets, metadata },
 		grandpa: Default::default(),
 		nft: Default::default(),
-		token_approvals: Default::default(),
 		session: SessionConfig {
 			keys: initial_authorities
 				.into_iter()

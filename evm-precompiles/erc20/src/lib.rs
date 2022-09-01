@@ -5,14 +5,13 @@ use fp_evm::{ExitSucceed, PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::{
 	dispatch::Dispatchable,
 	traits::{
-		fungibles::{Inspect, InspectMetadata},
+		fungibles::{Inspect, InspectMetadata, Transfer},
 		OriginTrait,
 	},
 	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use pallet_evm::PrecompileSet;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_pallet_common::TransferExt;
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, U256};
 use sp_runtime::traits::{SaturatedConversion, Zero};
@@ -296,10 +295,12 @@ where
 		let amount: Balance = input.read::<U256>()?.saturated_into();
 
 		let origin: Runtime::AccountId = handle.context().caller.into();
-		let _ = <pallet_assets_ext::Pallet<Runtime> as TransferExt>::split_transfer(
-			&origin,
+		let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
 			asset_id,
-			&[(to.clone().into(), amount)],
+			&origin,
+			&to.clone().into(),
+			amount,
+			false,
 		)
 		.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?;
 
@@ -338,47 +339,31 @@ where
 			let to: Runtime::AccountId = to.into();
 			let caller: Runtime::AccountId = handle.context().caller.into();
 
-			// Check if caller is approved
-			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-			let current_approved_amount: Balance =
-				pallet_token_approvals::Pallet::<Runtime>::erc20_approvals(
-					(&from.clone(), &asset_id),
-					&caller,
-				)
-				.ok_or(revert("Caller not approved for amount"))?;
-			let new_approved_amount: Balance = current_approved_amount
-				.checked_sub(amount)
-				.ok_or(revert("Caller not approved for amount"))?;
+			handle.record_cost(
+				RuntimeHelper::<Runtime>::db_read_gas_cost() +
+					RuntimeHelper::<Runtime>::db_write_gas_cost(),
+			)?;
 
-			if new_approved_amount.is_zero() {
-				// New balance is 0, remove approval
-				RuntimeHelper::<Runtime>::try_dispatch(
-					handle,
-					None.into(),
-					pallet_token_approvals::Call::<Runtime>::erc20_remove_approval {
-						caller: from.clone(),
-						asset_id,
-						spender: caller,
-					},
-				)?;
-			} else {
-				// New balance has changed, update approval to represent difference
-				RuntimeHelper::<Runtime>::try_dispatch(
-					handle,
-					None.into(),
-					pallet_token_approvals::Call::<Runtime>::erc20_approval {
-						caller: from.clone(),
-						spender: caller,
-						asset_id,
-						amount: new_approved_amount,
-					},
-				)?;
-			}
+			// Update approval balance,
+			// will error if no approval exists or approval is of insufficient amount
+			RuntimeHelper::<Runtime>::try_dispatch(
+				handle,
+				None.into(),
+				pallet_token_approvals::Call::<Runtime>::erc20_update_approval {
+					caller: from.clone(),
+					spender: caller,
+					asset_id,
+					amount,
+				},
+			)?;
 
-			let _ = <pallet_assets_ext::Pallet<Runtime> as TransferExt>::split_transfer(
-				&from,
+			// Transfer
+			let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
 				asset_id,
-				&[(to.clone(), amount)],
+				&from,
+				&to.clone(),
+				amount,
+				false,
 			)
 			.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?;
 		}

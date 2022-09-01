@@ -73,6 +73,51 @@ fn erc721_approval_removed_on_transfer() {
 }
 
 #[test]
+fn erc721_remove_approval() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let operator: AccountId = 11;
+		let token_id: TokenId = (0, 0);
+
+		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
+
+		// Remove approval
+		assert_ok!(TokenApprovals::erc721_remove_approval(Some(caller).into(), token_id));
+		assert!(!ERC721Approvals::<Test>::contains_key(token_id));
+	});
+}
+
+#[test]
+fn erc721_remove_approval_no_approval_should_fail() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let token_id: TokenId = (0, 0);
+
+		// Try remove approval
+		assert_noop!(
+			TokenApprovals::erc721_remove_approval(Some(caller).into(), token_id),
+			Error::<Test>::ApprovalDoesntExist
+		);
+	});
+}
+
+#[test]
+fn erc721_remove_approval_not_owner_should_fail() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let operator: AccountId = 11;
+		let token_id: TokenId = (0, 0);
+
+		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
+
+		assert_noop!(
+			TokenApprovals::erc721_remove_approval(Some(operator).into(), token_id),
+			Error::<Test>::NotTokenOwner
+		);
+	});
+}
+
+#[test]
 fn set_erc20_approval() {
 	TestExt::default().build().execute_with(|| {
 		let caller: AccountId = 12;
@@ -101,7 +146,7 @@ fn set_erc20_approval_caller_is_operator_should_fail() {
 }
 
 #[test]
-fn remove_erc20_approval() {
+fn update_erc20_approval_full_amount() {
 	TestExt::default().build().execute_with(|| {
 		let caller: AccountId = 12;
 		let spender: AccountId = 11;
@@ -112,7 +157,92 @@ fn remove_erc20_approval() {
 		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
 
 		// Remove approval
-		assert_ok!(TokenApprovals::erc20_remove_approval(None.into(), caller, spender, asset_id));
+		assert_ok!(TokenApprovals::erc20_update_approval(
+			None.into(),
+			caller,
+			spender,
+			asset_id,
+			amount
+		));
 		assert!(!ERC20Approvals::<Test>::contains_key((caller, asset_id), spender));
+	});
+}
+
+#[test]
+fn update_erc20_approval_some_amount() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 12;
+		let spender: AccountId = 11;
+		let asset_id: AssetId = 0;
+		let amount: Balance = 10;
+
+		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
+		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
+
+		let removal_amount: Balance = 9;
+		// Remove approval
+		assert_ok!(TokenApprovals::erc20_update_approval(
+			None.into(),
+			caller,
+			spender,
+			asset_id,
+			removal_amount
+		));
+		assert_eq!(
+			TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(),
+			amount - removal_amount
+		);
+	});
+}
+
+#[test]
+fn update_erc20_approval_amount_too_high_should_fail() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 12;
+		let spender: AccountId = 11;
+		let asset_id: AssetId = 0;
+		let amount: Balance = 10;
+
+		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
+		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
+
+		let removal_amount: Balance = 11;
+		// Attempt to remove approval
+		assert_noop!(
+			TokenApprovals::erc20_update_approval(
+				None.into(),
+				caller,
+				spender,
+				asset_id,
+				removal_amount
+			),
+			Error::<Test>::ApprovedAmountTooLow
+		);
+	});
+}
+
+#[test]
+fn update_erc20_approval_not_approved_should_fail() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 12;
+		let spender: AccountId = 11;
+		let asset_id: AssetId = 0;
+		let amount: Balance = 10;
+
+		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
+		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
+
+		let malicious_spender = 13;
+		// Attempt to remove approval
+		assert_noop!(
+			TokenApprovals::erc20_update_approval(
+				None.into(),
+				caller,
+				malicious_spender,
+				asset_id,
+				amount
+			),
+			Error::<Test>::CallerNotApproved
+		);
 	});
 }

@@ -293,7 +293,6 @@ impl pallet_dex::Config for Runtime {
 }
 
 impl pallet_token_approvals::Config for Runtime {
-	type Event = Event;
 	type IsTokenOwner = Nft;
 }
 
@@ -514,7 +513,7 @@ construct_runtime! {
 		Sudo: pallet_sudo,
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage, Config<T>, Event<T>},
+		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage},
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},

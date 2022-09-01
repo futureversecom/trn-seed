@@ -39,7 +39,7 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Event<T>},
-		TokenApprovals: token_approvals::{Pallet, Call, Storage, Event<T>},
+		TokenApprovals: token_approvals::{Pallet, Call, Storage},
 	}
 );
 
@@ -111,7 +111,7 @@ impl pallet_assets_ext::Config for Test {
 	type Event = Event;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
-	type MyclAssetId = MyclAssetId;
+	type NativeAssetId = MyclAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -157,7 +157,6 @@ impl IsTokenOwner for MockTokenOwner {
 }
 
 impl crate::Config for Test {
-	type Event = Event;
 	type IsTokenOwner = MockTokenOwner;
 }
 
