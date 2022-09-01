@@ -11,8 +11,8 @@ use seed_runtime::{
 		ONE_XRP, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, BalancesConfig, Forcing, GenesisConfig, SessionConfig, SessionKeys,
-	Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AssetsConfig, Balance, BalancesConfig, Forcing, GenesisConfig, SessionConfig,
+	SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 
 // The URL for the telemetry server.
