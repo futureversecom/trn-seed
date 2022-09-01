@@ -72,7 +72,7 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	MyclAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, ONE_MYCL, SESSIONS_PER_ERA, SLOT_DURATION,
+	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, ONE_XRP, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -147,6 +147,21 @@ parameter_types! {
 	pub const SS58Prefix: u8 = 193;
 }
 
+/// Filters to prevent specific transactions from executing
+pub enum CallFilter {}
+impl frame_support::traits::Contains<Call> for CallFilter {
+	fn contains(call: &Call) -> bool {
+		match call {
+			// Prevent asset `create` transactions from executing
+			Call::Assets(func) => match func {
+				pallet_assets::Call::create { .. } => false,
+				_ => true,
+			},
+			_ => true,
+		}
+	}
+}
+
 impl frame_system::Config for Runtime {
 	/// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
@@ -178,7 +193,7 @@ impl frame_system::Config for Runtime {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type DbWeight = ();
-	type BaseCallFilter = frame_support::traits::Everything;
+	type BaseCallFilter = CallFilter;
 	type SystemWeightInfo = ();
 	type BlockWeights = RuntimeBlockWeights;
 	type BlockLength = RuntimeBlockLength;
@@ -219,7 +234,7 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	pub const AssetDeposit: Balance = ONE_MYCL;
+	pub const AssetDeposit: Balance = ONE_XRP;
 	pub const AssetAccountDeposit: Balance = 16;
 	pub const ApprovalDeposit: Balance = 1;
 	pub const AssetsStringLimit: u32 = 50;
@@ -255,7 +270,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type Event = Event;
 	type ParachainId = WorldId;
 	type MaxHolds = MaxHolds;
-	type MyclAssetId = MyclAssetId;
+	type NativeAssetId = XrpAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 

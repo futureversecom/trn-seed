@@ -16,7 +16,6 @@ pub type MockAccountId = u64;
 
 pub const ALICE: MockAccountId = 1;
 pub const BOB: MockAccountId = 2;
-// pub const MYCL: AssetId = 1;
 
 mod dex {
 	pub use super::super::*;
@@ -98,14 +97,14 @@ impl pallet_balances::Config for Test {
 parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxHolds: u32 = 16;
-	pub const MyclAssetId: AssetId = 1;
+	pub const NativeAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 }
 impl pallet_assets_ext::Config for Test {
 	type Event = Event;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
-	type MyclAssetId = MyclAssetId;
+	type NativeAssetId = NativeAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 
