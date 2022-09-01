@@ -5,6 +5,7 @@ use sp_runtime::{
 	Perbill,
 };
 
+use seed_primitives::Balance;
 use seed_runtime::{
 	constants::{
 		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
