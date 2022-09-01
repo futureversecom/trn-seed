@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 license = "GPL-3.0"
-repository = "https://github.com/futureversecom/seed-network"
+repository = "https://github.com/futureversecom/seed"
 description = "Maintains a tx fee pot for validator payouts"
 
 [dependencies]
