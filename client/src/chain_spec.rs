@@ -243,7 +243,6 @@ fn testnet_genesis(
 		//  otherwise causes: Thread 'main' panicked at 'Authorities are already initialized!'
 		aura: Default::default(),
 		assets: AssetsConfig { assets, accounts: endowed_assets, metadata },
-		assets_ext: Default::default(),
 		grandpa: Default::default(),
 		im_online: Default::default(),
 		nft: Default::default(),
