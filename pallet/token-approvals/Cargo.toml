@@ -14,19 +14,19 @@ serde = { version = "1.0.102", optional = true, default-features = false }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false  }
-frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false  }
-sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false  }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false  }
-sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 [dev-dependencies]
 pallet-nft = { path = "../nft" }
-sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 hex-literal = { version = "0.3.1" }
 pallet-assets-ext = { path = "../assets-ext" }
-pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
-pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.23" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 [features]
 default = ["std"]

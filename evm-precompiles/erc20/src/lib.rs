@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use fp_evm::{ExitSucceed, PrecompileHandle, PrecompileOutput, PrecompileResult};
+use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::Dispatchable,
 	traits::{
@@ -77,7 +77,7 @@ where
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
-	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
+	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<EvmResult<PrecompileOutput>> {
 		let context = handle.context();
 
 		if let Some(asset_id) =
@@ -91,7 +91,7 @@ where
 				let result = {
 					let selector = match handle.read_selector() {
 						Ok(selector) => selector,
-						Err(e) => return Some(Err(e)),
+						Err(e) => return Some(Err(e.into())),
 					};
 
 					if let Err(err) = handle.check_function_modifier(match selector {
@@ -99,7 +99,7 @@ where
 							FunctionModifier::NonPayable,
 						_ => FunctionModifier::View,
 					}) {
-						return Some(Err(err))
+						return Some(Err(err.into()))
 					}
 
 					match selector {
@@ -162,10 +162,6 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		// Parse input.
-		let input = handle.read_input()?;
-		input.expect_arguments(0)?;
-
 		// Fetch info.
 		let amount: U256 =
 			<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::total_issuance(
@@ -174,10 +170,7 @@ where
 			.into();
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new().write(amount).build(),
-		})
+		Ok(succeed(EvmDataWriter::new().write(amount).build()))
 	}
 
 	fn balance_of(
@@ -187,10 +180,8 @@ where
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost() * 2)?;
 
 		// Read input.
-		let mut input = handle.read_input()?;
-		input.expect_arguments(1)?;
-
-		let owner: H160 = input.read::<Address>()?.into();
+		read_args!(handle, { owner: Address });
+		let owner: H160 = owner.into();
 
 		// Fetch info.
 		// TODO Check staking balances
@@ -203,10 +194,7 @@ where
 			.into();
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new().write(amount).build(),
-		})
+		Ok(succeed(EvmDataWriter::new().write(amount).build()))
 	}
 
 	fn allowance(
@@ -216,11 +204,10 @@ where
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Read input.
-		let mut input = handle.read_input()?;
-		input.expect_arguments(2)?;
+		read_args!(handle, { owner: Address, spender: Address });
 
-		let owner: Runtime::AccountId = H160::from(input.read::<Address>()?).into();
-		let spender: Runtime::AccountId = H160::from(input.read::<Address>()?).into();
+		let owner: Runtime::AccountId = H160::from(owner).into();
+		let spender: Runtime::AccountId = H160::from(spender).into();
 
 		// Fetch info.
 		let amount: U256 = pallet_token_approvals::Pallet::<Runtime>::erc20_approvals(
@@ -231,10 +218,7 @@ where
 		.into();
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new().write(amount).build(),
-		})
+		Ok(succeed(EvmDataWriter::new().write(amount).build()))
 	}
 
 	fn approve(
@@ -244,12 +228,8 @@ where
 		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
-		let mut input = handle.read_input()?;
-		input.expect_arguments(2)?;
-
-		let spender: H160 = input.read::<Address>()?.into();
-		let amount: U256 = input.read()?;
-
+		read_args!(handle, { spender: Address, amount: U256 });
+		let spender: H160 = spender.into();
 		// Amount saturate if too high.
 		let amount: Balance = amount.saturated_into();
 
@@ -275,10 +255,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new().write(true).build(),
-		})
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 
 	fn transfer(
@@ -288,11 +265,9 @@ where
 		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
-		let mut input = handle.read_input()?;
-		input.expect_arguments(2)?;
-
-		let to: H160 = input.read::<Address>()?.into();
-		let amount: Balance = input.read::<U256>()?.saturated_into();
+		read_args!(handle, { to: Address, amount: U256 });
+		let to: H160 = to.into();
+		let amount: Balance = amount.saturated_into();
 
 		let origin: Runtime::AccountId = handle.context().caller.into();
 		let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
@@ -314,10 +289,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new().write(true).build(),
-		})
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 
 	fn transfer_from(
@@ -327,11 +299,10 @@ where
 		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
-		let mut input = handle.read_input()?;
-		input.expect_arguments(3)?;
-		let from: H160 = input.read::<Address>()?.into();
-		let to: H160 = input.read::<Address>()?.into();
-		let amount: Balance = input.read::<U256>()?.saturated_into();
+		read_args!(handle, { from: Address, to: Address, amount: U256 });
+		let from: H160 = from.into();
+		let to: H160 = to.into();
+		let amount: Balance = amount.saturated_into();
 
 		{
 			// Convert address types into Runtime::AccountId
@@ -377,19 +348,15 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new().write(true).build(),
-		})
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 
 	fn name(asset_id: AssetId, handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output:
+		Ok(
+			succeed(
 				EvmDataWriter::new()
 					.write::<Bytes>(
 						<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
@@ -399,7 +366,8 @@ where
 						.into(),
 					)
 					.build(),
-		})
+			),
+		)
 	}
 
 	fn symbol(
@@ -409,9 +377,8 @@ where
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output:
+		Ok(
+			succeed(
 				EvmDataWriter::new()
 					.write::<Bytes>(
 						<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
@@ -421,7 +388,8 @@ where
 						.into(),
 					)
 					.build(),
-		})
+			),
+		)
 	}
 
 	fn decimals(
@@ -431,13 +399,12 @@ where
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
 		// Build output.
-		Ok(PrecompileOutput {
-			exit_status: ExitSucceed::Returned,
-			output: EvmDataWriter::new()
+		Ok(succeed(
+			EvmDataWriter::new()
 				.write::<u8>(<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 					Runtime::AccountId,
 				>>::decimals(&asset_id))
 				.build(),
-		})
+		))
 	}
 }
