@@ -8,15 +8,20 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 ethabi = { version = "17.1.0" }
 futures = "0.3.24"
+futures-timer = "3.0.1"
 hex = "0.4"
 log = "0.4"
 parking_lot = "0.12.1"
 thiserror = "1.0"
-
 codec = { version = "3.0.0", package = "parity-scale-codec", features = ["derive"] }
 libsecp256k1 = { version = "0.6.0" }
 prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", version = "0.10.0-dev"}
-
+sc-chain-spec = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-client-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-network = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-network-gossip = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-utils = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-application-crypto = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-arithmetic = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
@@ -25,11 +30,6 @@ sp-consensus = { git = "https://github.com/futureversecom/substrate", branch = "
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-client-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-network = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-network-gossip = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-utils = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 seed-primitives = { path = "../primitives" }
 

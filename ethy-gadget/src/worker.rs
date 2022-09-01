@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{convert::TryInto, sync::Arc};
+use std::{sync::Arc, time::Duration};
 
 use codec::{Codec, Decode, Encode};
 use futures::{future, FutureExt, StreamExt};
@@ -42,10 +42,6 @@ use crate::{
 	witness_record::WitnessRecord,
 	Client,
 };
-
-/// % signature to generate a proof
-const PROOF_THRESHOLD: f32 = 0.6;
-
 pub(crate) struct WorkerParams<B, BE, C>
 where
 	B: Block,
@@ -77,7 +73,7 @@ where
 	/// Tracks on-going witnesses
 	witness_record: WitnessRecord,
 	/// Best block we received a GRANDPA notification for
-	best_grandpa_block: NumberFor<B>,
+	best_grandpa_block_header: <B as Block>::Header,
 	/// Current validator set
 	validator_set: ValidatorSet<Public>,
 }
@@ -106,6 +102,10 @@ where
 			metrics,
 		} = worker_params;
 
+		let last_finalized_header = client
+			.expect_header(BlockId::number(client.info().finalized_number))
+			.expect("latest block always has header available; qed.");
+
 		EthyWorker {
 			client: client.clone(),
 			backend,
@@ -115,8 +115,8 @@ where
 			gossip_validator,
 			metrics,
 			finality_notifications: client.finality_notification_stream(),
-			best_grandpa_block: client.info().finalized_number,
-			validator_set: ValidatorSet { id: 0, validators: Default::default() },
+			best_grandpa_block_header: last_finalized_header,
+			validator_set: ValidatorSet::empty(),
 			witness_record: Default::default(),
 		}
 	}
@@ -141,7 +141,7 @@ where
 			Some(new)
 		} else {
 			let at = BlockId::hash(header.hash());
-			// queries the BEEFY pallet to get the active validator set public keys
+			// queries the Ethy pallet to get the active validator set public keys
 			self.client.runtime_api().validator_set(&at).ok()
 		};
 
@@ -152,7 +152,14 @@ where
 
 	// For Ethy this would be a notification from something polling Ethereum full nodes
 	fn handle_finality_notification(&mut self, notification: FinalityNotification<B>) {
-		trace!(target: "ethy", "💎 finality notification for block #{:?}", &notification.header.number());
+		debug!(target: "ethy", "💎 finality notification: {:?}", notification);
+		let number = *notification.header.number();
+
+		// On start-up ignore old finality notifications that we're not interested in.
+		if number <= *self.best_grandpa_block_header.number() {
+			debug!(target: "ethy", "💎 Got unexpected finality for old block #{:?}", number);
+			return
+		}
 
 		if let Some(active) = self.validator_set(&notification.header) {
 			// Authority set change or genesis set id triggers new voting rounds
@@ -228,8 +235,8 @@ where
 			return
 		};
 
-		// Search from (self.best_grandpa_block - notification.block) to find all signing requests
-		// Sign and broadcast a witness
+		// Search from (self.best_grandpa_block_header - notification.block) to find all signing
+		// requests Sign and broadcast a witness
 		for ProofRequest { message, event_id, tag, block } in
 			extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
 		{
@@ -264,7 +271,7 @@ where
 			debug!(target: "ethy", "💎 gossiped witness for event: {:?}", witness.event_id);
 		}
 
-		self.best_grandpa_block = *notification.header.number();
+		self.best_grandpa_block_header = *notification.header;
 	}
 
 	/// Note an individual witness for a message
@@ -285,10 +292,16 @@ where
 
 		self.gossip_engine.lock().gossip_message(topic::<B>(), witness.encode(), false);
 
-		let threshold = self.validator_set.validators.len() as f32 * PROOF_THRESHOLD;
+		let proof_threshold = self.validator_set.proof_threshold as usize;
+		if proof_threshold < self.validator_set.validators.len() / 2 {
+			// safety check, < 50% doesn't make sense
+			error!(target: "ethy", "💎 Ethy proof threshold too low!: {:?}, validator set: {:?}", proof_threshold, self.validator_set.validators.len());
+			return
+		}
+
 		if self
 			.witness_record
-			.has_consensus(witness.event_id, &witness.digest, threshold as usize)
+			.has_consensus(witness.event_id, &witness.digest, proof_threshold)
 		{
 			let signatures = self.witness_record.signatures_for(witness.event_id, &witness.digest);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
@@ -342,36 +355,43 @@ where
 		}
 	}
 
+	/// Main loop for Ethy worker.
 	pub(crate) async fn run(mut self) {
-		let mut witnesses =
-			Box::pin(self.gossip_engine.lock().messages_for(topic::<B>()).filter_map(
-				|notification| async move {
-					trace!(target: "ethy", "💎 got witness: {:?}", notification);
+		debug!(target: "Ethy", "💎 run Ethy worker, best finalized block: #{:?}.", self.best_grandpa_block_header.number());
 
-					Witness::decode(&mut &notification.message[..]).ok()
-				},
-			));
+		let mut finality_notifications = self.client.finality_notification_stream().fuse();
+		let mut witnesses = Box::pin(self.gossip_engine.messages_for(topic::<B>()).filter_map(
+			|notification| async move {
+				trace!(target: "ethy", "💎 got witness: {:?}", notification);
+
+				Witness::decode(&mut &notification.message[..]).ok()
+			},
+		))
+		.fuse();
 
 		loop {
-			let engine = self.gossip_engine.clone();
-			let gossip_engine = future::poll_fn(|cx| engine.lock().poll_unpin(cx));
+			while self.sync_oracle.is_major_syncing() {
+				debug!(target: "ethy", "💎 Waiting for major sync to complete...");
+				futures_timer::Delay::new(Duration::from_secs(4)).await;
+			}
 
+			let mut gossip_engine = &mut self.gossip_engine;
 			futures::select! {
-				notification = self.finality_notifications.next().fuse() => {
+				notification = finality_notifications.next() => {
 					if let Some(notification) = notification {
-						self.handle_finality_notification(notification);
+						self.handle_finality_notification(&notification);
 					} else {
 						return;
 					}
 				},
-				witness = witnesses.next().fuse() => {
+				witness = witnesses.next() => {
 					if let Some(witness) = witness {
 						self.handle_witness(witness);
 					} else {
 						return;
 					}
 				},
-				_ = gossip_engine.fuse() => {
+				_ = gossip_engine => {
 					error!(target: "ethy", "💎 Gossip engine has terminated.");
 					return;
 				}
@@ -434,7 +454,7 @@ where
 		.collect()
 }
 
-/// Scan the `header` digest log for a ETHY validator set change. Return either the new
+/// Scan the `header` digest log for an Ethy validator set change. Return either the new
 /// validator set or `None` in case no validator set change has been signaled.
 fn find_authorities_change<B, Id>(header: &B::Header) -> Option<ValidatorSet<Id>>
 where

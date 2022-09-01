@@ -50,23 +50,38 @@ mod worker;
 
 pub mod notification;
 
-/// The p2p protocol name for Eth bridge messages
-pub const ETHY_PROTOCOL_NAME: &'static str = "/cennznet/ethy/1";
+pub use ethy_protocol_name::standard_name as protocol_standard_name;
+
+pub(crate) mod ethy_protocol_name {
+	use sc_chain_spec::ChainSpec;
+
+	const NAME: &str = "/ethy/1";
+	/// Old names for the notifications protocol, used for backward compatibility.
+	pub(crate) const LEGACY_NAMES: [&str; 1] = ["/seed/ethy/1"];
+
+	/// Name of the notifications protocol used by Ethy.
+	///
+	/// Must be registered towards the networking in order for Ethy to properly function.
+	pub fn standard_name<Hash: AsRef<[u8]>>(
+		genesis_hash: &Hash,
+		chain_spec: &Box<dyn ChainSpec>,
+	) -> std::borrow::Cow<'static, str> {
+		let chain_prefix = match chain_spec.fork_id() {
+			Some(fork_id) => format!("/{}/{}", hex::encode(genesis_hash), fork_id),
+			None => format!("/{}", hex::encode(genesis_hash)),
+		};
+		format!("{}{}", chain_prefix, NAME).into()
+	}
+}
 
 /// Returns the configuration value to put in
 /// [`sc_network::config::NetworkConfiguration::extra_sets`].
-pub fn ethy_peers_set_config() -> sc_network::config::NonDefaultSetConfig {
-	sc_network::config::NonDefaultSetConfig {
-		notifications_protocol: ETHY_PROTOCOL_NAME.into(),
-		max_notification_size: 1024 * 1024,
-		set_config: sc_network::config::SetConfig {
-			in_peers: 25,
-			out_peers: 25,
-			reserved_nodes: Vec::new(),
-			non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
-		},
-		fallback_names: vec![],
-	}
+pub fn ethy_peers_set_config(
+	protocol_name: std::borrow::Cow<'static, str>,
+) -> sc_network::config::NonDefaultSetConfig {
+	let mut cfg = sc_network::config::NonDefaultSetConfig::new(protocol_name, 1024 * 1024);
+	cfg.allow_non_reserved(25, 25);
+	cfg
 }
 
 /// A convenience ETHY client trait that defines all the type bounds a ETHY client
@@ -117,6 +132,8 @@ where
 	pub event_proof_sender: notification::EthyEventProofSender,
 	/// Prometheus metric registry
 	pub prometheus_registry: Option<Registry>,
+	/// Chain specific Ethy protocol name. See [`ethy_protocol_name::standard_name`].
+	pub protocol_name: std::borrow::Cow<'static, str>,
 	pub _phantom: std::marker::PhantomData<B>,
 }
 
@@ -138,12 +155,13 @@ where
 		network,
 		event_proof_sender,
 		prometheus_registry,
+		protocol_name,
 		_phantom: std::marker::PhantomData,
 	} = ethy_params;
 
+	let sync_oracle = network.clone();
 	let gossip_validator = Arc::new(gossip::GossipValidator::new(Default::default()));
-	let gossip_engine =
-		GossipEngine::new(network, ETHY_PROTOCOL_NAME, gossip_validator.clone(), None);
+	let gossip_engine = GossipEngine::new(network, protocol_name, gossip_validator.clone(), None);
 
 	let metrics =
 		prometheus_registry.as_ref().map(metrics::Metrics::register).and_then(
@@ -167,6 +185,7 @@ where
 		gossip_engine,
 		gossip_validator,
 		metrics,
+		sync_oracle,
 	};
 
 	let worker = worker::EthyWorker::<_, _, _>::new(worker_params);
