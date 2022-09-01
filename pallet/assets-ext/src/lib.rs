@@ -285,7 +285,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Efficiently make multiple transfers of asset Id from source
-	pub(crate) fn split_transfer(
+	pub fn split_transfer(
 		asset_id: AssetId,
 		source: &T::AccountId,
 		transfers: &[(T::AccountId, Balance)],
@@ -544,5 +544,19 @@ impl<T: Config> CreateExt for Pallet<T> {
 		});
 
 		Ok(next_asset_id)
+	}
+}
+
+impl<T: Config> fungibles::InspectMetadata<T::AccountId> for Pallet<T> {
+	fn name(asset: &Self::AssetId) -> Vec<u8> {
+		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::name(asset)
+	}
+
+	fn symbol(asset: &Self::AssetId) -> Vec<u8> {
+		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::symbol(asset)
+	}
+
+	fn decimals(asset: &Self::AssetId) -> u8 {
+		<pallet_assets::Pallet<T> as fungibles::InspectMetadata<T::AccountId>>::decimals(asset)
 	}
 }
