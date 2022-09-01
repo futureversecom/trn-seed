@@ -147,6 +147,7 @@ where
 			block_data_cache.clone(),
 			fee_history_cache,
 			fee_history_cache_limit,
+			10,
 		)
 		.into_rpc(),
 	)?;

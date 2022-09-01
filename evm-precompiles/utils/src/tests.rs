@@ -14,11 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::prelude::*;
-use fp_evm::PrecompileFailure;
+use crate::{prelude::*, revert::Backtrace};
 use hex_literal::hex;
 use pallet_evm::Context;
 use sp_core::{H160, H256, U256};
+use sp_std::convert::TryInto;
 
 fn u256_repeat_byte(byte: u8) -> U256 {
 	let value = H256::repeat_byte(byte);
@@ -364,12 +364,11 @@ fn read_address_array_size_too_big() {
 
 	let mut reader = EvmDataReader::new(&writer_output);
 
-	match reader.read::<Vec<Address>>() {
+	match reader.read::<Vec<Address>>().in_field("field") {
 		Ok(_) => panic!("should not parse correctly"),
-		Err(PrecompileFailure::Revert { output: err, .. }) => {
-			assert_eq!(err, b"tried to parse H160 out of bounds")
+		Err(err) => {
+			assert_eq!(err.to_string(), "field[5]: Tried to read address out of bounds")
 		},
-		Err(_) => panic!("unexpected error"),
 	}
 }
 
@@ -648,8 +647,11 @@ struct MultiLocation {
 }
 
 impl EvmData for MultiLocation {
-	fn read(reader: &mut EvmDataReader) -> EvmResult<Self> {
-		let (parents, interior) = reader.read()?;
+	fn read(reader: &mut EvmDataReader) -> MayRevert<Self> {
+		let mut inner_reader = reader.read_pointer()?;
+		let parents = inner_reader.read().in_field("parents")?;
+		let interior = inner_reader.read().in_field("interior")?;
+
 		Ok(MultiLocation { parents, interior })
 	}
 
@@ -734,8 +736,9 @@ fn test_check_function_modifier() {
 		apparent_value: U256::from(value),
 	};
 
-	let payable_error = || revert("function is not payable");
-	let static_error = || revert("can't call non-static function in static context");
+	let payable_error = || Revert::new(RevertReason::custom("Function is not payable"));
+	let static_error =
+		|| Revert::new(RevertReason::custom("Can't call non-static function in static context"));
 
 	// Can't call non-static functions in static context.
 	assert_eq!(
@@ -845,4 +848,32 @@ fn write_dynamic_size_tuple() {
 	);
 
 	assert_eq!(output, data);
+}
+
+#[test]
+fn error_location_formatting() {
+	assert_eq!(
+		Backtrace::new()
+			.in_field("foo")
+			.in_array(2)
+			.in_array(3)
+			.in_field("bar")
+			.in_field("fuz")
+			.to_string(),
+		"fuz.bar[3][2].foo"
+	);
+}
+
+#[test]
+fn error_formatting() {
+	assert_eq!(
+		Revert::new(RevertReason::custom("Test"))
+			.in_field("foo")
+			.in_array(2)
+			.in_array(3)
+			.in_field("bar")
+			.in_field("fuz")
+			.to_string(),
+		"fuz.bar[3][2].foo: Test"
+	);
 }

@@ -16,8 +16,8 @@
 
 //! Provide checks related to function modifiers (view/payable).
 
-use crate::{revert, EvmResult};
-use evm::Context;
+use crate::revert::{MayRevert, RevertReason};
+use fp_evm::Context;
 use sp_core::U256;
 
 /// Represents modifiers a Solidity function can be annotated with.
@@ -39,13 +39,13 @@ pub fn check_function_modifier(
 	context: &Context,
 	is_static: bool,
 	modifier: FunctionModifier,
-) -> EvmResult {
+) -> MayRevert {
 	if is_static && modifier != FunctionModifier::View {
-		return Err(revert("can't call non-static function in static context"))
+		return Err(RevertReason::custom("Can't call non-static function in static context").into())
 	}
 
 	if modifier != FunctionModifier::Payable && context.apparent_value > U256::zero() {
-		return Err(revert("function is not payable"))
+		return Err(RevertReason::custom("Function is not payable").into())
 	}
 
 	Ok(())
