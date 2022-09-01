@@ -14,10 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{
-	prelude::*,
-	revert::Backtrace,
-};
+use crate::{prelude::*, revert::Backtrace};
 use hex_literal::hex;
 use pallet_evm::Context;
 use sp_core::{H160, H256, U256};
