@@ -65,7 +65,8 @@ pub mod keys {
 	pub use super::{AuraId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	AccountId, Address, AssetId, AuraId, Balance, BlockNumber, Hash, Index, Signature,
+	ethy::crypto::AuthorityId as EthBridgeId, AccountId, Address, AssetId, AuraId, Balance,
+	BlockNumber, Hash, Index, Signature,
 };
 
 mod bag_thresholds;
@@ -674,13 +675,13 @@ parameter_types! {
 }
 
 /// Modified london config with higher contract create fee
-const fn cennznet_london() -> EvmConfig {
+const fn seed_london() -> EvmConfig {
 	let mut c = EvmConfig::london();
 	c.gas_transaction_create = 2_000_000;
 	c
 }
 
-pub static SEED_EVM_CONFIG: EvmConfig = cennznet_london();
+pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
@@ -1079,6 +1080,14 @@ impl_runtime_apis! {
 			// defined our key owner proof type as a bottom type (i.e. a type
 			// with no values).
 			None
+		}
+	}
+
+	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
+		fn validator_set() -> seed_primitives::ethy::ValidatorSet<EthBridgeId> {
+			// TODO: integrate with eth-bridge pallet
+			// EthBridge::validator_set()
+			seed_primitives::ethy::ValidatorSet::empty()
 		}
 	}
 }

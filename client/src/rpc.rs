@@ -26,7 +26,17 @@ use fc_rpc::{EthBlockDataCacheTask, OverrideHandle, RuntimeApiStorageOverride};
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 
 // Runtime
+use ethy_gadget::notification::EthyEventProofStream;
+use ethy_gadget_rpc::{EthyApiServer, EthyRpcHandler};
 use seed_primitives::{opaque::Block, AccountId, Balance, Hash, Index};
+
+/// Extra RPC deps for Ethy
+pub struct EthyDeps {
+	/// Receives notifications about event proofs from Ethy.
+	pub event_proof_stream: EthyEventProofStream,
+	/// Executor to drive the subscription manager in the Ethy RPC handler.
+	pub subscription_executor: SubscriptionTaskExecutor,
+}
 
 /// Full client dependencies.
 pub struct FullDeps<C, P, A: ChainApi> {
@@ -56,6 +66,8 @@ pub struct FullDeps<C, P, A: ChainApi> {
 	pub overrides: Arc<OverrideHandle<Block>>,
 	/// Cache for Ethereum block data.
 	pub block_data_cache: Arc<EthBlockDataCacheTask<Block>>,
+	/// Ethy specific dependencies.
+	pub ethy: EthyDeps,
 }
 
 pub fn overrides_handle<C, BE>(client: Arc<C>) -> Arc<OverrideHandle<Block>>
@@ -126,11 +138,16 @@ where
 		fee_history_cache_limit,
 		overrides,
 		block_data_cache,
+		ethy,
 	} = deps;
 
 	// Substrate RPCs
 	io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
 	io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
+	io.merge(
+		EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor, client.clone())
+			.into_rpc(),
+	)?;
 
 	// Ethereum compatible RPCs
 	io.merge(
