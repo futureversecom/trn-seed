@@ -21,7 +21,7 @@ contract ERC20PrecompileCaller {
     function sendXRPAmounts(address payable destination) public payable {
         assert(address(destination).balance == 0);
         uint64[6] memory amounts_18 = [1000000500000000000 wei, 1000000000000000001 wei, 1000001000000000000 wei, 1000000000000000000 wei, 1 wei, 0 wei];
-	    uint24[6] memory amounts_6 = [1000001, 1000001, 1000001, 1000000, 1, 0];
+        uint24[6] memory amounts_6 = [1000001, 1000001, 1000001, 1000000, 1, 0];
         uint256 total;
 
         for(uint i; i < 5; i++) {
