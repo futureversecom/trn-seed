@@ -34,6 +34,7 @@ use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
+use sp_consensus::SyncOracle;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::Block;
 
@@ -56,9 +57,6 @@ pub(crate) mod ethy_protocol_name {
 	use sc_chain_spec::ChainSpec;
 
 	const NAME: &str = "/ethy/1";
-	/// Old names for the notifications protocol, used for backward compatibility.
-	pub(crate) const LEGACY_NAMES: [&str; 1] = ["/seed/ethy/1"];
-
 	/// Name of the notifications protocol used by Ethy.
 	///
 	/// Must be registered towards the networking in order for Ethy to properly function.
@@ -118,7 +116,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	C::Api: EthyApi<B>,
-	N: GossipNetwork<B> + Clone + Send + 'static,
+	N: GossipNetwork<B> + Clone + SyncOracle + Send + 'static,
 {
 	/// ETHY client
 	pub client: Arc<C>,
@@ -146,7 +144,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	C::Api: EthyApi<B>,
-	N: GossipNetwork<B> + Clone + Send + 'static,
+	N: GossipNetwork<B> + Clone + SyncOracle + Sync + Send + 'static,
 {
 	let EthyParams {
 		client,
@@ -188,7 +186,7 @@ where
 		sync_oracle,
 	};
 
-	let worker = worker::EthyWorker::<_, _, _>::new(worker_params);
+	let worker = worker::EthyWorker::<_, _, _, _>::new(worker_params);
 
 	worker.run().await
 }

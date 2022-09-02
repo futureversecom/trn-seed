@@ -17,15 +17,15 @@
 use std::{sync::Arc, time::Duration};
 
 use codec::{Codec, Decode, Encode};
-use futures::{future, FutureExt, StreamExt};
+use futures::StreamExt;
 use log::{debug, error, info, trace, warn};
-use parking_lot::Mutex;
-use sc_client_api::{Backend, FinalityNotification, FinalityNotifications};
+use sc_client_api::{Backend, FinalityNotification};
 use sc_network_gossip::GossipEngine;
 use sp_api::BlockId;
+use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
-	traits::{Block, Header, NumberFor},
+	traits::{Block, Header},
 };
 
 use seed_primitives::ethy::{
@@ -42,7 +42,7 @@ use crate::{
 	witness_record::WitnessRecord,
 	Client,
 };
-pub(crate) struct WorkerParams<B, BE, C>
+pub(crate) struct WorkerParams<B, BE, C, SO>
 where
 	B: Block,
 {
@@ -53,10 +53,11 @@ where
 	pub gossip_engine: GossipEngine<B>,
 	pub gossip_validator: Arc<GossipValidator<B>>,
 	pub metrics: Option<Metrics>,
+	pub sync_oracle: SO,
 }
 
-/// A ETHY worker plays the ETHY protocol
-pub(crate) struct EthyWorker<B, C, BE>
+/// An ETHY worker plays the ETHY protocol
+pub(crate) struct EthyWorker<B, C, BE, SO>
 where
 	B: Block,
 	BE: Backend<B>,
@@ -66,24 +67,26 @@ where
 	backend: Arc<BE>,
 	key_store: EthyKeystore,
 	event_proof_sender: notification::EthyEventProofSender,
-	gossip_engine: Arc<Mutex<GossipEngine<B>>>,
+	gossip_engine: GossipEngine<B>,
 	gossip_validator: Arc<GossipValidator<B>>,
 	metrics: Option<Metrics>,
-	finality_notifications: FinalityNotifications<B>,
 	/// Tracks on-going witnesses
 	witness_record: WitnessRecord,
 	/// Best block we received a GRANDPA notification for
 	best_grandpa_block_header: <B as Block>::Header,
 	/// Current validator set
 	validator_set: ValidatorSet<Public>,
+	/// Handle to the sync oracle
+	sync_oracle: SO,
 }
 
-impl<B, C, BE> EthyWorker<B, C, BE>
+impl<B, C, BE, SO> EthyWorker<B, C, BE, SO>
 where
 	B: Block + Codec,
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	C::Api: EthyApi<B>,
+	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return a new ETHY worker instance.
 	///
@@ -91,7 +94,7 @@ where
 	/// ETHY pallet has been deployed on-chain.
 	///
 	/// The ETHY pallet is needed in order to keep track of the ETHY authority set.
-	pub(crate) fn new(worker_params: WorkerParams<B, BE, C>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, BE, C, SO>) -> Self {
 		let WorkerParams {
 			client,
 			backend,
@@ -100,6 +103,7 @@ where
 			gossip_engine,
 			gossip_validator,
 			metrics,
+			sync_oracle,
 		} = worker_params;
 
 		let last_finalized_header = client
@@ -111,23 +115,24 @@ where
 			backend,
 			key_store,
 			event_proof_sender,
-			gossip_engine: Arc::new(Mutex::new(gossip_engine)),
+			gossip_engine,
 			gossip_validator,
 			metrics,
-			finality_notifications: client.finality_notification_stream(),
 			best_grandpa_block_header: last_finalized_header,
 			validator_set: ValidatorSet::empty(),
 			witness_record: Default::default(),
+			sync_oracle,
 		}
 	}
 }
 
-impl<B, C, BE> EthyWorker<B, C, BE>
+impl<B, C, BE, SO> EthyWorker<B, C, BE, SO>
 where
 	B: Block,
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	C::Api: EthyApi<B>,
+	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return the current active validator set at header `header`.
 	///
@@ -137,7 +142,7 @@ where
 	///
 	/// Such a failure is usually an indication that the ETHY pallet has not been deployed (yet).
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
-		let new = if let Some(new) = find_authorities_change::<B, Public>(header) {
+		let new = if let Some(new) = find_authorities_change::<B>(header) {
 			Some(new)
 		} else {
 			let at = BlockId::hash(header.hash());
@@ -267,11 +272,11 @@ where
 			self.handle_witness(witness.clone());
 
 			// broadcast the witness
-			self.gossip_engine.lock().gossip_message(topic::<B>(), broadcast_witness, false);
+			self.gossip_engine.gossip_message(topic::<B>(), broadcast_witness, false);
 			debug!(target: "ethy", "💎 gossiped witness for event: {:?}", witness.event_id);
 		}
 
-		self.best_grandpa_block_header = *notification.header;
+		self.best_grandpa_block_header = notification.header;
 	}
 
 	/// Note an individual witness for a message
@@ -290,7 +295,7 @@ where
 			return
 		}
 
-		self.gossip_engine.lock().gossip_message(topic::<B>(), witness.encode(), false);
+		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
 
 		let proof_threshold = self.validator_set.proof_threshold as usize;
 		if proof_threshold < self.validator_set.validators.len() / 2 {
@@ -379,7 +384,7 @@ where
 			futures::select! {
 				notification = finality_notifications.next() => {
 					if let Some(notification) = notification {
-						self.handle_finality_notification(&notification);
+						self.handle_finality_notification(notification);
 					} else {
 						return;
 					}
@@ -456,14 +461,13 @@ where
 
 /// Scan the `header` digest log for an Ethy validator set change. Return either the new
 /// validator set or `None` in case no validator set change has been signaled.
-fn find_authorities_change<B, Id>(header: &B::Header) -> Option<ValidatorSet<Id>>
+fn find_authorities_change<B>(header: &B::Header) -> Option<ValidatorSet<Public>>
 where
 	B: Block,
-	Id: Codec,
 {
 	let id = OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID);
 
-	let filter = |log: ConsensusLog<Id>| match log {
+	let filter = |log: ConsensusLog<Public>| match log {
 		ConsensusLog::AuthoritiesChange(validator_set) => Some(validator_set),
 		_ => None,
 	};
@@ -498,9 +502,17 @@ fn eth_abi_encode_validator_set_change(
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
 	use super::*;
 	use sp_application_crypto::ByteArray;
+	use substrate_test_runtime_client::runtime::{Block, Digest, DigestItem};
+
+	use crate::testing::Keyring;
+	use seed_primitives::ethy::ValidatorSet;
+
+	pub(crate) fn make_ethy_ids(keys: &[Keyring]) -> Vec<Public> {
+		keys.iter().map(|key| key.clone().public().into()).collect()
+	}
 
 	#[test]
 	fn encode_validator_set_change() {
@@ -520,6 +532,7 @@ mod test {
 					.unwrap(),
 				],
 					id: 598,
+					proof_threshold: 2,
 				},
 				599,
 				1_234_567,
@@ -528,5 +541,31 @@ mod test {
 			hex::encode(abi_encoded),
 			"000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000002560000000000000000000000000000000000000000000000000000000000000257000000000000000000000000000000000000000000000000000000000012d687000000000000000000000000000000000000000000000000000000000000000200000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf500000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf5"
 		);
+	}
+
+	#[test]
+	fn extract_authorities_change_digest() {
+		let mut header = Header::new(
+			1u32.into(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Digest::default(),
+		);
+
+		// verify empty digest shows nothing
+		assert!(find_authorities_change::<Block>(&header).is_none());
+
+		let id = 42;
+		let validators = make_ethy_ids(&[Keyring::Alice, Keyring::Bob]);
+		let validator_set = ValidatorSet { validators, id, proof_threshold: 2 };
+		header.digest_mut().push(DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::<Public>::AuthoritiesChange(validator_set.clone()).encode(),
+		));
+
+		// verify validator set is correctly extracted from digest
+		let extracted = find_authorities_change::<Block>(&header);
+		assert_eq!(extracted, Some(validator_set));
 	}
 }

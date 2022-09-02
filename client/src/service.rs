@@ -325,6 +325,10 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		}
 	};
 
+	// derive ethy protocol name
+	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
+
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network: network.clone(),
 		client: client.clone(),
@@ -412,6 +416,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		network: network.clone(),
 		event_proof_sender,
 		prometheus_registry: prometheus_registry.clone(),
+		protocol_name: ethy_protocol_name,
 		_phantom: std::marker::PhantomData,
 	};
 	// Start the ETHY bridge gadget.
