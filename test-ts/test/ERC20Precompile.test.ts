@@ -1,31 +1,8 @@
-import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
-import {expect} from "chai";
-import { ethers } from "hardhat";
+import { expect } from "chai";
 import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
 import web3 from 'web3';
-
-import { ApiPromise, HttpProvider, WsProvider, Keyring } from '@polkadot/api';
-import { u8aToHex, stringToHex, hexToU8a } from '@polkadot/util';
-import { AddressOrPair } from "@polkadot/api/types";
 import { JsonRpcProvider, Provider } from "@ethersproject/providers";
-import PrecompileCaller from '../artifacts/contracts/PrecompileCaller.sol/PrecompileCaller.json';
-
-const typedefs = {
-  AccountId: 'EthereumAccountId',
-  AccountId20: 'EthereumAccountId',
-  AccountId32: 'EthereumAccountId',
-  Address: 'AccountId',
-  LookupSource: 'AccountId',
-  Lookup0: 'AccountId',
-  EthereumSignature: {
-    r: 'H256',
-    s: 'H256',
-    v: 'U8'
-  },
-  ExtrinsicSignature: 'EthereumSignature',
-  SessionKeys: '([u8; 32], [u8; 32])'
-};
+import PrecompileCaller from '../artifacts/contracts/ERC20PrecompileCaller.sol/ERC20PrecompileCaller.json';
 
 describe("ERC20 Precompile", function () {
   let seedSigner: Wallet;
@@ -48,15 +25,12 @@ describe("ERC20 Precompile", function () {
   before(async () => {
     // Setup providers for jsonRPCs and WS
     jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
-    const wsProvider = new WsProvider(`ws://localhost:9944`);
 
     seedSigner = new Wallet('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf').connect(jsonProvider); // 'development' seed
     xrpToken = new Contract(xrpTokenAddress, erc20Abi, seedSigner);
-    console.log(`signer address: ${seedSigner.address}`);
 
     let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
     precompileCaller = await factory.deploy();
-    console.log(`contract address=${precompileCaller.address}`);
   });
 
   it('name, symbol, decimals', async () => {
@@ -95,12 +69,10 @@ describe("ERC20 Precompile", function () {
     );
     await endowTx.wait();
     expect(await jsonProvider.getBalance(precompileCaller.address)).to.be.equal(endowment);
-    console.log('endowed 8 XRP');
-
     const receiverAddress = await Wallet.createRandom().getAddress();
     let tx = await precompileCaller.sendXRPAmounts(receiverAddress);
     await tx.wait();
-  }).timeout(12000);
+  }).timeout(18000000000000);
 
   it('approve and transferFrom', async () => {
     let approvedAmount = 12345;
@@ -138,7 +110,6 @@ describe("ERC20 Precompile", function () {
     let total: BigNumber = BigNumber.from(0);
 
     for (const [payment, expected] of payments) {
-      console.log(`Sending tx with balance: ${payment}`);
       let tx = await seedSigner.sendTransaction(
           {
             to: receiverAddress,
@@ -148,7 +119,6 @@ describe("ERC20 Precompile", function () {
       await tx.wait();
       let balance = await jsonProvider.getBalance(receiverAddress);
       total = total.add(expected);
-      console.log(`input:       ${payment.toString()}\nreal:        ${expected.toString()}\nnew expected:${total.toString()}\nnew balance: ${balance}\n`);
       expect(balance).to.be.equal(total.toString());
 
       // sleep, prevents nonce issues
