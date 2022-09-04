@@ -1085,9 +1085,7 @@ impl_runtime_apis! {
 
 	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
 		fn validator_set() -> seed_primitives::ethy::ValidatorSet<EthBridgeId> {
-			// TODO: integrate with eth-bridge pallet
-			// EthBridge::validator_set()
-			seed_primitives::ethy::ValidatorSet::empty()
+			EthBridge::validator_set()
 		}
 	}
 }
