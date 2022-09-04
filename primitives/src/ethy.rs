@@ -67,12 +67,14 @@ pub struct ValidatorSet<AuthorityId> {
 	pub validators: Vec<AuthorityId>,
 	/// Identifier of the validator set
 	pub id: ValidatorSetId,
+	/// Minimum number of validator signatures required for a valid proof (i.e 'm' in 'm-of-n')
+	pub proof_threshold: u32,
 }
 
 impl<AuthorityId> ValidatorSet<AuthorityId> {
 	/// Return an empty validator set with id of 0.
 	pub fn empty() -> Self {
-		Self { validators: Default::default(), id: Default::default() }
+		Self { validators: Default::default(), id: Default::default(), proof_threshold: 0 }
 	}
 }
 
@@ -160,7 +162,7 @@ sp_api::decl_runtime_apis! {
 	/// Runtime API for ETHY validators.
 	pub trait EthyApi
 	{
-		/// Return the active ETHY validator set (i.e eth bridge keys of active validator set)
+		/// Return the active ETHY validator set (i.e Ethy bridge keys of active validator set)
 		fn validator_set() -> ValidatorSet<AuthorityId>;
 	}
 }
