@@ -15,10 +15,6 @@ const MAX_U10: u32 = (1 << 10) - 1;
 /// |          1           |   100   |
 /// 0b000000000000000000001_0001100100
 pub fn next_asset_uuid(next_id: u32, parachain_id: u32) -> Option<u32> {
-	// Overflow check
-	if next_id.checked_add(1_u32).is_none() {
-		return None
-	}
 	// Check ids fit within limited bit sizes
 	// next_id max 22 bits, parachain_id max 10 bits
 	if next_id + 1_u32 > MAX_U22 || parachain_id > MAX_U10 {
