@@ -8,7 +8,7 @@ use fc_mapping_sync::{MappingSyncWorker, SyncStrategy};
 use fc_rpc::{EthTask, OverrideHandle};
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use sc_cli::SubstrateCli;
-use sc_client_api::{BlockBackend, BlockchainEvents, ExecutorProvider};
+use sc_client_api::{Backend, BlockBackend, BlockchainEvents, ExecutorProvider};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::SharedVoterState;
@@ -16,6 +16,7 @@ use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, BasePath, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
+use sp_runtime::offchain::OffchainStorage;
 use std::{
 	collections::BTreeMap,
 	path::PathBuf,
@@ -23,7 +24,7 @@ use std::{
 	time::Duration,
 };
 
-use seed_primitives::opaque::Block;
+use seed_primitives::{ethy::ETH_HTTP_URI, opaque::Block};
 use seed_runtime::{self, RuntimeApi};
 
 use crate::cli::Cli;
@@ -227,6 +228,17 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 				(fee_history_cache, fee_history_cache_limit),
 			),
 	} = new_partial(&config, cli)?;
+
+	// Set eth http bridge config
+	// the config is stored into the offchain context where it can
+	// be accessed later by the crml-eth-bridge offchain worker.
+	if let Some(ref eth_http_uri) = cli.run.eth_http {
+		backend.offchain_storage().unwrap().set(
+			sp_core::offchain::STORAGE_PREFIX,
+			&ETH_HTTP_URI,
+			eth_http_uri.as_bytes(),
+		);
+	}
 
 	if let Some(url) = &config.keystore_remote {
 		match remote_keystore(url) {
