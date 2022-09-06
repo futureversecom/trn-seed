@@ -29,7 +29,7 @@ use sp_runtime::{
 };
 
 use seed_primitives::ethy::{
-	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventId, EventProof, ValidatorSet,
+	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventProof, EventProofId, ValidatorSet,
 	ValidatorSetId, VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
@@ -409,7 +409,7 @@ pub struct ProofRequest {
 	/// raw message for signing
 	message: Vec<u8>,
 	/// nonce/event Id of this request
-	event_id: EventId,
+	event_id: EventProofId,
 	/// metadata tag about the proof
 	tag: Option<Vec<u8>>,
 	/// Block hash whe  proof was requested
@@ -479,7 +479,7 @@ where
 fn eth_abi_encode_validator_set_change(
 	next_validator_set: &ValidatorSet<Public>,
 	proof_validator_set_id: ValidatorSetId,
-	proof_event_id: EventId,
+	proof_event_id: EventProofId,
 ) -> Vec<u8> {
 	use sp_runtime::traits::Convert;
 
