@@ -8,7 +8,7 @@ pub use types::*;
 pub mod ethy;
 mod signature;
 
-mod types {
+pub mod types {
 	use crate::signature::EthereumSignature;
 	use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -61,6 +61,11 @@ mod types {
 
 	/// Parachain Identifier
 	pub type ParachainId = u32;
+
+	/// The type for identifying the validators
+	pub type ValidatorId = u32;
+
+	pub type Timestamp = u64;
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
