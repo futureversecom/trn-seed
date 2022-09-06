@@ -22,6 +22,11 @@ use sp_std::prelude::*;
 
 use self::crypto::{AuthorityId, AuthoritySignature};
 
+// fixed storage key for offchain config.
+// for consistency expect 4 byte key for prefix and 8 byte key for subkeys
+/// offchain storage config key for Ethereum HTTP URI
+pub const ETH_HTTP_URI: [u8; 8] = *b"ETH_HTTP";
+
 /// The `ConsensusEngineId` of ETHY.
 pub const ETHY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"ETH-";
 

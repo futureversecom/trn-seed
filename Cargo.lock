@@ -7154,6 +7154,7 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "try-runtime-cli",
+ "url",
 ]
 
 [[package]]
@@ -7213,6 +7214,7 @@ dependencies = [
  "pallet-dex",
  "pallet-election-provider-multi-phase",
  "pallet-ethereum",
+ "pallet-ethy",
  "pallet-evm",
  "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",
@@ -7235,6 +7237,7 @@ dependencies = [
  "rustc-hex",
  "scale-info",
  "seed-client",
+ "seed-pallet-common",
  "seed-primitives",
  "seed-runtime",
  "serde",

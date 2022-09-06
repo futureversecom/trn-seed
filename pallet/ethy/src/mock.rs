@@ -12,7 +12,6 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-
 use codec::{Decode, Encode};
 use ethereum_types::U64;
 use frame_support::{
@@ -29,16 +28,12 @@ use sp_runtime::{
 	},
 	Percent,
 };
-use std::{
-	marker::PhantomData,
-	time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EventClaimSubscriber, FinalSessionTracker,
-	NotarizationRewardHandler,
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventClaimSubscriber, FinalSessionTracker,
 };
-use seed_primitives::ethy::crypto::AuthorityId;
+use seed_primitives::ethy::{crypto::AuthorityId, EventClaimId};
 
 use crate::{
 	self as pallet_ethy,
@@ -64,7 +59,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Ethy: pallet_ethy::{Pallet, Call, Storage, Event, ValidateUnsigned},
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event, ValidateUnsigned},
 	}
 );
 
@@ -106,12 +101,11 @@ parameter_types! {
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
 	type EthCallSubscribers = MockEthCallSubscriber;
-	type EthyId = AuthorityId;
 	type EthereumRpcClient = MockEthereumRpcClient;
+	type EthyId = AuthorityId;
+	type EventClaimSubscribers = MockClaimSubscriber;
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
-	type RewardHandler = MockRewardHandler;
-	type Subscribers = MockClaimSubscriber;
 	type UnixTime = MockUnixTime;
 	type Call = Call;
 	type Event = Event;
@@ -132,7 +126,7 @@ pub struct MockReceiptResponse {
 	pub block_number: u64,
 	pub transaction_hash: H256,
 	pub status: u64,
-	pub contract_address: Option<EthAddress>,
+	pub source_address: Option<EthAddress>,
 }
 
 /// Builder for creating EthBlocks
@@ -194,8 +188,9 @@ pub(crate) mod test_storage {
 		types::{CheckedEthCallResult, EthAddress, EthCallId, EthHash},
 		Config,
 	};
-	use crml_support::EthCallFailure;
 	use frame_support::decl_storage;
+	use seed_pallet_common::EthCallFailure;
+
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
 	decl_storage! {
 		trait Store for Module<T: Config> as EthBridgeTest {
@@ -280,7 +275,7 @@ impl MockEthereumRpcClient {
 			block_number: mock_tx_receipt.block_number.as_u64(),
 			transaction_hash: mock_tx_receipt.transaction_hash,
 			status: mock_tx_receipt.status.unwrap_or_default().as_u64(),
-			contract_address: mock_tx_receipt.contract_address,
+			source_address: mock_tx_receipt.contract_address,
 		};
 		test_storage::TransactionReceiptFor::insert(tx_hash, mock_receipt_response);
 	}
@@ -326,7 +321,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		let mock_receipt = mock_receipt.unwrap();
 		// Inject a default Log with some default topics
 		let default_log: Log = Log {
-			address: mock_receipt.contract_address.unwrap(),
+			address: mock_receipt.source_address.unwrap(),
 			topics: vec![Default::default()],
 			transaction_hash: Some(hash),
 			..Default::default()
@@ -334,8 +329,8 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		let transaction_receipt = TransactionReceipt {
 			block_hash: mock_receipt.block_hash,
 			block_number: U64::from(mock_receipt.block_number),
-			contract_address: mock_receipt.contract_address,
-			to: mock_receipt.contract_address,
+			contract_address: mock_receipt.source_address,
+			to: mock_receipt.source_address,
 			status: Some(U64::from(mock_receipt.status)),
 			transaction_hash: mock_receipt.transaction_hash,
 			logs: vec![default_log],
@@ -388,20 +383,20 @@ impl MockValidatorSet {
 }
 
 pub struct MockClaimSubscriber;
-impl EventClaimSubscriber for MockClaimSubscriber {
+impl EthereumEventClaimSubscriber for MockClaimSubscriber {
 	/// Notify subscriber about a successful event claim for the given event data
 	fn on_success(
-		_event_claim_id: u64,
-		_contract_address: &H160,
-		_event_signature: &H256Crml,
+		_event_claim_id: EventClaimId,
+		_source_address: &H160,
+		_event_selector: &H256,
 		_event_data: &[u8],
 	) {
 	}
 	/// Notify subscriber about a failed event claim for the given event data
 	fn on_failure(
-		_event_claim_id: u64,
-		_contract_address: &H160,
-		_event_signature: &H256Crml,
+		_event_claim_id: EventClaimId,
+		_source_address: &H160,
+		_event_selector: &H256,
 		_event_data: &[u8],
 	) {
 	}
@@ -444,22 +439,13 @@ impl MockEthCallSubscriber {
 /// Mock final session tracker
 pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
-	fn is_next_session_final() -> (bool, bool) {
+	fn is_next_session_final() -> bool {
 		// at block 1, next session is final
-		(frame_system::Pallet::<TestRuntime>::block_number() == 1, false)
+		frame_system::Pallet::<TestRuntime>::block_number() == 1
 	}
 	fn is_active_session_final() -> bool {
 		// at block 2, the active session is final
 		frame_system::Pallet::<TestRuntime>::block_number() == 2
-	}
-}
-
-/// Returns the current system time
-pub struct MockRewardHandler;
-impl NotarizationRewardHandler for MockRewardHandler {
-	type AccountId = AccountId;
-	fn reward_notary(_notary: &Self::AccountId) {
-		// Do nothing
 	}
 }
 
@@ -611,9 +597,9 @@ fn get_transaction_receipt_mock_works() {
 		let block_hash: H256 = H256::from_low_u64_be(121);
 		let tx_hash: EthHash = H256::from_low_u64_be(122);
 		let status: U64 = U64::from(1);
-		let contract_address: EthAddress = H160::from_low_u64_be(123);
+		let source_address: EthAddress = H160::from_low_u64_be(123);
 		let default_log: Log = Log {
-			address: contract_address,
+			address: source_address,
 			topics: vec![Default::default()],
 			transaction_hash: Some(tx_hash),
 			..Default::default()
@@ -622,10 +608,10 @@ fn get_transaction_receipt_mock_works() {
 		let mock_tx_receipt = TransactionReceipt {
 			block_hash,
 			block_number: U64::from(block_number),
-			contract_address: Some(contract_address),
+			contract_address: Some(source_address),
 			logs: vec![default_log],
 			status: Some(status),
-			to: Some(contract_address),
+			to: Some(source_address),
 			transaction_hash: tx_hash,
 			..Default::default()
 		};

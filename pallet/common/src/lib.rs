@@ -1,15 +1,20 @@
 //! shared pallet types and traits
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Encode, Decode};
-use scale_info::TypeInfo;
+use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
-	dispatch::{DispatchError, DispatchResult}, traits::fungibles::Transfer, PalletId,
+	dispatch::{DispatchError, DispatchResult},
+	traits::fungibles::Transfer,
+	PalletId,
 };
+use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 
-use seed_primitives::{AssetId, Balance, TokenId, ethy::{EventClaimId, EventProofId}};
+use seed_primitives::{
+	ethy::{EventClaimId, EventProofId},
+	AssetId, Balance, TokenId,
+};
 
 pub mod utils;
 
@@ -111,46 +116,52 @@ pub trait OnTransferSubscriber {
 
 /// Reports whether the current session is the final session in a staking era (pre-authority change)
 pub trait FinalSessionTracker {
-	/// Returns whether the next session the final session of an era
-	/// (is_final, was_forced)
-	fn is_next_session_final() -> (bool, bool);
+	/// Returns whether the next session is the final session of an era
+	fn is_next_session_final() -> bool;
 	/// Returns whether the active session is the final session of an era
 	fn is_active_session_final() -> bool;
-}
-
-/// Reward validators for bridge notarizations
-pub trait NotarizationRewardHandler {
-	/// Ubiquitous runtime AccountId type
-	type AccountId;
-	/// Note that the given account ID witnessed an eth-bridge claim
-	fn reward_notary(notary: &Self::AccountId);
 }
 
 /// Subscription interface for Ethereum bridge event claims
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 pub trait EthereumEventClaimSubscriber {
 	/// Notify subscriber about a successful Ethereum event claim for the given event data
-	/// Previously submitted via `request_event_claim`
-	fn on_success(event_claim_id: EventClaimId, source_address: &H160, event_signature: &H256, event_data: &[u8]);
+	/// Previously submitted via `request_event_verification`
+	fn on_success(
+		event_claim_id: EventClaimId,
+		source_address: &H160,
+		event_selector: &H256,
+		event_data: &[u8],
+	);
 	/// Notify subscriber about a failed Ethereum event claim for the given event data
-	/// Previously submitted via `request_event_claim`
-	fn on_failure(event_claim_id: EventClaimId, source_address: &H160, event_signature: &H256, event_data: &[u8]);
+	/// Previously submitted via `request_event_verification`
+	fn on_failure(
+		event_claim_id: EventClaimId,
+		source_address: &H160,
+		event_selector: &H256,
+		event_data: &[u8],
+	);
 }
 
 /// Interface for an Ethereum event bridge
-/// Verifies events happened on the remote chain (claims) and proves events happened to the remote chain (proofs)
+/// Verifies events happened on the remote chain (claims) and proves events happened to the remote
+/// chain (proofs)
 pub trait EthereumEventBridge {
 	/// Request verification of an event on the bridged Ethereum chain
 	/// Returns a unique claim Id on success
-	fn request_event_claim(
+	fn request_event_verification(
 		source_address: &H160,
-		event_signature: &H256,
 		tx_hash: &H256,
+		event_selector: &H256,
 		event_data: &[u8],
 	) -> Result<EventClaimId, DispatchError>;
-	/// Request an event proof is generated for the given message to be consumed by `destination_address` on the bridged Ethereum chain
-	/// Returns a unique event proof Id on success
-	fn request_event_proof(destination_address: &H160, message: &[u8]) -> Result<EventProofId, DispatchError>;
+	/// Request an event proof is generated for the given message to be consumed by
+	/// `destination_address` on the bridged Ethereum chain Returns a unique event proof Id on
+	/// success
+	fn request_event_proof(
+		destination_address: &H160,
+		message: &[u8],
+	) -> Result<EventProofId, DispatchError>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]
@@ -198,8 +209,27 @@ impl EthCallOracle for () {
 pub trait EthCallOracleSubscriber {
 	/// Identifies requests
 	type CallId;
-	/// Receives verified details about prior `EthCallOracle::checked_eth_call` requests upon their successful completion
-	fn on_eth_call_complete(call_id: Self::CallId, return_data: &[u8; 32], block_number: u64, block_timestamp: u64);
+	/// Receives verified details about prior `EthCallOracle::checked_eth_call` requests upon their
+	/// successful completion
+	fn on_eth_call_complete(
+		call_id: Self::CallId,
+		return_data: &[u8; 32],
+		block_number: u64,
+		block_timestamp: u64,
+	);
 	/// Error callback failed for some internal reason `EthCallOracle::checked_eth_call`
 	fn on_eth_call_failed(call_id: Self::CallId, reason: EthCallFailure);
+}
+
+impl EthCallOracleSubscriber for () {
+	type CallId = EventClaimId;
+	fn on_eth_call_complete(
+		_call_id: Self::CallId,
+		_return_data: &[u8; 32],
+		_block_number: u64,
+		_block_timestamp: u64,
+	) {
+	}
+	/// Error callback failed for some internal reason `EthCallOracle::checked_eth_call`
+	fn on_eth_call_failed(_call_id: Self::CallId, _reason: EthCallFailure) {}
 }

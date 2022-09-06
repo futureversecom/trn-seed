@@ -21,6 +21,7 @@ use sp_std::alloc::string::ToString;
 use std::string::ToString;
 
 use seed_pallet_common::log;
+use seed_primitives::ethy::ETH_HTTP_URI;
 
 use crate::{
 	rt_offchain::{http::Request, Duration},
@@ -107,7 +108,7 @@ impl EthereumRpcClient {
 		// this should have been configured on start up by passing e.g. `--eth-http`
 		// e.g. `--eth-http=http://localhost:8545`
 		let eth_http_uri = if let Some(value) =
-			sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, b"ETH_HTTP")
+			sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &ETH_HTTP_URI)
 		{
 			value
 		} else {
@@ -228,7 +229,7 @@ mod tests {
 		t.execute_with(|| {
 			sp_io::offchain::local_storage_compare_and_set(
 				StorageKind::PERSISTENT,
-				b"ETH_HTTP",
+				&ETH_HTTP_URI,
 				None,
 				MOCK_TEST_ENDPOINT.as_bytes(),
 			);

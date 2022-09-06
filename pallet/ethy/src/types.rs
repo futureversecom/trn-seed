@@ -91,14 +91,14 @@ pub type EthHash = H256;
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo)]
 /// Info required to claim an Ethereum event happened
 pub struct EventClaim {
-	/// The ethereum transaction hash
+	/// The Ethereum transaction hash which caused the event
 	pub tx_hash: EthHash,
 	/// The source address (contract) which posted the event
 	pub source_address: EthAddress,
-	/// The ABI encode event data as logged on Ethereum
+	/// The Ethereum ABI encoded event data as logged on Ethereum
 	pub event_data: Vec<u8>,
-	/// The solidity event signature
-	pub event_signature: H256,
+	/// The 256-bit solidity event selector/signature e.g `Keccak256(MyEvent(address, uint32))`
+	pub event_selector: H256,
 }
 
 #[derive(Debug, Clone, PartialEq, TypeInfo)]

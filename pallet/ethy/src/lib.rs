@@ -13,16 +13,16 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 
-//! Eth Bridge 🌉
+//! Ethy Pallet 🌉
 //!
-//! This pallet defines notarization protocols for validators to agree on values from a bridged
+//! This pallet defines m-of-n protocols for validators to agree on values from a bridged
 //! Ethereum chain (Ethereum JSON-RPC compliant), and conversely, generate proofs of events that
 //! have occurred on the network
 //!
 //! The proofs are a collection of signatures which can be verified by a bridged contract on
 //! Ethereum with awareness of the current validator set.
 //!
-//! There are types of Ethereum values the bridge can verify:
+//! There are 2 types of Ethereum values the bridge can verify:
 //! 1) verify a transaction hash exists that executed a specific contract producing a specific event
 //! log 2) verify the `returndata` of executing a contract at some time _t_ with input `i`
 //!
@@ -31,7 +31,7 @@
 //! Once a threshold of validators sign a notarization having witnessed the event it is considered
 //! verified.
 //!
-//! Events are opaque to this module, other modules handle submitting "event claims" and "callbacks"
+//! Events are opaque to this pallet, other pallet handle submitting "event claims" and "callbacks"
 //! to handle success
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -54,7 +54,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventClaimSubscriber,
-	FinalSessionTracker as FinalSessionTrackerT, NotarizationRewardHandler,
+	FinalSessionTracker as FinalSessionTrackerT,
 };
 
 mod ethereum_http_cli;
@@ -83,8 +83,18 @@ pub(crate) const LOG_TARGET: &str = "ethy";
 
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
-	/// Receives results of notarized eth calls
+	/// The runtime call type.
+	type Call: From<Call<Self>>;
+	/// Knows the active authority set (validator stash addresses)
+	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
+	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
+	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
+	type EthereumRpcClient: BridgeEthereumRpcApi;
+	/// The runtime event type.
+	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+	/// Pallets subscribing to notarized event claims
+	type EventClaimSubscribers: EthereumEventClaimSubscriber;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
 	/// 33 byte ECDSA public key
 	type EthyId: Member
@@ -93,43 +103,46 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 		+ RuntimeAppPublic
 		+ Ord
 		+ MaybeSerializeDeserialize;
-	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
-	type EthereumRpcClient: BridgeEthereumRpcApi;
-	/// Knows the active authority set (validator stash addresses)
-	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
-	/// The threshold of notarizations required to approve an Ethereum event
-	type NotarizationThreshold: Get<Percent>;
-	/// Rewards notaries for participating in claims
-	type RewardHandler: NotarizationRewardHandler<AccountId = Self::AccountId>;
-	/// Things subscribing to event claims
-	type Subscribers: EthereumEventClaimSubscriber;
-	/// Returns the block timestamp
-	type UnixTime: UnixTime;
-	/// The overarching call type.
-	type Call: From<Call<Self>>;
-	/// The overarching event type.
-	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 	/// Reports the final session of na eras
 	type FinalSessionTracker: FinalSessionTrackerT;
+	/// The threshold of notarizations required to approve an Ethereum event
+	type NotarizationThreshold: Get<Percent>;
+	/// Returns the block timestamp
+	type UnixTime: UnixTime;
 }
 
 decl_storage! {
 	trait Store for Module<T: Config> as EthBridge {
-		/// Queued event claims, awaiting notarization
-		EventClaims get(fn event_claims): map hasher(twox_64_concat) EventClaimId => Option<EventClaim>;
-		/// Event proofs to be processed once bridge has been re-enabled (Ethereum ABI encoded `EventClaim`)
-		DelayedEventProofs get (fn delayed_event_proofs): map hasher(twox_64_concat) EventProofId => Option<Message>;
-		/// Notarizations for queued messages
+		/// Whether the bridge is paused (e.g. during validator transitions or by governance)
+		BridgePaused get(fn bridge_paused): bool;
+		/// The minimum number of block confirmations needed to notarize an Ethereum event
+		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
+		/// Events cannot be claimed after this time (seconds)
+		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
+		/// Notarizations for queued events
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
+		/// The maximum number of delayed events that can be processed in on_initialize()
+		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
 		/// Id of the next event claim
 		NextEventClaimId get(fn next_event_claim_id): EventClaimId;
 		/// Id of the next event proof
 		NextEventProofId get(fn next_event_proof_id): EventProofId;
-		/// Active notary (validator) public keys
-		NotaryKeys get(fn notary_keys): Vec<T::EthyId>;
 		/// Scheduled notary (validator) public keys for the next session
 		NextNotaryKeys get(fn next_notary_keys): Vec<T::EthyId>;
+		/// Active notary (validator) public keys
+		NotaryKeys get(fn notary_keys): Vec<T::EthyId>;
+		/// The current validator set id
+		NotarySetId get(fn notary_set_id): u64;
+		/// The event proof Id generated by the previous validator set to notarize the current set.
+		/// Useful for syncing the latest proof to Ethereum
+		NotarySetProofId get(fn notary_set_proof_id): EventProofId;
+		/// Queued event claims, awaiting notarization
+		PendingEventClaims get(fn pending_event_claims): map hasher(twox_64_concat) EventClaimId => Option<EventClaim>;
+		/// Queued event proofs to be processed once bridge has been re-enabled (Ethereum ABI encoded `EventClaim`)
+		PendingEventProofs get (fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<Message>;
+		/// Map of pending tx hashes to claim Id
+		PendingTxHashes get(fn pending_tx_hashes): map hasher(twox_64_concat) EthHash => EventClaimId;
 		/// Processed tx hashes bucketed by unix timestamp (`BUCKET_FACTOR_S`)
 		// Used in conjunction with `EventDeadlineSeconds` to prevent "double spends".
 		// After a bucket is older than the deadline, any events prior are considered expired.
@@ -138,21 +151,6 @@ decl_storage! {
 		/// Set of processed tx hashes
 		/// Periodically cleared after `EventDeadlineSeconds` expires
 		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
-		/// Map of pending tx hashes to claim Id
-		PendingTxHashes get(fn pending_tx_hashes): map hasher(twox_64_concat) EthHash => EventClaimId;
-		/// The current validator set id
-		NotarySetId get(fn notary_set_id): u64;
-		/// The event proof Id generated by the previous validator set to notarize the current set.
-		/// Useful for syncing the latest proof to Ethereum
-		NotarySetProofId get(fn notary_set_proof_id): EventProofId;
-		/// Whether the bridge is paused (for validator transitions)
-		BridgePaused get(fn bridge_paused): bool;
-		/// The minimum number of block confirmations needed to notarize an Ethereum event
-		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
-		/// The maximum number of delayed events that can be processed in on_initialize()
-		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
-		/// Events cannot be claimed after this time (seconds)
-		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 		/// Subscription Id for EthCall requests
 		NextEthCallId: EthCallId;
 		/// Queue of pending EthCallOracle requests
@@ -237,12 +235,12 @@ decl_module! {
 
 			// 2) Try process delayed proofs
 			consumed_weight += DbWeight::get().reads(2 as Weight);
-			if DelayedEventProofs::iter().next().is_some() && !Self::bridge_paused() {
+			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
 				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
-				for (event_proof_id, packed_event_with_id) in DelayedEventProofs::iter().take(max_delayed_events as usize) {
+				for (event_proof_id, packed_event_with_id) in PendingEventProofs::iter().take(max_delayed_events as usize) {
 					Self::do_request_event_proof(event_proof_id, packed_event_with_id);
-					DelayedEventProofs::remove(event_proof_id);
+					PendingEventProofs::remove(event_proof_id);
 				}
 			}
 
@@ -286,19 +284,10 @@ decl_module! {
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
 
-			let notarization_result = match payload {
+			match payload {
 				NotarizationPayload::Call{ call_id, result, .. } => Self::handle_call_notarization(call_id, result, notary_public_key),
 				NotarizationPayload::Event{ event_claim_id, result, .. } => Self::handle_event_notarization(event_claim_id, result, notary_public_key),
-			};
-
-			if notarization_result.is_ok() {
-				// TODO: only reward votes with consensus
-				if let Some(v) = T::AuthoritySet::validators().get(authority_index) {
-					T::RewardHandler::reward_notary(v);
-				}
 			}
-
-			notarization_result
 		}
 
 		fn offchain_worker(block_number: T::BlockNumber) {
