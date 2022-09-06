@@ -10,6 +10,7 @@ import { u8aToHex, stringToHex, hexToU8a } from '@polkadot/util';
 import { AddressOrPair } from "@polkadot/api/types";
 import { JsonRpcProvider, Provider } from "@ethersproject/providers";
 import ERC721PrecompileCaller from '../artifacts/contracts/ERC721PrecompileCaller.sol/ERC721PrecompileCaller.json';
+import ERC721CallerSimple from '../artifacts/contracts/ERC721CallerSimple.sol/ERC721CallerSimple.json';
 
 const typedefs = {
   AccountId: 'EthereumAccountId',
@@ -30,7 +31,6 @@ const typedefs = {
 describe("ERC721 Precompile", function () {
   let api: ApiPromise;
   let keyring: Keyring;
-  let alice: AddressOrPair;
   let bob: AddressOrPair;
   let bobSigner: Wallet;
   let aliceSigner: Wallet;
@@ -102,93 +102,193 @@ describe("ERC721 Precompile", function () {
     // Pause to allow block to finalize NFT collection creation
     await new Promise(r => setTimeout(r, 6000));
   });
-
-
-  it('name, symbol, ownerOf, tokenURI, balanceOf', async () => {
-    expect(
-        await bobContract.name()
-    ).to.equal(name);
-    // await new Promise(r => setTimeout(r, 500));
-
-    expect(
-        await bobContract.symbol()
-    ).to.equal(name);
-    // await new Promise(r => setTimeout(r, 500));
-
-    expect(
-        await bobContract.ownerOf(1)
-    ).to.equal(bobSigner.address);
-    // await new Promise(r => setTimeout(r, 500));
-
-    expect(
-        await bobContract.balanceOf(bobSigner.address)
-    ).to.equal(initial_balance);
-
-    expect(
-        await bobContract.tokenURI(1)
-    ).to.equal("https://example.com/nft/metadata/1.json");
-  }).timeout(15000);
-
-
-  it('transferFrom owner', async () => {
-    const receiverAddress = await Wallet.createRandom().getAddress();
-    const token_id = 0;
-
-    // Transfer token_id 0 to receiverAddress
-    expect(
-        await bobContract.transferFrom(bobSigner.address, receiverAddress, token_id)
-    ).to.emit(bobContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, token_id);
-    await new Promise(r => setTimeout(r, 6000));
-
-    // Receiver_address now owner of token_id 1
-    expect(
-        await bobContract.ownerOf(token_id)
-    ).to.equal(receiverAddress);
-  }).timeout(18000);
-
-
-  it('approve and transferFrom via transaction', async () => {
-    const receiverAddress = await Wallet.createRandom().getAddress();
-    const token_id = 1;
-
-    // Bob approves alice for token_id
-    expect(
-        await bobContract.approve(aliceSigner.address, token_id)
-    ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, bobSigner.address, token_id);
-    await new Promise(r => setTimeout(r, 6000));
-
-    // getApproved should be alice
-    expect(
-        await bobContract.getApproved(token_id)
-    ).to.equal(aliceSigner.address);
-
-    // Alice transfers token_id (Owned by Bob)
-    expect(
-        await aliceContract.transferFrom(bobSigner.address, receiverAddress, token_id)
-    ).to.emit(aliceContract, 'Transfer').withArgs(aliceSigner.address, receiverAddress, token_id);
-    await new Promise(r => setTimeout(r, 6000));
-
-    // Receiver_address now owner of token_id
-    expect(
-        await bobContract.ownerOf(token_id)
-    ).to.equal(receiverAddress);
-  }).timeout(21000);
-
   //
-  // it('approve and transferFrom via EVM', async () => {
   //
-  //   let factory = await ethers.getContractFactory("ERC721PrecompileCaller");
-  //   const precompileCaller = await factory.connect(aliceSigner).deploy(nftPrecompileAddress);
-  //   console.log('endowing 8 XRP');
-  //   let endowment = utils.parseEther('2');
+  // it('name, symbol, ownerOf, tokenURI, balanceOf', async () => {
+  //   expect(
+  //       await bobContract.name()
+  //   ).to.equal(name);
+  //   // await new Promise(r => setTimeout(r, 500));
   //
-  //   await api.tx.balances.transfer(precompileCaller.address, 50000000).signAndSend(bob);
-  //   //100 000000000000
+  //   expect(
+  //       await bobContract.symbol()
+  //   ).to.equal(name);
+  //   // await new Promise(r => setTimeout(r, 500));
+  //
+  //   expect(
+  //       await bobContract.ownerOf(1)
+  //   ).to.equal(bobSigner.address);
+  //   // await new Promise(r => setTimeout(r, 500));
+  //
+  //   expect(
+  //       await bobContract.balanceOf(bobSigner.address)
+  //   ).to.equal(initial_balance);
+  //
+  //   expect(
+  //       await bobContract.tokenURI(1)
+  //   ).to.equal("https://example.com/nft/metadata/1.json");
+  // }).timeout(15000);
+  //
+  //
+  // it('transferFrom owner', async () => {
+  //   const receiverAddress = await Wallet.createRandom().getAddress();
+  //   const token_id = 0;
+  //
+  //   // Transfer token_id 0 to receiverAddress
+  //   expect(
+  //       await bobContract.transferFrom(bobSigner.address, receiverAddress, token_id)
+  //   ).to.emit(bobContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, token_id);
   //   await new Promise(r => setTimeout(r, 6000));
   //
-  //   console.log(`contract balance = ${await jsonProvider.getBalance(precompileCaller.address)}`);
+  //   // Receiver_address now owner of token_id 1
+  //   expect(
+  //       await bobContract.ownerOf(token_id)
+  //   ).to.equal(receiverAddress);
+  // }).timeout(18000);
   //
+  //
+  // it('approve and transferFrom via transaction', async () => {
+  //   const receiverAddress = await Wallet.createRandom().getAddress();
+  //   const token_id = 1;
+  //
+  //   // Bob approves alice for token_id
+  //   expect(
+  //       await bobContract.approve(aliceSigner.address, token_id)
+  //   ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, bobSigner.address, token_id);
+  //   await new Promise(r => setTimeout(r, 6000));
+  //
+  //   // getApproved should be alice
+  //   expect(
+  //       await bobContract.getApproved(token_id)
+  //   ).to.equal(aliceSigner.address);
+  //
+  //   // Alice transfers token_id (Owned by Bob)
+  //   expect(
+  //       await aliceContract.transferFrom(bobSigner.address, receiverAddress, token_id)
+  //   ).to.emit(aliceContract, 'Transfer').withArgs(aliceSigner.address, receiverAddress, token_id);
+  //   await new Promise(r => setTimeout(r, 6000));
+  //
+  //   // Receiver_address now owner of token_id
+  //   expect(
+  //       await bobContract.ownerOf(token_id)
+  //   ).to.equal(receiverAddress);
+  // }).timeout(21000);
+
+  // it('approve and transferFrom via EVM Simple contract', async () => {
+  //   const receiverAddress = await Wallet.createRandom().getAddress();
+  //   const token_id = 2;
+  //   // Deploy PrecompileSimpleCaller contract
+  //   let factory = await ethers.getContractFactory("ERC721CallerSimple");
+  //   const precompileCaller = await factory.connect(aliceSigner).deploy();
+  //   console.log(`CONTRACT DEPLOYED: ${precompileCaller.address}`);
+  //
+  //   await new Promise(r => setTimeout(r, 6000));
+  //
+  //   // Bob approves contract for token_id
+  //   expect(
+  //       await bobContract.approve(precompileCaller.address, token_id)
+  //   ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, precompileCaller.address, token_id);
+  //   await new Promise(r => setTimeout(r, 12000));
+  //
+  //   // Approved should be correct
+  //   expect(
+  //       await bobContract.getApproved(token_id)
+  //   ).to.equal(precompileCaller.address);
+  //
+  //   console.log("TESTING TRANSFER FROM");
+  //
+  //   expect(
+  //       await precompileCaller.connect(bobSigner).transferFromProxy(nftPrecompileAddress, bobSigner.address, receiverAddress, token_id, {gasLimit: 500000})
+  //   ).to.emit(bobContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, token_id);
+  //   await new Promise(r => setTimeout(r, 6000));
+  //   console.log("Transferred");
+  //
+  //   // contract_address now owner of token_id
+  //   expect(
+  //       await bobContract.ownerOf(token_id)
+  //   ).to.equal(receiverAddress);
+  // }).timeout(21000000000000);
+
+  it('approve and transferFrom via EVM', async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const token_id = 3;
+    // Deploy PrecompileSimpleCaller contract
+    let factory = await ethers.getContractFactory("ERC721PrecompileCaller");
+    const precompileCaller = await factory.connect(aliceSigner).deploy(nftPrecompileAddress);
+    console.log(`CONTRACT DEPLOYED: ${precompileCaller.address}`);
+    await new Promise(r => setTimeout(r, 6000));
+
+    // Check state check proxy calls
+    // expect(
+    //     await precompileCaller.ownerOfProxy(token_id)
+    // ).to.equal(bobSigner.address);
+    //
+    // expect(
+    //     await precompileCaller.nameProxy()
+    // ).to.equal(name);
+    //
+    // expect(
+    //     await precompileCaller.symbolProxy()
+    // ).to.equal(name);
+    //
+    // expect(
+    //     await precompileCaller.tokenURIProxy(token_id)
+    // ).to.equal(`https://example.com/nft/metadata/${token_id}.json`);
+
+    // Bob approves contract for token_id
+    // expect(
+    //     await bobContract.approve(precompileCaller.address, token_id)
+    // ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, precompileCaller.address, token_id);
+    // await new Promise(r => setTimeout(r, 12000));
+
+    // Approved should be correct
+    // expect(
+    //     await bobContract.getApproved(token_id)
+    // ).to.equal(precompileCaller.address);
+
+    console.log("TESTING TRANSFER FROM");
+    await precompileCaller.connect(bobSigner).transferFromProxy(nftPrecompileAddress, receiverAddress, token_id, {gasLimit: 50000})
+    //
+    // expect(
+    //     await precompileCaller.connect(bobSigner).transferFromProxy(nftPrecompileAddress, receiverAddress, token_id, {gasLimit: 500000})
+    // ).to.emit(bobContract, 'Transfer').withArgs(precompileCaller.address, receiverAddress, 12);
+    await new Promise(r => setTimeout(r, 6000));
+    console.log("Transferred");
+
+    // contract_address now owner of token_id
+    expect(
+        await bobContract.ownerOf(token_id)
+    ).to.equal(receiverAddress);
+  }).timeout(21000000000000);
+
+  // it('approve and transferFrom via EVM', async () => {
+  //   const receiverAddress = await Wallet.createRandom().getAddress();
+  //   const token_id = 2;
+  //   // Deploy PrecompileCaller contract
+  //   let factory = await ethers.getContractFactory("ERC721PrecompileCaller");
+  //   const precompileCaller = await factory.connect(aliceSigner).deploy(nftPrecompileAddress);
+  //
+  //   // Check state check proxy calls
+  //   // expect(
+  //   //     await precompileCaller.ownerOfProxy(token_id)
+  //   // ).to.equal(bobSigner.address);
   //   //
+  //   console.log("GETTING NAME");
+  //
+  //   // expect(
+  //   //     await precompileCaller.nameProxy()
+  //   // ).to.equal(name);
+  //   //
+  //   // expect(
+  //   //     await precompileCaller.symbolProxy()
+  //   // ).to.equal(name);
+  //   //
+  //   // expect(
+  //   //     await precompileCaller.tokenURIProxy(token_id)
+  //   // ).to.equal(`https://example.com/nft/metadata/${token_id}.json`);
+  //
+  //   // Endow contract
+  //   // let endowment = utils.parseEther('8');
   //   // let endowTx = await bobSigner.sendTransaction(
   //   //     {
   //   //       to: precompileCaller.address,
@@ -198,35 +298,49 @@ describe("ERC721 Precompile", function () {
   //   // );
   //   // await endowTx.wait();
   //   // expect(await jsonProvider.getBalance(precompileCaller.address)).to.be.equal(endowment);
-  //   console.log('endowed 8 XRP');
+  //   // console.log(`contract balance = ${await jsonProvider.getBalance(precompileCaller.address)}`);
+  //   await new Promise(r => setTimeout(r, 2000));
   //
-  //   const receiverAddress = await Wallet.createRandom().getAddress();
-  //   const token_id = 2;
-  //
-  //   // let tx = await precompileCaller.ownerOfProxy(token_id);
-  //   // // let x = await tx.execute();
-  //   // console.log(tx);
-  //
-  //   // Bob approves contract for token_id
-  //   expect(
-  //       await bobContract.approve(precompileCaller.address, token_id)
-  //   ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, precompileCaller.address, token_id);
+  //   console.log("TESTING TRANSFER FROM");
   //   await new Promise(r => setTimeout(r, 6000));
   //
-  //   // getApproved should be contract
+  //   // TOTAL FEE: 5377111711661793536
+  //   // ACTUAL FE: 2690534859080896768
+  //   // BALANCE:   999913344500000000000000
+  //   // FEE: 79164089
+  //   expect(
+  //       await precompileCaller.connect(bobSigner).transferFromProxy(bobSigner.address, receiverAddress, token_id)
+  //   ).to.emit(bobContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, token_id);
+  //
+  //   // // Bob approves contract for token_id
+  //   // expect(
+  //   //     await bobContract.approve(precompileCaller.address, token_id)
+  //   // ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, precompileCaller.address, token_id);
+  //   // await new Promise(r => setTimeout(r, 6000));
+  //   //
+  //   // console.log("Approved")
+  //   //
+  //   // // getApproved should be contract
   //   // expect(
   //   //     await bobContract.getApproved(token_id)
   //   // ).to.equal(precompileCaller.address);
+  //   // console.log(`Approved account: ${await bobContract.getApproved(token_id)}`)
+  //   // console.log(`Expected account: ${precompileCaller.address}`)
+  //   // console.log("Transferring");
+  //   //
+  //   // // Contract transfers token_id (Owned by Bob)
+  //   // await new Promise(r => setTimeout(r, 6000));
+  //   //
+  //   // expect(
+  //   //     await precompileCaller.transferFromProxy(bobSigner.address, receiverAddress, token_id)
+  //   // ).to.emit(bobContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, token_id);
   //
-  //   console.log("Transferring");
-  //   // Contract transfers token_id (Owned by Bob)
-  //   let transferTx = await precompileCaller.transferFromProxy(nftPrecompileAddress, bobSigner.address, receiverAddress, token_id);
-  //   await transferTx.wait();
   //   await new Promise(r => setTimeout(r, 6000));
-  //
+  //   console.log("Transferred");
   //   // Receiver_address now owner of token_id
   //   expect(
   //       await bobContract.ownerOf(token_id)
   //   ).to.equal(receiverAddress);
   // }).timeout(21000000000000);
+
 });
