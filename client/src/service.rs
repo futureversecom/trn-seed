@@ -24,7 +24,7 @@ use std::{
 	time::Duration,
 };
 
-use seed_primitives::{ethy::config::ETH_HTTP_URI, opaque::Block};
+use seed_primitives::{ethy::ETH_HTTP_URI, opaque::Block};
 use seed_runtime::{self, RuntimeApi};
 
 use crate::cli::Cli;

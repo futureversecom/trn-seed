@@ -618,7 +618,7 @@ impl pallet_tx_fee_pot::Config for Runtime {
 }
 
 parameter_types! {
-	/// The threshold of notarizations required to approve an Eth deposit
+	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: sp_runtime::Percent = sp_runtime::Percent::from_percent(66_u8);
 }
 impl pallet_ethy::Config for Runtime {
