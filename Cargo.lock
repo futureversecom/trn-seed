@@ -1498,7 +1498,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "thiserror",
  "uint",
 ]
@@ -1513,7 +1513,7 @@ dependencies = [
  "fixed-hash",
  "impl-codec",
  "impl-rlp",
- "impl-serde",
+ "impl-serde 0.3.2",
  "scale-info",
  "tiny-keccak",
 ]
@@ -1533,7 +1533,7 @@ dependencies = [
  "rlp-derive",
  "scale-info",
  "serde",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "triehash",
 ]
 
@@ -1547,7 +1547,7 @@ dependencies = [
  "fixed-hash",
  "impl-codec",
  "impl-rlp",
- "impl-serde",
+ "impl-serde 0.3.2",
  "primitive-types",
  "scale-info",
  "uint",
@@ -1628,7 +1628,7 @@ dependencies = [
  "primitive-types",
  "rlp",
  "scale-info",
- "sha3 0.10.2",
+ "sha3 0.10.4",
 ]
 
 [[package]]
@@ -1648,7 +1648,7 @@ dependencies = [
  "rlp",
  "scale-info",
  "serde",
- "sha3 0.10.2",
+ "sha3 0.10.4",
 ]
 
 [[package]]
@@ -1701,7 +1701,7 @@ dependencies = [
  "auto_impl",
  "evm-core 0.35.0 (git+https://github.com/futureversecom/evm?branch=polkadot-v0.9.27)",
  "primitive-types",
- "sha3 0.10.2",
+ "sha3 0.10.4",
 ]
 
 [[package]]
@@ -1713,7 +1713,7 @@ dependencies = [
  "environmental",
  "evm-core 0.35.0 (git+https://github.com/rust-blockchain/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3)",
  "primitive-types",
- "sha3 0.10.2",
+ "sha3 0.10.4",
 ]
 
 [[package]]
@@ -2847,6 +2847,15 @@ name = "impl-serde"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4551f042f3438e64dbd6226b20527fc84a6e1fe65688b58746a2f53623f25f5c"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "impl-serde"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc88fc67028ae3db0c853baa36269d398d5f45b6982f95549ff5def78c935cd"
 dependencies = [
  "serde",
 ]
@@ -4131,7 +4140,7 @@ dependencies = [
  "digest 0.10.3",
  "multihash-derive",
  "sha2 0.10.3",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "unsigned-varint",
 ]
 
@@ -5374,7 +5383,7 @@ dependencies = [
  "pallet-evm",
  "parity-scale-codec",
  "precompile-utils-macro",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "similar-asserts",
  "sp-core",
  "sp-io",
@@ -5401,7 +5410,7 @@ dependencies = [
  "fixed-hash",
  "impl-codec",
  "impl-rlp",
- "impl-serde",
+ "impl-serde 0.3.2",
  "scale-info",
  "uint",
 ]
@@ -7175,7 +7184,7 @@ name = "seed-primitives"
 version = "1.0.0"
 dependencies = [
  "hex",
- "impl-serde",
+ "impl-serde 0.4.0",
  "libsecp256k1 0.7.1",
  "log",
  "parity-scale-codec",
@@ -7409,9 +7418,9 @@ dependencies = [
 
 [[package]]
 name = "sha3"
-version = "0.10.2"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a31480366ec990f395a61b7c08122d99bd40544fdb5abcfc1b06bb29994312c"
+checksum = "eaedf34ed289ea47c2b741bb72e5357a209512d67bcd4bda44359e5bf0470f56"
 dependencies = [
  "digest 0.10.3",
  "keccak",
@@ -7764,7 +7773,7 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "hex",
- "impl-serde",
+ "impl-serde 0.3.2",
  "lazy_static",
  "libsecp256k1 0.7.1",
  "log",
@@ -7804,7 +7813,7 @@ dependencies = [
  "byteorder",
  "digest 0.10.3",
  "sha2 0.10.3",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "sp-std",
  "twox-hash",
 ]
@@ -8119,7 +8128,7 @@ name = "sp-storage"
 version = "6.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.3.2",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -8214,7 +8223,7 @@ name = "sp-version"
 version = "5.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.3.2",
  "parity-scale-codec",
  "parity-wasm 0.42.2",
  "scale-info",
@@ -8588,18 +8597,18 @@ checksum = "b1141d4d61095b28419e22cb0bbf02755f5e54e0526f97f1e3d1d160e60885fb"
 
 [[package]]
 name = "thiserror"
-version = "1.0.33"
+version = "1.0.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d0a539a918745651435ac7db7a18761589a94cd7e94cd56999f828bf73c8a57"
+checksum = "8c1b05ca9d106ba7d2e31a9dab4a64e7be2cce415321966ea3132c49a656e252"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.33"
+version = "1.0.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c251e90f708e16c49a16f4917dc2131e75222b72edfa9cb7f7c58ae56aae0c09"
+checksum = "e8f2591983642de85c921015f3f070c665a197ed69e417af436115e3a1407487"
 dependencies = [
  "proc-macro2",
  "quote",
