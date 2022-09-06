@@ -26,7 +26,7 @@ use sc_rpc::SubscriptionTaskExecutor;
 use std::sync::Arc;
 
 use ethy_gadget::notification::EthyEventProofStream;
-use seed_primitives::ethy::{EventId, ETHY_ENGINE_ID};
+use seed_primitives::ethy::{EventProofId, ETHY_ENGINE_ID};
 
 mod notification;
 
@@ -40,7 +40,7 @@ pub trait EthyApi<Notification> {
 
 	/// Query a proof for a known event Id. Returns `null` if missing
 	#[method(name = "getEventProof")]
-	fn get_event_proof(&self, event_id: EventId) -> RpcResult<Option<Notification>>;
+	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<Notification>>;
 }
 
 /// Implements the EthyApi RPC trait for interacting with Ethy.
@@ -82,7 +82,7 @@ where
 
 	fn get_event_proof(
 		&self,
-		event_id: EventId,
+		event_id: EventProofId,
 	) -> RpcResult<Option<notification::EventProofResponse>> {
 		if let Ok(maybe_encoded_proof) = self
 			.backend

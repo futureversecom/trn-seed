@@ -22,6 +22,11 @@ use sp_std::prelude::*;
 
 use self::crypto::{AuthorityId, AuthoritySignature};
 
+// fixed storage key for offchain config.
+// for consistency expect 4 byte key for prefix and 8 byte key for subkeys
+/// offchain storage config key for Ethereum HTTP URI
+pub const ETH_HTTP_URI: [u8; 8] = *b"ETH_HTTP";
+
 /// The `ConsensusEngineId` of ETHY.
 pub const ETHY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"ETH-";
 
@@ -54,8 +59,11 @@ pub type AuthorityIndex = u32;
 /// An event message for signing
 pub type Message = Vec<u8>;
 
+/// Unique nonce for event claim requests
+pub type EventClaimId = u64;
+
 /// Unique nonce for event proof requests
-pub type EventId = u64;
+pub type EventProofId = u64;
 
 /// A typedef for validator set id.
 pub type ValidatorSetId = u64;
@@ -91,11 +99,11 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN, validatorSetId,
 	/// event_id)`
 	#[codec(index = 3)]
-	OpaqueSigningRequest((Message, EventId)),
+	OpaqueSigningRequest((Message, EventProofId)),
 	#[codec(index = 4)]
 	/// Signal an `AuthoritiesChange` is scheduled for next session
 	/// Generate a proof that the current validator set has witnessed the new authority set
-	PendingAuthoritiesChange((ValidatorSet<AuthorityId>, EventId)),
+	PendingAuthoritiesChange((ValidatorSet<AuthorityId>, EventProofId)),
 }
 
 /// ETHY witness message.
@@ -107,8 +115,8 @@ pub struct Witness {
 	/// The event hash: `keccak(abi.encodePacked(param0, param1, paramN, validator_set_id,
 	/// event_id))`
 	pub digest: [u8; 32],
-	/// Event nonce (it is unique across all Ethy event proofs)
-	pub event_id: EventId,
+	/// Event proof nonce (it is unique across all Ethy event proofs)
+	pub event_id: EventProofId,
 	/// The validator set witnessing the message
 	pub validator_set_id: ValidatorSetId,
 	/// Node public key (i.e. Ethy session key)
@@ -126,7 +134,7 @@ pub struct EventProof {
 	/// The hash of: `keccak(abi.encode(param0, param1, ..,paramN, validator_set_id, event_id))`
 	pub digest: [u8; 32],
 	/// The witness signatures are collected for this event.
-	pub event_id: EventId,
+	pub event_id: EventProofId,
 	/// The validators set Id that signed the proof
 	pub validator_set_id: ValidatorSetId,
 	/// GRANDPA validators' signatures for the witness.

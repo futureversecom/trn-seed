@@ -25,7 +25,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
-use seed_primitives::ethy::{crypto::AuthorityId as Public, EventId, Witness};
+use seed_primitives::ethy::{crypto::AuthorityId as Public, EventProofId, Witness};
 
 use crate::keystore::EthyKeystore;
 
@@ -53,9 +53,9 @@ where
 	B: Block,
 {
 	topic: B::Hash,
-	known_votes: RwLock<BTreeMap<EventId, Vec<Public>>>,
+	known_votes: RwLock<BTreeMap<EventProofId, Vec<Public>>>,
 	/// Pruned list of recently completed events
-	complete_events: RwLock<VecDeque<EventId>>,
+	complete_events: RwLock<VecDeque<EventProofId>>,
 	/// Public (ECDSA session) keys of active ethy validators
 	active_validators: RwLock<Vec<Public>>,
 	/// Scheduled time for re-broadcasting event witnesses
@@ -78,12 +78,12 @@ where
 
 	/// Wheher the gossip validator is tracking an event
 	#[cfg(test)]
-	fn is_tracking_event(&self, event_id: &EventId) -> bool {
+	fn is_tracking_event(&self, event_id: &EventProofId) -> bool {
 		self.known_votes.read().get(event_id).is_some()
 	}
 
 	/// Make a vote for an event as complete
-	pub fn mark_complete(&self, event_id: EventId) {
+	pub fn mark_complete(&self, event_id: EventProofId) {
 		let mut known_votes = self.known_votes.write();
 		known_votes.remove(&event_id);
 		let mut complete_events = self.complete_events.write();

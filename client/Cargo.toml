@@ -20,6 +20,7 @@ path = "src/main.rs"
 [dependencies]
 futures = "0.3.24"
 clap = { version = "3.2.20", features = ["derive"] }
+url = "2.2.2"
 
 sc-cli = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }

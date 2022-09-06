@@ -4719,6 +4719,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-ethy"
+version = "1.0.1"
+dependencies = [
+ "ethabi",
+ "ethereum-types",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "rustc-hex",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "serde_json",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27#7334656b00a9fc1515f374897acb2d6e16f7bba7"
@@ -7139,6 +7163,7 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "try-runtime-cli",
+ "url",
 ]
 
 [[package]]
@@ -7146,9 +7171,11 @@ name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
  "frame-support",
+ "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
+ "sp-core",
  "sp-std",
 ]
 
@@ -7196,6 +7223,7 @@ dependencies = [
  "pallet-dex",
  "pallet-election-provider-multi-phase",
  "pallet-ethereum",
+ "pallet-ethy",
  "pallet-evm",
  "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",
@@ -7218,6 +7246,7 @@ dependencies = [
  "rustc-hex",
  "scale-info",
  "seed-client",
+ "seed-pallet-common",
  "seed-primitives",
  "seed-runtime",
  "serde",

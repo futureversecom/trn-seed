@@ -19,7 +19,7 @@ use std::collections::HashMap;
 
 use seed_primitives::ethy::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
-	EventId, Witness,
+	EventProofId, Witness,
 };
 /// Tracks live witnesses
 ///
@@ -30,11 +30,11 @@ use seed_primitives::ethy::{
 #[derive(Default)]
 pub struct WitnessRecord {
 	/// The record of witnesses ((event -> digest -> validator index) -> validator signature)
-	record: HashMap<EventId, HashMap<[u8; 32], Vec<(usize, Signature)>>>,
+	record: HashMap<EventProofId, HashMap<[u8; 32], Vec<(usize, Signature)>>>,
 	/// Metadata about an event ((id, digest) -> metadata)
-	event_meta: HashMap<EventId, ([u8; 32], Option<Vec<u8>>)>,
+	event_meta: HashMap<EventProofId, ([u8; 32], Option<Vec<u8>>)>,
 	/// Tracks observed witnesses from (event -> validator Id)
-	has_voted: HashMap<EventId, Vec<AuthorityId>>,
+	has_voted: HashMap<EventProofId, Vec<AuthorityId>>,
 	/// The ECDSA public (session) keys of active validators ORDERED!
 	validators: Vec<AuthorityId>,
 }
@@ -45,13 +45,13 @@ impl WitnessRecord {
 		self.validators = validators;
 	}
 	/// Remove a witness record from memory (typically after it has acheived consensus)
-	pub fn clear(&mut self, event_id: EventId) {
+	pub fn clear(&mut self, event_id: EventProofId) {
 		self.record.remove(&event_id);
 		self.event_meta.remove(&event_id);
 		self.has_voted.remove(&event_id);
 	}
 	/// Return all known signatures for the witness on (event_id, digest)
-	pub fn signatures_for(&self, event_id: EventId, digest: &[u8; 32]) -> Vec<Signature> {
+	pub fn signatures_for(&self, event_id: EventProofId, digest: &[u8; 32]) -> Vec<Signature> {
 		// proofs has unordered tuples of (i-th validator index, validator signature)
 		let proofs = self.record.get(&event_id).unwrap().get(digest).unwrap();
 		let mut signatures = proofs.clone();
@@ -59,7 +59,12 @@ impl WitnessRecord {
 		signatures.into_iter().map(|x| x.1.clone()).collect()
 	}
 	/// Does the event identified by `event_id` `digest` have >= `threshold` support
-	pub fn has_consensus(&self, event_id: EventId, digest: &[u8; 32], threshold: usize) -> bool {
+	pub fn has_consensus(
+		&self,
+		event_id: EventProofId,
+		digest: &[u8; 32],
+		threshold: usize,
+	) -> bool {
 		trace!(target: "ethy", "💎 event {:?}, records: {:?}", event_id, self.record.get(&event_id));
 		let maybe_count = self.record.get(&event_id).and_then(|x| x.get(digest)).map(|v| v.len());
 
@@ -67,13 +72,13 @@ impl WitnessRecord {
 		maybe_count.unwrap_or_default() >= threshold
 	}
 	/// Return event metadata (block, optional tag)
-	pub fn event_metadata(&self, event_id: EventId) -> Option<&([u8; 32], Option<Vec<u8>>)> {
+	pub fn event_metadata(&self, event_id: EventProofId) -> Option<&([u8; 32], Option<Vec<u8>>)> {
 		self.event_meta.get(&event_id)
 	}
 	/// Note event metadata
 	pub fn note_event_metadata(
 		&mut self,
-		event_id: EventId,
+		event_id: EventProofId,
 		block: [u8; 32],
 		tag: Option<Vec<u8>>,
 	) {

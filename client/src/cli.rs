@@ -1,3 +1,5 @@
+use sc_cli::{Error, Result};
+
 #[allow(missing_docs)]
 #[derive(Debug, clap::Parser)]
 pub struct RunCmd {
@@ -12,6 +14,20 @@ pub struct RunCmd {
 	/// Maximum fee history cache size (EVM).
 	#[clap(long, default_value = "2048")]
 	pub fee_history_limit: u64,
+
+	/// Ethereum JSON-RPC client endpoint
+	#[clap(
+		parse(try_from_str = parse_uri),
+		long = "eth-http",
+	)]
+	pub eth_http: Option<String>,
+}
+
+/// Parse HTTP `uri`
+fn parse_uri(uri: &str) -> Result<String> {
+	let _ = url::Url::parse(uri)
+		.map_err(|_| Error::Input("Invalid Ethereum HTTP URI provided".into()))?;
+	Ok(uri.into())
 }
 
 #[derive(Debug, clap::Parser)]
