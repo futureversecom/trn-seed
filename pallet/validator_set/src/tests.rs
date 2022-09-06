@@ -5,7 +5,7 @@ use sp_runtime::traits::BadOrigin;
 #[test]
 fn test_approved_origin_enforced() {
 	new_test_ext().execute_with(|| {
-		// Should thorow error on un_approved origin
+		// Should throw error on un_approved origin
 		assert_noop!(ValidatorSet::add_validator(Origin::signed(1), 2), BadOrigin);
 		// Should work with approved origin
 		assert_ok!(ValidatorSet::add_validator(Origin::root(), 2));
@@ -37,13 +37,13 @@ fn test_remove_validator_works() {
 		let _ = ValidatorSet::add_validator(Origin::root(), 2);
 
 		// Test removing an existing validator.
-		assert_ok!(ValidatorSet::remove_validator(Origin::root(), 2));
+		assert_ok!(ValidatorSet::remove_validator(Origin::root(), 2, 2));
 		let validator_list = ValidatorSet::validator_list();
 		assert_eq!(validator_list.len(), 1);
 
 		// Should throw error if non-existing validator is tried to removed.
 		assert_noop!(
-			ValidatorSet::remove_validator(Origin::root(), 2),
+			ValidatorSet::remove_validator(Origin::root(), 2, 2),
 			Error::<Test>::ValidatorNotFound
 		);
 	})
