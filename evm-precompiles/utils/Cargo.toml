@@ -26,7 +26,8 @@ sp-io = { git = "https://github.com/futureversecom/substrate", default-features 
 sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
 
 # Frontier
-evm = { git = "https://github.com/futureversecom/evm", branch = "polkadot-v0.9.27", default-features = false, features = [ "with-codec" ] }
+#evm = { git = "https://github.com/futureversecom/evm", branch = "polkadot-v0.9.27", default-features = false, features = [ "with-codec" ] }
+evm = { git = "https://github.com/futureversecom/evm", rev = "01bcbd2205a212c34451d3b4fabc962793b057d3", default-features = false, features = [ "with-codec" ] }
 fp-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27", default-features = false }
 pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27", default-features = false }
 
@@ -38,6 +39,7 @@ default = [ "std" ]
 std = [
 	"codec/std",
 	"fp-evm/std",
+	"evm/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-evm/std",
