@@ -159,7 +159,7 @@ describe("ERC721 Precompile", function () {
   })
 
 
-  it('name, symbol, ownerOf, tokenURI, balanceOf via EVM', async () => {
+  it('name, symbol, ownerOf, tokenURI via EVM', async () => {
     const serial_number = 2;
 
     // Check state proxy calls
