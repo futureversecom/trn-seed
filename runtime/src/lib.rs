@@ -290,7 +290,7 @@ impl pallet_nft::Config for Runtime {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
-	type OnTransferSubscription = pallet_nft::NoopTransferSubscriber;
+	type OnTransferSubscription = TokenApprovals;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type WeightInfo = ();
@@ -310,6 +310,10 @@ impl pallet_dex::Config for Runtime {
 	type TradingPathLimit = TradingPathLimit;
 	type WeightInfo = pallet_dex::weights::PlugWeight<Runtime>;
 	type MultiCurrency = AssetsExt;
+}
+
+impl pallet_token_approvals::Config for Runtime {
+	type IsTokenOwner = Nft;
 }
 
 parameter_types! {
@@ -782,7 +786,7 @@ construct_runtime! {
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
+		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Authorship: pallet_authorship::{Pallet, Call, Storage},
 		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Offences: pallet_offences::{Pallet, Storage, Event},
@@ -798,6 +802,7 @@ construct_runtime! {
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
+		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage},
 		Historical: pallet_session::historical::{Pallet},
 
 		// Election pallet. Only works with staking

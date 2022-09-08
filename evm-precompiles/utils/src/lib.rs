@@ -18,6 +18,7 @@
 
 extern crate alloc;
 
+pub mod constants;
 pub mod costs;
 pub mod handle;
 pub mod logs;
@@ -78,6 +79,22 @@ pub trait StatefulPrecompile {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput>;
 }
 
+/// Convert EVM addresses into Runtime Id identifiers and vice versa
+pub trait ErcIdConversion<RuntimeId> {
+	/// ID type used by EVM
+	type EvmId;
+	// Get runtime Id from EVM id
+	fn evm_id_to_runtime_id(
+		evm_id: Self::EvmId,
+		precompile_address_prefix: &[u8; 4],
+	) -> Option<RuntimeId>;
+	// Get EVM id from runtime Id
+	fn runtime_id_to_evm_id(
+		runtime_id: RuntimeId,
+		precompile_address_prefix: &[u8; 4],
+	) -> Self::EvmId;
+}
+
 pub mod prelude {
 	pub use crate::{
 		data::{Address, BoundedBytes, BoundedVec, Bytes, EvmData, EvmDataReader, EvmDataWriter},
@@ -87,7 +104,7 @@ pub mod prelude {
 		read_args, read_struct, revert,
 		revert::{BacktraceExt, InjectBacktrace, MayRevert, Revert, RevertExt, RevertReason},
 		substrate::{RuntimeHelper, TryDispatchError},
-		succeed, EvmResult, StatefulPrecompile,
+		succeed, ErcIdConversion, EvmResult, StatefulPrecompile,
 	};
 	pub use pallet_evm::PrecompileHandle;
 	pub use precompile_utils_macro::{generate_function_selector, keccak256};

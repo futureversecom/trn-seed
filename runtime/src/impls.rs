@@ -24,6 +24,9 @@ use frame_support::{
 	},
 };
 use pallet_evm::AddressMapping as AddressMappingT;
+use precompile_utils::{Address, ErcIdConversion};
+use seed_pallet_common::FinalSessionTracker;
+use seed_primitives::{AccountId, Balance, Index, Signature};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -31,9 +34,6 @@ use sp_runtime::{
 	ConsensusEngineId,
 };
 use sp_std::{marker::PhantomData, prelude::*};
-
-use seed_pallet_common::FinalSessionTracker;
-use seed_primitives::{AccountId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
@@ -77,14 +77,16 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 	/// Get the balance of `who`.
 	/// Scaled up so values match expectations of an 18dp asset
 	fn balance(who: &AccountId) -> Self::Balance {
-		Self::reducible_balance(who, true)
+		Self::reducible_balance(who, false)
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
 	/// Scaled up so values match expectations of an 18dp asset
-	fn reducible_balance(who: &AccountId, keep_alive: bool) -> Self::Balance {
+	/// keep_alive has been hardcoded to false to provide a similar experience to users coming
+	/// from Ethereum (Following POLA principles)
+	fn reducible_balance(who: &AccountId, _keep_alive: bool) -> Self::Balance {
 		// Careful for overflow!
-		let raw = I::reducible_balance(who, keep_alive);
+		let raw = I::reducible_balance(who, false);
 		U256::from(raw).saturating_mul(U256::from(XRP_UNIT_VALUE)).saturated_into()
 	}
 
@@ -101,7 +103,7 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 }
 
 /// Currency impl for EVM usage
-/// It proxies to the inner curreny impl while leaving some unused methods
+/// It proxies to the inner currency impl while leaving some unused methods
 /// unimplemented
 impl<I> Currency<AccountId> for EvmCurrencyScaler<I>
 where
@@ -210,6 +212,44 @@ where
 	}
 }
 
+impl<RuntimeId> ErcIdConversion<RuntimeId> for Runtime
+where
+	RuntimeId: From<u32> + Into<u32>,
+{
+	type EvmId = Address;
+
+	// Get runtime Id from EVM address
+	fn evm_id_to_runtime_id(
+		evm_id: Self::EvmId,
+		precompile_address_prefix: &[u8; 4],
+	) -> Option<RuntimeId> {
+		let h160_address: H160 = evm_id.into();
+		let (prefix_part, id_part) = h160_address.as_fixed_bytes().split_at(4);
+
+		if prefix_part == precompile_address_prefix {
+			let mut buf = [0u8; 4];
+			buf.copy_from_slice(&id_part[..4]);
+			let runtime_id: RuntimeId = u32::from_be_bytes(buf).into();
+
+			Some(runtime_id)
+		} else {
+			None
+		}
+	}
+	// Get EVM address from runtime_id (i.e. asset_id or collection_id)
+	fn runtime_id_to_evm_id(
+		runtime_id: RuntimeId,
+		precompile_address_prefix: &[u8; 4],
+	) -> Self::EvmId {
+		let mut buf = [0u8; 20];
+		let id: u32 = runtime_id.into();
+		buf[0..4].copy_from_slice(precompile_address_prefix);
+		buf[4..8].copy_from_slice(&id.to_be_bytes());
+
+		H160::from(buf).into()
+	}
+}
+
 /// Alias for pallet-balances NegativeImbalance
 type NegativeImbalance = pallet_balances::NegativeImbalance<Runtime>;
 
@@ -310,6 +350,29 @@ impl FinalSessionTracker for StakingSessionTracker {
 		return match Staking::force_era() {
 			Forcing::ForceNew | Forcing::ForceAlways => true,
 			Forcing::NotForcing | Forcing::ForceNone => false,
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn wei_to_xrp_units_scaling() {
+		let amounts_18 = vec![
+			1000000500000000000u128, // fractional bits <  0.0001
+			1000000000000000001u128, // fractional bits <  0.0001
+			1000001000000000000u128, // fractional bits at 0.0001
+			1000000000000000000u128, // no fractional bits < 0.0001
+			999u128,                 // entirely < 0.0001
+			1u128,
+			0u128,
+		];
+		let amounts_4 = vec![1000001_u128, 1000001, 1000001, 1000000, 1, 1, 0];
+		for (amount_18, amount_4) in amounts_18.into_iter().zip(amounts_4.into_iter()) {
+			println!("{:?}/{:?}", amount_18, amount_4);
+			assert_eq!(scale_wei_to_6dp(amount_18), amount_4);
 		}
 	}
 }

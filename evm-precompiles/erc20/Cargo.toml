@@ -1,0 +1,48 @@
+[package]
+name = "pallet-evm-precompiles-erc20"
+version = "2.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2018"
+repository = "https://github.com/futureversecom/seed"
+
+[dependencies]
+pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false }
+pallet-token-approvals = { path = "../../pallet/token-approvals", default-features = false }
+seed-pallet-common = { path = "../../pallet/common", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
+
+codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
+num_enum = { version = "0.5.3", default-features = false }
+precompile-utils = { path = "../utils", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+
+# Substrate
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+
+# Frontier
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"seed-primitives/std",
+  	"scale-info/std",
+	"pallet-assets-ext/std",
+	"pallet-assets/std",
+	"pallet-token-approvals/std",
+	"fp-evm/std",
+	"frame-support/std",
+	"frame-system/std",
+	"num_enum/std",
+	"precompile-utils/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	"sp-std/std",
+]

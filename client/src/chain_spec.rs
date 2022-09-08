@@ -5,15 +5,14 @@ use sp_runtime::{
 	Perbill,
 };
 
-use seed_primitives::Balance;
 use seed_runtime::{
 	constants::{
 		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
 		ONE_XRP, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, BalancesConfig, Forcing, GenesisConfig, SessionConfig, SessionKeys,
-	Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AssetsConfig, Balance, BalancesConfig, Forcing, GenesisConfig, SessionConfig,
+	SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 
 // The URL for the telemetry server.
@@ -244,6 +243,7 @@ fn testnet_genesis(
 		//  otherwise causes: Thread 'main' panicked at 'Authorities are already initialized!'
 		aura: Default::default(),
 		assets: AssetsConfig { assets, accounts: endowed_assets, metadata },
+		assets_ext: Default::default(),
 		grandpa: Default::default(),
 		im_online: Default::default(),
 		nft: Default::default(),
