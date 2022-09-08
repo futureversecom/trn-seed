@@ -57,7 +57,7 @@ describe("ERC20 Precompile", function () {
     ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, receiverAddress, transferAmount);
 
     expect(await xrpToken.balanceOf(receiverAddress)).to.be.equal(transferAmount);
-  }).timeout(15000);
+  })
 
   it('XRP transfer amounts via EVM', async () => {
     // fund the contract with some XRP
@@ -74,7 +74,7 @@ describe("ERC20 Precompile", function () {
     const receiverAddress = await Wallet.createRandom().getAddress();
     let tx = await precompileCaller.sendXRPAmounts(receiverAddress);
     await tx.wait();
-  }).timeout(18000000000000);
+  })
 
   it('approve and transferFrom', async () => {
     let approvedAmount = 12345;
@@ -90,7 +90,7 @@ describe("ERC20 Precompile", function () {
         precompileCaller.takeXRP(approvedAmount)
     ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
 
-  }).timeout(15000);
+  })
 
   it('XRP transfer amounts via transaction', async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
@@ -124,7 +124,7 @@ describe("ERC20 Precompile", function () {
       expect(balance).to.be.equal(total.toString());
 
       // sleep, prevents nonce issues
-      await new Promise(r => setTimeout(r, 500));
+      // await new Promise(r => setTimeout(r, 500));
     }
-  }).timeout(60 * 1000);
+  })
 });

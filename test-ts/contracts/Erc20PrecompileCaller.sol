@@ -25,7 +25,7 @@ contract ERC20PrecompileCaller {
         uint256 total;
 
         for(uint i; i < 5; i++) {
-            (bool sent, bytes memory _data) = destination.call{value: uint256(amounts_18[i])}("");
+            (bool sent, ) = destination.call{value: uint256(amounts_18[i])}("");
             require(sent, "Failed to send XRP");
             total += (uint256(amounts_6[i]) * uint256(1e12));
             require(total == address(destination).balance, "unexpected balance");
