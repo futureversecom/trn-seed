@@ -113,8 +113,11 @@ impl<T: Config> Pallet<T> {
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
 		<Relayer<T>>::insert(relayer.clone(), timestamp);
-		let val =
-			XrpTransaction { transaction_hash: transaction_hash.clone(), transaction: transaction.clone(), timestamp };
+		let val = XrpTransaction {
+			transaction_hash: transaction_hash.clone(),
+			transaction: transaction.clone(),
+			timestamp,
+		};
 		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val);
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())

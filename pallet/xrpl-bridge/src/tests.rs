@@ -1,6 +1,5 @@
-use crate::mock::*;
+use crate::{mock::*, H512};
 use frame_support::assert_ok;
-use crate::H512;
 
 #[test]
 fn test_add_transaction_works() {
