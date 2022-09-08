@@ -297,6 +297,16 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
+	pub const TransactionLimit: u32 = 2048u32;
+}
+
+impl pallet_xrpl_bridge::Config for Runtime {
+	type Event = Event;
+	type WeightInfo = ();
+	type TransactionLimit = TransactionLimit;
+}
+
+parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000);	// 0.3%
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXPalletId: PalletId = PalletId(*b"root/dex");
@@ -798,6 +808,7 @@ construct_runtime! {
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
+		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Event<T>},
 		Historical: pallet_session::historical::{Pallet},
 
 		// Election pallet. Only works with staking

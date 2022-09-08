@@ -65,6 +65,11 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, H512),
 	}
 
+	#[pallet::pallet]
+	#[pallet::generate_store(pub (super) trait Store)]
+	#[pallet::without_storage_info]
+	pub struct Pallet<T>(PhantomData<T>);
+
 	/// Global storage for relayers
 	#[pallet::storage]
 	#[pallet::getter(fn get_relayer)]
@@ -81,10 +86,6 @@ pub mod pallet {
 		),
 		XrpTransaction<T>,
 	>;
-
-	#[pallet::pallet]
-	#[pallet::without_storage_info]
-	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {

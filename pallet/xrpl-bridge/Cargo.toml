@@ -18,12 +18,12 @@ frame-system       = { git = 'https://github.com/futureversecom/substrate.git', 
 pallet-assets      = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 pallet-balances    = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 pallet-timestamp   = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-scale-info         = { version = '2.1', default-features = false, features = ['derive'] }
-serde              = { version = '1.0.136', features = ['derive'], optional = true }
+scale-info         = { version = '2.1.2', default-features = false, features = ['derive'] }
+serde              = { version = '1.0.144', features = ['derive'], optional = true }
 sp-runtime         = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 sp-std             = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-sp-core                 = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
-seed-primitives                           = { path = "../../primitives", default-features = false }
+sp-core            = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+seed-primitives    = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 sp-io                   = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
