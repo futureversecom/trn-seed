@@ -37,18 +37,6 @@ pub enum Action {
 	Decimals = "decimals()",
 }
 
-/// Convert EVM addresses into GA module identifiers and vice versa
-pub trait Erc20IdConversion {
-	/// ID type used by EVM
-	type EvmId;
-	/// ID type used by runtime
-	type RuntimeId;
-	// Get runtime Id from EVM id
-	fn evm_id_to_runtime_id(evm_id: Self::EvmId) -> Option<Self::RuntimeId>;
-	// Get EVM id from runtime Id
-	fn runtime_id_to_evm_id(runtime_id: Self::RuntimeId) -> Self::EvmId;
-}
-
 /// The following distribution has been decided for the precompiles
 /// The precompile for AssetId X, where X is a u128 (i.e.16 bytes), if 0XCCCCCCCC + Bytes(AssetId)
 /// In order to route the address to Erc20Precompile<R>, we first check whether the AssetId

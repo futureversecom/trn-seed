@@ -1,0 +1,25 @@
+{
+  "name": "seed-ethereum-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for seed ethereum features",
+  "main": "index.js",
+  "repository": "ssh://git@github.com/futureversecom/seed",
+  "author": "seed developers",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "test": "hardhat test",
+    "clean": "rm -rf ./cache/ && hardhat clean && hardhat typechain",
+    "hardhat:deploy": "hardhat run scripts/deploy.ts --network hardhat",
+    "hardhat:deploy:seed": "hardhat run scripts/deploy.ts --network seed"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^1.0.2",
+    "@polkadot/api": "^9.2.3",
+    "dotenv": "^16.0.1",
+    "hardhat": "^2.10.2"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.7.3"
+  }
+}
