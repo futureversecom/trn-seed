@@ -110,7 +110,7 @@ describe("ERC721 Precompile", function () {
     expect(
         await nftContract.tokenURI(1)
     ).to.equal("https://example.com/nft/metadata/1.json");
-  }).timeout(150000);
+  })
 
 
   it('transferFrom owner', async () => {
@@ -118,16 +118,16 @@ describe("ERC721 Precompile", function () {
     const serial_number = 0;
 
     // Transfer serial_number 0 to receiverAddress
+    const transfer = await nftContract.connect(bobSigner).transferFrom(bobSigner.address, receiverAddress, serial_number)
     expect(
-        await nftContract.transferFrom(bobSigner.address, receiverAddress, serial_number)
+        await transfer.wait()
     ).to.emit(nftContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, serial_number);
-    await new Promise(r => setTimeout(r, 6000));
 
     // Receiver_address now owner of serial_number 1
     expect(
         await nftContract.ownerOf(serial_number)
     ).to.equal(receiverAddress);
-  }).timeout(18000);
+  })
 
 
   it('approve and transferFrom via transaction', async () => {
@@ -135,10 +135,10 @@ describe("ERC721 Precompile", function () {
     const serial_number = 1;
 
     // Bob approves alice for serial_number
+    const approval = await nftContract.approve(aliceSigner.address, serial_number)
     expect(
-        await nftContract.approve(aliceSigner.address, serial_number)
-    ).to.emit(nftContract, 'Approval').withArgs(bobSigner.address, bobSigner.address, serial_number);
-    await new Promise(r => setTimeout(r, 6000));
+        await approval.wait()
+    ).to.emit(nftContract, 'Approval').withArgs(bobSigner.address, aliceSigner.address, serial_number);
 
     // getApproved should be alice
     expect(
@@ -146,16 +146,17 @@ describe("ERC721 Precompile", function () {
     ).to.equal(aliceSigner.address);
 
     // Alice transfers serial_number (Owned by Bob)
+    const transfer = await nftContract.connect(aliceSigner).transferFrom(bobSigner.address, receiverAddress, serial_number)
+
     expect(
-        await nftContract.connect(aliceSigner).transferFrom(bobSigner.address, receiverAddress, serial_number)
+        await transfer.wait()
     ).to.emit(nftContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, serial_number);
-    await new Promise(r => setTimeout(r, 6000));
 
     // Receiver_address now owner of serial_number
     expect(
         await nftContract.ownerOf(serial_number)
     ).to.equal(receiverAddress);
-  }).timeout(21000);
+  })
 
 
   it('name, symbol, ownerOf, tokenURI, balanceOf via EVM', async () => {
@@ -177,7 +178,7 @@ describe("ERC721 Precompile", function () {
     expect(
         await precompileCaller.tokenURIProxy(serial_number)
     ).to.equal(`https://example.com/nft/metadata/${serial_number}.json`);
-  }).timeout(15000);
+  })
   
   
   it('approve and transferFrom via EVM', async () => {
@@ -186,7 +187,9 @@ describe("ERC721 Precompile", function () {
 
     // Bob approves contract for serial_number
     const approval = await nftContract.connect(bobSigner).approve(precompileCaller.address, serial_number)
-    await approval.wait();
+    expect(
+        await approval.wait()
+    ).to.emit(nftContract, 'Approval').withArgs(bobSigner.address, precompileCaller.address, serial_number);
     // Approved should be correct
     expect(
         await nftContract.getApproved(serial_number)
@@ -196,7 +199,9 @@ describe("ERC721 Precompile", function () {
     const transfer = await precompileCaller
         .connect(bobSigner)
         .transferFromProxy(bobSigner.address, receiverAddress, serial_number, {gasLimit: 50000})
-    await transfer.wait();
+    expect(
+        await transfer.wait()
+    ).to.emit(nftContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, serial_number);
 
     // contract_address now owner of serial_number
     expect(
@@ -205,5 +210,5 @@ describe("ERC721 Precompile", function () {
     expect(
         await precompileCaller.ownerOfProxy(serial_number)
     ).to.equal(receiverAddress);
-  }).timeout(21000);
+  })
 });

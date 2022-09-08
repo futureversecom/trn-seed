@@ -35,7 +35,7 @@ contract ERC721PrecompileCaller {
         address to,
         uint256 token_id
     ) external {
-        (bool success, bytes memory returnData) = precompile.call(
+        (bool success,) = precompile.call(
             abi.encodeWithSignature(
                 "transferFrom(address,address,uint256)",
                 from,
