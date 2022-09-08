@@ -6,15 +6,15 @@ edition = "2018"
 repository = "https://github.com/futureversecom/seed"
 
 [dependencies]
-seed-primitives = { path = "../../primitives", default-features = false }
 pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false }
-seed-pallet-common = { path = "../../pallet/common", default-features = false }
 pallet-token-approvals = { path = "../../pallet/token-approvals", default-features = false }
+seed-pallet-common = { path = "../../pallet/common", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
 
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
-precompile-utils = { path = "../utils", default-features = false }
 num_enum = { version = "0.5.3", default-features = false }
+precompile-utils = { path = "../utils", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }

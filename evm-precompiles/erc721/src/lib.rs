@@ -187,16 +187,15 @@ where
 		read_args!(handle, { owner: Address });
 		let owner: H160 = owner.into();
 
-		// Fetch info.
-		let amount: U256 = match pallet_nft::Pallet::<Runtime>::token_balance::<Runtime::AccountId>(
-			owner.into(),
-		) {
-			Some(balance_map) => U256::from(*(balance_map.get(&collection_id).unwrap_or(&0))),
-			None => U256::zero(),
-		};
-
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(amount).build()))
+		Ok(succeed(
+			EvmDataWriter::new()
+				.write(U256::from(pallet_nft::Pallet::<Runtime>::token_balance_of(
+					owner.into(),
+					collection_id,
+				)))
+				.build(),
+		))
 	}
 
 	fn transfer_from(

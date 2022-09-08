@@ -35,6 +35,14 @@ impl<T: Config> Pallet<T> {
 		<CollectionInfo<T>>::contains_key(collection_id)
 	}
 
+	/// Returns number of tokens owned by an account in a collection
+	pub fn token_balance_of(account_id: T::AccountId, collection_id: CollectionUuid) -> TokenCount {
+		match Self::token_balance(account_id) {
+			Some(balance_map) => *(balance_map.get(&collection_id).unwrap_or(&0)),
+			None => TokenCount::zero(),
+		}
+	}
+
 	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721
 	/// metadata token_uri)
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {

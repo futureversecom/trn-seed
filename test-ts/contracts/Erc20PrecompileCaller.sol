@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.13;
+pragma solidity 0.8.14;
 import "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 // Calls Root network ERC20 precompile
@@ -7,7 +7,7 @@ contract ERC20PrecompileCaller {
     // derived XRP token address on testnets (AssetId 2)
     // cccccccc (prefix) + 00000002 (assetId) + padding
     // run through web3.utils.toChecksumAddress(..)
-    address xrpPrecompile = 0xCCCCcCCc00000002000000000000000000000000;
+    address public xrpPrecompile = 0xCCCCcCCc00000002000000000000000000000000;
 
     receive() external payable {}
 

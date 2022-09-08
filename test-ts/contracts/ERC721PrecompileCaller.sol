@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity 0.8.13;
+pragma solidity 0.8.14;
 import "@openzeppelin/contracts/interfaces/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol";
 
 contract ERC721PrecompileCaller {
-    address precompile;
+    address public precompile;
 
     constructor(address _precompile) {
         precompile = _precompile;
