@@ -45,7 +45,7 @@ const name = "test-collection";
 const metadataPath = {"Https": "example.com/nft/metadata" }
 const initial_balance = 10;
 
-describe("ERC721 Precompile", function () {
+describe('ERC721 Precompile', function () {
   let api: ApiPromise;
   let keyring: Keyring;
   let bob: AddressOrPair;
