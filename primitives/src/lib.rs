@@ -13,7 +13,7 @@ pub mod types {
 	use sp_runtime::traits::{IdentifyAccount, Verify};
 
 	/// An index to a block.
-	pub type BlockNumber = u64;
+	pub type BlockNumber = u32;
 
 	/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 	pub type Signature = EthereumSignature;
@@ -64,6 +64,9 @@ pub mod types {
 
 	/// The type for identifying the validators
 	pub type ValidatorId = u32;
+
+	/// The type for identifying the relayers
+	pub type RelayerId = u32;
 
 	pub type Timestamp = u64;
 }

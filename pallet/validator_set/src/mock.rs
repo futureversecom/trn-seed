@@ -1,4 +1,4 @@
-use crate as pallet_validator;
+use crate as pallet_validator_set;
 use frame_support::traits::{ConstU16, ConstU64};
 use frame_system as system;
 use sp_core::H256;
@@ -18,7 +18,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		ValidatorSet: pallet_validator::{Pallet, Call, Storage, Event<T>},
+		ValidatorSet: pallet_validator_set::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -49,7 +49,7 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_validator::Config for Test {
+impl pallet_validator_set::Config for Test {
 	type Event = Event;
 	type ApproveOrigin = system::EnsureRoot<Self::AccountId>;
 }
