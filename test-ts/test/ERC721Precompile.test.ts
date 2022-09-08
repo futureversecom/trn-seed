@@ -36,8 +36,7 @@ const typedefs = {
     s: 'H256',
     v: 'U8'
   },
-  ExtrinsicSignature: 'EthereumSignature',
-  SessionKeys: '([u8; 32], [u8; 32])'
+  ExtrinsicSignature: 'EthereumSignature'
 };
 
 // NFT Collection information
