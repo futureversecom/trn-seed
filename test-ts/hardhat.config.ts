@@ -28,6 +28,7 @@ const config: HardhatUserConfig = {
     },
     seed: {
       url: 'http://localhost:9933',
+      // Alice account
       accounts: [`0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854`],
       chainId: 3999,
     },
