@@ -1,5 +1,5 @@
-use crate::{mock::*};
-use frame_support::{assert_ok};
+use crate::mock::*;
+use frame_support::assert_ok;
 
 #[test]
 fn test_add_transaction_works() {
@@ -19,10 +19,10 @@ fn add_transaction(relayer: u64, block_number: u64) {
 		  "Amount" : "1000000"
 		}"#;
 	assert_ok!(XRPLBridge::submit_transaction(
-			Origin::signed(relayer),
-			block_number,
-			hash.to_vec().try_into().unwrap(),
-			transaction.to_vec().try_into().unwrap(),
-			1234
-		));
+		Origin::signed(relayer),
+		block_number,
+		hash.to_vec().try_into().unwrap(),
+		transaction.to_vec().try_into().unwrap(),
+		1234
+	));
 }
