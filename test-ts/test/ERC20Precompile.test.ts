@@ -126,6 +126,3 @@ describe("ERC20 Precompile", function () {
     }
   }).timeout(60 * 1000);
 });
-
-// Alice: 0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b
-// Bob: 0x25451A4de12dcCc2D166922fA938E900fCc4ED24
