@@ -59,12 +59,15 @@ pallet-evm-precompile-modexp = { default-features = false, git = "https://github
 pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
 pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
 precompile-utils = { path = "../evm-precompiles/utils", default-features = false }
+pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
+pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
+pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
 
@@ -130,6 +133,7 @@ std = [
 	"pallet-nft/std",
 	"pallet-xrpl-bridge/std",
 	"pallet-tx-fee-pot/std",
+	"pallet-token-approvals/std",
 	"seed-primitives/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",
@@ -140,6 +144,8 @@ std = [
 	"pallet-evm-precompile-modexp/std",
 	"pallet-evm-precompile-simple/std",
 	"pallet-evm-precompile-sha3fips/std",
+	"pallet-evm-precompiles-erc721/std",
+	"pallet-evm-precompiles-erc20/std",
 	"precompile-utils/std",
 	"rustc-hex/std",
 ]

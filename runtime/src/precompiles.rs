@@ -1,8 +1,19 @@
+use frame_support::parameter_types;
 use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
-use precompile_utils::precompile_set::*;
+use pallet_evm_precompiles_erc20::Erc20PrecompileSet;
+use pallet_evm_precompiles_erc721::Erc721PrecompileSet;
+use precompile_utils::{
+	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX},
+	precompile_set::*,
+};
+
+parameter_types! {
+	pub Erc721AssetPrefix: &'static [u8] = ERC721_PRECOMPILE_ADDRESS_PREFIX;
+	pub Erc20AssetPrefix: &'static [u8] = ERC20_PRECOMPILE_ADDRESS_PREFIX;
+}
 
 /// The PrecompileSet installed in the Futureverse runtime.
 /// We include six of the nine Istanbul precompiles
@@ -31,5 +42,8 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 				// Futureverse specific precompiles:
 			),
 		>,
+		// Prefixed precompile sets (XC20)
+		PrecompileSetStartingWith<Erc721AssetPrefix, Erc721PrecompileSet<R>>,
+		PrecompileSetStartingWith<Erc20AssetPrefix, Erc20PrecompileSet<R>>,
 	),
 >;

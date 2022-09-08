@@ -59,14 +59,6 @@ pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
-pub struct NoopTransferSubscriber;
-impl OnTransferSubscriber for NoopTransferSubscriber {
-	fn on_nft_transfer(_token_id: &TokenId) {
-		// TODO Replace with token-approvals pallet
-		// https://github.com/futureversecom/parachains/issues/11
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
