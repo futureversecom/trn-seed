@@ -69,6 +69,7 @@ pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
+pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -130,6 +131,7 @@ std = [
 	"pallet-dex/std",
 	"pallet-ethy/std",
 	"pallet-nft/std",
+	"pallet-xrpl-bridge/std",
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
 	"seed-primitives/std",
