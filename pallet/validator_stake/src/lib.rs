@@ -2,21 +2,17 @@
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::{
-		Currency, LockIdentifier, LockableCurrency,
-		UnixTime, WithdrawReasons,
-	},
+	traits::{Currency, LockIdentifier, LockableCurrency, UnixTime, WithdrawReasons},
 };
+use frame_system::{ensure_signed, pallet_prelude::*};
 pub use pallet::*;
+use pallet_validator_set::ValidatorSet;
 use seed_primitives::{Balance, ValidatorId};
 use sp_runtime::{traits::UniqueSaturatedInto, ArithmeticError};
 use sp_std::prelude::*;
-use frame_system::ensure_signed;
-use frame_system::pallet_prelude::*;
-use pallet_validator_set::ValidatorSet;
 
-pub mod weights;
 mod helpers;
+pub mod weights;
 
 type BalanceOf<T> =
 	<<T as Config>::Balances as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -69,8 +65,6 @@ pub mod pallet {
 		AmountIsLessThanMinUnStake,
 		/// Staking Account not found
 		StakingAccountNotFound,
-		/// Insufficient Balance
-		InsufficientBalance,
 		/// The given validator is not active
 		InactiveValidator,
 	}
@@ -86,7 +80,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn total_staked)]
-	/// Total Staked (locked) amount (not associated with any given validator)
+	/// Total staked (locked) amount (not associated with any given validator)
 	pub type TotalStaked<T: Config> = StorageMap<_, Blake2_128Concat, ValidatorId, Balance>;
 
 	#[pallet::storage]
@@ -119,7 +113,10 @@ pub mod pallet {
 			validator_acc: AccountIdOf<T>,
 			#[pallet::compact] amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			ensure!(T::ValidatorSet::is_validator(validator_id, &validator_acc), Error::<T>::InactiveValidator);
+			ensure!(
+				T::ValidatorSet::is_validator(validator_id, &validator_acc),
+				Error::<T>::InactiveValidator
+			);
 
 			let sender = ensure_signed(origin)?;
 
@@ -148,7 +145,10 @@ pub mod pallet {
 			validator_acc: AccountIdOf<T>,
 			#[pallet::compact] amount: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			ensure!(T::ValidatorSet::is_validator(validator_id, &validator_acc), Error::<T>::InactiveValidator);
+			ensure!(
+				T::ValidatorSet::is_validator(validator_id, &validator_acc),
+				Error::<T>::InactiveValidator
+			);
 
 			let receiver = ensure_signed(origin)?;
 
@@ -158,12 +158,7 @@ pub mod pallet {
 				StakingValidatorInfo::<T>::contains_key(validator_id, receiver.clone()),
 				Error::<T>::StakingAccountNotFound
 			);
-
-			ensure!(
-				T::Balances::free_balance(&receiver) >= amount,
-				Error::<T>::InsufficientBalance
-			);
-
+			Self::deposit_event(Event::Unstaked(amount));
 			Ok(().into())
 		}
 	}
@@ -180,8 +175,6 @@ impl<T: Config> Pallet<T> {
 		validator_id: ValidatorId,
 		amount: BalanceOf<T>,
 	) -> DispatchResultWithPostInfo {
-		let available_balance = Self::available_balance(sender.clone(), validator_id)?;
-		ensure!(amount <= available_balance, Error::<T>::AmountIsLessThanAvailableBalance);
 		Self::add_to_total_stake(validator_id, amount)?;
 		if StakingValidatorInfo::<T>::contains_key(validator_id, sender.clone()) {
 			StakingValidatorInfo::<T>::mutate(
@@ -201,7 +194,8 @@ impl<T: Config> Pallet<T> {
 				},
 			)
 		} else {
-			let mut info = Self::staking_validator_info(validator_id, sender.clone()).unwrap_or_default();
+			let mut info =
+				Self::staking_validator_info(validator_id, sender.clone()).unwrap_or_default();
 
 			info.total = amount.unique_saturated_into();
 			info.timestamp = T::UnixTime::now().as_secs();
@@ -218,8 +212,7 @@ impl<T: Config> Pallet<T> {
 		let mut available_balance: u128 =
 			T::Balances::free_balance(&account).unique_saturated_into();
 		if StakingValidatorInfo::<T>::contains_key(validator_id, account.clone()) {
-			let total_staked =
-				StakingValidatorInfo::<T>::get(validator_id, account).unwrap().total;
+			let total_staked = StakingValidatorInfo::<T>::get(validator_id, account).unwrap().total;
 			available_balance =
 				available_balance.checked_sub(total_staked).ok_or(ArithmeticError::Overflow)?;
 		}
@@ -230,7 +223,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Adds to total stake amount for all validators
-	pub fn add_to_total_stake(validator_id: ValidatorId, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+	pub fn add_to_total_stake(
+		validator_id: ValidatorId,
+		amount: BalanceOf<T>,
+	) -> DispatchResultWithPostInfo {
 		if TotalStaked::<T>::get(validator_id) == None {
 			let amount_tmp: u128 = amount;
 			TotalStaked::<T>::insert(validator_id, amount_tmp);

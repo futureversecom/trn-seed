@@ -6,8 +6,7 @@ use seed_primitives::{Balance, Timestamp};
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct Depository {
-	/// The total amount of the stash's balance that we are currently accounting for.
-	/// It's just `active` plus all the `unlocking` balances.
+	/// The total staked amount (locked)
 	#[codec(compact)]
 	pub total: Balance,
 
