@@ -1,16 +1,30 @@
-import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import {expect} from "chai";
 import { ethers } from "hardhat";
-import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
-import web3 from 'web3';
+import { Contract, ContractFactory, Wallet, utils, BigNumber, Signer} from 'ethers';
 
-import { ApiPromise, HttpProvider, WsProvider, Keyring } from '@polkadot/api';
-import { u8aToHex, stringToHex, hexToU8a } from '@polkadot/util';
-import { AddressOrPair } from "@polkadot/api/types";
-import { JsonRpcProvider, Provider } from "@ethersproject/providers";
+import {ApiPromise, HttpProvider, WsProvider, Keyring} from '@polkadot/api';
+import {u8aToHex, stringToHex, hexToU8a} from '@polkadot/util';
+import {AddressOrPair} from "@polkadot/api/types";
+import {JsonRpcProvider, Provider} from "@ethersproject/providers";
 import ERC721PrecompileCaller from '../artifacts/contracts/ERC721PrecompileCaller.sol/ERC721PrecompileCaller.json';
-import ERC721CallerSimple from '../artifacts/contracts/ERC721CallerSimple.sol/ERC721CallerSimple.json';
+
+const erc721Abi = [
+  'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
+  'event Approval(address indexed owner, address indexed approved, uint256 tokenId)',
+  'event ApprovalForAll(address indexed owner, address indexed operator, bool approved)',
+  'function balanceOf(address who) public view returns (uint256)',
+  'function ownerOf(uint256 tokenId) public view returns (address)',
+  'function safeTransferFrom(address from, address to, uint256 tokenId)',
+  'function transferFrom(address from, address to, uint256 tokenId)',
+  'function approve(address to, uint256 tokenId)',
+  'function getApproved(uint256 tokenId) public view returns (address)',
+  'function setApprovalForAll(address operator, bool _approved)',
+  'function isApprovedForAll(address owner, address operator) public view returns (bool)',
+  'function safeTransferFrom(address from, address to, uint256 tokenId, bytes data)',
+  'function name() public view returns (string memory)',
+  'function symbol() public view returns (string memory)',
+  'function tokenURI(uint256 tokenId) public view returns (string memory)',
+];
 
 const typedefs = {
   AccountId: 'EthereumAccountId',
@@ -28,205 +42,130 @@ const typedefs = {
   SessionKeys: '([u8; 32], [u8; 32])'
 };
 
+// NFT Collection information
+const name = "test-collection";
+const metadataPath = {"Https": "example.com/nft/metadata" }
+const initial_balance = 10;
+
 describe("ERC721 Precompile", function () {
   let api: ApiPromise;
   let keyring: Keyring;
   let bob: AddressOrPair;
-  let bobSigner: Wallet;
-  let aliceSigner: Wallet;
-  let bobContract: Contract;
-  let aliceContract: Contract;
-  let jsonProvider: Provider;
-  // NFT Collection information
-  const name = "test-collection";
-  const metadataPath = {"Https": "example.com/nft/metadata" }
-  const initial_balance = 10;
-  // Address for first NFT collection
-  let nftPrecompileAddress: string = web3.utils.toChecksumAddress('0xAAAAAAAA00000464000000000000000000000000');
-  const erc721Abi = [
-    'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
-    'event Approval(address indexed owner, address indexed approved, uint256 tokenId)',
-    'event ApprovalForAll(address indexed owner, address indexed operator, bool approved)',
-    'function balanceOf(address who) public view returns (uint256)',
-    'function ownerOf(uint256 tokenId) public view returns (address)',
-    'function safeTransferFrom(address from, address to, uint256 tokenId)',
-    'function transferFrom(address from, address to, uint256 tokenId)',
-    'function approve(address to, uint256 tokenId)',
-    'function getApproved(uint256 tokenId) public view returns (address)',
-    'function setApprovalForAll(address operator, bool _approved)',
-    'function isApprovedForAll(address owner, address operator) public view returns (bool)',
-    'function safeTransferFrom(address from, address to, uint256 tokenId, bytes data)',
-    'function name() public view returns (string memory)',
-    'function symbol() public view returns (string memory)',
-    'function tokenURI(uint256 tokenId) public view returns (string memory)',
-  ];
+  let bobSigner: any;
+  let aliceSigner: any;
+  let nftContract: Contract;
+  // Address for NFT collection
+  let nftPrecompileAddress: string;
+  let precompileCaller: Contract;
   // Setup api instance
   before(async () => {
-    // Setup providers for jsonRPCs and WS
-    jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
     const wsProvider = new WsProvider(`ws://localhost:9944`);
 
     // Setup Root api instance and keyring
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     keyring = new Keyring({ type: 'ethereum' });
     bob = keyring.addFromSeed(hexToU8a('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf'));
-    console.log(`Connected to Root network`);
-
-    // Bob as seed signer
-    bobSigner = new Wallet('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf').connect(jsonProvider); // 'development' seed
-    aliceSigner = new Wallet('0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854').connect(jsonProvider); // 'development' seed
-    console.log(`Balance of Alice: ${await jsonProvider.getBalance(aliceSigner.address)}`);
-    console.log(`Balance of Bob: ${await jsonProvider.getBalance(bobSigner.address)}`);
+    [aliceSigner, bobSigner] = await ethers.getSigners();
 
     // Create NFT collection using runtime, bob is collection owner
-    api.tx.nft.createCollection(name, initial_balance, null, null, metadataPath, null).signAndSend(bob, async({ status, events }) => {
-      if (status.isInBlock) {
-        events.forEach(({ event: {data, method}}) => {
-          if (method == 'CollectionCreate') {
-            let collection_uuid = (data.toJSON() as any)[0];
-            console.log(`Minted NFT collection, collection_uuid: ${collection_uuid}`);
-
-            const collection_id_hex = (+collection_uuid).toString(16).padStart(8, '0');
-            nftPrecompileAddress = web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}000000000000000000000000`);
-
-            // Create two contracts, one for alice, one for Bob. This will allow approval tests
-            bobContract = new Contract(nftPrecompileAddress, erc721Abi, bobSigner);
-            aliceContract = new Contract(nftPrecompileAddress, erc721Abi, aliceSigner);
-
-            console.log(`NFT precompile address: ${nftPrecompileAddress}`);
+    await new Promise<void>((resolve) => {
+      api.tx.nft
+        .createCollection(name, initial_balance, null, null, metadataPath, null)
+        .signAndSend(bob, async ({status, events}) => {
+          if (status.isInBlock) {
+            events.forEach(({event: {data, method}}) => {
+              if (method == 'CollectionCreate') {
+                let collection_uuid = (data.toJSON() as any)[0];
+                const collection_id_hex = (+collection_uuid).toString(16).padStart(8, '0');
+                nftPrecompileAddress = ethers.utils.getAddress(`0xAAAAAAAA${collection_id_hex}000000000000000000000000`);
+                nftContract = new Contract(nftPrecompileAddress, erc721Abi, bobSigner);
+                resolve();
+              }
+            })
           }
-        })
-      }
+        });
     });
 
-    // Pause to allow block to finalize NFT collection creation
-    await new Promise(r => setTimeout(r, 6000));
+    // Deploy PrecompileCaller contract
+    const factory = await ethers.getContractFactory("ERC721PrecompileCaller");
+    precompileCaller = await factory.connect(bobSigner).deploy(nftPrecompileAddress);
   });
 
 
   it('name, symbol, ownerOf, tokenURI, balanceOf', async () => {
     expect(
-        await bobContract.name()
+        await nftContract.name()
     ).to.equal(name);
-    // await new Promise(r => setTimeout(r, 500));
 
     expect(
-        await bobContract.symbol()
+        await nftContract.symbol()
     ).to.equal(name);
-    // await new Promise(r => setTimeout(r, 500));
 
     expect(
-        await bobContract.ownerOf(1)
+        await nftContract.ownerOf(1)
     ).to.equal(bobSigner.address);
-    // await new Promise(r => setTimeout(r, 500));
 
     expect(
-        await bobContract.balanceOf(bobSigner.address)
+        await nftContract.balanceOf(bobSigner.address)
     ).to.equal(initial_balance);
 
     expect(
-        await bobContract.tokenURI(1)
+        await nftContract.tokenURI(1)
     ).to.equal("https://example.com/nft/metadata/1.json");
-  }).timeout(15000);
+  }).timeout(150000);
 
 
   it('transferFrom owner', async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
-    const token_id = 0;
+    const serial_number = 0;
 
-    // Transfer token_id 0 to receiverAddress
+    // Transfer serial_number 0 to receiverAddress
     expect(
-        await bobContract.transferFrom(bobSigner.address, receiverAddress, token_id)
-    ).to.emit(bobContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, token_id);
+        await nftContract.transferFrom(bobSigner.address, receiverAddress, serial_number)
+    ).to.emit(nftContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, serial_number);
     await new Promise(r => setTimeout(r, 6000));
 
-    // Receiver_address now owner of token_id 1
+    // Receiver_address now owner of serial_number 1
     expect(
-        await bobContract.ownerOf(token_id)
+        await nftContract.ownerOf(serial_number)
     ).to.equal(receiverAddress);
   }).timeout(18000);
 
 
   it('approve and transferFrom via transaction', async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
-    const token_id = 1;
+    const serial_number = 1;
 
-    // Bob approves alice for token_id
+    // Bob approves alice for serial_number
     expect(
-        await bobContract.approve(aliceSigner.address, token_id)
-    ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, bobSigner.address, token_id);
+        await nftContract.approve(aliceSigner.address, serial_number)
+    ).to.emit(nftContract, 'Approval').withArgs(bobSigner.address, bobSigner.address, serial_number);
     await new Promise(r => setTimeout(r, 6000));
 
     // getApproved should be alice
     expect(
-        await bobContract.getApproved(token_id)
+        await nftContract.getApproved(serial_number)
     ).to.equal(aliceSigner.address);
 
-    // Alice transfers token_id (Owned by Bob)
+    // Alice transfers serial_number (Owned by Bob)
     expect(
-        await aliceContract.transferFrom(bobSigner.address, receiverAddress, token_id)
-    ).to.emit(aliceContract, 'Transfer').withArgs(aliceSigner.address, receiverAddress, token_id);
+        await nftContract.connect(aliceSigner).transferFrom(bobSigner.address, receiverAddress, serial_number)
+    ).to.emit(nftContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, serial_number);
     await new Promise(r => setTimeout(r, 6000));
 
-    // Receiver_address now owner of token_id
+    // Receiver_address now owner of serial_number
     expect(
-        await bobContract.ownerOf(token_id)
+        await nftContract.ownerOf(serial_number)
     ).to.equal(receiverAddress);
   }).timeout(21000);
 
 
-  it('approve and transferFrom via EVM Simple contract', async () => {
-    const receiverAddress = await Wallet.createRandom().getAddress();
-    const token_id = 2;
-    // Deploy PrecompileSimpleCaller contract
-    let factory = await ethers.getContractFactory("ERC721CallerSimple");
-    const precompileCaller = await factory.connect(aliceSigner).deploy();
-    console.log(`CONTRACT DEPLOYED: ${precompileCaller.address}`);
-
-    await new Promise(r => setTimeout(r, 6000));
-
-    // Bob approves contract for token_id
-    expect(
-        await bobContract.approve(precompileCaller.address, token_id)
-    ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, precompileCaller.address, token_id);
-    await new Promise(r => setTimeout(r, 12000));
-
-    // Approved should be correct
-    expect(
-        await bobContract.getApproved(token_id)
-    ).to.equal(precompileCaller.address);
-
-    console.log("TESTING TRANSFER FROM");
-
-    expect(
-        await precompileCaller.connect(bobSigner).transferFromProxy(nftPrecompileAddress, bobSigner.address, receiverAddress, token_id, {gasLimit: 500000})
-    ).to.emit(bobContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, token_id);
-    await new Promise(r => setTimeout(r, 6000));
-    console.log("Transferred");
-
-    // contract_address now owner of token_id
-    expect(
-        await bobContract.ownerOf(token_id)
-    ).to.equal(receiverAddress);
-  }).timeout(21000000000000);
-
-
-  it('approve and transferFrom via EVM', async () => {
-    const receiverAddress = await Wallet.createRandom().getAddress();
-    const token_id = 3;
-    // Deploy PrecompileSimpleCaller contract
-    let factory = await ethers.getContractFactory("ERC721PrecompileCaller");
-    const precompileCaller = await factory.connect(aliceSigner).deploy(nftPrecompileAddress);
-
-    console.log(`CONTRACT DEPLOYED : ${precompileCaller.address}`);
-    console.log(`Bob Address       : ${bobSigner.address}`);
-    console.log(`Alice Address     : ${aliceSigner.address}`);
-
-    await new Promise(r => setTimeout(r, 6000));
+  it('name, symbol, ownerOf, tokenURI, balanceOf via EVM', async () => {
+    const serial_number = 2;
 
     // Check state proxy calls
     expect(
-        await precompileCaller.ownerOfProxy(token_id)
+        await precompileCaller.ownerOfProxy(serial_number)
     ).to.equal(bobSigner.address);
 
     expect(
@@ -238,30 +177,35 @@ describe("ERC721 Precompile", function () {
     ).to.equal(name);
 
     expect(
-        await precompileCaller.tokenURIProxy(token_id)
-    ).to.equal(`https://example.com/nft/metadata/${token_id}.json`);
+        await precompileCaller.tokenURIProxy(serial_number)
+    ).to.equal(`https://example.com/nft/metadata/${serial_number}.json`);
+  }).timeout(15000);
+  
+  
+  it('approve and transferFrom via EVM', async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const serial_number = 3;
 
-    // Bob approves contract for token_id
-    expect(
-        await bobContract.approve(precompileCaller.address, token_id)
-    ).to.emit(bobContract, 'Approval').withArgs(bobSigner.address, precompileCaller.address, token_id);
-    await new Promise(r => setTimeout(r, 12000));
-
+    // Bob approves contract for serial_number
+    const approval = await nftContract.connect(bobSigner).approve(precompileCaller.address, serial_number)
+    await approval.wait();
     // Approved should be correct
     expect(
-        await bobContract.getApproved(token_id)
+        await nftContract.getApproved(serial_number)
     ).to.equal(precompileCaller.address);
 
-    console.log("TESTING TRANSFER FROM");
-    expect(
-        await precompileCaller.connect(bobSigner).transferFromProxy(nftPrecompileAddress, token_id, {gasLimit: 500000})
-    ).to.emit(bobContract, 'Transfer').withArgs(precompileCaller.address, receiverAddress, 12);
-    await new Promise(r => setTimeout(r, 6000));
-    console.log("Transferred");
+    // Transfer serial_number to receiverAddress
+    const transfer = await precompileCaller
+        .connect(bobSigner)
+        .transferFromProxy(bobSigner.address, receiverAddress, serial_number, {gasLimit: 50000})
+    await transfer.wait();
 
-    // contract_address now owner of token_id
+    // contract_address now owner of serial_number
     expect(
-        await bobContract.ownerOf(token_id)
+        await precompileCaller.balanceOfProxy(receiverAddress)
+    ).to.equal(1);
+    expect(
+        await precompileCaller.ownerOfProxy(serial_number)
     ).to.equal(receiverAddress);
-  }).timeout(21000000000000);
+  }).timeout(21000);
 });

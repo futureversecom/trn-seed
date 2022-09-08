@@ -31,15 +31,18 @@ contract ERC721PrecompileCaller {
     }
 
     function transferFromProxy(
-        address precompile_address,
-        uint256 serial_number
+        address from,
+        address to,
+        uint256 token_id
     ) external {
-        IERC721(precompile_address).transferFrom(msg.sender, address(this), serial_number);
-    }
-
-    function approveProxy(
-        uint256 serial_number
-    ) external {
-        IERC721(precompile).approve(address(this), serial_number);
+        (bool success, bytes memory returnData) = precompile.call(
+            abi.encodeWithSignature(
+                "transferFrom(address,address,uint256)",
+                from,
+                to,
+                token_id
+            )
+        );
+        require(success, "call failed");
     }
 }
