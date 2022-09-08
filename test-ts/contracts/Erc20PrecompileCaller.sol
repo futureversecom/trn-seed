@@ -7,13 +7,13 @@ contract ERC20PrecompileCaller {
     // derived XRP token address on testnets (AssetId 2)
     // cccccccc (prefix) + 00000002 (assetId) + padding
     // run through web3.utils.toChecksumAddress(..)
-    address root = 0xCCCCcCCc00000002000000000000000000000000;
+    address xrpPrecompile = 0xCCCCcCCc00000002000000000000000000000000;
 
     receive() external payable {}
 
     // transfer XRP from caller using the Root precompile address w ERC20 abi
     function takeXRP(uint256 amount) external {
-        IERC20(root).transferFrom(msg.sender, address(this), amount);
+        IERC20(xrpPrecompile).transferFrom(msg.sender, address(this), amount);
     }
 
     // Test sending various XRP amounts via the EVM.
