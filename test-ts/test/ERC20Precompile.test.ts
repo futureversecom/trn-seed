@@ -2,25 +2,27 @@ import { expect } from "chai";
 import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
 import web3 from 'web3';
 import { JsonRpcProvider, Provider } from "@ethersproject/providers";
-import PrecompileCaller from '../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json';
+import PrecompileCaller from '../artifacts/contracts/ERC20PrecompileCaller.sol/ERC20PrecompileCaller.json';
+
+const xrpTokenAddress = web3.utils.toChecksumAddress('0xCCCCCCCC00000002000000000000000000000000');
+const erc20Abi = [
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
+  'function approve(address spender, uint256 amount) public returns (bool)',
+  'function allowance(address owner, address spender) public view returns (uint256)',
+  'function balanceOf(address who) public view returns (uint256)',
+  'function name() public view returns (string memory)',
+  'function symbol() public view returns (string memory)',
+  'function decimals() public view returns (uint8)',
+  'function transfer(address who, uint256 amount)',
+];
 
 describe("ERC20 Precompile", function () {
   let seedSigner: Wallet;
   let xrpToken: Contract;
   let precompileCaller: Contract;
   let jsonProvider: Provider;
-  const xrpTokenAddress = web3.utils.toChecksumAddress('0xCCCCCCCC00000002000000000000000000000000');
-  const erc20Abi = [
-    'event Transfer(address indexed from, address indexed to, uint256 value)',
-    'event Approval(address indexed owner, address indexed spender, uint256 value)',
-    'function approve(address spender, uint256 amount) public returns (bool)',
-    'function allowance(address owner, address spender) public view returns (uint256)',
-    'function balanceOf(address who) public view returns (uint256)',
-    'function name() public view returns (string memory)',
-    'function symbol() public view returns (string memory)',
-    'function decimals() public view returns (uint8)',
-    'function transfer(address who, uint256 amount)',
-  ];
+
   // Setup api instance
   before(async () => {
     // Setup providers for jsonRPCs and WS
@@ -55,7 +57,7 @@ describe("ERC20 Precompile", function () {
     ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, receiverAddress, transferAmount);
 
     expect(await xrpToken.balanceOf(receiverAddress)).to.be.equal(transferAmount);
-  }).timeout(15000);
+  })
 
   it('XRP transfer amounts via EVM', async () => {
     // fund the contract with some XRP
@@ -72,7 +74,7 @@ describe("ERC20 Precompile", function () {
     const receiverAddress = await Wallet.createRandom().getAddress();
     let tx = await precompileCaller.sendXRPAmounts(receiverAddress);
     await tx.wait();
-  }).timeout(18000);
+  })
 
   it('approve and transferFrom', async () => {
     let approvedAmount = 12345;
@@ -88,7 +90,7 @@ describe("ERC20 Precompile", function () {
         precompileCaller.takeXRP(approvedAmount)
     ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, precompileCaller.address, approvedAmount);
 
-  }).timeout(15000);
+  })
 
   it('XRP transfer amounts via transaction', async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
@@ -120,9 +122,6 @@ describe("ERC20 Precompile", function () {
       let balance = await jsonProvider.getBalance(receiverAddress);
       total = total.add(expected);
       expect(balance).to.be.equal(total.toString());
-
-      // sleep, prevents nonce issues
-      await new Promise(r => setTimeout(r, 500));
     }
-  }).timeout(60 * 1000);
+  })
 });
