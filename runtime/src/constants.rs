@@ -79,7 +79,7 @@ mod constants {
 	#[cfg(not(feature = "fast_epoch"))] // this is the default
 	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 6;
 	#[cfg(feature = "fast_epoch")]
-	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 2;
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
 
 	// Time is measured by number of blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);

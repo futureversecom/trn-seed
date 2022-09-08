@@ -24,16 +24,21 @@ use frame_support::{
 	},
 };
 use pallet_evm::AddressMapping as AddressMappingT;
+use precompile_utils::{Address, ErcIdConversion};
+use seed_pallet_common::FinalSessionTracker;
+use seed_primitives::{AccountId, Balance, Index, Signature};
 use sp_core::{H160, U256};
 use sp_runtime::{
-	traits::{AccountIdConversion, SaturatedConversion, Zero},
+	generic::{Era, SignedPayload},
+	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
 	ConsensusEngineId,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-use crate::{Runtime, Session, SlashPotId};
-use precompile_utils::{Address, ErcIdConversion};
-use seed_primitives::{AccountId, Balance};
+use crate::{
+	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
+	UncheckedExtrinsic,
+};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -258,6 +263,94 @@ impl OnUnbalanced<NegativeImbalance> for SlashImbalanceHandler {
 			&SlashPotId::get().into_account_truncating(),
 			amount,
 		);
+	}
+}
+
+/// Submits a transaction with the node's public and signature type. Adheres to the signed extension
+/// format of the chain.
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
+where
+	Call: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: Call,
+		public: <Signature as Verify>::Signer,
+		account: AccountId,
+		nonce: Index,
+	) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
+		let tip = 0;
+		// take the biggest period possible.
+		let period =
+			BlockHashCount::get().checked_next_power_of_two().map(|c| c / 2).unwrap_or(2) as u64;
+		let current_block = System::block_number()
+			.saturated_into::<u64>()
+			// The `System::block_number` is initialized with `n+1`,
+			// so the actual block number is `n`.
+			.saturating_sub(1);
+		let era = Era::mortal(period, current_block);
+		let extra = (
+			frame_system::CheckNonZeroSender::<Runtime>::new(),
+			frame_system::CheckSpecVersion::<Runtime>::new(),
+			frame_system::CheckTxVersion::<Runtime>::new(),
+			frame_system::CheckGenesis::<Runtime>::new(),
+			frame_system::CheckEra::<Runtime>::from(era),
+			frame_system::CheckNonce::<Runtime>::from(nonce),
+			frame_system::CheckWeight::<Runtime>::new(),
+			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+		);
+		let raw_payload = SignedPayload::new(call, extra)
+			.map_err(|e| {
+				log::error!("unable to create signed payload: {:?}", e);
+			})
+			.ok()?;
+		let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
+		let (call, extra, _) = raw_payload.deconstruct();
+		Some((call, (account, signature.into(), extra)))
+	}
+}
+
+/// Tracks session/era status of the staking pallet
+pub struct StakingSessionTracker;
+
+impl FinalSessionTracker for StakingSessionTracker {
+	/// Returns whether the next session is the final session of an era
+	fn is_next_session_final() -> bool {
+		let active_era = Staking::active_era().map(|e| e.index).unwrap_or(0);
+		// This is only `Some` when current era has already progressed to the next era, while the
+		// active era is one behind (i.e. in the *last session of the active era*, or *first session
+		// of the new current era*, depending on how you look at it).
+		if let Some(era_start_session_index) = Staking::eras_start_session_index(active_era) {
+			if Session::current_index() + 1 ==
+				era_start_session_index + SessionsPerEra::get().saturating_sub(1)
+			{
+				// natural era rotation
+				return true
+			}
+		}
+
+		false
+	}
+	/// Returns whether the active session is the final session of an era
+	fn is_active_session_final() -> bool {
+		use pallet_staking::Forcing;
+		let active_era = Staking::active_era().map(|e| e.index).unwrap_or(0);
+		// This is only `Some` when current era has already progressed to the next era, while the
+		// active era is one behind (i.e. in the *last session of the active era*, or *first session
+		// of the new current era*, depending on how you look at it).
+		if let Some(era_start_session_index) = Staking::eras_start_session_index(active_era) {
+			if Session::current_index() ==
+				era_start_session_index + SessionsPerEra::get().saturating_sub(1)
+			{
+				// natural era rotation
+				return true
+			}
+		}
+
+		// check if era is going to be forced e.g. due to forced re-election
+		return match Staking::force_era() {
+			Forcing::ForceNew | Forcing::ForceAlways => true,
+			Forcing::NotForcing | Forcing::ForceNone => false,
+		}
 	}
 }
 

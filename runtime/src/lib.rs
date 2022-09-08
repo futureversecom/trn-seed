@@ -21,7 +21,7 @@ use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
 		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup,
-		PostDispatchInfoOf,
+		PostDispatchInfoOf, Verify,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -62,7 +62,7 @@ pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 #[cfg(feature = "std")]
 pub use pallet_staking::{Forcing, StakerStatus};
 pub mod keys {
-	pub use super::{AuraId, GrandpaId, ImOnlineId};
+	pub use super::{AuraId, EthBridgeId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
 	ethy::crypto::AuthorityId as EthBridgeId, AccountId, Address, AssetId, AuraId, Balance,
@@ -78,7 +78,10 @@ use constants::{
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
-use impls::{AddressMapping, EthereumFindAuthor, EvmCurrencyScaler, SlashImbalanceHandler};
+use impls::{
+	AddressMapping, EthereumFindAuthor, EvmCurrencyScaler, SlashImbalanceHandler,
+	StakingSessionTracker,
+};
 
 pub mod precompiles;
 use precompiles::FutureversePrecompiles;
@@ -110,6 +113,7 @@ impl_opaque_keys! {
 		pub aura: Aura,
 		pub im_online: ImOnline,
 		pub grandpa: Grandpa,
+		pub ethy: EthBridge,
 	}
 }
 
@@ -617,6 +621,38 @@ impl pallet_tx_fee_pot::Config for Runtime {
 	type TxFeePotId = TxFeePotId;
 }
 
+parameter_types! {
+	/// % threshold of notarizations required to verify or prove bridge events
+	pub const NotarizationThreshold: sp_runtime::Percent = sp_runtime::Percent::from_percent(66_u8);
+}
+impl pallet_ethy::Config for Runtime {
+	/// Reports the current validator / notary set
+	type AuthoritySet = Historical;
+	/// The runtime call type.
+	type Call = Call;
+	/// The runtime event type.
+	type Event = Event;
+	/// Subscribers to completed 'eth_call' jobs
+	type EthCallSubscribers = ();
+	/// Subscribers to completed event
+	type EventClaimSubscribers = ();
+	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
+	type EthereumRpcClient = pallet_ethy::EthereumRpcClient;
+	/// The identifier type for Ethy notaries
+	type EthyId = EthBridgeId;
+	/// Reports final session status of an era
+	type FinalSessionTracker = StakingSessionTracker;
+	/// The threshold of positive notarizations to approve an event claim
+	type NotarizationThreshold = NotarizationThreshold;
+	/// Timestamp provider
+	type UnixTime = Timestamp;
+}
+
+impl frame_system::offchain::SigningTypes for Runtime {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
+}
+
 // Start frontier/EVM stuff
 
 /// Current approximation of the gas/s consumption considering
@@ -773,6 +809,8 @@ construct_runtime! {
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>},
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
+
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event, ValidateUnsigned},
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
@@ -1090,9 +1128,7 @@ impl_runtime_apis! {
 
 	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
 		fn validator_set() -> seed_primitives::ethy::ValidatorSet<EthBridgeId> {
-			// TODO: integrate with eth-bridge pallet
-			// EthBridge::validator_set()
-			seed_primitives::ethy::ValidatorSet::empty()
+			EthBridge::validator_set()
 		}
 	}
 }

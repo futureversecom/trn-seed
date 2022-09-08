@@ -22,7 +22,7 @@ use seed_runtime::{
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Type alias for the stash, controller + session key types tuple used by validators
-pub type AuthorityKeys = (AccountId, AuraId, ImOnlineId, GrandpaId);
+pub type AuthorityKeys = (AccountId, AuraId, ImOnlineId, GrandpaId, EthBridgeId);
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -48,6 +48,7 @@ pub fn authority_keys_from_seed(s: &str) -> AuthorityKeys {
 		get_from_seed::<AuraId>(s),
 		get_from_seed::<ImOnlineId>(s),
 		get_from_seed::<GrandpaId>(s),
+		get_from_seed::<EthBridgeId>(s),
 	)
 }
 
@@ -206,7 +207,7 @@ pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 /// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
 	wasm_binary: &[u8],
-	initial_authorities: Vec<(AccountId, AuraId, ImOnlineId, GrandpaId)>,
+	initial_authorities: Vec<AuthorityKeys>,
 	root_key: AccountId,
 	accounts_to_fund: Vec<AccountId>,
 	_enable_println: bool,
@@ -250,11 +251,11 @@ fn testnet_genesis(
 			keys: initial_authorities
 				.iter()
 				.cloned()
-				.map(|(acc, aura, im_online, grandpa)| {
+				.map(|(acc, aura, im_online, grandpa, ethy)| {
 					(
-						acc.clone(),                              // validator stash id
-						acc,                                      // validator controller id
-						SessionKeys { aura, im_online, grandpa }, // session keys
+						acc.clone(),                                    // validator stash id
+						acc,                                            // validator controller id
+						SessionKeys { aura, im_online, grandpa, ethy }, // session keys
 					)
 				})
 				.collect(),

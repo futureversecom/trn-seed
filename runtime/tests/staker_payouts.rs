@@ -8,11 +8,12 @@ use frame_support::{
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, SessionIndex};
 
+use seed_pallet_common::FinalSessionTracker;
 use seed_primitives::{Balance, BlockNumber};
 use seed_runtime::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
-	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, Executive, Session,
-	SessionLength as Period, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
+	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EthBridge, Executive, Runtime,
+	Session, SessionLength as Period, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
 };
 
 mod mock;
@@ -73,6 +74,11 @@ fn start_session(session_index: SessionIndex) {
 	);
 }
 
+/// Rotate to the next session
+fn advance_session() {
+	start_session(Session::current_index() + 1)
+}
+
 /// Progress until the given era.
 fn start_active_era(era_index: EraIndex) {
 	start_session((era_index * <SessionsPerEra as Get<u32>>::get()).into());
@@ -83,7 +89,6 @@ fn start_active_era(era_index: EraIndex) {
 
 #[test]
 fn era_payout_redistributes_era_tx_fees() {
-	// setup stakers ✅
 	ExtBuilder::default().build().execute_with(|| {
 		let genesis_issuance = Balances::total_issuance();
 		// send some transactions to accrue fees
@@ -133,7 +138,6 @@ fn era_payout_redistributes_era_tx_fees() {
 
 #[test]
 fn era_payout_does_not_carry_over() {
-	// setup stakers ✅
 	ExtBuilder::default().build().execute_with(|| {
 		let genesis_issuance = Balances::total_issuance();
 
@@ -174,5 +178,34 @@ fn era_payout_does_not_carry_over() {
 
 		// after payout, issuance ok
 		assert_eq!(genesis_issuance, Balances::total_issuance());
+	});
+}
+
+#[test]
+fn staking_final_session_tracking() {
+	ExtBuilder::default().build().execute_with(|| {
+		// session 0,1,2 complete
+		start_active_era(1);
+		// in session 3
+		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
+		assert!(!EthBridge::bridge_paused());
+
+		advance_session();
+		// in session 4
+		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
+		assert!(!EthBridge::bridge_paused());
+
+		advance_session();
+		// in session 5
+		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
+		assert!(EthBridge::bridge_paused());
+
+		advance_session(); // era 2 starts...
+		assert_ok!(Staking::force_new_era(RawOrigin::Root.into()));
+		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
 	});
 }
