@@ -1,11 +1,9 @@
 import {expect} from "chai";
 import { ethers } from "hardhat";
-import { Contract, ContractFactory, Wallet, utils, BigNumber, Signer} from 'ethers';
-
-import {ApiPromise, HttpProvider, WsProvider, Keyring} from '@polkadot/api';
-import {u8aToHex, stringToHex, hexToU8a} from '@polkadot/util';
+import { Contract, Wallet} from 'ethers';
+import {ApiPromise, WsProvider, Keyring} from '@polkadot/api';
+import {hexToU8a} from '@polkadot/util';
 import {AddressOrPair} from "@polkadot/api/types";
-import {JsonRpcProvider, Provider} from "@ethersproject/providers";
 import ERC721PrecompileCaller from '../artifacts/contracts/ERC721PrecompileCaller.sol/ERC721PrecompileCaller.json';
 
 const erc721Abi = [
