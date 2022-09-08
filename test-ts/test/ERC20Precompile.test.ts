@@ -122,9 +122,6 @@ describe("ERC20 Precompile", function () {
       let balance = await jsonProvider.getBalance(receiverAddress);
       total = total.add(expected);
       expect(balance).to.be.equal(total.toString());
-
-      // sleep, prevents nonce issues
-      // await new Promise(r => setTimeout(r, 500));
     }
   })
 });
