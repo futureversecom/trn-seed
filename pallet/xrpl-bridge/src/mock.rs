@@ -53,14 +53,12 @@ impl system::Config for Test {
 }
 
 parameter_types! {
-	pub const HashLimit: u32 = 64u32;
 	pub const TransactionLimit: u32 = 2048u32;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
 	type WeightInfo = ();
-	type HashLimit = HashLimit;
 	type TransactionLimit = TransactionLimit;
 }
 

@@ -12,7 +12,7 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use crate::{BoundedVecOfHash, BoundedVecOfTransaction, Config};
+use crate::{BoundedVecOfTransaction, Config, H512};
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
@@ -20,13 +20,7 @@ use scale_info::TypeInfo;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpTransaction<T: Config> {
-	pub hash: BoundedVecOfHash<T>,
+	pub transaction_hash: H512,
 	pub transaction: BoundedVecOfTransaction<T>,
 	pub timestamp: u64,
 }
-/*
-impl Default for XrpTransaction {
-	fn default() -> Self {
-		Self { hash: , transaction: vec![], timestamp: 0 }
-	}
-}*/

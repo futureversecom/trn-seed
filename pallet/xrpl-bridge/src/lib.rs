@@ -18,7 +18,8 @@ use crate::helpers::XrpTransaction;
 use frame_support::{pallet_prelude::*, transactional};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use seed_primitives::{BlockNumber, Timestamp};
+use seed_primitives::{LedgerIndex, Timestamp};
+use sp_core::H512;
 
 pub use pallet::*;
 
@@ -38,7 +39,6 @@ pub type RelayerId = u128;
 
 pub use weights::WeightInfo;
 pub type BoundedVecOfTransaction<T> = BoundedVec<u8, <T as Config>::TransactionLimit>;
-pub type BoundedVecOfHash<T> = BoundedVec<u8, <T as Config>::HashLimit>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -51,10 +51,6 @@ pub mod pallet {
 		/// Weight information
 		type WeightInfo: WeightInfo;
 
-		/// Hash Length
-		#[pallet::constant]
-		type HashLimit: Get<u32>;
-
 		/// Transaction Length
 		#[pallet::constant]
 		type TransactionLimit: Get<u32>;
@@ -66,7 +62,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
-		TransactionAdded(BlockNumber, BoundedVecOfHash<T>),
+		TransactionAdded(LedgerIndex, H512),
 	}
 
 	/// Global storage for relayers
@@ -80,8 +76,8 @@ pub mod pallet {
 		_,
 		(
 			storage::Key<Blake2_128Concat, T::AccountId>,
-			storage::Key<Blake2_128Concat, BlockNumber>,
-			storage::Key<Blake2_128Concat, BoundedVecOfHash<T>>,
+			storage::Key<Blake2_128Concat, LedgerIndex>,
+			storage::Key<Blake2_128Concat, H512>,
 		),
 		XrpTransaction<T>,
 	>;
@@ -92,18 +88,18 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Set emergency price
+		/// Submit xrp transaction
 		#[pallet::weight((<T as Config>::WeightInfo::submit_transaction(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_transaction(
 			origin: OriginFor<T>,
-			block_number: BlockNumber,
-			hash: BoundedVecOfHash<T>,
+			ledger_index: LedgerIndex,
+			transaction_hash: H512,
 			transaction: BoundedVecOfTransaction<T>,
 			timestamp: Timestamp,
 		) -> DispatchResultWithPostInfo {
 			let relayer = ensure_signed(origin)?;
-			Self::add_to_relay(relayer, block_number, hash, transaction, timestamp)
+			Self::add_to_relay(relayer, ledger_index, transaction_hash, transaction, timestamp)
 		}
 	}
 }
@@ -111,16 +107,16 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	pub fn add_to_relay(
 		relayer: AccountOf<T>,
-		block_number: BlockNumber,
-		hash: BoundedVecOfHash<T>,
+		ledger_index: LedgerIndex,
+		transaction_hash: H512,
 		transaction: BoundedVecOfTransaction<T>,
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
 		<Relayer<T>>::insert(relayer.clone(), timestamp);
 		let val =
-			XrpTransaction { hash: hash.clone(), transaction: transaction.clone(), timestamp };
-		<RelayXRPTransaction<T>>::insert((&relayer, &block_number, &hash), val);
-		Self::deposit_event(Event::TransactionAdded(block_number, hash));
+			XrpTransaction { transaction_hash: transaction_hash.clone(), transaction: transaction.clone(), timestamp };
+		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val);
+		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())
 	}
 }

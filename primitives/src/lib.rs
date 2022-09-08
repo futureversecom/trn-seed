@@ -69,6 +69,9 @@ pub mod types {
 	pub type RelayerId = u32;
 
 	pub type Timestamp = u64;
+
+	/// An index to a block.
+	pub type LedgerIndex = u64;
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
