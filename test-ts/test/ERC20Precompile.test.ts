@@ -17,7 +17,7 @@ const erc20Abi = [
   'function transfer(address who, uint256 amount)',
 ];
 
-describe("ERC20 Precompile", function () {
+describe('ERC20 Precompile', function () {
   let seedSigner: Wallet;
   let xrpToken: Contract;
   let precompileCaller: Contract;
