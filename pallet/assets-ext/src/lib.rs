@@ -553,13 +553,14 @@ impl<T: Config> CreateExt for Pallet<T> {
 	) -> Result<AssetId, DispatchError> {
 		let new_asset_id = Self::create(&owner)?;
 
-		// set metadata for new asset
-		<pallet_assets::Pallet<T> as fungibles::metadata::Mutate<_>>::set(
+		// set metadata for new asset - as root origin
+		<pallet_assets::Pallet<T>>::force_set_metadata(
+			frame_system::RawOrigin::Root.into(),
 			new_asset_id,
-			&owner,
 			name,
 			symbol,
 			decimals,
+			false,
 		)?;
 		Ok(new_asset_id)
 	}
