@@ -797,9 +797,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.19"
+version = "3.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68d43934757334b5c0519ff882e1ab9647ac0258b47c24c4f490d78e42697fd5"
+checksum = "23b71c3ce99b7611011217b366d923f1d0a7e07a92bb2dbf1e84508c673ca3bd"
 dependencies = [
  "atty",
  "bitflags",
@@ -818,7 +818,7 @@ version = "3.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea0c8bce528c4be4da13ea6fead8965e95b6073585a2f05204bd8f4119f82a65"
 dependencies = [
- "heck 0.4.0",
+ "heck",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -849,8 +849,8 @@ version = "6.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85914173c2f558d61613bfbbf1911f14e630895087a7ed2fafc0f5319e1536e7"
 dependencies = [
- "strum 0.24.1",
- "strum_macros 0.24.3",
+ "strum",
+ "strum_macros",
  "unicode-width",
 ]
 
@@ -1440,7 +1440,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21cdad81446a7f7dc43f6a77409efeb9733d2fa65553efef6018ef257c959b73"
 dependencies = [
- "heck 0.4.0",
+ "heck",
  "proc-macro2",
  "quote",
  "syn",
@@ -1498,7 +1498,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "thiserror",
  "uint",
 ]
@@ -1513,7 +1513,7 @@ dependencies = [
  "fixed-hash",
  "impl-codec",
  "impl-rlp",
- "impl-serde",
+ "impl-serde 0.3.2",
  "scale-info",
  "tiny-keccak",
 ]
@@ -1533,7 +1533,7 @@ dependencies = [
  "rlp-derive",
  "scale-info",
  "serde",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "triehash",
 ]
 
@@ -1547,7 +1547,7 @@ dependencies = [
  "fixed-hash",
  "impl-codec",
  "impl-rlp",
- "impl-serde",
+ "impl-serde 0.3.2",
  "primitive-types",
  "scale-info",
  "uint",
@@ -1559,12 +1559,14 @@ version = "0.1.0"
 dependencies = [
  "ethabi",
  "futures",
+ "futures-timer",
  "hex",
  "hex-literal",
  "libsecp256k1 0.6.0",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
+ "sc-chain-spec",
  "sc-client-api",
  "sc-keystore",
  "sc-network",
@@ -1580,8 +1582,9 @@ dependencies = [
  "sp-core",
  "sp-keystore",
  "sp-runtime",
- "strum 0.23.0",
+ "strum",
  "substrate-prometheus-endpoint",
+ "substrate-test-runtime-client",
  "thiserror",
 ]
 
@@ -1627,7 +1630,7 @@ dependencies = [
  "rlp",
  "scale-info",
  "serde",
- "sha3 0.10.2",
+ "sha3 0.10.4",
 ]
 
 [[package]]
@@ -1661,7 +1664,7 @@ dependencies = [
  "environmental",
  "evm-core",
  "primitive-types",
- "sha3 0.10.2",
+ "sha3 0.10.4",
 ]
 
 [[package]]
@@ -2566,15 +2569,6 @@ dependencies = [
 
 [[package]]
 name = "heck"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "heck"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
@@ -2813,6 +2807,15 @@ name = "impl-serde"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4551f042f3438e64dbd6226b20527fc84a6e1fe65688b58746a2f53623f25f5c"
+dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "impl-serde"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ebc88fc67028ae3db0c853baa36269d398d5f45b6982f95549ff5def78c935cd"
 dependencies = [
  "serde",
 ]
@@ -4637,7 +4640,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "static_assertions",
- "strum 0.24.1",
+ "strum",
 ]
 
 [[package]]
@@ -4662,6 +4665,30 @@ dependencies = [
  "rlp",
  "scale-info",
  "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-ethy"
+version = "1.0.1"
+dependencies = [
+ "ethabi",
+ "ethereum-types",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "rustc-hex",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "serde_json",
+ "sp-application-crypto",
+ "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -5393,7 +5420,7 @@ dependencies = [
  "pallet-evm",
  "parity-scale-codec",
  "precompile-utils-macro",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "similar-asserts",
  "sp-core",
  "sp-io",
@@ -5420,7 +5447,7 @@ dependencies = [
  "fixed-hash",
  "impl-codec",
  "impl-rlp",
- "impl-serde",
+ "impl-serde 0.3.2",
  "scale-info",
  "uint",
 ]
@@ -5525,7 +5552,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "cmake",
- "heck 0.4.0",
+ "heck",
  "itertools",
  "lazy_static",
  "log",
@@ -7173,6 +7200,7 @@ dependencies = [
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "try-runtime-cli",
+ "url",
 ]
 
 [[package]]
@@ -7180,9 +7208,11 @@ name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
  "frame-support",
+ "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
+ "sp-core",
  "sp-std",
 ]
 
@@ -7191,7 +7221,7 @@ name = "seed-primitives"
 version = "1.0.0"
 dependencies = [
  "hex",
- "impl-serde",
+ "impl-serde 0.4.0",
  "libsecp256k1 0.7.1",
  "log",
  "parity-scale-codec",
@@ -7230,6 +7260,7 @@ dependencies = [
  "pallet-dex",
  "pallet-election-provider-multi-phase",
  "pallet-ethereum",
+ "pallet-ethy",
  "pallet-evm",
  "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",
@@ -7256,6 +7287,7 @@ dependencies = [
  "rustc-hex",
  "scale-info",
  "seed-client",
+ "seed-pallet-common",
  "seed-primitives",
  "seed-runtime",
  "serde",
@@ -7427,9 +7459,9 @@ dependencies = [
 
 [[package]]
 name = "sha3"
-version = "0.10.2"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a31480366ec990f395a61b7c08122d99bd40544fdb5abcfc1b06bb29994312c"
+checksum = "eaedf34ed289ea47c2b741bb72e5357a209512d67bcd4bda44359e5bf0470f56"
 dependencies = [
  "digest 0.10.3",
  "keccak",
@@ -7782,7 +7814,7 @@ dependencies = [
  "hash-db",
  "hash256-std-hasher",
  "hex",
- "impl-serde",
+ "impl-serde 0.3.2",
  "lazy_static",
  "libsecp256k1 0.7.1",
  "log",
@@ -7933,7 +7965,7 @@ dependencies = [
  "lazy_static",
  "sp-core",
  "sp-runtime",
- "strum 0.24.1",
+ "strum",
 ]
 
 [[package]]
@@ -8137,7 +8169,7 @@ name = "sp-storage"
 version = "6.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.3.2",
  "parity-scale-codec",
  "ref-cast",
  "serde",
@@ -8232,7 +8264,7 @@ name = "sp-version"
 version = "5.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
- "impl-serde",
+ "impl-serde 0.3.2",
  "parity-scale-codec",
  "parity-wasm 0.42.2",
  "scale-info",
@@ -8322,33 +8354,11 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cae14b91c7d11c9a851d3fbc80a963198998c2a64eec840477fa92d8ce9b70bb"
-dependencies = [
- "strum_macros 0.23.1",
-]
-
-[[package]]
-name = "strum"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
 dependencies = [
- "strum_macros 0.24.3",
-]
-
-[[package]]
-name = "strum_macros"
-version = "0.23.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bb0dc7ee9c15cea6199cde9a127fa16a4c5819af85395457ad72d68edc85a38"
-dependencies = [
- "heck 0.3.3",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn",
+ "strum_macros",
 ]
 
 [[package]]
@@ -8357,7 +8367,7 @@ version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e385be0d24f186b4ce2f9982191e7101bb737312ad61c1f2f984f34bcf85d59"
 dependencies = [
- "heck 0.4.0",
+ "heck",
  "proc-macro2",
  "quote",
  "rustversion",
@@ -8518,7 +8528,7 @@ dependencies = [
  "cargo_metadata",
  "filetime",
  "sp-maybe-compressed-blob",
- "strum 0.24.1",
+ "strum",
  "tempfile",
  "toml",
  "walkdir",
