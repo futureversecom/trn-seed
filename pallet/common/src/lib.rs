@@ -6,10 +6,11 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	traits::fungibles::Transfer,
+	weights::Weight,
 	PalletId,
 };
 use scale_info::TypeInfo;
-use sp_core::{H160, H256};
+use sp_core::H160;
 
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
@@ -122,44 +123,66 @@ pub trait FinalSessionTracker {
 	fn is_active_session_final() -> bool;
 }
 
-/// Subscription interface for Ethereum bridge event claims
-#[impl_trait_for_tuples::impl_for_tuples(10)]
-pub trait EthereumEventClaimSubscriber {
-	/// Notify subscriber about a successful Ethereum event claim for the given event data
-	/// Previously submitted via `request_event_verification`
-	fn on_success(
-		event_claim_id: EventClaimId,
-		source_address: &H160,
-		event_selector: &H256,
-		event_data: &[u8],
-	);
-	/// Notify subscriber about a failed Ethereum event claim for the given event data
-	/// Previously submitted via `request_event_verification`
-	fn on_failure(
-		event_claim_id: EventClaimId,
-		source_address: &H160,
-		event_selector: &H256,
-		event_data: &[u8],
-	);
+#[derive(Eq, Clone, Copy, Encode, Decode, Debug, TypeInfo, PartialEq)]
+pub enum EventRouterError {
+	/// Failed during processing
+	FailedProcessing(DispatchError),
+	/// Message had no configured receiver (check destination address)
+	NoReceiver,
+}
+/// Event router result with consumed weight
+pub type EventRouterResult = Result<Weight, (Weight, EventRouterError)>;
+/// Routes verified Ethereum messages to handler pallets
+///
+/// ```no_run
+/// impl EthereumEventRouter for (A,B,C)
+/// where:
+/// 	A: EthereumEventSubscriber,
+/// 	B: EthereumEventSubscriber,
+/// 	C: EthereumEventSubscriber,
+/// {
+/// 	fn route(destination, source, data) -> EventRouterResult {
+/// 		match source {
+/// 			A::Destination => A::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
+/// 			B::Destination => B::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
+/// 			C::Destination => C::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
+/// 			 _ => Err((0, EventRouterError::NoReceiver)),
+/// 		}
+/// 	}
+/// }
+/// ```
+pub trait EthereumEventRouter {
+	/// Route an event to a handler at `destination`
+	/// - `source` the sender address on Ethereum
+	/// - `destination` the intended handler (pseudo) address
+	/// - `data` the Ethereum ABI encoded event data
+	fn route(source: &H160, destination: &H160, data: &[u8]) -> EventRouterResult;
+}
+
+/// Result of processing an event by an `EthereumEventSubscriber`
+pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
+/// Handle verified Ethereum events (implemented by handler pallet)
+pub trait EthereumEventSubscriber {
+	/// Notify subscriber about a event received from Ethereum
+	/// - `source` the sender address on Ethereum
+	/// - `data` the Ethereum ABI encoded event data
+	fn on_event(source: &H160, data: &[u8]) -> OnEventResult;
 }
 
 /// Interface for an Ethereum event bridge
-/// Verifies events happened on the remote chain (claims) and proves events happened to the remote
-/// chain (proofs)
-pub trait EthereumEventBridge {
-	/// Request verification of an event on the bridged Ethereum chain
-	/// Returns a unique claim Id on success
-	fn request_event_verification(
-		source_address: &H160,
-		tx_hash: &H256,
-		event_selector: &H256,
-		event_data: &[u8],
-	) -> Result<EventClaimId, DispatchError>;
-	/// Request an event proof is generated for the given message to be consumed by
-	/// `destination_address` on the bridged Ethereum chain Returns a unique event proof Id on
-	/// success
-	fn request_event_proof(
-		destination_address: &H160,
+/// Generates proof of events for the remote
+/// chain
+pub trait EthereumBridge {
+	/// Submit an event to the bridge for relaying to Ethereum
+	///
+	/// `source` the (pseudo) address of the pallet that submitted the event
+	/// `destination` address on Ethereum
+	/// `message` data
+	///
+	/// Returns a unique event proofId on success
+	fn submit_event(
+		source: &H160,
+		destination: &H160,
 		message: &[u8],
 	) -> Result<EventProofId, DispatchError>;
 }

@@ -73,14 +73,15 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, ONE_MYCL, ONE_XRP, SESSIONS_PER_ERA, SLOT_DURATION,
+	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, HOURS, ONE_MYCL, ONE_XRP, SESSIONS_PER_ERA,
+	SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	AddressMapping, EthereumFindAuthor, EvmCurrencyScaler, SlashImbalanceHandler,
-	StakingSessionTracker,
+	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler,
+	SlashImbalanceHandler, StakingSessionTracker,
 };
 
 pub mod precompiles;
@@ -634,18 +635,25 @@ impl pallet_tx_fee_pot::Config for Runtime {
 parameter_types! {
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: sp_runtime::Percent = sp_runtime::Percent::from_percent(66_u8);
+	/// The Ethereum bridge contract address paired with the bridge pallet
+	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
+	pub const ChallengePeriod: BlockNumber = 1 * HOURS;
 }
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
+	/// The deployed Ethereum bridge contract address
+	type BridgeContractAddress = EthereumBridgeContractAddress;
 	/// The runtime call type.
 	type Call = Call;
+	/// The optimistic challenge period for submitted bridge events
+	type ChallengePeriod = ChallengePeriod;
 	/// The runtime event type.
 	type Event = Event;
 	/// Subscribers to completed 'eth_call' jobs
 	type EthCallSubscribers = ();
 	/// Subscribers to completed event
-	type EventClaimSubscribers = ();
+	type EventRouter = EthereumEventRouter;
 	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
 	type EthereumRpcClient = pallet_ethy::EthereumRpcClient;
 	/// The identifier type for Ethy notaries

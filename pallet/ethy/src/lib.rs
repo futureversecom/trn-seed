@@ -36,6 +36,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use ethabi::{ParamType, Token};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
@@ -45,15 +46,16 @@ use frame_support::{
 	Parameter,
 };
 use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
+use hex_literal::hex;
 use sp_runtime::{
 	offchain as rt_offchain,
-	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion, Zero},
+	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion},
 	Percent, RuntimeAppPublic,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
-	log, EthCallOracleSubscriber, EthereumEventClaimSubscriber,
+	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
 	FinalSessionTracker as FinalSessionTrackerT,
 };
 
@@ -73,28 +75,34 @@ const UNSIGNED_TXS_PRIORITY: u64 = 100;
 const CLAIMS_PER_BLOCK: usize = 1;
 /// Max eth_call checks to attempt per block/OCW invocation
 const CALLS_PER_BLOCK: usize = 1;
-/// Bucket claims in intervals of this factor (seconds)
-const BUCKET_FACTOR_S: u64 = 3_600; // 1 hour
-/// Number of blocks between claim pruning
-const CLAIM_PRUNING_INTERVAL: BlockNumber = BUCKET_FACTOR_S as u32 / 5_u32;
 
 /// The logging target for this pallet
 pub(crate) const LOG_TARGET: &str = "ethy";
 
+/// The solidity selector of bridge events
+/// i.e. output of `keccak256('SubmitEvent(address,address,bytes)')` /
+/// `0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a`
+const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
+	hex!("0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a");
+
 /// This is the pallet's configuration trait
 pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
-	/// The runtime call type.
-	type Call: From<Call<Self>>;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
+	/// The bridge contract address on Ethereum
+	type BridgeContractAddress: Get<H160>;
+	/// The runtime call type.
+	type Call: From<Call<Self>>;
+	/// The (optimistic) challenge period after which a submitted event is considered valid
+	type ChallengePeriod: Get<Self::BlockNumber>;
 	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
 	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// The runtime event type.
 	type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
-	/// Pallets subscribing to notarized event claims
-	type EventClaimSubscribers: EthereumEventClaimSubscriber;
+	/// Handles routing received Ethereum events upon verification
+	type EventRouter: EthereumEventRouter;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
 	/// 33 byte ECDSA public key
 	type EthyId: Member
@@ -140,19 +148,16 @@ decl_storage! {
 		/// Queued event claims, awaiting notarization
 		PendingEventClaims get(fn pending_event_claims): map hasher(twox_64_concat) EventClaimId => Option<EventClaim>;
 		/// Queued event proofs to be processed once bridge has been re-enabled (Ethereum ABI encoded `EventClaim`)
-		PendingEventProofs get (fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<Message>;
-		/// Map of pending tx hashes to claim Id
-		PendingTxHashes get(fn pending_tx_hashes): map hasher(twox_64_concat) EthHash => EventClaimId;
-		/// Processed tx hashes bucketed by unix timestamp (`BUCKET_FACTOR_S`)
-		// Used in conjunction with `EventDeadlineSeconds` to prevent "double spends".
-		// After a bucket is older than the deadline, any events prior are considered expired.
-		// This allows the record of processed events to be pruned from state regularly
-		ProcessedTxBuckets get(fn processed_tx_buckets): double_map hasher(twox_64_concat) u64, hasher(identity) EthHash => ();
-		/// Set of processed tx hashes
-		/// Periodically cleared after `EventDeadlineSeconds` expires
-		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
+		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<Message>;
+		/// Tracks processed message Ids (prevent replay)
+		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
+		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
+		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) T::BlockNumber => Vec<EventClaimId>;
+		// State Oracle
 		/// Subscription Id for EthCall requests
 		NextEthCallId: EthCallId;
+		/// The permissioned relayer
+		Relayer get(fn relayer): Option<T::AccountId>;
 		/// Queue of pending EthCallOracle requests
 		EthCallRequests get(fn eth_call_requests): Vec<EthCallId>;
 		/// EthCallOracle notarizations keyed by (Id, Notary)
@@ -175,6 +180,10 @@ decl_event! {
 		AuthoritySetChange(EventProofId, u64),
 		/// Generating event proof delayed as bridge is paused
 		ProofDelayed(EventProofId),
+		/// Processing and event succeeded
+		ProcessingOk(EventClaimId),
+		/// Processing an event failed
+		ProcessingFailed(EventClaimId, EventRouterError),
 	}
 }
 
@@ -188,7 +197,7 @@ decl_error! {
 		InvalidNotarization,
 		// Error returned when fetching github info
 		HttpFetch,
-		/// Claim was invalid
+		/// Claim was invalid e.g. not properly ABI encoded
 		InvalidClaim,
 		/// offchain worker not configured properly
 		OcwConfig,
@@ -201,6 +210,8 @@ decl_error! {
 		BridgePaused,
 		/// Some internal operation failed
 		Internal,
+		/// Caller does not have permission for that action
+		NoPermission,
 	}
 }
 
@@ -211,26 +222,31 @@ decl_module! {
 		fn deposit_event() = default;
 
 		/// This method schedules 2 different processes
-		/// 1) pruning expired transactions hashes from state every `CLAIM_PRUNING_INTERVAL` blocks
 		/// 2) processing any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
 			let mut consumed_weight = 0 as Weight;
 
-			// 1) Prune claim storage every hour on CENNZnet (BUCKET_FACTOR_S / 5 seconds = 720 blocks)
-			if (block_number % T::BlockNumber::from(CLAIM_PRUNING_INTERVAL)).is_zero() {
-				// Find the bucket to expire
-				let now = T::UnixTime::now().as_secs().saturated_into::<u64>();
-				consumed_weight += DbWeight::get().reads(1 as Weight);
-				let expired_bucket_index = (now % Self::event_deadline_seconds()) / BUCKET_FACTOR_S;
-				let mut removed_count = 0;
-				for (expired_tx_hash, _empty_value) in ProcessedTxBuckets::iter_prefix(expired_bucket_index) {
-					ProcessedTxHashes::remove(expired_tx_hash);
-					removed_count += 1;
+			// 1) Forward validated messages
+			let mut processed_message_ids = Self::processed_message_ids();
+			for message_id in MessagesValidAt::<T>::take(block_number) {
+				if let Some(EventClaim { source, destination, data, .. } ) = PendingEventClaims::take(message_id) {
+					// keep a runtime hardcoded list of destination <> palletId
+					match T::EventRouter::route(&source, &destination, &data) {
+						Ok(weight) => {
+							consumed_weight += weight;
+							Self::deposit_event(Event::ProcessingOk(message_id));
+						},
+						Err((weight, err)) => {
+							consumed_weight += weight;
+							Self::deposit_event(Event::ProcessingFailed(message_id, err));
+						}
+					}
 				}
-				if let Some(cursor) = ProcessedTxBuckets::clear_prefix(expired_bucket_index, removed_count, None).maybe_cursor {
-					log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+				// TODO: this vec will grow infinitely, needs some pruning/compaction
+				// mark as processed
+				if let Err(idx) = processed_message_ids.binary_search(&message_id) {
+					processed_message_ids.insert(idx, message_id);
 				}
-				consumed_weight += DbWeight::get().writes(2 * removed_count as Weight);
 			}
 
 			// 2) Try process delayed proofs
@@ -266,6 +282,38 @@ decl_module! {
 		pub fn set_delayed_event_proofs_per_block(origin, count: u8) {
 			ensure_root(origin)?;
 			DelayedEventProofsPerBlock::put(count);
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Submit ABI encoded event data from the Ethereum bridge contract
+		/// - tx_hash The Ethereum transaction hash which triggered the event
+		/// - event ABI encoded bridge event
+		pub fn submit_event(origin, tx_hash: H256, event: Vec<u8>) {
+			let origin = ensure_signed(origin)?;
+			ensure!(Some(origin) == Self::relayer(), Error::<T>::NoPermission);
+
+			// TODO: place some limit on `data` length
+			// Message(event_id, msg.caller, destination, data);
+			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data)] = ethabi::decode(&[
+				ParamType::Uint(64),
+				ParamType::Address,
+				ParamType::Address,
+				ethabi::ParamType::Bytes,
+			], event.as_slice()).map_err(|_| Error::<T>::InvalidClaim)?.as_slice() {
+				let event_id: EventClaimId = (*event_id).saturated_into();
+				ensure!(!PendingEventClaims::contains_key(event_id), Error::<T>::DuplicateClaim);
+				ensure!(Self::processed_message_ids().binary_search(&event_id).is_err(), Error::<T>::DuplicateClaim);
+
+				PendingEventClaims::insert(event_id, EventClaim {
+					tx_hash,
+					source: *source,
+					destination: *destination,
+					data: data.clone(),
+				});
+
+				// TODO: there should be some limit per block
+				<MessagesValidAt<T>>::append(<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get(), event_id);
+			}
 		}
 
 		#[weight = 1_000_000]
