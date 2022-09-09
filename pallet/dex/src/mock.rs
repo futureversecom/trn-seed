@@ -113,6 +113,9 @@ parameter_types! {
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXPalletId: PalletId = PalletId(*b"mock/dex");
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
+	pub const LPTokenName: [u8; 10] = *b"Uniswap V2";
+	pub const LPTokenSymbol: [u8; 6] = *b"UNI-V2";
+	pub const LPTokenDecimals: u8 = 6;
 }
 impl Config for Test {
 	type Event = Event;
@@ -120,6 +123,9 @@ impl Config for Test {
 	type TradingPathLimit = TradingPathLimit;
 	type DEXPalletId = DEXPalletId;
 	type DEXBurnPalletId = DEXBurnPalletId;
+	type LPTokenName = LPTokenName;
+	type LPTokenSymbol = LPTokenSymbol;
+	type LPTokenDecimals = LPTokenDecimals;
 	type WeightInfo = ();
 	type MultiCurrency = AssetsExt;
 }
