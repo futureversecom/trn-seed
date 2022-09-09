@@ -76,6 +76,18 @@ pub mod pallet {
 		#[pallet::constant]
 		type DEXBurnPalletId: Get<PalletId>;
 
+		/// Liquidity pair default token name - matching UniswapV2
+		#[pallet::constant]
+		type LPTokenName: Get<Vec<u8>>;
+
+		/// Liquidity pair default token symbol - matching UniswapV2
+		#[pallet::constant]
+		type LPTokenSymbol: Get<Vec<u8>>;
+
+		/// Liquidity pair default token decimals
+		#[pallet::constant]
+		type LPTokenDecimals: Get<u8>;
+
 		/// Weight information for the extrinsic call in this module.
 		type WeightInfo: WeightInfo;
 
@@ -264,7 +276,12 @@ pub mod pallet {
 			// create trading pair if non-existent
 			if Self::lp_token_id(&trading_pair).is_none() {
 				// create a new token and return the asset id
-				let lp_asset_id = T::MultiCurrency::create(Self::account_id())?;
+				let lp_asset_id = T::MultiCurrency::create_with_metadata(
+					&Self::account_id(),
+					T::LPTokenName::get(),
+					T::LPTokenSymbol::get(),
+					T::LPTokenDecimals::get(),
+				)?;
 				TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
 				TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
 			}

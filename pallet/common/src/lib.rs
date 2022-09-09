@@ -15,6 +15,7 @@ use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
+use sp_std::vec::Vec;
 
 pub mod utils;
 
@@ -96,8 +97,16 @@ pub trait Hold {
 pub trait CreateExt {
 	type AccountId;
 
-	/// Create a new asset and resturn an asset ID.
-	fn create(owner: Self::AccountId) -> Result<AssetId, DispatchError>;
+	/// Create a new asset and return created asset ID.
+	fn create(owner: &Self::AccountId) -> Result<AssetId, DispatchError>;
+
+	/// Create a new asset with metadata and return created asset ID.
+	fn create_with_metadata(
+		owner: &Self::AccountId,
+		name: Vec<u8>,
+		symbol: Vec<u8>,
+		decimals: u8,
+	) -> Result<AssetId, DispatchError>;
 }
 
 /// The interface that states whether an account owns a token

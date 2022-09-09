@@ -155,7 +155,6 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new asset with unique ID according to the network asset id scheme.
-		/// Caller is assigned a min_balance of 1 upon creating the asset.
 		#[pallet::weight((16_000_000 as Weight).saturating_add(T::DbWeight::get().reads_writes(1, 2)))]
 		#[transactional]
 		pub fn create_asset(origin: OriginFor<T>) -> DispatchResult {
@@ -165,7 +164,7 @@ pub mod pallet {
 			let deposit = T::AssetDeposit::get();
 			T::Currency::reserve(&who, deposit)?;
 
-			Self::create(who)?;
+			Self::create(&who)?;
 			Ok(().into())
 		}
 	}
@@ -521,7 +520,7 @@ impl<T: Config> Hold for Pallet<T> {
 impl<T: Config> CreateExt for Pallet<T> {
 	type AccountId = <T as frame_system::Config>::AccountId;
 
-	fn create(owner: Self::AccountId) -> Result<u32, DispatchError> {
+	fn create(owner: &Self::AccountId) -> Result<AssetId, DispatchError> {
 		let min_balance = 1;
 
 		let next_asset_id = Self::next_asset_uuid()?;
@@ -531,7 +530,7 @@ impl<T: Config> CreateExt for Pallet<T> {
 			next_asset_id,
 			owner.clone(),
 			true,
-			min_balance,
+			min_balance, // panics if min_balance is zero
 		)?;
 
 		// update the next id, will not overflow, asserted prior qed.
@@ -539,11 +538,31 @@ impl<T: Config> CreateExt for Pallet<T> {
 
 		Self::deposit_event(Event::CreateAsset {
 			asset_id: next_asset_id,
-			creator: owner,
+			creator: owner.clone(),
 			initial_balance: min_balance,
 		});
 
 		Ok(next_asset_id)
+	}
+
+	fn create_with_metadata(
+		owner: &Self::AccountId,
+		name: Vec<u8>,
+		symbol: Vec<u8>,
+		decimals: u8,
+	) -> Result<AssetId, DispatchError> {
+		let new_asset_id = Self::create(&owner)?;
+
+		// set metadata for new asset - as root origin
+		<pallet_assets::Pallet<T>>::force_set_metadata(
+			frame_system::RawOrigin::Root.into(),
+			new_asset_id,
+			name,
+			symbol,
+			decimals,
+			false,
+		)?;
+		Ok(new_asset_id)
 	}
 }
 
