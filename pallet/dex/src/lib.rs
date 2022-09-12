@@ -713,7 +713,7 @@ impl<T: Config> Pallet<T> {
 		Ok(amount_in)
 	}
 
-	fn get_amounts_out(
+	pub fn get_amounts_out(
 		amount_in: Balance,
 		path: &[AssetId],
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
@@ -754,7 +754,7 @@ impl<T: Config> Pallet<T> {
 		Ok(amounts)
 	}
 
-	fn get_amounts_in(
+	pub fn get_amounts_in(
 		amount_out: Balance,
 		path: &[AssetId],
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
@@ -940,7 +940,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Ensured atomic.
 	#[transactional]
-	fn do_swap_with_exact_target(
+	pub fn do_swap_with_exact_target(
 		who: &T::AccountId,
 		amount_out: Balance,
 		amount_in_max: Balance,
