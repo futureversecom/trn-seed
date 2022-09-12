@@ -11,9 +11,10 @@ use seed_runtime::{
 		ONE_XRP, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, Balance, BalancesConfig, Forcing, GenesisConfig, SessionConfig,
+	AccountId, AssetsConfig, Balance, BalancesConfig, Forcing, GenesisConfig, SessionConfig, XRPLBridgeConfig,
 	SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
+use hex_literal::hex;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -79,6 +80,9 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
 				],
+				vec![
+					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")),
+				],
 				false,
 			)
 		},
@@ -129,6 +133,9 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Dave//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
+				],
+				vec![
+					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")),
 				],
 				false,
 			)
@@ -187,6 +194,9 @@ pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
+				vec![
+					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")),
+				],
 				false,
 			)
 		},
@@ -210,6 +220,7 @@ fn testnet_genesis(
 	initial_authorities: Vec<AuthorityKeys>,
 	root_key: AccountId,
 	accounts_to_fund: Vec<AccountId>,
+	xrp_relayers: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
 	let metadata = vec![
@@ -280,5 +291,6 @@ fn testnet_genesis(
 		base_fee: Default::default(),
 		ethereum: seed_runtime::EthereumConfig {},
 		evm: seed_runtime::EVMConfig { accounts: Default::default() },
+		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
 	}
 }

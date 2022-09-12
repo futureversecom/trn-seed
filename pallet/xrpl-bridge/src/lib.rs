@@ -57,7 +57,9 @@ pub mod pallet {
 	}
 
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> {
+		NotPermitted
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -73,7 +75,7 @@ pub mod pallet {
 	/// Global storage for relayers
 	#[pallet::storage]
 	#[pallet::getter(fn get_relayer)]
-	pub type Relayer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Timestamp>;
+	pub type Relayer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn relay_xrp_transaction)]
@@ -86,6 +88,25 @@ pub mod pallet {
 		),
 		XrpTransaction<T>,
 	>;
+
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub xrp_relayers: Vec<T::AccountId>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { xrp_relayers: vec![] }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			Pallet::<T>::initialize_relayer(&self.xrp_relayers);
+		}
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -100,12 +121,20 @@ pub mod pallet {
 			timestamp: Timestamp,
 		) -> DispatchResultWithPostInfo {
 			let relayer = ensure_signed(origin)?;
+			let active_relayer = <Relayer<T>>::get(&relayer).ok_or(false).unwrap();
+			ensure!(active_relayer, Error::<T>::NotPermitted);
 			Self::add_to_relay(relayer, ledger_index, transaction_hash, transaction, timestamp)
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
+	pub fn initialize_relayer(xrp_relayers: &Vec<T::AccountId>) {
+		for relayer in xrp_relayers {
+			<Relayer<T>>::insert(relayer, true);
+		}
+	}
+
 	pub fn add_to_relay(
 		relayer: AccountOf<T>,
 		ledger_index: LedgerIndex,
@@ -113,7 +142,6 @@ impl<T: Config> Pallet<T> {
 		transaction: BoundedVecOfTransaction<T>,
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
-		<Relayer<T>>::insert(relayer.clone(), timestamp);
 		let val = XrpTransaction {
 			transaction_hash: transaction_hash.clone(),
 			transaction: transaction.clone(),
