@@ -182,9 +182,11 @@ where
 		// These values may change if we are using the fee_preferences precompile
 		let mut input = input;
 		let mut target = target;
+		let mut gas_limit = gas_limit;
 
 		// Check if we are calling with fee preferences
 		if target == H160::from_low_u64_be(FEE_PROXY_ADDRESS) {
+			gas_limit = if gas_limit == 0 { 150_000_000_u64 } else { gas_limit };
 			let (_, weight) = T::FeeCalculator::min_gas_price();
 
 			let (payment_asset_id, max_payment, new_target, new_input) = Self::decode_input(input)
@@ -194,7 +196,6 @@ where
 			input = new_input;
 			target = new_target;
 
-			// let total_fee = U256::from(gas_limit) * gas_price;
 			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional)
 				.map_err(|err| RunnerError { error: err.into(), weight })?;
 
@@ -409,7 +410,6 @@ mod tests {
 		});
 	}
 
-	#[ignore] // TODO - revisit
 	#[test]
 	fn calculate_total_gas_low_max_fee_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
@@ -439,7 +439,6 @@ mod tests {
 		});
 	}
 
-	#[ignore] // TODO - revisit
 	#[test]
 	fn calculate_total_gas_max_priority_fee_too_large_should_fail() {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
