@@ -3971,6 +3971,15 @@ dependencies = [
 
 [[package]]
 name = "memmap2"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "723e3ebdcdc5c023db1df315364573789f8857c11b631a2fdfad7c00f5c046b4"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "memmap2"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95af15f345b17af2efc8ead6080fb8bc376f8cec1b35277b935637595fe77498"
@@ -4091,7 +4100,7 @@ dependencies = [
  "digest 0.10.3",
  "multihash-derive",
  "sha2 0.10.5",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "unsigned-varint",
 ]
 
@@ -4495,22 +4504,6 @@ dependencies = [
  "seed-primitives",
  "sp-core",
  "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-aura"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-timestamp",
- "parity-scale-codec",
- "scale-info",
- "sp-application-crypto",
- "sp-consensus-aura",
  "sp-runtime",
  "sp-std",
 ]
@@ -5073,9 +5066,9 @@ dependencies = [
 
 [[package]]
 name = "parity-db"
-version = "0.3.17"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c8fdb726a43661fa54b43e7114e6b88b2289cae388eb3ad766d9d1754d83fce"
+checksum = "2bb474d0ed0836e185cb998a6b140ed1073d1fbf27d690ecf9ede8030289382c"
 dependencies = [
  "blake2-rfc",
  "crc32fast",
@@ -5084,8 +5077,8 @@ dependencies = [
  "libc",
  "log",
  "lz4",
- "memmap2",
- "parking_lot 0.12.1",
+ "memmap2 0.2.3",
+ "parking_lot 0.11.2",
  "rand 0.8.5",
  "snap",
 ]
@@ -6180,7 +6173,7 @@ version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "impl-trait-for-tuples",
- "memmap2",
+ "memmap2 0.5.7",
  "parity-scale-codec",
  "sc-chain-spec-derive",
  "sc-network",
@@ -6319,32 +6312,81 @@ dependencies = [
 ]
 
 [[package]]
-name = "sc-consensus-aura"
+name = "sc-consensus-babe"
 version = "0.10.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "async-trait",
+ "fork-tree",
  "futures",
  "log",
+ "merlin",
+ "num-bigint 0.2.6",
+ "num-rational 0.2.4",
+ "num-traits",
  "parity-scale-codec",
- "sc-block-builder",
+ "parking_lot 0.12.1",
+ "rand 0.7.3",
+ "retain_mut",
  "sc-client-api",
  "sc-consensus",
+ "sc-consensus-epochs",
  "sc-consensus-slots",
+ "sc-keystore",
  "sc-telemetry",
+ "schnorrkel",
+ "serde",
  "sp-api",
  "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-consensus-slots",
+ "sp-consensus-vrf",
  "sp-core",
  "sp-inherents",
+ "sp-io",
  "sp-keystore",
  "sp-runtime",
+ "sp-version",
  "substrate-prometheus-endpoint",
  "thiserror",
+]
+
+[[package]]
+name = "sc-consensus-babe-rpc"
+version = "0.10.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
+ "futures",
+ "jsonrpsee",
+ "sc-consensus-babe",
+ "sc-consensus-epochs",
+ "sc-rpc-api",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
+ "thiserror",
+]
+
+[[package]]
+name = "sc-consensus-epochs"
+version = "0.10.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
+ "fork-tree",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-consensus",
+ "sp-blockchain",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -6369,6 +6411,17 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-timestamp",
+ "thiserror",
+]
+
+[[package]]
+name = "sc-consensus-uncles"
+version = "0.10.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
+ "sc-client-api",
+ "sp-authorship",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -6489,6 +6542,27 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "substrate-prometheus-endpoint",
+ "thiserror",
+]
+
+[[package]]
+name = "sc-finality-grandpa-rpc"
+version = "0.10.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
+ "finality-grandpa",
+ "futures",
+ "jsonrpsee",
+ "log",
+ "parity-scale-codec",
+ "sc-client-api",
+ "sc-finality-grandpa",
+ "sc-rpc",
+ "serde",
+ "serde_json",
+ "sp-blockchain",
+ "sp-core",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -7173,9 +7247,13 @@ dependencies = [
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
- "sc-consensus-aura",
+ "sc-consensus-babe",
+ "sc-consensus-babe-rpc",
+ "sc-consensus-epochs",
+ "sc-consensus-uncles",
  "sc-executor",
  "sc-finality-grandpa",
+ "sc-finality-grandpa-rpc",
  "sc-keystore",
  "sc-network",
  "sc-rpc",
@@ -7187,16 +7265,19 @@ dependencies = [
  "seed-primitives",
  "seed-runtime",
  "sp-api",
+ "sp-authorship",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
  "sp-keyring",
+ "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
+ "sp-transaction-storage-proof",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
  "try-runtime-cli",
@@ -7229,7 +7310,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-application-crypto",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -7252,8 +7333,8 @@ dependencies = [
  "log",
  "pallet-assets",
  "pallet-assets-ext",
- "pallet-aura",
  "pallet-authorship",
+ "pallet-babe",
  "pallet-bags-list",
  "pallet-balances",
  "pallet-base-fee",
@@ -7293,7 +7374,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-block-builder",
- "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core",
  "sp-inherents",
  "sp-io",
@@ -7854,7 +7935,7 @@ dependencies = [
  "byteorder",
  "digest 0.10.3",
  "sha2 0.10.5",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "sp-std",
  "twox-hash",
 ]
