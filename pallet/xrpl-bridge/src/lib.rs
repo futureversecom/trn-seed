@@ -58,6 +58,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, H512),
+		TransactionChallenge(LedgerIndex, H512),
 	}
 
 	#[pallet::pallet]
@@ -182,7 +183,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResultWithPostInfo {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<ChallengeXRPTransaction<T>>::insert((&challenger, &ledger_index, &transaction_hash), val);
-		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
+		Self::deposit_event(Event::TransactionChallenge(ledger_index, transaction_hash));
 		Ok(().into())
 	}
 }
