@@ -8,6 +8,9 @@ pub use types::*;
 pub mod ethy;
 mod signature;
 
+// offchain storage config key for XRP HTTP URI
+pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
+
 pub mod types {
 	use crate::signature::EthereumSignature;
 	use sp_runtime::traits::{IdentifyAccount, Verify};
