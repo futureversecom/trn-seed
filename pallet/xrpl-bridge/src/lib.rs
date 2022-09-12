@@ -36,11 +36,7 @@ pub mod weights;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
-pub type RelayerId = u128;
-
 pub use weights::WeightInfo;
-pub type BoundedVecOfTransaction<T> = BoundedVec<u8, <T as Config>::TransactionLimit>;
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -51,10 +47,6 @@ pub mod pallet {
 
 		/// Weight information
 		type WeightInfo: WeightInfo;
-
-		/// Transaction Length
-		#[pallet::constant]
-		type TransactionLimit: Get<u32>;
 	}
 
 	#[pallet::error]
