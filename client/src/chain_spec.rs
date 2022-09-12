@@ -5,16 +5,17 @@ use sp_runtime::{
 	Perbill,
 };
 
+use hex_literal::hex;
 use seed_runtime::{
 	constants::{
 		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
 		ONE_XRP, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, Balance, BalancesConfig, Forcing, GenesisConfig, SessionConfig, XRPLBridgeConfig,
-	SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AssetsConfig, Balance, BalancesConfig, Forcing, GenesisConfig, SessionConfig,
+	SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+	XRPLBridgeConfig, WASM_BINARY,
 };
-use hex_literal::hex;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -80,9 +81,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
 				],
-				vec![
-					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")),
-				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
@@ -134,9 +133,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
-				vec![
-					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")),
-				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
@@ -194,9 +191,7 @@ pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
-				vec![
-					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")),
-				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
