@@ -264,6 +264,13 @@ decl_module! {
 		}
 
 		#[weight = DbWeight::get().writes(1)]
+		/// Set the relayer address
+		pub fn set_relayer(origin, relayer: T::AccountId) {
+			ensure_root(origin)?;
+			<Relayer<T>>::put(relayer)
+		}
+
+		#[weight = DbWeight::get().writes(1)]
 		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by CENNZnet
 		pub fn set_event_block_confirmations(origin, confirmations: u64) {
 			ensure_root(origin)?;

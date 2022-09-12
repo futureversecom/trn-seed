@@ -173,14 +173,14 @@ pub trait EthereumEventSubscriber {
 /// Generates proof of events for the remote
 /// chain
 pub trait EthereumBridge {
-	/// Submit an event to the bridge for relaying to Ethereum
+	/// Send an event via the bridge for relaying to Ethereum
 	///
 	/// `source` the (pseudo) address of the pallet that submitted the event
 	/// `destination` address on Ethereum
 	/// `message` data
 	///
 	/// Returns a unique event proofId on success
-	fn submit_event(
+	fn send_event(
 		source: &H160,
 		destination: &H160,
 		message: &[u8],

@@ -20,7 +20,7 @@ use frame_support::{
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
 use scale_info::TypeInfo;
-use sp_core::{ecdsa::Signature, ByteArray, H160, H256, U256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{
@@ -31,9 +31,10 @@ use sp_runtime::{
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventClaimSubscriber, FinalSessionTracker,
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
+	EventRouterResult, FinalSessionTracker,
 };
-use seed_primitives::ethy::{crypto::AuthorityId, EventClaimId};
+use seed_primitives::{ethy::crypto::AuthorityId, Signature};
 
 use crate::{
 	self as pallet_ethy,
@@ -45,6 +46,7 @@ use crate::{
 	Config,
 };
 
+type BlockNumber = u64;
 pub type SessionIndex = u32;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -72,7 +74,7 @@ impl frame_system::Config for TestRuntime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
 	type Index = u64;
-	type BlockNumber = u64;
+	type BlockNumber = BlockNumber;
 	type Call = Call;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
@@ -94,16 +96,19 @@ impl frame_system::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
 	pub const NotarizationThreshold: Percent = Percent::from_parts(66_u8);
+	/// The Ethereum bridge contract address paired with the bridge pallet
+	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
+	pub const ChallengePeriod: BlockNumber = 100 as BlockNumber;
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
+	type BridgeContractAddress = EthereumBridgeContractAddress;
+	type ChallengePeriod = ChallengePeriod;
 	type EthCallSubscribers = MockEthCallSubscriber;
 	type EthereumRpcClient = MockEthereumRpcClient;
 	type EthyId = AuthorityId;
-	type EventClaimSubscribers = MockClaimSubscriber;
+	type EventRouter = NoopEventRouter;
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
 	type UnixTime = MockUnixTime;
@@ -377,28 +382,15 @@ impl MockValidatorSet {
 	/// Mock n validator stashes
 	pub fn mock_n_validators(n: u8) {
 		let validators: Vec<AccountId> =
-			(1..=n).map(|i| AccountId::from_slice(&[i; 33]).unwrap()).collect();
+			(1..=n as u64).map(|i| H160::from_low_u64_be(i).into()).collect();
 		test_storage::Validators::put(validators);
 	}
 }
 
-pub struct MockClaimSubscriber;
-impl EthereumEventClaimSubscriber for MockClaimSubscriber {
-	/// Notify subscriber about a successful event claim for the given event data
-	fn on_success(
-		_event_claim_id: EventClaimId,
-		_source_address: &H160,
-		_event_selector: &H256,
-		_event_data: &[u8],
-	) {
-	}
-	/// Notify subscriber about a failed event claim for the given event data
-	fn on_failure(
-		_event_claim_id: EventClaimId,
-		_source_address: &H160,
-		_event_selector: &H256,
-		_event_data: &[u8],
-	) {
+pub struct NoopEventRouter;
+impl EthereumEventRouter for NoopEventRouter {
+	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
+		Err((0, EventRouterError::NoReceiver))
 	}
 }
 
@@ -492,11 +484,16 @@ where
 
 #[derive(Clone, Copy, Default)]
 pub struct ExtBuilder {
+	relayer: Option<AccountId>,
 	next_session_final: bool,
 	active_session_final: bool,
 }
 
 impl ExtBuilder {
+	pub fn relayer(&mut self, relayer: H160) -> &mut Self {
+		self.relayer = Some(relayer.into());
+		self
+	}
 	pub fn active_session_final(&mut self) -> &mut Self {
 		self.active_session_final = true;
 		self
@@ -510,6 +507,13 @@ impl ExtBuilder {
 			.build_storage::<TestRuntime>()
 			.unwrap()
 			.into();
+
+		if let Some(relayer) = self.relayer {
+			ext.execute_with(|| {
+				assert!(EthBridge::set_relayer(Origin::root(), relayer).is_ok());
+			});
+		}
+
 		if self.next_session_final {
 			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
 		} else if self.active_session_final {
