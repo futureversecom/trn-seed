@@ -621,13 +621,13 @@ fn create() {
 		pub const ALICE: MockAccountId = 1;
 
 		// create token & verify asset_uuid increment
-		let usdc = <AssetsExt as CreateExt>::create(ALICE).unwrap();
+		let usdc = <AssetsExt as CreateExt>::create(&ALICE).unwrap();
 		assert_eq!(usdc, 1 << 10 | 100);
 		assert_eq!(AssetsExt::minimum_balance(usdc), 1);
 		assert_eq!(AssetsExt::total_issuance(usdc), 0);
 
 		// create token & verify asset_uuid increment
-		let weth = <AssetsExt as CreateExt>::create(ALICE).unwrap();
+		let weth = <AssetsExt as CreateExt>::create(&ALICE).unwrap();
 		assert_eq!(weth, 2 << 10 | 100);
 		assert_eq!(AssetsExt::minimum_balance(weth), 1);
 		assert_eq!(AssetsExt::total_issuance(usdc), 0);
