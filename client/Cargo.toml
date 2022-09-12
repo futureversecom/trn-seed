@@ -32,17 +32,24 @@ sc-telemetry = { git = "https://github.com/futureversecom/substrate", branch = "
 sc-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-transaction-pool = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-transaction-pool-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-consensus-aura = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-consensus-aura = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-consensus-babe = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-consensus-babe-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-consensus-uncles = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-authorship = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-consensus-babe = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-consensus = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-consensus = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-consensus-epochs = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-finality-grandpa = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-finality-grandpa-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-finality-grandpa = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-client-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-inherents = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-transaction-storage-proof = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate" , branch = "polkadot-v0.9.27" }
 

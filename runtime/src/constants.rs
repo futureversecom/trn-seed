@@ -81,6 +81,9 @@ mod constants {
 	#[cfg(feature = "fast_epoch")]
 	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
 
+	// 1 in 4 blocks (on average, not counting collisions) will be primary BABE blocks.
+	pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+
 	// Time is measured by number of blocks.
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 	pub const HOURS: BlockNumber = MINUTES * 60;
