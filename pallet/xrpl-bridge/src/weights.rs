@@ -48,6 +48,7 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_liquid_staking.
 pub trait WeightInfo {
 	fn submit_transaction() -> Weight;
+	fn submit_challenge() -> Weight;
 }
 
 /// Weights for pallet_liquid_staking using the Substrate node and recommended hardware.
@@ -58,11 +59,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
+	fn submit_challenge() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+	}
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
 	fn submit_transaction() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+	fn submit_challenge() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))

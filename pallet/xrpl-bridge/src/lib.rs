@@ -14,12 +14,13 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::helpers::XrpTransaction;
+use crate::helpers::{XrpTransaction, XrplTxData};
 use frame_support::{pallet_prelude::*, transactional};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_primitives::{LedgerIndex, Timestamp};
 use sp_core::H512;
+use sp_std::vec;
 
 pub use pallet::*;
 
@@ -86,7 +87,19 @@ pub mod pallet {
 			storage::Key<Blake2_128Concat, LedgerIndex>,
 			storage::Key<Blake2_128Concat, H512>,
 		),
-		XrpTransaction<T>,
+		XrpTransaction,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn challenge_xrp_transaction)]
+	pub type ChallengeXRPTransaction<T: Config> = StorageNMap<
+		_,
+		(
+			storage::Key<Blake2_128Concat, T::AccountId>,
+			storage::Key<Blake2_128Concat, LedgerIndex>,
+			storage::Key<Blake2_128Concat, H512>,
+		),
+		XrpTransaction,
 	>;
 
 	#[pallet::genesis_config]
@@ -117,13 +130,33 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			ledger_index: LedgerIndex,
 			transaction_hash: H512,
-			transaction: BoundedVecOfTransaction<T>,
+			transaction: XrplTxData,
 			timestamp: Timestamp,
 		) -> DispatchResultWithPostInfo {
 			let relayer = ensure_signed(origin)?;
-			let active_relayer = <Relayer<T>>::get(&relayer).ok_or(false).unwrap();
+			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
 			Self::add_to_relay(relayer, ledger_index, transaction_hash, transaction, timestamp)
+		}
+
+		/// Submit xrp transaction challenge
+		#[pallet::weight((<T as Config>::WeightInfo::submit_challenge(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn submit_challenge(
+			origin: OriginFor<T>,
+			ledger_index: LedgerIndex,
+			transaction_hash: H512,
+			transaction: XrplTxData,
+			timestamp: Timestamp,
+		) -> DispatchResultWithPostInfo {
+			let challenger = ensure_signed(origin)?;
+			Self::add_to_challenge(
+				challenger,
+				ledger_index,
+				transaction_hash,
+				transaction,
+				timestamp,
+			)
 		}
 	}
 }
@@ -139,15 +172,32 @@ impl<T: Config> Pallet<T> {
 		relayer: AccountOf<T>,
 		ledger_index: LedgerIndex,
 		transaction_hash: H512,
-		transaction: BoundedVecOfTransaction<T>,
+		transaction: XrplTxData,
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
 		let val = XrpTransaction {
-			transaction_hash: transaction_hash.clone(),
-			transaction: transaction.clone(),
+			transaction_hash,
+			transaction,
 			timestamp,
 		};
 		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val);
+		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
+		Ok(().into())
+	}
+
+	pub fn add_to_challenge(
+		challenger: AccountOf<T>,
+		ledger_index: LedgerIndex,
+		transaction_hash: H512,
+		transaction: XrplTxData,
+		timestamp: Timestamp,
+	) -> DispatchResultWithPostInfo {
+		let val = XrpTransaction {
+			transaction_hash,
+			transaction,
+			timestamp,
+		};
+		<ChallengeXRPTransaction<T>>::insert((&challenger, &ledger_index, &transaction_hash), val);
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())
 	}
