@@ -3971,6 +3971,15 @@ dependencies = [
 
 [[package]]
 name = "memmap2"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "723e3ebdcdc5c023db1df315364573789f8857c11b631a2fdfad7c00f5c046b4"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "memmap2"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95af15f345b17af2efc8ead6080fb8bc376f8cec1b35277b935637595fe77498"
@@ -4091,7 +4100,7 @@ dependencies = [
  "digest 0.10.3",
  "multihash-derive",
  "sha2 0.10.5",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "unsigned-varint",
 ]
 
@@ -5073,9 +5082,9 @@ dependencies = [
 
 [[package]]
 name = "parity-db"
-version = "0.3.17"
+version = "0.3.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c8fdb726a43661fa54b43e7114e6b88b2289cae388eb3ad766d9d1754d83fce"
+checksum = "2bb474d0ed0836e185cb998a6b140ed1073d1fbf27d690ecf9ede8030289382c"
 dependencies = [
  "blake2-rfc",
  "crc32fast",
@@ -5084,8 +5093,8 @@ dependencies = [
  "libc",
  "log",
  "lz4",
- "memmap2",
- "parking_lot 0.12.1",
+ "memmap2 0.2.3",
+ "parking_lot 0.11.2",
  "rand 0.8.5",
  "snap",
 ]
@@ -6180,7 +6189,7 @@ version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "impl-trait-for-tuples",
- "memmap2",
+ "memmap2 0.5.7",
  "parity-scale-codec",
  "sc-chain-spec-derive",
  "sc-network",
@@ -7854,7 +7863,7 @@ dependencies = [
  "byteorder",
  "digest 0.10.3",
  "sha2 0.10.5",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "sp-std",
  "twox-hash",
 ]
@@ -9036,7 +9045,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.3",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
