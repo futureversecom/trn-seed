@@ -164,7 +164,6 @@ std = [
 	"rustc-hex/std",
 	"pallet-erc20-peg/std",
 	"pallet-nft-peg/std",
-	"ethabi/std",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
