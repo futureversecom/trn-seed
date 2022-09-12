@@ -175,11 +175,7 @@ impl<T: Config> Pallet<T> {
 		transaction: XrplTxData,
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
-		let val = XrpTransaction {
-			transaction_hash,
-			transaction,
-			timestamp,
-		};
+		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val);
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())
@@ -192,11 +188,7 @@ impl<T: Config> Pallet<T> {
 		transaction: XrplTxData,
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
-		let val = XrpTransaction {
-			transaction_hash,
-			transaction,
-			timestamp,
-		};
+		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<ChallengeXRPTransaction<T>>::insert((&challenger, &ledger_index, &transaction_hash), val);
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())
