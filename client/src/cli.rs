@@ -21,12 +21,19 @@ pub struct RunCmd {
 		long = "eth-http",
 	)]
 	pub eth_http: Option<String>,
+
+	/// XRP JSON-RPC client endpoint
+	#[clap(
+		parse(try_from_str = parse_uri),
+		long = "xrp-http",
+	)]
+	pub xrp_http: Option<String>,
 }
 
 /// Parse HTTP `uri`
 fn parse_uri(uri: &str) -> Result<String> {
 	let _ = url::Url::parse(uri)
-		.map_err(|_| Error::Input("Invalid Ethereum HTTP URI provided".into()))?;
+		.map_err(|_| Error::Input("Invalid external HTTP URI provided".into()))?;
 	Ok(uri.into())
 }
 
