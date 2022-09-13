@@ -12,8 +12,8 @@ use seed_pallet_common::FinalSessionTracker;
 use seed_primitives::{Balance, BlockNumber};
 use seed_runtime::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
-	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EthBridge, Executive, Runtime,
-	Session, SessionLength as Period, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
+	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
+	Executive, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
 };
 
 mod mock;
@@ -36,13 +36,14 @@ fn run_to_block(n: BlockNumber) {
 			Session::current_index()
 		);
 		System::set_block_number(b);
+		Timestamp::set_timestamp(
+			INIT_TIMESTAMP + (System::block_number() * MILLISECS_PER_BLOCK as u32) as u64,
+		);
+		<pallet_babe::CurrentSlot<Runtime>>::put(sp_consensus_babe::Slot::from(b as u64));
 		Session::on_initialize(b);
 		Staking::on_initialize(b);
 		ElectionProviderMultiPhase::on_initialize(b);
 		ElectionProviderMultiPhase::offchain_worker(b);
-		Timestamp::set_timestamp(
-			INIT_TIMESTAMP + (System::block_number() * MILLISECS_PER_BLOCK as u32) as u64,
-		);
 		if b != n {
 			Staking::on_finalize(System::block_number());
 		}
@@ -62,7 +63,7 @@ fn active_era() -> EraIndex {
 /// Progresses from the current block number (whatever that may be) to the `epoch duration *
 /// session_index + 1`.
 fn start_session(session_index: SessionIndex) {
-	let end = session_index * Period::get();
+	let end = session_index * EpochDuration::get() as u32;
 	run_to_block(end);
 	// session must have progressed properly.
 	assert_eq!(

@@ -5,14 +5,16 @@ use sp_runtime::{
 	Perbill,
 };
 
+use hex_literal::hex;
 use seed_runtime::{
 	constants::{
 		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
 		ONE_XRP, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, Balance, BalancesConfig, Forcing, GenesisConfig, SessionConfig,
-	SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig, WASM_BINARY,
+	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, Forcing, GenesisConfig,
+	SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 
 // The URL for the telemetry server.
@@ -22,7 +24,7 @@ use seed_runtime::{
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Type alias for the stash, controller + session key types tuple used by validators
-pub type AuthorityKeys = (AccountId, AuraId, ImOnlineId, GrandpaId, EthBridgeId);
+pub type AuthorityKeys = (AccountId, BabeId, ImOnlineId, GrandpaId, EthBridgeId);
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -41,11 +43,11 @@ where
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Generate a set of runtime session keys (stash/controller, aura, grandpa)
+/// Generate a set of runtime session keys (stash/controller, babe, grandpa)
 pub fn authority_keys_from_seed(s: &str) -> AuthorityKeys {
 	(
 		get_account_id_from_seed::<ecdsa::Public>(s),
-		get_from_seed::<AuraId>(s),
+		get_from_seed::<BabeId>(s),
 		get_from_seed::<ImOnlineId>(s),
 		get_from_seed::<GrandpaId>(s),
 		get_from_seed::<EthBridgeId>(s),
@@ -79,6 +81,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
 				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
@@ -130,6 +133,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
@@ -187,6 +191,7 @@ pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
@@ -210,6 +215,7 @@ fn testnet_genesis(
 	initial_authorities: Vec<AuthorityKeys>,
 	root_key: AccountId,
 	accounts_to_fund: Vec<AccountId>,
+	xrp_relayers: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
 	let metadata = vec![
@@ -238,10 +244,10 @@ fn testnet_genesis(
 			// Add Wasm runtime to storage.
 			code: wasm_binary.to_vec(),
 		},
+		babe: BabeConfig { authorities: vec![], epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG) },
 		balances: BalancesConfig { balances: endowed_balances },
-		// aura & grandpa initialization handled by session
+		// babe & grandpa initialization handled by session
 		//  otherwise causes: Thread 'main' panicked at 'Authorities are already initialized!'
-		aura: Default::default(),
 		assets: AssetsConfig { assets, accounts: endowed_assets, metadata },
 		assets_ext: Default::default(),
 		grandpa: Default::default(),
@@ -251,11 +257,11 @@ fn testnet_genesis(
 			keys: initial_authorities
 				.iter()
 				.cloned()
-				.map(|(acc, aura, im_online, grandpa, ethy)| {
+				.map(|(acc, babe, im_online, grandpa, ethy)| {
 					(
 						acc.clone(),                                    // validator stash id
 						acc,                                            // validator controller id
-						SessionKeys { aura, im_online, grandpa, ethy }, // session keys
+						SessionKeys { babe, im_online, grandpa, ethy }, // session keys
 					)
 				})
 				.collect(),
@@ -280,5 +286,6 @@ fn testnet_genesis(
 		base_fee: Default::default(),
 		ethereum: seed_runtime::EthereumConfig {},
 		evm: seed_runtime::EVMConfig { accounts: Default::default() },
+		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
 	}
 }

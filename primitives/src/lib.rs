@@ -8,6 +8,9 @@ pub use types::*;
 pub mod ethy;
 mod signature;
 
+// offchain storage config key for XRP HTTP URI
+pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
+
 pub mod types {
 	use crate::signature::EthereumSignature;
 	use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -37,8 +40,8 @@ pub mod types {
 	/// Digest item type.
 	pub type DigestItem = sp_runtime::generic::DigestItem;
 
-	// Aura consensus authority.
-	pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
+	// Babe consensus authority.
+	pub type BabeId = sp_consensus_babe::AuthorityId;
 
 	// Id used for identifying assets.
 	pub type AssetId = u32;

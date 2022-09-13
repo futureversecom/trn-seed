@@ -52,14 +52,9 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-parameter_types! {
-	pub const TransactionLimit: u32 = 2048u32;
-}
-
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
 	type WeightInfo = ();
-	type TransactionLimit = TransactionLimit;
 }
 
 // Build genesis storage according to the mock runtime.
