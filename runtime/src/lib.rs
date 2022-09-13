@@ -74,7 +74,7 @@ mod bag_thresholds;
 pub mod constants;
 use constants::{
 	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, HOURS, MILLISECS_PER_BLOCK, ONE_MYCL, ONE_XRP,
-  PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.

@@ -576,14 +576,14 @@ fn offchain_try_notarize_event_unexpected_source_address_should_fail() {
 		let _mock_tx_receipt =
 			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
 
-		// Create event claim with different contract address to tx_receipt
+		// Create event claim where event is emitted by a different address to the tx_receipt 'to'
 		let event_claim =
 			EventClaim { tx_hash, source: H160::from_low_u64_be(444), ..Default::default() };
 		let event_id = 1;
 
 		assert_eq!(
 			EthBridge::offchain_try_notarize_event(event_id, event_claim),
-			EventClaimResult::UnexpectedContractAddress
+			EventClaimResult::UnexpectedSource
 		);
 	});
 }

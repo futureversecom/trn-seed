@@ -153,6 +153,8 @@ pub enum EventClaimResult {
 	Expired,
 	/// The Tx Receipt was not present
 	NoTxReceipt,
+	/// The event source did not match the tx receipt `to` field
+	UnexpectedSource,
 }
 
 /// An independent notarization of a bridged value

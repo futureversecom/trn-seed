@@ -173,7 +173,7 @@ impl<T: Config> Module<T> {
 		// example 1: contract A -> bridge contract, ok
 		// example 2: contract A -> contract B -> bridge contract, fails
 		if tx_receipt.to != Some(source) {
-			return EventClaimResult::UnexpectedContractAddress
+			return EventClaimResult::UnexpectedSource
 		}
 
 		// search for a bridge deposit event in this tx receipt
