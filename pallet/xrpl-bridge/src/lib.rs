@@ -23,7 +23,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_pallet_common::CreateExt;
-use seed_primitives::{AssetId, Balance, LedgerIndex, Timestamp};
+use seed_primitives::{AccountId, AssetId, Balance, LedgerIndex, Timestamp};
 use sp_core::H512;
 use sp_std::vec;
 
@@ -48,7 +48,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
@@ -214,11 +214,13 @@ impl<T: Config> Pallet<T> {
 					None => {},
 					Some(tx) => match tx.transaction {
 						XrplTxData::Payment { amount, address } => {
-							//let who: T::AccountId = T::AccountId::from(address.into());
-							let who: T::AccountId = address.into();
-							let _ = T::MultiCurrency::mint_into(T::XrpAssetId::get(), &who, amount);
+							let _ = T::MultiCurrency::mint_into(
+								T::XrpAssetId::get(),
+								&address.into(),
+								amount,
+							);
 						},
-						XrplTxData::CurrencyPayment { amount, address, currency_id } => {},
+						XrplTxData::CurrencyPayment { amount: _, address: _, currency_id: _ } => {},
 						XrplTxData::Xls20 => {},
 					},
 				}
