@@ -151,6 +151,8 @@ pub enum EventClaimResult {
 	UnexpectedData,
 	/// The deposit tx is past the expiration deadline
 	Expired,
+	/// The Tx Receipt was not present
+	NoTxReceipt,
 }
 
 /// An independent notarization of a bridged value

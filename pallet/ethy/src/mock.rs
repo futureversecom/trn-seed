@@ -124,6 +124,67 @@ pub struct MockBlockResponse {
 	pub timestamp: U256,
 }
 
+/// Mock data for an Ethereum log
+/// NB: `ethereum_types::Log` does not implement SCALE/TypeInfo so can't be used directly in storage
+/// `MockLog` is used in its place and converted to `Log` on read
+#[derive(PartialEq, Eq, Encode, Decode, Debug, Clone, Default, TypeInfo)]
+pub struct MockLog {
+	pub topics: Vec<H256>,
+	pub data: Vec<u8>,
+	pub address: EthAddress,
+	pub transaction_hash: Option<H256>,
+}
+
+impl Into<Log> for MockLog {
+	fn into(self) -> Log {
+		Log {
+			address: self.address,
+			data: self.data,
+			topics: self.topics,
+			transaction_hash: self.transaction_hash,
+			..Default::default()
+		}
+	}
+}
+
+impl From<Log> for MockLog {
+	fn from(l: Log) -> Self {
+		Self {
+			address: l.address,
+			data: l.data,
+			topics: l.topics,
+			transaction_hash: l.transaction_hash,
+		}
+	}
+}
+
+pub(crate) struct MockLogBuilder(MockLog);
+
+impl MockLogBuilder {
+	pub fn new() -> Self {
+		Self(MockLog::default())
+	}
+	pub fn build(&self) -> MockLog {
+		self.0.clone()
+	}
+	pub fn address(&mut self, address: EthAddress) -> &mut Self {
+		self.0.address = address;
+		self
+	}
+	pub fn topics(&mut self, topics: Vec<H256>) -> &mut Self {
+		self.0.topics = topics;
+		self
+	}
+	pub fn data(&mut self, data: &[u8]) -> &mut Self {
+		self.0.data = data.to_vec();
+		self
+	}
+	pub fn transaction_hash(&mut self, transaction_hash: H256) -> &mut Self {
+		self.0.transaction_hash = Some(transaction_hash);
+		self
+	}
+}
+
 /// Values in TransactionReceipt that we store in mock storage
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Default, TypeInfo)]
 pub struct MockReceiptResponse {
@@ -131,7 +192,9 @@ pub struct MockReceiptResponse {
 	pub block_number: u64,
 	pub transaction_hash: H256,
 	pub status: u64,
-	pub source_address: Option<EthAddress>,
+	pub logs: Vec<MockLog>,
+	/// The top-level address called by the tx
+	pub to: Option<EthAddress>,
 }
 
 /// Builder for creating EthBlocks
@@ -139,7 +202,7 @@ pub(crate) struct MockBlockBuilder(EthBlock);
 
 impl MockBlockBuilder {
 	pub fn new() -> Self {
-		MockBlockBuilder(EthBlock::default())
+		Self(EthBlock::default())
 	}
 	pub fn build(&self) -> EthBlock {
 		self.0.clone()
@@ -163,7 +226,7 @@ pub(crate) struct MockReceiptBuilder(TransactionReceipt);
 
 impl MockReceiptBuilder {
 	pub fn new() -> Self {
-		MockReceiptBuilder(TransactionReceipt { status: Some(U64::from(1)), ..Default::default() })
+		Self(TransactionReceipt { status: Some(U64::from(1)), ..Default::default() })
 	}
 	pub fn build(&self) -> TransactionReceipt {
 		self.0.clone()
@@ -180,8 +243,12 @@ impl MockReceiptBuilder {
 		self.0.transaction_hash = tx_hash;
 		self
 	}
-	pub fn contract_address(&mut self, contract_address: EthAddress) -> &mut Self {
-		self.0.contract_address = Some(contract_address);
+	pub fn to(&mut self, to: EthAddress) -> &mut Self {
+		self.0.to = Some(to);
+		self
+	}
+	pub fn logs(&mut self, logs: Vec<MockLog>) -> &mut Self {
+		self.0.logs = logs.into_iter().map(Into::into).collect();
 		self
 	}
 }
@@ -274,13 +341,15 @@ impl MockEthereumRpcClient {
 		};
 		test_storage::BlockResponseAt::insert(block_number, mock_block_response);
 	}
+	/// Mock a tx receipt response for a hash
 	pub fn mock_transaction_receipt_for(tx_hash: EthHash, mock_tx_receipt: TransactionReceipt) {
 		let mock_receipt_response = MockReceiptResponse {
 			block_hash: mock_tx_receipt.block_hash,
 			block_number: mock_tx_receipt.block_number.as_u64(),
 			transaction_hash: mock_tx_receipt.transaction_hash,
 			status: mock_tx_receipt.status.unwrap_or_default().as_u64(),
-			source_address: mock_tx_receipt.contract_address,
+			to: mock_tx_receipt.to,
+			logs: mock_tx_receipt.logs.into_iter().map(From::from).collect(),
 		};
 		test_storage::TransactionReceiptFor::insert(tx_hash, mock_receipt_response);
 	}
@@ -324,21 +393,14 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 			return Ok(None)
 		}
 		let mock_receipt = mock_receipt.unwrap();
-		// Inject a default Log with some default topics
-		let default_log: Log = Log {
-			address: mock_receipt.source_address.unwrap(),
-			topics: vec![Default::default()],
-			transaction_hash: Some(hash),
-			..Default::default()
-		};
 		let transaction_receipt = TransactionReceipt {
 			block_hash: mock_receipt.block_hash,
 			block_number: U64::from(mock_receipt.block_number),
-			contract_address: mock_receipt.source_address,
-			to: mock_receipt.source_address,
+			contract_address: None,
+			to: mock_receipt.to,
 			status: Some(U64::from(mock_receipt.status)),
 			transaction_hash: mock_receipt.transaction_hash,
-			logs: vec![default_log],
+			logs: mock_receipt.logs.into_iter().map(Into::into).collect(),
 			..Default::default()
 		};
 		Ok(Some(transaction_receipt))
@@ -602,7 +664,7 @@ fn get_transaction_receipt_mock_works() {
 		let tx_hash: EthHash = H256::from_low_u64_be(122);
 		let status: U64 = U64::from(1);
 		let source_address: EthAddress = H160::from_low_u64_be(123);
-		let default_log: Log = Log {
+		let default_log = Log {
 			address: source_address,
 			topics: vec![Default::default()],
 			transaction_hash: Some(tx_hash),
@@ -612,7 +674,6 @@ fn get_transaction_receipt_mock_works() {
 		let mock_tx_receipt = TransactionReceipt {
 			block_hash,
 			block_number: U64::from(block_number),
-			contract_address: Some(source_address),
 			logs: vec![default_log],
 			status: Some(status),
 			to: Some(source_address),

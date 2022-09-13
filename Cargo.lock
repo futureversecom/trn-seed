@@ -4100,7 +4100,7 @@ dependencies = [
  "digest 0.10.3",
  "multihash-derive",
  "sha2 0.10.5",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "unsigned-varint",
 ]
 
@@ -7865,7 +7865,7 @@ dependencies = [
  "byteorder",
  "digest 0.10.3",
  "sha2 0.10.5",
- "sha3 0.10.2",
+ "sha3 0.10.4",
  "sp-std",
  "twox-hash",
 ]

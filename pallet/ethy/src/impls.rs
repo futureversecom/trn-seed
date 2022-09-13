@@ -151,7 +151,6 @@ impl<T: Config> Module<T> {
 		event_claim_id: EventClaimId,
 		event_claim: EventClaim,
 	) -> EventClaimResult {
-		// TODO: this whole function changes to validate events from the bridge contract only
 		let EventClaim { tx_hash, data, source, destination } = event_claim;
 		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
@@ -162,7 +161,7 @@ impl<T: Config> Module<T> {
 		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
 		let tx_receipt = match maybe_tx_receipt {
 			Some(t) => t,
-			None => return EventClaimResult::NoTxLogs,
+			None => return EventClaimResult::NoTxReceipt,
 		};
 		let status = tx_receipt.status.unwrap_or_default();
 		if status.is_zero() {

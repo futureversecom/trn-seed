@@ -201,10 +201,10 @@ decl_error! {
 		InvalidClaim,
 		/// offchain worker not configured properly
 		OcwConfig,
-		/// This message has already been notarized
-		AlreadyNotarized,
-		/// Claim in progress
-		DuplicateClaim,
+		/// Event was already submitted and is pending
+		EventReplayPending,
+		/// Event was already submitted and is complete
+		EventReplayProcessed,
 		/// The bridge is paused pending validator set changes (once every era / 24 hours)
 		/// It will reactive after ~10 minutes
 		BridgePaused,
@@ -226,7 +226,7 @@ decl_module! {
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
 			let mut consumed_weight = 0 as Weight;
 
-			// 1) Forward validated messages
+			// 1) Process validated messages
 			let mut processed_message_ids = Self::processed_message_ids();
 			for message_id in MessagesValidAt::<T>::take(block_number) {
 				if let Some(EventClaim { source, destination, data, .. } ) = PendingEventClaims::take(message_id) {
@@ -247,6 +247,9 @@ decl_module! {
 				if let Err(idx) = processed_message_ids.binary_search(&message_id) {
 					processed_message_ids.insert(idx, message_id);
 				}
+			}
+			if !processed_message_ids.is_empty() {
+				ProcessedMessageIds::put(processed_message_ids);
 			}
 
 			// 2) Try process delayed proofs
@@ -299,7 +302,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 			ensure!(Some(origin) == Self::relayer(), Error::<T>::NoPermission);
 
-			// TODO: place some limit on `data` length
+			// TODO: place some limit on `data` length (it should match on contract side)
 			// Message(event_id, msg.caller, destination, data);
 			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data)] = ethabi::decode(&[
 				ParamType::Uint(64),
@@ -308,8 +311,8 @@ decl_module! {
 				ethabi::ParamType::Bytes,
 			], event.as_slice()).map_err(|_| Error::<T>::InvalidClaim)?.as_slice() {
 				let event_id: EventClaimId = (*event_id).saturated_into();
-				ensure!(!PendingEventClaims::contains_key(event_id), Error::<T>::DuplicateClaim);
-				ensure!(Self::processed_message_ids().binary_search(&event_id).is_err(), Error::<T>::DuplicateClaim);
+				ensure!(!PendingEventClaims::contains_key(event_id), Error::<T>::EventReplayPending);
+				ensure!(Self::processed_message_ids().binary_search(&event_id).is_err(), Error::<T>::EventReplayProcessed);
 
 				PendingEventClaims::insert(event_id, EventClaim {
 					tx_hash,
