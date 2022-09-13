@@ -258,7 +258,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		backend.offchain_storage().unwrap().set(
 			sp_core::offchain::STORAGE_PREFIX,
 			&XRP_HTTP_URI,
-			xrp_http_uri.as_bytes()
+			xrp_http_uri.as_bytes(),
 		)
 	}
 
