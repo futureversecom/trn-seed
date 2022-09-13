@@ -62,6 +62,25 @@ pub mod pallet {
 		TransactionChallenge(LedgerIndex, H512),
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+		fn on_initialize(n: T::BlockNumber) -> Weight {
+			/*let block_number: u128 = match n.try_into() {
+				Err(_) => return 0,
+				Ok(v) => v,
+			};
+			let initiate = match block_number.checked_rem(T::RewardDurationBlock::get()) {
+				None => return 0,
+				Some(v) => v,
+			};
+			if initiate.eq(&0) {
+				Self::snap(block_number)
+			} else {
+				Self::payout()
+			}*/
+		}
+	}
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]
@@ -176,7 +195,15 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResultWithPostInfo {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val);
+		Self::add_to_xrp_process(transaction_hash).expect("Failed to add to challenger list");
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
+		Ok(().into())
+	}
+
+	pub fn add_to_xrp_process(transaction_hash: H512) -> DispatchResultWithPostInfo {
+		let current_block_number = <frame_system::Pallet<T>>::block_number();
+		let process_block_number = current_block_number;
+		<ProcessXRPTransaction<T>>::insert(process_block_number, transaction_hash);
 		Ok(().into())
 	}
 
