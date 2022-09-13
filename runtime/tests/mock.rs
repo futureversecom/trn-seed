@@ -129,11 +129,11 @@ impl ExtBuilder {
 			keys: self
 				.initial_authorities
 				.into_iter()
-				.map(|(stash, aura, im_online, grandpa, ethy)| {
+				.map(|(stash, babe, im_online, grandpa, ethy)| {
 					(
 						stash,
 						stash, // use as controller too
-						SessionKeys { aura, im_online, grandpa, ethy },
+						SessionKeys { babe, im_online, grandpa, ethy },
 					)
 				})
 				.collect::<Vec<_>>(),
