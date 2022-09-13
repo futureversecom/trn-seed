@@ -40,6 +40,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use seed_primitives::BlockNumber;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -84,15 +85,20 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn challenge_xrp_transaction)]
-	pub type ChallengeXRPTransaction<T: Config> = StorageNMap<
+	#[pallet::getter(fn process_xrp_transaction)]
+	pub type ProcessXRPTransaction<T: Config> = StorageMap<_, Blake2_128Concat, BlockNumber, H512>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn challenge_xrp_transaction_list)]
+	pub type ChallengeXRPTransactionList<T: Config> =
+		StorageMap<_, Blake2_128Concat, H512, Vec<T::AccountId>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn challenge_xrp_transaction_details)]
+	pub type ChallengeXRPTransactionDetails<T: Config> = StorageNMap<
 		_,
-		(
-			storage::Key<Blake2_128Concat, T::AccountId>,
-			storage::Key<Blake2_128Concat, LedgerIndex>,
-			storage::Key<Blake2_128Concat, H512>,
-		),
-		XrpTransaction,
+		(storage::Key<Blake2_128Concat, T::AccountId>, storage::Key<Blake2_128Concat, H512>),
+		(LedgerIndex, XrpTransaction),
 	>;
 
 	#[pallet::genesis_config]
@@ -182,8 +188,32 @@ impl<T: Config> Pallet<T> {
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<ChallengeXRPTransaction<T>>::insert((&challenger, &ledger_index, &transaction_hash), val);
+		<ChallengeXRPTransactionDetails<T>>::insert(
+			(&challenger, &transaction_hash),
+			(ledger_index, val),
+		);
+		Self::add_to_challenge_list(challenger, transaction_hash)
+			.expect("Failed to add to challenger list");
 		Self::deposit_event(Event::TransactionChallenge(ledger_index, transaction_hash));
+		Ok(().into())
+	}
+
+	pub fn add_to_challenge_list(
+		challenger: AccountOf<T>,
+		transaction_hash: H512,
+	) -> DispatchResultWithPostInfo {
+		let value = ChallengeXRPTransactionList::<T>::get(&transaction_hash);
+
+		match value {
+			None => ChallengeXRPTransactionList::<T>::insert(&transaction_hash, vec![challenger]),
+			Some(mut list) => match list.binary_search(&challenger) {
+				Ok(_) => {},
+				Err(pos) => {
+					list.insert(pos, challenger);
+					ChallengeXRPTransactionList::<T>::insert(&transaction_hash, list);
+				},
+			},
+		}
 		Ok(().into())
 	}
 }
