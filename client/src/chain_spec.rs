@@ -5,6 +5,7 @@ use sp_runtime::{
 	Perbill,
 };
 
+use hex_literal::hex;
 use seed_runtime::{
 	constants::{
 		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
@@ -13,7 +14,7 @@ use seed_runtime::{
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, Forcing, GenesisConfig,
 	SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 
 // The URL for the telemetry server.
@@ -80,6 +81,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
 				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
@@ -131,6 +133,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
@@ -188,6 +191,7 @@ pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
+				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
 			)
 		},
@@ -211,6 +215,7 @@ fn testnet_genesis(
 	initial_authorities: Vec<AuthorityKeys>,
 	root_key: AccountId,
 	accounts_to_fund: Vec<AccountId>,
+	xrp_relayers: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
 	let metadata = vec![
@@ -281,5 +286,6 @@ fn testnet_genesis(
 		base_fee: Default::default(),
 		ethereum: seed_runtime::EthereumConfig {},
 		evm: seed_runtime::EVMConfig { accounts: Default::default() },
+		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
 	}
 }
