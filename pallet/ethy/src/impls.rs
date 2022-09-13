@@ -189,7 +189,7 @@ impl<T: Config> Module<T> {
 			Token::Bytes(data),
 		]);
 		if let Some(log) = matching_log {
-			// check if the ethereum deposit event matches what was reported
+			// check if the Ethereum event data matches what was reported
 			// in the original claim
 			if log.data != submitted_event_data {
 				log!(

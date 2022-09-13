@@ -143,9 +143,9 @@ pub enum EventRouterError {
 pub type EventRouterResult = Result<Weight, (Weight, EventRouterError)>;
 /// Routes verified Ethereum messages to handler pallets
 ///
-/// ```no_run
+/// ```ignore
 /// impl EthereumEventRouter for (A,B,C)
-/// where:
+/// where
 /// 	A: EthereumEventSubscriber,
 /// 	B: EthereumEventSubscriber,
 /// 	C: EthereumEventSubscriber,
