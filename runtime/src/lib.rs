@@ -304,9 +304,16 @@ impl pallet_nft::Config for Runtime {
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const ChallengePeriod: u32 = 3000u32;
+}
+
 impl pallet_xrpl_bridge::Config for Runtime {
 	type Event = Event;
+	type MultiCurrency = AssetsExt;
 	type WeightInfo = ();
+	type XrpAssetId = XrpAssetId;
+	type ChallengePeriod = ChallengePeriod;
 }
 
 parameter_types! {

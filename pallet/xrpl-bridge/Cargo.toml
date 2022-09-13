@@ -23,7 +23,10 @@ serde              = { version = '1.0.144', features = ['derive'], optional = tr
 sp-runtime         = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 sp-std             = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 sp-core            = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+
 seed-primitives    = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
+pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false }
 
 [dev-dependencies]
 sp-io                   = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
@@ -48,6 +51,8 @@ std                = [
   'pallet-balances/std',
   'pallet-assets/std',
   'pallet-timestamp/std',
+  "seed-pallet-common/std",
+  "pallet-assets-ext/std",
 ]
 try-runtime        = ['frame-support/try-runtime']
 

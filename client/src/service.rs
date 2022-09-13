@@ -24,7 +24,7 @@ use std::{
 	time::Duration,
 };
 
-use seed_primitives::{ethy::ETH_HTTP_URI, opaque::Block};
+use seed_primitives::{ethy::ETH_HTTP_URI, opaque::Block, XRP_HTTP_URI};
 use seed_runtime::{self, RuntimeApi};
 
 use crate::cli::Cli;
@@ -252,6 +252,14 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			&ETH_HTTP_URI,
 			eth_http_uri.as_bytes(),
 		);
+	}
+
+	if let Some(ref xrp_http_uri) = cli.run.xrp_http {
+		backend.offchain_storage().unwrap().set(
+			sp_core::offchain::STORAGE_PREFIX,
+			&XRP_HTTP_URI,
+			xrp_http_uri.as_bytes(),
+		)
 	}
 
 	if let Some(url) = &config.keystore_remote {

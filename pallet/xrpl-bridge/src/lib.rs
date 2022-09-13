@@ -15,10 +15,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use crate::helpers::{XrpTransaction, XrplTxData};
-use frame_support::{pallet_prelude::*, transactional};
+use frame_support::{
+	pallet_prelude::*,
+	traits::fungibles::{Inspect, Mutate, Transfer},
+	transactional,
+};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use seed_primitives::{LedgerIndex, Timestamp};
+use seed_pallet_common::CreateExt;
+use seed_primitives::{AssetId, Balance, LedgerIndex, Timestamp};
 use sp_core::H512;
 use sp_std::vec;
 
@@ -37,17 +42,30 @@ pub mod weights;
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
 pub use weights::WeightInfo;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_primitives::BlockNumber;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
+		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
+			+ Transfer<Self::AccountId, Balance = Balance>
+			+ Inspect<Self::AccountId, AssetId = AssetId>
+			+ Mutate<Self::AccountId>;
+
 		/// Weight information
 		type WeightInfo: WeightInfo;
+
+		/// Transaction Length
+		#[pallet::constant]
+		type XrpAssetId: Get<AssetId>;
+
+		/// Transaction Length
+		#[pallet::constant]
+		type ChallengePeriod: Get<u32>;
 	}
 
 	#[pallet::error]
@@ -65,19 +83,11 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
-			/*let block_number: u128 = match n.try_into() {
-				Err(_) => return 0,
-				Ok(v) => v,
-			};
-			let initiate = match block_number.checked_rem(T::RewardDurationBlock::get()) {
-				None => return 0,
-				Some(v) => v,
-			};
-			if initiate.eq(&0) {
-				Self::snap(block_number)
+			if ProcessXRPTransaction::<T>::contains_key(n) {
+				Self::process_xrp_tx(n)
 			} else {
-				Self::payout()
-			}*/
+				10_000
+			}
 		}
 	}
 
@@ -105,7 +115,13 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction)]
-	pub type ProcessXRPTransaction<T: Config> = StorageMap<_, Blake2_128Concat, BlockNumber, H512>;
+	pub type ProcessXRPTransaction<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<H512>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn process_xrp_transaction_details)]
+	pub type ProcessXRPTransactionDetails<T: Config> =
+		StorageMap<_, Blake2_128Concat, H512, XrpTransaction>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -186,6 +202,31 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
+		let tx_items: Vec<H512> = match <ProcessXRPTransaction<T>>::get(n) {
+			None => return 10_000,
+			Some(v) => v,
+		};
+		for transaction_hash in tx_items {
+			if !<ChallengeXRPTransactionList<T>>::contains_key(transaction_hash) {
+				let tx_details = <ProcessXRPTransactionDetails<T>>::get(transaction_hash);
+				match tx_details {
+					None => {},
+					Some(tx) => match tx.transaction {
+						XrplTxData::Payment { amount, address } => {
+							//let who: T::AccountId = T::AccountId::from(address.into());
+							let who: T::AccountId = address.into();
+							let _ = T::MultiCurrency::mint_into(T::XrpAssetId::get(), &who, amount);
+						},
+						XrplTxData::CurrencyPayment { amount, address, currency_id } => {},
+						XrplTxData::Xls20 => {},
+					},
+				}
+			}
+		}
+		10_000
+	}
+
 	pub fn add_to_relay(
 		relayer: AccountOf<T>,
 		ledger_index: LedgerIndex,
@@ -194,16 +235,29 @@ impl<T: Config> Pallet<T> {
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val);
+		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val.clone());
+		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, val);
 		Self::add_to_xrp_process(transaction_hash).expect("Failed to add to challenger list");
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())
 	}
 
 	pub fn add_to_xrp_process(transaction_hash: H512) -> DispatchResultWithPostInfo {
-		let current_block_number = <frame_system::Pallet<T>>::block_number();
-		let process_block_number = current_block_number;
-		<ProcessXRPTransaction<T>>::insert(process_block_number, transaction_hash);
+		let process_block_number =
+			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
+		let value = ProcessXRPTransaction::<T>::get(&process_block_number);
+
+		match value {
+			None =>
+				ProcessXRPTransaction::<T>::insert(&process_block_number, vec![transaction_hash]),
+			Some(mut list) => match list.binary_search(&transaction_hash) {
+				Ok(_) => {},
+				Err(pos) => {
+					list.insert(pos, transaction_hash);
+					ProcessXRPTransaction::<T>::insert(&process_block_number, list);
+				},
+			},
+		}
 		Ok(().into())
 	}
 

@@ -4,6 +4,7 @@ use frame_support::{
 	traits::{ConstU16, ConstU64},
 };
 use frame_system as system;
+use seed_primitives::AssetId;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -22,6 +23,7 @@ construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Event<T>},
+		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>},
 	}
 );
 
@@ -52,9 +54,31 @@ impl system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+parameter_types! {
+	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
+	pub const MaxHolds: u32 = 16;
+	pub const XrpAssetId: AssetId = 2;
+	pub const WorldId: seed_primitives::ParachainId = 100;
+}
+
+impl pallet_assets_ext::Config for Runtime {
+	type Event = Event;
+	type ParachainId = WorldId;
+	type MaxHolds = MaxHolds;
+	type NativeAssetId = XrpAssetId;
+	type PalletId = AssetsExtPalletId;
+}
+
+parameter_types! {
+	pub const ChallengePeriod: u32 = 3000u32;
+}
+
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
 	type WeightInfo = ();
+	type ChallengePeriod = ChallengePeriod;
+	type MultiCurrency = ();
+	type XrpAssetId = XrpAssetId;
 }
 
 // Build genesis storage according to the mock runtime.
