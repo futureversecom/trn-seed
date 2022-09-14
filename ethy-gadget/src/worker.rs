@@ -25,12 +25,16 @@ use sp_api::BlockId;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
-	traits::{Block, Header},
+	traits::{Block, Convert, Header},
 };
 
-use seed_primitives::ethy::{
-	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventProof, EventProofId, ValidatorSet,
-	ValidatorSetId, VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+use seed_primitives::{
+	ethy::{
+		crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventProof, EventProofId,
+		PendingAuthorityChange, ValidatorSet, ValidatorSetId, VersionedEventProof, Witness,
+		ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	},
+	AccountId,
 };
 
 use crate::{
@@ -155,7 +159,7 @@ where
 		new
 	}
 
-	// For Ethy this would be a notification from something polling Ethereum full nodes
+	/// Check finalized blocks for proof requests
 	fn handle_finality_notification(&mut self, notification: FinalityNotification<B>) {
 		debug!(target: "ethy", "💎 finality notification: {:?}", notification);
 		let number = *notification.header.number();
@@ -412,7 +416,7 @@ pub struct ProofRequest {
 	event_id: EventProofId,
 	/// metadata tag about the proof
 	tag: Option<Vec<u8>>,
-	/// Block hash whe  proof was requested
+	/// Finalized block hash when the proof was requested
 	block: [u8; 32],
 }
 /// Extract event proof requests from a digest in the given header, if any.
@@ -438,16 +442,23 @@ where
 				// Note: we also handle this in `find_authorities_change` to update the validator
 				// set here we want to convert it into an 'OpaqueSigningRequest` to create a proof
 				// of the validator set change we must do this before the validators officially
-				// change next session (~10 minutes)
-				Some(ConsensusLog::PendingAuthoritiesChange((next_validator_set, event_id))) => {
+				// change next session
+				Some(ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
+					source,
+					destination,
+					next_validator_set,
+					event_proof_id,
+				})) => {
 					let message = eth_abi_encode_validator_set_change(
+						source,
+						destination,
 						&next_validator_set,
 						active_validator_set_id,
-						event_id,
+						event_proof_id,
 					);
 					Some(ProofRequest {
 						message,
-						event_id,
+						event_id: event_proof_id,
 						tag: Some(b"sys:authority-change".to_vec()),
 						block: block_hash,
 					})
@@ -476,13 +487,18 @@ where
 }
 
 /// Ethereum ABI encode a validator set change message
+/// - `bridge_pallet_address` The ethy pallet address (source)
+/// - `bridge_contract_address` The ethereum bridge contract address (destination)
+/// - `next_validator_set` Ordered list of validator public keys (secp256k1)
+/// - `proof_validator_set_id ` the id of the current validator set (acting as witnesses)
+/// - `proof_event_id` Id of this outgoing event
 fn eth_abi_encode_validator_set_change(
+	bridge_pallet_address: AccountId,
+	bridge_contract_address: AccountId,
 	next_validator_set: &ValidatorSet<Public>,
 	proof_validator_set_id: ValidatorSetId,
 	proof_event_id: EventProofId,
 ) -> Vec<u8> {
-	use sp_runtime::traits::Convert;
-
 	// Convert the validator ECDSA pub keys to addresses
 	let next_validator_addresses: Vec<ethabi::Token> = next_validator_set
 		.validators
@@ -491,10 +507,20 @@ fn eth_abi_encode_validator_set_change(
 		.map(|a| ethabi::Token::Address(a.into()))
 		.collect();
 
-	ethabi::encode(&[
-		// message parameters
+	// bridge contract specific message
+	let app_message = ethabi::encode(&[
 		ethabi::Token::Array(next_validator_addresses),
 		ethabi::Token::Uint(next_validator_set.id.into()),
+	]);
+
+	// wrap event message
+	ethabi::encode(&[
+		// event source address
+		ethabi::Token::Address(bridge_pallet_address.into()),
+		// event destination address
+		ethabi::Token::Address(bridge_contract_address.into()),
+		// event data
+		ethabi::Token::Bytes(app_message),
 		// proof parameters
 		ethabi::Token::Uint(proof_validator_set_id.into()),
 		ethabi::Token::Uint(proof_event_id.into()),
@@ -505,6 +531,7 @@ fn eth_abi_encode_validator_set_change(
 pub(crate) mod test {
 	use super::*;
 	use sp_application_crypto::ByteArray;
+	use sp_core::H160;
 	use substrate_test_runtime_client::runtime::{Block, Digest, DigestItem};
 
 	use crate::testing::Keyring;
@@ -518,6 +545,8 @@ pub(crate) mod test {
 	fn encode_validator_set_change() {
 		let abi_encoded =
 			eth_abi_encode_validator_set_change(
+				H160::from_low_u64_be(111_u64).into(),
+				H160::from_low_u64_be(222_u64).into(),
 				&ValidatorSet::<Public> {
 					validators: vec![
 					Public::from_slice(
@@ -539,7 +568,7 @@ pub(crate) mod test {
 			);
 		assert_eq!(
 			hex::encode(abi_encoded),
-			"000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000002560000000000000000000000000000000000000000000000000000000000000257000000000000000000000000000000000000000000000000000000000012d687000000000000000000000000000000000000000000000000000000000000000200000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf500000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf5"
+			"000000000000000000000000000000000000000000000000000000000000006f00000000000000000000000000000000000000000000000000000000000000de00000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000257000000000000000000000000000000000000000000000000000000000012d68700000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000256000000000000000000000000000000000000000000000000000000000000000200000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf500000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf5"
 		);
 	}
 

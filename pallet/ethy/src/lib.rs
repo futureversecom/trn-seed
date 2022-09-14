@@ -43,7 +43,7 @@ use frame_support::{
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
-	Parameter,
+	PalletId, Parameter,
 };
 use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
 use hex_literal::hex;
@@ -58,6 +58,7 @@ use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
 	FinalSessionTracker as FinalSessionTrackerT,
 };
+use seed_primitives::AccountId;
 
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
@@ -86,11 +87,15 @@ const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 	hex!("0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a");
 
 /// This is the pallet's configuration trait
-pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
+pub trait Config:
+	frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>>
+{
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The bridge contract address on Ethereum
 	type BridgeContractAddress: Get<H160>;
+	/// The pallet bridge address (destination for incoming messages, source for outgoing)
+	type BridgePalletId: Get<PalletId>;
 	/// The runtime call type.
 	type Call: From<Call<Self>>;
 	/// The (optimistic) challenge period after which a submitted event is considered valid
