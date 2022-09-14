@@ -222,7 +222,8 @@ decl_module! {
 		fn deposit_event() = default;
 
 		/// This method schedules 2 different processes
-		/// 2) processing any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era)
+		/// 1) Process any newly valid event claims (incoming)
+		/// 2) Process any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era) (outgoing)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
 			let mut consumed_weight = 0 as Weight;
 

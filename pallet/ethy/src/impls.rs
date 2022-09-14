@@ -811,8 +811,8 @@ impl<T: Config> EthCallOracle for Module<T> {
 /// `source` the pallet pseudo address sending the event
 /// `destination` the contract address to receive the event
 /// `message` The message data
-/// The id of the current validator set
-/// The id of this outgoing event/proof
+/// `validator_set_id` The id of the current validator set
+/// `event_proof_id` The id of this outgoing event/proof
 pub fn encode_event_for_proving(
 	source: H160,
 	destination: H160,
