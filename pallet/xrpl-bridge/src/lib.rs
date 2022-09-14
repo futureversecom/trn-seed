@@ -121,7 +121,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
 	pub type ProcessXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, H512, XrpTransaction>;
+		StorageMap<_, Blake2_128Concat, H512, (LedgerIndex, XrpTransaction)>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn settled_xrp_transaction_details)]
+	pub type SettledXRPTransactionDetails<T: Config> =
+		StorageMap<_, Blake2_128Concat, H512, (LedgerIndex, XrpTransaction)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -212,20 +217,32 @@ impl<T: Config> Pallet<T> {
 				let tx_details = <ProcessXRPTransactionDetails<T>>::get(transaction_hash);
 				match tx_details {
 					None => {},
-					Some(tx) => match tx.transaction {
-						XrplTxData::Payment { amount, address } => {
-							let _ = T::MultiCurrency::mint_into(
-								T::XrpAssetId::get(),
-								&address.into(),
-								amount,
-							);
-						},
-						XrplTxData::CurrencyPayment { amount: _, address: _, currency_id: _ } => {},
-						XrplTxData::Xls20 => {},
+					Some((ledger_index, tx)) => {
+						match tx.transaction {
+							XrplTxData::Payment { amount, address } => {
+								let _ = T::MultiCurrency::mint_into(
+									T::XrpAssetId::get(),
+									&address.into(),
+									amount,
+								);
+							},
+							XrplTxData::CurrencyPayment {
+								amount: _,
+								address: _,
+								currency_id: _,
+							} => {},
+							XrplTxData::Xls20 => {},
+						}
+						<SettledXRPTransactionDetails<T>>::insert(
+							&transaction_hash,
+							(ledger_index, tx),
+						);
+						<ProcessXRPTransactionDetails<T>>::remove(&transaction_hash);
 					},
 				}
 			}
 		}
+		<ProcessXRPTransaction<T>>::remove(n);
 		10_000
 	}
 
@@ -238,7 +255,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResultWithPostInfo {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val.clone());
-		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, val);
+		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val));
 		Self::add_to_xrp_process(transaction_hash).expect("Failed to add to challenger list");
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())
