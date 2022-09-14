@@ -305,7 +305,7 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
-	pub const XrpTxChallengePeriod: u32 = 3000u32;
+	pub const XrpTxChallengePeriod: u32 = 3_000u32;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {

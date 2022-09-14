@@ -121,7 +121,7 @@ impl pallet_assets_ext::Config for Test {
 }
 
 parameter_types! {
-	pub const ChallengePeriod: u32 = 3000u32;
+	pub const ChallengePeriod: u32 = 3_000u32;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
