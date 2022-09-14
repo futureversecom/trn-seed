@@ -13,6 +13,7 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 #![cfg(test)]
+use codec::Encode;
 use ethabi::Token;
 use frame_support::{
 	assert_noop, assert_ok,
@@ -22,10 +23,12 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use sp_core::{ByteArray, H160, H256, U256};
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{generic::DigestItem, traits::AccountIdConversion, SaturatedConversion};
 
 use seed_pallet_common::{EthCallFailure, EthereumBridge};
-use seed_primitives::ethy::{crypto::AuthorityId, EventClaimId, ValidatorSet};
+use seed_primitives::ethy::{
+	crypto::AuthorityId, ConsensusLog, EventClaimId, PendingAuthorityChange, ValidatorSet,
+};
 
 use crate::{
 	impls::encode_event_for_proving,
@@ -34,7 +37,8 @@ use crate::{
 		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim,
 		EventClaimResult, EventProofId, TransactionReceipt,
 	},
-	BridgePaused, Config, Error, EthCallRequestInfo, Module, SUBMIT_BRIDGE_EVENT_SELECTOR,
+	BridgePaused, Config, Error, EthCallRequestInfo, Module, ETHY_ENGINE_ID,
+	SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 
 /// Mocks an Eth block for when get_block_by_number is called
@@ -211,6 +215,24 @@ fn pre_last_session_change() {
 		let event_proof_id = EthBridge::next_event_proof_id();
 
 		EthBridge::handle_authorities_change(current_keys, next_keys.clone());
+
+		assert_eq!(
+			System::digest().logs[0],
+			DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
+					source: BridgePalletId::get().into_account_truncating(),
+					destination: EthereumBridgeContractAddress::get().into(),
+					next_validator_set: ValidatorSet {
+						validators: next_keys.to_vec(),
+						id: 1,
+						proof_threshold: 2,
+					},
+					event_proof_id,
+				})
+				.encode(),
+			),
+		);
 
 		assert_eq!(EthBridge::next_notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
