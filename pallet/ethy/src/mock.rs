@@ -20,7 +20,7 @@ use frame_support::{
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 };
 use scale_info::TypeInfo;
-use sp_core::{ecdsa::Signature, ByteArray, H160, H256, U256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{
@@ -31,9 +31,10 @@ use sp_runtime::{
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventClaimSubscriber, FinalSessionTracker,
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
+	EventRouterResult, FinalSessionTracker,
 };
-use seed_primitives::ethy::{crypto::AuthorityId, EventClaimId};
+use seed_primitives::{ethy::crypto::AuthorityId, Signature};
 
 use crate::{
 	self as pallet_ethy,
@@ -45,6 +46,7 @@ use crate::{
 	Config,
 };
 
+type BlockNumber = u64;
 pub type SessionIndex = u32;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -72,7 +74,7 @@ impl frame_system::Config for TestRuntime {
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
 	type Index = u64;
-	type BlockNumber = u64;
+	type BlockNumber = BlockNumber;
 	type Call = Call;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
@@ -94,16 +96,19 @@ impl frame_system::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
 	pub const NotarizationThreshold: Percent = Percent::from_parts(66_u8);
+	/// The Ethereum bridge contract address paired with the bridge pallet
+	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
+	pub const ChallengePeriod: BlockNumber = 100 as BlockNumber;
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
+	type BridgeContractAddress = EthereumBridgeContractAddress;
+	type ChallengePeriod = ChallengePeriod;
 	type EthCallSubscribers = MockEthCallSubscriber;
 	type EthereumRpcClient = MockEthereumRpcClient;
 	type EthyId = AuthorityId;
-	type EventClaimSubscribers = MockClaimSubscriber;
+	type EventRouter = NoopEventRouter;
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
 	type UnixTime = MockUnixTime;
@@ -119,6 +124,67 @@ pub struct MockBlockResponse {
 	pub timestamp: U256,
 }
 
+/// Mock data for an Ethereum log
+/// NB: `ethereum_types::Log` does not implement SCALE/TypeInfo so can't be used directly in storage
+/// `MockLog` is used in its place and converted to `Log` on read
+#[derive(PartialEq, Eq, Encode, Decode, Debug, Clone, Default, TypeInfo)]
+pub struct MockLog {
+	pub topics: Vec<H256>,
+	pub data: Vec<u8>,
+	pub address: EthAddress,
+	pub transaction_hash: Option<H256>,
+}
+
+impl Into<Log> for MockLog {
+	fn into(self) -> Log {
+		Log {
+			address: self.address,
+			data: self.data,
+			topics: self.topics,
+			transaction_hash: self.transaction_hash,
+			..Default::default()
+		}
+	}
+}
+
+impl From<Log> for MockLog {
+	fn from(l: Log) -> Self {
+		Self {
+			address: l.address,
+			data: l.data,
+			topics: l.topics,
+			transaction_hash: l.transaction_hash,
+		}
+	}
+}
+
+pub(crate) struct MockLogBuilder(MockLog);
+
+impl MockLogBuilder {
+	pub fn new() -> Self {
+		Self(MockLog::default())
+	}
+	pub fn build(&self) -> MockLog {
+		self.0.clone()
+	}
+	pub fn address(&mut self, address: EthAddress) -> &mut Self {
+		self.0.address = address;
+		self
+	}
+	pub fn topics(&mut self, topics: Vec<H256>) -> &mut Self {
+		self.0.topics = topics;
+		self
+	}
+	pub fn data(&mut self, data: &[u8]) -> &mut Self {
+		self.0.data = data.to_vec();
+		self
+	}
+	pub fn transaction_hash(&mut self, transaction_hash: H256) -> &mut Self {
+		self.0.transaction_hash = Some(transaction_hash);
+		self
+	}
+}
+
 /// Values in TransactionReceipt that we store in mock storage
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Default, TypeInfo)]
 pub struct MockReceiptResponse {
@@ -126,7 +192,9 @@ pub struct MockReceiptResponse {
 	pub block_number: u64,
 	pub transaction_hash: H256,
 	pub status: u64,
-	pub source_address: Option<EthAddress>,
+	pub logs: Vec<MockLog>,
+	/// The top-level address called by the tx
+	pub to: Option<EthAddress>,
 }
 
 /// Builder for creating EthBlocks
@@ -134,7 +202,7 @@ pub(crate) struct MockBlockBuilder(EthBlock);
 
 impl MockBlockBuilder {
 	pub fn new() -> Self {
-		MockBlockBuilder(EthBlock::default())
+		Self(EthBlock::default())
 	}
 	pub fn build(&self) -> EthBlock {
 		self.0.clone()
@@ -158,7 +226,7 @@ pub(crate) struct MockReceiptBuilder(TransactionReceipt);
 
 impl MockReceiptBuilder {
 	pub fn new() -> Self {
-		MockReceiptBuilder(TransactionReceipt { status: Some(U64::from(1)), ..Default::default() })
+		Self(TransactionReceipt { status: Some(U64::from(1)), ..Default::default() })
 	}
 	pub fn build(&self) -> TransactionReceipt {
 		self.0.clone()
@@ -175,8 +243,12 @@ impl MockReceiptBuilder {
 		self.0.transaction_hash = tx_hash;
 		self
 	}
-	pub fn contract_address(&mut self, contract_address: EthAddress) -> &mut Self {
-		self.0.contract_address = Some(contract_address);
+	pub fn to(&mut self, to: EthAddress) -> &mut Self {
+		self.0.to = Some(to);
+		self
+	}
+	pub fn logs(&mut self, logs: Vec<MockLog>) -> &mut Self {
+		self.0.logs = logs.into_iter().map(Into::into).collect();
 		self
 	}
 }
@@ -269,13 +341,15 @@ impl MockEthereumRpcClient {
 		};
 		test_storage::BlockResponseAt::insert(block_number, mock_block_response);
 	}
+	/// Mock a tx receipt response for a hash
 	pub fn mock_transaction_receipt_for(tx_hash: EthHash, mock_tx_receipt: TransactionReceipt) {
 		let mock_receipt_response = MockReceiptResponse {
 			block_hash: mock_tx_receipt.block_hash,
 			block_number: mock_tx_receipt.block_number.as_u64(),
 			transaction_hash: mock_tx_receipt.transaction_hash,
 			status: mock_tx_receipt.status.unwrap_or_default().as_u64(),
-			source_address: mock_tx_receipt.contract_address,
+			to: mock_tx_receipt.to,
+			logs: mock_tx_receipt.logs.into_iter().map(From::from).collect(),
 		};
 		test_storage::TransactionReceiptFor::insert(tx_hash, mock_receipt_response);
 	}
@@ -319,21 +393,14 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 			return Ok(None)
 		}
 		let mock_receipt = mock_receipt.unwrap();
-		// Inject a default Log with some default topics
-		let default_log: Log = Log {
-			address: mock_receipt.source_address.unwrap(),
-			topics: vec![Default::default()],
-			transaction_hash: Some(hash),
-			..Default::default()
-		};
 		let transaction_receipt = TransactionReceipt {
 			block_hash: mock_receipt.block_hash,
 			block_number: U64::from(mock_receipt.block_number),
-			contract_address: mock_receipt.source_address,
-			to: mock_receipt.source_address,
+			contract_address: None,
+			to: mock_receipt.to,
 			status: Some(U64::from(mock_receipt.status)),
 			transaction_hash: mock_receipt.transaction_hash,
-			logs: vec![default_log],
+			logs: mock_receipt.logs.into_iter().map(Into::into).collect(),
 			..Default::default()
 		};
 		Ok(Some(transaction_receipt))
@@ -377,28 +444,15 @@ impl MockValidatorSet {
 	/// Mock n validator stashes
 	pub fn mock_n_validators(n: u8) {
 		let validators: Vec<AccountId> =
-			(1..=n).map(|i| AccountId::from_slice(&[i; 33]).unwrap()).collect();
+			(1..=n as u64).map(|i| H160::from_low_u64_be(i).into()).collect();
 		test_storage::Validators::put(validators);
 	}
 }
 
-pub struct MockClaimSubscriber;
-impl EthereumEventClaimSubscriber for MockClaimSubscriber {
-	/// Notify subscriber about a successful event claim for the given event data
-	fn on_success(
-		_event_claim_id: EventClaimId,
-		_source_address: &H160,
-		_event_selector: &H256,
-		_event_data: &[u8],
-	) {
-	}
-	/// Notify subscriber about a failed event claim for the given event data
-	fn on_failure(
-		_event_claim_id: EventClaimId,
-		_source_address: &H160,
-		_event_selector: &H256,
-		_event_data: &[u8],
-	) {
+pub struct NoopEventRouter;
+impl EthereumEventRouter for NoopEventRouter {
+	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
+		Err((0, EventRouterError::NoReceiver))
 	}
 }
 
@@ -492,11 +546,16 @@ where
 
 #[derive(Clone, Copy, Default)]
 pub struct ExtBuilder {
+	relayer: Option<AccountId>,
 	next_session_final: bool,
 	active_session_final: bool,
 }
 
 impl ExtBuilder {
+	pub fn relayer(&mut self, relayer: H160) -> &mut Self {
+		self.relayer = Some(relayer.into());
+		self
+	}
 	pub fn active_session_final(&mut self) -> &mut Self {
 		self.active_session_final = true;
 		self
@@ -510,6 +569,13 @@ impl ExtBuilder {
 			.build_storage::<TestRuntime>()
 			.unwrap()
 			.into();
+
+		if let Some(relayer) = self.relayer {
+			ext.execute_with(|| {
+				assert!(EthBridge::set_relayer(Origin::root(), relayer).is_ok());
+			});
+		}
+
 		if self.next_session_final {
 			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
 		} else if self.active_session_final {
@@ -598,7 +664,7 @@ fn get_transaction_receipt_mock_works() {
 		let tx_hash: EthHash = H256::from_low_u64_be(122);
 		let status: U64 = U64::from(1);
 		let source_address: EthAddress = H160::from_low_u64_be(123);
-		let default_log: Log = Log {
+		let default_log = Log {
 			address: source_address,
 			topics: vec![Default::default()],
 			transaction_hash: Some(tx_hash),
@@ -608,7 +674,6 @@ fn get_transaction_receipt_mock_works() {
 		let mock_tx_receipt = TransactionReceipt {
 			block_hash,
 			block_number: U64::from(block_number),
-			contract_address: Some(source_address),
 			logs: vec![default_log],
 			status: Some(status),
 			to: Some(source_address),
