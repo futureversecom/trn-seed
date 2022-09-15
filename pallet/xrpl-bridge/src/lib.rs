@@ -246,12 +246,15 @@ impl<T: Config> Pallet<T> {
 
 	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
 		let tx_items: Vec<XrplTxHash> = match <ProcessXRPTransaction<T>>::take(n) {
-			None => return DbWeight::get().reads(1 as Weight),
+			None => return DbWeight::get().reads(2 as Weight),
 			Some(v) => v,
 		};
+		let mut reads = 2 as Weight;
+		let mut writes = 0 as Weight;
 		for transaction_hash in tx_items {
 			if !<ChallengeXRPTransactionList<T>>::contains_key(transaction_hash) {
 				let tx_details = <ProcessXRPTransactionDetails<T>>::take(transaction_hash);
+				reads += 1;
 				match tx_details {
 					None => {},
 					Some((_ledger_index, ref tx)) => {
@@ -262,6 +265,7 @@ impl<T: Config> Pallet<T> {
 									&address.into(),
 									amount,
 								);
+								writes += 1;
 							},
 							XrplTxData::CurrencyPayment {
 								amount: _,
@@ -274,6 +278,7 @@ impl<T: Config> Pallet<T> {
 							&transaction_hash,
 							T::UnixTime::now().as_secs(),
 						);
+						writes += 1;
 						log::info!(
 							target: "xrpl-bridge",
 							"Transaction Processed {:?} : {:?}",
@@ -283,7 +288,7 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 		}
-		DbWeight::get().reads(1 as Weight)
+		DbWeight::get().reads_writes(reads, writes)
 	}
 
 	pub fn add_to_relay(
