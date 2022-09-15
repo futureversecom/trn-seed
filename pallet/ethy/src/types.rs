@@ -94,11 +94,12 @@ pub struct EventClaim {
 	/// The Ethereum transaction hash which caused the event
 	pub tx_hash: EthHash,
 	/// The source address (contract) which posted the event
-	pub source_address: EthAddress,
+	pub source: EthAddress,
+	/// The destination address (contract) which should receive the event
+	/// It may be symbolic, mapping to a pallet vs. a deployed contract
+	pub destination: EthAddress,
 	/// The Ethereum ABI encoded event data as logged on Ethereum
-	pub event_data: Vec<u8>,
-	/// The 256-bit solidity event selector/signature e.g `Keccak256(MyEvent(address, uint32))`
-	pub event_selector: H256,
+	pub data: Vec<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq, TypeInfo)]
@@ -150,6 +151,10 @@ pub enum EventClaimResult {
 	UnexpectedData,
 	/// The deposit tx is past the expiration deadline
 	Expired,
+	/// The Tx Receipt was not present
+	NoTxReceipt,
+	/// The event source did not match the tx receipt `to` field
+	UnexpectedSource,
 }
 
 /// An independent notarization of a bridged value

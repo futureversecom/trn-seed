@@ -1,3 +1,4 @@
+#![feature(associated_type_defaults)]
 /* Copyright 2019-2021 Centrality Investments Limited
  *
  * Licensed under the LGPL, Version 3.0 (the "License");
@@ -16,15 +17,19 @@
 
 use crate::helpers::{XrpTransaction, XrplTxData};
 use frame_support::{
+	log,
 	pallet_prelude::*,
-	traits::fungibles::{Inspect, Mutate, Transfer},
+	traits::{
+		fungibles::{Inspect, Mutate, Transfer},
+		UnixTime,
+	},
 	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
 };
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_pallet_common::CreateExt;
-use seed_primitives::{AccountId, AssetId, Balance, LedgerIndex, Timestamp};
-use sp_core::H512;
+use seed_primitives::{AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplTxHash};
 use sp_std::vec;
 
 pub use pallet::*;
@@ -62,13 +67,16 @@ pub mod pallet {
 		/// Weight information
 		type WeightInfo: WeightInfo;
 
-		/// Transaction Length
+		/// XRP Asset Id set at runtime
 		#[pallet::constant]
 		type XrpAssetId: Get<AssetId>;
 
-		/// Transaction Length
+		/// Challenge Period to wait for a challenge before processing the transaction
 		#[pallet::constant]
 		type ChallengePeriod: Get<u32>;
+
+		/// Unix time
+		type UnixTime: UnixTime;
 	}
 
 	#[pallet::error]
@@ -79,8 +87,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
-		TransactionAdded(LedgerIndex, H512),
-		TransactionChallenge(LedgerIndex, H512),
+		TransactionAdded(LedgerIndex, XrplTxHash),
+		TransactionChallenge(LedgerIndex, XrplTxHash),
 	}
 
 	#[pallet::hooks]
@@ -89,7 +97,7 @@ pub mod pallet {
 			if ProcessXRPTransaction::<T>::contains_key(n) {
 				Self::process_xrp_tx(n)
 			} else {
-				10_000
+				DbWeight::get().reads(1 as Weight)
 			}
 		}
 	}
@@ -99,50 +107,49 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(PhantomData<T>);
 
-	/// Global storage for relayers
 	#[pallet::storage]
 	#[pallet::getter(fn get_relayer)]
+	/// List of all XRP transaction relayers
 	pub type Relayer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn relay_xrp_transaction)]
+	/// Transaction submitted by relayers
 	pub type RelayXRPTransaction<T: Config> = StorageNMap<
 		_,
 		(
 			storage::Key<Blake2_128Concat, T::AccountId>,
 			storage::Key<Blake2_128Concat, LedgerIndex>,
-			storage::Key<Blake2_128Concat, H512>,
+			storage::Key<Blake2_128Concat, XrplTxHash>,
 		),
 		XrpTransaction,
 	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction)]
+	/// Temporary storage to set the transactions ready to be processed at specified block number
 	pub type ProcessXRPTransaction<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<H512>>;
+		StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<XrplTxHash>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
+	/// Temporary storage to store transaction details to be processed, it will be cleared after
+	/// transaction is processed
 	pub type ProcessXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, H512, (LedgerIndex, XrpTransaction)>;
+		StorageMap<_, Blake2_128Concat, XrplTxHash, (LedgerIndex, XrpTransaction)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
+	/// Settled xrp transactions stored as history for a specific period
 	pub type SettledXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, H512, (LedgerIndex, XrpTransaction)>;
+		StorageMap<_, Blake2_128Concat, XrplTxHash, Timestamp>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
+	/// Challenge received for a transaction mapped by hash, will be cleared when validator
+	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
-		StorageMap<_, Blake2_128Concat, H512, Vec<T::AccountId>>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn challenge_xrp_transaction_details)]
-	pub type ChallengeXRPTransactionDetails<T: Config> = StorageNMap<
-		_,
-		(storage::Key<Blake2_128Concat, T::AccountId>, storage::Key<Blake2_128Concat, H512>),
-		(LedgerIndex, XrpTransaction),
-	>;
+		StorageMap<_, Blake2_128Concat, XrplTxHash, T::AccountId>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -171,7 +178,7 @@ pub mod pallet {
 		pub fn submit_transaction(
 			origin: OriginFor<T>,
 			ledger_index: LedgerIndex,
-			transaction_hash: H512,
+			transaction_hash: XrplTxHash,
 			transaction: XrplTxData,
 			timestamp: Timestamp,
 		) -> DispatchResultWithPostInfo {
@@ -186,19 +193,11 @@ pub mod pallet {
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
-			ledger_index: LedgerIndex,
-			transaction_hash: H512,
-			transaction: XrplTxData,
-			timestamp: Timestamp,
+			transaction_hash: XrplTxHash,
 		) -> DispatchResultWithPostInfo {
 			let challenger = ensure_signed(origin)?;
-			Self::add_to_challenge(
-				challenger,
-				ledger_index,
-				transaction_hash,
-				transaction,
-				timestamp,
-			)
+			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
+			Ok(().into())
 		}
 
 		/// Submit xrp transaction challenge
@@ -233,16 +232,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
-		let tx_items: Vec<H512> = match <ProcessXRPTransaction<T>>::get(n) {
-			None => return 10_000,
+		let tx_items: Vec<XrplTxHash> = match <ProcessXRPTransaction<T>>::take(n) {
+			None => return DbWeight::get().reads(1 as Weight),
 			Some(v) => v,
 		};
 		for transaction_hash in tx_items {
 			if !<ChallengeXRPTransactionList<T>>::contains_key(transaction_hash) {
-				let tx_details = <ProcessXRPTransactionDetails<T>>::get(transaction_hash);
+				let tx_details = <ProcessXRPTransactionDetails<T>>::take(transaction_hash);
 				match tx_details {
 					None => {},
-					Some((ledger_index, tx)) => {
+					Some((_ledger_index, ref tx)) => {
 						match tx.transaction {
 							XrplTxData::Payment { amount, address } => {
 								let _ = T::MultiCurrency::mint_into(
@@ -260,21 +259,24 @@ impl<T: Config> Pallet<T> {
 						}
 						<SettledXRPTransactionDetails<T>>::insert(
 							&transaction_hash,
-							(ledger_index, tx),
+							T::UnixTime::now().as_secs(),
 						);
-						<ProcessXRPTransactionDetails<T>>::remove(&transaction_hash);
+						log::info!(
+							target: "xrpl-bridge",
+							"Transaction Processed {:?} : {:?}",
+							transaction_hash, tx_details,
+						);
 					},
 				}
 			}
 		}
-		<ProcessXRPTransaction<T>>::remove(n);
-		10_000
+		DbWeight::get().reads(1 as Weight)
 	}
 
 	pub fn add_to_relay(
 		relayer: AccountOf<T>,
 		ledger_index: LedgerIndex,
-		transaction_hash: H512,
+		transaction_hash: XrplTxHash,
 		transaction: XrplTxData,
 		timestamp: Timestamp,
 	) -> DispatchResultWithPostInfo {
@@ -286,59 +288,10 @@ impl<T: Config> Pallet<T> {
 		Ok(().into())
 	}
 
-	pub fn add_to_xrp_process(transaction_hash: H512) -> DispatchResultWithPostInfo {
+	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResultWithPostInfo {
 		let process_block_number =
 			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
-		let value = ProcessXRPTransaction::<T>::get(&process_block_number);
-
-		match value {
-			None =>
-				ProcessXRPTransaction::<T>::insert(&process_block_number, vec![transaction_hash]),
-			Some(mut list) => match list.binary_search(&transaction_hash) {
-				Ok(_) => {},
-				Err(pos) => {
-					list.insert(pos, transaction_hash);
-					ProcessXRPTransaction::<T>::insert(&process_block_number, list);
-				},
-			},
-		}
-		Ok(().into())
-	}
-
-	pub fn add_to_challenge(
-		challenger: AccountOf<T>,
-		ledger_index: LedgerIndex,
-		transaction_hash: H512,
-		transaction: XrplTxData,
-		timestamp: Timestamp,
-	) -> DispatchResultWithPostInfo {
-		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<ChallengeXRPTransactionDetails<T>>::insert(
-			(&challenger, &transaction_hash),
-			(ledger_index, val),
-		);
-		Self::add_to_challenge_list(challenger, transaction_hash)
-			.expect("Failed to add to challenger list");
-		Self::deposit_event(Event::TransactionChallenge(ledger_index, transaction_hash));
-		Ok(().into())
-	}
-
-	pub fn add_to_challenge_list(
-		challenger: AccountOf<T>,
-		transaction_hash: H512,
-	) -> DispatchResultWithPostInfo {
-		let value = ChallengeXRPTransactionList::<T>::get(&transaction_hash);
-
-		match value {
-			None => ChallengeXRPTransactionList::<T>::insert(&transaction_hash, vec![challenger]),
-			Some(mut list) => match list.binary_search(&challenger) {
-				Ok(_) => {},
-				Err(pos) => {
-					list.insert(pos, challenger);
-					ChallengeXRPTransactionList::<T>::insert(&transaction_hash, list);
-				},
-			},
-		}
+		ProcessXRPTransaction::<T>::append(&process_block_number, transaction_hash);
 		Ok(().into())
 	}
 }

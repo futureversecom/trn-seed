@@ -73,15 +73,15 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, ONE_MYCL, ONE_XRP,
-	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, HOURS, MILLISECS_PER_BLOCK, MINUTES, ONE_MYCL,
+	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	AddressMapping, EthereumFindAuthor, EvmCurrencyScaler, SlashImbalanceHandler,
-	StakingSessionTracker,
+	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler,
+	SlashImbalanceHandler, StakingSessionTracker,
 };
 
 pub mod precompiles;
@@ -305,7 +305,7 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
-	pub const XrpTxChallengePeriod: u32 = 3_000u32;
+	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -314,6 +314,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
+	type UnixTime = Timestamp;
 }
 
 parameter_types! {
@@ -662,20 +663,33 @@ impl pallet_tx_fee_pot::Config for Runtime {
 }
 
 parameter_types! {
+	/// The bridge pallet address
+	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
+	/// The optimistic challenge period for submitted bridge events
+	pub const ChallengePeriod: BlockNumber = 1 * HOURS;
+	/// The Ethereum bridge contract address (deployed on Ethereum)
+	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: sp_runtime::Percent = sp_runtime::Percent::from_percent(66_u8);
 }
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
+	/// The deployed Ethereum bridge contract address (source for incoming message, destination for
+	/// outgoing)
+	type BridgeContractAddress = EthereumBridgeContractAddress;
+	/// The pallet bridge address (destination for incoming messages, source for outgoing)
+	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
+	/// The optimistic challenge period for submitted bridge events
+	type ChallengePeriod = ChallengePeriod;
 	/// The runtime event type.
 	type Event = Event;
 	/// Subscribers to completed 'eth_call' jobs
 	type EthCallSubscribers = ();
 	/// Subscribers to completed event
-	type EventClaimSubscribers = ();
+	type EventRouter = EthereumEventRouter;
 	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
 	type EthereumRpcClient = pallet_ethy::EthereumRpcClient;
 	/// The identifier type for Ethy notaries
