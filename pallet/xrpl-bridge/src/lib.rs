@@ -17,7 +17,6 @@
 
 use crate::helpers::{XrpTransaction, XrplTxData};
 use frame_support::{
-	log,
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Inspect, Mutate, Transfer},
@@ -92,6 +91,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
+		Processed(LedgerIndex, XrpTransaction),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 	}
@@ -257,7 +257,7 @@ impl<T: Config> Pallet<T> {
 				reads += 1;
 				match tx_details {
 					None => {},
-					Some((_ledger_index, ref tx)) => {
+					Some((ledger_index, ref tx)) => {
 						match tx.transaction {
 							XrplTxData::Payment { amount, address } => {
 								let _ = T::MultiCurrency::mint_into(
@@ -279,11 +279,7 @@ impl<T: Config> Pallet<T> {
 							T::UnixTime::now().as_secs(),
 						);
 						writes += 1;
-						log::info!(
-							target: "xrpl-bridge",
-							"Transaction Processed {:?} : {:?}",
-							transaction_hash, tx_details,
-						);
+						Self::deposit_event(Event::Processed(ledger_index, tx.clone()));
 					},
 				}
 			}
@@ -301,7 +297,7 @@ impl<T: Config> Pallet<T> {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val.clone());
 		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val));
-		Self::add_to_xrp_process(transaction_hash).expect("Failed to add to challenger list");
+		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())
 	}
