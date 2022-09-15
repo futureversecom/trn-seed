@@ -18,6 +18,7 @@ use frame_support::{
 	parameter_types,
 	storage::{StorageDoubleMap, StorageValue},
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	PalletId,
 };
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
@@ -100,10 +101,12 @@ parameter_types! {
 	/// The Ethereum bridge contract address paired with the bridge pallet
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	pub const ChallengePeriod: BlockNumber = 100 as BlockNumber;
+	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
 	type BridgeContractAddress = EthereumBridgeContractAddress;
+	type BridgePalletId = BridgePalletId;
 	type ChallengePeriod = ChallengePeriod;
 	type EthCallSubscribers = MockEthCallSubscriber;
 	type EthereumRpcClient = MockEthereumRpcClient;
