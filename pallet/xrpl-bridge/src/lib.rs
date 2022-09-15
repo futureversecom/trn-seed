@@ -259,7 +259,7 @@ impl<T: Config> Pallet<T> {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val.clone());
 		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val));
-		Self::add_to_xrp_process(transaction_hash).expect("Failed to add to challenger list");
+		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(().into())
 	}
