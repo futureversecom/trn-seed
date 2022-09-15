@@ -200,7 +200,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Submit xrp transaction challenge
+		/// add a relayer
 		#[pallet::weight((<T as Config>::WeightInfo::add_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn add_relayer(
@@ -211,7 +211,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		/// Submit xrp transaction challenge
+		/// remove a relayer
 		#[pallet::weight((<T as Config>::WeightInfo::remove_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn remove_relayer(
