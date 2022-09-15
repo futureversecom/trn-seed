@@ -24,9 +24,6 @@ use frame_support::{
 	},
 };
 use pallet_evm::AddressMapping as AddressMappingT;
-use precompile_utils::{Address, ErcIdConversion};
-use seed_pallet_common::FinalSessionTracker;
-use seed_primitives::{AccountId, Balance, Index, Signature};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -34,6 +31,13 @@ use sp_runtime::{
 	ConsensusEngineId,
 };
 use sp_std::{marker::PhantomData, prelude::*};
+
+use precompile_utils::{Address, ErcIdConversion};
+use seed_pallet_common::{
+	EthereumEventRouter as EthereumEventRouterT, EventRouterError, EventRouterResult,
+	FinalSessionTracker,
+};
+use seed_primitives::{AccountId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
@@ -351,6 +355,20 @@ impl FinalSessionTracker for StakingSessionTracker {
 			Forcing::ForceNew | Forcing::ForceAlways => true,
 			Forcing::NotForcing | Forcing::ForceNone => false,
 		}
+	}
+}
+
+/// Handles routing verified bridge messages to other pallets
+pub struct EthereumEventRouter;
+
+impl EthereumEventRouterT for EthereumEventRouter {
+	/// Route an event to a handler at `destination`
+	/// - `source` the sender address on Ethereum
+	/// - `destination` the intended handler (pseudo) address
+	/// - `data` the Ethereum ABI encoded event data
+	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
+		// No handlers configured yet
+		Err((0, EventRouterError::NoReceiver))
 	}
 }
 
