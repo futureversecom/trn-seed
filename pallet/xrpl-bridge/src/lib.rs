@@ -42,6 +42,8 @@ mod helpers;
 mod mock;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_relayer;
 pub mod weights;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
@@ -82,6 +84,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		NotPermitted,
+		RelayerDoesNotExists,
 	}
 
 	#[pallet::event]
@@ -91,7 +94,6 @@ pub mod pallet {
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
-		RelayerDoesNotExists(T::AccountId),
 	}
 
 	#[pallet::hooks]
@@ -212,7 +214,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			Self::initialize_relayer(&vec![relayer]);
-			Self::deposit_event(Event::RelayerAdded(relayer));
+			Self::deposit_event(Event::<T>::RelayerAdded(relayer));
 			Ok(().into())
 		}
 
@@ -226,11 +228,11 @@ pub mod pallet {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			if <Relayer<T>>::contains_key(relayer) {
 				<Relayer<T>>::remove(relayer);
-				Self::deposit_event(Event::RelayerRemoved(relayer));
+				Self::deposit_event(Event::<T>::RelayerRemoved(relayer));
+				Ok(().into())
 			} else {
-				Self::deposit_event(Event::RelayerDoesNotExists(relayer));
+				Err(Error::<T>::RelayerDoesNotExists.into())
 			}
-			Ok(().into())
 		}
 	}
 }
