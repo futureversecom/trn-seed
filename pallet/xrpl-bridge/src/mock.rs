@@ -28,6 +28,7 @@ construct_runtime!(
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>},
+		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 	}
 );
 
@@ -121,6 +122,17 @@ impl pallet_assets_ext::Config for Test {
 }
 
 parameter_types! {
+	pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
+}
+
+parameter_types! {
 	pub const ChallengePeriod: u32 = 3_000u32;
 }
 
@@ -130,6 +142,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ChallengePeriod = ChallengePeriod;
 	type MultiCurrency = AssetsExt;
 	type XrpAssetId = XrpAssetId;
+	type UnixTime = TimestampPallet;
 }
 
 // Build genesis storage according to the mock runtime.

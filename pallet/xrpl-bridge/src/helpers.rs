@@ -12,7 +12,7 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use crate::H512;
+use crate::XrplTxHash;
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
@@ -22,7 +22,7 @@ use sp_core::{H160, H256};
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpTransaction {
-	pub transaction_hash: H512,
+	pub transaction_hash: XrplTxHash,
 	pub transaction: XrplTxData,
 	pub timestamp: u64,
 }

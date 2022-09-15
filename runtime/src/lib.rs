@@ -73,7 +73,7 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, ONE_MYCL, ONE_XRP,
+	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_MYCL, ONE_XRP,
 	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
@@ -305,7 +305,7 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
-	pub const XrpTxChallengePeriod: u32 = 3_000u32;
+	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -314,6 +314,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
+	type UnixTime = Timestamp;
 }
 
 parameter_types! {
