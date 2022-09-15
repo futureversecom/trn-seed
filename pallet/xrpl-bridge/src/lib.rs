@@ -17,7 +17,6 @@
 
 use crate::helpers::{XrpTransaction, XrplTxData};
 use frame_support::{
-	log,
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Inspect, Mutate, Transfer},
@@ -86,6 +85,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
+		Processed(LedgerIndex, XrpTransaction),
 	}
 
 	#[pallet::hooks]
@@ -219,7 +219,7 @@ impl<T: Config> Pallet<T> {
 				reads += 1;
 				match tx_details {
 					None => {},
-					Some((_ledger_index, ref tx)) => {
+					Some((ledger_index, ref tx)) => {
 						match tx.transaction {
 							XrplTxData::Payment { amount, address } => {
 								let _ = T::MultiCurrency::mint_into(
@@ -241,11 +241,7 @@ impl<T: Config> Pallet<T> {
 							T::UnixTime::now().as_secs(),
 						);
 						writes += 1;
-						log::info!(
-							target: "xrpl-bridge",
-							"Transaction Processed {:?} : {:?}",
-							transaction_hash, tx_details,
-						);
+						Self::deposit_event(Event::Processed(ledger_index, tx.clone()));
 					},
 				}
 			}
