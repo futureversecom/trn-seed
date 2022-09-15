@@ -56,6 +56,9 @@ pub mod pallet {
 			+ Inspect<Self::AccountId, AssetId = AssetId>
 			+ Mutate<Self::AccountId>;
 
+		/// Allowed origins to add/remove the relayers
+		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+
 		/// Weight information
 		type WeightInfo: WeightInfo;
 
@@ -196,6 +199,28 @@ pub mod pallet {
 				transaction,
 				timestamp,
 			)
+		}
+
+		/// Submit xrp transaction challenge
+		#[pallet::weight((<T as Config>::WeightInfo::add_relayer(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn add_relayer(
+			origin: OriginFor<T>,
+			relayer: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			Self::initialize_relayer(&vec![relayer]);
+			Ok(().into())
+		}
+
+		/// Submit xrp transaction challenge
+		#[pallet::weight((<T as Config>::WeightInfo::remove_relayer(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn remove_relayer(
+			origin: OriginFor<T>,
+			relayer: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			Self::initialize_relayer(&vec![relayer]);
+			Ok(().into())
 		}
 	}
 }
