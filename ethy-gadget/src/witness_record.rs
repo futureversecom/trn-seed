@@ -35,7 +35,8 @@ pub struct WitnessRecord {
 	event_meta: HashMap<EventProofId, ([u8; 32], Option<Vec<u8>>)>,
 	/// Tracks observed witnesses from (event -> validator Id)
 	has_voted: HashMap<EventProofId, Vec<AuthorityId>>,
-	/// The ECDSA public (session) keys of active validators ORDERED!
+	/// The ECDSA public (session) keys of active validators ORDERED! (managed by pallet-session &
+	/// pallet-ethy)
 	validators: Vec<AuthorityId>,
 }
 
@@ -44,7 +45,7 @@ impl WitnessRecord {
 	pub fn set_validators(&mut self, validators: Vec<AuthorityId>) {
 		self.validators = validators;
 	}
-	/// Remove a witness record from memory (typically after it has acheived consensus)
+	/// Remove a witness record from memory (typically after it has achieved consensus)
 	pub fn clear(&mut self, event_id: EventProofId) {
 		self.record.remove(&event_id);
 		self.event_meta.remove(&event_id);

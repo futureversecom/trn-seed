@@ -21,6 +21,7 @@ use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;
 
 use self::crypto::{AuthorityId, AuthoritySignature};
+use crate::AccountId;
 
 // fixed storage key for offchain config.
 // for consistency expect 4 byte key for prefix and 8 byte key for subkeys
@@ -86,6 +87,19 @@ impl<AuthorityId> ValidatorSet<AuthorityId> {
 	}
 }
 
+/// Authority change data
+#[derive(Decode, Encode)]
+pub struct PendingAuthorityChange<AuthorityId: Encode + Decode> {
+	/// The source of the change
+	pub source: AccountId,
+	/// The destination for the change
+	pub destination: AccountId,
+	/// The next validator set (ordered)
+	pub next_validator_set: ValidatorSet<AuthorityId>,
+	/// The event proof Id for this request
+	pub event_proof_id: EventProofId,
+}
+
 /// A consensus log item for ETHY.
 #[derive(Decode, Encode)]
 pub enum ConsensusLog<AuthorityId: Encode + Decode> {
@@ -103,7 +117,7 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	#[codec(index = 4)]
 	/// Signal an `AuthoritiesChange` is scheduled for next session
 	/// Generate a proof that the current validator set has witnessed the new authority set
-	PendingAuthoritiesChange((ValidatorSet<AuthorityId>, EventProofId)),
+	PendingAuthoritiesChange(PendingAuthorityChange<AuthorityId>),
 }
 
 /// ETHY witness message.

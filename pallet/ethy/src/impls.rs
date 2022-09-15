@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::SaturatedConversion,
+	traits::{AccountIdConversion, SaturatedConversion},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -19,6 +19,7 @@ use seed_pallet_common::{
 	log, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
 	FinalSessionTracker as FinalSessionTrackerT,
 };
+use seed_primitives::ethy::PendingAuthorityChange;
 
 use crate::{types::*, *};
 
@@ -469,6 +470,10 @@ impl<T: Config> Module<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			}
+			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
+				// TODO: voting is complete, the event is invalid
+				// handle slashing, ensure event is requeued for execution
+				Self::deposit_event(Event::Invalid(event_claim_id));
 
 			PendingClaimChallenges::mutate(|event_ids| {
 				event_ids
@@ -502,6 +507,10 @@ impl<T: Config> Module<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			}
+			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
+				// TODO: voting is complete, the event is valid
+				// handle slashing, ensure event is requeued for execution
+				Self::deposit_event(Event::Verified(event_claim_id));
 
 			PendingClaimChallenges::mutate(|event_ids| {
 				event_ids
@@ -645,15 +654,17 @@ impl<T: Config> Module<T> {
 			NextEventProofId::put(event_proof_id.wrapping_add(1));
 			let log: DigestItem = DigestItem::Consensus(
 				ETHY_ENGINE_ID,
-				ConsensusLog::PendingAuthoritiesChange((
-					ValidatorSet {
+				ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
+					source: T::BridgePalletId::get().into_account_truncating(),
+					destination: T::BridgeContractAddress::get().into(),
+					next_validator_set: ValidatorSet {
 						validators: next_keys.to_vec(),
 						id: next_validator_set_id,
 						proof_threshold: T::NotarizationThreshold::get()
 							.mul_ceil(next_keys.len() as u32),
 					},
 					event_proof_id,
-				))
+				})
 				.encode(),
 			);
 			<frame_system::Pallet<T>>::deposit_log(log);
