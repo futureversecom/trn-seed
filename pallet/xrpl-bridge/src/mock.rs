@@ -143,6 +143,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type MultiCurrency = AssetsExt;
 	type XrpAssetId = XrpAssetId;
 	type UnixTime = TimestampPallet;
+	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 }
 
 // Build genesis storage according to the mock runtime.

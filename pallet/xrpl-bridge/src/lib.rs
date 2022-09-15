@@ -89,6 +89,9 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
+		RelayerAdded(T::AccountId),
+		RelayerRemoved(T::AccountId),
+		RelayerDoesNotExists(T::AccountId),
 	}
 
 	#[pallet::hooks]
@@ -207,7 +210,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			relayer: T::AccountId,
 		) -> DispatchResultWithPostInfo {
+			T::ApproveOrigin::ensure_origin(origin)?;
 			Self::initialize_relayer(&vec![relayer]);
+			Self::deposit_event(Event::RelayerAdded(relayer));
 			Ok(().into())
 		}
 
@@ -218,7 +223,13 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			relayer: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			Self::initialize_relayer(&vec![relayer]);
+			T::ApproveOrigin::ensure_origin(origin)?;
+			if <Relayer<T>>::contains_key(relayer) {
+				<Relayer<T>>::remove(relayer);
+				Self::deposit_event(Event::RelayerRemoved(relayer));
+			} else {
+				Self::deposit_event(Event::RelayerDoesNotExists(relayer));
+			}
 			Ok(().into())
 		}
 	}
