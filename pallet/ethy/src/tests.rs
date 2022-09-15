@@ -23,10 +23,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use sp_core::{ByteArray, H160, H256, U256};
-use sp_runtime::{
-	generic::DigestItem, traits::AccountIdConversion, Percent, RuntimeAppPublic,
-	SaturatedConversion,
-};
+use sp_runtime::{generic::DigestItem, traits::AccountIdConversion, Percent, SaturatedConversion};
 
 use seed_pallet_common::{EthCallFailure, EthereumBridge};
 use seed_primitives::ethy::{

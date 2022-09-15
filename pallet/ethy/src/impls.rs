@@ -470,11 +470,6 @@ impl<T: Config> Module<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			}
-			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-				// TODO: voting is complete, the event is invalid
-				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::Invalid(event_claim_id));
-
 			PendingClaimChallenges::mutate(|event_ids| {
 				event_ids
 					.iter()
@@ -507,11 +502,6 @@ impl<T: Config> Module<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			}
-			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-				// TODO: voting is complete, the event is valid
-				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::Verified(event_claim_id));
-
 			PendingClaimChallenges::mutate(|event_ids| {
 				event_ids
 					.iter()
