@@ -227,6 +227,7 @@ impl<T: Config> Pallet<T> {
 									&address.into(),
 									amount,
 								);
+								writes += 1;
 							},
 							XrplTxData::CurrencyPayment {
 								amount: _,
