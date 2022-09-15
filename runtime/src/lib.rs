@@ -851,7 +851,7 @@ construct_runtime! {
 		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>},
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
 
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event, ValidateUnsigned},
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},

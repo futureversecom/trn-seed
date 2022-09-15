@@ -61,7 +61,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event, ValidateUnsigned},
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 	}
 );
 

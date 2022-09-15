@@ -22,7 +22,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use sp_core::{ByteArray, H160, H256, U256};
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{Percent, RuntimeAppPublic, SaturatedConversion};
 
 use seed_pallet_common::{EthCallFailure, EthereumBridge};
 use seed_primitives::ethy::{crypto::AuthorityId, EventClaimId, ValidatorSet};
@@ -194,6 +194,197 @@ fn submit_event_tracks_completed() {
 			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data),
 			Error::<TestRuntime>::EventReplayProcessed
 		);
+	});
+}
+
+#[test]
+fn submit_challenge() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let (event_id, source, destination, message) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data = encode_event_message(event_id, source, destination, message);
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		// No event claim should fail
+		assert_noop!(
+			EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id),
+			Error::<TestRuntime>::NoClaim
+		);
+
+		// Submit event
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+
+		// Submit challenge
+		assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id));
+		assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id]);
+
+		// Subsequent challenges on the same event_id should fail
+		assert_noop!(
+			EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id),
+			Error::<TestRuntime>::ClaimAlreadyChallenged
+		);
+	});
+}
+
+#[test]
+fn handle_event_notarization_valid_claims() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	// First event data
+	let tx_hash_1 = EthHash::from_low_u64_be(33);
+	let (event_id_1, source_1, destination_1, message_1) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
+	// Second event data
+	let tx_hash_2 = EthHash::from_low_u64_be(33);
+	let (event_id_2, source_2, destination_2, message_2) =
+		(2_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_2 = encode_event_message(event_id_2, source_2, destination_2, message_2);
+
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<<TestRuntime as Config>::EthyId> = (1_u8..=9_u8)
+		.map(|k| <TestRuntime as Config>::EthyId::from_slice(&[k; 33]).unwrap())
+		.collect();
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+
+		// Submit Event 1
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash_1.clone(),
+			event_data_1.clone(),
+		));
+		// Submit Event 2
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash_2.clone(),
+			event_data_2.clone(),
+		));
+
+		// Submit challenge 1
+		assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+		// Submit challenge 2
+		assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_2));
+		// Check storage
+		assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1, event_id_2]);
+
+		let mut yay_count: usize = 0;
+		let notary_count: usize = mock_notary_keys.len();
+		// Submit valid notarization for all 9 validators
+		// When the yay_count reaches over the NotarizationThreshold of 66% the storage should be
+		// updated
+		for i in 0..9 {
+			if Percent::from_rational(yay_count, notary_count) >=
+				<TestRuntime as Config>::NotarizationThreshold::get()
+			{
+				// Any further notarizations should return InvalidClaim error
+				assert_noop!(
+					EthBridge::handle_event_notarization(
+						event_id_2,
+						EventClaimResult::Valid,
+						&mock_notary_keys[i]
+					),
+					Error::<TestRuntime>::InvalidClaim
+				);
+			} else {
+				assert_ok!(EthBridge::handle_event_notarization(
+					event_id_2,
+					EventClaimResult::Valid,
+					&mock_notary_keys[i]
+				));
+			}
+			yay_count += 1;
+
+			if Percent::from_rational(yay_count, notary_count) >=
+				<TestRuntime as Config>::NotarizationThreshold::get()
+			{
+				// Over threshold, storage should be removed
+				assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+			} else {
+				// Under threshold, storage not updated
+				assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1, event_id_2]);
+			}
+		}
+	});
+}
+
+#[test]
+fn handle_event_notarization_invalid_claims() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	// Event data
+	let tx_hash_1 = EthHash::from_low_u64_be(33);
+	let (event_id_1, source_1, destination_1, message_1) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<<TestRuntime as Config>::EthyId> = (1_u8..=9_u8)
+		.map(|k| <TestRuntime as Config>::EthyId::from_slice(&[k; 33]).unwrap())
+		.collect();
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+
+		// Submit Event 1
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash_1.clone(),
+			event_data_1.clone(),
+		));
+
+		// Submit challenge 1
+		assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+		// Submit challenge 2
+		// Check storage
+		assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+
+		let mut nay_count: usize = 0;
+		let notary_count: usize = mock_notary_keys.len();
+		// Submit invalid notarization for all 9 validators
+		// When the nay_count reaches over 100 - NotarizationThreshold (33%) the storage should be
+		// updated
+		for i in 0..9 {
+			if Percent::from_rational(nay_count, notary_count) >
+				(Percent::from_parts(
+					100_u8 - <TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
+				)) {
+				// further notarizations should return InvalidClaim error
+				assert_noop!(
+					EthBridge::handle_event_notarization(
+						event_id_1,
+						EventClaimResult::TxStatusFailed,
+						&mock_notary_keys[i]
+					),
+					Error::<TestRuntime>::InvalidClaim
+				);
+			} else {
+				assert_ok!(EthBridge::handle_event_notarization(
+					event_id_1,
+					EventClaimResult::TxStatusFailed,
+					&mock_notary_keys[i]
+				));
+			}
+			nay_count += 1;
+
+			if Percent::from_rational(nay_count, notary_count) >
+				(Percent::from_parts(
+					100_u8 - <TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
+				)) {
+				// Over threshold, storage should be removed
+				let empty_vec: Vec<EventClaimId> = vec![];
+				assert_eq!(EthBridge::pending_claim_challenges(), empty_vec);
+			} else {
+				// Under threshold, storage not updated
+				assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+			}
+		}
 	});
 }
 
