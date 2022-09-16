@@ -1,4 +1,3 @@
-#![feature(associated_type_defaults)]
 /* Copyright 2019-2021 Centrality Investments Limited
  *
  * Licensed under the LGPL, Version 3.0 (the "License");
