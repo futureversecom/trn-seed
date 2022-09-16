@@ -91,7 +91,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
-		Processed(LedgerIndex, XrpTransaction),
+		Processed(LedgerIndex, XrplTxHash),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 	}
@@ -279,7 +279,7 @@ impl<T: Config> Pallet<T> {
 							T::UnixTime::now().as_secs(),
 						);
 						writes += 1;
-						Self::deposit_event(Event::Processed(ledger_index, tx.clone()));
+						Self::deposit_event(Event::Processed(ledger_index, transaction_hash));
 					},
 				}
 			}
