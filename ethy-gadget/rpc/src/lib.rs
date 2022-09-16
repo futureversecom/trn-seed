@@ -30,8 +30,9 @@ use sp_runtime::traits::{Block, Convert};
 use std::{marker::PhantomData, ops::Deref, sync::Arc};
 
 use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
-use seed_primitives::ethy::{
-	EthyApi as EthyRuntimeApi, EventProofId, VersionedEventProof, ETHY_ENGINE_ID,
+use seed_primitives::{
+	ethy::{EthyApi as EthyRuntimeApi, EventProofId, VersionedEventProof, ETHY_ENGINE_ID},
+	AccountId20,
 };
 
 mod notification;
@@ -133,10 +134,11 @@ where
 				.ok()
 				.unwrap();
 
-			let validator_addresses: Vec<[u8; 20]> = proof_validator_set
+			let validator_addresses: Vec<AccountId20> = proof_validator_set
 				.validators
 				.into_iter()
 				.map(EthyEcdsaToEthereum::convert)
+				.map(Into::into)
 				.collect();
 
 			EventProofResponse {
@@ -152,8 +154,8 @@ where
 					.collect(),
 				validators: validator_addresses,
 				validator_set_id: proof_validator_set.id,
-				block: event_proof.block,
-				tag: event_proof.tag.clone(),
+				block: event_proof.block.into(),
+				tag: event_proof.tag.clone().map(Into::into),
 			}
 		},
 	}
