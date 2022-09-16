@@ -18,17 +18,24 @@
 
 #![warn(missing_docs)]
 
+use codec::Decode;
 use futures::{FutureExt, StreamExt};
 use jsonrpsee::{core::RpcResult, proc_macros::rpc, PendingSubscription};
 use log::warn;
 use sc_client_api::backend::AuxStore;
 use sc_rpc::SubscriptionTaskExecutor;
-use std::sync::Arc;
+use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_core::H256;
+use sp_runtime::traits::{Block, Convert};
+use std::{marker::PhantomData, ops::Deref, sync::Arc};
 
-use ethy_gadget::notification::EthyEventProofStream;
-use seed_primitives::ethy::{EventProofId, ETHY_ENGINE_ID};
+use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
+use seed_primitives::ethy::{
+	EthyApi as EthyRuntimeApi, EventProofId, VersionedEventProof, ETHY_ENGINE_ID,
+};
 
 mod notification;
+use notification::EventProofResponse;
 
 /// Provides RPC methods for interacting with Ethy.
 #[allow(clippy::needless_return)]
@@ -43,55 +50,112 @@ pub trait EthyApi<Notification> {
 	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<Notification>>;
 }
 
-/// Implements the EthyApi RPC trait for interacting with Ethy.
-pub struct EthyRpcHandler<BE> {
+/// Implements the EthyApi RPC trait for interacting with ethy-gadget.
+pub struct EthyRpcHandler<C, B> {
 	event_proof_stream: EthyEventProofStream,
 	executor: SubscriptionTaskExecutor,
-	backend: Arc<BE>,
+	/// Handle to a client + backend
+	client: Arc<C>,
+	phantom: PhantomData<B>,
 }
 
-impl<BE> EthyRpcHandler<BE> {
+impl<C, B> EthyRpcHandler<C, B>
+where
+	B: Block<Hash = H256>,
+	C: ProvideRuntimeApi<B> + AuxStore + Send + Sync + 'static,
+	C::Api: EthyRuntimeApi<B>,
+{
 	/// Creates a new EthyRpcHandler instance.
 	pub fn new(
 		event_proof_stream: EthyEventProofStream,
 		executor: SubscriptionTaskExecutor,
-		backend: Arc<BE>,
+		client: Arc<C>,
 	) -> Self {
-		Self { event_proof_stream, executor, backend }
+		Self { client, event_proof_stream, executor, phantom: PhantomData }
 	}
 }
 
-impl<BE> EthyApiServer<notification::EventProofResponse> for EthyRpcHandler<BE>
+impl<C, B> EthyApiServer<EventProofResponse> for EthyRpcHandler<C, B>
 where
-	BE: Send + Sync + 'static + AuxStore,
+	B: Block<Hash = H256>,
+	C: ProvideRuntimeApi<B> + AuxStore + Send + Sync + 'static,
+	C::Api: EthyRuntimeApi<B>,
 {
 	fn subscribe_event_proofs(&self, pending: PendingSubscription) {
+		let client_handle = self.client.clone();
 		let stream = self
 			.event_proof_stream
 			.subscribe()
-			.map(|x| notification::EventProofResponse::new(x));
+			.map(move |p| build_event_proof_response::<C, B>(&client_handle, p));
 
 		let fut = async move {
+			// asynchronous portion of the function
 			if let Some(mut sink) = pending.accept() {
 				sink.pipe_from_stream(stream).await;
 			}
 		};
 
+		// let fut = self.initialize_event_response_future(self.client.clone(), pending);
 		self.executor.spawn("ethy-rpc-subscription", Some("rpc"), fut.boxed());
 	}
 
-	fn get_event_proof(
-		&self,
-		event_id: EventProofId,
-	) -> RpcResult<Option<notification::EventProofResponse>> {
+	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<EventProofResponse>> {
 		if let Ok(maybe_encoded_proof) = self
-			.backend
+			.client
 			.get_aux([&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]].concat().as_ref())
 		{
 			if let Some(encoded_proof) = maybe_encoded_proof {
-				return Ok(Some(notification::EventProofResponse::from_raw(encoded_proof)))
+				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
+					let event_proof_response =
+						build_event_proof_response::<C, B>(&self.client, versioned_proof);
+					return Ok(Some(event_proof_response))
+				}
 			}
 		}
 		Ok(None)
+	}
+}
+
+/// Build an `EventProofResponse` from a `VersionedEventProof`
+pub fn build_event_proof_response<C, B>(
+	client: &C,
+	versioned_event_proof: VersionedEventProof,
+) -> EventProofResponse
+where
+	B: Block<Hash = H256>,
+	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	C::Api: EthyRuntimeApi<B>,
+{
+	match versioned_event_proof {
+		VersionedEventProof::V1(event_proof) => {
+			let proof_validator_set = client
+				.runtime_api()
+				.validator_set(&BlockId::hash(event_proof.block.into()))
+				.ok()
+				.unwrap();
+
+			let validator_addresses: Vec<[u8; 20]> = proof_validator_set
+				.validators
+				.into_iter()
+				.map(EthyEcdsaToEthereum::convert)
+				.collect();
+
+			EventProofResponse {
+				event_id: event_proof.event_id,
+				signatures: event_proof
+					.expanded_signatures(validator_addresses.len())
+					.into_iter()
+					.map(|s| s.deref().to_vec())
+					.map(|s| {
+						sp_core::ecdsa::Signature::try_from(s.as_ref())
+							.expect("signatures are 65 bytes")
+					})
+					.collect(),
+				validators: validator_addresses,
+				validator_set_id: proof_validator_set.id,
+				block: event_proof.block,
+				tag: event_proof.tag.clone(),
+			}
+		},
 	}
 }

@@ -16,8 +16,14 @@ serde_json = "1.0.64"
 sc-client-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-utils = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 ethy-gadget = { path = "../." }
 seed-primitives = { path = "../../primitives" }
+
+[dev-dependencies]
+sc-rpc = { features = ["test-helpers" ], git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+substrate-test-runtime-client = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+tokio = "1.17.0"

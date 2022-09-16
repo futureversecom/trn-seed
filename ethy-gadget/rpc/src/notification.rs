@@ -14,19 +14,23 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use codec::Encode;
 use serde::{Deserialize, Serialize};
+use sp_core::ecdsa::Signature;
 
-/// An SCALE encoded `seed_primitives::ethy::VersionedEventProof`.
+use seed_primitives::ethy::{EventProofId, ValidatorSetId};
+
 #[derive(Clone, Serialize, Deserialize)]
-pub struct EventProofResponse(sp_core::Bytes);
-
-impl EventProofResponse {
-	pub fn new(event_proof: seed_primitives::ethy::VersionedEventProof) -> Self
-where {
-		EventProofResponse(event_proof.encode().into())
-	}
-	pub fn from_raw(raw: Vec<u8>) -> Self {
-		EventProofResponse(raw.into())
-	}
+pub struct EventProofResponse {
+	/// The event proof Id
+	pub event_id: EventProofId,
+	/// The signatures in the request
+	pub signatures: Vec<Signature>,
+	/// The validators that signed the request
+	pub validators: Vec<[u8; 20]>,
+	/// The validators set Id that signed the proof
+	pub validator_set_id: ValidatorSetId,
+	/// THe block hash of the event (finalized)
+	pub block: [u8; 32],
+	/// Metadata tag
+	pub tag: Option<Vec<u8>>,
 }

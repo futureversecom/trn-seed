@@ -145,18 +145,18 @@ pub struct Witness {
 #[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
 pub struct EventProof {
 	/// The event witnessed
-	/// The hash of: `keccak(abi.encode(param0, param1, ..,paramN, validator_set_id, event_id))`
+	/// `keccak(abi.encode(source, destination, app_message, validator_set_id, event_id))`
 	pub digest: [u8; 32],
-	/// The witness signatures are collected for this event.
+	/// The event proof Id.
 	pub event_id: EventProofId,
 	/// The validators set Id that signed the proof
 	pub validator_set_id: ValidatorSetId,
-	/// GRANDPA validators' signatures for the witness.
+	/// Signatures for the proof.
 	///
 	/// The length of this `Vec` must match number of validators in the current set (see
 	/// [Witness::validator_set_id]).
-	pub signatures: Vec<crypto::AuthoritySignature>,
-	/// Block hash of the event
+	pub signatures: Vec<(AuthorityIndex, crypto::AuthoritySignature)>,
+	/// Block hash of the event (when it was requested)
 	pub block: [u8; 32],
 	/// Metadata tag for the event
 	pub tag: Option<Vec<u8>>,
@@ -166,7 +166,20 @@ impl EventProof {
 	/// Return the number of collected signatures.
 	pub fn signature_count(&self) -> usize {
 		let empty_sig = AuthoritySignature::from(sp_core::ecdsa::Signature::default());
-		self.signatures.iter().filter(|x| x != &&empty_sig).count()
+		self.signatures.iter().filter(|(_id, sig)| sig != &empty_sig).count()
+	}
+	/// Return a full list or signatures, ordered by authority index, with blank values added if a
+	/// real signature is missing
+	/// `n_signatures` - the total number of signatures that should be returned when expanded (it is
+	/// the size of the validator set `validator_set_id`)
+	pub fn expanded_signatures(&self, n_signatures: usize) -> Vec<crypto::AuthoritySignature> {
+		let empty_sig = AuthoritySignature::from(sp_core::ecdsa::Signature::default());
+		// TODO:
+		let mut signatures = vec![empty_sig; n_signatures];
+		for (idx, signature) in self.signatures.iter() {
+			signatures[*idx as usize] = signature.clone();
+		}
+		signatures
 	}
 }
 
