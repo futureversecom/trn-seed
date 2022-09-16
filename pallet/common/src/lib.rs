@@ -5,7 +5,8 @@ use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
-	traits::fungibles::Transfer,
+	sp_runtime::traits::AccountIdConversion,
+	traits::{fungibles::Transfer, Get},
 	weights::Weight,
 	PalletId,
 };
@@ -151,7 +152,7 @@ pub type EventRouterResult = Result<Weight, (Weight, EventRouterError)>;
 /// 	C: EthereumEventSubscriber,
 /// {
 /// 	fn route(destination, source, data) -> EventRouterResult {
-/// 		match source {
+/// 		match destination {
 /// 			A::Destination => A::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
 /// 			B::Destination => B::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
 /// 			C::Destination => C::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
@@ -172,6 +173,14 @@ pub trait EthereumEventRouter {
 pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
+	// The destination address that handles routing of events to the subscriber
+	type DestinationAddress: Get<PalletId>;
+
+	// The destination address getter function
+	fn destination() -> H160 {
+		Self::DestinationAddress::get().into_account_truncating()
+	}
+
 	/// Notify subscriber about a event received from Ethereum
 	/// - `source` the sender address on Ethereum
 	/// - `data` the Ethereum ABI encoded event data

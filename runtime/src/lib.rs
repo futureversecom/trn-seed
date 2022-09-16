@@ -305,6 +305,16 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
+	/// PalletId for Echo pallet
+	pub const EchoPalletId: PalletId = PalletId(*b"pingpong");
+}
+impl pallet_echo::Config for Runtime {
+	type Event = Event;
+	type EthereumBridge = EthBridge;
+	type PalletId = EchoPalletId;
+}
+
+parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 }
 
@@ -859,6 +869,7 @@ construct_runtime! {
 		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>},
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage},
 		Historical: pallet_session::historical::{Pallet},
+		Echo: pallet_echo::{Pallet, Call, Event},
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
