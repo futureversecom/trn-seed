@@ -22,8 +22,3 @@ sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "po
 
 ethy-gadget = { path = "../." }
 seed-primitives = { path = "../../primitives" }
-
-[dev-dependencies]
-sc-rpc = { features = ["test-helpers" ], git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-substrate-test-runtime-client = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-tokio = "1.17.0"

@@ -95,7 +95,6 @@ where
 			}
 		};
 
-		// let fut = self.initialize_event_response_future(self.client.clone(), pending);
 		self.executor.spawn("ethy-rpc-subscription", Some("rpc"), fut.boxed());
 	}
 
