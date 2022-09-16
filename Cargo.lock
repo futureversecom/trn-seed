@@ -4617,6 +4617,7 @@ dependencies = [
 name = "pallet-echo"
 version = "1.0.0"
 dependencies = [
+ "ethabi",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
