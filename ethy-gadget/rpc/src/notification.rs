@@ -15,7 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use serde::{Deserialize, Serialize};
-use sp_core::{ecdsa::Signature, H256};
+use sp_core::{Bytes, H256};
 
 use seed_primitives::{
 	ethy::{EventProofId, ValidatorSetId},
@@ -27,7 +27,7 @@ pub struct EventProofResponse {
 	/// The event proof Id
 	pub event_id: EventProofId,
 	/// The signatures in the request
-	pub signatures: Vec<Signature>,
+	pub signatures: Vec<Bytes>,
 	/// The validators that signed the request
 	pub validators: Vec<AccountId20>,
 	/// The validators set Id that signed the proof
@@ -35,5 +35,5 @@ pub struct EventProofResponse {
 	/// THe block hash of the event (finalized)
 	pub block: H256,
 	/// Metadata tag
-	pub tag: Option<sp_core::Bytes>,
+	pub tag: Option<Bytes>,
 }

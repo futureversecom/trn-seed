@@ -25,7 +25,7 @@ use log::warn;
 use sc_client_api::backend::AuxStore;
 use sc_rpc::SubscriptionTaskExecutor;
 use sp_api::{BlockId, ProvideRuntimeApi};
-use sp_core::H256;
+use sp_core::{Bytes, H256};
 use sp_runtime::traits::{Block, Convert};
 use std::{marker::PhantomData, ops::Deref, sync::Arc};
 
@@ -146,11 +146,7 @@ where
 				signatures: event_proof
 					.expanded_signatures(validator_addresses.len())
 					.into_iter()
-					.map(|s| s.deref().to_vec())
-					.map(|s| {
-						sp_core::ecdsa::Signature::try_from(s.as_ref())
-							.expect("signatures are 65 bytes")
-					})
+					.map(|s| Bytes::from(s.deref().to_vec()))
 					.collect(),
 				validators: validator_addresses,
 				validator_set_id: proof_validator_set.id,
