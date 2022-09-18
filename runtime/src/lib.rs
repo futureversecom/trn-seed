@@ -321,6 +321,7 @@ parameter_types! {
 impl pallet_xrpl_bridge::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
+	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;

@@ -40,6 +40,8 @@ mod helpers;
 mod mock;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_relayer;
 pub mod weights;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
@@ -59,6 +61,9 @@ pub mod pallet {
 			+ Inspect<Self::AccountId, AssetId = AssetId>
 			+ Mutate<Self::AccountId>;
 
+		/// Allowed origins to add/remove the relayers
+		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+
 		/// Weight information
 		type WeightInfo: WeightInfo;
 
@@ -77,6 +82,7 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		NotPermitted,
+		RelayerDoesNotExists,
 	}
 
 	#[pallet::event]
@@ -85,6 +91,8 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
+		RelayerAdded(T::AccountId),
+		RelayerRemoved(T::AccountId),
 	}
 
 	#[pallet::hooks]
@@ -194,6 +202,36 @@ pub mod pallet {
 			let challenger = ensure_signed(origin)?;
 			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
 			Ok(().into())
+		}
+
+		/// add a relayer
+		#[pallet::weight((<T as Config>::WeightInfo::add_relayer(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn add_relayer(
+			origin: OriginFor<T>,
+			relayer: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			T::ApproveOrigin::ensure_origin(origin)?;
+			Self::initialize_relayer(&vec![relayer]);
+			Self::deposit_event(Event::<T>::RelayerAdded(relayer));
+			Ok(().into())
+		}
+
+		/// remove a relayer
+		#[pallet::weight((<T as Config>::WeightInfo::remove_relayer(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn remove_relayer(
+			origin: OriginFor<T>,
+			relayer: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			T::ApproveOrigin::ensure_origin(origin)?;
+			if <Relayer<T>>::contains_key(relayer) {
+				<Relayer<T>>::remove(relayer);
+				Self::deposit_event(Event::<T>::RelayerRemoved(relayer));
+				Ok(().into())
+			} else {
+				Err(Error::<T>::RelayerDoesNotExists.into())
+			}
 		}
 	}
 }
