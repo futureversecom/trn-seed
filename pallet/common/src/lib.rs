@@ -173,12 +173,12 @@ pub trait EthereumEventRouter {
 pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
-	// The destination address that handles routing of events to the subscriber
-	type DestinationAddress: Get<PalletId>;
+	// The destination/source address that handles routing of events to the subscriber
+	type Address: Get<PalletId>;
 
-	// The destination address getter function
-	fn destination() -> H160 {
-		Self::DestinationAddress::get().into_account_truncating()
+	// The destination/source address getter function
+	fn address() -> H160 {
+		Self::Address::get().into_account_truncating()
 	}
 
 	/// Notify subscriber about a event received from Ethereum

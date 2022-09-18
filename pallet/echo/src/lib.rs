@@ -20,6 +20,11 @@ use seed_primitives::{ethy::EventProofId, AccountId};
 use sp_core::H160;
 use sp_std::prelude::*;
 
+// Value used to show that the origin of the ping is from this pallet
+const PING: u8 = 0;
+// Value used to show that the origin of the ping is from Ethereum
+const PONG: u8 = 1;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -82,7 +87,7 @@ pub mod pallet {
 			// Encode the message, the first value as 0 states that the event was sent from this
 			// pallet The second  value is an incrementing session_id to distinguish events
 			let message = ethabi::encode(&[
-				Token::Uint(0_u64.into()),
+				Token::Uint(PING.into()),
 				Token::Uint(session_id.into()),
 				Token::Address(destination),
 			]);
@@ -108,7 +113,7 @@ pub mod pallet {
 
 // Implement Subscriber to receive events from Ethereum
 impl<T: Config> EthereumEventSubscriber for Pallet<T> {
-	type DestinationAddress = T::PalletId;
+	type Address = T::PalletId;
 
 	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let abi_decoded = match ethabi::decode(
@@ -122,13 +127,13 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 		if let [Token::Uint(ping_or_pong), Token::Uint(session_id), Token::Address(destination)] =
 			abi_decoded.as_slice()
 		{
-			let ping_or_pong: u64 = (*ping_or_pong).saturated_into();
+			let ping_or_pong: u8 = (*ping_or_pong).saturated_into();
 			let session_id: u64 = (*session_id).saturated_into();
 			let destination: H160 = (*destination).into();
 
 			// Check whether event is a pong or a ping from Ethereum
 			match ping_or_pong {
-				0 => {
+				PING => {
 					// Pong was received from Ethereum
 					Self::deposit_event(Event::PongReceived {
 						session_id,
@@ -137,7 +142,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 					});
 					Ok(0)
 				},
-				1 => {
+				PONG => {
 					// Ping was received from Ethereum
 					Self::deposit_event(Event::PingReceived {
 						session_id,
@@ -147,7 +152,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 
 					// Encode response data
 					let message = ethabi::encode(&[
-						Token::Uint(1_u64.into()),
+						Token::Uint(PONG.into()),
 						Token::Uint(session_id.into()),
 						Token::Address(destination),
 					]);
