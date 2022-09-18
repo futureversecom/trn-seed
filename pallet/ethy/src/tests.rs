@@ -382,8 +382,7 @@ fn handle_event_notarization_invalid_claims() {
 					100_u8 - <TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
 				)) {
 				// Over threshold, storage should be removed
-				let empty_vec: Vec<EventClaimId> = vec![];
-				assert_eq!(EthBridge::pending_claim_challenges(), empty_vec);
+				assert!(EthBridge::pending_claim_challenges().is_empty());
 			} else {
 				// Under threshold, storage not updated
 				assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);

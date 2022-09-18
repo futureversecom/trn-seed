@@ -103,7 +103,7 @@ impl<T: Config> Module<T> {
 		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block
 		// production.
 		for event_claim_id in PendingClaimChallenges::get().iter().take(CLAIMS_PER_BLOCK) {
-			let event_claim = PendingEventClaims::take(event_claim_id);
+			let event_claim = Self::pending_event_claims(event_claim_id);
 			if event_claim.is_none() {
 				// This shouldn't happen
 				log!(error, "💎 notarization failed, event claim: {:?} not found", event_claim_id);
@@ -475,7 +475,6 @@ impl<T: Config> Module<T> {
 					.iter()
 					.position(|x| *x == event_claim_id)
 					.map(|idx| event_ids.remove(idx));
-				*event_ids = event_ids.clone();
 			});
 
 			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
@@ -507,7 +506,6 @@ impl<T: Config> Module<T> {
 					.iter()
 					.position(|x| *x == event_claim_id)
 					.map(|idx| event_ids.remove(idx));
-				*event_ids = event_ids.clone();
 			});
 
 			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
@@ -576,7 +574,6 @@ impl<T: Config> Module<T> {
 			EthCallRequestInfo::remove(call_id);
 			EthCallRequests::mutate(|requests| {
 				requests.iter().position(|x| *x == call_id).map(|idx| requests.remove(idx));
-				*requests = requests.clone();
 			});
 
 			Ok(())
