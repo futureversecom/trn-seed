@@ -353,7 +353,7 @@ decl_module! {
 			ensure!(PendingEventClaims::contains_key(event_claim_id), Error::<T>::NoClaim);
 
 			// Check that event isn't already being challenged
-			ensure!(PendingClaimChallenges::get().iter().find(|&&x| x == event_claim_id).is_none(), Error::<T>::ClaimAlreadyChallenged);
+			ensure!(!PendingClaimChallenges::get().iter().any(|&x| x == event_claim_id), Error::<T>::ClaimAlreadyChallenged);
 
 			// Add event to challenged event storage
 			// Not sorted so we can check using FIFO

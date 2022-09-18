@@ -43,7 +43,7 @@ impl<T: Config> EthereumBridge for Module<T> {
 			event,
 			// proof metadata
 			Self::validator_set().id,
-			event_proof_id.into(),
+			event_proof_id,
 		);
 
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
