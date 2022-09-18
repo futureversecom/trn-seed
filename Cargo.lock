@@ -4625,6 +4625,8 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 

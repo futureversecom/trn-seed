@@ -20,10 +20,15 @@ use seed_primitives::{ethy::EventProofId, AccountId};
 use sp_core::H160;
 use sp_std::prelude::*;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod test;
+
 // Value used to show that the origin of the ping is from this pallet
-const PING: u8 = 0;
+pub const PING: u8 = 0;
 // Value used to show that the origin of the ping is from Ethereum
-const PONG: u8 = 1;
+pub const PONG: u8 = 1;
 
 #[frame_support::pallet]
 pub mod pallet {
