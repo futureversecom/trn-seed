@@ -1,0 +1,39 @@
+[package]
+name = "pallet-echo"
+version = "1.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2021"
+license = "GPL-3.0"
+repository = "https://github.com/futureversecom/seed"
+description = "Root Network Echo pallet"
+
+[dependencies]
+seed-primitives = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
+
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+ethabi = { version = "17.1.0", default-features = false}
+
+sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+frame-system = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
+
+[dev-dependencies]
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "ethabi/std",
+    "scale-info/std",
+    "seed-primitives/std",
+    "seed-pallet-common/std",
+    "sp-core/std",
+    "sp-std/std",
+    "frame-support/std",
+    "frame-system/std"
+]

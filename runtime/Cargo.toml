@@ -66,6 +66,7 @@ rustc-hex = { version = "2.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
+pallet-echo = { path = "../pallet/echo", default-features = false }
 pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
@@ -103,6 +104,7 @@ std = [
 	"pallet-babe/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
+	"pallet-echo/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",

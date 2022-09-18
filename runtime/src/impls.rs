@@ -34,8 +34,8 @@ use sp_std::{marker::PhantomData, prelude::*};
 
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::{
-	EthereumEventRouter as EthereumEventRouterT, EventRouterError, EventRouterResult,
-	FinalSessionTracker,
+	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
+	EventRouterResult, FinalSessionTracker,
 };
 use seed_primitives::{AccountId, Balance, Index, Signature};
 
@@ -366,9 +366,14 @@ impl EthereumEventRouterT for EthereumEventRouter {
 	/// - `source` the sender address on Ethereum
 	/// - `destination` the intended handler (pseudo) address
 	/// - `data` the Ethereum ABI encoded event data
-	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
-		// No handlers configured yet
-		Err((0, EventRouterError::NoReceiver))
+	fn route(source: &H160, destination: &H160, data: &[u8]) -> EventRouterResult {
+		// Route event to specific subscriber pallet
+		if destination == &<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::address() {
+			<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::on_event(source, data)
+				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
+		} else {
+			Err((0, EventRouterError::NoReceiver))
+		}
 	}
 }
 

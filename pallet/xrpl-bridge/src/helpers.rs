@@ -12,17 +12,17 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use crate::H512;
+use crate::XrplTxHash;
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_primitives::Balance;
 use sp_core::{H160, H256};
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, Default)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpTransaction {
-	pub transaction_hash: H512,
+	pub transaction_hash: XrplTxHash,
 	pub transaction: XrplTxData,
 	pub timestamp: u64,
 }
@@ -33,6 +33,16 @@ pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
 	CurrencyPayment { amount: Balance, address: H160, currency_id: H256 },
 	Xls20, // Nft
+}
+
+impl Default for XrpTransaction {
+	fn default() -> Self {
+		XrpTransaction {
+			transaction_hash: XrplTxHash::default(),
+			transaction: XrplTxData::default(),
+			timestamp: 0,
+		}
+	}
 }
 
 impl Default for XrplTxData {
