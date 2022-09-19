@@ -58,7 +58,7 @@ jobs:
           echo "github ref: $GITHUB_REF"
           echo "release tag(?): $RELEASE_TAG"
 
-          docker build -t $REGISTRY/"$IMAGE_NAME":"$COMMIT_HASH" -t $REGISTRY/"$IMAGE_NAME":latest -f ./Dockerfile .
+          docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./Dockerfile .
 
           docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
           docker push "$REGISTRY/$IMAGE_NAME:latest"
