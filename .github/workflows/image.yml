@@ -58,20 +58,20 @@ jobs:
           echo "github ref: $GITHUB_REF"
           echo "release tag(?): $RELEASE_TAG"
 
-          docker build -t ghcr.io/"$IMAGE_NAME":"$COMMIT_HASH" -t ghcr.io/"$IMAGE_NAME":latest -f ./Dockerfile .
+          docker build -t $REGISTRY/"$IMAGE_NAME":"$COMMIT_HASH" -t $REGISTRY/"$IMAGE_NAME":latest -f ./Dockerfile .
 
-          docker push ghcr.io/"$IMAGE_NAME":"$COMMIT_HASH"
-          docker push ghcr.io/"$IMAGE_NAME":latest
+          docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
+          docker push "$REGISTRY/$IMAGE_NAME:latest"
 
           # commit was tagged
           if [ -n "$COMMIT_TAG" ]; then
-            docker tag $IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$COMMIT_TAG
-            docker push $IMAGE_NAME:$COMMIT_TAG
+            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$COMMIT_TAG"
+            docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_TAG"
           fi
           # branch is a release branch
           if [ -n "$RELEASE_TAG" ]; then
-            docker tag $IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$RELEASE_TAG
-            docker push $IMAGE_NAME:$RELEASE_TAG
+            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$RELEASE_TAG"
+            docker push "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
           fi
           # clean up images
           docker image prune --filter label=stage=build -f
