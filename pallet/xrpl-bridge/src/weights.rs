@@ -49,6 +49,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn submit_transaction() -> Weight;
 	fn submit_challenge() -> Weight;
+	fn withdraw_transaction() -> Weight;
 	fn add_relayer() -> Weight;
 	fn remove_relayer() -> Weight;
 }
@@ -66,6 +67,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
+
+	fn withdraw_transaction() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+	}
+
 	fn add_relayer() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
@@ -90,6 +98,13 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
 	}
+
+	fn withdraw_transaction() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+
 	fn add_relayer() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))

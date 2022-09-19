@@ -91,6 +91,7 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
+		WithdrawRequested(T::AccountId, XrplTxData),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 	}
@@ -141,6 +142,12 @@ pub mod pallet {
 	/// transaction is processed
 	pub type ProcessXRPTransactionDetails<T: Config> =
 		StorageMap<_, Blake2_128Concat, XrplTxHash, (LedgerIndex, XrpTransaction)>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn withdraw_xrp_transaction_details)]
+	/// The transaction data to be processed by xrp gadget to settle transaction on ripple network
+	pub type WithdrawXRPTransactionDetails<T: Config> =
+		StorageValue<_, Vec<XrplTxData>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
@@ -202,6 +209,17 @@ pub mod pallet {
 			let challenger = ensure_signed(origin)?;
 			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
 			Ok(().into())
+		}
+
+		/// Withdraw xrp transaction
+		#[pallet::weight((<T as Config>::WeightInfo::withdraw_transaction(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn withdraw_transaction(
+			origin: OriginFor<T>,
+			transaction: XrplTxData,
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			Self::add_to_withdraw(who, transaction)
 		}
 
 		/// add a relayer
@@ -298,6 +316,22 @@ impl<T: Config> Pallet<T> {
 		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val));
 		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
+		Ok(().into())
+	}
+
+	pub fn add_to_withdraw(
+		who: AccountOf<T>,
+		transaction: XrplTxData,
+	) -> DispatchResultWithPostInfo {
+		match transaction {
+			XrplTxData::Payment { amount, address: _ } => {
+				let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount);
+			},
+			XrplTxData::CurrencyPayment { amount: _, address: _, currency_id: _ } => {},
+			XrplTxData::Xls20 => {},
+		}
+		<WithdrawXRPTransactionDetails<T>>::append(&transaction);
+		Self::deposit_event(Event::WithdrawRequested(who, transaction));
 		Ok(().into())
 	}
 
