@@ -35,7 +35,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker,
+	EventRouterResult, FinalSessionTracker
 };
 use seed_primitives::{AccountId, Balance, Index, Signature};
 

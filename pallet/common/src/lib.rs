@@ -6,18 +6,21 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	sp_runtime::traits::AccountIdConversion,
-	traits::{fungibles::Transfer, Get},
+	traits::{ExistenceRequirement, Get, WithdrawReasons, fungibles::Transfer, Imbalance, SignedImbalance},
 	weights::Weight,
 	PalletId,
 };
 use scale_info::TypeInfo;
-use sp_core::H160;
-
+use sp_core::{H160, U256};
+use sp_runtime::{
+	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating, Zero},
+};
+use sp_core::H256;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
-use sp_std::vec::Vec;
+use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
 
@@ -109,6 +112,59 @@ pub trait CreateExt {
 		symbol: Vec<u8>,
 		decimals: u8,
 	) -> Result<AssetId, DispatchError>;
+}
+
+/// Something that subscribes to bridge event claims
+#[impl_trait_for_tuples::impl_for_tuples(10)]
+pub trait EventClaimSubscriber {
+	/// Notify subscriber about a successful event claim for the given event data
+	fn on_success(event_claim_id: u64, contract_address: &H160, event_signature: &H256, event_data: &[u8]);
+	/// Notify subscriber about a failed event claim for the given event data
+	fn on_failure(event_claim_id: u64, contract_address: &H160, event_signature: &H256, event_data: &[u8]);
+}
+
+/// Something that verifies event claims
+pub trait EventClaimVerifier {
+	/// Submit an event claim to the verifier
+	/// Returns a unique claim Id on success
+	fn submit_event_claim(
+		contract_address: &H160,
+		event_signature: &H256,
+		tx_hash: &H256,
+		event_data: &[u8],
+	) -> Result<u64, DispatchError>;
+	/// Generate proof of the given message
+	/// Returns a unique proof Id on success
+	fn generate_event_proof<M: EthAbiCodec>(message: &M) -> Result<u64, DispatchError>;
+}
+
+/// Something that can be decoded from eth log data/ ABI
+/// TODO: use ethabi crate
+pub trait EthAbiCodec: Sized {
+	fn encode(&self) -> Vec<u8>;
+	/// Decode `Self` from Eth log data
+	fn decode(data: &[u8]) -> Option<Self>;
+}
+
+impl EthAbiCodec for U256 {
+	fn encode(&self) -> Vec<u8> {
+		Into::<[u8; 32]>::into(*self).to_vec()
+	}
+
+	fn decode(_data: &[u8]) -> Option<Self> {
+		unimplemented!();
+	}
+}
+
+impl EthAbiCodec for u64 {
+	fn encode(&self) -> Vec<u8> {
+		let uint = U256::from(*self);
+		Into::<[u8; 32]>::into(uint).to_vec()
+	}
+
+	fn decode(_data: &[u8]) -> Option<Self> {
+		unimplemented!();
+	}
 }
 
 /// The interface that states whether an account owns a token

@@ -16,8 +16,8 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 use seed_pallet_common::{
-	log, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
-	FinalSessionTracker as FinalSessionTrackerT,
+	log, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge, EventClaimVerifier,
+	FinalSessionTracker as FinalSessionTrackerT, EthAbiCodec,
 };
 use seed_primitives::ethy::PendingAuthorityChange;
 
@@ -88,6 +88,7 @@ impl<T: Config> Module<T> {
 		}
 		maybe_active_key.map(|(key, idx)| (key, idx as u16))
 	}
+
 	/// Handle OCW event notarization protocol for validators
 	/// Receives the node's local notary session key and index in the set
 	pub(crate) fn do_event_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
@@ -692,6 +693,14 @@ impl<T: Config> Module<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 		Self::deposit_event(Event::<T>::EventSubmit(event_proof_info));
 	}
+
+	fn do_generate_event_proof(event_proof_id: EventClaimId, packed_event_with_id: Message) {
+		let log: DigestItem = DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
+	}
 }
 
 impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
@@ -737,6 +746,65 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 		}
 	}
 }
+
+impl<T: Config> EventClaimVerifier for Module<T> {
+	/// Submit an event claim against an ethereum tx hash
+	// tx hashes may only be claimed once
+	fn submit_event_claim(
+		contract_address: &H160,
+		event_signature: &H256,
+		tx_hash: &H256,
+		event_data: &[u8],
+	) -> Result<EventClaimId, DispatchError> {
+		ensure!(!ProcessedTxHashes::contains_key(tx_hash), Error::<T>::AlreadyNotarized);
+		ensure!(!PendingTxHashes::contains_key(tx_hash), Error::<T>::DuplicateClaim);
+
+		// check if we've seen this event type before
+		// if not we assign it a type Id (saves us storing the (contract address, event signature) each time)
+		let event_type_id = if !EventTypeToTypeId::contains_key((contract_address, event_signature)) {
+			let next_event_type_id = Self::next_event_type_id();
+			EventTypeToTypeId::insert((contract_address, event_signature), next_event_type_id);
+			TypeIdToEventType::insert(next_event_type_id, (contract_address, event_signature));
+			NextEventTypeId::put(next_event_type_id.wrapping_add(1));
+			next_event_type_id
+		} else {
+			EventTypeToTypeId::get((contract_address, event_signature))
+		};
+
+		let event_claim_id = Self::next_event_claim_id();
+		EventData::insert(event_claim_id, event_data);
+		EventClaims::insert(event_claim_id, (tx_hash, event_type_id));
+		NextEventClaimId::put(event_claim_id.wrapping_add(1));
+		PendingTxHashes::insert(tx_hash, event_claim_id);
+
+		Ok(event_claim_id)
+	}
+
+	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
+		let event_proof_id = Self::next_event_proof_id();
+		NextEventProofId::put(event_proof_id.wrapping_add(1));
+
+		// TODO: does this support multiple consensus logs in a block?
+		// save this for `on_finalize` and insert many
+		let packed_event_with_id = [
+			&event.encode()[..],
+			&EthAbiCodec::encode(&Self::validator_set().id)[..],
+			&EthAbiCodec::encode(&event_proof_id)[..],
+		]
+		.concat();
+
+		if Self::bridge_paused() {
+			// Delay proof
+			DelayedEventProofs::insert(event_proof_id, packed_event_with_id);
+			Self::deposit_event(Event::<T>::ProofDelayed(event_proof_id));
+		} else {
+			Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
+		}
+
+		Ok(event_proof_id)
+	}
+}
+
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Module<T> {
 	type Public = T::EthyId;

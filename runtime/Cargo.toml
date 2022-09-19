@@ -72,6 +72,7 @@ pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
+pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -151,6 +152,7 @@ std = [
 	"pallet-evm-precompiles-erc20/std",
 	"precompile-utils/std",
 	"rustc-hex/std",
+	"pallet-erc20-peg/std"
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
