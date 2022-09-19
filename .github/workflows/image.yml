@@ -65,12 +65,12 @@ jobs:
 
           # commit was tagged
           if [ -n "$COMMIT_TAG" ]; then
-            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$COMMIT_TAG"
+            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$IMAGE_NAME:$COMMIT_TAG"
             docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_TAG"
           fi
           # branch is a release branch
           if [ -n "$RELEASE_TAG" ]; then
-            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH $IMAGE_NAME:$RELEASE_TAG"
+            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$IMAGE_NAME:$RELEASE_TAG"
             docker push "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
           fi
           # clean up images
