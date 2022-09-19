@@ -53,7 +53,6 @@ frame_support::construct_runtime!(
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
-
 impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
