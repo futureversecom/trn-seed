@@ -1603,6 +1603,7 @@ dependencies = [
  "seed-primitives",
  "serde",
  "serde_json",
+ "sp-api",
  "sp-core",
  "sp-runtime",
 ]

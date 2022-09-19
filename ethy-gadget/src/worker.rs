@@ -43,7 +43,7 @@ use crate::{
 	metric_inc, metric_set,
 	metrics::Metrics,
 	notification,
-	witness_record::WitnessRecord,
+	witness_record::{EventMetadata, WitnessRecord},
 	Client,
 };
 pub(crate) struct WorkerParams<B, BE, C, SO>
@@ -194,7 +194,7 @@ where
 			id
 		} else {
 			trace!(target: "ethy", "💎 No authority id - can't vote for events in: {:?}", notification.header.hash());
-			for ProofRequest { message: _, event_id, tag, block } in
+			for ProofRequest { message, event_id, tag, block } in
 				extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
 			{
 				trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
@@ -236,7 +236,8 @@ where
 					}
 				} else {
 					// no proof is known for this event yet
-					self.witness_record.note_event_metadata(event_id, block, tag);
+					let event_digest = sp_core::keccak_256(message.as_ref());
+					self.witness_record.note_event_metadata(event_id, event_digest, block, tag);
 				}
 			}
 
@@ -259,8 +260,9 @@ where
 				},
 			};
 			debug!(target: "ethy", "💎 signed event id: {:?}, validator set: {:?},\nsignature: {:?}", event_id, self.validator_set.id, hex::encode(&signature));
+			let event_digest = sp_core::keccak_256(message.as_ref());
 			let witness = Witness {
-				digest: sp_core::keccak_256(message.as_ref()),
+				digest: event_digest,
 				validator_set_id: self.validator_set.id,
 				event_id,
 				authority_id: authority_id.clone(),
@@ -272,7 +274,7 @@ where
 			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
-			self.witness_record.note_event_metadata(event_id, block, tag);
+			self.witness_record.note_event_metadata(event_id, event_digest, block, tag);
 			self.handle_witness(witness.clone());
 
 			// broadcast the witness
@@ -294,8 +296,8 @@ where
 		info!(target: "ethy", "💎 got witness: {:?}", witness);
 
 		// only share if it's the first time witnessing the event
-		let first_observation = self.witness_record.note(&witness);
-		if !first_observation {
+		if let Err(err) = self.witness_record.note_event_witness(&witness) {
+			warn!(target: "ethy", "💎 failed to note witness: {:?}, {:?}", witness, err);
 			return
 		}
 
@@ -308,23 +310,22 @@ where
 			return
 		}
 
-		if self
-			.witness_record
-			.has_consensus(witness.event_id, &witness.digest, proof_threshold)
-		{
-			let signatures = self.witness_record.signatures_for(witness.event_id, &witness.digest);
+		if self.witness_record.has_consensus(witness.event_id, proof_threshold) {
+			let signatures = self.witness_record.signatures_for(witness.event_id);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
 
-			let (block, tag) = self
-				.witness_record
-				.event_metadata(witness.event_id)
-				.unwrap_or(&([0_u8; 32], None));
+			let maybe_event_metadata = self.witness_record.event_metadata(witness.event_id);
+			if maybe_event_metadata.is_none() {
+				error!(target: "ethy", "💎 missing event metadata: {:?}", witness.event_id);
+				return
+			}
+			let EventMetadata { tag, block_hash, .. } = maybe_event_metadata.unwrap();
 
 			let event_proof = EventProof {
 				digest: witness.digest,
 				event_id: witness.event_id,
 				validator_set_id: self.validator_set.id,
-				block: *block,
+				block: *block_hash,
 				tag: tag.clone(),
 				signatures,
 			};
@@ -357,7 +358,7 @@ where
 				.notify(|| Ok::<_, ()>(versioned_event_proof))
 				.expect("forwards closure result; the closure always returns Ok; qed.");
 			// Remove from memory
-			self.witness_record.clear(witness.event_id);
+			self.witness_record.mark_complete(witness.event_id);
 			self.gossip_validator.mark_complete(witness.event_id);
 		} else {
 			trace!(target: "ethy", "💎 no consensus yet for event: {:?}", witness.event_id);
@@ -414,7 +415,7 @@ pub struct ProofRequest {
 	message: Vec<u8>,
 	/// nonce/event Id of this request
 	event_id: EventProofId,
-	/// metadata tag about the proof
+	/// metadata tag about the proof e.g. denotes the proof is for an authority set change
 	tag: Option<Vec<u8>>,
 	/// Finalized block hash when the proof was requested
 	block: [u8; 32],

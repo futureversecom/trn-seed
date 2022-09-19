@@ -52,6 +52,7 @@ mod worker;
 pub mod notification;
 
 pub use ethy_protocol_name::standard_name as protocol_standard_name;
+pub use keystore::EthyEcdsaToEthereum;
 
 pub(crate) mod ethy_protocol_name {
 	use sc_chain_spec::ChainSpec;
