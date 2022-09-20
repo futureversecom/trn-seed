@@ -10,12 +10,16 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-use frame_support::{log::log, pallet_prelude::*, traits::OneSessionHandler};
+use frame_support::{pallet_prelude::*, traits::OneSessionHandler};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_primitives::ValidatorId;
 use sp_runtime::{ArithmeticError, BoundToRuntimeAppPublic};
 use sp_std::vec::Vec;
+use seed_pallet_common::{
+	log,
+	FinalSessionTracker as FinalSessionTrackerT,
+};
 
 pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -70,9 +74,9 @@ pub mod pallet {
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
-	#[pallet::getter(fn validators)]
-	/// List of all the validators
-	pub type Validators<T: Config> =
+	#[pallet::getter(fn white_list_validators)]
+	/// List of all the white list validators
+	pub type WhiteListValidators<T: Config> =
 		StorageDoubleMap<_, Blake2_128Concat, ValidatorId, Blake2_128Concat, T::AccountId, bool>;
 
 	#[pallet::storage]
@@ -101,6 +105,9 @@ pub mod pallet {
 		DuplicateValidator,
 		/// Validator not found in the validator set.
 		ValidatorNotFound,
+		/// The bridge is paused pending validator set changes (once every era / 24 hours)
+		/// It will reactive after ~10 minutes
+		BridgePaused,
 	}
 
 	#[pallet::hooks]
@@ -135,32 +142,18 @@ pub mod pallet {
 		/// New validator's session keys should be set in Session pallet before
 		/// calling this.
 		/// Emits an event on success else error
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(8,7))]
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(0,1))]
 		pub fn add_validator(origin: OriginFor<T>, validator_acc: T::AccountId) -> DispatchResult {
 			// Check if the sender is an approved origin or not
 			T::ApproveOrigin::ensure_origin(origin)?;
-
-			let mut validator_list = Self::validator_list();
-			// check of the given validator is already exist in the set before adding
-			match validator_list.binary_search(&validator_acc) {
-				Ok(_) => Err(Error::<T>::DuplicateValidator)?,
-				Err(pos) => {
-					let validator_id = Self::validator_id_inc()?;
-					// Add the validator to the set
-					validator_list.insert(pos, validator_acc.clone());
-					// Store the set
-					<ValidatorList<T>>::put(validator_list);
-					<Validators<T>>::insert(validator_id, validator_acc.clone(), true);
-					// Emit an event
-					Self::deposit_event(Event::ValidatorAdded(validator_acc));
-					Ok(())
-				},
-			}
+			<WhiteListValidators<T>>::insert(validator_id, validator_acc.clone(), true);
+			Self::deposit_event(Event::ValidatorAdded(validator_acc));
+			Ok(())
 		}
 
 		/// Remove a validator from the set.
 		/// Emits an event on success else error
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(7,7))]
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1))]
 		pub fn remove_validator(
 			origin: OriginFor<T>,
 			validator_id: ValidatorId,
@@ -168,21 +161,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Check if the sender is an approved origin or not
 			T::ApproveOrigin::ensure_origin(origin)?;
-
-			let mut validator_list = Self::validator_list();
-			match validator_list.binary_search(&validator_acc) {
-				Ok(pos) => {
-					// Remove the validator from the set
-					validator_list.remove(pos);
-					// Store the set
-					<ValidatorList<T>>::put(validator_list);
-					<Validators<T>>::remove(validator_id, validator_acc.clone());
-					// Emit an event
-					Self::deposit_event(Event::ValidatorRemoved(validator_acc));
-					Ok(())
-				},
-				Err(_) => Err(Error::<T>::ValidatorNotFound)?,
-			}
+			<WhiteListValidators<T>>::remove(validator_id, validator_acc.clone());
+			Self::deposit_event(Event::ValidatorRemoved(validator_acc));
+			Ok(())
 		}
 	}
 }
@@ -210,7 +191,7 @@ impl<T: Config> Pallet<T> {
 
 	// To check if the given member is validator or not
 	pub fn is_validator(validator_id: ValidatorId, validator_acc: &T::AccountId) -> bool {
-		Validators::<T>::get(validator_id, validator_acc).unwrap_or(false)
+		WhiteListValidators::<T>::get(validator_id, validator_acc).unwrap_or(false)
 	}
 }
 

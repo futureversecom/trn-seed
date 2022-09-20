@@ -5071,6 +5071,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
+ "seed-pallet-common",
  "seed-primitives",
  "serde",
  "sp-core",
