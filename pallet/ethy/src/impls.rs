@@ -36,23 +36,21 @@ impl<T: Config> EthereumBridge for Module<T> {
 		let event_proof_id = Self::next_event_proof_id();
 		NextEventProofId::put(event_proof_id.wrapping_add(1));
 
-		let encoded_event = encode_event_for_proving(
-			// event data
-			*source,
-			*destination,
-			event,
-			// proof metadata
-			Self::validator_set().id,
+		let event_proof_info = EventProofInfo {
+			source: *source,
+			destination: *destination,
+			message: event.to_vec(),
+			validator_set_id: Self::validator_set().id,
 			event_proof_id,
-		);
+		};
 
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
 		// delay proofs until it is ready again
 		if Self::bridge_paused() {
-			PendingEventProofs::insert(event_proof_id, encoded_event);
+			PendingEventProofs::insert(event_proof_id, event_proof_info);
 			Self::deposit_event(Event::<T>::ProofDelayed(event_proof_id));
 		} else {
-			Self::do_request_event_proof(event_proof_id, encoded_event);
+			Self::do_request_event_proof(event_proof_id, event_proof_info);
 		}
 
 		Ok(event_proof_id)
@@ -681,17 +679,18 @@ impl<T: Config> Module<T> {
 	/// Submits an Ethereum event proof request in the block, for use by the ethy-gadget protocol
 	pub(crate) fn do_request_event_proof(
 		event_proof_id: EventClaimId,
-		packed_event_with_id: Message,
+		event_proof_info: EventProofInfo,
 	) {
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((
-				packed_event_with_id,
+				encode_event_for_proving(event_proof_info.clone()),
 				event_proof_id,
 			))
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
+		Self::deposit_event(Event::<T>::EventSubmit(event_proof_info));
 	}
 }
 
@@ -838,18 +837,12 @@ impl<T: Config> EthCallOracle for Module<T> {
 /// `message` The message data
 /// `validator_set_id` The id of the current validator set
 /// `event_proof_id` The id of this outgoing event/proof
-pub fn encode_event_for_proving(
-	source: H160,
-	destination: H160,
-	message: &[u8],
-	validator_set_id: u64,
-	event_proof_id: EventProofId,
-) -> Vec<u8> {
+pub fn encode_event_for_proving(event_proof_info: EventProofInfo) -> Vec<u8> {
 	ethabi::encode(&[
-		Token::Address(source),
-		Token::Address(destination),
-		Token::Bytes(message.to_vec()),
-		Token::Uint(validator_set_id.into()),
-		Token::Uint(event_proof_id.into()),
+		Token::Address(event_proof_info.source),
+		Token::Address(event_proof_info.destination),
+		Token::Bytes(event_proof_info.message),
+		Token::Uint(event_proof_info.validator_set_id.into()),
+		Token::Uint(event_proof_info.event_proof_id.into()),
 	])
 }
