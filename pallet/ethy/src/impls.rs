@@ -36,7 +36,7 @@ impl<T: Config> EthereumBridge for Module<T> {
 		let event_proof_id = Self::next_event_proof_id();
 		NextEventProofId::put(event_proof_id.wrapping_add(1));
 
-		let event_proof = EventProofInfo {
+		let event_proof_info = EventProofInfo {
 			source: *source,
 			destination: *destination,
 			message: event.to_vec(),
@@ -47,10 +47,10 @@ impl<T: Config> EthereumBridge for Module<T> {
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
 		// delay proofs until it is ready again
 		if Self::bridge_paused() {
-			PendingEventProofs::insert(event_proof_id, event_proof);
+			PendingEventProofs::insert(event_proof_id, event_proof_info);
 			Self::deposit_event(Event::<T>::ProofDelayed(event_proof_id));
 		} else {
-			Self::do_request_event_proof(event_proof_id, event_proof);
+			Self::do_request_event_proof(event_proof_id, event_proof_info);
 		}
 
 		Ok(event_proof_id)
@@ -679,18 +679,18 @@ impl<T: Config> Module<T> {
 	/// Submits an Ethereum event proof request in the block, for use by the ethy-gadget protocol
 	pub(crate) fn do_request_event_proof(
 		event_proof_id: EventClaimId,
-		event_proof: EventProofInfo,
+		event_proof_info: EventProofInfo,
 	) {
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((
-				encode_event_for_proving(event_proof.clone()),
+				encode_event_for_proving(event_proof_info.clone()),
 				event_proof_id,
 			))
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-		Self::deposit_event(Event::<T>::EventSubmit(event_proof));
+		Self::deposit_event(Event::<T>::EventSubmit(event_proof_info));
 	}
 }
 

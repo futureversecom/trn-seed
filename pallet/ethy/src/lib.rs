@@ -275,8 +275,8 @@ decl_module! {
 			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
 				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
-				for (event_proof_id, event_proof) in PendingEventProofs::iter().take(max_delayed_events as usize) {
-					Self::do_request_event_proof(event_proof_id, event_proof);
+				for (event_proof_id, event_proof_info) in PendingEventProofs::iter().take(max_delayed_events as usize) {
+					Self::do_request_event_proof(event_proof_id, event_proof_info);
 					PendingEventProofs::remove(event_proof_id);
 				}
 			}
