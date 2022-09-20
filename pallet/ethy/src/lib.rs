@@ -260,13 +260,13 @@ decl_module! {
 						}
 					}
 				}
-				// TODO: this vec will grow infinitely, needs some pruning/compaction
 				// mark as processed
 				if let Err(idx) = processed_message_ids.binary_search(&message_id) {
 					processed_message_ids.insert(idx, message_id);
 				}
 			}
 			if !processed_message_ids.is_empty() {
+				impls::prune_claim_ids(&mut processed_message_ids);
 				ProcessedMessageIds::put(processed_message_ids);
 			}
 
@@ -329,8 +329,11 @@ decl_module! {
 				ethabi::ParamType::Bytes,
 			], event.as_slice()).map_err(|_| Error::<T>::InvalidClaim)?.as_slice() {
 				let event_id: EventClaimId = (*event_id).saturated_into();
-				ensure!(!PendingEventClaims::contains_key(event_id), Error::<T>::EventReplayPending);
-				ensure!(Self::processed_message_ids().binary_search(&event_id).is_err(), Error::<T>::EventReplayProcessed);
+				ensure!(!PendingEventClaims::contains_key(event_id), Error::<T>::EventReplayPending); // NOTE(surangap): prune PendingEventClaims also?
+				if !Self::processed_message_ids().is_empty() {
+					ensure!( event_id > Self::processed_message_ids()[0] &&
+						Self::processed_message_ids().binary_search(&event_id).is_err() , Error::<T>::EventReplayProcessed);
+				}
 
 				PendingEventClaims::insert(event_id, EventClaim {
 					tx_hash,

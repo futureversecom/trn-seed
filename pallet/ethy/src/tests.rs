@@ -33,6 +33,7 @@ use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::RuntimeAppPublic;
 
 use crate::{
+	impls::prune_claim_ids,
 	mock::*,
 	types::{
 		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim,
@@ -1291,5 +1292,92 @@ fn handle_call_notarization_aborts_no_consensus() {
 			MockEthCallSubscriber::failed_result(),
 			Some((call_id, EthCallFailure::Internal)),
 		);
+	});
+}
+
+#[test]
+fn test_prune_claim_ids() {
+	{
+		let mut test_vec = vec![1, 2, 3, 4, 6, 7];
+		prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![4, 6, 7]);
+	}
+	{
+		let mut test_vec = vec![4, 5, 6, 7];
+		prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![7]);
+	}
+	{
+		let mut test_vec: Vec<EventClaimId> = vec![];
+		prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![] as Vec<EventClaimId>);
+	}
+	{
+		let mut test_vec = vec![5];
+		prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![5]);
+	}
+	{
+		let mut test_vec = vec![0, 0, 0]; // event_id will be unique. Hence not applicable
+		prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![0, 0, 0]);
+	}
+	{
+		let mut test_vec = vec![5, 2, 0, 1, 1]; // event_id will be unique. Hence not applicable
+		prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![1, 1, 2, 5]);
+	}
+}
+
+#[test]
+fn test_submit_event_replay_check() {
+	let relayer = H160::from_low_u64_be(123);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let mut event_data: Vec<Vec<u8>> = Default::default();
+	// prepare 4 events
+	for i in 0..4 {
+		let event_item_data = encode_event_message(
+			i as u64,
+			H160::from_low_u64_be(555),
+			H160::from_low_u64_be(555),
+			&[i as u8, 2, 3, 4, 5],
+		);
+		event_data.push(event_item_data);
+	}
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		// submit event 0, 1, 3 only
+		for i in 0..4 {
+			if i != 2 {
+				assert_ok!(EthBridge::submit_event(
+					Origin::signed(relayer.into()),
+					tx_hash.clone(),
+					event_data[i].clone(),
+				));
+			}
+		}
+		// Process the messages
+		let process_at = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+		EthBridge::on_initialize(process_at);
+		// check the processed_message_ids has [1, 3]
+		assert_eq!(EthBridge::processed_message_ids(), vec![1, 3]);
+		// try to resubmit claim 0 again.
+		assert_noop!(
+			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data[0].clone()),
+			Error::<TestRuntime>::EventReplayProcessed
+		);
+
+		// submit claim 2 now
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data[2].clone(),
+		));
+		// Process the messages
+		let process_at2 = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+		EthBridge::on_initialize(process_at2);
+
+		// check the processed_message_ids has [3]
+		assert_eq!(EthBridge::processed_message_ids(), vec![3]);
 	});
 }
