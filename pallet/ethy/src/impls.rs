@@ -859,14 +859,14 @@ pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
 	let first_noncontinuous_idx = claim_ids.iter().enumerate().position(|(i, &x)| {
 		if i > 0 {
 			x != claim_ids[i - 1] + 1
-		}
-		else {
+		} else {
 			false
 		}
 	});
-	// drain the array from start to (first_noncontinuous_idx - 1) since we need the max contiguous element in the pruned vector.
+	// drain the array from start to (first_noncontinuous_idx - 1) since we need the max contiguous
+	// element in the pruned vector.
 	match first_noncontinuous_idx {
-		Some(idx) => claim_ids.drain(..idx-1),
-		None => claim_ids.drain(..claim_ids.len()-1) // we need the last element to remain
+		Some(idx) => claim_ids.drain(..idx - 1),
+		None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
 	};
 }

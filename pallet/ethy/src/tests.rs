@@ -1303,7 +1303,7 @@ fn test_prune_claim_ids() {
 		assert_eq!(test_vec, vec![4, 6, 7]);
 	}
 	{
-		let mut test_vec = vec![4,5,6,7];
+		let mut test_vec = vec![4, 5, 6, 7];
 		prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![7]);
 	}
@@ -1318,13 +1318,13 @@ fn test_prune_claim_ids() {
 		assert_eq!(test_vec, vec![5]);
 	}
 	{
-		let mut test_vec = vec![0,0,0]; // event_id will be unique. Hence not applicable
+		let mut test_vec = vec![0, 0, 0]; // event_id will be unique. Hence not applicable
 		prune_claim_ids(&mut test_vec);
 		assert_eq!(test_vec, vec![0, 0, 0]);
 	}
 	{
-		let mut test_vec = vec![5,2,0,1,1]; // event_id will be unique. Hence not applicable
+		let mut test_vec = vec![5, 2, 0, 1, 1]; // event_id will be unique. Hence not applicable
 		prune_claim_ids(&mut test_vec);
-		assert_eq!(test_vec, vec![1,1,2,5]);
+		assert_eq!(test_vec, vec![1, 1, 2, 5]);
 	}
 }
