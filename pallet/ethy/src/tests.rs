@@ -16,7 +16,7 @@
 use codec::Encode;
 use ethabi::Token;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::DispatchError,
 	storage::{StorageMap, StorageValue},
 	traits::{OnInitialize, OneSessionHandler, UnixTime},
@@ -29,6 +29,8 @@ use seed_pallet_common::{EthCallFailure, EthereumBridge};
 use seed_primitives::ethy::{
 	crypto::AuthorityId, ConsensusLog, EventClaimId, PendingAuthorityChange, ValidatorSet,
 };
+use sp_keystore::{testing::KeyStore, SyncCryptoStore};
+use sp_runtime::RuntimeAppPublic;
 
 use crate::{
 	impls::encode_event_for_proving,
@@ -389,6 +391,50 @@ fn handle_event_notarization_invalid_claims() {
 			}
 		}
 	});
+}
+
+#[test]
+fn do_event_notarization_ocw_doesnt_change_storage() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	// Event data
+	let tx_hash_1 = EthHash::from_low_u64_be(33);
+	let (event_id_1, source_1, destination_1, message_1) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
+
+	ExtBuilder::default()
+		.relayer(relayer)
+		.generate_keystore()
+		.build()
+		.execute_with(|| {
+			// Submit Event 1
+			assert_ok!(EthBridge::submit_event(
+				Origin::signed(relayer.into()),
+				tx_hash_1.clone(),
+				event_data_1.clone(),
+			));
+
+			// Submit challenge 1
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			// Check storage
+			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+
+			// Generate public key using same authority id and seed as the mock
+			let keystore = KeyStore::new();
+			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			let public_key = SyncCryptoStore::ecdsa_public_keys(&keystore, AuthorityId::ID)
+				.get(0)
+				.unwrap()
+				.clone();
+			let current_set_id = EthBridge::notary_set_id();
+
+			// Check no storage is changed
+			assert_storage_noop!(EthBridge::do_event_notarization_ocw(
+				&public_key.into(),
+				current_set_id.saturated_into()
+			));
+		});
 }
 
 #[test]
