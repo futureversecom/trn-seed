@@ -554,7 +554,7 @@ where
 #[derive(Clone, Copy, Default)]
 pub struct ExtBuilder {
 	relayer: Option<AccountId>,
-	generate_keystore: bool,
+	with_keystore: bool,
 	next_session_final: bool,
 	active_session_final: bool,
 }
@@ -564,8 +564,8 @@ impl ExtBuilder {
 		self.relayer = Some(relayer.into());
 		self
 	}
-	pub fn generate_keystore(&mut self) -> &mut Self {
-		self.generate_keystore = true;
+	pub fn with_keystore(&mut self) -> &mut Self {
+		self.with_keystore = true;
 		self
 	}
 	pub fn active_session_final(&mut self) -> &mut Self {
@@ -588,7 +588,7 @@ impl ExtBuilder {
 			});
 		}
 
-		if self.generate_keystore {
+		if self.with_keystore {
 			let keystore = KeyStore::new();
 			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
 			ext.register_extension(KeystoreExt(Arc::new(keystore)));

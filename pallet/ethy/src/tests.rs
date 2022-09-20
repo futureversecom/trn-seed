@@ -403,38 +403,34 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
 	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
 
-	ExtBuilder::default()
-		.relayer(relayer)
-		.generate_keystore()
-		.build()
-		.execute_with(|| {
-			// Submit Event 1
-			assert_ok!(EthBridge::submit_event(
-				Origin::signed(relayer.into()),
-				tx_hash_1.clone(),
-				event_data_1.clone(),
-			));
+	ExtBuilder::default().relayer(relayer).with_keystore().build().execute_with(|| {
+		// Submit Event 1
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash_1.clone(),
+			event_data_1.clone(),
+		));
 
-			// Submit challenge 1
-			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
-			// Check storage
-			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+		// Submit challenge 1
+		assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+		// Check storage
+		assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
 
-			// Generate public key using same authority id and seed as the mock
-			let keystore = KeyStore::new();
-			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
-			let public_key = SyncCryptoStore::ecdsa_public_keys(&keystore, AuthorityId::ID)
-				.get(0)
-				.unwrap()
-				.clone();
-			let current_set_id = EthBridge::notary_set_id();
+		// Generate public key using same authority id and seed as the mock
+		let keystore = KeyStore::new();
+		SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+		let public_key = SyncCryptoStore::ecdsa_public_keys(&keystore, AuthorityId::ID)
+			.get(0)
+			.unwrap()
+			.clone();
+		let current_set_id = EthBridge::notary_set_id();
 
-			// Check no storage is changed
-			assert_storage_noop!(EthBridge::do_event_notarization_ocw(
-				&public_key.into(),
-				current_set_id.saturated_into()
-			));
-		});
+		// Check no storage is changed
+		assert_storage_noop!(EthBridge::do_event_notarization_ocw(
+			&public_key.into(),
+			current_set_id.saturated_into()
+		));
+	});
 }
 
 #[test]
