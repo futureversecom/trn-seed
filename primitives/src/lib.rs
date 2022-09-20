@@ -13,7 +13,7 @@ pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
 
 pub mod types {
 	use crate::signature::EthereumSignature;
-	use sp_core::{H256, H512};
+	use sp_core::{H160, H512};
 	use sp_runtime::traits::{IdentifyAccount, Verify};
 
 	/// An index to a block.
@@ -76,10 +76,10 @@ pub mod types {
 
 	pub type XrplTxHash = H512;
 
-	pub type XrplWithdrawAddress = H256;
+	pub type XrplWithdrawAddress = H160;
 
 	/// The type for identifying the Withdraw Tx Nonce
-	pub type XrplWithdrawTxNonce = u64;
+	pub type XrplWithdrawTxNonce = u32;
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

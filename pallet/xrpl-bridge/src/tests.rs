@@ -64,7 +64,7 @@ fn test_withdraw_request_works() {
 	new_test_ext().execute_with(|| {
 		let account_address = b"6490B68F1116BFE87DDC";
 		process_transaction(account_address); // 2000 XRP deposited
-		let destination_address = b"6490B68F1116BFE87DDDAD4C5482D151";
+		let destination_address = b"6490B68F1116BFE87DDD";
 		let destination = XrplWithdrawAddress::from_slice(destination_address);
 		let account = AccountId::from(H160::from_slice(account_address));
 		assert_ok!(XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination));

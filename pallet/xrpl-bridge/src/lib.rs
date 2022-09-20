@@ -353,8 +353,7 @@ impl<T: Config> Pallet<T> {
 		destination: XrplWithdrawAddress,
 	) -> DispatchResultWithPostInfo {
 		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
-		Self::withdraw_tx_nonce_inc()?;
-		let tx_nonce = <CurrentWithdrawTxNonce<T>>::get().unwrap_or(One::one());
+		let tx_nonce = Self::withdraw_tx_nonce_inc()?;
 		let tx_data = XrpWithdrawTransaction { tx_nonce, amount, destination };
 		<PendingWithdrawXRPTransaction<T>>::append(&tx_nonce);
 		<PendingWithdrawXRPTransactionDetails<T>>::insert(&tx_nonce, &tx_data);
@@ -374,15 +373,10 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 	}
 
-	pub fn withdraw_tx_nonce_inc() -> Result<(), DispatchError> {
-		let tx_nonce = CurrentWithdrawTxNonce::<T>::get();
-		if tx_nonce == None {
-			CurrentWithdrawTxNonce::<T>::set(Some(One::one()));
-		} else {
-			let tx_nonce =
-				tx_nonce.unwrap().checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-			CurrentWithdrawTxNonce::<T>::set(Some(tx_nonce));
-		}
-		Ok(())
+	pub fn withdraw_tx_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {
+		let tx_nonce = CurrentWithdrawTxNonce::<T>::get().unwrap_or(0);
+		let next_tx_nonce = tx_nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+		CurrentWithdrawTxNonce::<T>::set(Some(next_tx_nonce));
+		Ok(tx_nonce)
 	}
 }
