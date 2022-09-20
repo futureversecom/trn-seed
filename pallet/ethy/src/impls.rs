@@ -36,7 +36,7 @@ impl<T: Config> EthereumBridge for Module<T> {
 		let event_proof_id = Self::next_event_proof_id();
 		NextEventProofId::put(event_proof_id.wrapping_add(1));
 
-		let event_proof = EventProof {
+		let event_proof = EventProofInfo {
 			source: *source,
 			destination: *destination,
 			message: event.to_vec(),
@@ -677,7 +677,10 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Submits an Ethereum event proof request in the block, for use by the ethy-gadget protocol
-	pub(crate) fn do_request_event_proof(event_proof_id: EventClaimId, event_proof: EventProof) {
+	pub(crate) fn do_request_event_proof(
+		event_proof_id: EventClaimId,
+		event_proof: EventProofInfo,
+	) {
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((
@@ -834,12 +837,12 @@ impl<T: Config> EthCallOracle for Module<T> {
 /// `message` The message data
 /// `validator_set_id` The id of the current validator set
 /// `event_proof_id` The id of this outgoing event/proof
-pub fn encode_event_for_proving(event_proof: EventProof) -> Vec<u8> {
+pub fn encode_event_for_proving(event_proof_info: EventProofInfo) -> Vec<u8> {
 	ethabi::encode(&[
-		Token::Address(event_proof.source),
-		Token::Address(event_proof.destination),
-		Token::Bytes(event_proof.message),
-		Token::Uint(event_proof.validator_set_id.into()),
-		Token::Uint(event_proof.event_proof_id.into()),
+		Token::Address(event_proof_info.source),
+		Token::Address(event_proof_info.destination),
+		Token::Bytes(event_proof_info.message),
+		Token::Uint(event_proof_info.validator_set_id.into()),
+		Token::Uint(event_proof_info.event_proof_id.into()),
 	])
 }

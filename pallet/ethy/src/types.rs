@@ -105,7 +105,7 @@ pub struct EventClaim {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
 /// Info related to an event proof
-pub struct EventProof {
+pub struct EventProofInfo {
 	/// The source address (contract) which posted the event
 	pub source: EthAddress,
 	/// The destination address (contract) which should receive the event

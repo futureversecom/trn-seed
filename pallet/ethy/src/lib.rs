@@ -153,7 +153,7 @@ decl_storage! {
 		/// Queued event claims, can be challenged within challenge period
 		PendingEventClaims get(fn pending_event_claims): map hasher(twox_64_concat) EventClaimId => Option<EventClaim>;
 		/// Queued event proofs to be processed once bridge has been re-enabled (Ethereum ABI encoded `EventClaim`)
-		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EventProof>;
+		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EventProofInfo>;
 		/// List of all event ids that are currently being challenged
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
 		/// Tracks processed message Ids (prevent replay)
@@ -196,7 +196,7 @@ decl_event! {
 		/// An event has been challenged (claim_id, challenger)
 		Challenged(EventClaimId, AccountId),
 		/// An event proof has been submitted
-		EventSubmit(EventProof),
+		EventSubmit(EventProofInfo),
 	}
 }
 

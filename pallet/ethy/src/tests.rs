@@ -36,9 +36,9 @@ use crate::{
 	mock::*,
 	types::{
 		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim,
-		EventClaimResult, EventProofId, TransactionReceipt,
+		EventClaimResult, EventProofId, EventProofInfo, TransactionReceipt,
 	},
-	BridgePaused, Config, Error, EthCallRequestInfo, EventProof, Module, ETHY_ENGINE_ID,
+	BridgePaused, Config, Error, EthCallRequestInfo, Module, ETHY_ENGINE_ID,
 	SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 
@@ -565,7 +565,7 @@ fn delayed_event_proof() {
 		assert_eq!(EthBridge::bridge_paused(), true);
 
 		let event_proof_id = EthBridge::next_event_proof_id();
-		let event_proof = EventProof {
+		let event_proof_info = EventProofInfo {
 			source,
 			destination: destination.clone(),
 			message: message.to_vec(),
@@ -576,7 +576,7 @@ fn delayed_event_proof() {
 		// Generate event proof
 		assert_ok!(EthBridge::send_event(&source, &destination, &message));
 		// Ensure event has been added to delayed claims
-		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof));
+		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof_info));
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 
 		// Re-enable bridge
@@ -610,18 +610,18 @@ fn multiple_delayed_event_proof() {
 		for _ in 0..event_count {
 			let event_proof_id = EthBridge::next_event_proof_id();
 			event_ids.push(event_proof_id);
-			let event_proof = EventProof {
+			let event_proof_info = EventProofInfo {
 				source,
 				destination: destination.clone(),
 				message: message.to_vec(),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
 			};
-			events_for_proving.push(event_proof.clone());
+			events_for_proving.push(event_proof_info.clone());
 			// Generate event proof
 			assert_ok!(EthBridge::send_event(&source, &destination, &message));
 			// Ensure event has been added to delayed claims
-			assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof));
+			assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof_info));
 			assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		}
 
@@ -689,7 +689,7 @@ fn set_delayed_event_proofs_per_block() {
 		for _ in 0..new_max_delayed_events {
 			let event_proof_id = EthBridge::next_event_proof_id();
 			event_ids.push(event_proof_id);
-			let event_proof = EventProof {
+			let event_proof_info = EventProofInfo {
 				source,
 				destination: destination.clone(),
 				message: message.to_vec(),
@@ -699,7 +699,7 @@ fn set_delayed_event_proofs_per_block() {
 			// Generate event proof
 			assert_ok!(EthBridge::send_event(&source, &destination, &message));
 			// Ensure event has been added to delayed claims
-			assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof));
+			assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof_info));
 			assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		}
 
