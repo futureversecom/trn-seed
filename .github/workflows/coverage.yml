@@ -41,7 +41,7 @@ jobs:
           cargo tarpaulin --avoid-cfg-tarpaulin --skip-clean --workspace --locked --out Xml
       # upload coverage info
       - name: Coverage (upload)
-        uses: codecov/codecov-action@v3.1.0
+        uses: codecov/codecov-action@v3.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }} 
           fail_ci_if_error: true
