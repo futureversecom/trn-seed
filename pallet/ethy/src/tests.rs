@@ -1071,6 +1071,34 @@ fn handle_call_notarization_aborts_no_consensus() {
 
 #[test]
 fn test_prune_event_ids() {
-	let test_vec = vec![1,2,3,4,6,7];
-	assert_eq!(prune_event_ids(test_vec), vec![4, 6, 7])
+	{
+		let mut test_vec = vec![1, 2, 3, 4, 6, 7];
+		prune_event_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![4, 6, 7]);
+	}
+	{
+		let mut test_vec = vec![4,5,6,7];
+		prune_event_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![7]);
+	}
+	{
+		let mut test_vec: Vec<EventClaimId> = vec![];
+		prune_event_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![] as Vec<EventClaimId>);
+	}
+	{
+		let mut test_vec = vec![5];
+		prune_event_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![5]);
+	}
+	{
+		let mut test_vec = vec![0,0,0]; // event_id will be unique. Hence not applicable
+		prune_event_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![0, 0, 0]);
+	}
+	{
+		let mut test_vec = vec![5,2,0,1,1]; // event_id will be unique. Hence not applicable
+		prune_event_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![1,1,2,5]);
+	}
 }

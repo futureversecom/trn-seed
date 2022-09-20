@@ -833,10 +833,10 @@ pub fn encode_event_for_proving(
 }
 
 /// Prunes event ids that are less than the max contiguous event id.
-pub(crate) fn prune_event_ids(mut event_ids: Vec<EventClaimId>) -> Vec<EventClaimId> {
+pub(crate) fn prune_event_ids(event_ids: &mut Vec<EventClaimId>) {
 	// if < 1 element, nothing to do
 	if let 0..=1 = event_ids.len() {
-		return event_ids
+		return
 	}
 	// sort first
 	event_ids.sort();
@@ -849,9 +849,9 @@ pub(crate) fn prune_event_ids(mut event_ids: Vec<EventClaimId>) -> Vec<EventClai
 			false
 		}
 	});
-	// extract the array from (first_noncontinuous_idx - 1) since we need the max contiguous element in the result vector.
+	// drain the array from start to (first_noncontinuous_idx - 1) since we need the max contiguous element in the pruned vector.
 	match first_noncontinuous_idx {
-		Some(idx) => event_ids[idx-1..].into_iter().cloned().collect(),
-		None => vec![event_ids.last().unwrap()].into_iter().cloned().collect()
-	}
+		Some(idx) => event_ids.drain(..idx-1),
+		None => event_ids.drain(..event_ids.len()-1) // we need the last element to remain
+	};
 }
