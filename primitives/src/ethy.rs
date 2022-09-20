@@ -174,7 +174,6 @@ impl EventProof {
 	/// the size of the validator set `validator_set_id`)
 	pub fn expanded_signatures(&self, n_signatures: usize) -> Vec<crypto::AuthoritySignature> {
 		let empty_sig = AuthoritySignature::from(sp_core::ecdsa::Signature::default());
-		// TODO:
 		let mut signatures = vec![empty_sig; n_signatures];
 		for (idx, signature) in self.signatures.iter() {
 			signatures[*idx as usize] = signature.clone();
@@ -199,5 +198,40 @@ sp_api::decl_runtime_apis! {
 	{
 		/// Return the active ETHY validator set (i.e Ethy bridge keys of active validator set)
 		fn validator_set() -> ValidatorSet<AuthorityId>;
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use sp_core::ecdsa::Signature;
+
+	#[test]
+	fn signature_helpers() {
+		let empty_sig = AuthoritySignature::from(Signature::default());
+		let proof = EventProof {
+			signatures: vec![
+				(1, Signature::from_raw([1_u8; 65]).into()),
+				(3, Signature::from_raw([3_u8; 65]).into()),
+				(4, Signature::from_raw([4_u8; 65]).into()),
+			],
+			tag: None,
+			digest: Default::default(),
+			block: Default::default(),
+			event_id: 1,
+			validator_set_id: 1,
+		};
+		assert_eq!(
+			proof.expanded_signatures(6_usize),
+			vec![
+				empty_sig.clone(),
+				Signature::from_raw([1_u8; 65]).into(),
+				empty_sig.clone(),
+				Signature::from_raw([3_u8; 65]).into(),
+				Signature::from_raw([4_u8; 65]).into(),
+				empty_sig.clone(),
+			]
+		);
+		assert_eq!(proof.signature_count(), 3);
 	}
 }
