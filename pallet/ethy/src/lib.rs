@@ -254,7 +254,7 @@ decl_module! {
 				}
 			}
 			if !processed_message_ids.is_empty() {
-				impls::prune_event_ids(&mut processed_message_ids);
+				impls::prune_claim_ids(&mut processed_message_ids);
 				ProcessedMessageIds::put(processed_message_ids);
 			}
 
