@@ -38,6 +38,7 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use std::string::String;
 
+use seed_primitives::ethy::ValidatorSetId;
 pub use seed_primitives::{
 	ethy::{ConsensusLog, EventClaimId, EventProofId, Message, ValidatorSet, ETHY_ENGINE_ID},
 	BlockNumber,
@@ -89,7 +90,7 @@ pub type EthAddress = H160;
 pub type EthHash = H256;
 
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo)]
-/// Info required to claim an Ethereum event happened
+/// Info required to claim an Ethereum event
 pub struct EventClaim {
 	/// The Ethereum transaction hash which caused the event
 	pub tx_hash: EthHash,
@@ -100,6 +101,22 @@ pub struct EventClaim {
 	pub destination: EthAddress,
 	/// The Ethereum ABI encoded event data as logged on Ethereum
 	pub data: Vec<u8>,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
+/// Info related to an event proof
+pub struct EventProofInfo {
+	/// The source address (contract) which posted the event
+	pub source: EthAddress,
+	/// The destination address (contract) which should receive the event
+	/// It may be symbolic, mapping to a pallet vs. a deployed contract
+	pub destination: EthAddress,
+	/// The Ethereum ABI encoded event data as logged on Ethereum
+	pub message: Vec<u8>,
+	/// The validator set id for the proof
+	pub validator_set_id: ValidatorSetId,
+	/// The events proof id
+	pub event_proof_id: EventProofId,
 }
 
 #[derive(Debug, Clone, PartialEq, TypeInfo)]
