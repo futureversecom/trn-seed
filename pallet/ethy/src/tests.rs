@@ -1334,7 +1334,8 @@ fn test_submit_event_replay_check() {
 	let relayer = H160::from_low_u64_be(123);
 	let tx_hash = EthHash::from_low_u64_be(33);
 	let mut event_data: Vec<Vec<u8>> = Default::default();
-	for i in 0_u64..4 {
+	// prepare 4 events
+	for i in 0..4 {
 		let event_item_data = encode_event_message(
 			i as u64,
 			H160::from_low_u64_be(555),
@@ -1355,7 +1356,7 @@ fn test_submit_event_replay_check() {
 				));
 			}
 		}
-		// Process the message
+		// Process the messages
 		let process_at = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
 		EthBridge::on_initialize(process_at);
 		// check the processed_message_ids has [1, 3]
@@ -1372,7 +1373,7 @@ fn test_submit_event_replay_check() {
 			tx_hash.clone(),
 			event_data[2].clone(),
 		));
-		// Process the message
+		// Process the messages
 		let process_at2 = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
 		EthBridge::on_initialize(process_at2);
 
