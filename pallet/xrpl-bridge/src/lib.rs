@@ -14,7 +14,7 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::helpers::{XrpTransaction, XrplTxData};
+use crate::helpers::{XrpRequestLog, XrpTransaction, XrpWithdrawTransaction, XrplTxData};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -27,7 +27,11 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_pallet_common::CreateExt;
-use seed_primitives::{AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplTxHash};
+use seed_primitives::{
+	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplTxHash, XrplWithdrawAddress,
+	XrplWithdrawTxNonce,
+};
+use sp_runtime::{traits::One, ArithmeticError, DigestItem};
 use sp_std::vec;
 
 pub use pallet::*;
@@ -42,11 +46,14 @@ mod mock;
 mod tests;
 #[cfg(test)]
 mod tests_relayer;
+
 pub mod weights;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
 pub use weights::WeightInfo;
+
+pub const XRPL_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"XRP-";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -91,7 +98,7 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
-		WithdrawRequested(T::AccountId, XrplTxData),
+		WithdrawRequested(XrplWithdrawTxNonce),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 	}
@@ -144,12 +151,6 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, XrplTxHash, (LedgerIndex, XrpTransaction)>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn withdraw_xrp_transaction_details)]
-	/// The transaction data to be processed by xrp gadget to settle transaction on ripple network
-	pub type WithdrawXRPTransactionDetails<T: Config> =
-		StorageValue<_, Vec<XrplTxData>, ValueQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
 	/// Settled xrp transactions stored as history for a specific period
 	pub type SettledXRPTransactionDetails<T: Config> =
@@ -161,6 +162,25 @@ pub mod pallet {
 	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
 		StorageMap<_, Blake2_128Concat, XrplTxHash, T::AccountId>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn pending_withdraw_xrp_transaction)]
+	/// The list of pending transaction nonce id to be processed by xrp gadget to settle transaction
+	/// on ripple network
+	pub type PendingWithdrawXRPTransaction<T: Config> =
+		StorageValue<_, Vec<XrplWithdrawTxNonce>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn pending_withdraw_xrp_transaction_details)]
+	/// The pending transaction details to be processed by xrp gadget to settle transaction on
+	/// ripple network
+	pub type PendingWithdrawXRPTransactionDetails<T: Config> =
+		StorageMap<_, Blake2_128Concat, XrplWithdrawTxNonce, XrpWithdrawTransaction>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn get_withdraw_tx_nonce)]
+	/// Stores and increments Withdraw Tx Nonce id
+	pub type CurrentWithdrawTxNonce<T: Config> = StorageValue<_, XrplWithdrawTxNonce>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -212,14 +232,15 @@ pub mod pallet {
 		}
 
 		/// Withdraw xrp transaction
-		#[pallet::weight((<T as Config>::WeightInfo::withdraw_transaction(), DispatchClass::Operational))]
+		#[pallet::weight((<T as Config>::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn withdraw_transaction(
+		pub fn withdraw_xrp(
 			origin: OriginFor<T>,
-			transaction: XrplTxData,
+			amount: Balance,
+			destination: XrplWithdrawAddress,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::add_to_withdraw(who, transaction)
+			Self::add_to_withdraw(who, amount, destination)
 		}
 
 		/// add a relayer
@@ -319,26 +340,49 @@ impl<T: Config> Pallet<T> {
 		Ok(().into())
 	}
 
-	pub fn add_to_withdraw(
-		who: AccountOf<T>,
-		transaction: XrplTxData,
-	) -> DispatchResultWithPostInfo {
-		match transaction {
-			XrplTxData::Payment { amount, address: _ } => {
-				let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount);
-			},
-			XrplTxData::CurrencyPayment { amount: _, address: _, currency_id: _ } => {},
-			XrplTxData::Xls20 => {},
-		}
-		<WithdrawXRPTransactionDetails<T>>::append(&transaction);
-		Self::deposit_event(Event::WithdrawRequested(who, transaction));
-		Ok(().into())
-	}
-
 	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResultWithPostInfo {
 		let process_block_number =
 			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
 		ProcessXRPTransaction::<T>::append(&process_block_number, transaction_hash);
 		Ok(().into())
+	}
+
+	pub fn add_to_withdraw(
+		who: AccountOf<T>,
+		amount: Balance,
+		destination: XrplWithdrawAddress,
+	) -> DispatchResultWithPostInfo {
+		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
+		Self::withdraw_tx_nonce_inc()?;
+		let tx_nonce = <CurrentWithdrawTxNonce<T>>::get().unwrap_or(One::one());
+		let tx_data = XrpWithdrawTransaction { tx_nonce, amount, destination };
+		<PendingWithdrawXRPTransaction<T>>::append(&tx_nonce);
+		<PendingWithdrawXRPTransactionDetails<T>>::insert(&tx_nonce, &tx_data);
+		Self::withdraw_request_deposit_log(tx_nonce, tx_data);
+		Self::deposit_event(Event::WithdrawRequested(tx_nonce));
+		Ok(().into())
+	}
+
+	pub fn withdraw_request_deposit_log(
+		tx_nonce: XrplWithdrawTxNonce,
+		tx_data: XrpWithdrawTransaction,
+	) {
+		let log: DigestItem = DigestItem::Consensus(
+			XRPL_ENGINE_ID,
+			XrpRequestLog::XrpWithdrawRequest(tx_nonce, tx_data).encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
+	}
+
+	pub fn withdraw_tx_nonce_inc() -> Result<(), DispatchError> {
+		let tx_nonce = CurrentWithdrawTxNonce::<T>::get();
+		if tx_nonce == None {
+			CurrentWithdrawTxNonce::<T>::set(Some(One::one()));
+		} else {
+			let tx_nonce =
+				tx_nonce.unwrap().checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+			CurrentWithdrawTxNonce::<T>::set(Some(tx_nonce));
+		}
+		Ok(())
 	}
 }
