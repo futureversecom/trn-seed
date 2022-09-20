@@ -31,7 +31,7 @@ use seed_primitives::ethy::{
 };
 
 use crate::{
-	impls::encode_event_for_proving,
+	impls::{encode_event_for_proving, prune_event_ids},
 	mock::*,
 	types::{
 		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim,
@@ -1067,4 +1067,10 @@ fn handle_call_notarization_aborts_no_consensus() {
 			Some((call_id, EthCallFailure::Internal)),
 		);
 	});
+}
+
+#[test]
+fn test_prune_event_ids() {
+	let test_vec = vec![1,2,3,4,6,7];
+	assert_eq!(prune_event_ids(test_vec), vec![4, 6, 7])
 }
