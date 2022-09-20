@@ -153,7 +153,7 @@ decl_storage! {
 		/// Queued event claims, can be challenged within challenge period
 		PendingEventClaims get(fn pending_event_claims): map hasher(twox_64_concat) EventClaimId => Option<EventClaim>;
 		/// Queued event proofs to be processed once bridge has been re-enabled (Ethereum ABI encoded `EventClaim`)
-		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<Message>;
+		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EventProof>;
 		/// List of all event ids that are currently being challenged
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
 		/// Tracks processed message Ids (prevent replay)
@@ -195,6 +195,8 @@ decl_event! {
 		ProcessingFailed(EventClaimId, EventRouterError),
 		/// An event has been challenged (claim_id, challenger)
 		Challenged(EventClaimId, AccountId),
+		/// An event proof has been submitted
+		EventSubmit(EventProof),
 	}
 }
 
@@ -273,8 +275,8 @@ decl_module! {
 			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
 				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
-				for (event_proof_id, packed_event_with_id) in PendingEventProofs::iter().take(max_delayed_events as usize) {
-					Self::do_request_event_proof(event_proof_id, packed_event_with_id);
+				for (event_proof_id, event_proof) in PendingEventProofs::iter().take(max_delayed_events as usize) {
+					Self::do_request_event_proof(event_proof_id, event_proof);
 					PendingEventProofs::remove(event_proof_id);
 				}
 			}

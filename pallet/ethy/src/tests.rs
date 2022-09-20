@@ -33,13 +33,12 @@ use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::RuntimeAppPublic;
 
 use crate::{
-	impls::encode_event_for_proving,
 	mock::*,
 	types::{
 		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim,
 		EventClaimResult, EventProofId, TransactionReceipt,
 	},
-	BridgePaused, Config, Error, EthCallRequestInfo, Module, ETHY_ENGINE_ID,
+	BridgePaused, Config, Error, EthCallRequestInfo, EventProof, Module, ETHY_ENGINE_ID,
 	SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 
@@ -566,18 +565,18 @@ fn delayed_event_proof() {
 		assert_eq!(EthBridge::bridge_paused(), true);
 
 		let event_proof_id = EthBridge::next_event_proof_id();
-		let encoded_event = encode_event_for_proving(
+		let event_proof = EventProof {
 			source,
-			destination.clone(),
-			message,
-			EthBridge::validator_set().id,
+			destination: destination.clone(),
+			message: message.to_vec(),
+			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
-		);
+		};
 
 		// Generate event proof
 		assert_ok!(EthBridge::send_event(&source, &destination, &message));
 		// Ensure event has been added to delayed claims
-		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(encoded_event));
+		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof));
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 
 		// Re-enable bridge
@@ -611,21 +610,18 @@ fn multiple_delayed_event_proof() {
 		for _ in 0..event_count {
 			let event_proof_id = EthBridge::next_event_proof_id();
 			event_ids.push(event_proof_id);
-			let expected_encoded_event = encode_event_for_proving(
+			let event_proof = EventProof {
 				source,
-				destination.clone(),
-				message,
-				EthBridge::validator_set().id,
+				destination: destination.clone(),
+				message: message.to_vec(),
+				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
-			);
-			events_for_proving.push(expected_encoded_event.clone());
+			};
+			events_for_proving.push(event_proof.clone());
 			// Generate event proof
 			assert_ok!(EthBridge::send_event(&source, &destination, &message));
 			// Ensure event has been added to delayed claims
-			assert_eq!(
-				EthBridge::pending_event_proofs(event_proof_id),
-				Some(expected_encoded_event)
-			);
+			assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof));
 			assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		}
 
@@ -693,20 +689,17 @@ fn set_delayed_event_proofs_per_block() {
 		for _ in 0..new_max_delayed_events {
 			let event_proof_id = EthBridge::next_event_proof_id();
 			event_ids.push(event_proof_id);
-			let expected_encoded_event = encode_event_for_proving(
+			let event_proof = EventProof {
 				source,
-				destination.clone(),
-				message,
-				EthBridge::validator_set().id,
+				destination: destination.clone(),
+				message: message.to_vec(),
+				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
-			);
+			};
 			// Generate event proof
 			assert_ok!(EthBridge::send_event(&source, &destination, &message));
 			// Ensure event has been added to delayed claims
-			assert_eq!(
-				EthBridge::pending_event_proofs(event_proof_id),
-				Some(expected_encoded_event)
-			);
+			assert_eq!(EthBridge::pending_event_proofs(event_proof_id), Some(event_proof));
 			assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		}
 
