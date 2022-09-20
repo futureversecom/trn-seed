@@ -21,7 +21,14 @@ use frame_support::{
 	PalletId,
 };
 use scale_info::TypeInfo;
+use seed_pallet_common::{
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
+	EventRouterResult, FinalSessionTracker,
+};
+use seed_primitives::{ethy::crypto::AuthorityId, Signature};
+use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{H160, H256, U256};
+use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{
@@ -29,13 +36,10 @@ use sp_runtime::{
 	},
 	Percent,
 };
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
-	EventRouterResult, FinalSessionTracker,
+use std::{
+	sync::Arc,
+	time::{SystemTime, UNIX_EPOCH},
 };
-use seed_primitives::{ethy::crypto::AuthorityId, Signature};
 
 use crate::{
 	self as pallet_ethy,
@@ -62,7 +66,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event, ValidateUnsigned},
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
 	}
 );
 
@@ -550,6 +554,7 @@ where
 #[derive(Clone, Copy, Default)]
 pub struct ExtBuilder {
 	relayer: Option<AccountId>,
+	with_keystore: bool,
 	next_session_final: bool,
 	active_session_final: bool,
 }
@@ -557,6 +562,10 @@ pub struct ExtBuilder {
 impl ExtBuilder {
 	pub fn relayer(&mut self, relayer: H160) -> &mut Self {
 		self.relayer = Some(relayer.into());
+		self
+	}
+	pub fn with_keystore(&mut self) -> &mut Self {
+		self.with_keystore = true;
 		self
 	}
 	pub fn active_session_final(&mut self) -> &mut Self {
@@ -577,6 +586,12 @@ impl ExtBuilder {
 			ext.execute_with(|| {
 				assert!(EthBridge::set_relayer(Origin::root(), relayer).is_ok());
 			});
+		}
+
+		if self.with_keystore {
+			let keystore = KeyStore::new();
+			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			ext.register_extension(KeystoreExt(Arc::new(keystore)));
 		}
 
 		if self.next_session_final {

@@ -4702,6 +4702,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-io",
+ "sp-keystore",
  "sp-runtime",
  "sp-std",
 ]
