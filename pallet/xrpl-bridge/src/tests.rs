@@ -63,10 +63,10 @@ fn test_withdraw_tx_id_inc_works() {
 fn test_withdraw_request_works() {
 	new_test_ext().execute_with(|| {
 		let account_address = b"6490B68F1116BFE87DDC";
+		let account = AccountId::from(H160::from_slice(account_address));
 		process_transaction(account_address); // 2000 XRP deposited
 		let destination_address = b"6490B68F1116BFE87DDD";
 		let destination = XrplWithdrawAddress::from_slice(destination_address);
-		let account = AccountId::from(H160::from_slice(account_address));
 		assert_ok!(XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination));
 		let xrp_balance =
 			AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(account_address).into());
@@ -77,6 +77,20 @@ fn test_withdraw_request_works() {
 		assert_eq!(xrp_balance, 0);
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(Origin::signed(account), 1, destination),
+			ArithmeticError::Underflow
+		);
+	})
+}
+
+#[test]
+fn test_withdraw_request_burn_fails() {
+	new_test_ext().execute_with(|| {
+		let account_address = b"6490B68F1116BFE87DDC";
+		let account = AccountId::from(H160::from_slice(account_address));
+		let destination_address = b"6490B68F1116BFE87DDD";
+		let destination = XrplWithdrawAddress::from_slice(destination_address);
+		assert_noop!(
+			XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination),
 			ArithmeticError::Underflow
 		);
 	})
