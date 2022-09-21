@@ -16,8 +16,8 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 use seed_pallet_common::{
-	log, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge, EventClaimVerifier,
-	FinalSessionTracker as FinalSessionTrackerT, EthAbiCodec,
+	log, EthAbiCodec, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
+	EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
 };
 use seed_primitives::ethy::PendingAuthorityChange;
 
@@ -697,7 +697,11 @@ impl<T: Config> Module<T> {
 	fn do_generate_event_proof(event_proof_id: EventClaimId, packed_event_with_id: Message) {
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
-			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((packed_event_with_id, event_proof_id)).encode(),
+			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((
+				packed_event_with_id,
+				event_proof_id,
+			))
+			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 	}
@@ -763,7 +767,6 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		unimplemented!()
 	}
 }
-
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Module<T> {
 	type Public = T::EthyId;

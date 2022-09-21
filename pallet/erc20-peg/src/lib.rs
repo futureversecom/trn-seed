@@ -1,46 +1,43 @@
 /* Copyright 2021 Centrality Investments Limited
-*
-* Licensed under the LGPL, Version 3.0 (the "License");
-* you may not use this file except in compliance with the License.
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-* You may obtain a copy of the License at the root of this project source code,
-* or at:
-*     https://centrality.ai/licenses/gplv3.txt
-*     https://centrality.ai/licenses/lgplv3.txt
-*/
+ *
+ * Licensed under the LGPL, Version 3.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * You may obtain a copy of the License at the root of this project source code,
+ * or at:
+ *     https://centrality.ai/licenses/gplv3.txt
+ *     https://centrality.ai/licenses/lgplv3.txt
+ */
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-use sp_core::{H256, U256, H160};
-use seed_pallet_common::{EthAbiCodec, EventClaimVerifier, EventClaimSubscriber};
+use seed_pallet_common::{CreateExt, EthAbiCodec, EventClaimSubscriber, EventClaimVerifier};
 use seed_primitives::{AssetId, Balance, EventId};
-use seed_pallet_common::CreateExt;
+use sp_core::{H160, H256, U256};
 
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	pallet_prelude::*,
-	traits::{fungibles, fungibles::Mutate, Get, IsType},
+	traits::{
+		fungibles,
+		fungibles::{Mutate, Transfer},
+		Get, IsType,
+	},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId,
 };
-use frame_support::traits::fungibles::Transfer;
-use frame_system::pallet_prelude::*;
+use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
 use seed_pallet_common::{IsTokenOwner, OnTransferSubscriber};
-use seed_primitives::{TokenId, EthAddress};
-use frame_system::{ensure_root, ensure_signed};
+use seed_primitives::{EthAddress, TokenId};
 use sp_runtime::{
-	traits::{AccountIdConversion, Saturating},
-	DispatchError,
-};
-use sp_runtime::{
-	traits::{Hash, One},
-	SaturatedConversion,
+	traits::{AccountIdConversion, Hash, One, Saturating},
+	DispatchError, SaturatedConversion,
 };
 use sp_std::prelude::*;
 
@@ -51,23 +48,23 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-
 pub trait Config: frame_system::Config {
-    /// An onchain address for this pallet
-    type PegPalletId: Get<PalletId>;
-    /// The EVM event signature of a deposit
-    type DepositEventSignature: Get<[u8; 32]>;
-    /// Submits event claims for Ethereum
-    type EthBridge: EventClaimVerifier;
-    /// Currency functions
-    // type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId = AssetId>;
-    type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-        + fungibles::Transfer<Self::AccountId, Balance = Balance>
-        + fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-        + fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
-        + fungibles::Mutate<Self::AccountId>; 
-    /// The overarching event type.
-    type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+	/// An onchain address for this pallet
+	type PegPalletId: Get<PalletId>;
+	/// The EVM event signature of a deposit
+	type DepositEventSignature: Get<[u8; 32]>;
+	/// Submits event claims for Ethereum
+	type EthBridge: EventClaimVerifier;
+	/// Currency functions
+	// type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId
+	// = AssetId>;
+	type MultiCurrency: CreateExt<AccountId = Self::AccountId>
+		+ fungibles::Transfer<Self::AccountId, Balance = Balance>
+		+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
+		+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
+		+ fungibles::Mutate<Self::AccountId>;
+	/// The overarching event type.
+	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 }
 
 decl_storage! {
@@ -149,7 +146,7 @@ decl_error! {
 		InvalidAddress,
 		/// Claim has bad amount
 		InvalidAmount,
-        /// Could not convert pallet id to account
+		/// Could not convert pallet id to account
 		InvalidPalletId,
 		/// Deposits are inactive
 		DepositsPaused,
@@ -319,8 +316,8 @@ decl_module! {
 impl<T: Config> Module<T> {
 	/// Process the withdrawal, returning the event_proof_id
 	/// Can be called by the runtime or erc20-peg precompile
-	/// If a claim delay is in place for the asset, this will be handled when called from the runtime
-	/// The runtime doesn't use the returned value so 0 is returned in this case
+	/// If a claim delay is in place for the asset, this will be handled when called from the
+	/// runtime The runtime doesn't use the returned value so 0 is returned in this case
 	/// Delays from the EVM will return an error
 	pub fn do_withdrawal(
 		origin: T::AccountId,
@@ -337,11 +334,7 @@ impl<T: Config> Module<T> {
 		ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
 		let token_address = token_address.unwrap();
 
-		let message = WithdrawMessage {
-			token_address,
-			amount: amount.into(),
-			beneficiary,
-		};
+		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
 		// Check if there is a delay on the asset
 		let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id);
@@ -354,12 +347,12 @@ impl<T: Config> Module<T> {
 						// Delay the claim
 						Self::delay_claim(delay, PendingClaim::Withdrawal(message));
 						Ok(0)
-					}
+					},
 					WithdrawCallOrigin::Evm => {
 						// EVM claim delays are not supported
 						Err(Error::<T>::EvmWithdrawalFailed.into())
-					}
-				};
+					},
+				}
 			}
 		};
 
@@ -374,12 +367,7 @@ impl<T: Config> Module<T> {
 		asset_id: AssetId,
 		amount: Balance,
 	) -> Result<(), DispatchError> {
-
-        let _imbalance = T::MultiCurrency::burn_from(
-            asset_id,
-            &origin,
-            amount,
-        )?;
+		let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
 		Ok(())
 	}
 
@@ -389,9 +377,10 @@ impl<T: Config> Module<T> {
 			match pending_claim {
 				PendingClaim::Deposit((deposit_claim, tx_hash)) => {
 					Self::process_deposit_claim(deposit_claim, tx_hash);
-				}
+				},
 				PendingClaim::Withdrawal(withdrawal_message) => {
-					// At this stage it is assumed that a mapping between erc20 to asset id exists for this token
+					// At this stage it is assumed that a mapping between erc20 to asset id exists
+					// for this token
 					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
 					if let Some(asset_id) = asset_id {
 						let _ = Self::process_withdrawal(withdrawal_message, asset_id);
@@ -401,7 +390,7 @@ impl<T: Config> Module<T> {
 							withdrawal_message
 						);
 					}
-				}
+				},
 			}
 		}
 	}
@@ -413,14 +402,19 @@ impl<T: Config> Module<T> {
 			&tx_hash,
 			&EthAbiCodec::encode(&claim),
 		);
-		let beneficiary: T::AccountId = T::AccountId::decode(&mut &claim.beneficiary.0[..]).unwrap();
+		let beneficiary: T::AccountId =
+			T::AccountId::decode(&mut &claim.beneficiary.0[..]).unwrap();
 		match event_claim_id {
 			Ok(claim_id) => Self::deposit_event(<Event<T>>::Erc20Claim(claim_id, beneficiary)),
-			Err(_) => Self::deposit_event(<Event<T>>::DelayedErc20DepositFailed(tx_hash, beneficiary)),
+			Err(_) =>
+				Self::deposit_event(<Event<T>>::DelayedErc20DepositFailed(tx_hash, beneficiary)),
 		}
 	}
 
-	fn process_withdrawal(message: WithdrawMessage, asset_id: AssetId) -> Result<u64, DispatchError> {
+	fn process_withdrawal(
+		message: WithdrawMessage,
+		asset_id: AssetId,
+	) -> Result<u64, DispatchError> {
 		let amount: Balance = message.amount.as_u128();
 		let event_proof_id = T::EthBridge::generate_event_proof(&message);
 
@@ -428,7 +422,8 @@ impl<T: Config> Module<T> {
 			Ok(proof_id) => {
 				// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
 				let proof_id: EventId = proof_id;
-				let withdrawal_hash: T::Hash = T::Hashing::hash(&mut (message.clone(), proof_id).encode());
+				let withdrawal_hash: T::Hash =
+					T::Hashing::hash(&mut (message.clone(), proof_id).encode());
 				WithdrawalDigests::<T>::insert(proof_id, withdrawal_hash);
 				Self::deposit_event(<Event<T>>::Erc20Withdraw(
 					proof_id,
@@ -436,8 +431,11 @@ impl<T: Config> Module<T> {
 					amount,
 					message.beneficiary,
 				));
-			}
-			Err(_) => Self::deposit_event(<Event<T>>::DelayedErc20WithdrawalFailed(asset_id, message.beneficiary)),
+			},
+			Err(_) => Self::deposit_event(<Event<T>>::DelayedErc20WithdrawalFailed(
+				asset_id,
+				message.beneficiary,
+			)),
 		}
 		event_proof_id
 	}
@@ -447,7 +445,7 @@ impl<T: Config> Module<T> {
 		let claim_id = NextDelayedClaimId::get();
 		if !claim_id.checked_add(One::one()).is_some() {
 			Self::deposit_event(<Event<T>>::NoAvailableClaimIds);
-			return;
+			return
 		}
 		let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedClaims::insert(claim_id, &pending_claim);
@@ -464,72 +462,78 @@ impl<T: Config> Module<T> {
 					withdrawal.amount.as_u128(),
 					withdrawal.beneficiary,
 				));
-			}
+			},
 			PendingClaim::Deposit(deposit) => {
-				let beneficiary: T::AccountId = T::AccountId::decode(&mut &deposit.0.beneficiary.0[..]).unwrap();
+				let beneficiary: T::AccountId =
+					T::AccountId::decode(&mut &deposit.0.beneficiary.0[..]).unwrap();
 				Self::deposit_event(<Event<T>>::Erc20DepositDelayed(
 					claim_id,
 					claim_block,
 					deposit.0.amount.as_u128(),
 					beneficiary,
 				));
-			}
+			},
 		}
 	}
 
 	/// fulfill a deposit claim for the given event
-	pub fn do_deposit(verified_event: Erc20DepositEvent) -> Result<(AssetId, Balance, T::AccountId), DispatchError> {
+	pub fn do_deposit(
+		verified_event: Erc20DepositEvent,
+	) -> Result<(AssetId, Balance, T::AccountId), DispatchError> {
 		let asset_id = match Self::erc20_to_asset(verified_event.token_address) {
 			None => {
 				// create asset with known values from `Erc20Meta`
-				// asset will be created with `18` decimal places and "" for symbol if the asset is unknown
-				// dapps can also use `AssetToERC20` to retrieve the appropriate decimal places from ethereum
-				let (symbol, decimals) =
-					Erc20Meta::get(verified_event.token_address).unwrap_or((Default::default(), 18));
+				// asset will be created with `18` decimal places and "" for symbol if the asset is
+				// unknown dapps can also use `AssetToERC20` to retrieve the appropriate decimal
+				// places from ethereum
+				let (symbol, decimals) = Erc20Meta::get(verified_event.token_address)
+					.unwrap_or((Default::default(), 18));
 
-                let pallet_id = T::PegPalletId::get()
-                    .into_account_truncating();
-                let asset_id = T::MultiCurrency::create_with_metadata(
-                    &pallet_id,
-					// TODO: We may want to accept a name as input as well later. For now, we will use the symbol for both symbol and name
-                    symbol.clone(),
-                    symbol,
-                    decimals
-                )
-                .map_err(|_| Error::<T>::CreateAssetFailed)?;
+				let pallet_id = T::PegPalletId::get().into_account_truncating();
+				let asset_id = T::MultiCurrency::create_with_metadata(
+					&pallet_id,
+					// TODO: We may want to accept a name as input as well later. For now, we will
+					// use the symbol for both symbol and name
+					symbol.clone(),
+					symbol,
+					decimals,
+				)
+				.map_err(|_| Error::<T>::CreateAssetFailed)?;
 
 				Erc20ToAssetId::insert(verified_event.token_address, asset_id);
 				AssetIdToErc20::insert(asset_id, verified_event.token_address);
 				asset_id
-			}
+			},
 			Some(asset_id) => asset_id,
 		};
 
-
-		// checked at the time of initiating the verified_event that beneficiary value is valid and this op will not fail qed.
-		let beneficiary: T::AccountId = T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
+		// checked at the time of initiating the verified_event that beneficiary value is valid and
+		// this op will not fail qed.
+		let beneficiary: T::AccountId =
+			T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
 		let amount = verified_event.amount.as_u128();
 		// mint tokens to user
-        T::MultiCurrency::mint_into(
-            asset_id,
-            &beneficiary,
-            amount
-        )?;
+		T::MultiCurrency::mint_into(asset_id, &beneficiary, amount)?;
 
 		Ok((asset_id, amount, beneficiary))
 	}
 }
 
 impl<T: Config> EventClaimSubscriber for Module<T> {
-	fn on_success(event_claim_id: u64, contract_address: &EthAddress, event_type: &H256, event_data: &[u8]) {
-		if *contract_address == EthAddress::from(Self::contract_address())
-			&& *event_type == H256::from(T::DepositEventSignature::get())
+	fn on_success(
+		event_claim_id: u64,
+		contract_address: &EthAddress,
+		event_type: &H256,
+		event_data: &[u8],
+	) {
+		if *contract_address == EthAddress::from(Self::contract_address()) &&
+			*event_type == H256::from(T::DepositEventSignature::get())
 		{
 			if let Some(deposit_event) = EthAbiCodec::decode(event_data) {
 				match Self::do_deposit(deposit_event) {
-					Ok((asset_id, amount, beneficiary)) => {
-						Self::deposit_event(<Event<T>>::Erc20Deposit(event_claim_id, asset_id, amount, beneficiary))
-					}
+					Ok((asset_id, amount, beneficiary)) => Self::deposit_event(
+						<Event<T>>::Erc20Deposit(event_claim_id, asset_id, amount, beneficiary),
+					),
 					Err(_err) => Self::deposit_event(<Event<T>>::Erc20DepositFail(event_claim_id)),
 				}
 			} else {
@@ -538,9 +542,14 @@ impl<T: Config> EventClaimSubscriber for Module<T> {
 			}
 		}
 	}
-	fn on_failure(event_claim_id: u64, contract_address: &H160, event_type: &H256, _event_data: &[u8]) {
-		if *contract_address == EthAddress::from(Self::contract_address())
-			&& *event_type == H256::from(T::DepositEventSignature::get())
+	fn on_failure(
+		event_claim_id: u64,
+		contract_address: &H160,
+		event_type: &H256,
+		_event_data: &[u8],
+	) {
+		if *contract_address == EthAddress::from(Self::contract_address()) &&
+			*event_type == H256::from(T::DepositEventSignature::get())
 		{
 			Self::deposit_event(<Event<T>>::Erc20DepositFail(event_claim_id));
 		}

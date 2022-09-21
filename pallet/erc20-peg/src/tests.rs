@@ -1,13 +1,19 @@
 use super::*;
 use crate::{
-	EventClaimVerifier,
+	mock::{
+		AccountId, AssetsExt, DepositEventSignature, Erc20Peg, ExtBuilder, PegPalletId, System,
+		Test,
+	},
 	types::{ClaimId, Erc20DepositEvent, PendingClaim, WithdrawMessage},
-	mock::{AccountId, DepositEventSignature, Erc20Peg, ExtBuilder, PegPalletId, System, Test, AssetsExt}
+	EventClaimVerifier,
 };
 
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{OnIdle, OnInitialize, fungibles::{Inspect, Mutate}},
+	traits::{
+		fungibles::{Inspect, Mutate},
+		OnIdle, OnInitialize,
+	},
 	weights::constants::RocksDbWeight as DbWeight,
 };
 use hex_literal::hex;
@@ -20,11 +26,7 @@ fn deposit_claim() {
 		let token_address: H160 = H160::default();
 		let amount: Balance = 100;
 		let beneficiary: H256 = H256::default();
-		let claim = Erc20DepositEvent {
-			token_address,
-			amount: amount.into(),
-			beneficiary,
-		};
+		let claim = Erc20DepositEvent { token_address, amount: amount.into(), beneficiary };
 		let tx_hash = H256::default();
 
 		assert_ok!(Erc20Peg::deposit_claim(Some(account).into(), tx_hash, claim));
@@ -43,11 +45,7 @@ fn on_deposit_mints() {
 		let token_address: H160 = H160::default();
 		let amount: Balance = 100;
 		let beneficiary: H256 = H256::default();
-		let claim = Erc20DepositEvent {
-			token_address,
-			amount: amount.into(),
-			beneficiary,
-		};
+		let claim = Erc20DepositEvent { token_address, amount: amount.into(), beneficiary };
 
 		let expected_asset_id = AssetsExt::next_asset_uuid().unwrap();
 
@@ -82,20 +80,12 @@ fn withdraw() {
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
 
 		let amount: Balance = 100;
-        let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
+		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
 
-		assert_ok!(Erc20Peg::activate_withdrawals(
-			frame_system::RawOrigin::Root.into(),
-			true
-		));
+		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 		assert_eq!(AssetsExt::balance(asset_id, &account), amount);
-		assert_ok!(Erc20Peg::withdraw(
-			Some(account.clone()).into(),
-			asset_id,
-			amount,
-			beneficiary
-		));
+		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
 		assert_eq!(AssetsExt::balance(asset_id, &account), 0);
 
 		// Check withdrawal hash is stored correctly
@@ -104,8 +94,10 @@ fn withdraw() {
 			amount: amount.into(),
 			beneficiary,
 		};
-		let event_proof_id: u64 = <Test as Config>::EthBridge::generate_event_proof(&message).unwrap();
-		let withdrawal_hash = <Test as frame_system::Config>::Hashing::hash(&mut (message, event_proof_id).encode());
+		let event_proof_id: u64 =
+			<Test as Config>::EthBridge::generate_event_proof(&message).unwrap();
+		let withdrawal_hash =
+			<Test as frame_system::Config>::Hashing::hash(&mut (message, event_proof_id).encode());
 		assert_eq!(Erc20Peg::withdrawal_digests(event_proof_id), withdrawal_hash);
 	});
 }
@@ -166,10 +158,7 @@ fn deposit_claim_with_delay() {
 		// Check claim id has been increased
 		assert_eq!(<NextDelayedClaimId>::get(), claim_id + 1);
 		// Simulating block before with enough weight, claim shouldn't be removed
-		assert_eq!(
-			Erc20Peg::on_initialize(claim_block - 1),
-			DbWeight::get().reads(1 as Weight)
-		);
+		assert_eq!(Erc20Peg::on_initialize(claim_block - 1), DbWeight::get().reads(1 as Weight));
 		assert_eq!(Erc20Peg::on_idle(claim_block - 1, delayed_claim_weight * 2), 0);
 		// Simulating not enough weight left in block, claim shouldn't be removed
 		assert_eq!(
@@ -188,10 +177,7 @@ fn deposit_claim_with_delay() {
 		);
 
 		// Try again next block with enough weight
-		assert_eq!(
-			Erc20Peg::on_initialize(claim_block + 1),
-			DbWeight::get().reads(1 as Weight)
-		);
+		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), DbWeight::get().reads(1 as Weight));
 		assert_eq!(
 			Erc20Peg::on_idle(claim_block + 1, delayed_claim_weight * 2),
 			delayed_claim_weight + DbWeight::get().reads(1 as Weight)
@@ -275,22 +261,17 @@ fn multiple_deposit_claims_with_delay() {
 			}
 		}
 		assert_eq!(changed_count, u8::MAX);
-		assert_eq!(
-			Erc20Peg::delayed_claim_schedule(claim_block),
-			claim_ids[u8::MAX as usize..]
-		);
+		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), claim_ids[u8::MAX as usize..]);
 		assert_eq!(Erc20Peg::ready_blocks(), vec![claim_block]);
 
-		assert_eq!(
-			Erc20Peg::on_initialize(claim_block + 1),
-			DbWeight::get().reads(1 as Weight)
-		);
+		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), DbWeight::get().reads(1 as Weight));
 		assert_eq!(
 			Erc20Peg::on_idle(
 				claim_block + 1,
 				num_claims * delayed_claim_weight + DbWeight::get().reads(1 as Weight)
 			),
-			(num_claims - u8::MAX as u64) * delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+			(num_claims - u8::MAX as u64) * delayed_claim_weight +
+				DbWeight::get().reads(1 as Weight)
 		);
 		for i in 0..num_claims {
 			assert_eq!(Erc20Peg::delayed_claims(claim_ids[i as usize]), None);
@@ -344,10 +325,7 @@ fn many_deposit_claims_with_delay() {
 				tx_hash,
 				claim.clone()
 			));
-			assert_eq!(
-				Erc20Peg::delayed_claim_schedule(claim_block + i),
-				vec![claim_id.clone()]
-			);
+			assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block + i), vec![claim_id.clone()]);
 
 			// Go to next block
 			claim_blocks.push(claim_block + i);
@@ -428,10 +406,7 @@ fn withdraw_with_delay() {
 
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
 		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
-		assert_ok!(Erc20Peg::activate_withdrawals(
-			frame_system::RawOrigin::Root.into(),
-			true
-		));
+		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		assert_ok!(Erc20Peg::set_claim_delay(
 			frame_system::RawOrigin::Root.into(),
@@ -442,12 +417,7 @@ fn withdraw_with_delay() {
 
 		let claim_id = <NextDelayedClaimId>::get();
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		assert_ok!(Erc20Peg::withdraw(
-			Some(account.clone()).into(),
-			asset_id,
-			amount,
-			beneficiary
-		));
+		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
 
 		// Balance should be withdrawn straight away
 		assert_eq!(AssetsExt::balance(asset_id, &account), 0);
@@ -458,10 +428,7 @@ fn withdraw_with_delay() {
 		};
 
 		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![claim_id]);
-		assert_eq!(
-			Erc20Peg::delayed_claims(claim_id),
-			Some(PendingClaim::Withdrawal(message))
-		);
+		assert_eq!(Erc20Peg::delayed_claims(claim_id), Some(PendingClaim::Withdrawal(message)));
 		// Check claim id has been increased
 		assert_eq!(<NextDelayedClaimId>::get(), claim_id + 1);
 		assert_eq!(
@@ -492,10 +459,7 @@ fn withdraw_less_than_delay_goes_through() {
 
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
 		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
-		assert_ok!(Erc20Peg::activate_withdrawals(
-			frame_system::RawOrigin::Root.into(),
-			true
-		));
+		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		assert_ok!(Erc20Peg::set_claim_delay(
 			frame_system::RawOrigin::Root.into(),
@@ -526,10 +490,7 @@ fn withdraw_unsupported_asset_should_fail() {
 		let amount: Balance = 100;
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
 
-		assert_ok!(Erc20Peg::activate_withdrawals(
-			frame_system::RawOrigin::Root.into(),
-			true
-		));
+		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
 		assert_noop!(
 			Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary),

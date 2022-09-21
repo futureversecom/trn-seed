@@ -855,7 +855,6 @@ parameter_types! {
 	pub const MaxInitialErcMetas: u8 = 50;
 }
 
-
 impl pallet_erc20_peg::Config for Runtime {
 	/// Handles Ethereum events
 	type EthBridge = EthBridge;

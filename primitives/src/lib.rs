@@ -84,7 +84,7 @@ pub mod types {
 	pub type EventId = u64;
 
 	/// Ethereum address type
-	pub type EthAddress = sp_core::H160;	
+	pub type EthAddress = sp_core::H160;
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

@@ -6,17 +6,18 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	sp_runtime::traits::AccountIdConversion,
-	traits::{ExistenceRequirement, Get, WithdrawReasons, fungibles::Transfer, Imbalance, SignedImbalance},
+	traits::{
+		fungibles::Transfer, ExistenceRequirement, Get, Imbalance, SignedImbalance, WithdrawReasons,
+	},
 	weights::Weight,
 	PalletId,
 };
 use scale_info::TypeInfo;
-use sp_core::{H160, U256};
-use sp_core::H256;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
+use sp_core::{H160, H256, U256};
 use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
@@ -115,9 +116,19 @@ pub trait CreateExt {
 #[impl_trait_for_tuples::impl_for_tuples(10)]
 pub trait EventClaimSubscriber {
 	/// Notify subscriber about a successful event claim for the given event data
-	fn on_success(event_claim_id: u64, contract_address: &H160, event_signature: &H256, event_data: &[u8]);
+	fn on_success(
+		event_claim_id: u64,
+		contract_address: &H160,
+		event_signature: &H256,
+		event_data: &[u8],
+	);
 	/// Notify subscriber about a failed event claim for the given event data
-	fn on_failure(event_claim_id: u64, contract_address: &H160, event_signature: &H256, event_data: &[u8]);
+	fn on_failure(
+		event_claim_id: u64,
+		contract_address: &H160,
+		event_signature: &H256,
+		event_data: &[u8],
+	);
 }
 
 /// Something that verifies event claims
