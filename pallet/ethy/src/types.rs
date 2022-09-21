@@ -85,7 +85,7 @@ pub enum CheckedEthCallResult {
 /// The ethereum block number data type
 pub type EthBlockNumber = U64;
 /// The ethereum address data type
-pub type EthAddress = H160;
+pub type EthAddress = seed_primitives::EthAddress;
 /// The ethereum transaction hash type
 pub type EthHash = H256;
 

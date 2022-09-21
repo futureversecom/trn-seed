@@ -80,6 +80,11 @@ pub mod types {
 
 	/// The type for identifying the Withdraw Tx Nonce
 	pub type XrplWithdrawTxNonce = u32;
+	/// Unique nonce for event proof requests
+	pub type EventId = u64;
+
+	/// Ethereum address type
+	pub type EthAddress = sp_core::H160;
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

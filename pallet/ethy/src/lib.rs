@@ -318,6 +318,7 @@ decl_module! {
 		/// - event ABI encoded bridge event
 		pub fn submit_event(origin, tx_hash: H256, event: Vec<u8>) {
 			let origin = ensure_signed(origin)?;
+
 			ensure!(Some(origin) == Self::relayer(), Error::<T>::NoPermission);
 
 			// TODO: place some limit on `data` length (it should match on contract side)

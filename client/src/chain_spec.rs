@@ -1,11 +1,5 @@
-use sc_service::ChainType;
-use sp_core::{ecdsa, Pair, Public};
-use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
-	Perbill,
-};
-
 use hex_literal::hex;
+use sc_service::ChainType;
 use seed_runtime::{
 	constants::{
 		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
@@ -15,6 +9,11 @@ use seed_runtime::{
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, Forcing, GenesisConfig,
 	SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
 	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+};
+use sp_core::{ecdsa, Pair, Public};
+use sp_runtime::{
+	traits::{IdentifyAccount, Verify},
+	Perbill,
 };
 
 // The URL for the telemetry server.
@@ -60,7 +59,6 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	let mut properties = sc_service::Properties::new();
 	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
 	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
-
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Seed Dev",
