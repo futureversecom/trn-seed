@@ -131,11 +131,7 @@ where
 			let proof_validator_set = client
 				.runtime_api()
 				.validator_set(&BlockId::hash(event_proof.block.into()))
-				.ok();
-			if proof_validator_set.is_none() {
-				return None
-			}
-			let proof_validator_set = proof_validator_set.unwrap();
+				.ok()?;
 
 			let validator_addresses: Vec<AccountId20> = proof_validator_set
 				.validators
