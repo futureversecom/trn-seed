@@ -160,10 +160,6 @@ impl crate::Config for Test {
 	type EthBridge = MockEthBridge;
 	type PegPalletId = PegPalletId;
 	type MultiCurrency = AssetsExt;
-	type MaxLengthErc20Meta = MaxLengthErc20Meta;
-	type MaxClaimsPerBlock = MaxClaimsPerBlock;
-	type MaxReadyBlocks = MaxReadyBlocks;
-	type MaxInitialErcMetas = MaxInitialErcMetas;
 }
 
 /// Mock ethereum bridge

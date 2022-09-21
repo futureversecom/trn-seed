@@ -510,15 +510,8 @@ impl<T: Config> Module<T> {
 
 		// checked at the time of initiating the verified_event that beneficiary value is valid and this op will not fail qed.
 		let beneficiary: T::AccountId = T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
-
-		// (Governance): CENNZ is a special case since the supply is already 100% minted
-		// it must be transferred from the unclaimed wallet
 		let amount = verified_event.amount.as_u128();
-
-		// let weth = AssetsExt::create(&BOB.clone()).unwrap();
-
 		// mint tokens to user
-
         T::MultiCurrency::mint_into(
             asset_id,
             &beneficiary,

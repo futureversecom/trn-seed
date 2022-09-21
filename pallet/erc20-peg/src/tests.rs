@@ -58,8 +58,9 @@ fn on_deposit_mints() {
 		);
 
 		let beneficiary: AccountId = Decode::decode(&mut &beneficiary.0[..]).unwrap();
+		// Not sure where 17000 comes from. Other predictable nums don't work either
 		let expected_asset_id = 17000;
-		assert_eq!(AssetsExt::balance(expected_asset_id, &3), amount);
+		assert_eq!(AssetsExt::balance(expected_asset_id, &beneficiary), amount);
 		assert_eq!(Erc20Peg::erc20_to_asset(contract_address), Some(expected_asset_id));
 		assert_eq!(Erc20Peg::asset_to_erc20(expected_asset_id), Some(contract_address));
 	});
