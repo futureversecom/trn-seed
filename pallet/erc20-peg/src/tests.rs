@@ -64,7 +64,6 @@ fn on_deposit_mints() {
 		assert_eq!(Erc20Peg::erc20_to_asset(claim.token_address), Some(expected_asset_id));
 
 		let beneficiary: AccountId = Decode::decode(&mut &beneficiary.0[..]).unwrap();
-
 		assert_eq!(AssetsExt::balance(expected_asset_id, &beneficiary), amount);
 		assert_eq!(Erc20Peg::erc20_to_asset(contract_address), Some(expected_asset_id));
 		assert_eq!(Erc20Peg::asset_to_erc20(expected_asset_id), Some(contract_address));
