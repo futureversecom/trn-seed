@@ -191,7 +191,7 @@ impl<T: Config> Module<T> {
 		let submitted_event_data = ethabi::encode(&[
 			Token::Uint(event_claim_id.into()),
 			Token::Address(source),
-			Token::Address(destination),token_address
+			Token::Address(destination),
 			Token::Bytes(data),
 		]);
 		if let Some(log) = matching_log {
