@@ -24,7 +24,6 @@ use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
-use seed_pallet_common::{EthAbiCodec, EventClaimVerifier};
 
 pub const CENNZ_ASSET_ID: AssetId = 16000;
 pub const CPAY_ASSET_ID: AssetId = 16001;

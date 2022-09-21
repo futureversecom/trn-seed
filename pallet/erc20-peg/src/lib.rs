@@ -507,16 +507,13 @@ impl<T: Config> Module<T> {
 			Some(asset_id) => asset_id,
 		};
 
-
-		// checked at the time of initiating the verified_event that beneficiary value is valid and this op will not fail qed.
-		let beneficiary: T::AccountId = T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
+		// checked at the time of initiating the verified_event that beneficiary value is valid and
+		// this op will not fail qed.
+		let beneficiary: T::AccountId =
+			T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
 		let amount = verified_event.amount.as_u128();
 		// mint tokens to user
-        T::MultiCurrency::mint_into(
-            asset_id,
-            &beneficiary,
-            amount
-        )?;
+		T::MultiCurrency::mint_into(asset_id, &beneficiary, amount)?;
 
 		Ok((asset_id, amount, beneficiary))
 	}

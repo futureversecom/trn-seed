@@ -45,11 +45,7 @@ fn on_deposit_mints() {
 		let token_address: H160 = H160::default();
 		let amount: Balance = 100;
 		let beneficiary: H256 = H256::default();
-		let claim = Erc20DepositEvent {
-			token_address,
-			amount: amount.into(),
-			beneficiary,
-		};
+		let claim = Erc20DepositEvent { token_address, amount: amount.into(), beneficiary };
 
 		let expected_asset_id = AssetsExt::next_asset_uuid().unwrap();
 
@@ -420,12 +416,7 @@ fn withdraw_with_delay() {
 
 		let claim_id = <NextDelayedClaimId>::get();
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		assert_ok!(Erc20Peg::withdraw(
-			Some(account.clone()).into(),
-			asset_id,
-			amount,
-			beneficiary
-		));
+		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
 
 		// Balance should be withdrawn straight away
 		assert_eq!(AssetsExt::balance(asset_id, &account), 0);
