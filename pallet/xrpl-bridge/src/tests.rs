@@ -130,3 +130,14 @@ fn submit_transaction(
 		1234
 	));
 }
+
+#[test]
+fn test_set_xrpl_door_address() {
+	new_test_ext().execute_with(|| {
+		// let xprl_door_address  = b"rnZiKvrWFGi2JfHtLS8kxcqCqVhch6W5k5"; //spc
+		let xprl_door_address  = b"6490B68F1116BFE87DDD";
+
+		assert_ok!(XRPLBridge::set_xrpl_door_address(Origin::root(), H160::from(xprl_door_address)));
+		assert_eq!(XRPLBridge::get_xrpl_door_address(), Some(H160::from_slice(xprl_door_address)));
+	})
+}
