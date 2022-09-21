@@ -108,7 +108,7 @@ where
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let event_proof_response =
 						build_event_proof_response::<C, B>(&self.client, versioned_proof);
-					return Ok(Some(event_proof_response))
+					return Ok(event_proof_response)
 				}
 			}
 		}
@@ -120,7 +120,7 @@ where
 pub fn build_event_proof_response<C, B>(
 	client: &C,
 	versioned_event_proof: VersionedEventProof,
-) -> EventProofResponse
+) -> Option<EventProofResponse>
 where
 	B: Block<Hash = H256>,
 	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
@@ -131,8 +131,7 @@ where
 			let proof_validator_set = client
 				.runtime_api()
 				.validator_set(&BlockId::hash(event_proof.block.into()))
-				.ok()
-				.unwrap();
+				.ok()?;
 
 			let validator_addresses: Vec<AccountId20> = proof_validator_set
 				.validators
@@ -141,7 +140,7 @@ where
 				.map(Into::into)
 				.collect();
 
-			EventProofResponse {
+			Some(EventProofResponse {
 				event_id: event_proof.event_id,
 				signatures: event_proof
 					.expanded_signatures(validator_addresses.len())
@@ -152,7 +151,7 @@ where
 				validator_set_id: proof_validator_set.id,
 				block: event_proof.block.into(),
 				tag: event_proof.tag.clone().map(Into::into),
-			}
+			})
 		},
 	}
 }
