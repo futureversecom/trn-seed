@@ -68,12 +68,6 @@ pub trait Config: frame_system::Config {
         + fungibles::Mutate<Self::AccountId>; 
     /// The overarching event type.
     type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-    /// Max length of metadata for erc20 tokens
-    type MaxLengthErc20Meta: Get<u32>;
-    type MaxClaimsPerBlock: Get<u32>;
-    /// Max amount of blocks with claims
-    type MaxReadyBlocks: Get<u32>;
-    type MaxInitialErcMetas: Get<u8>;
 }
 
 decl_storage! {

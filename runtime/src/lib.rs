@@ -866,10 +866,6 @@ impl pallet_erc20_peg::Config for Runtime {
 	type PegPalletId = PegPalletId;
 	/// The overarching event type.
 	type Event = Event;
-	type MaxLengthErc20Meta = MaxLengthErc20Meta;
-	type MaxClaimsPerBlock = MaxClaimsPerBlock;
-	type MaxReadyBlocks = MaxReadyBlocks;
-	type MaxInitialErcMetas = MaxInitialErcMetas;
 }
 
 construct_runtime! {

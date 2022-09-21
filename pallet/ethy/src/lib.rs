@@ -47,7 +47,6 @@ use frame_support::{
 };
 use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
 use hex_literal::hex;
-use seed_primitives::ethy::EventTypeId;
 use sp_runtime::{
 	offchain as rt_offchain,
 	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion},
@@ -131,29 +130,17 @@ decl_storage! {
 		BridgePaused get(fn bridge_paused): bool;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
-		/// Queued event claims, awaiting notarization
-		EventClaims get(fn event_claims): map hasher(twox_64_concat) EventClaimId => (EthHash, EventTypeId);
-		/// Event data for a given proof
-		EventData get(fn event_data): map hasher(twox_64_concat) EventClaimId => Option<Vec<u8>>;
 		/// Events cannot be claimed after this time (seconds)
 		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 		/// Notarizations for queued events
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
-		/// Maps event types seen by the bridge ((contract address, event signature)) to unique type Ids
-		EventTypeToTypeId get(fn event_type_to_type_id): map hasher(blake2_128_concat) (EthAddress, EthHash) => EventTypeId;
-		/// Maps event type ids to ((contract address, event signature))
-		TypeIdToEventType get(fn type_id_to_event_type): map hasher(blake2_128_concat) EventTypeId => (EthAddress, EthHash);
 		/// The maximum number of delayed events that can be processed in on_initialize()
 		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
-		/// Event proofs to be processed once bridge has been re-enabled
-		DelayedEventProofs get (fn delayed_event_proofs): map hasher(twox_64_concat) EventClaimId => Option<Message>;
 		/// Id of the next event claim
 		NextEventClaimId get(fn next_event_claim_id): EventClaimId;
 		/// Id of the next event proof
 		NextEventProofId get(fn next_event_proof_id): EventProofId;
-		/// Id of the next event type (internal)
-		NextEventTypeId get(fn next_event_type_id): EventTypeId;
 		/// Scheduled notary (validator) public keys for the next session
 		NextNotaryKeys get(fn next_notary_keys): Vec<T::EthyId>;
 		/// Active notary (validator) public keys
@@ -171,11 +158,6 @@ decl_storage! {
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
 		/// Tracks processed message Ids (prevent replay)
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
-		/// Set of processed tx hashes
-		/// Periodically cleared after `EventDeadlineSeconds` expires
-		ProcessedTxHashes get(fn processed_tx_hashes): map hasher(twox_64_concat) EthHash => ();
-		/// Map of pending tx hashes to claim Id
-		PendingTxHashes get(fn pending_tx_hashes): map hasher(twox_64_concat) EthHash => EventClaimId;
 		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) T::BlockNumber => Vec<EventClaimId>;
 		// State Oracle
@@ -220,10 +202,6 @@ decl_event! {
 
 decl_error! {
 	pub enum Error for Module<T: Config> {
-		/// This message has already been notarized
-		AlreadyNotarized,
-		/// Claim in progress
-		DuplicateClaim,
 		// Error returned when making signed transactions in off-chain worker
 		NoLocalSigningAccount,
 		// Error returned when making unsigned transactions with signed payloads in off-chain worker

@@ -756,52 +756,11 @@ impl<T: Config> EventClaimVerifier for Module<T> {
 		tx_hash: &H256,
 		event_data: &[u8],
 	) -> Result<EventClaimId, DispatchError> {
-		ensure!(!ProcessedTxHashes::contains_key(tx_hash), Error::<T>::AlreadyNotarized);
-		ensure!(!PendingTxHashes::contains_key(tx_hash), Error::<T>::DuplicateClaim);
-
-		// check if we've seen this event type before
-		// if not we assign it a type Id (saves us storing the (contract address, event signature) each time)
-		let event_type_id = if !EventTypeToTypeId::contains_key((contract_address, event_signature)) {
-			let next_event_type_id = Self::next_event_type_id();
-			EventTypeToTypeId::insert((contract_address, event_signature), next_event_type_id);
-			TypeIdToEventType::insert(next_event_type_id, (contract_address, event_signature));
-			NextEventTypeId::put(next_event_type_id.wrapping_add(1));
-			next_event_type_id
-		} else {
-			EventTypeToTypeId::get((contract_address, event_signature))
-		};
-
-		let event_claim_id = Self::next_event_claim_id();
-		EventData::insert(event_claim_id, event_data);
-		EventClaims::insert(event_claim_id, (tx_hash, event_type_id));
-		NextEventClaimId::put(event_claim_id.wrapping_add(1));
-		PendingTxHashes::insert(tx_hash, event_claim_id);
-
-		Ok(event_claim_id)
+		unimplemented!()
 	}
 
 	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
-		let event_proof_id = Self::next_event_proof_id();
-		NextEventProofId::put(event_proof_id.wrapping_add(1));
-
-		// TODO: does this support multiple consensus logs in a block?
-		// save this for `on_finalize` and insert many
-		let packed_event_with_id = [
-			&event.encode()[..],
-			&EthAbiCodec::encode(&Self::validator_set().id)[..],
-			&EthAbiCodec::encode(&event_proof_id)[..],
-		]
-		.concat();
-
-		if Self::bridge_paused() {
-			// Delay proof
-			DelayedEventProofs::insert(event_proof_id, packed_event_with_id);
-			Self::deposit_event(Event::<T>::ProofDelayed(event_proof_id));
-		} else {
-			Self::do_generate_event_proof(event_proof_id, packed_event_with_id);
-		}
-
-		Ok(event_proof_id)
+		unimplemented!()
 	}
 }
 
