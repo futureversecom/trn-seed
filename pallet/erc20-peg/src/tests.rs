@@ -48,8 +48,14 @@ fn on_deposit_mints() {
 			amount: amount.into(),
 			beneficiary,
 		};
+
+		let expected_asset_id = AssetsExt::next_asset_uuid().unwrap();
+
+		// No assets expected at first
+		assert_eq!(Erc20Peg::erc20_to_asset(claim.token_address), None);
 		let event_claim_id: u64 = 0;
 		let event_type: H256 = DepositEventSignature::get().into();
+		// Given the deposit
 		Erc20Peg::on_success(
 			event_claim_id,
 			&contract_address,
@@ -57,9 +63,10 @@ fn on_deposit_mints() {
 			&crate::EthAbiCodec::encode(&claim),
 		);
 
+		assert_eq!(Erc20Peg::erc20_to_asset(claim.token_address), Some(expected_asset_id));
+
 		let beneficiary: AccountId = Decode::decode(&mut &beneficiary.0[..]).unwrap();
-		// Not sure where 17000 comes from. Other predictable nums don't work either
-		let expected_asset_id = 17000;
+
 		assert_eq!(AssetsExt::balance(expected_asset_id, &beneficiary), amount);
 		assert_eq!(Erc20Peg::erc20_to_asset(contract_address), Some(expected_asset_id));
 		assert_eq!(Erc20Peg::asset_to_erc20(expected_asset_id), Some(contract_address));

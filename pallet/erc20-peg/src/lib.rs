@@ -477,7 +477,7 @@ impl<T: Config> Module<T> {
 		}
 	}
 
-	/// fulfil a deposit claim for the given event
+	/// fulfill a deposit claim for the given event
 	pub fn do_deposit(verified_event: Erc20DepositEvent) -> Result<(AssetId, Balance, T::AccountId), DispatchError> {
 		let asset_id = match Self::erc20_to_asset(verified_event.token_address) {
 			None => {
@@ -488,9 +488,7 @@ impl<T: Config> Module<T> {
 					Erc20Meta::get(verified_event.token_address).unwrap_or((Default::default(), 18));
 
                 let pallet_id = T::PegPalletId::get()
-                    .try_into_account()
-                    .ok_or(Error::<T>::InvalidPalletId)?;
-
+                    .into_account_truncating();
                 let asset_id = T::MultiCurrency::create_with_metadata(
                     &pallet_id,
 					// TODO: We may want to accept a name as input as well later. For now, we will use the symbol for both symbol and name
@@ -498,15 +496,15 @@ impl<T: Config> Module<T> {
                     symbol,
                     decimals
                 )
-
                 .map_err(|_| Error::<T>::CreateAssetFailed)?;
+
 				Erc20ToAssetId::insert(verified_event.token_address, asset_id);
 				AssetIdToErc20::insert(asset_id, verified_event.token_address);
-
 				asset_id
 			}
 			Some(asset_id) => asset_id,
 		};
+
 
 		// checked at the time of initiating the verified_event that beneficiary value is valid and this op will not fail qed.
 		let beneficiary: T::AccountId = T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
