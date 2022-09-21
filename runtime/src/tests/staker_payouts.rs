@@ -10,14 +10,14 @@ use sp_staking::{EraIndex, SessionIndex};
 
 use seed_pallet_common::FinalSessionTracker;
 use seed_primitives::{Balance, BlockNumber};
-use seed_runtime::{
+
+use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
 	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
 	Executive, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
 };
 
-mod mock;
-use mock::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
+use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
 
 // the following helpers are copied from substrate `pallet-staking/src/mock.rs`
 /// Progress to the given block, triggering session and era changes as we progress.
