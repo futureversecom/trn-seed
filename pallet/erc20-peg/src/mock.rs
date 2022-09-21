@@ -24,6 +24,7 @@ use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
+use seed_pallet_common::{EthAbiCodec, EventClaimVerifier};
 
 pub const CENNZ_ASSET_ID: AssetId = 16000;
 pub const CPAY_ASSET_ID: AssetId = 16001;
@@ -53,6 +54,7 @@ frame_support::construct_runtime!(
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
 }
+
 impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();

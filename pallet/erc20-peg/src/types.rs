@@ -1,5 +1,4 @@
 /* Copyright 2021 Centrality Investments Limited
-<<<<<<< HEAD
  *
  * Licensed under the LGPL, Version 3.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,26 +17,6 @@ use scale_info::TypeInfo;
 use seed_pallet_common::EthAbiCodec;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
-=======
-*
-* Licensed under the LGPL, Version 3.0 (the "License");
-* you may not use this file except in compliance with the License.
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-* You may obtain a copy of the License at the root of this project source code,
-* or at:
-*     https://centrality.ai/licenses/gplv3.txt
-*     https://centrality.ai/licenses/lgplv3.txt
-*/
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
-use seed_pallet_common::EthAbiCodec;
-use sp_std::prelude::*;
-use sp_core::{H256, H160, U256};
->>>>>>> aaa0870 (Port erc20-peg pallet over in FRAME v2)
 
 /// Ethereum address type
 pub type EthAddress = seed_primitives::EthAddress;
@@ -116,25 +95,13 @@ impl EthAbiCodec for Erc20DepositEvent {
 	fn decode(data: &[u8]) -> Option<Self> {
 		// Expect 3 words of data
 		if data.len() != 3 * 32 {
-<<<<<<< HEAD
 			return None
-=======
-			return None;
->>>>>>> aaa0870 (Port erc20-peg pallet over in FRAME v2)
 		}
 		let token_address = H160::from(&data[12..32].try_into().expect("20 bytes decode"));
 		let amount = data[32..64].into();
 		let beneficiary = H256::from(&data[64..96].try_into().expect("32 bytes decode"));
 
-<<<<<<< HEAD
 		Some(Self { token_address, amount, beneficiary })
-=======
-		Some(Self {
-			token_address,
-			amount,
-			beneficiary,
-		})
->>>>>>> aaa0870 (Port erc20-peg pallet over in FRAME v2)
 	}
 }
 
@@ -154,16 +121,10 @@ mod test {
 		assert_eq!(
 			event.encode(),
 			vec![
-<<<<<<< HEAD
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77
-=======
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 123, 0, 0, 0, 0,
-				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77
->>>>>>> aaa0870 (Port erc20-peg pallet over in FRAME v2)
 			]
 		);
 	}
@@ -171,16 +132,10 @@ mod test {
 	#[test]
 	fn deposit_event_decode() {
 		let raw = vec![
-<<<<<<< HEAD
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 55, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 			0, 0, 0, 0, 0, 0, 0, 0, 0, 77,
-=======
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 55, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 123, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 77,
->>>>>>> aaa0870 (Port erc20-peg pallet over in FRAME v2)
 		];
 		assert_eq!(
 			Erc20DepositEvent::decode(&raw).expect("it decodes"),

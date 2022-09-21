@@ -417,7 +417,12 @@ fn withdraw_with_delay() {
 
 		let claim_id = <NextDelayedClaimId>::get();
 		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
+		assert_ok!(Erc20Peg::withdraw(
+			Some(account.clone()).into(),
+			asset_id,
+			amount,
+			beneficiary
+		));
 
 		// Balance should be withdrawn straight away
 		assert_eq!(AssetsExt::balance(asset_id, &account), 0);

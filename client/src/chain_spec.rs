@@ -8,7 +8,7 @@ use seed_runtime::{
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, Forcing, GenesisConfig,
 	SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY, Erc20PegConfig,
+	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
 use sp_runtime::{
@@ -285,33 +285,5 @@ fn testnet_genesis(
 		ethereum: seed_runtime::EthereumConfig {},
 		evm: seed_runtime::EVMConfig { accounts: Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
-		erc_20_peg: Erc20PegConfig {
-			// well-known ERC20 token addresses
-			// metadata used by Eth bridge to map token claims when creating generic assets
-			erc20s: vec![
-				// Native eth token will be pegged at token address 0
-				(H160::default(), BoundedVec::try_from(b"Eth".to_vec()).unwrap(), 18),
-				(
-					H160::from_str("0xd4fffa07929b1901fdb30c1c67f80e1185d4210f").unwrap(),
-					BoundedVec::try_from(b"CERTI".to_vec()).unwrap(),
-					18,
-				),
-				(
-					H160::from_str("0xf293d23bf2cdc05411ca0eddd588eb1977e8dcd4").unwrap(),
-					BoundedVec::try_from(b"SYLO".to_vec()).unwrap(),
-					18,
-				),
-				(
-					H160::from_str("0x1122b6a0e00dce0563082b6e2953f3a943855c1f").unwrap(),
-					BoundedVec::try_from(b"CENNZ".to_vec()).unwrap(),
-					18,
-				),
-				(
-					H160::from_str("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2").unwrap(),
-					BoundedVec::try_from(b"WETH".to_vec()).unwrap(),
-					18,
-				),
-			]
-		}
 	}
 }
