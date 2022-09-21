@@ -182,6 +182,16 @@ pub mod pallet {
 	/// Stores and increments Withdraw Tx Nonce id
 	pub type CurrentWithdrawTxNonce<T: Config> = StorageValue<_, XrplWithdrawTxNonce>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn get_xrpl_door_address)]
+	/// The door address on XRPL that receives assets which needs to be transferred to the Root network
+	pub type XRPLDoorAddress<T: Config> = StorageValue<_, XrplWithdrawAddress>;
+
+	// #[pallet::storage]
+	// #[pallet::getter(fn get_deposit_tx_nonce)]
+	// /// Stores and increments deposit Tx Nonce id
+	// pub type CurrentDepositTxNonce<T: Config> = StorageValue<_, XrplDepositTxNonce>;
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub xrp_relayers: Vec<T::AccountId>,
