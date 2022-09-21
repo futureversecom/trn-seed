@@ -45,7 +45,11 @@ fn on_deposit_mints() {
 		let token_address: H160 = H160::default();
 		let amount: Balance = 100;
 		let beneficiary: H256 = H256::default();
-		let claim = Erc20DepositEvent { token_address, amount: amount.into(), beneficiary };
+		let claim = Erc20DepositEvent {
+			token_address,
+			amount: amount.into(),
+			beneficiary,
+		};
 
 		let expected_asset_id = AssetsExt::next_asset_uuid().unwrap();
 
