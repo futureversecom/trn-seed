@@ -7413,7 +7413,6 @@ dependencies = [
  "seed-client",
  "seed-pallet-common",
  "seed-primitives",
- "seed-runtime",
  "serde",
  "sp-api",
  "sp-block-builder",
