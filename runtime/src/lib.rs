@@ -90,6 +90,9 @@ use precompiles::FutureversePrecompiles;
 mod staking;
 use staking::OnChainAccuracy;
 
+#[cfg(test)]
+mod tests;
+
 /// This runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
