@@ -70,17 +70,16 @@ mod constants {
 	pub const MILLISECS_PER_BLOCK: u64 = 4_000;
 	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
-	/// Aka blocks per session
-	#[cfg(not(test))]
+	// AKA blocks per session
+	#[cfg(not(feature = "fast_epoch"))] // this is the default
 	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = 4 * HOURS;
-	#[cfg(test)]
-	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = MINUTES / 3; // 5 blocks per session in tests
+	#[cfg(feature = "fast_epoch")]
+	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = MINUTES / 3; // 5 slots per epoch
 
-	/// 24 hour eras `EPOCH_DURATION_IN_SLOTS * SESSIONS_PER_ERA`
-	#[cfg(not(test))]
-	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 24 * HOURS / EPOCH_DURATION_IN_SLOTS;
-	#[cfg(test)]
-	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 1 * MINUTES / EPOCH_DURATION_IN_SLOTS;
+	#[cfg(not(feature = "fast_epoch"))] // this is the default
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 6;
+	#[cfg(feature = "fast_epoch")]
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
 
 	// 1 in 4 blocks (on average, not counting collisions) will be primary BABE blocks.
 	pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);

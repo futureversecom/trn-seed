@@ -1,6 +1,6 @@
 //! Integration runtime mock storage
 //! Defines mock genesis state for the real seed runtime config
-#![cfg(test)]
+
 use frame_support::traits::{fungibles::Inspect as _, GenesisBuild};
 use sp_core::{
 	ecdsa,
@@ -11,12 +11,9 @@ use sp_runtime::{generic::Era, Perbill};
 
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
-
-mod staker_payouts;
-
-use crate::{
-	constants::*, AssetsExt, Balances, CheckedExtrinsic, Runtime, SessionKeys,
-	SignedExtra, StakerStatus, System, Timestamp, UncheckedExtrinsic,
+use seed_runtime::{
+	constants::*, AssetsExt, Balances, CheckedExtrinsic, Runtime, SessionKeys, SignedExtra,
+	StakerStatus, System, Timestamp, UncheckedExtrinsic,
 };
 
 /// The genesis block timestamp
