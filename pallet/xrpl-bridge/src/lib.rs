@@ -101,6 +101,7 @@ pub mod pallet {
 		WithdrawRequested(XrplWithdrawTxNonce),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
+		XRPLDoorAddressAdded(XrplWithdrawAddress),
 	}
 
 	#[pallet::hooks]
@@ -281,6 +282,19 @@ pub mod pallet {
 			} else {
 				Err(Error::<T>::RelayerDoesNotExists.into())
 			}
+		}
+
+		/// set XRPL door address
+		#[pallet::weight((<T as Config>::WeightInfo::set_xrpl_door_address(), DispatchClass::Operational))]
+		#[transactional]
+		pub fn set_xrpl_door_address(
+			origin: OriginFor<T>,
+			door_address: XrplWithdrawAddress,
+		) -> DispatchResultWithPostInfo {
+			T::ApproveOrigin::ensure_origin(origin)?;
+			XRPLDoorAddress::<T>::put(door_address);
+			Self::deposit_event(Event::<T>::XRPLDoorAddressAdded(door_address));
+			Ok(().into())
 		}
 	}
 }
