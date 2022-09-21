@@ -12,11 +12,10 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use crate::XrplTxHash;
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
-use seed_primitives::Balance;
+use seed_primitives::{Balance, XrplTxHash, XrplWithdrawAddress, XrplWithdrawTxNonce};
 use sp_core::{H160, H256};
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -25,6 +24,14 @@ pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
 	pub transaction: XrplTxData,
 	pub timestamp: u64,
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct XrpWithdrawTransaction {
+	pub tx_nonce: XrplWithdrawTxNonce,
+	pub amount: Balance,
+	pub destination: XrplWithdrawAddress,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -45,8 +52,24 @@ impl Default for XrpTransaction {
 	}
 }
 
+impl Default for XrpWithdrawTransaction {
+	fn default() -> Self {
+		XrpWithdrawTransaction {
+			tx_nonce: 0,
+			amount: 0,
+			destination: XrplWithdrawAddress::default(),
+		}
+	}
+}
+
 impl Default for XrplTxData {
 	fn default() -> Self {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
 	}
+}
+
+#[derive(Decode, Encode)]
+pub enum XrpRequestLog {
+	#[codec(index = 1)]
+	XrpWithdrawRequest(XrplWithdrawTxNonce, XrpWithdrawTransaction),
 }

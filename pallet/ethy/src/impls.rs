@@ -36,23 +36,21 @@ impl<T: Config> EthereumBridge for Module<T> {
 		let event_proof_id = Self::next_event_proof_id();
 		NextEventProofId::put(event_proof_id.wrapping_add(1));
 
-		let encoded_event = encode_event_for_proving(
-			// event data
-			*source,
-			*destination,
-			event,
-			// proof metadata
-			Self::validator_set().id,
-			event_proof_id.into(),
-		);
+		let event_proof_info = EventProofInfo {
+			source: *source,
+			destination: *destination,
+			message: event.to_vec(),
+			validator_set_id: Self::validator_set().id,
+			event_proof_id,
+		};
 
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
 		// delay proofs until it is ready again
 		if Self::bridge_paused() {
-			PendingEventProofs::insert(event_proof_id, encoded_event);
-			Self::deposit_event(Event::ProofDelayed(event_proof_id));
+			PendingEventProofs::insert(event_proof_id, event_proof_info);
+			Self::deposit_event(Event::<T>::ProofDelayed(event_proof_id));
 		} else {
-			Self::do_request_event_proof(event_proof_id, encoded_event);
+			Self::do_request_event_proof(event_proof_id, event_proof_info);
 		}
 
 		Ok(event_proof_id)
@@ -102,21 +100,27 @@ impl<T: Config> Module<T> {
 		// this will be invoked once every block
 		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block
 		// production.
-		// TODO: make this FIFO (claims are not stored sorted)
-		for (event_claim_id, event_claim) in PendingEventClaims::iter().take(CLAIMS_PER_BLOCK) {
+		for event_claim_id in PendingClaimChallenges::get().iter().take(CLAIMS_PER_BLOCK) {
+			let event_claim = Self::pending_event_claims(event_claim_id);
+			if event_claim.is_none() {
+				// This shouldn't happen
+				log!(error, "💎 notarization failed, event claim: {:?} not found", event_claim_id);
+				continue
+			};
+
 			// skip if we've notarized it previously
 			if <EventNotarizations<T>>::contains_key::<EventClaimId, T::EthyId>(
-				event_claim_id,
+				*event_claim_id,
 				active_key.clone(),
 			) {
 				log!(trace, "💎 already notarized claim: {:?}, ignoring...", event_claim_id);
 				continue
 			}
 
-			let result = Self::offchain_try_notarize_event(event_claim_id, event_claim);
+			let result = Self::offchain_try_notarize_event(*event_claim_id, event_claim.unwrap());
 			log!(trace, "💎 claim verification status: {:?}", &result);
 			let payload = NotarizationPayload::Event {
-				event_claim_id,
+				event_claim_id: *event_claim_id,
 				authority_index,
 				result: result.clone(),
 			};
@@ -464,10 +468,17 @@ impl<T: Config> Module<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			}
+			PendingClaimChallenges::mutate(|event_ids| {
+				event_ids
+					.iter()
+					.position(|x| *x == event_claim_id)
+					.map(|idx| event_ids.remove(idx));
+			});
+
 			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
 				// TODO: voting is complete, the event is invalid
 				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::Invalid(event_claim_id));
+				Self::deposit_event(Event::<T>::Invalid(event_claim_id));
 				return Ok(())
 			} else {
 				log!(error, "💎 unexpected empty claim");
@@ -488,10 +499,17 @@ impl<T: Config> Module<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			}
+			PendingClaimChallenges::mutate(|event_ids| {
+				event_ids
+					.iter()
+					.position(|x| *x == event_claim_id)
+					.map(|idx| event_ids.remove(idx));
+			});
+
 			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
 				// TODO: voting is complete, the event is valid
 				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::Verified(event_claim_id));
+				Self::deposit_event(Event::<T>::Verified(event_claim_id));
 			} else {
 				log!(error, "💎 unexpected empty claim");
 				return Err(Error::<T>::InvalidClaim.into())
@@ -554,7 +572,6 @@ impl<T: Config> Module<T> {
 			EthCallRequestInfo::remove(call_id);
 			EthCallRequests::mutate(|requests| {
 				requests.iter().position(|x| *x == call_id).map(|idx| requests.remove(idx));
-				*requests = requests.clone();
 			});
 
 			Ok(())
@@ -614,7 +631,10 @@ impl<T: Config> Module<T> {
 			// validator set on the Ethereum bridge contract updated.
 			let event_proof_id = NextEventProofId::get();
 			let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
-			Self::deposit_event(Event::AuthoritySetChange(event_proof_id, next_validator_set_id));
+			Self::deposit_event(Event::<T>::AuthoritySetChange(
+				event_proof_id,
+				next_validator_set_id,
+			));
 			NotarySetProofId::put(event_proof_id);
 			NextEventProofId::put(event_proof_id.wrapping_add(1));
 			let log: DigestItem = DigestItem::Consensus(
@@ -659,17 +679,18 @@ impl<T: Config> Module<T> {
 	/// Submits an Ethereum event proof request in the block, for use by the ethy-gadget protocol
 	pub(crate) fn do_request_event_proof(
 		event_proof_id: EventClaimId,
-		packed_event_with_id: Message,
+		event_proof_info: EventProofInfo,
 	) {
 		let log: DigestItem = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((
-				packed_event_with_id,
+				encode_event_for_proving(event_proof_info.clone()),
 				event_proof_id,
 			))
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
+		Self::deposit_event(Event::<T>::EventSubmit(event_proof_info));
 	}
 }
 
@@ -816,18 +837,36 @@ impl<T: Config> EthCallOracle for Module<T> {
 /// `message` The message data
 /// `validator_set_id` The id of the current validator set
 /// `event_proof_id` The id of this outgoing event/proof
-pub fn encode_event_for_proving(
-	source: H160,
-	destination: H160,
-	message: &[u8],
-	validator_set_id: u64,
-	event_proof_id: EventProofId,
-) -> Vec<u8> {
+pub fn encode_event_for_proving(event_proof_info: EventProofInfo) -> Vec<u8> {
 	ethabi::encode(&[
-		Token::Address(source),
-		Token::Address(destination),
-		Token::Bytes(message.to_vec()),
-		Token::Uint(validator_set_id.into()),
-		Token::Uint(event_proof_id.into()),
+		Token::Address(event_proof_info.source),
+		Token::Address(event_proof_info.destination),
+		Token::Bytes(event_proof_info.message),
+		Token::Uint(event_proof_info.validator_set_id.into()),
+		Token::Uint(event_proof_info.event_proof_id.into()),
 	])
+}
+
+/// Prunes claim ids that are less than the max contiguous claim id.
+pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
+	// if < 1 element, nothing to do
+	if let 0..=1 = claim_ids.len() {
+		return
+	}
+	// sort first
+	claim_ids.sort();
+	// get the index of the fist element that's non contiguous.
+	let first_noncontinuous_idx = claim_ids.iter().enumerate().position(|(i, &x)| {
+		if i > 0 {
+			x != claim_ids[i - 1] + 1
+		} else {
+			false
+		}
+	});
+	// drain the array from start to (first_noncontinuous_idx - 1) since we need the max contiguous
+	// element in the pruned vector.
+	match first_noncontinuous_idx {
+		Some(idx) => claim_ids.drain(..idx - 1),
+		None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
+	};
 }
