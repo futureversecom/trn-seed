@@ -12,9 +12,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
-use sp_runtime::{
-	traits::{AtLeast32BitUnsigned, Dispatchable, MaybeSerializeDeserialize, Saturating, Zero},
-};
 use sp_core::H256;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},

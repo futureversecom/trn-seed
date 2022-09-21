@@ -915,7 +915,7 @@ construct_runtime! {
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
-		Erc20Peg: pallet_erc20_peg
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>}
 	}
 }
 
