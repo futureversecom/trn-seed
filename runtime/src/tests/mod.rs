@@ -15,8 +15,8 @@ use seed_primitives::{AccountId, AccountId20, Balance, Index};
 mod staker_payouts;
 
 use crate::{
-	constants::*, AssetsExt, Balances, CheckedExtrinsic, Runtime, SessionKeys,
-	SignedExtra, StakerStatus, System, Timestamp, UncheckedExtrinsic,
+	constants::*, AssetsExt, Balances, CheckedExtrinsic, Runtime, SessionKeys, SignedExtra,
+	StakerStatus, System, Timestamp, UncheckedExtrinsic,
 };
 
 /// The genesis block timestamp
