@@ -3,7 +3,7 @@ use crate::{
 	mock::{
 		AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, System, Test, SPENDING_ASSET_ID,
 	},
-	types::{ClaimId, Erc20DepositEvent, PendingClaim, WithdrawMessage},
+	types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -16,24 +16,28 @@ use frame_support::{
 use hex_literal::hex;
 use seed_pallet_common::EthereumEventRouter;
 
+fn make_account_id(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
+
 #[test]
-fn set_claim_delay() {
+fn set_payment_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let asset_id: AssetId = 1;
 		let min_balance: Balance = 100;
 		let delay: u64 = 1000;
-		assert_ok!(Erc20Peg::set_claim_delay(
+		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
 			asset_id,
 			min_balance,
 			delay
 		));
-		assert_eq!(Erc20Peg::claim_delay(asset_id), Some((min_balance, delay)));
+		assert_eq!(Erc20Peg::payment_delay(asset_id), Some((min_balance, delay)));
 	});
 }
 
 #[test]
-fn deposit_claim() {
+fn deposit_payment() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
@@ -100,7 +104,7 @@ fn on_deposit_mints() {
 }
 
 #[test]
-fn deposit_claim_less_than_delay_goes_through() {
+fn deposit_payment_less_than_delay_goes_through() {
 	ExtBuilder::default().build().execute_with(|| {
 		let source = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
@@ -114,15 +118,15 @@ fn deposit_claim_less_than_delay_goes_through() {
 		let token_address: H160 = H160::from_low_u64_be(666);
 		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
 
-		// Set claim delay with higher value than deposit_amount
+		// Set payment delay with higher value than deposit_amount
 		let delay: u64 = 1000;
-		assert_ok!(Erc20Peg::set_claim_delay(
+		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
 			SPENDING_ASSET_ID,
 			deposit_amount + 1,
 			delay
 		));
-		let claim_id = <NextDelayedClaimId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId>::get();
 
 		// Encode data for bridge call
 		let data = ethabi::encode(&[
@@ -130,13 +134,17 @@ fn deposit_claim_less_than_delay_goes_through() {
 			Token::Uint(deposit_amount.into()),
 			Token::Address(beneficiary),
 		]);
-		// Process deposit, this should go through as the value is less than the claim_delay amount
+		// Process deposit, this should go through as the value is less than the payment_delay
+		// amount
 		assert_ok!(MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()));
 
-		// Check claim has not been put in delayed claims
-		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![] as Vec<ClaimId>);
-		assert!(Erc20Peg::delayed_claims(claim_id).is_none());
+		// Check payment has not been put in delayed payments
+		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		assert_eq!(
+			Erc20Peg::delayed_payment_schedule(payment_block),
+			vec![] as Vec<DelayedPaymentId>
+		);
+		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
 		assert_eq!(Erc20Peg::ready_blocks(), vec![] as Vec<u64>);
 
 		// Check beneficiary account received funds
@@ -148,7 +156,7 @@ fn deposit_claim_less_than_delay_goes_through() {
 }
 
 #[test]
-fn deposit_claim_with_delay() {
+fn deposit_payment_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let source = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
@@ -162,15 +170,15 @@ fn deposit_claim_with_delay() {
 		let token_address: H160 = H160::from_low_u64_be(666);
 		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
 
-		// Set claim delay with deposit_amount, this should delay the claim
+		// Set payment delay with deposit_amount, this should delay the payment
 		let delay: u64 = 1000;
-		assert_ok!(Erc20Peg::set_claim_delay(
+		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
 			SPENDING_ASSET_ID,
 			deposit_amount,
 			delay
 		));
-		let claim_id = <NextDelayedClaimId>::get();
+		let delayed_payment_id = <NextDelayedPaymentId>::get();
 
 		// Encode data for bridge call
 		let data = ethabi::encode(&[
@@ -181,47 +189,57 @@ fn deposit_claim_with_delay() {
 		// Process deposit, this should not go through and be added to delays
 		assert_ok!(MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()));
 
-		// Check claim has been put in delayed claims
-		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		let claim = Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![claim_id]);
-		assert_eq!(Erc20Peg::delayed_claims(claim_id), Some(PendingClaim::Deposit(claim.clone())));
+		// Check payment has been put in delayed payments
+		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		let payment =
+			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
+		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![delayed_payment_id]);
+		assert_eq!(
+			Erc20Peg::delayed_payments(delayed_payment_id),
+			Some(PendingPayment::Deposit(payment.clone()))
+		);
 		// Check beneficiary account hasn't received funds
 		assert_eq!(AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)), 0);
 
-		// Simulating block before with enough weight, claim shouldn't be removed
-		let delayed_claim_weight: Weight = DbWeight::get()
+		// Simulating block before with enough weight, payment shouldn't be removed
+		let delayed_payment_weight: Weight = DbWeight::get()
 			.reads(8 as Weight)
 			.saturating_add(DbWeight::get().writes(10 as Weight));
-		assert_eq!(Erc20Peg::on_initialize(claim_block - 1), DbWeight::get().reads(1 as Weight));
-		assert_eq!(Erc20Peg::on_idle(claim_block - 1, delayed_claim_weight * 2), 0);
+		assert_eq!(Erc20Peg::on_initialize(payment_block - 1), DbWeight::get().reads(1 as Weight));
+		assert_eq!(Erc20Peg::on_idle(payment_block - 1, delayed_payment_weight * 2), 0);
 
-		// Simulating not enough weight left in block, claim shouldn't be removed
+		// Simulating not enough weight left in block, payment shouldn't be removed
 		assert_eq!(
-			Erc20Peg::on_initialize(claim_block),
+			Erc20Peg::on_initialize(payment_block),
 			DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)
 		);
 		assert_eq!(
-			Erc20Peg::on_idle(claim_block, delayed_claim_weight / 2),
+			Erc20Peg::on_idle(payment_block, delayed_payment_weight / 2),
 			DbWeight::get().reads(1 as Weight)
 		);
 
-		// Ensure claim isn't removed from storage after either of the above
-		assert_eq!(Erc20Peg::ready_blocks(), vec![claim_block]);
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![claim_id]);
-		assert_eq!(Erc20Peg::delayed_claims(claim_id), Some(PendingClaim::Deposit(claim.clone())));
-
-		// Try again next block with enough weight
-		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), DbWeight::get().reads(1 as Weight));
+		// Ensure payment isn't removed from storage after either of the above
+		assert_eq!(Erc20Peg::ready_blocks(), vec![payment_block]);
+		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
-			Erc20Peg::on_idle(claim_block + 1, delayed_claim_weight * 2),
-			delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+			Erc20Peg::delayed_payments(delayed_payment_id),
+			Some(PendingPayment::Deposit(payment.clone()))
 		);
 
-		// Check claims removed from storage
+		// Try again next block with enough weight
+		assert_eq!(Erc20Peg::on_initialize(payment_block + 1), DbWeight::get().reads(1 as Weight));
+		assert_eq!(
+			Erc20Peg::on_idle(payment_block + 1, delayed_payment_weight * 2),
+			delayed_payment_weight + DbWeight::get().reads(1 as Weight)
+		);
+
+		// Check payments removed from storage
 		assert_eq!(Erc20Peg::ready_blocks(), vec![] as Vec<u64>);
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![] as Vec<ClaimId>);
-		assert!(Erc20Peg::delayed_claims(claim_id).is_none());
+		assert_eq!(
+			Erc20Peg::delayed_payment_schedule(payment_block),
+			vec![] as Vec<DelayedPaymentId>
+		);
+		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
 		// Check beneficiary account has now received funds
 		assert_eq!(
 			AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)),
@@ -231,7 +249,7 @@ fn deposit_claim_with_delay() {
 }
 
 #[test]
-fn multiple_deposit_claims_with_delay() {
+fn multiple_deposit_payments_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let source = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
@@ -245,9 +263,9 @@ fn multiple_deposit_claims_with_delay() {
 		let token_address: H160 = H160::from_low_u64_be(666);
 		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
 
-		// Set claim delay with deposit_amount, this should delay the claim
+		// Set payment delay with deposit_amount, this should delay the payment
 		let delay: u64 = 1000;
-		assert_ok!(Erc20Peg::set_claim_delay(
+		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
 			SPENDING_ASSET_ID,
 			deposit_amount,
@@ -260,83 +278,87 @@ fn multiple_deposit_claims_with_delay() {
 			Token::Uint(deposit_amount.into()),
 			Token::Address(beneficiary),
 		]);
-		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		let claim = Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
+		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		let payment =
+			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
 
-		// Deposit more claims than u8::MAX
-		let num_claims: u64 = 300;
-		let mut claim_ids: Vec<ClaimId> = vec![];
-		for _ in 0..num_claims {
-			let claim_id = <NextDelayedClaimId>::get();
-			claim_ids.push(claim_id);
+		// Deposit more payments than u8::MAX
+		let payment_count: u64 = 300;
+		let mut delayed_payment_ids: Vec<DelayedPaymentId> = vec![];
+		for _ in 0..payment_count {
+			let delayed_payment_id = <NextDelayedPaymentId>::get();
+			delayed_payment_ids.push(delayed_payment_id);
 			assert_ok!(MockEthereumEventRouter::route(
 				&source,
 				&destination,
 				data.clone().as_slice()
 			));
 
-			// Check claim has been put into pending claims
+			// Check payment has been put into pending payments
 			assert_eq!(
-				Erc20Peg::delayed_claims(claim_id),
-				Some(PendingClaim::Deposit(claim.clone()))
+				Erc20Peg::delayed_payments(delayed_payment_id),
+				Some(PendingPayment::Deposit(payment.clone()))
 			);
 		}
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), claim_ids.clone());
+		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), delayed_payment_ids.clone());
 
-		// Call on_idle with room for all claims
-		let delayed_claim_weight: Weight = DbWeight::get()
+		// Call on_idle with room for all payments
+		let delayed_payment_weight: Weight = DbWeight::get()
 			.reads(8 as Weight)
 			.saturating_add(DbWeight::get().writes(10 as Weight));
 		assert_eq!(
-			Erc20Peg::on_initialize(claim_block),
+			Erc20Peg::on_initialize(payment_block),
 			DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)
 		);
 		assert_eq!(
 			Erc20Peg::on_idle(
-				claim_block,
-				num_claims * delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+				payment_block,
+				payment_count * delayed_payment_weight + DbWeight::get().reads(1 as Weight)
 			),
-			u8::MAX as u64 * delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+			u8::MAX as u64 * delayed_payment_weight + DbWeight::get().reads(1 as Weight)
 		);
 
-		// Check that we have processed u8::MAX claims
+		// Check that we have processed u8::MAX payments
 		let mut changed_count = 0;
-		for i in 0..num_claims {
-			if Erc20Peg::delayed_claims(claim_ids[i as usize]) == None {
+		for i in 0..payment_count {
+			if Erc20Peg::delayed_payments(delayed_payment_ids[i as usize]) == None {
 				changed_count += 1;
 			}
 		}
 		assert_eq!(changed_count, u8::MAX);
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), claim_ids[u8::MAX as usize..]);
-		assert_eq!(Erc20Peg::ready_blocks(), vec![claim_block]);
+		assert_eq!(
+			Erc20Peg::delayed_payment_schedule(payment_block),
+			delayed_payment_ids[u8::MAX as usize..]
+		);
+		assert_eq!(Erc20Peg::ready_blocks(), vec![payment_block]);
 
-		// Now process the rest of the claims
-		assert_eq!(Erc20Peg::on_initialize(claim_block + 1), DbWeight::get().reads(1 as Weight));
+		// Now process the rest of the payments
+		assert_eq!(Erc20Peg::on_initialize(payment_block + 1), DbWeight::get().reads(1 as Weight));
 		assert_eq!(
 			Erc20Peg::on_idle(
-				claim_block + 1,
-				num_claims * delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+				payment_block + 1,
+				payment_count * delayed_payment_weight + DbWeight::get().reads(1 as Weight)
 			),
-			(num_claims - u8::MAX as u64) * delayed_claim_weight +
+			(payment_count - u8::MAX as u64) * delayed_payment_weight +
 				DbWeight::get().reads(1 as Weight)
 		);
 
-		// All claims should now be processed
-		for i in 0..num_claims {
-			assert!(Erc20Peg::delayed_claims(claim_ids[i as usize]).is_none());
+		// All payments should now be processed
+		for i in 0..payment_count {
+			assert!(Erc20Peg::delayed_payments(delayed_payment_ids[i as usize]).is_none());
 		}
 		assert_eq!(Erc20Peg::ready_blocks(), vec![] as Vec<u64>);
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![] as Vec<u64>);
-		// Check beneficiary account is now rich with funds from all claims
+		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![] as Vec<u64>);
+		// Check beneficiary account is now rich with funds from all payments
 		assert_eq!(
 			AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)),
-			deposit_amount * (num_claims as Balance)
+			deposit_amount * (payment_count as Balance)
 		);
 	});
 }
 
 #[test]
-fn many_deposit_claims_with_delay() {
+fn many_deposit_payments_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let source = H160::from_low_u64_be(123);
 		let destination = <Test as Config>::PalletId::get().into_account_truncating();
@@ -350,9 +372,9 @@ fn many_deposit_claims_with_delay() {
 		let token_address: H160 = H160::from_low_u64_be(666);
 		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
 
-		// Set claim delay with deposit_amount, this should delay the claim
+		// Set payment delay with deposit_amount, this should delay the payment
 		let delay: u64 = 1000;
-		assert_ok!(Erc20Peg::set_claim_delay(
+		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
 			SPENDING_ASSET_ID,
 			deposit_amount,
@@ -365,59 +387,63 @@ fn many_deposit_claims_with_delay() {
 			Token::Uint(deposit_amount.into()),
 			Token::Address(beneficiary),
 		]);
-		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
-		let claim = Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
-		let delayed_claim_weight: Weight = DbWeight::get()
+		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		let payment =
+			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
+		let delayed_payment_weight: Weight = DbWeight::get()
 			.reads(8 as Weight)
 			.saturating_add(DbWeight::get().writes(10 as Weight));
 
-		let num_claims: u64 = 50;
-		let mut claim_ids: Vec<ClaimId> = vec![];
-		let mut claim_blocks: Vec<u64> = vec![];
+		let payment_count: u64 = 50;
+		let mut delayed_payment_ids: Vec<DelayedPaymentId> = vec![];
+		let mut payment_blocks: Vec<u64> = vec![];
 
-		// Process all claims, this time incrementing the block number between each claim
-		for i in 0..num_claims {
-			let claim_id = <NextDelayedClaimId>::get();
-			claim_ids.push(claim_id);
+		// Process all payments, this time incrementing the block number between each payment
+		for i in 0..payment_count {
+			let delayed_payment_id = <NextDelayedPaymentId>::get();
+			delayed_payment_ids.push(delayed_payment_id);
 			assert_ok!(MockEthereumEventRouter::route(
 				&source,
 				&destination,
 				data.clone().as_slice()
 			));
-			// Check claim has been put into pending claims
-			assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block + i), vec![claim_id.clone()]);
+			// Check payment has been put into pending payments
 			assert_eq!(
-				Erc20Peg::delayed_claims(claim_id),
-				Some(PendingClaim::Deposit(claim.clone()))
+				Erc20Peg::delayed_payment_schedule(payment_block + i),
+				vec![delayed_payment_id.clone()]
+			);
+			assert_eq!(
+				Erc20Peg::delayed_payments(delayed_payment_id),
+				Some(PendingPayment::Deposit(payment.clone()))
 			);
 			// Go to next block
-			claim_blocks.push(claim_block + i);
+			payment_blocks.push(payment_block + i);
 			System::set_block_number(System::block_number() + 1);
 		}
 
-		// Go through each block and process claim with on_idle
-		for i in 0..num_claims {
+		// Go through each block and process payment with on_idle
+		for i in 0..payment_count {
 			assert_eq!(
-				Erc20Peg::on_initialize(claim_blocks[i as usize]),
+				Erc20Peg::on_initialize(payment_blocks[i as usize]),
 				DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)
 			);
 			assert_eq!(
 				Erc20Peg::on_idle(
-					claim_blocks[i as usize],
-					delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+					payment_blocks[i as usize],
+					delayed_payment_weight + DbWeight::get().reads(1 as Weight)
 				),
-				delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+				delayed_payment_weight + DbWeight::get().reads(1 as Weight)
 			);
 			// Check storage is removed at this block
-			assert!(Erc20Peg::delayed_claims(claim_ids[i as usize]).is_none());
+			assert!(Erc20Peg::delayed_payments(delayed_payment_ids[i as usize]).is_none());
 			assert_eq!(Erc20Peg::ready_blocks(), vec![] as Vec<u64>);
-			assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![] as Vec<u64>);
+			assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![] as Vec<u64>);
 		}
 
-		// Check beneficiary account is now rich with funds from all claims
+		// Check beneficiary account is now rich with funds from all payments
 		assert_eq!(
 			AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)),
-			deposit_amount * (num_claims as Balance)
+			deposit_amount * (payment_count as Balance)
 		);
 	});
 }
@@ -425,7 +451,7 @@ fn many_deposit_claims_with_delay() {
 #[test]
 fn withdraw() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account = AccountId::from(H160::from_low_u64_be(123));
+		let account = make_account_id(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
@@ -444,14 +470,14 @@ fn withdraw() {
 #[test]
 fn withdraw_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account: AccountId = AccountId::from(H160::from_low_u64_be(123));
+		let account: AccountId = make_account_id(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
 		let amount: Balance = 100;
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
 		let delay: u64 = 1000;
 		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
-		let delayed_claim_weight: Weight = DbWeight::get()
+		let delayed_payment_weight: Weight = DbWeight::get()
 			.reads(8 as Weight)
 			.saturating_add(DbWeight::get().writes(10 as Weight));
 
@@ -459,15 +485,15 @@ fn withdraw_with_delay() {
 		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
-		assert_ok!(Erc20Peg::set_claim_delay(
+		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
 			asset_id,
 			amount,
 			delay
 		));
 
-		let claim_id = <NextDelayedClaimId>::get();
-		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		assert_ok!(Erc20Peg::withdraw(Some(account.clone()).into(), asset_id, amount, beneficiary));
 
 		// Balance should be withdrawn straight away
@@ -478,28 +504,34 @@ fn withdraw_with_delay() {
 			beneficiary,
 		};
 
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![claim_id]);
-		assert_eq!(Erc20Peg::delayed_claims(claim_id), Some(PendingClaim::Withdrawal(message)));
-		// Check claim id has been increased
-		assert_eq!(<NextDelayedClaimId>::get(), claim_id + 1);
+		assert_eq!(Erc20Peg::delayed_payment_schedule(payment_block), vec![delayed_payment_id]);
 		assert_eq!(
-			Erc20Peg::on_initialize(claim_block),
+			Erc20Peg::delayed_payments(delayed_payment_id),
+			Some(PendingPayment::Withdrawal(message))
+		);
+		// Check payment id has been increased
+		assert_eq!(<NextDelayedPaymentId>::get(), delayed_payment_id + 1);
+		assert_eq!(
+			Erc20Peg::on_initialize(payment_block),
 			DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)
 		);
 		assert_eq!(
-			Erc20Peg::on_idle(claim_block, delayed_claim_weight * 2),
-			delayed_claim_weight + DbWeight::get().reads(1 as Weight)
+			Erc20Peg::on_idle(payment_block, delayed_payment_weight * 2),
+			delayed_payment_weight + DbWeight::get().reads(1 as Weight)
 		);
-		// Claim should be removed from storage
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![] as Vec<ClaimId>);
-		assert!(Erc20Peg::delayed_claims(claim_id).is_none());
+		// Payment should be removed from storage
+		assert_eq!(
+			Erc20Peg::delayed_payment_schedule(payment_block),
+			vec![] as Vec<DelayedPaymentId>
+		);
+		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
 	});
 }
 
 #[test]
 fn withdraw_less_than_delay_goes_through() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account: AccountId = AccountId::from(H160::from_low_u64_be(123));
+		let account: AccountId = make_account_id(123);
 		let asset_id: AssetId = 1;
 		let cennz_eth_address: EthAddress = H160::default();
 		let amount: Balance = 100;
@@ -511,30 +543,33 @@ fn withdraw_less_than_delay_goes_through() {
 		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
 		assert_ok!(Erc20Peg::activate_withdrawals(frame_system::RawOrigin::Root.into(), true));
 
-		assert_ok!(Erc20Peg::set_claim_delay(
+		assert_ok!(Erc20Peg::set_payment_delay(
 			frame_system::RawOrigin::Root.into(),
 			asset_id,
 			amount,
 			delay
 		));
 
-		let claim_id = <NextDelayedClaimId>::get();
-		let claim_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		let delayed_payment_id = <NextDelayedPaymentId>::get();
+		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		assert_ok!(Erc20Peg::withdraw(
 			Some(account.clone()).into(),
 			asset_id,
 			amount - 1,
 			beneficiary
 		));
-		assert_eq!(Erc20Peg::delayed_claim_schedule(claim_block), vec![] as Vec<ClaimId>);
-		assert!(Erc20Peg::delayed_claims(claim_id).is_none());
+		assert_eq!(
+			Erc20Peg::delayed_payment_schedule(payment_block),
+			vec![] as Vec<DelayedPaymentId>
+		);
+		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
 	});
 }
 
 #[test]
 fn withdraw_unsupported_asset_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account: AccountId = AccountId::from(H160::from_low_u64_be(123));
+		let account: AccountId = make_account_id(123);
 		let asset_id: AssetId = 1;
 		let amount: Balance = 100;
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
@@ -551,7 +586,7 @@ fn withdraw_unsupported_asset_should_fail() {
 #[test]
 fn withdraw_not_active_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let account: AccountId = AccountId::from(H160::from_low_u64_be(123));
+		let account: AccountId = make_account_id(123);
 		let asset_id: AssetId = 1;
 		let amount: Balance = 100;
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
