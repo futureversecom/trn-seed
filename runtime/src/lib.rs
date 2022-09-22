@@ -862,7 +862,7 @@ impl pallet_erc20_peg::Config for Runtime {
 	/// Runtime currency system
 	type MultiCurrency = AssetsExt;
 	/// PalletId/Account for this module
-	type PalletId = PegPalletId;
+	type PegPalletId = PegPalletId;
 	/// The overarching event type.
 	type Event = Event;
 }
