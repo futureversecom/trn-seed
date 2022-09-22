@@ -243,6 +243,8 @@ decl_error! {
 		ClaimAlreadyChallenged,
 		/// The relayer is active and cant unbond the specified amount
 		CantUnbondRelayer,
+		/// The relayer already has a bonded amount
+		CantBondRelayer,
 		/// The relayer hasn't paid the relayer bond so can't be set as the active relayer
 		NoBondPaid,
 	}
@@ -314,6 +316,9 @@ decl_module! {
 		// User submits custom amount to allow for top up
 		pub fn deposit_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
+
+			// Ensure relayer doesn't already have a bond set
+			ensure!(Self::relayer_paid_bond(origin) == 0, Error::<T>::CantBondRelayer);
 
 			// Attempt to place a hold from the relayer account
 			T::MultiCurrency::place_hold(
