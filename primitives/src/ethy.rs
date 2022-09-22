@@ -63,9 +63,6 @@ pub type Message = Vec<u8>;
 /// Unique nonce for event claim requests
 pub type EventClaimId = u64;
 
-/// A bridge event type id
-pub type EventTypeId = u32;
-
 /// Unique nonce for event proof requests
 pub type EventProofId = u64;
 

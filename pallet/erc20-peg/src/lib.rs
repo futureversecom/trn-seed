@@ -92,8 +92,6 @@ decl_storage! {
 		NextDelayedClaimId get(fn next_delayed_claim_id): ClaimId;
 		/// The peg contract address on Ethereum
 		ContractAddress get(fn contract_address): EthAddress;
-		/// Whether CENNZ deposits are active
-		CENNZDepositsActive get(fn cennz_deposit_active): bool;
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -128,8 +126,6 @@ decl_event! {
 		Erc20DepositFail(u64),
 		/// The peg contract address has been set
 		SetContractAddress(EthAddress),
-		/// ERC20 CENNZ deposits activated
-		CENNZDepositsActive,
 		/// A delay was added for an asset_id (asset_id, min_balance, delay)
 		ClaimDelaySet(AssetId, Balance, BlockNumber),
 		/// There are no more claim ids available, they've been exhausted
@@ -234,7 +230,6 @@ decl_module! {
 		}
 
 		#[weight = 60_000_000]
-		/// Withdraw generic assets from CENNZnet in exchange for ERC20s
 		/// Tokens will be transferred to peg account and a proof generated to allow redemption of tokens on Ethereum
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
@@ -249,15 +244,6 @@ decl_module! {
 			ensure_root(origin)?;
 			ContractAddress::put(eth_address);
 			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
-		}
-
-		#[weight = 1_000_000]
-		#[transactional]
-		/// Activate ERC20 CENNZ deposits (requires governance)
-		pub fn activate_cennz_deposits(origin) {
-			ensure_root(origin)?;
-			CENNZDepositsActive::put(true);
-			Self::deposit_event(<Event<T>>::CENNZDepositsActive);
 		}
 
 		#[weight = {
@@ -477,27 +463,28 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 	type Address = T::PegPalletId;
 
 	fn on_event(source: &H160, data: &[u8]) -> Result<u64, (u64, sp_runtime::DispatchError)> {
-		let values = ethabi::decode(
-			&[
-				ParamType::Address,
-				ParamType::Uint(128),
-				ParamType::Address
-			],
-			data
-		);
+		return Ok(42);
+		// let values = ethabi::decode(
+		// 	&[
+		// 		ParamType::Address,
+		// 		ParamType::Uint(128),
+		// 		ParamType::Address
+		// 	],
+		// 	data
+		// );
 
-		// New stuff
-		if let Ok(inner) = values {
-			let &[Token::Address(token_type), Token::Uint(amount), Token::Address(destination)] = inner.as_slice();
-			<Event<T>>::Erc20Deposit(event_claim_id, asset_id, amount, beneficiary)
+		// // New stuff
+		// if let Ok(inner) = values {
+		// 	let &[Token::Address(token_type), Token::Uint(amount), Token::Address(destination)] = inner.as_slice();
+		// 	<Event<T>>::Erc20Deposit(event_claim_id, asset_id, amount, beneficiary)
 
-		} else {
-			// input data should be valid, we do not expect to fail here
-			Err((
-				event_claim_id,
-				DispatchError::Other(format!("📌 ERC20 deposit claim failed unexpectedly: {:?}", data).as_str())
-			))
-		}
+		// } else {
+		// 	// input data should be valid, we do not expect to fail here
+		// 	Err((
+		// 		event_claim_id,
+		// 		DispatchError::Other(format!("📌 ERC20 deposit claim failed unexpectedly: {:?}", data).as_str())
+		// 	))
+		// }
 
 		// Old stuff, gets translated to above
 		// if let Some() = ethabi::decode(data) {
