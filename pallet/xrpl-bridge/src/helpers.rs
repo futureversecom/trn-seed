@@ -15,7 +15,7 @@
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
-use seed_primitives::{Balance, XrplTxHash, XrplAddress, XrplWithdrawTxNonce};
+use seed_primitives::{Balance, XrplAddress, XrplTxHash, XrplWithdrawTxNonce};
 use sp_core::{H160, H256};
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -54,11 +54,7 @@ impl Default for XrpTransaction {
 
 impl Default for XrpWithdrawTransaction {
 	fn default() -> Self {
-		XrpWithdrawTransaction {
-			tx_nonce: 0,
-			amount: 0,
-			destination: XrplAddress::default(),
-		}
+		XrpWithdrawTransaction { tx_nonce: 0, amount: 0, destination: XrplAddress::default() }
 	}
 }
 

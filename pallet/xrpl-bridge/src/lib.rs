@@ -28,7 +28,7 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{
-	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplTxHash, XrplAddress,
+	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplAddress, XrplTxHash,
 	XrplWithdrawTxNonce,
 };
 use sp_runtime::{traits::One, ArithmeticError, DigestItem};
@@ -185,7 +185,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_xrpl_door_address)]
-	/// The door address on XRPL that receives assets which needs to be transferred to the Root network
+	/// The door address on XRPL that receives assets which needs to be transferred to the Root
+	/// network
 	pub type XRPLDoorAddress<T: Config> = StorageValue<_, XrplAddress>;
 
 	// #[pallet::storage]

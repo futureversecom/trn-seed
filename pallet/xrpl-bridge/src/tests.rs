@@ -1,9 +1,9 @@
 use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
+use seed_client::chain_spec::get_account_id_from_seed;
 use seed_primitives::{AccountId, Balance};
-use sp_core::{H160, ecdsa};
-use seed_client::chain_spec::{get_account_id_from_seed};
+use sp_core::{ecdsa, H160};
 use sp_runtime::traits::BadOrigin;
 
 #[test]
@@ -136,8 +136,11 @@ fn submit_transaction(
 #[test]
 fn test_set_xrpl_door_address_success() {
 	new_test_ext().execute_with(|| {
-		let xprl_door_address  = b"6490B68F1116BFE87DDD";
-		assert_ok!(XRPLBridge::set_xrpl_door_address(Origin::root(), H160::from(xprl_door_address)));
+		let xprl_door_address = b"6490B68F1116BFE87DDD";
+		assert_ok!(XRPLBridge::set_xrpl_door_address(
+			Origin::root(),
+			H160::from(xprl_door_address)
+		));
 		assert_eq!(XRPLBridge::get_xrpl_door_address(), Some(H160::from_slice(xprl_door_address)));
 	})
 }
@@ -145,9 +148,15 @@ fn test_set_xrpl_door_address_success() {
 #[test]
 fn test_set_xrpl_door_address_fail() {
 	new_test_ext().execute_with(|| {
-		let xprl_door_address  = b"6490B68F1116BFE87DDD";
+		let xprl_door_address = b"6490B68F1116BFE87DDD";
 		let charlie_account_id = get_account_id_from_seed::<ecdsa::Public>("Charlie");
-		assert_noop!(XRPLBridge::set_xrpl_door_address( Origin::signed(charlie_account_id) , H160::from(xprl_door_address)), BadOrigin);
+		assert_noop!(
+			XRPLBridge::set_xrpl_door_address(
+				Origin::signed(charlie_account_id),
+				H160::from(xprl_door_address)
+			),
+			BadOrigin
+		);
 		assert_eq!(XRPLBridge::get_xrpl_door_address(), None);
 	})
 }
