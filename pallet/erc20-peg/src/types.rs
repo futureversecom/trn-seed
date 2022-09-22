@@ -14,7 +14,6 @@
  */
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use seed_pallet_common::EthAbiCodec;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
 
@@ -65,45 +64,6 @@ pub struct WithdrawMessage {
 	pub beneficiary: EthAddress,
 }
 
-impl EthAbiCodec for WithdrawMessage {
-	/// Encode `ERC20DepositEvent` into 32-byte words
-	/// https://docs.soliditylang.org/en/v0.5.3/abi-spec.html#formal-specification-of-the-encoding
-	fn encode(&self) -> Vec<u8> {
-		let mut buf = [0_u8; 32 * 3];
-		buf[12..32].copy_from_slice(&self.token_address.to_fixed_bytes());
-		buf[32..64].copy_from_slice(&Into::<[u8; 32]>::into(self.amount));
-		buf[76..96].copy_from_slice(&self.beneficiary.to_fixed_bytes());
-		buf.to_vec()
-	}
-
-	fn decode(_data: &[u8]) -> Option<Self> {
-		unimplemented!();
-	}
-}
-
-impl EthAbiCodec for Erc20DepositEvent {
-	/// Encode `ERC20DepositEvent` into 32-byte words
-	/// https://docs.soliditylang.org/en/v0.5.3/abi-spec.html#formal-specification-of-the-encoding
-	fn encode(&self) -> Vec<u8> {
-		let mut buf = [0_u8; 32 * 3];
-		buf[12..32].copy_from_slice(&self.token_address.to_fixed_bytes());
-		buf[32..64].copy_from_slice(&Into::<[u8; 32]>::into(self.amount));
-		buf[64..96].copy_from_slice(&self.beneficiary.to_fixed_bytes());
-		buf.to_vec()
-	}
-	/// Receives Ethereum log 'data' and decodes it
-	fn decode(data: &[u8]) -> Option<Self> {
-		// Expect 3 words of data
-		if data.len() != 3 * 32 {
-			return None
-		}
-		let token_address = H160::from(&data[12..32].try_into().expect("20 bytes decode"));
-		let amount = data[32..64].into();
-		let beneficiary = H256::from(&data[64..96].try_into().expect("32 bytes decode"));
-
-		Some(Self { token_address, amount, beneficiary })
-	}
-}
 
 #[cfg(test)]
 mod test {

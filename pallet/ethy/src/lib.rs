@@ -56,7 +56,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
-	FinalSessionTracker as FinalSessionTrackerT,
+	FinalSessionTracker as FinalSessionTrackerT, EthereumBridge,
 };
 use seed_primitives::AccountId;
 
@@ -122,6 +122,7 @@ pub trait Config:
 	type NotarizationThreshold: Get<Percent>;
 	/// Returns the block timestamp
 	type UnixTime: UnixTime;
+	type EthereumBridge: EthereumBridge;
 }
 
 decl_storage! {
