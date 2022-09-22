@@ -146,7 +146,7 @@ impl crate::Config for Test {
 	type DepositEventSignature = DepositEventSignature;
 	type Event = Event;
 	type EthBridge = MockEthBridge;
-	type PalletId = PegPalletId;
+	type PegPalletId = PegPalletId;
 	type MultiCurrency = AssetsExt;
 }
 

@@ -47,7 +47,7 @@ fn deposit_payment() {
 		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
 
 		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PalletId::get().into_account_truncating();
+		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
@@ -76,7 +76,7 @@ fn on_deposit_mints() {
 		let source = H160::from_low_u64_be(123);
 		let token_address: H160 = H160::from_low_u64_be(666);
 		let beneficiary: H160 = H160::from_low_u64_be(456);
-		let destination = <Test as Config>::PalletId::get().into_account_truncating();
+		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let expected_asset_id = AssetsExt::next_asset_uuid().unwrap();
 
@@ -107,7 +107,7 @@ fn on_deposit_mints() {
 fn deposit_payment_less_than_delay_goes_through() {
 	ExtBuilder::default().build().execute_with(|| {
 		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PalletId::get().into_account_truncating();
+		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
@@ -159,7 +159,7 @@ fn deposit_payment_less_than_delay_goes_through() {
 fn deposit_payment_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PalletId::get().into_account_truncating();
+		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
@@ -252,7 +252,7 @@ fn deposit_payment_with_delay() {
 fn multiple_deposit_payments_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PalletId::get().into_account_truncating();
+		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
@@ -361,7 +361,7 @@ fn multiple_deposit_payments_with_delay() {
 fn many_deposit_payments_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
 		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PalletId::get().into_account_truncating();
+		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
