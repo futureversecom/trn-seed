@@ -223,7 +223,6 @@ impl<T: Config> Pallet<T> {
 		for validator in validator_list {
 			if <WhiteListValidators<T>>::contains_key(&validator) {
 				validators.push(validator);
-				//ValidatorList::<T>::append(validator);
 			}
 		}
 		<ValidatorList<T>>::put(validators);
