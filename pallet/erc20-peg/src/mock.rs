@@ -13,23 +13,21 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 
-use crate as crml_erc20_peg;
+use crate as pallet_erc20_peg;
+use seed_pallet_common::EthereumBridge;
 use seed_primitives::types::{AssetId, Balance};
 
 use frame_support::{pallet_prelude::*, parameter_types, PalletId};
 use frame_system::EnsureRoot;
-use seed_pallet_common::{EthAbiCodec, EventClaimVerifier};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-pub const CENNZ_ASSET_ID: AssetId = 16000;
 pub const CPAY_ASSET_ID: AssetId = 16001;
 pub const NEXT_ASSET_ID: AssetId = 17000;
 
-pub const STAKING_ASSET_ID: AssetId = CENNZ_ASSET_ID;
 pub const SPENDING_ASSET_ID: AssetId = CPAY_ASSET_ID;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -45,7 +43,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Event<T>},
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>}
 	}
 );
@@ -81,9 +79,6 @@ impl frame_system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-parameter_types! {
-	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-}
 
 parameter_types! {
 	pub const AssetDeposit: Balance = 1_000_000;
@@ -164,22 +159,13 @@ impl crate::Config for Test {
 
 /// Mock ethereum bridge
 pub struct MockEthBridge;
-
-impl EventClaimVerifier for MockEthBridge {
-	/// Submit an event claim
-	fn submit_event_claim(
-		_contract_address: &H160,
-		_event_signature: &H256,
-		_tx_hash: &H256,
-		_event_data: &[u8],
-	) -> Result<u64, DispatchError> {
-		Ok(1)
-	}
-
-	/// Generate proof of the given message
-	/// Returns a unique proof Id on success
-	fn generate_event_proof<M: EthAbiCodec>(_message: &M) -> Result<u64, DispatchError> {
-		Ok(2)
+impl EthereumBridge for MockEthBridge {
+	fn send_event(
+			source: &H160,
+			destination: &H160,
+			message: &[u8],
+		) -> Result<seed_primitives::ethy::EventProofId, DispatchError> {
+			Ok(1)
 	}
 }
 

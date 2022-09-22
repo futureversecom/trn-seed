@@ -92,12 +92,8 @@ decl_storage! {
 		ReadyBlocks get(fn ready_blocks): Vec<T::BlockNumber>;
 		/// The next available claim id for withdrawals and deposit claims
 		NextDelayedClaimId get(fn next_delayed_claim_id): ClaimId;
-		/// Hash of withdrawal information
-		WithdrawalDigests get(fn withdrawal_digests): map hasher(twox_64_concat) EventId => T::Hash;
 		/// The peg contract address on Ethereum
 		ContractAddress get(fn contract_address): EthAddress;
-		/// Whether CENNZ deposits are active
-		CENNZDepositsActive get(fn cennz_deposit_active): bool;
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -132,8 +128,6 @@ decl_event! {
 		Erc20DepositFail(H160, Vec<u8>),
 		/// The peg contract address has been set
 		SetContractAddress(EthAddress),
-		/// ERC20 CENNZ deposits activated
-		CENNZDepositsActive,
 		/// A delay was added for an asset_id (asset_id, min_balance, delay)
 		ClaimDelaySet(AssetId, Balance, BlockNumber),
 		/// There are no more claim ids available, they've been exhausted
@@ -240,7 +234,6 @@ decl_module! {
 		}
 
 		#[weight = 60_000_000]
-		/// Withdraw generic assets from CENNZnet in exchange for ERC20s
 		/// Tokens will be transferred to peg account and a proof generated to allow redemption of tokens on Ethereum
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
@@ -255,15 +248,6 @@ decl_module! {
 			ensure_root(origin)?;
 			ContractAddress::put(eth_address);
 			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
-		}
-
-		#[weight = 1_000_000]
-		#[transactional]
-		/// Activate ERC20 CENNZ deposits (requires governance)
-		pub fn activate_cennz_deposits(origin) {
-			ensure_root(origin)?;
-			CENNZDepositsActive::put(true);
-			Self::deposit_event(<Event<T>>::CENNZDepositsActive);
 		}
 
 		#[weight = {
@@ -334,11 +318,9 @@ impl<T: Config> Module<T> {
 		// Process transfer or withdrawal of payment asset
 		Self::process_withdrawal_payment(origin, asset_id, amount)?;
 		// process withdrawal immediately
-		// Self::process_withdrawal(message, asset_id);
-
-		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
+		let source = T::PegPalletId::get().into_account_truncating();
 		let message = ethabi::encode(&[
-			Token::Address(source.into()),
+			Token::Address(source),
 			Token::Uint(amount.into()),
 			Token::Address(Self::contract_address()),
 		]);
@@ -371,48 +353,32 @@ impl<T: Config> Module<T> {
 				PendingClaim::Withdrawal(withdrawal_message) => {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists
 					// for this token
-					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
-					// if let Some(asset_id) = asset_id {
-					// 	// let _ = Self::process_withdrawal(withdrawal_message, asset_id);
-					// } else {
-					// 	log::error!(
-					// 		"📌 ERC20 withdrawal claim failed unexpectedly: {:?}",
-					// 		withdrawal_message
-					// 	);
-					// }
+					if Self::erc20_to_asset(withdrawal_message.token_address) == None {
+						log::error!(
+							"📌 ERC20 withdrawal claim failed unexpectedly: {:?}",
+							withdrawal_message
+						);
+					}
 				},
 			}
 		}
 	}
 
-	// fn process_withdrawal(
-	// 	message: WithdrawMessage,
-	// 	asset_id: AssetId,
-	// ) -> Result<u64, DispatchError> {
-	// 	let amount: Balance = message.amount.as_u128();
-	// 	//
-	// 	let event_proof_id = T::EthBridge::generate_event_proof(&message);
-	//
-	// 	match event_proof_id {
-	// 		Ok(proof_id) => {
-	// 			// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
-	// 			let proof_id: EventId = proof_id;
-	// 			let withdrawal_hash: T::Hash =
-	// 				T::Hashing::hash(&mut (message.clone(), proof_id).encode());
-	// 			WithdrawalDigests::<T>::insert(proof_id, withdrawal_hash);
-	// 			Self::deposit_event(<Event<T>>::Erc20Withdraw(
-	// 				proof_id,
-	// 				asset_id,
-	// 				amount,
-	// 				message.beneficiary,
-	// 			));
-	// 		},
-	// 		Err(_) => Self::deposit_event(<Event<T>>::DelayedErc20WithdrawalFailed(
-	// 			asset_id,
-	// 			message.beneficiary,
-	// 		)),
+	// To be moved to EthereumEventSubscriber
+	// fn process_deposit_claim(claim: Erc20DepositEvent, tx_hash: H256) {
+	// 	let event_claim_id = T::EthBridge::submit_event_claim(
+	// 		&Self::contract_address().into(),
+	// 		&T::DepositEventSignature::get().into(),
+	// 		&tx_hash,
+	// 		&ethabi::encode(&claim),
+	// 	);
+	// 	let beneficiary: T::AccountId =
+	// 		T::AccountId::decode(&mut &claim.beneficiary.0[..]).unwrap();
+	// 	match event_claim_id {
+	// 		Ok(claim_id) => Self::deposit_event(<Event<T>>::Erc20Claim(claim_id, beneficiary)),
+	// 		Err(_) =>
+	// 			Self::deposit_event(<Event<T>>::DelayedErc20DepositFailed(tx_hash, beneficiary)),
 	// 	}
-	// 	event_proof_id
 	// }
 
 	/// Delay a withdrawal or deposit claim until a later block
