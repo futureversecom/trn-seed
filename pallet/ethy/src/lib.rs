@@ -209,6 +209,12 @@ decl_event! {
 		Challenged(EventClaimId, AccountId),
 		/// An event proof has been submitted
 		EventSubmit(EventProofInfo),
+		/// An account has deposited a relayer bond
+		RelayerBondDeposit(AccountId, Balance),
+		/// An account has withdrawn a relayer bond
+		RelayerBondWithdraw(AccountId, Balance),
+		/// A new relayer has been set
+		RelayerSet(Option<AccountId>),
 	}
 }
 
@@ -308,7 +314,8 @@ decl_module! {
 			ensure_root(origin)?;
 			// Ensure relayer has bonded more than relayer bond amount
 			ensure!(Self::relayer_paid_bond(relayer) >= T::RelayerBond::get(), Error::<T>::NoBondPaid);
-			<Relayer<T>>::put(relayer)
+			<Relayer<T>>::put(relayer);
+			Self::deposit_event(Event::<T>::RelayerSet(Some(relayer)));
 		}
 
 		#[weight = DbWeight::get().writes(1)]
@@ -320,13 +327,16 @@ decl_module! {
 			// Ensure relayer doesn't already have a bond set
 			ensure!(Self::relayer_paid_bond(origin) == 0, Error::<T>::CantBondRelayer);
 
+			let relayer_bond = T::RelayerBond::get();
 			// Attempt to place a hold from the relayer account
 			T::MultiCurrency::place_hold(
 				T::BridgePalletId::get(),
 				&origin,
 				T::NativeAssetId::get(),
-				T::RelayerBond::get(),
-			)
+				relayer_bond,
+			)?;
+			Self::deposit_event(Event::<T>::RelayerBondDeposit(origin, relayer_bond));
+			Ok(())
 		}
 
 		#[weight = DbWeight::get().writes(1)]
@@ -347,7 +357,9 @@ decl_module! {
 				&origin,
 				T::NativeAssetId::get(),
 				relayer_paid_bond,
-			)
+			)?;
+			Self::deposit_event(Event::<T>::RelayerBondWithdraw(origin, relayer_paid_bond));
+			Ok(())
 		}
 
 		#[weight = DbWeight::get().writes(1)]
