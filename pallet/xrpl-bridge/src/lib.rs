@@ -14,7 +14,6 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::helpers::{XrpRequestLog, XrpTransaction, XrpWithdrawTransaction, XrplTxData};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -25,18 +24,19 @@ use frame_support::{
 	weights::constants::RocksDbWeight as DbWeight,
 };
 use frame_system::pallet_prelude::*;
-pub use pallet::*;
-use seed_pallet_common::CreateExt;
+
+use sp_runtime::{traits::One, ArithmeticError, SaturatedConversion};
+use sp_std::{prelude::*, vec};
+
+use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
 use seed_primitives::{
-	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplTxHash, XrplWithdrawAddress,
-	XrplWithdrawTxNonce,
+	xrpl::{XrplTxHash, XrplTxHashForSigning, XrplWithdrawAddress, XrplWithdrawTxNonce},
+	AccountId, AssetId, Balance, LedgerIndex, Timestamp,
 };
-use sp_runtime::{traits::One, ArithmeticError, DigestItem};
-use sp_std::vec;
+
+use crate::helpers::{XrpTransaction, XrpWithdrawTransaction, XrplTxData};
 
 pub use pallet::*;
-
-use sp_std::prelude::*;
 
 mod helpers;
 
@@ -53,8 +53,6 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
 pub use weights::WeightInfo;
 
-pub const XRPL_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"XRP-";
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -62,6 +60,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+		type EthyAdapter: EthyXrplBridgeAdapter;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>
@@ -90,6 +90,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		NotPermitted,
 		RelayerDoesNotExists,
+		/// Calculate the withdraw tx hash failed
+		WithdrawHash,
 	}
 
 	#[pallet::event]
@@ -98,7 +100,13 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
-		WithdrawRequested(XrplWithdrawTxNonce),
+		WithdrawRequested {
+			proof_id: u64,
+			nonce: XrplWithdrawTxNonce,
+			sender: T::AccountId,
+			amount: Balance,
+			destination: XrplWithdrawAddress,
+		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 	}
@@ -212,7 +220,7 @@ pub mod pallet {
 			transaction_hash: XrplTxHash,
 			transaction: XrplTxData,
 			timestamp: Timestamp,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
@@ -225,10 +233,10 @@ pub mod pallet {
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
 			transaction_hash: XrplTxHash,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
 			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Withdraw xrp transaction
@@ -238,7 +246,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			amount: Balance,
 			destination: XrplWithdrawAddress,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::add_to_withdraw(who, amount, destination)
 		}
@@ -246,28 +254,22 @@ pub mod pallet {
 		/// add a relayer
 		#[pallet::weight((<T as Config>::WeightInfo::add_relayer(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn add_relayer(
-			origin: OriginFor<T>,
-			relayer: T::AccountId,
-		) -> DispatchResultWithPostInfo {
+		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			Self::initialize_relayer(&vec![relayer]);
 			Self::deposit_event(Event::<T>::RelayerAdded(relayer));
-			Ok(().into())
+			Ok(())
 		}
 
 		/// remove a relayer
 		#[pallet::weight((<T as Config>::WeightInfo::remove_relayer(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn remove_relayer(
-			origin: OriginFor<T>,
-			relayer: T::AccountId,
-		) -> DispatchResultWithPostInfo {
+		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			if <Relayer<T>>::contains_key(relayer) {
 				<Relayer<T>>::remove(relayer);
 				Self::deposit_event(Event::<T>::RelayerRemoved(relayer));
-				Ok(().into())
+				Ok(())
 			} else {
 				Err(Error::<T>::RelayerDoesNotExists.into())
 			}
@@ -331,46 +333,73 @@ impl<T: Config> Pallet<T> {
 		transaction_hash: XrplTxHash,
 		transaction: XrplTxData,
 		timestamp: Timestamp,
-	) -> DispatchResultWithPostInfo {
+	) -> DispatchResult {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val.clone());
 		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val));
 		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
-		Ok(().into())
+		Ok(())
 	}
 
-	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResultWithPostInfo {
+	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResult {
 		let process_block_number =
 			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
 		ProcessXRPTransaction::<T>::append(&process_block_number, transaction_hash);
-		Ok(().into())
+		Ok(())
 	}
 
 	pub fn add_to_withdraw(
 		who: AccountOf<T>,
 		amount: Balance,
 		destination: XrplWithdrawAddress,
-	) -> DispatchResultWithPostInfo {
+	) -> DispatchResult {
 		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
 		let tx_nonce = Self::withdraw_tx_nonce_inc()?;
 		let tx_data = XrpWithdrawTransaction { tx_nonce, amount, destination };
 		<PendingWithdrawXRPTransaction<T>>::append(&tx_nonce);
 		<PendingWithdrawXRPTransactionDetails<T>>::insert(&tx_nonce, &tx_data);
-		Self::withdraw_request_deposit_log(tx_nonce, tx_data);
-		Self::deposit_event(Event::WithdrawRequested(tx_nonce));
-		Ok(().into())
+
+		let proof_id = Self::submit_withdraw_request(tx_data)?;
+
+		Self::deposit_event(Event::WithdrawRequested {
+			proof_id,
+			nonce: tx_nonce,
+			sender: who,
+			amount,
+			destination,
+		});
+		Ok(())
 	}
 
-	pub fn withdraw_request_deposit_log(
-		tx_nonce: XrplWithdrawTxNonce,
-		tx_data: XrpWithdrawTransaction,
-	) {
-		let log: DigestItem = DigestItem::Consensus(
-			XRPL_ENGINE_ID,
-			XrpRequestLog::XrpWithdrawRequest(tx_nonce, tx_data).encode(),
-		);
-		<frame_system::Pallet<T>>::deposit_log(log);
+	/// Construct an XRPL payment transaction for signing
+	fn submit_withdraw_request(tx_data: XrpWithdrawTransaction) -> Result<u64, DispatchError> {
+		use sha2::Digest;
+		use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
+
+		let XrpWithdrawTransaction { tx_nonce, amount, destination } = tx_data;
+
+		let signer_pub_key: Option<[u8; 33]> = None;
+
+		// TODO: need a fee oracle, this is over estimating the fee
+		let fee_one_xrp = 1_000_000; // 1 XRP
+		let tx_for_signing = Payment::new(
+			// TODO: hard code door address
+			destination.into(),
+			destination.into(),
+			amount.saturated_into(),
+			tx_nonce,
+			fee_one_xrp,
+			signer_pub_key,
+		)
+		.binary_serialize(true);
+
+		// sha2 hash it
+		let tx_hash_512 = sha2::Sha512::new().chain_update(tx_for_signing).finalize();
+		let tx_hash: [u8; 32] =
+			tx_hash_512[..32].try_into().map_err(|_| Error::<T>::WithdrawHash)?;
+
+		T::EthyAdapter::sign_xrpl_transaction(&XrplTxHashForSigning::from(tx_hash))
 	}
 
 	pub fn withdraw_tx_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {

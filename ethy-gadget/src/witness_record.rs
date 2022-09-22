@@ -19,8 +19,10 @@ use std::collections::HashMap;
 
 use seed_primitives::ethy::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
-	AuthorityIndex, EventProofId, Witness,
+	AuthorityIndex, EthyChainId, EventProofId, Witness,
 };
+
+use crate::types::EventMetadata;
 
 #[derive(PartialEq, Debug)]
 pub enum WitnessError {
@@ -32,16 +34,6 @@ pub enum WitnessError {
 	DuplicateWitness,
 	/// This witness is for an already completed event
 	CompletedEvent,
-}
-
-/// Metadata about an event
-pub struct EventMetadata {
-	/// The keccak256 digest of the event
-	pub digest: [u8; 32],
-	/// The (finalized) block hash where the event proof was made
-	pub block_hash: [u8; 32],
-	// An arbitrary tag to differentiate the stored proofs/events
-	pub tag: Option<Vec<u8>>,
 }
 
 /// Handles tracking witnesses from ethy participants
@@ -104,11 +96,11 @@ impl WitnessRecord {
 		event_id: EventProofId,
 		digest: [u8; 32],
 		block_hash: [u8; 32],
-		tag: Option<Vec<u8>>,
+		chain_id: EthyChainId,
 	) {
 		self.event_meta
 			.entry(event_id)
-			.or_insert(EventMetadata { block_hash, digest, tag });
+			.or_insert(EventMetadata { block_hash, digest, chain_id });
 	}
 	/// Note a witness if we haven't seen it before
 	/// Returns true if the witness was noted, i.e previously unseen

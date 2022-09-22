@@ -146,6 +146,23 @@ pub trait EventClaimVerifier {
 	fn generate_event_proof<M: EthAbiCodec>(message: &M) -> Result<u64, DispatchError>;
 }
 
+/// Noop implementation, make erc20peg work in interim
+impl EventClaimVerifier for () {
+	fn submit_event_claim(
+		_contract_address: &H160,
+		_event_signature: &H256,
+		_tx_hash: &H256,
+		_event_data: &[u8],
+	) -> Result<u64, DispatchError> {
+		Ok(u64::max_value())
+	}
+	/// Generate proof of the given message
+	/// Returns a unique proof Id on success
+	fn generate_event_proof<M: EthAbiCodec>(_message: &M) -> Result<u64, DispatchError> {
+		Ok(u64::max_value())
+	}
+}
+
 /// Something that can be decoded from eth log data/ ABI
 /// TODO: use ethabi crate
 pub trait EthAbiCodec: Sized {
@@ -267,6 +284,12 @@ pub trait EthereumBridge {
 		destination: &H160,
 		message: &[u8],
 	) -> Result<EventProofId, DispatchError>;
+}
+
+/// Interface for pallet-ethy and XRPL tx signing
+pub trait EthyXrplBridgeAdapter {
+	/// Request ethy generate a signature for the given tx hash
+	fn sign_xrpl_transaction(tx_hash: &H256) -> Result<EventProofId, DispatchError>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

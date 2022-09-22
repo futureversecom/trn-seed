@@ -323,6 +323,7 @@ parameter_types! {
 
 impl pallet_xrpl_bridge::Config for Runtime {
 	type Event = Event;
+	type EthyAdapter = EthBridge;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();
@@ -853,14 +854,12 @@ parameter_types! {
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
 	pub const MaxLengthErc20Meta: u32 = 250;
-	pub const MaxClaimsPerBlock: u32 = 50;
-	pub const MaxReadyBlocks: u32 = 100;
 	pub const MaxInitialErcMetas: u8 = 50;
 }
 
 impl pallet_erc20_peg::Config for Runtime {
 	/// Handles Ethereum events
-	type EthBridge = EthBridge;
+	type EthBridge = ();
 	type DepositEventSignature = DepositEventSignature;
 	/// Runtime currency system
 	type MultiCurrency = AssetsExt;

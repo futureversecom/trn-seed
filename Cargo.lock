@@ -5129,11 +5129,13 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
+ "sha2 0.10.5",
  "sp-core",
  "sp-io",
  "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -9940,6 +9942,27 @@ dependencies = [
  "curve25519-dalek 3.2.0",
  "rand_core 0.5.1",
  "zeroize",
+]
+
+[[package]]
+name = "xrpl-codec"
+version = "0.1.0"
+source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.4#e0b4ec7d54906eef507c47afb4cdebfde3170488"
+dependencies = [
+ "xrpl-codec-utils",
+]
+
+[[package]]
+name = "xrpl-codec-utils"
+version = "0.1.0"
+source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.4#e0b4ec7d54906eef507c47afb4cdebfde3170488"
+dependencies = [
+ "hashbrown 0.12.3",
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "syn",
 ]
 
 [[package]]

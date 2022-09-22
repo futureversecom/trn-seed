@@ -40,9 +40,12 @@ use std::string::String;
 
 use seed_primitives::ethy::ValidatorSetId;
 pub use seed_primitives::{
-	ethy::{ConsensusLog, EventClaimId, EventProofId, Message, ValidatorSet, ETHY_ENGINE_ID},
+	ethy::{ConsensusLog, EthyChainId, EventClaimId, EventProofId, ValidatorSet, ETHY_ENGINE_ID},
+	xrpl::XrplTxHashForSigning,
 	BlockNumber,
 };
+
+use crate::impls::encode_event_for_proving;
 
 /// An EthCallOracle call Id
 pub type EthCallId = u64;
@@ -104,8 +107,8 @@ pub struct EventClaim {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
-/// Info related to an event proof
-pub struct EventProofInfo {
+/// Info related to an Ethereum event proof (outgoing)
+pub struct EthereumEventInfo {
 	/// The source address (contract) which posted the event
 	pub source: EthAddress,
 	/// The destination address (contract) which should receive the event
@@ -115,8 +118,37 @@ pub struct EventProofInfo {
 	pub message: Vec<u8>,
 	/// The validator set id for the proof
 	pub validator_set_id: ValidatorSetId,
-	/// The events proof id
+	/// The event's proof id
 	pub event_proof_id: EventProofId,
+}
+
+/// A request for ethy-gadget to sign something
+#[derive(Debug, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
+pub enum EthySigningRequest {
+	/// Request to sign an event for Ethereum
+	Ethereum(EthereumEventInfo),
+	/// Request to sign an XRPL tx hash
+	XrplTx { tx_hash: XrplTxHashForSigning },
+}
+
+impl EthySigningRequest {
+	/// Return the Chain Id associated with the signing request
+	pub fn chain_id(&self) -> EthyChainId {
+		match self {
+			Self::Ethereum(_) => EthyChainId::Ethereum,
+			Self::XrplTx { .. } => EthyChainId::Xrpl,
+		}
+	}
+	/// Return the digest for signing by ethy
+	pub fn digest(&self) -> [u8; 32] {
+		match self {
+			// Ethereum event signing requires keccak hashing the event
+			Self::Ethereum(event) =>
+				sp_io::hashing::keccak_256(encode_event_for_proving(event.clone()).as_slice()),
+			// XRPL tx signing uses SHA512-'half' / first 32 bytes
+			Self::XrplTx { tx_hash } => tx_hash.0,
+		}
+	}
 }
 
 #[derive(Debug, Clone, PartialEq, TypeInfo)]

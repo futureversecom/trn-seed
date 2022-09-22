@@ -46,6 +46,7 @@ mod keystore;
 mod metrics;
 #[cfg(test)]
 mod testing;
+mod types;
 mod witness_record;
 mod worker;
 

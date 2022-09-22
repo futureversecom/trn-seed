@@ -17,7 +17,7 @@
 
 use codec::{Decode, Encode};
 use seed_pallet_common::{CreateExt, EthAbiCodec, EventClaimSubscriber, EventClaimVerifier};
-use seed_primitives::{AssetId, Balance, EventId};
+use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, H256, U256};
 
 use frame_support::{

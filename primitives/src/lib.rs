@@ -13,7 +13,6 @@ pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
 
 pub mod types {
 	use crate::signature::EthereumSignature;
-	use sp_core::{H160, H512};
 	use sp_runtime::traits::{IdentifyAccount, Verify};
 
 	/// An index to a block.
@@ -74,15 +73,6 @@ pub mod types {
 	/// An index to a block.
 	pub type LedgerIndex = u64;
 
-	pub type XrplTxHash = H512;
-
-	pub type XrplWithdrawAddress = H160;
-
-	/// The type for identifying the Withdraw Tx Nonce
-	pub type XrplWithdrawTxNonce = u32;
-	/// Unique nonce for event proof requests
-	pub type EventId = u64;
-
 	/// Ethereum address type
 	pub type EthAddress = sp_core::H160;
 }
@@ -102,4 +92,21 @@ pub mod opaque {
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
+}
+
+/// XRPL primitive types
+pub mod xrpl {
+	use sp_core::{H160, H256, H512};
+	/// An xrpl tx hash
+	pub type XrplTxHash = H512;
+
+	/// first 32 bytes of SHA-512 digest
+	/// https://github.com/XRPLF/xrpl.js/blob/76b73e16a97e1a371261b462ee1a24f1c01dbb0c/packages/ripple-keypairs/src/index.ts#L31-L33
+	pub type XrplTxHashForSigning = H256;
+
+	/// Xrpl address (classic)
+	pub type XrplWithdrawAddress = H160;
+
+	/// The type for identifying the Withdraw Tx Nonce
+	pub type XrplWithdrawTxNonce = u32;
 }

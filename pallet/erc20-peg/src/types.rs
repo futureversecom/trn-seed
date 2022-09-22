@@ -18,6 +18,8 @@ use seed_pallet_common::EthAbiCodec;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
 
+pub type EventId = u64;
+
 /// Ethereum address type
 pub type EthAddress = seed_primitives::EthAddress;
 

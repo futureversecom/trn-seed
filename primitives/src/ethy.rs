@@ -17,6 +17,7 @@
 //! Shared between eth-bridge pallet & ethy-gadget worker
 
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;
 
@@ -28,21 +29,21 @@ use crate::AccountId;
 /// offchain storage config key for Ethereum HTTP URI
 pub const ETH_HTTP_URI: [u8; 8] = *b"ETH_HTTP";
 
-/// The `ConsensusEngineId` of ETHY.
-pub const ETHY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"ETH-";
+/// The `ConsensusEngineId` of Ethy.
+pub const ETHY_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"ETHY";
 
 /// Authority set id starts with zero at genesis
 pub const GENESIS_AUTHORITY_SET_ID: u64 = 0;
 
-/// The session key type for Ethereum bridge
-pub const ETH_BRIDGE_KEY_TYPE: KeyTypeId = KeyTypeId(*b"eth-");
+/// The session key type for Ethy
+pub const ETHY_KEY_TYPE: KeyTypeId = KeyTypeId(*b"eth-");
 
-/// Crypto types for Eth bridge protocol
+/// Crypto types for Ethy protocol
 pub mod crypto {
 	mod app_crypto {
-		use crate::ethy::ETH_BRIDGE_KEY_TYPE;
+		use crate::ethy::ETHY_KEY_TYPE;
 		use sp_application_crypto::{app_crypto, ecdsa};
-		app_crypto!(ecdsa, ETH_BRIDGE_KEY_TYPE);
+		app_crypto!(ecdsa, ETHY_KEY_TYPE);
 	}
 	sp_application_crypto::with_pair! {
 		/// An eth bridge keypair using ecdsa as its crypto.
@@ -57,14 +58,26 @@ pub mod crypto {
 /// The index of an authority.
 pub type AuthorityIndex = u32;
 
-/// An event message for signing
-pub type Message = Vec<u8>;
+/// An ethy specific identifier for a bridged network
+#[derive(Encode, Decode, Debug, Eq, PartialEq, TypeInfo, Copy, Clone)]
+pub enum EthyChainId {
+	/// The Chain Id given to Ethereum by ethy
+	Ethereum = 1,
+	/// The Chain Id given to Xrpl by ethy
+	Xrpl = 2,
+}
+
+impl Into<u8> for EthyChainId {
+	fn into(self) -> u8 {
+		match self {
+			Self::Ethereum => 1_u8,
+			Self::Xrpl => 2_u8,
+		}
+	}
+}
 
 /// Unique nonce for event claim requests
 pub type EventClaimId = u64;
-
-/// A bridge event type id
-pub type EventTypeId = u32;
 
 /// Unique nonce for event proof requests
 pub type EventProofId = u64;
@@ -112,26 +125,25 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	/// Disable the authority with given index.
 	#[codec(index = 2)]
 	OnDisabled(AuthorityIndex),
-	/// A request to sign some data was logged
-	/// `Message` is packed bytes e.g. `abi.encodePacked(param0, param1, paramN, validatorSetId,
-	/// event_id)`
+	/// A request from the runtime for ethy-gadget to sign some prehashed data (`digest`)
 	#[codec(index = 3)]
-	OpaqueSigningRequest((Message, EventProofId)),
+	OpaqueSigningRequest { chain_id: EthyChainId, event_proof_id: EventProofId, digest: [u8; 32] },
 	#[codec(index = 4)]
 	/// Signal an `AuthoritiesChange` is scheduled for next session
 	/// Generate a proof that the current validator set has witnessed the new authority set
 	PendingAuthoritiesChange(PendingAuthorityChange<AuthorityId>),
 }
 
-/// ETHY witness message.
+/// Ethy witness message.
 ///
-/// A witness message is a vote created by an ETHY node for a given 'event' combination
+/// A witness message is a vote created by an Ethy node for a given 'event' combination
 /// and is gossiped to its peers.
 #[derive(Clone, Debug, Decode, Encode, PartialEq, Eq)]
 pub struct Witness {
-	/// The event hash: `keccak(abi.encodePacked(param0, param1, paramN, validator_set_id,
-	/// event_id))`
+	/// The event digest (the hash function may differ based on chain Id)
 	pub digest: [u8; 32],
+	/// The associated chainId for this witness
+	pub chain_id: EthyChainId,
 	/// Event proof nonce (it is unique across all Ethy event proofs)
 	pub event_id: EventProofId,
 	/// The validator set witnessing the message
@@ -144,11 +156,10 @@ pub struct Witness {
 	pub signature: AuthoritySignature,
 }
 
-/// A witness with matching GRANDPA validators' signatures.
+/// An Ethy event proof with validator signatures.
 #[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
 pub struct EventProof {
-	/// The event witnessed
-	/// `keccak(abi.encode(source, destination, app_message, validator_set_id, event_id))`
+	/// The event digest (hash function may differ based on chain Id)
 	pub digest: [u8; 32],
 	/// The event proof Id.
 	pub event_id: EventProofId,
@@ -159,10 +170,8 @@ pub struct EventProof {
 	/// The length of this `Vec` must match number of validators in the current set (see
 	/// [Witness::validator_set_id]).
 	pub signatures: Vec<(AuthorityIndex, crypto::AuthoritySignature)>,
-	/// Block hash of the event (when it was requested)
+	/// Finalized block hash of the event (when it was requested)
 	pub block: [u8; 32],
-	/// Metadata tag for the event
-	pub tag: Option<Vec<u8>>,
 }
 
 impl EventProof {
@@ -185,7 +194,7 @@ impl EventProof {
 	}
 }
 
-/// A [EventProof] with a version number. This variant will be appended
+/// An `EventProof` with a version number. This variant will be appended
 /// to the block justifications for the block for which the signed witness
 /// has been generated.
 #[derive(Clone, Debug, PartialEq, Encode, Decode)]
@@ -199,7 +208,7 @@ sp_api::decl_runtime_apis! {
 	/// Runtime API for ETHY validators.
 	pub trait EthyApi
 	{
-		/// Return the active ETHY validator set (i.e Ethy bridge keys of active validator set)
+		/// Return the Ethy validator set for `chain_id` (i.e Secp256k1 public keys of the authorized validator set)
 		fn validator_set() -> ValidatorSet<AuthorityId>;
 	}
 }
@@ -236,5 +245,11 @@ mod test {
 			]
 		);
 		assert_eq!(proof.signature_count(), 3);
+	}
+
+	#[test]
+	fn ethy_chain_id() {
+		assert_eq!(EthyChainId::Ethereum.into(), 1_u8);
+		assert_eq!(EthyChainId::Xrpl.into(), 2_u8);
 	}
 }

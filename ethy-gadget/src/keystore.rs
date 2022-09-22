@@ -21,12 +21,12 @@ use sp_runtime::traits::Convert;
 
 use seed_primitives::ethy::{
 	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
-	ETH_BRIDGE_KEY_TYPE,
+	ETHY_KEY_TYPE,
 };
 
 use crate::error;
 
-/// A ETHY specific keystore implemented as a `Newtype`. This is basically a
+/// An Ethy specific keystore implemented as a `Newtype`. This is basically a
 /// wrapper around [`sp_keystore::SyncCryptoStore`] and allows to customize
 /// common cryptographic functionality.
 pub(crate) struct EthyKeystore(Option<SyncCryptoStorePtr>);
@@ -42,7 +42,7 @@ impl EthyKeystore {
 		let store = self.0.clone()?;
 
 		for key in keys {
-			if SyncCryptoStore::has_keys(&*store, &[(key.to_raw_vec(), ETH_BRIDGE_KEY_TYPE)]) {
+			if SyncCryptoStore::has_keys(&*store, &[(key.to_raw_vec(), ETHY_KEY_TYPE)]) {
 				return Some(key.clone())
 			}
 		}
@@ -52,18 +52,19 @@ impl EthyKeystore {
 
 	/// Sign `message` with the `public` key.
 	///
-	/// Note that `message` usually will be pre-hashed before being singed.
-	///
 	/// Return the message signature or an error in case of failure.
-	pub fn sign(&self, public: &Public, message: &[u8]) -> Result<Signature, error::Error> {
+	pub fn sign_prehashed(
+		&self,
+		public: &Public,
+		message: &[u8; 32],
+	) -> Result<Signature, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
 		let public = public.as_ref();
-		let msg = keccak_256(message);
 
 		// Sign the keccak digest of the message
 		// `sp_core::ecdsa::sign` uses blake2 by default
-		let sig = SyncCryptoStore::ecdsa_sign_prehashed(&*store, ETH_BRIDGE_KEY_TYPE, public, &msg)
+		let sig = SyncCryptoStore::ecdsa_sign_prehashed(&*store, ETHY_KEY_TYPE, public, message)
 			.map_err(|e| error::Error::Keystore(e.to_string()))?
 			.ok_or_else(|| error::Error::Signature("ecdsa_sign_prehashed() failed".to_string()))?;
 
@@ -81,7 +82,7 @@ impl EthyKeystore {
 	pub fn public_keys(&self) -> Result<Vec<Public>, error::Error> {
 		let store = self.0.clone().ok_or_else(|| error::Error::Keystore("no Keystore".into()))?;
 
-		let pk: Vec<Public> = SyncCryptoStore::ecdsa_public_keys(&*store, ETH_BRIDGE_KEY_TYPE)
+		let pk: Vec<Public> = SyncCryptoStore::ecdsa_public_keys(&*store, ETHY_KEY_TYPE)
 			.drain(..)
 			.map(Public::from)
 			.collect();
@@ -149,7 +150,7 @@ mod tests {
 
 	use seed_primitives::ethy::{
 		crypto::{AuthorityId as Public, AuthorityPair as Pair},
-		ETH_BRIDGE_KEY_TYPE,
+		ETHY_KEY_TYPE,
 	};
 
 	use super::EthyKeystore;
@@ -225,7 +226,7 @@ mod tests {
 
 		let alice: Public = SyncCryptoStore::ecdsa_generate_new(
 			&*store,
-			ETH_BRIDGE_KEY_TYPE,
+			ETHY_KEY_TYPE,
 			Some(&Keyring::Alice.to_seed()),
 		)
 		.ok()
@@ -254,7 +255,7 @@ mod tests {
 
 		let alice: Public = SyncCryptoStore::ecdsa_generate_new(
 			&*store,
-			ETH_BRIDGE_KEY_TYPE,
+			ETHY_KEY_TYPE,
 			Some(&Keyring::Alice.to_seed()),
 		)
 		.ok()
@@ -277,7 +278,7 @@ mod tests {
 
 		let _ = SyncCryptoStore::ecdsa_generate_new(
 			&*store,
-			ETH_BRIDGE_KEY_TYPE,
+			ETHY_KEY_TYPE,
 			Some(&Keyring::Bob.to_seed()),
 		)
 		.ok()
@@ -312,7 +313,7 @@ mod tests {
 
 		let alice: Public = SyncCryptoStore::ecdsa_generate_new(
 			&*store,
-			ETH_BRIDGE_KEY_TYPE,
+			ETHY_KEY_TYPE,
 			Some(&Keyring::Alice.to_seed()),
 		)
 		.ok()
@@ -351,11 +352,11 @@ mod tests {
 		let _ = add_key(TEST_TYPE, None);
 
 		// Ethy keys
-		let _ = add_key(ETH_BRIDGE_KEY_TYPE, Some(Keyring::Dave.to_seed().as_str()));
-		let _ = add_key(ETH_BRIDGE_KEY_TYPE, Some(Keyring::Eve.to_seed().as_str()));
+		let _ = add_key(ETHY_KEY_TYPE, Some(Keyring::Dave.to_seed().as_str()));
+		let _ = add_key(ETHY_KEY_TYPE, Some(Keyring::Eve.to_seed().as_str()));
 
-		let key1: Public = add_key(ETH_BRIDGE_KEY_TYPE, None).into();
-		let key2: Public = add_key(ETH_BRIDGE_KEY_TYPE, None).into();
+		let key1: Public = add_key(ETHY_KEY_TYPE, None).into();
+		let key2: Public = add_key(ETHY_KEY_TYPE, None).into();
 
 		let store: EthyKeystore = Some(store).into();
 

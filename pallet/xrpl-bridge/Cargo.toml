@@ -11,32 +11,36 @@ description = "XRPL Bridge to process transactions"
 targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
-codec              = { package = 'parity-scale-codec', version = '3.0.0', default-features = false }
+codec = { package = 'parity-scale-codec', version = '3.0.0', default-features = false }
 frame-benchmarking = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false, optional = true }
-frame-support      = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-frame-system       = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-pallet-assets      = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-pallet-balances    = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-pallet-timestamp   = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-scale-info         = { version = '2.2.0', default-features = false, features = ['derive'] }
-serde              = { version = '1.0.144', features = ['derive'], optional = true }
-sp-runtime         = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-sp-std             = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-sp-core            = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+frame-support = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+frame-system = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+pallet-assets = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+pallet-balances = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+pallet-timestamp = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+scale-info = { version = '2.2.0', default-features = false, features = [
+  'derive',
+] }
+serde = { version = '1.0.144', features = ['derive'], optional = true }
+sha2 = { version = "0.10", default-features = false }
+sp-runtime = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+sp-std = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+sp-core = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+xrpl-codec = { git = "ssh://git@github.com/futureversecom/xrpl-tx-codec", rev = "0.0.4" }
 
-seed-primitives    = { path = "../../primitives", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false }
 
 [dev-dependencies]
-sp-io                   = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
-sp-keystore             = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-io = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
+sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 
 [features]
-default            = ['std']
+default = ['std']
 runtime-benchmarks = ['frame-benchmarking']
-std                = [
+std = [
   'serde',
   'codec/std',
   'sp-runtime/std',
@@ -54,7 +58,7 @@ std                = [
   "seed-pallet-common/std",
   "pallet-assets-ext/std",
 ]
-try-runtime        = ['frame-support/try-runtime']
+try-runtime = ['frame-support/try-runtime']
 
 [lib]
 doctest = false

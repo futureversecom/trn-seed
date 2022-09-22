@@ -31,7 +31,9 @@ use std::{marker::PhantomData, ops::Deref, sync::Arc};
 
 use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
 use seed_primitives::{
-	ethy::{EthyApi as EthyRuntimeApi, EventProofId, VersionedEventProof, ETHY_ENGINE_ID},
+	ethy::{
+		EthyApi as EthyRuntimeApi, EthyChainId, EventProofId, VersionedEventProof, ETHY_ENGINE_ID,
+	},
 	AccountId20,
 };
 
@@ -46,7 +48,9 @@ pub trait EthyApi<Notification> {
 	#[subscription(name = "subscribeEventProofs" => "eventProofs", unsubscribe = "unsubscribeEventProofs", item = Notification)]
 	fn subscribe_event_proofs(&self);
 
-	/// Query a proof for a known event Id. Returns `null` if missing
+	/// Query a proof for a known chain Id & event Id
+	///
+	/// Returns `null` if missing
 	#[method(name = "getEventProof")]
 	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<Notification>>;
 }
@@ -100,10 +104,15 @@ where
 	}
 
 	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<EventProofResponse>> {
-		if let Ok(maybe_encoded_proof) = self
-			.client
-			.get_aux([&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]].concat().as_ref())
-		{
+		if let Ok(maybe_encoded_proof) = self.client.get_aux(
+			[
+				ETHY_ENGINE_ID.as_slice(),
+				&[EthyChainId::Ethereum.into()].as_slice(),
+				&event_id.to_be_bytes().as_slice(),
+			]
+			.concat()
+			.as_ref(),
+		) {
 			if let Some(encoded_proof) = maybe_encoded_proof {
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let event_proof_response =
@@ -150,7 +159,7 @@ where
 				validators: validator_addresses,
 				validator_set_id: proof_validator_set.id,
 				block: event_proof.block.into(),
-				tag: event_proof.tag.clone().map(Into::into),
+				tag: None,
 			})
 		},
 	}

@@ -15,8 +15,12 @@
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
-use seed_primitives::{Balance, XrplTxHash, XrplWithdrawAddress, XrplWithdrawTxNonce};
 use sp_core::{H160, H256};
+
+use seed_primitives::{
+	xrpl::{XrplTxHash, XrplWithdrawAddress, XrplWithdrawTxNonce},
+	Balance,
+};
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -66,10 +70,4 @@ impl Default for XrplTxData {
 	fn default() -> Self {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
 	}
-}
-
-#[derive(Decode, Encode)]
-pub enum XrpRequestLog {
-	#[codec(index = 1)]
-	XrpWithdrawRequest(XrplWithdrawTxNonce, XrpWithdrawTransaction),
 }
