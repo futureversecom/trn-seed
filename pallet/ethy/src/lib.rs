@@ -26,7 +26,7 @@
 //! 1) verify a transaction hash exists that executed a specific contract producing a specific event
 //! log 2) verify the `returndata` of executing a contract at some time _t_ with input `i`
 //!
-//! CENNZnet validators use an offchain worker and Ethereum full node connections to independently
+//! Seed validators use an offchain worker and Ethereum full node connections to independently
 //! verify and observe events happened on Ethereum.
 //! Once a threshold of validators sign a notarization having witnessed the event it is considered
 //! verified.
@@ -40,7 +40,7 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
-	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{fungibles::Transfer, UnixTime, ValidatorSet as ValidatorSetT},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId, Parameter,
@@ -56,9 +56,9 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
-	FinalSessionTracker as FinalSessionTrackerT,
+	FinalSessionTracker as FinalSessionTrackerT, Hold, TransferExt,
 };
-use seed_primitives::AccountId;
+use seed_primitives::{AccountId, AssetId, Balance};
 
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
@@ -100,6 +100,8 @@ pub trait Config:
 	type Call: From<Call<Self>>;
 	/// The (optimistic) challenge period after which a submitted event is considered valid
 	type ChallengePeriod: Get<Self::BlockNumber>;
+	/// Bond required by challenger to make a challenge
+	type ChallengeBond: Get<Balance>;
 	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
@@ -118,8 +120,14 @@ pub trait Config:
 		+ MaybeSerializeDeserialize;
 	/// Reports the final session of na eras
 	type FinalSessionTracker: FinalSessionTrackerT;
+	/// Handles a multi-currency fungible asset system
+	type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+	/// The native token asset Id (managed by pallet-balances)
+	type NativeAssetId: Get<AssetId>;
 	/// The threshold of notarizations required to approve an Ethereum event
 	type NotarizationThreshold: Get<Percent>;
+	/// Bond required for an account to act as relayer
+	type RelayerBond: Get<Balance>;
 	/// Returns the block timestamp
 	type UnixTime: UnixTime;
 }
@@ -128,6 +136,8 @@ decl_storage! {
 	trait Store for Module<T: Config> as EthBridge {
 		/// Whether the bridge is paused (e.g. during validator transitions or by governance)
 		BridgePaused get(fn bridge_paused): bool;
+		/// Maps from event claim id to challenger and bond amount paid
+		ChallengerAccount get(fn challenger_account): map hasher(twox_64_concat) EventClaimId => Option<(T::AccountId, Balance)>;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
 		/// Events cannot be claimed after this time (seconds)
@@ -165,6 +175,8 @@ decl_storage! {
 		NextEthCallId: EthCallId;
 		/// The permissioned relayer
 		Relayer get(fn relayer): Option<T::AccountId>;
+		/// Maps from relayer account to their paid bond amount
+		RelayerPaidBond get(fn relayer_paid_bond): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Queue of pending EthCallOracle requests
 		EthCallRequests get(fn eth_call_requests): Vec<EthCallId>;
 		/// EthCallOracle notarizations keyed by (Id, Notary)
@@ -229,6 +241,10 @@ decl_error! {
 		NoClaim,
 		/// There is already a challenge for this claim
 		ClaimAlreadyChallenged,
+		/// The relayer is active and cant unbond the specified amount
+		CantUnbondRelayer,
+		/// The relayer hasn't paid the relayer bond so can't be set as the active relayer
+		NoBondPaid,
 	}
 }
 
@@ -288,11 +304,49 @@ decl_module! {
 		/// Set the relayer address
 		pub fn set_relayer(origin, relayer: T::AccountId) {
 			ensure_root(origin)?;
+			// Ensure relayer has bonded more than relayer bond amount
+			ensure!(Self::relayer_paid_bond(relayer) >= T::RelayerBond::get(), Error::<T>::NoBondPaid);
 			<Relayer<T>>::put(relayer)
 		}
 
 		#[weight = DbWeight::get().writes(1)]
-		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by CENNZnet
+		// Submit bond for relayer account
+		// User submits custom amount to allow for top up
+		pub fn deposit_relayer_bond(origin) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+
+			// Attempt to place a hold from the relayer account
+			T::MultiCurrency::place_hold(
+				T::BridgePalletId::get(),
+				&origin,
+				T::NativeAssetId::get(),
+				T::RelayerBond::get(),
+			)
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		// Withdraw relayer bond amount
+		pub fn withdraw_relayer_bond(origin) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+
+			// Ensure account is not the current relayer
+			if Self::relayer() == Some(origin) {
+				ensure!(Self::relayer() != Some(origin), Error::<T>::CantUnbondRelayer);
+			};
+			let relayer_paid_bond = Self::relayer_paid_bond(origin);
+			ensure!(relayer_paid_bond > 0, Error::<T>::CantUnbondRelayer);
+
+			// Attempt to release the relayers hold
+			T::MultiCurrency::release_hold(
+				T::BridgePalletId::get(),
+				&origin,
+				T::NativeAssetId::get(),
+				relayer_paid_bond,
+			)
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by Seed
 		pub fn set_event_block_confirmations(origin, confirmations: u64) {
 			ensure_root(origin)?;
 			EventBlockConfirmations::put(confirmations)
@@ -354,16 +408,26 @@ decl_module! {
 		/// An event can only be challenged once
 		pub fn submit_challenge(origin, event_claim_id: EventClaimId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			// TODO Bond challenge value until event has been verified
+
 			// Validate event_id existence
 			ensure!(PendingEventClaims::contains_key(event_claim_id), Error::<T>::NoClaim);
-
 			// Check that event isn't already being challenged
 			ensure!(!PendingClaimChallenges::get().iter().any(|&x| x == event_claim_id), Error::<T>::ClaimAlreadyChallenged);
 
+			let challenger_bond = T::ChallengeBond::get();
+			// try lock challenger bond
+			T::MultiCurrency::place_hold(
+				T::BridgePalletId::get(),
+				&origin,
+				T::NativeAssetId::get(),
+				challenger_bond,
+			)?;
+
 			// Add event to challenged event storage
 			// Not sorted so we can check using FIFO
+			// Include challenger account for releasing funds in case claim is invalid
 			PendingClaimChallenges::append(event_claim_id);
+			<ChallengerAccount<T>>::insert(event_claim_id, (origin, challenger_bond));
 
 			Self::deposit_event(Event::<T>::Challenged(event_claim_id, origin));
 			Ok(())

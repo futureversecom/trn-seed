@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{AccountIdConversion, SaturatedConversion},
+	traits::{AccountIdConversion, SaturatedConversion, Zero},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -477,8 +477,34 @@ impl<T: Config> Module<T> {
 			});
 
 			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-				// TODO: voting is complete, the event is invalid
-				// handle slashing, ensure event is requeued for execution
+				if let Some((challenger, bond_amount)) = Self::challenger_account(event_claim_id) {
+					// Challenger is correct, the event is invalid.
+					// Return challenger bond to challenger and reward challenger with relayer bond
+					// Event doesn't need to be requeued
+					let relayer_paid_bond = match Self::relayer() {
+						Some(relayer) => <RelayerPaidBond<T>>::take(relayer),
+						None => Balance::zero(),
+					};
+
+					T::MultiCurrency::release_hold(
+						T::BridgePalletId::get(),
+						&challenger,
+						T::NativeAssetId::get(),
+						bond_amount,
+					)?;
+					T::MultiCurrency::spend_hold(
+						T::BridgePalletId::get(),
+						&challenger,
+						T::NativeAssetId::get(),
+						&[(challenger, relayer_paid_bond)],
+					)?;
+					// Relayer has been slashed, remove their stored bond amount and set relayer to
+					// None
+					<Relayer<T>>::kill();
+				} else {
+					// This shouldn't happen
+					log!(error, "💎 unexpected missing challenger account");
+				}
 				Self::deposit_event(Event::<T>::Invalid(event_claim_id));
 				return Ok(())
 			} else {
@@ -500,6 +526,9 @@ impl<T: Config> Module<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			}
+			// Remove the claim from pending_claim_challenges
+			// Note: This is added again later but will be moved to the end of the vector
+			// so it's processed in order
 			PendingClaimChallenges::mutate(|event_ids| {
 				event_ids
 					.iter()
@@ -507,10 +536,34 @@ impl<T: Config> Module<T> {
 					.map(|idx| event_ids.remove(idx));
 			});
 
-			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-				// TODO: voting is complete, the event is valid
-				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::<T>::Verified(event_claim_id));
+			if let Some(event_claim) = PendingEventClaims::take(event_claim_id) {
+				if let Some(relayer) = Self::relayer() {
+					if let Some((challenger, bond_amount)) =
+						Self::challenger_account(event_claim_id)
+					{
+						// Challenger is incorrect, the event is valid. Send funds to relayer
+						T::MultiCurrency::spend_hold(
+							T::BridgePalletId::get(),
+							&challenger,
+							T::NativeAssetId::get(),
+							&[(relayer, bond_amount)],
+						)?;
+					} else {
+						// This shouldn't happen
+						log!(error, "💎 unexpected missing challenger account");
+					}
+					// Requeue event, safe to do as event is removed from both of the following maps
+					// prior to this stage
+					PendingEventClaims::insert(event_claim_id, event_claim);
+					<MessagesValidAt<T>>::append(
+						<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get(),
+						event_claim_id,
+					);
+
+					Self::deposit_event(Event::<T>::Verified(event_claim_id));
+				} else {
+					log!(error, "💎 No relayer set");
+				}
 			} else {
 				log!(error, "💎 unexpected empty claim");
 				return Err(Error::<T>::InvalidClaim.into())
