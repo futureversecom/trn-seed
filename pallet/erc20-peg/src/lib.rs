@@ -161,8 +161,6 @@ decl_error! {
 		EvmWithdrawalFailed,
 		/// The abi received does not match the encoding scheme
 		InvalidAbiEncoding,
-		/// An Erc20 Deposit claim failed
-		DepositClaimFailed,
 	}
 }
 
