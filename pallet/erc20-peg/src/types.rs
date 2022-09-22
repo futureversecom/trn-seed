@@ -14,7 +14,7 @@
  */
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, U256};
 use sp_std::prelude::*;
 
 /// Ethereum address type

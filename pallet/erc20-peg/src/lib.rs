@@ -15,32 +15,25 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::Decode;
 use ethabi::{ParamType, Token};
-use seed_pallet_common::{
-	CreateExt, EthereumBridge, EthereumEventSubscriber, EventClaimSubscriber,
-};
-use seed_primitives::{AccountId, AssetId, Balance, EventId};
-use sp_core::{H160, H256, U256};
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber};
+use seed_primitives::{AccountId, AssetId, Balance};
+use sp_core::{H160, U256};
 
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	pallet_prelude::*,
-	traits::{
-		fungibles,
-		fungibles::{Mutate, Transfer},
-		Get, IsType,
-	},
+	traits::{fungibles, fungibles::Mutate, Get, IsType},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId,
 };
-use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use seed_pallet_common::{IsTokenOwner, OnTransferSubscriber};
-use seed_primitives::{EthAddress, TokenId};
+use frame_system::pallet_prelude::*;
+use seed_primitives::EthAddress;
 use sp_runtime::{
-	traits::{AccountIdConversion, Hash, One, Saturating},
-	DispatchError, SaturatedConversion,
+	traits::{AccountIdConversion, One, Saturating},
+	SaturatedConversion,
 };
 use sp_std::prelude::*;
 
@@ -121,8 +114,8 @@ decl_event! {
 		DelayedErc20WithdrawalFailed(AssetId, EthAddress),
 		/// A bridged erc20 deposit succeeded. (asset, amount, beneficiary)
 		Erc20Deposit(AssetId, Balance, AccountId),
-		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (withdrawal Id, asset, amount, beneficiary)
-		Erc20Withdraw(u64, AssetId, Balance, EthAddress),
+		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (asset, amount, beneficiary)
+		Erc20Withdraw(AssetId, Balance, EthAddress),
 		/// A bridged erc20 deposit failed. (source address, abi data)
 		Erc20DepositFail(H160, Vec<u8>),
 		/// The peg contract address has been set
@@ -283,7 +276,7 @@ impl<T: Config> Module<T> {
 		amount: Balance,
 		beneficiary: EthAddress,
 		call_origin: WithdrawCallOrigin,
-	) -> Result<u64, DispatchError> {
+	) -> DispatchResult {
 		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
 
 		// there should be a known ERC20 address mapped for this asset
@@ -300,11 +293,10 @@ impl<T: Config> Module<T> {
 			if min_amount <= amount {
 				return match call_origin {
 					WithdrawCallOrigin::Runtime => {
-						// Process transfer or withdrawal of payment asset
-						Self::process_withdrawal_payment(origin, asset_id, amount)?;
 						// Delay the claim
+						let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
 						Self::delay_claim(delay, PendingClaim::Withdrawal(message));
-						Ok(0)
+						Ok(())
 					},
 					WithdrawCallOrigin::Evm => {
 						// EVM claim delays are not supported
@@ -315,25 +307,30 @@ impl<T: Config> Module<T> {
 		};
 
 		// Process transfer or withdrawal of payment asset
-		Self::process_withdrawal_payment(origin, asset_id, amount)?;
-		// process withdrawal immediately
-		let source = T::PegPalletId::get().into_account_truncating();
+		let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
+		Self::process_withdrawal(message, asset_id)?;
+		Ok(())
+	}
+
+	/// Process withdrawal and send
+	fn process_withdrawal(
+		withdrawal_message: WithdrawMessage,
+		asset_id: AssetId,
+	) -> DispatchResult {
+		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
 		let message = ethabi::encode(&[
-			Token::Address(source),
-			Token::Uint(amount.into()),
-			Token::Address(Self::contract_address()),
+			Token::Address(withdrawal_message.token_address),
+			Token::Uint(withdrawal_message.amount.into()),
+			Token::Address(withdrawal_message.beneficiary),
 		]);
 
 		// Call whatever handler loosely coupled from ethy
-		T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)
-	}
-
-	fn process_withdrawal_payment(
-		origin: T::AccountId,
-		asset_id: AssetId,
-		amount: Balance,
-	) -> Result<(), DispatchError> {
-		let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
+		T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?;
+		Self::deposit_event(Event::<T>::Erc20Withdraw(
+			asset_id,
+			withdrawal_message.amount.saturated_into(),
+			withdrawal_message.beneficiary,
+		));
 		Ok(())
 	}
 
@@ -352,7 +349,16 @@ impl<T: Config> Module<T> {
 				PendingClaim::Withdrawal(withdrawal_message) => {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists
 					// for this token
-					if Self::erc20_to_asset(withdrawal_message.token_address) == None {
+					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
+					if let Some(asset_id) = asset_id {
+						// Process transfer or withdrawal of payment asset
+						if Self::process_withdrawal(withdrawal_message.clone(), asset_id).is_err() {
+							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed(
+								asset_id,
+								withdrawal_message.beneficiary.into(),
+							));
+						}
+					} else {
 						log::error!(
 							"📌 ERC20 withdrawal claim failed unexpectedly: {:?}",
 							withdrawal_message
@@ -362,23 +368,6 @@ impl<T: Config> Module<T> {
 			}
 		}
 	}
-
-	// To be moved to EthereumEventSubscriber
-	// fn process_deposit_claim(claim: Erc20DepositEvent, tx_hash: H256) {
-	// 	let event_claim_id = T::EthBridge::submit_event_claim(
-	// 		&Self::contract_address().into(),
-	// 		&T::DepositEventSignature::get().into(),
-	// 		&tx_hash,
-	// 		&ethabi::encode(&claim),
-	// 	);
-	// 	let beneficiary: T::AccountId =
-	// 		T::AccountId::decode(&mut &claim.beneficiary.0[..]).unwrap();
-	// 	match event_claim_id {
-	// 		Ok(claim_id) => Self::deposit_event(<Event<T>>::Erc20Claim(claim_id, beneficiary)),
-	// 		Err(_) =>
-	// 			Self::deposit_event(<Event<T>>::DelayedErc20DepositFailed(tx_hash, beneficiary)),
-	// 	}
-	// }
 
 	/// Delay a withdrawal or deposit claim until a later block
 	pub fn delay_claim(delay: T::BlockNumber, pending_claim: PendingClaim) {
