@@ -122,7 +122,6 @@ pub trait Config:
 	type NotarizationThreshold: Get<Percent>;
 	/// Returns the block timestamp
 	type UnixTime: UnixTime;
-	type EthereumBridge: EthereumBridge;
 }
 
 decl_storage! {
