@@ -368,11 +368,16 @@ impl EthereumEventRouterT for EthereumEventRouter {
 	/// - `data` the Ethereum ABI encoded event data
 	fn route(source: &H160, destination: &H160, data: &[u8]) -> EventRouterResult {
 		// Route event to specific subscriber pallet
-		if destination == &<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::address() {
-			<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::on_event(source, data)
-				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
-		} else {
-			Err((0, EventRouterError::NoReceiver))
+		match destination {
+			&<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::address() => {
+				<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::on_event(source, data)
+					.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
+			},
+			&<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::address() => {
+				<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::on_event(source, data)
+					.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
+			},
+			_ => Err((0, EventRouterError::NoReceiver))
 		}
 	}
 }
