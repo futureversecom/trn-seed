@@ -28,7 +28,7 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{
-	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplTxHash, XrplWithdrawAddress,
+	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplTxHash, XrplAddress,
 	XrplWithdrawTxNonce,
 };
 use sp_runtime::{traits::One, ArithmeticError, DigestItem};
@@ -101,7 +101,7 @@ pub mod pallet {
 		WithdrawRequested(XrplWithdrawTxNonce),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
-		XRPLDoorAddressAdded(XrplWithdrawAddress),
+		XRPLDoorAddressAdded(XrplAddress),
 	}
 
 	#[pallet::hooks]
@@ -186,7 +186,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn get_xrpl_door_address)]
 	/// The door address on XRPL that receives assets which needs to be transferred to the Root network
-	pub type XRPLDoorAddress<T: Config> = StorageValue<_, XrplWithdrawAddress>;
+	pub type XRPLDoorAddress<T: Config> = StorageValue<_, XrplAddress>;
 
 	// #[pallet::storage]
 	// #[pallet::getter(fn get_deposit_tx_nonce)]
@@ -248,7 +248,7 @@ pub mod pallet {
 		pub fn withdraw_xrp(
 			origin: OriginFor<T>,
 			amount: Balance,
-			destination: XrplWithdrawAddress,
+			destination: XrplAddress,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::add_to_withdraw(who, amount, destination)
@@ -289,7 +289,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn set_xrpl_door_address(
 			origin: OriginFor<T>,
-			door_address: XrplWithdrawAddress,
+			door_address: XrplAddress,
 		) -> DispatchResultWithPostInfo {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			XRPLDoorAddress::<T>::put(door_address);
@@ -374,7 +374,7 @@ impl<T: Config> Pallet<T> {
 	pub fn add_to_withdraw(
 		who: AccountOf<T>,
 		amount: Balance,
-		destination: XrplWithdrawAddress,
+		destination: XrplAddress,
 	) -> DispatchResultWithPostInfo {
 		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
 		let tx_nonce = Self::withdraw_tx_nonce_inc()?;
