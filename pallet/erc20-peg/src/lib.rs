@@ -62,7 +62,6 @@ pub trait Config: frame_system::Config<AccountId = AccountId> {
 	// type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId
 	// = AssetId>;
 	type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-		+ fungibles::Transfer<Self::AccountId, Balance = Balance>
 		+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
 		+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
 		+ fungibles::Mutate<Self::AccountId>;
