@@ -219,11 +219,14 @@ impl<T: Config> Pallet<T> {
 
 	fn update_validators(validator_list: Vec<T::ValidatorId>) {
 		// Filter validator_list from WhiteList Validators.
+		let mut validators: Vec<T::ValidatorId> = Vec::new();
 		for validator in validator_list {
 			if <WhiteListValidators<T>>::contains_key(&validator) {
-				ValidatorList::<T>::append(validator);
+				validators.push(validator);
+				//ValidatorList::<T>::append(validator);
 			}
 		}
+		<ValidatorList<T>>::put(validators);
 	}
 
 	/// Handle changes to the authority set
