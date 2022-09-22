@@ -35,7 +35,7 @@ pub enum WithdrawCallOrigin {
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum PendingClaim {
 	/// A deposit claim (deposit_claim, tx_hash)
-	Deposit((Erc20DepositEvent, H256)),
+	Deposit(Erc20DepositEvent),
 	/// A withdrawal (withdrawal_message)
 	Withdrawal(WithdrawMessage),
 }
@@ -48,8 +48,8 @@ pub struct Erc20DepositEvent {
 	pub token_address: EthAddress,
 	/// The amount (in 'wei') of the deposit
 	pub amount: U256,
-	/// The CENNZnet beneficiary address
-	pub beneficiary: H256,
+	/// The Seed beneficiary address
+	pub beneficiary: H160,
 }
 
 /// A withdraw message to prove and submit to Ethereum
@@ -64,7 +64,6 @@ pub struct WithdrawMessage {
 	pub beneficiary: EthAddress,
 }
 
-
 #[cfg(test)]
 mod test {
 	use super::{Erc20DepositEvent, EthAbiCodec};
@@ -76,7 +75,7 @@ mod test {
 		let event = Erc20DepositEvent {
 			token_address: H160::from_low_u64_be(55),
 			amount: U256::from(123),
-			beneficiary: H256::from_low_u64_be(77),
+			beneficiary: H160::from_low_u64_be(77),
 		};
 		assert_eq!(
 			event.encode(),
