@@ -37,7 +37,7 @@ fn set_payment_delay() {
 }
 
 #[test]
-fn deposit_payment() {
+fn deposit_payment_with_ethereum_event_router() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
@@ -73,24 +73,20 @@ fn on_deposit_mints() {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
-		let source = H160::from_low_u64_be(123);
 		let token_address: H160 = H160::from_low_u64_be(666);
 		let beneficiary: H160 = H160::from_low_u64_be(456);
-		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let expected_asset_id = AssetsExt::next_asset_uuid().unwrap();
 
 		// No assets expected at first
 		assert!(Erc20Peg::erc20_to_asset(token_address).is_none());
 
-		// Encode data for bridge call
-		let data = ethabi::encode(&[
-			Token::Address(token_address),
-			Token::Uint(deposit_amount.into()),
-			Token::Address(beneficiary),
-		]);
-		assert_ok!(MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()));
-
+		// Do the deposit
+		assert_ok!(Erc20Peg::do_deposit(Erc20DepositEvent {
+			token_address,
+			amount: deposit_amount.into(),
+			beneficiary
+		}));
 		// Check mapping has been updated
 		assert_eq!(Erc20Peg::erc20_to_asset(token_address), Some(expected_asset_id));
 		assert_eq!(Erc20Peg::asset_to_erc20(expected_asset_id), Some(token_address));
@@ -106,8 +102,6 @@ fn on_deposit_mints() {
 #[test]
 fn deposit_payment_less_than_delay_goes_through() {
 	ExtBuilder::default().build().execute_with(|| {
-		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
@@ -126,20 +120,18 @@ fn deposit_payment_less_than_delay_goes_through() {
 			deposit_amount + 1,
 			delay
 		));
-		let delayed_payment_id = <NextDelayedPaymentId>::get();
 
-		// Encode data for bridge call
-		let data = ethabi::encode(&[
-			Token::Address(token_address),
-			Token::Uint(deposit_amount.into()),
-			Token::Address(beneficiary),
-		]);
 		// Process deposit, this should go through as the value is less than the payment_delay
 		// amount
-		assert_ok!(MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()));
+		assert_ok!(Erc20Peg::do_deposit(Erc20DepositEvent {
+			token_address,
+			amount: deposit_amount.into(),
+			beneficiary
+		}));
 
 		// Check payment has not been put in delayed payments
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
+		let delayed_payment_id = <NextDelayedPaymentId>::get();
 		assert_eq!(
 			Erc20Peg::delayed_payment_schedule(payment_block),
 			vec![] as Vec<DelayedPaymentId>
@@ -158,8 +150,6 @@ fn deposit_payment_less_than_delay_goes_through() {
 #[test]
 fn deposit_payment_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
-		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
@@ -180,14 +170,12 @@ fn deposit_payment_with_delay() {
 		));
 		let delayed_payment_id = <NextDelayedPaymentId>::get();
 
-		// Encode data for bridge call
-		let data = ethabi::encode(&[
-			Token::Address(token_address),
-			Token::Uint(deposit_amount.into()),
-			Token::Address(beneficiary),
-		]);
 		// Process deposit, this should not go through and be added to delays
-		assert_ok!(MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()));
+		assert_ok!(Erc20Peg::do_deposit(Erc20DepositEvent {
+			token_address,
+			amount: deposit_amount.into(),
+			beneficiary
+		}));
 
 		// Check payment has been put in delayed payments
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
@@ -251,8 +239,6 @@ fn deposit_payment_with_delay() {
 #[test]
 fn multiple_deposit_payments_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
-		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
@@ -272,12 +258,6 @@ fn multiple_deposit_payments_with_delay() {
 			delay
 		));
 
-		// Encode data for bridge call
-		let data = ethabi::encode(&[
-			Token::Address(token_address),
-			Token::Uint(deposit_amount.into()),
-			Token::Address(beneficiary),
-		]);
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		let payment =
 			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
@@ -288,11 +268,7 @@ fn multiple_deposit_payments_with_delay() {
 		for _ in 0..payment_count {
 			let delayed_payment_id = <NextDelayedPaymentId>::get();
 			delayed_payment_ids.push(delayed_payment_id);
-			assert_ok!(MockEthereumEventRouter::route(
-				&source,
-				&destination,
-				data.clone().as_slice()
-			));
+			assert_ok!(Erc20Peg::do_deposit(payment.clone()));
 
 			// Check payment has been put into pending payments
 			assert_eq!(
@@ -360,8 +336,6 @@ fn multiple_deposit_payments_with_delay() {
 #[test]
 fn many_deposit_payments_with_delay() {
 	ExtBuilder::default().build().execute_with(|| {
-		let source = H160::from_low_u64_be(123);
-		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
 		let deposit_amount: Balance = 100;
 		let beneficiary: H160 = H160::from_low_u64_be(456);
 
@@ -381,19 +355,12 @@ fn many_deposit_payments_with_delay() {
 			delay
 		));
 
-		// Encode data for bridge call
-		let data = ethabi::encode(&[
-			Token::Address(token_address),
-			Token::Uint(deposit_amount.into()),
-			Token::Address(beneficiary),
-		]);
 		let payment_block = <frame_system::Pallet<Test>>::block_number() + delay;
 		let payment =
 			Erc20DepositEvent { token_address, amount: deposit_amount.into(), beneficiary };
 		let delayed_payment_weight: Weight = DbWeight::get()
 			.reads(8 as Weight)
 			.saturating_add(DbWeight::get().writes(10 as Weight));
-
 		let payment_count: u64 = 50;
 		let mut delayed_payment_ids: Vec<DelayedPaymentId> = vec![];
 		let mut payment_blocks: Vec<u64> = vec![];
@@ -402,11 +369,8 @@ fn many_deposit_payments_with_delay() {
 		for i in 0..payment_count {
 			let delayed_payment_id = <NextDelayedPaymentId>::get();
 			delayed_payment_ids.push(delayed_payment_id);
-			assert_ok!(MockEthereumEventRouter::route(
-				&source,
-				&destination,
-				data.clone().as_slice()
-			));
+			assert_ok!(Erc20Peg::do_deposit(payment.clone()));
+
 			// Check payment has been put into pending payments
 			assert_eq!(
 				Erc20Peg::delayed_payment_schedule(payment_block + i),
