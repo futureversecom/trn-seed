@@ -188,7 +188,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn get_withdraw_tx_nonce)]
 	/// Stores and increments Withdraw Tx Nonce id
-	pub type CurrentWithdrawTxNonce<T: Config> = StorageValue<_, XrplWithdrawTxNonce>;
+	pub type CurrentWithdrawTxNonce<T: Config> = StorageValue<_, XrplWithdrawTxNonce, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -273,6 +273,14 @@ pub mod pallet {
 			} else {
 				Err(Error::<T>::RelayerDoesNotExists.into())
 			}
+		}
+
+		/// Set the door account tx nonce
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
+		pub fn set_door_nonce(origin: OriginFor<T>, nonce: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			CurrentWithdrawTxNonce::<T>::set(nonce);
+			Ok(())
 		}
 	}
 }
@@ -379,13 +387,19 @@ impl<T: Config> Pallet<T> {
 
 		let XrpWithdrawTransaction { tx_nonce, amount, destination } = tx_data;
 
+		// omit signer key since this is a 'MultiSigner' tx
 		let signer_pub_key: Option<[u8; 33]> = None;
 
 		// TODO: need a fee oracle, this is over estimating the fee
+		// https://github.com/futureversecom/seed/issues/107
 		let fee_one_xrp = 1_000_000; // 1 XRP
+
+		// TODO: use pallet config
+		// rnZiKvrWFGi2JfHtLS8kxcqCqVhch6W5k5
+		let door_address: [u8; 20] = hex_literal::hex!("3216fd40be8f9b0016253e5244085375d887a53e");
+
 		let tx_for_signing = Payment::new(
-			// TODO: hard code door address
-			destination.into(),
+			door_address.into(),
 			destination.into(),
 			amount.saturated_into(),
 			tx_nonce,
@@ -403,9 +417,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn withdraw_tx_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {
-		let tx_nonce = CurrentWithdrawTxNonce::<T>::get().unwrap_or(0);
+		let tx_nonce = CurrentWithdrawTxNonce::<T>::get();
 		let next_tx_nonce = tx_nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		CurrentWithdrawTxNonce::<T>::set(Some(next_tx_nonce));
+		CurrentWithdrawTxNonce::<T>::set(next_tx_nonce);
 		Ok(next_tx_nonce)
 	}
 }
