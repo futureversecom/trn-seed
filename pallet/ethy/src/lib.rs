@@ -312,8 +312,8 @@ decl_module! {
 		}
 
 		#[weight = DbWeight::get().writes(1)]
-		// Submit bond for relayer account
-		// User submits custom amount to allow for top up
+		/// Submit bond for relayer account
+		/// User submits custom amount to allow for top up
 		pub fn deposit_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -330,7 +330,7 @@ decl_module! {
 		}
 
 		#[weight = DbWeight::get().writes(1)]
-		// Withdraw relayer bond amount
+		/// Withdraw relayer bond amount
 		pub fn withdraw_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
