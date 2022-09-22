@@ -11,6 +11,7 @@ description = "To add and remove validators"
 targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
+hex-literal = { version = "0.3.4", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", ] }
 frame-support = { git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", default-features = false }
 frame-system = {  git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", default-features = false }
@@ -20,6 +21,7 @@ sp-core = {  git = "https://github.com/futureversecom/substrate.git", branch = "
 sp-io 	= { default-features = false, git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27" }
 sp-runtime = {  git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", default-features = false }
 sp-std = {  git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", default-features = false }
+sp-application-crypto = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 frame-benchmarking = { default-features = false, git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", optional = true }
 seed-primitives                           = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
@@ -34,6 +36,7 @@ std = [
     'sp-runtime/std',
     'frame-support/std',
     'sp-core/std',
+    "sp-application-crypto/std",
     'frame-system/std',
     'frame-benchmarking/std',
     "seed-primitives/std",

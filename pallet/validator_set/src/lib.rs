@@ -9,24 +9,26 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod helpers;
 
-use frame_support::{pallet_prelude::*, traits::OneSessionHandler};
+use crate::helpers::{ConsensusLog, EventProofId, PendingAuthorityChange, ValidatorSet};
+use frame_support::{pallet_prelude::*, traits::OneSessionHandler, PalletId};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
-use seed_primitives::ValidatorId;
-use sp_runtime::{ArithmeticError, BoundToRuntimeAppPublic};
-use sp_std::vec::Vec;
-use seed_pallet_common::{
-	log,
-	FinalSessionTracker as FinalSessionTrackerT,
+use seed_pallet_common::{log, FinalSessionTracker as FinalSessionTrackerT};
+use sp_core::H160;
+use sp_runtime::{
+	traits::AccountIdConversion, BoundToRuntimeAppPublic, DigestItem, Percent, RuntimeAppPublic,
 };
+use sp_std::vec::Vec;
 
-pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+pub type ValidatorIdOf<T> = <T as Config>::ValidatorId;
+pub(crate) const LOG_TARGET: &str = "validator_set";
+pub const ENGINE_ID: sp_runtime::ConsensusEngineId = *b"EGN-";
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use sp_runtime::RuntimeAppPublic;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -39,7 +41,7 @@ pub mod pallet {
 
 		/// The identifier type for an authority in this module (i.e. active validator session key)
 		/// 33 byte ECDSA public key
-		type XrpValidatorId: Member
+		type ValidatorId: Member
 			+ Parameter
 			+ AsRef<[u8]>
 			+ RuntimeAppPublic
@@ -47,6 +49,12 @@ pub mod pallet {
 			+ MaybeSerializeDeserialize;
 		/// Reports the final session of na eras
 		type FinalSessionTracker: FinalSessionTrackerT;
+		/// The pallet bridge address (destination for incoming messages, source for outgoing)
+		type BridgePalletId: Get<PalletId>;
+		/// The bridge contract address
+		type BridgeContractAddress: Get<H160>;
+		/// The threshold of notarizations required to approve an event
+		type NotarizationThreshold: Get<Percent>;
 	}
 
 	#[pallet::pallet]
@@ -58,13 +66,13 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn validator_list)]
 	/// List of all the validators
-	pub type ValidatorList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+	pub type ValidatorList<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
 	#[pallet::getter(fn next_validator_list)]
 	/// Next List of all the validators
-	pub type NextValidatorList<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+	pub type NextValidatorList<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
@@ -72,17 +80,31 @@ pub mod pallet {
 	/// Current validators set id
 	pub type ValidatorListSetId<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn bridge_paused)]
+	/// Current validators set id
+	pub type BridgePaused<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn notary_set_id)]
+	/// Current validators set id
+	pub type NotarySetId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn notary_set_proof_id)]
+	/// Current validators set id
+	pub type NotarySetProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn next_event_proof_id)]
+	/// Current validators set id
+	pub type NextEventProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
+
 	// The pallet's runtime storage items.
 	#[pallet::storage]
 	#[pallet::getter(fn white_list_validators)]
 	/// List of all the white list validators
-	pub type WhiteListValidators<T: Config> =
-		StorageDoubleMap<_, Blake2_128Concat, ValidatorId, Blake2_128Concat, T::AccountId, bool>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn pool_counter)]
-	/// Pool counter
-	pub type ValidatorCounter<T: Config> = StorageValue<_, ValidatorId>;
+	pub type WhiteListValidators<T: Config> = StorageMap<_, Blake2_128Concat, T::ValidatorId, bool>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -91,11 +113,14 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// New validator added
 		/// parameters. [who]
-		ValidatorAdded(T::AccountId),
+		ValidatorAdded(T::ValidatorId),
 
 		/// Validator removed
 		/// parameters. [who]
-		ValidatorRemoved(T::AccountId),
+		ValidatorRemoved(T::ValidatorId),
+		/// A notary (validator) set change is in motion (event_id, new_validator_set_id)
+		/// A proof for the change will be generated with the given `event_id`
+		AuthoritySetChange(EventProofId, u64),
 	}
 
 	// Errors inform users that something went wrong.
@@ -116,7 +141,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		/// The initial validator set.
-		pub initial_validators: Vec<T::AccountId>,
+		pub initial_validators: Vec<T::ValidatorId>,
 	}
 
 	#[cfg(feature = "std")]
@@ -143,12 +168,19 @@ pub mod pallet {
 		/// calling this.
 		/// Emits an event on success else error
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(0,1))]
-		pub fn add_validator(origin: OriginFor<T>, validator_acc: T::AccountId) -> DispatchResult {
+		pub fn add_validator(
+			origin: OriginFor<T>,
+			validator_id: T::ValidatorId,
+		) -> DispatchResultWithPostInfo {
 			// Check if the sender is an approved origin or not
 			T::ApproveOrigin::ensure_origin(origin)?;
-			<WhiteListValidators<T>>::insert(validator_id, validator_acc.clone(), true);
-			Self::deposit_event(Event::ValidatorAdded(validator_acc));
-			Ok(())
+			if <WhiteListValidators<T>>::contains_key(&validator_id) {
+				Err(Error::<T>::DuplicateValidator.into())
+			} else {
+				<WhiteListValidators<T>>::insert(&validator_id, true);
+				Self::deposit_event(Event::ValidatorAdded(validator_id));
+				Ok(().into())
+			}
 		}
 
 		/// Remove a validator from the set.
@@ -156,79 +188,148 @@ pub mod pallet {
 		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1))]
 		pub fn remove_validator(
 			origin: OriginFor<T>,
-			validator_id: ValidatorId,
-			validator_acc: T::AccountId,
-		) -> DispatchResult {
+			validator_id: T::ValidatorId,
+		) -> DispatchResultWithPostInfo {
 			// Check if the sender is an approved origin or not
 			T::ApproveOrigin::ensure_origin(origin)?;
-			<WhiteListValidators<T>>::remove(validator_id, validator_acc.clone());
-			Self::deposit_event(Event::ValidatorRemoved(validator_acc));
-			Ok(())
+			if <WhiteListValidators<T>>::contains_key(&validator_id) {
+				<WhiteListValidators<T>>::remove(&validator_id);
+				Self::deposit_event(Event::ValidatorRemoved(validator_id));
+				Ok(().into())
+			} else {
+				Err(Error::<T>::ValidatorNotFound.into())
+			}
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
 	#[allow(dead_code)]
-	fn initialize_validators(validator_list: &[T::AccountId]) {
-		// Add the initial validator_list to the validator set.
-		<ValidatorList<T>>::put(validator_list);
-	}
-
-	pub fn validator_id_inc() -> Result<ValidatorId, DispatchError> {
-		if ValidatorCounter::<T>::get().is_some() {
-			let validator_id = ValidatorCounter::<T>::get()
-				.unwrap()
-				.checked_add(1)
-				.ok_or(ArithmeticError::Underflow)?;
-			ValidatorCounter::<T>::set(Option::from(validator_id));
-			Ok(validator_id)
-		} else {
-			ValidatorCounter::<T>::set(Some(1));
-			Ok(1)
+	fn initialize_validators(validator_list: &[T::ValidatorId]) {
+		// Add the initial validator_list to WhiteList Validators.
+		for validator in validator_list {
+			<WhiteListValidators<T>>::insert(validator, true);
 		}
 	}
 
 	// To check if the given member is validator or not
-	pub fn is_validator(validator_id: ValidatorId, validator_acc: &T::AccountId) -> bool {
-		WhiteListValidators::<T>::get(validator_id, validator_acc).unwrap_or(false)
+	pub fn is_validator(validator_id: &T::ValidatorId) -> bool {
+		WhiteListValidators::<T>::get(validator_id).unwrap_or(false)
+	}
+
+	fn update_validators(validator_list: Vec<T::ValidatorId>) {
+		// Filter validator_list from WhiteList Validators.
+		for validator in validator_list {
+			if <WhiteListValidators<T>>::contains_key(&validator) {
+				ValidatorList::<T>::append(validator);
+			}
+		}
+	}
+
+	/// Handle changes to the authority set
+	/// This could be called when validators rotate their keys, we don't want to
+	/// change this until the era has changed to avoid generating proofs for small set changes or
+	/// too frequently
+	/// - `new`: The validator set that is active right now
+	/// - `queued`: The validator set that will activate next session
+	pub(crate) fn handle_authorities_change(new: Vec<T::ValidatorId>, queued: Vec<T::ValidatorId>) {
+		// ### Session life cycle
+		// block on_initialize if ShouldEndSession(n)
+		//  rotate_session
+		//    before_end_session
+		//    end_session (end just been)
+		//    start_session (start now)
+		//    new_session (start now + 1)
+		//   -> on_new_session <- this function is CALLED here
+
+		let log_notary_change = |next_keys: &[T::ValidatorId]| {
+			// Store the keys for usage next session
+			<NextValidatorList<T>>::put(next_keys);
+			// Signal the Event Id that will be used for the proof of validator set change.
+			// Any observer can subscribe to this event and submit the resulting proof to keep the
+			// validator set on the bridge contract updated.
+			let event_proof_id = <NextEventProofId<T>>::get();
+			let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
+			Self::deposit_event(Event::<T>::AuthoritySetChange(
+				event_proof_id,
+				next_validator_set_id,
+			));
+			<NotarySetProofId<T>>::put(event_proof_id);
+			<NextEventProofId<T>>::put(event_proof_id.wrapping_add(1));
+			let log: DigestItem = DigestItem::Consensus(
+				ENGINE_ID,
+				ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
+					source: T::BridgePalletId::get().into_account_truncating(),
+					destination: T::BridgeContractAddress::get().into(),
+					next_validator_set: ValidatorSet {
+						validators: next_keys.to_vec(),
+						id: next_validator_set_id,
+						proof_threshold: T::NotarizationThreshold::get()
+							.mul_ceil(next_keys.len() as u32),
+					},
+					event_proof_id,
+				})
+				.encode(),
+			);
+			<frame_system::Pallet<T>>::deposit_log(log);
+		};
+
+		// signal 1 session early about the `queued` validator set change for the next era so
+		// there's time to generate a proof
+		if T::FinalSessionTracker::is_next_session_final() {
+			log!(trace, "💎 next session final");
+			log_notary_change(queued.as_ref());
+		} else if T::FinalSessionTracker::is_active_session_final() {
+			// Pause bridge claim/proofs
+			// Prevents claims/proofs being partially processed and failing if the validator set
+			// changes significantly
+			// Note: the bridge will be reactivated at the end of the session
+			log!(trace, "💎 active session final");
+			<BridgePaused<T>>::put(true);
+
+			if Self::next_validator_list().is_empty() {
+				// if we're here the era was forced, we need to generate a proof asap
+				log!(warn, "💎 urgent notary key rotation");
+				log_notary_change(new.as_ref());
+			}
+		}
 	}
 }
 
-impl<T: Config> ValidatorSet<ValidatorId, AccountIdOf<T>> for Pallet<T> {
-	fn is_validator(validator_id: ValidatorId, validator_acc: &T::AccountId) -> bool {
-		Self::is_validator(validator_id, validator_acc)
+impl<T: Config> ValidatorWhiteList<ValidatorIdOf<T>> for Pallet<T> {
+	fn is_validator(validator_id: &T::ValidatorId) -> bool {
+		Self::is_validator(validator_id)
 	}
 }
 
-pub trait ValidatorSet<ValidatorId, AccountId> {
-	fn is_validator(validator_id: ValidatorId, validator_acc: &AccountId) -> bool;
+pub trait ValidatorWhiteList<ValidatorId> {
+	fn is_validator(validator_id: &ValidatorId) -> bool;
 }
 
 impl<T: Config> BoundToRuntimeAppPublic for Pallet<T> {
-	type Public = T::XrpValidatorId;
+	type Public = T::ValidatorId;
 }
 
 impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
-	type Key = T::XrpValidatorId;
+	type Key = T::ValidatorId;
 
 	fn on_genesis_session<'a, I: 'a>(validators: I)
 	where
-		I: Iterator<Item = (&'a T::AccountId, T::XrpValidatorId)>,
+		I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
 	{
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
 		if !keys.is_empty() {
 			assert!(
 				ValidatorList::<T>::decode_len().is_none(),
-				"ValidatorList are already initialized!"
+				"Validator List is already initialized!"
 			);
-			ValidatorList::<T>::put(keys);
+			Self::update_validators(keys);
 		}
 	}
 
 	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, queued_validators: I)
 	where
-		I: Iterator<Item = (&'a T::AccountId, T::XrpValidatorId)>,
+		I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
 	{
 		// Only run change process at the end of an era
 		if T::FinalSessionTracker::is_next_session_final() ||
@@ -252,13 +353,15 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			log!(trace, "💎 session & era ending, set new validator keys");
 			// A proof should've been generated now so we can reactivate the bridge with the new
 			// validator set
-			BridgePaused::kill();
+			<BridgePaused<T>>::kill();
 			// Time to update the bridge validator keys.
 			let next_notary_keys = NextValidatorList::<T>::take();
 			// Store the new keys and increment the validator set id
 			// Next notary keys should be unset, until populated by new session logic
-			<ValidatorList<T>>::put(&next_notary_keys);
-			ValidatorListSetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
+			Self::update_validators(next_notary_keys);
+			<ValidatorListSetId<T>>::mutate(|next_set_id| {
+				*next_set_id = next_set_id.wrapping_add(1)
+			});
 		}
 	}
 

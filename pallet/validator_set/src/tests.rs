@@ -1,49 +1,58 @@
-use crate::{mock::*, Error};
+use super::*;
+use crate::helpers::crypto::AuthorityId;
 use frame_support::{assert_noop, assert_ok};
+use mock::*;
+use sp_core::ByteArray;
 use sp_runtime::traits::BadOrigin;
 
 #[test]
 fn test_approved_origin_enforced() {
 	new_test_ext().execute_with(|| {
+		let account1: AuthorityId = AuthorityId::from_slice(&[1_u8; 33]).unwrap();
 		// Should throw error on un_approved origin
-		assert_noop!(ValidatorSet::add_validator(Origin::signed(1), 2), BadOrigin);
+		assert_noop!(
+			DefaultValidatorWhiteList::add_validator(Origin::signed(1), account1.clone()),
+			BadOrigin
+		);
 		// Should work with approved origin
-		assert_ok!(ValidatorSet::add_validator(Origin::root(), 2));
+		assert_ok!(DefaultValidatorWhiteList::add_validator(Origin::root(), account1));
 	})
 }
 
 #[test]
 fn test_add_validator_works() {
 	new_test_ext().execute_with(|| {
-		let _ = ValidatorSet::add_validator(Origin::root(), 2);
-		let validator_list = ValidatorSet::validator_list();
-		assert_eq!(validator_list.len(), 1);
+		let account1: AuthorityId = AuthorityId::from_slice(&[1_u8; 33]).unwrap();
+		let account2: AuthorityId = AuthorityId::from_slice(&[2_u8; 33]).unwrap();
+		let _ = DefaultValidatorWhiteList::add_validator(Origin::root(), account1.clone());
+		assert_eq!(<WhiteListValidators<Test>>::iter_values().collect::<Vec<_>>(), vec![true]);
 
 		// Test trying to add a validator twice.
 		assert_noop!(
-			ValidatorSet::add_validator(Origin::root(), 2),
+			DefaultValidatorWhiteList::add_validator(Origin::root(), account1),
 			Error::<Test>::DuplicateValidator
 		);
 
 		// Test trying to add a new validator.
-		assert_ok!(ValidatorSet::add_validator(Origin::root(), 3));
+		assert_ok!(DefaultValidatorWhiteList::add_validator(Origin::root(), account2));
 	})
 }
 
 #[test]
 fn test_remove_validator_works() {
 	new_test_ext().execute_with(|| {
-		let _ = ValidatorSet::add_validator(Origin::root(), 1);
-		let _ = ValidatorSet::add_validator(Origin::root(), 2);
+		let account1: AuthorityId = AuthorityId::from_slice(&[1_u8; 33]).unwrap();
+		let account2: AuthorityId = AuthorityId::from_slice(&[2_u8; 33]).unwrap();
+		let _ = DefaultValidatorWhiteList::add_validator(Origin::root(), account1);
+		let _ = DefaultValidatorWhiteList::add_validator(Origin::root(), account2.clone());
 
 		// Test removing an existing validator.
-		assert_ok!(ValidatorSet::remove_validator(Origin::root(), 2, 2));
-		let validator_list = ValidatorSet::validator_list();
-		assert_eq!(validator_list.len(), 1);
+		assert_ok!(DefaultValidatorWhiteList::remove_validator(Origin::root(), account2.clone()));
+		assert_eq!(<WhiteListValidators<Test>>::iter_values().collect::<Vec<_>>(), vec![true]);
 
 		// Should throw error if non-existing validator is tried to removed.
 		assert_noop!(
-			ValidatorSet::remove_validator(Origin::root(), 2, 2),
+			DefaultValidatorWhiteList::remove_validator(Origin::root(), account2),
 			Error::<Test>::ValidatorNotFound
 		);
 	})
@@ -52,10 +61,12 @@ fn test_remove_validator_works() {
 #[test]
 fn test_is_validator_works() {
 	new_test_ext().execute_with(|| {
-		let _ = ValidatorSet::add_validator(Origin::root(), 1);
+		let account1: AuthorityId = AuthorityId::from_slice(&[1_u8; 33]).unwrap();
+		let account2: AuthorityId = AuthorityId::from_slice(&[2_u8; 33]).unwrap();
+		let _ = DefaultValidatorWhiteList::add_validator(Origin::root(), account1.clone());
 		// Positive test
-		assert!(ValidatorSet::is_validator(1, &1));
+		assert!(DefaultValidatorWhiteList::is_validator(&account1));
 		// Negative test
-		assert!(!ValidatorSet::is_validator(1, &2));
+		assert!(!DefaultValidatorWhiteList::is_validator(&account2));
 	})
 }

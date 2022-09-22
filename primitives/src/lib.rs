@@ -66,9 +66,6 @@ pub mod types {
 	/// Parachain Identifier
 	pub type ParachainId = u32;
 
-	/// The type for identifying the validators
-	pub type ValidatorId = u32;
-
 	pub type Timestamp = u64;
 
 	/// An index to a block.
