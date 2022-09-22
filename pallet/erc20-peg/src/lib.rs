@@ -102,8 +102,6 @@ decl_event! {
 		AccountId = <T as frame_system::Config>::AccountId,
 		BlockNumber = <T as frame_system::Config>::BlockNumber,
 	{
-		/// An erc20 deposit claim has started. (deposit Id, sender)
-		Erc20Claim(u64, AccountId),
 		/// An erc20 claim has been delayed.(claim_id, scheduled block, amount, beneficiary)
 		Erc20DepositDelayed(ClaimId, BlockNumber, Balance, AccountId),
 		/// A withdrawal has been delayed.(claim_id, scheduled block, amount, beneficiary)

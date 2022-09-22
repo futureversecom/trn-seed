@@ -56,7 +56,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
-	FinalSessionTracker as FinalSessionTrackerT, EthereumBridge,
+	FinalSessionTracker as FinalSessionTrackerT,
 };
 use seed_primitives::AccountId;
 

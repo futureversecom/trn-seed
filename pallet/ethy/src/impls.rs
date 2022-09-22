@@ -693,18 +693,6 @@ impl<T: Config> Module<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 		Self::deposit_event(Event::<T>::EventSubmit(event_proof_info));
 	}
-
-	fn do_generate_event_proof(event_proof_id: EventClaimId, packed_event_with_id: Message) {
-		let log: DigestItem = DigestItem::Consensus(
-			ETHY_ENGINE_ID,
-			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((
-				packed_event_with_id,
-				event_proof_id,
-			))
-			.encode(),
-		);
-		<frame_system::Pallet<T>>::deposit_log(log);
-	}
 }
 
 impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
