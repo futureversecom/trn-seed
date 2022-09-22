@@ -46,7 +46,7 @@ mod tests;
 
 pub trait Config: frame_system::Config<AccountId = AccountId> {
 	/// An onchain address for this pallet
-	type PegPalletId: Get<PalletId>;
+	type PalletId: Get<PalletId>;
 	/// The EVM event signature of a deposit
 	type DepositEventSignature: Get<[u8; 32]>;
 	/// Submits event messages to Ethereum
@@ -315,7 +315,7 @@ impl<T: Config> Module<T> {
 		withdrawal_message: WithdrawMessage,
 		asset_id: AssetId,
 	) -> DispatchResult {
-		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
+		let source: T::AccountId = T::PalletId::get().into_account_truncating();
 		let message = ethabi::encode(&[
 			Token::Address(withdrawal_message.token_address),
 			Token::Uint(withdrawal_message.amount.into()),
@@ -422,6 +422,7 @@ impl<T: Config> Module<T> {
 			if let Some((min_amount, delay)) = claim_delay {
 				if U256::from(min_amount) <= claim.amount {
 					Self::delay_claim(delay, PendingClaim::Deposit(claim.clone()));
+					return Ok(())
 				}
 			};
 		}
@@ -441,7 +442,7 @@ impl<T: Config> Module<T> {
 				let (symbol, decimals) = Erc20Meta::get(verified_event.token_address)
 					.unwrap_or((Default::default(), 18));
 
-				let pallet_id = T::PegPalletId::get().into_account_truncating();
+				let pallet_id = T::PalletId::get().into_account_truncating();
 				let asset_id = T::MultiCurrency::create_with_metadata(
 					&pallet_id,
 					// TODO: We may want to accept a name as input as well later. For now, we will
@@ -473,7 +474,7 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> EthereumEventSubscriber for Module<T> {
-	type Address = T::PegPalletId;
+	type Address = T::PalletId;
 
 	fn on_event(source: &H160, data: &[u8]) -> Result<u64, (u64, sp_runtime::DispatchError)> {
 		let abi_decoded = match ethabi::decode(

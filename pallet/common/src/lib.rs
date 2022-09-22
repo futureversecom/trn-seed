@@ -6,9 +6,7 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	sp_runtime::traits::AccountIdConversion,
-	traits::{
-		fungibles::Transfer, ExistenceRequirement, Get, Imbalance, SignedImbalance, WithdrawReasons,
-	},
+	traits::{fungibles::Transfer, Get},
 	weights::Weight,
 	PalletId,
 };
@@ -17,7 +15,7 @@ use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, H256};
 use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
