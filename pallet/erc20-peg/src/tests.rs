@@ -14,7 +14,7 @@ use frame_support::{
 	weights::constants::RocksDbWeight as DbWeight,
 };
 use hex_literal::hex;
-use seed_pallet_common::EthereumEventRouter;
+use seed_pallet_common::{EthereumEventRouter, EventRouterError};
 
 fn make_account_id(seed: u64) -> AccountId {
 	AccountId::from(H160::from_low_u64_be(seed))
@@ -41,6 +41,46 @@ fn deposit_payment_with_ethereum_event_router() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Activate deposits
 		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
+		// Set contract address
+		let contract_address = H160::from_low_u64_be(123);
+		assert_ok!(Erc20Peg::set_contract_address(
+			frame_system::RawOrigin::Root.into(),
+			contract_address
+		));
+
+		// Setup token mapping
+		let token_address: H160 = H160::from_low_u64_be(666);
+		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+
+		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
+		let deposit_amount: Balance = 100;
+		let beneficiary: H160 = H160::from_low_u64_be(456);
+
+		// Encode data for bridge call
+		let data = ethabi::encode(&[
+			Token::Address(token_address),
+			Token::Uint(deposit_amount.into()),
+			Token::Address(beneficiary),
+		]);
+		assert_ok!(MockEthereumEventRouter::route(
+			&contract_address,
+			&destination,
+			data.clone().as_slice()
+		));
+
+		// Check beneficiary account received funds
+		assert_eq!(
+			AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)),
+			deposit_amount
+		);
+	});
+}
+
+#[test]
+fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Activate deposits
+		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
 
 		// Setup token mapping
 		let token_address: H160 = H160::from_low_u64_be(666);
@@ -57,12 +97,49 @@ fn deposit_payment_with_ethereum_event_router() {
 			Token::Uint(deposit_amount.into()),
 			Token::Address(beneficiary),
 		]);
-		assert_ok!(MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()));
+		assert_noop!(
+			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
+			(
+				DbWeight::get().reads(1 as Weight),
+				EventRouterError::FailedProcessing(Error::<Test>::InvalidSourceAddress.into())
+			)
+		);
+	});
+}
 
-		// Check beneficiary account received funds
-		assert_eq!(
-			AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)),
-			deposit_amount
+#[test]
+fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Activate deposits
+		assert_ok!(Erc20Peg::activate_deposits(frame_system::RawOrigin::Root.into(), true));
+		// Set contract address to different value
+		let contract_address = H160::from_low_u64_be(8910);
+		assert_ok!(Erc20Peg::set_contract_address(
+			frame_system::RawOrigin::Root.into(),
+			contract_address
+		));
+
+		// Setup token mapping
+		let token_address: H160 = H160::from_low_u64_be(666);
+		Erc20ToAssetId::insert(token_address, SPENDING_ASSET_ID);
+
+		let source = H160::from_low_u64_be(123);
+		let destination = <Test as Config>::PegPalletId::get().into_account_truncating();
+		let deposit_amount: Balance = 100;
+		let beneficiary: H160 = H160::from_low_u64_be(456);
+
+		// Encode data for bridge call
+		let data = ethabi::encode(&[
+			Token::Address(token_address),
+			Token::Uint(deposit_amount.into()),
+			Token::Address(beneficiary),
+		]);
+		assert_noop!(
+			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
+			(
+				DbWeight::get().reads(1 as Weight),
+				EventRouterError::FailedProcessing(Error::<Test>::InvalidSourceAddress.into())
+			)
 		);
 	});
 }
