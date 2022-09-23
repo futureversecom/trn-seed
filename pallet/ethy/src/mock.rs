@@ -20,12 +20,13 @@ use frame_support::{
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 	PalletId,
 };
+use frame_system::EnsureRoot;
 use scale_info::TypeInfo;
 use seed_pallet_common::{
 	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
 	EventRouterResult, FinalSessionTracker,
 };
-use seed_primitives::{ethy::crypto::AuthorityId, Signature};
+use seed_primitives::{ethy::crypto::AuthorityId, AssetId, Balance, Signature};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{H160, H256, U256};
 use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
@@ -51,13 +52,15 @@ use crate::{
 	Config,
 };
 
+pub const XRP_ASSET_ID: AssetId = 1;
+
 type BlockNumber = u64;
 pub type SessionIndex = u32;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
 pub type Extrinsic = TestXt<Call, ()>;
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
+pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 frame_support::construct_runtime!(
 	pub enum TestRuntime where
@@ -67,6 +70,9 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
+		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 	}
 );
 
@@ -91,7 +97,7 @@ impl frame_system::Config for TestRuntime {
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<Balance>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
@@ -106,6 +112,9 @@ parameter_types! {
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	pub const ChallengePeriod: BlockNumber = 100 as BlockNumber;
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
+	pub const ChallengerBond: Balance = 100;
+	pub const RelayerBond: Balance = 100;
+	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
@@ -121,6 +130,67 @@ impl Config for TestRuntime {
 	type UnixTime = MockUnixTime;
 	type Call = Call;
 	type Event = Event;
+	type ChallengeBond = ChallengerBond;
+	type MultiCurrency = AssetsExt;
+	type NativeAssetId = XrpAssetId;
+	type RelayerBond = RelayerBond;
+}
+
+parameter_types! {
+	pub const AssetDeposit: Balance = 1_000_000;
+	pub const AssetAccountDeposit: Balance = 16;
+	pub const ApprovalDeposit: Balance = 1;
+	pub const AssetsStringLimit: u32 = 50;
+	pub const MetadataDepositBase: Balance = 1 * 68;
+	pub const MetadataDepositPerByte: Balance = 1;
+}
+
+impl pallet_assets::Config for TestRuntime {
+	type Event = Event;
+	type Balance = Balance;
+	type AssetId = AssetId;
+	type Currency = Balances;
+	type ForceOrigin = AssetsForceOrigin;
+	type AssetDeposit = AssetDeposit;
+	type MetadataDepositBase = MetadataDepositBase;
+	type MetadataDepositPerByte = MetadataDepositPerByte;
+	type ApprovalDeposit = ApprovalDeposit;
+	type StringLimit = AssetsStringLimit;
+	type Freezer = ();
+	type Extra = ();
+	type WeightInfo = ();
+	type AssetAccountDeposit = AssetAccountDeposit;
+}
+
+parameter_types! {
+	pub const NativeAssetId: AssetId = 1;
+	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
+	pub const MaxHolds: u32 = 16;
+	pub const TestParachainId: u32 = 100;
+}
+
+impl pallet_assets_ext::Config for TestRuntime {
+	type Event = Event;
+	type ParachainId = TestParachainId;
+	type MaxHolds = MaxHolds;
+	type NativeAssetId = NativeAssetId;
+	type PalletId = AssetsExtPalletId;
+}
+
+parameter_types! {
+	pub const MaxReserves: u32 = 50;
+}
+
+impl pallet_balances::Config for TestRuntime {
+	type Balance = Balance;
+	type Event = Event;
+	type DustRemoval = ();
+	type ExistentialDeposit = ();
+	type AccountStore = System;
+	type MaxLocks = ();
+	type WeightInfo = ();
+	type MaxReserves = MaxReserves;
+	type ReserveIdentifier = [u8; 8];
 }
 
 /// Values in EthBlock that we store in mock storage
@@ -557,6 +627,7 @@ pub struct ExtBuilder {
 	with_keystore: bool,
 	next_session_final: bool,
 	active_session_final: bool,
+	endowed_account: Option<(AccountId, Balance)>,
 }
 
 impl ExtBuilder {
@@ -576,11 +647,22 @@ impl ExtBuilder {
 		self.next_session_final = true;
 		self
 	}
+	pub fn with_endowed_account(mut self, account: AccountId, balance: Balance) -> Self {
+		self.endowed_account = Some((account, balance));
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-			.build_storage::<TestRuntime>()
-			.unwrap()
-			.into();
+		let mut ext =
+			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+
+		if self.endowed_account.is_some() {
+			pallet_balances::GenesisConfig::<TestRuntime> {
+				balances: vec![self.endowed_account.unwrap()],
+			}
+			.assimilate_storage(&mut ext)
+			.unwrap();
+		}
+		let mut ext: sp_io::TestExternalities = ext.into();
 
 		if let Some(relayer) = self.relayer {
 			ext.execute_with(|| {
