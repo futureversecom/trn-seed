@@ -32,13 +32,14 @@ use std::{marker::PhantomData, ops::Deref, sync::Arc};
 use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
 use seed_primitives::{
 	ethy::{
-		EthyApi as EthyRuntimeApi, EthyChainId, EventProofId, VersionedEventProof, ETHY_ENGINE_ID,
+		EthyApi as EthyRuntimeApi, EthyChainId, EventProof, EventProofId, VersionedEventProof,
+		ETHY_ENGINE_ID,
 	},
 	AccountId20,
 };
 
 mod notification;
-use notification::EventProofResponse;
+use notification::{EventProofResponse, XrplTxProofResponse};
 
 /// Provides RPC methods for interacting with Ethy.
 #[allow(clippy::needless_return)]
@@ -48,11 +49,20 @@ pub trait EthyApi<Notification> {
 	#[subscription(name = "subscribeEventProofs" => "eventProofs", unsubscribe = "unsubscribeEventProofs", item = Notification)]
 	fn subscribe_event_proofs(&self);
 
-	/// Query a proof for a known chain Id & event Id
+	/// Query a proof for `event_proof_id` and Ethereum chain Id
 	///
 	/// Returns `null` if missing
 	#[method(name = "getEventProof")]
-	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<Notification>>;
+	fn get_event_proof(&self, event_proof_id: EventProofId) -> RpcResult<Option<Notification>>;
+
+	/// Query a proof for a `event_proof_id` and XRPL chain Id
+	///
+	/// Returns `null` if missing
+	#[method(name = "getXrplTxProof")]
+	fn get_xrpl_tx_proof(
+		&self,
+		event_proof_id: EventProofId,
+	) -> RpcResult<Option<XrplTxProofResponse>>;
 }
 
 /// Implements the EthyApi RPC trait for interacting with ethy-gadget.
@@ -123,6 +133,26 @@ where
 		}
 		Ok(None)
 	}
+
+	fn get_xrpl_tx_proof(&self, event_id: EventProofId) -> RpcResult<Option<XrplTxProofResponse>> {
+		if let Ok(maybe_encoded_proof) = self.client.get_aux(
+			[
+				ETHY_ENGINE_ID.as_slice(),
+				&[EthyChainId::Xrpl.into()].as_slice(),
+				&event_id.to_be_bytes().as_slice(),
+			]
+			.concat()
+			.as_ref(),
+		) {
+			if let Some(encoded_proof) = maybe_encoded_proof {
+				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
+					let response = build_xrpl_tx_proof_response(versioned_proof);
+					return Ok(response)
+				}
+			}
+		}
+		Ok(None)
+	}
 }
 
 /// Build an `EventProofResponse` from a `VersionedEventProof`
@@ -162,5 +192,23 @@ where
 				tag: None,
 			})
 		},
+	}
+}
+
+/// Build an `XrplTxProofResponse` from a `VersionedEventProof`
+pub fn build_xrpl_tx_proof_response(
+	versioned_event_proof: VersionedEventProof,
+) -> Option<XrplTxProofResponse> {
+	match versioned_event_proof {
+		VersionedEventProof::V1(EventProof { signatures, event_id, block, digest, .. }) =>
+			Some(XrplTxProofResponse {
+				event_id,
+				signatures: signatures
+					.into_iter()
+					.map(|(_, s)| Bytes::from(s.deref().to_vec()))
+					.collect(),
+				block: block.into(),
+				digest: digest.into(),
+			}),
 	}
 }

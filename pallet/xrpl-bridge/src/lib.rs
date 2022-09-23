@@ -101,8 +101,8 @@ pub mod pallet {
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
 		WithdrawRequested {
+			tx_blob: Vec<u8>,
 			proof_id: u64,
-			nonce: XrplWithdrawTxNonce,
 			sender: T::AccountId,
 			amount: Balance,
 			destination: XrplWithdrawAddress,
@@ -368,20 +368,24 @@ impl<T: Config> Pallet<T> {
 		<PendingWithdrawXRPTransaction<T>>::append(&tx_nonce);
 		<PendingWithdrawXRPTransactionDetails<T>>::insert(&tx_nonce, &tx_data);
 
-		let proof_id = Self::submit_withdraw_request(tx_data)?;
+		let (proof_id, tx_blob) = Self::submit_withdraw_request(tx_data)?;
 
 		Self::deposit_event(Event::WithdrawRequested {
 			proof_id,
-			nonce: tx_nonce,
+			tx_blob,
 			sender: who,
 			amount,
 			destination,
 		});
+
 		Ok(())
 	}
 
-	/// Construct an XRPL payment transaction for signing
-	fn submit_withdraw_request(tx_data: XrpWithdrawTransaction) -> Result<u64, DispatchError> {
+	/// Construct an XRPL payment transaction and submit for signing
+	/// Returns a (proof_id, tx_blob)
+	fn submit_withdraw_request(
+		tx_data: XrpWithdrawTransaction,
+	) -> Result<(u64, Vec<u8>), DispatchError> {
 		use sha2::Digest;
 		use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
@@ -398,7 +402,7 @@ impl<T: Config> Pallet<T> {
 		// rnZiKvrWFGi2JfHtLS8kxcqCqVhch6W5k5
 		let door_address: [u8; 20] = hex_literal::hex!("3216fd40be8f9b0016253e5244085375d887a53e");
 
-		let tx_for_signing = Payment::new(
+		let tx_blob = Payment::new(
 			door_address.into(),
 			destination.into(),
 			amount.saturated_into(),
@@ -409,11 +413,12 @@ impl<T: Config> Pallet<T> {
 		.binary_serialize(true);
 
 		// sha2 hash it
-		let tx_hash_512 = sha2::Sha512::new().chain_update(tx_for_signing).finalize();
+		let tx_hash_512 = sha2::Sha512::new().chain_update(tx_blob.clone()).finalize();
 		let tx_hash: [u8; 32] =
 			tx_hash_512[..32].try_into().map_err(|_| Error::<T>::WithdrawHash)?;
 
 		T::EthyAdapter::sign_xrpl_transaction(&XrplTxHashForSigning::from(tx_hash))
+			.map(|event_proof_id| (event_proof_id, tx_blob))
 	}
 
 	pub fn withdraw_tx_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {
