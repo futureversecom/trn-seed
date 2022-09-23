@@ -14,8 +14,11 @@
  */
 
 use crate as pallet_erc20_peg;
-use seed_pallet_common::EthereumBridge;
-use seed_primitives::types::{AssetId, Balance};
+use seed_pallet_common::{
+	EthereumBridge, EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber,
+	EventRouterError, EventRouterResult,
+};
+use seed_primitives::types::{AccountId, AssetId, Balance};
 
 use frame_support::{pallet_prelude::*, parameter_types, PalletId};
 use frame_system::EnsureRoot;
@@ -25,14 +28,11 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-pub const CPAY_ASSET_ID: AssetId = 16001;
-pub const NEXT_ASSET_ID: AssetId = 17000;
-
-pub const SPENDING_ASSET_ID: AssetId = CPAY_ASSET_ID;
+pub const XRP_ASSET_ID: AssetId = 1;
+pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-pub type AccountId = u64;
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -78,7 +78,6 @@ impl frame_system::Config for Test {
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
-
 
 parameter_types! {
 	pub const AssetDeposit: Balance = 1_000_000;
@@ -139,14 +138,8 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
 	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
 	pub const DepositEventSignature: [u8; 32] = hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
-	pub const MaxLengthErc20Meta: u32 = 300;
-	pub const MaxClaimsPerBlock: u32 = 300;
-	pub const MaxReadyBlocks: u32 = 300;
-	pub const MaxInitialErcMetas: u8 = 50;
 }
 
 impl crate::Config for Test {
@@ -161,11 +154,30 @@ impl crate::Config for Test {
 pub struct MockEthBridge;
 impl EthereumBridge for MockEthBridge {
 	fn send_event(
-			source: &H160,
-			destination: &H160,
-			message: &[u8],
-		) -> Result<seed_primitives::ethy::EventProofId, DispatchError> {
-			Ok(1)
+		_source: &H160,
+		_destination: &H160,
+		_message: &[u8],
+	) -> Result<seed_primitives::ethy::EventProofId, DispatchError> {
+		Ok(1)
+	}
+}
+
+/// Handles routing verified bridge messages to other pallets
+pub struct MockEthereumEventRouter;
+
+impl EthereumEventRouterT for MockEthereumEventRouter {
+	/// Route an event to a handler at `destination`
+	/// - `source` the sender address on Ethereum
+	/// - `destination` the intended handler (pseudo) address
+	/// - `data` the Ethereum ABI encoded event data
+	fn route(source: &H160, destination: &H160, data: &[u8]) -> EventRouterResult {
+		// Route event to specific subscriber pallet
+		if destination == &<pallet_erc20_peg::Pallet<Test> as EthereumEventSubscriber>::address() {
+			<pallet_erc20_peg::Pallet<Test> as EthereumEventSubscriber>::on_event(source, data)
+				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
+		} else {
+			Err((0, EventRouterError::NoReceiver))
+		}
 	}
 }
 
@@ -174,9 +186,9 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut ext: sp_io::TestExternalities =
+			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
 
-		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| {
 			System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		});
