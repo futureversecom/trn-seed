@@ -647,25 +647,34 @@ impl ExtBuilder {
 		self.next_session_final = true;
 		self
 	}
-	pub fn with_endowed_account(mut self, account: AccountId, balance: Balance) -> Self {
-		self.endowed_account = Some((account, balance));
+	pub fn with_endowed_account(mut self, account: H160, balance: Balance) -> Self {
+		self.endowed_account = Some((AccountId::from(account), balance));
 		self
 	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext =
 			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
+		let mut endowed_accounts: Vec<(AccountId, Balance)> = vec![];
 		if self.endowed_account.is_some() {
-			pallet_balances::GenesisConfig::<TestRuntime> {
-				balances: vec![self.endowed_account.unwrap()],
-			}
-			.assimilate_storage(&mut ext)
-			.unwrap();
+			// Endow specified account
+			endowed_accounts.push(self.endowed_account.unwrap());
+		}
+		if let Some(relayer) = self.relayer {
+			// Endow relayer with relayerbond amount
+			endowed_accounts.push((relayer, RelayerBond::get()));
+		}
+
+		if !endowed_accounts.is_empty() {
+			pallet_balances::GenesisConfig::<TestRuntime> { balances: endowed_accounts }
+				.assimilate_storage(&mut ext)
+				.unwrap();
 		}
 		let mut ext: sp_io::TestExternalities = ext.into();
 
 		if let Some(relayer) = self.relayer {
 			ext.execute_with(|| {
+				assert!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())).is_ok());
 				assert!(EthBridge::set_relayer(Origin::root(), relayer).is_ok());
 			});
 		}

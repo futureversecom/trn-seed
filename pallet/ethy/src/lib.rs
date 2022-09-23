@@ -340,6 +340,7 @@ decl_module! {
 				T::NativeAssetId::get(),
 				relayer_bond,
 			)?;
+			<RelayerPaidBond<T>>::insert(origin, relayer_bond);
 			Self::deposit_event(Event::<T>::RelayerBondDeposit(origin, relayer_bond));
 			Ok(())
 		}
