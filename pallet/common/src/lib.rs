@@ -110,24 +110,6 @@ pub trait CreateExt {
 	) -> Result<AssetId, DispatchError>;
 }
 
-/// Something that subscribes to bridge event claims
-#[impl_trait_for_tuples::impl_for_tuples(10)]
-pub trait EventClaimSubscriber {
-	/// Notify subscriber about a successful event claim for the given event data
-	fn on_success(
-		event_claim_id: u64,
-		contract_address: &H160,
-		event_signature: &H256,
-		event_data: &[u8],
-	);
-	/// Notify subscriber about a failed event claim for the given event data
-	fn on_failure(
-		event_claim_id: u64,
-		contract_address: &H160,
-		event_signature: &H256,
-		event_data: &[u8],
-	);
-}
 /// The interface that states whether an account owns a token
 pub trait IsTokenOwner {
 	type AccountId;

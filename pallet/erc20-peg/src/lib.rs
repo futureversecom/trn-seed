@@ -45,8 +45,6 @@ mod tests;
 pub trait Config: frame_system::Config<AccountId = AccountId> {
 	/// An onchain address for this pallet
 	type PegPalletId: Get<PalletId>;
-	/// The EVM event signature of a deposit
-	type DepositEventSignature: Get<[u8; 32]>;
 	/// Submits event messages to Ethereum
 	type EthBridge: EthereumBridge;
 	/// Currency functions

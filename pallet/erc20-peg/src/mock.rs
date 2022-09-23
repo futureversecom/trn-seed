@@ -139,11 +139,9 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
-	pub const DepositEventSignature: [u8; 32] = hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
 }
 
 impl crate::Config for Test {
-	type DepositEventSignature = DepositEventSignature;
 	type Event = Event;
 	type EthBridge = MockEthBridge;
 	type PegPalletId = PegPalletId;
