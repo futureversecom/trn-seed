@@ -386,7 +386,6 @@ impl<T: Config> Pallet<T> {
 	fn submit_withdraw_request(
 		tx_data: XrpWithdrawTransaction,
 	) -> Result<(u64, Vec<u8>), DispatchError> {
-		use sha2::Digest;
 		use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
 		let XrpWithdrawTransaction { tx_nonce, amount, destination } = tx_data;
@@ -401,24 +400,25 @@ impl<T: Config> Pallet<T> {
 		// TODO: use pallet config
 		// rnZiKvrWFGi2JfHtLS8kxcqCqVhch6W5k5
 		let door_address: [u8; 20] = hex_literal::hex!("3216fd40be8f9b0016253e5244085375d887a53e");
+		// TODO: quick test to check signing with alice only
+		let alice_signer: [u8; 33] =
+			hex_literal::hex!("020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a1");
 
-		let tx_blob = Payment::new(
+		let payment = Payment::new(
 			door_address.into(),
 			destination.into(),
 			amount.saturated_into(),
 			tx_nonce,
 			fee_one_xrp,
 			signer_pub_key,
-		)
-		.binary_serialize(true);
+		);
 
-		// sha2 hash it
-		let tx_hash_512 = sha2::Sha512::new().chain_update(tx_blob.clone()).finalize();
-		let tx_hash: [u8; 32] =
-			tx_hash_512[..32].try_into().map_err(|_| Error::<T>::WithdrawHash)?;
+		let tx_blob_for_event = payment.binary_serialize(true);
+		// TODO: this will need to happen for each validator
+		let tx_hash_for_signing = payment.multi_signing_digest(alice_signer);
 
-		T::EthyAdapter::sign_xrpl_transaction(&XrplTxHashForSigning::from(tx_hash))
-			.map(|event_proof_id| (event_proof_id, tx_blob))
+		T::EthyAdapter::sign_xrpl_transaction(&XrplTxHashForSigning::from(tx_hash_for_signing))
+			.map(|event_proof_id| (event_proof_id, tx_blob_for_event))
 	}
 
 	pub fn withdraw_tx_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {
