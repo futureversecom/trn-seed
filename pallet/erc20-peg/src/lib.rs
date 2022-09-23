@@ -484,7 +484,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 				Error::<T>::InvalidSourceAddress.into(),
 			))
 		}
-		// New stuff
+
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
 			abi_decoded.as_slice()
 		{

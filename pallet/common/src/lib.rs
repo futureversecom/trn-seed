@@ -15,7 +15,7 @@ use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
-use sp_core::{H160, H256};
+use sp_core::H160;
 use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
