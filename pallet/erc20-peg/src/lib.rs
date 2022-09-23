@@ -488,7 +488,6 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			Err(_) => return Err((0, Error::<T>::InvalidAbiEncoding.into())),
 		};
 
-		// New stuff
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
 			abi_decoded.as_slice()
 		{
