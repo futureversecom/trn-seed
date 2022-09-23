@@ -190,7 +190,7 @@ pub trait EthereumEventSubscriber {
 
 	/// Verifies the source address
 	/// Allows pallets to restrict the source based on individual requirements
-	/// Can be used to restrict source destination to an individual contract address
+	/// Can be used to restrict source address to an individual contract address
 	fn verify_source(source: &H160) -> OnEventResult;
 
 	/// Notify subscriber about a event received from Ethereum
