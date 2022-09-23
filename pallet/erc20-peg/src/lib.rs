@@ -473,7 +473,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 		if source != &Self::contract_address() {
 			Err((DbWeight::get().reads(1 as Weight), Error::<T>::InvalidSourceAddress.into()))
 		} else {
-			Ok(0)
+			Ok(DbWeight::get().reads(1 as Weight))
 		}
 	}
 
@@ -494,7 +494,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			let beneficiary: H160 = beneficiary.into();
 			// The total weight of do_deposit assuming it reaches every path
 			let deposit_weight =
-				DbWeight::get().reads(7 as Weight) + DbWeight::get().writes(4 as Weight);
+				DbWeight::get().reads(6 as Weight) + DbWeight::get().writes(4 as Weight);
 			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {
 				Ok(_) => Ok(deposit_weight),
 				Err(e) => {

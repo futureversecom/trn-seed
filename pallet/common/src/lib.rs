@@ -183,8 +183,9 @@ pub trait EthereumEventSubscriber {
 	/// process an incoming event from Ethereum
 	/// Verifies source address based on each destinations implementation of verify_source
 	fn process_event(source: &H160, data: &[u8]) -> OnEventResult {
-		Self::verify_source(source)?;
-		Self::on_event(source, data)
+		let verify_weight = Self::verify_source(source)?;
+		let on_event_weight = Self::on_event(source, data)?;
+		Ok(verify_weight.saturating_add(on_event_weight))
 	}
 
 	/// Verifies the source address
