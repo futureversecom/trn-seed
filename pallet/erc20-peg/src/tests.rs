@@ -291,10 +291,25 @@ fn deposit_payment_with_delay() {
 			Some(PendingPayment::Deposit(payment.clone()))
 		);
 
-		let beneficiary: AccountId = Decode::decode(&mut &beneficiary.0[..]).unwrap();
-		assert_eq!(AssetsExt::balance(expected_asset_id, &beneficiary), amount);
-		assert_eq!(Erc20Peg::erc20_to_asset(contract_address), Some(expected_asset_id));
-		assert_eq!(Erc20Peg::asset_to_erc20(expected_asset_id), Some(contract_address));
+		// Try again next block with enough weight
+		assert_eq!(Erc20Peg::on_initialize(payment_block + 1), DbWeight::get().reads(1 as Weight));
+		assert_eq!(
+			Erc20Peg::on_idle(payment_block + 1, delayed_payment_weight * 2),
+			delayed_payment_weight + DbWeight::get().reads(1 as Weight)
+		);
+
+		// Check payments removed from storage
+		assert_eq!(Erc20Peg::ready_blocks(), vec![] as Vec<u64>);
+		assert_eq!(
+			Erc20Peg::delayed_payment_schedule(payment_block),
+			vec![] as Vec<DelayedPaymentId>
+		);
+		assert!(Erc20Peg::delayed_payments(delayed_payment_id).is_none());
+		// Check beneficiary account has now received funds
+		assert_eq!(
+			AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)),
+			deposit_amount
+		);
 	});
 }
 
