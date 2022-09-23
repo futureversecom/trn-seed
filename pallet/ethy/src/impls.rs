@@ -16,8 +16,8 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 use seed_pallet_common::{
-	log, EthAbiCodec, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
-	EventClaimVerifier, FinalSessionTracker as FinalSessionTrackerT,
+	log, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
+	FinalSessionTracker as FinalSessionTrackerT,
 };
 use seed_primitives::ethy::PendingAuthorityChange;
 
@@ -751,18 +751,6 @@ impl<T: Config> Module<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 		Self::deposit_event(Event::<T>::EventSubmit(event_proof_info));
 	}
-
-	fn do_generate_event_proof(event_proof_id: EventClaimId, packed_event_with_id: Message) {
-		let log: DigestItem = DigestItem::Consensus(
-			ETHY_ENGINE_ID,
-			ConsensusLog::<T::AccountId>::OpaqueSigningRequest((
-				packed_event_with_id,
-				event_proof_id,
-			))
-			.encode(),
-		);
-		<frame_system::Pallet<T>>::deposit_log(log);
-	}
 }
 
 impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
@@ -806,23 +794,6 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Module<T> {
 		} else {
 			InvalidTransaction::Call.into()
 		}
-	}
-}
-
-impl<T: Config> EventClaimVerifier for Module<T> {
-	/// Submit an event claim against an ethereum tx hash
-	// tx hashes may only be claimed once
-	fn submit_event_claim(
-		contract_address: &H160,
-		event_signature: &H256,
-		tx_hash: &H256,
-		event_data: &[u8],
-	) -> Result<EventClaimId, DispatchError> {
-		unimplemented!()
-	}
-
-	fn generate_event_proof<E: EthAbiCodec>(event: &E) -> Result<u64, DispatchError> {
-		unimplemented!()
 	}
 }
 
