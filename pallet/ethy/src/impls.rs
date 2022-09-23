@@ -528,7 +528,6 @@ impl<T: Config> Module<T> {
 			log!(error, "💎 unexpected empty claim");
 			return Err(Error::<T>::InvalidClaim.into())
 		}
-		Ok(())
 	}
 
 	/// Handle claim after challenge has proven claim to be valid

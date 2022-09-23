@@ -56,7 +56,7 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
-	FinalSessionTracker as FinalSessionTrackerT, Hold, TransferExt,
+	FinalSessionTracker as FinalSessionTrackerT, Hold,
 };
 use seed_primitives::{AccountId, AssetId, Balance};
 
@@ -269,8 +269,13 @@ decl_module! {
 			let mut consumed_weight = 0 as Weight;
 
 			// 1) Process validated messages
+			// Removed message_id from MessagesValidAt and processes it.
+			// If it is found that a challenged event claim processed in this block is valid,
+			// It will be requeued for after another ChallengePeriod.
+			// If it is found to be invalid, it won't be requeued and remain unprocessed
 			let mut processed_message_ids = Self::processed_message_ids();
 			for message_id in MessagesValidAt::<T>::take(block_number) {
+				// Removed PendingEventClaim from storage and processes
 				if let Some(EventClaim { source, destination, data, .. } ) = PendingEventClaims::take(message_id) {
 					// keep a runtime hardcoded list of destination <> palletId
 					match T::EventRouter::route(&source, &destination, &data) {
