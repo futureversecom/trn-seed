@@ -275,6 +275,14 @@ decl_module! {
 			// If it is found to be invalid, it won't be requeued and remain unprocessed
 			let mut processed_message_ids = Self::processed_message_ids();
 			for message_id in MessagesValidAt::<T>::take(block_number) {
+				if PendingClaimChallenges::get().iter().any(|&x| x == message_id) {
+					// We are still waiting on the challenge to be processed, push out by challenge period
+					<MessagesValidAt<T>>::append(
+						<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get(),
+						message_id,
+					);
+					continue
+				}
 				// Removed PendingEventClaim from storage and processes
 				if let Some(EventClaim { source, destination, data, .. } ) = PendingEventClaims::take(message_id) {
 					// keep a runtime hardcoded list of destination <> palletId

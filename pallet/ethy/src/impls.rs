@@ -545,8 +545,6 @@ impl<T: Config> Module<T> {
 			return Err(Error::<T>::Internal.into())
 		}
 		// Remove the claim from pending_claim_challenges
-		// Note: This is added again later but will be moved to the end of the vector
-		// so it's processed in order
 		PendingClaimChallenges::mutate(|event_ids| {
 			event_ids
 				.iter()
@@ -554,7 +552,7 @@ impl<T: Config> Module<T> {
 				.map(|idx| event_ids.remove(idx));
 		});
 
-		if let Some(event_claim) = PendingEventClaims::take(event_claim_id) {
+		if PendingEventClaims::contains_key(event_claim_id) {
 			if let Some(relayer) = Self::relayer() {
 				if let Some((challenger, bond_amount)) = Self::challenger_account(event_claim_id) {
 					// Challenger is incorrect, the event is valid. Send funds to relayer
@@ -568,13 +566,6 @@ impl<T: Config> Module<T> {
 					// This shouldn't happen
 					log!(error, "💎 unexpected missing challenger account");
 				}
-				// Requeue event, safe to do as event is removed from both of the following maps
-				// prior to this stage
-				PendingEventClaims::insert(event_claim_id, event_claim);
-				<MessagesValidAt<T>>::append(
-					<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get(),
-					event_claim_id,
-				);
 
 				Self::deposit_event(Event::<T>::Verified(event_claim_id));
 			} else {
