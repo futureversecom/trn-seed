@@ -141,6 +141,8 @@ decl_error! {
 		EvmWithdrawalFailed,
 		/// The abi received does not match the encoding scheme
 		InvalidAbiEncoding,
+		/// The source address for deposits must be the ERC20Peg Contract address
+		InvalidSourceAddress,
 	}
 }
 
@@ -478,6 +480,12 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			Err(_) => return Err((0, Error::<T>::InvalidAbiEncoding.into())),
 		};
 
+		if source != &Self::contract_address() {
+			return Err((
+				DbWeight::get().reads(1 as Weight),
+				Error::<T>::InvalidSourceAddress.into(),
+			))
+		}
 		// New stuff
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
 			abi_decoded.as_slice()
@@ -486,7 +494,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			let amount: U256 = amount.into();
 			let beneficiary: H160 = beneficiary.into();
 			let deposit_weight =
-				DbWeight::get().reads(6 as Weight) + DbWeight::get().writes(4 as Weight);
+				DbWeight::get().reads(7 as Weight) + DbWeight::get().writes(4 as Weight);
 			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {
 				Ok(_) => Ok(deposit_weight),
 				Err(e) => {
