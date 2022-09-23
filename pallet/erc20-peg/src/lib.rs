@@ -26,7 +26,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber};
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
 use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 use sp_core::{H160, U256};
 use sp_runtime::{
@@ -469,7 +469,15 @@ impl<T: Config> Module<T> {
 impl<T: Config> EthereumEventSubscriber for Module<T> {
 	type Address = T::PegPalletId;
 
-	fn on_event(source: &H160, data: &[u8]) -> Result<u64, (u64, DispatchError)> {
+	fn verify_source(source: &H160) -> OnEventResult {
+		if source != &Self::contract_address() {
+			Err((DbWeight::get().reads(1 as Weight), Error::<T>::InvalidSourceAddress.into()))
+		} else {
+			Ok(0)
+		}
+	}
+
+	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let abi_decoded = match ethabi::decode(
 			&[ParamType::Address, ParamType::Uint(128), ParamType::Address],
 			data,
@@ -478,19 +486,13 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			Err(_) => return Err((0, Error::<T>::InvalidAbiEncoding.into())),
 		};
 
-		if source != &Self::contract_address() {
-			return Err((
-				DbWeight::get().reads(1 as Weight),
-				Error::<T>::InvalidSourceAddress.into(),
-			))
-		}
-		// New stuff
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
 			abi_decoded.as_slice()
 		{
 			let token_address: H160 = token_address.into();
 			let amount: U256 = amount.into();
 			let beneficiary: H160 = beneficiary.into();
+			// The total weight of do_deposit assuming it reaches every path
 			let deposit_weight =
 				DbWeight::get().reads(7 as Weight) + DbWeight::get().writes(4 as Weight);
 			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {

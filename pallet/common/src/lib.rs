@@ -15,7 +15,7 @@ use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
-use sp_core::{H160, H256};
+use sp_core::H160;
 use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
@@ -172,13 +172,25 @@ pub trait EthereumEventRouter {
 pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
-	// The destination/source address that handles routing of events to the subscriber
+	/// The destination/source address that handles routing of events to the subscriber
 	type Address: Get<PalletId>;
 
-	// The destination/source address getter function
+	/// The destination/source address getter function
 	fn address() -> H160 {
 		Self::Address::get().into_account_truncating()
 	}
+
+	/// process an incoming event from Ethereum
+	/// Verifies source address based on each destinations implementation of verify_source
+	fn process_event(source: &H160, data: &[u8]) -> OnEventResult {
+		Self::verify_source(source)?;
+		Self::on_event(source, data)
+	}
+
+	/// Verifies the source address
+	/// Allows pallets to restrict the source based on individual requirements
+	/// Can be used to restrict source destination to an individual contract address
+	fn verify_source(source: &H160) -> OnEventResult;
 
 	/// Notify subscriber about a event received from Ethereum
 	/// - `source` the sender address on Ethereum
