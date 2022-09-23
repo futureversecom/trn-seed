@@ -494,6 +494,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			let token_address: H160 = token_address.into();
 			let amount: U256 = amount.into();
 			let beneficiary: H160 = beneficiary.into();
+			// The total weight of do_deposit assuming it reaches every path
 			let deposit_weight =
 				DbWeight::get().reads(7 as Weight) + DbWeight::get().writes(4 as Weight);
 			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {
