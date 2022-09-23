@@ -843,25 +843,14 @@ impl fp_rpc::ConvertTransaction<sp_runtime::OpaqueExtrinsic> for TransactionConv
 }
 // end frontier/EVM stuff
 
-// transaction must have an event/log of the deposit
-// i.e. keccack256("Deposit(address,address,uint256,bytes32)")
-const DEPOSIT_EVENT_SIGNATURE: [u8; 32] =
-	hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
 parameter_types! {
-	/// The ERC20 bridge contract deposit event
-	pub const DepositEventSignature: [u8; 32] = DEPOSIT_EVENT_SIGNATURE;
 	/// The ERC20 peg address
 	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
-	pub const MaxLengthErc20Meta: u32 = 250;
-	pub const MaxClaimsPerBlock: u32 = 50;
-	pub const MaxReadyBlocks: u32 = 100;
-	pub const MaxInitialErcMetas: u8 = 50;
 }
 
 impl pallet_erc20_peg::Config for Runtime {
 	/// Handles Ethereum events
 	type EthBridge = EthBridge;
-	type DepositEventSignature = DepositEventSignature;
 	/// Runtime currency system
 	type MultiCurrency = AssetsExt;
 	/// PalletId/Account for this module
