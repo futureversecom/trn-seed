@@ -166,6 +166,8 @@ decl_storage! {
 		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EventProofInfo>;
 		/// List of all event ids that are currently being challenged
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
+		/// Status of pending event claims
+		PendingClaimStatus get(fn pending_claim_status): map hasher(twox_64_concat) EventProofId => Option<EventClaimStatus>;
 		/// Tracks processed message Ids (prevent replay)
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
 		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
@@ -270,17 +272,15 @@ decl_module! {
 
 			// 1) Process validated messages
 			// Removed message_id from MessagesValidAt and processes it.
-			// If it is found that a challenged event claim processed in this block is valid,
-			// It will be requeued for after another ChallengePeriod.
-			// If it is found to be invalid, it won't be requeued and remain unprocessed
 			let mut processed_message_ids = Self::processed_message_ids();
 			for message_id in MessagesValidAt::<T>::take(block_number) {
-				if PendingClaimChallenges::get().iter().any(|&x| x == message_id) {
+				if Self::pending_claim_status(message_id) == Some(EventClaimStatus::Challenged) {
 					// We are still waiting on the challenge to be processed, push out by challenge period
 					<MessagesValidAt<T>>::append(
-						<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get(),
+						block_number + T::ChallengePeriod::get(),
 						message_id,
 					);
+					// TODO Throw event here
 					continue
 				}
 				// Removed PendingEventClaim from storage and processes
@@ -301,6 +301,8 @@ decl_module! {
 				if let Err(idx) = processed_message_ids.binary_search(&message_id) {
 					processed_message_ids.insert(idx, message_id);
 				}
+				// Tidy up status check
+				PendingClaimStatus::remove(message_id);
 			}
 			if !processed_message_ids.is_empty() {
 				impls::prune_claim_ids(&mut processed_message_ids);
@@ -372,6 +374,8 @@ decl_module! {
 				T::NativeAssetId::get(),
 				relayer_paid_bond,
 			)?;
+			<RelayerPaidBond<T>>::remove(origin);
+
 			Self::deposit_event(Event::<T>::RelayerBondWithdraw(origin, relayer_paid_bond));
 			Ok(())
 		}
@@ -427,6 +431,7 @@ decl_module! {
 					destination: *destination,
 					data: data.clone(),
 				});
+				PendingClaimStatus::insert(event_id, EventClaimStatus::Pending);
 
 				// TODO: there should be some limit per block
 				<MessagesValidAt<T>>::append(<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get(), event_id);
@@ -443,7 +448,7 @@ decl_module! {
 			// Validate event_id existence
 			ensure!(PendingEventClaims::contains_key(event_claim_id), Error::<T>::NoClaim);
 			// Check that event isn't already being challenged
-			ensure!(!PendingClaimChallenges::get().iter().any(|&x| x == event_claim_id), Error::<T>::ClaimAlreadyChallenged);
+			ensure!(Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Pending), Error::<T>::ClaimAlreadyChallenged);
 
 			let challenger_bond = T::ChallengeBond::get();
 			// try lock challenger bond
@@ -459,6 +464,7 @@ decl_module! {
 			// Include challenger account for releasing funds in case claim is invalid
 			PendingClaimChallenges::append(event_claim_id);
 			<ChallengerAccount<T>>::insert(event_claim_id, (origin, challenger_bond));
+			PendingClaimStatus::insert(event_claim_id, EventClaimStatus::Challenged);
 
 			Self::deposit_event(Event::<T>::Challenged(event_claim_id, origin));
 			Ok(())

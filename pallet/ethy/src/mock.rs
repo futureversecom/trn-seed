@@ -23,8 +23,8 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use scale_info::TypeInfo;
 use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
-	EventRouterResult, FinalSessionTracker,
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterResult,
+	FinalSessionTracker,
 };
 use seed_primitives::{ethy::crypto::AuthorityId, AssetId, Balance, Signature};
 use sp_application_crypto::RuntimeAppPublic;
@@ -113,7 +113,7 @@ parameter_types! {
 	pub const ChallengePeriod: BlockNumber = 100 as BlockNumber;
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
 	pub const ChallengerBond: Balance = 100;
-	pub const RelayerBond: Balance = 100;
+	pub const RelayerBond: Balance = 202;
 	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
 }
 impl Config for TestRuntime {
@@ -124,7 +124,7 @@ impl Config for TestRuntime {
 	type EthCallSubscribers = MockEthCallSubscriber;
 	type EthereumRpcClient = MockEthereumRpcClient;
 	type EthyId = AuthorityId;
-	type EventRouter = NoopEventRouter;
+	type EventRouter = MockEventRouter;
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
 	type UnixTime = MockUnixTime;
@@ -526,10 +526,10 @@ impl MockValidatorSet {
 	}
 }
 
-pub struct NoopEventRouter;
-impl EthereumEventRouter for NoopEventRouter {
+pub struct MockEventRouter;
+impl EthereumEventRouter for MockEventRouter {
 	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
-		Err((0, EventRouterError::NoReceiver))
+		Ok(1000)
 	}
 }
 

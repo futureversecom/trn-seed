@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{AccountIdConversion, SaturatedConversion, Zero},
+	traits::{AccountIdConversion, SaturatedConversion},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -431,10 +431,10 @@ impl<T: Config> Module<T> {
 		result: EventClaimResult,
 		notary_id: &T::EthyId,
 	) -> DispatchResult {
-		if !PendingEventClaims::contains_key(event_claim_id) {
-			// there's no claim active
-			return Err(Error::<T>::InvalidClaim.into())
-		}
+		ensure!(
+			Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Challenged),
+			Error::<T>::InvalidClaim
+		);
 
 		// Store the new notarization
 		<EventNotarizations<T>>::insert::<EventClaimId, T::EthyId, EventClaimResult>(
@@ -493,30 +493,31 @@ impl<T: Config> Module<T> {
 		});
 
 		if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-			if let Some((challenger, bond_amount)) = Self::challenger_account(event_claim_id) {
+			if let Some((challenger, bond_amount)) = <ChallengerAccount<T>>::take(event_claim_id) {
 				// Challenger is correct, the event is invalid.
 				// Return challenger bond to challenger and reward challenger with relayer bond
-				// Event doesn't need to be requeued
-				let relayer_paid_bond = match Self::relayer() {
-					Some(relayer) => <RelayerPaidBond<T>>::take(relayer),
-					None => Balance::zero(),
-				};
-
 				T::MultiCurrency::release_hold(
 					T::BridgePalletId::get(),
 					&challenger,
 					T::NativeAssetId::get(),
 					bond_amount,
 				)?;
-				T::MultiCurrency::spend_hold(
-					T::BridgePalletId::get(),
-					&challenger,
-					T::NativeAssetId::get(),
-					&[(challenger, relayer_paid_bond)],
-				)?;
-				// Relayer has been slashed, remove their stored bond amount and set relayer to
-				// None
-				<Relayer<T>>::kill();
+
+				if let Some(relayer) = Self::relayer() {
+					// Relayer bond goes to challenger
+					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer);
+					T::MultiCurrency::spend_hold(
+						T::BridgePalletId::get(),
+						&relayer,
+						T::NativeAssetId::get(),
+						&[(challenger, relayer_paid_bond)],
+					)?;
+					// Relayer has been slashed, remove their stored bond amount and set relayer to
+					// None
+					<Relayer<T>>::kill();
+				};
+
+				PendingClaimStatus::remove(event_claim_id);
 				Self::deposit_event(Event::<T>::RelayerSet(None));
 			} else {
 				// This shouldn't happen
@@ -554,7 +555,9 @@ impl<T: Config> Module<T> {
 
 		if PendingEventClaims::contains_key(event_claim_id) {
 			if let Some(relayer) = Self::relayer() {
-				if let Some((challenger, bond_amount)) = Self::challenger_account(event_claim_id) {
+				if let Some((challenger, bond_amount)) =
+					<ChallengerAccount<T>>::take(event_claim_id)
+				{
 					// Challenger is incorrect, the event is valid. Send funds to relayer
 					T::MultiCurrency::spend_hold(
 						T::BridgePalletId::get(),
@@ -567,6 +570,7 @@ impl<T: Config> Module<T> {
 					log!(error, "💎 unexpected missing challenger account");
 				}
 
+				PendingClaimStatus::insert(event_claim_id, EventClaimStatus::ProvenValid);
 				Self::deposit_event(Event::<T>::Verified(event_claim_id));
 			} else {
 				log!(error, "💎 No relayer set");
