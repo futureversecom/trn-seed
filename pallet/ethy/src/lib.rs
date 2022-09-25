@@ -137,8 +137,6 @@ decl_storage! {
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
 		/// The maximum number of delayed events that can be processed in on_initialize()
 		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
-		/// Id of the next event claim
-		NextEventClaimId get(fn next_event_claim_id): EventClaimId;
 		/// Id of the next event proof
 		NextEventProofId get(fn next_event_proof_id): EventProofId;
 		/// Scheduled notary (validator) public keys for the next session
@@ -179,6 +177,7 @@ decl_storage! {
 decl_event! {
 	pub enum Event<T> where
 		AccountId = <T as frame_system::Config>::AccountId,
+		BlockNumber = <T as frame_system::Config>::BlockNumber,
 	{
 		/// Verifying an event succeeded
 		Verified(EventClaimId),
@@ -195,8 +194,10 @@ decl_event! {
 		ProcessingFailed(EventClaimId, EventRouterError),
 		/// An event has been challenged (claim_id, challenger)
 		Challenged(EventClaimId, AccountId),
-		/// An event proof has been submitted
-		EventSubmit(EventProofInfo),
+		/// An event proof has been sent to Ethereum
+		EventSend(EventProofInfo),
+		/// An event has been submitted from Ethereum (origin, event_claim, process_at)
+		EventSubmit(AccountId, EventClaim, BlockNumber)
 	}
 }
 
@@ -335,16 +336,19 @@ decl_module! {
 					ensure!( event_id > Self::processed_message_ids()[0] &&
 						Self::processed_message_ids().binary_search(&event_id).is_err() , Error::<T>::EventReplayProcessed);
 				}
-
-				PendingEventClaims::insert(event_id, EventClaim {
+				let event_claim = EventClaim {
 					tx_hash,
 					source: *source,
 					destination: *destination,
 					data: data.clone(),
-				});
+				};
+				PendingEventClaims::insert(event_id, &event_claim);
 
 				// TODO: there should be some limit per block
-				<MessagesValidAt<T>>::append(<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get(), event_id);
+				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
+				<MessagesValidAt<T>>::append(process_at, event_id);
+
+				Self::deposit_event(Event::<T>::EventSubmit(origin, event_claim, process_at));
 			}
 		}
 
