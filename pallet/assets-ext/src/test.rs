@@ -495,6 +495,157 @@ fn spend_hold() {
 }
 
 #[test]
+fn spend_hold_to_holder_non_native() {
+	let alice = 1 as MockAccountId;
+	let bob = 2 as MockAccountId;
+	let initial_balance_alice = 10_000;
+	let initial_balance_bob = 20_000;
+	let xrp_asset_id = 2 as AssetId;
+
+	test_ext()
+		.with_asset(
+			xrp_asset_id,
+			"XRP",
+			&[(alice, initial_balance_alice), (bob, initial_balance_bob)],
+		)
+		.build()
+		.execute_with(|| {
+			let spends = [(bob, initial_balance_alice)];
+			assert_ok!(<AssetsExt as Hold>::place_hold(
+				TEST_PALLET_ID,
+				&alice,
+				xrp_asset_id,
+				initial_balance_alice
+			));
+			assert_ok!(<AssetsExt as Hold>::place_hold(
+				TEST_PALLET_ID,
+				&bob,
+				xrp_asset_id,
+				initial_balance_bob
+			));
+			assert_ok!(<AssetsExt as Hold>::spend_hold(
+				TEST_PALLET_ID,
+				&alice,
+				xrp_asset_id,
+				&spends,
+			));
+			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), 0);
+			assert_eq!(
+				AssetsExt::balance(xrp_asset_id, &bob),
+				initial_balance_alice + initial_balance_bob
+			);
+		});
+}
+
+#[test]
+fn spend_hold_to_holder() {
+	let alice = 1 as MockAccountId;
+	let bob = 2 as MockAccountId;
+	let initial_balance_alice = 10_000;
+	let initial_balance_bob = 20_000;
+
+	test_ext()
+		.with_balances(&[(alice, initial_balance_alice), (bob, initial_balance_bob)])
+		.build()
+		.execute_with(|| {
+			let spends = [(bob, 1)];
+			assert_eq!(
+				AssetsExt::balance(NativeAssetId::get(), &TEST_PALLET_ID.into_account_truncating()),
+				0
+			);
+
+			assert_ok!(<AssetsExt as Hold>::place_hold(
+				TEST_PALLET_ID,
+				&alice,
+				NativeAssetId::get(),
+				initial_balance_alice
+			));
+			// assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), initial_balance_alice);
+			assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &alice, false), 0);
+			// assert_eq!(
+			// 	AssetsExt::balance(NativeAssetId::get(), &TEST_PALLET_ID.into_account_truncating()),
+			// 	initial_balance_alice
+			// );
+
+			assert_ok!(<AssetsExt as Hold>::place_hold(
+				TEST_PALLET_ID,
+				&bob,
+				NativeAssetId::get(),
+				initial_balance_bob
+			));
+
+			// assert_eq!(
+			// 	AssetsExt::balance(NativeAssetId::get(), &TEST_PALLET_ID.into_account_truncating()),
+			// 	initial_balance_alice + initial_balance_bob
+			// );
+
+			assert_ok!(<AssetsExt as Hold>::spend_hold(
+				TEST_PALLET_ID,
+				&alice,
+				NativeAssetId::get(),
+				&spends,
+			));
+			assert_ok!(<AssetsExt as Hold>::spend_hold(
+				TEST_PALLET_ID,
+				&alice,
+				NativeAssetId::get(),
+				&spends,
+			));
+			assert_ok!(<AssetsExt as Hold>::spend_hold(
+				TEST_PALLET_ID,
+				&alice,
+				NativeAssetId::get(),
+				&spends,
+			));
+			assert_ok!(<AssetsExt as Hold>::spend_hold(
+				TEST_PALLET_ID,
+				&alice,
+				NativeAssetId::get(),
+				&spends,
+			));
+			// assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &bob, false),
+				initial_balance_alice
+			);
+		});
+}
+
+#[test]
+fn spend_hold_to_non_holder() {
+	let alice = 1 as MockAccountId;
+	let bob = 2 as MockAccountId;
+	let initial_balance_alice = 10_000;
+	let initial_balance_bob = 20_000;
+
+	test_ext()
+		.with_balances(&[(alice, initial_balance_alice), (bob, initial_balance_bob)])
+		.build()
+		.execute_with(|| {
+			let spends = [(bob, initial_balance_alice)];
+			assert_ok!(<AssetsExt as Hold>::place_hold(
+				TEST_PALLET_ID,
+				&alice,
+				NativeAssetId::get(),
+				initial_balance_alice
+			));
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), initial_balance_alice);
+			assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &alice, false), 0);
+			assert_ok!(<AssetsExt as Hold>::spend_hold(
+				TEST_PALLET_ID,
+				&alice,
+				NativeAssetId::get(),
+				&spends,
+			));
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
+			assert_eq!(
+				AssetsExt::balance(NativeAssetId::get(), &bob),
+				initial_balance_alice + initial_balance_bob
+			);
+		});
+}
+
+#[test]
 fn spend_hold_insufficient_funds() {
 	let alice = 1 as MockAccountId;
 	let bob = 2 as MockAccountId;
