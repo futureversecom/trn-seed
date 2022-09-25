@@ -1607,6 +1607,7 @@ dependencies = [
  "ethy-gadget",
  "futures",
  "jsonrpsee",
+ "libsecp256k1 0.6.0",
  "log",
  "parity-scale-codec 3.1.5",
  "sc-client-api",
@@ -9947,7 +9948,7 @@ dependencies = [
 [[package]]
 name = "xrpl-codec"
 version = "0.1.0"
-source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.6#fbc6e93a58093c9df5749c8f73fd09b8b7bec0ce"
+source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.7#6f3d92821cc11392bbfc45922b998691a7d67125"
 dependencies = [
  "ripemd",
  "sha2 0.10.5",
@@ -9957,7 +9958,7 @@ dependencies = [
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
-source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.6#fbc6e93a58093c9df5749c8f73fd09b8b7bec0ce"
+source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.7#6f3d92821cc11392bbfc45922b998691a7d67125"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",

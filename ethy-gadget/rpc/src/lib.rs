@@ -205,7 +205,18 @@ pub fn build_xrpl_tx_proof_response(
 				event_id,
 				signatures: signatures
 					.into_iter()
-					.map(|(_, s)| Bytes::from(s.deref().to_vec()))
+					.map(|(_, s)| {
+						// XRPL requires ECDSA signatures are DER encoded
+						// https://github.com/XRPLF/xrpl.js/blob/76b73e16a97e1a371261b462ee1a24f1c01dbb0c/packages/ripple-keypairs/src/index.ts#L58-L60
+						let sig_ = s.deref();
+						// 0..64, ignore byte 64 (v/recoveryId)
+						libsecp256k1::Signature::parse_standard(
+							sig_[..64].try_into().expect("64 byte signature"),
+						)
+						.expect("valid signature")
+						.serialize_der()
+					})
+					.map(|s| Bytes::from(s.as_ref().to_vec()))
 					.collect(),
 				block: block.into(),
 				digest: digest.into(),

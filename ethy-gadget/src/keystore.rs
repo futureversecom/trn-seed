@@ -62,8 +62,8 @@ impl EthyKeystore {
 
 		let public = public.as_ref();
 
-		// Sign the keccak digest of the message
-		// `sp_core::ecdsa::sign` uses blake2 by default
+		// Sign the message (it is already)
+		// use `_prehashed` to avoid any changes to the message
 		let sig = SyncCryptoStore::ecdsa_sign_prehashed(&*store, ETHY_KEY_TYPE, public, message)
 			.map_err(|e| error::Error::Keystore(e.to_string()))?
 			.ok_or_else(|| error::Error::Signature("ecdsa_sign_prehashed() failed".to_string()))?;
