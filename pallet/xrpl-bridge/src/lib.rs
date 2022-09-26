@@ -417,6 +417,6 @@ impl<T: Config> Pallet<T> {
 		let tx_nonce = CurrentWithdrawTxNonce::<T>::get();
 		let next_tx_nonce = tx_nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 		CurrentWithdrawTxNonce::<T>::set(next_tx_nonce);
-		Ok(next_tx_nonce)
+		Ok(tx_nonce)
 	}
 }
