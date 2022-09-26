@@ -98,8 +98,6 @@ pub trait Config:
 	type BridgePalletId: Get<PalletId>;
 	/// The runtime call type.
 	type Call: From<Call<Self>>;
-	/// The (optimistic) challenge period after which a submitted event is considered valid
-	type ChallengePeriod: Get<Self::BlockNumber>;
 	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
