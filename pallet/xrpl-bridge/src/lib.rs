@@ -103,7 +103,6 @@ pub mod pallet {
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
 		WithdrawRequested(XrplWithdrawTxNonce),
-		WithdrawSettled(XrplWithdrawTxNonce),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 	}
