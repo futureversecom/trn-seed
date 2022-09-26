@@ -197,7 +197,7 @@ decl_event! {
 		/// An event proof has been sent to Ethereum
 		EventSend(EventProofInfo),
 		/// An event has been submitted from Ethereum (origin, event_claim, process_at)
-		EventSubmit(EventClaim, AccountId, BlockNumber)
+		EventSubmit(EventClaimId, EventClaim, BlockNumber)
 	}
 }
 
@@ -348,7 +348,7 @@ decl_module! {
 				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
 				<MessagesValidAt<T>>::append(process_at, event_id);
 
-				Self::deposit_event(Event::<T>::EventSubmit(event_claim, origin, process_at));
+				Self::deposit_event(Event::<T>::EventSubmit(event_id, event_claim, process_at));
 			}
 		}
 
