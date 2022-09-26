@@ -170,25 +170,6 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, XrplTxHash, T::AccountId>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn pending_withdraw_xrp_transaction)]
-	/// The list of pending transaction nonce id to be processed by xrp gadget to settle transaction
-	/// on ripple network
-	pub type PendingWithdrawXRPTransaction<T: Config> =
-		StorageValue<_, Vec<XrplWithdrawTxNonce>, ValueQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn settled_withdraw_xrp_transaction)]
-	/// Settled xrp withdraw transactions on ripple network
-	pub type SettledWithdrawXRPTransaction<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<XrplWithdrawTxNonce>>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn withdraw_xrp_transaction_details)]
-	/// Xrp withdraw transaction details
-	pub type WithdrawXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, XrplWithdrawTxNonce, XrpWithdrawTransaction>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn get_withdraw_tx_nonce)]
 	/// Stores and increments Withdraw Tx Nonce id
 	pub type CurrentWithdrawTxNonce<T: Config> = StorageValue<_, XrplWithdrawTxNonce>;
@@ -252,32 +233,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::add_to_withdraw(who, amount, destination)
-		}
-
-		/// Withdraw xrp transaction
-		#[pallet::weight((<T as Config>::WeightInfo::withdraw_xrp_settled(), DispatchClass::Operational))]
-		#[transactional]
-		pub fn withdraw_xrp_settled(
-			origin: OriginFor<T>,
-			tx_nonce_list: Vec<XrplWithdrawTxNonce>,
-		) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-			// Todo check required for authorized access
-			for tx_nonce in tx_nonce_list {
-				let mut tx_list = <PendingWithdrawXRPTransaction<T>>::get();
-				match tx_list.binary_search(&tx_nonce) {
-					Ok(pos) => {
-						tx_list.remove(pos);
-						<PendingWithdrawXRPTransaction<T>>::put(tx_list);
-						let clear_block_number = <frame_system::Pallet<T>>::block_number() +
-							T::ClearTxPeriod::get().into();
-						<SettledWithdrawXRPTransaction<T>>::append(&clear_block_number, &tx_nonce);
-						Self::deposit_event(Event::WithdrawSettled(tx_nonce));
-					},
-					Err(_) => {},
-				}
-			}
-			Ok(())
 		}
 
 		/// add a relayer
@@ -372,11 +327,6 @@ impl<T: Config> Pallet<T> {
 			<SettledXRPTransactionDetails<T>>::remove(n);
 			writes += 1;
 		}
-		reads += 1;
-		if <SettledWithdrawXRPTransaction<T>>::contains_key(n) {
-			<SettledWithdrawXRPTransaction<T>>::remove(n);
-			writes += 1;
-		}
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
@@ -410,8 +360,6 @@ impl<T: Config> Pallet<T> {
 		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
 		let tx_nonce = Self::withdraw_tx_nonce_inc()?;
 		let tx_data = XrpWithdrawTransaction { tx_nonce, amount, destination };
-		<PendingWithdrawXRPTransaction<T>>::append(&tx_nonce);
-		<WithdrawXRPTransactionDetails<T>>::insert(&tx_nonce, &tx_data);
 		Self::withdraw_request_deposit_log(tx_nonce, tx_data);
 		Self::deposit_event(Event::WithdrawRequested(tx_nonce));
 		Ok(().into())
