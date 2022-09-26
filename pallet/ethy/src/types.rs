@@ -89,7 +89,7 @@ pub type EthAddress = seed_primitives::EthAddress;
 /// The ethereum transaction hash type
 pub type EthHash = H256;
 
-#[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
 /// Info required to claim an Ethereum event
 pub struct EventClaim {
 	/// The Ethereum transaction hash which caused the event
