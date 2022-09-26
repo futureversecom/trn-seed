@@ -98,8 +98,6 @@ pub trait Config:
 	type BridgePalletId: Get<PalletId>;
 	/// The runtime call type.
 	type Call: From<Call<Self>>;
-	/// The (optimistic) challenge period after which a submitted event is considered valid
-	type ChallengePeriod: Get<Self::BlockNumber>;
 	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
@@ -128,6 +126,8 @@ decl_storage! {
 	trait Store for Module<T: Config> as EthBridge {
 		/// Whether the bridge is paused (e.g. during validator transitions or by governance)
 		BridgePaused get(fn bridge_paused): bool;
+		/// The (optimistic) challenge period after which a submitted event is considered valid
+		ChallengePeriod get(fn challenge_period): T::BlockNumber = T::BlockNumber::from(150_u32); // 10 Minutes
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
 		/// Events cannot be claimed after this time (seconds)
@@ -292,7 +292,7 @@ decl_module! {
 		}
 
 		#[weight = DbWeight::get().writes(1)]
-		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by CENNZnet
+		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by Seed
 		pub fn set_event_block_confirmations(origin, confirmations: u64) {
 			ensure_root(origin)?;
 			EventBlockConfirmations::put(confirmations)
@@ -310,6 +310,13 @@ decl_module! {
 		pub fn set_delayed_event_proofs_per_block(origin, count: u8) {
 			ensure_root(origin)?;
 			DelayedEventProofsPerBlock::put(count);
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Set challenge period, this is the window in which an event can be challenged before processing
+		pub fn set_challenge_period(origin, blocks: T::BlockNumber) {
+			ensure_root(origin)?;
+			<ChallengePeriod<T>>::put(blocks);
 		}
 
 		#[weight = DbWeight::get().writes(1)]
@@ -344,7 +351,7 @@ decl_module! {
 				});
 
 				// TODO: there should be some limit per block
-				<MessagesValidAt<T>>::append(<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get(), event_id);
+				<MessagesValidAt<T>>::append(<frame_system::Pallet<T>>::block_number() + Self::challenge_period(), event_id);
 			}
 		}
 
