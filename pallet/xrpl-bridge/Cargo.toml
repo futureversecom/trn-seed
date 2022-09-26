@@ -19,7 +19,7 @@ pallet-assets      = { git = 'https://github.com/futureversecom/substrate.git', 
 pallet-balances    = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 pallet-timestamp   = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 scale-info         = { version = '2.2.0', default-features = false, features = ['derive'] }
-serde              = { version = '1.0.144', features = ['derive'], optional = true }
+serde              = { version = '1.0.145', features = ['derive'], optional = true }
 sp-runtime         = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 sp-std             = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 sp-core            = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
