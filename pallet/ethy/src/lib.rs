@@ -352,7 +352,7 @@ decl_module! {
 				PendingEventClaims::insert(event_id, &event_claim);
 
 				// TODO: there should be some limit per block
-				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get();
+				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + Self::challenge_period();
 				<MessagesValidAt<T>>::append(process_at, event_id);
 
 				Self::deposit_event(Event::<T>::EventSubmit(event_id, event_claim, process_at));
