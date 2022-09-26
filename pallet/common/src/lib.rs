@@ -288,8 +288,8 @@ pub trait EthereumBridge {
 
 /// Interface for pallet-ethy and XRPL tx signing
 pub trait EthyXrplBridgeAdapter {
-	/// Request ethy generate a signature for the given tx hash
-	fn sign_xrpl_transaction(tx_hash: &H256) -> Result<EventProofId, DispatchError>;
+	/// Request ethy generate a signature for the given tx data
+	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

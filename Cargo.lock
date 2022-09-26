@@ -1598,6 +1598,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -9948,7 +9949,7 @@ dependencies = [
 [[package]]
 name = "xrpl-codec"
 version = "0.1.0"
-source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.7#6f3d92821cc11392bbfc45922b998691a7d67125"
+source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
 dependencies = [
  "ripemd",
  "sha2 0.10.5",
@@ -9958,7 +9959,7 @@ dependencies = [
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
-source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.7#6f3d92821cc11392bbfc45922b998691a7d67125"
+source = "git+ssh://git@github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",

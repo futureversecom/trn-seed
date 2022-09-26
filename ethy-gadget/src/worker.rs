@@ -25,12 +25,12 @@ use sp_api::BlockId;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
-	traits::{Block, Header},
+	traits::{Block, Convert, Header},
 };
 
 use seed_primitives::ethy::{
-	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventProof, ValidatorSet, ValidatorSetId,
-	VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof,
+	ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
 use crate::{
@@ -112,7 +112,7 @@ where
 			.expect("latest block always has header available; qed.");
 
 		EthyWorker {
-			client: client.clone(),
+			client,
 			backend,
 			key_store,
 			event_proof_sender,
@@ -158,8 +158,8 @@ where
 
 	/// Handle finality notification for non-signers (no locally available validator keys)
 	fn handle_finality_notification_passive(&mut self, notification: FinalityNotification<B>) {
-		for ProofRequest { chain_id, event_id, digest, block } in
-			extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
+		for ProofRequest { chain_id, event_id, data, block } in
+			extract_proof_requests::<B>(&notification.header).into_iter()
 		{
 			trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
 
@@ -189,12 +189,17 @@ where
 				}
 			}
 
+			let digest = match crate::types::data_to_digest(chain_id, data, [0_u8; 33]) {
+				Some(d) => d,
+				None => {
+					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
+					continue
+				},
+			};
+
 			// no proof is known for the event yet
 			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
 		}
-
-		// full node can't vote, we're done
-		return
 	}
 
 	/// Check finalized blocks for proof requests
@@ -234,21 +239,33 @@ where
 			trace!(target: "ethy", "💎 No authority id - can't vote for events in: {:?}", notification.header.hash());
 			return self.handle_finality_notification_passive(notification)
 		};
+		let authority_public_key = EthyEcdsaToPublicKey::convert(authority_id.clone());
 
 		// Search block header for ethy signing requests
 		// Then sign and broadcast a witness
-		for ProofRequest { chain_id, event_id, digest, block } in
-			extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
+		for ProofRequest { chain_id, event_id, data, block } in
+			extract_proof_requests::<B>(&notification.header).into_iter()
 		{
-			debug!(target: "ethy", "💎 got event proof request. chain_id: {:?}. event id: {:?}, digest: {:?}", chain_id, event_id, hex::encode(&digest));
+			debug!(target: "ethy", "💎 got event proof request. chain_id: {:?}. event id: {:?}, data: {:?}", chain_id, event_id, hex::encode(&data));
+
+			// `data` must be transformed into a 32 byte digest before signing
+			let digest = match crate::types::data_to_digest(chain_id, data, authority_public_key) {
+				Some(d) => d,
+				None => {
+					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
+					continue
+				},
+			};
 			let signature = match self.key_store.sign_prehashed(&authority_id, &digest) {
 				Ok(sig) => sig,
 				Err(err) => {
 					error!(target: "ethy", "💎 error signing witness: {:?}", err);
-					return
+					continue
 				},
 			};
+
 			debug!(target: "ethy", "💎 signed event id: {:?}, validator set: {:?},\nsignature: {:?}", event_id, self.validator_set.id, hex::encode(&signature));
+
 			let witness = Witness {
 				chain_id,
 				digest,
@@ -299,6 +316,8 @@ where
 			return
 		}
 
+		// TODO: if chain_id is XRPL this must be a majority of the XRPL valiadtors only, not any
+		// majority
 		if self.witness_record.has_consensus(witness.event_id, proof_threshold) {
 			let signatures = self.witness_record.signatures_for(witness.event_id);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
@@ -394,10 +413,7 @@ where
 
 /// Extract event proof requests from a digest in the given header, if any.
 /// Returns (digest for signing, event id, optional tag)
-fn extract_proof_requests<B>(
-	header: &B::Header,
-	active_validator_set_id: ValidatorSetId,
-) -> Vec<ProofRequest>
+fn extract_proof_requests<B>(header: &B::Header) -> Vec<ProofRequest>
 where
 	B: Block,
 {
@@ -407,10 +423,10 @@ where
 		.logs()
 		.iter()
 		.flat_map(|log| {
-			if let Some(ConsensusLog::OpaqueSigningRequest { chain_id, event_proof_id, digest }) =
+			if let Some(ConsensusLog::OpaqueSigningRequest { chain_id, event_proof_id, data }) =
 				log.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID))
 			{
-				Some(ProofRequest { chain_id, event_id: event_proof_id, digest, block: block_hash })
+				Some(ProofRequest { chain_id, event_id: event_proof_id, data, block: block_hash })
 			} else {
 				None
 			}

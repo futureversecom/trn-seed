@@ -30,7 +30,7 @@ use sp_std::{prelude::*, vec};
 
 use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
 use seed_primitives::{
-	xrpl::{XrplTxHash, XrplTxHashForSigning, XrplWithdrawAddress, XrplWithdrawTxNonce},
+	xrpl::{XrplTxHash, XrplWithdrawAddress, XrplWithdrawTxNonce},
 	AccountId, AssetId, Balance, LedgerIndex, Timestamp,
 };
 
@@ -390,9 +390,6 @@ impl<T: Config> Pallet<T> {
 
 		let XrpWithdrawTransaction { tx_nonce, amount, destination } = tx_data;
 
-		// omit signer key since this is a 'MultiSigner' tx
-		let signer_pub_key: Option<[u8; 33]> = None;
-
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
 		let fee_one_xrp = 1_000_000; // 1 XRP
@@ -400,9 +397,6 @@ impl<T: Config> Pallet<T> {
 		// TODO: use pallet config
 		// rnZiKvrWFGi2JfHtLS8kxcqCqVhch6W5k5
 		let door_address: [u8; 20] = hex_literal::hex!("3216fd40be8f9b0016253e5244085375d887a53e");
-		// TODO: quick test to check signing with alice only
-		let alice_signer: [u8; 33] =
-			hex_literal::hex!("020a1091341fe5664bfa1782d5e04779689068c916b04cb365ec3153755684d9a1");
 
 		let payment = Payment::new(
 			door_address.into(),
@@ -410,15 +404,13 @@ impl<T: Config> Pallet<T> {
 			amount.saturated_into(),
 			tx_nonce,
 			fee_one_xrp,
-			signer_pub_key,
+			// omit signer key since this is a 'MultiSigner' tx
+			None,
 		);
+		let tx_blob = payment.binary_serialize(true);
 
-		let tx_blob_for_event = payment.binary_serialize(true);
-		// TODO: this will need to happen for each validator
-		let tx_hash_for_signing = payment.multi_signing_digest(alice_signer);
-
-		T::EthyAdapter::sign_xrpl_transaction(&XrplTxHashForSigning::from(tx_hash_for_signing))
-			.map(|event_proof_id| (event_proof_id, tx_blob_for_event))
+		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
+			.map(|event_proof_id| (event_proof_id, tx_blob))
 	}
 
 	pub fn withdraw_tx_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {

@@ -46,6 +46,4 @@ pub struct XrplTxProofResponse {
 	pub signatures: Vec<Bytes>,
 	/// The block hash of the event (finalized)
 	pub block: H256,
-	/// The tx hash that was signed
-	pub digest: H256,
 }

@@ -175,7 +175,7 @@ where
 			let validator_addresses: Vec<AccountId20> = proof_validator_set
 				.validators
 				.into_iter()
-				.map(EthyEcdsaToEthereum::convert)
+				.map(|v| EthyEcdsaToEthereum::convert(v.as_ref()))
 				.map(Into::into)
 				.collect();
 
@@ -200,7 +200,7 @@ pub fn build_xrpl_tx_proof_response(
 	versioned_event_proof: VersionedEventProof,
 ) -> Option<XrplTxProofResponse> {
 	match versioned_event_proof {
-		VersionedEventProof::V1(EventProof { signatures, event_id, block, digest, .. }) =>
+		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) =>
 			Some(XrplTxProofResponse {
 				event_id,
 				signatures: signatures
@@ -223,7 +223,6 @@ pub fn build_xrpl_tx_proof_response(
 					.map(|s| Bytes::from(s.as_ref().to_vec()))
 					.collect(),
 				block: block.into(),
-				digest: digest.into(),
 			}),
 	}
 }

@@ -18,11 +18,11 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use sp_application_crypto::ByteArray;
 use sp_runtime::{traits::Convert, KeyTypeId};
 use sp_std::prelude::*;
 
 use self::crypto::{AuthorityId, AuthoritySignature};
-use crate::AccountId;
 
 // fixed storage key for offchain config.
 // for consistency expect 4 byte key for prefix and 8 byte key for subkeys
@@ -103,19 +103,6 @@ impl<AuthorityId> ValidatorSet<AuthorityId> {
 	}
 }
 
-/// Authority change data
-#[derive(Decode, Encode)]
-pub struct PendingAuthorityChange<AuthorityId: Encode + Decode> {
-	/// The source of the change
-	pub source: AccountId,
-	/// The destination for the change
-	pub destination: AccountId,
-	/// The next validator set (ordered)
-	pub next_validator_set: ValidatorSet<AuthorityId>,
-	/// The event proof Id for this request
-	pub event_proof_id: EventProofId,
-}
-
 /// A consensus log item for ETHY.
 #[derive(Decode, Encode)]
 pub enum ConsensusLog<AuthorityId: Encode + Decode> {
@@ -125,13 +112,13 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	/// Disable the authority with given index.
 	#[codec(index = 2)]
 	OnDisabled(AuthorityIndex),
-	/// A request from the runtime for ethy-gadget to sign some prehashed data (`digest`)
+	/// A request from the runtime for ethy-gadget to sign some `data`
+	/// The format of `data` is determined by the bridging protocol for a given `chain_id`
 	#[codec(index = 3)]
-	OpaqueSigningRequest { chain_id: EthyChainId, event_proof_id: EventProofId, digest: [u8; 32] },
+	OpaqueSigningRequest { chain_id: EthyChainId, event_proof_id: EventProofId, data: Vec<u8> },
 	#[codec(index = 4)]
 	/// Signal an `AuthoritiesChange` is scheduled for next session
-	/// Generate a proof that the current validator set has witnessed the new authority set
-	PendingAuthoritiesChange(PendingAuthorityChange<AuthorityId>),
+	PendingAuthoritiesChange(ValidatorSet<AuthorityId>),
 }
 
 /// Ethy witness message.
@@ -196,11 +183,8 @@ impl EventProof {
 
 /// Convert an Ethy secp256k1 public key into an Ethereum address
 pub struct EthyEcdsaToEthereum;
-impl Convert<AuthorityId, [u8; 20]> for EthyEcdsaToEthereum {
-	fn convert(a: AuthorityId) -> [u8; 20] {
-		use sp_application_crypto::ByteArray;
-		let compressed_key = a.as_slice();
-
+impl Convert<&[u8], [u8; 20]> for EthyEcdsaToEthereum {
+	fn convert(compressed_key: &[u8]) -> [u8; 20] {
 		libsecp256k1::PublicKey::parse_slice(
 			compressed_key,
 			Some(libsecp256k1::PublicKeyFormat::Compressed),
@@ -217,6 +201,20 @@ impl Convert<AuthorityId, [u8; 20]> for EthyEcdsaToEthereum {
 			log::error!(target: "ethy", "💎 invalid ethy public key format");
 		})
 		.unwrap_or_default()
+	}
+}
+
+/// Convert an EthyId to an secp256k1 public key
+pub struct EthyEcdsaToPublicKey;
+impl Convert<AuthorityId, [u8; 33]> for EthyEcdsaToPublicKey {
+	fn convert(a: AuthorityId) -> [u8; 33] {
+		let compressed_key = a.as_slice();
+		libsecp256k1::PublicKey::parse_slice(
+			compressed_key,
+			Some(libsecp256k1::PublicKeyFormat::Compressed),
+		)
+		.map(|k| k.serialize_compressed())
+		.unwrap_or([0_u8; 33])
 	}
 }
 

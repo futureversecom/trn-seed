@@ -141,9 +141,9 @@ where
 					Some(Err(index)) => {
 						// we've seen this nonce and need to add the new vote
 						// insert_index is guaranteed to be `Err` as it has not been recorded yet
-						known_votes
-							.get_mut(&event_id)
-							.map(|v| v.insert(index, authority_id.clone()));
+						if let Some(v) = known_votes.get_mut(&event_id) {
+							v.insert(index, authority_id.clone())
+						}
 					},
 					None => {
 						// we haven't seen this nonce yet

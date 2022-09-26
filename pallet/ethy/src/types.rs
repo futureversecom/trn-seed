@@ -127,8 +127,8 @@ pub struct EthereumEventInfo {
 pub enum EthySigningRequest {
 	/// Request to sign an event for Ethereum
 	Ethereum(EthereumEventInfo),
-	/// Request to sign an XRPL tx hash
-	XrplTx { tx_hash: XrplTxHashForSigning },
+	/// Request to sign an XRPL tx (binary serialized in 'for signing' mode)
+	XrplTx(Vec<u8>),
 }
 
 impl EthySigningRequest {
@@ -139,14 +139,15 @@ impl EthySigningRequest {
 			Self::XrplTx { .. } => EthyChainId::Xrpl,
 		}
 	}
-	/// Return the digest for signing by ethy
-	pub fn digest(&self) -> [u8; 32] {
+	/// Return the data for signing by ethy
+	pub fn data(&self) -> Vec<u8> {
 		match self {
 			// Ethereum event signing requires keccak hashing the event
 			Self::Ethereum(event) =>
-				sp_io::hashing::keccak_256(encode_event_for_proving(event.clone()).as_slice()),
-			// XRPL tx signing uses SHA512-'half' / first 32 bytes
-			Self::XrplTx { tx_hash } => tx_hash.0,
+				sp_io::hashing::keccak_256(encode_event_for_proving(event.clone()).as_slice())
+					.to_vec(),
+			// XRPL tx hashing must happen before signing to inject the public key
+			Self::XrplTx(data) => data.clone(),
 		}
 	}
 }

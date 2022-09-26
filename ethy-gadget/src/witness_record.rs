@@ -123,7 +123,8 @@ impl WitnessRecord {
 		}
 
 		if let Some(metadata) = self.event_metadata(witness.event_id) {
-			if metadata.digest != witness.digest {
+			// Witnesses for XRPL are special cases and have unique digests
+			if metadata.digest != witness.digest && witness.chain_id != EthyChainId::Xrpl {
 				warn!(target: "ethy", "💎 witness has bad digest: {:?} from {:?}", witness.event_id, witness.authority_id);
 				return Err(WitnessError::MismatchedDigest)
 			}
@@ -151,10 +152,7 @@ impl WitnessRecord {
 						.insert(idx, (authority_index as AuthorityIndex, witness.signature.clone()))
 				}
 			})
-			.or_insert(
-				// case 1
-				vec![(authority_index, witness.signature.clone())],
-			);
+			.or_insert_with(|| vec![(authority_index, witness.signature.clone())]);
 
 		trace!(target: "ethy", "💎 witness recorded: {:?}, {:?}", witness.event_id, witness.authority_id);
 
@@ -172,7 +170,7 @@ impl WitnessRecord {
 			},
 		}
 
-		return Ok(())
+		Ok(())
 	}
 }
 
