@@ -319,6 +319,7 @@ impl pallet_echo::Config for Runtime {
 
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
+	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -328,6 +329,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
+	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
 }
 

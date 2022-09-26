@@ -50,6 +50,7 @@ pub trait WeightInfo {
 	fn submit_transaction() -> Weight;
 	fn submit_challenge() -> Weight;
 	fn withdraw_xrp() -> Weight;
+	fn withdraw_xrp_settled() -> Weight;
 	fn add_relayer() -> Weight;
 	fn remove_relayer() -> Weight;
 }
@@ -69,6 +70,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	fn withdraw_xrp() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+	}
+
+	fn withdraw_xrp_settled() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
@@ -100,6 +107,12 @@ impl WeightInfo for () {
 	}
 
 	fn withdraw_xrp() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+
+	fn withdraw_xrp_settled() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))

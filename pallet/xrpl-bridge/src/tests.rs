@@ -3,6 +3,7 @@ use frame_support::{assert_noop, assert_ok};
 use mock::*;
 use seed_primitives::{AccountId, Balance};
 use sp_core::H160;
+use sp_runtime::SaturatedConversion;
 
 #[test]
 fn test_add_transaction_works() {
@@ -41,8 +42,8 @@ fn test_process_transaction_challenge_works() {
 			Origin::signed(challenger),
 			XrplTxHash::from_slice(transaction_hash),
 		));
-		XRPLBridge::on_initialize(3_000); // wait for 5 hours (3000 blocks) to process transaction
-		System::set_block_number(3_000);
+		XRPLBridge::on_initialize((10 * MINUTES).into()); // wait for 5 hours (3000 blocks) to process transaction
+		System::set_block_number((10 * MINUTES).into());
 		let xrp_balance =
 			AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(tx_address).into());
 		assert_eq!(xrp_balance, 0);
@@ -104,8 +105,8 @@ fn process_transaction(account_address: &[u8; 20]) {
 	XRPLBridge::initialize_relayer(&vec![relayer]);
 	submit_transaction(relayer, 1_000_000, transaction_hash, account_address, 1);
 	submit_transaction(relayer, 1_000_000, transaction_hash_1, account_address, 1);
-	XRPLBridge::on_initialize(3_000); // wait for 5 hours (3000 blocks) to process transaction
-	System::set_block_number(3_000);
+	XRPLBridge::on_initialize((10 * MINUTES).into()); // wait for 5 hours (3000 blocks) to process transaction
+	System::set_block_number((10 * MINUTES).into());
 	let xrp_balance =
 		AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(account_address).into());
 	assert_eq!(xrp_balance, 2000);
