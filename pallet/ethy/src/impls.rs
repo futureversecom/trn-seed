@@ -19,6 +19,7 @@ use seed_pallet_common::{
 	log, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
 	EthyXrplBridgeAdapter, FinalSessionTracker as FinalSessionTrackerT,
 };
+use seed_primitives::ethy::EthyEcdsaToEthereum;
 
 use crate::{types::*, *};
 
@@ -636,12 +637,11 @@ impl<T: Config> Module<T> {
 			<NextNotaryKeys<T>>::put(next_keys);
 			let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
 
-			// TODO: encode validator set message
-			// probably don't need both consensus logs...
+			// TODO: probably don't need both consensus logs...
 			let new_validator_addresses: Vec<Token> = next_keys
 				.to_vec()
 				.into_iter()
-				.map(|k| seed_primitives::ethy::EthyEcdsaToEthereum::convert(k.as_ref()))
+				.map(|k| EthyEcdsaToEthereum::convert(k.as_ref()))
 				.map(|k| Token::Address(k.into()))
 				.collect();
 			let new_validator_set_message = ethabi::encode(&[
