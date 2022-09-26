@@ -210,11 +210,15 @@ pub fn build_xrpl_tx_proof_response(
 						// https://github.com/XRPLF/xrpl.js/blob/76b73e16a97e1a371261b462ee1a24f1c01dbb0c/packages/ripple-keypairs/src/index.ts#L58-L60
 						let sig_ = s.deref();
 						// 0..64, ignore byte 64 (v/recoveryId)
-						libsecp256k1::Signature::parse_standard(
+						let mut sig_normalized = libsecp256k1::Signature::parse_standard(
 							sig_[..64].try_into().expect("64 byte signature"),
 						)
-						.expect("valid signature")
-						.serialize_der()
+						.expect("valid signature");
+						// use 'canonical' S value
+						// https://xrpl.org/transaction-malleability.html#alternate-secp256k1-signatures
+						// https://github.com/indutny/elliptic/blob/43ac7f230069bd1575e1e4a58394a512303ba803/lib/elliptic/ec/index.js#L146-L150
+						sig_normalized.normalize_s();
+						sig_normalized.serialize_der()
 					})
 					.map(|s| Bytes::from(s.as_ref().to_vec()))
 					.collect(),

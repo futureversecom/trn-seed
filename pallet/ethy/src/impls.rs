@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{AccountIdConversion, SaturatedConversion},
+	traits::{AccountIdConversion, Convert, SaturatedConversion},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -651,7 +651,28 @@ impl<T: Config> Module<T> {
 				next_validator_set_id,
 			));
 			NotarySetProofId::put(event_proof_id);
-			NextEventProofId::put(event_proof_id.wrapping_add(1));
+
+			// TODO: encode validator set message
+			// probably don't need both consensus logs...
+			// let new_validator_addresses: Vec<Token> = next_keys
+			// 	.to_vec()
+			// 	.into_iter()
+			// 	.map(|k| seed_primitives::ethy::EthyEcdsaToEthereum::convert(k))
+			// 	.map(|k| Token::Address(k.into()))
+			// 	.collect();
+			// let new_validator_set_message = ethabi::encode(&[
+			// 	Token::Array(new_validator_addresses),
+			// 	Token::Uint(next_validator_set_id.into()),
+			// ]);
+
+			// // notify ethereum contract about validator set change
+			// Self::send_event(
+			// 	&T::BridgePalletId::get().into_account_truncating(),
+			// 	&T::BridgeContractAddress::get(),
+			// 	new_validator_set_message.as_slice(),
+			// );
+
+			// notify ethy-gadget about validator set change
 			let log: DigestItem = DigestItem::Consensus(
 				ETHY_ENGINE_ID,
 				ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {

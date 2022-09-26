@@ -18,7 +18,7 @@
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_runtime::KeyTypeId;
+use sp_runtime::{traits::Convert, KeyTypeId};
 use sp_std::prelude::*;
 
 use self::crypto::{AuthorityId, AuthoritySignature};
@@ -191,6 +191,32 @@ impl EventProof {
 			signatures[*idx as usize] = signature.clone();
 		}
 		signatures
+	}
+}
+
+/// Convert an Ethy secp256k1 public key into an Ethereum address
+pub struct EthyEcdsaToEthereum;
+impl Convert<AuthorityId, [u8; 20]> for EthyEcdsaToEthereum {
+	fn convert(a: AuthorityId) -> [u8; 20] {
+		use sp_application_crypto::ByteArray;
+		let compressed_key = a.as_slice();
+
+		libsecp256k1::PublicKey::parse_slice(
+			compressed_key,
+			Some(libsecp256k1::PublicKeyFormat::Compressed),
+		)
+		// uncompress the key
+		.map(|pub_key| pub_key.serialize().to_vec())
+		// now convert to Ethereum address
+		.map(|uncompressed| {
+			sp_io::hashing::keccak_256(&uncompressed[1..])[12..]
+				.try_into()
+				.expect("32 byte digest")
+		})
+		.map_err(|_| {
+			log::error!(target: "ethy", "💎 invalid ethy public key format");
+		})
+		.unwrap_or_default()
 	}
 }
 
