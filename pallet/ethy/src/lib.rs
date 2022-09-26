@@ -196,7 +196,7 @@ decl_event! {
 		Challenged(EventClaimId, AccountId),
 		/// An event proof has been sent to Ethereum
 		EventSend(EventProofInfo),
-		/// An event has been submitted from Ethereum (origin, event_claim, process_at)
+		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
 		EventSubmit(EventClaimId, EventClaim, BlockNumber)
 	}
 }
