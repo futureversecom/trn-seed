@@ -73,8 +73,8 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, HOURS, MILLISECS_PER_BLOCK, MINUTES, ONE_MYCL,
-	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_MYCL, ONE_XRP,
+	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -319,6 +319,7 @@ impl pallet_echo::Config for Runtime {
 
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
+	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -328,6 +329,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
+	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
 }
 
@@ -681,8 +683,6 @@ parameter_types! {
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
 	/// Bond amount for a challenger
 	pub const ChallengeBond: Balance = 100 * ONE_XRP;
-	/// The optimistic challenge period for submitted bridge events
-	pub const ChallengePeriod: BlockNumber = 1 * HOURS;
 	/// The Ethereum bridge contract address (deployed on Ethereum)
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	/// % threshold of notarizations required to verify or prove bridge events
@@ -700,8 +700,6 @@ impl pallet_ethy::Config for Runtime {
 	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
-	/// The optimistic challenge period for submitted bridge events
-	type ChallengePeriod = ChallengePeriod;
 	/// The bond required to make a challenge
 	type ChallengeBond = ChallengeBond;
 	/// The runtime event type.

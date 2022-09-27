@@ -16,10 +16,10 @@ pub use pallet::*;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{self, Inspect as _, Mutate as _, Unbalanced as _},
-		fungibles::{self, Inspect, Mutate, Transfer, Unbalanced},
+		fungible::{self, Inspect as _, Mutate as _},
+		fungibles::{self, Inspect, Mutate, Transfer},
 		tokens::{DepositConsequence, WithdrawConsequence},
-		NamedReservableCurrency, ReservableCurrency,
+		ReservableCurrency,
 	},
 	transactional, PalletId,
 };
@@ -180,123 +180,13 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// Create a hold on some amount of asset from who
-	///
-	/// If a hold already exists, it will be increased by `amount`
-	pub(crate) fn place_hold(
-		pallet_id: PalletId,
-		asset_id: AssetId,
-		who: &T::AccountId,
-		amount: Balance,
-	) -> DispatchResult {
-		let mut holds = Holds::<T>::get(asset_id, who);
-		match holds.binary_search_by_key(&pallet_id.0, |(p, _)| *p) {
-			Ok(index) => {
-				let (_, existing_hold) = holds[index];
-				let increased_hold =
-					existing_hold.checked_add(amount).ok_or(Error::<T>::Overflow)?;
-				holds[index].1 = increased_hold;
-			},
-			Err(index) => {
-				holds
-					.try_insert(index, (pallet_id.0, amount))
-					.map_err(|_| Error::<T>::MaxHolds)?;
-			},
-		}
-		let _ = <pallet_assets::Pallet<T> as fungibles::Transfer<T::AccountId>>::transfer(
-			asset_id,
-			who,
-			&T::PalletId::get().into_account_truncating(),
-			amount,
-			false,
-		)?;
-		Holds::<T>::insert(asset_id, who.clone(), holds);
-		Ok(())
-	}
-
-	/// Release a previously held amount of asset from who
-	pub(crate) fn release_hold(
-		pallet_id: PalletId,
-		asset_id: AssetId,
-		who: &T::AccountId,
-		amount: Balance,
-	) -> DispatchResult {
-		let mut holds = Holds::<T>::get(asset_id, who);
-		if let Ok(index) = holds.binary_search_by_key(&pallet_id.0, |(p, _)| *p) {
-			let (_, existing_hold) = holds[index];
-			let decreased_hold = existing_hold.checked_sub(amount).ok_or(Error::<T>::BalanceLow)?;
-			if decreased_hold.is_zero() {
-				holds.remove(index);
-			} else {
-				holds[index].1 = decreased_hold;
-			}
-
-			let _ = <pallet_assets::Pallet<T> as fungibles::Transfer<T::AccountId>>::transfer(
-				asset_id,
-				&T::PalletId::get().into_account_truncating(),
-				who,
-				amount,
-				false,
-			)
-			.map(|_| ())?;
-
-			if holds.is_empty() {
-				Holds::<T>::take(asset_id, who.clone());
-			} else {
-				Holds::<T>::insert(asset_id, who.clone(), holds);
-			}
-			Ok(())
-		} else {
-			Err(Error::<T>::BalanceLow.into())
-		}
-	}
-
-	/// Spend held assets
-	pub(crate) fn spend_hold(
-		pallet_id: PalletId,
-		asset_id: AssetId,
-		who: &T::AccountId,
-		spends: &[(T::AccountId, Balance)],
-	) -> DispatchResult {
-		let total_spend = spends.iter().map(|x| x.1).sum::<Balance>();
-		let mut holds = Holds::<T>::get(asset_id, who);
-		if let Ok(index) = holds.binary_search_by_key(&pallet_id.0, |(p, _)| *p) {
-			let (_, existing_hold) = holds[index];
-			let decreased_hold =
-				existing_hold.checked_sub(total_spend).ok_or(Error::<T>::BalanceLow)?;
-			if decreased_hold.is_zero() {
-				holds.remove(index);
-			} else {
-				holds[index].1 = decreased_hold;
-			}
-
-			Self::split_transfer(asset_id, &T::PalletId::get().into_account_truncating(), spends)?;
-
-			if holds.is_empty() {
-				Holds::<T>::take(asset_id, who.clone());
-			} else {
-				Holds::<T>::insert(asset_id, who.clone(), holds);
-			}
-			Ok(())
-		} else {
-			Err(Error::<T>::BalanceLow.into())
-		}
-	}
-
-	/// Efficiently make multiple transfers of asset Id from source
-	pub fn split_transfer(
-		asset_id: AssetId,
-		source: &T::AccountId,
-		transfers: &[(T::AccountId, Balance)],
-	) -> DispatchResult {
-		let total_transfer = transfers.iter().map(|x| x.1).sum::<Balance>();
-		let _ = <pallet_assets::Pallet<T>>::decrease_balance(asset_id, source, total_transfer)?;
-
-		for (payee, amount) in transfers.into_iter() {
-			<pallet_assets::Pallet<T>>::increase_balance(asset_id, payee, *amount)?;
-		}
-
-		Ok(())
+	/// Returns the held balance of an account over an asset and pallet
+	pub fn hold_balance(pallet_id: &PalletId, who: &T::AccountId, asset_id: &AssetId) -> Balance {
+		Holds::<T>::get(asset_id, who)
+			.iter()
+			.find(|(pallet, _)| pallet == &pallet_id.0)
+			.map(|(_, balance)| *balance)
+			.unwrap_or_default()
 	}
 }
 
@@ -416,14 +306,12 @@ impl<T: Config> TransferExt for Pallet<T> {
 		asset_id: AssetId,
 		transfers: &[(Self::AccountId, Balance)],
 	) -> DispatchResult {
-		if asset_id == T::NativeAssetId::get() {
-			let total = transfers.iter().map(|x| x.1).sum::<Balance>();
-			<pallet_balances::Pallet<T, _>>::decrease_balance(who, total)?;
-			for (payee, amount) in transfers.into_iter() {
-				<pallet_balances::Pallet<T, _>>::increase_balance(payee, *amount)?;
-			}
-		} else {
-			Self::split_transfer(asset_id, who, transfers)?;
+		let total = transfers.iter().map(|x| x.1).sum::<Balance>();
+		// This check will fail before making any transfers to restrict partial transfers
+		ensure!(Self::reducible_balance(asset_id, who, false) >= total, Error::<T>::BalanceLow);
+
+		for (payee, amount) in transfers.into_iter() {
+			Self::transfer(asset_id, who, payee, *amount, false)?;
 		}
 
 		Self::deposit_event(Event::SplitTransfer {
@@ -439,17 +327,38 @@ impl<T: Config> TransferExt for Pallet<T> {
 impl<T: Config> Hold for Pallet<T> {
 	type AccountId = <T as frame_system::Config>::AccountId;
 
+	/// Create a hold on some amount of asset from who
+	///
+	/// If a hold already exists, it will be increased by `amount`
 	fn place_hold(
 		pallet_id: PalletId,
 		who: &Self::AccountId,
 		asset_id: AssetId,
 		amount: Balance,
 	) -> DispatchResult {
-		if asset_id == T::NativeAssetId::get() {
-			<pallet_balances::Pallet<T, _>>::reserve_named(&pallet_id.0, who, amount)?;
-		} else {
-			Self::place_hold(pallet_id, asset_id, who, amount)?;
+		let mut holds = Holds::<T>::get(asset_id, who);
+		match holds.binary_search_by_key(&pallet_id.0, |(p, _)| *p) {
+			Ok(index) => {
+				let (_, existing_hold) = holds[index];
+				let increased_hold =
+					existing_hold.checked_add(amount).ok_or(Error::<T>::Overflow)?;
+				holds[index].1 = increased_hold;
+			},
+			Err(index) => {
+				holds
+					.try_insert(index, (pallet_id.0, amount))
+					.map_err(|_| Error::<T>::MaxHolds)?;
+			},
 		}
+
+		let _ = Self::transfer(
+			asset_id,
+			who,
+			&T::PalletId::get().into_account_truncating(),
+			amount,
+			false,
+		)?;
+		Holds::<T>::insert(asset_id, who.clone(), holds);
 
 		Self::deposit_event(Event::PlaceHold {
 			asset_id,
@@ -460,60 +369,94 @@ impl<T: Config> Hold for Pallet<T> {
 
 		Ok(())
 	}
+
+	/// Release a previously held amount of asset from who
 	fn release_hold(
 		pallet_id: PalletId,
 		who: &Self::AccountId,
 		asset_id: AssetId,
 		amount: Balance,
 	) -> DispatchResult {
-		if asset_id == T::NativeAssetId::get() {
-			ensure!(
-				<pallet_balances::Pallet<T, _>>::unreserve_named(&pallet_id.0, who, amount)
-					.is_zero(),
-				Error::<T>::BalanceLow
-			);
+		let mut holds = Holds::<T>::get(asset_id, who);
+		if let Ok(index) = holds.binary_search_by_key(&pallet_id.0, |(p, _)| *p) {
+			let (_, existing_hold) = holds[index];
+			let decreased_hold = existing_hold.checked_sub(amount).ok_or(Error::<T>::BalanceLow)?;
+			if decreased_hold.is_zero() {
+				holds.remove(index);
+			} else {
+				holds[index].1 = decreased_hold;
+			}
+
+			let _ = Self::transfer(
+				asset_id,
+				&T::PalletId::get().into_account_truncating(),
+				who,
+				amount,
+				false,
+			)
+			.map(|_| ())?;
+
+			if holds.is_empty() {
+				Holds::<T>::take(asset_id, who.clone());
+			} else {
+				Holds::<T>::insert(asset_id, who.clone(), holds);
+			}
+
+			Self::deposit_event(Event::ReleaseHold {
+				asset_id,
+				who: who.clone(),
+				amount,
+				pallet_id: pallet_id.0,
+			});
+
+			Ok(())
 		} else {
-			Self::release_hold(pallet_id, asset_id, who, amount)?;
+			Err(Error::<T>::BalanceLow.into())
 		}
-
-		Self::deposit_event(Event::ReleaseHold {
-			asset_id,
-			who: who.clone(),
-			amount,
-			pallet_id: pallet_id.0,
-		});
-
-		Ok(())
 	}
+
+	/// Spend held assets
 	fn spend_hold(
 		pallet_id: PalletId,
 		who: &Self::AccountId,
 		asset_id: AssetId,
 		spends: &[(Self::AccountId, Balance)],
 	) -> DispatchResult {
-		if asset_id == T::NativeAssetId::get() {
-			let total = spends.iter().map(|x| x.1).sum::<Balance>();
-			ensure!(
-				<pallet_balances::Pallet<T, _>>::unreserve_named(&pallet_id.0, who, total)
-					.is_zero(),
-				Error::<T>::BalanceLow
-			);
-			<pallet_balances::Pallet<T, _>>::decrease_balance(who, total)?;
-			for (payee, amount) in spends.into_iter() {
-				<pallet_balances::Pallet<T, _>>::increase_balance(payee, *amount)?;
+		let total_spend = spends.iter().map(|x| x.1).sum::<Balance>();
+		let mut holds = Holds::<T>::get(asset_id, who);
+		if let Ok(index) = holds.binary_search_by_key(&pallet_id.0, |(p, _)| *p) {
+			let (_, existing_hold) = holds[index];
+			let decreased_hold =
+				existing_hold.checked_sub(total_spend).ok_or(Error::<T>::BalanceLow)?;
+			if decreased_hold.is_zero() {
+				holds.remove(index);
+			} else {
+				holds[index].1 = decreased_hold;
 			}
+
+			let _ = Self::split_transfer(
+				&T::PalletId::get().into_account_truncating(),
+				asset_id,
+				spends,
+			)?;
+
+			if holds.is_empty() {
+				Holds::<T>::take(asset_id, who.clone());
+			} else {
+				Holds::<T>::insert(asset_id, who.clone(), holds);
+			}
+
+			Self::deposit_event(Event::SpendHold {
+				asset_id,
+				who: who.clone(),
+				spends: spends.to_vec(),
+				pallet_id: pallet_id.0,
+			});
+
+			Ok(())
 		} else {
-			Self::spend_hold(pallet_id, asset_id, who, spends)?;
+			Err(Error::<T>::BalanceLow.into())
 		}
-
-		Self::deposit_event(Event::SpendHold {
-			asset_id,
-			who: who.clone(),
-			spends: spends.to_vec(),
-			pallet_id: pallet_id.0,
-		});
-
-		Ok(())
 	}
 }
 

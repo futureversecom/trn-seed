@@ -15,7 +15,7 @@
 use codec::{Decode, Encode};
 use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
-use seed_primitives::{Balance, XrplTxHash, XrplWithdrawAddress, XrplWithdrawTxNonce};
+use seed_primitives::{Balance, XrplAddress, XrplTxHash, XrplTxNonce};
 use sp_core::{H160, H256};
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -29,9 +29,9 @@ pub struct XrpTransaction {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpWithdrawTransaction {
-	pub tx_nonce: XrplWithdrawTxNonce,
+	pub tx_nonce: XrplTxNonce,
 	pub amount: Balance,
-	pub destination: XrplWithdrawAddress,
+	pub destination: XrplAddress,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -54,11 +54,7 @@ impl Default for XrpTransaction {
 
 impl Default for XrpWithdrawTransaction {
 	fn default() -> Self {
-		XrpWithdrawTransaction {
-			tx_nonce: 0,
-			amount: 0,
-			destination: XrplWithdrawAddress::default(),
-		}
+		XrpWithdrawTransaction { tx_nonce: 0, amount: 0, destination: XrplAddress::default() }
 	}
 }
 
@@ -71,5 +67,5 @@ impl Default for XrplTxData {
 #[derive(Decode, Encode)]
 pub enum XrpRequestLog {
 	#[codec(index = 1)]
-	XrpWithdrawRequest(XrplWithdrawTxNonce, XrpWithdrawTransaction),
+	XrpWithdrawRequest(XrplTxNonce, XrpWithdrawTransaction),
 }
