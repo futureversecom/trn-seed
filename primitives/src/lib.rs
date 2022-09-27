@@ -76,10 +76,10 @@ pub mod types {
 
 	pub type XrplTxHash = H512;
 
-	pub type XrplWithdrawAddress = H160;
+	pub type XrplAddress = H160;
 
-	/// The type for identifying the Withdraw Tx Nonce
-	pub type XrplWithdrawTxNonce = u32;
+	/// The type for identifying the XRPL Tx Nonce
+	pub type XrplTxNonce = u32;
 	/// Unique nonce for event proof requests
 	pub type EventId = u64;
 

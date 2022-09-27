@@ -3,7 +3,7 @@ use frame_support::{assert_noop, assert_ok};
 use mock::*;
 use seed_primitives::{AccountId, Balance};
 use sp_core::H160;
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{traits::BadOrigin, SaturatedConversion};
 
 #[test]
 fn test_add_transaction_works() {
@@ -51,12 +51,12 @@ fn test_process_transaction_challenge_works() {
 }
 
 #[test]
-fn test_withdraw_tx_id_inc_works() {
+fn test_xrpl_tx_nonce_inc_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(XRPLBridge::withdraw_tx_nonce_inc());
-		let id = CurrentWithdrawTxNonce::<Test>::get().unwrap();
-		assert_ok!(XRPLBridge::withdraw_tx_nonce_inc());
-		assert_eq!(CurrentWithdrawTxNonce::<Test>::get().unwrap(), id + 1);
+		assert_ok!(XRPLBridge::xrpl_tx_nonce_inc());
+		let id = CurrentXrplTxNonce::<Test>::get().unwrap();
+		assert_ok!(XRPLBridge::xrpl_tx_nonce_inc());
+		assert_eq!(CurrentXrplTxNonce::<Test>::get().unwrap(), id + 1);
 	});
 }
 
@@ -67,7 +67,7 @@ fn test_withdraw_request_works() {
 		let account = AccountId::from(H160::from_slice(account_address));
 		process_transaction(account_address); // 2000 XRP deposited
 		let destination_address = b"6490B68F1116BFE87DDD";
-		let destination = XrplWithdrawAddress::from_slice(destination_address);
+		let destination = XrplAddress::from_slice(destination_address);
 		assert_ok!(XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination));
 		let xrp_balance =
 			AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(account_address).into());
@@ -89,7 +89,7 @@ fn test_withdraw_request_burn_fails() {
 		let account_address = b"6490B68F1116BFE87DDC";
 		let account = AccountId::from(H160::from_slice(account_address));
 		let destination_address = b"6490B68F1116BFE87DDD";
-		let destination = XrplWithdrawAddress::from_slice(destination_address);
+		let destination = XrplAddress::from_slice(destination_address);
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination),
 			ArithmeticError::Underflow
@@ -130,4 +130,32 @@ fn submit_transaction(
 		transaction,
 		1234
 	));
+}
+
+#[test]
+fn test_set_xrpl_door_address_success() {
+	new_test_ext().execute_with(|| {
+		let xprl_door_address = b"6490B68F1116BFE87DDD";
+		assert_ok!(XRPLBridge::set_xrpl_door_address(
+			Origin::root(),
+			H160::from(xprl_door_address)
+		));
+		assert_eq!(XRPLBridge::get_xrpl_door_address(), Some(H160::from_slice(xprl_door_address)));
+	})
+}
+
+#[test]
+fn test_set_xrpl_door_address_fail() {
+	new_test_ext().execute_with(|| {
+		let xprl_door_address = b"6490B68F1116BFE87DDD";
+		let caller = XrplAddress::from_low_u64_be(1);
+		assert_noop!(
+			XRPLBridge::set_xrpl_door_address(
+				Origin::signed(AccountId::from(caller)),
+				H160::from(xprl_door_address)
+			),
+			BadOrigin
+		);
+		assert_eq!(XRPLBridge::get_xrpl_door_address(), None);
+	})
 }
