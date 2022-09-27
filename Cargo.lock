@@ -5076,7 +5076,6 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "seed-client",
  "seed-pallet-common",
  "seed-primitives",
  "serde",

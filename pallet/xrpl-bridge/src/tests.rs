@@ -1,7 +1,6 @@
 use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
-use seed_client::chain_spec::get_account_id_from_seed;
 use seed_primitives::{AccountId, Balance};
 use sp_core::{ecdsa, H160};
 use sp_runtime::traits::BadOrigin;
@@ -149,10 +148,10 @@ fn test_set_xrpl_door_address_success() {
 fn test_set_xrpl_door_address_fail() {
 	new_test_ext().execute_with(|| {
 		let xprl_door_address = b"6490B68F1116BFE87DDD";
-		let charlie_account_id = get_account_id_from_seed::<ecdsa::Public>("Charlie");
+		let caller = XrplAddress::from_low_u64_be(1);
 		assert_noop!(
 			XRPLBridge::set_xrpl_door_address(
-				Origin::signed(charlie_account_id),
+				Origin::signed(AccountId::from(caller)),
 				H160::from(xprl_door_address)
 			),
 			BadOrigin

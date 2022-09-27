@@ -185,14 +185,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_xrpl_door_address)]
-	/// The door address on XRPL that receives assets which needs to be transferred to the Root
-	/// network
+	/// The door address on XRPL
 	pub type XRPLDoorAddress<T: Config> = StorageValue<_, XrplAddress>;
-
-	// #[pallet::storage]
-	// #[pallet::getter(fn get_deposit_tx_nonce)]
-	// /// Stores and increments deposit Tx Nonce id
-	// pub type CurrentDepositTxNonce<T: Config> = StorageValue<_, XrplDepositTxNonce>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
