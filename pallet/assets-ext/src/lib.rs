@@ -16,8 +16,8 @@ pub use pallet::*;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		fungible::{self, Inspect as _, Mutate as _, Unbalanced as _},
-		fungibles::{self, Inspect, Mutate, Transfer, Unbalanced},
+		fungible::{self, Inspect as _, Mutate as _},
+		fungibles::{self, Inspect, Mutate, Transfer},
 		tokens::{DepositConsequence, WithdrawConsequence},
 		ReservableCurrency,
 	},

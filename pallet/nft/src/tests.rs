@@ -15,8 +15,7 @@
 
 use super::*;
 use crate::mock::{
-	has_event, AccountId, AssetsExt, Balances, NativeAssetId, Nft, NftPalletId, System, Test,
-	TestExt,
+	has_event, AccountId, AssetsExt, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -1183,7 +1182,10 @@ fn buy_fails_prechecks() {
 			// no permission
 			assert_noop!(Nft::buy(Some(buyer + 1).into(), listing_id), Error::<Test>::NoPermission,);
 
-			assert_noop!(Nft::buy(Some(buyer).into(), listing_id), TokenError::NoFunds,);
+			assert_noop!(
+				Nft::buy(Some(buyer).into(), listing_id),
+				pallet_assets_ext::Error::<Test>::BalanceLow,
+			);
 		});
 }
 
