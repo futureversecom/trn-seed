@@ -33,6 +33,7 @@ pub struct XrpTransaction {
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpWithdrawTransaction {
+	pub tx_fee: u64,
 	pub tx_nonce: XrplWithdrawTxNonce,
 	pub amount: Balance,
 	pub destination: XrplWithdrawAddress,

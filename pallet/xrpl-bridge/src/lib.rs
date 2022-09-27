@@ -90,8 +90,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		NotPermitted,
 		RelayerDoesNotExists,
-		/// Calculate the withdraw tx hash failed
-		WithdrawHash,
+		/// Withdraw amount is too large for XRPL
+		WithdrawTooLarge,
 	}
 
 	#[pallet::event]
@@ -100,7 +100,7 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
-		WithdrawRequested {
+		WithdrawRequest {
 			tx_blob: Vec<u8>,
 			proof_id: u64,
 			sender: T::AccountId,
@@ -172,23 +172,24 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, XrplTxHash, T::AccountId>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn pending_withdraw_xrp_transaction)]
-	/// The list of pending transaction nonce id to be processed by xrp gadget to settle transaction
-	/// on ripple network
-	pub type PendingWithdrawXRPTransaction<T: Config> =
-		StorageValue<_, Vec<XrplWithdrawTxNonce>, ValueQuery>;
+	#[pallet::getter(fn door_nonce)]
+	/// The nonce/sequence of the XRPL door account
+	pub type DoorNonce<T: Config> = StorageValue<_, XrplWithdrawTxNonce, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn pending_withdraw_xrp_transaction_details)]
-	/// The pending transaction details to be processed by xrp gadget to settle transaction on
-	/// ripple network
-	pub type PendingWithdrawXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, XrplWithdrawTxNonce, XrpWithdrawTransaction>;
+	#[pallet::getter(fn door_signers)]
+	/// Public keys of authorized door (multi) signers (subset of ethy session keys)
+	pub type DoorSigners<T: Config> = StorageValue<_, Vec<[u8; 33]>, ValueQuery>;
 
+	/// Default door tx fee 1 XRP
+	#[pallet::type_value]
+	pub fn DefaultDoorTxFee() -> u64 {
+		1_000_000_u64
+	}
 	#[pallet::storage]
-	#[pallet::getter(fn get_withdraw_tx_nonce)]
-	/// Stores and increments Withdraw Tx Nonce id
-	pub type CurrentWithdrawTxNonce<T: Config> = StorageValue<_, XrplWithdrawTxNonce, ValueQuery>;
+	#[pallet::getter(fn door_tx_fee)]
+	/// The flat fee for XRPL door txs
+	pub type DoorTxFee<T: Config> = StorageValue<_, u64, ValueQuery, DefaultDoorTxFee>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -279,7 +280,15 @@ pub mod pallet {
 		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
 		pub fn set_door_nonce(origin: OriginFor<T>, nonce: u32) -> DispatchResult {
 			ensure_root(origin)?;
-			CurrentWithdrawTxNonce::<T>::set(nonce);
+			DoorNonce::<T>::set(nonce);
+			Ok(())
+		}
+
+		/// Set the door tx fee amount
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
+		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			DoorTxFee::<T>::set(fee);
 			Ok(())
 		}
 	}
@@ -357,20 +366,30 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	///
+	/// `who` the account requesting the withdraw
+	/// `amount` the amount of XRP drops to withdraw (- the tx fee)
+	///  `destination` the receiver classic `AccountID` on XRPL
 	pub fn add_to_withdraw(
 		who: AccountOf<T>,
 		amount: Balance,
 		destination: XrplWithdrawAddress,
 	) -> DispatchResult {
-		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
-		let tx_nonce = Self::withdraw_tx_nonce_inc()?;
-		let tx_data = XrpWithdrawTransaction { tx_nonce, amount, destination };
-		<PendingWithdrawXRPTransaction<T>>::append(&tx_nonce);
-		<PendingWithdrawXRPTransactionDetails<T>>::insert(&tx_nonce, &tx_data);
+		// TODO: need a fee oracle, this is over estimating the fee
+		// https://github.com/futureversecom/seed/issues/107
+		let tx_fee = Self::door_tx_fee();
+		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawTooLarge); // xrp amounts are `u64`
+
+		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
+		// tx fee to maintain an accurate door balance
+		let _ =
+			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
+		let tx_nonce = Self::door_nonce_inc()?;
+		let tx_data = XrpWithdrawTransaction { tx_nonce, tx_fee, amount, destination };
 
 		let (proof_id, tx_blob) = Self::submit_withdraw_request(tx_data)?;
 
-		Self::deposit_event(Event::WithdrawRequested {
+		Self::deposit_event(Event::WithdrawRequest {
 			proof_id,
 			tx_blob,
 			sender: who,
@@ -388,11 +407,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(u64, Vec<u8>), DispatchError> {
 		use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
-		let XrpWithdrawTransaction { tx_nonce, amount, destination } = tx_data;
-
-		// TODO: need a fee oracle, this is over estimating the fee
-		// https://github.com/futureversecom/seed/issues/107
-		let fee_one_xrp = 1_000_000; // 1 XRP
+		let XrpWithdrawTransaction { tx_fee, tx_nonce, amount, destination } = tx_data;
 
 		// TODO: use pallet config
 		// rnZiKvrWFGi2JfHtLS8kxcqCqVhch6W5k5
@@ -403,7 +418,7 @@ impl<T: Config> Pallet<T> {
 			destination.into(),
 			amount.saturated_into(),
 			tx_nonce,
-			fee_one_xrp,
+			tx_fee,
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
 		);
@@ -413,10 +428,11 @@ impl<T: Config> Pallet<T> {
 			.map(|event_proof_id| (event_proof_id, tx_blob))
 	}
 
-	pub fn withdraw_tx_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {
-		let tx_nonce = CurrentWithdrawTxNonce::<T>::get();
-		let next_tx_nonce = tx_nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		CurrentWithdrawTxNonce::<T>::set(next_tx_nonce);
-		Ok(tx_nonce)
+	// Return the current door nonce and increment it in storage
+	pub fn door_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {
+		let nonce = Self::door_nonce();
+		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+		DoorNonce::<T>::set(next_nonce);
+		Ok(nonce)
 	}
 }
