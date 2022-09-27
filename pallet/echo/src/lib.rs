@@ -120,10 +120,6 @@ pub mod pallet {
 impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 	type Address = T::PalletId;
 
-	fn verify_source(_source: &H160) -> OnEventResult {
-		Ok(0)
-	}
-
 	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let abi_decoded = match ethabi::decode(
 			&[ParamType::Uint(64), ParamType::Uint(64), ParamType::Address],
