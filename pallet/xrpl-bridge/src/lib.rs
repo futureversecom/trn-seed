@@ -28,8 +28,7 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{
-	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplAddress, XrplTxHash,
-	XrplWithdrawTxNonce,
+	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplAddress, XrplTxHash, XrplTxNonce,
 };
 use sp_runtime::{traits::One, ArithmeticError, DigestItem};
 use sp_std::vec;
@@ -102,7 +101,7 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
-		WithdrawRequested(XrplWithdrawTxNonce),
+		WithdrawRequested(XrplTxNonce),
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 		XRPLDoorAddressAdded(XrplAddress),
@@ -171,8 +170,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_withdraw_tx_nonce)]
-	/// Stores and increments Withdraw Tx Nonce id
-	pub type CurrentWithdrawTxNonce<T: Config> = StorageValue<_, XrplWithdrawTxNonce>;
+	/// Stores and increments XRPL door address Tx Nonce
+	pub type CurrentXrplTxNonce<T: Config> = StorageValue<_, XrplTxNonce>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_xrpl_door_address)]
@@ -376,17 +375,14 @@ impl<T: Config> Pallet<T> {
 		destination: XrplAddress,
 	) -> DispatchResultWithPostInfo {
 		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
-		let tx_nonce = Self::withdraw_tx_nonce_inc()?;
+		let tx_nonce = Self::xrpl_tx_nonce_inc()?;
 		let tx_data = XrpWithdrawTransaction { tx_nonce, amount, destination };
 		Self::withdraw_request_deposit_log(tx_nonce, tx_data);
 		Self::deposit_event(Event::WithdrawRequested(tx_nonce));
 		Ok(().into())
 	}
 
-	pub fn withdraw_request_deposit_log(
-		tx_nonce: XrplWithdrawTxNonce,
-		tx_data: XrpWithdrawTransaction,
-	) {
+	pub fn withdraw_request_deposit_log(tx_nonce: XrplTxNonce, tx_data: XrpWithdrawTransaction) {
 		let log: DigestItem = DigestItem::Consensus(
 			XRPL_ENGINE_ID,
 			XrpRequestLog::XrpWithdrawRequest(tx_nonce, tx_data).encode(),
@@ -394,10 +390,10 @@ impl<T: Config> Pallet<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 	}
 
-	pub fn withdraw_tx_nonce_inc() -> Result<XrplWithdrawTxNonce, DispatchError> {
-		let tx_nonce = CurrentWithdrawTxNonce::<T>::get().unwrap_or(0);
+	pub fn xrpl_tx_nonce_inc() -> Result<XrplTxNonce, DispatchError> {
+		let tx_nonce = CurrentXrplTxNonce::<T>::get().unwrap_or(0);
 		let next_tx_nonce = tx_nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		CurrentWithdrawTxNonce::<T>::set(Some(next_tx_nonce));
+		CurrentXrplTxNonce::<T>::set(Some(next_tx_nonce));
 		Ok(next_tx_nonce)
 	}
 }

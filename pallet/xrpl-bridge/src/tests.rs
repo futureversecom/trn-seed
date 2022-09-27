@@ -51,12 +51,12 @@ fn test_process_transaction_challenge_works() {
 }
 
 #[test]
-fn test_withdraw_tx_id_inc_works() {
+fn test_xrpl_tx_nonce_inc_works() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(XRPLBridge::withdraw_tx_nonce_inc());
-		let id = CurrentWithdrawTxNonce::<Test>::get().unwrap();
-		assert_ok!(XRPLBridge::withdraw_tx_nonce_inc());
-		assert_eq!(CurrentWithdrawTxNonce::<Test>::get().unwrap(), id + 1);
+		assert_ok!(XRPLBridge::xrpl_tx_nonce_inc());
+		let id = CurrentXrplTxNonce::<Test>::get().unwrap();
+		assert_ok!(XRPLBridge::xrpl_tx_nonce_inc());
+		assert_eq!(CurrentXrplTxNonce::<Test>::get().unwrap(), id + 1);
 	});
 }
 
