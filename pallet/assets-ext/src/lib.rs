@@ -179,6 +179,19 @@ impl<T: Config> Pallet<T> {
 			None => Err(Error::<T>::NoAvailableIds.into()),
 		}
 	}
+
+	/// Returns the held balance of an account over an asset and pallet
+	pub fn get_hold_balance(
+		pallet_id: &PalletId,
+		who: &T::AccountId,
+		asset_id: &AssetId,
+	) -> Balance {
+		Holds::<T>::get(asset_id, who)
+			.iter()
+			.find(|(pallet, _)| pallet == &pallet_id.0)
+			.map(|(_, balance)| *balance)
+			.unwrap_or_default()
+	}
 }
 
 impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
