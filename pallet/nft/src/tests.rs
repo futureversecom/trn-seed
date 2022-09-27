@@ -1420,22 +1420,18 @@ fn auction() {
 			// first bidder at reserve price
 			assert_ok!(Nft::bid(Some(bidder_1).into(), listing_id, reserve_price,));
 			assert_eq!(
-				AssetsExt::get_hold_balance(&NftPalletId::get(), &bidder_1, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&NftPalletId::get(), &bidder_1, &NativeAssetId::get()),
 				reserve_price
 			);
 
 			// second bidder raises bid
 			assert_ok!(Nft::bid(Some(bidder_2).into(), listing_id, winning_bid,));
 			assert_eq!(
-				AssetsExt::get_hold_balance(&NftPalletId::get(), &bidder_2, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&NftPalletId::get(), &bidder_2, &NativeAssetId::get()),
 				winning_bid
 			);
-			assert!(AssetsExt::get_hold_balance(
-				&NftPalletId::get(),
-				&bidder_1,
-				&NativeAssetId::get()
-			)
-			.is_zero());
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &bidder_1, &NativeAssetId::get())
+				.is_zero());
 
 			// end auction
 			let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
@@ -1447,12 +1443,8 @@ fn auction() {
 			);
 			// bidder2 funds should be all gone (unreserved and transferred)
 			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &bidder_2, false).is_zero());
-			assert!(AssetsExt::get_hold_balance(
-				&NftPalletId::get(),
-				&bidder_2,
-				&NativeAssetId::get()
-			)
-			.is_zero());
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &bidder_2, &NativeAssetId::get())
+				.is_zero());
 			// listing metadata removed
 			assert!(Nft::listings(listing_id).is_none());
 			assert!(Nft::listing_end_schedule(System::block_number() + 1, listing_id).is_none());
@@ -1575,12 +1567,8 @@ fn auction_royalty_payments() {
 						.sum::<Balance>()
 			);
 			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &bidder, false).is_zero());
-			assert!(AssetsExt::get_hold_balance(
-				&NftPalletId::get(),
-				&bidder,
-				&NativeAssetId::get()
-			)
-			.is_zero());
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &bidder, &NativeAssetId::get())
+				.is_zero());
 
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 
@@ -2202,7 +2190,7 @@ fn make_simple_offer() {
 			assert_eq!(Nft::token_offers(token_id).unwrap(), vec![offer_id]);
 			// Check funds have been locked
 			assert_eq!(
-				AssetsExt::get_hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get()),
 				offer_amount
 			);
 			assert_eq!(
@@ -2302,7 +2290,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 				initial_balance_buyer - offer_amount
 			);
 			assert_eq!(
-				AssetsExt::get_hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get()),
 				offer_amount
 			);
 		});
@@ -2368,12 +2356,8 @@ fn cancel_offer() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
 				initial_balance_buyer
 			);
-			assert!(AssetsExt::get_hold_balance(
-				&NftPalletId::get(),
-				&buyer,
-				&NativeAssetId::get()
-			)
-			.is_zero());
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get())
+				.is_zero());
 		});
 }
 
@@ -2417,19 +2401,15 @@ fn cancel_offer_multiple_offers() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer_1, false),
 				initial_balance_buyer_1
 			);
-			assert!(AssetsExt::get_hold_balance(
-				&NftPalletId::get(),
-				&buyer_1,
-				&NativeAssetId::get()
-			)
-			.is_zero());
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &buyer_1, &NativeAssetId::get())
+				.is_zero());
 			// Check buyer_2 funds have not been unlocked
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer_2, false),
 				initial_balance_buyer_2 - offer_amount_2
 			);
 			assert_eq!(
-				AssetsExt::get_hold_balance(&NftPalletId::get(), &buyer_2, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&NftPalletId::get(), &buyer_2, &NativeAssetId::get()),
 				offer_amount_2
 			);
 		});
@@ -2480,12 +2460,8 @@ fn accept_offer() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
 				initial_balance_buyer - offer_amount
 			);
-			assert!(AssetsExt::get_hold_balance(
-				&NftPalletId::get(),
-				&buyer,
-				&NativeAssetId::get()
-			)
-			.is_zero());
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get())
+				.is_zero());
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				offer_amount
@@ -2537,15 +2513,11 @@ fn accept_offer_multiple_offers() {
 				initial_balance_buyer_1 - offer_amount_1
 			);
 			assert_eq!(
-				AssetsExt::get_hold_balance(&NftPalletId::get(), &buyer_1, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&NftPalletId::get(), &buyer_1, &NativeAssetId::get()),
 				offer_amount_1
 			);
-			assert!(AssetsExt::get_hold_balance(
-				&NftPalletId::get(),
-				&buyer_2,
-				&NativeAssetId::get()
-			)
-			.is_zero());
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &buyer_2, &NativeAssetId::get())
+				.is_zero());
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				offer_amount_2
@@ -2596,12 +2568,8 @@ fn accept_offer_pays_marketplace_royalties() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &marketplace_account, false),
 				entitlements * offer_amount
 			);
-			assert!(AssetsExt::get_hold_balance(
-				&NftPalletId::get(),
-				&buyer,
-				&NativeAssetId::get()
-			)
-			.is_zero());
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get())
+				.is_zero());
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				offer_amount - (entitlements * offer_amount)

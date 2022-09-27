@@ -7,7 +7,8 @@ use frame_support::{
 	traits::tokens::fungibles::{Inspect, Transfer},
 	PalletId,
 };
-use seed_pallet_common::{CreateExt, Hold};
+use seed_pallet_common::{CreateExt, Hold, TransferExt};
+use seed_primitives::Balance;
 use sp_runtime::traits::{AccountIdConversion, Zero};
 
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");
@@ -33,6 +34,72 @@ fn transfer() {
 			assert_ok!(AssetsExt::transfer(xrp_asset_id, &alice, &bob, 100, true));
 			assert_eq!(alice_balance - 100, AssetsExt::balance(xrp_asset_id, &alice),);
 			assert_eq!(100, AssetsExt::balance(xrp_asset_id, &bob),);
+		});
+}
+
+#[test]
+fn split_transfer() {
+	let alice = 1 as MockAccountId;
+	let bob = 2 as MockAccountId;
+	let ferdie = 3 as MockAccountId;
+	let ken = 4 as MockAccountId;
+	let xrp_asset_id = 2 as AssetId;
+
+	test_ext()
+		.with_balances(&[(alice, 1_000_000)])
+		.with_asset(xrp_asset_id, "XRP", &[(alice, 1_000_000)])
+		.build()
+		.execute_with(|| {
+			let transfers = [(bob, 10_000), (ferdie, 15_000), (ken, 20_000)];
+
+			// native token transfer
+			let alice_balance = AssetsExt::balance(NativeAssetId::get(), &alice);
+			assert_ok!(AssetsExt::split_transfer(&alice, NativeAssetId::get(), &transfers));
+			let total = transfers.iter().map(|x| x.1).sum::<Balance>();
+
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), alice_balance - total);
+			for (recipient, balance) in transfers {
+				assert_eq!(AssetsExt::balance(NativeAssetId::get(), &recipient), balance);
+			}
+
+			// XRP transfer
+			let alice_balance = AssetsExt::balance(xrp_asset_id, &alice);
+			assert_ok!(AssetsExt::split_transfer(&alice, xrp_asset_id, &transfers));
+			let total = transfers.iter().map(|x| x.1).sum::<Balance>();
+
+			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), alice_balance - total);
+			for (recipient, balance) in transfers {
+				assert_eq!(AssetsExt::balance(xrp_asset_id, &recipient), balance);
+			}
+		});
+}
+
+#[test]
+fn split_transfer_not_enough_balance() {
+	let alice = 1 as MockAccountId;
+	let bob = 2 as MockAccountId;
+	let ferdie = 3 as MockAccountId;
+	let ken = 4 as MockAccountId;
+	let xrp_asset_id = 2 as AssetId;
+
+	test_ext()
+		.with_balances(&[(alice, 1_000_000)])
+		.with_asset(xrp_asset_id, "XRP", &[(alice, 1_000_000)])
+		.build()
+		.execute_with(|| {
+			let transfers = [(bob, 400_000), (ferdie, 300_000), (ken, 300_001)];
+
+			// native token transfer
+			assert_noop!(
+				AssetsExt::split_transfer(&alice, NativeAssetId::get(), &transfers),
+				Error::<Test>::BalanceLow
+			);
+
+			// XRP transfer
+			assert_noop!(
+				AssetsExt::split_transfer(&alice, xrp_asset_id, &transfers),
+				Error::<Test>::BalanceLow
+			);
 		});
 }
 
@@ -118,7 +185,7 @@ fn place_hold() {
 
 			// the hold amount is recorded accurately
 			assert_eq!(
-				AssetsExt::get_hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get()),
 				hold_amount
 			);
 
@@ -131,7 +198,7 @@ fn place_hold() {
 			));
 			// the hold amount is recorded accurately
 			assert_eq!(
-				AssetsExt::get_hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id),
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id),
 				hold_amount
 			);
 			// the hold amount is held by pallet-assets-ext
@@ -196,7 +263,7 @@ fn release_hold() {
 				hold_amount
 			));
 			assert_eq!(
-				AssetsExt::get_hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get()),
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get()),
 				hold_amount
 			);
 			assert_ok!(<AssetsExt as Hold>::release_hold(
@@ -206,8 +273,9 @@ fn release_hold() {
 				hold_amount
 			));
 			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), initial_balance,);
-			assert!(AssetsExt::get_hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get())
-				.is_zero());
+			assert!(
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &NativeAssetId::get()).is_zero()
+			);
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
@@ -216,7 +284,7 @@ fn release_hold() {
 				hold_amount
 			));
 			assert_eq!(
-				AssetsExt::get_hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id),
+				AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id),
 				hold_amount
 			);
 			assert_ok!(<AssetsExt as Hold>::release_hold(
@@ -226,7 +294,7 @@ fn release_hold() {
 				hold_amount
 			));
 			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), initial_balance,);
-			assert!(AssetsExt::get_hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id).is_zero());
+			assert!(AssetsExt::hold_balance(&TEST_PALLET_ID, &alice, &xrp_asset_id).is_zero());
 		});
 }
 

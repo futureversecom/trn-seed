@@ -181,11 +181,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns the held balance of an account over an asset and pallet
-	pub fn get_hold_balance(
-		pallet_id: &PalletId,
-		who: &T::AccountId,
-		asset_id: &AssetId,
-	) -> Balance {
+	pub fn hold_balance(pallet_id: &PalletId, who: &T::AccountId, asset_id: &AssetId) -> Balance {
 		Holds::<T>::get(asset_id, who)
 			.iter()
 			.find(|(pallet, _)| pallet == &pallet_id.0)
@@ -311,18 +307,11 @@ impl<T: Config> TransferExt for Pallet<T> {
 		transfers: &[(Self::AccountId, Balance)],
 	) -> DispatchResult {
 		let total = transfers.iter().map(|x| x.1).sum::<Balance>();
+		// This check will fail before making any transfers to restrict partial transfers
+		ensure!(Self::reducible_balance(asset_id, who, false) >= total, Error::<T>::BalanceLow);
 
-		if asset_id == T::NativeAssetId::get() {
-			<pallet_balances::Pallet<T, _>>::decrease_balance(who, total)?;
-			for (payee, amount) in transfers.into_iter() {
-				<pallet_balances::Pallet<T, _>>::increase_balance(payee, *amount)?;
-			}
-		} else {
-			let _ = <pallet_assets::Pallet<T>>::decrease_balance(asset_id, who, total)?;
-
-			for (payee, amount) in transfers.into_iter() {
-				<pallet_assets::Pallet<T>>::increase_balance(asset_id, payee, *amount)?;
-			}
+		for (payee, amount) in transfers.into_iter() {
+			Self::transfer(asset_id, who, payee, *amount, false)?;
 		}
 
 		Self::deposit_event(Event::SplitTransfer {
