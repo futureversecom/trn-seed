@@ -1,8 +1,6 @@
 use super::*;
 use crate::{
-	mock::{
-		AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, System, Test, SPENDING_ASSET_ID,
-	},
+	mock::{AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, Test, SPENDING_ASSET_ID},
 	types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
 };
 use frame_support::{
