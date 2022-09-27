@@ -1,16 +1,10 @@
 use crate::{
-	mock::{
-		test_ext, AssetId, AssetsExt, AssetsExtPalletId, Balances, MockAccountId, NativeAssetId,
-		Test,
-	},
+	mock::{test_ext, AssetId, AssetsExt, AssetsExtPalletId, MockAccountId, NativeAssetId, Test},
 	Error, Holds, NextAssetId,
 };
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
-	traits::{
-		tokens::fungibles::{Inspect, Transfer},
-		NamedReservableCurrency,
-	},
+	traits::tokens::fungibles::{Inspect, Transfer},
 	PalletId,
 };
 use seed_pallet_common::{CreateExt, Hold};
@@ -122,7 +116,10 @@ fn place_hold() {
 				NativeAssetId::get(),
 				hold_amount
 			));
-			assert_eq!(Balances::reserved_balance_named(&TEST_PALLET_ID.0, &alice), hold_amount,);
+			// the hold amount is recorded accurately
+			assert!(Holds::<Test>::get(NativeAssetId::get(), alice)
+				.iter()
+				.any(|(pallet, amount)| (pallet, amount) == (&TEST_PALLET_ID.0, &hold_amount)));
 
 			let hold_amount = initial_balance - AssetsExt::minimum_balance(xrp_asset_id);
 			assert_ok!(<AssetsExt as Hold>::place_hold(
@@ -510,35 +507,65 @@ fn spend_hold_to_holder_non_native() {
 		)
 		.build()
 		.execute_with(|| {
-			let spends = [(bob, initial_balance_alice)];
+			let transfer_amount = 10_000;
+			assert_eq!(
+				AssetsExt::balance(xrp_asset_id, &TEST_PALLET_ID.into_account_truncating()),
+				0
+			);
+
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&alice,
 				xrp_asset_id,
 				initial_balance_alice
 			));
+			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), 0);
+
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
 				&bob,
 				xrp_asset_id,
 				initial_balance_bob
 			));
+			assert_eq!(AssetsExt::balance(xrp_asset_id, &bob), 0);
+
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
 				&alice,
 				xrp_asset_id,
-				&spends,
+				&[(bob, transfer_amount)],
 			));
+
+			// Check reducible balance, should not include holds amount
+			assert_eq!(AssetsExt::balance(xrp_asset_id, &bob), transfer_amount);
 			assert_eq!(AssetsExt::balance(xrp_asset_id, &alice), 0);
+
+			// Bob can still unreserve his hold
+			assert_ok!(<AssetsExt as Hold>::release_hold(
+				TEST_PALLET_ID,
+				&bob,
+				xrp_asset_id,
+				initial_balance_bob
+			));
 			assert_eq!(
 				AssetsExt::balance(xrp_asset_id, &bob),
-				initial_balance_alice + initial_balance_bob
+				transfer_amount + initial_balance_bob
+			);
+
+			// Further spends should fail due to insufficient balance
+			assert_noop!(
+				<AssetsExt as Hold>::spend_hold(
+					TEST_PALLET_ID,
+					&alice,
+					xrp_asset_id,
+					&[(bob, transfer_amount)],
+				),
+				Error::<Test>::BalanceLow
 			);
 		});
 }
-
 #[test]
-fn spend_hold_to_holder() {
+fn spend_hold_to_holder_native() {
 	let alice = 1 as MockAccountId;
 	let bob = 2 as MockAccountId;
 	let initial_balance_alice = 10_000;
@@ -548,7 +575,7 @@ fn spend_hold_to_holder() {
 		.with_balances(&[(alice, initial_balance_alice), (bob, initial_balance_bob)])
 		.build()
 		.execute_with(|| {
-			let spends = [(bob, 1)];
+			let transfer_amount = 10_000;
 			assert_eq!(
 				AssetsExt::balance(NativeAssetId::get(), &TEST_PALLET_ID.into_account_truncating()),
 				0
@@ -560,12 +587,7 @@ fn spend_hold_to_holder() {
 				NativeAssetId::get(),
 				initial_balance_alice
 			));
-			// assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), initial_balance_alice);
-			assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &alice, false), 0);
-			// assert_eq!(
-			// 	AssetsExt::balance(NativeAssetId::get(), &TEST_PALLET_ID.into_account_truncating()),
-			// 	initial_balance_alice
-			// );
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
 
 			assert_ok!(<AssetsExt as Hold>::place_hold(
 				TEST_PALLET_ID,
@@ -573,40 +595,40 @@ fn spend_hold_to_holder() {
 				NativeAssetId::get(),
 				initial_balance_bob
 			));
-
-			// assert_eq!(
-			// 	AssetsExt::balance(NativeAssetId::get(), &TEST_PALLET_ID.into_account_truncating()),
-			// 	initial_balance_alice + initial_balance_bob
-			// );
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob), 0);
 
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
 				&alice,
 				NativeAssetId::get(),
-				&spends,
+				&[(bob, transfer_amount)],
 			));
-			assert_ok!(<AssetsExt as Hold>::spend_hold(
+
+			// Check reducible balance, should not include holds amount
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &bob), transfer_amount);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
+
+			// Bob can still unreserve his hold
+			assert_ok!(<AssetsExt as Hold>::release_hold(
 				TEST_PALLET_ID,
-				&alice,
+				&bob,
 				NativeAssetId::get(),
-				&spends,
+				initial_balance_bob
 			));
-			assert_ok!(<AssetsExt as Hold>::spend_hold(
-				TEST_PALLET_ID,
-				&alice,
-				NativeAssetId::get(),
-				&spends,
-			));
-			assert_ok!(<AssetsExt as Hold>::spend_hold(
-				TEST_PALLET_ID,
-				&alice,
-				NativeAssetId::get(),
-				&spends,
-			));
-			// assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
 			assert_eq!(
-				AssetsExt::reducible_balance(NativeAssetId::get(), &bob, false),
-				initial_balance_alice
+				AssetsExt::balance(NativeAssetId::get(), &bob),
+				transfer_amount + initial_balance_bob
+			);
+
+			// Further spends should fail due to insufficient balance
+			assert_noop!(
+				<AssetsExt as Hold>::spend_hold(
+					TEST_PALLET_ID,
+					&alice,
+					NativeAssetId::get(),
+					&[(bob, transfer_amount)],
+				),
+				Error::<Test>::BalanceLow
 			);
 		});
 }
@@ -629,8 +651,7 @@ fn spend_hold_to_non_holder() {
 				NativeAssetId::get(),
 				initial_balance_alice
 			));
-			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), initial_balance_alice);
-			assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &alice, false), 0);
+			assert_eq!(AssetsExt::balance(NativeAssetId::get(), &alice), 0);
 			assert_ok!(<AssetsExt as Hold>::spend_hold(
 				TEST_PALLET_ID,
 				&alice,
