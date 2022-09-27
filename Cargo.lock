@@ -1448,9 +1448,9 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b2cf0344971ee6c64c31be0d530793fba457d322dfec2810c453d0ef228f9c3"
+checksum = "c90bf5f19754d10198ccb95b70664fc925bd1fc090a0fd9a6ebc54acc8cd6272"
 dependencies = [
  "atty",
  "humantime",
@@ -4655,6 +4655,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-erc20-peg"
+version = "2.0.1"
+dependencies = [
+ "ethabi",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-nft",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27#e9a7cb20b9a459540a165c8312e722f9ba70b282"
@@ -7245,7 +7269,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -7314,9 +7338,11 @@ dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
  "parity-scale-codec",
+ "primitive-types",
  "scale-info",
  "seed-primitives",
  "sp-core",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -7365,6 +7391,7 @@ dependencies = [
  "pallet-dex",
  "pallet-echo",
  "pallet-election-provider-multi-phase",
+ "pallet-erc20-peg",
  "pallet-ethereum",
  "pallet-ethy",
  "pallet-evm",
@@ -7395,7 +7422,6 @@ dependencies = [
  "seed-client",
  "seed-pallet-common",
  "seed-primitives",
- "seed-runtime",
  "serde",
  "sp-api",
  "sp-block-builder",
@@ -7440,18 +7466,18 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.144"
+version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f747710de3dcd43b88c9168773254e809d8ddbdf9653b84e2554ab219f17860"
+checksum = "728eb6351430bccb993660dfffc5a72f91ccc1295abaa8ce19b27ebe4f75568b"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.144"
+version = "1.0.145"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94ed3a816fb1d101812f83e789f888322c34e291f894f19590dc310963e87a00"
+checksum = "81fa1584d3d1bcacd84c277a0dfe21f5b0f6accf4a23d04d4c6d61f1af522b4c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9142,7 +9168,7 @@ checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if",
  "digest 0.10.5",
- "rand 0.8.5",
+ "rand 0.7.3",
  "static_assertions",
 ]
 

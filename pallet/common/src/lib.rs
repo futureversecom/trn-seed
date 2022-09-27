@@ -11,13 +11,12 @@ use frame_support::{
 	PalletId,
 };
 use scale_info::TypeInfo;
-use sp_core::H160;
-
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
-use sp_std::vec::Vec;
+use sp_core::H160;
+use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
 

@@ -1,5 +1,5 @@
 [package]
-name = "pallet-token-approvals"
+name = "pallet-erc20-peg"
 version = "2.0.1"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
@@ -12,6 +12,8 @@ seed-pallet-common = { path = "../common", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.145", optional = true, default-features = false }
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
+log = "0.4"
+ethabi = { version = "17.1.0", default-features = false }
 
 # Substrate
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
@@ -41,4 +43,5 @@ std = [
     "frame-system/std",
     "scale-info/std",
     "sp-core/std",
+    "ethabi/std"
 ]

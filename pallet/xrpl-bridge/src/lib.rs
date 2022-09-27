@@ -82,6 +82,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type ChallengePeriod: Get<u32>;
 
+		/// Clear Period to wait for a transaction to be cleared from settled storages
+		#[pallet::constant]
+		type ClearTxPeriod: Get<u32>;
+
 		/// Unix time
 		type UnixTime: UnixTime;
 	}
@@ -108,7 +112,8 @@ pub mod pallet {
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
 			if ProcessXRPTransaction::<T>::contains_key(n) {
-				Self::process_xrp_tx(n)
+				let weights = Self::process_xrp_tx(n);
+				weights + Self::clear_storages(n)
 			} else {
 				DbWeight::get().reads(1 as Weight)
 			}
@@ -155,7 +160,7 @@ pub mod pallet {
 	#[pallet::getter(fn settled_xrp_transaction_details)]
 	/// Settled xrp transactions stored as history for a specific period
 	pub type SettledXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, XrplTxHash, Timestamp>;
+		StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<XrplTxHash>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -163,20 +168,6 @@ pub mod pallet {
 	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
 		StorageMap<_, Blake2_128Concat, XrplTxHash, T::AccountId>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn pending_withdraw_xrp_transaction)]
-	/// The list of pending transaction nonce id to be processed by xrp gadget to settle transaction
-	/// on ripple network
-	pub type PendingWithdrawXRPTransaction<T: Config> =
-		StorageValue<_, Vec<XrplWithdrawTxNonce>, ValueQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn pending_withdraw_xrp_transaction_details)]
-	/// The pending transaction details to be processed by xrp gadget to settle transaction on
-	/// ripple network
-	pub type PendingWithdrawXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, XrplWithdrawTxNonce, XrpWithdrawTransaction>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn get_withdraw_tx_nonce)]
@@ -331,15 +322,28 @@ impl<T: Config> Pallet<T> {
 							} => {},
 							XrplTxData::Xls20 => {},
 						}
-						<SettledXRPTransactionDetails<T>>::insert(
-							&transaction_hash,
-							T::UnixTime::now().as_secs(),
+						let clear_block_number = <frame_system::Pallet<T>>::block_number() +
+							T::ClearTxPeriod::get().into();
+						<SettledXRPTransactionDetails<T>>::append(
+							&clear_block_number,
+							transaction_hash.clone(),
 						);
 						writes += 1;
 						Self::deposit_event(Event::Processed(ledger_index, transaction_hash));
 					},
 				}
 			}
+		}
+		DbWeight::get().reads_writes(reads, writes)
+	}
+
+	pub fn clear_storages(n: T::BlockNumber) -> Weight {
+		let mut reads: Weight = 0;
+		let mut writes: Weight = 0;
+		reads += 1;
+		if <SettledXRPTransactionDetails<T>>::contains_key(n) {
+			<SettledXRPTransactionDetails<T>>::remove(n);
+			writes += 1;
 		}
 		DbWeight::get().reads_writes(reads, writes)
 	}
@@ -374,8 +378,6 @@ impl<T: Config> Pallet<T> {
 		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
 		let tx_nonce = Self::withdraw_tx_nonce_inc()?;
 		let tx_data = XrpWithdrawTransaction { tx_nonce, amount, destination };
-		<PendingWithdrawXRPTransaction<T>>::append(&tx_nonce);
-		<PendingWithdrawXRPTransactionDetails<T>>::insert(&tx_nonce, &tx_data);
 		Self::withdraw_request_deposit_log(tx_nonce, tx_data);
 		Self::deposit_event(Event::WithdrawRequested(tx_nonce));
 		Ok(().into())

@@ -371,6 +371,11 @@ impl EthereumEventRouterT for EthereumEventRouter {
 		if destination == &<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::address() {
 			<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::on_event(source, data)
 				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
+		} else if destination ==
+			&<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
+		{
+			<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::on_event(source, data)
+				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		} else {
 			Err((0, EventRouterError::NoReceiver))
 		}

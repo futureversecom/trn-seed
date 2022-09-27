@@ -73,8 +73,8 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, HOURS, MILLISECS_PER_BLOCK, MINUTES, ONE_MYCL,
-	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_MYCL, ONE_XRP,
+	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -90,13 +90,16 @@ use precompiles::FutureversePrecompiles;
 mod staking;
 use staking::OnChainAccuracy;
 
+#[cfg(test)]
+mod tests;
+
 /// This runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 2,
+	spec_version: 3,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -316,6 +319,7 @@ impl pallet_echo::Config for Runtime {
 
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
+	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -325,6 +329,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
+	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
 }
 
@@ -676,8 +681,6 @@ impl pallet_tx_fee_pot::Config for Runtime {
 parameter_types! {
 	/// The bridge pallet address
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
-	/// The optimistic challenge period for submitted bridge events
-	pub const ChallengePeriod: BlockNumber = 1 * HOURS;
 	/// The Ethereum bridge contract address (deployed on Ethereum)
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	/// % threshold of notarizations required to verify or prove bridge events
@@ -693,8 +696,6 @@ impl pallet_ethy::Config for Runtime {
 	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
-	/// The optimistic challenge period for submitted bridge events
-	type ChallengePeriod = ChallengePeriod;
 	/// The runtime event type.
 	type Event = Event;
 	/// Subscribers to completed 'eth_call' jobs
@@ -840,6 +841,22 @@ impl fp_rpc::ConvertTransaction<sp_runtime::OpaqueExtrinsic> for TransactionConv
 }
 // end frontier/EVM stuff
 
+parameter_types! {
+	/// The ERC20 peg address
+	pub const PegPalletId: PalletId = PalletId(*b"erc20peg");
+}
+
+impl pallet_erc20_peg::Config for Runtime {
+	/// Handles Ethereum events
+	type EthBridge = EthBridge;
+	/// Runtime currency system
+	type MultiCurrency = AssetsExt;
+	/// PalletId/Account for this module
+	type PegPalletId = PegPalletId;
+	/// The overarching event type.
+	type Event = Event;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -883,6 +900,7 @@ construct_runtime! {
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>}
 	}
 }
 

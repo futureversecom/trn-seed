@@ -88,6 +88,7 @@ impl<T: Config> Module<T> {
 		}
 		maybe_active_key.map(|(key, idx)| (key, idx as u16))
 	}
+
 	/// Handle OCW event notarization protocol for validators
 	/// Receives the node's local notary session key and index in the set
 	pub(crate) fn do_event_notarization_ocw(active_key: &T::EthyId, authority_index: u16) {
@@ -690,7 +691,7 @@ impl<T: Config> Module<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-		Self::deposit_event(Event::<T>::EventSubmit(event_proof_info));
+		Self::deposit_event(Event::<T>::EventSend(event_proof_info));
 	}
 }
 
