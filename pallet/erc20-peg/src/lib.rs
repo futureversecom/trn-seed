@@ -81,7 +81,7 @@ decl_storage! {
 		/// The next available payment id for withdrawals and deposits
 		NextDelayedPaymentId get(fn next_delayed_payment_id): DelayedPaymentId;
 		/// The peg contract address on Ethereum
-		ContractAddress get(fn contract_address): EthAddress;
+		pub ContractAddress get(fn contract_address): EthAddress;
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -466,16 +466,16 @@ impl<T: Config> Module<T> {
 	}
 }
 
+impl Get<H160> for ContractAddress {
+	fn get() -> H160 {
+		<ContractAddress as storage::StorageValue<_>>::get()
+	}
+}
+
 impl<T: Config> EthereumEventSubscriber for Module<T> {
 	type Address = T::PegPalletId;
 
-	fn verify_source(source: &H160) -> OnEventResult {
-		if source != &Self::contract_address() {
-			Err((DbWeight::get().reads(1 as Weight), Error::<T>::InvalidSourceAddress.into()))
-		} else {
-			Ok(DbWeight::get().reads(1 as Weight))
-		}
-	}
+	type SourceAddress = ContractAddress;
 
 	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let abi_decoded = match ethabi::decode(

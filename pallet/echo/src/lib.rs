@@ -116,9 +116,22 @@ pub mod pallet {
 	}
 }
 
+impl Get<H160> for ContractAddress {
+	fn get() -> H160 {
+		<ContractAddress as storage::StorageValue<_>>::get()
+	}
+}
+
 // Implement Subscriber to receive events from Ethereum
 impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 	type Address = T::PalletId;
+	type SourceAddress = ();
+
+	fn verify_source(_source: &H160) -> OnEventResult {
+		// For testing purposes we don't require a verified source for the Echo pallet
+		// Can overwrite this method and simply return ok
+		Ok(0)
+	}
 
 	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let abi_decoded = match ethabi::decode(

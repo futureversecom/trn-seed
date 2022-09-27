@@ -7,13 +7,13 @@ use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	sp_runtime::traits::AccountIdConversion,
 	traits::{fungibles::Transfer, Get},
-	weights::Weight,
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
 use scale_info::TypeInfo;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AssetId, Balance, EthAddress, TokenId,
+	AssetId, Balance, TokenId,
 };
 use sp_core::H160;
 use sp_std::{fmt::Debug, vec::Vec};
@@ -175,6 +175,8 @@ pub trait EthereumEventSubscriber {
 	/// The destination address of this subscriber (doubles as the source address for sent messages)
 	type Address: Get<PalletId>;
 
+	type SourceAddress: Get<H160>;
+
 	/// The destination/source address getter function
 	fn address() -> H160 {
 		Self::Address::get().into_account_truncating()
@@ -191,8 +193,15 @@ pub trait EthereumEventSubscriber {
 	/// Verifies the source address
 	/// Allows pallets to restrict the source based on individual requirements
 	/// Can be used to restrict source address to an individual contract address
-	fn verify_source(_source: &H160) -> OnEventResult {
-		Ok(0)
+	fn verify_source(source: &H160) -> OnEventResult {
+		if source != &Self::SourceAddress::get() {
+			Err((
+				DbWeight::get().reads(1 as Weight),
+				DispatchError::Other("Invalid source address").into(),
+			))
+		} else {
+			Ok(DbWeight::get().reads(1 as Weight))
+		}
 	}
 
 	/// Notify subscriber about a event received from Ethereum

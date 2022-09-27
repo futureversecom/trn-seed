@@ -1,8 +1,6 @@
 use super::*;
 use crate::{
-	mock::{
-		AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, System, Test, SPENDING_ASSET_ID,
-	},
+	mock::{AssetsExt, Erc20Peg, ExtBuilder, MockEthereumEventRouter, Test, SPENDING_ASSET_ID},
 	types::{DelayedPaymentId, Erc20DepositEvent, PendingPayment, WithdrawMessage},
 };
 use frame_support::{
@@ -138,7 +136,9 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
 				DbWeight::get().reads(1 as Weight),
-				EventRouterError::FailedProcessing(Error::<Test>::InvalidSourceAddress.into())
+				EventRouterError::FailedProcessing(
+					DispatchError::Other("Invalid source address").into()
+				)
 			)
 		);
 	});
