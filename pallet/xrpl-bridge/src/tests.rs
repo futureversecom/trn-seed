@@ -3,8 +3,7 @@ use frame_support::{assert_noop, assert_ok};
 use mock::*;
 use seed_primitives::{AccountId, Balance};
 use sp_core::H160;
-use sp_runtime::SaturatedConversion;
-use sp_runtime::traits::BadOrigin;
+use sp_runtime::{traits::BadOrigin, SaturatedConversion};
 
 #[test]
 fn test_add_transaction_works() {
