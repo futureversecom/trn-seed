@@ -278,7 +278,7 @@ decl_module! {
 				if Self::pending_claim_status(message_id) == Some(EventClaimStatus::Challenged) {
 					// We are still waiting on the challenge to be processed, push out by challenge period
 					<MessagesValidAt<T>>::append(
-						block_number + T::ChallengePeriod::get(),
+						block_number + Self::challenge_period(),
 						message_id,
 					);
 					// TODO Throw event here
