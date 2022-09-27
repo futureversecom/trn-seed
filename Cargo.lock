@@ -5088,6 +5088,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-validator-set"
+version = "0.0.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-xrpl-bridge"
 version = "0.0.1"
 dependencies = [
