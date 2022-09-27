@@ -169,7 +169,7 @@ pub mod pallet {
 		StorageMap<_, Blake2_128Concat, XrplTxHash, T::AccountId>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_withdraw_tx_nonce)]
+	#[pallet::getter(fn get_current_xrpl_tx_nonce)]
 	/// Stores and increments XRPL door address Tx Nonce
 	pub type CurrentXrplTxNonce<T: Config> = StorageValue<_, XrplTxNonce>;
 
