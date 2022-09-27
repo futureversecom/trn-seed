@@ -174,7 +174,7 @@ pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
 pub trait EthereumEventSubscriber {
 	/// The destination address of this subscriber (doubles as the source address for sent messages)
 	type Address: Get<PalletId>;
-
+	/// The source address that we restrict incoming messages from
 	type SourceAddress: Get<H160>;
 
 	/// The destination/source address getter function
@@ -183,7 +183,7 @@ pub trait EthereumEventSubscriber {
 	}
 
 	/// process an incoming event from Ethereum
-	/// Verifies source address based on each destinations implementation of verify_source
+	/// Verifies source address then calls on_event
 	fn process_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let verify_weight = Self::verify_source(source)?;
 		let on_event_weight = Self::on_event(source, data)?;
@@ -192,7 +192,7 @@ pub trait EthereumEventSubscriber {
 
 	/// Verifies the source address
 	/// Allows pallets to restrict the source based on individual requirements
-	/// Can be used to restrict source address to an individual contract address
+	/// Default implementation compares source with SourceAddress
 	fn verify_source(source: &H160) -> OnEventResult {
 		if source != &Self::SourceAddress::get() {
 			Err((
