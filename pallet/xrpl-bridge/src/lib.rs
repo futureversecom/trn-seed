@@ -24,9 +24,12 @@ use frame_support::{
 	weights::constants::RocksDbWeight as DbWeight,
 };
 use frame_system::pallet_prelude::*;
-
-use sp_runtime::{traits::One, ArithmeticError, SaturatedConversion};
+use sp_runtime::{
+	traits::{One, Zero},
+	ArithmeticError, SaturatedConversion,
+};
 use sp_std::{prelude::*, vec};
+use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
 use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
 use seed_primitives::{
@@ -90,8 +93,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		NotPermitted,
 		RelayerDoesNotExists,
-		/// Withdraw amount is too large for XRPL
-		WithdrawTooLarge,
+		/// Withdraw amount must be non-zero and <= u64
+		WithdrawInvalidAmount,
 	}
 
 	#[pallet::event]
@@ -291,6 +294,17 @@ pub mod pallet {
 			DoorTxFee::<T>::set(fee);
 			Ok(())
 		}
+
+		/// Set the door signers
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
+		pub fn set_door_signers(
+			origin: OriginFor<T>,
+			new_signers: Vec<[u8; 33]>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			DoorSigners::<T>::set(new_signers);
+			Ok(())
+		}
 	}
 }
 
@@ -378,7 +392,8 @@ impl<T: Config> Pallet<T> {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
 		let tx_fee = Self::door_tx_fee();
-		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawTooLarge); // xrp amounts are `u64`
+		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
+		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawInvalidAmount); // xrp amounts are `u64`
 
 		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
 		// tx fee to maintain an accurate door balance
@@ -405,8 +420,6 @@ impl<T: Config> Pallet<T> {
 	fn submit_withdraw_request(
 		tx_data: XrpWithdrawTransaction,
 	) -> Result<(u64, Vec<u8>), DispatchError> {
-		use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
-
 		let XrpWithdrawTransaction { tx_fee, tx_nonce, amount, destination } = tx_data;
 
 		// TODO: use pallet config

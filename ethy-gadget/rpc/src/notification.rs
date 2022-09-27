@@ -42,8 +42,9 @@ pub struct EventProofResponse {
 pub struct XrplTxProofResponse {
 	/// The event proof Id
 	pub event_id: EventProofId,
-	/// The signatures in the request
-	pub signatures: Vec<Bytes>,
+	/// The signatures in the request and the index of the authority ('notary keys' which produced
+	/// it)
+	pub signatures: Vec<(u32, Bytes)>,
 	/// The block hash of the event (finalized)
 	pub block: H256,
 }

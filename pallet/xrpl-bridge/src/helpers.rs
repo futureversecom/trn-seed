@@ -60,6 +60,7 @@ impl Default for XrpTransaction {
 impl Default for XrpWithdrawTransaction {
 	fn default() -> Self {
 		XrpWithdrawTransaction {
+			tx_fee: 0,
 			tx_nonce: 0,
 			amount: 0,
 			destination: XrplWithdrawAddress::default(),
