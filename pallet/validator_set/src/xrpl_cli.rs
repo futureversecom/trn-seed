@@ -25,13 +25,13 @@ use xrpl::tokio::AsyncWebsocketClient;
 
 use seed_pallet_common::log;
 use seed_primitives::XRP_HTTP_URI;
-use crate::xrpl_types::{BridgeRpcError, BridgeXrplRpcApi, XrplTxHash};
+use crate::xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplTxHash};
 
 /// Provides minimal ethereum RPC queries for eth bridge protocol
-pub struct XrplRpcClient;
-
-impl BridgeXrplRpcApi for XrplRpcClient {
-    fn xrpl_call(hash: XrplTxHash) -> Result<Vec<u8>, BridgeRpcError> {
+pub struct XrplWebsocketClient;
+#[async_trait]
+impl BridgeXrplWebsocketApi for XrplWebsocketClient {
+    async fn xrpl_call(hash: XrplTxHash, ledger_index: Option<u32>) -> Result<Vec<u8>, BridgeRpcError> {
         let xrp_http_uri = if let Some(value) =
         sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &XRP_HTTP_URI)
         {
@@ -49,11 +49,15 @@ impl BridgeXrplRpcApi for XrplRpcClient {
 
         let request = Tx {
             id: None,
-            binary: None,
-            min_ledger: None,
-            max_ledger: None,
+            binary: Some(false),
+            min_ledger: ledger_index,
+            max_ledger: ledger_index,
             command: RequestMethod::AccountChannels
         };
         let message = Message::Text(request.to_json());
+        log!(trace, "💎 request: {:?}", message.clone());
+        assert!(client.request(message).await.is_ok());
+        log!(trace, "💎 request: {:?}", request);
+        //let message = Message::Text(request.to_json());
     }
 }

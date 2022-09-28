@@ -187,10 +187,12 @@ pub enum BridgeRpcError {
 	OcwConfig,
 }
 
+#[async_trait]
 /// Provides request/responses according to a minimal subset of Xrpl RPC API
 /// required for the bridge
-pub trait BridgeXrplRpcApi {
-	fn xrpl_call(
+pub trait BridgeXrplWebsocketApi {
+	async fn xrpl_call(
 		hash: XrplTxHash,
+		ledger_index: Option<u32>,
 	) -> Result<Vec<u8>, BridgeRpcError>;
 }

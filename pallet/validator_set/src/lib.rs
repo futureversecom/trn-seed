@@ -49,7 +49,7 @@ pub mod pallet {
 	use std::collections::BTreeMap;
 	use frame_support::traits::UnixTime;
 	use seed_primitives::ethy::EthyChainId;
-	use crate::xrpl_types::{BridgeXrplRpcApi, EventClaim};
+	use crate::xrpl_types::{BridgeXrplWebsocketApi, EventClaim};
 	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -78,7 +78,7 @@ pub mod pallet {
 		/// The threshold of notarizations required to approve an event
 		type NotarizationThreshold: Get<Percent>;
 		/// Provides an api for Remote Chain JSON-RPC request/responses to the bridged network
-		type ChainRpcClient: BridgeXrplRpcApi;
+		type ChainWebsocketClient: BridgeXrplWebsocketApi;
 
 		/// Unix time
 		type UnixTime: UnixTime;

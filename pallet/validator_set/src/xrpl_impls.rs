@@ -161,7 +161,7 @@ impl<T: Config> Pallet<T> {
 		event_claim: EventClaim,
 	) -> EventClaimResult {
 		let EventClaim { tx_hash, data, source, destination } = event_claim;
-		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
+		let result = T::ChainWebsocketClient::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
 			log!(error, "💎 eth_getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
 			return EventClaimResult::DataProviderErr
@@ -220,7 +220,7 @@ impl<T: Config> Pallet<T> {
 		let observed_block_number: u64 = tx_receipt.block_number.saturated_into();
 
 		let latest_block: EthBlock =
-			match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Latest) {
+			match T::ChainWebsocketClient::get_block_by_number(LatestOrNumber::Latest) {
 				Ok(None) => return EventClaimResult::DataProviderErr,
 				Ok(Some(block)) => block,
 				Err(err) => {
@@ -242,7 +242,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		//  check the block this tx is in if the timestamp > deadline
-		let observed_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(
+		let observed_block: EthBlock = match T::ChainWebsocketClient::get_block_by_number(
 			LatestOrNumber::Number(observed_block_number),
 		) {
 			Ok(None) => return EventClaimResult::DataProviderErr,
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
 		// `max_block_look_behind`) 3a) within range: do an eth_call at the relayed block
 		// 3b) out of range: do an eth_call at block number latest
 		let latest_block: EthBlock =
-			match T::ChainRpcClient::get_block_by_number(LatestOrNumber::Latest) {
+			match T::ChainWebsocketClient::get_block_by_number(LatestOrNumber::Latest) {
 				Ok(None) => return CheckedChainCallResult::DataProviderErr,
 				Ok(Some(block)) => block,
 				Err(err) => {
@@ -365,7 +365,7 @@ impl<T: Config> Pallet<T> {
 		if request.try_block_number >= oldest_acceptable_eth_block &&
 			request.try_block_number < latest_eth_block_number
 		{
-			let target_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(
+			let target_block: EthBlock = match T::ChainWebsocketClient::get_block_by_number(
 				LatestOrNumber::Number(request.try_block_number),
 			) {
 				Ok(None) => return CheckedChainCallResult::DataProviderErr,
@@ -379,7 +379,7 @@ impl<T: Config> Pallet<T> {
 			target_block_timestamp = target_block.timestamp.saturated_into();
 		}
 
-		let return_data = match T::EthereumRpcClient::eth_call(
+		let return_data = match T::ChainWebsocketClient::eth_call(
 			request.target,
 			&request.input,
 			LatestOrNumber::Number(target_block_number),
