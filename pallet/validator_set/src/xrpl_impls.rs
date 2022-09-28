@@ -284,7 +284,7 @@ impl<T: Config> Pallet<T> {
 			}
 
 			if let Some(request) = Self::chain_call_request_info(call_id) {
-				let result = Self::offchain_try_eth_call(&request);
+				let result = Self::offchain_try_xrp_call(&request);
 				log!(trace, "💎 checked call status: {:?}", &result);
 				let payload =
 					NotarizationPayload::Call { call_id: *call_id, authority_index, result };
@@ -311,7 +311,7 @@ impl<T: Config> Pallet<T> {
 	/// `request` - details of the `eth_call` request to perform
 	/// `try_block_number` - a block number to try the call at `latest - max_block_look_behind <= t
 	/// < latest` `max_block_look_behind` - max ethereum blocks to look back from head
-	pub(crate) fn offchain_try_eth_call(request: &CheckedChainCallRequest) -> CheckedChainCallResult {
+	pub(crate) fn offchain_try_xrp_call(request: &CheckedChainCallRequest) -> CheckedChainCallResult {
 		// OCW has 1 block to do all its stuff, so needs to be kept light
 		//
 		// basic flow of this function:
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
 		// `max_block_look_behind`) 3a) within range: do an eth_call at the relayed block
 		// 3b) out of range: do an eth_call at block number latest
 		let latest_block: EthBlock =
-			match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Latest) {
+			match T::ChainRpcClient::get_block_by_number(LatestOrNumber::Latest) {
 				Ok(None) => return CheckedChainCallResult::DataProviderErr,
 				Ok(Some(block)) => block,
 				Err(err) => {

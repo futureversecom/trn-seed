@@ -26,7 +26,7 @@ sp-std = {  git = "https://github.com/futureversecom/substrate.git", branch = "p
 sp-application-crypto = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 frame-benchmarking = { default-features = false, git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", optional = true }
 
-xrpl-rust = { git = "https://github.com/sephynox/xrpl-rust.git", version = "0.1.1", default-features = false, features = ["core", "models"] }
+xrpl-rust = { git = "https://github.com/futureversecom/xrpl-rust.git", default-features = false, features = ["core", "models"] }
 
 seed-primitives                           = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }

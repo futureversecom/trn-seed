@@ -175,3 +175,22 @@ pub enum LatestOrNumber {
 	Latest,
 	Number(u64),
 }
+
+#[derive(Debug, Clone, PartialEq, TypeInfo)]
+/// Error type for BridgeEthereumRpcApi
+pub enum BridgeRpcError {
+	/// HTTP network request failed
+	HttpFetch,
+	/// Unable to decode response payload as JSON
+	InvalidJSON,
+	/// offchain worker not configured properly
+	OcwConfig,
+}
+
+/// Provides request/responses according to a minimal subset of Xrpl RPC API
+/// required for the bridge
+pub trait BridgeXrplRpcApi {
+	fn xrpl_call(
+		hash: XrplTxHash,
+	) -> Result<Vec<u8>, BridgeRpcError>;
+}

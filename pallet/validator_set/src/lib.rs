@@ -12,6 +12,7 @@ mod benchmarking;
 mod helpers;
 mod xrpl_impls;
 mod xrpl_types;
+mod xrpl_cli;
 
 use crate::xrpl_types::{
 	ChainCallId, CheckedChainCallRequest, CheckedChainCallResult, EventProofInfo, EventClaimResult, NotarizationPayload,
@@ -48,7 +49,7 @@ pub mod pallet {
 	use std::collections::BTreeMap;
 	use frame_support::traits::UnixTime;
 	use seed_primitives::ethy::EthyChainId;
-	use crate::xrpl_types::EventClaim;
+	use crate::xrpl_types::{BridgeXrplRpcApi, EventClaim};
 	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -76,6 +77,8 @@ pub mod pallet {
 		type BridgeContractAddress: Get<H160>;
 		/// The threshold of notarizations required to approve an event
 		type NotarizationThreshold: Get<Percent>;
+		/// Provides an api for Remote Chain JSON-RPC request/responses to the bridged network
+		type ChainRpcClient: BridgeXrplRpcApi;
 
 		/// Unix time
 		type UnixTime: UnixTime;
@@ -240,7 +243,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
 		fn offchain_worker(block_number: T::BlockNumber) {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
-			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
+			log!(trace, "💎 active notaries: {:?}", Self::validator_list());
 
 			// this passes if flag `--validator` set, not necessarily in the active set
 			if !sp_io::offchain::is_validator() {
@@ -350,8 +353,8 @@ pub mod pallet {
 			// we don't need to verify the signature here because it has been verified in
 			// `validate_unsigned` function when sending out the unsigned tx.
 			let authority_index = payload.authority_index() as usize;
-			let notary_keys = Self::notary_keys();
-			let notary_public_key = match notary_keys.get(authority_index) {
+			let validator_list = Self::validator_list();
+			let notary_public_key = match validator_list.get(authority_index) {
 				Some(id) => id,
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
