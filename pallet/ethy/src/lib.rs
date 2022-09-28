@@ -26,13 +26,13 @@
 //! 1) verify a transaction hash exists that executed a specific contract producing a specific event
 //! log 2) verify the `returndata` of executing a contract at some time _t_ with input `i`
 //!
-//! CENNZnet validators use an offchain worker and Ethereum full node connections to independently
+//! Ethy validators use an offchain worker and Ethereum full node connections to independently
 //! verify and observe events happened on Ethereum.
 //! Once a threshold of validators sign a notarization having witnessed the event it is considered
 //! verified.
 //!
-//! Events are opaque to this pallet, other pallet handle submitting "event claims" and "callbacks"
-//! to handle success
+//! Events are opaque to this pallet, other pallets are forwarded incoming events and can submit
+//! outgoing event for signing
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -150,8 +150,8 @@ decl_storage! {
 		NotarySetProofId get(fn notary_set_proof_id): EventProofId;
 		/// Queued event claims, can be challenged within challenge period
 		PendingEventClaims get(fn pending_event_claims): map hasher(twox_64_concat) EventClaimId => Option<EventClaim>;
-		/// Queued event proofs to be processed once bridge has been re-enabled (Ethereum ABI encoded `EventClaim`)
-		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EventProofInfo>;
+		/// Queued event proofs to be processed once bridge has been re-enabled
+		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EthySigningRequest>;
 		/// List of all event ids that are currently being challenged
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
 		/// Tracks processed message Ids (prevent replay)
@@ -194,8 +194,8 @@ decl_event! {
 		ProcessingFailed(EventClaimId, EventRouterError),
 		/// An event has been challenged (claim_id, challenger)
 		Challenged(EventClaimId, AccountId),
-		/// An event proof has been sent to Ethereum
-		EventSend(EventProofInfo),
+		/// An event proof has been sent for signing by ethy-gadget
+		EventSend { event_proof_id: EventProofId, chain_id: EthyChainId },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
 		EventSubmit(EventClaimId, EventClaim, BlockNumber)
 	}
@@ -276,8 +276,8 @@ decl_module! {
 			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
 				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
-				for (event_proof_id, event_proof_info) in PendingEventProofs::iter().take(max_delayed_events as usize) {
-					Self::do_request_event_proof(event_proof_id, event_proof_info);
+				for (event_proof_id, signing_request) in PendingEventProofs::iter().take(max_delayed_events as usize) {
+					Self::do_request_event_proof(event_proof_id, signing_request);
 					PendingEventProofs::remove(event_proof_id);
 				}
 			}

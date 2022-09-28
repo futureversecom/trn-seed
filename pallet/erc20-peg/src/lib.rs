@@ -26,14 +26,15 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
-use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},
 	SaturatedConversion,
 };
 use sp_std::prelude::*;
+
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 
 pub mod types;
 use types::*;

@@ -324,6 +324,7 @@ parameter_types! {
 
 impl pallet_xrpl_bridge::Config for Runtime {
 	type Event = Event;
+	type EthyAdapter = EthBridge;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();

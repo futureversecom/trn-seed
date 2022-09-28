@@ -11,12 +11,13 @@ use frame_support::{
 	PalletId,
 };
 use scale_info::TypeInfo;
+use sp_core::H160;
+use sp_std::{fmt::Debug, vec::Vec};
+
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
-use sp_core::H160;
-use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
 
@@ -226,6 +227,12 @@ pub trait EthereumBridge {
 		destination: &H160,
 		message: &[u8],
 	) -> Result<EventProofId, DispatchError>;
+}
+
+/// Interface for pallet-ethy and XRPL tx signing
+pub trait EthyXrplBridgeAdapter {
+	/// Request ethy generate a signature for the given tx data
+	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

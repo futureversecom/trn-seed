@@ -30,6 +30,7 @@ sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "po
 sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 [dev-dependencies]
+hex-literal = "0.3"
 parking_lot = "0.12.1"
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }

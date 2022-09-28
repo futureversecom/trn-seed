@@ -19,8 +19,10 @@ use std::collections::HashMap;
 
 use seed_primitives::ethy::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
-	AuthorityIndex, EventProofId, Witness,
+	AuthorityIndex, EthyChainId, EventProofId, Witness,
 };
+
+use crate::types::EventMetadata;
 
 #[derive(PartialEq, Debug)]
 pub enum WitnessError {
@@ -32,16 +34,6 @@ pub enum WitnessError {
 	DuplicateWitness,
 	/// This witness is for an already completed event
 	CompletedEvent,
-}
-
-/// Metadata about an event
-pub struct EventMetadata {
-	/// The keccak256 digest of the event
-	pub digest: [u8; 32],
-	/// The (finalized) block hash where the event proof was made
-	pub block_hash: [u8; 32],
-	// An arbitrary tag to differentiate the stored proofs/events
-	pub tag: Option<Vec<u8>>,
 }
 
 /// Handles tracking witnesses from ethy participants
@@ -104,11 +96,11 @@ impl WitnessRecord {
 		event_id: EventProofId,
 		digest: [u8; 32],
 		block_hash: [u8; 32],
-		tag: Option<Vec<u8>>,
+		chain_id: EthyChainId,
 	) {
 		self.event_meta
 			.entry(event_id)
-			.or_insert(EventMetadata { block_hash, digest, tag });
+			.or_insert(EventMetadata { block_hash, digest, chain_id });
 	}
 	/// Note a witness if we haven't seen it before
 	/// Returns true if the witness was noted, i.e previously unseen
@@ -131,7 +123,8 @@ impl WitnessRecord {
 		}
 
 		if let Some(metadata) = self.event_metadata(witness.event_id) {
-			if metadata.digest != witness.digest {
+			// Witnesses for XRPL are special cases and have unique digests
+			if metadata.digest != witness.digest && witness.chain_id != EthyChainId::Xrpl {
 				warn!(target: "ethy", "💎 witness has bad digest: {:?} from {:?}", witness.event_id, witness.authority_id);
 				return Err(WitnessError::MismatchedDigest)
 			}
@@ -159,10 +152,7 @@ impl WitnessRecord {
 						.insert(idx, (authority_index as AuthorityIndex, witness.signature.clone()))
 				}
 			})
-			.or_insert(
-				// case 1
-				vec![(authority_index, witness.signature.clone())],
-			);
+			.or_insert_with(|| vec![(authority_index, witness.signature.clone())]);
 
 		trace!(target: "ethy", "💎 witness recorded: {:?}, {:?}", witness.event_id, witness.authority_id);
 
@@ -180,7 +170,7 @@ impl WitnessRecord {
 			},
 		}
 
-		return Ok(())
+		Ok(())
 	}
 }
 
@@ -208,7 +198,7 @@ fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 mod test {
 	use sp_application_crypto::Pair;
 
-	use seed_primitives::ethy::{crypto::AuthorityPair, AuthorityIndex, Witness};
+	use seed_primitives::ethy::{crypto::AuthorityPair, AuthorityIndex, EthyChainId, Witness};
 
 	use super::{compact_sequence, Signature, WitnessError, WitnessRecord};
 
@@ -235,6 +225,7 @@ mod test {
 			assert!(witness_record
 				.note_event_witness(&Witness {
 					digest,
+					chain_id: EthyChainId::Ethereum,
 					event_id,
 					validator_set_id: 5_u64,
 					authority_id: validator_key.public(),
@@ -267,6 +258,7 @@ mod test {
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id: 5_u64,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
@@ -279,6 +271,7 @@ mod test {
 		let bob_validator = &validator_keys[1];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id: 5_u64,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
@@ -303,14 +296,50 @@ mod test {
 		let event_id = 5_u64;
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
 			signature: alice_validator.sign(&digest),
 		};
 
-		witness_record.note_event_metadata(event_id, [2_u8; 32], Default::default(), None);
+		witness_record.note_event_metadata(
+			event_id,
+			[2_u8; 32],
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
 		assert_eq!(witness_record.note_event_witness(witness), Err(WitnessError::MismatchedDigest));
+	}
+
+	#[test]
+	fn note_event_witness_mismatched_digest_xrpl() {
+		let validator_keys = dev_signers();
+		let mut witness_record = WitnessRecord {
+			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
+			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			..Default::default()
+		};
+
+		let alice_validator = &validator_keys[0];
+		let digest = [1_u8; 32];
+		let event_id = 5_u64;
+		let witness = &Witness {
+			digest,
+			chain_id: EthyChainId::Xrpl,
+			event_id,
+			validator_set_id: 5_u64,
+			authority_id: alice_validator.public(),
+			signature: alice_validator.sign(&digest),
+		};
+
+		witness_record.note_event_metadata(
+			event_id,
+			[2_u8; 32],
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
+		assert_eq!(witness_record.note_event_witness(witness), Ok(()));
 	}
 
 	#[test]
@@ -319,6 +348,7 @@ mod test {
 		let mut witness_record = WitnessRecord::default();
 		let witness = &Witness {
 			digest: [1_u8; 32],
+			chain_id: EthyChainId::Ethereum,
 			event_id: 5_u64,
 			validator_set_id: 5_u64,
 			authority_id: dave_pair.public(),
@@ -341,6 +371,7 @@ mod test {
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
@@ -351,6 +382,7 @@ mod test {
 		let bob_validator = &validator_keys[2];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
@@ -383,6 +415,7 @@ mod test {
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
@@ -395,6 +428,7 @@ mod test {
 		let bob_validator = &validator_keys[1];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
@@ -424,6 +458,7 @@ mod test {
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id: 3,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),

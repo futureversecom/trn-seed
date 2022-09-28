@@ -1586,6 +1586,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -1595,6 +1596,7 @@ dependencies = [
  "ethy-gadget",
  "futures",
  "jsonrpsee",
+ "libsecp256k1 0.6.0",
  "log",
  "parity-scale-codec",
  "sc-client-api",
@@ -5094,6 +5096,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5108,6 +5111,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -7338,7 +7342,6 @@ dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "primitive-types",
  "scale-info",
  "seed-primitives",
  "sp-core",
@@ -7351,6 +7354,7 @@ name = "seed-primitives"
 version = "1.0.0"
 dependencies = [
  "hex",
+ "hex-literal",
  "impl-serde 0.4.0",
  "libsecp256k1 0.7.1",
  "log",
@@ -9864,6 +9868,29 @@ dependencies = [
  "curve25519-dalek 3.2.0",
  "rand_core 0.5.1",
  "zeroize",
+]
+
+[[package]]
+name = "xrpl-codec"
+version = "0.1.0"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+dependencies = [
+ "ripemd",
+ "sha2 0.10.5",
+ "xrpl-codec-utils",
+]
+
+[[package]]
+name = "xrpl-codec-utils"
+version = "0.1.0"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+dependencies = [
+ "hashbrown 0.12.3",
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "syn",
 ]
 
 [[package]]

@@ -37,3 +37,14 @@ pub struct EventProofResponse {
 	/// Metadata tag
 	pub tag: Option<Bytes>,
 }
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct XrplTxProofResponse {
+	/// The event proof Id
+	pub event_id: EventProofId,
+	/// The signatures in the request and the index of the authority ('notary keys' which produced
+	/// it)
+	pub signatures: Vec<(u32, Bytes)>,
+	/// The block hash of the event (finalized)
+	pub block: H256,
+}
