@@ -672,9 +672,16 @@ impl<T: Config> Module<T> {
 
 	pub(crate) fn set_next_authority_block(current_block: T::BlockNumber) {
 		let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
+		// Check the start of this epoch from Babe and calculate next authority block from there
+		let start_block = match frame_support::storage::unhashed::get::<T::BlockNumber>(
+			b"1cb6f36e027abb2091cfb5110ab5087fe90e2fbf2d792cb324bffa9427fe1f0e",
+		) {
+			Some(epoch_start) => epoch_start.1,
+			None => current_block,
+		};
 		// Next authority change is in one epoch - 5 minutes
 		let next_block: T::BlockNumber =
-			current_block.saturating_add(epoch_duration.saturating_sub(75_u32).into());
+			start_block.saturating_add(epoch_duration.saturating_sub(75_u32).into());
 		<NextAuthorityChange<T>>::put(next_block);
 	}
 }
