@@ -222,7 +222,10 @@ fn deposit_relayer_bond_works() {
 		.build()
 		.execute_with(|| {
 			assert_ok!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())));
-			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &relayer.into()), RelayerBond::get());
+			assert_eq!(
+				AssetsExt::hold_balance(&BridgePalletId::get(), &relayer.into(), &XRP_ASSET_ID),
+				RelayerBond::get()
+			);
 
 			// Subsequent deposits should fail
 			assert_noop!(
@@ -235,8 +238,10 @@ fn deposit_relayer_bond_works() {
 				frame_system::RawOrigin::Root.into(),
 				relayer.into()
 			));
-			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &relayer.into()), RelayerBond::get());
-			assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &relayer.into(), false), 0);
+			assert_eq!(
+				AssetsExt::hold_balance(&BridgePalletId::get(), &relayer.into(), &XRP_ASSET_ID),
+				RelayerBond::get()
+			);
 
 			// Check storage
 			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), RelayerBond::get());
@@ -543,8 +548,6 @@ fn process_valid_challenged_event() {
 
 			// Submit valid notarization for all 9 validators
 			for i in 0..mock_notary_keys.len() {
-				assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &relayer.into(), false), 0);
-
 				// We test the returned value in the previous test
 				let _ = EthBridge::handle_event_notarization(
 					event_id_1,
@@ -555,9 +558,18 @@ fn process_valid_challenged_event() {
 
 			// Check balances of relayer and challenger
 			// Challenger should have no bond and no balance
+			assert_eq!(
+				AssetsExt::hold_balance(&BridgePalletId::get(), &challenger.into(), &XRP_ASSET_ID),
+				0
+			);
 			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &challenger.into()), 0);
 			assert!(EthBridge::challenger_account(event_id_1).is_none());
+
 			// Relayer should still have bond and challenger bond as balance
+			assert_eq!(
+				AssetsExt::hold_balance(&BridgePalletId::get(), &relayer.into(), &XRP_ASSET_ID),
+				RelayerBond::get()
+			);
 			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), RelayerBond::get());
 			assert_eq!(
 				AssetsExt::reducible_balance(XRP_ASSET_ID, &relayer.into(), false),
