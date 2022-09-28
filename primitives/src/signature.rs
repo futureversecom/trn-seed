@@ -188,8 +188,9 @@ impl std::fmt::Display for EthereumSigner {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use hex_literal::hex;
 	use sp_core::{ecdsa, Pair};
-	use sp_runtime::traits::IdentifyAccount;
+	use sp_runtime::traits::{IdentifyAccount, Verify};
 
 	#[test]
 	fn test_account_derivation_1() {
@@ -221,5 +222,29 @@ mod tests {
 		let account: EthereumSigner = public_key.into();
 		let expected_account = AccountId20::from(expected_hex_account);
 		assert_eq!(account.into_account(), expected_account);
+	}
+
+	#[test]
+	fn verify_personal_sign_works() {
+		let msg = "test eth signed message";
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+		]);
+		let address: EthereumSigner = pair.public().into();
+		let signature: EthereumSignature = ecdsa::Signature(hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
+
+		assert!(signature.verify(msg.as_ref(), &address.into_account()));
+	}
+
+	#[test]
+	fn verify_fails() {
+		let msg = "test eth signed message";
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+		]);
+		let address: EthereumSigner = pair.public().into();
+		let signature: EthereumSignature = ecdsa::Signature(hex!["ad0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
+
+		assert!(!signature.verify(msg.as_ref(), &address.into_account()));
 	}
 }
