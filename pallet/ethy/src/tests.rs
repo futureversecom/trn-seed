@@ -436,17 +436,13 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 #[test]
 fn pre_last_session_change() {
 	ExtBuilder::default().next_session_final().build().execute_with(|| {
-		let current_keys = vec![
-			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
-			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
-		];
 		let next_keys = vec![
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
 		];
 		let event_proof_id = EthBridge::next_event_proof_id();
 
-		EthBridge::handle_authorities_change(current_keys, next_keys.clone());
+		EthBridge::handle_authorities_change();
 
 		assert_eq!(
 			System::digest().logs[0],
@@ -502,7 +498,7 @@ fn last_session_change() {
 		crate::NextNotaryKeys::<TestRuntime>::put(&next_keys);
 
 		// current session is last in era: starting
-		EthBridge::handle_authorities_change(current_keys, next_keys.clone());
+		EthBridge::handle_authorities_change();
 		assert!(EthBridge::bridge_paused());
 		// current session is last in era: finishing
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();

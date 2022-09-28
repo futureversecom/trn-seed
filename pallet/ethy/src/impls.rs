@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{AccountIdConversion, SaturatedConversion},
+	traits::{AccountIdConversion, SaturatedConversion, Saturating},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -673,7 +673,8 @@ impl<T: Config> Module<T> {
 	pub(crate) fn set_next_authority_block(current_block: T::BlockNumber) {
 		let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
 		// Next authority change is in one epoch - 5 minutes
-		let next_block: T::BlockNumber = current_block + epoch_duration.into() - 75_u32.into();
+		let next_block: T::BlockNumber =
+			current_block.saturating_add(epoch_duration.saturating_sub(75_u32).into());
 		<NextAuthorityChange<T>>::put(next_block);
 	}
 }
