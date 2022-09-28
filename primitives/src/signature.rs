@@ -2,6 +2,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{ecdsa, H160};
 use sp_io::hashing::keccak_256;
+use sp_std::vec::Vec;
 
 #[derive(
 	Eq, PartialEq, Copy, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Default, PartialOrd, Ord,
@@ -71,8 +72,36 @@ impl From<ecdsa::Signature> for EthereumSignature {
 
 impl sp_runtime::traits::Verify for EthereumSignature {
 	type Signer = EthereumSigner;
+
+	/// Verify this signature is for `msg` produced by `signer`
+	///
+	/// As a fallback checks if the signature verifies using Ethereum's 'personal sign' scheme
+	/// `keccak256(prefix + message.len() + message)`
 	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId20) -> bool {
-		let m = keccak_256(msg.get());
+		let message = msg.get();
+		let m = keccak_256(message);
+
+		let native_signature_valid =
+			match sp_io::crypto::secp256k1_ecdsa_recover(self.0.as_ref(), &m) {
+				Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
+				Err(sp_io::EcdsaVerifyError::BadRS) => {
+					log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
+					false
+				},
+				Err(sp_io::EcdsaVerifyError::BadV) => {
+					log::error!(target: "evm", "Error recovering: Incorrect value of V");
+					false
+				},
+				Err(sp_io::EcdsaVerifyError::BadSignature) => {
+					log::error!(target: "evm", "Error recovering: Invalid signature");
+					false
+				},
+			};
+		if native_signature_valid {
+			return true
+		}
+
+		let m = keccak_256(personal_sign_message(message).as_slice());
 		match sp_io::crypto::secp256k1_ecdsa_recover(self.0.as_ref(), &m) {
 			Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
 			Err(sp_io::EcdsaVerifyError::BadRS) => {
@@ -89,6 +118,20 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 			},
 		}
 	}
+}
+
+/// Constructs the message that Ethereum RPC's `personal_sign` and `eth_sign` would sign.
+pub fn personal_sign_message(message: &[u8]) -> Vec<u8> {
+	let mut l = message.len();
+	let mut rev = Vec::new();
+	while l > 0 {
+		rev.push(b'0' + (l % 10) as u8);
+		l /= 10;
+	}
+	let mut v = b"\x19Ethereum Signed Message:\n".to_vec();
+	v.extend(rev.into_iter().rev());
+	v.extend_from_slice(message);
+	v
 }
 
 /// Public key for an Ethereum / Moonbeam compatible account
@@ -163,6 +206,7 @@ mod tests {
 		let expected_account = AccountId20::from(expected_hex_account);
 		assert_eq!(account.into_account(), expected_account);
 	}
+
 	#[test]
 	fn test_account_derivation_2() {
 		// Test from https://asecuritysite.com/encryption/ethadd
