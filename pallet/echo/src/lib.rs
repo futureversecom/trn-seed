@@ -116,12 +116,6 @@ pub mod pallet {
 	}
 }
 
-impl Get<H160> for ContractAddress {
-	fn get() -> H160 {
-		<ContractAddress as storage::StorageValue<_>>::get()
-	}
-}
-
 // Implement Subscriber to receive events from Ethereum
 impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 	type Address = T::PalletId;
