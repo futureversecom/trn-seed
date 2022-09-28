@@ -251,7 +251,6 @@ mod test {
 				(3, Signature::from_raw([3_u8; 65]).into()),
 				(4, Signature::from_raw([4_u8; 65]).into()),
 			],
-			tag: None,
 			digest: Default::default(),
 			block: Default::default(),
 			event_id: 1,
@@ -273,7 +272,7 @@ mod test {
 
 	#[test]
 	fn ethy_chain_id() {
-		assert_eq!(EthyChainId::Ethereum.into(), 1_u8);
-		assert_eq!(EthyChainId::Xrpl.into(), 2_u8);
+		assert_eq!(Into::<u8>::into(EthyChainId::Ethereum), 1_u8);
+		assert_eq!(Into::<u8>::into(EthyChainId::Xrpl), 2_u8);
 	}
 }

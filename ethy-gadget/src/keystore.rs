@@ -238,9 +238,8 @@ mod tests {
 
 		let store: EthyKeystore = Some(store).into();
 
-		let msg = b"are you involved or commited?";
-
-		let sig1 = store.sign(&alice, msg).unwrap();
+		let msg = b"are you involved or committed?";
+		let sig1 = store.sign_prehashed(&alice, &keccak_256(msg)).unwrap();
 		let sig2 = Keyring::Alice.sign(msg);
 
 		assert_eq!(sig1, sig2);
@@ -262,8 +261,8 @@ mod tests {
 
 		let alice = Keyring::Alice.public();
 
-		let msg = b"are you involved or commited?";
-		let sig = store.sign(&alice, msg).err().unwrap();
+		let msg = b"are you involved or committed?";
+		let sig = store.sign_prehashed(&alice, &keccak_256(msg)).err().unwrap();
 		let err = Error::Signature("ecdsa_sign_prehashed() failed".to_string());
 
 		assert_eq!(sig, err);
@@ -274,9 +273,8 @@ mod tests {
 		let store: EthyKeystore = None.into();
 
 		let alice = Keyring::Alice.public();
-		let msg = b"are you involved or commited";
-
-		let sig = store.sign(&alice, msg).err().unwrap();
+		let msg = b"are you involved or committed?";
+		let sig = store.sign_prehashed(&alice, &keccak_256(msg)).err().unwrap();
 		let err = Error::Keystore("no Keystore".to_string());
 		assert_eq!(sig, err);
 	}
@@ -297,8 +295,8 @@ mod tests {
 		let store: EthyKeystore = Some(store).into();
 
 		// `msg` and `sig` match
-		let msg = b"are you involved or commited?";
-		let sig = store.sign(&alice, msg).unwrap();
+		let msg = b"are you involved or committed?";
+		let sig = store.sign_prehashed(&alice, &keccak_256(msg)).unwrap();
 		assert!(EthyKeystore::verify(&alice, &sig, msg));
 
 		// `msg and `sig` don't match

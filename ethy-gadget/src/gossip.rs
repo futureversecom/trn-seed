@@ -223,7 +223,7 @@ mod tests {
 	use sc_network_test::{Block, Hash};
 	use sp_core::keccak_256;
 
-	use seed_primitives::ethy::Witness;
+	use seed_primitives::ethy::{EthyChainId, Witness};
 
 	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
 	use crate::{assert_validation_result, testing::Keyring};
@@ -264,6 +264,7 @@ mod tests {
 		let message = b"hello world";
 		let witness = Witness {
 			digest: sp_core::keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 123,
 			authority_id: alice.public(),
@@ -300,6 +301,7 @@ mod tests {
 		let message = b"hello world";
 		let witness = Witness {
 			digest: keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 123,
 			authority_id: alice.public(),
