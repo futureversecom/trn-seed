@@ -158,8 +158,8 @@ decl_storage! {
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
 		/// Tracks processed message Ids (prevent replay)
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
-		/// The epoch_start_block of the last epoch key set we processed
-		LastProcessedEpoch get(fn last_processed_epoch): Option<T::BlockNumber>;
+		/// The block in which we process the next authority change
+		NextAuthorityChange get(fn next_authority_change): Option<T::BlockNumber>;
 		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) T::BlockNumber => Vec<EventClaimId>;
 		// State Oracle
@@ -251,14 +251,14 @@ decl_module! {
 			let mut consumed_weight = 0 as Weight;
 
 			// 1) Handle authority change
-			if let Some(epoch_start) = frame_support::storage::unhashed::get::<T::BlockNumber>(b"1cb6f36e027abb2091cfb5110ab5087fe90e2fbf2d792cb324bffa9427fe1f0e") {
-				// Check if block number is later than 5 minutes before the epoch ends
-				let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
-				if block_number > epoch_start + epoch_duration.into() - 75_u32.into() {
-					// Check we haven't already processed this epoch_start block
-					if Some(epoch_start) != Self::last_processed_epoch() {
-						Self::handle_authorities_change(epoch_start);
-					}
+			match Self::next_authority_change() {
+				Some(_) =>  {
+					// Change authority keys, we are 5 minutes before the next epoch
+					Self::handle_authorities_change();
+				},
+				None => {
+					// There is no authority block for some reason
+					Self::set_next_authority_block(block_number);
 				}
 			}
 

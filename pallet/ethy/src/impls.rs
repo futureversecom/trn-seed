@@ -614,7 +614,7 @@ impl<T: Config> Module<T> {
 	/// too frequently
 	/// - `new`: The validator set that is active right now
 	/// - `queued`: The validator set that will activate next session
-	pub(crate) fn handle_authorities_change(epoch_start: T::BlockNumber) {
+	pub(crate) fn handle_authorities_change() {
 		// ### Session life cycle
 		// block on_initialize if ShouldEndSession(n)
 		//  rotate_session
@@ -651,7 +651,6 @@ impl<T: Config> Module<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-		<LastProcessedEpoch<T>>::put(epoch_start);
 	}
 
 	/// Submits an Ethereum event proof request in the block, for use by the ethy-gadget protocol
@@ -669,6 +668,13 @@ impl<T: Config> Module<T> {
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 		Self::deposit_event(Event::<T>::EventSend(event_proof_info));
+	}
+
+	pub(crate) fn set_next_authority_block(current_block: T::BlockNumber) {
+		let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
+		// Next authority change is in one epoch - 5 minutes
+		let next_block: T::BlockNumber = current_block + epoch_duration.into() - 75_u32.into();
+		<NextAuthorityChange<T>>::put(next_block);
 	}
 }
 
@@ -738,9 +744,12 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
-		// Store the keys for usage next session
-		let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
-		<NextNotaryKeys<T>>::put(next_queued_authorities);
+		if T::FinalSessionTracker::is_active_session_final() {
+			// Store the keys for usage next session
+			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+			<NextNotaryKeys<T>>::put(next_queued_authorities);
+			<Pallet<T>>::set_next_authority_block(<frame_system::Pallet<T>>::block_number())
+		}
 	}
 
 	/// A notification for end of the session.
