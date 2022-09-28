@@ -116,9 +116,6 @@ pub enum ConsensusLog<AuthorityId: Encode + Decode> {
 	/// The format of `data` is determined by the bridging protocol for a given `chain_id`
 	#[codec(index = 3)]
 	OpaqueSigningRequest { chain_id: EthyChainId, event_proof_id: EventProofId, data: Vec<u8> },
-	#[codec(index = 4)]
-	/// Signal an `AuthoritiesChange` is scheduled for next session
-	PendingAuthoritiesChange(ValidatorSet<AuthorityId>),
 }
 
 /// Ethy witness message.
@@ -240,7 +237,20 @@ sp_api::decl_runtime_apis! {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use hex_literal::hex;
 	use sp_core::ecdsa::Signature;
+
+	#[test]
+	fn ethy_pub_key_to_ethereum_address() {
+		let address = hex!("dB6B186A0Cf75833903A4cfA0Aa618eDa65793f4");
+
+		assert_eq!(
+			EthyEcdsaToEthereum::convert(&hex!(
+				"02276503736589d21316da95a46d82b2d5c7aa10b946abbdeb01728d7cb935235e"
+			)),
+			address,
+		);
+	}
 
 	#[test]
 	fn signature_helpers() {

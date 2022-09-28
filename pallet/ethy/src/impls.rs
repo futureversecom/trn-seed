@@ -665,10 +665,11 @@ impl<T: Config> Module<T> {
 				NotarySetProofId::put(event_proof_id);
 			}
 
+			// TODO: only do this one `on_before_session_ending`
 			// notify ethy-gadget about validator set change
 			let log = DigestItem::Consensus(
 				ETHY_ENGINE_ID,
-				ConsensusLog::PendingAuthoritiesChange(ValidatorSet {
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
 					validators: next_keys.to_vec(),
 					id: next_validator_set_id,
 					proof_threshold: T::NotarizationThreshold::get()
@@ -695,12 +696,12 @@ impl<T: Config> Module<T> {
 			if Self::next_notary_keys().is_empty() {
 				// if we're here the era was forced, we need to generate a proof asap
 				log!(warn, "💎 urgent notary key rotation");
-				log_notary_change(new.as_ref());
+				log_notary_change(queued.as_ref());
 			}
 		}
 	}
 
-	/// Submits an Ethereum event proof request in the block, for use by the ethy-gadget protocol
+	/// Submit an event proof signing request in the block, for use by the ethy-gadget protocol
 	pub(crate) fn do_request_event_proof(
 		event_proof_id: EventProofId,
 		request: EthySigningRequest,
@@ -723,7 +724,7 @@ impl<T: Config> Module<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-		Self::deposit_event(Event::<T>::EventSend { event_proof_id, request });
+		Self::deposit_event(Event::<T>::EventSend { event_proof_id, chain_id: request.chain_id() });
 	}
 }
 
@@ -862,22 +863,6 @@ impl<T: Config> EthCallOracle for Module<T> {
 
 		call_id
 	}
-}
-
-/// Ethereum ABI encode an event/message for proving (and later submission to Ethereum)
-/// `source` the pallet pseudo address sending the event
-/// `destination` the contract address to receive the event
-/// `message` The message data
-/// `validator_set_id` The id of the current validator set
-/// `event_proof_id` The id of this outgoing event/proof
-pub fn encode_event_for_proving(event_proof_info: EthereumEventInfo) -> Vec<u8> {
-	ethabi::encode(&[
-		Token::Address(event_proof_info.source),
-		Token::Address(event_proof_info.destination),
-		Token::Bytes(event_proof_info.message),
-		Token::Uint(event_proof_info.validator_set_id.into()),
-		Token::Uint(event_proof_info.event_proof_id.into()),
-	])
 }
 
 /// Prunes claim ids that are less than the max contiguous claim id.

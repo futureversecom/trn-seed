@@ -195,7 +195,7 @@ decl_event! {
 		/// An event has been challenged (claim_id, challenger)
 		Challenged(EventClaimId, AccountId),
 		/// An event proof has been sent for signing by ethy-gadget
-		EventSend { event_proof_id: EventProofId, request: EthySigningRequest },
+		EventSend { event_proof_id: EventProofId, chain_id: EthyChainId },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
 		EventSubmit(EventClaimId, EventClaim, BlockNumber)
 	}

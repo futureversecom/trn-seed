@@ -17,6 +17,7 @@
 
 use codec::{Decode, Encode};
 use core::fmt;
+use ethabi::Token;
 use ethereum_types::{Bloom, U64};
 use rustc_hex::ToHex;
 use scale_info::TypeInfo;
@@ -43,8 +44,6 @@ pub use seed_primitives::{
 	ethy::{ConsensusLog, EthyChainId, EventClaimId, EventProofId, ValidatorSet, ETHY_ENGINE_ID},
 	BlockNumber,
 };
-
-use crate::impls::encode_event_for_proving;
 
 /// An EthCallOracle call Id
 pub type EthCallId = u64;
@@ -121,6 +120,24 @@ pub struct EthereumEventInfo {
 	pub event_proof_id: EventProofId,
 }
 
+impl EthereumEventInfo {
+	/// Ethereum ABI encode an event/message for proving (and later submission to Ethereum)
+	/// `source` the pallet pseudo address sending the event
+	/// `destination` the contract address to receive the event
+	/// `message` The message data
+	/// `validator_set_id` The id of the current validator set
+	/// `event_proof_id` The id of this outgoing event/proof
+	pub fn abi_encode(&self) -> Vec<u8> {
+		ethabi::encode(&[
+			Token::Address(self.source),
+			Token::Address(self.destination),
+			Token::Bytes(self.message.clone()),
+			Token::Uint(self.validator_set_id.into()),
+			Token::Uint(self.event_proof_id.into()),
+		])
+	}
+}
+
 /// A request for ethy-gadget to sign something
 #[derive(Debug, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
 pub enum EthySigningRequest {
@@ -143,8 +160,7 @@ impl EthySigningRequest {
 		match self {
 			// Ethereum event signing requires keccak hashing the event
 			Self::Ethereum(event) =>
-				sp_io::hashing::keccak_256(encode_event_for_proving(event.clone()).as_slice())
-					.to_vec(),
+				sp_io::hashing::keccak_256(&event.abi_encode().as_slice()).to_vec(),
 			// XRPL tx hashing must happen before signing to inject the public key
 			Self::XrplTx(data) => data.clone(),
 		}

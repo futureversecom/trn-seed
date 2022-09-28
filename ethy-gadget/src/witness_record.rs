@@ -313,6 +313,36 @@ mod test {
 	}
 
 	#[test]
+	fn note_event_witness_mismatched_digest_xrpl() {
+		let validator_keys = dev_signers();
+		let mut witness_record = WitnessRecord {
+			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
+			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			..Default::default()
+		};
+
+		let alice_validator = &validator_keys[0];
+		let digest = [1_u8; 32];
+		let event_id = 5_u64;
+		let witness = &Witness {
+			digest,
+			chain_id: EthyChainId::Xrpl,
+			event_id,
+			validator_set_id: 5_u64,
+			authority_id: alice_validator.public(),
+			signature: alice_validator.sign(&digest),
+		};
+
+		witness_record.note_event_metadata(
+			event_id,
+			[2_u8; 32],
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
+		assert_eq!(witness_record.note_event_witness(witness), Ok(()));
+	}
+
+	#[test]
 	fn note_event_witness_unknown_authority() {
 		let dave_pair = AuthorityPair::from_string("//Dave", None).unwrap();
 		let mut witness_record = WitnessRecord::default();

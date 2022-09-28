@@ -7354,6 +7354,7 @@ name = "seed-primitives"
 version = "1.0.0"
 dependencies = [
  "hex",
+ "hex-literal",
  "impl-serde 0.4.0",
  "libsecp256k1 0.7.1",
  "log",
