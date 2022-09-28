@@ -198,7 +198,7 @@ fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 mod test {
 	use sp_application_crypto::Pair;
 
-	use seed_primitives::ethy::{crypto::AuthorityPair, AuthorityIndex, Witness};
+	use seed_primitives::ethy::{crypto::AuthorityPair, AuthorityIndex, EthyChainId, Witness};
 
 	use super::{compact_sequence, Signature, WitnessError, WitnessRecord};
 
@@ -225,6 +225,7 @@ mod test {
 			assert!(witness_record
 				.note_event_witness(&Witness {
 					digest,
+					chain_id: EthyChainId::Ethereum,
 					event_id,
 					validator_set_id: 5_u64,
 					authority_id: validator_key.public(),
@@ -257,6 +258,7 @@ mod test {
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id: 5_u64,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
@@ -269,6 +271,7 @@ mod test {
 		let bob_validator = &validator_keys[1];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id: 5_u64,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
@@ -293,13 +296,19 @@ mod test {
 		let event_id = 5_u64;
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
 			signature: alice_validator.sign(&digest),
 		};
 
-		witness_record.note_event_metadata(event_id, [2_u8; 32], Default::default(), None);
+		witness_record.note_event_metadata(
+			event_id,
+			[2_u8; 32],
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
 		assert_eq!(witness_record.note_event_witness(witness), Err(WitnessError::MismatchedDigest));
 	}
 
@@ -309,6 +318,7 @@ mod test {
 		let mut witness_record = WitnessRecord::default();
 		let witness = &Witness {
 			digest: [1_u8; 32],
+			chain_id: EthyChainId::Ethereum,
 			event_id: 5_u64,
 			validator_set_id: 5_u64,
 			authority_id: dave_pair.public(),
@@ -331,6 +341,7 @@ mod test {
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
@@ -341,6 +352,7 @@ mod test {
 		let bob_validator = &validator_keys[2];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
@@ -373,6 +385,7 @@ mod test {
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
@@ -385,6 +398,7 @@ mod test {
 		let bob_validator = &validator_keys[1];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
@@ -414,6 +428,7 @@ mod test {
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
+			chain_id: EthyChainId::Ethereum,
 			event_id: 3,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
