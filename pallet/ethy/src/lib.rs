@@ -258,7 +258,14 @@ decl_module! {
 				},
 				None => {
 					// There is no authority block for some reason
-					Self::set_next_authority_block(block_number);
+					// Check the start of this epoch from Babe and calculate next authority block from there
+					let start_block = match frame_support::storage::unhashed::get::<T::BlockNumber>(
+						b"1cb6f36e027abb2091cfb5110ab5087fe90e2fbf2d792cb324bffa9427fe1f0e",
+					) {
+						Some(epoch_start) => epoch_start.1,
+						None => block_number,
+					};
+					Self::set_next_authority_block(start_block);
 				}
 			}
 
