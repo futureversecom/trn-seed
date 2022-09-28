@@ -114,7 +114,7 @@ fn submit_event() {
 			event_data.clone(),
 		));
 
-		let process_at = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+		let process_at = System::block_number() + EthBridge::challenge_period();
 		assert_eq!(
 			EthBridge::pending_event_claims(event_id),
 			Some(EventClaim { tx_hash, source, destination, data: message.to_vec() })
@@ -192,7 +192,7 @@ fn submit_event_tracks_completed() {
 		));
 
 		// Process the message
-		let process_at = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+		let process_at = System::block_number() + EthBridge::challenge_period();
 		EthBridge::on_initialize(process_at);
 
 		assert_noop!(
@@ -1351,7 +1351,7 @@ fn test_submit_event_replay_check() {
 			}
 		}
 		// Process the messages
-		let process_at = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+		let process_at = System::block_number() + EthBridge::challenge_period();
 		EthBridge::on_initialize(process_at);
 		// check the processed_message_ids has [1, 3]
 		assert_eq!(EthBridge::processed_message_ids(), vec![1, 3]);
@@ -1368,10 +1368,24 @@ fn test_submit_event_replay_check() {
 			event_data[2].clone(),
 		));
 		// Process the messages
-		let process_at2 = System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+		let process_at2 = System::block_number() + EthBridge::challenge_period();
 		EthBridge::on_initialize(process_at2);
 
 		// check the processed_message_ids has [3]
 		assert_eq!(EthBridge::processed_message_ids(), vec![3]);
+	});
+}
+
+#[test]
+fn set_challenge_period_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let new_challenge_period: <TestRuntime as frame_system::Config>::BlockNumber = 12345;
+
+		assert_ok!(EthBridge::set_challenge_period(
+			frame_system::RawOrigin::Root.into(),
+			new_challenge_period
+		));
+		// Check storage updated
+		assert_eq!(EthBridge::challenge_period(), new_challenge_period);
 	});
 }

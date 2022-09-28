@@ -13,7 +13,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
 impl-trait-for-tuples = "0.2.1"
 scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
-primitive-types = { version = "0.10.1", default-features = false, features = ["impl-codec", "impl-serde"] }
 
 # Substrate
 frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
@@ -32,6 +31,5 @@ std = [
 	"sp-core/std",
 	"sp-std/std",
 	"seed-primitives/std",
-	"primitive-types/std",
 	"sp-runtime/std"
 ]

@@ -18,7 +18,7 @@ use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 
 use seed_primitives::{
-	xrpl::{XrplTxHash, XrplWithdrawAddress, XrplWithdrawTxNonce},
+	xrpl::{XrplAddress, XrplTxHash, XrplTxNonce},
 	Balance,
 };
 
@@ -34,9 +34,9 @@ pub struct XrpTransaction {
 #[scale_info(skip_type_params(T))]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
-	pub tx_nonce: XrplWithdrawTxNonce,
+	pub tx_nonce: XrplTxNonce,
 	pub amount: Balance,
-	pub destination: XrplWithdrawAddress,
+	pub destination: XrplAddress,
 }
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -63,7 +63,7 @@ impl Default for XrpWithdrawTransaction {
 			tx_fee: 0,
 			tx_nonce: 0,
 			amount: 0,
-			destination: XrplWithdrawAddress::default(),
+			destination: XrplAddress::default(),
 		}
 	}
 }

@@ -288,7 +288,6 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		Vec::default(),
 	));
 
-	// register ethy p2p protocol
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
 	config

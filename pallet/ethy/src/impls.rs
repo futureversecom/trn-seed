@@ -723,7 +723,7 @@ impl<T: Config> Module<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-		Self::deposit_event(Event::<T>::EventSubmit { event_proof_id, request });
+		Self::deposit_event(Event::<T>::EventSend { event_proof_id, request });
 	}
 }
 

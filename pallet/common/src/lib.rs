@@ -6,19 +6,18 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	sp_runtime::traits::AccountIdConversion,
-	traits::{
-		fungibles::Transfer, ExistenceRequirement, Get, Imbalance, SignedImbalance, WithdrawReasons,
-	},
-	weights::Weight,
+	traits::{fungibles::Transfer, Get},
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
 use scale_info::TypeInfo;
+use sp_core::H160;
+use sp_std::{fmt::Debug, vec::Vec};
+
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
-use sp_core::{H160, H256, U256};
-use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
 
@@ -112,86 +111,6 @@ pub trait CreateExt {
 	) -> Result<AssetId, DispatchError>;
 }
 
-/// Something that subscribes to bridge event claims
-#[impl_trait_for_tuples::impl_for_tuples(10)]
-pub trait EventClaimSubscriber {
-	/// Notify subscriber about a successful event claim for the given event data
-	fn on_success(
-		event_claim_id: u64,
-		contract_address: &H160,
-		event_signature: &H256,
-		event_data: &[u8],
-	);
-	/// Notify subscriber about a failed event claim for the given event data
-	fn on_failure(
-		event_claim_id: u64,
-		contract_address: &H160,
-		event_signature: &H256,
-		event_data: &[u8],
-	);
-}
-
-/// Something that verifies event claims
-pub trait EventClaimVerifier {
-	/// Submit an event claim to the verifier
-	/// Returns a unique claim Id on success
-	fn submit_event_claim(
-		contract_address: &H160,
-		event_signature: &H256,
-		tx_hash: &H256,
-		event_data: &[u8],
-	) -> Result<u64, DispatchError>;
-	/// Generate proof of the given message
-	/// Returns a unique proof Id on success
-	fn generate_event_proof<M: EthAbiCodec>(message: &M) -> Result<u64, DispatchError>;
-}
-
-/// Noop implementation, make erc20peg work in interim
-impl EventClaimVerifier for () {
-	fn submit_event_claim(
-		_contract_address: &H160,
-		_event_signature: &H256,
-		_tx_hash: &H256,
-		_event_data: &[u8],
-	) -> Result<u64, DispatchError> {
-		Ok(u64::max_value())
-	}
-	/// Generate proof of the given message
-	/// Returns a unique proof Id on success
-	fn generate_event_proof<M: EthAbiCodec>(_message: &M) -> Result<u64, DispatchError> {
-		Ok(u64::max_value())
-	}
-}
-
-/// Something that can be decoded from eth log data/ ABI
-/// TODO: use ethabi crate
-pub trait EthAbiCodec: Sized {
-	fn encode(&self) -> Vec<u8>;
-	/// Decode `Self` from Eth log data
-	fn decode(data: &[u8]) -> Option<Self>;
-}
-
-impl EthAbiCodec for U256 {
-	fn encode(&self) -> Vec<u8> {
-		Into::<[u8; 32]>::into(*self).to_vec()
-	}
-
-	fn decode(_data: &[u8]) -> Option<Self> {
-		unimplemented!();
-	}
-}
-
-impl EthAbiCodec for u64 {
-	fn encode(&self) -> Vec<u8> {
-		let uint = U256::from(*self);
-		Into::<[u8; 32]>::into(uint).to_vec()
-	}
-
-	fn decode(_data: &[u8]) -> Option<Self> {
-		unimplemented!();
-	}
-}
-
 /// The interface that states whether an account owns a token
 pub trait IsTokenOwner {
 	type AccountId;
@@ -254,12 +173,36 @@ pub trait EthereumEventRouter {
 pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
-	// The destination/source address that handles routing of events to the subscriber
+	/// The destination address of this subscriber (doubles as the source address for sent messages)
 	type Address: Get<PalletId>;
+	/// The source address that we restrict incoming messages from
+	type SourceAddress: Get<H160>;
 
-	// The destination/source address getter function
+	/// The destination/source address getter function
 	fn address() -> H160 {
 		Self::Address::get().into_account_truncating()
+	}
+
+	/// process an incoming event from Ethereum
+	/// Verifies source address then calls on_event
+	fn process_event(source: &H160, data: &[u8]) -> OnEventResult {
+		let verify_weight = Self::verify_source(source)?;
+		let on_event_weight = Self::on_event(source, data)?;
+		Ok(verify_weight.saturating_add(on_event_weight))
+	}
+
+	/// Verifies the source address
+	/// Allows pallets to restrict the source based on individual requirements
+	/// Default implementation compares source with SourceAddress
+	fn verify_source(source: &H160) -> OnEventResult {
+		if source != &Self::SourceAddress::get() {
+			Err((
+				DbWeight::get().reads(1 as Weight),
+				DispatchError::Other("Invalid source address").into(),
+			))
+		} else {
+			Ok(DbWeight::get().reads(1 as Weight))
+		}
 	}
 
 	/// Notify subscriber about a event received from Ethereum

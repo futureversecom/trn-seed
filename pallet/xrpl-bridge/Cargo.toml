@@ -36,7 +36,6 @@ pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false
 sp-io = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
 sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
-
 [features]
 default = ['std']
 runtime-benchmarks = ['frame-benchmarking']

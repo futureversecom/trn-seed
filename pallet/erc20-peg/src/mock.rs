@@ -13,28 +13,26 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 
-use crate as crml_erc20_peg;
-use seed_primitives::types::{AssetId, Balance};
+use crate as pallet_erc20_peg;
+use seed_pallet_common::{
+	EthereumBridge, EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber,
+	EventRouterError, EventRouterResult,
+};
+use seed_primitives::types::{AccountId, AssetId, Balance};
 
 use frame_support::{pallet_prelude::*, parameter_types, PalletId};
 use frame_system::EnsureRoot;
-use seed_pallet_common::{EthAbiCodec, EventClaimVerifier};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-pub const CENNZ_ASSET_ID: AssetId = 16000;
-pub const CPAY_ASSET_ID: AssetId = 16001;
-pub const NEXT_ASSET_ID: AssetId = 17000;
-
-pub const STAKING_ASSET_ID: AssetId = CENNZ_ASSET_ID;
-pub const SPENDING_ASSET_ID: AssetId = CPAY_ASSET_ID;
+pub const XRP_ASSET_ID: AssetId = 1;
+pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-pub type AccountId = u64;
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -45,7 +43,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-		Erc20Peg: crml_erc20_peg::{Pallet, Call, Storage, Event<T>},
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>}
 	}
 );
@@ -79,10 +77,6 @@ impl frame_system::Config for Test {
 	type SS58Prefix = ();
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
-
-parameter_types! {
-	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 }
 
 parameter_types! {
@@ -144,18 +138,10 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
 	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
-	pub const DepositEventSignature: [u8; 32] = hex_literal::hex!("76bb911c362d5b1feb3058bc7dc9354703e4b6eb9c61cc845f73da880cf62f61");
-	pub const MaxLengthErc20Meta: u32 = 300;
-	pub const MaxClaimsPerBlock: u32 = 300;
-	pub const MaxReadyBlocks: u32 = 300;
-	pub const MaxInitialErcMetas: u8 = 50;
 }
 
 impl crate::Config for Test {
-	type DepositEventSignature = DepositEventSignature;
 	type Event = Event;
 	type EthBridge = MockEthBridge;
 	type PegPalletId = PegPalletId;
@@ -164,22 +150,32 @@ impl crate::Config for Test {
 
 /// Mock ethereum bridge
 pub struct MockEthBridge;
-
-impl EventClaimVerifier for MockEthBridge {
-	/// Submit an event claim
-	fn submit_event_claim(
-		_contract_address: &H160,
-		_event_signature: &H256,
-		_tx_hash: &H256,
-		_event_data: &[u8],
-	) -> Result<u64, DispatchError> {
+impl EthereumBridge for MockEthBridge {
+	fn send_event(
+		_source: &H160,
+		_destination: &H160,
+		_message: &[u8],
+	) -> Result<seed_primitives::ethy::EventProofId, DispatchError> {
 		Ok(1)
 	}
+}
 
-	/// Generate proof of the given message
-	/// Returns a unique proof Id on success
-	fn generate_event_proof<M: EthAbiCodec>(_message: &M) -> Result<u64, DispatchError> {
-		Ok(2)
+/// Handles routing verified bridge messages to other pallets
+pub struct MockEthereumEventRouter;
+
+impl EthereumEventRouterT for MockEthereumEventRouter {
+	/// Route an event to a handler at `destination`
+	/// - `source` the sender address on Ethereum
+	/// - `destination` the intended handler (pseudo) address
+	/// - `data` the Ethereum ABI encoded event data
+	fn route(source: &H160, destination: &H160, data: &[u8]) -> EventRouterResult {
+		// Route event to specific subscriber pallet
+		if destination == &<pallet_erc20_peg::Pallet<Test> as EthereumEventSubscriber>::address() {
+			<pallet_erc20_peg::Pallet<Test> as EthereumEventSubscriber>::process_event(source, data)
+				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
+		} else {
+			Err((0, EventRouterError::NoReceiver))
+		}
 	}
 }
 
@@ -188,9 +184,9 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut ext: sp_io::TestExternalities =
+			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
 
-		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| {
 			System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		});

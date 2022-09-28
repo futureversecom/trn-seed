@@ -15,31 +15,26 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
-use seed_pallet_common::{CreateExt, EthAbiCodec, EventClaimSubscriber, EventClaimVerifier};
-use seed_primitives::{AssetId, Balance};
-use sp_core::{H160, H256, U256};
-
+use codec::Decode;
+use ethabi::{ParamType, Token};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	pallet_prelude::*,
-	traits::{
-		fungibles,
-		fungibles::{Mutate, Transfer},
-		Get, IsType,
-	},
+	traits::{fungibles, fungibles::Mutate, Get, IsType},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId,
 };
-use frame_system::{ensure_root, ensure_signed, pallet_prelude::*};
-use seed_pallet_common::{IsTokenOwner, OnTransferSubscriber};
-use seed_primitives::{EthAddress, TokenId};
+use frame_system::pallet_prelude::*;
+use sp_core::{H160, U256};
 use sp_runtime::{
-	traits::{AccountIdConversion, Hash, One, Saturating},
-	DispatchError, SaturatedConversion,
+	traits::{AccountIdConversion, One, Saturating},
+	SaturatedConversion,
 };
 use sp_std::prelude::*;
+
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 
 pub mod types;
 use types::*;
@@ -48,18 +43,15 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-pub trait Config: frame_system::Config {
+pub trait Config: frame_system::Config<AccountId = AccountId> {
 	/// An onchain address for this pallet
 	type PegPalletId: Get<PalletId>;
-	/// The EVM event signature of a deposit
-	type DepositEventSignature: Get<[u8; 32]>;
-	/// Submits event claims for Ethereum
-	type EthBridge: EventClaimVerifier;
+	/// Submits event messages to Ethereum
+	type EthBridge: EthereumBridge;
 	/// Currency functions
 	// type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId
 	// = AssetId>;
 	type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-		+ fungibles::Transfer<Self::AccountId, Balance = Balance>
 		+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
 		+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
 		+ fungibles::Mutate<Self::AccountId>;
@@ -80,21 +72,17 @@ decl_storage! {
 		/// Metadata for well-known erc20 tokens (symbol, decimals)
 		Erc20Meta get(fn erc20_meta): map hasher(twox_64_concat) EthAddress => Option<(Vec<u8>, u8)>;
 		/// Map from asset_id to minimum amount and delay
-		ClaimDelay get(fn claim_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, T::BlockNumber)>;
-		/// Map from claim id to claim
-		DelayedClaims get(fn delayed_claims): map hasher(twox_64_concat) ClaimId => Option<PendingClaim>;
-		/// Map from block number to claims scheduled for that block
-		DelayedClaimSchedule get(fn delayed_claim_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<ClaimId>;
-		/// The blocks with claims that are ready to be processed
+		PaymentDelay get(fn payment_delay): map hasher(twox_64_concat) AssetId => Option<(Balance, T::BlockNumber)>;
+		/// Map from DelayedPaymentId to PendingPayment
+		DelayedPayments get(fn delayed_payments): map hasher(twox_64_concat) DelayedPaymentId => Option<PendingPayment>;
+		/// Map from block number to DelayedPaymentIds scheduled for that block
+		DelayedPaymentSchedule get(fn delayed_payment_schedule): map hasher(twox_64_concat) T::BlockNumber => Vec<DelayedPaymentId>;
+		/// The blocks with payments that are ready to be processed
 		ReadyBlocks get(fn ready_blocks): Vec<T::BlockNumber>;
-		/// The next available claim id for withdrawals and deposit claims
-		NextDelayedClaimId get(fn next_delayed_claim_id): ClaimId;
-		/// Hash of withdrawal information
-		WithdrawalDigests get(fn withdrawal_digests): map hasher(twox_64_concat) EventId => T::Hash;
+		/// The next available payment id for withdrawals and deposits
+		NextDelayedPaymentId get(fn next_delayed_payment_id): DelayedPaymentId;
 		/// The peg contract address on Ethereum
-		ContractAddress get(fn contract_address): EthAddress;
-		/// Whether CENNZ deposits are active
-		CENNZDepositsActive get(fn cennz_deposit_active): bool;
+		pub ContractAddress get(fn contract_address): EthAddress;
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -111,30 +99,26 @@ decl_event! {
 		AccountId = <T as frame_system::Config>::AccountId,
 		BlockNumber = <T as frame_system::Config>::BlockNumber,
 	{
-		/// An erc20 deposit claim has started. (deposit Id, sender)
-		Erc20Claim(u64, AccountId),
-		/// An erc20 claim has been delayed.(claim_id, scheduled block, amount, beneficiary)
-		Erc20DepositDelayed(ClaimId, BlockNumber, Balance, AccountId),
-		/// A withdrawal has been delayed.(claim_id, scheduled block, amount, beneficiary)
-		Erc20WithdrawalDelayed(ClaimId, BlockNumber, Balance, EthAddress),
-		/// A delayed erc20 deposit claim has failed (tx_hash, beneficiary)
-		DelayedErc20DepositFailed(H256, AccountId),
+		/// An erc20 deposit has been delayed.(payment_id, scheduled block, amount, beneficiary)
+		Erc20DepositDelayed(DelayedPaymentId, BlockNumber, Balance, AccountId),
+		/// A withdrawal has been delayed.(payment_id, scheduled block, amount, beneficiary)
+		Erc20WithdrawalDelayed(DelayedPaymentId, BlockNumber, Balance, EthAddress),
+		/// A delayed erc20 deposit has failed (payment_id, beneficiary)
+		DelayedErc20DepositFailed(DelayedPaymentId, AccountId),
 		/// A delayed erc20 withdrawal has failed (asset_id, beneficiary)
 		DelayedErc20WithdrawalFailed(AssetId, EthAddress),
-		/// A bridged erc20 deposit succeeded.(deposit Id, asset, amount, beneficiary)
-		Erc20Deposit(u64, AssetId, Balance, AccountId),
-		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (withdrawal Id, asset, amount, beneficiary)
-		Erc20Withdraw(u64, AssetId, Balance, EthAddress),
-		/// A bridged erc20 deposit failed.(deposit Id)
-		Erc20DepositFail(u64),
+		/// A bridged erc20 deposit succeeded. (asset, amount, beneficiary)
+		Erc20Deposit(AssetId, Balance, AccountId),
+		/// Tokens were burnt for withdrawal on Ethereum as ERC20s (asset, amount, beneficiary)
+		Erc20Withdraw(AssetId, Balance, EthAddress),
+		/// A bridged erc20 deposit failed. (source address, abi data)
+		Erc20DepositFail(H160, Vec<u8>),
 		/// The peg contract address has been set
 		SetContractAddress(EthAddress),
-		/// ERC20 CENNZ deposits activated
-		CENNZDepositsActive,
 		/// A delay was added for an asset_id (asset_id, min_balance, delay)
-		ClaimDelaySet(AssetId, Balance, BlockNumber),
-		/// There are no more claim ids available, they've been exhausted
-		NoAvailableClaimIds,
+		PaymentDelaySet(AssetId, Balance, BlockNumber),
+		/// There are no more payment ids available, they've been exhausted
+		NoAvailableDelayedPaymentIds,
 	}
 }
 
@@ -142,9 +126,7 @@ decl_error! {
 	pub enum Error for Module<T: Config> {
 		/// Could not create the bridged asset
 		CreateAssetFailed,
-		/// Claim has bad account
-		InvalidAddress,
-		/// Claim has bad amount
+		/// Deposit has bad amount
 		InvalidAmount,
 		/// Could not convert pallet id to account
 		InvalidPalletId,
@@ -154,8 +136,10 @@ decl_error! {
 		WithdrawalsPaused,
 		/// Withdrawals of this asset are not supported
 		UnsupportedAsset,
-		/// Withdrawals over the set claim delay for EVM calls are disabled
+		/// Withdrawals over the set payment delay for EVM calls are disabled
 		EvmWithdrawalFailed,
+		/// The abi received does not match the encoding scheme
+		InvalidAbiEncoding,
 	}
 }
 
@@ -165,17 +149,17 @@ decl_module! {
 
 		fn deposit_event() = default;
 
-		/// Check and process outstanding claims
+		/// Check and process outstanding payments
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			let mut weight: Weight = DbWeight::get().reads(1 as Weight);
-			if DelayedClaimSchedule::<T>::contains_key(now) {
+			if DelayedPaymentSchedule::<T>::contains_key(now) {
 				ReadyBlocks::<T>::append(now);
 				weight = weight.saturating_add(DbWeight::get().writes(1 as Weight));
 			}
 			weight as Weight
 		}
 
-		/// Check and process outstanding claims
+		/// Check and process outstanding payments
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
 			let initial_read_cost = DbWeight::get().reads(1 as Weight);
 			// Ensure we have enough weight to perform the initial read
@@ -188,36 +172,36 @@ decl_module! {
 				return 0;
 			}
 
-			// Process as many claims as we can
+			// Process as many payments as we can
 			let weight_each: Weight = DbWeight::get().reads(8 as Weight).saturating_add(DbWeight::get().writes(10 as Weight));
-			let max_claims = ((remaining_weight - initial_read_cost) / weight_each).saturated_into::<u8>();
+			let max_payments = ((remaining_weight - initial_read_cost) / weight_each).saturated_into::<u8>();
 			let ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
-			// Total claims processed in this block
-			let mut processed_claim_count: u8 = 0;
-			// Count of blocks where all claims have been processed
+			// Total payments processed in this block
+			let mut processed_payment_count: u8 = 0;
+			// Count of blocks where all payments have been processed
 			let mut processed_block_count: u8 = 0;
 
 			for block in ready_blocks.iter() {
-				let mut claim_ids = DelayedClaimSchedule::<T>::take(block);
-				let remaining_claims = (max_claims - processed_claim_count) as usize;
-				if claim_ids.len() > remaining_claims {
-					// Update storage with unprocessed claims
-					DelayedClaimSchedule::<T>::insert(block, claim_ids.split_off(remaining_claims));
+				let mut payment_ids = DelayedPaymentSchedule::<T>::take(block);
+				let remaining_payments = (max_payments - processed_payment_count) as usize;
+				if payment_ids.len() > remaining_payments {
+					// Update storage with unprocessed payments
+					DelayedPaymentSchedule::<T>::insert(block, payment_ids.split_off(remaining_payments));
 				} else {
 					processed_block_count += 1;
 				}
-				processed_claim_count += claim_ids.len() as u8;
-				// Process remaining claims from block
-				for claim_id in claim_ids {
-					Self::process_claim(claim_id);
+				processed_payment_count += payment_ids.len() as u8;
+				// Process remaining payments from block
+				for payment_id in payment_ids {
+					Self::process_delayed_payment(payment_id);
 				}
-				if processed_claim_count >= max_claims {
+				if processed_payment_count >= max_payments {
 					break;
 				}
 			}
 
 			ReadyBlocks::<T>::put(&ready_blocks[processed_block_count as usize..]);
-			initial_read_cost + weight_each * processed_claim_count as Weight
+			initial_read_cost + weight_each * processed_payment_count as Weight
 		}
 
 		/// Activate/deactivate deposits (root only)
@@ -235,37 +219,6 @@ decl_module! {
 		}
 
 		#[weight = 60_000_000]
-		/// Submit deposit claim for an ethereum tx hash
-		/// The deposit details must be provided for cross-checking by notaries
-		/// Any caller may initiate a claim while only the intended beneficiary will be paid.
-		/// Note: Not needed in Seed
-		#[transactional]
-		pub fn deposit_claim(origin, tx_hash: H256, claim: Erc20DepositEvent) {
-			// Note: require caller to provide the `claim` so we don't need to handle the-
-			// complexities of notaries reporting differing deposit events
-			let _origin = ensure_signed(origin)?;
-			ensure!(Self::deposits_active(), Error::<T>::DepositsPaused);
-			// fail a claim early for an amount that is too large
-			ensure!(claim.amount < U256::from(u128::max_value()), Error::<T>::InvalidAmount);
-			// fail a claim if beneficiary is not a valid CENNZnet address
-			ensure!(T::AccountId::decode(&mut &claim.beneficiary.0[..]).is_ok(), Error::<T>::InvalidAddress);
-
-			let asset_id = Self::erc20_to_asset(claim.token_address);
-			if asset_id.is_some() {
-				let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id.unwrap());
-				if let Some((min_amount, delay)) = claim_delay {
-					if U256::from(min_amount) <= claim.amount {
-						Self::delay_claim(delay, PendingClaim::Deposit((claim.clone(), tx_hash)));
-						return Ok(());
-					}
-				};
-			}
-			// process deposit immediately
-			Self::process_deposit_claim(claim, tx_hash);
-		}
-
-		#[weight = 60_000_000]
-		/// Withdraw generic assets from CENNZnet in exchange for ERC20s
 		/// Tokens will be transferred to peg account and a proof generated to allow redemption of tokens on Ethereum
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
@@ -282,15 +235,6 @@ decl_module! {
 			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
 		}
 
-		#[weight = 1_000_000]
-		#[transactional]
-		/// Activate ERC20 CENNZ deposits (requires governance)
-		pub fn activate_cennz_deposits(origin) {
-			ensure_root(origin)?;
-			CENNZDepositsActive::put(true);
-			Self::deposit_event(<Event<T>>::CENNZDepositsActive);
-		}
-
 		#[weight = {
 			1_000_000 * details.len() as u64
 		}]
@@ -304,19 +248,19 @@ decl_module! {
 		}
 
 		#[weight = 1_000_000]
-		/// Sets the claim delay for a given AssetId
-		pub fn set_claim_delay(origin, asset_id: AssetId, min_balance: Balance, delay: T::BlockNumber) {
+		/// Sets the payment delay for a given AssetId
+		pub fn set_payment_delay(origin, asset_id: AssetId, min_balance: Balance, delay: T::BlockNumber) {
 			ensure_root(origin)?;
-			ClaimDelay::<T>::insert(asset_id, (min_balance, delay));
-			Self::deposit_event(<Event<T>>::ClaimDelaySet(asset_id, min_balance, delay));
+			PaymentDelay::<T>::insert(asset_id, (min_balance, delay));
+			Self::deposit_event(<Event<T>>::PaymentDelaySet(asset_id, min_balance, delay));
 		}
 	}
 }
 
 impl<T: Config> Module<T> {
-	/// Process the withdrawal, returning the event_proof_id
+	/// Initiate the withdrawal
 	/// Can be called by the runtime or erc20-peg precompile
-	/// If a claim delay is in place for the asset, this will be handled when called from the
+	/// If a payment delay is in place for the asset, this will be handled when called from the
 	/// runtime The runtime doesn't use the returned value so 0 is returned in this case
 	/// Delays from the EVM will return an error
 	pub fn do_withdrawal(
@@ -325,7 +269,7 @@ impl<T: Config> Module<T> {
 		amount: Balance,
 		beneficiary: EthAddress,
 		call_origin: WithdrawCallOrigin,
-	) -> Result<u64, DispatchError> {
+	) -> DispatchResult {
 		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
 
 		// there should be a known ERC20 address mapped for this asset
@@ -337,19 +281,18 @@ impl<T: Config> Module<T> {
 		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
 		// Check if there is a delay on the asset
-		let claim_delay: Option<(Balance, T::BlockNumber)> = Self::claim_delay(asset_id);
-		if let Some((min_amount, delay)) = claim_delay {
+		let payment_delay: Option<(Balance, T::BlockNumber)> = Self::payment_delay(asset_id);
+		if let Some((min_amount, delay)) = payment_delay {
 			if min_amount <= amount {
 				return match call_origin {
 					WithdrawCallOrigin::Runtime => {
-						// Process transfer or withdrawal of payment asset
-						Self::process_withdrawal_payment(origin, asset_id, amount)?;
-						// Delay the claim
-						Self::delay_claim(delay, PendingClaim::Withdrawal(message));
-						Ok(0)
+						// Delay the payment
+						let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
+						Self::delay_payment(delay, PendingPayment::Withdrawal(message));
+						Ok(())
 					},
 					WithdrawCallOrigin::Evm => {
-						// EVM claim delays are not supported
+						// EVM payment delays are not supported
 						Err(Error::<T>::EvmWithdrawalFailed.into())
 					},
 				}
@@ -357,36 +300,60 @@ impl<T: Config> Module<T> {
 		};
 
 		// Process transfer or withdrawal of payment asset
-		Self::process_withdrawal_payment(origin, asset_id, amount)?;
-		// process withdrawal immediately
-		Self::process_withdrawal(message, asset_id)
-	}
-
-	fn process_withdrawal_payment(
-		origin: T::AccountId,
-		asset_id: AssetId,
-		amount: Balance,
-	) -> Result<(), DispatchError> {
 		let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
+		Self::process_withdrawal(message, asset_id)?;
 		Ok(())
 	}
 
-	/// Process claims at a block after a delay
-	fn process_claim(claim_id: ClaimId) {
-		if let Some(pending_claim) = DelayedClaims::take(claim_id) {
-			match pending_claim {
-				PendingClaim::Deposit((deposit_claim, tx_hash)) => {
-					Self::process_deposit_claim(deposit_claim, tx_hash);
+	/// Process withdrawal and send
+	fn process_withdrawal(
+		withdrawal_message: WithdrawMessage,
+		asset_id: AssetId,
+	) -> DispatchResult {
+		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
+		let message = ethabi::encode(&[
+			Token::Address(withdrawal_message.token_address),
+			Token::Uint(withdrawal_message.amount.into()),
+			Token::Address(withdrawal_message.beneficiary),
+		]);
+
+		// Call whatever handler loosely coupled from ethy
+		T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?;
+		Self::deposit_event(Event::<T>::Erc20Withdraw(
+			asset_id,
+			withdrawal_message.amount.saturated_into(),
+			withdrawal_message.beneficiary,
+		));
+		Ok(())
+	}
+
+	/// Process payments at a block after a delay
+	fn process_delayed_payment(payment_id: DelayedPaymentId) {
+		if let Some(pending_payment) = DelayedPayments::take(payment_id) {
+			match pending_payment {
+				PendingPayment::Deposit(deposit) => {
+					if Self::process_deposit(deposit.clone()).is_err() {
+						Self::deposit_event(Event::<T>::DelayedErc20DepositFailed(
+							payment_id,
+							deposit.beneficiary.into(),
+						));
+					}
 				},
-				PendingClaim::Withdrawal(withdrawal_message) => {
+				PendingPayment::Withdrawal(withdrawal_message) => {
 					// At this stage it is assumed that a mapping between erc20 to asset id exists
 					// for this token
 					let asset_id = Self::erc20_to_asset(withdrawal_message.token_address);
 					if let Some(asset_id) = asset_id {
-						let _ = Self::process_withdrawal(withdrawal_message, asset_id);
+						// Process transfer or withdrawal of payment asset
+						if Self::process_withdrawal(withdrawal_message.clone(), asset_id).is_err() {
+							Self::deposit_event(Event::<T>::DelayedErc20WithdrawalFailed(
+								asset_id,
+								withdrawal_message.beneficiary.into(),
+							));
+						}
 					} else {
 						log::error!(
-							"📌 ERC20 withdrawal claim failed unexpectedly: {:?}",
+							"📌 ERC20 withdrawal failed unexpectedly: {:?}",
 							withdrawal_message
 						);
 					}
@@ -395,91 +362,69 @@ impl<T: Config> Module<T> {
 		}
 	}
 
-	fn process_deposit_claim(claim: Erc20DepositEvent, tx_hash: H256) {
-		let event_claim_id = T::EthBridge::submit_event_claim(
-			&Self::contract_address().into(),
-			&T::DepositEventSignature::get().into(),
-			&tx_hash,
-			&EthAbiCodec::encode(&claim),
-		);
-		let beneficiary: T::AccountId =
-			T::AccountId::decode(&mut &claim.beneficiary.0[..]).unwrap();
-		match event_claim_id {
-			Ok(claim_id) => Self::deposit_event(<Event<T>>::Erc20Claim(claim_id, beneficiary)),
-			Err(_) =>
-				Self::deposit_event(<Event<T>>::DelayedErc20DepositFailed(tx_hash, beneficiary)),
-		}
-	}
-
-	fn process_withdrawal(
-		message: WithdrawMessage,
-		asset_id: AssetId,
-	) -> Result<u64, DispatchError> {
-		let amount: Balance = message.amount.as_u128();
-		let event_proof_id = T::EthBridge::generate_event_proof(&message);
-
-		match event_proof_id {
-			Ok(proof_id) => {
-				// Create a hash of withdrawAmount, tokenAddress, receiver, eventId
-				let proof_id: EventId = proof_id;
-				let withdrawal_hash: T::Hash =
-					T::Hashing::hash(&mut (message.clone(), proof_id).encode());
-				WithdrawalDigests::<T>::insert(proof_id, withdrawal_hash);
-				Self::deposit_event(<Event<T>>::Erc20Withdraw(
-					proof_id,
-					asset_id,
-					amount,
-					message.beneficiary,
-				));
-			},
-			Err(_) => Self::deposit_event(<Event<T>>::DelayedErc20WithdrawalFailed(
-				asset_id,
-				message.beneficiary,
-			)),
-		}
-		event_proof_id
-	}
-
-	/// Delay a withdrawal or deposit claim until a later block
-	pub fn delay_claim(delay: T::BlockNumber, pending_claim: PendingClaim) {
-		let claim_id = NextDelayedClaimId::get();
-		if !claim_id.checked_add(One::one()).is_some() {
-			Self::deposit_event(<Event<T>>::NoAvailableClaimIds);
+	/// Delay a withdrawal or deposit until a later block
+	pub fn delay_payment(delay: T::BlockNumber, pending_payment: PendingPayment) {
+		let payment_id = NextDelayedPaymentId::get();
+		if !payment_id.checked_add(One::one()).is_some() {
+			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
 			return
 		}
-		let claim_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
-		DelayedClaims::insert(claim_id, &pending_claim);
-		// Modify DelayedClaimSchedule with new claim_id
-		DelayedClaimSchedule::<T>::append(claim_block, claim_id);
-		NextDelayedClaimId::put(claim_id + 1);
+		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
+		DelayedPayments::insert(payment_id, &pending_payment);
+		// Modify DelayedPaymentSchedule with new payment_id
+		DelayedPaymentSchedule::<T>::append(payment_block, payment_id);
+		NextDelayedPaymentId::put(payment_id + 1);
 
-		// Throw event for delayed claim
-		match pending_claim {
-			PendingClaim::Withdrawal(withdrawal) => {
-				Self::deposit_event(<Event<T>>::Erc20WithdrawalDelayed(
-					claim_id,
-					claim_block,
+		// Throw event for delayed payment
+		match pending_payment {
+			PendingPayment::Withdrawal(withdrawal) => {
+				Self::deposit_event(Event::<T>::Erc20WithdrawalDelayed(
+					payment_id,
+					payment_block,
 					withdrawal.amount.as_u128(),
 					withdrawal.beneficiary,
 				));
 			},
-			PendingClaim::Deposit(deposit) => {
+			PendingPayment::Deposit(deposit) => {
 				let beneficiary: T::AccountId =
-					T::AccountId::decode(&mut &deposit.0.beneficiary.0[..]).unwrap();
-				Self::deposit_event(<Event<T>>::Erc20DepositDelayed(
-					claim_id,
-					claim_block,
-					deposit.0.amount.as_u128(),
+					T::AccountId::decode(&mut &deposit.beneficiary.0[..]).unwrap();
+				Self::deposit_event(Event::<T>::Erc20DepositDelayed(
+					payment_id,
+					payment_block,
+					deposit.amount.as_u128(),
 					beneficiary,
 				));
 			},
 		}
 	}
 
-	/// fulfill a deposit claim for the given event
-	pub fn do_deposit(
-		verified_event: Erc20DepositEvent,
-	) -> Result<(AssetId, Balance, T::AccountId), DispatchError> {
+	/// Deposit received from bridge, do pre flight checks
+	/// If the token has a delay and the amount is above the delay amount, add this deposit to
+	/// pending
+	pub fn do_deposit(deposit_event: Erc20DepositEvent) -> DispatchResult {
+		ensure!(Self::deposits_active(), Error::<T>::DepositsPaused);
+		// fail a deposit early for an amount that is too large
+		ensure!(deposit_event.amount < U256::from(Balance::max_value()), Error::<T>::InvalidAmount);
+
+		let asset_id = Self::erc20_to_asset(deposit_event.token_address);
+		if asset_id.is_some() {
+			// Asset exists, check if there are delays on this deposit
+			let payment_delay: Option<(Balance, T::BlockNumber)> =
+				Self::payment_delay(asset_id.unwrap());
+			if let Some((min_amount, delay)) = payment_delay {
+				if U256::from(min_amount) <= deposit_event.amount {
+					Self::delay_payment(delay, PendingPayment::Deposit(deposit_event.clone()));
+					return Ok(())
+				}
+			};
+		}
+		// process deposit immediately
+		Self::process_deposit(deposit_event)
+	}
+
+	/// fulfill a deposit for the given event
+	/// Handles mint and asset creation
+	pub fn process_deposit(verified_event: Erc20DepositEvent) -> DispatchResult {
 		let asset_id = match Self::erc20_to_asset(verified_event.token_address) {
 			None => {
 				// create asset with known values from `Erc20Meta`
@@ -509,49 +454,56 @@ impl<T: Config> Module<T> {
 
 		// checked at the time of initiating the verified_event that beneficiary value is valid and
 		// this op will not fail qed.
-		let beneficiary: T::AccountId =
-			T::AccountId::decode(&mut &verified_event.beneficiary.0[..]).unwrap();
+		let beneficiary: T::AccountId = verified_event.beneficiary.into();
+		// Asserted prior
 		let amount = verified_event.amount.as_u128();
 		// mint tokens to user
 		T::MultiCurrency::mint_into(asset_id, &beneficiary, amount)?;
 
-		Ok((asset_id, amount, beneficiary))
+		Self::deposit_event(Event::<T>::Erc20Deposit(asset_id, amount, beneficiary));
+		Ok(())
 	}
 }
 
-impl<T: Config> EventClaimSubscriber for Module<T> {
-	fn on_success(
-		event_claim_id: u64,
-		contract_address: &EthAddress,
-		event_type: &H256,
-		event_data: &[u8],
-	) {
-		if *contract_address == EthAddress::from(Self::contract_address()) &&
-			*event_type == H256::from(T::DepositEventSignature::get())
-		{
-			if let Some(deposit_event) = EthAbiCodec::decode(event_data) {
-				match Self::do_deposit(deposit_event) {
-					Ok((asset_id, amount, beneficiary)) => Self::deposit_event(
-						<Event<T>>::Erc20Deposit(event_claim_id, asset_id, amount, beneficiary),
-					),
-					Err(_err) => Self::deposit_event(<Event<T>>::Erc20DepositFail(event_claim_id)),
-				}
-			} else {
-				// input data should be valid, we do not expect to fail here
-				log::error!("📌 ERC20 deposit claim failed unexpectedly: {:?}", event_data);
-			}
-		}
+impl Get<H160> for ContractAddress {
+	fn get() -> H160 {
+		<ContractAddress as storage::StorageValue<_>>::get()
 	}
-	fn on_failure(
-		event_claim_id: u64,
-		contract_address: &H160,
-		event_type: &H256,
-		_event_data: &[u8],
-	) {
-		if *contract_address == EthAddress::from(Self::contract_address()) &&
-			*event_type == H256::from(T::DepositEventSignature::get())
+}
+
+impl<T: Config> EthereumEventSubscriber for Module<T> {
+	type Address = T::PegPalletId;
+
+	type SourceAddress = ContractAddress;
+
+	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
+		let abi_decoded = match ethabi::decode(
+			&[ParamType::Address, ParamType::Uint(128), ParamType::Address],
+			data,
+		) {
+			Ok(abi) => abi,
+			Err(_) => return Err((0, Error::<T>::InvalidAbiEncoding.into())),
+		};
+
+		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
+			abi_decoded.as_slice()
 		{
-			Self::deposit_event(<Event<T>>::Erc20DepositFail(event_claim_id));
+			let token_address: H160 = token_address.into();
+			let amount: U256 = amount.into();
+			let beneficiary: H160 = beneficiary.into();
+			// The total weight of do_deposit assuming it reaches every path
+			let deposit_weight =
+				DbWeight::get().reads(6 as Weight) + DbWeight::get().writes(4 as Weight);
+			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {
+				Ok(_) => Ok(deposit_weight),
+				Err(e) => {
+					Self::deposit_event(Event::<T>::Erc20DepositFail(*source, data.to_vec()));
+					Err((deposit_weight, e.into()))
+				},
+			}
+		} else {
+			// input data should be valid, we do not expect to fail here
+			Err((0, Error::<T>::InvalidAbiEncoding.into()))
 		}
 	}
 }

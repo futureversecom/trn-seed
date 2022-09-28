@@ -70,9 +70,6 @@ pub mod types {
 
 	pub type Timestamp = u64;
 
-	/// An index to a block.
-	pub type LedgerIndex = u64;
-
 	/// Ethereum address type
 	pub type EthAddress = sp_core::H160;
 }
@@ -96,17 +93,17 @@ pub mod opaque {
 
 /// XRPL primitive types
 pub mod xrpl {
-	use sp_core::{H160, H256, H512};
-	/// An xrpl tx hash
+	use sp_core::{H160, H512};
+
+	/// An index to a block.
+	pub type LedgerIndex = u64;
+
+	/// An XRPL address (classic)
+	pub type XrplAddress = H160;
+
+	/// An XRPL tx hash
 	pub type XrplTxHash = H512;
 
-	/// first 32 bytes of SHA-512 digest
-	/// https://github.com/XRPLF/xrpl.js/blob/76b73e16a97e1a371261b462ee1a24f1c01dbb0c/packages/ripple-keypairs/src/index.ts#L31-L33
-	pub type XrplTxHashForSigning = H256;
-
-	/// Xrpl address (classic)
-	pub type XrplWithdrawAddress = H160;
-
-	/// The type for identifying the Withdraw Tx Nonce
-	pub type XrplWithdrawTxNonce = u32;
+	/// The type for identifying the XRPL Tx Nonce aka 'Sequence'
+	pub type XrplTxNonce = u32;
 }

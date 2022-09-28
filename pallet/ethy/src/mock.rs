@@ -104,14 +104,12 @@ parameter_types! {
 	pub const NotarizationThreshold: Percent = Percent::from_parts(66_u8);
 	/// The Ethereum bridge contract address paired with the bridge pallet
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
-	pub const ChallengePeriod: BlockNumber = 100 as BlockNumber;
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
 	type BridgeContractAddress = EthereumBridgeContractAddress;
 	type BridgePalletId = BridgePalletId;
-	type ChallengePeriod = ChallengePeriod;
 	type EthCallSubscribers = MockEthCallSubscriber;
 	type EthereumRpcClient = MockEthereumRpcClient;
 	type EthyId = AuthorityId;

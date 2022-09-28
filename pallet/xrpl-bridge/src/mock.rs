@@ -1,4 +1,3 @@
-use crate as pallet_xrpl_bridge;
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{ConstU16, ConstU64},
@@ -6,14 +5,17 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
-use seed_pallet_common::EthyXrplBridgeAdapter;
-use seed_primitives::{ethy::EventProofId, AccountId, AssetId, Balance};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	DispatchError,
 };
+
+use seed_pallet_common::EthyXrplBridgeAdapter;
+use seed_primitives::{ethy::EventProofId, AccountId, AssetId, Balance, BlockNumber};
+
+use crate as pallet_xrpl_bridge;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -134,14 +136,22 @@ impl pallet_timestamp::Config for Test {
 	type WeightInfo = ();
 }
 
+// Time is measured by number of blocks.
+pub const MILLISECS_PER_BLOCK: u64 = 4_000;
+pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+pub const HOURS: BlockNumber = MINUTES * 60;
+pub const DAYS: BlockNumber = HOURS * 24;
+
 parameter_types! {
-	pub const ChallengePeriod: u32 = 3_000u32;
+	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
+	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
 	type WeightInfo = ();
-	type ChallengePeriod = ChallengePeriod;
+	type ChallengePeriod = XrpTxChallengePeriod;
+	type ClearTxPeriod = XrpClearTxPeriod;
 	type MultiCurrency = AssetsExt;
 	type XrpAssetId = XrpAssetId;
 	type UnixTime = TimestampPallet;
