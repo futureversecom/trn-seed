@@ -10,6 +10,8 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod helpers;
+mod xrpl_impls;
+mod xrpl_types;
 
 use crate::helpers::{ConsensusLog, EventProofId, PendingAuthorityChange, ValidatorSet};
 use frame_support::{pallet_prelude::*, traits::OneSessionHandler, PalletId};
@@ -28,6 +30,8 @@ pub const ENGINE_ID: sp_runtime::ConsensusEngineId = *b"EGN-";
 
 #[frame_support::pallet]
 pub mod pallet {
+	use seed_primitives::validators::validator::EventProofId;
+	use crate::xrpl_types::EventProofInfo;
 	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -100,6 +104,18 @@ pub mod pallet {
 	/// Current validators set id
 	pub type NextEventProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn next_event_proof_id)]
+	/// Queued event proofs to be processed once bridge has been re-enabled
+	pub type PendingEventProofs<T: Config> = StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
+
+
+	#[pallet::storage]
+	#[pallet::getter(fn next_event_proof_id)]
+	/// Queued event proofs to be processed once bridge has been re-enabled
+	pub type PendingClaimChallenges<T: Config> = StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
+
+
 	// The pallet's runtime storage items.
 	#[pallet::storage]
 	#[pallet::getter(fn white_list_validators)]
@@ -136,7 +152,37 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+		fn offchain_worker(block_number: T::BlockNumber) {
+			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
+			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
+
+			// this passes if flag `--validator` set, not necessarily in the active set
+			if !sp_io::offchain::is_validator() {
+				log!(info, "💎 not a validator, exiting");
+				return
+			}
+
+			// check a local key exists for a valid bridge notary
+			if let Some((active_key, authority_index)) = Self::find_active_ethy_key() {
+				// check enough validators have active notary keys
+				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+				let needed = T::NotarizationThreshold::get();
+				// TODO: check every session change not block
+				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
+					log!(info, "💎 waiting for validator support to activate eth-bridge: {:?}/{:?}", supports, needed);
+					return;
+				}
+				// do some notarizing
+				Self::do_event_notarization_ocw(&active_key, authority_index);
+				Self::do_call_notarization_ocw(&active_key, authority_index);
+			} else {
+				log!(trace, "💎 not an active validator, exiting");
+			}
+
+			log!(trace, "💎 exiting off-chain worker");
+		}
+	}
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {

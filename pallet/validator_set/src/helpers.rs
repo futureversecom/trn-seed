@@ -15,12 +15,7 @@
 use codec::{Decode, Encode};
 use seed_primitives::AccountId;
 use sp_runtime::KeyTypeId;
-
-/// A typedef for validator set id.
-pub type ValidatorSetId = u64;
-
-/// Unique nonce for event proof requests
-pub type EventProofId = u64;
+use seed_primitives::validators::validator::{EventProofId, ValidatorSetId};
 
 /// The session key type for bridge
 pub const BRIDGE_KEY_TYPE: KeyTypeId = KeyTypeId(*b"brg-");

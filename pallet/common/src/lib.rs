@@ -19,6 +19,7 @@ use sp_core::H160;
 use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
+pub mod xrpl;
 
 /// syntactic sugar for logging.
 /// the caller must define a variable `LOG_TARGET = "<my-target>"`
