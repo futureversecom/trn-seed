@@ -453,8 +453,6 @@ where
 #[cfg(test)]
 pub(crate) mod test {
 	use super::*;
-	use sp_application_crypto::ByteArray;
-	use sp_core::H160;
 	use substrate_test_runtime_client::runtime::{Block, Digest, DigestItem};
 
 	use crate::testing::Keyring;

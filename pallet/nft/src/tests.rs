@@ -19,10 +19,10 @@ use crate::mock::{
 };
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::Inspect, NamedReservableCurrency, OnInitialize},
+	traits::{fungibles::Inspect, OnInitialize},
 };
 use seed_primitives::TokenId;
-use sp_runtime::{Permill, TokenError};
+use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
 
 // Create an NFT collection

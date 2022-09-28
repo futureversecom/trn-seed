@@ -312,7 +312,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the door signers
+		/// Set the door (multi) signers
 		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
 		pub fn set_door_signers(
 			origin: OriginFor<T>,
@@ -323,13 +323,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// set XRPL door address
+		/// Set XRPL door address managed by this pallet
 		#[pallet::weight((<T as Config>::WeightInfo::set_xrpl_door_address(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn set_xrpl_door_address(
-			origin: OriginFor<T>,
-			door_address: XrplAddress,
-		) -> DispatchResult {
+		pub fn set_door_address(origin: OriginFor<T>, door_address: XrplAddress) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			DoorAddress::<T>::put(door_address);
 			Self::deposit_event(Event::<T>::DoorAddressSet(door_address));
