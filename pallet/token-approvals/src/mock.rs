@@ -101,7 +101,7 @@ impl pallet_assets::Config for Test {
 }
 
 parameter_types! {
-	pub const MyclAssetId: AssetId = 1;
+	pub const RootAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 	pub const MaxHolds: u32 = 16;
 	pub const MaxReserves: u32 = 50;
@@ -111,7 +111,7 @@ impl pallet_assets_ext::Config for Test {
 	type Event = Event;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
-	type NativeAssetId = MyclAssetId;
+	type NativeAssetId = RootAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 

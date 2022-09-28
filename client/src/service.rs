@@ -287,6 +287,10 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		Vec::default(),
 	));
 
+	// derive ethy protocol name
+	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
+	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
+
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
@@ -385,10 +389,6 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			crate::rpc::create_full(deps, subscription_task_executor).map_err(Into::into)
 		}
 	};
-
-	// derive ethy protocol name
-	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
-	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
 
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network: network.clone(),
