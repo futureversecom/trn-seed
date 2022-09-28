@@ -33,9 +33,12 @@ pub(crate) const LOG_TARGET: &str = "validator_set";
 pub const ENGINE_ID: sp_runtime::ConsensusEngineId = *b"EGN-";
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
+/// Max notarization claims to attempt per block/OCW invocation
+const CLAIMS_PER_BLOCK: usize = 1;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use std::collections::BTreeMap;
 	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -118,12 +121,17 @@ pub mod pallet {
 	#[pallet::getter(fn pending_claim_challenges)]
 	/// Queued event proofs to be processed once bridge has been re-enabled
 	pub type PendingClaimChallenges<T: Config> =
-		StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
+	StorageValue<_, Vec<EventClaimId>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn chain_call_requests)]
 	/// Queue of pending Chain CallOracle requests
-	pub type ChainCallRequests<T: Config> = StorageValue<_, ChainCallId, ValueQuery>;
+	pub type ChainCallRequests<T: Config> = StorageValue<_, Vec<ChainCallId>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn chain_call_requests)]
+	/// Subscription Id for Call requests
+	pub type NextChainCallId<T: Config> = StorageValue<_, ChainCallId, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn chain_call_request_info)]
@@ -159,6 +167,16 @@ pub mod pallet {
 		Blake2_128Concat,
 		T::ValidatorId,
 		CheckedChainCallResult,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn chain_call_notarizations_aggregated)]
+	/// map from Chain CallOracle notarizations to an aggregated count
+	pub type ChainCallNotarizationsAggregated<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		ChainCallId,
+		BTreeMap<CheckedChainCallResult, u32>,
 	>;
 
 	// The pallet's runtime storage items.
@@ -209,9 +227,9 @@ pub mod pallet {
 			}
 
 			// check a local key exists for a valid bridge notary
-			if let Some((active_key, authority_index)) = Self::find_active_ethy_key() {
+			if let Some((active_key, authority_index)) = Self::find_active_validator_key() {
 				// check enough validators have active notary keys
-				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+				let supports = ValidatorList::<T>::decode_len().unwrap_or(0);
 				let needed = T::NotarizationThreshold::get();
 				// TODO: check every session change not block
 				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {

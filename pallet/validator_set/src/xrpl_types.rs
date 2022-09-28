@@ -25,11 +25,25 @@ use serde::{
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
+pub type XrplTxHash = seed_primitives::xrpl::XrplTxHash;
 
-pub type XrplAddress = seed_primitives::XrplWithdrawAddress;
+pub type XrplAddress = seed_primitives::xrpl::XrplAddress;
 /// An Chain CallOracle call Id
 pub type ChainCallId = u64;
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
+/// Info required to claim an Ethereum event
+pub struct EventClaim {
+	/// The Ethereum transaction hash which caused the event
+	pub tx_hash: XrplTxHash,
+	/// The source address (contract) which posted the event
+	pub source: XrplAddress,
+	/// The destination address (contract) which should receive the event
+	/// It may be symbolic, mapping to a pallet vs. a deployed contract
+	pub destination: XrplAddress,
+	/// The Ethereum ABI encoded event data as logged on Ethereum
+	pub data: Vec<u8>,
+}
 #[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
 /// Info related to an event proof
 pub struct EventProofInfo {

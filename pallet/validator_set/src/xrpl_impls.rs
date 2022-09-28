@@ -17,7 +17,7 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 use seed_pallet_common::{
-	log, xrpl::XrplBridge, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
+	log, xrpl::XrplBridge, EthCallFailure, XrplCallOracle, EthCallOracleSubscriber, EthereumBridge,
 	FinalSessionTracker as FinalSessionTrackerT,
 };
 use seed_primitives::{
@@ -63,9 +63,9 @@ impl<T: Config> XrplBridge for Pallet<T> {
 }
 
 impl<T: Config> Pallet<T> {
-	/// Check the nodes local keystore for an active (staked) Ethy session key
+	/// Check the nodes local keystore for an active (staked) Validator session key
 	/// Returns the public key and index of the key in the current notary set
-	pub(crate) fn find_active_ethy_key() -> Option<(T::ValidatorId, u16)> {
+	pub(crate) fn find_active_validator_key() -> Option<(T::ValidatorId, u16)> {
 		// Get all signing keys for this protocol 'KeyTypeId'
 		let local_keys = T::ValidatorId::all();
 		if local_keys.is_empty() {
@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 		let mut maybe_active_key: Option<(T::ValidatorId, usize)> = None;
 		// search all local ethy keys
 		for key in local_keys {
-			if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
+			if let Some(active_key_index) = Self::validator_list().iter().position(|k| k == &key) {
 				maybe_active_key = Some((key, active_key_index));
 				break
 			}
@@ -88,7 +88,7 @@ impl<T: Config> Pallet<T> {
 
 		// check if locally known keys are in the active validator set
 		if maybe_active_key.is_none() {
-			log!(error, "💎 no active ethy keys, exiting");
+			log!(error, "💎 no active validator keys, exiting");
 			return None
 		}
 		maybe_active_key.map(|(key, idx)| (key, idx as u16))
@@ -313,7 +313,7 @@ impl<T: Config> Pallet<T> {
 	/// `request` - details of the `eth_call` request to perform
 	/// `try_block_number` - a block number to try the call at `latest - max_block_look_behind <= t
 	/// < latest` `max_block_look_behind` - max ethereum blocks to look back from head
-	pub(crate) fn offchain_try_eth_call(request: &CheckedChainCallRequest) -> CheckedEthCallResult {
+	pub(crate) fn offchain_try_eth_call(request: &CheckedChainCallRequest) -> CheckedChainCallResult {
 		// OCW has 1 block to do all its stuff, so needs to be kept light
 		//
 		// basic flow of this function:
@@ -575,7 +575,7 @@ impl<T: Config> Pallet<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			};
-			EthCallNotarizationsAggregated::remove(call_id);
+			ChainCallNotarizationsAggregated::remove(call_id);
 			ChainCallRequestInfo::remove(call_id);
 			ChainCallRequests::mutate(|requests| {
 				requests.iter().position(|x| *x == call_id).map(|idx| requests.remove(idx));
@@ -584,7 +584,7 @@ impl<T: Config> Pallet<T> {
 			Ok(())
 		};
 
-		let mut notarizations = EthCallNotarizationsAggregated::get(call_id).unwrap_or_default();
+		let mut notarizations = ChainCallNotarizationsAggregated::get(call_id).unwrap_or_default();
 		// increment notarization count for this result
 		*notarizations.entry(result).or_insert(0) += 1;
 
@@ -610,7 +610,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// update counts
-		EthCallNotarizationsAggregated::insert(call_id, notarizations);
+		ChainCallNotarizationsAggregated::insert(call_id, notarizations);
 		Ok(())
 	}
 
@@ -676,7 +676,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 	}
 }
 
-impl<T: Config> EthCallOracle for Pallet<T> {
+impl<T: Config> XrplCallOracle for Pallet<T> {
 	type Address = XrplAddress;
 	type CallId = ChainCallId;
 	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
@@ -693,7 +693,7 @@ impl<T: Config> EthCallOracle for Pallet<T> {
 		max_block_look_behind: u64,
 	) -> Self::CallId {
 		// store the job for validators to process async
-		let call_id = NextEthCallId::get();
+		let call_id = NextChainCallId::get();
 		ChainCallRequestInfo::insert(
 			call_id,
 			CheckedChainCallRequest {
@@ -706,7 +706,7 @@ impl<T: Config> EthCallOracle for Pallet<T> {
 			},
 		);
 		ChainCallRequests::append(call_id);
-		NextEthCallId::put(call_id + 1);
+		NextChainCallId::put(call_id + 1);
 
 		call_id
 	}
