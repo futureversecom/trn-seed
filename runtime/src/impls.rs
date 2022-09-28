@@ -317,23 +317,6 @@ where
 pub struct StakingSessionTracker;
 
 impl FinalSessionTracker for StakingSessionTracker {
-	/// Returns whether the next session is the final session of an era
-	fn is_next_session_final() -> bool {
-		let active_era = Staking::active_era().map(|e| e.index).unwrap_or(0);
-		// This is only `Some` when current era has already progressed to the next era, while the
-		// active era is one behind (i.e. in the *last session of the active era*, or *first session
-		// of the new current era*, depending on how you look at it).
-		if let Some(era_start_session_index) = Staking::eras_start_session_index(active_era) {
-			if Session::current_index() + 1 ==
-				era_start_session_index + SessionsPerEra::get().saturating_sub(1)
-			{
-				// natural era rotation
-				return true
-			}
-		}
-
-		false
-	}
 	/// Returns whether the active session is the final session of an era
 	fn is_active_session_final() -> bool {
 		use pallet_staking::Forcing;

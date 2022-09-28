@@ -684,6 +684,8 @@ parameter_types! {
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: sp_runtime::Percent = sp_runtime::Percent::from_percent(66_u8);
+	// The duration in blocks of one epoch
+	// pub const EpochDuration: BlockNumber = EPOCH_DURATION_IN_SLOTS;
 }
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
@@ -695,6 +697,8 @@ impl pallet_ethy::Config for Runtime {
 	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
+	// The duration in blocks of one epoch
+	type EpochDuration = EpochDuration;
 	/// The runtime event type.
 	type Event = Event;
 	/// Subscribers to completed 'eth_call' jobs
