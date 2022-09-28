@@ -9,7 +9,7 @@ license = "GPL-3.0"
 [dependencies]
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
 ethabi = { version = "17.1.0", default-features = false}
-ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
+ethereum-types = { version = "0.14.0", default-features = false, features = ["serialize", "codec"] }
 hex = { version = "0.4.3", default-features = false }
 hex-literal = { version = "0.3.4", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
