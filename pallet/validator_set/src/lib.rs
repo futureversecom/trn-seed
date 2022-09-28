@@ -13,13 +13,13 @@ mod helpers;
 mod xrpl_impls;
 mod xrpl_types;
 
-use crate::helpers::{ConsensusLog, PendingAuthorityChange, ValidatorSet};
 use crate::xrpl_types::{
 	ChainCallId, CheckedChainCallRequest, CheckedChainCallResult, EventProofInfo, EventClaimResult, NotarizationPayload,
 };
-use seed_primitives::validators::validator::{EventProofId, EventClaimId};
+use seed_primitives::validator::{EventProofId, EventClaimId, ConsensusLog, PendingAuthorityChange, ValidatorSet};
 use frame_support::{pallet_prelude::*, traits::OneSessionHandler, PalletId};
 use frame_system::pallet_prelude::*;
+use hex_literal::hex;
 pub use pallet::*;
 use seed_pallet_common::{log, FinalSessionTracker as FinalSessionTrackerT};
 use sp_core::H160;
@@ -32,13 +32,23 @@ pub type ValidatorIdOf<T> = <T as Config>::ValidatorId;
 pub(crate) const LOG_TARGET: &str = "validator_set";
 pub const ENGINE_ID: sp_runtime::ConsensusEngineId = *b"EGN-";
 /// The type to sign and send transactions.
-const UNSIGNED_TXS_PRIORITY: u64 = 100;
+pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
-const CLAIMS_PER_BLOCK: usize = 1;
+pub const CLAIMS_PER_BLOCK: usize = 1;
+/// Max eth_call checks to attempt per block/OCW invocation
+pub const CALLS_PER_BLOCK: usize = 1;
+/// The solidity selector of bridge events
+/// i.e. output of `keccak256('SubmitEvent(address,address,bytes)')` /
+/// `0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a`
+pub const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
+	hex!("0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a");
 
 #[frame_support::pallet]
 pub mod pallet {
 	use std::collections::BTreeMap;
+	use frame_support::traits::UnixTime;
+	use seed_primitives::ethy::EthyChainId;
+	use crate::xrpl_types::EventClaim;
 	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -66,6 +76,9 @@ pub mod pallet {
 		type BridgeContractAddress: Get<H160>;
 		/// The threshold of notarizations required to approve an event
 		type NotarizationThreshold: Get<Percent>;
+
+		/// Unix time
+		type UnixTime: UnixTime;
 	}
 
 	#[pallet::pallet]
@@ -129,9 +142,14 @@ pub mod pallet {
 	pub type ChainCallRequests<T: Config> = StorageValue<_, Vec<ChainCallId>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn chain_call_requests)]
+	#[pallet::getter(fn next_chain_call_id)]
 	/// Subscription Id for Call requests
 	pub type NextChainCallId<T: Config> = StorageValue<_, ChainCallId, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn event_deadline_seconds)]
+	/// Events cannot be claimed after this time (seconds)
+	pub type EventDeadlineSeconds<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn chain_call_request_info)]
@@ -142,7 +160,7 @@ pub mod pallet {
 	#[pallet::getter(fn pending_event_claims)]
 	/// Queued event claims, can be challenged within challenge period
 	pub type PendingEventClaims<T: Config> =
-	StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
+	StorageMap<_, Blake2_128Concat, EventClaimId, EventClaim>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn event_notarizations)]
@@ -200,6 +218,10 @@ pub mod pallet {
 		/// A notary (validator) set change is in motion (event_id, new_validator_set_id)
 		/// A proof for the change will be generated with the given `event_id`
 		AuthoritySetChange(EventProofId, u64),
+		/// Generating event proof delayed as bridge is paused
+		ProofDelayed(EventProofId),
+		/// An event proof has been sent for signing by ethy-gadget
+		EventSend { event_proof_id: EventProofId, chain_id: EthyChainId },
 	}
 
 	// Errors inform users that something went wrong.
@@ -321,7 +343,7 @@ pub mod pallet {
 		pub fn submit_notarization(
 			origin: OriginFor<T>,
 			payload: NotarizationPayload,
-			_signature: <<T as Config>::ValidatorId as RuntimeAppPublic>::Signature,
+			signature: <<T as Config>::ValidatorId as RuntimeAppPublic>::Signature,
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 

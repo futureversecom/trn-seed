@@ -12,13 +12,22 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-/*
 use codec::{Decode, Encode};
-use seed_primitives::{
-	validator::validator::{EventProofId, ValidatorSetId},
-	AccountId,
-};
-use sp_runtime::KeyTypeId;
+use scale_info::TypeInfo;
+use sp_application_crypto::ByteArray;
+use sp_runtime::{traits::Convert, KeyTypeId};
+use sp_std::prelude::*;
+use crate::AccountId;
+
+/// A typedef for validator set id.
+pub type ValidatorSetId = u64;
+
+/// Unique nonce for event proof requests
+pub type EventProofId = u64;
+
+/// Unique nonce for event claim requests
+pub type EventClaimId = u64;
+
 
 /// The session key type for bridge
 pub const BRIDGE_KEY_TYPE: KeyTypeId = KeyTypeId(*b"brg-");
@@ -26,7 +35,7 @@ pub const BRIDGE_KEY_TYPE: KeyTypeId = KeyTypeId(*b"brg-");
 /// Crypto types for bridge protocol
 pub mod crypto {
 	mod app_crypto {
-		use crate::helpers::BRIDGE_KEY_TYPE;
+		use crate::validator::BRIDGE_KEY_TYPE;
 		use sp_application_crypto::{app_crypto, ecdsa};
 		app_crypto!(ecdsa, BRIDGE_KEY_TYPE);
 	}
@@ -78,4 +87,4 @@ pub struct PendingAuthorityChange<AuthorityId: Encode + Decode> {
 	pub next_validator_set: ValidatorSet<AuthorityId>,
 	/// The event proof Id for this request
 	pub event_proof_id: EventProofId,
-}*/
+}

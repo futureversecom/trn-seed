@@ -1,5 +1,5 @@
 use sp_core::H160;
-use seed_primitives::validators::validator::EventProofId;
+use seed_primitives::validator::EventProofId;
 use sp_runtime::DispatchError;
 
 /// Interface for an Xrpl event bridge

@@ -17,7 +17,7 @@ use codec::{Decode, Encode};
 use core::fmt;
 use rustc_hex::ToHex;
 use scale_info::TypeInfo;
-use seed_primitives::validators::validator::{EventClaimId, EventProofId, ValidatorSetId};
+use seed_primitives::validator::{EventClaimId, EventProofId, ValidatorSetId};
 use serde::{
 	de::{Error, Visitor},
 	Deserialize, Deserializer, Serialize, Serializer,
