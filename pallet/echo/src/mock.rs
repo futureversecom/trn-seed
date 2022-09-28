@@ -137,8 +137,10 @@ impl EthereumEventRouterT for MockEthereumEventRouter {
 		// Route event to specific subscriber pallet
 		if destination == &<pallet_echo::Pallet<TestRuntime> as EthereumEventSubscriber>::address()
 		{
-			<pallet_echo::Pallet<TestRuntime> as EthereumEventSubscriber>::on_event(source, data)
-				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
+			<pallet_echo::Pallet<TestRuntime> as EthereumEventSubscriber>::process_event(
+				source, data,
+			)
+			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		} else {
 			Err((0, EventRouterError::NoReceiver))
 		}

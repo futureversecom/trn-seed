@@ -73,7 +73,7 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_MYCL, ONE_XRP,
+	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT, ONE_XRP,
 	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
@@ -99,7 +99,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 3,
+	spec_version: 4,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -324,6 +324,7 @@ parameter_types! {
 
 impl pallet_xrpl_bridge::Config for Runtime {
 	type Event = Event;
+	type EthyAdapter = EthBridge;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();
@@ -400,8 +401,7 @@ impl pallet_grandpa::Config for Runtime {
 impl pallet_session::Config for Runtime {
 	type Event = Event;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	// we don't have stash and controller, thus we don't need the convert as well.
-	type ValidatorIdOf = ();
+	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -436,9 +436,9 @@ parameter_types! {
 	pub const SignedMaxSubmissions: u32 = 16;
 	pub const SignedMaxRefunds: u32 = 16 / 4;
 	// 40 DOTs fixed deposit..
-	pub const SignedDepositBase: Balance = ONE_MYCL * 40;
+	pub const SignedDepositBase: Balance = ONE_ROOT * 40;
 	// 0.01 DOT per KB of solution data.
-	pub const SignedDepositByte: Balance = ONE_MYCL / 1024;
+	pub const SignedDepositByte: Balance = ONE_ROOT / 1024;
 	// Intentionally zero reward to prevent inflation
 	// `pallet_election_provider_multi_phase::RewardHandler` could be configured to offset any rewards
 	pub SignedRewardBase: Balance = 0;
@@ -786,7 +786,6 @@ const fn seed_london() -> EvmConfig {
 	c.gas_transaction_create = 2_000_000;
 	c
 }
-
 pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 impl pallet_evm::Config for Runtime {

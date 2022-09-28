@@ -17,6 +17,8 @@ use scale_info::TypeInfo;
 use sp_core::{H160, U256};
 use sp_std::prelude::*;
 
+pub type EventId = u64;
+
 /// Ethereum address type
 pub type EthAddress = seed_primitives::EthAddress;
 

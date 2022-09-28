@@ -1,4 +1,4 @@
-use primitive_types::H160;
+use sp_core::H160;
 use seed_primitives::validators::validator::EventProofId;
 use sp_runtime::DispatchError;
 

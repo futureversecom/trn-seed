@@ -52,6 +52,8 @@ pub trait WeightInfo {
 	fn withdraw_xrp() -> Weight;
 	fn add_relayer() -> Weight;
 	fn remove_relayer() -> Weight;
+	fn set_door_nonce() -> Weight;
+	fn set_xrpl_door_address() -> Weight;
 }
 
 /// Weights for pallet_liquid_staking using the Substrate node and recommended hardware.
@@ -62,6 +64,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
+
 	fn submit_challenge() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
@@ -79,7 +82,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
+
 	fn remove_relayer() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+	}
+
+	fn set_door_nonce() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+	}
+
+	fn set_xrpl_door_address() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
@@ -93,24 +109,36 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
 	}
+
 	fn submit_challenge() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
 	}
-
 	fn withdraw_xrp() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
 	}
-
 	fn add_relayer() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
 	}
+
 	fn remove_relayer() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+
+	fn set_door_nonce() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+
+	fn set_xrpl_door_address() -> Weight {
 		(190_935_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))

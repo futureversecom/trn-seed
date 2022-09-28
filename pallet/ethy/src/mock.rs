@@ -580,6 +580,8 @@ impl ExtBuilder {
 			.unwrap()
 			.into();
 
+		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
+
 		if let Some(relayer) = self.relayer {
 			ext.execute_with(|| {
 				assert!(EthBridge::set_relayer(Origin::root(), relayer).is_ok());

@@ -19,8 +19,8 @@ pub use constants::*;
 pub use currency::*;
 
 parameter_types! {
-	/// Getter for the MYCL asset Id
-	pub const MyclAssetId: seed_primitives::AssetId = currency::MYCL_ASSET_ID;
+	/// Getter for the ROOT asset Id
+	pub const RootAssetId: seed_primitives::AssetId = currency::ROOT_ASSET_ID;
 	/// Getter for the XRP asset Id
 	pub const XrpAssetId: seed_primitives::AssetId = currency::XRP_ASSET_ID;
 }
@@ -29,18 +29,18 @@ pub mod currency {
 	//! root network currency constants
 	use seed_primitives::{AssetId, Balance};
 
-	/// The MYCL token name
-	pub const MYCL_NAME: &str = "Mycelium";
-	/// The MYCL token symbol
-	pub const MYCL_SYMBOL: &str = "MYCL";
-	/// Decimal places of MYCL
-	pub const MYCL_DECIMALS: u8 = 6;
-	/// The MYCL asset id within the root network
-	pub const MYCL_ASSET_ID: AssetId = 1;
-	/// The minimal MYCL asset balance before account storage is reaped
-	pub const MYCL_MINIMUM_BALANCE: Balance = 1;
-	/// One whole MYCL token in units
-	pub const ONE_MYCL: Balance = (10 as Balance).pow(MYCL_DECIMALS as u32);
+	/// The ROOT token name
+	pub const ROOT_NAME: &str = "Root";
+	/// The ROOT token symbol
+	pub const ROOT_SYMBOL: &str = "ROOT";
+	/// Decimal places of ROOT
+	pub const ROOT_DECIMALS: u8 = 6;
+	/// The ROOT asset id within the root network
+	pub const ROOT_ASSET_ID: AssetId = 1;
+	/// The minimal ROOT asset balance before account storage is reaped
+	pub const ROOT_MINIMUM_BALANCE: Balance = 1;
+	/// One whole ROOT token in units
+	pub const ONE_ROOT: Balance = (10 as Balance).pow(ROOT_DECIMALS as u32);
 
 	/// The XRP token name
 	pub const XRP_NAME: &str = "XRP";

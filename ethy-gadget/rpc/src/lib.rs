@@ -31,12 +31,15 @@ use std::{marker::PhantomData, ops::Deref, sync::Arc};
 
 use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
 use seed_primitives::{
-	ethy::{EthyApi as EthyRuntimeApi, EventProofId, VersionedEventProof, ETHY_ENGINE_ID},
+	ethy::{
+		EthyApi as EthyRuntimeApi, EthyChainId, EventProof, EventProofId, VersionedEventProof,
+		ETHY_ENGINE_ID,
+	},
 	AccountId20,
 };
 
 mod notification;
-use notification::EventProofResponse;
+use notification::{EventProofResponse, XrplTxProofResponse};
 
 /// Provides RPC methods for interacting with Ethy.
 #[allow(clippy::needless_return)]
@@ -46,9 +49,20 @@ pub trait EthyApi<Notification> {
 	#[subscription(name = "subscribeEventProofs" => "eventProofs", unsubscribe = "unsubscribeEventProofs", item = Notification)]
 	fn subscribe_event_proofs(&self);
 
-	/// Query a proof for a known event Id. Returns `null` if missing
+	/// Query a proof for `event_proof_id` and Ethereum chain Id
+	///
+	/// Returns `null` if missing
 	#[method(name = "getEventProof")]
-	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<Notification>>;
+	fn get_event_proof(&self, event_proof_id: EventProofId) -> RpcResult<Option<Notification>>;
+
+	/// Query a proof for a `event_proof_id` and XRPL chain Id
+	///
+	/// Returns `null` if missing
+	#[method(name = "getXrplTxProof")]
+	fn get_xrpl_tx_proof(
+		&self,
+		event_proof_id: EventProofId,
+	) -> RpcResult<Option<XrplTxProofResponse>>;
 }
 
 /// Implements the EthyApi RPC trait for interacting with ethy-gadget.
@@ -100,15 +114,40 @@ where
 	}
 
 	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<EventProofResponse>> {
-		if let Ok(maybe_encoded_proof) = self
-			.client
-			.get_aux([&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]].concat().as_ref())
-		{
+		if let Ok(maybe_encoded_proof) = self.client.get_aux(
+			[
+				ETHY_ENGINE_ID.as_slice(),
+				&[EthyChainId::Ethereum.into()].as_slice(),
+				&event_id.to_be_bytes().as_slice(),
+			]
+			.concat()
+			.as_ref(),
+		) {
 			if let Some(encoded_proof) = maybe_encoded_proof {
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let event_proof_response =
 						build_event_proof_response::<C, B>(&self.client, versioned_proof);
 					return Ok(event_proof_response)
+				}
+			}
+		}
+		Ok(None)
+	}
+
+	fn get_xrpl_tx_proof(&self, event_id: EventProofId) -> RpcResult<Option<XrplTxProofResponse>> {
+		if let Ok(maybe_encoded_proof) = self.client.get_aux(
+			[
+				ETHY_ENGINE_ID.as_slice(),
+				&[EthyChainId::Xrpl.into()].as_slice(),
+				&event_id.to_be_bytes().as_slice(),
+			]
+			.concat()
+			.as_ref(),
+		) {
+			if let Some(encoded_proof) = maybe_encoded_proof {
+				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
+					let response = build_xrpl_tx_proof_response(versioned_proof);
+					return Ok(response)
 				}
 			}
 		}
@@ -136,7 +175,7 @@ where
 			let validator_addresses: Vec<AccountId20> = proof_validator_set
 				.validators
 				.into_iter()
-				.map(EthyEcdsaToEthereum::convert)
+				.map(|v| EthyEcdsaToEthereum::convert(v.as_ref()))
 				.map(Into::into)
 				.collect();
 
@@ -150,8 +189,40 @@ where
 				validators: validator_addresses,
 				validator_set_id: proof_validator_set.id,
 				block: event_proof.block.into(),
-				tag: event_proof.tag.clone().map(Into::into),
+				tag: None,
 			})
 		},
+	}
+}
+
+/// Build an `XrplTxProofResponse` from a `VersionedEventProof`
+pub fn build_xrpl_tx_proof_response(
+	versioned_event_proof: VersionedEventProof,
+) -> Option<XrplTxProofResponse> {
+	match versioned_event_proof {
+		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) =>
+			Some(XrplTxProofResponse {
+				event_id,
+				signatures: signatures
+					.into_iter()
+					.map(|(i, s)| {
+						// XRPL requires ECDSA signatures are DER encoded
+						// https://github.com/XRPLF/xrpl.js/blob/76b73e16a97e1a371261b462ee1a24f1c01dbb0c/packages/ripple-keypairs/src/i.ts#L58-L60
+						let sig_ = s.deref();
+						// 0..64, ignore byte 64 (v/recoveryId)
+						let mut sig_normalized = libsecp256k1::Signature::parse_standard(
+							sig_[..64].try_into().expect("64 byte signature"),
+						)
+						.expect("valid signature");
+						// use 'canonical' S value
+						// https://xrpl.org/transaction-malleability.html#alternate-secp256k1-signatures
+						// https://github.com/indutny/elliptic/blob/43ac7f230069bd1575e1e4a58394a512303ba803/lib/elliptic/ec/index.js#L146-L150
+						sig_normalized.normalize_s();
+						(i, sig_normalized.serialize_der())
+					})
+					.map(|(i, s)| (i, Bytes::from(s.as_ref().to_vec())))
+					.collect(),
+				block: block.into(),
+			}),
 	}
 }

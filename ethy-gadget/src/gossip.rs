@@ -117,14 +117,14 @@ where
 		sender: &PeerId,
 		mut data: &[u8],
 	) -> ValidationResult<B::Hash> {
-		if let Ok(Witness { authority_id, event_id, validator_set_id, digest, signature }) =
+		if let Ok(Witness { authority_id, event_id, validator_set_id, digest, signature, .. }) =
 			Witness::decode(&mut data)
 		{
 			trace!(target: "ethy", "💎 witness from: {:?}, validator set: {:?}, event: {:?}", authority_id, validator_set_id, event_id);
 
 			let mut known_votes = self.known_votes.write();
 			let maybe_known = known_votes.get(&event_id).map(|v| v.binary_search(&authority_id));
-			if maybe_known.is_some() && maybe_known.unwrap().is_ok() {
+			if let Some(Ok(_)) = maybe_known {
 				trace!(target: "ethy", "💎 witness from: {:?}, event: {:?} is already known", &authority_id, event_id);
 				return ValidationResult::Discard
 			}
@@ -138,10 +138,9 @@ where
 				// Make the vote as seen
 				trace!(target: "ethy", "💎 verify prehashed OK, waiting lock: {:?}, event: {:?}", &authority_id, event_id);
 				match maybe_known {
-					Some(insert_index) => {
+					Some(Err(index)) => {
 						// we've seen this nonce and need to add the new vote
 						// insert_index is guaranteed to be `Err` as it has not been recorded yet
-						let index = insert_index.err().unwrap();
 						if let Some(v) = known_votes.get_mut(&event_id) {
 							v.insert(index, authority_id.clone())
 						}
@@ -150,6 +149,7 @@ where
 						// we haven't seen this nonce yet
 						known_votes.insert(event_id, vec![authority_id.clone()]);
 					},
+					Some(Ok(_)) => (), // dropped/checked prior as duplicate
 				}
 
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
@@ -223,7 +223,7 @@ mod tests {
 	use sc_network_test::{Block, Hash};
 	use sp_core::keccak_256;
 
-	use seed_primitives::ethy::Witness;
+	use seed_primitives::ethy::{EthyChainId, Witness};
 
 	use super::{GossipValidator, MAX_COMPLETE_EVENT_CACHE};
 	use crate::{assert_validation_result, testing::Keyring};
@@ -264,6 +264,7 @@ mod tests {
 		let message = b"hello world";
 		let witness = Witness {
 			digest: sp_core::keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 123,
 			authority_id: alice.public(),
@@ -300,6 +301,7 @@ mod tests {
 		let message = b"hello world";
 		let witness = Witness {
 			digest: keccak_256(message),
+			chain_id: EthyChainId::Ethereum,
 			event_id,
 			validator_set_id: 123,
 			authority_id: alice.public(),

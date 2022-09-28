@@ -28,22 +28,19 @@ use sp_runtime::{
 	traits::{Block, Convert, Header},
 };
 
-use seed_primitives::{
-	ethy::{
-		crypto::AuthorityId as Public, ConsensusLog, EthyApi, EventProof, EventProofId,
-		PendingAuthorityChange, ValidatorSet, ValidatorSetId, VersionedEventProof, Witness,
-		ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
-	},
-	AccountId,
+use seed_primitives::ethy::{
+	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof,
+	ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 };
 
 use crate::{
 	gossip::{topic, GossipValidator},
-	keystore::{EthyEcdsaToEthereum, EthyKeystore},
+	keystore::EthyKeystore,
 	metric_inc, metric_set,
 	metrics::Metrics,
 	notification,
-	witness_record::{EventMetadata, WitnessRecord},
+	types::{make_proof_key, EventMetadata, ProofRequest},
+	witness_record::WitnessRecord,
 	Client,
 };
 pub(crate) struct WorkerParams<B, BE, C, SO>
@@ -115,7 +112,7 @@ where
 			.expect("latest block always has header available; qed.");
 
 		EthyWorker {
-			client: client.clone(),
+			client,
 			backend,
 			key_store,
 			event_proof_sender,
@@ -159,6 +156,52 @@ where
 		new
 	}
 
+	/// Handle finality notification for non-signers (no locally available validator keys)
+	fn handle_finality_notification_passive(&mut self, notification: FinalityNotification<B>) {
+		for ProofRequest { chain_id, event_id, data, block } in
+			extract_proof_requests::<B>(&notification.header).into_iter()
+		{
+			trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
+
+			// it's possible the event already has a proof stored e.g.
+			// ethy protocol completed by validators for the event and broadcast prior to the
+			// finalized block being imported locally if so update the proof's block hash
+			let proof_key = make_proof_key(chain_id, event_id);
+			let get_proof = Backend::get_aux(self.backend.as_ref(), proof_key.as_ref());
+
+			// Try update the existing proof if it exists
+			if let Ok(Some(encoded_proof)) = get_proof {
+				if let Ok(VersionedEventProof::V1 { 0: mut proof }) =
+					VersionedEventProof::decode(&mut &encoded_proof[..])
+				{
+					proof.block = block;
+					if let Err(err) = Backend::insert_aux(
+						self.backend.as_ref(),
+						&[(proof_key.as_ref(), VersionedEventProof::V1(proof).encode().as_ref())],
+						&[],
+					) {
+						error!(target: "ethy", "💎 failed to update existing proof: {:?}, {:?}", event_id, err);
+						continue
+					}
+				} else {
+					error!(target: "ethy", "💎 failed decoding event proof v1: {:?}", event_id);
+					continue
+				}
+			}
+
+			let digest = match crate::types::data_to_digest(chain_id, data, [0_u8; 33]) {
+				Some(d) => d,
+				None => {
+					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
+					continue
+				},
+			};
+
+			// no proof is known for the event yet
+			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
+		}
+	}
+
 	/// Check finalized blocks for proof requests
 	fn handle_finality_notification(&mut self, notification: FinalityNotification<B>) {
 		debug!(target: "ethy", "💎 finality notification: {:?}", notification);
@@ -194,75 +237,38 @@ where
 			id
 		} else {
 			trace!(target: "ethy", "💎 No authority id - can't vote for events in: {:?}", notification.header.hash());
-			for ProofRequest { message, event_id, tag, block } in
-				extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
-			{
-				trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
-				// it's possible this event already has a proof stored due to differences in block
-				// propagation times.
-				// update the proof block hash and tag
-				let proof_key = [&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]].concat();
-
-				if let Ok(Some(encoded_proof)) =
-					Backend::get_aux(self.backend.as_ref(), proof_key.as_ref())
-				{
-					if let Ok(VersionedEventProof::V1 { 0: mut proof }) =
-						VersionedEventProof::decode(&mut &encoded_proof[..])
-					{
-						proof.block = block;
-						proof.tag = tag;
-
-						if Backend::insert_aux(
-							self.backend.as_ref(),
-							&[
-								// DB key is (engine_id + proof_id)
-								(
-									[&ETHY_ENGINE_ID[..], &event_id.to_be_bytes()[..]]
-										.concat()
-										.as_ref(),
-									VersionedEventProof::V1(proof).encode().as_ref(),
-								),
-							],
-							&[],
-						)
-						.is_err()
-						{
-							// this is a warning for now, because until the round lifecycle is
-							// improved, we will conclude certain rounds multiple times.
-							error!(target: "ethy", "💎 failed to store proof: {:?}", event_id);
-						}
-					} else {
-						error!(target: "ethy", "💎 failed decoding event proof v1: {:?}", event_id);
-					}
-				} else {
-					// no proof is known for this event yet
-					let event_digest = sp_core::keccak_256(message.as_ref());
-					self.witness_record.note_event_metadata(event_id, event_digest, block, tag);
-				}
-			}
-
-			// full node can't vote, we're done
-			return
+			return self.handle_finality_notification_passive(notification)
 		};
+		let authority_public_key = EthyEcdsaToPublicKey::convert(authority_id.clone());
 
-		// Search from (self.best_grandpa_block_header - notification.block) to find all signing
-		// requests Sign and broadcast a witness
-		for ProofRequest { message, event_id, tag, block } in
-			extract_proof_requests::<B>(&notification.header, self.validator_set.id).into_iter()
+		// Search block header for ethy signing requests
+		// Then sign and broadcast a witness
+		for ProofRequest { chain_id, event_id, data, block } in
+			extract_proof_requests::<B>(&notification.header).into_iter()
 		{
-			debug!(target: "ethy", "💎 got event proof request. event id: {:?}, message: {:?}", event_id, hex::encode(&message));
-			// `message = abi.encode(param0, param1,.., paramN, nonce)`
-			let signature = match self.key_store.sign(&authority_id, message.as_ref()) {
+			debug!(target: "ethy", "💎 got event proof request. chain_id: {:?}. event id: {:?}, data: {:?}", chain_id, event_id, hex::encode(&data));
+
+			// `data` must be transformed into a 32 byte digest before signing
+			let digest = match crate::types::data_to_digest(chain_id, data, authority_public_key) {
+				Some(d) => d,
+				None => {
+					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
+					continue
+				},
+			};
+			let signature = match self.key_store.sign_prehashed(&authority_id, &digest) {
 				Ok(sig) => sig,
 				Err(err) => {
 					error!(target: "ethy", "💎 error signing witness: {:?}", err);
-					return
+					continue
 				},
 			};
+
 			debug!(target: "ethy", "💎 signed event id: {:?}, validator set: {:?},\nsignature: {:?}", event_id, self.validator_set.id, hex::encode(&signature));
-			let event_digest = sp_core::keccak_256(message.as_ref());
+
 			let witness = Witness {
-				digest: event_digest,
+				chain_id,
+				digest,
 				validator_set_id: self.validator_set.id,
 				event_id,
 				authority_id: authority_id.clone(),
@@ -274,7 +280,7 @@ where
 			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
-			self.witness_record.note_event_metadata(event_id, event_digest, block, tag);
+			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
 			self.handle_witness(witness.clone());
 
 			// broadcast the witness
@@ -310,6 +316,8 @@ where
 			return
 		}
 
+		// TODO: if chain_id is XRPL this must be a majority of the XRPL valiadtors only, not any
+		// majority
 		if self.witness_record.has_consensus(witness.event_id, proof_threshold) {
 			let signatures = self.witness_record.signatures_for(witness.event_id);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
@@ -319,31 +327,24 @@ where
 				error!(target: "ethy", "💎 missing event metadata: {:?}", witness.event_id);
 				return
 			}
-			let EventMetadata { tag, block_hash, .. } = maybe_event_metadata.unwrap();
+			let EventMetadata { chain_id, block_hash, .. } = maybe_event_metadata.unwrap();
 
 			let event_proof = EventProof {
 				digest: witness.digest,
 				event_id: witness.event_id,
 				validator_set_id: self.validator_set.id,
 				block: *block_hash,
-				tag: tag.clone(),
 				signatures,
 			};
 			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
 
 			// Add proof to the DB that this event has been notarized specifically by the
 			// given threshold of validators
+			// DB key is (engine_id + chain_id + proof_id)
+			let proof_key = make_proof_key(*chain_id, event_proof.event_id);
 			if Backend::insert_aux(
 				self.backend.as_ref(),
-				&[
-					// DB key is (engine_id + proof_id)
-					(
-						[&ETHY_ENGINE_ID[..], &event_proof.event_id.to_be_bytes()[..]]
-							.concat()
-							.as_ref(),
-						versioned_event_proof.encode().as_ref(),
-					),
-				],
+				&[(proof_key.as_ref(), versioned_event_proof.encode().as_ref())],
 				&[],
 			)
 			.is_err()
@@ -410,22 +411,9 @@ where
 	}
 }
 
-pub struct ProofRequest {
-	/// raw message for signing
-	message: Vec<u8>,
-	/// nonce/event Id of this request
-	event_id: EventProofId,
-	/// metadata tag about the proof e.g. denotes the proof is for an authority set change
-	tag: Option<Vec<u8>>,
-	/// Finalized block hash when the proof was requested
-	block: [u8; 32],
-}
 /// Extract event proof requests from a digest in the given header, if any.
 /// Returns (digest for signing, event id, optional tag)
-fn extract_proof_requests<B>(
-	header: &B::Header,
-	active_validator_set_id: ValidatorSetId,
-) -> Vec<ProofRequest>
+fn extract_proof_requests<B>(header: &B::Header) -> Vec<ProofRequest>
 where
 	B: Block,
 {
@@ -435,38 +423,13 @@ where
 		.logs()
 		.iter()
 		.flat_map(|log| {
-			let res: Option<ProofRequest> = match log
-				.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID))
+			if let Some(ConsensusLog::OpaqueSigningRequest { chain_id, event_proof_id, data }) =
+				log.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID))
 			{
-				Some(ConsensusLog::OpaqueSigningRequest((message, event_id))) =>
-					Some(ProofRequest { message, event_id, tag: None, block: block_hash }),
-				// Note: we also handle this in `find_authorities_change` to update the validator
-				// set here we want to convert it into an 'OpaqueSigningRequest` to create a proof
-				// of the validator set change we must do this before the validators officially
-				// change next session
-				Some(ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
-					source,
-					destination,
-					next_validator_set,
-					event_proof_id,
-				})) => {
-					let message = eth_abi_encode_validator_set_change(
-						source,
-						destination,
-						&next_validator_set,
-						active_validator_set_id,
-						event_proof_id,
-					);
-					Some(ProofRequest {
-						message,
-						event_id: event_proof_id,
-						tag: Some(b"sys:authority-change".to_vec()),
-						block: block_hash,
-					})
-				},
-				_ => None,
-			};
-			res
+				Some(ProofRequest { chain_id, event_id: event_proof_id, data, block: block_hash })
+			} else {
+				None
+			}
 		})
 		.collect()
 }
@@ -487,52 +450,9 @@ where
 	header.digest().convert_first(|l| l.try_to(id).and_then(filter))
 }
 
-/// Ethereum ABI encode a validator set change message
-/// - `bridge_pallet_address` The ethy pallet address (source)
-/// - `bridge_contract_address` The ethereum bridge contract address (destination)
-/// - `next_validator_set` Ordered list of validator public keys (secp256k1)
-/// - `proof_validator_set_id ` the id of the current validator set (acting as witnesses)
-/// - `proof_event_id` Id of this outgoing event
-fn eth_abi_encode_validator_set_change(
-	bridge_pallet_address: AccountId,
-	bridge_contract_address: AccountId,
-	next_validator_set: &ValidatorSet<Public>,
-	proof_validator_set_id: ValidatorSetId,
-	proof_event_id: EventProofId,
-) -> Vec<u8> {
-	// Convert the validator ECDSA pub keys to addresses
-	let next_validator_addresses: Vec<ethabi::Token> = next_validator_set
-		.validators
-		.iter()
-		.map(|ecdsa_pub| EthyEcdsaToEthereum::convert(ecdsa_pub.clone()))
-		.map(|a| ethabi::Token::Address(a.into()))
-		.collect();
-
-	// bridge contract specific message
-	let app_message = ethabi::encode(&[
-		ethabi::Token::Array(next_validator_addresses),
-		ethabi::Token::Uint(next_validator_set.id.into()),
-	]);
-
-	// wrap event message
-	ethabi::encode(&[
-		// event source address
-		ethabi::Token::Address(bridge_pallet_address.into()),
-		// event destination address
-		ethabi::Token::Address(bridge_contract_address.into()),
-		// event data
-		ethabi::Token::Bytes(app_message),
-		// proof parameters
-		ethabi::Token::Uint(proof_validator_set_id.into()),
-		ethabi::Token::Uint(proof_event_id.into()),
-	])
-}
-
 #[cfg(test)]
 pub(crate) mod test {
 	use super::*;
-	use sp_application_crypto::ByteArray;
-	use sp_core::H160;
 	use substrate_test_runtime_client::runtime::{Block, Digest, DigestItem};
 
 	use crate::testing::Keyring;
@@ -540,37 +460,6 @@ pub(crate) mod test {
 
 	pub(crate) fn make_ethy_ids(keys: &[Keyring]) -> Vec<Public> {
 		keys.iter().map(|key| key.clone().public().into()).collect()
-	}
-
-	#[test]
-	fn encode_validator_set_change() {
-		let abi_encoded =
-			eth_abi_encode_validator_set_change(
-				H160::from_low_u64_be(111_u64).into(),
-				H160::from_low_u64_be(222_u64).into(),
-				&ValidatorSet::<Public> {
-					validators: vec![
-					Public::from_slice(
-						// `//Alice` ECDSA public key
-						&hex::decode(b"0204dad6fc9c291c68498de501c6d6d17bfe28aee69cfbf71b2cc849caafcb0159").unwrap(),
-					)
-					.unwrap(),
-					Public::from_slice(
-						// `//Alice` ECDSA public key
-						&hex::decode(b"0204dad6fc9c291c68498de501c6d6d17bfe28aee69cfbf71b2cc849caafcb0159").unwrap(),
-					)
-					.unwrap(),
-				],
-					id: 598,
-					proof_threshold: 2,
-				},
-				599,
-				1_234_567,
-			);
-		assert_eq!(
-			hex::encode(abi_encoded),
-			"000000000000000000000000000000000000000000000000000000000000006f00000000000000000000000000000000000000000000000000000000000000de00000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000257000000000000000000000000000000000000000000000000000000000012d68700000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000256000000000000000000000000000000000000000000000000000000000000000200000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf500000000000000000000000058dad74c38e9c4738bf3471f6aac6124f862faf5"
-		);
 	}
 
 	#[test]

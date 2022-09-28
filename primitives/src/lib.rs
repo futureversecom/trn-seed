@@ -14,7 +14,6 @@ pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
 
 pub mod types {
 	use crate::signature::EthereumSignature;
-	use sp_core::{H160, H512};
 	use sp_runtime::traits::{IdentifyAccount, Verify};
 
 	/// An index to a block.
@@ -69,18 +68,6 @@ pub mod types {
 
 	pub type Timestamp = u64;
 
-	/// An index to a block.
-	pub type LedgerIndex = u64;
-
-	pub type XrplTxHash = H512;
-
-	pub type XrplWithdrawAddress = H160;
-
-	/// The type for identifying the Withdraw Tx Nonce
-	pub type XrplWithdrawTxNonce = u32;
-	/// Unique nonce for event proof requests
-	pub type EventId = u64;
-
 	/// Ethereum address type
 	pub type EthAddress = sp_core::H160;
 }
@@ -100,4 +87,21 @@ pub mod opaque {
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
+}
+
+/// XRPL primitive types
+pub mod xrpl {
+	use sp_core::{H160, H512};
+
+	/// An index to a block.
+	pub type LedgerIndex = u64;
+
+	/// An XRPL address (classic)
+	pub type XrplAddress = H160;
+
+	/// An XRPL tx hash
+	pub type XrplTxHash = H512;
+
+	/// The type for identifying the XRPL Tx Nonce aka 'Sequence'
+	pub type XrplTxNonce = u32;
 }
