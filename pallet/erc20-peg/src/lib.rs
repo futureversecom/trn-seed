@@ -139,8 +139,6 @@ decl_error! {
 		EvmWithdrawalFailed,
 		/// The abi received does not match the encoding scheme
 		InvalidAbiEncoding,
-		/// The source address for deposits must be the ERC20Peg Contract address
-		InvalidSourceAddress,
 	}
 }
 
