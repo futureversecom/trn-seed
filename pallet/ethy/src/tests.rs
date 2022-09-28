@@ -403,8 +403,7 @@ fn handle_event_notarization_valid_claims() {
 		.build()
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
-			let process_at =
-				System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+			let process_at = System::block_number() + EthBridge::challenge_period();
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
@@ -526,8 +525,7 @@ fn process_valid_challenged_event() {
 			assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &relayer.into(), false), 0);
 			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), RelayerBond::get());
 
-			let process_at =
-				System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+			let process_at = System::block_number() + EthBridge::challenge_period();
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
@@ -622,10 +620,9 @@ fn process_valid_challenged_event_delayed() {
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
 			// The block it should be processed at
-			let process_at =
-				System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+			let process_at = System::block_number() + EthBridge::challenge_period();
 			// The actual block it will be processed at
-			let process_at_extended = process_at + <TestRuntime as Config>::ChallengePeriod::get();
+			let process_at_extended = process_at + EthBridge::challenge_period();
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
 				Origin::signed(relayer.into()),
@@ -712,8 +709,7 @@ fn handle_event_notarization_invalid_claims() {
 		.build()
 		.execute_with(|| {
 			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
-			let process_at =
-				System::block_number() + <TestRuntime as Config>::ChallengePeriod::get();
+			let process_at = System::block_number() + EthBridge::challenge_period();
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
