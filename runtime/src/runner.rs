@@ -186,8 +186,7 @@ where
 
 		// Check if we are calling with fee preferences
 		if target == H160::from_low_u64_be(FEE_PROXY_ADDRESS) {
-			gas_limit = if gas_limit == 0 { 150_000_000_u64 } else { gas_limit };
-			let (_, weight) = T::FeeCalculator::min_gas_price();
+			let (gas_price, weight) = T::FeeCalculator::min_gas_price();
 
 			let (payment_asset_id, max_payment, new_target, new_input) = Self::decode_input(input)
 				.map_err(|err| RunnerError { error: err.into(), weight })?;
@@ -196,8 +195,11 @@ where
 			input = new_input;
 			target = new_target;
 
-			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional)
-				.map_err(|err| RunnerError { error: err.into(), weight })?;
+			// TODO: remove `calculate_total_gas` function once we re-visit this functionality
+			// With the `calculate_total_gas`, the total_fee calc fails when user sends legacy tx with `0` gas_price.
+			// let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas,
+			// is_transactional) 	.map_err(|err| RunnerError { error: err.into(), weight })?;
+			let total_fee = U256::from(gas_limit) * gas_price;
 
 			let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
 			let decimals = <pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
