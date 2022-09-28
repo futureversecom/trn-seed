@@ -13,9 +13,11 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 use codec::{Decode, Encode};
-use seed_primitives::AccountId;
+use seed_primitives::{
+	validators::validator::{EventProofId, ValidatorSetId},
+	AccountId,
+};
 use sp_runtime::KeyTypeId;
-use seed_primitives::validators::validator::{EventProofId, ValidatorSetId};
 
 /// The session key type for bridge
 pub const BRIDGE_KEY_TYPE: KeyTypeId = KeyTypeId(*b"brg-");

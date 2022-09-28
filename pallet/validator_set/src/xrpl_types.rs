@@ -17,6 +17,7 @@ use codec::{Decode, Encode};
 use core::fmt;
 use rustc_hex::ToHex;
 use scale_info::TypeInfo;
+use seed_primitives::validators::validator::{EventClaimId, EventProofId, ValidatorSetId};
 use serde::{
 	de::{Error, Visitor},
 	Deserialize, Deserializer, Serialize, Serializer,
@@ -24,9 +25,10 @@ use serde::{
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
-use seed_primitives::validators::validator::{EventProofId, ValidatorSetId};
 
 pub type XrplAddress = seed_primitives::XrplWithdrawAddress;
+/// An Chain CallOracle call Id
+pub type ChainCallId = u64;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
 /// Info related to an event proof
@@ -42,4 +44,120 @@ pub struct EventProofInfo {
 	pub validator_set_id: ValidatorSetId,
 	/// The events proof id
 	pub event_proof_id: EventProofId,
+}
+/// An EthCallOracle request
+#[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo)]
+pub struct CheckedChainCallRequest {
+	/// EVM input data for the call
+	pub input: Vec<u8>,
+	/// Ethereum address to receive the call
+	pub target: XrplAddress,
+	/// CENNZnet timestamp when the original request was placed e.g by a contract/user (seconds)
+	pub timestamp: u64,
+	/// Informs the oldest acceptable block number that `try_block_number` can take (once the
+	/// Ethereum latest block number is known) if `try_block_number` falls outside `(latest -
+	/// max_block_look_behind) < try_block_number < latest` then it is considered invalid
+	pub max_block_look_behind: u64,
+	/// Hint at an Ethereum block # for the call (i.e. near `timestamp`)
+	/// It is provided by an untrusted source and may or may not be used
+	/// depending on its distance from the latest eth block i.e `(latest - max_block_look_behind) <
+	/// try_block_number < latest`
+	pub try_block_number: u64,
+	/// CENNZnet timestamp when _this_ check request was queued (seconds)
+	pub check_timestamp: u64,
+}
+#[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Copy, Clone, TypeInfo)]
+pub enum CheckedChainCallResult {
+	/// returndata obtained, ethereum block number, ethereum timestamp
+	Ok([u8; 32], u64, u64),
+	/// returndata obtained, exceeds length limit
+	ReturnDataExceedsLimit,
+	/// returndata obtained, empty
+	ReturnDataEmpty,
+	/// Failed to retrieve all the required data from Ethereum
+	DataProviderErr,
+	/// Ethereum block number is invalid (0, max)
+	InvalidEthBlock,
+	/// Timestamps have desynced or are otherwise invalid
+	InvalidTimestamp,
+}
+
+/// Possible outcomes from attempting to verify an Ethereum event claim
+#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
+pub enum EventClaimResult {
+	/// It's valid
+	Valid,
+	/// Couldn't request data from the Eth client
+	DataProviderErr,
+	/// The eth tx is marked failed
+	TxStatusFailed,
+	/// The transaction recipient was not the expected contract
+	UnexpectedContractAddress,
+	/// The expected tx logs were not present
+	NoTxLogs,
+	/// Not enough block confirmations yet
+	NotEnoughConfirmations,
+	/// Tx event logs indicated this claim does not match the event
+	UnexpectedData,
+	/// The deposit tx is past the expiration deadline
+	Expired,
+	/// The Tx Receipt was not present
+	NoTxReceipt,
+	/// The event source did not match the tx receipt `to` field
+	UnexpectedSource,
+}
+
+/// An independent notarization of a bridged value
+/// This is signed and shared with the runtime after verification by a particular validator
+#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[repr(u8)]
+pub enum NotarizationPayload {
+	Call {
+		/// The call Id being notarized
+		call_id: ChainCallId,
+		/// The ordinal index of the signer in the notary set
+		/// It may be used with chain storage to lookup the public key of the notary
+		authority_index: u16,
+		/// Result of the notarization check by this authority
+		result: CheckedChainCallResult,
+	},
+	Event {
+		/// The message Id being notarized
+		event_claim_id: EventClaimId,
+		/// The ordinal index of the signer in the notary set
+		/// It may be used with chain storage to lookup the public key of the notary
+		authority_index: u16,
+		/// Result of the notarization check by this authority
+		result: EventClaimResult,
+	},
+}
+
+impl NotarizationPayload {
+	/// Return enum type Id
+	pub fn type_id(&self) -> u64 {
+		match self {
+			Self::Call { .. } => 0_u64,
+			Self::Event { .. } => 1_u64,
+		}
+	}
+	/// Get the authority index
+	pub fn authority_index(&self) -> u16 {
+		match self {
+			Self::Call { authority_index, .. } => *authority_index,
+			Self::Event { authority_index, .. } => *authority_index,
+		}
+	}
+	/// Get the payload id
+	pub fn payload_id(&self) -> u64 {
+		match self {
+			Self::Call { call_id, .. } => *call_id,
+			Self::Event { event_claim_id, .. } => *event_claim_id,
+		}
+	}
+}
+
+#[derive(Debug)]
+pub enum LatestOrNumber {
+	Latest,
+	Number(u64),
 }

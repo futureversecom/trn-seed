@@ -13,7 +13,11 @@ mod helpers;
 mod xrpl_impls;
 mod xrpl_types;
 
-use crate::helpers::{ConsensusLog, EventProofId, PendingAuthorityChange, ValidatorSet};
+use crate::helpers::{ConsensusLog, PendingAuthorityChange, ValidatorSet};
+use crate::xrpl_types::{
+	ChainCallId, CheckedChainCallRequest, CheckedChainCallResult, EventProofInfo, EventClaimResult, NotarizationPayload,
+};
+use seed_primitives::validators::validator::{EventProofId, EventClaimId};
 use frame_support::{pallet_prelude::*, traits::OneSessionHandler, PalletId};
 use frame_system::pallet_prelude::*;
 pub use pallet::*;
@@ -27,11 +31,11 @@ use sp_std::vec::Vec;
 pub type ValidatorIdOf<T> = <T as Config>::ValidatorId;
 pub(crate) const LOG_TARGET: &str = "validator_set";
 pub const ENGINE_ID: sp_runtime::ConsensusEngineId = *b"EGN-";
+/// The type to sign and send transactions.
+const UNSIGNED_TXS_PRIORITY: u64 = 100;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use seed_primitives::validators::validator::EventProofId;
-	use crate::xrpl_types::EventProofInfo;
 	use super::*;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
@@ -105,16 +109,57 @@ pub mod pallet {
 	pub type NextEventProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_event_proof_id)]
+	#[pallet::getter(fn pending_event_proofs)]
 	/// Queued event proofs to be processed once bridge has been re-enabled
-	pub type PendingEventProofs<T: Config> = StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
-
+	pub type PendingEventProofs<T: Config> =
+		StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_event_proof_id)]
+	#[pallet::getter(fn pending_claim_challenges)]
 	/// Queued event proofs to be processed once bridge has been re-enabled
-	pub type PendingClaimChallenges<T: Config> = StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
+	pub type PendingClaimChallenges<T: Config> =
+		StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn chain_call_requests)]
+	/// Queue of pending Chain CallOracle requests
+	pub type ChainCallRequests<T: Config> = StorageValue<_, ChainCallId, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn chain_call_request_info)]
+	/// Queue of pending Chain CallOracle requests
+	pub type ChainCallRequestInfo<T: Config> = StorageMap<_, Blake2_128Concat, ChainCallId, CheckedChainCallRequest>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn pending_event_claims)]
+	/// Queued event claims, can be challenged within challenge period
+	pub type PendingEventClaims<T: Config> =
+	StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn event_notarizations)]
+	/// Notarizations for queued events
+	/// Either: None = no notarization exists OR Some(yay/nay)
+	pub type EventNotarizations<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		EventClaimId,
+		Blake2_128Concat,
+		T::ValidatorId,
+		EventClaimResult,
+	>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn chain_call_notarizations)]
+	/// Chain CallOracle notarizations keyed by (Id, Notary)
+	pub type ChainCallNotarizations<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ChainCallId,
+		Blake2_128Concat,
+		T::ValidatorId,
+		CheckedChainCallResult,
+	>;
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
@@ -170,8 +215,13 @@ pub mod pallet {
 				let needed = T::NotarizationThreshold::get();
 				// TODO: check every session change not block
 				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
-					log!(info, "💎 waiting for validator support to activate eth-bridge: {:?}/{:?}", supports, needed);
-					return;
+					log!(
+						info,
+						"💎 waiting for validator support to activate eth-bridge: {:?}/{:?}",
+						supports,
+						needed
+					);
+					return
 				}
 				// do some notarizing
 				Self::do_event_notarization_ocw(&active_key, authority_index);
@@ -244,6 +294,33 @@ pub mod pallet {
 				Ok(().into())
 			} else {
 				Err(Error::<T>::ValidatorNotFound.into())
+			}
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1))]
+		/// Internal only
+		/// Validators will submit inherents with their notarization vote for a given claim
+		pub fn submit_notarization(
+			origin: OriginFor<T>,
+			payload: NotarizationPayload,
+			_signature: <<T as Config>::ValidatorId as RuntimeAppPublic>::Signature,
+		) -> DispatchResult {
+			let _ = ensure_none(origin)?;
+
+			// we don't need to verify the signature here because it has been verified in
+			// `validate_unsigned` function when sending out the unsigned tx.
+			let authority_index = payload.authority_index() as usize;
+			let notary_keys = Self::notary_keys();
+			let notary_public_key = match notary_keys.get(authority_index) {
+				Some(id) => id,
+				None => return Err(Error::<T>::InvalidNotarization.into()),
+			};
+
+			match payload {
+				NotarizationPayload::Call { call_id, result, .. } =>
+					Self::handle_call_notarization(call_id, result, notary_public_key),
+				NotarizationPayload::Event { event_claim_id, result, .. } =>
+					Self::handle_event_notarization(event_claim_id, result, notary_public_key),
 			}
 		}
 	}
