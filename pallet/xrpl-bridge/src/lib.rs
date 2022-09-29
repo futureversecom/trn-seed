@@ -131,12 +131,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
-			if ProcessXRPTransaction::<T>::contains_key(n) {
-				let weights = Self::process_xrp_tx(n);
-				weights + Self::clear_storages(n)
-			} else {
-				DbWeight::get().reads(1 as Weight)
-			}
+			let weights = Self::process_xrp_tx(n);
+			weights + Self::clear_storages(n)
 		}
 	}
 
@@ -158,8 +154,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
-	/// Temporary storage to store transaction details to be processed, it will be cleared after
-	/// transaction is processed
+	/// Stores submitted transactions from XRPL waiting to be processed
+	/// Transactions will be cleared `ClearTxPeriod` blocks after processing
 	pub type ProcessXRPTransactionDetails<T: Config> =
 		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 
@@ -168,12 +164,6 @@ pub mod pallet {
 	/// Settled xrp transactions stored as history for a specific period
 	pub type SettledXRPTransactionDetails<T: Config> =
 		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<XrplTxHash>>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn observed_xrp_transactions)]
-	/// Set of recently observed xrp transaction hashes (pruned after `ClearTxPeriod` blocks)
-	/// They may have been processed successfully or not
-	pub type ObservedXRPTransactions<T: Config> = StorageMap<_, Identity, XrplTxHash, ()>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -246,7 +236,7 @@ pub mod pallet {
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
 			ensure!(
-				Self::observed_xrp_transactions(transaction_hash).is_none(),
+				Self::process_xrp_transaction_details(transaction_hash).is_none(),
 				Error::<T>::TxReplay
 			);
 
@@ -371,7 +361,7 @@ impl<T: Config> Pallet<T> {
 		let mut writes = 0 as Weight;
 		for transaction_hash in tx_items {
 			if !<ChallengeXRPTransactionList<T>>::contains_key(transaction_hash) {
-				let tx_details = <ProcessXRPTransactionDetails<T>>::take(transaction_hash);
+				let tx_details = <ProcessXRPTransactionDetails<T>>::get(transaction_hash);
 				reads += 1;
 				match tx_details {
 					None => {},
@@ -417,7 +407,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
 				writes += 1 + tx_hashes.len() as Weight;
 				for tx_hash in tx_hashes {
-					<ObservedXRPTransactions<T>>::remove(tx_hash);
+					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
 				}
 			}
 		}
@@ -433,7 +423,6 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
 		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, relayer));
-		<ObservedXRPTransactions<T>>::insert(&transaction_hash, ());
 
 		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));

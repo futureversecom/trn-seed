@@ -324,3 +324,33 @@ fn set_door_signers() {
 		));
 	});
 }
+
+#[test]
+fn clear_storages() {
+	new_test_ext().execute_with(|| {
+		let process_block = 5;
+		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
+		let tx_hash_2 = XrplTxHash::from_low_u64_be(123);
+
+		// <ProcessXRPTransaction<Test>>::append(process_block,tx_hash_1);
+		// <ProcessXRPTransaction<Test>>::append(process_block,tx_hash_2);
+		<SettledXRPTransactionDetails<Test>>::append(process_block, tx_hash_1);
+		<SettledXRPTransactionDetails<Test>>::append(process_block, tx_hash_2);
+
+		let account: AccountId = [1_u8; 20].into();
+		<ProcessXRPTransactionDetails<Test>>::insert(
+			tx_hash_1,
+			(2 as LedgerIndex, XrpTransaction::default(), account),
+		);
+		<ProcessXRPTransactionDetails<Test>>::insert(
+			tx_hash_2,
+			(2 as LedgerIndex, XrpTransaction::default(), account),
+		);
+
+		XRPLBridge::on_initialize(process_block);
+
+		assert!(<SettledXRPTransactionDetails<Test>>::get(process_block).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
+	});
+}
