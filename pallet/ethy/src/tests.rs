@@ -23,17 +23,20 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use hex_literal::hex;
+use seed_pallet_common::{EthCallFailure, EthereumBridge, EthyXrplBridgeAdapter};
+use seed_primitives::{
+	ethy::{
+		crypto::AuthorityId, ConsensusLog, EthyChainId, EthyEcdsaToEthereum, EventClaimId,
+		ValidatorSet,
+	},
+	BlockNumber,
+};
 use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::{
 	generic::DigestItem,
 	traits::{AccountIdConversion, Convert},
 	Percent, RuntimeAppPublic, SaturatedConversion,
-};
-
-use seed_pallet_common::{EthCallFailure, EthereumBridge, EthyXrplBridgeAdapter};
-use seed_primitives::ethy::{
-	crypto::AuthorityId, ConsensusLog, EthyChainId, EthyEcdsaToEthereum, EventClaimId, ValidatorSet,
 };
 
 use crate::{
@@ -441,10 +444,6 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 #[test]
 fn pre_last_session_change() {
 	ExtBuilder::default().next_session_final().build().execute_with(|| {
-		let current_keys = vec![
-			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
-			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
-		];
 		let next_keys = vec![
 			AuthorityId::from_slice(
 				hex!("03e2161ca58ac2f2fa7dfd9f6980fdda1059b467e375ee78cdd5749dc058c0b2c9")
@@ -458,8 +457,12 @@ fn pre_last_session_change() {
 			.unwrap(),
 		];
 		let event_proof_id = EthBridge::next_event_proof_id();
+		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+		// Manually insert next keys
+		crate::NextNotaryKeys::<TestRuntime>::put(next_keys.clone());
 
-		EthBridge::handle_authorities_change(current_keys, next_keys.clone());
+		// Manually call handle_authorities_change to simulate 5 minutes before the next epoch
+		EthBridge::handle_authorities_change();
 
 		// signing request to prove validator change on other chain
 		let new_validator_set_message = ethabi::encode(&[
@@ -511,7 +514,7 @@ fn pre_last_session_change() {
 				ETHY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(ValidatorSet {
 					validators: next_keys.to_vec(),
-					id: 1,
+					id: next_validator_set_id,
 					proof_threshold: 2,
 				})
 				.encode(),
@@ -521,6 +524,148 @@ fn pre_last_session_change() {
 		assert_eq!(EthBridge::next_notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+	});
+}
+
+#[test]
+fn on_new_session_updates_keys() {
+	ExtBuilder::default().next_session_final().build().execute_with(|| {
+		let default_account = AccountId::default();
+		let next_keys = vec![
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
+		];
+		let next_keys_iter = vec![
+			(&default_account, AuthorityId::from_slice(&[3_u8; 33]).unwrap()),
+			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
+		]
+		.into_iter();
+
+		// Call on_new_session but is_active_session_final is false
+		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
+			true,
+			next_keys_iter.clone(),
+			next_keys_iter.clone(),
+		);
+		// Storage remains unchanged
+		assert!(EthBridge::next_notary_keys().is_empty());
+		assert!(EthBridge::next_authority_change().is_none());
+
+		let block_number: BlockNumber = 2;
+		System::set_block_number(block_number.into());
+		// Call on_new_session where is_active_session_final is true, should change storage
+		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
+			true,
+			next_keys_iter.clone(),
+			next_keys_iter.clone(),
+		);
+		let epoch_duration: BlockNumber = EpochDuration::get().saturated_into();
+		let expected_block: BlockNumber = block_number + epoch_duration - 75_u32;
+		assert_eq!(EthBridge::next_authority_change(), Some(expected_block as u64));
+		assert_eq!(EthBridge::next_notary_keys(), next_keys.clone());
+
+		let event_proof_id = EthBridge::next_event_proof_id();
+		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+		// Now call on_initialise with the expected block to check it gets processed correctly
+		EthBridge::on_initialize(expected_block.into());
+
+		// Log should be thrown, indicating handle_authorities_change was called
+		assert_eq!(
+			System::digest().logs[1],
+			DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: next_keys.to_vec(),
+					id: next_validator_set_id,
+					proof_threshold: 2,
+				})
+				.encode(),
+			),
+		);
+
+		// Storage updated
+		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
+		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert!(EthBridge::next_authority_change().is_none());
+		// Two logs thrown in next_authority_change
+		assert_eq!(System::digest().logs.len(), 2);
+
+		// Calling on_before_session_ending should NOT call handle_authorities_change again
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(System::digest().logs.len(), 2);
+		assert!(!EthBridge::bridge_paused());
+		assert!(EthBridge::next_notary_keys().is_empty());
+		assert_eq!(EthBridge::notary_keys(), next_keys);
+	});
+}
+
+#[test]
+/// This test ensures that authorities are changed in the event that the 5 minute window was missed
+/// This will quickly change the authorities right before the session ending but in practice
+/// should never happen
+fn on_before_session_ending_handles_authorites() {
+	ExtBuilder::default().next_session_final().build().execute_with(|| {
+		let default_account = AccountId::default();
+		let next_keys = vec![
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
+		];
+		let next_keys_iter = vec![
+			(&default_account, AuthorityId::from_slice(&[3_u8; 33]).unwrap()),
+			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
+		]
+		.into_iter();
+
+		// Call on_new_session but is_active_session_final is false
+		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
+			true,
+			next_keys_iter.clone(),
+			next_keys_iter.clone(),
+		);
+		// Storage remains unchanged
+		assert!(EthBridge::next_notary_keys().is_empty());
+		assert!(EthBridge::next_authority_change().is_none());
+
+		let block_number: BlockNumber = 2;
+		System::set_block_number(block_number.into());
+		// Call on_new_session where is_active_session_final is true, should change storage
+		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
+			true,
+			next_keys_iter.clone(),
+			next_keys_iter.clone(),
+		);
+		let epoch_duration: BlockNumber = EpochDuration::get().saturated_into();
+		let expected_block: BlockNumber = block_number + epoch_duration - 75_u32;
+		assert_eq!(EthBridge::next_authority_change(), Some(expected_block as u64));
+		assert_eq!(EthBridge::next_notary_keys(), next_keys.clone());
+
+		let event_proof_id = EthBridge::next_event_proof_id();
+		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+
+		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
+		// changed in on_initialize
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		// Log should be thrown, indicating handle_authorities_change was called
+		assert_eq!(
+			System::digest().logs[1],
+			DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: next_keys.to_vec(),
+					id: next_validator_set_id,
+					proof_threshold: 2,
+				})
+				.encode(),
+			),
+		);
+
+		// Storage updated
+		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
+		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert!(EthBridge::next_authority_change().is_none());
+		assert!(!EthBridge::bridge_paused());
+		assert!(EthBridge::next_notary_keys().is_empty());
+		assert_eq!(EthBridge::notary_keys(), next_keys);
 	});
 }
 
@@ -554,7 +699,7 @@ fn last_session_change() {
 		crate::NextNotaryKeys::<TestRuntime>::put(&next_keys);
 
 		// current session is last in era: starting
-		EthBridge::handle_authorities_change(current_keys, next_keys.clone());
+		EthBridge::handle_authorities_change();
 		assert!(EthBridge::bridge_paused());
 		// current session is last in era: finishing
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();

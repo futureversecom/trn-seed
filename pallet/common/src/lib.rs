@@ -127,8 +127,6 @@ pub trait OnTransferSubscriber {
 
 /// Reports whether the current session is the final session in a staking era (pre-authority change)
 pub trait FinalSessionTracker {
-	/// Returns whether the next session is the final session of an era
-	fn is_next_session_final() -> bool;
 	/// Returns whether the active session is the final session of an era
 	fn is_active_session_final() -> bool;
 }

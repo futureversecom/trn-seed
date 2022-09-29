@@ -696,6 +696,8 @@ impl pallet_ethy::Config for Runtime {
 	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
+	// The duration in blocks of one epoch
+	type EpochDuration = EpochDuration;
 	/// The runtime event type.
 	type Event = Event;
 	/// Subscribers to completed 'eth_call' jobs

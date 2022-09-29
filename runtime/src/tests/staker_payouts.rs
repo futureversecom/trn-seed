@@ -13,8 +13,8 @@ use seed_primitives::{Balance, BlockNumber};
 
 use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
-	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
+	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, Executive,
+	Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
 };
 
 use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
@@ -189,24 +189,17 @@ fn staking_final_session_tracking() {
 		start_active_era(1);
 		// in session 3
 		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
-		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
-		assert!(!EthBridge::bridge_paused());
 
 		advance_session();
 		// in session 4
 		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
-		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
-		assert!(!EthBridge::bridge_paused());
 
 		advance_session();
 		// in session 5
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
-		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
-		assert!(EthBridge::bridge_paused());
 
 		advance_session(); // era 2 starts...
 		assert_ok!(Staking::force_new_era(RawOrigin::Root.into()));
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
-		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
 	});
 }

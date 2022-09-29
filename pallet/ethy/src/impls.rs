@@ -7,7 +7,7 @@ use frame_support::{
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{AccountIdConversion, Convert, SaturatedConversion},
+	traits::{AccountIdConversion, Convert, SaturatedConversion, Saturating},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -618,87 +618,66 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Handle changes to the authority set
+	/// This is called 5 minutes before the end of an era which gives the bridge time to update
+	/// keys on the contract
 	/// This could be called when validators rotate their keys, we don't want to
 	/// change this until the era has changed to avoid generating proofs for small set changes or
 	/// too frequently
-	/// - `new`: The validator set that is active right now
-	/// - `queued`: The validator set that will activate next session
-	pub(crate) fn handle_authorities_change(new: Vec<T::EthyId>, queued: Vec<T::EthyId>) {
+	pub(crate) fn handle_authorities_change() {
 		// ### Session life cycle
-		// block on_initialize if ShouldEndSession(n)
 		//  rotate_session
-		//    before_end_session
 		//    end_session (end just been)
 		//    start_session (start now)
+		//       Queue at end of session - 5 minutes
+		// 	  -> block on_initialize if NextAuthorityChange(n) <- this function is CALLED here
 		//    new_session (start now + 1)
-		//   -> on_new_session <- this function is CALLED here
-		let log_notary_change = |next_keys: &[T::EthyId]| {
-			// Store the keys for usage next session
-			<NextNotaryKeys<T>>::put(next_keys);
-			let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
 
-			// TODO: probably don't need both consensus logs...
-			let new_validator_addresses: Vec<Token> = next_keys
-				.to_vec()
-				.into_iter()
-				.map(|k| EthyEcdsaToEthereum::convert(k.as_ref()))
-				.map(|k| Token::Address(k.into()))
-				.collect();
-			let new_validator_set_message = ethabi::encode(&[
-				Token::Array(new_validator_addresses),
-				Token::Uint(next_validator_set_id.into()),
-			]);
+		let next_keys = &NextNotaryKeys::<T>::get();
+		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
 
-			// notify ethereum contract about validator set change
-			if let Ok(event_proof_id) = Self::send_event(
-				&T::BridgePalletId::get().into_account_truncating(),
-				&T::BridgeContractAddress::get(),
-				new_validator_set_message.as_slice(),
-			) {
-				// Signal the Event Id that will be used for the proof of validator set change.
-				// Any observer can subscribe to this event and submit the resulting proof to keep
-				// the validator set on the Ethereum bridge contract updated.
-				Self::deposit_event(Event::<T>::AuthoritySetChange(
-					event_proof_id,
-					next_validator_set_id,
-				));
-				NotarySetProofId::put(event_proof_id);
-			}
+		// TODO: probably don't need both consensus logs...
+		let new_validator_addresses: Vec<Token> = next_keys
+			.to_vec()
+			.into_iter()
+			.map(|k| EthyEcdsaToEthereum::convert(k.as_ref()))
+			.map(|k| Token::Address(k.into()))
+			.collect();
+		let new_validator_set_message = ethabi::encode(&[
+			Token::Array(new_validator_addresses),
+			Token::Uint(next_validator_set_id.into()),
+		]);
 
-			// TODO: only do this one `on_before_session_ending`
-			// notify ethy-gadget about validator set change
-			let log = DigestItem::Consensus(
-				ETHY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(ValidatorSet {
-					validators: next_keys.to_vec(),
-					id: next_validator_set_id,
-					proof_threshold: T::NotarizationThreshold::get()
-						.mul_ceil(next_keys.len() as u32),
-				})
-				.encode(),
-			);
-			<frame_system::Pallet<T>>::deposit_log(log);
-		};
-
-		// signal 1 session early about the `queued` validator set change for the next era so
-		// there's time to generate a proof
-		if T::FinalSessionTracker::is_next_session_final() {
-			log!(trace, "💎 next session final");
-			log_notary_change(queued.as_ref());
-		} else if T::FinalSessionTracker::is_active_session_final() {
-			// Pause bridge claim/proofs
-			// Prevents claims/proofs being partially processed and failing if the validator set
-			// changes significantly
-			// Note: the bridge will be reactivated at the end of the session
-			log!(trace, "💎 active session final");
-			BridgePaused::put(true);
-
-			if Self::next_notary_keys().is_empty() {
-				// if we're here the era was forced, we need to generate a proof asap
-				log!(warn, "💎 urgent notary key rotation");
-				log_notary_change(queued.as_ref());
-			}
+		// notify ethereum contract about validator set change
+		if let Ok(event_proof_id) = Self::send_event(
+			&T::BridgePalletId::get().into_account_truncating(),
+			&T::BridgeContractAddress::get(),
+			new_validator_set_message.as_slice(),
+		) {
+			// Signal the Event Id that will be used for the proof of validator set change.
+			// Any observer can subscribe to this event and submit the resulting proof to keep
+			// the validator set on the Ethereum bridge contract updated.
+			Self::deposit_event(Event::<T>::AuthoritySetChange(
+				event_proof_id,
+				next_validator_set_id,
+			));
+			NotarySetProofId::put(event_proof_id);
 		}
+
+		// notify ethy-gadget about validator set change
+		let log = DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::AuthoritiesChange(ValidatorSet {
+				validators: next_keys.to_vec(),
+				id: next_validator_set_id,
+				proof_threshold: T::NotarizationThreshold::get().mul_ceil(next_keys.len() as u32),
+			})
+			.encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
+		// Pause the bridge
+		BridgePaused::put(true);
+		// Remove the next authority change, indicating that this has been processed
+		<NextAuthorityChange<T>>::kill();
 	}
 
 	/// Submit an event proof signing request in the block, for use by the ethy-gadget protocol
@@ -790,19 +769,22 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, queued_validators: I)
+	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
-		// Only run change process at the end of an era
-		if T::FinalSessionTracker::is_next_session_final() ||
-			T::FinalSessionTracker::is_active_session_final()
-		{
-			// Record authorities for the new session.
-			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
+		if T::FinalSessionTracker::is_active_session_final() {
+			// Store the keys for usage next session
 			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+			<NextNotaryKeys<T>>::put(next_queued_authorities);
 
-			Self::handle_authorities_change(next_authorities, next_queued_authorities);
+			// Next authority change is 5 minutes before this session ends
+			// (Just before the start of the next epoch)
+			// next_block = current_block + epoch_duration - 75 (5 minutes in blocks)
+			let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
+			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
+				.saturating_add(epoch_duration.saturating_sub(75_u32).into());
+			<NextAuthorityChange<T>>::put(next_block);
 		}
 	}
 
@@ -813,6 +795,11 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	fn on_before_session_ending() {
 		// Re-activate the bridge, allowing claims & proofs again
 		if T::FinalSessionTracker::is_active_session_final() {
+			if Self::next_authority_change().is_some() {
+				// For some reason the authorities haven't been changed yet, do this now
+				Self::handle_authorities_change();
+			}
+
 			log!(trace, "💎 session & era ending, set new validator keys");
 			// A proof should've been generated now so we can reactivate the bridge with the new
 			// validator set
