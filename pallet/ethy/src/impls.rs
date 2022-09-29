@@ -626,8 +626,8 @@ impl<T: Config> Module<T> {
 		log!(trace, "💎 5 minutes before epoch end");
 		// Pause the bridge
 		BridgePaused::put(true);
-		// Indicate that authorities have been changed
-		AuthoritiesChanged::put(true);
+		// Remove the next authority change, indicating that this has been processed
+		<NextAuthorityChange<T>>::kill();
 
 		// Signal the Event Id that will be used for the proof of validator set change.
 		// Any observer can subscribe to this event and submit the resulting proof to keep the
@@ -761,7 +761,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	fn on_before_session_ending() {
 		// Re-activate the bridge, allowing claims & proofs again
 		if T::FinalSessionTracker::is_active_session_final() {
-			if !Self::authorities_changed() {
+			if Self::next_authority_change().is_some() {
 				// For some reason the authorities haven't been changed yet, do this now
 				Self::handle_authorities_change();
 			}
@@ -770,7 +770,6 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 			// A proof should've been generated now so we can reactivate the bridge with the new
 			// validator set
 			BridgePaused::kill();
-			AuthoritiesChanged::kill();
 			// Time to update the bridge validator keys.
 			let next_notary_keys = NextNotaryKeys::<T>::take();
 			// Store the new keys and increment the validator set id

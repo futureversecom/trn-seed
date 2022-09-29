@@ -105,7 +105,7 @@ parameter_types! {
 	/// The Ethereum bridge contract address paired with the bridge pallet
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
-	pub const EpochDuration: u64 = 5_u64;
+	pub const EpochDuration: u64 = 1000_u64;
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;

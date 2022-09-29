@@ -160,8 +160,6 @@ decl_storage! {
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
 		/// The block in which we process the next authority change
 		NextAuthorityChange get(fn next_authority_change): Option<T::BlockNumber>;
-		/// The authorities have been changed this epoch
-		AuthoritiesChanged get(fn authorities_changed): bool;
 		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) T::BlockNumber => Vec<EventClaimId>;
 		// State Oracle
