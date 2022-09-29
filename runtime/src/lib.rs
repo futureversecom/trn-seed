@@ -73,7 +73,7 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT, ONE_XRP,
+	RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT, ONE_XRP,
 	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
@@ -287,7 +287,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type Event = Event;
 	type ParachainId = WorldId;
 	type MaxHolds = MaxHolds;
-	type NativeAssetId = XrpAssetId;
+	type NativeAssetId = RootAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 
