@@ -633,10 +633,6 @@ impl<T: Config> Module<T> {
 		//    new_session (start now + 1)
 		//   -> on_new_session <- this function is CALLED here
 		log!(trace, "💎 5 minutes before epoch end");
-		// Pause the bridge
-		BridgePaused::put(true);
-		// Remove the next authority change, indicating that this has been processed
-		<NextAuthorityChange<T>>::kill();
 
 		let next_keys = &NextNotaryKeys::<T>::get();
 		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
@@ -669,7 +665,6 @@ impl<T: Config> Module<T> {
 			NotarySetProofId::put(event_proof_id);
 		}
 
-		// TODO: only do this one `on_before_session_ending`
 		// notify ethy-gadget about validator set change
 		let log = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
@@ -681,6 +676,10 @@ impl<T: Config> Module<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
+		// Pause the bridge
+		BridgePaused::put(true);
+		// Remove the next authority change, indicating that this has been processed
+		<NextAuthorityChange<T>>::kill();
 	}
 
 	/// Submit an event proof signing request in the block, for use by the ethy-gadget protocol

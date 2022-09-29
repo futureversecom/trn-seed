@@ -574,15 +574,10 @@ fn on_new_session_updates_keys() {
 			System::digest().logs[0],
 			DigestItem::Consensus(
 				ETHY_ENGINE_ID,
-				ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
-					source: BridgePalletId::get().into_account_truncating(),
-					destination: EthereumBridgeContractAddress::get().into(),
-					next_validator_set: ValidatorSet {
-						validators: next_keys.to_vec(),
-						id: next_validator_set_id,
-						proof_threshold: 2,
-					},
-					event_proof_id,
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: next_keys.to_vec(),
+					id: next_validator_set_id,
+					proof_threshold: 2,
 				})
 				.encode(),
 			),
@@ -653,15 +648,10 @@ fn on_before_session_ending_handles_authorites() {
 			System::digest().logs[0],
 			DigestItem::Consensus(
 				ETHY_ENGINE_ID,
-				ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
-					source: BridgePalletId::get().into_account_truncating(),
-					destination: EthereumBridgeContractAddress::get().into(),
-					next_validator_set: ValidatorSet {
-						validators: next_keys.to_vec(),
-						id: next_validator_set_id,
-						proof_threshold: 2,
-					},
-					event_proof_id,
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: next_keys.to_vec(),
+					id: next_validator_set_id,
+					proof_threshold: 2,
 				})
 				.encode(),
 			),
