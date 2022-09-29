@@ -5,7 +5,7 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
-use sp_core::H256;
+use sp_core::{ByteArray, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -13,7 +13,10 @@ use sp_runtime::{
 };
 
 use seed_pallet_common::EthyXrplBridgeAdapter;
-use seed_primitives::{ethy::EventProofId, AccountId, AssetId, Balance, BlockNumber};
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventProofId},
+	AccountId, AssetId, Balance, BlockNumber,
+};
 
 use crate as pallet_xrpl_bridge;
 
@@ -161,10 +164,18 @@ impl pallet_xrpl_bridge::Config for Test {
 
 pub struct MockEthyAdapter;
 
-impl EthyXrplBridgeAdapter for MockEthyAdapter {
+impl EthyXrplBridgeAdapter<AuthorityId> for MockEthyAdapter {
 	/// Mock implementation of EthyXrplBridgeAdapter
 	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
 		Ok(1)
+	}
+	fn validators() -> Vec<AuthorityId> {
+		// some hard coded validators
+		vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+		]
 	}
 }
 
