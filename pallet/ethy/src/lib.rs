@@ -98,6 +98,8 @@ pub trait Config:
 	type BridgePalletId: Get<PalletId>;
 	/// The runtime call type.
 	type Call: From<Call<Self>>;
+	// The duration in blocks of one epoch
+	type EpochDuration: Get<u64>;
 	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
@@ -107,7 +109,7 @@ pub trait Config:
 	/// Handles routing received Ethereum events upon verification
 	type EventRouter: EthereumEventRouter;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
-	/// 33 byte ECDSA public key
+	/// 33 byte secp256k1 public key
 	type EthyId: Member
 		+ Parameter
 		+ AsRef<[u8]>
@@ -156,6 +158,8 @@ decl_storage! {
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
 		/// Tracks processed message Ids (prevent replay)
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
+		/// The block in which we process the next authority change
+		NextAuthorityChange get(fn next_authority_change): Option<T::BlockNumber>;
 		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) T::BlockNumber => Vec<EventClaimId>;
 		// State Oracle
@@ -239,13 +243,21 @@ decl_module! {
 
 		fn deposit_event() = default;
 
-		/// This method schedules 2 different processes
-		/// 1) Process any newly valid event claims (incoming)
-		/// 2) Process any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era) (outgoing)
+		/// This method schedules 3 different processes
+		/// 1) Handle change in authorities 5 minutes before the end of an epoch
+		/// 2) Process any newly valid event claims (incoming)
+		/// 3) Process any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era) (outgoing)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
 			let mut consumed_weight = 0 as Weight;
 
-			// 1) Process validated messages
+			// 1) Handle authority change
+			if Some(block_number) == Self::next_authority_change() {
+				// Change authority keys, we are 5 minutes before the next epoch
+				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
+				Self::handle_authorities_change();
+			}
+
+			// 2) Process validated messages
 			let mut processed_message_ids = Self::processed_message_ids();
 			for message_id in MessagesValidAt::<T>::take(block_number) {
 				if let Some(EventClaim { source, destination, data, .. } ) = PendingEventClaims::take(message_id) {
@@ -271,7 +283,7 @@ decl_module! {
 				ProcessedMessageIds::put(processed_message_ids);
 			}
 
-			// 2) Try process delayed proofs
+			// 3) Try process delayed proofs
 			consumed_weight += DbWeight::get().reads(2 as Weight);
 			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();

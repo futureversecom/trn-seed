@@ -99,7 +99,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 4,
+	spec_version: 5,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -696,6 +696,8 @@ impl pallet_ethy::Config for Runtime {
 	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
+	// The duration in blocks of one epoch
+	type EpochDuration = EpochDuration;
 	/// The runtime event type.
 	type Event = Event;
 	/// Subscribers to completed 'eth_call' jobs

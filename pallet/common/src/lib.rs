@@ -128,8 +128,6 @@ pub trait OnTransferSubscriber {
 
 /// Reports whether the current session is the final session in a staking era (pre-authority change)
 pub trait FinalSessionTracker {
-	/// Returns whether the next session is the final session of an era
-	fn is_next_session_final() -> bool;
 	/// Returns whether the active session is the final session of an era
 	fn is_active_session_final() -> bool;
 }
@@ -231,9 +229,11 @@ pub trait EthereumBridge {
 }
 
 /// Interface for pallet-ethy and XRPL tx signing
-pub trait EthyXrplBridgeAdapter {
+pub trait EthyXrplBridgeAdapter<AuthorityId> {
 	/// Request ethy generate a signature for the given tx data
 	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
+	/// Return the current set of Ethy validators
+	fn validators() -> Vec<AuthorityId>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

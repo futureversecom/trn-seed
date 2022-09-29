@@ -105,6 +105,7 @@ parameter_types! {
 	/// The Ethereum bridge contract address paired with the bridge pallet
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
+	pub const EpochDuration: u64 = 1000_u64;
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
@@ -119,6 +120,7 @@ impl Config for TestRuntime {
 	type UnixTime = MockUnixTime;
 	type Call = Call;
 	type Event = Event;
+	type EpochDuration = EpochDuration;
 }
 
 /// Values in EthBlock that we store in mock storage
@@ -498,10 +500,6 @@ impl MockEthCallSubscriber {
 /// Mock final session tracker
 pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
-	fn is_next_session_final() -> bool {
-		// at block 1, next session is final
-		frame_system::Pallet::<TestRuntime>::block_number() == 1
-	}
 	fn is_active_session_final() -> bool {
 		// at block 2, the active session is final
 		frame_system::Pallet::<TestRuntime>::block_number() == 2
