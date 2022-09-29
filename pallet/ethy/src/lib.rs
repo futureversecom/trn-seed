@@ -160,6 +160,8 @@ decl_storage! {
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
 		/// The block in which we process the next authority change
 		NextAuthorityChange get(fn next_authority_change): Option<T::BlockNumber>;
+		/// The authorities have been changed this epoch
+		AuthoritiesChanged get(fn authorities_changed): bool;
 		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) T::BlockNumber => Vec<EventClaimId>;
 		// State Oracle
@@ -251,22 +253,9 @@ decl_module! {
 			let mut consumed_weight = 0 as Weight;
 
 			// 1) Handle authority change
-			match Self::next_authority_change() {
-				Some(_) =>  {
-					// Change authority keys, we are 5 minutes before the next epoch
-					Self::handle_authorities_change();
-				},
-				None => {
-					// There is no authority block for some reason
-					// Check the start of this epoch from Babe and calculate next authority block from there
-					let start_block = match frame_support::storage::unhashed::get::<T::BlockNumber>(
-						b"1cb6f36e027abb2091cfb5110ab5087fe90e2fbf2d792cb324bffa9427fe1f0e",
-					) {
-						Some(epoch_start) => epoch_start.1,
-						None => block_number,
-					};
-					Self::set_next_authority_block(start_block);
-				}
+			if Some(block_number) == Self::next_authority_change() {
+				// Change authority keys, we are 5 minutes before the next epoch
+				Self::handle_authorities_change();
 			}
 
 			// 2) Process validated messages

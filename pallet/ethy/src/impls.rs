@@ -626,6 +626,9 @@ impl<T: Config> Module<T> {
 		log!(trace, "💎 5 minutes before epoch end");
 		// Pause the bridge
 		BridgePaused::put(true);
+		// Indicate that authorities have been changed
+		AuthoritiesChanged::put(true);
+
 		// Signal the Event Id that will be used for the proof of validator set change.
 		// Any observer can subscribe to this event and submit the resulting proof to keep the
 		// validator set on the Ethereum bridge contract updated.
@@ -668,15 +671,6 @@ impl<T: Config> Module<T> {
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 		Self::deposit_event(Event::<T>::EventSend(event_proof_info));
-	}
-
-	pub(crate) fn set_next_authority_block(current_block: T::BlockNumber) {
-		let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
-
-		// Next authority change is in one epoch - 5 minutes
-		let next_block: T::BlockNumber =
-			current_block.saturating_add(epoch_duration.saturating_sub(75_u32).into());
-		<NextAuthorityChange<T>>::put(next_block);
 	}
 }
 
@@ -750,7 +744,13 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 			// Store the keys for usage next session
 			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
 			<NextNotaryKeys<T>>::put(next_queued_authorities);
-			<Pallet<T>>::set_next_authority_block(<frame_system::Pallet<T>>::block_number())
+
+			// Next authority change is 5 minutes before this session ends
+			// (Just before the start of the next epoch)
+			let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
+			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
+				.saturating_add(epoch_duration.saturating_sub(75_u32).into());
+			<NextAuthorityChange<T>>::put(next_block);
 		}
 	}
 
@@ -761,10 +761,16 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	fn on_before_session_ending() {
 		// Re-activate the bridge, allowing claims & proofs again
 		if T::FinalSessionTracker::is_active_session_final() {
+			if !Self::authorities_changed() {
+				// For some reason the authorities haven't been changed yet, do this now
+				Self::handle_authorities_change();
+			}
+
 			log!(trace, "💎 session & era ending, set new validator keys");
 			// A proof should've been generated now so we can reactivate the bridge with the new
 			// validator set
 			BridgePaused::kill();
+			AuthoritiesChanged::kill();
 			// Time to update the bridge validator keys.
 			let next_notary_keys = NextNotaryKeys::<T>::take();
 			// Store the new keys and increment the validator set id
