@@ -253,6 +253,7 @@ decl_module! {
 			// 1) Handle authority change
 			if Some(block_number) == Self::next_authority_change() {
 				// Change authority keys, we are 5 minutes before the next epoch
+				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
 				Self::handle_authorities_change();
 			}
 

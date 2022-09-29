@@ -618,21 +618,19 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Handle changes to the authority set
+	/// This is called 5 minutes before the end of an era which gives the bridge time to update
+	/// keys on the contract
 	/// This could be called when validators rotate their keys, we don't want to
 	/// change this until the era has changed to avoid generating proofs for small set changes or
 	/// too frequently
-	/// - `new`: The validator set that is active right now
-	/// - `queued`: The validator set that will activate next session
 	pub(crate) fn handle_authorities_change() {
 		// ### Session life cycle
-		// block on_initialize if ShouldEndSession(n)
 		//  rotate_session
-		//    before_end_session
 		//    end_session (end just been)
 		//    start_session (start now)
+		//       Queue at end of session - 5 minutes
+		// 	  -> block on_initialize if NextAuthorityChange(n) <- this function is CALLED here
 		//    new_session (start now + 1)
-		//   -> on_new_session <- this function is CALLED here
-		log!(trace, "💎 5 minutes before epoch end");
 
 		let next_keys = &NextNotaryKeys::<T>::get();
 		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
