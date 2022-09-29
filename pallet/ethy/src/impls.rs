@@ -780,6 +780,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 
 			// Next authority change is 5 minutes before this session ends
 			// (Just before the start of the next epoch)
+			// next_block = current_block + epoch_duration - 75 (5 minutes in blocks)
 			let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
 			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
 				.saturating_add(epoch_duration.saturating_sub(75_u32).into());
