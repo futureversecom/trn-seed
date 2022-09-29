@@ -571,7 +571,7 @@ fn on_new_session_updates_keys() {
 
 		// Log should be thrown, indicating handle_authorities_change was called
 		assert_eq!(
-			System::digest().logs[0],
+			System::digest().logs[1],
 			DigestItem::Consensus(
 				ETHY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(ValidatorSet {
@@ -587,10 +587,12 @@ fn on_new_session_updates_keys() {
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		assert!(EthBridge::next_authority_change().is_none());
+		// Two logs thrown in next_authority_change
+		assert_eq!(System::digest().logs.len(), 2);
 
 		// Calling on_before_session_ending should NOT call handle_authorities_change again
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(System::digest().logs.len(), 1);
+		assert_eq!(System::digest().logs.len(), 2);
 		assert!(!EthBridge::bridge_paused());
 		assert!(EthBridge::next_notary_keys().is_empty());
 		assert_eq!(EthBridge::notary_keys(), next_keys);
@@ -645,7 +647,7 @@ fn on_before_session_ending_handles_authorites() {
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		// Log should be thrown, indicating handle_authorities_change was called
 		assert_eq!(
-			System::digest().logs[0],
+			System::digest().logs[1],
 			DigestItem::Consensus(
 				ETHY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(ValidatorSet {
