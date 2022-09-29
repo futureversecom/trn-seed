@@ -13,6 +13,11 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 hex-literal = { version = "0.3.4", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
+async-trait = { version = "0.1.57", default-features = false }
+tokio-tungstenite = { version = "0.17.2", features = ["native-tls"] }
+futures = "0.3.21"
+futures-channel = "0.3.21"
+futures-util = "0.3.21"
 
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", ] }
 frame-support = { git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", default-features = false }
@@ -30,6 +35,7 @@ xrpl-rust = { git = "https://github.com/futureversecom/xrpl-rust.git", default-f
 
 seed-primitives                           = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
+pallet-xrpl-bridge = { path = "../xrpl-bridge", default-features = false }
 
 [features]
 default = ['std']
@@ -46,6 +52,7 @@ std = [
     'frame-benchmarking/std',
     "seed-primitives/std",
     "seed-pallet-common/std",
+    "pallet-xrpl-bridge/std",
 ]
 
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]

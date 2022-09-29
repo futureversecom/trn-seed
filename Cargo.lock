@@ -5209,10 +5209,15 @@ dependencies = [
 name = "pallet-validator-set"
 version = "0.0.1"
 dependencies = [
+ "async-trait",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "futures",
+ "futures-channel",
+ "futures-util",
  "hex-literal",
+ "pallet-xrpl-bridge",
  "parity-scale-codec",
  "rustc-hex",
  "scale-info",
@@ -5224,6 +5229,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "tokio-tungstenite",
  "xrpl-rust",
 ]
 

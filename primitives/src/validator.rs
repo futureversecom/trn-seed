@@ -12,12 +12,12 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
+use crate::AccountId;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_application_crypto::ByteArray;
 use sp_runtime::{traits::Convert, KeyTypeId};
 use sp_std::prelude::*;
-use crate::AccountId;
 
 /// A typedef for validator set id.
 pub type ValidatorSetId = u64;
@@ -27,7 +27,6 @@ pub type EventProofId = u64;
 
 /// Unique nonce for event claim requests
 pub type EventClaimId = u64;
-
 
 /// The session key type for bridge
 pub const BRIDGE_KEY_TYPE: KeyTypeId = KeyTypeId(*b"brg-");

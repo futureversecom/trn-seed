@@ -25,6 +25,8 @@ use serde::{
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
+use async_trait::async_trait;
+
 pub type XrplTxHash = seed_primitives::xrpl::XrplTxHash;
 
 pub type XrplAddress = seed_primitives::xrpl::XrplAddress;
@@ -194,5 +196,6 @@ pub trait BridgeXrplWebsocketApi {
 	async fn xrpl_call(
 		hash: XrplTxHash,
 		ledger_index: Option<u32>,
-	) -> Result<Vec<u8>, BridgeRpcError>;
+		call_id: ChainCallId,
+	) -> Result<(), BridgeRpcError>;
 }

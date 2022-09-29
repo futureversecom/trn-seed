@@ -504,3 +504,40 @@ impl<T: Config> Pallet<T> {
 		Ok(nonce)
 	}
 }
+
+impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
+	fn challenged_tx_list(limit: usize) -> Vec<XrplTxHash> {
+		//Self::challenge_xrp_transaction_list()
+		let mut list: Vec<XrplTxHash> = Vec::new();
+		<ChallengeXRPTransactionList<T>>::iter_keys().for_each(|tx_hash| {
+			for _ in 0..limit {
+				list.push(tx_hash)
+			}
+		});
+		list
+	}
+
+	fn update_challenge(
+		validator: AccountOf<T>,
+		ledger_index: LedgerIndex,
+		transaction_hash: XrplTxHash,
+		transaction: XrplTxData,
+		timestamp: Timestamp,
+	) {
+		let val = XrpTransaction { transaction_hash, transaction, timestamp };
+		//<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, validator));
+		<ChallengeXRPTransactionList<T>>::remove(&transaction_hash);
+		let _ = Self::add_to_xrp_process(transaction_hash);
+	}
+}
+
+pub trait XrplBridgeCall<AccountId> {
+	fn challenged_tx_list(limit: usize) -> Vec<XrplTxHash>;
+	fn update_challenge(
+		validator: AccountId,
+		ledger_index: LedgerIndex,
+		transaction_hash: XrplTxHash,
+		transaction: XrplTxData,
+		timestamp: Timestamp,
+	);
+}

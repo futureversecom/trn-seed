@@ -10,24 +10,28 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod helpers;
+mod xrpl_cli;
 mod xrpl_impls;
 mod xrpl_types;
-mod xrpl_cli;
 
 use crate::xrpl_types::{
-	ChainCallId, CheckedChainCallRequest, CheckedChainCallResult, EventProofInfo, EventClaimResult, NotarizationPayload,
+	ChainCallId, CheckedChainCallRequest, CheckedChainCallResult, EventClaimResult, EventProofInfo,
+	NotarizationPayload,
 };
-use seed_primitives::validator::{EventProofId, EventClaimId, ConsensusLog, PendingAuthorityChange, ValidatorSet};
 use frame_support::{pallet_prelude::*, traits::OneSessionHandler, PalletId};
 use frame_system::pallet_prelude::*;
 use hex_literal::hex;
 pub use pallet::*;
 use seed_pallet_common::{log, FinalSessionTracker as FinalSessionTrackerT};
+use seed_primitives::validator::{
+	ConsensusLog, EventClaimId, EventProofId, PendingAuthorityChange, ValidatorSet,
+};
 use sp_core::H160;
 use sp_runtime::{
 	traits::AccountIdConversion, BoundToRuntimeAppPublic, DigestItem, Percent, RuntimeAppPublic,
 };
 use sp_std::vec::Vec;
+use pallet_xrpl_bridge::XrplBridgeCall;
 
 pub type ValidatorIdOf<T> = <T as Config>::ValidatorId;
 pub(crate) const LOG_TARGET: &str = "validator_set";
@@ -44,13 +48,16 @@ pub const CALLS_PER_BLOCK: usize = 1;
 pub const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 	hex!("0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a");
 
+type AccountOf<T> = <T as frame_system::Config>::AccountId;
+
 #[frame_support::pallet]
 pub mod pallet {
-	use std::collections::BTreeMap;
+	use super::*;
+	use crate::xrpl_types::{BridgeXrplWebsocketApi, EventClaim};
 	use frame_support::traits::UnixTime;
 	use seed_primitives::ethy::EthyChainId;
-	use crate::xrpl_types::{BridgeXrplWebsocketApi, EventClaim};
-	use super::*;
+	use std::collections::BTreeMap;
+	use xrpl::core::types::AccountId;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -61,6 +68,7 @@ pub mod pallet {
 		/// Allowed origins to add/removw the validator
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
 
+		type XrplBridgeCall: XrplBridgeCall<AccountOf<Self>>;
 		/// The identifier type for an authority in this module (i.e. active validator session key)
 		/// 33 byte ECDSA public key
 		type ValidatorId: Member
@@ -136,8 +144,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn pending_claim_challenges)]
 	/// Queued event proofs to be processed once bridge has been re-enabled
-	pub type PendingClaimChallenges<T: Config> =
-	StorageValue<_, Vec<EventClaimId>, ValueQuery>;
+	pub type PendingClaimChallenges<T: Config> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn chain_call_requests)]
@@ -157,13 +164,14 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn chain_call_request_info)]
 	/// Queue of pending Chain CallOracle requests
-	pub type ChainCallRequestInfo<T: Config> = StorageMap<_, Blake2_128Concat, ChainCallId, CheckedChainCallRequest>;
+	pub type ChainCallRequestInfo<T: Config> =
+		StorageMap<_, Blake2_128Concat, ChainCallId, CheckedChainCallRequest>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn pending_event_claims)]
 	/// Queued event claims, can be challenged within challenge period
 	pub type PendingEventClaims<T: Config> =
-	StorageMap<_, Blake2_128Concat, EventClaimId, EventClaim>;
+		StorageMap<_, Blake2_128Concat, EventClaimId, EventClaim>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn event_notarizations)]
@@ -193,12 +201,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn chain_call_notarizations_aggregated)]
 	/// map from Chain CallOracle notarizations to an aggregated count
-	pub type ChainCallNotarizationsAggregated<T: Config> = StorageMap<
-		_,
-		Blake2_128Concat,
-		ChainCallId,
-		BTreeMap<CheckedChainCallResult, u32>,
-	>;
+	pub type ChainCallNotarizationsAggregated<T: Config> =
+		StorageMap<_, Blake2_128Concat, ChainCallId, BTreeMap<CheckedChainCallResult, u32>>;
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
@@ -266,9 +270,8 @@ pub mod pallet {
 					);
 					return
 				}
-				// do some notarizing
-				Self::do_event_notarization_ocw(&active_key, authority_index);
-				Self::do_call_notarization_ocw(&active_key, authority_index);
+				// validate challenges
+				Self::do_call_validate_challenge_ocw(&active_key, authority_index);
 			} else {
 				log!(trace, "💎 not an active validator, exiting");
 			}
@@ -362,8 +365,7 @@ pub mod pallet {
 			match payload {
 				NotarizationPayload::Call { call_id, result, .. } =>
 					Self::handle_call_notarization(call_id, result, notary_public_key),
-				NotarizationPayload::Event { event_claim_id, result, .. } =>
-					Self::handle_event_notarization(event_claim_id, result, notary_public_key),
+				_ => {}
 			}
 		}
 	}
