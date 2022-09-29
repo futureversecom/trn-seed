@@ -99,7 +99,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 4,
+	spec_version: 5,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -324,6 +324,7 @@ parameter_types! {
 
 impl pallet_xrpl_bridge::Config for Runtime {
 	type Event = Event;
+	type EthyAdapter = EthBridge;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();

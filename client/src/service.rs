@@ -277,6 +277,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		&config.chain_spec,
 	);
 
+	// register grandpa p2p protocol
 	config
 		.network
 		.extra_sets
@@ -287,9 +288,12 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		Vec::default(),
 	));
 
-	// derive ethy protocol name
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
+	config
+		.network
+		.extra_sets
+		.push(ethy_gadget::ethy_peers_set_config(ethy_protocol_name.clone()));
 
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {

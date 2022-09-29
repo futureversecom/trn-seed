@@ -26,14 +26,15 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber};
-use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating},
 	SaturatedConversion,
 };
 use sp_std::prelude::*;
+
+use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
+use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 
 pub mod types;
 use types::*;
@@ -81,7 +82,7 @@ decl_storage! {
 		/// The next available payment id for withdrawals and deposits
 		NextDelayedPaymentId get(fn next_delayed_payment_id): DelayedPaymentId;
 		/// The peg contract address on Ethereum
-		ContractAddress get(fn contract_address): EthAddress;
+		pub ContractAddress get(fn contract_address): EthAddress;
 	}
 	add_extra_genesis {
 		config(erc20s): Vec<(EthAddress, Vec<u8>, u8)>;
@@ -139,8 +140,6 @@ decl_error! {
 		EvmWithdrawalFailed,
 		/// The abi received does not match the encoding scheme
 		InvalidAbiEncoding,
-		/// The source address for deposits must be the ERC20Peg Contract address
-		InvalidSourceAddress,
 	}
 }
 
@@ -466,10 +465,18 @@ impl<T: Config> Module<T> {
 	}
 }
 
+impl Get<H160> for ContractAddress {
+	fn get() -> H160 {
+		<ContractAddress as storage::StorageValue<_>>::get()
+	}
+}
+
 impl<T: Config> EthereumEventSubscriber for Module<T> {
 	type Address = T::PegPalletId;
 
-	fn on_event(source: &H160, data: &[u8]) -> Result<u64, (u64, DispatchError)> {
+	type SourceAddress = ContractAddress;
+
+	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
 		let abi_decoded = match ethabi::decode(
 			&[ParamType::Address, ParamType::Uint(128), ParamType::Address],
 			data,
@@ -478,21 +485,15 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			Err(_) => return Err((0, Error::<T>::InvalidAbiEncoding.into())),
 		};
 
-		if source != &Self::contract_address() {
-			return Err((
-				DbWeight::get().reads(1 as Weight),
-				Error::<T>::InvalidSourceAddress.into(),
-			))
-		}
-
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
 			abi_decoded.as_slice()
 		{
 			let token_address: H160 = token_address.into();
 			let amount: U256 = amount.into();
 			let beneficiary: H160 = beneficiary.into();
+			// The total weight of do_deposit assuming it reaches every path
 			let deposit_weight =
-				DbWeight::get().reads(7 as Weight) + DbWeight::get().writes(4 as Weight);
+				DbWeight::get().reads(6 as Weight) + DbWeight::get().writes(4 as Weight);
 			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {
 				Ok(_) => Ok(deposit_weight),
 				Err(e) => {

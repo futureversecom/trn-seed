@@ -1586,6 +1586,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -1595,6 +1596,7 @@ dependencies = [
  "ethy-gadget",
  "futures",
  "jsonrpsee",
+ "libsecp256k1 0.6.0",
  "log",
  "parity-scale-codec",
  "sc-client-api",
@@ -5094,6 +5096,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5108,6 +5111,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "xrpl-codec",
 ]
 
 [[package]]
@@ -7269,7 +7273,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -7338,7 +7342,6 @@ dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "primitive-types",
  "scale-info",
  "seed-primitives",
  "sp-core",
@@ -7351,6 +7354,7 @@ name = "seed-primitives"
 version = "1.0.0"
 dependencies = [
  "hex",
+ "hex-literal",
  "impl-serde 0.4.0",
  "libsecp256k1 0.7.1",
  "log",
@@ -8770,18 +8774,18 @@ checksum = "949517c0cf1bf4ee812e2e07e08ab448e3ae0d23472aee8a06c985f0c8815b16"
 
 [[package]]
 name = "thiserror"
-version = "1.0.36"
+version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a99cb8c4b9a8ef0e7907cd3b617cc8dc04d571c4e73c8ae403d80ac160bb122"
+checksum = "10deb33631e3c9018b9baf9dcbbc4f737320d2b576bac10f6aefa048fa407e3e"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.36"
+version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a891860d3c8d66fec8e73ddb3765f90082374dbaaa833407b904a94f1a7eb43"
+checksum = "982d17546b47146b28f7c22e3d08465f6b8903d0ea13c1660d9d84a6e7adcdbb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -9864,6 +9868,29 @@ dependencies = [
  "curve25519-dalek 3.2.0",
  "rand_core 0.5.1",
  "zeroize",
+]
+
+[[package]]
+name = "xrpl-codec"
+version = "0.1.0"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+dependencies = [
+ "ripemd",
+ "sha2 0.10.5",
+ "xrpl-codec-utils",
+]
+
+[[package]]
+name = "xrpl-codec-utils"
+version = "0.1.0"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+dependencies = [
+ "hashbrown 0.12.3",
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "syn",
 ]
 
 [[package]]

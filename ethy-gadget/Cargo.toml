@@ -32,6 +32,7 @@ sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "p
 sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 seed-primitives = { path = "../primitives" }
+xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", rev = "0.0.8" }
 
 [dev-dependencies]
 sc-network-test = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", version = "0.8.0" }

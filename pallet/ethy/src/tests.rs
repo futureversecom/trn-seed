@@ -22,25 +22,32 @@ use frame_support::{
 	traits::{OnInitialize, OneSessionHandler, UnixTime},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
-use sp_core::{ByteArray, H160, H256, U256};
-use sp_runtime::{generic::DigestItem, traits::AccountIdConversion, Percent, SaturatedConversion};
-
-use seed_pallet_common::{EthCallFailure, EthereumBridge};
+use hex_literal::hex;
+use seed_pallet_common::{EthCallFailure, EthereumBridge, EthyXrplBridgeAdapter};
 use seed_primitives::{
-	ethy::{crypto::AuthorityId, ConsensusLog, EventClaimId, PendingAuthorityChange, ValidatorSet},
+	ethy::{
+		crypto::AuthorityId, ConsensusLog, EthyChainId, EthyEcdsaToEthereum, EventClaimId,
+		ValidatorSet,
+	},
 	BlockNumber,
 };
+use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
-use sp_runtime::RuntimeAppPublic;
+use sp_runtime::{
+	generic::DigestItem,
+	traits::{AccountIdConversion, Convert},
+	Percent, RuntimeAppPublic, SaturatedConversion,
+};
 
 use crate::{
 	impls::prune_claim_ids,
 	mock::*,
 	types::{
-		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim,
-		EventClaimResult, EventProofId, EventProofInfo, TransactionReceipt,
+		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash,
+		EthereumEventInfo, EthySigningRequest, EventClaim, EventClaimResult, EventProofId,
+		TransactionReceipt,
 	},
-	BridgePaused, Config, Error, EthCallRequestInfo, Module, ETHY_ENGINE_ID,
+	BridgePaused, Config, Error, EthCallRequestInfo, Event, Module, ETHY_ENGINE_ID,
 	SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 
@@ -438,8 +445,16 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 fn pre_last_session_change() {
 	ExtBuilder::default().next_session_final().build().execute_with(|| {
 		let next_keys = vec![
-			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
-			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
+			AuthorityId::from_slice(
+				hex!("03e2161ca58ac2f2fa7dfd9f6980fdda1059b467e375ee78cdd5749dc058c0b2c9")
+					.as_slice(),
+			)
+			.unwrap(),
+			AuthorityId::from_slice(
+				hex!("02276503736589d21316da95a46d82b2d5c7aa10b946abbdeb01728d7cb935235e")
+					.as_slice(),
+			)
+			.unwrap(),
 		];
 		let event_proof_id = EthBridge::next_event_proof_id();
 		let next_validator_set_id = EthBridge::notary_set_id() + 1;
@@ -449,19 +464,58 @@ fn pre_last_session_change() {
 		// Manually call handle_authorities_change to simulate 5 minutes before the next epoch
 		EthBridge::handle_authorities_change();
 
+		// signing request to prove validator change on other chain
+		let new_validator_set_message = ethabi::encode(&[
+			Token::Array(
+				next_keys
+					.iter()
+					.map(|k| {
+						let address: [u8; 20] = EthyEcdsaToEthereum::convert(k.as_slice());
+						Token::Address(address.into())
+					})
+					.collect(),
+			),
+			Token::Uint(1_u64.into()),
+		]);
+
+		let signing_request = EthySigningRequest::Ethereum(EthereumEventInfo {
+			event_proof_id,
+			validator_set_id: 0,
+			source: BridgePalletId::get().into_account_truncating(),
+			destination: bridge_contract_address(),
+			message: new_validator_set_message.to_vec(),
+		});
+
+		println!("{:?}", System::events());
+		System::assert_has_event(
+			Event::<TestRuntime>::EventSend {
+				event_proof_id,
+				chain_id: signing_request.chain_id(),
+			}
+			.into(),
+		);
 		assert_eq!(
 			System::digest().logs[0],
 			DigestItem::Consensus(
 				ETHY_ENGINE_ID,
-				ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
-					source: BridgePalletId::get().into_account_truncating(),
-					destination: EthereumBridgeContractAddress::get().into(),
-					next_validator_set: ValidatorSet {
-						validators: next_keys.to_vec(),
-						id: next_validator_set_id,
-						proof_threshold: 2,
-					},
+				ConsensusLog::OpaqueSigningRequest::<AuthorityId> {
+					chain_id: EthyChainId::Ethereum,
 					event_proof_id,
+					data: signing_request.data(),
+				}
+				.encode(),
+			),
+		);
+
+		// ethy-gadget notified about new validators
+		assert_eq!(
+			System::digest().logs[1],
+			DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: next_keys.to_vec(),
+					id: next_validator_set_id,
+					proof_threshold: 2,
 				})
 				.encode(),
 			),
@@ -682,7 +736,7 @@ fn send_event() {
 
 		// Generate event proof
 		assert_ok!(EthBridge::send_event(&source, &destination, &message));
-		// Ensure event has not been added to delayed claims
+		// Ensure event has not been added to delayed queue
 		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), None);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		// On initialize does up to 2 reads to check for delayed proofs
@@ -690,6 +744,50 @@ fn send_event() {
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
 			DbWeight::get().reads(2 as Weight)
 		);
+	});
+}
+
+#[test]
+fn xrpl_tx_signing_request() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_proof_id = EthBridge::next_event_proof_id();
+
+		// Request tx signing
+		assert_ok!(EthBridge::sign_xrpl_transaction("hello world".as_bytes()), event_proof_id);
+		// Ensure request has not been added to queue
+		assert_eq!(EthBridge::pending_event_proofs(event_proof_id), None);
+		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+
+		let signing_request = EthySigningRequest::XrplTx("hello world".as_bytes().to_vec());
+		System::assert_has_event(
+			Event::<TestRuntime>::EventSend {
+				event_proof_id,
+				chain_id: signing_request.chain_id(),
+			}
+			.into(),
+		);
+		assert_eq!(
+			System::digest().logs[0],
+			DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::OpaqueSigningRequest::<AuthorityId> {
+					chain_id: EthyChainId::Xrpl,
+					event_proof_id,
+					data: signing_request.data(),
+				}
+				.encode(),
+			),
+		);
+
+		// Bridge is paused, request signing
+		BridgePaused::put(true);
+		assert_ok!(EthBridge::sign_xrpl_transaction("hello world".as_bytes()), event_proof_id + 1);
+		assert_eq!(
+			EthBridge::pending_event_proofs(event_proof_id + 1),
+			Some(EthySigningRequest::XrplTx("hello world".as_bytes().to_vec()))
+		);
+
+		System::assert_has_event(Event::<TestRuntime>::ProofDelayed(event_proof_id + 1).into());
 	});
 }
 
@@ -717,13 +815,13 @@ fn delayed_event_proof() {
 		assert_eq!(EthBridge::bridge_paused(), true);
 
 		let event_proof_id = EthBridge::next_event_proof_id();
-		let event_proof_info = EventProofInfo {
+		let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 			source,
 			destination: destination.clone(),
 			message: message.to_vec(),
 			validator_set_id: EthBridge::validator_set().id,
 			event_proof_id,
-		};
+		});
 
 		// Generate event proof
 		assert_ok!(EthBridge::send_event(&source, &destination, &message));
@@ -762,13 +860,13 @@ fn multiple_delayed_event_proof() {
 		for _ in 0..event_count {
 			let event_proof_id = EthBridge::next_event_proof_id();
 			event_ids.push(event_proof_id);
-			let event_proof_info = EventProofInfo {
+			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
 				destination: destination.clone(),
 				message: message.to_vec(),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
-			};
+			});
 			events_for_proving.push(event_proof_info.clone());
 			// Generate event proof
 			assert_ok!(EthBridge::send_event(&source, &destination, &message));
@@ -841,13 +939,13 @@ fn set_delayed_event_proofs_per_block() {
 		for _ in 0..new_max_delayed_events {
 			let event_proof_id = EthBridge::next_event_proof_id();
 			event_ids.push(event_proof_id);
-			let event_proof_info = EventProofInfo {
+			let event_proof_info = EthySigningRequest::Ethereum(EthereumEventInfo {
 				source,
 				destination: destination.clone(),
 				message: message.to_vec(),
 				validator_set_id: EthBridge::validator_set().id,
 				event_proof_id,
-			};
+			});
 			// Generate event proof
 			assert_ok!(EthBridge::send_event(&source, &destination, &message));
 			// Ensure event has been added to delayed claims
