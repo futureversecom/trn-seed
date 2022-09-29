@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
-use sp_core::H160;
+use sp_core::{ByteArray, H160};
 use sp_runtime::traits::BadOrigin;
 
 use seed_primitives::{AccountId, Balance};
@@ -52,14 +52,44 @@ fn submit_transaction(
 }
 
 #[test]
+fn submit_transaction_replay() {
+	new_test_ext().execute_with(|| {
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let transaction =
+			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
+		assert_ok!(XRPLBridge::add_relayer(Origin::root(), relayer));
+		assert_ok!(XRPLBridge::submit_transaction(
+			Origin::signed(relayer),
+			1,
+			XrplTxHash::from_slice(transaction_hash),
+			transaction.clone(),
+			1234
+		));
+		assert_noop!(
+			XRPLBridge::submit_transaction(
+				Origin::signed(relayer),
+				1,
+				XrplTxHash::from_slice(transaction_hash),
+				transaction,
+				1234
+			),
+			Error::<Test>::TxReplay
+		);
+	});
+}
+
+#[test]
 fn add_transaction_works() {
 	new_test_ext().execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let tx_address = b"6490B68F1116BFE87DDD";
 		let relayer = create_account(b"6490B68F1116BFE87DDD");
 		XRPLBridge::initialize_relayer(&vec![relayer]);
-		for i in 1..100u64 {
-			submit_transaction(relayer, i * 1_000_000, transaction_hash, tx_address, i);
+		for i in 0..9u64 {
+			let mut transaction_hash = transaction_hash.clone();
+			transaction_hash[0] = i as u8;
+			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address, i);
 		}
 	})
 }
@@ -244,4 +274,53 @@ fn set_door_address_fail() {
 		);
 		assert_eq!(XRPLBridge::door_address(), None);
 	})
+}
+
+#[test]
+fn set_door_signers_fails() {
+	new_test_ext().execute_with(|| {
+		// too many
+		assert_noop!(
+			XRPLBridge::set_door_signers(
+				Origin::root(),
+				(0..10).map(|i| AuthorityId::from_slice(&[i as u8; 33]).unwrap()).collect(),
+			),
+			Error::<Test>::TooManySigners,
+		);
+		// duplicates
+		assert_noop!(
+			XRPLBridge::set_door_signers(
+				Origin::root(),
+				vec![
+					AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+					AuthorityId::from_slice(&[2_u8; 33]).unwrap()
+				],
+			),
+			Error::<Test>::InvalidSigners,
+		);
+		// not in the ethy validator set
+		assert_noop!(
+			XRPLBridge::set_door_signers(
+				Origin::root(),
+				vec![
+					AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+					AuthorityId::from_slice(&[5_u8; 33]).unwrap()
+				],
+			),
+			Error::<Test>::InvalidSigners,
+		);
+	});
+}
+
+#[test]
+fn set_door_signers() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(XRPLBridge::set_door_signers(
+			Origin::root(),
+			vec![
+				AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+				AuthorityId::from_slice(&[2_u8; 33]).unwrap()
+			],
+		));
+	});
 }

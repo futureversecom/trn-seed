@@ -107,7 +107,7 @@ pub trait Config:
 	/// Handles routing received Ethereum events upon verification
 	type EventRouter: EthereumEventRouter;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
-	/// 33 byte ECDSA public key
+	/// 33 byte secp256k1 public key
 	type EthyId: Member
 		+ Parameter
 		+ AsRef<[u8]>

@@ -230,9 +230,11 @@ pub trait EthereumBridge {
 }
 
 /// Interface for pallet-ethy and XRPL tx signing
-pub trait EthyXrplBridgeAdapter {
+pub trait EthyXrplBridgeAdapter<AuthorityId> {
 	/// Request ethy generate a signature for the given tx data
 	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
+	/// Return the current set of Ethy validators
+	fn validators() -> Vec<AuthorityId>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]
