@@ -19,8 +19,9 @@ use sp_std::prelude::*;
 use sp_std::alloc::string::ToString;
 #[cfg(std)]
 use std::string::ToString;
-use xrpl::models::{Model, RequestMethod, Tx};
+use xrpl::models::{Model, RequestMethod, TransactionEntry, Tx};
 use xrpl::serde_json::Value::String;
+use xrpl::tokio;
 use xrpl::tokio::AsyncWebsocketClient;
 
 use seed_pallet_common::log;
@@ -31,7 +32,7 @@ use crate::xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplTxHash};
 pub struct XrplWebsocketClient;
 #[async_trait]
 impl BridgeXrplWebsocketApi for XrplWebsocketClient {
-    async fn xrpl_call(hash: XrplTxHash, ledger_index: Option<u32>) -> Result<Vec<u8>, BridgeRpcError> {
+    async fn xrpl_call(tx_hash: XrplTxHash, ledger_index: Option<u32>) -> Result<Vec<u8>, BridgeRpcError> {
         let xrp_http_uri = if let Some(value) =
         sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &XRP_HTTP_URI)
         {
@@ -46,18 +47,33 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
         let client = AsyncWebsocketClient {
             url: xrp_http_uri,
         };
+        let (mut ws_stream, (sender, mut receiver)) = client.open().await.unwrap();
 
-        let request = Tx {
+        tokio::spawn(async move {
+            while let Some(msg) = receiver.next().await {
+                assert!(msg.is_ok());
+                receiver.close();
+                break;
+            }
+        });
+        let ledger_index = match ledger_index {
+            Some(li) => Some(li.to_string().as_str()),
+            None => None,
+        };
+        let request = TransactionEntry {
+            tx_hash: &*tx_hash.to_string(),
             id: None,
-            binary: Some(false),
-            min_ledger: ledger_index,
-            max_ledger: ledger_index,
+            ledger_hash: None,
+            ledger_index,
             command: RequestMethod::AccountChannels
         };
         let message = Message::Text(request.to_json());
         log!(trace, "💎 request: {:?}", message.clone());
-        assert!(client.request(message).await.is_ok());
-        log!(trace, "💎 request: {:?}", request);
-        //let message = Message::Text(request.to_json());
+
+        match client.send(&mut ws_stream, sender, message).await {
+            Ok(_) => (),
+            Err(_error) => (),
+        }
+        Ok(().into())
     }
 }
