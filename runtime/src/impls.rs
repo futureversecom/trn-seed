@@ -32,7 +32,7 @@ use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
-	ConsensusEngineId, Percent,
+	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -381,7 +381,7 @@ pub struct PercentageOfWeight<M>(sp_std::marker::PhantomData<M>);
 
 impl<M> WeightToFee for PercentageOfWeight<M>
 where
-	M: Get<Percent>,
+	M: Get<Permill>,
 {
 	type Balance = Balance;
 

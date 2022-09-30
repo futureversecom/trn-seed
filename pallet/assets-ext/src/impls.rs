@@ -19,7 +19,7 @@ use seed_primitives::{AssetId, Balance};
 
 use crate::{
 	imbalances::{self, NegativeImbalance, PositiveImbalance},
-	Config, Pallet,
+	Config, Event, Pallet,
 };
 
 /// Generic shim for statically defined instance of Currency over a pallet-assets managed asset
@@ -119,7 +119,12 @@ where
 	) -> Result<Self::NegativeImbalance, DispatchError> {
 		// used by pallet-transaction payment & pallet-evm
 		<pallet_assets::Pallet<T>>::decrease_balance(U::get(), who, value)?;
-		// TODO: event
+
+		<Pallet<T>>::deposit_event(Event::InternalWithdraw {
+			asset_id: U::get(),
+			who: who.clone(),
+			amount: value,
+		});
 		Ok(NegativeImbalance::new(value, U::get()))
 	}
 	/// Deposit some `value` into the free balance of an existing target account `who`.
@@ -134,7 +139,11 @@ where
 			return Ok(PositiveImbalance::new(0, U::get()))
 		}
 		<pallet_assets::Pallet<T>>::increase_balance(U::get(), who, value)?;
-		// TODO: event
+		<Pallet<T>>::deposit_event(Event::InternalDeposit {
+			asset_id: U::get(),
+			who: who.clone(),
+			amount: value,
+		});
 		Ok(PositiveImbalance::new(value, U::get()))
 	}
 	/// Deposit some `value` into the free balance of `who`, possibly creating a new account.
@@ -157,16 +166,25 @@ where
 		// used by pallet-evm correct_and_deposit_fee
 		let free = Self::free_balance(who);
 
-		let _ = <pallet_assets::Pallet<T>>::increase_balance(U::get(), who, new_balance);
+		if let Some(decrease_by) = free.checked_sub(new_balance) {
+			if let Ok(n) = Self::withdraw(
+				who,
+				decrease_by,
+				WithdrawReasons::all(),
+				ExistenceRequirement::AllowDeath,
+			) {
+				return SignedImbalance::Negative(n)
+			}
+		}
 
-		let imbalance = if free <= new_balance {
-			SignedImbalance::Positive(PositiveImbalance::new(new_balance - free, U::get()))
-		} else {
-			SignedImbalance::Negative(NegativeImbalance::new(free - new_balance, U::get()))
-		};
+		if let Some(increase_by) = new_balance.checked_sub(free) {
+			let p = Self::deposit_creating(who, increase_by);
+			return SignedImbalance::Positive(p)
+		}
 
-		// TODO: event
-		imbalance
+		// no change to balance
+		// either withdraw failed or free == new_balance
+		return SignedImbalance::Positive(PositiveImbalance::default())
 	}
 	// unused staking/inflation related methods
 	fn can_slash(_who: &T::AccountId, _value: Self::Balance) -> bool {
@@ -314,5 +332,87 @@ where
 	}
 	fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
 		S::remove_lock(id, who)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::mock::{test_ext, AssetId, AssetsExt, MockAccountId, Test};
+	use frame_support::{assert_noop, assert_ok, assert_storage_noop, parameter_types};
+
+	use super::*;
+
+	const TEST_ASSET_ID: AssetId = 5;
+	parameter_types! {
+		pub const TestAssetId: AssetId = TEST_ASSET_ID;
+	}
+	type TestAssetCurrency = AssetCurrency<Test, TestAssetId>;
+
+	#[test]
+	fn deposit_creating() {
+		let alice = 1 as MockAccountId;
+		let bob = 2 as MockAccountId;
+		test_ext()
+			.with_asset(TEST_ASSET_ID, "TST", &[(alice, 1_000_000)])
+			.build()
+			.execute_with(|| {
+				// new account
+				let _ = TestAssetCurrency::deposit_creating(&bob, 500);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &bob), 500,);
+
+				// existing account
+				let _ = TestAssetCurrency::deposit_creating(&bob, 500);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &bob), 500 + 500);
+
+				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 1_000_000 + 500 + 500);
+			});
+	}
+
+	#[test]
+	fn withdraw() {
+		let alice = 1 as MockAccountId;
+		test_ext()
+			.with_asset(TEST_ASSET_ID, "TST", &[(alice, 1_000_000)])
+			.build()
+			.execute_with(|| {
+				let _ = TestAssetCurrency::withdraw(
+					&alice,
+					500,
+					WithdrawReasons::all(),
+					ExistenceRequirement::AllowDeath,
+				);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice), 1_000_000 - 500,);
+				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 1_000_000 - 500);
+
+				assert_noop!(
+					TestAssetCurrency::withdraw(
+						&alice,
+						1_000_000,
+						WithdrawReasons::all(),
+						ExistenceRequirement::AllowDeath,
+					),
+					pallet_assets::Error::<Test>::BalanceLow
+				);
+				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 1_000_000 - 500);
+			});
+	}
+
+	#[test]
+	fn make_free_balance_be() {
+		let alice = 1 as MockAccountId;
+		test_ext()
+			.with_asset(TEST_ASSET_ID, "TST", &[(alice, 1_000_000)])
+			.build()
+			.execute_with(|| {
+				let _ = TestAssetCurrency::make_free_balance_be(&alice, 999_500);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice), 999_500);
+				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 999_500);
+
+				let _ = TestAssetCurrency::make_free_balance_be(&alice, 1_000_000);
+				assert_eq!(AssetsExt::balance(TEST_ASSET_ID, &alice), 1_000_000);
+				assert_eq!(AssetsExt::total_issuance(TEST_ASSET_ID), 1_000_000);
+
+				assert_storage_noop!(TestAssetCurrency::make_free_balance_be(&alice, 1_000_000));
+			});
 	}
 }

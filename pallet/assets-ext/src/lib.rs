@@ -139,6 +139,10 @@ pub mod pallet {
 		},
 		/// New asset has been created
 		CreateAsset { asset_id: AssetId, creator: T::AccountId, initial_balance: Balance },
+		/// Assets were withdrawn from this account by the system e.g. paying tx fees
+		InternalWithdraw { asset_id: AssetId, who: T::AccountId, amount: Balance },
+		/// Assets were deposited into this account by the system e.g. refunding gas
+		InternalDeposit { asset_id: AssetId, who: T::AccountId, amount: Balance },
 	}
 
 	#[pallet::error]

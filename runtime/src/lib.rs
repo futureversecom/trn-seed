@@ -29,6 +29,7 @@ use sp_runtime::{
 	},
 	ApplyExtrinsicResult, Percent,
 };
+pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 use sp_std::prelude::*;
 
 #[cfg(feature = "std")]
@@ -56,7 +57,6 @@ use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 pub use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 
 // Export for chain_specs
 #[cfg(feature = "std")]
@@ -227,7 +227,7 @@ impl frame_system::Config for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
-	pub const WeightToFeeReduction: Percent = Percent::from_parts(80);
+	pub const WeightToFeeReduction: Permill = Permill::from_parts(7_000); // 0.007%
 }
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
@@ -692,7 +692,7 @@ parameter_types! {
 	/// The Ethereum bridge contract address (deployed on Ethereum)
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	/// % threshold of notarizations required to verify or prove bridge events
-	pub const NotarizationThreshold: sp_runtime::Percent = sp_runtime::Percent::from_percent(66_u8);
+	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 }
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
@@ -735,7 +735,7 @@ impl frame_system::offchain::SigningTypes for Runtime {
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
 /// Given the 500ms Weight, from which 75% only are used for transactions,
 /// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
-pub const GAS_PER_SECOND: u64 = 40_000_000;
+pub const GAS_PER_SECOND: u64 = 4_000_000;
 
 /// Approximate ratio of the amount of Weight per Gas.
 /// u64 works for approximations because Weight is a very small unit compared to gas.
