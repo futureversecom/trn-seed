@@ -5077,6 +5077,7 @@ version = "0.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-assets-ext",
  "pallet-balances",
  "pallet-staking",
  "parity-scale-codec",
@@ -7273,7 +7274,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "clap",
  "ethy-gadget",

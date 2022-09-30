@@ -27,7 +27,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError,
 	},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Percent,
 };
 use sp_std::prelude::*;
 
@@ -80,7 +80,7 @@ use constants::{
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler,
+	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, PercentageOfWeight,
 	SlashImbalanceHandler, StakingSessionTracker,
 };
 
@@ -92,6 +92,12 @@ use staking::OnChainAccuracy;
 
 #[cfg(test)]
 mod tests;
+
+/// Currency implementation mapped to XRP
+pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
+/// Dual currency implementation mapped to ROOT & XRP for staking
+pub type DualStakingCurrency =
+	pallet_assets_ext::DualStakingCurrency<Runtime, XrpCurrency, Balances>;
 
 /// This runtime version.
 #[sp_version::runtime_version]
@@ -221,11 +227,12 @@ impl frame_system::Config for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
+	pub const WeightToFeeReduction: Percent = Percent::from_parts(80);
 }
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, TxFeePot>;
+	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type Event = Event;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
@@ -564,7 +571,7 @@ parameter_types! {
 type SlashCancelOrigin = EnsureRoot<AccountId>;
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
-	type Currency = Balances;
+	type Currency = DualStakingCurrency;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 	// Decides the total reward to be distributed each era
@@ -675,6 +682,7 @@ impl pallet_sudo::Config for Runtime {
 }
 
 impl pallet_tx_fee_pot::Config for Runtime {
+	type FeeCurrency = XrpCurrency;
 	type TxFeePotId = TxFeePotId;
 }
 
@@ -797,7 +805,7 @@ impl pallet_evm::Config for Runtime {
 	type CallOrigin = EnsureAddressNever<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
 	type AddressMapping = AddressMapping<AccountId>;
-	type Currency = EvmCurrencyScaler<Balances>;
+	type Currency = EvmCurrencyScaler<XrpCurrency>;
 	type Event = Event;
 	type Runner = Runner<Self>;
 	type PrecompilesType = FutureversePrecompiles<Self>;

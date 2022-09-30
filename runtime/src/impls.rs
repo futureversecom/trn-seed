@@ -16,19 +16,23 @@
 
 //! Some configurable implementations as associated type for the substrate runtime.
 
+use core::ops::Mul;
+
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		tokens::{fungible::Inspect, DepositConsequence, WithdrawConsequence},
+		fungible::Inspect,
+		tokens::{DepositConsequence, WithdrawConsequence},
 		Currency, ExistenceRequirement, FindAuthor, OnUnbalanced, SignedImbalance, WithdrawReasons,
 	},
+	weights::WeightToFee,
 };
 use pallet_evm::AddressMapping as AddressMappingT;
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
-	ConsensusEngineId,
+	ConsensusEngineId, Percent,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -62,20 +66,21 @@ pub fn scale_wei_to_6dp(value: Balance) -> Balance {
 
 /// Wraps spending currency (XRP) for use by the EVM
 /// Scales balances into 18dp equivalents which ethereum tooling and contracts expect
-pub struct EvmCurrencyScaler<I: Inspect<AccountId>>(PhantomData<I>);
-impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<AccountId>
-	for EvmCurrencyScaler<I>
+pub struct EvmCurrencyScaler<C>(PhantomData<C>);
+
+impl<C: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<AccountId>
+	for EvmCurrencyScaler<C>
 {
 	type Balance = Balance;
 
 	/// The total amount of issuance in the system.
 	fn total_issuance() -> Self::Balance {
-		<I as Inspect<AccountId>>::total_issuance()
+		<C as Inspect<AccountId>>::total_issuance()
 	}
 
 	/// The minimum balance any single account may have.
 	fn minimum_balance() -> Self::Balance {
-		<I as Inspect<AccountId>>::minimum_balance()
+		<C as Inspect<AccountId>>::minimum_balance()
 	}
 
 	/// Get the balance of `who`.
@@ -90,50 +95,44 @@ impl<I: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 	/// from Ethereum (Following POLA principles)
 	fn reducible_balance(who: &AccountId, _keep_alive: bool) -> Self::Balance {
 		// Careful for overflow!
-		let raw = I::reducible_balance(who, false);
+		let raw = C::reducible_balance(who, false);
 		U256::from(raw).saturating_mul(U256::from(XRP_UNIT_VALUE)).saturated_into()
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
-	fn can_deposit(_who: &AccountId, _amount: Self::Balance, _mint: bool) -> DepositConsequence {
-		unimplemented!();
+	fn can_deposit(who: &AccountId, amount: Self::Balance, mint: bool) -> DepositConsequence {
+		C::can_deposit(who, amount, mint)
 	}
 
 	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
 	/// the consequence.
 	fn can_withdraw(who: &AccountId, amount: Self::Balance) -> WithdrawConsequence<Self::Balance> {
-		I::can_withdraw(who, amount)
+		C::can_withdraw(who, amount)
 	}
 }
 
 /// Currency impl for EVM usage
 /// It proxies to the inner currency impl while leaving some unused methods
 /// unimplemented
-impl<I> Currency<AccountId> for EvmCurrencyScaler<I>
+impl<C> Currency<AccountId> for EvmCurrencyScaler<C>
 where
-	I: Inspect<AccountId, Balance = Balance>,
-	I: Currency<
-		AccountId,
-		Balance = Balance,
-		PositiveImbalance = pallet_balances::PositiveImbalance<Runtime>,
-		NegativeImbalance = pallet_balances::NegativeImbalance<Runtime>,
-	>,
+	C: Currency<AccountId, Balance = Balance>,
 {
-	type Balance = <I as Currency<AccountId>>::Balance;
-	type PositiveImbalance = <I as Currency<AccountId>>::PositiveImbalance;
-	type NegativeImbalance = <I as Currency<AccountId>>::NegativeImbalance;
+	type Balance = Balance;
+	type PositiveImbalance = C::PositiveImbalance;
+	type NegativeImbalance = C::NegativeImbalance;
 
 	fn free_balance(who: &AccountId) -> Self::Balance {
-		Self::balance(who)
+		C::free_balance(who)
 	}
 	fn total_issuance() -> Self::Balance {
-		<I as Currency<AccountId>>::total_issuance()
+		C::total_issuance()
 	}
 	fn minimum_balance() -> Self::Balance {
-		<I as Currency<AccountId>>::minimum_balance()
+		C::minimum_balance()
 	}
 	fn total_balance(who: &AccountId) -> Self::Balance {
-		Self::balance(who)
+		C::total_balance(who)
 	}
 	fn transfer(
 		from: &AccountId,
@@ -141,15 +140,15 @@ where
 		value: Self::Balance,
 		req: ExistenceRequirement,
 	) -> DispatchResult {
-		I::transfer(from, to, scale_wei_to_6dp(value), req)
+		C::transfer(from, to, scale_wei_to_6dp(value), req)
 	}
 	fn ensure_can_withdraw(
-		_who: &AccountId,
-		_amount: Self::Balance,
-		_reasons: WithdrawReasons,
-		_new_balance: Self::Balance,
+		who: &AccountId,
+		amount: Self::Balance,
+		reasons: WithdrawReasons,
+		new_balance: Self::Balance,
 	) -> DispatchResult {
-		unimplemented!();
+		C::ensure_can_withdraw(who, scale_wei_to_6dp(amount), reasons, new_balance)
 	}
 	fn withdraw(
 		who: &AccountId,
@@ -157,34 +156,34 @@ where
 		reasons: WithdrawReasons,
 		req: ExistenceRequirement,
 	) -> Result<Self::NegativeImbalance, DispatchError> {
-		I::withdraw(who, scale_wei_to_6dp(value), reasons, req)
+		C::withdraw(who, scale_wei_to_6dp(value), reasons, req)
 	}
 	fn deposit_into_existing(
 		who: &AccountId,
 		value: Self::Balance,
 	) -> Result<Self::PositiveImbalance, DispatchError> {
-		I::deposit_into_existing(who, scale_wei_to_6dp(value))
+		C::deposit_into_existing(who, scale_wei_to_6dp(value))
 	}
 	fn deposit_creating(who: &AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-		I::deposit_creating(who, scale_wei_to_6dp(value))
+		C::deposit_creating(who, scale_wei_to_6dp(value))
 	}
 	fn make_free_balance_be(
 		who: &AccountId,
 		balance: Self::Balance,
 	) -> SignedImbalance<Self::Balance, Self::PositiveImbalance> {
-		I::make_free_balance_be(who, scale_wei_to_6dp(balance))
+		C::make_free_balance_be(who, scale_wei_to_6dp(balance))
 	}
 	fn can_slash(_who: &AccountId, _value: Self::Balance) -> bool {
 		false
 	}
-	fn slash(_who: &AccountId, _value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
-		unimplemented!();
+	fn slash(who: &AccountId, value: Self::Balance) -> (Self::NegativeImbalance, Self::Balance) {
+		C::slash(who, scale_wei_to_6dp(value))
 	}
-	fn burn(mut _amount: Self::Balance) -> Self::PositiveImbalance {
-		unimplemented!();
+	fn burn(amount: Self::Balance) -> Self::PositiveImbalance {
+		C::burn(scale_wei_to_6dp(amount))
 	}
-	fn issue(mut _amount: Self::Balance) -> Self::NegativeImbalance {
-		unimplemented!();
+	fn issue(amount: Self::Balance) -> Self::NegativeImbalance {
+		C::issue(scale_wei_to_6dp(amount))
 	}
 }
 
@@ -254,16 +253,26 @@ where
 	}
 }
 
-/// Alias for pallet-balances NegativeImbalance
-type NegativeImbalance = pallet_balances::NegativeImbalance<Runtime>;
-
 /// Handles negative imbalances resulting from slashes by moving the amount to a predestined holding
 /// account
 pub struct SlashImbalanceHandler;
+
+/// Slash handler for pallet-staking (imbalance is in $ROOT)
 /// On slash move funds to a dedicated slash pot, it could be managed by treasury later
-impl OnUnbalanced<NegativeImbalance> for SlashImbalanceHandler {
-	fn on_nonzero_unbalanced(amount: NegativeImbalance) {
+impl OnUnbalanced<pallet_assets_ext::NegativeImbalance<Runtime>> for SlashImbalanceHandler {
+	fn on_nonzero_unbalanced(amount: pallet_assets_ext::NegativeImbalance<Runtime>) {
 		<Runtime as pallet_staking::Config>::Currency::resolve_creating(
+			&SlashPotId::get().into_account_truncating(),
+			amount,
+		);
+	}
+}
+
+// Slash handler for elections-phragmen-pallet (imbalance is in $ROOT)
+/// On slash move funds to a dedicated slash pot, it could be managed by treasury later
+impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for SlashImbalanceHandler {
+	fn on_nonzero_unbalanced(amount: pallet_balances::NegativeImbalance<Runtime>) {
+		<Runtime as pallet_election_provider_multi_phase::Config>::Currency::resolve_creating(
 			&SlashPotId::get().into_account_truncating(),
 			amount,
 		);
@@ -364,6 +373,20 @@ impl EthereumEventRouterT for EthereumEventRouter {
 		} else {
 			Err((0, EventRouterError::NoReceiver))
 		}
+	}
+}
+
+/// `WeightToFee` implementation converts weight to fee using a fixed % deduction
+pub struct PercentageOfWeight<M>(sp_std::marker::PhantomData<M>);
+
+impl<M> WeightToFee for PercentageOfWeight<M>
+where
+	M: Get<Percent>,
+{
+	type Balance = Balance;
+
+	fn weight_to_fee(weight: &Weight) -> Balance {
+		M::get().mul(*weight as Balance)
 	}
 }
 

@@ -29,10 +29,15 @@ use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
 use sp_std::prelude::*;
 
+mod imbalances;
+mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod test;
+
+pub use imbalances::*;
+pub use impls::{AssetCurrency, DualStakingCurrency};
 
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
 /// derivations e.g. `Ord`
