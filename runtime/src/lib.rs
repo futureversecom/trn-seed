@@ -735,7 +735,7 @@ impl frame_system::offchain::SigningTypes for Runtime {
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
 /// Given the 500ms Weight, from which 75% only are used for transactions,
 /// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
-pub const GAS_PER_SECOND: u64 = 4_000_000;
+pub const GAS_PER_SECOND: u64 = 15_000_000;
 
 /// Approximate ratio of the amount of Weight per Gas.
 /// u64 works for approximations because Weight is a very small unit compared to gas.
@@ -769,9 +769,8 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 
 parameter_types! {
 	/// Floor network base fee per gas
-	/// 0.00015 XRP per gas
-	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
-	pub const IsBaseFeeActive: bool = false;
+	/// 0.000015 XRP per gas
+	pub const DefaultBaseFeePerGas: u64 = 1_500_000_000_000;
 }
 impl pallet_base_fee::Config for Runtime {
 	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;

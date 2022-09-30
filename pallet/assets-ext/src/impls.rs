@@ -338,7 +338,7 @@ where
 #[cfg(test)]
 mod tests {
 	use crate::mock::{test_ext, AssetId, AssetsExt, MockAccountId, Test};
-	use frame_support::{assert_noop, assert_ok, assert_storage_noop, parameter_types};
+	use frame_support::{assert_noop, assert_storage_noop, parameter_types};
 
 	use super::*;
 

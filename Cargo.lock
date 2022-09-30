@@ -7376,6 +7376,7 @@ dependencies = [
 name = "seed-runtime"
 version = "0.1.0"
 dependencies = [
+ "ethereum",
  "fp-rpc",
  "fp-self-contained",
  "frame-election-provider-support",
