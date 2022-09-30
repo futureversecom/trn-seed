@@ -5,8 +5,8 @@
 //! The root network stakers are paid out in network tx fees XRP (non-inflationary)
 use frame_support::{
 	traits::{
-		fungible::{Inspect, Mutate},
-		Currency, Get, Imbalance, OnUnbalanced,
+		fungible::Inspect, Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced,
+		WithdrawReasons,
 	},
 	PalletId,
 };
@@ -30,8 +30,12 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	#[pallet::disable_frame_system_supertrait_check]
-	pub trait Config: pallet_balances::Config<Balance = Balance> {
+	pub trait Config: frame_system::Config + pallet_assets_ext::Config {
+		type FeeCurrency: Currency<
+			Self::AccountId,
+			Balance = Balance,
+			NegativeImbalance = pallet_assets_ext::NegativeImbalance<Self>,
+		>;
 		#[pallet::constant]
 		type TxFeePotId: Get<PalletId>;
 	}
@@ -65,22 +69,28 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-/// Alias for pallet-balances NegativeImbalance
-type NegativeImbalanceOf<T> = pallet_balances::NegativeImbalance<T>;
+/// Alias for pallet-assets-ext NegativeImbalance
+type FeeNegativeImbalanceOf<T> = pallet_assets_ext::NegativeImbalance<T>;
 /// Alias for pallet-balances PositiveImbalance
-type PositiveImbalanceOf<T> = pallet_balances::PositiveImbalance<T>;
+type FeePositiveImbalanceOf<T> = pallet_assets_ext::PositiveImbalance<T>;
+/// Alias for pallet-balances NegativeImbalance
+type StakeNegativeImbalanceOf<T> = pallet_balances::NegativeImbalance<T>;
 
 /// Handles imbalances of transaction fee amounts for the transaction fee pot, used to payout
 /// stakers
 
 /// On era reward payouts, offset minted tokens from the tx fee pot to maintain total issuance
-impl<T: Config> OnUnbalanced<PositiveImbalanceOf<T>> for Pallet<T> {
-	fn on_nonzero_unbalanced(total_rewarded: PositiveImbalanceOf<T>) {
+/// staking pallet calls this to notify it minted `total_rewarded`
+impl<T: Config> OnUnbalanced<FeePositiveImbalanceOf<T>> for Pallet<T> {
+	fn on_nonzero_unbalanced(total_rewarded: FeePositiveImbalanceOf<T>) {
 		// burn `amount` from TxFeePot, reducing total issuance immediately
 		// later `total_rewarded` will be dropped keeping total issuance constant
-		if let Err(_err) =
-			pallet_balances::Pallet::<T>::burn_from(&Self::account_id(), total_rewarded.peek())
-		{
+		if let Err(_err) = T::FeeCurrency::withdraw(
+			&Self::account_id(),
+			total_rewarded.peek(),
+			WithdrawReasons::all(),
+			ExistenceRequirement::AllowDeath,
+		) {
 			// tx fee pot did not have enough to reward the amount, this should not happen...
 			// there's no way to error out here, just log it
 			log!(error, "💸 era payout was underfunded, please open an issue at https://github.com/futureversecom/seed: {:?}", total_rewarded.peek())
@@ -89,11 +99,27 @@ impl<T: Config> OnUnbalanced<PositiveImbalanceOf<T>> for Pallet<T> {
 }
 
 /// On tx fee settlement, move funds to tx fee pot address
-impl<T: Config> OnUnbalanced<NegativeImbalanceOf<T>> for Pallet<T> {
-	fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
-		// this amount was burnt (`withdraw`) when tx fees were paid (incl. tip)
+/// tx payment pallet calls this to notify it burned `amount`
+impl<T: Config> OnUnbalanced<FeeNegativeImbalanceOf<T>> for Pallet<T> {
+	fn on_nonzero_unbalanced(amount: FeeNegativeImbalanceOf<T>) {
+		// this amount was burnt from caller when tx fees were paid (incl. tip), move the funds into
+		// the pot
 		let note_amount = amount.peek();
-		pallet_balances::Pallet::resolve_creating(&Self::account_id(), amount);
+		T::FeeCurrency::deposit_creating(&Self::account_id(), note_amount);
+
+		Self::accrue_era_tx_fees(note_amount);
+	}
+}
+
+/// On era payout remainder
+/// staking pallet calls this to notify it has `amount` left over after reward payments
+impl<T: Config> OnUnbalanced<StakeNegativeImbalanceOf<T>> for Pallet<T> {
+	fn on_nonzero_unbalanced(amount: StakeNegativeImbalanceOf<T>) {
+		let note_amount = amount.peek();
+
+		// mint `note_amount` (offsets `amount` imbalance)
+		T::FeeCurrency::deposit_creating(&Self::account_id(), note_amount);
+
 		Self::accrue_era_tx_fees(note_amount);
 	}
 }
@@ -109,6 +135,8 @@ impl<T: Config> pallet_staking::EraPayout<Balance> for Pallet<T> {
 	) -> (Balance, Balance) {
 		// this trait is coupled to the idea of polkadot's inflation schedule
 		// on root network we simply redistribute the era's tx fees
+
+		// reset the era fee storage, the era payout will be tracked by pallet-staking
 		(Self::reset_era_tx_fees(), Zero::zero())
 	}
 }

@@ -249,8 +249,8 @@ fn testnet_genesis(
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 	for account in accounts_to_fund {
-		endowed_assets.push((ROOT_ASSET_ID, account, 1_000_000 * ONE_ROOT));
-		endowed_balances.push((account, 1_000_000 * ONE_XRP));
+		endowed_assets.push((XRP_ASSET_ID, account, 1_000_000 * ONE_XRP));
+		endowed_balances.push((account, 1_000_000 * ONE_ROOT));
 	}
 	const VALIDATOR_BOND: Balance = 100_000 * ONE_ROOT;
 
