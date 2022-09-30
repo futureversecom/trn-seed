@@ -73,8 +73,8 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT, ONE_XRP,
-	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT,
+	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -99,7 +99,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 5,
+	spec_version: 6,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -287,7 +287,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type Event = Event;
 	type ParachainId = WorldId;
 	type MaxHolds = MaxHolds;
-	type NativeAssetId = XrpAssetId;
+	type NativeAssetId = RootAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 
