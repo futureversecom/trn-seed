@@ -20,7 +20,6 @@ use seed_primitives::{
 };
 
 pub mod utils;
-pub mod xrpl;
 
 /// syntactic sugar for logging.
 /// the caller must define a variable `LOG_TARGET = "<my-target>"`

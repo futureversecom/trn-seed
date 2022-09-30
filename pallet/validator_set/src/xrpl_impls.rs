@@ -16,7 +16,6 @@ use sp_std::prelude::*;
 
 use seed_pallet_common::{
 	log,
-	xrpl::{XrplBridge, XrplCallOracle},
 	FinalSessionTracker as FinalSessionTrackerT,
 };
 use seed_primitives::validator::{EventClaimId, EventProofId};
@@ -39,7 +38,6 @@ impl<T: Config> Pallet<T> {
 		};
 
 		let mut maybe_active_key: Option<(T::ValidatorId, usize)> = None;
-		// search all local ethy keys
 		for key in local_keys {
 			if let Some(active_key_index) = Self::validator_list().iter().position(|k| k == &key) {
 				maybe_active_key = Some((key, active_key_index));
@@ -55,13 +53,25 @@ impl<T: Config> Pallet<T> {
 		maybe_active_key.map(|(key, idx)| (key, idx as u16))
 	}
 
+	pub(crate) fn schedule_requests_ocw() {
+		for (tx_hash, ledger_index) in T::XrplBridgeCall::challenged_tx_list(CALLS_PER_BLOCK) {
+			let call_id = <NextChainCallId<T>>::get();
+			<ChainCallRequestInfo<T>>::insert(
+				call_id,
+				CheckedChainCallRequest { tx_hash, ledger_index },
+			);
+			<ChainCallRequests<T>>::append(call_id);
+			<NextChainCallId<T>>::put(call_id + 1);
+		}
+	}
+
 	pub(crate) fn do_call_validate_challenge_ocw(
 		active_key: &T::ValidatorId,
 		authority_index: u16,
 	) {
 		// we limit the total claims per invocation using `CALLS_PER_BLOCK` so we don't stall block
 		// production
-		for tx_hash in T::XrplBridgeCall::challenged_tx_list(CALLS_PER_BLOCK) {
+		for call_id in <ChainCallRequests<T>>::get().iter().take(CALLS_PER_BLOCK) {
 			// skip if we've notarized it previously
 			if <ChainCallNotarizations<T>>::contains_key::<ChainCallId, T::ValidatorId>(
 				*call_id,
@@ -93,7 +103,6 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn offchain_try_xrp_call(
 		request: &CheckedChainCallRequest,
 	) -> CheckedChainCallResult {
-
 		/*let return_data = match T::ChainWebsocketClient::xrpl_call(
 			request.target,
 			&request.input,
@@ -115,6 +124,7 @@ impl<T: Config> Pallet<T> {
 			Ok(r) => CheckedChainCallResult::Ok(r, target_block_number, target_block_timestamp),
 			Err(_) => CheckedChainCallResult::ReturnDataExceedsLimit,
 		}*/
+		CheckedChainCallResult::CallFailed
 	}
 
 	/// Send a notarization for the given claim
@@ -253,42 +263,6 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 		} else {
 			InvalidTransaction::Call.into()
 		}
-	}
-}
-
-impl<T: Config> XrplCallOracle for Pallet<T> {
-	type Address = XrplAddress;
-	type CallId = ChainCallId;
-	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
-	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
-	/// `timestamp` - cennznet timestamp of the request
-	/// `try_block_number` - ethereum block number hint
-	///
-	/// Returns a call Id for subscribers
-	fn checked_eth_call(
-		target: &Self::Address,
-		input: &[u8],
-		timestamp: u64,
-		try_block_number: u64,
-		max_block_look_behind: u64,
-	) -> Self::CallId {
-		// store the job for validators to process async
-		let call_id = NextChainCallId::get();
-		ChainCallRequestInfo::insert(
-			call_id,
-			CheckedChainCallRequest {
-				check_timestamp: T::UnixTime::now().as_secs(),
-				input: input.to_vec(),
-				target: *target,
-				timestamp,
-				try_block_number,
-				max_block_look_behind,
-			},
-		);
-		ChainCallRequests::append(call_id);
-		NextChainCallId::put(call_id + 1);
-
-		call_id
 	}
 }
 

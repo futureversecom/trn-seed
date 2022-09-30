@@ -14,9 +14,7 @@
  */
 use crate::AccountId;
 use codec::{Decode, Encode};
-use scale_info::TypeInfo;
-use sp_application_crypto::ByteArray;
-use sp_runtime::{traits::Convert, KeyTypeId};
+use sp_runtime::{KeyTypeId};
 use sp_std::prelude::*;
 
 /// A typedef for validator set id.

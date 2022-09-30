@@ -12,18 +12,23 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-/*
+use crate::Balance;
 use codec::{Decode, Encode};
-use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, H512, RuntimeDebug};
+/// An index to a block.
+pub type LedgerIndex = u64;
 
-use seed_primitives::{
-	xrpl::{XrplAddress, XrplTxHash, XrplTxNonce},
-	Balance,
-};
+/// An XRPL address (classic)
+pub type XrplAddress = H160;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+/// An XRPL tx hash
+pub type XrplTxHash = H512;
+
+/// The type for identifying the XRPL Tx Nonce aka 'Sequence'
+pub type XrplTxNonce = u32;
+
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
@@ -31,7 +36,7 @@ pub struct XrpTransaction {
 	pub timestamp: u64,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
@@ -40,7 +45,7 @@ pub struct XrpWithdrawTransaction {
 	pub destination: XrplAddress,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
@@ -74,4 +79,3 @@ impl Default for XrplTxData {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
 	}
 }
-*/

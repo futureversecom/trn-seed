@@ -22,6 +22,7 @@ use frame_support::{pallet_prelude::*, traits::OneSessionHandler, PalletId};
 use frame_system::pallet_prelude::*;
 use hex_literal::hex;
 pub use pallet::*;
+use pallet_xrpl_bridge::XrplBridgeCall;
 use seed_pallet_common::{log, FinalSessionTracker as FinalSessionTrackerT};
 use seed_primitives::validator::{
 	ConsensusLog, EventClaimId, EventProofId, PendingAuthorityChange, ValidatorSet,
@@ -31,7 +32,6 @@ use sp_runtime::{
 	traits::AccountIdConversion, BoundToRuntimeAppPublic, DigestItem, Percent, RuntimeAppPublic,
 };
 use sp_std::vec::Vec;
-use pallet_xrpl_bridge::XrplBridgeCall;
 
 pub type ValidatorIdOf<T> = <T as Config>::ValidatorId;
 pub(crate) const LOG_TARGET: &str = "validator_set";
@@ -151,10 +151,16 @@ pub mod pallet {
 	/// Queue of pending Chain CallOracle requests
 	pub type ChainCallRequests<T: Config> = StorageValue<_, Vec<ChainCallId>, ValueQuery>;
 
+	#[pallet::type_value]
+	pub fn default_next_chain_call_id() -> u64 {
+		0_u64
+	}
+
 	#[pallet::storage]
 	#[pallet::getter(fn next_chain_call_id)]
 	/// Subscription Id for Call requests
-	pub type NextChainCallId<T: Config> = StorageValue<_, ChainCallId, ValueQuery>;
+	pub type NextChainCallId<T: Config> =
+		StorageValue<_, ChainCallId, ValueQuery, default_next_chain_call_id>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn event_deadline_seconds)]
@@ -264,12 +270,13 @@ pub mod pallet {
 				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
 					log!(
 						info,
-						"💎 waiting for validator support to activate eth-bridge: {:?}/{:?}",
+						"💎 waiting for validator support to activate bridge: {:?}/{:?}",
 						supports,
 						needed
 					);
 					return
 				}
+				Self::schedule_requests_ocw();
 				// validate challenges
 				Self::do_call_validate_challenge_ocw(&active_key, authority_index);
 			} else {
@@ -365,7 +372,7 @@ pub mod pallet {
 			match payload {
 				NotarizationPayload::Call { call_id, result, .. } =>
 					Self::handle_call_notarization(call_id, result, notary_public_key),
-				_ => {}
+				_ => {},
 			}
 		}
 	}

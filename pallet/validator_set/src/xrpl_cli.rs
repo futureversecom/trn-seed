@@ -12,14 +12,14 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use sp_runtime::offchain::StorageKind;
-use sp_std::prelude::*;
 use async_trait::async_trait;
-use std::thread::spawn;
+use sp_runtime::offchain::StorageKind;
 #[cfg(not(feature = "std"))]
 use sp_std::alloc::string::ToString;
+use sp_std::prelude::*;
 #[cfg(std)]
 use std::string::ToString;
+use std::thread::spawn;
 use xrpl::{
 	models::{Model, RequestMethod, TransactionEntry, Tx},
 	serde_json::Value::String,
@@ -31,10 +31,10 @@ use crate::{
 	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplTxHash},
 	ChainCallId,
 };
-use tokio_tungstenite::tungstenite::Message;
 use futures::StreamExt;
 use seed_pallet_common::log;
 use seed_primitives::XRP_HTTP_URI;
+use tokio_tungstenite::tungstenite::Message;
 
 /// Provides minimal ethereum RPC queries for eth bridge protocol
 pub struct XrplWebsocketClient;

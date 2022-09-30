@@ -34,11 +34,12 @@ use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
-	xrpl::{LedgerIndex, XrplAddress, XrplTxHash, XrplTxNonce},
+	xrpl::{
+		LedgerIndex, XrpTransaction, XrpWithdrawTransaction, XrplAddress, XrplTxData, XrplTxHash,
+		XrplTxNonce,
+	},
 	AccountId, AssetId, Balance, Timestamp,
 };
-
-use crate::helpers::{XrpTransaction, XrpWithdrawTransaction, XrplTxData};
 
 pub use pallet::*;
 
@@ -170,7 +171,7 @@ pub mod pallet {
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
 	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
-		StorageMap<_, Identity, XrplTxHash, T::AccountId>;
+		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, T::AccountId)>;
 
 	#[pallet::type_value]
 	pub fn DefaultDoorNonce() -> u32 {
@@ -248,10 +249,11 @@ pub mod pallet {
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
+			ledger_index: LedgerIndex,
 			transaction_hash: XrplTxHash,
 		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
-			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
+			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, (ledger_index, challenger));
 			Ok(())
 		}
 
@@ -506,12 +508,12 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
-	fn challenged_tx_list(limit: usize) -> Vec<XrplTxHash> {
+	fn challenged_tx_list(limit: usize) -> Vec<(XrplTxHash, LedgerIndex)> {
 		//Self::challenge_xrp_transaction_list()
-		let mut list: Vec<XrplTxHash> = Vec::new();
-		<ChallengeXRPTransactionList<T>>::iter_keys().for_each(|tx_hash| {
+		let mut list: Vec<(XrplTxHash, LedgerIndex)> = Vec::new();
+		<ChallengeXRPTransactionList<T>>::iter().for_each(|(tx_hash, (ledger_index, _ ))| {
 			for _ in 0..limit {
-				list.push(tx_hash)
+				list.push((tx_hash, ledger_index))
 			}
 		});
 		list
@@ -525,14 +527,15 @@ impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
 		timestamp: Timestamp,
 	) {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		//<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, validator));
+		//<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val,
+		//<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, validator));
 		<ChallengeXRPTransactionList<T>>::remove(&transaction_hash);
 		let _ = Self::add_to_xrp_process(transaction_hash);
 	}
 }
 
 pub trait XrplBridgeCall<AccountId> {
-	fn challenged_tx_list(limit: usize) -> Vec<XrplTxHash>;
+	fn challenged_tx_list(limit: usize) -> Vec<(XrplTxHash, LedgerIndex)>;
 	fn update_challenge(
 		validator: AccountId,
 		ledger_index: LedgerIndex,

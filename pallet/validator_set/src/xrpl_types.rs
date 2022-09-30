@@ -13,11 +13,15 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 
+use async_trait::async_trait;
 use codec::{Decode, Encode};
 use core::fmt;
 use rustc_hex::ToHex;
 use scale_info::TypeInfo;
-use seed_primitives::validator::{EventClaimId, EventProofId, ValidatorSetId};
+use seed_primitives::{
+	validator::{EventClaimId, EventProofId, ValidatorSetId},
+	xrpl::{LedgerIndex, XrpTransaction},
+};
 use serde::{
 	de::{Error, Visitor},
 	Deserialize, Deserializer, Serialize, Serializer,
@@ -25,7 +29,6 @@ use serde::{
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
-use async_trait::async_trait;
 
 pub type XrplTxHash = seed_primitives::xrpl::XrplTxHash;
 
@@ -64,38 +67,13 @@ pub struct EventProofInfo {
 /// An EthCallOracle request
 #[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo)]
 pub struct CheckedChainCallRequest {
-	/// EVM input data for the call
-	pub input: Vec<u8>,
-	/// Ethereum address to receive the call
-	pub target: XrplAddress,
-	/// CENNZnet timestamp when the original request was placed e.g by a contract/user (seconds)
-	pub timestamp: u64,
-	/// Informs the oldest acceptable block number that `try_block_number` can take (once the
-	/// Ethereum latest block number is known) if `try_block_number` falls outside `(latest -
-	/// max_block_look_behind) < try_block_number < latest` then it is considered invalid
-	pub max_block_look_behind: u64,
-	/// Hint at an Ethereum block # for the call (i.e. near `timestamp`)
-	/// It is provided by an untrusted source and may or may not be used
-	/// depending on its distance from the latest eth block i.e `(latest - max_block_look_behind) <
-	/// try_block_number < latest`
-	pub try_block_number: u64,
-	/// CENNZnet timestamp when _this_ check request was queued (seconds)
-	pub check_timestamp: u64,
+	pub tx_hash: XrplTxHash,
+	pub ledger_index: LedgerIndex,
 }
 #[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Copy, Clone, TypeInfo)]
 pub enum CheckedChainCallResult {
-	/// returndata obtained, ethereum block number, ethereum timestamp
-	Ok([u8; 32], u64, u64),
-	/// returndata obtained, exceeds length limit
-	ReturnDataExceedsLimit,
-	/// returndata obtained, empty
-	ReturnDataEmpty,
-	/// Failed to retrieve all the required data from Ethereum
-	DataProviderErr,
-	/// Ethereum block number is invalid (0, max)
-	InvalidEthBlock,
-	/// Timestamps have desynced or are otherwise invalid
-	InvalidTimestamp,
+	Ok(XrpTransaction, XrplTxHash, LedgerIndex),
+	CallFailed,
 }
 
 /// Possible outcomes from attempting to verify an Ethereum event claim

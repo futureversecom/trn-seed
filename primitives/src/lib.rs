@@ -8,6 +8,7 @@ pub use types::*;
 pub mod ethy;
 mod signature;
 pub mod validator;
+pub mod xrpl;
 
 // offchain storage config key for XRP HTTP URI
 pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
@@ -88,7 +89,7 @@ pub mod opaque {
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
 }
-
+/*
 /// XRPL primitive types
 pub mod xrpl {
 	use sp_core::{H160, H512};
@@ -104,4 +105,4 @@ pub mod xrpl {
 
 	/// The type for identifying the XRPL Tx Nonce aka 'Sequence'
 	pub type XrplTxNonce = u32;
-}
+}*/
