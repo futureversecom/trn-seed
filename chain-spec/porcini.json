@@ -10,7 +10,7 @@
   "protocolId": null,
   "properties": {
     "tokenDecimals": 6,
-    "tokenSymbol": "XRP"
+    "tokenSymbol": "ROOT"
   },
   "codeSubstitutes": {},
   "genesis": {

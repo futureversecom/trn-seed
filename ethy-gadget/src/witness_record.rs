@@ -59,7 +59,7 @@ pub struct WitnessRecord {
 	validators: Vec<AuthorityId>,
 	/// The record of confirmed witnesses `event_id -> [(validator index, validator signature)]`
 	witnesses: HashMap<EventProofId, Vec<(AuthorityIndex, Signature)>>,
-	/// The record of witnesses `event_id -> [(validator index, validator signature)]`
+	/// The record of unverified witnesses `event_id -> [(validator index, validator signature)]`
 	unverified_witnesses: HashMap<EventProofId, Vec<Witness>>,
 	/// completed events
 	completed_events: Vec<EventProofId>,
