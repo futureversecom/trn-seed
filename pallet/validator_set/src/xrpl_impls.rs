@@ -1,8 +1,5 @@
 use codec::Encode;
-use frame_support::{
-	pallet_prelude::*,
-	traits::{ValidatorSet as ValidatorSetT},
-};
+use frame_support::{pallet_prelude::*, traits::ValidatorSet as ValidatorSetT};
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
 	transaction_validity::{
@@ -12,10 +9,8 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use seed_pallet_common::{
-	log,
-};
-use seed_primitives::validator::{EventClaimId};
+use seed_pallet_common::log;
+use seed_primitives::validator::EventClaimId;
 
 use crate::{xrpl_types::*, *};
 
@@ -188,7 +183,8 @@ impl<T: Config> Pallet<T> {
 			Ok(())
 		};
 
-		let mut notarizations = <ChainCallNotarizationsAggregated<T>>::get(call_id).unwrap_or_default();
+		let mut notarizations =
+			<ChainCallNotarizationsAggregated<T>>::get(call_id).unwrap_or_default();
 		// increment notarization count for this result
 		*notarizations.entry(result).or_insert(0) += 1;
 

@@ -511,7 +511,7 @@ impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
 	fn challenged_tx_list(limit: usize) -> Vec<(XrplTxHash, LedgerIndex)> {
 		//Self::challenge_xrp_transaction_list()
 		let mut list: Vec<(XrplTxHash, LedgerIndex)> = Vec::new();
-		<ChallengeXRPTransactionList<T>>::iter().for_each(|(tx_hash, (ledger_index, _ ))| {
+		<ChallengeXRPTransactionList<T>>::iter().for_each(|(tx_hash, (ledger_index, _))| {
 			for _ in 0..limit {
 				list.push((tx_hash, ledger_index))
 			}

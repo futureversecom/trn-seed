@@ -25,9 +25,9 @@ use crate::{
 	ChainCallId,
 };
 use futures::StreamExt;
-use tokio::spawn;
 use seed_pallet_common::{get_static_str_ref, log};
 use seed_primitives::XRP_HTTP_URI;
+use tokio::spawn;
 use tokio_tungstenite::tungstenite::Message;
 
 /// Provides minimal ethereum RPC queries for eth bridge protocol
@@ -74,7 +74,7 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 
 pub fn get_xrp_http_uri() -> Result<&'static str, BridgeRpcError> {
 	let xrp_http_uri = if let Some(value) =
-	sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &XRP_HTTP_URI)
+		sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &XRP_HTTP_URI)
 	{
 		value
 	} else {
@@ -85,7 +85,7 @@ pub fn get_xrp_http_uri() -> Result<&'static str, BridgeRpcError> {
 		Ok(uri) => uri,
 		Err(_) => return Err(BridgeRpcError::OcwConfig),
 	};
-	let xrp_http_uri =
-		core::str::from_utf8(get_static_str_ref!(xrp_http_uri).as_ref()).map_err(|_| BridgeRpcError::OcwConfig)?;
+	let xrp_http_uri = core::str::from_utf8(get_static_str_ref!(xrp_http_uri).as_ref())
+		.map_err(|_| BridgeRpcError::OcwConfig)?;
 	Ok(xrp_http_uri)
 }

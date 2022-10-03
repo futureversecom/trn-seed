@@ -15,26 +15,28 @@ mod xrpl_impls;
 mod xrpl_types;
 
 use crate::xrpl_types::{
-	ChainCallId, CheckedChainCallRequest, CheckedChainCallResult, EventClaimResult, EventProofInfo,
-	NotarizationPayload, BridgeXrplWebsocketApi, EventClaim,
+	BridgeXrplWebsocketApi, ChainCallId, CheckedChainCallRequest, CheckedChainCallResult,
+	EventClaim, EventClaimResult, EventProofInfo, NotarizationPayload,
 };
-use frame_support::{pallet_prelude::*, traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT}, PalletId};
-use frame_system::{
+use frame_support::{
 	pallet_prelude::*,
-	offchain::CreateSignedTransaction,
+	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
+	PalletId,
 };
+use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
 use hex_literal::hex;
 pub use pallet::*;
 use pallet_xrpl_bridge::XrplBridgeCall;
 use seed_pallet_common::{log, FinalSessionTracker as FinalSessionTrackerT};
-use seed_primitives::validator::{
-	EventClaimId, EventProofId, ValidatorSet,
+use seed_primitives::{
+	ethy::EthyChainId,
+	validator::{EventClaimId, EventProofId, ValidatorSet},
 };
 use sp_core::H160;
-use sp_runtime::{BoundToRuntimeAppPublic, Percent, RuntimeAppPublic, SaturatedConversion};
-use seed_primitives::ethy::EthyChainId;
+use sp_runtime::{
+	traits::Saturating, BoundToRuntimeAppPublic, Percent, RuntimeAppPublic, SaturatedConversion,
+};
 use sp_std::vec::Vec;
-use sp_runtime::traits::Saturating;
 use std::collections::BTreeMap;
 
 pub type ValidatorIdOf<T> = <T as Config>::ValidatorId;
@@ -178,8 +180,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn pending_event_claims)]
 	/// Queued event claims, can be challenged within challenge period
-	pub type PendingEventClaims<T: Config> =
-		StorageMap<_, Twox64Concat, EventClaimId, EventClaim>;
+	pub type PendingEventClaims<T: Config> = StorageMap<_, Twox64Concat, EventClaimId, EventClaim>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn event_notarizations)]
@@ -249,7 +250,8 @@ pub mod pallet {
 		/// The bridge is paused pending validator set changes (once every era / 24 hours)
 		/// It will reactive after ~10 minutes
 		BridgePaused,
-		/// Error returned when making unsigned transactions with signed payloads in off-chain worker
+		/// Error returned when making unsigned transactions with signed payloads in off-chain
+		/// worker
 		OffchainUnsignedTxSignedPayload,
 		/// Claim was invalid e.g. not properly ABI encoded
 		InvalidClaim,
@@ -432,19 +434,22 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	type Key = T::ValidatorId;
 
 	fn on_genesis_session<'a, I: 'a>(validators: I)
-		where
-			I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
+	where
+		I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
 	{
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
 		if !keys.is_empty() {
-			assert!(NotaryKeys::<T>::decode_len().is_none(), "ValidatorList are already initialized!");
+			assert!(
+				NotaryKeys::<T>::decode_len().is_none(),
+				"ValidatorList are already initialized!"
+			);
 			Self::update_validators(keys);
 		}
 	}
 
 	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)
-		where
-			I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
+	where
+		I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
 	{
 		if T::FinalSessionTracker::is_active_session_final() {
 			// Store the keys for usage next session

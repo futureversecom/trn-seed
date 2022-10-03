@@ -15,7 +15,7 @@
 use crate::Balance;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_core::{H160, H256, H512, RuntimeDebug};
+use sp_core::{RuntimeDebug, H160, H256, H512};
 /// An index to a block.
 pub type LedgerIndex = u64;
 
