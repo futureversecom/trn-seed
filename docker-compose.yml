@@ -1,17 +1,17 @@
 # two node local network (alice + bob validators)
 version: '3'
 services:
-  validator-0:
-    image: ghcr.io/futureversecom/seed:latest
+  fullnode-0:
+    image: ghcr.io/futureversecom/seed:0.0.8
     volumes:
     - ./data/validator-0:/mnt/data
     - ./chain-spec:/mnt/chain-spec/:ro
     command:
-      - --alice
-      - --validator
-      - --chain=dev
+      - -l=ethy=trace
+      - --bootnodes=/dns4/bootnode-0.cicd.rootnet.app/tcp/30333/p2p/12D3KooWApbepSHWhDzqz9GWFXzKWiWQmkhAVUdW9KBG5K8vNWxJ
+      - --chain=/mnt/chain-spec/porcini.json
       - --base-path=/mnt/data
-      - --name=validator-0
+      - --name=fullnode-0
       - --unsafe-ws-external
       - --unsafe-rpc-external
       - --rpc-cors=all
@@ -19,14 +19,32 @@ services:
       - "9933:9933"
       - "9944:9944"
       - "30333:30333"
-  validator-1:
-    image: ghcr.io/futureversecom/seed:latest
-    volumes:
-    - ./data/validator-1:/mnt/data
-    - ./chain-spec:/mnt/chain-spec/:ro
-    command:
-      - --bob
-      - --validator
-      - --chain=dev
-      - --base-path=/mnt/data
-      - --name=validator-1
+  # validator-0:
+  #   image: ghcr.io/futureversecom/seed:latest
+  #   volumes:
+  #   - ./data/validator-0:/mnt/data
+  #   - ./chain-spec:/mnt/chain-spec/:ro
+  #   command:
+  #     - --alice
+  #     - --validator
+  #     - --chain=dev
+  #     - --base-path=/mnt/data
+  #     - --name=validator-0
+  #     - --unsafe-ws-external
+  #     - --unsafe-rpc-external
+  #     - --rpc-cors=all
+  #   ports:
+  #     - "9933:9933"
+  #     - "9944:9944"
+  #     - "30333:30333"
+  # validator-1:
+  #   image: ghcr.io/futureversecom/seed:latest
+  #   volumes:
+  #   - ./data/validator-1:/mnt/data
+  #   - ./chain-spec:/mnt/chain-spec/:ro
+  #   command:
+  #     - --bob
+  #     - --validator
+  #     - --chain=dev
+  #     - --base-path=/mnt/data
+  #     - --name=validator-1

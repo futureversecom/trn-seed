@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use log::{trace, warn};
+use log::{debug, trace, warn};
 use std::collections::HashMap;
 
 use seed_primitives::ethy::{
@@ -23,6 +23,15 @@ use seed_primitives::ethy::{
 };
 
 use crate::types::EventMetadata;
+
+/// Status after processing a witness
+#[derive(PartialEq, Debug)]
+pub enum WitnessStatus {
+	/// The witness digest needs verifying
+	DigestUnverified,
+	/// Its all ok
+	Verified,
+}
 
 #[derive(PartialEq, Debug)]
 pub enum WitnessError {
@@ -48,8 +57,10 @@ pub struct WitnessRecord {
 	/// The ECDSA public (session) keys of active validators ORDERED! (managed by pallet-session &
 	/// pallet-ethy)
 	validators: Vec<AuthorityId>,
-	/// The record of witnesses `event_id -> [(validator index, validator signature)]`
+	/// The record of confirmed witnesses `event_id -> [(validator index, validator signature)]`
 	witnesses: HashMap<EventProofId, Vec<(AuthorityIndex, Signature)>>,
+	/// The record of witnesses `event_id -> [(validator index, validator signature)]`
+	unverified_witnesses: HashMap<EventProofId, Vec<Witness>>,
 	/// completed events
 	completed_events: Vec<EventProofId>,
 }
@@ -64,6 +75,7 @@ impl WitnessRecord {
 		self.witnesses.remove(&event_id);
 		self.event_meta.remove(&event_id);
 		self.has_witnessed.remove(&event_id);
+		self.unverified_witnesses.remove(&event_id);
 
 		if let Err(idx) = self.completed_events.binary_search(&event_id) {
 			self.completed_events.insert(idx, event_id);
@@ -90,7 +102,20 @@ impl WitnessRecord {
 	pub fn event_metadata(&self, event_id: EventProofId) -> Option<&EventMetadata> {
 		self.event_meta.get(&event_id)
 	}
+	/// Process any unverified witnesses for `event_id`
+	/// Unverified witnesses can exist if metadata for an event was unknown locally when the
+	/// witnesses were originally received by the network
+	pub fn process_unverified_witnesses(&mut self, event_id: EventProofId) {
+		if let Some(unverified) = self.unverified_witnesses.remove(&event_id) {
+			for w in unverified {
+				if let Err(err) = self.note_event_witness(&w) {
+					warn!(target: "ethy", "💎 failed to note (unverified) witness: {:?}, {:?}", w, err);
+				}
+			}
+		}
+	}
 	/// Note event metadata
+	/// This must exist in order to locally verify witnesses
 	pub fn note_event_metadata(
 		&mut self,
 		event_id: EventProofId,
@@ -104,7 +129,7 @@ impl WitnessRecord {
 	}
 	/// Note a witness if we haven't seen it before
 	/// Returns true if the witness was noted, i.e previously unseen
-	pub fn note_event_witness(&mut self, witness: &Witness) -> Result<(), WitnessError> {
+	pub fn note_event_witness(&mut self, witness: &Witness) -> Result<WitnessStatus, WitnessError> {
 		// Is the witness for a completed event?
 		if let Some(completed_watermark) = self.completed_events.first() {
 			if witness.event_id <= *completed_watermark {
@@ -115,20 +140,31 @@ impl WitnessRecord {
 		if self
 			.has_witnessed
 			.get(&witness.event_id)
-			.map(|votes| votes.binary_search(&witness.authority_id).is_ok())
+			.map(|seen| seen.binary_search(&witness.authority_id).is_ok())
 			.unwrap_or_default()
 		{
 			trace!(target: "ethy", "💎 witness previously seen: {:?}", witness.event_id);
 			return Err(WitnessError::DuplicateWitness)
 		}
 
+		// witness metadata may not be available at this point
+		// if so we can't fully verify `witness` is for the correct `digest` yet (i.e. validator
+		// didn't sign a different message) store `witness` as unconfirmed for verification later
 		if let Some(metadata) = self.event_metadata(witness.event_id) {
-			// Witnesses for XRPL are special cases and have unique digests
+			// Witnesses for XRPL are special cases and have unique digests per authority
 			if metadata.digest != witness.digest && witness.chain_id != EthyChainId::Xrpl {
 				warn!(target: "ethy", "💎 witness has bad digest: {:?} from {:?}", witness.event_id, witness.authority_id);
 				return Err(WitnessError::MismatchedDigest)
 			}
-		}
+		} else {
+			// store witness for re-verification later
+			debug!(target: "ethy", "💎 witness recorded (digest unverified): {:?}, {:?}", witness.event_id, witness.authority_id);
+			self.unverified_witnesses
+				.entry(witness.event_id)
+				.and_modify(|witnesses| witnesses.push(witness.clone()))
+				.or_insert_with(|| vec![witness.clone()]);
+			return Ok(WitnessStatus::DigestUnverified);
+		};
 
 		// Convert authority ECDSA public key into ordered index
 		// this is useful to efficiently generate the full proof later
@@ -153,24 +189,23 @@ impl WitnessRecord {
 				}
 			})
 			.or_insert_with(|| vec![(authority_index, witness.signature.clone())]);
-
 		trace!(target: "ethy", "💎 witness recorded: {:?}, {:?}", witness.event_id, witness.authority_id);
 
 		// Mark authority as voted
 		match self.has_witnessed.get_mut(&witness.event_id) {
 			None => {
-				// first vote for this event_id we've seen
+				// first vote for this event id we've seen
 				self.has_witnessed.insert(witness.event_id, vec![witness.authority_id.clone()]);
 			},
-			Some(votes) => {
-				// subsequent vote for a known event_id
-				if let Err(idx) = votes.binary_search(&witness.authority_id) {
-					votes.insert(idx, witness.authority_id.clone());
+			Some(seen) => {
+				// subsequent witness for a known event id
+				if let Err(idx) = seen.binary_search(&witness.authority_id) {
+					seen.insert(idx, witness.authority_id.clone());
 				}
 			},
 		}
 
-		Ok(())
+		Ok(WitnessStatus::Verified)
 	}
 }
 
@@ -200,7 +235,7 @@ mod test {
 
 	use seed_primitives::ethy::{crypto::AuthorityPair, AuthorityIndex, EthyChainId, Witness};
 
-	use super::{compact_sequence, Signature, WitnessError, WitnessRecord};
+	use super::{compact_sequence, Signature, WitnessError, WitnessRecord, WitnessStatus};
 
 	fn dev_signers() -> Vec<AuthorityPair> {
 		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
@@ -220,6 +255,13 @@ mod test {
 
 		let event_id = 5_u64;
 		let digest = [1_u8; 32];
+		witness_record.note_event_metadata(
+			event_id,
+			digest,
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
+
 		// note signatures in reverse order
 		for validator_key in validator_keys.iter().rev() {
 			assert!(witness_record
@@ -255,30 +297,37 @@ mod test {
 		};
 
 		let digest = [1_u8; 32];
+		let event_id = 5_u64;
 		let alice_validator = &validator_keys[0];
+		witness_record.note_event_metadata(
+			event_id,
+			digest,
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
 		let witness = &Witness {
 			digest,
 			chain_id: EthyChainId::Ethereum,
-			event_id: 5_u64,
+			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
 			signature: alice_validator.sign(&digest),
 		};
 
-		assert!(witness_record.note_event_witness(witness).is_ok());
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		assert_eq!(witness_record.note_event_witness(witness), Err(WitnessError::DuplicateWitness));
 
 		let bob_validator = &validator_keys[1];
 		let witness = &Witness {
 			digest,
 			chain_id: EthyChainId::Ethereum,
-			event_id: 5_u64,
+			event_id,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
 			signature: bob_validator.sign(&digest),
 		};
 
-		assert!(witness_record.note_event_witness(witness).is_ok());
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		assert_eq!(witness_record.note_event_witness(witness), Err(WitnessError::DuplicateWitness));
 	}
 
@@ -339,21 +388,29 @@ mod test {
 			Default::default(),
 			EthyChainId::Ethereum,
 		);
-		assert_eq!(witness_record.note_event_witness(witness), Ok(()));
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 	}
 
 	#[test]
 	fn note_event_witness_unknown_authority() {
 		let dave_pair = AuthorityPair::from_string("//Dave", None).unwrap();
 		let mut witness_record = WitnessRecord::default();
+		let digest = [1_u8; 32];
+		let event_id = 5_u64;
 		let witness = &Witness {
-			digest: [1_u8; 32],
+			digest,
 			chain_id: EthyChainId::Ethereum,
-			event_id: 5_u64,
+			event_id,
 			validator_set_id: 5_u64,
 			authority_id: dave_pair.public(),
 			signature: dave_pair.sign(&[1u8; 32]),
 		};
+		witness_record.note_event_metadata(
+			event_id,
+			digest,
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
 		assert_eq!(witness_record.note_event_witness(witness), Err(WitnessError::UnknownAuthority));
 	}
 
@@ -436,6 +493,17 @@ mod test {
 		};
 
 		assert!(witness_record.note_event_witness(witness).is_ok());
+		// unverified
+		assert!(!witness_record.has_consensus(event_id, 2));
+
+		witness_record.note_event_metadata(
+			event_id,
+			digest,
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
+		witness_record.process_unverified_witnesses(event_id);
+
 		assert!(witness_record.has_consensus(event_id, 2));
 	}
 
