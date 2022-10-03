@@ -33,6 +33,19 @@ macro_rules! log {
 	};
 }
 
+
+/// Convert a str to static native string
+#[macro_export]
+macro_rules! get_static_str_ref {
+	($var2:expr) => {
+		{
+			let var1 = String::from($var2);
+			let var: &'static str = Box::leak(var1.into_boxed_str());
+			var
+		}
+	};
+}
+
 /// Extended transfer functionality for assets
 pub trait TransferExt: Transfer<Self::AccountId> {
 	/// The ID type for an account in the system

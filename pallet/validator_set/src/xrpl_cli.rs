@@ -14,14 +14,9 @@
  */
 use async_trait::async_trait;
 use sp_runtime::offchain::StorageKind;
-#[cfg(not(feature = "std"))]
-use sp_std::alloc::string::ToString;
 use sp_std::prelude::*;
-#[cfg(std)]
-use std::string::ToString;
 use xrpl::{
-	models::{Model, RequestMethod, TransactionEntry, Tx},
-	serde_json::Value::String,
+	models::{Model, RequestMethod, TransactionEntry},
 	tokio::AsyncWebsocketClient,
 };
 
@@ -31,7 +26,7 @@ use crate::{
 };
 use futures::StreamExt;
 use tokio::spawn;
-use seed_pallet_common::log;
+use seed_pallet_common::{get_static_str_ref, log};
 use seed_primitives::XRP_HTTP_URI;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -44,17 +39,7 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 		ledger_index: Option<u32>,
 		call_id: ChainCallId,
 	) -> Result<(), BridgeRpcError> {
-		let xrp_http_uri = if let Some(value) =
-			sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &XRP_HTTP_URI)
-		{
-			value
-		} else {
-			log!(error, "💎 Xrp http uri is not configured! set --eth-http=<value> on start up");
-			return Err(BridgeRpcError::OcwConfig)
-		};
-		let xrp_http_uri =
-			core::str::from_utf8(&xrp_http_uri).map_err(|_| BridgeRpcError::OcwConfig)?;
-
+		let xrp_http_uri = get_xrp_http_uri()?;
 		let client = AsyncWebsocketClient { url: xrp_http_uri };
 		let (mut ws_stream, (sender, mut receiver)) = client.open().await.unwrap();
 
@@ -66,14 +51,12 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 			}
 		});
 		let ledger_index = match ledger_index {
-			Some(li) => Some(li.to_string().as_str()),
+			Some(li) => Some(get_static_str_ref!(li.to_string())),
 			None => None,
 		};
-		let tx_hash1 = tx_hash.clone().to_string();
-		let call_id1 = call_id.clone().to_string();
 		let request = TransactionEntry {
-			tx_hash: &tx_hash1,
-			id: Option::from(call_id1.as_str()),
+			tx_hash: get_static_str_ref!(tx_hash.to_string()),
+			id: Option::from(get_static_str_ref!(call_id.to_string())),
 			ledger_hash: None,
 			ledger_index,
 			command: RequestMethod::AccountChannels,
@@ -87,4 +70,22 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 		}
 		Ok(().into())
 	}
+}
+
+pub fn get_xrp_http_uri() -> Result<&'static str, BridgeRpcError> {
+	let xrp_http_uri = if let Some(value) =
+	sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &XRP_HTTP_URI)
+	{
+		value
+	} else {
+		log!(error, "💎 Xrp http uri is not configured! set --eth-http=<value> on start up");
+		return Err(BridgeRpcError::OcwConfig)
+	};
+	let xrp_http_uri = match String::from_utf8(xrp_http_uri) {
+		Ok(uri) => uri,
+		Err(_) => return Err(BridgeRpcError::OcwConfig),
+	};
+	let xrp_http_uri =
+		core::str::from_utf8(get_static_str_ref!(xrp_http_uri).as_ref()).map_err(|_| BridgeRpcError::OcwConfig)?;
+	Ok(xrp_http_uri)
 }

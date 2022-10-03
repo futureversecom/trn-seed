@@ -15,16 +15,10 @@
 
 use async_trait::async_trait;
 use codec::{Decode, Encode};
-use core::fmt;
-use rustc_hex::ToHex;
 use scale_info::TypeInfo;
 use seed_primitives::{
 	validator::{EventClaimId, EventProofId, ValidatorSetId},
 	xrpl::{LedgerIndex, XrpTransaction},
-};
-use serde::{
-	de::{Error, Visitor},
-	Deserialize, Deserializer, Serialize, Serializer,
 };
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;

@@ -1,12 +1,10 @@
 use codec::Encode;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{ValidatorSet as ValidatorSetT},
 };
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
-	generic::DigestItem,
-	traits::{AccountIdConversion, SaturatedConversion},
 	transaction_validity::{
 		InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction,
 	},
@@ -16,9 +14,8 @@ use sp_std::prelude::*;
 
 use seed_pallet_common::{
 	log,
-	FinalSessionTracker as FinalSessionTrackerT,
 };
-use seed_primitives::validator::{EventClaimId, EventProofId};
+use seed_primitives::validator::{EventClaimId};
 
 use crate::{xrpl_types::*, *};
 

@@ -28,13 +28,12 @@ pub use pallet::*;
 use pallet_xrpl_bridge::XrplBridgeCall;
 use seed_pallet_common::{log, FinalSessionTracker as FinalSessionTrackerT};
 use seed_primitives::validator::{
-	ConsensusLog, EventClaimId, EventProofId, PendingAuthorityChange, ValidatorSet,
+	EventClaimId, EventProofId, ValidatorSet,
 };
 use sp_core::H160;
-use sp_runtime::{traits::AccountIdConversion, BoundToRuntimeAppPublic, DigestItem, Percent, RuntimeAppPublic, SaturatedConversion};
+use sp_runtime::{BoundToRuntimeAppPublic, Percent, RuntimeAppPublic, SaturatedConversion};
 use seed_primitives::ethy::EthyChainId;
-use sp_std::{vec::Vec, prelude::*};
-use xrpl::core::types::AccountId;
+use sp_std::vec::Vec;
 use sp_runtime::traits::Saturating;
 use std::collections::BTreeMap;
 
@@ -155,7 +154,7 @@ pub mod pallet {
 	pub type ChainCallRequests<T: Config> = StorageValue<_, Vec<ChainCallId>, ValueQuery>;
 
 	#[pallet::type_value]
-	pub fn default_next_chain_call_id() -> u64 {
+	pub fn DefaultNextChainCallId() -> u64 {
 		0_u64
 	}
 
@@ -163,7 +162,7 @@ pub mod pallet {
 	#[pallet::getter(fn next_chain_call_id)]
 	/// Subscription Id for Call requests
 	pub type NextChainCallId<T: Config> =
-		StorageValue<_, ChainCallId, ValueQuery, default_next_chain_call_id>;
+		StorageValue<_, ChainCallId, ValueQuery, DefaultNextChainCallId>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn event_deadline_seconds)]
