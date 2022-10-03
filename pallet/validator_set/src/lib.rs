@@ -16,10 +16,13 @@ mod xrpl_types;
 
 use crate::xrpl_types::{
 	ChainCallId, CheckedChainCallRequest, CheckedChainCallResult, EventClaimResult, EventProofInfo,
-	NotarizationPayload,
+	NotarizationPayload, BridgeXrplWebsocketApi, EventClaim,
 };
-use frame_support::{pallet_prelude::*, traits::OneSessionHandler, PalletId};
-use frame_system::pallet_prelude::*;
+use frame_support::{pallet_prelude::*, traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT}, PalletId};
+use frame_system::{
+	pallet_prelude::*,
+	offchain::CreateSignedTransaction,
+};
 use hex_literal::hex;
 pub use pallet::*;
 use pallet_xrpl_bridge::XrplBridgeCall;
@@ -28,10 +31,12 @@ use seed_primitives::validator::{
 	ConsensusLog, EventClaimId, EventProofId, PendingAuthorityChange, ValidatorSet,
 };
 use sp_core::H160;
-use sp_runtime::{
-	traits::AccountIdConversion, BoundToRuntimeAppPublic, DigestItem, Percent, RuntimeAppPublic,
-};
-use sp_std::vec::Vec;
+use sp_runtime::{traits::AccountIdConversion, BoundToRuntimeAppPublic, DigestItem, Percent, RuntimeAppPublic, SaturatedConversion};
+use seed_primitives::ethy::EthyChainId;
+use sp_std::{vec::Vec, prelude::*};
+use xrpl::core::types::AccountId;
+use sp_runtime::traits::Saturating;
+use std::collections::BTreeMap;
 
 pub type ValidatorIdOf<T> = <T as Config>::ValidatorId;
 pub(crate) const LOG_TARGET: &str = "validator_set";
@@ -53,21 +58,17 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::xrpl_types::{BridgeXrplWebsocketApi, EventClaim};
-	use frame_support::traits::UnixTime;
-	use seed_primitives::ethy::EthyChainId;
-	use std::collections::BTreeMap;
-	use xrpl::core::types::AccountId;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
 		/// Allowed origins to add/removw the validator
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
-
+		/// Knows the active authority set (validator stash addresses)
+		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
+		/// To call Xrpl bridge for challenged transactions
 		type XrplBridgeCall: XrplBridgeCall<AccountOf<Self>>;
 		/// The identifier type for an authority in this module (i.e. active validator session key)
 		/// 33 byte ECDSA public key
@@ -81,6 +82,8 @@ pub mod pallet {
 		type FinalSessionTracker: FinalSessionTrackerT;
 		/// The pallet bridge address (destination for incoming messages, source for outgoing)
 		type BridgePalletId: Get<PalletId>;
+		// The duration in blocks of one epoch
+		type EpochDuration: Get<u64>;
 		/// The bridge contract address
 		type BridgeContractAddress: Get<H160>;
 		/// The threshold of notarizations required to approve an event
@@ -99,21 +102,21 @@ pub mod pallet {
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
-	#[pallet::getter(fn validator_list)]
+	#[pallet::getter(fn notary_keys)]
 	/// List of all the validators
-	pub type ValidatorList<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
+	pub type NotaryKeys<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
-	#[pallet::getter(fn next_validator_list)]
+	#[pallet::getter(fn next_notary_keys)]
 	/// Next List of all the validators
-	pub type NextValidatorList<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
+	pub type NextNotaryKeys<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
-	#[pallet::getter(fn validator_list_set_id)]
-	/// Current validators set id
-	pub type ValidatorListSetId<T: Config> = StorageValue<_, u64, ValueQuery>;
+	#[pallet::getter(fn next_authority_change)]
+	/// The block in which we process the next authority change
+	pub type NextAuthorityChange<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn bridge_paused)]
@@ -139,7 +142,7 @@ pub mod pallet {
 	#[pallet::getter(fn pending_event_proofs)]
 	/// Queued event proofs to be processed once bridge has been re-enabled
 	pub type PendingEventProofs<T: Config> =
-		StorageMap<_, Blake2_128Concat, EventProofId, EventProofInfo>;
+		StorageMap<_, Twox64Concat, EventProofId, EventProofInfo>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn pending_claim_challenges)]
@@ -171,13 +174,13 @@ pub mod pallet {
 	#[pallet::getter(fn chain_call_request_info)]
 	/// Queue of pending Chain CallOracle requests
 	pub type ChainCallRequestInfo<T: Config> =
-		StorageMap<_, Blake2_128Concat, ChainCallId, CheckedChainCallRequest>;
+		StorageMap<_, Twox64Concat, ChainCallId, CheckedChainCallRequest>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn pending_event_claims)]
 	/// Queued event claims, can be challenged within challenge period
 	pub type PendingEventClaims<T: Config> =
-		StorageMap<_, Blake2_128Concat, EventClaimId, EventClaim>;
+		StorageMap<_, Twox64Concat, EventClaimId, EventClaim>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn event_notarizations)]
@@ -185,9 +188,9 @@ pub mod pallet {
 	/// Either: None = no notarization exists OR Some(yay/nay)
 	pub type EventNotarizations<T: Config> = StorageDoubleMap<
 		_,
-		Blake2_128Concat,
+		Twox64Concat,
 		EventClaimId,
-		Blake2_128Concat,
+		Twox64Concat,
 		T::ValidatorId,
 		EventClaimResult,
 	>;
@@ -197,9 +200,9 @@ pub mod pallet {
 	/// Chain CallOracle notarizations keyed by (Id, Notary)
 	pub type ChainCallNotarizations<T: Config> = StorageDoubleMap<
 		_,
-		Blake2_128Concat,
+		Twox64Concat,
 		ChainCallId,
-		Blake2_128Concat,
+		Twox64Concat,
 		T::ValidatorId,
 		CheckedChainCallResult,
 	>;
@@ -208,13 +211,13 @@ pub mod pallet {
 	#[pallet::getter(fn chain_call_notarizations_aggregated)]
 	/// map from Chain CallOracle notarizations to an aggregated count
 	pub type ChainCallNotarizationsAggregated<T: Config> =
-		StorageMap<_, Blake2_128Concat, ChainCallId, BTreeMap<CheckedChainCallResult, u32>>;
+		StorageMap<_, Twox64Concat, ChainCallId, BTreeMap<CheckedChainCallResult, u32>>;
 
 	// The pallet's runtime storage items.
 	#[pallet::storage]
 	#[pallet::getter(fn white_list_validators)]
 	/// List of all the white list validators
-	pub type WhiteListValidators<T: Config> = StorageMap<_, Blake2_128Concat, T::ValidatorId, bool>;
+	pub type WhiteListValidators<T: Config> = StorageMap<_, Twox64Concat, T::ValidatorId, bool>;
 
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/v3/runtime/events-and-errors
@@ -247,13 +250,21 @@ pub mod pallet {
 		/// The bridge is paused pending validator set changes (once every era / 24 hours)
 		/// It will reactive after ~10 minutes
 		BridgePaused,
+		/// Error returned when making unsigned transactions with signed payloads in off-chain worker
+		OffchainUnsignedTxSignedPayload,
+		/// Claim was invalid e.g. not properly ABI encoded
+		InvalidClaim,
+		/// A notarization was invalid
+		InvalidNotarization,
+		/// Some internal operation failed
+		Internal,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
 		fn offchain_worker(block_number: T::BlockNumber) {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
-			log!(trace, "💎 active notaries: {:?}", Self::validator_list());
+			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
 
 			// this passes if flag `--validator` set, not necessarily in the active set
 			if !sp_io::offchain::is_validator() {
@@ -264,7 +275,7 @@ pub mod pallet {
 			// check a local key exists for a valid bridge notary
 			if let Some((active_key, authority_index)) = Self::find_active_validator_key() {
 				// check enough validators have active notary keys
-				let supports = ValidatorList::<T>::decode_len().unwrap_or(0);
+				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
 				let needed = T::NotarizationThreshold::get();
 				// TODO: check every session change not block
 				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
@@ -363,8 +374,8 @@ pub mod pallet {
 			// we don't need to verify the signature here because it has been verified in
 			// `validate_unsigned` function when sending out the unsigned tx.
 			let authority_index = payload.authority_index() as usize;
-			let validator_list = Self::validator_list();
-			let notary_public_key = match validator_list.get(authority_index) {
+			let notary_keys = Self::notary_keys();
+			let notary_public_key = match notary_keys.get(authority_index) {
 				Some(id) => id,
 				None => return Err(Error::<T>::InvalidNotarization.into()),
 			};
@@ -372,7 +383,7 @@ pub mod pallet {
 			match payload {
 				NotarizationPayload::Call { call_id, result, .. } =>
 					Self::handle_call_notarization(call_id, result, notary_public_key),
-				_ => {},
+				_ => Ok(()),
 			}
 		}
 	}
@@ -400,76 +411,7 @@ impl<T: Config> Pallet<T> {
 				validators.push(validator);
 			}
 		}
-		<ValidatorList<T>>::put(validators);
-	}
-
-	/// Handle changes to the authority set
-	/// This could be called when validators rotate their keys, we don't want to
-	/// change this until the era has changed to avoid generating proofs for small set changes or
-	/// too frequently
-	/// - `new`: The validator set that is active right now
-	/// - `queued`: The validator set that will activate next session
-	pub(crate) fn handle_authorities_change(new: Vec<T::ValidatorId>, queued: Vec<T::ValidatorId>) {
-		// ### Session life cycle
-		// block on_initialize if ShouldEndSession(n)
-		//  rotate_session
-		//    before_end_session
-		//    end_session (end just been)
-		//    start_session (start now)
-		//    new_session (start now + 1)
-		//   -> on_new_session <- this function is CALLED here
-
-		let log_notary_change = |next_keys: &[T::ValidatorId]| {
-			// Store the keys for usage next session
-			<NextValidatorList<T>>::put(next_keys);
-			// Signal the Event Id that will be used for the proof of validator set change.
-			// Any observer can subscribe to this event and submit the resulting proof to keep the
-			// validator set on the bridge contract updated.
-			let event_proof_id = <NextEventProofId<T>>::get();
-			let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
-			Self::deposit_event(Event::<T>::AuthoritySetChange(
-				event_proof_id,
-				next_validator_set_id,
-			));
-			<NotarySetProofId<T>>::put(event_proof_id);
-			<NextEventProofId<T>>::put(event_proof_id.wrapping_add(1));
-			let log: DigestItem = DigestItem::Consensus(
-				ENGINE_ID,
-				ConsensusLog::PendingAuthoritiesChange(PendingAuthorityChange {
-					source: T::BridgePalletId::get().into_account_truncating(),
-					destination: T::BridgeContractAddress::get().into(),
-					next_validator_set: ValidatorSet {
-						validators: next_keys.to_vec(),
-						id: next_validator_set_id,
-						proof_threshold: T::NotarizationThreshold::get()
-							.mul_ceil(next_keys.len() as u32),
-					},
-					event_proof_id,
-				})
-				.encode(),
-			);
-			<frame_system::Pallet<T>>::deposit_log(log);
-		};
-
-		// signal 1 session early about the `queued` validator set change for the next era so
-		// there's time to generate a proof
-		if T::FinalSessionTracker::is_next_session_final() {
-			log!(trace, "💎 next session final");
-			log_notary_change(queued.as_ref());
-		} else if T::FinalSessionTracker::is_active_session_final() {
-			// Pause bridge claim/proofs
-			// Prevents claims/proofs being partially processed and failing if the validator set
-			// changes significantly
-			// Note: the bridge will be reactivated at the end of the session
-			log!(trace, "💎 active session final");
-			<BridgePaused<T>>::put(true);
-
-			if Self::next_validator_list().is_empty() {
-				// if we're here the era was forced, we need to generate a proof asap
-				log!(warn, "💎 urgent notary key rotation");
-				log_notary_change(new.as_ref());
-			}
-		}
+		<NotaryKeys<T>>::put(validators);
 	}
 }
 
@@ -491,32 +433,32 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	type Key = T::ValidatorId;
 
 	fn on_genesis_session<'a, I: 'a>(validators: I)
-	where
-		I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
+		where
+			I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
 	{
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
 		if !keys.is_empty() {
-			assert!(
-				ValidatorList::<T>::decode_len().is_none(),
-				"Validator List is already initialized!"
-			);
+			assert!(NotaryKeys::<T>::decode_len().is_none(), "ValidatorList are already initialized!");
 			Self::update_validators(keys);
 		}
 	}
 
-	fn on_new_session<'a, I: 'a>(_changed: bool, validators: I, queued_validators: I)
-	where
-		I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
+	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)
+		where
+			I: Iterator<Item = (&'a T::AccountId, T::ValidatorId)>,
 	{
-		// Only run change process at the end of an era
-		if T::FinalSessionTracker::is_next_session_final() ||
-			T::FinalSessionTracker::is_active_session_final()
-		{
-			// Record authorities for the new session.
-			let next_authorities = validators.map(|(_, k)| k).collect::<Vec<_>>();
+		if T::FinalSessionTracker::is_active_session_final() {
+			// Store the keys for usage next session
 			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+			<NextNotaryKeys<T>>::put(next_queued_authorities);
 
-			Self::handle_authorities_change(next_authorities, next_queued_authorities);
+			// Next authority change is 5 minutes before this session ends
+			// (Just before the start of the next epoch)
+			// next_block = current_block + epoch_duration - 75 (5 minutes in blocks)
+			let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
+			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
+				.saturating_add(epoch_duration.saturating_sub(75_u32).into());
+			<NextAuthorityChange<T>>::put(next_block);
 		}
 	}
 
@@ -532,13 +474,11 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			// validator set
 			<BridgePaused<T>>::kill();
 			// Time to update the bridge validator keys.
-			let next_notary_keys = NextValidatorList::<T>::take();
+			let next_notary_keys = NextNotaryKeys::<T>::take();
 			// Store the new keys and increment the validator set id
 			// Next notary keys should be unset, until populated by new session logic
 			Self::update_validators(next_notary_keys);
-			<ValidatorListSetId<T>>::mutate(|next_set_id| {
-				*next_set_id = next_set_id.wrapping_add(1)
-			});
+			<NotarySetId<T>>::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
 		}
 	}
 

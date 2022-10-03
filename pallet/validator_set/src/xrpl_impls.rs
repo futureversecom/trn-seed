@@ -39,7 +39,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut maybe_active_key: Option<(T::ValidatorId, usize)> = None;
 		for key in local_keys {
-			if let Some(active_key_index) = Self::validator_list().iter().position(|k| k == &key) {
+			if let Some(active_key_index) = Self::notary_keys().iter().position(|k| k == &key) {
 				maybe_active_key = Some((key, active_key_index));
 				break
 			}
@@ -144,7 +144,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Return the active Ethy validator set.
 	pub fn validator_set() -> ValidatorSet<T::ValidatorId> {
-		let validator_keys = Self::validator_list();
+		let validator_keys = Self::notary_keys();
 		ValidatorSet::<T::ValidatorId> {
 			proof_threshold: T::NotarizationThreshold::get().mul_ceil(validator_keys.len() as u32),
 			validators: validator_keys,
@@ -158,7 +158,7 @@ impl<T: Config> Pallet<T> {
 		result: CheckedChainCallResult,
 		notary_id: &T::ValidatorId,
 	) -> DispatchResult {
-		if !ChainCallRequestInfo::contains_key(call_id) {
+		if !<ChainCallRequestInfo<T>>::contains_key(call_id) {
 			// there's no claim active
 			return Err(Error::<T>::InvalidClaim.into())
 		}
@@ -174,7 +174,7 @@ impl<T: Config> Pallet<T> {
 		let do_callback_and_clean_up = |result: CheckedChainCallResult| {
 			if let Some(cursor) = <ChainCallNotarizations<T>>::clear_prefix(
 				call_id,
-				ValidatorList::<T>::decode_len().unwrap_or(1_000) as u32,
+				NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
 				None,
 			)
 			.maybe_cursor
@@ -182,16 +182,16 @@ impl<T: Config> Pallet<T> {
 				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
 				return Err(Error::<T>::Internal.into())
 			};
-			ChainCallNotarizationsAggregated::remove(call_id);
-			ChainCallRequestInfo::remove(call_id);
-			ChainCallRequests::mutate(|requests| {
+			<ChainCallNotarizationsAggregated<T>>::remove(call_id);
+			<ChainCallRequestInfo<T>>::remove(call_id);
+			<ChainCallRequests<T>>::mutate(|requests| {
 				requests.iter().position(|x| *x == call_id).map(|idx| requests.remove(idx));
 			});
 
 			Ok(())
 		};
 
-		let mut notarizations = ChainCallNotarizationsAggregated::get(call_id).unwrap_or_default();
+		let mut notarizations = <ChainCallNotarizationsAggregated<T>>::get(call_id).unwrap_or_default();
 		// increment notarization count for this result
 		*notarizations.entry(result).or_insert(0) += 1;
 
@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// update counts
-		ChainCallNotarizationsAggregated::insert(call_id, notarizations);
+		<ChainCallNotarizationsAggregated<T>>::insert(call_id, notarizations);
 		Ok(())
 	}
 }
@@ -228,8 +228,8 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 		if let Call::submit_notarization { ref payload, signature: ref signature } = call {
 			// notarization must be from an active notary
-			let validator_list = Self::validator_list();
-			let notary_public_key = match validator_list.get(payload.authority_index() as usize) {
+			let notary_keys = Self::notary_keys();
+			let notary_public_key = match notary_keys.get(payload.authority_index() as usize) {
 				Some(id) => id,
 				None => return InvalidTransaction::BadProof.into(),
 			};

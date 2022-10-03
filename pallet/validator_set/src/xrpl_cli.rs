@@ -19,11 +19,9 @@ use sp_std::alloc::string::ToString;
 use sp_std::prelude::*;
 #[cfg(std)]
 use std::string::ToString;
-use std::thread::spawn;
 use xrpl::{
 	models::{Model, RequestMethod, TransactionEntry, Tx},
 	serde_json::Value::String,
-	tokio,
 	tokio::AsyncWebsocketClient,
 };
 
@@ -32,6 +30,7 @@ use crate::{
 	ChainCallId,
 };
 use futures::StreamExt;
+use tokio::spawn;
 use seed_pallet_common::log;
 use seed_primitives::XRP_HTTP_URI;
 use tokio_tungstenite::tungstenite::Message;
@@ -70,9 +69,11 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 			Some(li) => Some(li.to_string().as_str()),
 			None => None,
 		};
+		let tx_hash1 = tx_hash.clone().to_string();
+		let call_id1 = call_id.clone().to_string();
 		let request = TransactionEntry {
-			tx_hash: &*tx_hash.to_string(),
-			id: Option::from(&*call_id.to_string()),
+			tx_hash: &tx_hash1,
+			id: Option::from(call_id1.as_str()),
 			ledger_hash: None,
 			ledger_index,
 			command: RequestMethod::AccountChannels,

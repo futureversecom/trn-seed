@@ -28,7 +28,7 @@ pub type XrplTxHash = H512;
 /// The type for identifying the XRPL Tx Nonce aka 'Sequence'
 pub type XrplTxNonce = u32;
 
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
@@ -45,7 +45,7 @@ pub struct XrpWithdrawTransaction {
 	pub destination: XrplAddress,
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
