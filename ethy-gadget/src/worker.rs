@@ -30,7 +30,8 @@ use sp_runtime::{
 
 use seed_primitives::ethy::{
 	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof,
-	ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	EventProofId, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
+	GENESIS_AUTHORITY_SET_ID,
 };
 
 use crate::{
@@ -197,8 +198,10 @@ where
 				},
 			};
 
-			// no proof is known for the event yet
 			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
+			// with the event metadata available we may be able to make a proof (provided there's
+			// enough witnesses ready)
+			self.try_make_proof(event_id);
 		}
 	}
 
@@ -292,10 +295,6 @@ where
 	}
 
 	/// Note an individual witness for a message
-	/// If the witness means consensus is reached on a message then;
-	/// 1) Assemble the aggregated witness (proof)
-	/// 2) Add proof to DB
-	/// 3) Notify listeners of the proof
 	fn handle_witness(&mut self, witness: Witness) {
 		// The aggregated signed witness here could be different to another validators.
 		// As long as we have threshold of signatures the proof is valid.
@@ -308,6 +307,32 @@ where
 		}
 
 		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
+		// after processing `witness` there may now be enough info to make a proof
+		self.try_make_proof(witness.event_id);
+	}
+
+	/// Try to make an event proof
+	///
+	/// For a proof to be made successfully requires event metadata has been retrieved from a
+	/// finalized block header and enough valid, corroborating witnesses are known
+	///
+	/// Process of making the proof is:
+	/// 1) Assemble the aggregated witness' (proof)
+	/// 2) Store proof in DB
+	/// 3) Notify listeners of the new proof
+	fn try_make_proof(&mut self, event_id: EventProofId) {
+		{
+			let event_metadata = self.witness_record.event_metadata(event_id);
+			if event_metadata.is_none() {
+				debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
+				return
+			}
+		}
+
+		// process any unverified witnesses, received before event metadata was known
+		self.witness_record.process_unverified_witnesses(event_id);
+		let EventMetadata { chain_id, block_hash, digest } =
+			self.witness_record.event_metadata(event_id).unwrap();
 
 		let proof_threshold = self.validator_set.proof_threshold as usize;
 		if proof_threshold < self.validator_set.validators.len() / 2 {
@@ -316,22 +341,15 @@ where
 			return
 		}
 
-		// TODO: if chain_id is XRPL this must be a majority of the XRPL valiadtors only, not any
+		// TODO: if chain_id is XRPL this must be a majority of the XRPL validators only, not any
 		// majority
-		if self.witness_record.has_consensus(witness.event_id, proof_threshold) {
-			let signatures = self.witness_record.signatures_for(witness.event_id);
-			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", witness.event_id, signatures, self.validator_set.id);
-
-			let maybe_event_metadata = self.witness_record.event_metadata(witness.event_id);
-			if maybe_event_metadata.is_none() {
-				error!(target: "ethy", "💎 missing event metadata: {:?}", witness.event_id);
-				return
-			}
-			let EventMetadata { chain_id, block_hash, .. } = maybe_event_metadata.unwrap();
+		if self.witness_record.has_consensus(event_id, proof_threshold) {
+			let signatures = self.witness_record.signatures_for(event_id);
+			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", event_id, signatures, self.validator_set.id);
 
 			let event_proof = EventProof {
-				digest: witness.digest,
-				event_id: witness.event_id,
+				digest: *digest,
+				event_id,
 				validator_set_id: self.validator_set.id,
 				block: *block_hash,
 				signatures,
@@ -359,10 +377,10 @@ where
 				.notify(|| Ok::<_, ()>(versioned_event_proof))
 				.expect("forwards closure result; the closure always returns Ok; qed.");
 			// Remove from memory
-			self.witness_record.mark_complete(witness.event_id);
-			self.gossip_validator.mark_complete(witness.event_id);
+			self.witness_record.mark_complete(event_id);
+			self.gossip_validator.mark_complete(event_id);
 		} else {
-			trace!(target: "ethy", "💎 no consensus yet for event: {:?}", witness.event_id);
+			trace!(target: "ethy", "💎 no consensus for event: {:?}, can't make proof yet", event_id);
 		}
 	}
 

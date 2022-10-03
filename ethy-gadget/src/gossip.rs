@@ -134,6 +134,9 @@ where
 				return ValidationResult::Discard
 			}
 
+			// verify witness is a valid signature for `digest`, this does NOT guarantee digest is
+			// correct i.e malicious or buggy validators could sign anything as digest this will be
+			// verified later to match the locally extracted digest from finalized block headers
 			if EthyKeystore::verify_prehashed(&authority_id, &signature, &digest) {
 				// Make the vote as seen
 				trace!(target: "ethy", "💎 verify prehashed OK, waiting lock: {:?}, event: {:?}", &authority_id, event_id);

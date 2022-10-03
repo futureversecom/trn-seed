@@ -3,7 +3,7 @@ use sc_service::ChainType;
 use seed_runtime::{
 	constants::{
 		ONE_ROOT, ONE_XRP, ROOT_ASSET_ID, ROOT_DECIMALS, ROOT_MINIMUM_BALANCE, ROOT_NAME,
-		ROOT_SYMBOL, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
+		ROOT_SYMBOL, XRP_ASSET_ID, XRP_MINIMUM_BALANCE, XRP_NAME,
 	},
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, Forcing, GenesisConfig,
@@ -57,8 +57,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
-	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Seed Dev",
@@ -106,8 +106,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
-	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -164,8 +164,8 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
-	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -235,7 +235,12 @@ fn testnet_genesis(
 			ROOT_SYMBOL.as_bytes().to_vec(),
 			ROOT_DECIMALS,
 		),
-		(XRP_ASSET_ID, XRP_NAME.as_bytes().to_vec(), XRP_SYMBOL.as_bytes().to_vec(), XRP_DECIMALS),
+		(
+			XRP_ASSET_ID,
+			XRP_NAME.as_bytes().to_vec(),
+			ROOT_SYMBOL.as_bytes().to_vec(),
+			ROOT_DECIMALS,
+		),
 	];
 	let assets = vec![
 		(ROOT_ASSET_ID, root_key, true, ROOT_MINIMUM_BALANCE),
@@ -244,8 +249,8 @@ fn testnet_genesis(
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 	for account in accounts_to_fund {
-		endowed_assets.push((ROOT_ASSET_ID, account, 1_000_000 * ONE_ROOT));
-		endowed_balances.push((account, 1_000_000 * ONE_XRP));
+		endowed_assets.push((XRP_ASSET_ID, account, 1_000_000 * ONE_XRP));
+		endowed_balances.push((account, 1_000_000 * ONE_ROOT));
 	}
 	const VALIDATOR_BOND: Balance = 100_000 * ONE_ROOT;
 

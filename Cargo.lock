@@ -5191,6 +5191,7 @@ version = "0.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-assets-ext",
  "pallet-balances",
  "pallet-staking",
  "parity-scale-codec",
@@ -7434,7 +7435,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.5"
+version = "0.0.9"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -7536,6 +7537,7 @@ dependencies = [
 name = "seed-runtime"
 version = "0.1.0"
 dependencies = [
+ "ethereum",
  "fp-rpc",
  "fp-self-contained",
  "frame-election-provider-support",

@@ -29,10 +29,15 @@ use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
 use sp_std::prelude::*;
 
+mod imbalances;
+mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod test;
+
+pub use imbalances::*;
+pub use impls::{AssetCurrency, DualStakingCurrency};
 
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
 /// derivations e.g. `Ord`
@@ -134,6 +139,10 @@ pub mod pallet {
 		},
 		/// New asset has been created
 		CreateAsset { asset_id: AssetId, creator: T::AccountId, initial_balance: Balance },
+		/// Assets were withdrawn from this account by the system e.g. paying tx fees
+		InternalWithdraw { asset_id: AssetId, who: T::AccountId, amount: Balance },
+		/// Assets were deposited into this account by the system e.g. refunding gas
+		InternalDeposit { asset_id: AssetId, who: T::AccountId, amount: Balance },
 	}
 
 	#[pallet::error]
