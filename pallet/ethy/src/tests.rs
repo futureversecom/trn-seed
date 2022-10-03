@@ -490,7 +490,6 @@ fn pre_last_session_change() {
 		System::assert_has_event(
 			Event::<TestRuntime>::EventSend {
 				event_proof_id,
-				chain_id: signing_request.chain_id(),
 				signing_request: signing_request.clone(),
 			}
 			.into(),
@@ -755,7 +754,6 @@ fn xrpl_tx_signing_request() {
 		System::assert_has_event(
 			Event::<TestRuntime>::EventSend {
 				event_proof_id,
-				chain_id: signing_request.chain_id(),
 				signing_request: signing_request.clone(),
 			}
 			.into(),
