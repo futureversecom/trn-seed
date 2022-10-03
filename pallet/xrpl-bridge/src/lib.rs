@@ -43,8 +43,6 @@ use seed_primitives::{
 
 pub use pallet::*;
 
-mod helpers;
-
 #[cfg(test)]
 mod mock;
 #[cfg(test)]

@@ -113,6 +113,7 @@ fn process_transaction_challenge_works() {
 		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address, 1);
 		assert_ok!(XRPLBridge::submit_challenge(
 			Origin::signed(challenger),
+			1_000_000,
 			XrplTxHash::from_slice(transaction_hash),
 		));
 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
