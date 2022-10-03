@@ -34,7 +34,7 @@ macro_rules! log {
 }
 
 
-/// Convert a str to static native string
+/// Convert string to static str
 #[macro_export]
 macro_rules! get_static_str_ref {
 	($var2:expr) => {
