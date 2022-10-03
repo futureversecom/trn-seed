@@ -1,9 +1,9 @@
 use super::*;
-use crate::helpers::crypto::AuthorityId;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
 use sp_core::ByteArray;
 use sp_runtime::traits::BadOrigin;
+use seed_primitives::validator::crypto::AuthorityId;
 
 #[test]
 fn test_approved_origin_enforced() {

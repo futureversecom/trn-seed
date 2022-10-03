@@ -1,5 +1,4 @@
 use crate as pallet_validator_set;
-use crate::helpers::crypto::AuthorityId;
 use frame_support::{
 	parameter_types,
 	traits::{ConstU16, ConstU64},
@@ -14,9 +13,13 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 	Percent,
 };
+use sp_runtime::traits::{IdentifyAccount, Verify};
+use seed_primitives::Signature;
+use seed_primitives::validator::crypto::AuthorityId;
+
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -66,24 +69,39 @@ parameter_types! {
 /// Mock final session tracker
 pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
-	fn is_next_session_final() -> bool {
-		// at block 1, next session is final
-		frame_system::Pallet::<Test>::block_number() == 1
-	}
 	fn is_active_session_final() -> bool {
 		// at block 2, the active session is final
 		frame_system::Pallet::<Test>::block_number() == 2
 	}
 }
 
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+	where
+		Call: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: Call,
+		_public: <Signature as Verify>::Signer,
+		_account: AccountId,
+		nonce: u64,
+	) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
+		Some((call, (nonce, ())))
+	}
+}
+
 impl pallet_validator_set::Config for Test {
 	type Event = Event;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
+	type AuthoritySet = ();
+	type XrplBridgeCall = ();
 	type ValidatorId = AuthorityId;
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type BridgePalletId = BridgePalletId;
+	type EpochDuration = ();
 	type BridgeContractAddress = RemoteChainBridgeContractAddress;
 	type NotarizationThreshold = NotarizationThreshold;
+	type ChainWebsocketClient = ();
+	type UnixTime = ();
 }
 
 // Build genesis storage according to the mock runtime.
