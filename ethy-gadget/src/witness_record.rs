@@ -163,7 +163,7 @@ impl WitnessRecord {
 				.entry(witness.event_id)
 				.and_modify(|witnesses| witnesses.push(witness.clone()))
 				.or_insert_with(|| vec![witness.clone()]);
-			return Ok(WitnessStatus::DigestUnverified);
+			return Ok(WitnessStatus::DigestUnverified)
 		};
 
 		// Convert authority ECDSA public key into ordered index
