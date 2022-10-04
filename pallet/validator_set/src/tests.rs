@@ -1,17 +1,19 @@
 use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
+use seed_primitives::validator::crypto::AuthorityId;
 use sp_core::ByteArray;
 use sp_runtime::traits::BadOrigin;
-use seed_primitives::validator::crypto::AuthorityId;
 
 #[test]
 fn test_approved_origin_enforced() {
 	new_test_ext().execute_with(|| {
 		let account1: AuthorityId = AuthorityId::from_slice(&[1_u8; 33]).unwrap();
+		let account_address = b"6490B68F1116BFE87DDD";
+		let account = AccountId::from(H160::from_slice(account_address));
 		// Should throw error on un_approved origin
 		assert_noop!(
-			DefaultValidatorWhiteList::add_validator(Origin::signed(1), account1.clone()),
+			DefaultValidatorWhiteList::add_validator(Origin::signed(account), account1.clone()),
 			BadOrigin
 		);
 		// Should work with approved origin
