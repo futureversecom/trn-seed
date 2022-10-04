@@ -51,6 +51,8 @@ mod witness_record;
 mod worker;
 
 pub mod notification;
+#[cfg(test)]
+mod tests;
 
 pub use ethy_protocol_name::standard_name as protocol_standard_name;
 pub use keystore::EthyEcdsaToEthereum;

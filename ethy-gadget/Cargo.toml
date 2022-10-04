@@ -35,7 +35,14 @@ seed-primitives = { path = "../primitives" }
 xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", rev = "0.0.8" }
 
 [dev-dependencies]
-sc-network-test = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", version = "0.8.0" }
-substrate-test-runtime-client = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 hex-literal = "*"
+serde = "1.0.136"
 strum = { version = "0.24", features = ["derive"] }
+tempfile = "3.1.0"
+tokio = "1.17.0"
+sc-network-test = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", version = "0.8.0" }
+sc-block-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-finality-grandpa = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-tracing = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+substrate-test-runtime-client = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }

@@ -455,13 +455,83 @@ pub(crate) mod test {
 	use super::*;
 	use substrate_test_runtime_client::runtime::{Block, Digest, DigestItem};
 
-	use crate::testing::Keyring;
+	use crate::{
+		notification::{BeefyBestBlockStream, BeefySignedCommitmentStream},
+		testing::Keyring,
+		tests::{
+			create_beefy_keystore, get_beefy_streams, make_beefy_ids, two_validators::TestApi,
+			BeefyPeer, BeefyTestNet, BEEFY_PROTOCOL_NAME,
+		},
+	};
 	use seed_primitives::ethy::ValidatorSet;
+
+	use futures::{executor::block_on, future::poll_fn, task::Poll};
+
+	use crate::tests::BeefyLinkHalf;
+	use sc_client_api::HeaderBackend;
+	use sc_network::NetworkService;
+	use sc_network_test::{PeersFullClient, TestNetFactory};
+	use sp_api::HeaderT;
+	use substrate_test_runtime_client::{
+		runtime::{Block, Digest, DigestItem, Header, H256},
+		Backend,
+	};
+
+	fn create_beefy_worker(
+		peer: &BeefyPeer,
+		key: &Keyring,
+		min_block_delta: u32,
+	) -> BeefyWorker<Block, Backend, PeersFullClient, TestApi, Arc<NetworkService<Block, H256>>> {
+		let keystore = create_beefy_keystore(*key);
+
+		let (signed_commitment_sender, signed_commitment_stream) =
+			BeefySignedCommitmentStream::<Block>::channel();
+		let beefy_link_half = BeefyLinkHalf { signed_commitment_stream, beefy_best_block_stream };
+		*peer.data.beefy_link_half.lock() = Some(beefy_link_half);
+
+		let api = Arc::new(TestApi {});
+		let network = peer.network_service().clone();
+		let sync_oracle = network.clone();
+		let gossip_validator = Arc::new(crate::gossip::GossipValidator::new());
+		let gossip_engine =
+			GossipEngine::new(network, BEEFY_PROTOCOL_NAME, gossip_validator.clone(), None);
+		// let worker_params = crate::worker::WorkerParams {
+		// 	client: peer.client().as_client(),
+		// 	backend: peer.client().as_backend(),
+		// 	runtime: api,
+		// 	key_store: Some(keystore).into(),
+		// 	signed_commitment_sender,
+		// 	beefy_best_block_sender,
+		// 	gossip_engine,
+		// 	gossip_validator,
+		// 	min_block_delta,
+		// 	metrics: None,
+		// 	sync_oracle,
+		// };
+		let worker_params = crate::worker::WorkerParams {
+			client: peer.client().as_client(),
+			backend: peer.client().as_backend(),
+			key_store: Some(keystore).into(),
+			event_proof_sender,
+			gossip_engine,
+			gossip_validator,
+			metrics: None,
+			sync_oracle,
+		};
+		BeefyWorker::<_, _, _, _, _>::new(worker_params)
+	}
 
 	pub(crate) fn make_ethy_ids(keys: &[Keyring]) -> Vec<Public> {
 		keys.iter().map(|key| key.clone().public().into()).collect()
 	}
 
+	#[test]
+	fn test_test() {
+		let keys = &[Keyring::Alice];
+		let validator_set = ValidatorSet::new(make_beefy_ids(keys), 0).unwrap();
+		let mut net = EthyTestNet::new(1, 0);
+		let mut worker = create_beefy_worker(&net.peer(0), &keys[0], 1);
+	}
 	#[test]
 	fn extract_authorities_change_digest() {
 		let mut header = Header::new(
