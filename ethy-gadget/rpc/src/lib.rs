@@ -200,7 +200,7 @@ pub fn build_xrpl_tx_proof_response(
 	versioned_event_proof: VersionedEventProof,
 ) -> Option<XrplTxProofResponse> {
 	match versioned_event_proof {
-		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) =>
+		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) => {
 			Some(XrplTxProofResponse {
 				event_id,
 				signatures: signatures
@@ -223,6 +223,7 @@ pub fn build_xrpl_tx_proof_response(
 					.map(|(i, s)| (i, Bytes::from(s.as_ref().to_vec())))
 					.collect(),
 				block: block.into(),
-			}),
+			})
+		},
 	}
 }
