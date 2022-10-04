@@ -706,7 +706,7 @@ impl<T: Config> Module<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-		Self::deposit_event(Event::<T>::EventSend { event_proof_id, chain_id: request.chain_id() });
+		Self::deposit_event(Event::<T>::EventSend { event_proof_id, signing_request: request });
 	}
 }
 
