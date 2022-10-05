@@ -74,8 +74,50 @@ impl<T: Config> Pallet<T> {
 			}
 
 			if let Some(request) = Self::chain_call_request_info(call_id) {
-				let result = Self::offchain_try_xrp_call(&request);
-				log!(trace, "💎 checked call status: {:?}", &result);
+				let _ = Self::offchain_try_transaction_entry_request(
+					&request,
+					&call_id,
+					active_key,
+					authority_index,
+				);
+			} else {
+				// should not happen
+				log!(error, "💎 empty call for: {:?}", call_id);
+			}
+		}
+	}
+
+	pub(crate) async fn offchain_try_transaction_entry_request(
+		request: &CheckedChainCallRequest,
+		call_id: &ChainCallId,
+		active_key: &T::ValidatorId,
+		authority_index: u16,
+	) -> CheckedChainCallResult {
+		let mut receiver = match T::ChainWebsocketClient::transaction_entry_request(
+			request.tx_hash,
+			Some(request.ledger_index as u32),
+			call_id.clone(),
+		)
+		.await
+		{
+			Ok(receiver) => receiver,
+			Err(e) => {
+				log!(
+					error,
+					"💎 transaction_entry_request for call_id: {:?}, failed: {:?}",
+					call_id,
+					e
+				);
+				return CheckedChainCallResult::CallFailed
+			},
+		};
+		let recv = match receiver.recv().await {
+			Some(r) => r,
+			None => return CheckedChainCallResult::CallFailed,
+		};
+		match recv {
+			Ok(tx) => {
+				let result = CheckedChainCallResult::Ok(tx, tx.transaction_hash, 0);
 				let payload =
 					NotarizationPayload::Call { call_id: *call_id, authority_index, result };
 				let _ = Self::offchain_send_notarization(active_key, payload)
@@ -85,37 +127,9 @@ impl<T: Config> Pallet<T> {
 					.map(|_| {
 						log!(info, "💎 sent notarization: '{:?}' for call: {:?}", result, call_id,);
 					});
-			} else {
-				// should not happen
-				log!(error, "💎 empty call for: {:?}", call_id);
-			}
-		}
-	}
-
-	pub(crate) fn offchain_try_xrp_call(
-		request: &CheckedChainCallRequest,
-	) -> CheckedChainCallResult {
-		/*let return_data = match T::ChainWebsocketClient::xrpl_call(
-			request.target,
-			&request.input,
-			LatestOrNumber::Number(target_block_number),
-		) {
-			Ok(data) =>
-				if data.is_empty() {
-					return CheckedChainCallResult::ReturnDataEmpty
-				} else {
-					data
-				},
-			Err(err) => {
-				log!(error, "💎 eth_call at: {:?}, failed: {:?}", target_block_number, err);
-				return CheckedChainCallResult::DataProviderErr
 			},
-		};
-
-		match return_data.try_into() {
-			Ok(r) => CheckedChainCallResult::Ok(r, target_block_number, target_block_timestamp),
-			Err(_) => CheckedChainCallResult::ReturnDataExceedsLimit,
-		}*/
+			Err(e) => log!(trace, "💎 XRPL transaction_entry_request Error: {:?}", e),
+		}
 		CheckedChainCallResult::CallFailed
 	}
 
@@ -164,6 +178,16 @@ impl<T: Config> Pallet<T> {
 
 		// notify subscribers of a notarized eth_call outcome and clean upstate
 		let do_callback_and_clean_up = |result: CheckedChainCallResult| {
+			match result {
+				CheckedChainCallResult::Ok(XrpTransaction, XrplTxHash, LedgerIndex) =>
+					T::XrplBridgeCall::update_challenge(
+						LedgerIndex,
+						XrplTxHash,
+						XrpTransaction.transaction,
+						XrpTransaction.timestamp,
+					),
+				CheckedChainCallResult::CallFailed => {},
+			}
 			if let Some(cursor) = <ChainCallNotarizations<T>>::clear_prefix(
 				call_id,
 				NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,

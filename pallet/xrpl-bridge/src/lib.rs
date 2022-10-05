@@ -518,17 +518,18 @@ impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
 	}
 
 	fn update_challenge(
-		validator: AccountOf<T>,
 		ledger_index: LedgerIndex,
 		transaction_hash: XrplTxHash,
 		transaction: XrplTxData,
 		timestamp: Timestamp,
 	) {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<ProcessXRPTransactionDetails<T>>::insert(
-			&transaction_hash,
-			(ledger_index, val, validator),
-		);
+		let tx_details = <ProcessXRPTransactionDetails<T>>::get(transaction_hash);
+		let relayer = match tx_details {
+			None => return,
+			Some((_ledger_index, ref _tx, relayer)) => relayer,
+		};
+		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, relayer));
 		<ChallengeXRPTransactionList<T>>::remove(&transaction_hash);
 		let _ = Self::add_to_xrp_process(transaction_hash);
 	}
@@ -537,7 +538,6 @@ impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
 pub trait XrplBridgeCall<AccountId> {
 	fn challenged_tx_list(limit: usize) -> Vec<(XrplTxHash, LedgerIndex)>;
 	fn update_challenge(
-		validator: AccountId,
 		ledger_index: LedgerIndex,
 		transaction_hash: XrplTxHash,
 		transaction: XrplTxData,

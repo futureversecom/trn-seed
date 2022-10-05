@@ -28,8 +28,11 @@ use codec::alloc::string::String;
 use futures::StreamExt;
 use scale_info::prelude::string::ToString;
 use seed_pallet_common::{get_static_str_ref, log};
-use seed_primitives::XRP_HTTP_URI;
-use tokio::spawn;
+use seed_primitives::{xrpl::XrpTransaction, XRP_HTTP_URI};
+use tokio::{
+	spawn,
+	sync::{mpsc, mpsc::Receiver},
+};
 use tokio_tungstenite::tungstenite::Message;
 
 pub struct XrplWebsocketClient;
@@ -44,14 +47,18 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 		tx_hash: XrplTxHash,
 		ledger_index: Option<u32>,
 		call_id: ChainCallId,
-	) -> Result<(), BridgeRpcError> {
+	) -> Result<Receiver<Result<XrpTransaction, BridgeRpcError>>, BridgeRpcError> {
 		let xrp_http_uri = get_xrp_http_uri()?;
 		let client = AsyncWebsocketClient { url: xrp_http_uri };
 		let (mut ws_stream, (sender, mut receiver)) = client.open().await.unwrap();
-
+		let (tx, rx) = mpsc::channel(4);
 		spawn(async move {
 			while let Some(msg) = receiver.next().await {
 				assert!(msg.is_ok());
+				match msg {
+					Ok(m) => tx.send(Ok(message_to_xrp_transaction(m))).await.unwrap(),
+					Err(_e) => tx.send(Err(BridgeRpcError::HttpFetch)).await.unwrap(),
+				}
 				receiver.close();
 				break
 			}
@@ -74,7 +81,16 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 			Ok(_) => (),
 			Err(_error) => (),
 		}
-		Ok(().into())
+		Ok(rx)
+	}
+}
+
+pub fn message_to_xrp_transaction(msg: Message) -> XrpTransaction {
+	let data = msg.to_string();
+	XrpTransaction {
+		transaction_hash: Default::default(),
+		transaction: Default::default(),
+		timestamp: 0,
 	}
 }
 

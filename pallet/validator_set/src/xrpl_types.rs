@@ -23,6 +23,7 @@ use seed_primitives::{
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
+use tokio::sync::mpsc::Receiver;
 
 pub type XrplTxHash = seed_primitives::xrpl::XrplTxHash;
 
@@ -144,12 +145,6 @@ impl NotarizationPayload {
 	}
 }
 
-#[derive(Debug)]
-pub enum LatestOrNumber {
-	Latest,
-	Number(u64),
-}
-
 #[derive(Debug, Clone, PartialEq, TypeInfo)]
 /// Error type for BridgeEthereumRpcApi
 pub enum BridgeRpcError {
@@ -169,5 +164,5 @@ pub trait BridgeXrplWebsocketApi {
 		hash: XrplTxHash,
 		ledger_index: Option<u32>,
 		call_id: ChainCallId,
-	) -> Result<(), BridgeRpcError>;
+	) -> Result<Receiver<Result<XrpTransaction, BridgeRpcError>>, BridgeRpcError>;
 }
