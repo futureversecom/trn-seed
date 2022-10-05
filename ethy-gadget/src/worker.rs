@@ -304,9 +304,9 @@ where
 			// Authority set change or genesis set id triggers new voting rounds
 			// this block has a different validator set id to the one we know about OR
 			// it's the first block
-			if active.id != self.validator_set.id ||
-				(active.id == GENESIS_AUTHORITY_SET_ID &&
-					self.validator_set.validators.is_empty())
+			if self.validator_set.validators.is_empty() ||
+				active.id != self.validator_set.id ||
+				active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.validators.is_empty()
 			{
 				debug!(target: "ethy", "💎 new active validator set: {:?}", active);
 				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);

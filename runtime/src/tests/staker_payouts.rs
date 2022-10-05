@@ -220,7 +220,12 @@ fn staking_final_session_tracking_ethy() {
 		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
 
 		// Forcing era, marks active session final
+		let (_, babe, im_online, grandpa, ethy) = authority_keys_from_seed("Alice3.0");
+		let new_keys = SessionKeys { babe, grandpa, im_online, ethy };
+		assert_ok!(Session::set_keys(RawOrigin::Signed(alice()).into(), new_keys.clone(), vec![]));
+
 		assert_ok!(Staking::force_new_era(RawOrigin::Root.into()));
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
 	});
 }
