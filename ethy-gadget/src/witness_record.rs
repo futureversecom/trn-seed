@@ -106,6 +106,7 @@ impl WitnessRecord {
 			EthyChainId::Xrpl => self.xrpl_validators.proof_threshold as usize,
 		};
 
+		// TODO: check majority of `self.xrpl_validators` if EthyChainId::XRPL
 		let witness_count = self.witnesses.get(&event_id).map(|v| v.len());
 
 		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, witness_count);
