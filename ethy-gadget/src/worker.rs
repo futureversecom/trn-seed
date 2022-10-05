@@ -137,25 +137,46 @@ where
 	C::Api: EthyApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
-	/// Return the current active validator set at header `header`.
+	/// Return the active validator set at `header`.
+	///
+	/// The returned set is prioritized as follows:
+	/// 1) validator set from a block signalling new set
+	/// 2) current validator set previously fetched previously via 1) or 3)
+	/// 3) query the runtime state
 	///
 	/// Note that the validator set could be `None`. This is the case if we don't find
-	/// a ETHY authority set change and we can't fetch the authority set from the
-	/// ETHY on-chain state.
+	/// an Ethy authority set change and we can't fetch the authority set from the
+	/// Ethy on-chain state.
 	///
-	/// Such a failure is usually an indication that the ETHY pallet has not been deployed (yet).
+	/// Such a failure is usually an indication that the Ethy pallet has not been deployed (yet).
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		let new = if let Some(new) = find_authorities_change::<B>(header) {
 			Some(new)
+		} else if !self.validator_set.is_empty() {
+			Some(self.validator_set.clone())
 		} else {
-			let at = BlockId::hash(header.hash());
 			// queries the Ethy pallet to get the active validator set public keys
+			let at = BlockId::hash(header.hash());
 			self.client.runtime_api().validator_set(&at).ok()
 		};
 
 		trace!(target: "ethy", "💎 active validator set: {:?}", new);
 
 		new
+	}
+
+	/// Return the signers authorized for signing XRPL messages
+	/// It is always a subset of the total ethy `validator_set`
+	///
+	/// note: XRPL cannot make use of the total signer set and is limited to 8 total signers
+	///
+	/// Always query the chain state incase the authorized list changed
+	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
+		let at = BlockId::hash(header.hash());
+		let xrpl_signers = self.client.runtime_api().xrpl_signers(&at).ok();
+		trace!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
+
+		xrpl_signers
 	}
 
 	/// Handle finality notification for non-signers (no locally available validator keys)
@@ -378,9 +399,7 @@ where
 			return
 		}
 
-		// TODO: if chain_id is XRPL this must be a majority of the XRPL validators only, not any
-		// majority
-		if self.witness_record.has_consensus(event_id, proof_threshold) {
+		if self.witness_record.has_consensus(event_id, chain_id) {
 			let signatures = self.witness_record.signatures_for(event_id);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", event_id, signatures, self.validator_set.id);
 

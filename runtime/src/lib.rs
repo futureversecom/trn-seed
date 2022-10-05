@@ -65,8 +65,8 @@ pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	ethy::crypto::AuthorityId as EthBridgeId, AccountId, Address, AssetId, BabeId, Balance,
-	BlockNumber, Hash, Index, Signature,
+	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
+	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, Hash, Index, Signature,
 };
 
 mod bag_thresholds;
@@ -1263,8 +1263,17 @@ impl_runtime_apis! {
 	}
 
 	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
-		fn validator_set() -> seed_primitives::ethy::ValidatorSet<EthBridgeId> {
+		fn validator_set() -> ValidatorSet<EthBridgeId> {
 			EthBridge::validator_set()
+		}
+		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
+			let door_signers = XRPLBridge::door_signers();
+			let proof_threshold = sp_runtime::Percent::from_parts(80_u8).mul_ceil(door_signers.len()) as u32;
+			ValidatorSet {
+				proof_threshold,
+				validators: door_signers,
+				id: EthBridge::notary_set_id(), // the set Id is the same as the overall Ethy set Id
+			}
 		}
 	}
 }
