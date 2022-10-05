@@ -165,7 +165,7 @@ pub enum BridgeRpcError {
 /// Provides request/responses according to a minimal subset of Xrpl RPC API
 /// required for the bridge
 pub trait BridgeXrplWebsocketApi {
-	async fn xrpl_call(
+	async fn transaction_entry_request(
 		hash: XrplTxHash,
 		ledger_index: Option<u32>,
 		call_id: ChainCallId,

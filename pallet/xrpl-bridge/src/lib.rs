@@ -525,8 +525,10 @@ impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
 		timestamp: Timestamp,
 	) {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		//<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val,
-		//<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, validator));
+		<ProcessXRPTransactionDetails<T>>::insert(
+			&transaction_hash,
+			(ledger_index, val, validator),
+		);
 		<ChallengeXRPTransactionList<T>>::remove(&transaction_hash);
 		let _ = Self::add_to_xrp_process(transaction_hash);
 	}

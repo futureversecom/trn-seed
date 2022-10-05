@@ -35,8 +35,7 @@ use sp_core::H160;
 use sp_runtime::{
 	traits::Saturating, BoundToRuntimeAppPublic, Percent, RuntimeAppPublic, SaturatedConversion,
 };
-use sp_std::vec::Vec;
-use std::collections::BTreeMap;
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 pub type ValidatorIdOf<T> = <T as Config>::ValidatorId;
 pub(crate) const LOG_TARGET: &str = "validator_set";

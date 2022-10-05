@@ -209,7 +209,7 @@ impl MockChainWebsocketClient {}
 
 #[async_trait]
 impl BridgeXrplWebsocketApi for MockChainWebsocketClient {
-	async fn xrpl_call(
+	async fn transaction_entry_request(
 		hash: XrplTxHash,
 		ledger_index: Option<u32>,
 		call_id: ChainCallId,

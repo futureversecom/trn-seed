@@ -24,17 +24,23 @@ use crate::{
 	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplTxHash},
 	ChainCallId,
 };
+use codec::alloc::string::String;
 use futures::StreamExt;
+use scale_info::prelude::string::ToString;
 use seed_pallet_common::{get_static_str_ref, log};
 use seed_primitives::XRP_HTTP_URI;
 use tokio::spawn;
 use tokio_tungstenite::tungstenite::Message;
 
-/// Provides minimal ethereum RPC queries for eth bridge protocol
 pub struct XrplWebsocketClient;
 #[async_trait]
 impl BridgeXrplWebsocketApi for XrplWebsocketClient {
-	async fn xrpl_call(
+	/// Fetch transaction details for a challenged transaction hash
+	/// Parameters:
+	/// - `tx_hash`: The challenged transaction hash
+	/// - `ledger_index`: The ledger index for challenged transaction
+	/// - `call_id`: The unique call id to identify the requests
+	async fn transaction_entry_request(
 		tx_hash: XrplTxHash,
 		ledger_index: Option<u32>,
 		call_id: ChainCallId,
