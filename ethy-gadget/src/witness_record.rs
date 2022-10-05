@@ -68,7 +68,7 @@ pub struct WitnessRecord {
 }
 
 impl WitnessRecord {
-	/// Set the validator keys
+	/// Set the active `ValidatorSet` for ethy and the XRPL subset
 	pub fn set_validators(
 		&mut self,
 		validators: ValidatorSet<AuthorityId>,
@@ -106,11 +106,28 @@ impl WitnessRecord {
 			EthyChainId::Xrpl => self.xrpl_validators.proof_threshold as usize,
 		};
 
-		// TODO: check majority of `self.xrpl_validators` if EthyChainId::XRPL
-		let witness_count = self.witnesses.get(&event_id).map(|v| v.len());
+		let witness_count = match chain_id {
+			EthyChainId::Ethereum => self.witnesses.get(&event_id).map(|w| w.len()),
+			EthyChainId::Xrpl => {
+				self.witnesses.get(&event_id).map(|w| {
+					// ethy tracks all witnesses but only a subset are able to be submitted to XRPL
+					// count signatures from the XRPL authorized signers only
+					w.iter().filter(|(idx, sig)| {
+						let ethy_pub_key = self.validators.validators.get(*idx as usize);
+						if let Some(ethy_pub_key) = ethy_pub_key {
+							self.xrpl_validators.authority_index(ethy_pub_key).is_some()
+						} else {
+							false
+						}
+					});
+					w.len()
+				})
+			},
+		}
+		.unwrap_or(0_usize);
 
 		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, witness_count);
-		witness_count.unwrap_or_default() >= proof_threshold
+		witness_count >= proof_threshold
 	}
 	/// Return event metadata
 	pub fn event_metadata(&self, event_id: EventProofId) -> Option<&EventMetadata> {

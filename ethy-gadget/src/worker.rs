@@ -141,8 +141,7 @@ where
 	///
 	/// The returned set is prioritized as follows:
 	/// 1) validator set from a block signalling new set
-	/// 2) current validator set previously fetched previously via 1) or 3)
-	/// 3) query the runtime state
+	/// 2) otherwise, query the runtime state
 	///
 	/// Note that the validator set could be `None`. This is the case if we don't find
 	/// an Ethy authority set change and we can't fetch the authority set from the
@@ -152,8 +151,6 @@ where
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		let new = if let Some(new) = find_authorities_change::<B>(header) {
 			Some(new)
-		} else if !self.validator_set.is_empty() {
-			Some(self.validator_set.clone())
 		} else {
 			// queries the Ethy pallet to get the active validator set public keys
 			let at = BlockId::hash(header.hash());
@@ -333,7 +330,10 @@ where
 				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
 				metric_set!(self, ethy_validator_set_id, active.id);
 				self.gossip_validator.set_active_validators(active.validators.clone());
-				self.witness_record.set_validators(active.validators.clone());
+				self.witness_record.set_validators(
+					active.clone(),
+					self.xrpl_validator_set(&new_header).unwrap_or_default(),
+				);
 				self.validator_set = active;
 			}
 		}
