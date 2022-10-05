@@ -1268,9 +1268,8 @@ impl_runtime_apis! {
 		}
 		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
 			let door_signers = XRPLBridge::door_signers();
-			let proof_threshold = sp_runtime::Percent::from_parts(80_u8).mul_ceil(door_signers.len()) as u32;
 			ValidatorSet {
-				proof_threshold,
+				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
 				validators: door_signers,
 				id: EthBridge::notary_set_id(), // the set Id is the same as the overall Ethy set Id
 			}

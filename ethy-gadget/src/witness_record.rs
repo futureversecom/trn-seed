@@ -108,21 +108,20 @@ impl WitnessRecord {
 
 		let witness_count = match chain_id {
 			EthyChainId::Ethereum => self.witnesses.get(&event_id).map(|w| w.len()),
-			EthyChainId::Xrpl => {
-				self.witnesses.get(&event_id).map(|w| {
-					// ethy tracks all witnesses but only a subset are able to be submitted to XRPL
-					// count signatures from the XRPL authorized signers only
-					w.iter().filter(|(idx, sig)| {
+			EthyChainId::Xrpl => self.witnesses.get(&event_id).map(|w| {
+				// ethy tracks all witnesses but only a subset are able to be submitted to XRPL
+				// count signatures from the XRPL authorized signers only
+				w.iter()
+					.filter(|(idx, _sig)| {
 						let ethy_pub_key = self.validators.validators.get(*idx as usize);
 						if let Some(ethy_pub_key) = ethy_pub_key {
 							self.xrpl_validators.authority_index(ethy_pub_key).is_some()
 						} else {
 							false
 						}
-					});
-					w.len()
-				})
-			},
+					})
+					.count()
+			}),
 		}
 		.unwrap_or(0_usize);
 
@@ -524,13 +523,13 @@ mod test {
 			},
 			..Default::default()
 		};
-
+		let chain_id = EthyChainId::Ethereum;
 		let event_id = 5_u64;
 		let digest = [1_u8; 32];
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
-			chain_id: EthyChainId::Ethereum,
+			chain_id,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
@@ -538,12 +537,12 @@ mod test {
 		};
 
 		assert!(witness_record.note_event_witness(witness).is_ok());
-		assert!(!witness_record.has_consensus(event_id, EthyChainId::Ethereum));
+		assert!(!witness_record.has_consensus(event_id, chain_id));
 
 		let bob_validator = &validator_keys[1];
 		let witness = &Witness {
 			digest,
-			chain_id: EthyChainId::Ethereum,
+			chain_id,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
@@ -553,7 +552,7 @@ mod test {
 		assert!(witness_record.note_event_witness(witness).is_ok());
 
 		// unverified
-		assert!(!witness_record.has_consensus(event_id, 2));
+		assert!(!witness_record.has_consensus(event_id, chain_id));
 
 		witness_record.note_event_metadata(
 			event_id,
@@ -563,31 +562,30 @@ mod test {
 		);
 		witness_record.process_unverified_witnesses(event_id);
 
-		assert!(witness_record.has_consensus(event_id, 2));
-		assert!(witness_record.has_consensus(event_id, EthyChainId::Ethereum));
+		assert!(witness_record.has_consensus(event_id, chain_id));
+		assert!(witness_record.has_consensus(event_id, chain_id));
 	}
 
 	#[test]
 	fn has_consensus_xrpl() {
 		let xrpl_validator_keys = dev_signers_xrpl();
 		let validator_keys = dev_signers();
+		let validator_set_id = 1_u64;
 		let mut witness_record = WitnessRecord {
 			validators: ValidatorSet {
 				validators: validator_keys.iter().map(|x| x.public()).collect(),
-				proof_threshold: 2,
-				id: 1,
+				proof_threshold: 3,
+				id: validator_set_id,
 			},
 			xrpl_validators: ValidatorSet {
 				validators: xrpl_validator_keys.iter().map(|x| x.public()).collect(),
 				proof_threshold: 2,
-				id: 1,
+				id: validator_set_id,
 			},
 			..Default::default()
 		};
 		let chain_id = EthyChainId::Xrpl;
-
 		let event_id = 5_u64;
-		let validator_set_id = 5_u64;
 		let digest = [1_u8; 32];
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
@@ -598,10 +596,11 @@ mod test {
 			authority_id: alice_validator.public(),
 			signature: alice_validator.sign(&digest),
 		};
-		assert!(witness_record.note_event_witness(witness).is_ok());
+		witness_record.note_event_metadata(event_id, digest, Default::default(), EthyChainId::Xrpl);
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		assert!(!witness_record.has_consensus(event_id, chain_id));
 
-		// charlie is not an XRPL signer so cannot sign
+		// charlie is not an XRPL signer so cannot affect consensus
 		let charlie_validator = &validator_keys[2];
 		let witness = &Witness {
 			digest,
@@ -611,7 +610,7 @@ mod test {
 			authority_id: charlie_validator.public(),
 			signature: charlie_validator.sign(&digest),
 		};
-		assert!(witness_record.note_event_witness(witness).is_err());
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		assert!(!witness_record.has_consensus(event_id, chain_id));
 
 		// bob signs and we have consensus
@@ -624,7 +623,9 @@ mod test {
 			authority_id: bob_validator.public(),
 			signature: bob_validator.sign(&digest),
 		};
-		assert!(witness_record.note_event_witness(witness).is_ok());
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
+		witness_record.process_unverified_witnesses(event_id);
+
 		assert!(witness_record.has_consensus(event_id, chain_id));
 	}
 

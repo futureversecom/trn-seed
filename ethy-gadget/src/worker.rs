@@ -319,12 +319,12 @@ where
 
 		// Check the block for any validator set changes and update local view
 		if let Some(active) = self.validator_set(&new_header) {
-			// Authority set change or genesis set id triggers new voting rounds
+			// Authority set change or genesis set id triggers new authorities
 			// this block has a different validator set id to the one we know about OR
 			// it's the first block
-			if self.validator_set.validators.is_empty() ||
+			if self.validator_set.is_empty() ||
 				active.id != self.validator_set.id ||
-				active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.validators.is_empty()
+				active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty()
 			{
 				debug!(target: "ethy", "💎 new active validator set: {:?}", active);
 				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
@@ -392,14 +392,7 @@ where
 		let EventMetadata { chain_id, block_hash, digest } =
 			self.witness_record.event_metadata(event_id).unwrap();
 
-		let proof_threshold = self.validator_set.proof_threshold as usize;
-		if proof_threshold < self.validator_set.validators.len() / 2 {
-			// safety check, < 50% doesn't make sense
-			error!(target: "ethy", "💎 Ethy proof threshold too low!: {:?}, validator set: {:?}", proof_threshold, self.validator_set.validators.len());
-			return
-		}
-
-		if self.witness_record.has_consensus(event_id, chain_id) {
+		if self.witness_record.has_consensus(event_id, *chain_id) {
 			let signatures = self.witness_record.signatures_for(event_id);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", event_id, signatures, self.validator_set.id);
 
