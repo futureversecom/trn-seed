@@ -18,17 +18,15 @@
 
 //! Tests and test helpers for ETHY.
 
+use crate::{
+	ethy_protocol_name, notification::EthyEventProofStream, testing::Keyring as EthyKeyring,
+};
 use futures::{future, stream::FuturesUnordered, Future, StreamExt};
 use parking_lot::Mutex;
-use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc, task::Poll};
-use tokio::{runtime::Runtime, time::Duration};
-
 use sc_chain_spec::{ChainSpec, GenericChainSpec};
 use sc_client_api::HeaderBackend;
 use sc_consensus::{
-	BlockImport, BlockImportParams, BoxJustificationImport, ForkChoiceStrategy, ImportResult,
-	ImportedAux,
+	BlockImportParams, BoxJustificationImport, ForkChoiceStrategy, ImportResult, ImportedAux,
 };
 use sc_keystore::LocalKeystore;
 use sc_network_test::{
@@ -36,11 +34,12 @@ use sc_network_test::{
 	TestNetFactory,
 };
 use sc_utils::notification::NotificationReceiver;
-
-use sp_mmr_primitives::{
-	BatchProof, EncodableOpaqueLeaf, Error as MmrError, LeafIndex, MmrApi, Proof,
+use seed_primitives::ethy::{
+	crypto::AuthorityId, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof, EventProofId,
+	ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
+	GENESIS_AUTHORITY_SET_ID,
 };
-
+use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_core::H256;
@@ -51,37 +50,14 @@ use sp_runtime::{
 	traits::{Header as HeaderT, NumberFor},
 	BuildStorage, DigestItem, Justifications, Storage,
 };
-
+use std::{collections::HashMap, sync::Arc, task::Poll};
 use substrate_test_runtime_client::{runtime::Header, ClientExt};
-
-// use crate::{
-// 	beefy_block_import_and_links, ethy_protocol_name, justification::*,
-// 	testing::Keyring as EthyKeyring, BeefyRPCLinks, BeefyVoterLinks,
-// };
-use crate::{ethy_protocol_name, testing::Keyring as EthyKeyring, BeefyRPCLinks, BeefyVoterLinks};
-use ethy_primitives::{
-	crypto::Signature, MmrRootHash, VersionedFinalityProof, BEEFY_ENGINE_ID,
-	KEY_TYPE as BeefyKeyType,
-};
-use seed_primitives::ethy::{
-	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof,
-	EventProofId, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
-	GENESIS_AUTHORITY_SET_ID,
-};
+use tokio::{runtime::Runtime, time::Duration};
 
 pub(crate) const ETHY_PROTOCOL_NAME: &'static str = "/ethy/1";
-const GOOD_MMR_ROOT: MmrRootHash = MmrRootHash::repeat_byte(0xbf);
-const BAD_MMR_ROOT: MmrRootHash = MmrRootHash::repeat_byte(0x42);
 
-type BeefyBlockImport = crate::BeefyBlockImport<
-	Block,
-	substrate_test_runtime_client::Backend,
-	two_validators::TestApi,
-	BlockImportAdapter<PeersClient, sp_api::TransactionFor<two_validators::TestApi, Block>>,
->;
-
-pub(crate) type BeefyValidatorSet = ValidatorSet<AuthorityId>;
-pub(crate) type BeefyPeer = Peer<PeerData, BeefyBlockImport>;
+pub(crate) type EthyValidatorSet = ValidatorSet<AuthorityId>;
+pub(crate) type EthyPeer = Peer<PeerData, PeersClient>;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Genesis(std::collections::BTreeMap<String, String>);
@@ -96,7 +72,7 @@ impl BuildStorage for Genesis {
 
 #[derive(Clone)]
 pub(crate) struct EthyLinkHalf {
-	pub beefy_best_block_stream: BeefyBestBlockStream<Block>,
+	pub event_proof_stream: EthyEventProofStream,
 }
 
 #[derive(Default)]
@@ -106,7 +82,7 @@ pub(crate) struct PeerData {
 
 #[derive(Default)]
 pub(crate) struct EthyTestNet {
-	peers: Vec<BeefyPeer>,
+	peers: Vec<EthyPeer>,
 }
 
 impl EthyTestNet {
@@ -133,7 +109,7 @@ impl EthyTestNet {
 		&mut self,
 		count: usize,
 		session_length: u64,
-		validator_set: &BeefyValidatorSet,
+		validator_set: &EthyValidatorSet,
 	) {
 		self.peer(0).generate_blocks(count, BlockOrigin::File, |builder| {
 			let mut block = builder.build().unwrap().block;
@@ -150,7 +126,7 @@ impl EthyTestNet {
 
 impl TestNetFactory for EthyTestNet {
 	type Verifier = PassThroughVerifier;
-	type BlockImport = BeefyBlockImport;
+	type BlockImport = PeersClient;
 	type PeerData = PeerData;
 
 	fn make_verifier(&self, _client: PeersClient, _: &PeerData) -> Self::Verifier {
@@ -168,15 +144,15 @@ impl TestNetFactory for EthyTestNet {
 		(client.as_block_import(), None, PeerData::default())
 	}
 
-	fn peer(&mut self, i: usize) -> &mut BeefyPeer {
+	fn peer(&mut self, i: usize) -> &mut EthyPeer {
 		&mut self.peers[i]
 	}
 
-	fn peers(&self) -> &Vec<BeefyPeer> {
+	fn peers(&self) -> &Vec<EthyPeer> {
 		&self.peers
 	}
 
-	fn mut_peers<F: FnOnce(&mut Vec<BeefyPeer>)>(&mut self, closure: F) {
+	fn mut_peers<F: FnOnce(&mut Vec<EthyPeer>)>(&mut self, closure: F) {
 		closure(&mut self.peers);
 	}
 
@@ -190,7 +166,7 @@ impl TestNetFactory for EthyTestNet {
 }
 
 macro_rules! create_test_api {
-    ( $api_name:ident, mmr_root: $mmr_root:expr, $($inits:expr),+ ) => {
+    ( $api_name:ident, $($inits:expr),+ ) => {
 		pub(crate) mod $api_name {
 			use super::*;
 
@@ -211,8 +187,8 @@ macro_rules! create_test_api {
 			}
 			sp_api::mock_impl_runtime_apis! {
 				impl EthyApi<Block> for RuntimeApi {
-					fn validator_set() -> Option<BeefyValidatorSet> {
-						BeefyValidatorSet::new(make_beefy_ids(&[$($inits),+]), 0)
+					fn validator_set() -> EthyValidatorSet {
+						EthyValidatorSet::new(make_ethy_ids(&[$($inits),+]), 0)
 					}
 				}
 			}
@@ -236,75 +212,69 @@ create_test_api!(
 	EthyKeyring::Dave
 );
 
-// fn add_mmr_digest(header: &mut Header, mmr_hash: MmrRootHash) {
-// 	header.digest_mut().push(DigestItem::Consensus(
-// 		BEEFY_ENGINE_ID,
-// 		ConsensusLog::<AuthorityId>::MmrRoot(mmr_hash).encode(),
-// 	));
-// }
-
-fn add_auth_change_digest(header: &mut Header, new_auth_set: BeefyValidatorSet) {
+fn add_auth_change_digest(header: &mut Header, new_auth_set: EthyValidatorSet) {
 	header.digest_mut().push(DigestItem::Consensus(
-		BEEFY_ENGINE_ID,
+		ETHY_ENGINE_ID,
 		ConsensusLog::<AuthorityId>::AuthoritiesChange(new_auth_set).encode(),
 	));
 }
 
-pub(crate) fn make_beefy_ids(keys: &[EthyKeyring]) -> Vec<AuthorityId> {
-	keys.iter().map(|&key| key.public().into()).collect()
+// pub(crate) fn make_ethy_ids(keys: &[EthyKeyring]) -> Vec<AuthorityId> {
+// 	keys.iter().map(|&key| key.public().into()).collect()
+// }
+pub(crate) fn make_ethy_ids(keys: &[EthyKeyring]) -> Vec<AuthorityId> {
+	keys.iter().map(|key| key.clone().public().into()).collect()
 }
 
 pub(crate) fn create_beefy_keystore(authority: EthyKeyring) -> SyncCryptoStorePtr {
 	let keystore = Arc::new(LocalKeystore::in_memory());
-	SyncCryptoStore::ecdsa_generate_new(&*keystore, BeefyKeyType, Some(&authority.to_seed()))
+	SyncCryptoStore::ecdsa_generate_new(&*keystore, ETHY_KEY_TYPE, Some(&authority.to_seed()))
 		.expect("Creates authority key");
 	keystore
 }
 
-// Spawns beefy voters. Returns a future to spawn on the runtime.
-fn initialize_beefy<API>(
-	net: &mut EthyTestNet,
-	peers: Vec<(usize, &EthyKeyring, Arc<API>)>,
-	min_block_delta: u32,
-) -> impl Future<Output = ()>
-where
-	API: ProvideRuntimeApi<Block> + Default + Sync + Send,
-	API::Api: EthyApi<Block> + MmrApi<Block, MmrRootHash>,
-{
-	let voters = FuturesUnordered::new();
-
-	for (peer_id, key, api) in peers.into_iter() {
-		let peer = &net.peers[peer_id];
-
-		let keystore = create_beefy_keystore(*key);
-
-		let (_, _, peer_data) = net.make_block_import(peer.client().clone());
-		let PeerData { beefy_rpc_links, beefy_voter_links } = peer_data;
-
-		let beefy_voter_links = beefy_voter_links.lock().take();
-		*peer.data.beefy_rpc_links.lock() = beefy_rpc_links.lock().take();
-		*peer.data.beefy_voter_links.lock() = beefy_voter_links.clone();
-
-		let beefy_params = crate::BeefyParams {
-			client: peer.client().as_client(),
-			backend: peer.client().as_backend(),
-			runtime: api.clone(),
-			key_store: Some(keystore),
-			network: peer.network_service().clone(),
-			links: beefy_voter_links.unwrap(),
-			min_block_delta,
-			prometheus_registry: None,
-			protocol_name: ETHY_PROTOCOL_NAME.into(),
-		};
-		let gadget = crate::start_beefy_gadget::<_, _, _, _, _>(beefy_params);
-
-		fn assert_send<T: Send>(_: &T) {}
-		assert_send(&gadget);
-		voters.push(gadget);
-	}
-
-	voters.for_each(|_| async move {})
-}
+// // Spawns beefy voters. Returns a future to spawn on the runtime.
+// fn initialize_beefy<API>(
+// 	net: &mut EthyTestNet,
+// 	peers: Vec<(usize, &EthyKeyring, Arc<API>)>,
+// ) -> impl Future<Output = ()>
+// where
+// 	API: ProvideRuntimeApi<Block> + Default + Sync + Send,
+// 	API::Api: EthyApi<Block>,
+// {
+// 	let voters = FuturesUnordered::new();
+//
+// 	for (peer_id, key, api) in peers.into_iter() {
+// 		let peer = &net.peers[peer_id];
+//
+// 		let keystore = create_beefy_keystore(*key);
+//
+// 		let (_, _, peer_data) = net.make_block_import(peer.client().clone());
+// 		let PeerData { beefy_link_half } = peer_data;
+// 		let event_proof_stream = beefy_link_half.into_inner().unwrap().event_proof_stream;
+// 		let beefy_voter_links = beefy_voter_links.lock().take();
+// 		*peer.data.beefy_rpc_links.lock() = beefy_rpc_links.lock().take();
+// 		*peer.data.beefy_voter_links.lock() = beefy_voter_links.clone();
+//
+// 		let ethy_params = crate::EthyParams {
+// 			client: peer.client().as_client(),
+// 			backend: peer.client().as_backend(),
+// 			key_store: Some(keystore),
+// 			network: peer.network_service().clone(),
+// 			prometheus_registry: None,
+// 			protocol_name: ETHY_PROTOCOL_NAME.into(),
+// 			event_proof_sender: (),
+// 			_phantom: Default::default()
+// 		};
+// 		let gadget = crate::start_ethy_gadget::<_, _, _, _>(ethy_params);
+//
+// 		fn assert_send<T: Send>(_: &T) {}
+// 		assert_send(&gadget);
+// 		voters.push(gadget);
+// 	}
+//
+// 	voters.for_each(|_| async move {})
+// }
 
 fn block_until(future: impl Future + Unpin, net: &Arc<Mutex<EthyTestNet>>, runtime: &mut Runtime) {
 	let drive_to_completion = futures::future::poll_fn(|cx| {
