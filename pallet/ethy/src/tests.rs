@@ -548,7 +548,10 @@ fn on_new_session_updates_keys() {
 			next_keys_iter.clone(),
 		);
 		// Storage remains unchanged
-		assert!(EthBridge::next_notary_keys().is_empty());
+		assert_eq!(
+			EthBridge::next_notary_keys(),
+			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
+		);
 		assert!(EthBridge::next_authority_change().is_none());
 
 		let block_number: BlockNumber = 2;
@@ -603,7 +606,7 @@ fn on_new_session_updates_keys() {
 /// This test ensures that authorities are changed in the event that the 5 minute window was missed
 /// This will quickly change the authorities right before the session ending but in practice
 /// should never happen
-fn on_before_session_ending_handles_authorites() {
+fn on_before_session_ending_handles_authorities() {
 	ExtBuilder::default().next_session_final().build().execute_with(|| {
 		let default_account = AccountId::default();
 		let next_keys = vec![
@@ -622,8 +625,12 @@ fn on_before_session_ending_handles_authorites() {
 			next_keys_iter.clone(),
 			next_keys_iter.clone(),
 		);
-		// Storage remains unchanged
-		assert!(EthBridge::next_notary_keys().is_empty());
+		// next notary keys queued up
+		assert_eq!(
+			EthBridge::next_notary_keys(),
+			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
+		);
+		// Next authority change not scheduled, not final session
 		assert!(EthBridge::next_authority_change().is_none());
 
 		let block_number: BlockNumber = 2;
