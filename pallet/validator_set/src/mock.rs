@@ -16,6 +16,7 @@ use seed_pallet_common::{EthyXrplBridgeAdapter, FinalSessionTracker};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId as AuthorityIdE, EventProofId},
 	validator::crypto::AuthorityId,
+	xrpl::XrpTransaction,
 	AssetId, Balance, BlockNumber, Signature,
 };
 use sp_core::{ByteArray, H160, H256};
@@ -26,6 +27,7 @@ use sp_runtime::{
 	},
 	DispatchError, Percent,
 };
+use tokio::sync::{mpsc, mpsc::Receiver};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -213,8 +215,9 @@ impl BridgeXrplWebsocketApi for MockChainWebsocketClient {
 		hash: XrplTxHash,
 		ledger_index: Option<u32>,
 		call_id: ChainCallId,
-	) -> Result<(), BridgeRpcError> {
-		Ok(())
+	) -> Result<Receiver<Result<XrpTransaction, BridgeRpcError>>, BridgeRpcError> {
+		let (tx, rx) = mpsc::channel(4);
+		Ok(rx)
 	}
 }
 
