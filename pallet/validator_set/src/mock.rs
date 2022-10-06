@@ -95,7 +95,7 @@ pub(crate) mod test_storage {
 	};
 	use frame_support::decl_storage;
 	//use seed_pallet_common::XrplCallFailure;
-	use seed_primitives::xrpl::{XrplAddress, XrplTxHash};
+	use seed_primitives::xrpl::XrplAddress;
 
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
 	decl_storage! {

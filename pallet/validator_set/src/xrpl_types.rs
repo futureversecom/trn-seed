@@ -154,6 +154,8 @@ pub enum BridgeRpcError {
 	InvalidJSON,
 	/// offchain worker not configured properly
 	OcwConfig,
+	/// Challenge success
+	InvalidTransaction(String),
 }
 
 #[async_trait]

@@ -510,20 +510,18 @@ impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
 		let mut reads = 0 as Weight;
 		let mut writes = 0 as Weight;
 		let mut list: Vec<(LedgerIndex, XrpTransaction)> = Vec::new();
-		<ChallengeXRPTransactionList<T>>::iter().for_each(
-			|(transaction_hash, (ledger_index, _))| {
-				for _ in 0..limit {
-					reads += 2;
-					match <ProcessXRPTransactionDetails<T>>::get(&transaction_hash) {
-						None => {},
-						Some((ledger_index, ref tx, _relayer)) => {
-							list.push((ledger_index, *tx));
-							writes += 1;
-						},
-					};
-				}
-			},
-		);
+		<ChallengeXRPTransactionList<T>>::iter().for_each(|(transaction_hash, (_, _))| {
+			for _ in 0..limit {
+				reads += 2;
+				match <ProcessXRPTransactionDetails<T>>::get(&transaction_hash) {
+					None => {},
+					Some((ledger_index, ref tx, _relayer)) => {
+						list.push((ledger_index, *tx));
+						writes += 1;
+					},
+				};
+			}
+		});
 		(list, DbWeight::get().reads_writes(reads, writes))
 	}
 

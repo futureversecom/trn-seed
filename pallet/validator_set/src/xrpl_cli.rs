@@ -22,7 +22,7 @@ use xrpl::{
 };
 
 use crate::{
-	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplTxHash},
+	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplAddress, XrplTxHash},
 	ChainCallId,
 };
 use codec::alloc::string::String;
@@ -30,8 +30,8 @@ use futures::StreamExt;
 use scale_info::prelude::string::ToString;
 use seed_pallet_common::{get_static_str_ref, log};
 use seed_primitives::{
-	xrpl::{LedgerIndex, XrpTransaction},
-	XRP_HTTP_URI,
+	xrpl::{LedgerIndex, XrpTransaction, XrplTxData},
+	Balance, XRP_HTTP_URI,
 };
 use tokio::{
 	spawn,
@@ -60,7 +60,10 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 			while let Some(msg) = receiver.next().await {
 				assert!(msg.is_ok());
 				match msg {
-					Ok(m) => tx.send(is_valid_xrp_transaction(m, xrp_transaction)).await.unwrap(),
+					Ok(m) => tx
+						.send(is_valid_xrp_transaction(m, xrp_transaction, ledger_index))
+						.await
+						.unwrap(),
 					Err(_e) => tx.send(Err(BridgeRpcError::HttpFetch)).await.unwrap(),
 				}
 				receiver.close();
@@ -88,14 +91,84 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 pub fn is_valid_xrp_transaction(
 	msg: Message,
 	xrp_transaction: XrpTransaction,
+	ledger_index: LedgerIndex,
 ) -> Result<XrplTxHash, BridgeRpcError> {
-	// TODO(surangap): Update this to handle any type of XRPL response when/if required
-	let response: serde_json::Value =
-		serde_json::from_str(&msg.to_string()).expect("JSON was not well-formatted");
+	let response: serde_json::Value = match serde_json::from_str(&msg.to_string()) {
+		Ok(v) => v,
+		Err(_) => return Err(BridgeRpcError::InvalidTransaction("Json Parse Failed".to_string())),
+	};
 	match response["status"].as_str() {
-		Some("success") => Ok(XrplTxHash::from_slice(
-			response["result"]["tx_json"]["hash"].as_str().unwrap().as_bytes(),
-		)),
+		Some("success") => {
+			let li: LedgerIndex =
+				match response["result"]["ledger_index"].clone().to_string().parse::<LedgerIndex>()
+				{
+					Ok(v) => v,
+					Err(_) =>
+						return Err(BridgeRpcError::InvalidTransaction(
+							"LedgerIndex Parse Failed".to_string(),
+						)),
+				};
+			let validated: bool =
+				match response["result"]["validated"].clone().to_string().parse::<bool>() {
+					Ok(v) => v,
+					Err(_) =>
+						return Err(BridgeRpcError::InvalidTransaction(
+							"validated Parse Failed".to_string(),
+						)),
+				};
+			let memos: XrplAddress = match response["result"]["tx_json"]["Memos"].clone().as_str() {
+				Some(v) => XrplAddress::from_slice(v.as_bytes()),
+				None =>
+					return Err(BridgeRpcError::InvalidTransaction("Memos Parse Failed".to_string())),
+			};
+			let tx_amount: Balance = match response["result"]["tx_json"]["Amount"]
+				.clone()
+				.to_string()
+				.parse::<Balance>()
+			{
+				Ok(v) => v,
+				Err(_) =>
+					return Err(BridgeRpcError::InvalidTransaction(
+						"Amount Parse Failed".to_string(),
+					)),
+			};
+			let transaction_hash: XrplTxHash = match response["result"]["tx_json"]["hash"]
+				.clone()
+				.as_str()
+			{
+				Some(v) => XrplTxHash::from_slice(v.as_bytes()),
+				None =>
+					return Err(BridgeRpcError::InvalidTransaction("hash Parse Failed".to_string())),
+			};
+			if ledger_index.ne(&li) {
+				return Err(BridgeRpcError::InvalidTransaction("ledger_index Mismatch".to_string()))
+			}
+			if !validated {
+				return Err(BridgeRpcError::InvalidTransaction("not validated".to_string()))
+			}
+			if transaction_hash.ne(&xrp_transaction.transaction_hash) {
+				return Err(BridgeRpcError::InvalidTransaction(
+					"transaction_hash Mismatch".to_string(),
+				))
+			}
+			match xrp_transaction.transaction {
+				XrplTxData::Payment { amount, address } => {
+					if amount.ne(&tx_amount) {
+						return Err(BridgeRpcError::InvalidTransaction(
+							"amount Mismatch".to_string(),
+						))
+					}
+					if address.ne(&memos) {
+						return Err(BridgeRpcError::InvalidTransaction(
+							"address Mismatch".to_string(),
+						))
+					}
+				},
+				XrplTxData::CurrencyPayment { .. } => {},
+				XrplTxData::Xls20 => {},
+			}
+			Ok(transaction_hash)
+		},
 		_ => Err(BridgeRpcError::InvalidJSON),
 	}
 }
@@ -121,12 +194,18 @@ pub fn get_xrp_http_uri() -> Result<&'static str, BridgeRpcError> {
 #[cfg(test)]
 mod test {
 	use super::*;
+	use crate::H160;
 
 	#[test]
 	fn test_is_valid_xrp_transaction_success() {
 		let xrpl_tx = XrpTransaction {
-			transaction_hash: Default::default(),
-			transaction: Default::default(),
+			transaction_hash: XrplTxHash::from_slice(
+				b"C53ECF838647FA5A4C780377025FEC7999AB4182590510CA461444B207AB74A9",
+			),
+			transaction: XrplTxData::Payment {
+				amount: 20160 as Balance,
+				address: H160::from_slice(b"6490B68F1116BFE87DDC"),
+			},
 			timestamp: 0,
 		};
 		let response = r#"{
@@ -150,6 +229,8 @@ mod test {
 									  },
 									  "TransactionType": "OfferCreate",
 									  "TxnSignature": "3045022100A5023A0E64923616FCDB6D664F569644C7C9D1895772F986CD6B981B515B02A00220530C973E9A8395BC6FE2484948D2751F6B030FC7FB8575D1BFB406368AD554D9",
+									  "Memos": "6490B68F1116BFE87DDC",
+									  "Amount": 20160,
 									  "hash": "C53ECF838647FA5A4C780377025FEC7999AB4182590510CA461444B207AB74A9"
 									},
 									"validated": true
@@ -158,7 +239,7 @@ mod test {
 								"type": "response"
 							}"#;
 		let response_msg = Message::text(response);
-		let result = is_valid_xrp_transaction(response_msg, xrpl_tx);
+		let result = is_valid_xrp_transaction(response_msg, xrpl_tx, 56865245);
 		assert!(result.is_ok());
 		assert_eq!(
 			result.unwrap(),
@@ -177,7 +258,7 @@ mod test {
 		};
 		let response = "{\"error\":\"transactionNotFound\",\"ledger_hash\":\"A79AF319CFD103F3619D03BED6A5425B8244BD2D8A3E202DBB9101716B1A8C0A\",\"ledger_index\":74879866,\"request\":{\"command\":\"transaction_entry\",\"ledger_index\":\"74879866\",\"tx_hash\":\"6498E5CAEE95FE3E9D9E02D923A63D4A42B83CDAB15AC73CF956DD7BAFFA27AB\"},\"status\":\"error\",\"type\":\"response\",\"validated\":true}";
 		let response_msg = Message::text(response);
-		let result = is_valid_xrp_transaction(response_msg, xrpl_tx);
+		let result = is_valid_xrp_transaction(response_msg, xrpl_tx, 74879866);
 		assert!(result.is_err());
 		assert_eq!(result, Err(BridgeRpcError::InvalidJSON));
 	}

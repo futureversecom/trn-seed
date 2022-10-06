@@ -48,7 +48,7 @@ impl<T: Config> Pallet<T> {
 		maybe_active_key.map(|(key, idx)| (key, idx as u16))
 	}
 
-	pub(crate) fn schedule_requests_ocw() -> Weight {
+	pub(crate) fn schedule_requests() -> Weight {
 		let (list, w) = T::XrplBridgeCall::challenged_tx_list(CLAIMS_PER_BLOCK);
 		let mut reads = 0 as Weight;
 		let mut writes = 0 as Weight;

@@ -261,8 +261,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-		fn on_initialize(n: T::BlockNumber) -> Weight {
-			Self::schedule_requests_ocw()
+		fn on_initialize(_n: T::BlockNumber) -> Weight {
+			Self::schedule_requests()
 		}
 
 		fn offchain_worker(block_number: T::BlockNumber) {
