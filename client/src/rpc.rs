@@ -202,8 +202,13 @@ where
 	io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
 	io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 	io.merge(
-		EthyRpcHandler::new(ethy.event_proof_stream, ethy.subscription_executor, client.clone())
-			.into_rpc(),
+		EthyRpcHandler::new(
+			ethy.event_proof_stream,
+			ethy.subscription_executor,
+			client.clone(),
+			client.clone(),
+		)
+		.into_rpc(),
 	)?;
 	io.merge(
 		Babe::new(

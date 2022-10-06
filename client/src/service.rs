@@ -488,8 +488,9 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
 
 	let ethy_params = ethy_gadget::EthyParams {
-		client,
+		client: client.clone(),
 		backend,
+		runtime: client.clone(),
 		key_store: keystore.clone(),
 		network: network.clone(),
 		event_proof_sender,

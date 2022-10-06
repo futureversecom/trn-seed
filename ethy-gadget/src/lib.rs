@@ -114,18 +114,21 @@ where
 }
 
 /// ETHY gadget initialization parameters.
-pub struct EthyParams<B, BE, C, N>
+pub struct EthyParams<B, BE, C, R, N>
 where
 	B: Block,
 	BE: Backend<B>,
 	C: Client<B, BE>,
-	C::Api: EthyApi<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + 'static,
 {
 	/// ETHY client
 	pub client: Arc<C>,
 	/// Client Backend
 	pub backend: Arc<BE>,
+	/// Runtime
+	pub runtime: Arc<R>,
 	/// Local key store
 	pub key_store: Option<SyncCryptoStorePtr>,
 	/// Gossip network
@@ -142,17 +145,19 @@ where
 /// Start the ETHY gadget.
 ///
 /// This is a thin shim around running and awaiting a ETHY worker.
-pub async fn start_ethy_gadget<B, BE, C, N>(ethy_params: EthyParams<B, BE, C, N>)
+pub async fn start_ethy_gadget<B, BE, C, R, N>(ethy_params: EthyParams<B, BE, C, R, N>)
 where
 	B: Block,
 	BE: Backend<B>,
 	C: Client<B, BE>,
-	C::Api: EthyApi<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Sync + Send + 'static,
 {
 	let EthyParams {
 		client,
 		backend,
+		runtime,
 		key_store,
 		network,
 		event_proof_sender,
@@ -182,6 +187,7 @@ where
 	let worker_params = worker::WorkerParams {
 		client,
 		backend,
+		runtime,
 		key_store: key_store.into(),
 		event_proof_sender,
 		gossip_engine,
@@ -190,7 +196,7 @@ where
 		sync_oracle,
 	};
 
-	let worker = worker::EthyWorker::<_, _, _, _>::new(worker_params);
+	let worker = worker::EthyWorker::<_, _, _, _, _>::new(worker_params);
 
 	worker.run().await
 }
