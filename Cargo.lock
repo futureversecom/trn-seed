@@ -5224,6 +5224,7 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
+ "serde_json",
  "sp-application-crypto",
  "sp-core",
  "sp-io",
