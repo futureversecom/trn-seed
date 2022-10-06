@@ -1,5 +1,8 @@
 use codec::Encode;
-use frame_support::{pallet_prelude::*, traits::ValidatorSet as ValidatorSetT};
+use frame_support::{
+	pallet_prelude::*, traits::ValidatorSet as ValidatorSetT,
+	weights::constants::RocksDbWeight as DbWeight,
+};
 use frame_system::offchain::SubmitTransaction;
 use sp_runtime::{
 	transaction_validity::{
@@ -45,16 +48,22 @@ impl<T: Config> Pallet<T> {
 		maybe_active_key.map(|(key, idx)| (key, idx as u16))
 	}
 
-	pub(crate) fn schedule_requests_ocw() {
-		for (tx_hash, ledger_index) in T::XrplBridgeCall::challenged_tx_list(CALLS_PER_BLOCK) {
+	pub(crate) fn schedule_requests_ocw() -> Weight {
+		let (list, w) = T::XrplBridgeCall::challenged_tx_list(CLAIMS_PER_BLOCK);
+		let mut reads = 0 as Weight;
+		let mut writes = 0 as Weight;
+		for (ledger_index, xrp_transaction) in list {
 			let call_id = <NextChainCallId<T>>::get();
+			reads += 2;
 			<ChainCallRequestInfo<T>>::insert(
 				call_id,
-				CheckedChainCallRequest { tx_hash, ledger_index },
+				CheckedChainCallRequest { ledger_index, xrp_transaction },
 			);
 			<ChainCallRequests<T>>::append(call_id);
 			<NextChainCallId<T>>::put(call_id + 1);
+			writes += 3;
 		}
+		w + DbWeight::get().reads_writes(reads, writes)
 	}
 
 	pub(crate) fn do_call_validate_challenge_ocw(
@@ -94,8 +103,8 @@ impl<T: Config> Pallet<T> {
 		authority_index: u16,
 	) -> CheckedChainCallResult {
 		let mut receiver = match T::ChainWebsocketClient::transaction_entry_request(
-			request.tx_hash,
-			Some(request.ledger_index as u32),
+			request.xrp_transaction,
+			request.ledger_index,
 			call_id.clone(),
 		)
 		.await
@@ -116,8 +125,8 @@ impl<T: Config> Pallet<T> {
 			None => return CheckedChainCallResult::CallFailed,
 		};
 		match recv {
-			Ok(tx) => {
-				let result = CheckedChainCallResult::Ok(tx, tx.transaction_hash, 0);
+			Ok(transaction_hash) => {
+				let result = CheckedChainCallResult::Ok(transaction_hash);
 				let payload =
 					NotarizationPayload::Call { call_id: *call_id, authority_index, result };
 				let _ = Self::offchain_send_notarization(active_key, payload)
@@ -179,13 +188,8 @@ impl<T: Config> Pallet<T> {
 		// notify subscribers of a notarized eth_call outcome and clean upstate
 		let do_callback_and_clean_up = |result: CheckedChainCallResult| {
 			match result {
-				CheckedChainCallResult::Ok(XrpTransaction, XrplTxHash, LedgerIndex) =>
-					T::XrplBridgeCall::update_challenge(
-						LedgerIndex,
-						XrplTxHash,
-						XrpTransaction.transaction,
-						XrpTransaction.timestamp,
-					),
+				CheckedChainCallResult::Ok(transaction_hash) =>
+					T::XrplBridgeCall::update_challenge(transaction_hash),
 				CheckedChainCallResult::CallFailed => {},
 			}
 			if let Some(cursor) = <ChainCallNotarizations<T>>::clear_prefix(

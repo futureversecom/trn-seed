@@ -28,7 +28,10 @@ use codec::alloc::string::String;
 use futures::StreamExt;
 use scale_info::prelude::string::ToString;
 use seed_pallet_common::{get_static_str_ref, log};
-use seed_primitives::{xrpl::XrpTransaction, XRP_HTTP_URI};
+use seed_primitives::{
+	xrpl::{LedgerIndex, XrpTransaction},
+	XRP_HTTP_URI,
+};
 use tokio::{
 	spawn,
 	sync::{mpsc, mpsc::Receiver},
@@ -40,14 +43,14 @@ pub struct XrplWebsocketClient;
 impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 	/// Fetch transaction details for a challenged transaction hash
 	/// Parameters:
-	/// - `tx_hash`: The challenged transaction hash
+	/// - `xrp_transaction`: The challenged transaction details
 	/// - `ledger_index`: The ledger index for challenged transaction
 	/// - `call_id`: The unique call id to identify the requests
 	async fn transaction_entry_request(
-		tx_hash: XrplTxHash,
-		ledger_index: Option<u32>,
+		xrp_transaction: XrpTransaction,
+		ledger_index: LedgerIndex,
 		call_id: ChainCallId,
-	) -> Result<Receiver<Result<XrpTransaction, BridgeRpcError>>, BridgeRpcError> {
+	) -> Result<Receiver<Result<XrplTxHash, BridgeRpcError>>, BridgeRpcError> {
 		let xrp_http_uri = get_xrp_http_uri()?;
 		let client = AsyncWebsocketClient { url: xrp_http_uri };
 		let (mut ws_stream, (sender, mut receiver)) = client.open().await.unwrap();
@@ -56,22 +59,22 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 			while let Some(msg) = receiver.next().await {
 				assert!(msg.is_ok());
 				match msg {
-					Ok(m) => tx.send(Ok(message_to_xrp_transaction(m))).await.unwrap(),
+					Ok(m) => tx.send(is_valid_xrp_transaction(m, xrp_transaction)).await.unwrap(),
 					Err(_e) => tx.send(Err(BridgeRpcError::HttpFetch)).await.unwrap(),
 				}
 				receiver.close();
 				break
 			}
 		});
-		let ledger_index = match ledger_index {
+		/*let ledger_index = match ledger_index {
 			Some(li) => Some(get_static_str_ref!(li.to_string())),
 			None => None,
-		};
+		};*/
 		let request = TransactionEntry {
-			tx_hash: get_static_str_ref!(tx_hash.to_string()),
+			tx_hash: get_static_str_ref!(xrp_transaction.transaction_hash.to_string()),
 			id: Option::from(get_static_str_ref!(call_id.to_string())),
 			ledger_hash: None,
-			ledger_index,
+			ledger_index: Option::from(get_static_str_ref!(ledger_index.to_string())),
 			command: RequestMethod::AccountChannels,
 		};
 		let message = Message::Text(request.to_json());
@@ -85,13 +88,17 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 	}
 }
 
-pub fn message_to_xrp_transaction(msg: Message) -> XrpTransaction {
+pub fn is_valid_xrp_transaction(
+	msg: Message,
+	xrp_transaction: XrpTransaction,
+) -> Result<XrplTxHash, BridgeRpcError> {
 	let data = msg.to_string();
-	XrpTransaction {
+	let x = XrpTransaction {
 		transaction_hash: Default::default(),
 		transaction: Default::default(),
 		timestamp: 0,
-	}
+	};
+	Ok(xrp_transaction.transaction_hash)
 }
 
 pub fn get_xrp_http_uri() -> Result<&'static str, BridgeRpcError> {

@@ -506,41 +506,34 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
-	fn challenged_tx_list(limit: usize) -> Vec<(XrplTxHash, LedgerIndex)> {
-		//Self::challenge_xrp_transaction_list()
-		let mut list: Vec<(XrplTxHash, LedgerIndex)> = Vec::new();
-		<ChallengeXRPTransactionList<T>>::iter().for_each(|(tx_hash, (ledger_index, _))| {
-			for _ in 0..limit {
-				list.push((tx_hash, ledger_index))
-			}
-		});
-		list
+	fn challenged_tx_list(limit: usize) -> (Vec<(LedgerIndex, XrpTransaction)>, Weight) {
+		let mut reads = 0 as Weight;
+		let mut writes = 0 as Weight;
+		let mut list: Vec<(LedgerIndex, XrpTransaction)> = Vec::new();
+		<ChallengeXRPTransactionList<T>>::iter().for_each(
+			|(transaction_hash, (ledger_index, _))| {
+				for _ in 0..limit {
+					reads += 2;
+					match <ProcessXRPTransactionDetails<T>>::get(&transaction_hash) {
+						None => {},
+						Some((ledger_index, ref tx, _relayer)) => {
+							list.push((ledger_index, *tx));
+							writes += 1;
+						},
+					};
+				}
+			},
+		);
+		(list, DbWeight::get().reads_writes(reads, writes))
 	}
 
-	fn update_challenge(
-		ledger_index: LedgerIndex,
-		transaction_hash: XrplTxHash,
-		transaction: XrplTxData,
-		timestamp: Timestamp,
-	) {
-		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		let tx_details = <ProcessXRPTransactionDetails<T>>::get(transaction_hash);
-		let relayer = match tx_details {
-			None => return,
-			Some((_ledger_index, ref _tx, relayer)) => relayer,
-		};
-		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, relayer));
+	fn update_challenge(transaction_hash: XrplTxHash) {
+		<ProcessXRPTransactionDetails<T>>::remove(&transaction_hash);
 		<ChallengeXRPTransactionList<T>>::remove(&transaction_hash);
-		let _ = Self::add_to_xrp_process(transaction_hash);
 	}
 }
 
 pub trait XrplBridgeCall<AccountId> {
-	fn challenged_tx_list(limit: usize) -> Vec<(XrplTxHash, LedgerIndex)>;
-	fn update_challenge(
-		ledger_index: LedgerIndex,
-		transaction_hash: XrplTxHash,
-		transaction: XrplTxData,
-		timestamp: Timestamp,
-	);
+	fn challenged_tx_list(limit: usize) -> (Vec<(LedgerIndex, XrpTransaction)>, Weight);
+	fn update_challenge(transaction_hash: XrplTxHash);
 }

@@ -62,12 +62,12 @@ pub struct EventProofInfo {
 /// An EthCallOracle request
 #[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo)]
 pub struct CheckedChainCallRequest {
-	pub tx_hash: XrplTxHash,
 	pub ledger_index: LedgerIndex,
+	pub xrp_transaction: XrpTransaction,
 }
 #[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Copy, Clone, TypeInfo)]
 pub enum CheckedChainCallResult {
-	Ok(XrpTransaction, XrplTxHash, LedgerIndex),
+	Ok(XrplTxHash),
 	CallFailed,
 }
 
@@ -161,8 +161,8 @@ pub enum BridgeRpcError {
 /// required for the bridge
 pub trait BridgeXrplWebsocketApi {
 	async fn transaction_entry_request(
-		hash: XrplTxHash,
-		ledger_index: Option<u32>,
+		xrp_transaction: XrpTransaction,
+		ledger_index: LedgerIndex,
 		call_id: ChainCallId,
-	) -> Result<Receiver<Result<XrpTransaction, BridgeRpcError>>, BridgeRpcError>;
+	) -> Result<Receiver<Result<XrplTxHash, BridgeRpcError>>, BridgeRpcError>;
 }

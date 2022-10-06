@@ -261,6 +261,10 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+		fn on_initialize(n: T::BlockNumber) -> Weight {
+			Self::schedule_requests_ocw()
+		}
+
 		fn offchain_worker(block_number: T::BlockNumber) {
 			log!(trace, "💎 entering off-chain worker: {:?}", block_number);
 			log!(trace, "💎 active notaries: {:?}", Self::notary_keys());
@@ -286,7 +290,6 @@ pub mod pallet {
 					);
 					return
 				}
-				Self::schedule_requests_ocw();
 				// validate challenges
 				Self::do_call_validate_challenge_ocw(&active_key, authority_index);
 			} else {

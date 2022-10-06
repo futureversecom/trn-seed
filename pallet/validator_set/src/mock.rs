@@ -16,7 +16,7 @@ use seed_pallet_common::{EthyXrplBridgeAdapter, FinalSessionTracker};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId as AuthorityIdE, EventProofId},
 	validator::crypto::AuthorityId,
-	xrpl::XrpTransaction,
+	xrpl::{LedgerIndex, XrpTransaction},
 	AssetId, Balance, BlockNumber, Signature,
 };
 use sp_core::{ByteArray, H160, H256};
@@ -212,11 +212,11 @@ impl MockChainWebsocketClient {}
 #[async_trait]
 impl BridgeXrplWebsocketApi for MockChainWebsocketClient {
 	async fn transaction_entry_request(
-		hash: XrplTxHash,
-		ledger_index: Option<u32>,
+		xrp_transaction: XrpTransaction,
+		ledger_index: LedgerIndex,
 		call_id: ChainCallId,
-	) -> Result<Receiver<Result<XrpTransaction, BridgeRpcError>>, BridgeRpcError> {
-		let (tx, rx) = mpsc::channel(4);
+	) -> Result<Receiver<Result<XrplTxHash, BridgeRpcError>>, BridgeRpcError> {
+		let (_tx, rx) = mpsc::channel(4);
 		Ok(rx)
 	}
 }
