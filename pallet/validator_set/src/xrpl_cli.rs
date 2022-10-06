@@ -66,10 +66,6 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 				break
 			}
 		});
-		/*let ledger_index = match ledger_index {
-			Some(li) => Some(get_static_str_ref!(li.to_string())),
-			None => None,
-		};*/
 		let request = TransactionEntry {
 			tx_hash: get_static_str_ref!(xrp_transaction.transaction_hash.to_string()),
 			id: Option::from(get_static_str_ref!(call_id.to_string())),
