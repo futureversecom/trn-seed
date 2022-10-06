@@ -214,8 +214,6 @@ pub enum EventClaimResult {
 	NotEnoughConfirmations,
 	/// Tx event logs indicated this claim does not match the event
 	UnexpectedData,
-	/// The deposit tx is past the expiration deadline
-	Expired,
 	/// The Tx Receipt was not present
 	NoTxReceipt,
 	/// The event source did not match the tx receipt `to` field

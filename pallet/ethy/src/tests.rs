@@ -1149,39 +1149,6 @@ fn offchain_try_notarize_event_no_confirmations_should_fail() {
 }
 
 #[test]
-fn offchain_try_notarize_event_expired_confirmation_should_fail() {
-	ExtBuilder::default().build().execute_with(|| {
-		System::set_block_number(1_000_000);
-		// Mock block response and transaction receipt
-		let block_number = 10;
-		let timestamp = U256::zero();
-		let event_id = 2;
-		let tx_hash = EthHash::from_low_u64_be(222);
-		let source = EthAddress::from_low_u64_be(333);
-		let destination = EthAddress::from_low_u64_be(444);
-
-		// Create block info for both the transaction block and a later block
-		let _mock_block_1 = mock_block_response(block_number, timestamp);
-		let _mock_block_2 = mock_block_response(block_number + 5, timestamp);
-		let event_data = encode_event_message(event_id, source, destination, Default::default());
-		let mock_log = MockLogBuilder::new()
-			.address(bridge_contract_address())
-			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
-			.data(event_data.as_slice())
-			.transaction_hash(tx_hash)
-			.build();
-		let _mock_tx_receipt =
-			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
-
-		let event_claim = EventClaim { tx_hash, source, destination, ..Default::default() };
-		assert_eq!(
-			EthBridge::offchain_try_notarize_event(event_id, event_claim),
-			EventClaimResult::Expired
-		);
-	});
-}
-
-#[test]
 fn offchain_try_notarize_event_no_observed_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Mock block response and transaction receipt
@@ -1198,7 +1165,6 @@ fn offchain_try_notarize_event_no_observed_should_fail() {
 		let event_data = encode_event_message(event_id, source, destination, Default::default());
 		let mock_log = MockLogBuilder::new()
 			.address(bridge_contract_address())
-			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
 			.data(event_data.as_slice())
 			.transaction_hash(tx_hash)
 			.build();
@@ -1210,7 +1176,7 @@ fn offchain_try_notarize_event_no_observed_should_fail() {
 		let _ = EthBridge::set_event_block_confirmations(frame_system::RawOrigin::Root.into(), 0);
 		assert_eq!(
 			EthBridge::offchain_try_notarize_event(event_id, event_claim),
-			EventClaimResult::DataProviderErr
+			EventClaimResult::NoTxLogs
 		);
 	});
 }
