@@ -706,7 +706,7 @@ impl<T: Config> Module<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-		Self::deposit_event(Event::<T>::EventSend { event_proof_id, chain_id: request.chain_id() });
+		Self::deposit_event(Event::<T>::EventSend { event_proof_id, signing_request: request });
 	}
 }
 
@@ -776,11 +776,11 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
-		if T::FinalSessionTracker::is_active_session_final() {
-			// Store the keys for usage next session
-			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
-			<NextNotaryKeys<T>>::put(next_queued_authorities);
+		// Store the keys for usage next session
+		let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+		<NextNotaryKeys<T>>::put(next_queued_authorities);
 
+		if T::FinalSessionTracker::is_active_session_final() {
 			// Next authority change is 5 minutes before this session ends
 			// (Just before the start of the next epoch)
 			// next_block = current_block + epoch_duration - 75 (5 minutes in blocks)

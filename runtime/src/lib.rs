@@ -65,8 +65,8 @@ pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	ethy::crypto::AuthorityId as EthBridgeId, AccountId, Address, AssetId, BabeId, Balance,
-	BlockNumber, Hash, Index, Signature,
+	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
+	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, Hash, Index, Signature,
 };
 
 mod bag_thresholds;
@@ -105,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 8,
+	spec_version: 11,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -1263,8 +1263,16 @@ impl_runtime_apis! {
 	}
 
 	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
-		fn validator_set() -> seed_primitives::ethy::ValidatorSet<EthBridgeId> {
+		fn validator_set() -> ValidatorSet<EthBridgeId> {
 			EthBridge::validator_set()
+		}
+		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
+			let door_signers = XRPLBridge::door_signers();
+			ValidatorSet {
+				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
+				validators: door_signers,
+				id: EthBridge::notary_set_id(), // the set Id is the same as the overall Ethy set Id
+			}
 		}
 	}
 }
