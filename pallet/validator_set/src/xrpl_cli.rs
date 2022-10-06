@@ -15,7 +15,11 @@
 use async_trait::async_trait;
 use sp_runtime::offchain::StorageKind;
 use sp_std::prelude::*;
-use xrpl::{models::{Model, RequestMethod, TransactionEntry}, serde_json, tokio::AsyncWebsocketClient};
+use xrpl::{
+	models::{Model, RequestMethod, TransactionEntry},
+	serde_json,
+	tokio::AsyncWebsocketClient,
+};
 
 use crate::{
 	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplTxHash},
@@ -86,9 +90,12 @@ pub fn is_valid_xrp_transaction(
 	xrp_transaction: XrpTransaction,
 ) -> Result<XrplTxHash, BridgeRpcError> {
 	// TODO(surangap): Update this to handle any type of XRPL response when/if required
-	let response: serde_json::Value = serde_json::from_str(&msg.to_string()).expect("JSON was not well-formatted");
+	let response: serde_json::Value =
+		serde_json::from_str(&msg.to_string()).expect("JSON was not well-formatted");
 	match response["status"].as_str() {
-		Some("success") => Ok(XrplTxHash::from_slice(response["result"]["tx_json"]["hash"].as_str().unwrap().as_bytes())),
+		Some("success") => Ok(XrplTxHash::from_slice(
+			response["result"]["tx_json"]["hash"].as_str().unwrap().as_bytes(),
+		)),
 		_ => Err(BridgeRpcError::InvalidJSON),
 	}
 }
@@ -153,7 +160,12 @@ mod test {
 		let response_msg = Message::text(response);
 		let result = is_valid_xrp_transaction(response_msg, xrpl_tx);
 		assert!(result.is_ok());
-		assert_eq!(result.unwrap(), XrplTxHash::from_slice(b"C53ECF838647FA5A4C780377025FEC7999AB4182590510CA461444B207AB74A9"));
+		assert_eq!(
+			result.unwrap(),
+			XrplTxHash::from_slice(
+				b"C53ECF838647FA5A4C780377025FEC7999AB4182590510CA461444B207AB74A9"
+			)
+		);
 	}
 
 	#[test]
