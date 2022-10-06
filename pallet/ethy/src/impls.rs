@@ -162,7 +162,6 @@ impl<T: Config> Module<T> {
 	/// - check for exact log data match
 	/// - check log source == bridge contract address
 	/// - confirmations `>= T::EventConfirmations`
-	/// - message has not expired older than `T::EventDeadline`
 	///
 	/// Returns result of the validation
 	pub(crate) fn offchain_try_notarize_event(
@@ -242,36 +241,6 @@ impl<T: Config> Module<T> {
 		let block_confirmations = latest_block_number.saturating_sub(observed_block_number);
 		if block_confirmations < Self::event_block_confirmations() {
 			return EventClaimResult::NotEnoughConfirmations
-		}
-
-		// calculate if the block is expired w some high degree of confidence without making
-		// a query. time since the event = block_confirmations * ~12 seconds avg
-		if block_confirmations * 12 > Self::event_deadline_seconds() {
-			return EventClaimResult::Expired
-		}
-
-		//  check the block this tx is in if the timestamp > deadline
-		let observed_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(
-			LatestOrNumber::Number(observed_block_number),
-		) {
-			Ok(None) => return EventClaimResult::DataProviderErr,
-			Ok(Some(block)) => block,
-			Err(err) => {
-				log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
-				return EventClaimResult::DataProviderErr
-			},
-		};
-
-		// claim is past the expiration deadline
-		// eth. block timestamp (seconds)
-		// deadline (seconds)
-		if T::UnixTime::now()
-			.as_secs()
-			.saturated_into::<u64>()
-			.saturating_sub(observed_block.timestamp.saturated_into::<u64>()) >
-			Self::event_deadline_seconds()
-		{
-			return EventClaimResult::Expired
 		}
 
 		EventClaimResult::Valid

@@ -116,8 +116,8 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
+		/// Request to withdraw some XRP amount to XRPL
 		WithdrawRequest {
-			tx_blob: Vec<u8>,
 			proof_id: u64,
 			sender: T::AccountId,
 			amount: Balance,
@@ -460,15 +460,9 @@ impl<T: Config> Pallet<T> {
 		let tx_nonce = Self::door_nonce_inc()?;
 		let tx_data = XrpWithdrawTransaction { tx_nonce, tx_fee, amount, destination };
 
-		let (proof_id, tx_blob) = Self::submit_withdraw_request(door_address.into(), tx_data)?;
+		let proof_id = Self::submit_withdraw_request(door_address.into(), tx_data)?;
 
-		Self::deposit_event(Event::WithdrawRequest {
-			proof_id,
-			tx_blob,
-			sender: who,
-			amount,
-			destination,
-		});
+		Self::deposit_event(Event::WithdrawRequest { proof_id, sender: who, amount, destination });
 
 		Ok(())
 	}
@@ -478,7 +472,7 @@ impl<T: Config> Pallet<T> {
 	fn submit_withdraw_request(
 		door_address: [u8; 20],
 		tx_data: XrpWithdrawTransaction,
-	) -> Result<(u64, Vec<u8>), DispatchError> {
+	) -> Result<u64, DispatchError> {
 		let XrpWithdrawTransaction { tx_fee, tx_nonce, amount, destination } = tx_data;
 
 		let payment = Payment::new(
@@ -493,7 +487,6 @@ impl<T: Config> Pallet<T> {
 		let tx_blob = payment.binary_serialize(true);
 
 		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
-			.map(|event_proof_id| (event_proof_id, tx_blob))
 	}
 
 	// Return the current door nonce and increment it in storage
