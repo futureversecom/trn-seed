@@ -148,9 +148,7 @@ pub struct Witness {
 	pub validator_set_id: ValidatorSetId,
 	/// Node public key (i.e. Ethy session key)
 	pub authority_id: AuthorityId,
-	/// Node signature
-	/// Over `keccak(abi.encodePacked(self.message, self.nonce))`
-	/// a 512-bit value, plus 8 bits for recovery ID.
+	/// ECDSA signature over `digest`
 	pub signature: AuthoritySignature,
 }
 

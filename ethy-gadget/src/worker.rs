@@ -182,33 +182,6 @@ where
 			extract_proof_requests::<B>(&notification.header).into_iter()
 		{
 			trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
-
-			// it's possible the event already has a proof stored e.g.
-			// ethy protocol completed by validators for the event and broadcast prior to the
-			// finalized block being imported locally if so update the proof's block hash
-			let proof_key = make_proof_key(chain_id, event_id);
-			let get_proof = Backend::get_aux(self.backend.as_ref(), proof_key.as_ref());
-
-			// Try update the existing proof if it exists
-			if let Ok(Some(encoded_proof)) = get_proof {
-				if let Ok(VersionedEventProof::V1 { 0: mut proof }) =
-					VersionedEventProof::decode(&mut &encoded_proof[..])
-				{
-					proof.block = block;
-					if let Err(err) = Backend::insert_aux(
-						self.backend.as_ref(),
-						&[(proof_key.as_ref(), VersionedEventProof::V1(proof).encode().as_ref())],
-						&[],
-					) {
-						error!(target: "ethy", "💎 failed to update existing proof: {:?}, {:?}", event_id, err);
-						continue
-					}
-				} else {
-					error!(target: "ethy", "💎 failed decoding event proof v1: {:?}", event_id);
-					continue
-				}
-			}
-
 			let digest = match data_to_digest(chain_id, data, [0_u8; 33]) {
 				Some(d) => d,
 				None => {
@@ -216,7 +189,6 @@ where
 					continue
 				},
 			};
-
 			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
 			// with the event metadata available we may be able to make a proof (provided there's
 			// enough witnesses ready)

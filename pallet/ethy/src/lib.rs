@@ -132,8 +132,6 @@ decl_storage! {
 		ChallengePeriod get(fn challenge_period): T::BlockNumber = T::BlockNumber::from(150_u32); // 10 Minutes
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
-		/// Events cannot be claimed after this time (seconds)
-		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 		/// Notarizations for queued events
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
@@ -230,7 +228,7 @@ decl_error! {
 		Internal,
 		/// Caller does not have permission for that action
 		NoPermission,
-		/// There is no event claim assosciated with the supplied claim_id
+		/// There is no event claim associated with the supplied claim_id
 		NoClaim,
 		/// There is already a challenge for this claim
 		ClaimAlreadyChallenged,
@@ -309,13 +307,6 @@ decl_module! {
 		pub fn set_event_block_confirmations(origin, confirmations: u64) {
 			ensure_root(origin)?;
 			EventBlockConfirmations::put(confirmations)
-		}
-
-		#[weight = DbWeight::get().writes(1)]
-		/// Set event deadline (seconds). Events cannot be notarized after this time has elapsed
-		pub fn set_event_deadline(origin, seconds: u64) {
-			ensure_root(origin)?;
-			EventDeadlineSeconds::put(seconds);
 		}
 
 		#[weight = DbWeight::get().writes(1)]
