@@ -33,12 +33,12 @@ macro_rules! log {
 	};
 }
 
-/// Convert string to static str
+/// Convert string to str with lifetime
 #[macro_export]
-macro_rules! get_static_str_ref {
-	($var2:expr) => {{
+macro_rules! get_lifetime_str_ref {
+	($a:lifetime,$var2:expr) => {{
 		let var1 = String::from($var2);
-		let var: &'static str = Box::leak(var1.into_boxed_str());
+		let var: &$a str = Box::leak(var1.into_boxed_str());
 		var
 	}};
 }

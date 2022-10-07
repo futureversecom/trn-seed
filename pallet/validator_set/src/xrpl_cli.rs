@@ -28,7 +28,7 @@ use crate::{
 use codec::alloc::string::String;
 use futures::StreamExt;
 use scale_info::prelude::string::ToString;
-use seed_pallet_common::{get_static_str_ref, log};
+use seed_pallet_common::{get_lifetime_str_ref, log};
 use seed_primitives::{
 	xrpl::{LedgerIndex, XrpTransaction, XrplTxData},
 	Balance, XRP_HTTP_URI,
@@ -41,7 +41,7 @@ use tokio_tungstenite::tungstenite::Message;
 
 pub struct XrplWebsocketClient;
 #[async_trait]
-impl BridgeXrplWebsocketApi for XrplWebsocketClient {
+impl<'a> BridgeXrplWebsocketApi for XrplWebsocketClient {
 	/// Fetch transaction details for a challenged transaction hash
 	/// Parameters:
 	/// - `xrp_transaction`: The challenged transaction details
@@ -71,12 +71,19 @@ impl BridgeXrplWebsocketApi for XrplWebsocketClient {
 			}
 		});
 		let request = TransactionEntry {
-			tx_hash: get_static_str_ref!(xrp_transaction.transaction_hash.to_string()),
-			id: Option::from(get_static_str_ref!(call_id.to_string())),
+			tx_hash: get_lifetime_str_ref!('static, xrp_transaction.transaction_hash.to_string()),
+			id: Option::from(get_lifetime_str_ref!('static, call_id.to_string())),
 			ledger_hash: None,
-			ledger_index: Option::from(get_static_str_ref!(ledger_index.to_string())),
+			ledger_index: Option::from(get_lifetime_str_ref!('static, ledger_index.to_string())),
 			command: RequestMethod::TransactionEntry,
 		};
+		/*let request = TransactionEntry {
+			tx_hash: "",
+			id: None,
+			ledger_hash: None,
+			ledger_index: None,
+			command: RequestMethod::AccountChannels
+		};*/
 		let message = Message::Text(request.to_json());
 		log!(trace, "💎 request: {:?}", message.clone());
 
@@ -173,7 +180,7 @@ pub fn is_valid_xrp_transaction(
 	}
 }
 
-pub fn get_xrp_http_uri() -> Result<&'static str, BridgeRpcError> {
+pub fn get_xrp_http_uri<'a>() -> Result<&'a str, BridgeRpcError> {
 	let xrp_http_uri = if let Some(value) =
 		sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &XRP_HTTP_URI)
 	{
@@ -186,7 +193,7 @@ pub fn get_xrp_http_uri() -> Result<&'static str, BridgeRpcError> {
 		Ok(uri) => uri,
 		Err(_) => return Err(BridgeRpcError::OcwConfig),
 	};
-	let xrp_http_uri = core::str::from_utf8(get_static_str_ref!(xrp_http_uri).as_ref())
+	let xrp_http_uri = core::str::from_utf8(get_lifetime_str_ref!('a, xrp_http_uri).as_ref())
 		.map_err(|_| BridgeRpcError::OcwConfig)?;
 	Ok(xrp_http_uri)
 }
