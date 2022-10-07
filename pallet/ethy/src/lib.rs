@@ -128,7 +128,7 @@ decl_storage! {
 		BridgePaused get(fn bridge_paused): bool;
 		/// The (optimistic) challenge period after which a submitted event is considered valid
 		ChallengePeriod get(fn challenge_period): T::BlockNumber = T::BlockNumber::from(150_u32); // 10 Minutes
-		/// The peg contract address on Ethereum
+		/// The bridge contract address on Ethereum
 		pub ContractAddress get(fn contract_address): EthAddress;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
