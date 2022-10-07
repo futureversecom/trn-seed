@@ -689,17 +689,12 @@ impl pallet_tx_fee_pot::Config for Runtime {
 parameter_types! {
 	/// The bridge pallet address
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
-	/// The Ethereum bridge contract address (deployed on Ethereum)
-	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 }
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
-	/// The deployed Ethereum bridge contract address (source for incoming message, destination for
-	/// outgoing)
-	type BridgeContractAddress = EthereumBridgeContractAddress;
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)
 	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
