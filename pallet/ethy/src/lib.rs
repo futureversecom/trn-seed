@@ -92,8 +92,6 @@ pub trait Config:
 {
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
-	/// The bridge contract address on Ethereum
-	type BridgeContractAddress: Get<H160>;
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)
 	type BridgePalletId: Get<PalletId>;
 	/// The runtime call type.
@@ -130,6 +128,8 @@ decl_storage! {
 		BridgePaused get(fn bridge_paused): bool;
 		/// The (optimistic) challenge period after which a submitted event is considered valid
 		ChallengePeriod get(fn challenge_period): T::BlockNumber = T::BlockNumber::from(150_u32); // 10 Minutes
+		/// The peg contract address on Ethereum
+		pub ContractAddress get(fn contract_address): EthAddress;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
 		/// Notarizations for queued events
@@ -199,7 +199,9 @@ decl_event! {
 		/// An event proof has been sent for signing by ethy-gadget
 		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
-		EventSubmit(EventClaimId, EventClaim, BlockNumber)
+		EventSubmit(EventClaimId, EventClaim, BlockNumber),
+		/// The bridge contract address has been set
+		SetContractAddress(EthAddress),
 	}
 }
 
@@ -321,6 +323,14 @@ decl_module! {
 		pub fn set_challenge_period(origin, blocks: T::BlockNumber) {
 			ensure_root(origin)?;
 			<ChallengePeriod<T>>::put(blocks);
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Set the bridge contract address on Ethereum (requires governance)
+		pub fn set_contract_address(origin, contract_address: EthAddress) {
+			ensure_root(origin)?;
+			ContractAddress::put(contract_address);
+			Self::deposit_event(<Event<T>>::SetContractAddress(contract_address));
 		}
 
 		#[weight = DbWeight::get().writes(1)]

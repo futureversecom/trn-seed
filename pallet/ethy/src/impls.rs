@@ -217,7 +217,7 @@ impl<T: Config> Module<T> {
 				);
 				return EventClaimResult::UnexpectedData
 			}
-			if log.address != T::BridgeContractAddress::get() {
+			if log.address != Self::contract_address() {
 				return EventClaimResult::UnexpectedContractAddress
 			}
 		} else {
@@ -622,7 +622,7 @@ impl<T: Config> Module<T> {
 		// notify ethereum contract about validator set change
 		if let Ok(event_proof_id) = Self::send_event(
 			&T::BridgePalletId::get().into_account_truncating(),
-			&T::BridgeContractAddress::get(),
+			&Self::contract_address(),
 			new_validator_set_message.as_slice(),
 		) {
 			// Signal the Event Id that will be used for the proof of validator set change.
