@@ -47,8 +47,8 @@ use crate::{
 		EthereumEventInfo, EthySigningRequest, EventClaim, EventClaimResult, EventProofId,
 		TransactionReceipt,
 	},
-	BridgePaused, Config, Error, EthCallRequestInfo, Event, EventClaimStatus, Module, ETHY_ENGINE_ID,
-	SUBMIT_BRIDGE_EVENT_SELECTOR,
+	BridgePaused, Config, Error, EthCallRequestInfo, Event, EventClaimStatus, Module,
+	ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 
 /// Mocks an Eth block for when get_block_by_number is called

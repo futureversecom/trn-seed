@@ -210,6 +210,8 @@ decl_event! {
 		ProcessingFailed(EventClaimId, EventRouterError),
 		/// An event has been challenged (claim_id, challenger)
 		Challenged(EventClaimId, AccountId),
+		/// The event is still awaiting consensus. Process block pushed out (claim_id, process_at)
+		ProcessAtExtended(EventClaimId, BlockNumber),
 		/// An event proof has been sent for signing by ethy-gadget
 		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
@@ -287,11 +289,12 @@ decl_module! {
 			for message_id in MessagesValidAt::<T>::take(block_number) {
 				if Self::pending_claim_status(message_id) == Some(EventClaimStatus::Challenged) {
 					// We are still waiting on the challenge to be processed, push out by challenge period
+					let new_process_at = block_number + Self::challenge_period()
 					<MessagesValidAt<T>>::append(
-						block_number + Self::challenge_period(),
+						new_process_at,
 						message_id,
 					);
-					// TODO Throw event here
+					Self::deposit_event(Event::<T>::ProcessAtExtended(message_id, new_process_at))
 					continue
 				}
 				// Removed PendingEventClaim from storage and processes
@@ -346,7 +349,6 @@ decl_module! {
 
 		#[weight = DbWeight::get().writes(1)]
 		/// Submit bond for relayer account
-		/// User submits custom amount to allow for top up
 		pub fn deposit_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
