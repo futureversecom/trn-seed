@@ -462,22 +462,16 @@ where
 pub(crate) mod test {
 	use super::*;
 	use crate::{
-		notification::{EthyEventProofSender, EthyEventProofTracingKey},
+		notification::EthyEventProofTracingKey,
 		testing::Keyring,
 		tests::{
-			create_ethy_keystore, make_ethy_ids,
-			two_validators::{RuntimeApi, TestApi},
-			EthyLinkHalf, EthyPeer, EthyTestNet, EthyValidatorSet, ETHY_PROTOCOL_NAME,
+			create_ethy_keystore, make_ethy_ids, two_validators::TestApi, EthyPeer, EthyTestNet,
+			ETHY_PROTOCOL_NAME,
 		},
 	};
-	use futures::{executor::block_on, future::poll_fn, task::Poll};
-	use sc_client_api::HeaderBackend;
 	use sc_network::NetworkService;
-	use sc_network_test::{PeersClient, PeersFullClient, TestNetFactory};
-	use sc_utils::{
-		notification::{NotificationSender, NotificationStream, TracingKeyStr},
-		pubsub::Hub,
-	};
+	use sc_network_test::{PeersFullClient, TestNetFactory};
+	use sc_utils::notification::NotificationStream;
 	use seed_primitives::ethy::{crypto::AuthorityId, ValidatorSet};
 	use sp_api::HeaderT;
 	use substrate_test_runtime_client::{
@@ -488,7 +482,6 @@ pub(crate) mod test {
 	fn create_ethy_worker(
 		peer: &EthyPeer,
 		key: &Keyring,
-		min_block_delta: u32,
 		validators: Vec<AuthorityId>,
 	) -> EthyWorker<Block, PeersFullClient, Backend, TestApi, Arc<NetworkService<Block, H256>>> {
 		let keystore = create_ethy_keystore(*key);
@@ -498,7 +491,7 @@ pub(crate) mod test {
 		let gossip_validator = Arc::new(crate::gossip::GossipValidator::new(validators));
 		let gossip_engine =
 			GossipEngine::new(network, ETHY_PROTOCOL_NAME, gossip_validator.clone(), None);
-		let (sender, receiver) = NotificationStream::<_, EthyEventProofTracingKey>::channel();
+		let (sender, _receiver) = NotificationStream::<_, EthyEventProofTracingKey>::channel();
 
 		let worker_params = crate::worker::WorkerParams {
 			client: peer.client().as_client(),
@@ -515,12 +508,13 @@ pub(crate) mod test {
 	}
 
 	#[test]
-	fn test_test() {
+	fn create_ethy_worker_works() {
 		let keys = &[Keyring::Alice];
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
-		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], 1, validators);
+		let worker = create_ethy_worker(&net.peer(0), &keys[0], validators);
 	}
+
 	#[test]
 	fn extract_authorities_change_digest() {
 		let mut header = Header::new(

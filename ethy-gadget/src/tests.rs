@@ -18,46 +18,24 @@
 
 //! Tests and test helpers for ETHY.
 
-use crate::{
-	ethy_protocol_name, notification::EthyEventProofStream, testing::Keyring as EthyKeyring,
-};
-use futures::{future, stream::FuturesUnordered, Future, StreamExt};
+use crate::{notification::EthyEventProofStream, testing::Keyring as EthyKeyring};
 use parking_lot::Mutex;
-use sc_chain_spec::{ChainSpec, GenericChainSpec};
-use sc_client_api::{
-	notifications::StorageEventStream, Backend, BlockchainEvents, ClientImportOperation,
-	FinalityNotifications, Finalizer, HeaderBackend, ImportNotifications,
-};
-use sc_consensus::{
-	BlockImportParams, BoxJustificationImport, ForkChoiceStrategy, ImportResult, ImportedAux,
-};
+use sc_consensus::BoxJustificationImport;
 use sc_keystore::LocalKeystore;
 use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient,
-	PeersFullClient, TestNetFactory,
+	TestNetFactory,
 };
-use sc_service::client::Client;
-use sc_utils::notification::NotificationReceiver;
 use seed_primitives::ethy::{
-	crypto::AuthorityId, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof, EventProofId,
-	ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
-	GENESIS_AUTHORITY_SET_ID,
+	crypto::AuthorityId, ConsensusLog, EthyApi, ValidatorSet, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
 };
 use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use sp_blockchain::{BlockStatus, Info, Result as BEResult};
 use sp_consensus::BlockOrigin;
-use sp_core::{storage::StorageKey, H256};
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-use sp_runtime::{
-	codec::Encode,
-	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, NumberFor},
-	BuildStorage, DigestItem, Justification, Justifications, Storage,
-};
-use std::{collections::HashMap, sync::Arc, task::Poll};
-use substrate_test_runtime_client::{runtime::Header, ClientExt};
-use tokio::{runtime::Runtime, time::Duration};
+use sp_runtime::{codec::Encode, traits::Header as HeaderT, BuildStorage, DigestItem, Storage};
+use std::sync::Arc;
+use substrate_test_runtime_client::runtime::Header;
 
 pub(crate) const ETHY_PROTOCOL_NAME: &'static str = "/ethy/1";
 
