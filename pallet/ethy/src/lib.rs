@@ -289,12 +289,12 @@ decl_module! {
 			for message_id in MessagesValidAt::<T>::take(block_number) {
 				if Self::pending_claim_status(message_id) == Some(EventClaimStatus::Challenged) {
 					// We are still waiting on the challenge to be processed, push out by challenge period
-					let new_process_at = block_number + Self::challenge_period()
+					let new_process_at = block_number + Self::challenge_period();
 					<MessagesValidAt<T>>::append(
 						new_process_at,
 						message_id,
 					);
-					Self::deposit_event(Event::<T>::ProcessAtExtended(message_id, new_process_at))
+					Self::deposit_event(Event::<T>::ProcessAtExtended(message_id, new_process_at));
 					continue
 				}
 				// Removed PendingEventClaim from storage and processes
