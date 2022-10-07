@@ -7,16 +7,17 @@ use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	sp_runtime::traits::AccountIdConversion,
 	traits::{fungibles::Transfer, Get},
-	weights::Weight,
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
 use scale_info::TypeInfo;
+use sp_core::H160;
+use sp_std::{fmt::Debug, vec::Vec};
+
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
-use sp_core::H160;
-use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod utils;
 
@@ -126,8 +127,6 @@ pub trait OnTransferSubscriber {
 
 /// Reports whether the current session is the final session in a staking era (pre-authority change)
 pub trait FinalSessionTracker {
-	/// Returns whether the next session is the final session of an era
-	fn is_next_session_final() -> bool;
 	/// Returns whether the active session is the final session of an era
 	fn is_active_session_final() -> bool;
 }
@@ -172,12 +171,36 @@ pub trait EthereumEventRouter {
 pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
-	// The destination/source address that handles routing of events to the subscriber
+	/// The destination address of this subscriber (doubles as the source address for sent messages)
 	type Address: Get<PalletId>;
+	/// The source address that we restrict incoming messages from
+	type SourceAddress: Get<H160>;
 
-	// The destination/source address getter function
+	/// The destination/source address getter function
 	fn address() -> H160 {
 		Self::Address::get().into_account_truncating()
+	}
+
+	/// process an incoming event from Ethereum
+	/// Verifies source address then calls on_event
+	fn process_event(source: &H160, data: &[u8]) -> OnEventResult {
+		let verify_weight = Self::verify_source(source)?;
+		let on_event_weight = Self::on_event(source, data)?;
+		Ok(verify_weight.saturating_add(on_event_weight))
+	}
+
+	/// Verifies the source address
+	/// Allows pallets to restrict the source based on individual requirements
+	/// Default implementation compares source with SourceAddress
+	fn verify_source(source: &H160) -> OnEventResult {
+		if source != &Self::SourceAddress::get() {
+			Err((
+				DbWeight::get().reads(1 as Weight),
+				DispatchError::Other("Invalid source address").into(),
+			))
+		} else {
+			Ok(DbWeight::get().reads(1 as Weight))
+		}
 	}
 
 	/// Notify subscriber about a event received from Ethereum
@@ -202,6 +225,14 @@ pub trait EthereumBridge {
 		destination: &H160,
 		message: &[u8],
 	) -> Result<EventProofId, DispatchError>;
+}
+
+/// Interface for pallet-ethy and XRPL tx signing
+pub trait EthyXrplBridgeAdapter<AuthorityId> {
+	/// Request ethy generate a signature for the given tx data
+	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
+	/// Return the current set of Ethy validators
+	fn validators() -> Vec<AuthorityId>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

@@ -2,8 +2,8 @@ use hex_literal::hex;
 use sc_service::ChainType;
 use seed_runtime::{
 	constants::{
-		MYCL_ASSET_ID, MYCL_DECIMALS, MYCL_MINIMUM_BALANCE, MYCL_NAME, MYCL_SYMBOL, ONE_MYCL,
-		ONE_XRP, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
+		ONE_ROOT, ONE_XRP, ROOT_ASSET_ID, ROOT_DECIMALS, ROOT_MINIMUM_BALANCE, ROOT_NAME,
+		ROOT_SYMBOL, XRP_ASSET_ID, XRP_MINIMUM_BALANCE, XRP_NAME,
 	},
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, Forcing, GenesisConfig,
@@ -57,8 +57,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
-	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
 	Ok(ChainSpec::from_genesis(
 		// Name
 		"Seed Dev",
@@ -78,6 +78,12 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Bob"),
 					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
+					AccountId::from(hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac")), // Alith
+					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")), // Baltathar
+					AccountId::from(hex!("798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc")), // Charleth
+					AccountId::from(hex!("773539d4Ac0e786233D90A233654ccEE26a613D9")), // Dorothy
+					AccountId::from(hex!("Ff64d3F6efE2317EE2807d223a0Bdc4c0c49dfDB")), // Ethan
+					AccountId::from(hex!("C0F0f4ab324C46e55D02D0033343B4Be8A55532d")), // Faith
 				],
 				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				false,
@@ -100,8 +106,8 @@ pub fn development_config() -> Result<ChainSpec, String> {
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
-	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -118,6 +124,12 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				get_account_id_from_seed::<ecdsa::Public>("Alice"),
 				// Pre-funded accounts
 				vec![
+					AccountId::from(hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac")), // Alith
+					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")), // Baltathar
+					AccountId::from(hex!("798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc")), // Charleth
+					AccountId::from(hex!("773539d4Ac0e786233D90A233654ccEE26a613D9")), // Dorothy
+					AccountId::from(hex!("Ff64d3F6efE2317EE2807d223a0Bdc4c0c49dfDB")), // Ethan
+					AccountId::from(hex!("C0F0f4ab324C46e55D02D0033343B4Be8A55532d")), // Faith
 					get_account_id_from_seed::<ecdsa::Public>("Alice"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob"),
 					get_account_id_from_seed::<ecdsa::Public>("Charlie"),
@@ -152,8 +164,8 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), XRP_SYMBOL.into());
-	properties.insert("tokenDecimals".into(), XRP_DECIMALS.into());
+	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
+	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -218,24 +230,29 @@ fn testnet_genesis(
 ) -> GenesisConfig {
 	let metadata = vec![
 		(
-			MYCL_ASSET_ID,
-			MYCL_NAME.as_bytes().to_vec(),
-			MYCL_SYMBOL.as_bytes().to_vec(),
-			MYCL_DECIMALS,
+			ROOT_ASSET_ID,
+			ROOT_NAME.as_bytes().to_vec(),
+			ROOT_SYMBOL.as_bytes().to_vec(),
+			ROOT_DECIMALS,
 		),
-		(XRP_ASSET_ID, XRP_NAME.as_bytes().to_vec(), XRP_SYMBOL.as_bytes().to_vec(), XRP_DECIMALS),
+		(
+			XRP_ASSET_ID,
+			XRP_NAME.as_bytes().to_vec(),
+			ROOT_SYMBOL.as_bytes().to_vec(),
+			ROOT_DECIMALS,
+		),
 	];
 	let assets = vec![
-		(MYCL_ASSET_ID, root_key, true, MYCL_MINIMUM_BALANCE),
+		(ROOT_ASSET_ID, root_key, true, ROOT_MINIMUM_BALANCE),
 		(XRP_ASSET_ID, root_key, true, XRP_MINIMUM_BALANCE),
 	];
 	let mut endowed_assets = Vec::with_capacity(accounts_to_fund.len());
 	let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 	for account in accounts_to_fund {
-		endowed_assets.push((MYCL_ASSET_ID, account, 1_000_000 * ONE_MYCL));
-		endowed_balances.push((account, 1_000_000 * ONE_XRP));
+		endowed_assets.push((XRP_ASSET_ID, account, 1_000_000 * ONE_XRP));
+		endowed_balances.push((account, 1_000_000 * ONE_ROOT));
 	}
-	const VALIDATOR_BOND: Balance = 100_000 * ONE_MYCL;
+	const VALIDATOR_BOND: Balance = 100_000 * ONE_ROOT;
 
 	GenesisConfig {
 		system: SystemConfig {

@@ -1,4 +1,3 @@
-use crate as pallet_xrpl_bridge;
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{ConstU16, ConstU64},
@@ -6,12 +5,20 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
-use seed_primitives::{AccountId, AssetId, Balance, BlockNumber};
-use sp_core::H256;
+use sp_core::{ByteArray, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
+	DispatchError,
 };
+
+use seed_pallet_common::EthyXrplBridgeAdapter;
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventProofId},
+	AccountId, AssetId, Balance, BlockNumber,
+};
+
+use crate as pallet_xrpl_bridge;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -147,11 +154,29 @@ impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
 	type WeightInfo = ();
 	type ChallengePeriod = XrpTxChallengePeriod;
+	type ClearTxPeriod = XrpClearTxPeriod;
 	type MultiCurrency = AssetsExt;
 	type XrpAssetId = XrpAssetId;
 	type UnixTime = TimestampPallet;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
-	type ClearTxPeriod = XrpClearTxPeriod;
+	type EthyAdapter = MockEthyAdapter;
+}
+
+pub struct MockEthyAdapter;
+
+impl EthyXrplBridgeAdapter<AuthorityId> for MockEthyAdapter {
+	/// Mock implementation of EthyXrplBridgeAdapter
+	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
+		Ok(1)
+	}
+	fn validators() -> Vec<AuthorityId> {
+		// some hard coded validators
+		vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+		]
+	}
 }
 
 // Build genesis storage according to the mock runtime.

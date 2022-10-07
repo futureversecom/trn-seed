@@ -8,13 +8,15 @@ use frame_support::{
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, SessionIndex};
 
+use seed_client::chain_spec::authority_keys_from_seed;
 use seed_pallet_common::FinalSessionTracker;
 use seed_primitives::{Balance, BlockNumber};
 
 use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
 	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, Session, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
+	Executive, Runtime, Session, SessionKeys, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
+	XrpCurrency,
 };
 
 use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
@@ -91,7 +93,8 @@ fn start_active_era(era_index: EraIndex) {
 #[test]
 fn era_payout_redistributes_era_tx_fees() {
 	ExtBuilder::default().build().execute_with(|| {
-		let genesis_issuance = Balances::total_issuance();
+		let genesis_root_issuance = Balances::total_issuance();
+		let genesis_xrp_issuance = XrpCurrency::total_issuance();
 		// send some transactions to accrue fees
 		let xt = sign_xt(CheckedExtrinsic {
 			signed: fp_self_contained::CheckedSignature::Signed(
@@ -100,9 +103,9 @@ fn era_payout_redistributes_era_tx_fees() {
 			),
 			function: Call::System(frame_system::Call::remark { remark: b"hello chain".to_vec() }),
 		});
-		let alice_era0_balance = Balances::balance(&alice());
-		let bob_era0_balance = Balances::balance(&bob());
-		let charlie_initial_balance = Balances::balance(&charlie());
+		let alice_era0_balance = XrpCurrency::balance(&alice());
+		let bob_era0_balance = XrpCurrency::balance(&bob());
+		let charlie_initial_balance = XrpCurrency::balance(&charlie());
 
 		// Send transaction from 'Charlie'
 		assert_ok!(Executive::apply_extrinsic(xt));
@@ -111,11 +114,12 @@ fn era_payout_redistributes_era_tx_fees() {
 		let tx_fee_pot_era0_balance = TxFeePot::era_pot_balance();
 		assert!(
 			tx_fee_pot_era0_balance > 0 &&
-				Balances::balance(&charlie()) + tx_fee_pot_era0_balance ==
+				XrpCurrency::balance(&charlie()) + tx_fee_pot_era0_balance ==
 					charlie_initial_balance
 		);
 		// after tx fee paid, issuance ok
-		assert_eq!(genesis_issuance, Balances::total_issuance());
+		assert_eq!(genesis_xrp_issuance, XrpCurrency::total_issuance());
+		assert_eq!(genesis_root_issuance, Balances::total_issuance());
 
 		// allocate 50/50 block authoring points to alice & bob in era 0
 		Staking::reward_by_ids([(alice(), 50), (bob(), 50)]);
@@ -126,21 +130,29 @@ fn era_payout_redistributes_era_tx_fees() {
 		assert_ok!(Staking::payout_stakers(RawOrigin::Signed(alice()).into(), alice(), 0));
 		assert_ok!(Staking::payout_stakers(RawOrigin::Signed(bob()).into(), bob(), 0));
 
-		assert_eq!(alice_era0_balance + tx_fee_pot_era0_balance / 2, Balances::balance(&alice()),);
-		assert_eq!(bob_era0_balance + tx_fee_pot_era0_balance / 2, Balances::balance(&bob()),);
+		println!("tx pot start era 1 bob payout: {:?}", TxFeePot::era_pot_balance());
+		println!("{:?}", XrpCurrency::balance(&alice()));
+
+		assert_eq!(
+			alice_era0_balance + tx_fee_pot_era0_balance / 2,
+			XrpCurrency::balance(&alice()),
+		);
+		assert_eq!(bob_era0_balance + tx_fee_pot_era0_balance / 2, XrpCurrency::balance(&bob()),);
 
 		// all rewards claimed
 		assert!(TxFeePot::total_pot_balance().is_zero());
 
 		// after payout, issuance ok
-		assert_eq!(genesis_issuance, Balances::total_issuance());
+		assert_eq!(genesis_xrp_issuance, XrpCurrency::total_issuance());
+		assert_eq!(genesis_root_issuance, Balances::total_issuance());
 	});
 }
 
 #[test]
 fn era_payout_does_not_carry_over() {
 	ExtBuilder::default().build().execute_with(|| {
-		let genesis_issuance = Balances::total_issuance();
+		let genesis_root_issuance = Balances::total_issuance();
+		let genesis_xrp_issuance = XrpCurrency::total_issuance();
 
 		// run through eras 0, 1, 2, create a tx and accrue fees
 		let mut era_payouts = Vec::<Balance>::default();
@@ -163,14 +175,14 @@ fn era_payout_does_not_carry_over() {
 			start_active_era(next_era_index);
 		}
 
-		let mut alice_balance = Balances::balance(&alice());
+		let mut alice_balance = XrpCurrency::balance(&alice());
 		for (era_index, era_payout) in era_payouts.iter().enumerate() {
 			assert_ok!(Staking::payout_stakers(
 				RawOrigin::Signed(alice()).into(),
 				alice(),
 				era_index as u32
 			));
-			assert_eq!(alice_balance + era_payout, Balances::balance(&alice()));
+			assert_eq!(alice_balance + era_payout, XrpCurrency::balance(&alice()));
 			alice_balance += era_payout;
 		}
 
@@ -178,35 +190,44 @@ fn era_payout_does_not_carry_over() {
 		assert!(TxFeePot::total_pot_balance().is_zero());
 
 		// after payout, issuance ok
-		assert_eq!(genesis_issuance, Balances::total_issuance());
+		assert_eq!(genesis_root_issuance, Balances::total_issuance());
+		assert_eq!(genesis_xrp_issuance, XrpCurrency::total_issuance());
 	});
 }
 
 #[test]
-fn staking_final_session_tracking() {
+fn staking_final_session_tracking_ethy() {
 	ExtBuilder::default().build().execute_with(|| {
 		// session 0,1,2 complete
 		start_active_era(1);
 		// in session 3
 		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
-		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
-		assert!(!EthBridge::bridge_paused());
 
 		advance_session();
 		// in session 4
 		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
-		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
-		assert!(!EthBridge::bridge_paused());
+
+		// Queue some new keys for alice validator
+		let (_, babe, im_online, grandpa, ethy) = authority_keys_from_seed("Alice2.0");
+		let new_keys = SessionKeys { babe, grandpa, im_online, ethy };
+		assert_ok!(Session::set_keys(RawOrigin::Signed(alice()).into(), new_keys.clone(), vec![]));
 
 		advance_session();
 		// in session 5
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
-		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
-		assert!(EthBridge::bridge_paused());
 
-		advance_session(); // era 2 starts...
+		advance_session(); // era 2 starts and keys contain the updated key
+		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
+
+		// Forcing era, marks active session final, sets keys
+		let (_, babe, im_online, grandpa, ethy) = authority_keys_from_seed("Alice3.0");
+		let new_keys = SessionKeys { babe, grandpa, im_online, ethy };
+		assert_ok!(Session::set_keys(RawOrigin::Signed(alice()).into(), new_keys.clone(), vec![]));
+		advance_session();
 		assert_ok!(Staking::force_new_era(RawOrigin::Root.into()));
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
-		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_next_session_final());
+
+		advance_session(); // era 3 starts (forced) and keys contain the updated key
+		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
 	});
 }

@@ -12,6 +12,7 @@ use sp_runtime::{generic::Era, Perbill};
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
 
+mod evm_tests;
 mod staker_payouts;
 
 use crate::{
@@ -27,11 +28,11 @@ pub(crate) const GENESIS_HASH: [u8; 32] = [69u8; 32];
 pub const VALIDATOR_BOND: Balance = 100_000 * ONE_XRP;
 /// The default XRP balance of mock accounts
 pub const INITIAL_XRP_BALANCE: Balance = 1_000_000 * ONE_XRP;
-/// The default MYCL balance of mock accounts
-pub const INITIAL_MYCL_BALANCE: Balance = INITIAL_XRP_BALANCE;
+/// The default ROOT balance of mock accounts
+pub const INITIAL_ROOT_BALANCE: Balance = INITIAL_XRP_BALANCE;
 
 pub struct ExtBuilder {
-	/// Extra accounts to initialize with XRP and MYCL balances (default: Alice-Charlie),
+	/// Extra accounts to initialize with XRP and ROOT balances (default: Alice-Charlie),
 	/// authorities are always funded
 	accounts_to_fund: Vec<AccountId>,
 	// The initial authority set (default: {Alice, Bob})
@@ -78,11 +79,21 @@ impl ExtBuilder {
 
 		// balances + asset setup
 		let metadata = vec![
-			(MYCL_ASSET_ID, b"Mycelium".to_vec(), b"MYCL".to_vec(), MYCL_DECIMALS),
-			(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), XRP_DECIMALS),
+			(
+				ROOT_ASSET_ID,
+				ROOT_NAME.as_bytes().to_vec(),
+				ROOT_SYMBOL.as_bytes().to_vec(),
+				ROOT_DECIMALS,
+			),
+			(
+				XRP_ASSET_ID,
+				XRP_NAME.as_bytes().to_vec(),
+				XRP_SYMBOL.as_bytes().to_vec(),
+				XRP_DECIMALS,
+			),
 		];
 		let assets = vec![
-			(MYCL_ASSET_ID, self.root_account, true, MYCL_MINIMUM_BALANCE),
+			(ROOT_ASSET_ID, self.root_account, true, ROOT_MINIMUM_BALANCE),
 			(XRP_ASSET_ID, self.root_account, true, XRP_MINIMUM_BALANCE),
 		];
 
@@ -100,7 +111,7 @@ impl ExtBuilder {
 		let mut endowed_balances = Vec::with_capacity(accounts_to_fund.len());
 		for account in accounts_to_fund {
 			endowed_balances.push((account, INITIAL_XRP_BALANCE));
-			endowed_assets.push((MYCL_ASSET_ID, account, INITIAL_MYCL_BALANCE));
+			endowed_assets.push((XRP_ASSET_ID, account, INITIAL_ROOT_BALANCE));
 		}
 		pallet_balances::GenesisConfig::<Runtime> { balances: endowed_balances }
 			.assimilate_storage(&mut t)
@@ -235,25 +246,25 @@ fn get_pair_from_signer(signer: &AccountId20) -> ecdsa::Pair {
 fn fund_authorities_and_accounts() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Alice, Bob, Charlie funded
-		assert_eq!(Balances::total_issuance(), INITIAL_XRP_BALANCE * 3);
-		assert_eq!(AssetsExt::total_issuance(MYCL_ASSET_ID), INITIAL_MYCL_BALANCE * 3);
-
-		assert_eq!(AssetsExt::balance(MYCL_ASSET_ID, &alice()), INITIAL_MYCL_BALANCE);
-		assert_eq!(AssetsExt::balance(MYCL_ASSET_ID, &bob()), INITIAL_MYCL_BALANCE);
-		assert_eq!(AssetsExt::balance(MYCL_ASSET_ID, &charlie()), INITIAL_MYCL_BALANCE);
+		assert_eq!(Balances::total_issuance(), INITIAL_ROOT_BALANCE * 3);
+		assert_eq!(AssetsExt::total_issuance(XRP_ASSET_ID), INITIAL_XRP_BALANCE * 3);
 
 		assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &alice()), INITIAL_XRP_BALANCE);
 		assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &bob()), INITIAL_XRP_BALANCE);
 		assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &charlie()), INITIAL_XRP_BALANCE);
 
+		assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &alice()), INITIAL_ROOT_BALANCE);
+		assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &bob()), INITIAL_ROOT_BALANCE);
+		assert_eq!(AssetsExt::balance(ROOT_ASSET_ID, &charlie()), INITIAL_ROOT_BALANCE);
+
 		// Alice, Bob staked
 		assert_eq!(
-			AssetsExt::reducible_balance(XRP_ASSET_ID, &alice(), false),
-			INITIAL_XRP_BALANCE - VALIDATOR_BOND
+			AssetsExt::reducible_balance(ROOT_ASSET_ID, &alice(), false),
+			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 		assert_eq!(
-			AssetsExt::reducible_balance(XRP_ASSET_ID, &bob(), false),
-			INITIAL_XRP_BALANCE - VALIDATOR_BOND
+			AssetsExt::reducible_balance(ROOT_ASSET_ID, &bob(), false),
+			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 	});
 }

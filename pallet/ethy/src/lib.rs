@@ -26,13 +26,13 @@
 //! 1) verify a transaction hash exists that executed a specific contract producing a specific event
 //! log 2) verify the `returndata` of executing a contract at some time _t_ with input `i`
 //!
-//! Seed validators use an offchain worker and Ethereum full node connections to independently
+//! Ethy validators use an offchain worker and Ethereum full node connections to independently
 //! verify and observe events happened on Ethereum.
 //! Once a threshold of validators sign a notarization having witnessed the event it is considered
 //! verified.
 //!
-//! Events are opaque to this pallet, other pallet handle submitting "event claims" and "callbacks"
-//! to handle success
+//! Events are opaque to this pallet, other pallets are forwarded incoming events and can submit
+//! outgoing event for signing
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -100,6 +100,8 @@ pub trait Config:
 	type Call: From<Call<Self>>;
 	/// Bond required by challenger to make a challenge
 	type ChallengeBond: Get<Balance>;
+	// The duration in blocks of one epoch
+	type EpochDuration: Get<u64>;
 	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
@@ -109,7 +111,7 @@ pub trait Config:
 	/// Handles routing received Ethereum events upon verification
 	type EventRouter: EthereumEventRouter;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
-	/// 33 byte ECDSA public key
+	/// 33 byte secp256k1 public key
 	type EthyId: Member
 		+ Parameter
 		+ AsRef<[u8]>
@@ -140,8 +142,6 @@ decl_storage! {
 		ChallengePeriod get(fn challenge_period): T::BlockNumber = T::BlockNumber::from(150_u32); // 10 Minutes
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
-		/// Events cannot be claimed after this time (seconds)
-		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 		/// Notarizations for queued events
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
@@ -160,14 +160,16 @@ decl_storage! {
 		NotarySetProofId get(fn notary_set_proof_id): EventProofId;
 		/// Queued event claims, can be challenged within challenge period
 		PendingEventClaims get(fn pending_event_claims): map hasher(twox_64_concat) EventClaimId => Option<EventClaim>;
-		/// Queued event proofs to be processed once bridge has been re-enabled (Ethereum ABI encoded `EventClaim`)
-		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EventProofInfo>;
+		/// Queued event proofs to be processed once bridge has been re-enabled
+		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EthySigningRequest>;
 		/// List of all event ids that are currently being challenged
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
 		/// Status of pending event claims
 		PendingClaimStatus get(fn pending_claim_status): map hasher(twox_64_concat) EventProofId => Option<EventClaimStatus>;
 		/// Tracks processed message Ids (prevent replay)
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
+		/// The block in which we process the next authority change
+		NextAuthorityChange get(fn next_authority_change): Option<T::BlockNumber>;
 		/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 		MessagesValidAt get(fn messages_valid_at): map hasher(twox_64_concat) T::BlockNumber => Vec<EventClaimId>;
 		// State Oracle
@@ -208,8 +210,8 @@ decl_event! {
 		ProcessingFailed(EventClaimId, EventRouterError),
 		/// An event has been challenged (claim_id, challenger)
 		Challenged(EventClaimId, AccountId),
-		/// An event proof has been sent to Ethereum
-		EventSend(EventProofInfo),
+		/// An event proof has been sent for signing by ethy-gadget
+		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
 		EventSubmit(EventClaimId, EventClaim, BlockNumber),
 		/// An account has deposited a relayer bond
@@ -246,7 +248,7 @@ decl_error! {
 		Internal,
 		/// Caller does not have permission for that action
 		NoPermission,
-		/// There is no event claim assosciated with the supplied claim_id
+		/// There is no event claim associated with the supplied claim_id
 		NoClaim,
 		/// There is already a challenge for this claim
 		ClaimAlreadyChallenged,
@@ -265,14 +267,22 @@ decl_module! {
 
 		fn deposit_event() = default;
 
-		/// This method schedules 2 different processes
-		/// 1) Process any newly valid event claims (incoming)
-		/// 2) Process any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era) (outgoing)
+		/// This method schedules 3 different processes
+		/// 1) Handle change in authorities 5 minutes before the end of an epoch
+		/// 2) Process any newly valid event claims (incoming)
+		/// 3) Process any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era) (outgoing)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
 			let mut consumed_weight = 0 as Weight;
 
-			// 1) Process validated messages
-			// Removed message_id from MessagesValidAt and processes it.
+			// 1) Handle authority change
+			if Some(block_number) == Self::next_authority_change() {
+				// Change authority keys, we are 5 minutes before the next epoch
+				log!(trace, "💎 Epoch ends in 5 minutes, changing authorities");
+				Self::handle_authorities_change();
+			}
+
+			// 2) Process validated messages
+			// Removed message_id from MessagesValidAt and processes
 			let mut processed_message_ids = Self::processed_message_ids();
 			for message_id in MessagesValidAt::<T>::take(block_number) {
 				if Self::pending_claim_status(message_id) == Some(EventClaimStatus::Challenged) {
@@ -310,13 +320,13 @@ decl_module! {
 				ProcessedMessageIds::put(processed_message_ids);
 			}
 
-			// 2) Try process delayed proofs
+			// 3) Try process delayed proofs
 			consumed_weight += DbWeight::get().reads(2 as Weight);
 			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
 				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
-				for (event_proof_id, event_proof_info) in PendingEventProofs::iter().take(max_delayed_events as usize) {
-					Self::do_request_event_proof(event_proof_id, event_proof_info);
+				for (event_proof_id, signing_request) in PendingEventProofs::iter().take(max_delayed_events as usize) {
+					Self::do_request_event_proof(event_proof_id, signing_request);
 					PendingEventProofs::remove(event_proof_id);
 				}
 			}
@@ -386,13 +396,6 @@ decl_module! {
 		pub fn set_event_block_confirmations(origin, confirmations: u64) {
 			ensure_root(origin)?;
 			EventBlockConfirmations::put(confirmations)
-		}
-
-		#[weight = DbWeight::get().writes(1)]
-		/// Set event deadline (seconds). Events cannot be notarized after this time has elapsed
-		pub fn set_event_deadline(origin, seconds: u64) {
-			ensure_root(origin)?;
-			EventDeadlineSeconds::put(seconds);
 		}
 
 		#[weight = DbWeight::get().writes(1)]

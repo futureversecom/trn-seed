@@ -17,6 +17,7 @@
 
 use codec::{Decode, Encode};
 use core::fmt;
+use ethabi::Token;
 use ethereum_types::{Bloom, U64};
 use rustc_hex::ToHex;
 use scale_info::TypeInfo;
@@ -40,7 +41,7 @@ use std::string::String;
 
 use seed_primitives::ethy::ValidatorSetId;
 pub use seed_primitives::{
-	ethy::{ConsensusLog, EventClaimId, EventProofId, Message, ValidatorSet, ETHY_ENGINE_ID},
+	ethy::{ConsensusLog, EthyChainId, EventClaimId, EventProofId, ValidatorSet, ETHY_ENGINE_ID},
 	BlockNumber,
 };
 
@@ -104,8 +105,8 @@ pub struct EventClaim {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
-/// Info related to an event proof
-pub struct EventProofInfo {
+/// Info related to an Ethereum event proof (outgoing)
+pub struct EthereumEventInfo {
 	/// The source address (contract) which posted the event
 	pub source: EthAddress,
 	/// The destination address (contract) which should receive the event
@@ -115,8 +116,55 @@ pub struct EventProofInfo {
 	pub message: Vec<u8>,
 	/// The validator set id for the proof
 	pub validator_set_id: ValidatorSetId,
-	/// The events proof id
+	/// The event's proof id
 	pub event_proof_id: EventProofId,
+}
+
+impl EthereumEventInfo {
+	/// Ethereum ABI encode an event/message for proving (and later submission to Ethereum)
+	/// `source` the pallet pseudo address sending the event
+	/// `destination` the contract address to receive the event
+	/// `message` The message data
+	/// `validator_set_id` The id of the current validator set
+	/// `event_proof_id` The id of this outgoing event/proof
+	pub fn abi_encode(&self) -> Vec<u8> {
+		ethabi::encode(&[
+			Token::Address(self.source),
+			Token::Address(self.destination),
+			Token::Bytes(self.message.clone()),
+			Token::Uint(self.validator_set_id.into()),
+			Token::Uint(self.event_proof_id.into()),
+		])
+	}
+}
+
+/// A request for ethy-gadget to sign something
+#[derive(Debug, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
+pub enum EthySigningRequest {
+	/// Request to sign an event for Ethereum
+	Ethereum(EthereumEventInfo),
+	/// Request to sign an XRPL tx (binary serialized in 'for signing' mode)
+	XrplTx(Vec<u8>),
+}
+
+impl EthySigningRequest {
+	/// Return the Chain Id associated with the signing request
+	pub fn chain_id(&self) -> EthyChainId {
+		match self {
+			Self::Ethereum(_) => EthyChainId::Ethereum,
+			Self::XrplTx { .. } => EthyChainId::Xrpl,
+		}
+	}
+	/// Return the data for signing by ethy
+	pub fn data(&self) -> Vec<u8> {
+		match self {
+			// Ethereum event signing requires keccak hashing the event
+			Self::Ethereum(event) =>
+				sp_io::hashing::keccak_256(&event.abi_encode().as_slice()).to_vec(),
+			// XRPL tx hashing must happen before signing to inject the public key
+			Self::XrplTx(data) => data.clone(),
+		}
+	}
 }
 
 #[derive(Debug, Clone, PartialEq, TypeInfo)]
@@ -166,8 +214,6 @@ pub enum EventClaimResult {
 	NotEnoughConfirmations,
 	/// Tx event logs indicated this claim does not match the event
 	UnexpectedData,
-	/// The deposit tx is past the expiration deadline
-	Expired,
 	/// The Tx Receipt was not present
 	NoTxReceipt,
 	/// The event source did not match the tx receipt `to` field

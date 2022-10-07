@@ -27,8 +27,9 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError,
 	},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Percent,
 };
+pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 use sp_std::prelude::*;
 
 #[cfg(feature = "std")]
@@ -56,7 +57,6 @@ use pallet_grandpa::{fg_primitives, AuthorityList as GrandpaAuthorityList};
 pub use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 
 // Export for chain_specs
 #[cfg(feature = "std")]
@@ -65,22 +65,22 @@ pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	ethy::crypto::AuthorityId as EthBridgeId, AccountId, Address, AssetId, BabeId, Balance,
-	BlockNumber, Hash, Index, Signature,
+	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
+	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, Hash, Index, Signature,
 };
 
 mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_MYCL, ONE_XRP,
-	PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT,
+	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler,
+	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, PercentageOfWeight,
 	SlashImbalanceHandler, StakingSessionTracker,
 };
 
@@ -93,13 +93,19 @@ use staking::OnChainAccuracy;
 #[cfg(test)]
 mod tests;
 
+/// Currency implementation mapped to XRP
+pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
+/// Dual currency implementation mapped to ROOT & XRP for staking
+pub type DualStakingCurrency =
+	pallet_assets_ext::DualStakingCurrency<Runtime, XrpCurrency, Balances>;
+
 /// This runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 3,
+	spec_version: 11,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -221,11 +227,12 @@ impl frame_system::Config for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
+	pub const WeightToFeeReduction: Permill = Permill::from_parts(7_000); // 0.007%
 }
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Balances, TxFeePot>;
+	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type Event = Event;
-	type WeightToFee = IdentityFee<Balance>;
+	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
@@ -287,7 +294,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type Event = Event;
 	type ParachainId = WorldId;
 	type MaxHolds = MaxHolds;
-	type NativeAssetId = XrpAssetId;
+	type NativeAssetId = RootAssetId;
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -324,6 +331,7 @@ parameter_types! {
 
 impl pallet_xrpl_bridge::Config for Runtime {
 	type Event = Event;
+	type EthyAdapter = EthBridge;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = ();
@@ -400,8 +408,7 @@ impl pallet_grandpa::Config for Runtime {
 impl pallet_session::Config for Runtime {
 	type Event = Event;
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
-	// we don't have stash and controller, thus we don't need the convert as well.
-	type ValidatorIdOf = ();
+	type ValidatorIdOf = pallet_staking::StashOf<Self>;
 	type ShouldEndSession = Babe;
 	type NextSessionRotation = Babe;
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, Staking>;
@@ -436,9 +443,9 @@ parameter_types! {
 	pub const SignedMaxSubmissions: u32 = 16;
 	pub const SignedMaxRefunds: u32 = 16 / 4;
 	// 40 DOTs fixed deposit..
-	pub const SignedDepositBase: Balance = ONE_MYCL * 40;
+	pub const SignedDepositBase: Balance = ONE_ROOT * 40;
 	// 0.01 DOT per KB of solution data.
-	pub const SignedDepositByte: Balance = ONE_MYCL / 1024;
+	pub const SignedDepositByte: Balance = ONE_ROOT / 1024;
 	// Intentionally zero reward to prevent inflation
 	// `pallet_election_provider_multi_phase::RewardHandler` could be configured to offset any rewards
 	pub SignedRewardBase: Balance = 0;
@@ -564,7 +571,7 @@ parameter_types! {
 type SlashCancelOrigin = EnsureRoot<AccountId>;
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
-	type Currency = Balances;
+	type Currency = DualStakingCurrency;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = frame_support::traits::U128CurrencyToVote;
 	// Decides the total reward to be distributed each era
@@ -675,6 +682,7 @@ impl pallet_sudo::Config for Runtime {
 }
 
 impl pallet_tx_fee_pot::Config for Runtime {
+	type FeeCurrency = XrpCurrency;
 	type TxFeePotId = TxFeePotId;
 }
 
@@ -686,7 +694,7 @@ parameter_types! {
 	/// The Ethereum bridge contract address (deployed on Ethereum)
 	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
 	/// % threshold of notarizations required to verify or prove bridge events
-	pub const NotarizationThreshold: sp_runtime::Percent = sp_runtime::Percent::from_percent(66_u8);
+	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 	/// Bond amount for a relayer
 	pub const RelayerBond: Balance = 100 * ONE_XRP;
 }
@@ -702,6 +710,8 @@ impl pallet_ethy::Config for Runtime {
 	type Call = Call;
 	/// The bond required to make a challenge
 	type ChallengeBond = ChallengeBond;
+	// The duration in blocks of one epoch
+	type EpochDuration = EpochDuration;
 	/// The runtime event type.
 	type Event = Event;
 	/// Subscribers to completed 'eth_call' jobs
@@ -737,7 +747,7 @@ impl frame_system::offchain::SigningTypes for Runtime {
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
 /// Given the 500ms Weight, from which 75% only are used for transactions,
 /// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
-pub const GAS_PER_SECOND: u64 = 40_000_000;
+pub const GAS_PER_SECOND: u64 = 15_000_000;
 
 /// Approximate ratio of the amount of Weight per Gas.
 /// u64 works for approximations because Weight is a very small unit compared to gas.
@@ -771,9 +781,8 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 
 parameter_types! {
 	/// Floor network base fee per gas
-	/// 0.00015 XRP per gas
-	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
-	pub const IsBaseFeeActive: bool = false;
+	/// 0.000015 XRP per gas
+	pub const DefaultBaseFeePerGas: u64 = 1_500_000_000_000;
 }
 impl pallet_base_fee::Config for Runtime {
 	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
@@ -798,7 +807,6 @@ const fn seed_london() -> EvmConfig {
 	c.gas_transaction_create = 2_000_000;
 	c
 }
-
 pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 impl pallet_evm::Config for Runtime {
@@ -808,7 +816,7 @@ impl pallet_evm::Config for Runtime {
 	type CallOrigin = EnsureAddressNever<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
 	type AddressMapping = AddressMapping<AccountId>;
-	type Currency = EvmCurrencyScaler<Balances>;
+	type Currency = EvmCurrencyScaler<XrpCurrency>;
 	type Event = Event;
 	type Runner = Runner<Self>;
 	type PrecompilesType = FutureversePrecompiles<Self>;
@@ -1267,8 +1275,16 @@ impl_runtime_apis! {
 	}
 
 	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
-		fn validator_set() -> seed_primitives::ethy::ValidatorSet<EthBridgeId> {
+		fn validator_set() -> ValidatorSet<EthBridgeId> {
 			EthBridge::validator_set()
+		}
+		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
+			let door_signers = XRPLBridge::door_signers();
+			ValidatorSet {
+				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
+				validators: door_signers,
+				id: EthBridge::notary_set_id(), // the set Id is the same as the overall Ethy set Id
+			}
 		}
 	}
 }

@@ -14,7 +14,6 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::helpers::{XrpRequestLog, XrpTransaction, XrpWithdrawTransaction, XrplTxData};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -25,17 +24,23 @@ use frame_support::{
 	weights::constants::RocksDbWeight as DbWeight,
 };
 use frame_system::pallet_prelude::*;
-pub use pallet::*;
-use seed_pallet_common::CreateExt;
-use seed_primitives::{
-	AccountId, AssetId, Balance, LedgerIndex, Timestamp, XrplAddress, XrplTxHash, XrplTxNonce,
+use sp_runtime::{
+	traits::{One, Zero},
+	ArithmeticError, SaturatedConversion,
 };
-use sp_runtime::{traits::One, ArithmeticError, DigestItem};
-use sp_std::vec;
+use sp_std::{prelude::*, vec};
+use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
+
+use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
+use seed_primitives::{
+	ethy::crypto::AuthorityId,
+	xrpl::{LedgerIndex, XrplAddress, XrplTxHash, XrplTxNonce},
+	AccountId, AssetId, Balance, Timestamp,
+};
+
+use crate::helpers::{XrpTransaction, XrpWithdrawTransaction, XrplTxData};
 
 pub use pallet::*;
-
-use sp_std::prelude::*;
 
 mod helpers;
 
@@ -52,8 +57,6 @@ type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
 pub use weights::WeightInfo;
 
-pub const XRPL_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"XRP-";
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -61,6 +64,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+		type EthyAdapter: EthyXrplBridgeAdapter<AuthorityId>;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>
@@ -93,6 +98,16 @@ pub mod pallet {
 	pub enum Error<T> {
 		NotPermitted,
 		RelayerDoesNotExists,
+		/// Withdraw amount must be non-zero and <= u64
+		WithdrawInvalidAmount,
+		/// The door address has not been configured
+		DoorAddressNotSet,
+		/// XRPL does not allow more than 8 signers for door address
+		TooManySigners,
+		/// The signers are not known by ethy
+		InvalidSigners,
+		/// Submitted a duplicate transaction hash
+		TxReplay,
 	}
 
 	#[pallet::event]
@@ -101,21 +116,23 @@ pub mod pallet {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
 		Processed(LedgerIndex, XrplTxHash),
-		WithdrawRequested(XrplTxNonce),
+		/// Request to withdraw some XRP amount to XRPL
+		WithdrawRequest {
+			proof_id: u64,
+			sender: T::AccountId,
+			amount: Balance,
+			destination: XrplAddress,
+		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
-		XRPLDoorAddressAdded(XrplAddress),
+		DoorAddressSet(XrplAddress),
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
-			if ProcessXRPTransaction::<T>::contains_key(n) {
-				let weights = Self::process_xrp_tx(n);
-				weights + Self::clear_storages(n)
-			} else {
-				DbWeight::get().reads(1 as Weight)
-			}
+			let weights = Self::process_xrp_tx(n);
+			weights + Self::clear_storages(n)
 		}
 	}
 
@@ -130,53 +147,59 @@ pub mod pallet {
 	pub type Relayer<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn relay_xrp_transaction)]
-	/// Transaction submitted by relayers
-	pub type RelayXRPTransaction<T: Config> = StorageNMap<
-		_,
-		(
-			storage::Key<Blake2_128Concat, T::AccountId>,
-			storage::Key<Blake2_128Concat, LedgerIndex>,
-			storage::Key<Blake2_128Concat, XrplTxHash>,
-		),
-		XrpTransaction,
-	>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
 	pub type ProcessXRPTransaction<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<XrplTxHash>>;
+		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<XrplTxHash>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
-	/// Temporary storage to store transaction details to be processed, it will be cleared after
-	/// transaction is processed
+	/// Stores submitted transactions from XRPL waiting to be processed
+	/// Transactions will be cleared `ClearTxPeriod` blocks after processing
 	pub type ProcessXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, XrplTxHash, (LedgerIndex, XrpTransaction)>;
+		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
 	/// Settled xrp transactions stored as history for a specific period
 	pub type SettledXRPTransactionDetails<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::BlockNumber, Vec<XrplTxHash>>;
+		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<XrplTxHash>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
 	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
-		StorageMap<_, Blake2_128Concat, XrplTxHash, T::AccountId>;
+		StorageMap<_, Identity, XrplTxHash, T::AccountId>;
+
+	#[pallet::type_value]
+	pub fn DefaultDoorNonce() -> u32 {
+		0_u32
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn door_nonce)]
+	/// The nonce/sequence of the XRPL door account
+	pub type DoorNonce<T: Config> = StorageValue<_, XrplTxNonce, ValueQuery, DefaultDoorNonce>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_current_xrpl_tx_nonce)]
-	/// Stores and increments XRPL door address Tx Nonce
-	pub type CurrentXrplTxNonce<T: Config> = StorageValue<_, XrplTxNonce>;
+	#[pallet::getter(fn door_signers)]
+	/// Public keys of authorized door (multi) signers (subset of ethy session keys)
+	pub type DoorSigners<T: Config> = StorageValue<_, Vec<AuthorityId>, ValueQuery>;
+
+	/// Default door tx fee 1 XRP
+	#[pallet::type_value]
+	pub fn DefaultDoorTxFee() -> u64 {
+		1_000_000_u64
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn door_tx_fee)]
+	/// The flat fee for XRPL door txs
+	pub type DoorTxFee<T: Config> = StorageValue<_, u64, ValueQuery, DefaultDoorTxFee>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn get_xrpl_door_address)]
+	#[pallet::getter(fn door_address)]
 	/// The door address on XRPL
-	pub type XRPLDoorAddress<T: Config> = StorageValue<_, XrplAddress>;
+	pub type DoorAddress<T: Config> = StorageValue<_, XrplAddress>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -208,10 +231,15 @@ pub mod pallet {
 			transaction_hash: XrplTxHash,
 			transaction: XrplTxData,
 			timestamp: Timestamp,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let relayer = ensure_signed(origin)?;
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
+			ensure!(
+				Self::process_xrp_transaction_details(transaction_hash).is_none(),
+				Error::<T>::TxReplay
+			);
+
 			Self::add_to_relay(relayer, ledger_index, transaction_hash, transaction, timestamp)
 		}
 
@@ -221,10 +249,10 @@ pub mod pallet {
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
 			transaction_hash: XrplTxHash,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let challenger = ensure_signed(origin)?;
 			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
-			Ok(().into())
+			Ok(())
 		}
 
 		/// Withdraw xrp transaction
@@ -234,7 +262,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			amount: Balance,
 			destination: XrplAddress,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::add_to_withdraw(who, amount, destination)
 		}
@@ -242,44 +270,77 @@ pub mod pallet {
 		/// add a relayer
 		#[pallet::weight((<T as Config>::WeightInfo::add_relayer(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn add_relayer(
-			origin: OriginFor<T>,
-			relayer: T::AccountId,
-		) -> DispatchResultWithPostInfo {
+		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			Self::initialize_relayer(&vec![relayer]);
 			Self::deposit_event(Event::<T>::RelayerAdded(relayer));
-			Ok(().into())
+			Ok(())
 		}
 
 		/// remove a relayer
 		#[pallet::weight((<T as Config>::WeightInfo::remove_relayer(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn remove_relayer(
-			origin: OriginFor<T>,
-			relayer: T::AccountId,
-		) -> DispatchResultWithPostInfo {
+		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			if <Relayer<T>>::contains_key(relayer) {
 				<Relayer<T>>::remove(relayer);
 				Self::deposit_event(Event::<T>::RelayerRemoved(relayer));
-				Ok(().into())
+				Ok(())
 			} else {
 				Err(Error::<T>::RelayerDoesNotExists.into())
 			}
 		}
 
-		/// set XRPL door address
+		/// Set the door account tx nonce
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
+		pub fn set_door_nonce(origin: OriginFor<T>, nonce: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			DoorNonce::<T>::set(nonce);
+			Ok(())
+		}
+
+		/// Set the door tx fee amount
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
+		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			DoorTxFee::<T>::set(fee);
+			Ok(())
+		}
+
+		/// Set the door (multi) signers
+		///
+		/// `new_signers` list of the compressed secp256k1 ethy public (session) keys to whitelist
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
+		pub fn set_door_signers(
+			origin: OriginFor<T>,
+			new_signers: Vec<AuthorityId>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!(new_signers.len() <= 8, Error::<T>::TooManySigners);
+
+			let has_duplicates =
+				(1..new_signers.len()).any(|i| new_signers[i..].contains(&new_signers[i - 1]));
+			ensure!(!has_duplicates, Error::<T>::InvalidSigners);
+
+			let ethy_validators = T::EthyAdapter::validators();
+			for new_signer in new_signers.iter() {
+				if ethy_validators.iter().position(|v| v == new_signer).is_none() {
+					return Err(Error::<T>::InvalidSigners)?
+				}
+			}
+
+			DoorSigners::<T>::set(new_signers);
+			Ok(())
+		}
+
+		/// Set XRPL door address managed by this pallet
 		#[pallet::weight((<T as Config>::WeightInfo::set_xrpl_door_address(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn set_xrpl_door_address(
-			origin: OriginFor<T>,
-			door_address: XrplAddress,
-		) -> DispatchResultWithPostInfo {
+		pub fn set_door_address(origin: OriginFor<T>, door_address: XrplAddress) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			XRPLDoorAddress::<T>::put(door_address);
-			Self::deposit_event(Event::<T>::XRPLDoorAddressAdded(door_address));
-			Ok(().into())
+			DoorAddress::<T>::put(door_address);
+			Self::deposit_event(Event::<T>::DoorAddressSet(door_address));
+			Ok(())
 		}
 	}
 }
@@ -300,11 +361,11 @@ impl<T: Config> Pallet<T> {
 		let mut writes = 0 as Weight;
 		for transaction_hash in tx_items {
 			if !<ChallengeXRPTransactionList<T>>::contains_key(transaction_hash) {
-				let tx_details = <ProcessXRPTransactionDetails<T>>::take(transaction_hash);
+				let tx_details = <ProcessXRPTransactionDetails<T>>::get(transaction_hash);
 				reads += 1;
 				match tx_details {
 					None => {},
-					Some((ledger_index, ref tx)) => {
+					Some((ledger_index, ref tx, _relayer)) => {
 						match tx.transaction {
 							XrplTxData::Payment { amount, address } => {
 								let _ = T::MultiCurrency::mint_into(
@@ -336,64 +397,103 @@ impl<T: Config> Pallet<T> {
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
+	/// Prune settled transaction data from storage
+	/// if it was scheduled to do so at block `n`
 	pub fn clear_storages(n: T::BlockNumber) -> Weight {
 		let mut reads: Weight = 0;
 		let mut writes: Weight = 0;
 		reads += 1;
 		if <SettledXRPTransactionDetails<T>>::contains_key(n) {
-			<SettledXRPTransactionDetails<T>>::remove(n);
-			writes += 1;
+			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
+				writes += 1 + tx_hashes.len() as Weight;
+				for tx_hash in tx_hashes {
+					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
+				}
+			}
 		}
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
 	pub fn add_to_relay(
-		relayer: AccountOf<T>,
+		relayer: T::AccountId,
 		ledger_index: LedgerIndex,
 		transaction_hash: XrplTxHash,
 		transaction: XrplTxData,
 		timestamp: Timestamp,
-	) -> DispatchResultWithPostInfo {
+	) -> DispatchResult {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<RelayXRPTransaction<T>>::insert((&relayer, &ledger_index, &transaction_hash), val.clone());
-		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val));
+		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, relayer));
+
 		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
-		Ok(().into())
+		Ok(())
 	}
 
-	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResultWithPostInfo {
+	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResult {
 		let process_block_number =
 			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
 		ProcessXRPTransaction::<T>::append(&process_block_number, transaction_hash);
-		Ok(().into())
+		Ok(())
 	}
 
+	///
+	/// `who` the account requesting the withdraw
+	/// `amount` the amount of XRP drops to withdraw (- the tx fee)
+	///  `destination` the receiver classic `AccountID` on XRPL
 	pub fn add_to_withdraw(
 		who: AccountOf<T>,
 		amount: Balance,
 		destination: XrplAddress,
-	) -> DispatchResultWithPostInfo {
-		let _ = T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount)?;
-		let tx_nonce = Self::xrpl_tx_nonce_inc()?;
-		let tx_data = XrpWithdrawTransaction { tx_nonce, amount, destination };
-		Self::withdraw_request_deposit_log(tx_nonce, tx_data);
-		Self::deposit_event(Event::WithdrawRequested(tx_nonce));
-		Ok(().into())
+	) -> DispatchResult {
+		// TODO: need a fee oracle, this is over estimating the fee
+		// https://github.com/futureversecom/seed/issues/107
+		let tx_fee = Self::door_tx_fee();
+		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
+		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawInvalidAmount); // xrp amounts are `u64`
+		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
+
+		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
+		// tx fee to maintain an accurate door balance
+		let _ =
+			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
+
+		let tx_nonce = Self::door_nonce_inc()?;
+		let tx_data = XrpWithdrawTransaction { tx_nonce, tx_fee, amount, destination };
+
+		let proof_id = Self::submit_withdraw_request(door_address.into(), tx_data)?;
+
+		Self::deposit_event(Event::WithdrawRequest { proof_id, sender: who, amount, destination });
+
+		Ok(())
 	}
 
-	pub fn withdraw_request_deposit_log(tx_nonce: XrplTxNonce, tx_data: XrpWithdrawTransaction) {
-		let log: DigestItem = DigestItem::Consensus(
-			XRPL_ENGINE_ID,
-			XrpRequestLog::XrpWithdrawRequest(tx_nonce, tx_data).encode(),
+	/// Construct an XRPL payment transaction and submit for signing
+	/// Returns a (proof_id, tx_blob)
+	fn submit_withdraw_request(
+		door_address: [u8; 20],
+		tx_data: XrpWithdrawTransaction,
+	) -> Result<u64, DispatchError> {
+		let XrpWithdrawTransaction { tx_fee, tx_nonce, amount, destination } = tx_data;
+
+		let payment = Payment::new(
+			door_address,
+			destination.into(),
+			amount.saturated_into(),
+			tx_nonce,
+			tx_fee,
+			// omit signer key since this is a 'MultiSigner' tx
+			None,
 		);
-		<frame_system::Pallet<T>>::deposit_log(log);
+		let tx_blob = payment.binary_serialize(true);
+
+		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
 	}
 
-	pub fn xrpl_tx_nonce_inc() -> Result<XrplTxNonce, DispatchError> {
-		let tx_nonce = CurrentXrplTxNonce::<T>::get().unwrap_or(0);
-		let next_tx_nonce = tx_nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		CurrentXrplTxNonce::<T>::set(Some(next_tx_nonce));
-		Ok(next_tx_nonce)
+	// Return the current door nonce and increment it in storage
+	pub fn door_nonce_inc() -> Result<XrplTxNonce, DispatchError> {
+		let nonce = Self::door_nonce();
+		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+		DoorNonce::<T>::set(next_nonce);
+		Ok(nonce)
 	}
 }
