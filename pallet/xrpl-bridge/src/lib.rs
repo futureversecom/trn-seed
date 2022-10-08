@@ -525,7 +525,12 @@ impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
 		(list, DbWeight::get().reads_writes(reads, writes))
 	}
 
-	fn update_challenge(transaction_hash: XrplTxHash) {
+	fn process_transaction(transaction_hash: XrplTxHash) {
+		<ChallengeXRPTransactionList<T>>::remove(&transaction_hash);
+		let _ = Self::add_to_xrp_process(transaction_hash);
+	}
+
+	fn do_not_process_transaction(transaction_hash: XrplTxHash) {
 		<ProcessXRPTransactionDetails<T>>::remove(&transaction_hash);
 		<ChallengeXRPTransactionList<T>>::remove(&transaction_hash);
 	}
@@ -533,5 +538,6 @@ impl<T: Config> XrplBridgeCall<AccountId> for Pallet<T> {
 
 pub trait XrplBridgeCall<AccountId> {
 	fn challenged_tx_list(limit: usize) -> (Vec<(LedgerIndex, XrpTransaction)>, Weight);
-	fn update_challenge(transaction_hash: XrplTxHash);
+	fn process_transaction(transaction_hash: XrplTxHash);
+	fn do_not_process_transaction(transaction_hash: XrplTxHash);
 }

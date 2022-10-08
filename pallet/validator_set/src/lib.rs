@@ -15,7 +15,7 @@ mod xrpl_types;
 
 use crate::xrpl_types::{
 	BridgeXrplWebsocketApi, ChainCallId, CheckedChainCallRequest, CheckedChainCallResult,
-	EventClaim, EventClaimResult, EventProofInfo, NotarizationPayload,
+	EventClaim, EventClaimResult, NotarizationPayload,
 };
 use frame_support::{
 	pallet_prelude::*,
@@ -131,17 +131,6 @@ pub mod pallet {
 	#[pallet::getter(fn notary_set_proof_id)]
 	/// Current validators set id
 	pub type NotarySetProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn next_event_proof_id)]
-	/// Current validators set id
-	pub type NextEventProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn pending_event_proofs)]
-	/// Queued event proofs to be processed once bridge has been re-enabled
-	pub type PendingEventProofs<T: Config> =
-		StorageMap<_, Twox64Concat, EventProofId, EventProofInfo>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn pending_claim_challenges)]
@@ -369,7 +358,7 @@ pub mod pallet {
 		pub fn submit_notarization(
 			origin: OriginFor<T>,
 			payload: NotarizationPayload,
-			signature: <<T as Config>::ValidatorId as RuntimeAppPublic>::Signature,
+			_signature: <<T as Config>::ValidatorId as RuntimeAppPublic>::Signature,
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 

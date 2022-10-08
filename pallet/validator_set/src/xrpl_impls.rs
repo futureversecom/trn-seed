@@ -127,21 +127,48 @@ impl<T: Config> Pallet<T> {
 		match recv {
 			Ok(transaction_hash) => {
 				let result = CheckedChainCallResult::Ok(transaction_hash);
-				let payload =
-					NotarizationPayload::Call { call_id: *call_id, authority_index, result };
-				let _ = Self::offchain_send_notarization(active_key, payload)
-					.map_err(|err| {
-						log!(error, "💎 sending notarization failed 🙈, {:?}", err);
-					})
-					.map(|_| {
-						log!(info, "💎 sent notarization: '{:?}' for call: {:?}", result, call_id,);
-					});
+				Self::offchain_send_notarization_payload(
+					call_id,
+					active_key,
+					authority_index,
+					result,
+				);
 			},
-			Err(e) => log!(trace, "💎 XRPL transaction_entry_request Error: {:?}", e),
+			Err(e) => {
+				log!(trace, "💎 XRPL transaction_entry_request Error: {:?}", e);
+				match e {
+					BridgeRpcError::InvalidTransaction(_msg) => {
+						let result =
+							CheckedChainCallResult::NotOk(request.xrp_transaction.transaction_hash);
+						Self::offchain_send_notarization_payload(
+							call_id,
+							active_key,
+							authority_index,
+							result,
+						);
+					},
+					_ => {},
+				}
+			},
 		}
 		CheckedChainCallResult::CallFailed
 	}
 
+	fn offchain_send_notarization_payload(
+		call_id: &ChainCallId,
+		active_key: &T::ValidatorId,
+		authority_index: u16,
+		result: CheckedChainCallResult,
+	) {
+		let payload = NotarizationPayload::Call { call_id: *call_id, authority_index, result };
+		let _ = Self::offchain_send_notarization(active_key, payload)
+			.map_err(|err| {
+				log!(error, "💎 sending notarization failed 🙈, {:?}", err);
+			})
+			.map(|_| {
+				log!(info, "💎 sent notarization: '{:?}' for call: {:?}", result, call_id,);
+			});
+	}
 	/// Send a notarization for the given claim
 	fn offchain_send_notarization(
 		key: &T::ValidatorId,
@@ -189,7 +216,9 @@ impl<T: Config> Pallet<T> {
 		let do_callback_and_clean_up = |result: CheckedChainCallResult| {
 			match result {
 				CheckedChainCallResult::Ok(transaction_hash) =>
-					T::XrplBridgeCall::update_challenge(transaction_hash),
+					T::XrplBridgeCall::process_transaction(transaction_hash),
+				CheckedChainCallResult::NotOk(transaction_hash) =>
+					T::XrplBridgeCall::do_not_process_transaction(transaction_hash),
 				CheckedChainCallResult::CallFailed => {},
 			}
 			if let Some(cursor) = <ChainCallNotarizations<T>>::clear_prefix(
@@ -247,7 +276,7 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 	type Call = Call<T>;
 
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::submit_notarization { ref payload, signature: ref signature } = call {
+		if let Call::submit_notarization { ref payload, ref signature } = call {
 			// notarization must be from an active notary
 			let notary_keys = Self::notary_keys();
 			let notary_public_key = match notary_keys.get(payload.authority_index() as usize) {
@@ -285,28 +314,4 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 			InvalidTransaction::Call.into()
 		}
 	}
-}
-
-/// Prunes claim ids that are less than the max contiguous claim id.
-pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
-	// if < 1 element, nothing to do
-	if let 0..=1 = claim_ids.len() {
-		return
-	}
-	// sort first
-	claim_ids.sort();
-	// get the index of the fist element that's non contiguous.
-	let first_noncontinuous_idx = claim_ids.iter().enumerate().position(|(i, &x)| {
-		if i > 0 {
-			x != claim_ids[i - 1] + 1
-		} else {
-			false
-		}
-	});
-	// drain the array from start to (first_noncontinuous_idx - 1) since we need the max contiguous
-	// element in the pruned vector.
-	match first_noncontinuous_idx {
-		Some(idx) => claim_ids.drain(..idx - 1),
-		None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
-	};
 }

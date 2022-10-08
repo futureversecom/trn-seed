@@ -77,13 +77,6 @@ impl<'a> BridgeXrplWebsocketApi for XrplWebsocketClient {
 			ledger_index: Option::from(get_lifetime_str_ref!('static, ledger_index.to_string())),
 			command: RequestMethod::TransactionEntry,
 		};
-		/*let request = TransactionEntry {
-			tx_hash: "",
-			id: None,
-			ledger_hash: None,
-			ledger_index: None,
-			command: RequestMethod::AccountChannels
-		};*/
 		let message = Message::Text(request.to_json());
 		log!(trace, "💎 request: {:?}", message.clone());
 

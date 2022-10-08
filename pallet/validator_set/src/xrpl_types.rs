@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use seed_primitives::{
-	validator::{EventClaimId, EventProofId, ValidatorSetId},
+	validator::EventClaimId,
 	xrpl::{LedgerIndex, XrpTransaction},
 };
 pub use sp_core::{H160, H256, U256};
@@ -44,21 +44,6 @@ pub struct EventClaim {
 	/// The Ethereum ABI encoded event data as logged on Ethereum
 	pub data: Vec<u8>,
 }
-#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
-/// Info related to an event proof
-pub struct EventProofInfo {
-	/// The source address (contract) which posted the event
-	pub source: XrplAddress,
-	/// The destination address (contract) which should receive the event
-	/// It may be symbolic, mapping to a pallet vs. a deployed contract
-	pub destination: XrplAddress,
-	/// The Ethereum ABI encoded event data as logged on Ethereum
-	pub message: Vec<u8>,
-	/// The validator set id for the proof
-	pub validator_set_id: ValidatorSetId,
-	/// The events proof id
-	pub event_proof_id: EventProofId,
-}
 /// An EthCallOracle request
 #[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo)]
 pub struct CheckedChainCallRequest {
@@ -68,6 +53,7 @@ pub struct CheckedChainCallRequest {
 #[derive(Encode, Decode, Debug, Eq, PartialOrd, Ord, PartialEq, Copy, Clone, TypeInfo)]
 pub enum CheckedChainCallResult {
 	Ok(XrplTxHash),
+	NotOk(XrplTxHash),
 	CallFailed,
 }
 
@@ -154,7 +140,7 @@ pub enum BridgeRpcError {
 	InvalidJSON,
 	/// offchain worker not configured properly
 	OcwConfig,
-	/// Challenge success
+	/// Transaction is invalid
 	InvalidTransaction(String),
 }
 
