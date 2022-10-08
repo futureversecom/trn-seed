@@ -16,12 +16,10 @@
 use async_trait::async_trait;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use seed_primitives::{
-	xrpl::{LedgerIndex, XrpTransaction},
-};
+use seed_primitives::xrpl::{LedgerIndex, XrpTransaction};
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
-use sp_std::{prelude::*};
+use sp_std::prelude::*;
 use tokio::sync::mpsc::Receiver;
 
 pub type XrplTxHash = seed_primitives::xrpl::XrplTxHash;
