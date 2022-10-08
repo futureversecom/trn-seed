@@ -20,6 +20,8 @@ use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 use sp_std::collections::btree_map::BTreeMap;
 
+use codec::alloc::string::ToString;
+
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
 	pub fn next_collection_uuid() -> Result<CollectionUuid, DispatchError> {
@@ -75,6 +77,15 @@ impl<T: Config> Pallet<T> {
 						&mut token_uri,
 						"ipfs://{}.json",
 						core::str::from_utf8(&shared_cid).unwrap_or("")
+					)
+					.expect("Not written");
+				},
+				MetadataScheme::Ethereum(contract_address) => {
+					write!(
+						&mut token_uri,
+						"ethereum://{}/{}",
+						contract_address.to_string(),
+						token_id.1
 					)
 					.expect("Not written");
 				},

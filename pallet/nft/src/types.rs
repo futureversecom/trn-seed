@@ -23,6 +23,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize, Serializer};
+use sp_core::H160;
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 
@@ -85,6 +86,9 @@ pub enum MetadataScheme {
 	/// Inner value is the shared IPFS CID, each token in the collection shares the same CID
 	/// full metadata URI construction: `ipfs://<shared_file_CID>.json`
 	IpfsShared(Vec<u8>),
+	// Collection metadata is located on Ethereum in the relevant field on the source token
+	// ethereum://<contractaddress>/<originalid>
+	Ethereum(H160)
 }
 
 impl MetadataScheme {
@@ -95,6 +99,7 @@ impl MetadataScheme {
 			MetadataScheme::Https(_path) => "https://",
 			MetadataScheme::IpfsDir(_path) => "ipfs://",
 			MetadataScheme::IpfsShared(_path) => "ipfs://",
+			MetadataScheme::Ethereum(_path) => "ethereum://",
 		}
 	}
 	/// Returns a sanitized version of the metadata URI
@@ -115,11 +120,15 @@ impl MetadataScheme {
 			Ok(path.as_bytes().to_vec())
 		};
 
+
 		Ok(match self.clone() {
 			MetadataScheme::Http(path) => MetadataScheme::Http(santitize_(path)?),
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
 			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
+
+			// Temp - fix later
+			MetadataScheme::Ethereum(original_id) => MetadataScheme::Ethereum(H160::zero())
 		})
 	}
 }
