@@ -283,16 +283,6 @@ impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
 				Some(id) => id,
 				None => return InvalidTransaction::BadProof.into(),
 			};
-			// notarization must not be a duplicate/equivocation
-			if <EventNotarizations<T>>::contains_key(payload.payload_id(), &notary_public_key) {
-				log!(
-					error,
-					"💎 received equivocation from: {:?} on {:?}",
-					notary_public_key,
-					payload.payload_id()
-				);
-				return InvalidTransaction::BadProof.into()
-			}
 			// notarization is signed correctly
 			if !(notary_public_key.verify(&payload.encode(), signature)) {
 				return InvalidTransaction::BadProof.into()

@@ -17,12 +17,11 @@ use async_trait::async_trait;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use seed_primitives::{
-	validator::EventClaimId,
 	xrpl::{LedgerIndex, XrpTransaction},
 };
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
-use sp_std::{prelude::*, vec::Vec};
+use sp_std::{prelude::*};
 use tokio::sync::mpsc::Receiver;
 
 pub type XrplTxHash = seed_primitives::xrpl::XrplTxHash;
@@ -31,19 +30,6 @@ pub type XrplAddress = seed_primitives::xrpl::XrplAddress;
 /// An Chain CallOracle call Id
 pub type ChainCallId = u64;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
-/// Info required to claim an Ethereum event
-pub struct EventClaim {
-	/// The Ethereum transaction hash which caused the event
-	pub tx_hash: XrplTxHash,
-	/// The source address (contract) which posted the event
-	pub source: XrplAddress,
-	/// The destination address (contract) which should receive the event
-	/// It may be symbolic, mapping to a pallet vs. a deployed contract
-	pub destination: XrplAddress,
-	/// The Ethereum ABI encoded event data as logged on Ethereum
-	pub data: Vec<u8>,
-}
 /// An EthCallOracle request
 #[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo)]
 pub struct CheckedChainCallRequest {
@@ -55,31 +41,6 @@ pub enum CheckedChainCallResult {
 	Ok(XrplTxHash),
 	NotOk(XrplTxHash),
 	CallFailed,
-}
-
-/// Possible outcomes from attempting to verify an Ethereum event claim
-#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum EventClaimResult {
-	/// It's valid
-	Valid,
-	/// Couldn't request data from the Eth client
-	DataProviderErr,
-	/// The eth tx is marked failed
-	TxStatusFailed,
-	/// The transaction recipient was not the expected contract
-	UnexpectedContractAddress,
-	/// The expected tx logs were not present
-	NoTxLogs,
-	/// Not enough block confirmations yet
-	NotEnoughConfirmations,
-	/// Tx event logs indicated this claim does not match the event
-	UnexpectedData,
-	/// The deposit tx is past the expiration deadline
-	Expired,
-	/// The Tx Receipt was not present
-	NoTxReceipt,
-	/// The event source did not match the tx receipt `to` field
-	UnexpectedSource,
 }
 
 /// An independent notarization of a bridged value
@@ -96,15 +57,6 @@ pub enum NotarizationPayload {
 		/// Result of the notarization check by this authority
 		result: CheckedChainCallResult,
 	},
-	Event {
-		/// The message Id being notarized
-		event_claim_id: EventClaimId,
-		/// The ordinal index of the signer in the notary set
-		/// It may be used with chain storage to lookup the public key of the notary
-		authority_index: u16,
-		/// Result of the notarization check by this authority
-		result: EventClaimResult,
-	},
 }
 
 impl NotarizationPayload {
@@ -112,21 +64,18 @@ impl NotarizationPayload {
 	pub fn type_id(&self) -> u64 {
 		match self {
 			Self::Call { .. } => 0_u64,
-			Self::Event { .. } => 1_u64,
 		}
 	}
 	/// Get the authority index
 	pub fn authority_index(&self) -> u16 {
 		match self {
 			Self::Call { authority_index, .. } => *authority_index,
-			Self::Event { authority_index, .. } => *authority_index,
 		}
 	}
 	/// Get the payload id
 	pub fn payload_id(&self) -> u64 {
 		match self {
 			Self::Call { call_id, .. } => *call_id,
-			Self::Event { event_claim_id, .. } => *event_claim_id,
 		}
 	}
 }

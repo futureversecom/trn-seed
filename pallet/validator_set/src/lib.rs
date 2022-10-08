@@ -15,7 +15,7 @@ mod xrpl_types;
 
 use crate::xrpl_types::{
 	BridgeXrplWebsocketApi, ChainCallId, CheckedChainCallRequest, CheckedChainCallResult,
-	EventClaim, EventClaimResult, NotarizationPayload,
+	NotarizationPayload,
 };
 use frame_support::{
 	pallet_prelude::*,
@@ -29,7 +29,7 @@ use pallet_xrpl_bridge::XrplBridgeCall;
 use seed_pallet_common::{log, FinalSessionTracker as FinalSessionTrackerT};
 use seed_primitives::{
 	ethy::EthyChainId,
-	validator::{EventClaimId, EventProofId, ValidatorSet},
+	validator::{EventProofId, ValidatorSet},
 };
 use sp_core::H160;
 use sp_runtime::{
@@ -128,16 +128,6 @@ pub mod pallet {
 	pub type NotarySetId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn notary_set_proof_id)]
-	/// Current validators set id
-	pub type NotarySetProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn pending_claim_challenges)]
-	/// Queued event proofs to be processed once bridge has been re-enabled
-	pub type PendingClaimChallenges<T: Config> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn chain_call_requests)]
 	/// Queue of pending Chain CallOracle requests
 	pub type ChainCallRequests<T: Config> = StorageValue<_, Vec<ChainCallId>, ValueQuery>;
@@ -154,33 +144,10 @@ pub mod pallet {
 		StorageValue<_, ChainCallId, ValueQuery, DefaultNextChainCallId>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn event_deadline_seconds)]
-	/// Events cannot be claimed after this time (seconds)
-	pub type EventDeadlineSeconds<T: Config> = StorageValue<_, u64, ValueQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn chain_call_request_info)]
 	/// Queue of pending Chain CallOracle requests
 	pub type ChainCallRequestInfo<T: Config> =
 		StorageMap<_, Twox64Concat, ChainCallId, CheckedChainCallRequest>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn pending_event_claims)]
-	/// Queued event claims, can be challenged within challenge period
-	pub type PendingEventClaims<T: Config> = StorageMap<_, Twox64Concat, EventClaimId, EventClaim>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn event_notarizations)]
-	/// Notarizations for queued events
-	/// Either: None = no notarization exists OR Some(yay/nay)
-	pub type EventNotarizations<T: Config> = StorageDoubleMap<
-		_,
-		Twox64Concat,
-		EventClaimId,
-		Twox64Concat,
-		T::ValidatorId,
-		EventClaimResult,
-	>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn chain_call_notarizations)]
@@ -374,7 +341,6 @@ pub mod pallet {
 			match payload {
 				NotarizationPayload::Call { call_id, result, .. } =>
 					Self::handle_call_notarization(call_id, result, notary_public_key),
-				_ => Ok(()),
 			}
 		}
 	}
