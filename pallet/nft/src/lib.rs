@@ -64,6 +64,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+use sp_core::H160;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -444,51 +445,73 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			// Check we can issue the new tokens
-			let collection_uuid = Self::next_collection_uuid()?;
-
-			// Check max issuance is valid
-			if let Some(max_issuance) = max_issuance {
-				ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
-				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
-			}
-
-			// Validate collection attributes
-			ensure!(
-				!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
-				Error::<T>::CollectionNameInvalid
-			);
-			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
-			let metadata_scheme =
-				metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
-			if let Some(royalties_schedule) = royalties_schedule.clone() {
-				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
-			}
-
-			<CollectionInfo<T>>::insert(
-				collection_uuid,
-				CollectionInformation {
-					owner: origin.clone(),
-					name,
-					metadata_scheme,
-					royalties_schedule,
-					max_issuance,
-				},
+			Self::do_create_collection(
+				origin,
+				name,
+				initial_issuance,
+				max_issuance,
+				token_owner,
+				metadata_scheme,
+				royalties_schedule,
+				// Original id is not as crucial here as it is on the bridging side
+				None
 			);
 
-			// Now mint the collection tokens
-			let token_owner = token_owner.unwrap_or(origin);
-			if initial_issuance > Zero::zero() {
-				Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
-			}
-			// will not overflow, asserted prior qed.
-			<NextCollectionId<T>>::mutate(|i| *i += u32::one());
 
-			Self::deposit_event(Event::<T>::CollectionCreate {
-				collection_uuid,
-				token_count: initial_issuance,
-				owner: token_owner,
-			});
+			// owner,
+			// name,
+			// initial_issuance,
+			// max_issuance,
+			// token_owner,
+			// metadata_scheme,
+			// royalties_schedule,
+			// collection_id
+
+			// // Check we can issue the new tokens
+			// let collection_uuid = Self::next_collection_uuid()?;
+
+			// // Check max issuance is valid
+			// if let Some(max_issuance) = max_issuance {
+			// 	ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
+			// 	ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+			// }
+
+			// // Validate collection attributes
+			// ensure!(
+			// 	!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
+			// 	Error::<T>::CollectionNameInvalid
+			// );
+			// ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+			// let metadata_scheme =
+			// 	metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+			// if let Some(royalties_schedule) = royalties_schedule.clone() {
+			// 	ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+			// }
+
+			// <CollectionInfo<T>>::insert(
+			// 	collection_uuid,
+			// 	CollectionInformation {
+			// 		owner: origin.clone(),
+			// 		name,
+			// 		metadata_scheme,
+			// 		royalties_schedule,
+			// 		max_issuance,
+			// 	},
+			// );
+
+			// // Now mint the collection tokens
+			// let token_owner = token_owner.unwrap_or(origin);
+			// if initial_issuance > Zero::zero() {
+			// 	Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
+			// }
+			// // will not overflow, asserted prior qed.
+			// <NextCollectionId<T>>::mutate(|i| *i += u32::one());
+
+			// Self::deposit_event(Event::<T>::CollectionCreate {
+			// 	collection_uuid,
+			// 	token_count: initial_issuance,
+			// 	owner: token_owner,
+			// });
 
 			Ok(())
 		}
@@ -512,6 +535,11 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let serial_number = Self::next_serial_number(collection_id).unwrap_or_default();
 			ensure!(serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
+
+			// Assume changes are made to represent token origin chain
+			// if token.origin == Ethereum {
+				// receive token id and mint it with new fn
+			// }
 
 			// Permission and existence check
 			if let Some(collection_info) = Self::collection_info(collection_id) {
@@ -1127,6 +1155,65 @@ pub mod pallet {
 			} else {
 				Err(Error::<T>::InvalidOffer.into())
 			}
+		}
+	}
+	impl<T: Config> Pallet<T> {
+		pub fn do_create_collection(
+			owner: T::AccountId,
+			name: CollectionNameType,
+			initial_issuance: TokenCount,
+			max_issuance: Option<TokenCount>,
+			token_owner: Option<T::AccountId>,
+			metadata_scheme: MetadataScheme,
+			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+			source_id: Option<u32>
+		) -> Result<u32, DispatchError> {
+			// Check we can issue the new tokens
+			let collection_uuid = Self::next_collection_uuid()?;
+
+			// Check max issuance is valid
+			if let Some(max_issuance) = max_issuance {
+				ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
+				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+			}
+
+			// Validate collection attributes
+			ensure!(
+				!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
+				Error::<T>::CollectionNameInvalid
+			);
+			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+			let metadata_scheme =
+				metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+			if let Some(royalties_schedule) = royalties_schedule.clone() {
+				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+			}
+
+			<CollectionInfo<T>>::insert(
+				collection_uuid,
+				CollectionInformation {
+					owner: owner.clone(),
+					name,
+					metadata_scheme,
+					royalties_schedule: None,
+					max_issuance: None,
+				},
+			);
+
+			// Now mint the collection tokens
+			let token_owner = token_owner.unwrap_or(owner);
+			if initial_issuance > Zero::zero() {
+				Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
+			}
+			// will not overflow, asserted prior qed.
+			<NextCollectionId<T>>::mutate(|i| *i += u32::one());
+
+			Self::deposit_event(Event::<T>::CollectionCreate {
+				collection_uuid,
+				token_count: initial_issuance,
+				owner: token_owner,
+			});
+			Ok(collection_uuid)
 		}
 	}
 }
