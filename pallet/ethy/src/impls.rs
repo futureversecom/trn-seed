@@ -412,10 +412,10 @@ impl<T: Config> Module<T> {
 		result: EventClaimResult,
 		notary_id: &T::EthyId,
 	) -> DispatchResult {
-		if !PendingEventClaims::contains_key(event_claim_id) {
-			// there's no claim active
-			return Err(Error::<T>::InvalidClaim.into())
-		}
+		ensure!(
+			Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Challenged),
+			Error::<T>::InvalidClaim
+		);
 
 		// Store the new notarization
 		<EventNotarizations<T>>::insert::<EventClaimId, T::EthyId, EventClaimResult>(
@@ -440,64 +440,126 @@ impl<T: Config> Module<T> {
 		if Percent::from_rational(nay_count, notary_count) >
 			(Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct()))
 		{
-			if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
-				event_claim_id,
-				NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
-				None,
-			)
-			.maybe_cursor
-			{
-				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
-				return Err(Error::<T>::Internal.into())
-			}
-			PendingClaimChallenges::mutate(|event_ids| {
-				event_ids
-					.iter()
-					.position(|x| *x == event_claim_id)
-					.map(|idx| event_ids.remove(idx));
-			});
-
-			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-				// TODO: voting is complete, the event is invalid
-				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::<T>::Invalid(event_claim_id));
-				return Ok(())
-			} else {
-				log!(error, "💎 unexpected empty claim");
-				return Err(Error::<T>::InvalidClaim.into())
-			}
+			Self::handle_invalid_claim(event_claim_id)?;
 		}
 
 		// Claim is valid
 		if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get() {
-			// no need to track info on this claim any more since it's approved
-			if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
-				event_claim_id,
-				NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
-				None,
-			)
-			.maybe_cursor
-			{
-				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
-				return Err(Error::<T>::Internal.into())
-			}
-			PendingClaimChallenges::mutate(|event_ids| {
-				event_ids
-					.iter()
-					.position(|x| *x == event_claim_id)
-					.map(|idx| event_ids.remove(idx));
-			});
-
-			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-				// TODO: voting is complete, the event is valid
-				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::<T>::Verified(event_claim_id));
-			} else {
-				log!(error, "💎 unexpected empty claim");
-				return Err(Error::<T>::InvalidClaim.into())
-			}
+			Self::handle_valid_claim(event_claim_id)?;
 		}
 
+		Ok(())
+	}
+
+	/// Handle claim after challenge has proven claim to be invalid
+	/// Slash relayer and pay slashed amount to challenger
+	/// repay challenger bond to challenger
+	/// Remove the active relayer
+	pub(crate) fn handle_invalid_claim(event_claim_id: EventClaimId) -> DispatchResult {
+		if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
+			event_claim_id,
+			NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
+			None,
+		)
+		.maybe_cursor
+		{
+			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+			return Err(Error::<T>::Internal.into())
+		}
+		PendingClaimChallenges::mutate(|event_ids| {
+			event_ids
+				.iter()
+				.position(|x| *x == event_claim_id)
+				.map(|idx| event_ids.remove(idx));
+		});
+
+		if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
+			if let Some((challenger, bond_amount)) = <ChallengerAccount<T>>::take(event_claim_id) {
+				// Challenger is correct, the event is invalid.
+				// Return challenger bond to challenger and reward challenger with relayer bond
+				T::MultiCurrency::release_hold(
+					T::BridgePalletId::get(),
+					&challenger,
+					T::NativeAssetId::get(),
+					bond_amount,
+				)?;
+
+				if let Some(relayer) = Self::relayer() {
+					// Relayer bond goes to challenger
+					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer);
+					T::MultiCurrency::spend_hold(
+						T::BridgePalletId::get(),
+						&relayer,
+						T::NativeAssetId::get(),
+						&[(challenger, relayer_paid_bond)],
+					)?;
+					// Relayer has been slashed, remove their stored bond amount and set relayer to
+					// None
+					<Relayer<T>>::kill();
+				};
+
+				PendingClaimStatus::remove(event_claim_id);
+				Self::deposit_event(Event::<T>::RelayerSet(None));
+			} else {
+				// This shouldn't happen
+				log!(error, "💎 unexpected missing challenger account");
+			}
+			Self::deposit_event(Event::<T>::Invalid(event_claim_id));
+			return Ok(())
+		} else {
+			log!(error, "💎 unexpected empty claim");
+			return Err(Error::<T>::InvalidClaim.into())
+		}
+	}
+
+	/// Handle claim after challenge has proven claim to be valid
+	/// Pay challenger bond to relayer
+	pub(crate) fn handle_valid_claim(event_claim_id: EventClaimId) -> DispatchResult {
+		// no need to track info on this claim any more since it's approved
+		if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
+			event_claim_id,
+			NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
+			None,
+		)
+		.maybe_cursor
+		{
+			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+			return Err(Error::<T>::Internal.into())
+		}
+		// Remove the claim from pending_claim_challenges
+		PendingClaimChallenges::mutate(|event_ids| {
+			event_ids
+				.iter()
+				.position(|x| *x == event_claim_id)
+				.map(|idx| event_ids.remove(idx));
+		});
+
+		if PendingEventClaims::contains_key(event_claim_id) {
+			if let Some(relayer) = Self::relayer() {
+				if let Some((challenger, bond_amount)) =
+					<ChallengerAccount<T>>::take(event_claim_id)
+				{
+					// Challenger is incorrect, the event is valid. Send funds to relayer
+					T::MultiCurrency::spend_hold(
+						T::BridgePalletId::get(),
+						&challenger,
+						T::NativeAssetId::get(),
+						&[(relayer, bond_amount)],
+					)?;
+				} else {
+					// This shouldn't happen
+					log!(error, "💎 unexpected missing challenger account");
+				}
+
+				PendingClaimStatus::insert(event_claim_id, EventClaimStatus::ProvenValid);
+				Self::deposit_event(Event::<T>::Verified(event_claim_id));
+			} else {
+				log!(error, "💎 No relayer set");
+			}
+		} else {
+			log!(error, "💎 unexpected empty claim");
+			return Err(Error::<T>::InvalidClaim.into())
+		}
 		Ok(())
 	}
 

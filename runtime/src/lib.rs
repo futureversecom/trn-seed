@@ -689,8 +689,12 @@ impl pallet_tx_fee_pot::Config for Runtime {
 parameter_types! {
 	/// The bridge pallet address
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
+	/// Bond amount for a challenger
+	pub const ChallengeBond: Balance = 100 * ONE_ROOT;
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
+	/// Bond amount for a relayer
+	pub const RelayerBond: Balance = 100 * ONE_ROOT;
 }
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
@@ -699,6 +703,8 @@ impl pallet_ethy::Config for Runtime {
 	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
+	/// The bond required to make a challenge
+	type ChallengeBond = ChallengeBond;
 	// The duration in blocks of one epoch
 	type EpochDuration = EpochDuration;
 	/// The runtime event type.
@@ -713,8 +719,14 @@ impl pallet_ethy::Config for Runtime {
 	type EthyId = EthBridgeId;
 	/// Reports final session status of an era
 	type FinalSessionTracker = StakingSessionTracker;
+	/// Handles multi-currency fungible asset system
+	type MultiCurrency = AssetsExt;
+	/// The native asset id used for challenger and relayer bonds
+	type NativeAssetId = XrpAssetId;
 	/// The threshold of positive notarizations to approve an event claim
 	type NotarizationThreshold = NotarizationThreshold;
+	/// The bond required to become a relayer
+	type RelayerBond = RelayerBond;
 	/// Timestamp provider
 	type UnixTime = Timestamp;
 }
