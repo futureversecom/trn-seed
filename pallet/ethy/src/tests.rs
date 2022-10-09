@@ -102,12 +102,6 @@ fn encode_event_message(
 	])
 }
 
-/// Helper to get the bridge contract address that the `EthBridge` pallet is connected with
-/// i.e the trusted origin for all submitted event logs
-fn bridge_contract_address() -> EthAddress {
-	<TestRuntime as Config>::BridgeContractAddress::get().into()
-}
-
 #[test]
 fn submit_event() {
 	let relayer = H160::from_low_u64_be(123);
@@ -903,7 +897,7 @@ fn pre_last_session_change() {
 			event_proof_id,
 			validator_set_id: 0,
 			source: BridgePalletId::get().into_account_truncating(),
-			destination: bridge_contract_address(),
+			destination: EthBridge::contract_address(),
 			message: new_validator_set_message.to_vec(),
 		});
 
@@ -1424,7 +1418,7 @@ fn offchain_try_notarize_event() {
 		let _mock_block_1 = mock_block_response(block_number, timestamp);
 		let _mock_block_2 = mock_block_response(block_number + 5, timestamp);
 		let mock_log = MockLogBuilder::new()
-			.address(bridge_contract_address())
+			.address(EthBridge::contract_address())
 			.data(event_data.as_slice())
 			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
 			.transaction_hash(tx_hash)
@@ -1518,7 +1512,7 @@ fn offchain_try_notarize_event_no_block_number_should_fail() {
 		// Create mock info for transaction receipt
 		let event_data = encode_event_message(event_id, source, destination, Default::default());
 		let mock_log = MockLogBuilder::new()
-			.address(bridge_contract_address())
+			.address(EthBridge::contract_address())
 			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
 			.data(event_data.as_slice())
 			.transaction_hash(tx_hash)
@@ -1552,7 +1546,7 @@ fn offchain_try_notarize_event_no_confirmations_should_fail() {
 		let _mock_block_2 = mock_block_response(block_number, timestamp);
 		let event_data = encode_event_message(event_id, source, destination, Default::default());
 		let mock_log = MockLogBuilder::new()
-			.address(bridge_contract_address())
+			.address(EthBridge::contract_address())
 			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
 			.data(event_data.as_slice())
 			.transaction_hash(tx_hash)
@@ -1585,7 +1579,7 @@ fn offchain_try_notarize_event_no_observed_should_fail() {
 		let _mock_block_1 = mock_block_response(block_number, timestamp);
 		let event_data = encode_event_message(event_id, source, destination, Default::default());
 		let mock_log = MockLogBuilder::new()
-			.address(bridge_contract_address())
+			.address(EthBridge::contract_address())
 			.data(event_data.as_slice())
 			.transaction_hash(tx_hash)
 			.build();
@@ -2028,5 +2022,34 @@ fn set_challenge_period_works() {
 		));
 		// Check storage updated
 		assert_eq!(EthBridge::challenge_period(), new_challenge_period);
+	});
+}
+
+#[test]
+fn set_contract_address_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		let new_bridge_address: EthAddress =
+			EthAddress::from(hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+
+		assert_ok!(EthBridge::set_contract_address(
+			frame_system::RawOrigin::Root.into(),
+			new_bridge_address
+		));
+		// Check storage updated
+		assert_eq!(EthBridge::contract_address(), new_bridge_address);
+	});
+}
+
+#[test]
+fn set_contract_address_not_root_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let new_bridge_address: EthAddress =
+			EthAddress::from(hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
+		let ken = H160::from_low_u64_be(123);
+
+		assert_noop!(
+			EthBridge::set_contract_address(Origin::signed(ken.into()), new_bridge_address),
+			DispatchError::BadOrigin
+		);
 	});
 }

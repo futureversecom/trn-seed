@@ -227,7 +227,6 @@ decl_module! {
 		}
 
 		#[weight = 1_000_000]
-		#[transactional]
 		/// Set the peg contract address on Ethereum (requires governance)
 		pub fn set_contract_address(origin, eth_address: EthAddress) {
 			ensure_root(origin)?;
