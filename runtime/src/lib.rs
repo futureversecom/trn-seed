@@ -872,6 +872,15 @@ impl pallet_erc20_peg::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	/// The ERC20 peg address
+	pub const NftPegPalletId: PalletId = PalletId(*b"  nftpeg");
+}
+
+impl pallet_nft_peg::Config for Runtime {
+	type PalletId = NftPegPalletId;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
