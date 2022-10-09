@@ -372,9 +372,9 @@ impl EthereumEventRouterT for EthereumEventRouter {
 			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		}
 		else if destination ==
-			&<pallet_bridged_nfts::Pallet<Runtime> as
+			&<pallet_nft_peg::Pallet<Runtime> as
 			EthereumEventSubscriber>::address() {
-			<pallet_bridged_nfts::Pallet<Runtime> as EthereumEventSubscriber>::process_event(
+			<pallet_nft_peg::Pallet<Runtime> as EthereumEventSubscriber>::process_event(
 				source, data,
 			)
 			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))

@@ -7,8 +7,7 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	ensure,
 	traits::{
-		fungible::Inspect, Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced,
-		WithdrawReasons,
+		Get,
 	},
 	PalletId,
 };
@@ -21,6 +20,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 pub use pallet::*;
 use seed_pallet_common::{log, EthereumEventSubscriber};
 use seed_primitives::{Balance, EthAddress, AccountId20, CollectionUuid, SerialNumber};
+use sp_std::{boxed::Box, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -34,7 +34,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_nft::Config {
-		type ThisPalletId: Get<PalletId>;
+		type PalletId: Get<PalletId>;
 	}
 
 	#[pallet::storage]
@@ -110,14 +110,12 @@ impl<T: Config> Pallet<T> {
 	// 	// The pallet will own it until properly claimed by the true owner
 	// 	let owner = 
 	// 	if owner.is_none() {
-	// 		&T::ThisPalletId::get().into_account_truncating()
+	// 		&T::PalletId::get().into_account_truncating()
 	// 	} else {
 	// 		owner.unwrap()
 	// 	}; 
 
-
-
-
+	// Non functional atm. This needs to accept and process multiple tokens
 	fn process_nfts_multiple(
 		token_addresses: Vec<Token>,
 		token_ids: Vec<Token>,
@@ -154,7 +152,7 @@ impl<T: Config> Pallet<T> {
 		// // The pallet will own it until properly claimed by the true owner
 		// let owner = 
 		// if owner.is_none() {
-		// 	&T::ThisPalletId::get().into_account_truncating()
+		// 	&T::PalletId::get().into_account_truncating()
 		// } else {
 		// 	owner.unwrap()
 		// }; 
@@ -187,10 +185,11 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> EthereumEventSubscriber for Pallet<T>
 where <T as frame_system::Config>::AccountId: From<H160>
 {
-	type Address = T::ThisPalletId;
+	type Address = <T as pallet::Config>::PalletId;
 	type SourceAddress = GetEthAddress<T>;
 
 	fn on_event(source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
+		let mut weight = 10000;
 		let abi_decoded = match ethabi::decode(
 			&[
 				ParamType::Array(Box::new(ParamType::Address)),
@@ -207,7 +206,7 @@ where <T as frame_system::Config>::AccountId: From<H160>
 			Err(_) => return Err((42, Error::<T>::InvalidAbiEncoding.into())),
 		};
 
-		if let &[
+		if let [
 				Token::Array(token_addresses),
 				Token::Array(token_ids), // Pull inner vec out
 				Token::Array(contract_owners),
@@ -216,38 +215,17 @@ where <T as frame_system::Config>::AccountId: From<H160>
 			abi_decoded.as_slice()
 		{
 
-			// TODO: Destructure and translate arguments correctly
-			// TODO: Assign owners considering zero-ex value representing `None`: let owner = if owner == 0x0000000000000000000000000000000000000000 { None } else { owner };
-
-			// Self::process_nfts(
-			// 	owner,
-			// 	name,
-			// 	source_collection_id,
-			// 	serial_number,
-			// 	quantity
-			// );
-
-			// TODO: come back and check this
-			// let owner = if owner == 0x0000000000000000000000000000000000000000 { None } else { owner }
-
-			// Self::process_nfts(
-			// 	&owner.into(),
-			// 	collection_id.low_u32(),
-			// 	token_id.low_u32(),
-			// 	quantity.low_u32()
-			// )
-
 			Self::process_nfts_multiple(
-				token_addresses,
-				token_ids,
-				contract_owners,
-				destination
+				token_addresses.clone(),
+				token_ids.clone(),
+				contract_owners.clone(),
+				destination.clone(),
 			);
 
-			Ok(42)
+			Ok(weight)
 		} else {
 			// input data should be valid, we do not expect to fail here
-			Err((42, Error::<T>::InvalidAbiEncoding.into()))
+			Err((weight, Error::<T>::InvalidAbiEncoding.into()))
 		}
 	}
 }
