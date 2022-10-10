@@ -5235,7 +5235,6 @@ dependencies = [
  "sp-std",
  "tokio",
  "tokio-tungstenite",
- "xrpl-codec",
  "xrpl-rust",
 ]
 
@@ -10149,6 +10148,7 @@ dependencies = [
 [[package]]
 name = "xrpl-rust"
 version = "0.1.2"
+source = "git+https://github.com/futureversecom/xrpl-rust.git#d502e66cfc975a618b13f5f17030210af9f3fec5"
 dependencies = [
  "bs58",
  "chrono",

@@ -25,7 +25,6 @@ pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 use tokio::sync::mpsc::Receiver;
-// use xrpl::models::Payment;
 
 pub type XrplTxHash = seed_primitives::xrpl::XrplTxHash;
 
