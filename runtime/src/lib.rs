@@ -875,10 +875,12 @@ impl pallet_erc20_peg::Config for Runtime {
 parameter_types! {
 	/// The ERC20 peg address
 	pub const NftPegPalletId: PalletId = PalletId(*b"  nftpeg");
+	pub const DelayLength: BlockNumber = 5;
 }
 
 impl pallet_nft_peg::Config for Runtime {
 	type PalletId = NftPegPalletId;
+	type DelayLength = DelayLength;
 }
 
 construct_runtime! {
@@ -1317,8 +1319,9 @@ impl fp_self_contained::SelfContainedCall for Call {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			Call::Ethereum(ref call) =>
-				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
+			Call::Ethereum(ref call) => {
+				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))
+			},
 			_ => None,
 		}
 	}
@@ -1330,8 +1333,9 @@ impl fp_self_contained::SelfContainedCall for Call {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			Call::Ethereum(call) =>
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			Call::Ethereum(call) => {
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}

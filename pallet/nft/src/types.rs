@@ -48,6 +48,12 @@ pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
 }
 
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+pub enum OriginChain {
+	Ethereum,
+	Root,
+}
+
 // Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 pub struct CollectionInformation<AccountId> {
@@ -61,6 +67,7 @@ pub struct CollectionInformation<AccountId> {
 	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
 	// Maximum number of tokens allowed in a collection
 	pub max_issuance: Option<TokenCount>,
+	pub source_chain: OriginChain,
 }
 
 /// Denotes the metadata URI referencing scheme used by a collection
@@ -88,7 +95,7 @@ pub enum MetadataScheme {
 	IpfsShared(Vec<u8>),
 	// Collection metadata is located on Ethereum in the relevant field on the source token
 	// ethereum://<contractaddress>/<originalid>
-	Ethereum(H160)
+	Ethereum(H160),
 }
 
 impl MetadataScheme {
@@ -107,7 +114,7 @@ impl MetadataScheme {
 		let prefix = self.prefix();
 		let santitize_ = |path: Vec<u8>| {
 			if path.is_empty() {
-				return Err(())
+				return Err(());
 			}
 			// some best effort attempts to sanitize `path`
 			let mut path = core::str::from_utf8(&path).map_err(|_| ())?.trim();
@@ -120,7 +127,6 @@ impl MetadataScheme {
 			Ok(path.as_bytes().to_vec())
 		};
 
-
 		Ok(match self.clone() {
 			MetadataScheme::Http(path) => MetadataScheme::Http(santitize_(path)?),
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
@@ -128,7 +134,7 @@ impl MetadataScheme {
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
 
 			// Temp - fix later
-			MetadataScheme::Ethereum(original_id) => MetadataScheme::Ethereum(H160::zero())
+			MetadataScheme::Ethereum(original_id) => MetadataScheme::Ethereum(H160::zero()),
 		})
 	}
 }
@@ -207,9 +213,10 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	/// - not overcommitted (> 100%)
 	/// - < MAX_ENTITLEMENTS
 	pub fn validate(&self) -> bool {
-		!self.entitlements.is_empty() &&
-			self.entitlements.len() <= MAX_ENTITLEMENTS &&
-			self.entitlements
+		!self.entitlements.is_empty()
+			&& self.entitlements.len() <= MAX_ENTITLEMENTS
+			&& self
+				.entitlements
 				.iter()
 				.map(|(_who, share)| share.deconstruct() as u32)
 				.sum::<u32>() <= Permill::ACCURACY
@@ -219,7 +226,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	pub fn calculate_total_entitlement(&self) -> Permill {
 		// if royalties are in a strange state
 		if !self.validate() {
-			return Permill::zero()
+			return Permill::zero();
 		}
 		Permill::from_parts(
 			self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>(),
