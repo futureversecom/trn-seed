@@ -21,24 +21,28 @@ use xrpl::{
 	tokio::AsyncWebsocketClient,
 };
 
-use crate::{xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplAddress, XrplTxHash}, ChainCallId, H160};
+use crate::{
+	xrpl_types::{
+		BridgeRpcError, BridgeXrplWebsocketApi, TransactionEntryResponse, XrplAddress, XrplTxHash,
+	},
+	ChainCallId, H160,
+};
 use codec::alloc::string::String;
 use frame_support::ensure;
 use futures::StreamExt;
+use hex_literal::hex;
 use rustc_hex::ToHex;
 use scale_info::prelude::string::ToString;
 use seed_pallet_common::{get_lifetime_str_ref, log};
 use seed_primitives::{
 	xrpl::{LedgerIndex, XrpTransaction, XrplTxData},
-	Balance, XRP_HTTP_URI, AccountId
+	AccountId, Balance, XRP_HTTP_URI,
 };
 use tokio::{
 	spawn,
 	sync::{mpsc, mpsc::Receiver},
 };
 use tokio_tungstenite::tungstenite::Message;
-use crate::xrpl_types::{TransactionEntryResponse};
-use hex_literal::hex;
 
 pub struct XrplWebsocketClient;
 #[async_trait]
@@ -101,7 +105,7 @@ pub fn is_valid_xrp_transaction(
 
 	match response.status.as_str() {
 		"success" => {
-			let result= match response.result {
+			let result = match response.result {
 				Some(r) => r,
 				None => return Err(BridgeRpcError::InvalidJSON),
 			};
@@ -113,32 +117,25 @@ pub fn is_valid_xrp_transaction(
 					let hex_address = match hex::decode(&memos[0].memo_data[6..]) {
 						Ok(val) => {
 							if val.len() != 20 {
-								return Err(
-									BridgeRpcError::InvalidTransaction(
-										"XrplAddress extraction from Memo Failed".to_string()
-									))
+								return Err(BridgeRpcError::InvalidTransaction(
+									"XrplAddress extraction from Memo Failed".to_string(),
+								))
 							}
 							val
 						},
-						Err(e) => {
-							return Err(
-								BridgeRpcError::InvalidTransaction(
-									"XrplAddress extraction from Memo Failed".to_string()
-								))
-						}
+						Err(e) =>
+							return Err(BridgeRpcError::InvalidTransaction(
+								"XrplAddress extraction from Memo Failed".to_string(),
+							)),
 					};
 					AccountId::from(H160::from_slice(&hex_address))
 				},
 				None =>
-					return Err(
-						BridgeRpcError::InvalidTransaction(
-							"XrplAddress extraction from Memo Failed".to_string()
-						)),
+					return Err(BridgeRpcError::InvalidTransaction(
+						"XrplAddress extraction from Memo Failed".to_string(),
+					)),
 			};
-			let tx_amount: Balance = match result.tx_json.amount
-				.clone()
-				.parse::<Balance>()
-			{
+			let tx_amount: Balance = match result.tx_json.amount.clone().parse::<Balance>() {
 				Ok(v) => v,
 				Err(_) =>
 					return Err(BridgeRpcError::InvalidTransaction(
@@ -179,7 +176,7 @@ pub fn is_valid_xrp_transaction(
 		},
 		"error" => match response.error {
 			Some(e) => Err(BridgeRpcError::InvalidTransaction(e)),
-			_ => Err(BridgeRpcError::InvalidJSON)
+			_ => Err(BridgeRpcError::InvalidJSON),
 		},
 		_ => Err(BridgeRpcError::InvalidJSON),
 	}
@@ -205,9 +202,9 @@ pub fn get_xrp_http_uri<'a>() -> Result<&'a str, BridgeRpcError> {
 
 #[cfg(test)]
 mod test {
-	use hex::ToHex;
 	use super::*;
 	use crate::H160;
+	use hex::ToHex;
 
 	#[test]
 	fn test_is_valid_xrp_transaction_success() {

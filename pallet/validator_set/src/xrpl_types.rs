@@ -16,12 +16,15 @@
 use async_trait::async_trait;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use seed_primitives::xrpl::{LedgerIndex, XrpTransaction};
+use seed_primitives::{
+	validator::{EventClaimId, EventProofId, ValidatorSetId},
+	xrpl::{LedgerIndex, XrpTransaction},
+};
+use serde::{Deserialize, Serialize};
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
 use tokio::sync::mpsc::Receiver;
-use serde::{Serialize, Deserialize};
 // use xrpl::models::Payment;
 
 pub type XrplTxHash = seed_primitives::xrpl::XrplTxHash;
@@ -137,7 +140,3 @@ pub struct Memo {
 	pub memo_type: String,
 	pub memo_data: String,
 }
-
-
-
-
