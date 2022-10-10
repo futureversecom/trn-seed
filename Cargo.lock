@@ -5217,6 +5217,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-session",
  "pallet-xrpl-bridge",
  "parity-scale-codec",
  "rustc-hex",

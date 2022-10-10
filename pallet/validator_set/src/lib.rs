@@ -6,6 +6,8 @@
 mod mock;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_validator;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -19,17 +21,22 @@ use crate::xrpl_types::{
 };
 use frame_support::{
 	pallet_prelude::*,
-	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{
+		fungibles::{Inspect, Mutate, Transfer},
+		OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT,
+	},
 	PalletId,
 };
+
 use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
 use hex_literal::hex;
 pub use pallet::*;
 use pallet_xrpl_bridge::XrplBridgeCall;
-use seed_pallet_common::{log, FinalSessionTracker as FinalSessionTrackerT};
+use seed_pallet_common::{log, CreateExt, FinalSessionTracker as FinalSessionTrackerT};
 use seed_primitives::{
 	ethy::EthyChainId,
 	validator::{EventProofId, ValidatorSet},
+	AssetId, Balance,
 };
 use sp_core::H160;
 use sp_runtime::{
@@ -63,6 +70,12 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
+			+ Transfer<Self::AccountId, Balance = Balance>
+			+ Inspect<Self::AccountId, AssetId = AssetId>
+			+ Mutate<Self::AccountId>;
+
 		/// Allowed origins to add/removw the validator
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
 		/// Knows the active authority set (validator stash addresses)
@@ -355,11 +368,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	// To check if the given member is validator or not
-	pub fn is_validator(validator_id: &T::ValidatorId) -> bool {
-		WhiteListValidators::<T>::get(validator_id).unwrap_or(false)
-	}
-
 	fn update_validators(validator_list: Vec<T::ValidatorId>) {
 		// Filter validator_list from WhiteList Validators.
 		let mut validators: Vec<T::ValidatorId> = Vec::new();
@@ -370,16 +378,6 @@ impl<T: Config> Pallet<T> {
 		}
 		<NotaryKeys<T>>::put(validators);
 	}
-}
-
-impl<T: Config> ValidatorWhiteList<ValidatorIdOf<T>> for Pallet<T> {
-	fn is_validator(validator_id: &T::ValidatorId) -> bool {
-		Self::is_validator(validator_id)
-	}
-}
-
-pub trait ValidatorWhiteList<ValidatorId> {
-	fn is_validator(validator_id: &ValidatorId) -> bool;
 }
 
 impl<T: Config> BoundToRuntimeAppPublic for Pallet<T> {

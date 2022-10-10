@@ -1,8 +1,5 @@
 use crate as pallet_validator_set;
-use crate::{
-	xrpl_types::{BridgeRpcError, XrplTxHash},
-	BridgeXrplWebsocketApi, ChainCallId, Config,
-};
+use crate::{xrpl_types::{BridgeRpcError, XrplTxHash}, BridgeXrplWebsocketApi, ChainCallId, Config, ValidatorIdOf};
 use async_trait::async_trait;
 use frame_support::{
 	parameter_types,
@@ -27,7 +24,10 @@ use sp_runtime::{
 	},
 	DispatchError, Percent,
 };
+use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::traits::ConvertInto;
 use tokio::sync::{mpsc, mpsc::Receiver};
+use pallet_session::historical as pallet_session_historical;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -41,10 +41,12 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		Historical: pallet_session_historical::{Pallet},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>},
-		XrplBridgeCall: pallet_xrpl_bridge::{Pallet, Call, Storage, Event<T>},
-		DefaultValidatorWhiteList: pallet_validator_set::{Pallet, Call, Storage, Event<T>},
+		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Event<T>},
+		DefaultValidatorSet: pallet_validator_set::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -192,9 +194,10 @@ parameter_types! {
 
 impl Config for Test {
 	type Event = Event;
+	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type AuthoritySet = MockValidatorSet;
-	type XrplBridgeCall = XrplBridgeCall;
+	type XrplBridgeCall = XRPLBridge;
 	type ValidatorId = AuthorityId;
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type BridgePalletId = BridgePalletId;
@@ -234,14 +237,14 @@ parameter_types! {
 
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
+	type EthyAdapter = MockEthyAdapter;
+	type MultiCurrency = AssetsExt;
+	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
+	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
-	type MultiCurrency = AssetsExt;
-	type XrpAssetId = XrpAssetId;
 	type UnixTime = MockUnixTime;
-	type ApproveOrigin = EnsureRoot<Self::AccountId>;
-	type EthyAdapter = MockEthyAdapter;
 }
 
 pub struct MockEthyAdapter;
@@ -317,6 +320,48 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+}
+
+parameter_types! {
+	pub const Period: u64 = 1;
+	pub const Offset: u64 = 0;
+}
+/*
+impl pallet_session::Config for Test {
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager =
+	pallet_session::historical::NoteHistoricalRoot<Test, TestSessionManager>;
+	type SessionHandler = (ValidatorSet,);
+	type ValidatorId = AuthorityId;
+	type ValidatorIdOf = ConvertInto;
+	type Keys = UintAuthorityId;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type WeightInfo = ();
+	type Event = Event;
+}*/
+
+pub struct TestSessionManager;
+impl pallet_session::SessionManager<AccountId> for TestSessionManager {
+	fn new_session(_new_index: SessionIndex) -> Option<Vec<AccountId>> {
+		Some(MockValidatorSet::validators())
+	}
+	fn end_session(_: SessionIndex) {}
+	fn start_session(_: SessionIndex) {}
+}
+
+impl pallet_session::historical::SessionManager<AccountId, AccountId> for TestSessionManager {
+	fn new_session(_new_index: SessionIndex) -> Option<Vec<(AccountId, AccountId)>> {
+		MockValidatorSet::validators().mutate(|l| {
+			l.take().map(|validators| validators.iter().map(|v| (*v, *v)).collect())
+		})
+	}
+	fn end_session(_: SessionIndex) {}
+	fn start_session(_: SessionIndex) {}
+}
+
+impl pallet_session::historical::Config for Test {
+	type FullIdentification = u64;
+	type FullIdentificationOf = ConvertInto;
 }
 
 // Build genesis storage according to the mock runtime.
