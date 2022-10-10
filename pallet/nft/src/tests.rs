@@ -197,6 +197,7 @@ fn create_collection() {
 				metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				royalties_schedule: Some(royalties_schedule.clone()),
 				max_issuance: None,
+				source_chain: OriginChain::Root
 			}
 		);
 
