@@ -21,23 +21,24 @@ use xrpl::{
 	tokio::AsyncWebsocketClient,
 };
 
-use crate::{
-	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplAddress, XrplTxHash},
-	ChainCallId,
-};
+use crate::{xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, XrplAddress, XrplTxHash}, ChainCallId, H160};
 use codec::alloc::string::String;
+use frame_support::ensure;
 use futures::StreamExt;
+use rustc_hex::ToHex;
 use scale_info::prelude::string::ToString;
 use seed_pallet_common::{get_lifetime_str_ref, log};
 use seed_primitives::{
 	xrpl::{LedgerIndex, XrpTransaction, XrplTxData},
-	Balance, XRP_HTTP_URI,
+	Balance, XRP_HTTP_URI, AccountId
 };
 use tokio::{
 	spawn,
 	sync::{mpsc, mpsc::Receiver},
 };
 use tokio_tungstenite::tungstenite::Message;
+use crate::xrpl_types::{TransactionEntryResponse};
+use hex_literal::hex;
 
 pub struct XrplWebsocketClient;
 #[async_trait]
@@ -93,37 +94,49 @@ pub fn is_valid_xrp_transaction(
 	xrp_transaction: XrpTransaction,
 	ledger_index: LedgerIndex,
 ) -> Result<XrplTxHash, BridgeRpcError> {
-	let response: serde_json::Value = match serde_json::from_str(&msg.to_string()) {
+	let response: TransactionEntryResponse = match serde_json::from_str(&msg.to_string()) {
 		Ok(v) => v,
 		Err(_) => return Err(BridgeRpcError::InvalidTransaction("Json Parse Failed".to_string())),
 	};
-	match response["status"].as_str() {
-		Some("success") => {
-			let li: LedgerIndex =
-				match response["result"]["ledger_index"].clone().to_string().parse::<LedgerIndex>()
-				{
-					Ok(v) => v,
-					Err(_) =>
-						return Err(BridgeRpcError::InvalidTransaction(
-							"LedgerIndex Parse Failed".to_string(),
-						)),
-				};
-			let validated: bool =
-				match response["result"]["validated"].clone().to_string().parse::<bool>() {
-					Ok(v) => v,
-					Err(_) =>
-						return Err(BridgeRpcError::InvalidTransaction(
-							"validated Parse Failed".to_string(),
-						)),
-				};
-			let memos: XrplAddress = match response["result"]["tx_json"]["Memos"].clone().as_str() {
-				Some(v) => XrplAddress::from_slice(v.as_bytes()),
-				None =>
-					return Err(BridgeRpcError::InvalidTransaction("Memos Parse Failed".to_string())),
+
+	match response.status.as_str() {
+		"success" => {
+			let result= match response.result {
+				Some(r) => r,
+				None => return Err(BridgeRpcError::InvalidJSON),
 			};
-			let tx_amount: Balance = match response["result"]["tx_json"]["Amount"]
+			let li: LedgerIndex = result.ledger_index.clone() as LedgerIndex;
+			let validated: bool = result.validated.clone();
+			// https://centralitydev.atlassian.net/wiki/spaces/FUT/pages/2255781889/RIP+2+XRPL+Bridge#XRPL--%3E-Root-Payments
+			let root_address: AccountId = match result.tx_json.memos.clone() {
+				Some(memos) => {
+					let hex_address = match hex::decode(&memos[0].memo_data[6..]) {
+						Ok(val) => {
+							if val.len() != 20 {
+								return Err(
+									BridgeRpcError::InvalidTransaction(
+										"XrplAddress extraction from Memo Failed".to_string()
+									))
+							}
+							val
+						},
+						Err(e) => {
+							return Err(
+								BridgeRpcError::InvalidTransaction(
+									"XrplAddress extraction from Memo Failed".to_string()
+								))
+						}
+					};
+					AccountId::from(H160::from_slice(&hex_address))
+				},
+				None =>
+					return Err(
+						BridgeRpcError::InvalidTransaction(
+							"XrplAddress extraction from Memo Failed".to_string()
+						)),
+			};
+			let tx_amount: Balance = match result.tx_json.amount
 				.clone()
-				.to_string()
 				.parse::<Balance>()
 			{
 				Ok(v) => v,
@@ -132,14 +145,9 @@ pub fn is_valid_xrp_transaction(
 						"Amount Parse Failed".to_string(),
 					)),
 			};
-			let transaction_hash: XrplTxHash = match response["result"]["tx_json"]["hash"]
-				.clone()
-				.as_str()
-			{
-				Some(v) => XrplTxHash::from_slice(v.as_bytes()),
-				None =>
-					return Err(BridgeRpcError::InvalidTransaction("hash Parse Failed".to_string())),
-			};
+			let transaction_hash: XrplTxHash =
+				XrplTxHash::from_slice(result.tx_json.hash.clone().as_bytes());
+
 			if ledger_index.ne(&li) {
 				return Err(BridgeRpcError::InvalidTransaction("ledger_index Mismatch".to_string()))
 			}
@@ -158,9 +166,9 @@ pub fn is_valid_xrp_transaction(
 							"amount Mismatch".to_string(),
 						))
 					}
-					if address.ne(&memos) {
+					if AccountId::from(address).ne(&root_address) {
 						return Err(BridgeRpcError::InvalidTransaction(
-							"address Mismatch".to_string(),
+							"xrpl address Mismatch".to_string(),
 						))
 					}
 				},
@@ -168,6 +176,10 @@ pub fn is_valid_xrp_transaction(
 				XrplTxData::Xls20 => {},
 			}
 			Ok(transaction_hash)
+		},
+		"error" => match response.error {
+			Some(e) => Err(BridgeRpcError::InvalidTransaction(e)),
+			_ => Err(BridgeRpcError::InvalidJSON)
 		},
 		_ => Err(BridgeRpcError::InvalidJSON),
 	}
@@ -193,6 +205,7 @@ pub fn get_xrp_http_uri<'a>() -> Result<&'a str, BridgeRpcError> {
 
 #[cfg(test)]
 mod test {
+	use hex::ToHex;
 	use super::*;
 	use crate::H160;
 
@@ -200,51 +213,22 @@ mod test {
 	fn test_is_valid_xrp_transaction_success() {
 		let xrpl_tx = XrpTransaction {
 			transaction_hash: XrplTxHash::from_slice(
-				b"C53ECF838647FA5A4C780377025FEC7999AB4182590510CA461444B207AB74A9",
+				b"353E4FA8FA6B891B4CBA2B9A823285095CC2EE41E10B81FA69C0266382256B00",
 			),
 			transaction: XrplTxData::Payment {
-				amount: 20160 as Balance,
+				amount: 1653600 as Balance,
 				address: H160::from_slice(b"6490B68F1116BFE87DDC"),
 			},
 			timestamp: 0,
 		};
-		let response = r#"{
-								"result": {
-									"ledger_hash": "793E56131D8D4ABFB27FA383BFC44F2978B046E023FF46C588D7E0C874C2472A",
-									"ledger_index": 56865245,
-									"metadata": {},
-									"tx_json": {
-									  "Account": "rhhh49pFH96roGyuC4E5P4CHaNjS1k8gzM",
-									  "Fee": "12",
-									  "Flags": 0,
-									  "LastLedgerSequence": 56865248,
-									  "OfferSequence": 5037708,
-									  "Sequence": 5037710,
-									  "SigningPubKey": "03B51A3EDF70E4098DA7FB053A01C5A6A0A163A30ED1445F14F87C7C3295FCB3BE",
-									  "TakerGets": "15000000000",
-									  "TakerPays": {
-										"currency": "CNY",
-										"issuer": "rKiCet8SdvWxPXnAgYarFUXMh1zCPz432Y",
-										"value": "20160.75"
-									  },
-									  "TransactionType": "OfferCreate",
-									  "TxnSignature": "3045022100A5023A0E64923616FCDB6D664F569644C7C9D1895772F986CD6B981B515B02A00220530C973E9A8395BC6FE2484948D2751F6B030FC7FB8575D1BFB406368AD554D9",
-									  "Memos": "6490B68F1116BFE87DDC",
-									  "Amount": 20160,
-									  "hash": "C53ECF838647FA5A4C780377025FEC7999AB4182590510CA461444B207AB74A9"
-									},
-									"validated": true
-								},
-								"status": "success",
-								"type": "response"
-							}"#;
+		let response = "{\"result\":{\"ledger_hash\":\"304DE877B7E36422EC34B3E3E8218B9A6F2D909916D8ECEFFF5512FB289A6D24\",\"ledger_index\":74897485,\"metadata\":{\"AffectedNodes\":[{\"ModifiedNode\":{\"FinalFields\":{\"Balance\":{\"currency\":\"CHP\",\"issuer\":\"rrrrrrrrrrrrrrrrrrrrBZbvji\",\"value\":\"-1761.1119\"},\"Flags\":2228224,\"HighLimit\":{\"currency\":\"CHP\",\"issuer\":\"r4ECXyK6fgYcJ4kZQKr8A3BkgsCse5s9Vo\",\"value\":\"100000000\"},\"HighNode\":\"0\",\"LowLimit\":{\"currency\":\"CHP\",\"issuer\":\"rhFNUEAKyXZmJHsnfJvH8hM12Ydk2icEof\",\"value\":\"0\"},\"LowNode\":\"426\"},\"LedgerEntryType\":\"RippleState\",\"LedgerIndex\":\"016C25C3A9AB04379EEE02374AF59964A040B457BDF1CE5839DE3BB07D63E7D0\",\"PreviousFields\":{\"Balance\":{\"currency\":\"CHP\",\"issuer\":\"rrrrrrrrrrrrrrrrrrrrBZbvji\",\"value\":\"-1762.7655\"}},\"PreviousTxnID\":\"7B4E3140251FF660DECB10143FB62CBFDE58B57671577FF420E016E010D9D956\",\"PreviousTxnLgrSeq\":74897483}},{\"ModifiedNode\":{\"FinalFields\":{\"Balance\":{\"currency\":\"CHP\",\"issuer\":\"rrrrrrrrrrrrrrrrrrrrBZbvji\",\"value\":\"-54.2628651343126\"},\"Flags\":2228224,\"HighLimit\":{\"currency\":\"CHP\",\"issuer\":\"rPDt1KAmLkZU5yTY8GgiNe9ZDJo6R5moJh\",\"value\":\"100000000\"},\"HighNode\":\"0\",\"LowLimit\":{\"currency\":\"CHP\",\"issuer\":\"rhFNUEAKyXZmJHsnfJvH8hM12Ydk2icEof\",\"value\":\"0\"},\"LowNode\":\"425\"},\"LedgerEntryType\":\"RippleState\",\"LedgerIndex\":\"2EA8A716E36FC131D017E14547055C1A4EBC6AC14660E7D5BABC0AEA68AA0EDD\",\"PreviousFields\":{\"Balance\":{\"currency\":\"CHP\",\"issuer\":\"rrrrrrrrrrrrrrrrrrrrBZbvji\",\"value\":\"-52.6092651343126\"}},\"PreviousTxnID\":\"293E48CE236DB58D62029B1A1E753766C7B1624818D7E1DE55CFDABF115E9027\",\"PreviousTxnLgrSeq\":74897442}},{\"ModifiedNode\":{\"FinalFields\":{\"Account\":\"r4ECXyK6fgYcJ4kZQKr8A3BkgsCse5s9Vo\",\"Balance\":\"269934645\",\"Flags\":0,\"OwnerCount\":1,\"Sequence\":74799456},\"LedgerEntryType\":\"AccountRoot\",\"LedgerIndex\":\"9CC2F2943D07735FDF80ABC79EEC729E921513E8DB3A8C7DB52AB121BDE88ABF\",\"PreviousFields\":{\"Balance\":\"269934657\",\"Sequence\":74799455},\"PreviousTxnID\":\"890F08C28C54B394D2F97EF331645173BAC246D44C6866C6E11D89917F6D5A1E\",\"PreviousTxnLgrSeq\":74897483}}],\"TransactionIndex\":15,\"TransactionResult\":\"tesSUCCESS\"},\"tx_json\":{\"Account\":\"r4ECXyK6fgYcJ4kZQKr8A3BkgsCse5s9Vo\",\"Amount\":\"1653600\",\"Destination\":\"rPDt1KAmLkZU5yTY8GgiNe9ZDJo6R5moJh\",\"Fee\":\"12\",\"Flags\":2147483648,\"LastLedgerSequence\":74897488,\"SendMax\":{\"currency\":\"CHP\",\"issuer\":\"rhFNUEAKyXZmJHsnfJvH8hM12Ydk2icEof\",\"value\":\"1.6536\"},\"Sequence\":74799455,\"SigningPubKey\":\"ED1164235CCB3CC3CEB6EA1EE0FD390BCA574A1626D3B58CA18CA0DD2105CD5C10\",\"TransactionType\":\"Payment\",\"TxnSignature\":\"37BC5B126754A41F1DAAB36008D610A10C89F920F5454BCFD8A690CD4D144C6F480D69CDF5716292BD65B596016214DC1D59ECCAFA7888A3A4E43DA0B0FB1600\",\"hash\":\"353E4FA8FA6B891B4CBA2B9A823285095CC2EE41E10B81FA69C0266382256B00\",\"Memos\":[{\"MemoType\":\"root-network-bridge\",\"MemoData\":\"0100643634393042363846313131364246453837444443\"}]},\"validated\":true},\"status\":\"success\",\"type\":\"response\"}";
 		let response_msg = Message::text(response);
-		let result = is_valid_xrp_transaction(response_msg, xrpl_tx, 56865245);
-		assert!(result.is_ok());
+		let result = is_valid_xrp_transaction(response_msg, xrpl_tx, 74897485);
+		// assert!(result.is_ok());
 		assert_eq!(
 			result.unwrap(),
 			XrplTxHash::from_slice(
-				b"C53ECF838647FA5A4C780377025FEC7999AB4182590510CA461444B207AB74A9"
+				b"353E4FA8FA6B891B4CBA2B9A823285095CC2EE41E10B81FA69C0266382256B00"
 			)
 		);
 	}
@@ -260,6 +244,6 @@ mod test {
 		let response_msg = Message::text(response);
 		let result = is_valid_xrp_transaction(response_msg, xrpl_tx, 74879866);
 		assert!(result.is_err());
-		assert_eq!(result, Err(BridgeRpcError::InvalidJSON));
+		assert_eq!(result, Err(BridgeRpcError::InvalidTransaction("transactionNotFound".into())));
 	}
 }
