@@ -1,5 +1,8 @@
 use crate as pallet_validator_set;
-use crate::{xrpl_types::{BridgeRpcError, XrplTxHash}, BridgeXrplWebsocketApi, ChainCallId, Config, ValidatorIdOf};
+use crate::{
+	xrpl_types::{BridgeRpcError, XrplTxHash},
+	BridgeXrplWebsocketApi, ChainCallId, Config, ValidatorIdOf,
+};
 use async_trait::async_trait;
 use frame_support::{
 	parameter_types,
@@ -9,6 +12,7 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::EnsureRoot;
+use pallet_session::historical as pallet_session_historical;
 use seed_pallet_common::{EthyXrplBridgeAdapter, FinalSessionTracker};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId as AuthorityIdE, EventProofId},
@@ -18,16 +22,14 @@ use seed_primitives::{
 };
 use sp_core::{ByteArray, H160, H256};
 use sp_runtime::{
-	testing::{Header, TestXt},
+	testing::{Header, TestXt, UintAuthorityId},
 	traits::{
-		BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify,
+		BlakeTwo256, Convert, ConvertInto, Extrinsic as ExtrinsicT, IdentifyAccount,
+		IdentityLookup, Verify,
 	},
 	DispatchError, Percent,
 };
-use sp_runtime::testing::UintAuthorityId;
-use sp_runtime::traits::ConvertInto;
 use tokio::sync::{mpsc, mpsc::Receiver};
-use pallet_session::historical as pallet_session_historical;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -326,19 +328,18 @@ parameter_types! {
 	pub const Period: u64 = 1;
 	pub const Offset: u64 = 0;
 }
-/*
+
 impl pallet_session::Config for Test {
-	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-	type SessionManager =
-	pallet_session::historical::NoteHistoricalRoot<Test, TestSessionManager>;
-	type SessionHandler = (ValidatorSet,);
-	type ValidatorId = AuthorityId;
-	type ValidatorIdOf = ConvertInto;
-	type Keys = UintAuthorityId;
-	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-	type WeightInfo = ();
 	type Event = Event;
-}*/
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = ConvertInto;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Test, TestSessionManager>;
+	type SessionHandler = (DefaultValidatorSet,);
+	type Keys = UintAuthorityId;
+	type WeightInfo = ();
+}
 
 pub struct TestSessionManager;
 impl pallet_session::SessionManager<AccountId> for TestSessionManager {
@@ -349,22 +350,58 @@ impl pallet_session::SessionManager<AccountId> for TestSessionManager {
 	fn start_session(_: SessionIndex) {}
 }
 
-impl pallet_session::historical::SessionManager<AccountId, AccountId> for TestSessionManager {
-	fn new_session(_new_index: SessionIndex) -> Option<Vec<(AccountId, AccountId)>> {
-		MockValidatorSet::validators().mutate(|l| {
-			l.take().map(|validators| validators.iter().map(|v| (*v, *v)).collect())
-		})
+impl pallet_session::historical::SessionManager<AccountId, u64> for TestSessionManager {
+	fn new_session(_new_index: SessionIndex) -> Option<Vec<(AccountId, u64)>> {
+		let mut i: u64 = 0;
+		let validators: Vec<(AccountId, u64)> = MockValidatorSet::validators()
+			.into_iter()
+			.map(|val| {
+				i += 1;
+				(val, i)
+			})
+			.collect();
+		Option::from(validators)
 	}
-	fn end_session(_: SessionIndex) {}
 	fn start_session(_: SessionIndex) {}
+	fn end_session(_: SessionIndex) {}
 }
 
 impl pallet_session::historical::Config for Test {
 	type FullIdentification = u64;
-	type FullIdentificationOf = ConvertInto;
+	type FullIdentificationOf = ();
 }
 
+pub fn init_keys() {
+	// fake ecdsa public keys to represent the mocked validators
+	let n = 9_u8;
+	let mock_notary_keys: Vec<<Test as Config>::ValidatorId> = (1_u8..=n)
+		.map(|k| <Test as Config>::ValidatorId::from_slice(&[k; 33]).unwrap())
+		.collect();
+
+	MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+
+	let mut uint_key: Vec<u64> = Vec::new();
+	for i in 1..=n {
+		uint_key.push(i as u64);
+	}
+	UintAuthorityId::set_all_keys(uint_key);
+}
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+/*pub fn new_test_ext() -> sp_io::TestExternalities {
 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+}*/
+
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let mut result: sp_io::TestExternalities = t.into();
+	// Set the default keys, otherwise session will discard the validator.
+	result.execute_with(|| {
+		let mut i: u64 = 0;
+		for validator in MockValidatorSet::validators() {
+			System::inc_providers(&validator);
+			assert_eq!(Session::set_keys(Origin::signed(validator), i.into(), vec![]), Ok(()));
+			i += 1;
+		}
+	});
+	result
 }

@@ -41,7 +41,7 @@ seed-pallet-common = { path = "../common", default-features = false }
 pallet-xrpl-bridge = { path = "../xrpl-bridge", default-features = false }
 
 [dev-dependencies]
-pallet-session = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
+pallet-session = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
 
 [features]
 default = ['std']

@@ -3,11 +3,14 @@ use crate::xrpl_types::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
 use seed_primitives::{validator::crypto::AuthorityId, xrpl::XrplTxData, Balance};
-use sp_core::ByteArray;
-use sp_core::offchain::{OffchainDbExt, OffchainWorkerExt, TransactionPoolExt};
-use sp_core::offchain::testing::{TestOffchainExt, TestTransactionPoolExt};
-use sp_runtime::testing::UintAuthorityId;
-use sp_runtime::traits::BadOrigin;
+use sp_core::{
+	offchain::{
+		testing::{TestOffchainExt, TestTransactionPoolExt},
+		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
+	},
+	ByteArray,
+};
+use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 
 /// Helper function to create an AccountId from  a slice
 fn create_account(address: &[u8]) -> AccountId {
@@ -83,16 +86,9 @@ fn process_transaction_challenge_works() {
 
 		let block = 1;
 		System::set_block_number(block);
-		UintAuthorityId::set_all_keys(vec![0, 1, 2]);
-
-		// fake ecdsa public keys to represent the mocked validators
-		let mock_notary_keys: Vec<<Test as Config>::ValidatorId> = (1_u8..=9_u8)
-			.map(|k| <Test as Config>::ValidatorId::from_slice(&[k; 33]).unwrap())
-			.collect();
-
-		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
-		//Session::rotate_session();
-		DefaultValidatorSet::on_initialize(1);
-		//DefaultValidatorSet::offchain_worker(1);
+		init_keys();
+		Session::rotate_session();
+		DefaultValidatorSet::on_initialize(block);
+		//DefaultValidatorSet::offchain_worker(block);
 	})
 }
