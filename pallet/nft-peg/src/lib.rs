@@ -106,47 +106,6 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	// fn process_nfts(
-	// 	owner: Option<&T::AccountId>,
-	// 	name: Vec<u8>,
-	// 	source_collection_id: u32,
-	// 	serial_number: SerialNumber,
-	// 	quantity: TokenCount,
-	// ) -> Result<(), DispatchError> {
-	// 	let root_collection_id = if !CollectionsMapping::<T>::contains_key(source_collection_id) {
-	// 		// Assumed values. We may need to change this later
-	// 		let initial_issuance = quantity;
-	// 		let max_issuance = None;
-	// 		let royalties_schedule = None;
-
-	// 		let metadata_scheme = pallet_nft::MetadataScheme::Ethereum(Self::contract_address());
-
-	// 		let root_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
-	// 			// owner.unwrap().clone(),
-	// 			name,
-	// 			initial_issuance,
-	// 			max_issuance,
-	// 			// Token owner
-	// 			Some(owner.unwrap().clone()),
-	// 			metadata_scheme,
-	// 			royalties_schedule,
-	// 			Some(source_collection_id)
-	// 		)?;
-	// 		CollectionsMapping::<T>::insert(source_collection_id, root_collection_id);
-	// 		root_collection_id
-	// 	} else {
-	// 		Self::mapped_collections(source_collection_id)
-	// 	};
-
-	// 	// NFTs without a given owner are understood to be temporarily owned by the pallet.
-	// 	// The pallet will own it until properly claimed by the true owner
-	// 	let owner =
-	// 	if owner.is_none() {
-	// 		&T::PalletId::get().into_account_truncating()
-	// 	} else {
-	// 		owner.unwrap()
-	// 	};
-
 	// Non functional atm. This needs to accept and process multiple tokens
 	fn process_nfts_multiple(
 		source: &H160,
@@ -184,7 +143,6 @@ where
 					// TODO: Figure out why token ids are nested/correct location of internal token
 					let current_token = &ids[0];
 					if let Token::Uint(current_token) = current_token {
-
 
 					// Assign owner to pallet, if not given by contract
 					let collection_owner_account: T::AccountId = if contract_owner == &H160([0; 20]) {
@@ -225,44 +183,9 @@ where
 							1,
 						);
 					}
-
-
 					}
-
-
 				}
 			});
-
-		// Check if source is in CollectionMapping, if not, create a new collection along with its Eth > Root mapping
-		// if let Some(root_collection_id) = Self::mapped_collections(source) {
-		// 	pallet_nft::Pallet::<T>::do_mint(
-		// 		owner,
-		// 		root_collection_id,
-		// 		serial_number,
-		// 		quantity
-		// 	)
-		// } else {
-		// 	let new_collection_id  = pallet_nft::Pallet::<T>::do_create_collection(
-		// 		// owner.unwrap().clone(),
-		// 		name,
-		// 		initial_issuance,
-		// 		max_issuance,
-		// 		// Token owner
-		// 		Some(owner.unwrap().clone()),
-		// 		metadata_scheme,
-		// 		royalties_schedule,
-		// 		Some(source_collection_id)
-		// 	)?;
-
-		// 	CollectionsMapping::<T>::insert(source, new_collection_id);
-
-		// 	pallet_nft::Pallet::<T>::do_mint(
-		// 		owner,
-		// 		new_collection_id,
-		// 		serial_number,
-		// 		quantity
-		// 	);
-		// }
 
 		Ok(())
 	}
@@ -276,6 +199,7 @@ where
 	type SourceAddress = GetEthAddress<T>;
 
 	fn on_event(source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
+		// TODO: Count weight
 		let mut weight = 10000;
 		let abi_decoded = match ethabi::decode(
 			&[
@@ -299,7 +223,6 @@ where
 			] =
 			abi_decoded.as_slice()
 		{
-
 
 			// Delayed processing code: test out the decoding first to be sure it works
 			// let info = BridgedNftInfo {
