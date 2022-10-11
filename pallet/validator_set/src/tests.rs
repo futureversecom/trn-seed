@@ -89,6 +89,6 @@ fn process_transaction_challenge_works() {
 		init_keys();
 		Session::rotate_session();
 		DefaultValidatorSet::on_initialize(block);
-		//DefaultValidatorSet::offchain_worker(block);
+		DefaultValidatorSet::offchain_worker(block);
 	})
 }

@@ -41,6 +41,7 @@ use seed_primitives::{
 use sp_core::H160;
 use sp_runtime::{
 	traits::Saturating, BoundToRuntimeAppPublic, Percent, RuntimeAppPublic, SaturatedConversion,
+	WeakBoundedVec,
 };
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
@@ -377,6 +378,11 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 		<NotaryKeys<T>>::put(validators);
+	}
+
+	#[cfg(test)]
+	pub fn set_keys(keys: Vec<T::ValidatorId>) {
+		NotaryKeys::<T>::put(keys);
 	}
 }
 
