@@ -128,7 +128,7 @@ impl WitnessRecord {
 		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, witness_count);
 		let no_consensus = witness_count >= proof_threshold;
 		if no_consensus {
-			trace!(target: "ethy", "💎 Ethy is not getting consensus becuase witness_count of {:?} >= proof_threshold {:?}", witness_count, proof_threshold);
+			trace!(target: "ethy", "💎 Ethy is not getting consensus because witness_count of {:?} >= proof_threshold {:?}", witness_count, proof_threshold);
 		}
 		no_consensus
 	}
