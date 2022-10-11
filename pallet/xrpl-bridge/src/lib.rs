@@ -31,7 +31,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
-use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
+use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter, XrplEthyBridgeAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
 	xrpl::{LedgerIndex, XrplAddress, XrplTxHash, XrplTxNonce},
@@ -184,7 +184,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn door_signers)]
 	/// Public keys of authorized door (multi) signers (subset of ethy session keys)
-	pub type DoorSigners<T: Config> = StorageValue<_, Vec<AuthorityId>, ValueQuery>;
+	//pub type DoorSigners<T: Config> = StorageValue<_, Vec<AuthorityId>, ValueQuery>;
+	pub type DoorSigners<T: Config> = StorageMap<_, Twox64Concat, AuthorityId, bool>;
 
 	/// Default door tx fee 1 XRP
 	#[pallet::type_value]
@@ -316,7 +317,7 @@ pub mod pallet {
 			new_signers: Vec<AuthorityId>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!(new_signers.len() <= 8, Error::<T>::TooManySigners);
+			/*ensure!(new_signers.len() <= 8, Error::<T>::TooManySigners);
 
 			let has_duplicates =
 				(1..new_signers.len()).any(|i| new_signers[i..].contains(&new_signers[i - 1]));
@@ -327,9 +328,10 @@ pub mod pallet {
 				if ethy_validators.iter().position(|v| v == new_signer).is_none() {
 					return Err(Error::<T>::InvalidSigners)?
 				}
+			}*/
+			for new_signer in new_signers.iter() {
+				DoorSigners::<T>::insert(new_signer, true);
 			}
-
-			DoorSigners::<T>::set(new_signers);
 			Ok(())
 		}
 
@@ -495,5 +497,13 @@ impl<T: Config> Pallet<T> {
 		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 		DoorNonce::<T>::set(next_nonce);
 		Ok(nonce)
+	}
+}
+
+
+
+impl<T: Config> XrplEthyBridgeAdapter<T::EthyId> for Pallet<T> {
+	fn is_white_list_validator(key: T::EthyId) -> bool {
+		DoorSigners::<T>::get(key).unwrap_or(false)
 	}
 }

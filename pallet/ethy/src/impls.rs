@@ -70,6 +70,10 @@ impl<T: Config> EthyXrplBridgeAdapter<T::EthyId> for Module<T> {
 }
 
 impl<T: Config> Module<T> {
+	fn update_xrpl_notary_keys(keys: Vec<T::EthyId>) {
+		
+		<NotaryXrplKeys<T>>::put(&next_notary_keys);
+	}
 	/// Check the nodes local keystore for an active (staked) Ethy session key
 	/// Returns the public key and index of the key in the current notary set
 	pub(crate) fn find_active_ethy_key() -> Option<(T::EthyId, u16)> {
@@ -843,10 +847,10 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 			// Store the new keys and increment the validator set id
 			// Next notary keys should be unset, until populated by new session logic
 			<NotaryKeys<T>>::put(&next_notary_keys);
+			Self::update_xrpl_notary_keys(&next_notary_keys);
 			NotarySetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
 		}
 	}
-
 	fn on_disabled(_i: u32) {}
 }
 
