@@ -70,9 +70,20 @@ impl<T: Config> EthyXrplBridgeAdapter<T::EthyId> for Module<T> {
 }
 
 impl<T: Config> Module<T> {
-	fn update_xrpl_notary_keys(keys: Vec<T::EthyId>) {
-		
-		<NotaryXrplKeys<T>>::put(&next_notary_keys);
+	fn update_xrpl_notary_keys(keys: &Vec<T::EthyId>) {
+		// Filter validator_list from WhiteList Validators.
+		let mut validators: Vec<T::ValidatorId> = Vec::new();
+		let mut i = 0;
+		for validator in validator_list {
+			if T::XrplAdapter::is_white_list_validator(validator) {
+				validators.push(validator);
+			}
+			i += 1;
+			if i >= 8 {
+				break;
+			}
+		}
+		<NotaryXrplKeys<T>>::put(&validators);
 	}
 	/// Check the nodes local keystore for an active (staked) Ethy session key
 	/// Returns the public key and index of the key in the current notary set
@@ -804,6 +815,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		if !keys.is_empty() {
 			assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
 			NotaryKeys::<T>::put(keys);
+			Self::update_xrpl_notary_keys(&keys);
 		}
 	}
 
