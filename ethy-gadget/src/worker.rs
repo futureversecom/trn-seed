@@ -364,34 +364,37 @@ impl<B, C, BE, SO> EthyWorker<B, C, BE, SO>
 		let EventMetadata { chain_id, block_hash, digest } =
 			self.witness_record.event_metadata(event_id).unwrap();
 
+		let signatures = self.witness_record.signatures_for(event_id);
+		let event_proof = EventProof {
+			digest: *digest,
+			event_id,
+			validator_set_id: self.validator_set.id,
+			block: *block_hash,
+			signatures: signatures.clone(),
+		};
+
 		if self.witness_record.has_consensus(event_id, *chain_id) {
-			let signatures = self.witness_record.signatures_for(event_id);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", event_id, signatures, self.validator_set.id);
 
-			let event_proof = EventProof {
-				digest: *digest,
-				event_id,
-				validator_set_id: self.validator_set.id,
-				block: *block_hash,
-				signatures,
-			};
 			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
 
 			// Add proof to the DB that this event has been notarized specifically by the
 			// given threshold of validators
 			// DB key is (engine_id + chain_id + proof_id)
 			let proof_key = make_proof_key(*chain_id, event_proof.event_id);
-			if Backend::insert_aux(
+
+			if let Err(err) = Backend::insert_aux(
 				self.backend.as_ref(),
 				&[(proof_key.as_ref(), versioned_event_proof.encode().as_ref())],
 				&[],
 			)
-				.is_err()
 			{
 				// this is a warning for now, because until the round lifecycle is improved, we will
 				// conclude certain rounds multiple times.
-				warn!(target: "ethy", "💎 failed to store proof: {:?}", event_proof);
+				error!(target: "ethy", "💎 failed to store proof: {:?} for key [{:?}, {:?}]. Error received: {:?}", event_proof, proof_key, versioned_event_proof.encode(), err);
 			}
+
+
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC
 			// subscriptions
 			self.event_proof_sender
@@ -401,7 +404,8 @@ impl<B, C, BE, SO> EthyWorker<B, C, BE, SO>
 			self.witness_record.mark_complete(event_id);
 			self.gossip_validator.mark_complete(event_id);
 		} else {
-			trace!(target: "ethy", "💎 no consensus for event: {:?}, can't make proof yet", event_id);
+			let debug_proof_key = make_proof_key(*chain_id, event_proof.event_id);
+			trace!(target: "ethy", "💎 no consensus for event: {:?}, can't make proof yet. Likely did not store proof for key {:?}", event_id, debug_proof_key);
 		}
 	}
 
