@@ -499,7 +499,7 @@ impl<T: Config> Pallet<T> {
 		Ok(nonce)
 	}
 }
-6
+
 impl<T: Config> XrplEthyBridgeAdapter<T::EthyId> for Pallet<T> {
 	fn is_white_list_validator(key: T::EthyId) -> bool {
 		DoorSigners::<T>::get(key).unwrap_or(false)

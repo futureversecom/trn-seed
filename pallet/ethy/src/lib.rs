@@ -54,7 +54,10 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
-use seed_pallet_common::{log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError, FinalSessionTracker as FinalSessionTrackerT, Hold, XrplEthyBridgeAdapter};
+use seed_pallet_common::{
+	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
+	FinalSessionTracker as FinalSessionTrackerT, Hold, XrplEthyBridgeAdapter,
+};
 use seed_primitives::{AccountId, AssetId, Balance};
 
 mod ethereum_http_cli;

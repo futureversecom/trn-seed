@@ -80,7 +80,7 @@ impl<T: Config> Module<T> {
 			}
 			i += 1;
 			if i >= 8 {
-				break;
+				break
 			}
 		}
 		<NotaryXrplKeys<T>>::put(&validators);
