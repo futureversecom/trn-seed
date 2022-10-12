@@ -19,6 +19,7 @@ use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTran
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 use sp_std::collections::btree_map::BTreeMap;
+use sp_core::U256;
 
 use codec::alloc::string::ToString;
 
@@ -230,10 +231,11 @@ impl<T: Config> Pallet<T> {
 	/// Mint additional tokens in a collection
 	pub fn do_mint_multiple_with_ids(
 		owner: &T::AccountId,
-		linked_token: Vec<(SerialNumber, CollectionUuid)>,
+		collection_id: CollectionUuid,
+		token_ids: Vec<U256>,
 	) -> DispatchResult {
 		// Mint the set tokens
-		for (serial_number, collection_id) in linked_token.into_iter() {
+		for serial_number in token_ids.into_iter() {
 			<TokenOwner<T>>::insert(collection_id, serial_number as SerialNumber, &owner);
 
 			// update token balances
