@@ -325,7 +325,7 @@ pub mod pallet {
 			let ethy_validators = T::EthyAdapter::validators();
 			for new_signer in new_signers.iter() {
 				if ethy_validators.iter().position(|v| v == new_signer).is_none() {
-					return Err(Error::<T>::InvalidSigners)?;
+					return Err(Error::<T>::InvalidSigners)?
 				}
 			}
 
@@ -382,8 +382,8 @@ impl<T: Config> Pallet<T> {
 							} => {},
 							XrplTxData::Xls20 => {},
 						}
-						let clear_block_number = <frame_system::Pallet<T>>::block_number()
-							+ T::ClearTxPeriod::get().into();
+						let clear_block_number = <frame_system::Pallet<T>>::block_number() +
+							T::ClearTxPeriod::get().into();
 						<SettledXRPTransactionDetails<T>>::append(
 							&clear_block_number,
 							transaction_hash.clone(),

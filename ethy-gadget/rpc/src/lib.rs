@@ -127,7 +127,7 @@ where
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let event_proof_response =
 						build_event_proof_response::<C, B>(&self.client, versioned_proof);
-					return Ok(event_proof_response);
+					return Ok(event_proof_response)
 				}
 			}
 		}
@@ -147,7 +147,7 @@ where
 			if let Some(encoded_proof) = maybe_encoded_proof {
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let response = build_xrpl_tx_proof_response(versioned_proof);
-					return Ok(response);
+					return Ok(response)
 				}
 			}
 		}

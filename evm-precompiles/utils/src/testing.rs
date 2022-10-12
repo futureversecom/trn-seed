@@ -86,7 +86,7 @@ impl PrecompileHandle for MockHandle {
 			.record_cost(crate::costs::call_cost(context.apparent_value, &evm::Config::london()))
 			.is_err()
 		{
-			return (ExitReason::Error(ExitError::OutOfGas), vec![]);
+			return (ExitReason::Error(ExitError::OutOfGas), vec![])
 		}
 
 		match &mut self.subcall_handle {
@@ -101,7 +101,7 @@ impl PrecompileHandle for MockHandle {
 				});
 
 				if self.record_cost(cost).is_err() {
-					return (ExitReason::Error(ExitError::OutOfGas), vec![]);
+					return (ExitReason::Error(ExitError::OutOfGas), vec![])
 				}
 
 				for log in logs {
@@ -269,7 +269,7 @@ impl<'p, P: PrecompileSet> PrecompilesTester<'p, P> {
 		if encoded_len > 68 {
 			let message_len = encoded[36..68].iter().sum::<u8>();
 			if encoded_len >= 68 + message_len as usize {
-				return &encoded[68..68 + message_len as usize];
+				return &encoded[68..68 + message_len as usize]
 			}
 		}
 		b"decode_revert_message: error"
@@ -307,7 +307,7 @@ impl<'p, P: PrecompileSet> PrecompilesTester<'p, P> {
 			Some(Ok(PrecompileOutput {
 				exit_status: ExitSucceed::Returned,
 				output: execution_output,
-			})) => {
+			})) =>
 				if execution_output != output {
 					eprintln!(
 						"Output (bytes): {:?}",
@@ -318,8 +318,7 @@ impl<'p, P: PrecompileSet> PrecompilesTester<'p, P> {
 						core::str::from_utf8(&execution_output).ok()
 					);
 					panic!("Output doesn't match");
-				}
-			},
+				},
 			other => panic!("Unexpected result: {:?}", other),
 		}
 
