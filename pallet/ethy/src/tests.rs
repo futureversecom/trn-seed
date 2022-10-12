@@ -29,13 +29,14 @@ use seed_primitives::{
 		crypto::AuthorityId, ConsensusLog, EthyChainId, EthyEcdsaToEthereum, EventClaimId,
 		ValidatorSet,
 	},
+	xrpl::XrplAddress,
 	BlockNumber,
 };
 use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::{
 	generic::DigestItem,
-	traits::{AccountIdConversion, Convert},
+	traits::{AccountIdConversion, BadOrigin, Convert},
 	Percent, RuntimeAppPublic, SaturatedConversion,
 };
 
@@ -2051,5 +2052,32 @@ fn set_contract_address_not_root_should_fail() {
 			EthBridge::set_contract_address(Origin::signed(ken.into()), new_bridge_address),
 			DispatchError::BadOrigin
 		);
+	});
+}
+
+#[test]
+fn set_door_signers_fails() {
+	ExtBuilder::default().build().execute_with(|| {
+		let caller = XrplAddress::from_low_u64_be(1);
+		assert_noop!(
+			EthBridge::set_xrpl_door_signers(
+				Origin::signed(AccountId::from(caller)),
+				(0..10).map(|i| AuthorityId::from_slice(&[i as u8; 33]).unwrap()).collect(),
+			),
+			BadOrigin
+		);
+	});
+}
+
+#[test]
+fn set_door_signers() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_ok!(EthBridge::set_xrpl_door_signers(
+			Origin::root(),
+			vec![
+				AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+				AuthorityId::from_slice(&[2_u8; 33]).unwrap()
+			],
+		));
 	});
 }

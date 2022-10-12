@@ -70,13 +70,13 @@ impl<T: Config> EthyXrplBridgeAdapter<T::EthyId> for Module<T> {
 }
 
 impl<T: Config> Module<T> {
-	fn update_xrpl_notary_keys(keys: &Vec<T::EthyId>) {
+	fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
 		// Filter validator_list from WhiteList Validators.
-		let mut validators: Vec<T::ValidatorId> = Vec::new();
+		let mut validators: Vec<T::EthyId> = Vec::new();
 		let mut i = 0;
 		for validator in validator_list {
-			if T::XrplAdapter::is_white_list_validator(validator) {
-				validators.push(validator);
+			if let Some(valid) = XrplDoorSigners::<T>::get(validator) && valid {
+				validators.push(validator.clone());
 			}
 			i += 1;
 			if i >= 8 {
@@ -814,7 +814,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
 		if !keys.is_empty() {
 			assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
-			NotaryKeys::<T>::put(keys);
+			NotaryKeys::<T>::put(keys.clone());
 			Self::update_xrpl_notary_keys(&keys);
 		}
 	}
@@ -858,7 +858,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 			let next_notary_keys = NextNotaryKeys::<T>::take();
 			// Store the new keys and increment the validator set id
 			// Next notary keys should be unset, until populated by new session logic
-			<NotaryKeys<T>>::put(&next_notary_keys);
+			<NotaryKeys<T>>::put(&next_notary_keys.clone());
 			Self::update_xrpl_notary_keys(&next_notary_keys);
 			NotarySetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
 		}

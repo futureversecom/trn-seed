@@ -31,7 +31,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
-use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter, XrplEthyBridgeAdapter};
+use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
 	xrpl::{LedgerIndex, XrplAddress, XrplTxHash, XrplTxNonce},
@@ -181,12 +181,6 @@ pub mod pallet {
 	/// The nonce/sequence of the XRPL door account
 	pub type DoorNonce<T: Config> = StorageValue<_, XrplTxNonce, ValueQuery, DefaultDoorNonce>;
 
-	#[pallet::storage]
-	#[pallet::getter(fn door_signers)]
-	/// Public keys of authorized door (multi) signers (subset of ethy session keys)
-	//pub type DoorSigners<T: Config> = StorageValue<_, Vec<AuthorityId>, ValueQuery>;
-	pub type DoorSigners<T: Config> = StorageMap<_, Twox64Concat, AuthorityId, bool>;
-
 	/// Default door tx fee 1 XRP
 	#[pallet::type_value]
 	pub fn DefaultDoorTxFee() -> u64 {
@@ -305,33 +299,6 @@ pub mod pallet {
 		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
 			ensure_root(origin)?;
 			DoorTxFee::<T>::set(fee);
-			Ok(())
-		}
-
-		/// Set the door (multi) signers
-		///
-		/// `new_signers` list of the compressed secp256k1 ethy public (session) keys to whitelist
-		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
-		pub fn set_door_signers(
-			origin: OriginFor<T>,
-			new_signers: Vec<AuthorityId>,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			/*ensure!(new_signers.len() <= 8, Error::<T>::TooManySigners);
-
-			let has_duplicates =
-				(1..new_signers.len()).any(|i| new_signers[i..].contains(&new_signers[i - 1]));
-			ensure!(!has_duplicates, Error::<T>::InvalidSigners);
-
-			let ethy_validators = T::EthyAdapter::validators();
-			for new_signer in new_signers.iter() {
-				if ethy_validators.iter().position(|v| v == new_signer).is_none() {
-					return Err(Error::<T>::InvalidSigners)?
-				}
-			}*/
-			for new_signer in new_signers.iter() {
-				DoorSigners::<T>::insert(new_signer, true);
-			}
 			Ok(())
 		}
 
@@ -497,11 +464,5 @@ impl<T: Config> Pallet<T> {
 		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 		DoorNonce::<T>::set(next_nonce);
 		Ok(nonce)
-	}
-}
-
-impl<T: Config> XrplEthyBridgeAdapter<T::EthyId> for Pallet<T> {
-	fn is_white_list_validator(key: T::EthyId) -> bool {
-		DoorSigners::<T>::get(key).unwrap_or(false)
 	}
 }

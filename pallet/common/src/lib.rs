@@ -235,11 +235,6 @@ pub trait EthyXrplBridgeAdapter<AuthorityId> {
 	fn validators() -> Vec<AuthorityId>;
 }
 
-/// Interface for pallet-ethy and XRPL tx signing
-pub trait XrplEthyBridgeAdapter<AuthorityId> {
-	fn is_white_list_validator(key: T::AuthorityId) -> bool;
-}
-
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]
 pub enum EthCallFailure {
 	/// Return data exceeds limit
