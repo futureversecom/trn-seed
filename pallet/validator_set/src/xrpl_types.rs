@@ -16,7 +16,11 @@
 use async_trait::async_trait;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use seed_primitives::xrpl::{LedgerIndex, XrpTransaction};
+use seed_primitives::{
+	validator::{EventClaimId, EventProofId, ValidatorSetId},
+	xrpl::{LedgerIndex, XrpTransaction},
+};
+use serde::{Deserialize, Serialize};
 pub use sp_core::{H160, H256, U256};
 use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
@@ -100,4 +104,38 @@ pub trait BridgeXrplWebsocketApi {
 		ledger_index: LedgerIndex,
 		call_id: ChainCallId,
 	) -> Result<Receiver<Result<XrplTxHash, BridgeRpcError>>, BridgeRpcError>;
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransactionEntryResponse {
+	pub result: Option<TransactionEntryResponseResult>,
+	pub status: String,
+	pub r#type: String,
+	pub error: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransactionEntryResponseResult {
+	pub ledger_hash: String,
+	pub ledger_index: u64,
+	pub tx_json: Payment,
+	pub validated: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Payment {
+	#[serde(rename(deserialize = "Account"))]
+	pub account: String,
+	#[serde(rename(deserialize = "Amount"))]
+	pub amount: String, // https://xrpl.org/basic-data-types.html#specifying-currency-amounts
+	pub hash: String,
+	#[serde(rename(deserialize = "Memos"))]
+	pub memos: Option<Vec<Memo>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all(deserialize = "PascalCase"))]
+pub struct Memo {
+	pub memo_type: String,
+	pub memo_data: String,
 }
