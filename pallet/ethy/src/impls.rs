@@ -72,18 +72,12 @@ impl<T: Config> EthyXrplBridgeAdapter<T::EthyId> for Module<T> {
 impl<T: Config> Module<T> {
 	fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
 		// Filter validator_list from WhiteList Validators.
-		let mut validators: Vec<T::EthyId> = Vec::new();
-		let mut i = 0;
-		for validator in validator_list {
-			let valid = XrplDoorSigners::<T>::get(validator).unwrap_or(false);
-			if valid {
-				validators.push(validator.clone());
-			}
-			i += 1;
-			if i >= 8 {
-				break
-			}
-		}
+		let validators: Vec<T::EthyId> = validator_list
+			.into_iter()
+			.filter(|validator| XrplDoorSigners::<T>::get(validator))
+			.map(|validator| -> T::EthyId { validator.clone() })
+			.collect();
+		let validators: Vec<T::EthyId> = validators.into_iter().take(8).collect();
 		<NotaryXrplKeys<T>>::put(&validators);
 	}
 	/// Check the nodes local keystore for an active (staked) Ethy session key

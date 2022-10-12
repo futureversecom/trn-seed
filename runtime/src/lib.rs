@@ -1274,7 +1274,6 @@ impl_runtime_apis! {
 			EthBridge::validator_set()
 		}
 		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
-			//let door_signers = XRPLBridge::door_signers();
 			let door_signers = EthBridge::notary_xrpl_keys();
 			ValidatorSet {
 				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
