@@ -20,7 +20,9 @@ use seed_primitives::{
 	xrpl::{LedgerIndex, XrpTransaction},
 	AssetId, Balance, BlockNumber, Signature,
 };
+use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ByteArray, H160, H256};
+use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
 use sp_runtime::{
 	testing::{Header, TestXt, UintAuthorityId},
 	traits::{
@@ -29,10 +31,13 @@ use sp_runtime::{
 	},
 	DispatchError, Percent,
 };
+use std::sync::Arc;
 use tokio::sync::{mpsc, mpsc::Receiver};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub type SessionIndex = u32;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -122,7 +127,6 @@ impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for NoopConverter<T>
 	}
 }
 
-pub type SessionIndex = u32;
 pub struct MockValidatorSet;
 impl ValidatorSetT<AccountId> for MockValidatorSet {
 	type ValidatorId = AccountId;
@@ -371,7 +375,7 @@ impl pallet_session::historical::Config for Test {
 	type FullIdentificationOf = ();
 }
 
-pub fn init_keys() {
+pub fn init_keys() -> Vec<<Test as Config>::ValidatorId> {
 	// fake ecdsa public keys to represent the mocked validators
 	let n = 9_u8;
 	let mock_notary_keys: Vec<<Test as Config>::ValidatorId> = (1_u8..=n)
@@ -385,14 +389,59 @@ pub fn init_keys() {
 		uint_key.push(i as u64);
 	}
 	UintAuthorityId::set_all_keys(uint_key);
+	mock_notary_keys
 }
 // Build genesis storage according to the mock runtime.
 /*pub fn new_test_ext() -> sp_io::TestExternalities {
 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
 }*/
 
+#[derive(Clone, Copy, Default)]
+pub struct ExtBuilder {
+	relayer: Option<AccountId>,
+	with_keystore: bool,
+	next_session_final: bool,
+	active_session_final: bool,
+}
+
+impl ExtBuilder {
+	pub fn with_keystore(&mut self) -> &mut Self {
+		self.with_keystore = true;
+		self
+	}
+	pub fn active_session_final(&mut self) -> &mut Self {
+		self.active_session_final = true;
+		self
+	}
+	pub fn next_session_final(&mut self) -> &mut Self {
+		self.next_session_final = true;
+		self
+	}
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut ext: sp_io::TestExternalities =
+			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
+
+		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
+
+		if self.with_keystore {
+			let keystore = KeyStore::new();
+			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			ext.register_extension(KeystoreExt(Arc::new(keystore)));
+		}
+
+		if self.next_session_final {
+			ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(1));
+		} else if self.active_session_final {
+			ext.execute_with(|| frame_system::Pallet::<Test>::set_block_number(2));
+		}
+
+		ext
+	}
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+	let relayer = H160::from_low_u64_be(123);
+	let t = ExtBuilder::default().with_keystore().build();
 	let mut result: sp_io::TestExternalities = t.into();
 	// Set the default keys, otherwise session will discard the validator.
 	result.execute_with(|| {
@@ -405,15 +454,3 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	});
 	result
 }
-/*
-pub fn advance_session() {
-	let now = System::block_number().max(1);
-	System::set_block_number(now + 1);
-	Session::rotate_session();
-	let keys = Session::validators()
-		.into_iter()
-		.map(|k| k)
-		.collect();
-	DefaultValidatorSet::set_keys(keys);
-	assert_eq!(Session::current_index(), (now / Period::get()) as u32);
-}*/

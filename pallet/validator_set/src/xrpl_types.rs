@@ -29,7 +29,7 @@ pub type XrplAddress = seed_primitives::xrpl::XrplAddress;
 pub type ChainCallId = u64;
 
 /// An EthCallOracle request
-#[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo)]
+#[derive(Encode, Decode, Default, PartialEq, Clone, TypeInfo, Debug)]
 pub struct CheckedChainCallRequest {
 	pub ledger_index: LedgerIndex,
 	pub xrp_transaction: XrpTransaction,

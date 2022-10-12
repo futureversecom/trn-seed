@@ -57,6 +57,63 @@ fn submit_transaction(
 	));
 }
 
+fn valid_transaction_entry_request_notorization(
+	tx_hash: XrplTxHash,
+	mock_notary_keys: Vec<<Test as Config>::ValidatorId>,
+	call_id: ChainCallId,
+) {
+	// `notarizations[i]` is submitted by the i-th validator (`mock_notary_keys`)
+	let notarizations = vec![
+		CheckedChainCallResult::Ok(tx_hash),
+		CheckedChainCallResult::Ok(tx_hash),
+		CheckedChainCallResult::Ok(tx_hash),
+		CheckedChainCallResult::Ok(tx_hash),
+		CheckedChainCallResult::Ok(tx_hash),
+		CheckedChainCallResult::Ok(tx_hash),
+		CheckedChainCallResult::Ok(tx_hash),
+		CheckedChainCallResult::Ok(tx_hash),
+		CheckedChainCallResult::Ok(tx_hash),
+	];
+	// expected aggregated count after the i-th notarization
+	let expected_aggregations = vec![
+		Some(1_u32),
+		Some(2),
+		Some(3), // block # differs, count separately
+		Some(4),
+		Some(5), // timestamp differs, count separately
+		None,
+		None,
+		None, // return_data differs, count separately
+		None, // success callback & storage is reset after 6th notarization (2/3 * 9 = 6)
+	];
+
+	// aggregate the notarizations
+	let mut i = 1;
+	for ((notary_result, notary_pk), aggregation) in
+		notarizations.iter().zip(mock_notary_keys).zip(expected_aggregations)
+	{
+		if i >= 7 && i <= 9 {
+			assert_noop!(
+				DefaultValidatorSet::handle_call_notarization(call_id, *notary_result, &notary_pk),
+				Error::<Test>::InvalidClaim
+			);
+		} else {
+			assert_ok!(DefaultValidatorSet::handle_call_notarization(
+				call_id,
+				*notary_result,
+				&notary_pk
+			));
+		}
+		i += 1;
+
+		// assert notarization progress
+		let aggregated_notarizations =
+			DefaultValidatorSet::chain_call_notarizations_aggregated(call_id).unwrap_or_default();
+		println!("{:?}", aggregated_notarizations);
+		assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
+	}
+}
+
 #[test]
 fn process_transaction_challenge_works() {
 	let mut ext = new_test_ext();
@@ -65,14 +122,13 @@ fn process_transaction_challenge_works() {
 	ext.register_extension(OffchainDbExt::new(offchain.clone()));
 	ext.register_extension(OffchainWorkerExt::new(offchain));
 	ext.register_extension(TransactionPoolExt::new(pool));
-
 	ext.execute_with(|| {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-		let tx_address = b"6490B68F1116BFE87DDC";
+		let account_address = b"6490B68F1116BFE87DDC";
 		let relayer = create_account(b"6490B68F1116BFE87DDD");
 		let challenger = create_account(b"6490B68F1116BFE87DDE");
 		XRPLBridge::initialize_relayer(&vec![relayer]);
-		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address, 1);
+		submit_transaction(relayer, 1_000_000, transaction_hash, account_address, 1);
 		assert_ok!(XRPLBridge::submit_challenge(
 			Origin::signed(challenger),
 			1_000_000,
@@ -81,14 +137,28 @@ fn process_transaction_challenge_works() {
 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64);
 
-		let xrp_balance = xrp_balance_of(tx_address);
+		let xrp_balance = xrp_balance_of(account_address);
 		assert_eq!(xrp_balance, 0);
 
 		let block = 1;
 		System::set_block_number(block);
-		init_keys();
+		let keys = init_keys();
 		Session::rotate_session();
 		DefaultValidatorSet::on_initialize(block);
 		DefaultValidatorSet::offchain_worker(block);
+		let call_id = 0_u64;
+		println!("{:?}", ChainCallRequestInfo::<Test>::get(call_id));
+		valid_transaction_entry_request_notorization(
+			XrplTxHash::from_slice(transaction_hash),
+			keys,
+			call_id,
+		);
+
+		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
+		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+
+		let xrp_balance = xrp_balance_of(account_address);
+		println!("{:?}", xrp_balance);
+		//assert_eq!(xrp_balance, 2000);
 	})
 }
