@@ -62,7 +62,6 @@ use seed_primitives::{AccountId, AssetId, Balance};
 
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
-use seed_primitives::ethy::crypto::AuthorityId;
 
 mod impls;
 #[cfg(test)]
