@@ -46,8 +46,8 @@ use crate::{
 	Client,
 };
 pub(crate) struct WorkerParams<B, BE, C, SO>
-where
-	B: Block,
+	where
+		B: Block,
 {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
@@ -61,10 +61,10 @@ where
 
 /// An ETHY worker plays the ETHY protocol
 pub(crate) struct EthyWorker<B, C, BE, SO>
-where
-	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
+	where
+		B: Block,
+		BE: Backend<B>,
+		C: Client<B, BE>,
 {
 	client: Arc<C>,
 	backend: Arc<BE>,
@@ -84,12 +84,12 @@ where
 }
 
 impl<B, C, BE, SO> EthyWorker<B, C, BE, SO>
-where
-	B: Block + Codec,
-	BE: Backend<B>,
-	C: Client<B, BE>,
-	C::Api: EthyApi<B>,
-	SO: SyncOracle + Send + Sync + Clone + 'static,
+	where
+		B: Block + Codec,
+		BE: Backend<B>,
+		C: Client<B, BE>,
+		C::Api: EthyApi<B>,
+		SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return a new ETHY worker instance.
 	///
@@ -130,12 +130,12 @@ where
 }
 
 impl<B, C, BE, SO> EthyWorker<B, C, BE, SO>
-where
-	B: Block,
-	BE: Backend<B>,
-	C: Client<B, BE>,
-	C::Api: EthyApi<B>,
-	SO: SyncOracle + Send + Sync + Clone + 'static,
+	where
+		B: Block,
+		BE: Backend<B>,
+		C: Client<B, BE>,
+		C::Api: EthyApi<B>,
+		SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return the active validator set at `header`.
 	///
@@ -179,7 +179,7 @@ where
 	/// Handle finality notification for non-signers (no locally available validator keys)
 	fn handle_finality_notification_passive(&mut self, notification: FinalityNotification<B>) {
 		for ProofRequest { chain_id, event_id, data, block } in
-			extract_proof_requests::<B>(&notification.header).into_iter()
+		extract_proof_requests::<B>(&notification.header).into_iter()
 		{
 			trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
 			let digest = match data_to_digest(chain_id, data, [0_u8; 33]) {
@@ -207,7 +207,7 @@ where
 		// Search block header for ethy signing requests
 		// Then sign and broadcast a witness
 		for ProofRequest { chain_id, event_id, data, block } in
-			extract_proof_requests::<B>(&notification.header).into_iter()
+		extract_proof_requests::<B>(&notification.header).into_iter()
 		{
 			debug!(target: "ethy", "💎 got event proof request. chain_id: {:?}. event id: {:?}, data: {:?}", chain_id, event_id, hex::encode(&data));
 
@@ -312,7 +312,7 @@ where
 
 		// Process proof requests
 		if let Some(authority_id) =
-			self.key_store.authority_id(self.validator_set.validators.as_slice())
+		self.key_store.authority_id(self.validator_set.validators.as_slice())
 		{
 			trace!(target: "ethy", "💎 Local authority id: {:?}", authority_id);
 			self.handle_finality_notification_active(notification, authority_id)
@@ -386,7 +386,7 @@ where
 				&[(proof_key.as_ref(), versioned_event_proof.encode().as_ref())],
 				&[],
 			)
-			.is_err()
+				.is_err()
 			{
 				// this is a warning for now, because until the round lifecycle is improved, we will
 				// conclude certain rounds multiple times.
@@ -423,7 +423,7 @@ where
 				Witness::decode(&mut &notification.message[..]).ok()
 			},
 		))
-		.fuse();
+			.fuse();
 
 		loop {
 			while self.sync_oracle.is_major_syncing() {
@@ -459,8 +459,8 @@ where
 /// Extract event proof requests from a digest in the given header, if any.
 /// Returns (digest for signing, event id, optional tag)
 fn extract_proof_requests<B>(header: &B::Header) -> Vec<ProofRequest>
-where
-	B: Block,
+	where
+		B: Block,
 {
 	let block_hash = header.hash().as_ref().try_into().unwrap_or_default();
 	header
@@ -469,7 +469,7 @@ where
 		.iter()
 		.flat_map(|log| {
 			if let Some(ConsensusLog::OpaqueSigningRequest { chain_id, event_proof_id, data }) =
-				log.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID))
+			log.try_to::<ConsensusLog<Public>>(OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID))
 			{
 				Some(ProofRequest { chain_id, event_id: event_proof_id, data, block: block_hash })
 			} else {
@@ -482,8 +482,8 @@ where
 /// Scan the `header` digest log for an Ethy validator set change. Return either the new
 /// validator set or `None` in case no validator set change has been signaled.
 fn find_authorities_change<B>(header: &B::Header) -> Option<ValidatorSet<Public>>
-where
-	B: Block,
+	where
+		B: Block,
 {
 	let id = OpaqueDigestItemId::Consensus(&ETHY_ENGINE_ID);
 
