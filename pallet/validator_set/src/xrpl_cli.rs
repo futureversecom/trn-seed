@@ -22,9 +22,7 @@ use xrpl::{
 };
 
 use crate::{
-	xrpl_types::{
-		BridgeRpcError, BridgeXrplWebsocketApi, TransactionEntryResponse, XrplTxHash,
-	},
+	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, TransactionEntryResponse, XrplTxHash},
 	ChainCallId, H160,
 };
 use codec::alloc::string::String;
