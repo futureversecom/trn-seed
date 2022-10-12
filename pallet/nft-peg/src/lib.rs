@@ -9,7 +9,7 @@ use pallet_nft::{OriginChain, TokenCount};
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
 use sp_runtime::{
-	traits::{AccountIdConversion, Zero},
+	traits::{AccountIdConversion, Saturating, Zero},
 	DispatchError,
 };
 
@@ -34,6 +34,8 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 		#[pallet::constant]
 		type DelayLength: Get<Self::BlockNumber>;
+		type MaxAddresses: Get<u32>;
+		type MaxIdsPerCollection: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -49,7 +51,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn delayed_mints)]
 	pub type DelayedMints<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, u32, OptionQuery>;
+		StorageMap<_, Twox64Concat, T::BlockNumber, (H160, Vec<H160>, Vec<Vec<U256>>, H160), OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -64,19 +66,21 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+	where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	{
 		fn on_initialize(block: T::BlockNumber) -> Weight {
 			let mut weight = 0;
 
-			// if let Some(due) = Self::delayed_mints(block) {
-			// 	Self::process_nfts_multiple(
-			// 		source,
-			// 		token_addresses,
-			// 		token_ids,
-			// 		contract_owners,
-			// 		destination
-			// 	);
-			// }
+			if let Some((source, token_addresses, token_ids, destination)) = Self::delayed_mints(block) {
+				Self::process_nfts_multiple(
+					&source,
+					token_addresses,
+					token_ids,
+					destination
+				);
+			}
 
 			weight
 		}
@@ -111,12 +115,12 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn decode_deposit_event(data: &[u8]) -> Result<(), DispatchError> {
+	fn decode_deposit_event(source: &sp_core::H160, data: &[u8]) -> Result<(u64), (u64, DispatchError)> {
+		let mut weight = 0;
+
 		let abi_decoded = match ethabi::decode(
 			&[
 				ParamType::Array(Box::new(ParamType::Address)),
-				// TODO: Check nesting here, double check the decoding of the uint correctly maps
-				// to some uint we care about
 				ParamType::Array(Box::new(ParamType::Array(Box::new(ParamType::Uint(32))))),
 				ParamType::Address,
 			],
@@ -128,34 +132,54 @@ where
 
 		if let [
 			Token::Array(token_addresses),
-			Token::Array(token_ids), // Pull inner vec out
+			Token::Array(token_ids),
 			Token::Address(destination)
 		] =
 		abi_decoded.as_slice()
 		{
+			let token_addresses: Vec<&H160> = token_addresses.into_iter().filter_map(|k| {
+				if let Token::Address(decoded) = k {
+					Some(decoded)
+				} else {
+					None
+				}
+			}).collect();
 
-			// Delayed processing code: test out the decoding first to be sure it works
-			// let info = BridgedNftInfo {
-			// source,
-			// token_addresses: token_addresses.clone(),
-			// token_ids: token_ids.clone(),
-			// contract_owners: contract_owners.clone(),
-			// destination: destination.clone(),
-			// };
+			let token_ids: Vec<Vec<&U256>> = token_ids.iter().filter_map(|k| {
+				if let Token::Array(token_ids) = k {
+					let new: Vec<&U256> = token_ids.iter().filter_map(|j| {
+						if let Token::Uint(token_id) = j {
+							Some(token_id)
+						} else {
+							None
+						}
+					})
+					.collect();
+					Some(new)
+				} else {
+					None
+				}
+			}).collect();
+
+
 			// let process_mint_at_block = <frame_system::Pallet<T>>::block_number() + T::DelayLength::get();
-			// DelayedMints::insert(process_mint_at_block, info);
-
-			Self::process_nfts_multiple(
+			let process_mint_at_block = <frame_system::Pallet<T>>::block_number().saturating_add(
+				T::DelayLength::get()
+			);
+			DelayedMints::insert(process_mint_at_block, (
 				source,
-				token_addresses.clone(),
-				token_ids.clone(),
-				destination.clone(),
-			)?;
+				token_addresses,
+				token_ids,
+				destination
+			)
+			);
+
+			weight = T::DbWeight::get().writes(1);
 
 			Ok(weight)
 		} else {
 			// input data should be valid, we do not expect to fail here
-			Err(Error::<T>::InvalidAbiEncoding.into())
+			Err((weight, Error::<T>::InvalidAbiEncoding.into()))
 		}
 	}
 
@@ -167,8 +191,8 @@ where
 	// Non functional atm. This needs to accept and process multiple tokens
 	fn process_nfts_multiple(
 		source: &H160,
-		token_addresses: Vec<Token>,
-		token_ids: Vec<Vec<Token>>,
+		token_addresses: Vec<H160>,
+		token_ids: Vec<Vec<U256>>,
 		destination: H160,
 	) -> Result<(), DispatchError> {
 		// Assumed values for each. We may need to change this later
@@ -179,55 +203,41 @@ where
 		let source_chain = OriginChain::Ethereum;
 		let metadata_scheme = pallet_nft::MetadataScheme::Ethereum(Self::contract_address());
 
-		// TODO: figure out where to get these values
-		let name = "mynft".encode();
+		let name = "".encode();
 
-		ensure!(token_addresses.len() == contract_owners.len(), Error::<T>::UnequalTokenCount);
+		ensure!(token_addresses.len() == token_ids.len(), Error::<T>::UnequalTokenCount);
 
-		token_addresses.iter().zip(token_ids.iter()).for_each(|((addr, ids))| {
-			if let (Token::Address(address), Token::Array(ids)) = (addr, ids) {
-				// TODO: Figure out why token ids are nested/correct location of internal token
-				let current_token = &ids[0];
-				if let Token::Uint(current_token) = current_token {
-					// Assign owner to pallet, if not given by contract
-					let collection_owner_account =
-						<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
+		token_addresses.iter().enumerate().for_each(|(((collection_idx, address)))| {
 
-					// Check if incoming collection is in CollectionMapping, if not, create a
-					// new collection along with its Eth > Root mapping
-					if let Some(root_collection_id) = Self::mapped_collections(contract_owner) {
-						pallet_nft::Pallet::<T>::do_mint(
-							&destination,
-							root_collection_id,
-							current_token.low_u32(),
-							1,
-						)?;
-					} else {
-						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
-							collection_owner_account,
-							name.clone(),
-							initial_issuance as u32,
-							max_issuance,
-							// Token owner
-							Some(contract_owner.clone().into()),
-							metadata_scheme.clone(),
-							royalties_schedule.clone(),
-							// Some(source_collection_id),
-							source_chain.clone(), // TODO: remove:
-						)
-						.unwrap();
+				// Get the list of token ids corresponding to the current collection
+				let current_collections_tokens = token_ids[collection_idx];
 
-						CollectionsMapping::<T>::insert(source, new_collection_id);
+				// Assign collection owner to pallet. User can claim it later
+				let collection_owner_account =
+					<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
-						pallet_nft::Pallet::<T>::do_mint(
-							&destination,
-							new_collection_id,
-							current_token.low_u32(),
-							1,
-						)?;
-					}
+				// Check if incoming collection is in CollectionMapping, if not, create a
+				// new collection along with its Eth > Root mapping
+				if let Some(root_collection_id) = Self::mapped_collections(address) {
+					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, root_collection_id, current_collections_tokens)?;
+				} else {
+					let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
+						collection_owner_account,
+						name.clone(),
+						initial_issuance as u32,
+						max_issuance,
+						// Token owner
+						Some(contract_owner.clone().into()),
+						metadata_scheme.clone(),
+						royalties_schedule.clone(),
+						// Some(source_collection_id),
+						source_chain.clone(), // TODO: remove:
+					)
+					.unwrap();
+
+					CollectionsMapping::<T>::insert(source, new_collection_id);
+					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, new_collection_id, current_collections_tokens)?;
 				}
-			}
 		});
 
 		Ok(())
@@ -257,7 +267,7 @@ where
 			let data = &data[33..];
 
 			let _ = match prefix {
-				1_u32 => Self::decode_deposit_event(data),
+				1_u32 => Self::decode_deposit_event(source, data),
 				2_u32 => Self::decode_state_sync_event(data),
 				_ => Err(Error::<T>::InvalidAbiPrefix.into()),
 			}
