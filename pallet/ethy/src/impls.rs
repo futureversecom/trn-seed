@@ -75,7 +75,8 @@ impl<T: Config> Module<T> {
 		let mut validators: Vec<T::EthyId> = Vec::new();
 		let mut i = 0;
 		for validator in validator_list {
-			if let Some(valid) = XrplDoorSigners::<T>::get(validator) && valid {
+			let valid = XrplDoorSigners::<T>::get(validator).unwrap_or(false);
+			if valid {
 				validators.push(validator.clone());
 			}
 			i += 1;
