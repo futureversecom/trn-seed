@@ -23,15 +23,12 @@ use xrpl::{
 
 use crate::{
 	xrpl_types::{
-		BridgeRpcError, BridgeXrplWebsocketApi, TransactionEntryResponse, XrplAddress, XrplTxHash,
+		BridgeRpcError, BridgeXrplWebsocketApi, TransactionEntryResponse, XrplTxHash,
 	},
 	ChainCallId, H160,
 };
 use codec::alloc::string::String;
-use frame_support::ensure;
 use futures::StreamExt;
-use hex_literal::hex;
-use rustc_hex::ToHex;
 use scale_info::prelude::string::ToString;
 use seed_pallet_common::{get_lifetime_str_ref, log};
 use seed_primitives::{
@@ -109,10 +106,10 @@ pub fn is_valid_xrp_transaction(
 				Some(r) => r,
 				None => return Err(BridgeRpcError::InvalidJSON),
 			};
-			let li: LedgerIndex = result.ledger_index.clone() as LedgerIndex;
-			let validated: bool = result.validated.clone();
+			let li: LedgerIndex = result.ledger_index as LedgerIndex;
+			let validated: bool = result.validated;
 			// https://centralitydev.atlassian.net/wiki/spaces/FUT/pages/2255781889/RIP+2+XRPL+Bridge#XRPL--%3E-Root-Payments
-			let root_address: AccountId = match result.tx_json.memos.clone() {
+			let root_address: AccountId = match result.tx_json.memos {
 				Some(memos) => {
 					let hex_address = match hex::decode(&memos[0].memo_data[6..]) {
 						Ok(val) => {
@@ -123,7 +120,7 @@ pub fn is_valid_xrp_transaction(
 							}
 							val
 						},
-						Err(e) =>
+						Err(_) =>
 							return Err(BridgeRpcError::InvalidTransaction(
 								"XrplAddress extraction from Memo Failed".to_string(),
 							)),
@@ -135,7 +132,7 @@ pub fn is_valid_xrp_transaction(
 						"XrplAddress extraction from Memo Failed".to_string(),
 					)),
 			};
-			let tx_amount: Balance = match result.tx_json.amount.clone().parse::<Balance>() {
+			let tx_amount: Balance = match result.tx_json.amount.parse::<Balance>() {
 				Ok(v) => v,
 				Err(_) =>
 					return Err(BridgeRpcError::InvalidTransaction(
@@ -143,7 +140,7 @@ pub fn is_valid_xrp_transaction(
 					)),
 			};
 			let transaction_hash: XrplTxHash =
-				XrplTxHash::from_slice(result.tx_json.hash.clone().as_bytes());
+				XrplTxHash::from_slice(result.tx_json.hash.as_bytes());
 
 			if ledger_index.ne(&li) {
 				return Err(BridgeRpcError::InvalidTransaction("ledger_index Mismatch".to_string()))
@@ -204,7 +201,6 @@ pub fn get_xrp_http_uri<'a>() -> Result<&'a str, BridgeRpcError> {
 mod test {
 	use super::*;
 	use crate::H160;
-	use hex::ToHex;
 
 	#[test]
 	fn test_is_valid_xrp_transaction_success() {
