@@ -196,7 +196,7 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	{
 		if let Some(author_index) = F::find_author(digests) {
 			if let Some(stash) = Session::validators().get(author_index as usize) {
-				return Some(Into::<H160>::into(*stash))
+				return Some(Into::<H160>::into(*stash));
 			}
 		}
 		None
@@ -334,11 +334,11 @@ impl FinalSessionTracker for StakingSessionTracker {
 		// active era is one behind (i.e. in the *last session of the active era*, or *first session
 		// of the new current era*, depending on how you look at it).
 		if let Some(era_start_session_index) = Staking::eras_start_session_index(active_era) {
-			if Session::current_index() ==
-				era_start_session_index + SessionsPerEra::get().saturating_sub(1)
+			if Session::current_index()
+				== era_start_session_index + SessionsPerEra::get().saturating_sub(1)
 			{
 				// natural era rotation
-				return true
+				return true;
 			}
 		}
 
@@ -346,7 +346,7 @@ impl FinalSessionTracker for StakingSessionTracker {
 		return match Staking::force_era() {
 			Forcing::ForceNew | Forcing::ForceAlways => true,
 			Forcing::NotForcing | Forcing::ForceNone => false,
-		}
+		};
 	}
 }
 
@@ -363,8 +363,8 @@ impl EthereumEventRouterT for EthereumEventRouter {
 		if destination == &<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::address() {
 			<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::process_event(source, data)
 				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
-		} else if destination ==
-			&<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
+		} else if destination
+			== &<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
 		{
 			<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::process_event(
 				source, data,
