@@ -201,7 +201,7 @@ where
 		destination: H160,
 	) -> Result<(), DispatchError> {
 		// Assumed values for each. We may need to change this later
-		let initial_issuance: u64 = token_addresses.len() as u64;
+		let initial_issuance: u32 = token_addresses.len() as u32;
 		let max_issuance = None;
 		let royalties_schedule = None;
 		let destination: T::AccountId = destination.into();

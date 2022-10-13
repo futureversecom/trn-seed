@@ -236,7 +236,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// Mint the set tokens
 		for serial_number in token_ids.into_iter() {
-			let serial_number:SerialNumber = serial_number.as_u64();
+			let serial_number:SerialNumber = serial_number.as_u32();
 
 			<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
 			// update token balances
