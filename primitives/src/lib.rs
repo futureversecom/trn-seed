@@ -57,7 +57,7 @@ pub mod types {
 
 	/// Auto-incrementing Uint
 	/// Uniquely identifies a token within a collection
-	pub type SerialNumber = u32;
+	pub type SerialNumber = u64;
 
 	/// Global unique token identifier
 	pub type TokenId = (CollectionUuid, SerialNumber);
