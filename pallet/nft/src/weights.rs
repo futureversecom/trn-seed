@@ -12,8 +12,8 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn set_owner() -> Weight;
 	fn create_collection() -> Weight;
-	fn mint_collection(q: u64) -> Weight;
-	fn mint_additional(q: u64) -> Weight;
+	fn mint_collection(q: u32) -> Weight;
+	fn mint_additional(q: u32) -> Weight;
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
 	fn sell() -> Weight;
@@ -37,7 +37,7 @@ impl WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(5 as Weight))
 	}
-	fn mint_additional(q: u64) -> Weight {
+	fn mint_additional(q: u32) -> Weight {
 		(79_200_000 as Weight)
 			// Standard Error: 2_166_000
 			.saturating_add((3_536_000 as Weight).saturating_mul(q as Weight))
@@ -45,7 +45,7 @@ impl WeightInfo for () {
 			.saturating_add(DbWeight::get().writes(2 as Weight))
 			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(q as Weight)))
 	}
-	fn mint_collection(q: u64) -> Weight {
+	fn mint_collection(q: u32) -> Weight {
 		(74_033_000 as Weight)
 			// Standard Error: 58_000
 			.saturating_add((4_321_000 as Weight).saturating_mul(q as Weight))
