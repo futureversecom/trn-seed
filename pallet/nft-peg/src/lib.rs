@@ -139,15 +139,16 @@ where
 		] =
 		abi_decoded.as_slice()
 		{
-			let token_addresses: Vec<&H160> = token_addresses.into_iter().filter_map(|k| {
+			let token_addresses: Vec<H160> = token_addresses.into_iter().filter_map(|k| {
 				if let Token::Address(decoded) = k {
-					Some(decoded)
+					Some(decoded.clone())
 				} else {
 					None
 				}
 			}).collect();
 
-			let token_addresses: BoundedVec<&H160, T::MaxAddresses> = BoundedVec::try_from(token_addresses).unwrap();
+			// Remove unwraps
+			let token_addresses: BoundedVec<H160, T::MaxAddresses> = BoundedVec::try_from(token_addresses).unwrap();
 				// .map_err(|_| (weight, Error::<T>::...?))?;
 
 			let token_ids: Vec<BoundedVec<U256, T::MaxTokensPerCollection>> = token_ids.iter().filter_map(|k| {
@@ -166,6 +167,8 @@ where
 					None
 				}
 			}).collect();
+
+			let token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses> = BoundedVec::try_from(token_ids).unwrap();
 
 			// let process_mint_at_block = <frame_system::Pallet<T>>::block_number() + T::DelayLength::get();
 			let process_mint_at_block = <frame_system::Pallet<T>>::block_number().saturating_add(
@@ -212,13 +215,12 @@ where
 		ensure!(token_addresses.len() == token_ids.len(), Error::<T>::UnequalTokenCount);
 		token_addresses.iter().enumerate().for_each(|((collection_idx, address))| {
 				// Get the list of token ids corresponding to the current collection
-				let current_collections_tokens = token_ids[collection_idx];
-
+				let current_collections_tokens = &token_ids[collection_idx];
 				// Assign collection owner to pallet. User can claim it later
 				let collection_owner_account =
 					<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
-				// Check if incoming collection is in CollectionMapping, if not, create a
+				// Check if incoming collection is in CollectionMapping, if not, create as
 				// new collection along with its Eth > Root mapping
 				if let Some(root_collection_id) = Self::mapped_collections(address) {
 					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, root_collection_id, current_collections_tokens);
@@ -228,7 +230,7 @@ where
 						name.clone(),
 						initial_issuance,
 						max_issuance,
-						Some(destination),
+						Some(destination.clone()),
 						metadata_scheme.clone(),
 						royalties_schedule.clone(),
 						// Some(source_collection_id),
