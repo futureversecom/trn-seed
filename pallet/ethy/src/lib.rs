@@ -132,6 +132,8 @@ pub trait Config:
 
 decl_storage! {
 	trait Store for Module<T: Config> as EthBridge {
+		/// Flag to indicate whether authorities have been changed during the current era
+		AuthoritiesChangedThisEra get(fn authorities_changed_this_era): bool;
 		/// Whether the bridge is paused (e.g. during validator transitions or by governance)
 		BridgePaused get(fn bridge_paused): bool;
 		/// Maps from event claim id to challenger and bond amount paid

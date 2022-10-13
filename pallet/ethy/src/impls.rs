@@ -695,6 +695,8 @@ impl<T: Config> Module<T> {
 				next_validator_set_id,
 			));
 			NotarySetProofId::put(event_proof_id);
+			// Indicate that the authorities have been changed
+			AuthoritiesChangedThisEra::put(true);
 		}
 
 		// notify ethy-gadget about validator set change
@@ -710,7 +712,6 @@ impl<T: Config> Module<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 		// Pause the bridge
 		BridgePaused::put(true);
-		// Remove the next authority change, indicating that this has been processed
 		<NextAuthorityChange<T>>::kill();
 	}
 
@@ -829,8 +830,9 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	fn on_before_session_ending() {
 		// Re-activate the bridge, allowing claims & proofs again
 		if T::FinalSessionTracker::is_active_session_final() {
-			if Self::next_authority_change().is_some() {
-				// For some reason the authorities haven't been changed yet, do this now
+			if !Self::authorities_changed_this_era() {
+				// The authorities haven't been changed yet
+				// This could be due to a new era being forced before the final session
 				Self::handle_authorities_change();
 			}
 
@@ -838,6 +840,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 			// A proof should've been generated now so we can reactivate the bridge with the new
 			// validator set
 			BridgePaused::kill();
+			AuthoritiesChangedThisEra::kill();
 			// Time to update the bridge validator keys.
 			let next_notary_keys = NextNotaryKeys::<T>::take();
 			// Store the new keys and increment the validator set id
