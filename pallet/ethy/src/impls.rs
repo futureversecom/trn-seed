@@ -809,7 +809,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
 		if !keys.is_empty() {
 			assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
-			NotaryKeys::<T>::put(keys.clone());
+			NotaryKeys::<T>::put(&keys);
 			Self::update_xrpl_notary_keys(&keys);
 		}
 	}
@@ -853,7 +853,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 			let next_notary_keys = NextNotaryKeys::<T>::take();
 			// Store the new keys and increment the validator set id
 			// Next notary keys should be unset, until populated by new session logic
-			<NotaryKeys<T>>::put(&next_notary_keys.clone());
+			<NotaryKeys<T>>::put(&next_notary_keys);
 			Self::update_xrpl_notary_keys(&next_notary_keys);
 			NotarySetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
 		}
