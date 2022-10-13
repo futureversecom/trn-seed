@@ -232,7 +232,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_mint_multiple_with_ids(
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
-		token_ids: BoundedVec<U256, T::MaxIdsPerMultipleMint>,
+		token_ids: &[U256],
 	) -> DispatchResult {
 		// Mint the set tokens
 		for serial_number in token_ids.into_iter() {

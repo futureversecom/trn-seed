@@ -111,8 +111,6 @@ pub mod pallet {
 		type ParachainId: Get<ParachainId>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
-		/// Max amount of token ids that can be specified for a group mint
-		type MaxIdsPerMultipleMint: Get<u32>;
 	}
 
 	/// Map from collection to its information
