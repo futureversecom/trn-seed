@@ -695,6 +695,8 @@ parameter_types! {
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 	/// Bond amount for a relayer
 	pub const RelayerBond: Balance = 100 * ONE_ROOT;
+	/// Max Xrpl notary (validator) public keys
+	pub const MaxXrplKeys: u8 = 8;
 }
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
@@ -729,6 +731,8 @@ impl pallet_ethy::Config for Runtime {
 	type RelayerBond = RelayerBond;
 	/// Timestamp provider
 	type UnixTime = Timestamp;
+	/// Max Xrpl notary (validator) public keys
+	type MaxXrplKeys = MaxXrplKeys;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {

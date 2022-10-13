@@ -76,8 +76,8 @@ impl<T: Config> Module<T> {
 			.into_iter()
 			.filter(|validator| XrplDoorSigners::<T>::get(validator))
 			.map(|validator| -> T::EthyId { validator.clone() })
+			.take(T::MaxXrplKeys::get().into())
 			.collect();
-		let validators: Vec<T::EthyId> = validators.into_iter().take(8).collect();
 		<NotaryXrplKeys<T>>::put(&validators);
 	}
 	/// Check the nodes local keystore for an active (staked) Ethy session key

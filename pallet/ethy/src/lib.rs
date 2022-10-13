@@ -130,6 +130,8 @@ pub trait Config:
 	type RelayerBond: Get<Balance>;
 	/// Returns the block timestamp
 	type UnixTime: UnixTime;
+	/// Max Xrpl notary (validator) public keys
+	type MaxXrplKeys: Get<u8>;
 }
 
 decl_storage! {
@@ -157,7 +159,7 @@ decl_storage! {
 		NotaryKeys get(fn notary_keys): Vec<T::EthyId>;
 		/// Active xrpl notary (validator) public keys
 		NotaryXrplKeys get(fn notary_xrpl_keys): Vec<T::EthyId>;
-		/// Active notary (validator) public keys
+		/// Door Signers set by sudo (white list)
 		XrplDoorSigners get(fn xrpl_door_signers): map hasher(twox_64_concat) T::EthyId => bool;
 		/// The current validator set id
 		NotarySetId get(fn notary_set_id): u64;
