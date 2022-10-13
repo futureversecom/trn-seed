@@ -250,7 +250,6 @@ fn challenge_success_do_not_process_transaction() {
 
 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64 + 1);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
-
 		let xrp_balance = xrp_balance_of(account_address);
 		assert_eq!(
 			XRPLBridge::process_xrp_transaction(XrpTxChallengePeriod::get() as u64 + 1),
