@@ -387,13 +387,11 @@ where
 				self.backend.as_ref(),
 				&[(proof_key.as_ref(), versioned_event_proof.encode().as_ref())],
 				&[],
-			)
-			{
+			) {
 				// this is a warning for now, because until the round lifecycle is improved, we will
 				// conclude certain rounds multiple times.
 				error!(target: "ethy", "💎 failed to store proof: {:?} for key [{:?}, {:?}]. Error received: {:?}", event_proof, proof_key, versioned_event_proof.encode(), err);
 			}
-
 
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC
 			// subscriptions
