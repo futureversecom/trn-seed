@@ -4,14 +4,16 @@ use core::marker::PhantomData;
 
 use ethabi::{ParamType, Token, Uint};
 // Pallet for managing NFTs bridged from *x* chain
-use frame_support::{ensure, traits::Get, PalletId};
+use frame_support::{ensure, traits::Get, PalletId, BoundedVec};
 use pallet_nft::{OriginChain, TokenCount};
 use scale_info::TypeInfo;
 use sp_core::{H160, U256};
 use sp_runtime::{
+	SaturatedConversion,
 	traits::{AccountIdConversion, Saturating, Zero},
 	DispatchError,
 };
+
 
 use codec::{Decode, Encode, MaxEncodedLen};
 pub use pallet::*;
@@ -35,7 +37,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DelayLength: Get<Self::BlockNumber>;
 		type MaxAddresses: Get<u32>;
-		type MaxIdsPerCollection: Get<u32>;
+		type MaxTokensPerCollection: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -51,7 +53,15 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn delayed_mints)]
 	pub type DelayedMints<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, (H160, Vec<H160>, Vec<Vec<U256>>, H160), OptionQuery>;
+		StorageMap<_, Twox64Concat, T::BlockNumber, (
+			H160,
+			BoundedVec<H160, T::MaxAddresses>,
+			BoundedVec<
+				BoundedVec<U256, T::MaxTokensPerCollection>,
+				T::MaxAddresses
+			>,
+			H160
+		), OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -103,19 +113,11 @@ impl<T: Config> Get<H160> for GetEthAddress<T> {
 	}
 }
 
-// pub struct BridgedNftInfo {
-// 	source: H160,
-// 	token_addresses: Vec<>,
-// 	token_ids: token_ids.clone(),
-// 	contract_owners: contract_owners.clone(),
-// 	destination: destination.clone(),
-// }
-
 impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn decode_deposit_event(source: &sp_core::H160, data: &[u8]) -> Result<(u64), (u64, DispatchError)> {
+	fn decode_deposit_event(source: &sp_core::H160, data: &[u8]) -> Result<u64, (u64, DispatchError)> {
 		let mut weight = 0;
 
 		let abi_decoded = match ethabi::decode(
@@ -145,28 +147,31 @@ where
 				}
 			}).collect();
 
-			let token_ids: Vec<Vec<&U256>> = token_ids.iter().filter_map(|k| {
+			let token_addresses: BoundedVec<&H160, T::MaxAddresses> = BoundedVec::try_from(token_addresses).unwrap();
+				// .map_err(|_| (weight, Error::<T>::...?))?;
+
+			let token_ids: Vec<BoundedVec<U256, T::MaxTokensPerCollection>> = token_ids.iter().filter_map(|k| {
 				if let Token::Array(token_ids) = k {
-					let new: Vec<&U256> = token_ids.iter().filter_map(|j| {
+					let new: Vec<U256> = token_ids.iter().filter_map(|j| {
 						if let Token::Uint(token_id) = j {
-							Some(token_id)
+							Some(token_id.clone())
 						} else {
 							None
 						}
 					})
 					.collect();
+					let new: BoundedVec<U256, T::MaxTokensPerCollection> = BoundedVec::try_from(new).unwrap();
 					Some(new)
 				} else {
 					None
 				}
 			}).collect();
 
-
 			// let process_mint_at_block = <frame_system::Pallet<T>>::block_number() + T::DelayLength::get();
 			let process_mint_at_block = <frame_system::Pallet<T>>::block_number().saturating_add(
 				T::DelayLength::get()
 			);
-			DelayedMints::insert(process_mint_at_block, (
+			DelayedMints::<T>::insert(process_mint_at_block, (
 				source,
 				token_addresses,
 				token_ids,
@@ -184,31 +189,28 @@ where
 	}
 
 	// TODO implement state sync feature for collection_owner, name and metadata
-	fn decode_state_sync_event(data: &[u8]) -> Result<(), DispatchError> {
-		Err(Error::<T>::StateSyncDisabled.into())
+	fn decode_state_sync_event(data: &[u8]) -> Result<u64, (u64, DispatchError)> {
+		Err((0, Error::<T>::StateSyncDisabled.into()))
 	}
 
 	// Non functional atm. This needs to accept and process multiple tokens
 	fn process_nfts_multiple(
 		source: &H160,
-		token_addresses: Vec<H160>,
-		token_ids: Vec<Vec<U256>>,
+		token_addresses: BoundedVec<H160, T::MaxAddresses>,
+		token_ids: BoundedVec<BoundedVec<U256,T::MaxTokensPerCollection>, T::MaxAddresses>,
 		destination: H160,
 	) -> Result<(), DispatchError> {
 		// Assumed values for each. We may need to change this later
-		let initial_issuance = token_addresses.len();
+		let initial_issuance: u64 = token_addresses.len() as u64;
 		let max_issuance = None;
 		let royalties_schedule = None;
 		let destination: T::AccountId = destination.into();
 		let source_chain = OriginChain::Ethereum;
 		let metadata_scheme = pallet_nft::MetadataScheme::Ethereum(Self::contract_address());
-
 		let name = "".encode();
 
 		ensure!(token_addresses.len() == token_ids.len(), Error::<T>::UnequalTokenCount);
-
-		token_addresses.iter().enumerate().for_each(|(((collection_idx, address)))| {
-
+		token_addresses.iter().enumerate().for_each(|((collection_idx, address))| {
 				// Get the list of token ids corresponding to the current collection
 				let current_collections_tokens = token_ids[collection_idx];
 
@@ -219,15 +221,14 @@ where
 				// Check if incoming collection is in CollectionMapping, if not, create a
 				// new collection along with its Eth > Root mapping
 				if let Some(root_collection_id) = Self::mapped_collections(address) {
-					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, root_collection_id, current_collections_tokens)?;
+					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, root_collection_id, current_collections_tokens);
 				} else {
 					let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 						collection_owner_account,
 						name.clone(),
-						initial_issuance as u32,
+						initial_issuance,
 						max_issuance,
-						// Token owner
-						Some(contract_owner.clone().into()),
+						Some(destination),
 						metadata_scheme.clone(),
 						royalties_schedule.clone(),
 						// Some(source_collection_id),
@@ -236,10 +237,10 @@ where
 					.unwrap();
 
 					CollectionsMapping::<T>::insert(source, new_collection_id);
-					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, new_collection_id, current_collections_tokens)?;
+
+					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, new_collection_id, current_collections_tokens);
 				}
 		});
-
 		Ok(())
 	}
 }
@@ -262,18 +263,17 @@ where
 		};
 
 		// match prefix and route to specific decoding path
-		if let [Token::Uint(prefix)] = abi_decoded.as_slice() {
+		if let [Token::Uint(prefix)] = prefix_decoded.as_slice() {
 			let prefix: u32 = (*prefix).saturated_into();
 			let data = &data[33..];
 
 			let _ = match prefix {
 				1_u32 => Self::decode_deposit_event(source, data),
 				2_u32 => Self::decode_state_sync_event(data),
-				_ => Err(Error::<T>::InvalidAbiPrefix.into()),
-			}
-			.map_err(|e| Err((weight, e)))?;
+				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
+			}?;
 		} else {
-			Err((weight, Error::<T>::InvalidAbiPrefix.into()))
+			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
 		}
 
 		Ok(weight)

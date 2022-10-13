@@ -14,7 +14,7 @@
  */
 
 use crate::*;
-use frame_support::{ensure, traits::Get, transactional};
+use frame_support::{BoundedVec, ensure, traits::Get, transactional};
 use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
@@ -232,12 +232,13 @@ impl<T: Config> Pallet<T> {
 	pub fn do_mint_multiple_with_ids(
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
-		token_ids: Vec<U256>,
+		token_ids: BoundedVec<U256, T::MaxIdsPerMultipleMint>,
 	) -> DispatchResult {
 		// Mint the set tokens
 		for serial_number in token_ids.into_iter() {
-			<TokenOwner<T>>::insert(collection_id, serial_number as SerialNumber, &owner);
+			let serial_number:SerialNumber = serial_number.as_u64();
 
+			<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
 			// update token balances
 			<TokenBalance<T>>::mutate(&owner, |mut balances| {
 				if let Some(balances) = &mut balances {
