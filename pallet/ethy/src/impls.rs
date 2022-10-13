@@ -834,12 +834,29 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				// The authorities haven't been changed yet
 				// This could be due to a new era being forced before the final session
 				Self::handle_authorities_change();
+
+				// Schedule an un-pausing of the bridge to give the relayer time to relay the
+				// authority set change.
+				// Delay set to 75 blocks = 5 minutes
+				if T::Scheduler::schedule(
+					DispatchTime::At(<frame_system::Pallet<T>>::block_number() + 75_u32.into()),
+					None,
+					63,
+					frame_system::RawOrigin::Root.into(),
+					Call::set_bridge_paused { paused: false }.into(),
+				)
+				.is_err()
+				{
+					log!(warn, "ethy/schedule failed");
+				}
+			} else {
+				// Unpause the bridge now
+				BridgePaused::kill();
 			}
 
 			log!(trace, "💎 session & era ending, set new validator keys");
 			// A proof should've been generated now so we can reactivate the bridge with the new
 			// validator set
-			BridgePaused::kill();
 			AuthoritiesChangedThisEra::kill();
 			// Time to update the bridge validator keys.
 			let next_notary_keys = NextNotaryKeys::<T>::take();

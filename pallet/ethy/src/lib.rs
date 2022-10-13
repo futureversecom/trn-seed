@@ -40,7 +40,11 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
-	traits::{fungibles::Transfer, UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{
+		fungibles::Transfer,
+		schedule::{Anon, DispatchTime},
+		UnixTime, ValidatorSet as ValidatorSetT,
+	},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId, Parameter,
@@ -126,6 +130,10 @@ pub trait Config:
 	type NotarizationThreshold: Get<Percent>;
 	/// Bond required for an account to act as relayer
 	type RelayerBond: Get<Balance>;
+	/// The Scheduler.
+	type Scheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
+	/// Overarching type of all pallets origins.
+	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 	/// Returns the block timestamp
 	type UnixTime: UnixTime;
 }
@@ -424,6 +432,16 @@ decl_module! {
 			ensure_root(origin)?;
 			ContractAddress::put(contract_address);
 			Self::deposit_event(<Event<T>>::SetContractAddress(contract_address));
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Pause or unpause the bridge (requires governance)
+		pub fn set_bridge_paused(origin, paused: bool) {
+			ensure_root(origin)?;
+			match paused {
+				true => BridgePaused::put(true),
+				false => BridgePaused::kill(),
+			};
 		}
 
 		#[weight = DbWeight::get().writes(1)]
