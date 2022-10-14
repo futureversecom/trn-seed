@@ -70,7 +70,7 @@ impl<T: Config> EthyXrplBridgeAdapter<T::EthyId> for Module<T> {
 }
 
 impl<T: Config> Module<T> {
-	fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
+	pub fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
 		// Filter validator_list from WhiteList Validators.
 		let validators: Vec<T::EthyId> = validator_list
 			.into_iter()
