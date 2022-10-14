@@ -356,6 +356,7 @@ decl_module! {
 			for new_signer in new_signers.iter() {
 				XrplDoorSigners::<T>::insert(new_signer, true);
 			}
+			Self::update_xrpl_notary_keys(&Self::notary_keys());
 			Self::deposit_event(Event::<T>::XrplDoorSignersSet);
 		}
 
