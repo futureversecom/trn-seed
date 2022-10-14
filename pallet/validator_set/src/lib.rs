@@ -14,6 +14,7 @@ mod benchmarking;
 mod xrpl_cli;
 mod xrpl_impls;
 mod xrpl_types;
+mod impls;
 
 use crate::xrpl_types::{
 	BridgeXrplWebsocketApi, ChainCallId, CheckedChainCallRequest, CheckedChainCallResult,
