@@ -21,6 +21,12 @@ use seed_pallet_common::{log, EthereumEventSubscriber};
 use seed_primitives::{AccountId20, Balance, CollectionUuid, EthAddress, SerialNumber};
 use sp_std::{boxed::Box, vec::Vec};
 
+#[cfg(test)]
+mod tests;
+
+
+#[cfg(test)]
+pub mod mock;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -49,19 +55,11 @@ pub mod pallet {
 	#[pallet::getter(fn mapped_collections)]
 	pub type CollectionsMapping<T: Config> = StorageMap<_, Twox64Concat, H160, u32, OptionQuery>;
 
-	// Store nfts to be minted by the blocks they should be minted in
 	#[pallet::storage]
 	#[pallet::getter(fn delayed_mints)]
 	pub type DelayedMints<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, (
-			H160,
-			BoundedVec<H160, T::MaxAddresses>,
-			BoundedVec<
-				BoundedVec<U256, T::MaxTokensPerCollection>,
-				T::MaxAddresses
-			>,
-			H160
-		), OptionQuery>;
+	StorageMap<_, Twox64Concat, T::BlockNumber, PeggedNftInfo<T>, OptionQuery>;
+
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -83,12 +81,12 @@ pub mod pallet {
 		fn on_initialize(block: T::BlockNumber) -> Weight {
 			let mut weight = 0;
 
-			if let Some((source, token_addresses, token_ids, destination)) = Self::delayed_mints(block) {
+			if let Some(peg_info) = Self::delayed_mints(block) {
 				Self::process_nfts_multiple(
-					&source,
-					token_addresses,
-					token_ids,
-					destination
+					&peg_info.source,
+					peg_info.token_addresses,
+					peg_info.token_ids,
+					peg_info.destination
 				);
 			}
 
@@ -97,13 +95,6 @@ pub mod pallet {
 	}
 }
 
-/// A deposit event made by the ERC20 peg contract on Ethereum
-#[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo, MaxEncodedLen)]
-pub struct BridgedNftEvent {
-	pub token_id: U256,
-	/// The Seed beneficiary address
-	pub beneficiary: H160,
-}
 
 pub struct GetEthAddress<T>(PhantomData<T>);
 
@@ -111,6 +102,18 @@ impl<T: Config> Get<H160> for GetEthAddress<T> {
 	fn get() -> H160 {
 		Pallet::<T>::contract_address()
 	}
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct PeggedNftInfo<T: Config> {
+	source: H160,
+	token_addresses: BoundedVec<H160, T::MaxAddresses>,
+	token_ids: 	BoundedVec<
+		BoundedVec<U256, T::MaxTokensPerCollection>,
+		T::MaxAddresses
+		>,
+	destination: H160
 }
 
 impl<T: Config> Pallet<T>
@@ -122,6 +125,7 @@ where
 
 		let abi_decoded = match ethabi::decode(
 			&[
+				ParamType::Uint(8),
 				ParamType::Array(Box::new(ParamType::Address)),
 				ParamType::Array(Box::new(ParamType::Array(Box::new(ParamType::Uint(32))))),
 				ParamType::Address,
@@ -133,6 +137,7 @@ where
 		};
 
 		if let [
+			Token::Uint(_),
 			Token::Array(token_addresses),
 			Token::Array(token_ids),
 			Token::Address(destination)
@@ -170,16 +175,16 @@ where
 
 			let token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses> = BoundedVec::try_from(token_ids).unwrap();
 
-			// let process_mint_at_block = <frame_system::Pallet<T>>::block_number() + T::DelayLength::get();
 			let process_mint_at_block = <frame_system::Pallet<T>>::block_number().saturating_add(
 				T::DelayLength::get()
 			);
-			DelayedMints::<T>::insert(process_mint_at_block, (
-				source,
+
+			DelayedMints::<T>::insert(process_mint_at_block, PeggedNftInfo {
+				source: source.clone(),
 				token_addresses,
 				token_ids,
-				destination
-			)
+				destination: destination.clone()
+				}
 			);
 
 			weight = T::DbWeight::get().writes(1);
