@@ -19,11 +19,13 @@ use crate::mock::{
 };
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{fungibles::Inspect, OnInitialize},
+	traits::{fungibles::Inspect, OnInitialize}, assert_err,
 };
 use seed_primitives::TokenId;
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
+use sp_core::{H160, U256};
+use codec::{Decode, Encode};
 
 // Create an NFT collection
 // Returns the created `collection_id`
@@ -2693,5 +2695,59 @@ fn transfer_many_tokens_changes_token_balance() {
 			new_owner_map.insert(collection_id, changed_quantity);
 			assert_eq!(Nft::token_balance(new_owner).unwrap(), new_owner_map);
 		}
+	});
+}
+
+#[test]
+fn cannot_mint_bridged_collections() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let token_owner = 2_u64;
+
+		let collection_id = Pallet::<Test>::do_create_collection(
+			collection_owner,
+			"".encode(),
+			0,
+			None,
+			None,
+			MetadataScheme::Ethereum(H160::zero()),
+			None,
+			// "From ethereum"
+			OriginChain::Ethereum,
+		)
+		.unwrap();
+
+		// Collection already exists on origin chain; not allowed to be minted here
+		assert_err!(Nft::mint(
+			Some(collection_owner).into(),
+			collection_id,
+			42069,
+			Some(token_owner),
+		),
+		Error::<Test>::AttemptedMintOnBridgedToken
+	);
+
+	});
+}
+
+#[test]
+fn mints_multiple_specified_tokens_by_id() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = 1;
+		let token_ids = [U256([0; 4])];
+
+	token_ids.iter().for_each(|i| {
+		let serial_number =  i.as_u32();
+
+		assert_eq!(Nft::token_owner(collection_id, serial_number), None);
+	});
+
+	assert_ok!(Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids));
+	// Cannot re-mint
+	assert_err!(
+		Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids),
+		Error::<Test>::NoPermission
+	);
 	});
 }

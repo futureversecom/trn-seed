@@ -376,7 +376,6 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 			metadata_scheme: MetadataScheme,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
-			// source_id: Option<u32>,
 			source_chain: OriginChain,
 		) -> Result<u32, DispatchError> {
 			// Check we can issue the new tokens

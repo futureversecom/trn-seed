@@ -139,8 +139,8 @@ where
 
 		let abi_decoded = match ethabi::decode(
 			&[
-				// Bit to predetermine which function to route to; unused here
-				ParamType::Uint(8),
+				// // Bit to predetermine which function to route to; unused here
+				// ParamType::Uint(8),
 				// Token addresses
 				ParamType::Array(Box::new(ParamType::Address)),
 				// Token ids
@@ -240,36 +240,40 @@ where
 		let name = "".encode();
 
 		ensure!(token_addresses.len() == token_ids.len(), Error::<T>::UnequalTokenCount);
-		token_addresses.iter().enumerate().for_each(|(collection_idx, address)| {
-				// Get the list of token ids corresponding to the current collection
-				let current_collections_tokens = &token_ids[collection_idx];
-				// Assign collection owner to pallet. User can claim it later
-				let collection_owner_account =
-					<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
-				// Check if incoming collection is in CollectionMapping, if not, create as
-				// new collection along with its Eth > Root mapping
-				if let Some(root_collection_id) = Self::mapped_collections(address) {
-					pallet_nft::Pallet::<T>::do_mint_multiple(&destination, root_collection_id, current_collections_tokens);
-				} else {
-					let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
-						collection_owner_account,
-						name.clone(),
-						initial_issuance,
-						max_issuance,
-						Some(destination.clone()),
-						metadata_scheme.clone(),
-						royalties_schedule.clone(),
-						// Some(source_collection_id),
-						source_chain.clone(), // TODO: remove:
-					)
-					.unwrap();
+		for (collection_idx, address) in token_addresses.iter().enumerate() {
+			// Get the list of token ids corresponding to the current collection
+			let current_collections_tokens = &token_ids[collection_idx];
+			// Assign collection owner to pallet. User can claim it later
+			let collection_owner_account =
+				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
-					CollectionsMapping::<T>::insert(source, new_collection_id);
+			// Check if incoming collection is in CollectionMapping, if not, create as
+			// new collection along with its Eth > Root mapping
+			if let Some(root_collection_id) = Self::mapped_collections(address) {
+				pallet_nft::Pallet::<T>::do_mint_multiple(&destination, root_collection_id, current_collections_tokens)?;
+			} else {
+				let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
+					collection_owner_account,
+					name.clone(),
+					initial_issuance,
+					max_issuance,
+					Some(destination.clone()),
+					metadata_scheme.clone(),
+					royalties_schedule.clone(),
+					source_chain.clone(),
+				)
+				.unwrap();
 
-					pallet_nft::Pallet::<T>::do_mint_multiple(&destination, new_collection_id, current_collections_tokens);
-				}
-		});
+				CollectionsMapping::<T>::insert(source, new_collection_id);
+
+				pallet_nft::Pallet::<T>::do_mint_multiple(&destination, new_collection_id, current_collections_tokens)?;
+			}
+	};
+
+
+
+
 		Ok(())
 	}
 
@@ -322,7 +326,8 @@ where
 		// match prefix and route to specific decoding path
 		if let [Token::Uint(prefix)] = prefix_decoded.as_slice() {
 			let prefix: u32 = (*prefix).saturated_into();
-			let data = &data[33..];
+			// TODO: get the correct split of prefix versus rest of data to optimize decoding
+			// let data = &data[33..];
 
 			match prefix {
 				1_u32 => Self::decode_deposit_event(source, data),
