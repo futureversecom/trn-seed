@@ -50,7 +50,7 @@ frame_support::construct_runtime!(
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
         Nft: pallet_nft::{Pallet, Storage, Config<T>, Event<T>},
-		NftPeg: pallet_nft_peg::{Pallet, Storage},
+		NftPeg: pallet_nft_peg::{Pallet, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>}
 	}
 );
@@ -180,6 +180,7 @@ parameter_types! {
 }
 
 impl pallet_nft_peg::Config for Test {
+	type Event = Event;
 	type PalletId = NftPegPalletId;
 	type DelayLength = DelayLength;
 	type MaxAddresses = MaxAddresses;

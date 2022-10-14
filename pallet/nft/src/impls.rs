@@ -228,7 +228,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Mint additional tokens in a collection
+	/// Mint additional tokens in a collection, with an extra check that existing tokens are not being minted
 	pub fn do_mint_multiple(
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
@@ -237,6 +237,11 @@ impl<T: Config> Pallet<T> {
 		// Mint the set tokens
 		for serial_number in token_ids.into_iter() {
 			let serial_number:SerialNumber = serial_number.as_u32();
+
+			ensure!(
+				Self::token_owner(collection_id, serial_number) == None,
+				Error::<T>::NoPermission
+			);
 
 			<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
 			// update token balances
