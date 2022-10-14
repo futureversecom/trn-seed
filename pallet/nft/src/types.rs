@@ -132,9 +132,7 @@ impl MetadataScheme {
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
 			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
-
-			// Temp - fix later
-			MetadataScheme::Ethereum(original_id) => MetadataScheme::Ethereum(H160::zero()),
+			MetadataScheme::Ethereum(_original_id) => MetadataScheme::Ethereum(H160::zero()),
 		})
 	}
 }

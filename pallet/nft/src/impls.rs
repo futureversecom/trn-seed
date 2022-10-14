@@ -14,7 +14,7 @@
  */
 
 use crate::*;
-use frame_support::{BoundedVec, ensure, traits::Get, transactional};
+use frame_support::{ensure, traits::Get, transactional};
 use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
@@ -229,7 +229,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Mint additional tokens in a collection
-	pub fn do_mint_multiple_with_ids(
+	pub fn do_mint_multiple(
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
 		token_ids: &[U256],

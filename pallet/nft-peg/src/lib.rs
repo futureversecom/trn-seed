@@ -2,29 +2,26 @@
 
 use core::marker::PhantomData;
 
-use ethabi::{ParamType, Token, Uint};
+use ethabi::{ParamType, Token};
 // Pallet for managing NFTs bridged from *x* chain
-use frame_support::{ensure, traits::Get, PalletId, BoundedVec};
-use pallet_nft::{OriginChain, TokenCount};
+use frame_support::{ensure, traits::Get, PalletId, BoundedVec, fail};
+use pallet_nft::OriginChain;
 use scale_info::TypeInfo;
+use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	SaturatedConversion,
-	traits::{AccountIdConversion, Saturating, Zero},
+	traits::{AccountIdConversion, Saturating},
 	DispatchError,
 };
 
-
 use codec::{Decode, Encode, MaxEncodedLen};
 pub use pallet::*;
-use seed_pallet_common::{log, EthereumEventSubscriber};
-use seed_primitives::{AccountId20, Balance, CollectionUuid, EthAddress, SerialNumber};
+use seed_pallet_common::EthereumEventSubscriber;
 use sp_std::{boxed::Box, vec::Vec};
 
 #[cfg(test)]
 mod tests;
-
-
 #[cfg(test)]
 pub mod mock;
 #[frame_support::pallet]
@@ -39,6 +36,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_nft::Config {
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type PalletId: Get<PalletId>;
 		#[pallet::constant]
 		type DelayLength: Get<Self::BlockNumber>;
@@ -60,17 +58,31 @@ pub mod pallet {
 	pub type DelayedMints<T: Config> =
 	StorageMap<_, Twox64Concat, T::BlockNumber, PeggedNftInfo<T>, OptionQuery>;
 
-
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The abi data passed in could not be decoded
 		InvalidAbiEncoding,
 		/// The prefix uint in the abi encoded data was invalid
 		InvalidAbiPrefix,
+		/// No collection info found for the supposedly existing collection
+		NoCollectionInfo,
+		/// Tried to bridge a token that originates from Root, which is not yet supported
+		NoPermissionToBridge,
 		/// The state sync decoding feature is not implemented
 		StateSyncDisabled,
 		/// Multiple tokens were passed from contract, but amounts were unqeual per each array
 		UnequalTokenCount,
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		EthErc721Withdrawal {
+			collection_id: CollectionUuid,
+			token_ids: Vec<SerialNumber>,
+			// Root address to deposit the tokens into
+			destination: H160,
+		}
 	}
 
 	#[pallet::hooks]
@@ -79,10 +91,11 @@ pub mod pallet {
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		fn on_initialize(block: T::BlockNumber) -> Weight {
-			let mut weight = 0;
+			let weight = 0;
 
+			// If we get a value back for the current block, that means that a mint is scheduled for now
 			if let Some(peg_info) = Self::delayed_mints(block) {
-				Self::process_nfts_multiple(
+				Self::do_deposit(
 					&peg_info.source,
 					peg_info.token_addresses,
 					peg_info.token_ids,
@@ -107,12 +120,13 @@ impl<T: Config> Get<H160> for GetEthAddress<T> {
 #[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct PeggedNftInfo<T: Config> {
+	/// Sender contract
 	source: H160,
+	/// NFT token addresses
 	token_addresses: BoundedVec<H160, T::MaxAddresses>,
-	token_ids: 	BoundedVec<
-		BoundedVec<U256, T::MaxTokensPerCollection>,
-		T::MaxAddresses
-		>,
+	/// List of token ids. For a given address `n` from `token_addresses`, its corresponding token ids exist at `token_ids[n]`.
+	token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>,T::MaxAddresses>,
+	/// The address to send the tokens to
 	destination: H160
 }
 
@@ -125,9 +139,13 @@ where
 
 		let abi_decoded = match ethabi::decode(
 			&[
+				// Bit to predetermine which function to route to; unused here
 				ParamType::Uint(8),
+				// Token addresses
 				ParamType::Array(Box::new(ParamType::Address)),
+				// Token ids
 				ParamType::Array(Box::new(ParamType::Array(Box::new(ParamType::Uint(32))))),
+				// Receiver of tokens
 				ParamType::Address,
 			],
 			data,
@@ -197,18 +215,22 @@ where
 	}
 
 	// TODO implement state sync feature for collection_owner, name and metadata
-	fn decode_state_sync_event(data: &[u8]) -> Result<u64, (u64, DispatchError)> {
+	fn decode_state_sync_event(_data: &[u8]) -> Result<u64, (u64, DispatchError)> {
 		Err((0, Error::<T>::StateSyncDisabled.into()))
 	}
 
-	// Non functional atm. This needs to accept and process multiple tokens
-	fn process_nfts_multiple(
+	// Accept some representation of one or more tokens from an outside source, and create a Root-side representation of them
+	// Expects ERC721 tokens sent and verified through the existing bridge
+	fn do_deposit(
+		// Sending contract address
 		source: &H160,
+		// Addresses of the tokens
 		token_addresses: BoundedVec<H160, T::MaxAddresses>,
+		// Lists of token ids for the above addresses(For a given address `n`, its tokens are at `token_ids[n]`)
 		token_ids: BoundedVec<BoundedVec<U256,T::MaxTokensPerCollection>, T::MaxAddresses>,
+		// Root address to deposit the tokens into
 		destination: H160,
 	) -> Result<(), DispatchError> {
-		// Assumed values for each. We may need to change this later
 		let initial_issuance: u32 = token_addresses.len() as u32;
 		let max_issuance = None;
 		let royalties_schedule = None;
@@ -218,7 +240,7 @@ where
 		let name = "".encode();
 
 		ensure!(token_addresses.len() == token_ids.len(), Error::<T>::UnequalTokenCount);
-		token_addresses.iter().enumerate().for_each(|((collection_idx, address))| {
+		token_addresses.iter().enumerate().for_each(|(collection_idx, address)| {
 				// Get the list of token ids corresponding to the current collection
 				let current_collections_tokens = &token_ids[collection_idx];
 				// Assign collection owner to pallet. User can claim it later
@@ -228,7 +250,7 @@ where
 				// Check if incoming collection is in CollectionMapping, if not, create as
 				// new collection along with its Eth > Root mapping
 				if let Some(root_collection_id) = Self::mapped_collections(address) {
-					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, root_collection_id, current_collections_tokens);
+					pallet_nft::Pallet::<T>::do_mint_multiple(&destination, root_collection_id, current_collections_tokens);
 				} else {
 					let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 						collection_owner_account,
@@ -245,9 +267,37 @@ where
 
 					CollectionsMapping::<T>::insert(source, new_collection_id);
 
-					pallet_nft::Pallet::<T>::do_mint_multiple_with_ids(&destination, new_collection_id, current_collections_tokens);
+					pallet_nft::Pallet::<T>::do_mint_multiple(&destination, new_collection_id, current_collections_tokens);
 				}
 		});
+		Ok(())
+	}
+
+	// Accepts one or more Ethereum originated ERC721 tokens to be send back over the bridge
+	pub fn do_withdrawal(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		token_ids: Vec<SerialNumber>,
+		// Root address to deposit the tokens into
+		destination: H160,
+	) ->  Result<(), DispatchError>  {
+		if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
+			ensure!(collection_info.source_chain == OriginChain::Ethereum, Error::<T>::NoPermissionToBridge);
+		} else {
+			fail!(Error::<T>::NoCollectionInfo);
+		}
+
+		for token_id in token_ids.iter() {
+			// Burn tokens, will fail if they don't exist, are not owned
+			pallet_nft::Pallet::<T>::do_burn(&who, collection_id, token_id)?;
+		}
+		// Fire event
+		Self::deposit_event(Event::EthErc721Withdrawal{ 
+			collection_id,
+			token_ids,
+			destination
+		});
+
 		Ok(())
 	}
 }
@@ -261,7 +311,7 @@ where
 
 	fn on_event(source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
 		// TODO: Count weight
-		let mut weight = 10000;
+		let weight = 10000;
 
 		// Decode prefix from first 32 bytes of data
 		let prefix_decoded = match ethabi::decode(&[ParamType::Uint(32)], &data[..32]) {
@@ -274,15 +324,13 @@ where
 			let prefix: u32 = (*prefix).saturated_into();
 			let data = &data[33..];
 
-			let _ = match prefix {
+			match prefix {
 				1_u32 => Self::decode_deposit_event(source, data),
 				2_u32 => Self::decode_state_sync_event(data),
 				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
-			}?;
+			}
 		} else {
 			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
 		}
-
-		Ok(weight)
 	}
 }

@@ -427,6 +427,56 @@ pub mod pallet {
 			});
 			Ok(collection_uuid)
 		}
+
+		pub fn do_burn(who: &T::AccountId, collection_id: CollectionUuid, serial_number: &SerialNumber) -> DispatchResult {
+			ensure!(
+				!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
+				Error::<T>::TokenLocked
+			);
+			ensure!(
+				Self::token_owner(collection_id, serial_number) == Some(who.clone()),
+				Error::<T>::NoPermission
+			);
+			<TokenOwner<T>>::remove(collection_id, serial_number);
+
+			let _ =
+				<TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(who, |mut balances| {
+					match &mut balances {
+						Some(balances) => {
+							match (balances).get_mut(&collection_id) {
+								Some(balance) => {
+									let new_balance = balance.saturating_sub(1);
+									if new_balance.is_zero() {
+										balances.remove(&collection_id);
+									} else {
+										*balance = new_balance;
+									}
+									Ok(())
+								},
+								None => return Err(Error::NoToken.into()), // should not happen
+							}
+						},
+						None => return Err(Error::NoToken.into()), // should not happen
+					}
+				})?;
+
+			if let Some(collection_issuance) = Self::collection_issuance(collection_id) {
+				if collection_issuance.saturating_sub(1).is_zero() {
+					// this is the last of the tokens
+					<CollectionInfo<T>>::remove(collection_id);
+					<CollectionIssuance<T>>::remove(collection_id);
+				} else {
+					<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
+						if let Some(q) = &mut q {
+							*q = q.saturating_sub(1)
+						}
+					});
+				}
+			}
+
+			Ok(())
+		}
+
 	}
 
 	#[pallet::call]
@@ -439,7 +489,7 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
-			let who = ensure_root(origin);
+			let _who = ensure_root(origin);
 
 			if let Some(mut collection_info) = Self::collection_info(collection_id) {
 				ensure!(
@@ -664,54 +714,9 @@ pub mod pallet {
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
 			let (collection_id, serial_number) = token_id;
 
-			ensure!(
-				!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
-				Error::<T>::TokenLocked
-			);
-			ensure!(
-				Self::token_owner(collection_id, serial_number) == Some(origin.clone()),
-				Error::<T>::NoPermission
-			);
-			<TokenOwner<T>>::remove(collection_id, serial_number);
-
-			let _ =
-				<TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(&origin, |mut balances| {
-					match &mut balances {
-						Some(balances) => {
-							match (balances).get_mut(&collection_id) {
-								Some(balance) => {
-									let new_balance = balance.saturating_sub(1);
-									if new_balance.is_zero() {
-										balances.remove(&collection_id);
-									} else {
-										*balance = new_balance;
-									}
-									Ok(())
-								},
-								None => return Err(Error::NoToken.into()), // should not happen
-							}
-						},
-						None => return Err(Error::NoToken.into()), // should not happen
-					}
-				})?;
-
-			if let Some(collection_issuance) = Self::collection_issuance(collection_id) {
-				if collection_issuance.saturating_sub(1).is_zero() {
-					// this is the last of the tokens
-					<CollectionInfo<T>>::remove(collection_id);
-					<CollectionIssuance<T>>::remove(collection_id);
-				} else {
-					<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
-						if let Some(q) = &mut q {
-							*q = q.saturating_sub(1)
-						}
-					});
-				}
-			}
-
+			Self::do_burn(&origin, collection_id, &serial_number)?;
 			Self::deposit_event(Event::<T>::Burn { collection_id, serial_number });
 			Ok(())
 		}
