@@ -5,6 +5,33 @@ use frame_support::{assert_ok, traits::Hooks};
 use pallet_nft::{CollectionInformation, MetadataScheme};
 
 #[test]
+fn event_handler_decodes_correctly() {
+    let source = H160::zero();
+    let designated_function = 1;
+    let token_address_source = hex!["d9145cce52d386f254917e481eb44e9943f39138"];
+    let destination_source = hex!["5b38da6a701c568545dcfcb03fcb875f56beddc4"];
+    let token_address = H160::from(token_address_source);
+    let destination = H160::from(destination_source);
+    let inner_token_id = U256::from(1);
+
+        // NFT bridge data encoded
+    let data = ethabi::encode(&[
+        Token::Uint(U256::from(designated_function)),
+        Token::Array(
+            vec![Token::Address(token_address)]
+        ),
+        Token::Array(vec![
+            Token::Array(vec![
+                Token::Uint(inner_token_id)
+            ])
+        ]),
+        Token::Address(destination)
+    ]);
+
+    assert_ok!(Pallet::<Test>::on_event(&source, &data));
+}
+
+#[test]
 fn decoded_nft_bridge_events_schedule_a_mint() {
     ExtBuilder::default().build().execute_with(|| {
         let token_address_source = hex!["d9145cce52d386f254917e481eb44e9943f39138"];
