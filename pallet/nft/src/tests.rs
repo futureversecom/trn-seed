@@ -2744,10 +2744,5 @@ fn mints_multiple_specified_tokens_by_id() {
 	});
 
 	assert_ok!(Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids));
-	// Cannot re-mint
-	assert_err!(
-		Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids),
-		Error::<Test>::NoPermission
-	);
 	});
 }
