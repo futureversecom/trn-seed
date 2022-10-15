@@ -14,6 +14,7 @@
  */
 use crate::AccountId;
 use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;
 
@@ -26,6 +27,16 @@ pub type EventProofId = u64;
 /// Unique nonce for event claim requests
 pub type EventClaimId = u64;
 
+/// The index of an authority.
+pub type AuthorityIndex = u32;
+/// An ethy specific identifier for a bridged network
+#[derive(Encode, Decode, Debug, Eq, PartialEq, TypeInfo, Copy, Clone)]
+pub enum ChainId {
+	/// The Chain Id given to Ethereum by ethy
+	Ethereum = 1,
+	/// The Chain Id given to Xrpl by ethy
+	Xrpl = 2,
+}
 /// The session key type for bridge
 pub const BRIDGE_KEY_TYPE: KeyTypeId = KeyTypeId(*b"brg-");
 
@@ -65,13 +76,19 @@ impl<AuthorityId> ValidatorSet<AuthorityId> {
 	}
 }
 
-/// A consensus log item
+/// A consensus log item for ETHY.
 #[derive(Decode, Encode)]
 pub enum ConsensusLog<AuthorityId: Encode + Decode> {
+	/// The authorities have changed.
 	#[codec(index = 1)]
-	/// Signal an `AuthoritiesChange` is scheduled for next session
-	/// Generate a proof that the current validator set has witnessed the new authority set
-	PendingAuthoritiesChange(PendingAuthorityChange<AuthorityId>),
+	AuthoritiesChange(ValidatorSet<AuthorityId>),
+	/// Disable the authority with given index.
+	#[codec(index = 2)]
+	OnDisabled(AuthorityIndex),
+	/// A request from the runtime for ethy-gadget to sign some `data`
+	/// The format of `data` is determined by the bridging protocol for a given `chain_id`
+	#[codec(index = 3)]
+	OpaqueSigningRequest { chain_id: ChainId, event_proof_id: EventProofId, data: Vec<u8> },
 }
 /// Authority change data
 #[derive(Decode, Encode)]
