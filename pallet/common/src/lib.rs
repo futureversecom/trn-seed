@@ -248,7 +248,9 @@ pub trait EthyXrplBridgeAdapter<AuthorityId> {
 /// Interface for pallet-ethy and XRPL tx signing
 pub trait EventProofAdapter {
 	/// Request and generate a signature for the given tx data
-	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
+	fn sign_xrpl_transaction(
+		tx_data: &[u8],
+	) -> Result<seed_primitives::validator::EventProofId, DispatchError>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

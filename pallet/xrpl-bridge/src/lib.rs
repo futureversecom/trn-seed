@@ -33,7 +33,6 @@ use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
 use seed_pallet_common::{CreateExt, EventProofAdapter};
 use seed_primitives::{
-	ethy::crypto::AuthorityId,
 	xrpl::{
 		LedgerIndex, XrpTransaction, XrpWithdrawTransaction, XrplAddress, XrplTxData, XrplTxHash,
 		XrplTxNonce,

@@ -5,18 +5,15 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
-use sp_core::{ByteArray, H256};
+use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	DispatchError,
 };
 
-use seed_pallet_common::{EthyXrplBridgeAdapter, EventProofAdapter};
-use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
-	AccountId, AssetId, Balance, BlockNumber,
-};
+use seed_pallet_common::EventProofAdapter;
+use seed_primitives::{validator::EventProofId, AccountId, AssetId, Balance, BlockNumber};
 
 use crate as pallet_xrpl_bridge;
 

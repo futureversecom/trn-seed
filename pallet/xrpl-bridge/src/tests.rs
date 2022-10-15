@@ -2,7 +2,7 @@ use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
 use seed_primitives::{AccountId, Balance};
-use sp_core::{ByteArray, H160};
+use sp_core::H160;
 use sp_runtime::traits::BadOrigin;
 
 /// Helper function to create an AccountId from  a slice
