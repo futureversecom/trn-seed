@@ -14,13 +14,8 @@
  */
 use crate::eth_types::EthereumEventInfo;
 use codec::{Decode, Encode};
-use ethabi::Token;
-use ethereum_types::{Bloom, U64};
 use scale_info::TypeInfo;
-use seed_primitives::{
-	validator::{ChainId, EventProofId, ValidatorSetId},
-	EthAddress,
-};
+use seed_primitives::validator::ChainId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
 pub enum SigningRequest {

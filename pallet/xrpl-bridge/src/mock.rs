@@ -12,7 +12,7 @@ use sp_runtime::{
 	DispatchError,
 };
 
-use seed_pallet_common::EthyXrplBridgeAdapter;
+use seed_pallet_common::{EthyXrplBridgeAdapter, EventProofAdapter};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	AccountId, AssetId, Balance, BlockNumber,
@@ -159,23 +159,15 @@ impl pallet_xrpl_bridge::Config for Test {
 	type XrpAssetId = XrpAssetId;
 	type UnixTime = TimestampPallet;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
-	type EthyAdapter = MockEthyAdapter;
+	type EventProofAdapter = MockEventProofAdapter;
 }
 
-pub struct MockEthyAdapter;
+pub struct MockEventProofAdapter;
 
-impl EthyXrplBridgeAdapter<AuthorityId> for MockEthyAdapter {
+impl EventProofAdapter for MockEventProofAdapter {
 	/// Mock implementation of EthyXrplBridgeAdapter
 	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
 		Ok(1)
-	}
-	fn validators() -> Vec<AuthorityId> {
-		// some hard coded validators
-		vec![
-			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
-			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
-			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
-		]
 	}
 }
 

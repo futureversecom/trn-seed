@@ -2,56 +2,17 @@
 #![allow(clippy::unused_unit)]
 #![allow(clippy::upper_case_acronyms)]
 
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
-
 mod eth_types;
 mod impls;
 mod types;
 
-use frame_support::{
-	pallet_prelude::*,
-	traits::{
-		fungibles::{Inspect, Mutate, Transfer},
-		OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT,
-	},
-	weights::constants::RocksDbWeight as DbWeight,
-	PalletId,
-};
+use frame_support::{pallet_prelude::*, weights::constants::RocksDbWeight as DbWeight};
 
-use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
-use hex_literal::hex;
+use frame_system::offchain::CreateSignedTransaction;
 pub use pallet::*;
-use pallet_xrpl_bridge::XrplBridgeCall;
-use seed_pallet_common::{log, CreateExt, FinalSessionTracker as FinalSessionTrackerT};
-use seed_primitives::{
-	validator::{EventProofId, ValidatorSet},
-	AssetId, Balance,
-};
-use sp_core::H160;
-use sp_runtime::{
-	traits::Saturating, BoundToRuntimeAppPublic, Percent, RuntimeAppPublic, SaturatedConversion,
-	WeakBoundedVec,
-};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use seed_primitives::validator::EventProofId;
 
-pub(crate) const LOG_TARGET: &str = "validator_set";
 pub const ENGINE_ID: sp_runtime::ConsensusEngineId = *b"EGN-";
-/// The type to sign and send transactions.
-pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
-/// Max notarization claims to attempt per block/OCW invocation
-pub const CLAIMS_PER_BLOCK: usize = 1;
-/// Max eth_call checks to attempt per block/OCW invocation
-pub const CALLS_PER_BLOCK: usize = 1;
-/// The solidity selector of bridge events
-/// i.e. output of `keccak256('SubmitEvent(address,address,bytes)')` /
-/// `0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a`
-pub const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
-	hex!("0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a");
-
-type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
 #[frame_support::pallet]
 pub mod pallet {

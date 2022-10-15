@@ -31,7 +31,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
-use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
+use seed_pallet_common::{CreateExt, EventProofAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
 	xrpl::{
@@ -64,7 +64,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		type EthyAdapter: EthyXrplBridgeAdapter<AuthorityId>;
+		type EventProofAdapter: EventProofAdapter;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>
@@ -455,7 +455,7 @@ impl<T: Config> Pallet<T> {
 		);
 		let tx_blob = payment.binary_serialize(true);
 
-		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
+		T::EventProofAdapter::sign_xrpl_transaction(tx_blob.as_slice())
 	}
 
 	// Return the current door nonce and increment it in storage

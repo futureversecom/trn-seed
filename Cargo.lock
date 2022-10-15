@@ -4922,22 +4922,12 @@ dependencies = [
 name = "pallet-event-proof"
 version = "0.0.1"
 dependencies = [
- "async-trait",
  "ethabi",
  "ethereum-types",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "futures",
- "hex",
- "hex-literal",
- "pallet-assets",
- "pallet-assets-ext",
- "pallet-balances",
- "pallet-session",
- "pallet-xrpl-bridge",
  "parity-scale-codec",
- "rustc-hex",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
@@ -4946,12 +4936,8 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-io",
- "sp-keystore",
  "sp-runtime",
  "sp-std",
- "tokio",
- "tokio-tungstenite",
- "xrpl-rust",
 ]
 
 [[package]]

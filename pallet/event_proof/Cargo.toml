@@ -11,14 +11,6 @@ description = "Event proof for gadgets"
 targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
-hex-literal = { version = "0.3.4", default-features = false }
-hex = { version = "0.4.3", default-features = false }
-rustc-hex = { version = "2.1.0", default-features = false }
-async-trait = { version = "0.1.57", default-features = false }
-tokio-tungstenite = { version = "0.17.2", features = ["native-tls"] }
-futures = "0.3.21"
-tokio = { version = "1.20.1", features = ["full"] }
-
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", ] }
 frame-support = { git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", default-features = false }
 frame-system = {  git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", default-features = false }
@@ -31,21 +23,12 @@ sp-runtime = {  git = "https://github.com/futureversecom/substrate.git", branch 
 sp-std = {  git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", default-features = false }
 sp-application-crypto = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 frame-benchmarking = { default-features = false, git = "https://github.com/futureversecom/substrate.git", branch = "polkadot-v0.9.27", optional = true }
-pallet-assets = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-pallet-balances = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 
 ethabi = { version = "17.1.0", default-features = false}
 ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
-xrpl-rust = { git = "https://github.com/futureversecom/xrpl-rust.git", default-features = false, features = ["core", "models"] }
 
-pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
-pallet-xrpl-bridge = { path = "../xrpl-bridge", default-features = false }
-
-[dev-dependencies]
-pallet-session = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
-sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 [features]
 default = ['std']
@@ -62,7 +45,6 @@ std = [
     'frame-benchmarking/std',
     "seed-primitives/std",
     "seed-pallet-common/std",
-    "pallet-xrpl-bridge/std",
 ]
 
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]

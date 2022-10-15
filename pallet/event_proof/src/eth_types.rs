@@ -16,7 +16,6 @@
 //! Eth Bridge Types
 
 use codec::{Decode, Encode};
-use core::fmt;
 use ethabi::Token;
 use scale_info::TypeInfo;
 use seed_primitives::{
