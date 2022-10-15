@@ -145,7 +145,7 @@ where
 		let mut weight = 0;
 		let abi_decoded = match ethabi::decode(
 			&[
-				// // Bit to predetermine which function to route to; unused here
+				// Bit to predetermine which function to route to; unused here
 				ParamType::Uint(32),
 				// Token addresses
 				ParamType::Array(Box::new(ParamType::Address)),

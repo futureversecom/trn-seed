@@ -29,7 +29,6 @@ use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
 };
 
-use frame_system::{limits};
 use seed_pallet_common::OnTransferSubscriber;
 use seed_primitives::{TokenId};
 
