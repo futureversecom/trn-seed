@@ -18,7 +18,7 @@ use sp_runtime::{
 use codec::{Decode, Encode, MaxEncodedLen};
 pub use pallet::*;
 use seed_pallet_common::EthereumEventSubscriber;
-use sp_std::{boxed::Box, vec::Vec};
+use sp_std::{boxed::Box, vec, vec::Vec};
 
 #[cfg(test)]
 mod tests;
@@ -50,8 +50,13 @@ pub mod pallet {
 
 	// Map Ethereum Collection ids to Root collection ids
 	#[pallet::storage]
-	#[pallet::getter(fn mapped_collections)]
-	pub type CollectionsMapping<T: Config> = StorageMap<_, Twox64Concat, H160, u32, OptionQuery>;
+	#[pallet::getter(fn eth_to_root_nft)]
+	pub type EthToRootNft<T: Config> = StorageMap<_, Twox64Concat, H160, u32, OptionQuery>;
+
+	// Map Ethereum Collection ids to Root collection ids
+	#[pallet::storage]
+	#[pallet::getter(fn root_to_eth_nft)]
+	pub type RootNftToErc721<T: Config> = StorageMap<_, Twox64Concat, u32, H160, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn delayed_mints)]
@@ -66,6 +71,8 @@ pub mod pallet {
 		InvalidAbiPrefix,
 		/// No collection info found for the supposedly existing collection
 		NoCollectionInfo,
+		/// No mapped token was stored for bridging the token back to the counter party chain(Should not happen)
+		NoMappedTokenExists,
 		/// Tried to bridge a token that originates from Root, which is not yet supported
 		NoPermissionToBridge,
 		/// The state sync decoding feature is not implemented
@@ -78,8 +85,8 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		EthErc721Withdrawal {
-			collection_id: CollectionUuid,
-			token_ids: Vec<SerialNumber>,
+			token_addresses: Vec<H160>,
+			token_ids: Vec<Vec<U256>>,
 			// Root address to deposit the tokens into
 			destination: H160,
 		}
@@ -136,11 +143,10 @@ where
 {
 	fn decode_deposit_event(source: &sp_core::H160, data: &[u8]) -> Result<u64, (u64, DispatchError)> {
 		let mut weight = 0;
-
 		let abi_decoded = match ethabi::decode(
 			&[
 				// // Bit to predetermine which function to route to; unused here
-				// ParamType::Uint(8),
+				ParamType::Uint(32),
 				// Token addresses
 				ParamType::Array(Box::new(ParamType::Address)),
 				// Token ids
@@ -250,7 +256,7 @@ where
 
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
-			if let Some(root_collection_id) = Self::mapped_collections(address) {
+			if let Some(root_collection_id) = Self::eth_to_root_nft(address) {
 				pallet_nft::Pallet::<T>::do_mint_multiple(&destination, root_collection_id, current_collections_tokens)?;
 			} else {
 				let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
@@ -265,40 +271,56 @@ where
 				)
 				.unwrap();
 
-				CollectionsMapping::<T>::insert(source, new_collection_id);
+				// Populate both mappings, building the relationship between the counterparty chain token, and this chain's token
+				EthToRootNft::<T>::insert(source, new_collection_id);
+				RootNftToErc721::<T>::insert(new_collection_id, source);
 
 				pallet_nft::Pallet::<T>::do_mint_multiple(&destination, new_collection_id, current_collections_tokens)?;
 			}
 	};
-
-
-
-
 		Ok(())
 	}
 
-	// Accepts one or more Ethereum originated ERC721 tokens to be send back over the bridge
-	pub fn do_withdrawal(
-		who: T::AccountId,
-		collection_id: CollectionUuid,
-		token_ids: Vec<SerialNumber>,
+	// Accepts one or more Ethereum originated ERC721 tokens to be sent back over the bridge
+	pub fn do_withdraw(
+		who: H160,
+		collection_ids: Vec<CollectionUuid>,
+		token_ids: Vec<Vec<SerialNumber>>,
 		// Root address to deposit the tokens into
 		destination: H160,
 	) ->  Result<(), DispatchError>  {
-		if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
-			ensure!(collection_info.source_chain == OriginChain::Ethereum, Error::<T>::NoPermissionToBridge);
-		} else {
-			fail!(Error::<T>::NoCollectionInfo);
+		let mut source_collection_ids = vec![];
+		let mut source_token_ids: Vec<Vec<U256>>= vec![];
+
+		for (idx, collection_id) in collection_ids.into_iter().enumerate() {
+			if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
+				// At the time of writing, only Ethereum-originated NFTs can be bridged back.
+				ensure!(collection_info.source_chain == OriginChain::Ethereum, Error::<T>::NoPermissionToBridge);
+			} else {
+				fail!(Error::<T>::NoCollectionInfo);
+			}
+	
+			source_token_ids.push(vec![]);
+			
+			// Tokens stored here, as well as the outer loop should be bounded, so iterations are somewhat bounded as well, but there should be a way to reduce this complexity
+			for token_id in &token_ids[idx] {
+				// Burn tokens, will fail if they don't exist, are not owned
+				pallet_nft::Pallet::<T>::do_burn(&who.into(), collection_id, token_id)?;
+				source_token_ids[idx].push(
+					U256::from(token_id.clone())
+				)
+			}
+
+			// Lookup the source chain token id for this token and remove it from the mapping
+			let token_address = RootNftToErc721::<T>::take(collection_id)
+				.ok_or(Error::<T>::NoMappedTokenExists)?;
+			source_collection_ids.push(token_address);
 		}
 
-		for token_id in token_ids.iter() {
-			// Burn tokens, will fail if they don't exist, are not owned
-			pallet_nft::Pallet::<T>::do_burn(&who, collection_id, token_id)?;
-		}
 		// Fire event
 		Self::deposit_event(Event::EthErc721Withdrawal{ 
-			collection_id,
-			token_ids,
+			token_addresses: source_collection_ids,
+			token_ids: source_token_ids,
 			destination
 		});
 
