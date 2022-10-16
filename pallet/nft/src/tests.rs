@@ -2745,8 +2745,6 @@ fn mints_multiple_specified_tokens_by_id() {
 
 	assert!(Nft::token_balance(collection_owner).is_none());
 	assert_ok!(Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids));
-
 	assert!(Nft::token_balance(collection_owner).is_some());
-
 	});
 }

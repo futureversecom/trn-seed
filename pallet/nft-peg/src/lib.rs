@@ -257,6 +257,8 @@ where
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
 			if let Some(root_collection_id) = Self::eth_to_root_nft(address) {
+				EthToRootNft::<T>::insert(source, root_collection_id);
+				RootNftToErc721::<T>::insert(root_collection_id, source);
 				pallet_nft::Pallet::<T>::do_mint_multiple(&destination, root_collection_id, current_collections_tokens)?;
 			} else {
 				let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
@@ -272,9 +274,8 @@ where
 				.unwrap();
 
 				// Populate both mappings, building the relationship between the counterparty chain token, and this chain's token
-				EthToRootNft::<T>::insert(source, new_collection_id);
-				RootNftToErc721::<T>::insert(new_collection_id, source);
-
+				EthToRootNft::<T>::insert(address, new_collection_id);
+				RootNftToErc721::<T>::insert(new_collection_id, address);
 				pallet_nft::Pallet::<T>::do_mint_multiple(&destination, new_collection_id, current_collections_tokens)?;
 			}
 	};
