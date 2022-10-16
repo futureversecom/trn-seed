@@ -873,7 +873,6 @@ impl pallet_erc20_peg::Config for Runtime {
 }
 
 parameter_types! {
-	/// The ERC20 peg address
 	pub const NftPegPalletId: PalletId = PalletId(*b"  nftpeg");
 	pub const DelayLength: BlockNumber = 5;
 	pub const MaxAddresses: u32 = 30;
