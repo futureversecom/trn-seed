@@ -65,6 +65,10 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Send more addresses than are allowed
+		ExceedsMaxAddresses,
+		/// Sent more tokens than are allowed
+		ExceedsMaxTokens,
 		/// The abi data passed in could not be decoded
 		InvalidAbiEncoding,
 		/// The prefix uint in the abi encoded data was invalid
@@ -84,6 +88,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		Erc721DepositFailed(DispatchError),
 		EthErc721Withdrawal {
 			token_addresses: Vec<H160>,
 			token_ids: Vec<Vec<U256>>,
@@ -176,11 +181,11 @@ where
 				}
 			}).collect();
 
-			// Remove unwraps
-			let token_addresses: BoundedVec<H160, T::MaxAddresses> = BoundedVec::try_from(token_addresses).unwrap();
-				// .map_err(|_| (weight, Error::<T>::...?))?;
+			let token_addresses: BoundedVec<H160, T::MaxAddresses> = BoundedVec::try_from(token_addresses)
+				.map_err(|_| (weight, Error::<T>::InvalidAbiEncoding.into()))?;
 
-			let token_ids: Vec<BoundedVec<U256, T::MaxTokensPerCollection>> = token_ids.iter().filter_map(|k| {
+			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
+			let token_ids: Result<Vec<BoundedVec<U256, T::MaxTokensPerCollection>>, (u64, DispatchError)> = token_ids.iter().map(|k| {
 				if let Token::Array(token_ids) = k {
 					let new: Vec<U256> = token_ids.iter().filter_map(|j| {
 						if let Token::Uint(token_id) = j {
@@ -190,14 +195,14 @@ where
 						}
 					})
 					.collect();
-					let new: BoundedVec<U256, T::MaxTokensPerCollection> = BoundedVec::try_from(new).unwrap();
-					Some(new)
+					BoundedVec::try_from(new).map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))
 				} else {
-					None
+					Err((weight, Error::<T>::ExceedsMaxTokens.into()))
 				}
 			}).collect();
 
-			let token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses> = BoundedVec::try_from(token_ids).unwrap();
+			let token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses> = BoundedVec::try_from(token_ids?)
+				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
 
 			let process_mint_at_block = <frame_system::Pallet<T>>::block_number().saturating_add(
 				T::DelayLength::get()
@@ -270,8 +275,7 @@ where
 					metadata_scheme.clone(),
 					royalties_schedule.clone(),
 					source_chain.clone(),
-				)
-				.unwrap();
+				)?;
 
 				// Populate both mappings, building the relationship between the counterparty chain token, and this chain's token
 				EthToRootNft::<T>::insert(address, new_collection_id);
@@ -337,8 +341,7 @@ where
 	type SourceAddress = GetEthAddress<T>;
 
 	fn on_event(source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
-		// TODO: Count weight
-		let weight = 10000;
+		let weight = 0;
 
 		// Decode prefix from first 32 bytes of data
 		let prefix_decoded = match ethabi::decode(&[ParamType::Uint(32)], &data[..32]) {
