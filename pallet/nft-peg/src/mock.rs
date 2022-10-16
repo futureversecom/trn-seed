@@ -30,11 +30,10 @@ use sp_runtime::{
 };
 
 use seed_pallet_common::OnTransferSubscriber;
-use seed_primitives::{TokenId};
+use seed_primitives::TokenId;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-
 
 pub const XRP_ASSET_ID: AssetId = 1;
 pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
@@ -48,7 +47,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-        Nft: pallet_nft::{Pallet, Storage, Config<T>, Event<T>},
+		Nft: pallet_nft::{Pallet, Storage, Config<T>, Event<T>},
 		NftPeg: pallet_nft_peg::{Pallet, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>}
 	}

@@ -17,15 +17,15 @@ use super::*;
 use crate::mock::{
 	has_event, AccountId, AssetsExt, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 };
+use codec::Encode;
 use frame_support::{
-	assert_noop, assert_ok,
-	traits::{fungibles::Inspect, OnInitialize}, assert_err,
+	assert_err, assert_noop, assert_ok,
+	traits::{fungibles::Inspect, OnInitialize},
 };
 use seed_primitives::TokenId;
+use sp_core::{H160, U256};
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
-use sp_core::{H160, U256};
-use codec::Encode;
 
 // Create an NFT collection
 // Returns the created `collection_id`
@@ -2718,15 +2718,10 @@ fn cannot_mint_bridged_collections() {
 		.unwrap();
 
 		// Collection already exists on origin chain; not allowed to be minted here
-		assert_err!(Nft::mint(
-			Some(collection_owner).into(),
-			collection_id,
-			42069,
-			Some(token_owner),
-		),
-		Error::<Test>::AttemptedMintOnBridgedToken
-	);
-
+		assert_err!(
+			Nft::mint(Some(collection_owner).into(), collection_id, 42069, Some(token_owner),),
+			Error::<Test>::AttemptedMintOnBridgedToken
+		);
 	});
 }
 
@@ -2737,14 +2732,14 @@ fn mints_multiple_specified_tokens_by_id() {
 		let collection_id = 1;
 		let token_ids = [U256([0; 4])];
 
-	token_ids.iter().for_each(|i| {
-		let serial_number =  i.as_u32();
+		token_ids.iter().for_each(|i| {
+			let serial_number = i.as_u32();
 
-		assert_eq!(Nft::token_owner(collection_id, serial_number), None);
-	});
+			assert_eq!(Nft::token_owner(collection_id, serial_number), None);
+		});
 
-	assert!(Nft::token_balance(collection_owner).is_none());
-	assert_ok!(Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids));
-	assert!(Nft::token_balance(collection_owner).is_some());
+		assert!(Nft::token_balance(collection_owner).is_none());
+		assert_ok!(Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids));
+		assert!(Nft::token_balance(collection_owner).is_some());
 	});
 }

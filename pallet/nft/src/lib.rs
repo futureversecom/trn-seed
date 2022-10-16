@@ -427,7 +427,11 @@ pub mod pallet {
 			Ok(collection_uuid)
 		}
 
-		pub fn do_burn(who: &T::AccountId, collection_id: CollectionUuid, serial_number: &SerialNumber) -> DispatchResult {
+		pub fn do_burn(
+			who: &T::AccountId,
+			collection_id: CollectionUuid,
+			serial_number: &SerialNumber,
+		) -> DispatchResult {
 			ensure!(
 				!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
 				Error::<T>::TokenLocked
@@ -438,26 +442,25 @@ pub mod pallet {
 			);
 			<TokenOwner<T>>::remove(collection_id, serial_number);
 
-			let _ =
-				<TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(who, |mut balances| {
-					match &mut balances {
-						Some(balances) => {
-							match (balances).get_mut(&collection_id) {
-								Some(balance) => {
-									let new_balance = balance.saturating_sub(1);
-									if new_balance.is_zero() {
-										balances.remove(&collection_id);
-									} else {
-										*balance = new_balance;
-									}
-									Ok(())
-								},
-								None => return Err(Error::NoToken.into()), // should not happen
-							}
-						},
-						None => return Err(Error::NoToken.into()), // should not happen
-					}
-				})?;
+			let _ = <TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(who, |mut balances| {
+				match &mut balances {
+					Some(balances) => {
+						match (balances).get_mut(&collection_id) {
+							Some(balance) => {
+								let new_balance = balance.saturating_sub(1);
+								if new_balance.is_zero() {
+									balances.remove(&collection_id);
+								} else {
+									*balance = new_balance;
+								}
+								Ok(())
+							},
+							None => return Err(Error::NoToken.into()), // should not happen
+						}
+					},
+					None => return Err(Error::NoToken.into()), // should not happen
+				}
+			})?;
 
 			if let Some(collection_issuance) = Self::collection_issuance(collection_id) {
 				if collection_issuance.saturating_sub(1).is_zero() {
@@ -475,14 +478,14 @@ pub mod pallet {
 
 			Ok(())
 		}
-
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(10000)]
-		/// Bridged collections from Ethereum may lack an owner. These collections will be assigned to the pallet.
-		/// This allows for claiming those collections assuming they were assigned to the pallet
+		/// Bridged collections from Ethereum may lack an owner. These collections will be assigned
+		/// to the pallet. This allows for claiming those collections assuming they were assigned to
+		/// the pallet
 		pub fn claim_unowned_collection(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -664,7 +667,7 @@ pub mod pallet {
 					);
 				}
 			} else {
-				return Err(Error::<T>::NoCollection.into());
+				return Err(Error::<T>::NoCollection.into())
 			}
 
 			let owner = token_owner.unwrap_or(origin);
@@ -748,7 +751,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
-				return Err(Error::<T>::NoToken.into());
+				return Err(Error::<T>::NoToken.into())
 			}
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace_id)?;
@@ -844,7 +847,7 @@ pub mod pallet {
 					seller: listing.seller,
 				});
 			} else {
-				return Err(Error::<T>::NotForFixedPriceSale.into());
+				return Err(Error::<T>::NotForFixedPriceSale.into())
 			}
 			Ok(())
 		}
@@ -875,7 +878,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
-				return Err(Error::<T>::NoToken.into());
+				return Err(Error::<T>::NoToken.into())
 			}
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace_id)?;
@@ -986,7 +989,7 @@ pub mod pallet {
 				});
 				Ok(())
 			} else {
-				return Err(Error::<T>::NotForAuction.into());
+				return Err(Error::<T>::NotForAuction.into())
 			}
 		}
 
