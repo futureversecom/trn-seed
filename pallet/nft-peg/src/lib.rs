@@ -74,7 +74,7 @@ pub mod pallet {
 		InvalidAbiPrefix,
 		/// No collection info found for the supposedly existing collection
 		NoCollectionInfo,
-		/// No mapped token was stored for bridging the token back to the counter party
+		/// No mapped token was stored for bridging the token back to the bridged chain
 		/// chain(Should not happen)
 		NoMappedTokenExists,
 		/// Tried to bridge a token that originates from Root, which is not yet supported
@@ -299,7 +299,7 @@ where
 					source_chain.clone(),
 				)?;
 
-				// Populate both mappings, building the relationship between the counterparty chain
+				// Populate both mappings, building the relationship between the bridged chain
 				// token, and this chain's token
 				EthToRootNft::<T>::insert(address, new_collection_id);
 				RootNftToErc721::<T>::insert(new_collection_id, address);
@@ -381,8 +381,7 @@ where
 		// match prefix and route to specific decoding path
 		if let [Token::Uint(prefix)] = prefix_decoded.as_slice() {
 			let prefix: u32 = (*prefix).saturated_into();
-			// TODO: get the correct split of prefix versus rest of data to optimize decoding
-			// let data = &data[33..];
+			// TODO: get the correct split of prefix versus rest of data to optimize decoding i.e. let data = &data[~33..];
 
 			match prefix {
 				1_u32 => Self::decode_deposit_event(source, data),

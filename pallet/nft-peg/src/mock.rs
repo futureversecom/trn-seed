@@ -144,7 +144,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const PegPalletId: PalletId = PalletId(*b"py/erc20");
+	pub const PegPalletId: PalletId = PalletId(*b"  nftpeg");
 }
 
 pub struct MockTransferSubscriber;
@@ -170,7 +170,6 @@ impl pallet_nft::Config for Test {
 }
 
 parameter_types! {
-	/// The ERC20 peg address
 	pub const NftPegPalletId: PalletId = PalletId(*b"  nftpeg");
 	pub const DelayLength: BlockNumber = 5;
 	pub const MaxAddresses: u32 = 30;
