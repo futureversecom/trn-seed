@@ -361,7 +361,7 @@ decl_module! {
 					destination: *destination,
 					data: data.clone(),
 				};
-				
+
 				PendingEventClaims::insert(event_id, &event_claim);
 
 				// TODO: there should be some limit per block

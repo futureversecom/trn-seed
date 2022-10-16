@@ -4,15 +4,14 @@ use core::marker::PhantomData;
 
 use ethabi::{ParamType, Token};
 // Pallet for managing NFTs bridged from *x* chain
-use frame_support::{ensure, traits::Get, PalletId, BoundedVec, fail};
+use frame_support::{ensure, fail, traits::Get, BoundedVec, PalletId};
 use pallet_nft::OriginChain;
 use scale_info::TypeInfo;
 use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{
-	SaturatedConversion,
 	traits::{AccountIdConversion, Saturating},
-	DispatchError,
+	DispatchError, SaturatedConversion,
 };
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -21,9 +20,9 @@ use seed_pallet_common::EthereumEventSubscriber;
 use sp_std::{boxed::Box, vec, vec::Vec};
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 pub mod mock;
+#[cfg(test)]
+mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -61,7 +60,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn delayed_mints)]
 	pub type DelayedMints<T: Config> =
-	StorageMap<_, Twox64Concat, T::BlockNumber, PeggedNftInfo<T>, OptionQuery>;
+		StorageMap<_, Twox64Concat, T::BlockNumber, PeggedNftInfo<T>, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -75,7 +74,8 @@ pub mod pallet {
 		InvalidAbiPrefix,
 		/// No collection info found for the supposedly existing collection
 		NoCollectionInfo,
-		/// No mapped token was stored for bridging the token back to the counter party chain(Should not happen)
+		/// No mapped token was stored for bridging the token back to the counter party
+		/// chain(Should not happen)
 		NoMappedTokenExists,
 		/// Tried to bridge a token that originates from Root, which is not yet supported
 		NoPermissionToBridge,
@@ -94,24 +94,25 @@ pub mod pallet {
 			token_ids: Vec<Vec<U256>>,
 			// Root address to deposit the tokens into
 			destination: H160,
-		}
+		},
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		fn on_initialize(block: T::BlockNumber) -> Weight {
 			let weight = 0;
 
-			// If we get a value back for the current block, that means that a mint is scheduled for now
+			// If we get a value back for the current block, that means that a mint is scheduled for
+			// now
 			if let Some(peg_info) = Self::delayed_mints(block) {
 				Self::do_deposit(
 					&peg_info.source,
 					peg_info.token_addresses,
 					peg_info.token_ids,
-					peg_info.destination
+					peg_info.destination,
 				);
 			}
 
@@ -119,7 +120,6 @@ pub mod pallet {
 		}
 	}
 }
-
 
 pub struct GetEthAddress<T>(PhantomData<T>);
 
@@ -136,17 +136,21 @@ pub struct PeggedNftInfo<T: Config> {
 	source: H160,
 	/// NFT token addresses
 	token_addresses: BoundedVec<H160, T::MaxAddresses>,
-	/// List of token ids. For a given address `n` from `token_addresses`, its corresponding token ids exist at `token_ids[n]`.
-	token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>,T::MaxAddresses>,
+	/// List of token ids. For a given address `n` from `token_addresses`, its corresponding token
+	/// ids exist at `token_ids[n]`.
+	token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses>,
 	/// The address to send the tokens to
-	destination: H160
+	destination: H160,
 }
 
 impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn decode_deposit_event(source: &sp_core::H160, data: &[u8]) -> Result<u64, (u64, DispatchError)> {
+	fn decode_deposit_event(
+		source: &sp_core::H160,
+		data: &[u8],
+	) -> Result<u64, (u64, DispatchError)> {
 		let mut weight = 0;
 		let abi_decoded = match ethabi::decode(
 			&[
@@ -165,55 +169,67 @@ where
 			Err(_) => return Err((weight, Error::<T>::InvalidAbiEncoding.into())),
 		};
 
-		if let [
-			Token::Uint(_),
-			Token::Array(token_addresses),
-			Token::Array(token_ids),
-			Token::Address(destination)
-		] =
-		abi_decoded.as_slice()
+		if let [Token::Uint(_), Token::Array(token_addresses), Token::Array(token_ids), Token::Address(destination)] =
+			abi_decoded.as_slice()
 		{
-			let token_addresses: Vec<H160> = token_addresses.into_iter().filter_map(|k| {
-				if let Token::Address(decoded) = k {
-					Some(decoded.clone())
-				} else {
-					None
-				}
-			}).collect();
+			let token_addresses: Vec<H160> = token_addresses
+				.into_iter()
+				.filter_map(|k| {
+					if let Token::Address(decoded) = k {
+						Some(decoded.clone())
+					} else {
+						None
+					}
+				})
+				.collect();
 
-			let token_addresses: BoundedVec<H160, T::MaxAddresses> = BoundedVec::try_from(token_addresses)
-				.map_err(|_| (weight, Error::<T>::InvalidAbiEncoding.into()))?;
+			let token_addresses: BoundedVec<H160, T::MaxAddresses> =
+				BoundedVec::try_from(token_addresses)
+					.map_err(|_| (weight, Error::<T>::InvalidAbiEncoding.into()))?;
 
 			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
-			let token_ids: Result<Vec<BoundedVec<U256, T::MaxTokensPerCollection>>, (u64, DispatchError)> = token_ids.iter().map(|k| {
-				if let Token::Array(token_ids) = k {
-					let new: Vec<U256> = token_ids.iter().filter_map(|j| {
-						if let Token::Uint(token_id) = j {
-							Some(token_id.clone())
-						} else {
-							None
-						}
-					})
-					.collect();
-					BoundedVec::try_from(new).map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))
-				} else {
-					Err((weight, Error::<T>::ExceedsMaxTokens.into()))
-				}
-			}).collect();
+			let token_ids: Result<
+				Vec<BoundedVec<U256, T::MaxTokensPerCollection>>,
+				(u64, DispatchError),
+			> = token_ids
+				.iter()
+				.map(|k| {
+					if let Token::Array(token_ids) = k {
+						let new: Vec<U256> = token_ids
+							.iter()
+							.filter_map(|j| {
+								if let Token::Uint(token_id) = j {
+									Some(token_id.clone())
+								} else {
+									None
+								}
+							})
+							.collect();
+						BoundedVec::try_from(new)
+							.map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))
+					} else {
+						Err((weight, Error::<T>::ExceedsMaxTokens.into()))
+					}
+				})
+				.collect();
 
-			let token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses> = BoundedVec::try_from(token_ids?)
+			let token_ids: BoundedVec<
+				BoundedVec<U256, T::MaxTokensPerCollection>,
+				T::MaxAddresses,
+			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
 
-			let process_mint_at_block = <frame_system::Pallet<T>>::block_number().saturating_add(
-				T::DelayLength::get()
-			);
+			let process_mint_at_block =
+				<frame_system::Pallet<T>>::block_number().saturating_add(T::DelayLength::get());
 
-			DelayedMints::<T>::insert(process_mint_at_block, PeggedNftInfo {
-				source: source.clone(),
-				token_addresses,
-				token_ids,
-				destination: destination.clone()
-				}
+			DelayedMints::<T>::insert(
+				process_mint_at_block,
+				PeggedNftInfo {
+					source: source.clone(),
+					token_addresses,
+					token_ids,
+					destination: destination.clone(),
+				},
 			);
 
 			weight = T::DbWeight::get().writes(1);
@@ -230,15 +246,17 @@ where
 		Err((0, Error::<T>::StateSyncDisabled.into()))
 	}
 
-	// Accept some representation of one or more tokens from an outside source, and create a Root-side representation of them
-	// Expects ERC721 tokens sent and verified through the existing bridge
+	// Accept some representation of one or more tokens from an outside source, and create a
+	// Root-side representation of them Expects ERC721 tokens sent and verified through the existing
+	// bridge
 	fn do_deposit(
 		// Sending contract address
 		source: &H160,
 		// Addresses of the tokens
 		token_addresses: BoundedVec<H160, T::MaxAddresses>,
-		// Lists of token ids for the above addresses(For a given address `n`, its tokens are at `token_ids[n]`)
-		token_ids: BoundedVec<BoundedVec<U256,T::MaxTokensPerCollection>, T::MaxAddresses>,
+		// Lists of token ids for the above addresses(For a given address `n`, its tokens are at
+		// `token_ids[n]`)
+		token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses>,
 		// Root address to deposit the tokens into
 		destination: H160,
 	) -> Result<(), DispatchError> {
@@ -262,9 +280,13 @@ where
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
 			if let Some(root_collection_id) = Self::eth_to_root_nft(address) {
-				EthToRootNft::<T>::insert(source, root_collection_id);
-				RootNftToErc721::<T>::insert(root_collection_id, source);
-				pallet_nft::Pallet::<T>::do_mint_multiple(&destination, root_collection_id, current_collections_tokens)?;
+				EthToRootNft::<T>::insert(address, root_collection_id);
+				RootNftToErc721::<T>::insert(root_collection_id, address);
+				pallet_nft::Pallet::<T>::do_mint_multiple(
+					&destination,
+					root_collection_id,
+					current_collections_tokens,
+				)?;
 			} else {
 				let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 					collection_owner_account,
@@ -277,12 +299,17 @@ where
 					source_chain.clone(),
 				)?;
 
-				// Populate both mappings, building the relationship between the counterparty chain token, and this chain's token
+				// Populate both mappings, building the relationship between the counterparty chain
+				// token, and this chain's token
 				EthToRootNft::<T>::insert(address, new_collection_id);
 				RootNftToErc721::<T>::insert(new_collection_id, address);
-				pallet_nft::Pallet::<T>::do_mint_multiple(&destination, new_collection_id, current_collections_tokens)?;
+				pallet_nft::Pallet::<T>::do_mint_multiple(
+					&destination,
+					new_collection_id,
+					current_collections_tokens,
+				)?;
 			}
-	};
+		}
 		Ok(())
 	}
 
@@ -293,40 +320,42 @@ where
 		token_ids: Vec<Vec<SerialNumber>>,
 		// Root address to deposit the tokens into
 		destination: H160,
-	) ->  Result<(), DispatchError>  {
+	) -> Result<(), DispatchError> {
 		let mut source_collection_ids = vec![];
-		let mut source_token_ids: Vec<Vec<U256>>= vec![];
+		let mut source_token_ids: Vec<Vec<U256>> = vec![];
 
 		for (idx, collection_id) in collection_ids.into_iter().enumerate() {
 			if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
 				// At the time of writing, only Ethereum-originated NFTs can be bridged back.
-				ensure!(collection_info.source_chain == OriginChain::Ethereum, Error::<T>::NoPermissionToBridge);
+				ensure!(
+					collection_info.source_chain == OriginChain::Ethereum,
+					Error::<T>::NoPermissionToBridge
+				);
 			} else {
 				fail!(Error::<T>::NoCollectionInfo);
 			}
-	
+
 			source_token_ids.push(vec![]);
-			
-			// Tokens stored here, as well as the outer loop should be bounded, so iterations are somewhat bounded as well, but there should be a way to reduce this complexity
+
+			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
+			// somewhat bounded as well, but there should be a way to reduce this complexity
 			for token_id in &token_ids[idx] {
 				// Burn tokens, will fail if they don't exist, are not owned
 				pallet_nft::Pallet::<T>::do_burn(&who.into(), collection_id, token_id)?;
-				source_token_ids[idx].push(
-					U256::from(token_id.clone())
-				)
+				source_token_ids[idx].push(U256::from(token_id.clone()))
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
-			let token_address = RootNftToErc721::<T>::take(collection_id)
-				.ok_or(Error::<T>::NoMappedTokenExists)?;
+			let token_address =
+				RootNftToErc721::<T>::take(collection_id).ok_or(Error::<T>::NoMappedTokenExists)?;
 			source_collection_ids.push(token_address);
 		}
 
 		// Fire event
-		Self::deposit_event(Event::EthErc721Withdrawal{ 
+		Self::deposit_event(Event::EthErc721Withdrawal {
 			token_addresses: source_collection_ids,
 			token_ids: source_token_ids,
-			destination
+			destination,
 		});
 
 		Ok(())
@@ -361,7 +390,7 @@ where
 				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
 		} else {
-			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
+			return Err((weight, Error::<T>::InvalidAbiPrefix.into()))
 		}
 	}
 }
