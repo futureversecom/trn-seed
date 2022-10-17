@@ -10,7 +10,7 @@ use scale_info::TypeInfo;
 use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{
-	traits::{AccountIdConversion, Saturating},
+	traits::{AccountIdConversion},
 	DispatchError, SaturatedConversion,
 };
 
@@ -27,7 +27,9 @@ mod tests;
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_support::transactional;
 	use frame_system::pallet_prelude::*;
+	use frame_system::ensure_signed;
 	use seed_primitives::EthAddress;
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -44,8 +46,6 @@ pub mod pallet {
 		type EthBridge: EthereumBridge;
 	}
 
-	// TODO: We should consider whether it makes more sense to refer to one contract centrally
-	// across the node
 	#[pallet::storage]
 	#[pallet::getter(fn contract_address)]
 	pub type ContractAddress<T> = StorageValue<_, EthAddress, ValueQuery>;
@@ -94,26 +94,22 @@ pub mod pallet {
 		Erc721DepositFailed(DispatchError),
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
+	#[pallet::call]
+	impl<T: Config> Pallet<T>
 	where
-		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
-		fn on_initialize(block: T::BlockNumber) -> Weight {
-			let weight = 0;
-
-			// If we get a value back for the current block, that means that a mint is scheduled for
-			// now
-			if let Some(peg_info) = Self::delayed_mints(block) {
-				Self::do_deposit(
-					&peg_info.source,
-					peg_info.token_addresses,
-					peg_info.token_ids,
-					peg_info.destination,
-				);
-			}
-
-			weight
+		#[pallet::weight(10000)]
+		#[transactional]
+		pub fn withdraw(
+			origin: OriginFor<T>,
+			collection_ids: Vec<CollectionUuid>,
+			token_ids: Vec<Vec<SerialNumber>>,
+			destination: H160,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_withdraw(H160::from(who.into()), collection_ids, token_ids, destination)?;
+			Ok(().into())
 		}
 	}
 }
@@ -216,18 +212,12 @@ where
 			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
 
-			let process_mint_at_block =
-				<frame_system::Pallet<T>>::block_number().saturating_add(T::DelayLength::get());
-
-			DelayedMints::<T>::insert(
-				process_mint_at_block,
-				PeggedNftInfo {
-					source: source.clone(),
-					token_addresses,
-					token_ids,
-					destination: destination.clone(),
-				},
-			);
+			Self::do_deposit(
+				&source,
+				token_addresses,
+				token_ids,
+				*destination,
+			).map_err(|err| (weight, err))?;
 
 			weight = T::DbWeight::get().writes(1);
 
