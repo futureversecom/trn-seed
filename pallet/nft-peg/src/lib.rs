@@ -207,10 +207,10 @@ where
 			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
 
-			Self::do_deposit(token_addresses, token_ids, *destination)
+			let do_deposit_weight = Self::do_deposit(token_addresses, token_ids, *destination)
 				.map_err(|err| (weight, err))?;
 
-			weight = T::DbWeight::get().writes(1);
+			weight = T::DbWeight::get().writes(1).saturating_add(do_deposit_weight);
 
 			Ok(weight)
 		} else {
@@ -235,7 +235,9 @@ where
 		token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses>,
 		// Root address to deposit the tokens into
 		destination: H160,
-	) -> Result<(), DispatchError> {
+	) -> Result<u64, DispatchError> {
+		let mut weight = 0;
+
 		let initial_issuance: u32 = token_addresses.len() as u32;
 		let max_issuance = None;
 		let royalties_schedule = None;
@@ -253,11 +255,14 @@ where
 			let collection_owner_account =
 				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
+			// Weight for do_mint_multiple. TODO: return from do_mint_multiple
+			weight = (current_collections_tokens.len() as u64).saturating_mul(
+				(T::DbWeight::get().writes(2).saturating_add(T::DbWeight::get().reads(1))).saturating_add(
+					T::DbWeight::get().writes(2).saturating_add(T::DbWeight::get().reads(2))
+			));
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
 			if let Some(root_collection_id) = Self::eth_to_root_nft(address) {
-				EthToRootNft::<T>::insert(address, root_collection_id);
-				RootNftToErc721::<T>::insert(root_collection_id, address);
 				pallet_nft::Pallet::<T>::do_mint_multiple(
 					&destination,
 					root_collection_id,
@@ -284,9 +289,10 @@ where
 					new_collection_id,
 					current_collections_tokens,
 				)?;
+				weight = weight.saturating_add(T::DbWeight::get().writes(2));
 			}
 		}
-		Ok(())
+		Ok(weight)
 	}
 
 	// Accepts one or more Ethereum originated ERC721 tokens to be sent back over the bridge
