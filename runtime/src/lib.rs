@@ -875,7 +875,7 @@ impl pallet_erc20_peg::Config for Runtime {
 parameter_types! {
 	pub const NftPegPalletId: PalletId = PalletId(*b"rn/nftpg");
 	pub const DelayLength: BlockNumber = 5;
-	pub const MaxAddresses: u32 = 5;
+	pub const MaxAddresses: u32 = 10;
 	pub const MaxIdsPerMultipleMint: u32 = 50;
 }
 
