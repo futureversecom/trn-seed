@@ -84,7 +84,7 @@ impl<T: Config> Pallet<T> {
 				metadata_scheme,
 				royalties_schedule: None,
 				max_issuance: None,
-				source_chain,
+				source_chain: source_chain.clone(),
 			},
 		);
 
