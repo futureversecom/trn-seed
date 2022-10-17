@@ -20,6 +20,7 @@ use crate::mock::{
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
+	storage::StorageMap,
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use seed_primitives::TokenId;
@@ -123,6 +124,65 @@ fn make_new_simple_offer(
 	}));
 
 	(next_offer_id, offer)
+}
+
+#[test]
+fn migration_v0_to_v1() {
+	use frame_support::traits::OnRuntimeUpgrade;
+	use migration::v1_storage;
+
+	TestExt::default().build().execute_with(|| {
+		// setup old values
+		v1_storage::CollectionInfo::<Test>::insert(
+			123,
+			v1_storage::CollectionInformation::<AccountId> {
+				owner: 123_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
+				max_issuance: None,
+			},
+		);
+		v1_storage::CollectionInfo::<Test>::insert(
+			124,
+			v1_storage::CollectionInformation::<AccountId> {
+				owner: 124_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
+				max_issuance: None,
+			},
+		);
+
+		// run upgrade
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V0);
+		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		assert_eq!(
+			CollectionInfo::<Test>::get(123).expect("listing exists"),
+			CollectionInformation::<AccountId> {
+				owner: 123_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
+				max_issuance: None,
+				source_chain: OriginChain::Root,
+			},
+		);
+		assert_eq!(
+			CollectionInfo::<Test>::get(124).expect("listing exists"),
+			CollectionInformation::<AccountId> {
+				owner: 124_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
+				max_issuance: None,
+				source_chain: OriginChain::Root,
+			},
+		);
+
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V1);
+	});
 }
 
 #[test]

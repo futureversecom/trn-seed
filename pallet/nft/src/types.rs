@@ -33,6 +33,23 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 /// OfferId type used to distinguish different offers on NFTs
 pub type OfferId = u64;
 
+// A value placed in storage that represents the current version of the NFT storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// This should match directly with the semantic versions of the Rust crate.
+#[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq, TypeInfo)]
+pub enum Releases {
+	/// storage version pre-runtime v1
+	V0,
+	/// storage version > runtime v13
+	V1,
+}
+
+impl Default for Releases {
+	fn default() -> Self {
+		Releases::V0
+	}
+}
+
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub struct SimpleOffer<AccountId> {
@@ -67,6 +84,7 @@ pub struct CollectionInformation<AccountId> {
 	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
 	// Maximum number of tokens allowed in a collection
 	pub max_issuance: Option<TokenCount>,
+	// The chain in which the collection was minted originally
 	pub source_chain: OriginChain,
 }
 

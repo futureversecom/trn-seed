@@ -28,8 +28,10 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use frame_support::{ensure, traits::Get, transactional, PalletId};
-use seed_pallet_common::{Hold, OnTransferSubscriber, TransferExt};
+use frame_support::{
+	ensure, traits::Get, transactional, weights::constants::RocksDbWeight as DbWeight, PalletId,
+};
+use seed_pallet_common::{log, Hold, OnTransferSubscriber, TransferExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
@@ -46,6 +48,7 @@ mod weights;
 use weights::WeightInfo;
 
 mod impls;
+mod migration;
 mod types;
 
 pub use impls::*;
@@ -89,6 +92,7 @@ pub mod pallet {
 			NextMarketplaceId::<T>::put(1 as MarketplaceId);
 			NextListingId::<T>::put(1 as ListingId);
 			NextOfferId::<T>::put(1 as OfferId);
+			StorageVersion::<T>::put(Releases::V1);
 		}
 	}
 
@@ -204,6 +208,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn next_offer_id)]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
+
+	/// Version of this module's storage schema
+	#[pallet::storage]
+	pub type StorageVersion<T> = StorageValue<_, Releases, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -364,6 +372,40 @@ pub mod pallet {
 			let removed_count = Self::close_listings_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
 			T::WeightInfo::buy() * removed_count as Weight
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			use frame_support::IterableStorageMap;
+			use migration::v1_storage;
+
+			if <StorageVersion<T>>::get() == Releases::V0 {
+				<StorageVersion<T>>::put(Releases::V1);
+
+				let old_collection_info: Vec<(
+					CollectionUuid,
+					v1_storage::CollectionInformation<T::AccountId>,
+				)> = v1_storage::CollectionInfo::<T>::iter().collect();
+
+				let weight = old_collection_info.len() as Weight;
+				for (collection_id, info) in old_collection_info {
+					let collection_info_migrated = types::CollectionInformation {
+						owner: info.owner,
+						name: info.name,
+						metadata_scheme: info.metadata_scheme,
+						royalties_schedule: info.royalties_schedule,
+						max_issuance: info.max_issuance,
+						source_chain: OriginChain::Root,
+					};
+
+					<CollectionInfo<T>>::insert(collection_id, collection_info_migrated);
+				}
+
+				log!(warn, "🃏 collection info migrated");
+				return 6_000_000 as Weight +
+					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
+			} else {
+				Zero::zero()
+			}
 		}
 	}
 
