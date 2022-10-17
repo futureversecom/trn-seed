@@ -44,7 +44,8 @@ pub mod pallet {
 		type EthBridge: EthereumBridge;
 	}
 
-	// TODO: We should consider whether it makes more sense to refer to one contract centrally across the node
+	// TODO: We should consider whether it makes more sense to refer to one contract centrally
+	// across the node
 	#[pallet::storage]
 	#[pallet::getter(fn contract_address)]
 	pub type ContractAddress<T> = StorageValue<_, EthAddress, ValueQuery>;
@@ -384,7 +385,8 @@ where
 		// match prefix and route to specific decoding path
 		if let [Token::Uint(prefix)] = prefix_decoded.as_slice() {
 			let prefix: u32 = (*prefix).saturated_into();
-			// TODO: get the correct split of prefix versus rest of data to optimize decoding i.e. let data = &data[~33..];
+			// TODO: get the correct split of prefix versus rest of data to optimize decoding i.e.
+			// let data = &data[~33..];
 
 			match prefix {
 				1_u32 => Self::decode_deposit_event(source, data),
@@ -392,7 +394,7 @@ where
 				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
 		} else {
-			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
+			return Err((weight, Error::<T>::InvalidAbiPrefix.into()))
 		}
 	}
 }

@@ -186,7 +186,7 @@ where
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue;
+					continue
 				},
 			};
 			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
@@ -216,14 +216,14 @@ where
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue;
+					continue
 				},
 			};
 			let signature = match self.key_store.sign_prehashed(&authority_id, &digest) {
 				Ok(sig) => sig,
 				Err(err) => {
 					error!(target: "ethy", "💎 error signing witness: {:?}", err);
-					continue;
+					continue
 				},
 			};
 
@@ -333,7 +333,7 @@ where
 		// only share if it's the first time witnessing the event
 		if let Err(err) = self.witness_record.note_event_witness(&witness) {
 			warn!(target: "ethy", "💎 failed to note witness: {:?}, {:?}", witness, err);
-			return;
+			return
 		}
 
 		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
@@ -355,7 +355,7 @@ where
 			let event_metadata = self.witness_record.event_metadata(event_id);
 			if event_metadata.is_none() {
 				debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
-				return;
+				return
 			}
 		}
 
@@ -387,13 +387,11 @@ where
 				self.backend.as_ref(),
 				&[(proof_key.as_ref(), versioned_event_proof.encode().as_ref())],
 				&[],
-			)
-			{
+			) {
 				// this is a warning for now, because until the round lifecycle is improved, we will
 				// conclude certain rounds multiple times.
 				error!(target: "ethy", "💎 failed to store proof: {:?} for key [{:?}, {:?}]. Error received: {:?}", event_proof, proof_key, versioned_event_proof.encode(), err);
 			}
-
 
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC
 			// subscriptions
