@@ -508,55 +508,16 @@ pub mod pallet {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
-			// Check we can issue the new tokens
-			let collection_uuid = Self::next_collection_uuid()?;
-
-			// Check max issuance is valid
-			if let Some(max_issuance) = max_issuance {
-				ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
-				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
-			}
-
-			// Validate collection attributes
-			ensure!(
-				!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
-				Error::<T>::CollectionNameInvalid
-			);
-			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
-			let metadata_scheme =
-				metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
-			if let Some(royalties_schedule) = royalties_schedule.clone() {
-				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
-			}
-
-			<CollectionInfo<T>>::insert(
-				collection_uuid,
-				CollectionInformation {
-					owner: origin.clone(),
-					name,
-					metadata_scheme,
-					royalties_schedule,
-					max_issuance,
-					// Always default to chain == Root for creation actions from extrinsics
-					source_chain: OriginChain::Root,
-				},
-			);
-
-			// Now mint the collection tokens
-			let token_owner = token_owner.unwrap_or(origin);
-			if initial_issuance > Zero::zero() {
-				Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
-			}
-			// will not overflow, asserted prior qed.
-			<NextCollectionId<T>>::mutate(|i| *i += u32::one());
-
-			Self::deposit_event(Event::<T>::CollectionCreate {
-				collection_uuid,
-				token_count: initial_issuance,
-				owner: token_owner,
-			});
-
+			Self::do_create_collection(
+				origin,
+				name,
+				initial_issuance,
+				max_issuance,
+				token_owner,
+				metadata_scheme,
+				royalties_schedule,
+				OriginChain::Root,
+			)?;
 			Ok(())
 		}
 
@@ -601,7 +562,9 @@ pub mod pallet {
 
 			let owner = token_owner.unwrap_or(origin);
 
-			Self::do_mint(&owner, collection_id, serial_number, quantity)?;
+			let token_ids: Vec<SerialNumber> = (serial_number..quantity).collect();
+			Self::do_mint(&owner, collection_id, token_ids, OriginChain::Root)?;
+
 			Self::deposit_event(Event::<T>::Mint {
 				collection_id,
 				first_serial_number: serial_number,
