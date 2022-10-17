@@ -932,7 +932,7 @@ construct_runtime! {
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
-		NftPeg: pallet_nft_peg::{Pallet, Storage, Event<T>}
+		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>}
 	}
 }
 
