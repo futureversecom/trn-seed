@@ -13,7 +13,7 @@ struct TestVals {
 	token_address: H160,
 	destination: H160,
 	inner_token_id: U256,
-	data: Vec<u8>
+	data: Vec<u8>,
 }
 
 impl Default for TestVals {
@@ -22,7 +22,8 @@ impl Default for TestVals {
 		let destination_source = hex!["5b38da6a701c568545dcfcb03fcb875f56beddc4"];
 		let token_address = H160::from(token_address_source);
 		let destination = H160::from(destination_source);
-		// A positional bit sent by the contract that the pallet looks at to determine which function to clal
+		// A positional bit sent by the contract that the pallet looks at to determine which
+		// function to call
 		let designated_function = 1;
 		// Represents a test token in a collection
 		let inner_token_id = U256::from(1);
@@ -38,7 +39,7 @@ impl Default for TestVals {
 				Token::Array(vec![Token::Address(token_address)]),
 				Token::Array(vec![Token::Array(vec![Token::Uint(inner_token_id)])]),
 				Token::Address(destination),
-			])
+			]),
 		}
 	}
 }
@@ -122,8 +123,10 @@ fn scheduled_mint_events_create_nfts() {
 		let test_vals = TestVals::default();
 		let peg_info = PeggedNftInfo::<Test> {
 			source: test_vals.source,
-			token_addresses: BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address])
-				.unwrap(),
+			token_addresses: BoundedVec::<H160, MaxAddresses>::try_from(vec![
+				test_vals.token_address,
+			])
+			.unwrap(),
 			token_ids:
 				BoundedVec::<BoundedVec<U256, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(vec![
 					BoundedVec::<U256, MaxIdsPerMultipleMint>::try_from(vec![U256::from(
@@ -178,8 +181,14 @@ fn do_deposit_creates_tokens_and_collection() {
 			test_vals.destination
 		));
 
-		assert_eq!(Pallet::<Test>::eth_to_root_nft(test_vals.token_address), Some(expected_collection_id));
-		assert_eq!(Pallet::<Test>::root_to_eth_nft(expected_collection_id), Some(test_vals.token_address));
+		assert_eq!(
+			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			Some(expected_collection_id)
+		);
+		assert_eq!(
+			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			Some(test_vals.token_address)
+		);
 		Nft::collection_exists(expected_collection_id);
 		assert_eq!(
 			Nft::token_balance(AccountId20::from(test_vals.destination))
@@ -213,8 +222,14 @@ fn do_deposit_works_with_existing_bridged_collection() {
 			test_vals.destination
 		));
 
-		assert_eq!(Pallet::<Test>::eth_to_root_nft(test_vals.token_address), Some(expected_collection_id));
-		assert_eq!(Pallet::<Test>::root_to_eth_nft(expected_collection_id), Some(test_vals.token_address));
+		assert_eq!(
+			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			Some(expected_collection_id)
+		);
+		assert_eq!(
+			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			Some(test_vals.token_address)
+		);
 		Nft::collection_exists(expected_collection_id);
 		assert_eq!(
 			Nft::token_balance(AccountId20::from(test_vals.destination))
@@ -237,8 +252,14 @@ fn do_deposit_works_with_existing_bridged_collection() {
 			test_vals.destination
 		));
 
-		assert_eq!(Pallet::<Test>::eth_to_root_nft(test_vals.token_address), Some(expected_collection_id));
-		assert_eq!(Pallet::<Test>::root_to_eth_nft(expected_collection_id), Some(test_vals.token_address));
+		assert_eq!(
+			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			Some(expected_collection_id)
+		);
+		assert_eq!(
+			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			Some(test_vals.token_address)
+		);
 		// Then balance is increased. Existing collection was updated with new token
 		assert_eq!(
 			Nft::token_balance(AccountId20::from(test_vals.destination))
@@ -255,15 +276,7 @@ fn do_withdraw_works() {
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let test_vals = TestVals::default();
 
-		// NFT bridge data encoded
-		let data = ethabi::encode(&[
-			Token::Uint(U256::from(1)),
-			Token::Array(vec![Token::Address(test_vals.token_address)]),
-			Token::Array(vec![Token::Array(vec![Token::Uint(test_vals.inner_token_id)])]),
-			Token::Address(test_vals.destination),
-		]);
-
-		assert_ok!(Pallet::<Test>::on_event(&test_vals.source, &data));
+		assert_ok!(Pallet::<Test>::on_event(&test_vals.source, &test_vals.data));
 		// Wait for mint to occur
 		NftPeg::on_initialize(6);
 
@@ -277,7 +290,9 @@ fn do_withdraw_works() {
 		));
 
 		assert_eq!(
-			Nft::token_balance(AccountId20::from(test_vals.destination)).unwrap().get(&collection_id),
+			Nft::token_balance(AccountId20::from(test_vals.destination))
+				.unwrap()
+				.get(&collection_id),
 			Some(&1)
 		);
 	});

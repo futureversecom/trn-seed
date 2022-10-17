@@ -483,9 +483,9 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(10000)]
-		/// Bridged collections from Ethereum may lack an owner. These collections will be assigned
-		/// to the pallet. This allows for claiming those collections assuming they were assigned to
-		/// the pallet
+		/// Bridged collections from Ethereum will initially lack an owner. These collections will
+		/// be assigned to the pallet. This allows for claiming those collections assuming they were
+		/// assigned to the pallet
 		pub fn claim_unowned_collection(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,

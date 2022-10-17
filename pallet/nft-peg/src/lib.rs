@@ -343,7 +343,8 @@ where
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
-			let token_address = Pallet::<T>::root_to_eth_nft(collection_id).ok_or(Error::<T>::NoMappedTokenExists)?;
+			let token_address = Pallet::<T>::root_to_eth_nft(collection_id)
+				.ok_or(Error::<T>::NoMappedTokenExists)?;
 			source_collection_ids.push(Token::Address(token_address));
 		}
 
