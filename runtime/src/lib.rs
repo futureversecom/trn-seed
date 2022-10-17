@@ -873,9 +873,9 @@ impl pallet_erc20_peg::Config for Runtime {
 }
 
 parameter_types! {
-	pub const NftPegPalletId: PalletId = PalletId(*b"  nftpeg");
+	pub const NftPegPalletId: PalletId = PalletId(*b"rn/nftpg");
 	pub const DelayLength: BlockNumber = 5;
-	pub const MaxAddresses: u32 = 30;
+	pub const MaxAddresses: u32 = 5;
 	pub const MaxIdsPerMultipleMint: u32 = 50;
 }
 
@@ -885,6 +885,7 @@ impl pallet_nft_peg::Config for Runtime {
 	type DelayLength = DelayLength;
 	type MaxAddresses = MaxAddresses;
 	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type EthBridge = EthBridge;
 }
 
 construct_runtime! {

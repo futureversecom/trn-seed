@@ -16,7 +16,7 @@ use sp_runtime::{
 
 use codec::{Decode, Encode, MaxEncodedLen};
 pub use pallet::*;
-use seed_pallet_common::EthereumEventSubscriber;
+use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
 use sp_std::{boxed::Box, vec, vec::Vec};
 
 #[cfg(test)]
@@ -41,8 +41,10 @@ pub mod pallet {
 		type DelayLength: Get<Self::BlockNumber>;
 		type MaxAddresses: Get<u32>;
 		type MaxTokensPerCollection: Get<u32>;
+		type EthBridge: EthereumBridge;
 	}
 
+	// TODO: We should consider whether it makes more sense to refer to one contract centrally across the node
 	#[pallet::storage]
 	#[pallet::getter(fn contract_address)]
 	pub type ContractAddress<T> = StorageValue<_, EthAddress, ValueQuery>;
@@ -88,13 +90,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		Erc721DepositFailed(DispatchError),
-		EthErc721Withdrawal {
-			token_addresses: Vec<H160>,
-			token_ids: Vec<Vec<U256>>,
-			// Root address to deposit the tokens into
-			destination: H160,
-		},
+		Erc721DepositFailed(DispatchError)
 	}
 
 	#[pallet::hooks]
@@ -322,7 +318,7 @@ where
 		destination: H160,
 	) -> Result<(), DispatchError> {
 		let mut source_collection_ids = vec![];
-		let mut source_token_ids: Vec<Vec<U256>> = vec![];
+		let mut source_token_ids = vec![];
 
 		for (idx, collection_id) in collection_ids.into_iter().enumerate() {
 			if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
@@ -335,28 +331,39 @@ where
 				fail!(Error::<T>::NoCollectionInfo);
 			}
 
+			// Allocate space
 			source_token_ids.push(vec![]);
 
 			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
 			// somewhat bounded as well, but there should be a way to reduce this complexity
 			for token_id in &token_ids[idx] {
-				// Burn tokens, will fail if they don't exist, are not owned
 				pallet_nft::Pallet::<T>::do_burn(&who.into(), collection_id, token_id)?;
-				source_token_ids[idx].push(U256::from(token_id.clone()))
+
+				source_token_ids[idx].push(
+					Token::Uint(U256::from(token_id.clone()))
+				)
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
 			let token_address =
 				RootNftToErc721::<T>::take(collection_id).ok_or(Error::<T>::NoMappedTokenExists)?;
-			source_collection_ids.push(token_address);
+
+			EthToRootNft::<T>::remove(token_address);
+			source_collection_ids.push(Token::Address(token_address));
 		}
 
-		// Fire event
-		Self::deposit_event(Event::EthErc721Withdrawal {
-			token_addresses: source_collection_ids,
-			token_ids: source_token_ids,
-			destination,
-		});
+		let source = <T as pallet::Config>::PalletId::get().into_account_truncating();
+		let source_token_ids = source_token_ids.into_iter().map(|k| {
+			Token::Array(k)
+		}).collect();
+
+		let messsage = ethabi::encode(&[
+			Token::Array(source_collection_ids),
+			Token::Array(source_token_ids),
+			Token::Address(destination)
+		]);
+
+		T::EthBridge::send_event(&source, &Pallet::<T>::contract_address(), &messsage)?;
 
 		Ok(())
 	}
