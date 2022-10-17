@@ -4717,6 +4717,9 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "rustc-hex",
@@ -7298,7 +7301,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.9"
+version = "0.0.13"
 dependencies = [
  "clap",
  "ethy-gadget",

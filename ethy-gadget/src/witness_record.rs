@@ -19,7 +19,7 @@ use std::collections::HashMap;
 
 use seed_primitives::ethy::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
-	AuthorityIndex, EthyChainId, EventProofId, Witness,
+	AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
 };
 
 use crate::types::EventMetadata;
@@ -54,10 +54,12 @@ pub struct WitnessRecord {
 	event_meta: HashMap<EventProofId, EventMetadata>,
 	/// Tracks observed witnesses from event -> validator Id
 	has_witnessed: HashMap<EventProofId, Vec<AuthorityId>>,
-	/// The ECDSA public (session) keys of active validators ORDERED! (managed by pallet-session &
-	/// pallet-ethy)
-	validators: Vec<AuthorityId>,
-	/// The record of confirmed witnesses `event_id -> [(validator index, validator signature)]`
+	/// The secp256k1 public (session) keys of all active validators ORDERED! (managed by
+	/// pallet-session & pallet-ethy)
+	validators: ValidatorSet<AuthorityId>,
+	/// The secp256k1 public (session) keys of the XRPL validators (subset of all validators)
+	xrpl_validators: ValidatorSet<AuthorityId>,
+	/// The record of witnesses `event_id -> [(validator index, validator signature)]`
 	witnesses: HashMap<EventProofId, Vec<(AuthorityIndex, Signature)>>,
 	/// The record of unverified witnesses `event_id -> [(validator index, validator signature)]`
 	unverified_witnesses: HashMap<EventProofId, Vec<Witness>>,
@@ -66,9 +68,14 @@ pub struct WitnessRecord {
 }
 
 impl WitnessRecord {
-	/// Set the validator keys
-	pub fn set_validators(&mut self, validators: Vec<AuthorityId>) {
+	/// Set the active `ValidatorSet` for ethy and the XRPL subset
+	pub fn set_validators(
+		&mut self,
+		validators: ValidatorSet<AuthorityId>,
+		xrpl_validators: ValidatorSet<AuthorityId>,
+	) {
 		self.validators = validators;
+		self.xrpl_validators = xrpl_validators;
 	}
 	/// Remove a witness record from memory (typically after it has achieved consensus)
 	pub fn mark_complete(&mut self, event_id: EventProofId) {
@@ -91,12 +98,39 @@ impl WitnessRecord {
 		}
 	}
 	/// Does the event identified by `event_id` `digest` have >= `threshold` support
-	pub fn has_consensus(&self, event_id: EventProofId, threshold: usize) -> bool {
+	pub fn has_consensus(&self, event_id: EventProofId, chain_id: EthyChainId) -> bool {
 		trace!(target: "ethy", "💎 event {:?}, witnesses: {:?}", event_id, self.witnesses.get(&event_id));
-		let maybe_count = self.witnesses.get(&event_id).map(|v| v.len());
 
-		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, maybe_count);
-		maybe_count.unwrap_or_default() >= threshold
+		let proof_threshold = match chain_id {
+			EthyChainId::Ethereum => self.validators.proof_threshold as usize,
+			EthyChainId::Xrpl => self.xrpl_validators.proof_threshold as usize,
+		};
+
+		let witness_count = match chain_id {
+			EthyChainId::Ethereum => self.witnesses.get(&event_id).map(|w| w.len()),
+			EthyChainId::Xrpl => self.witnesses.get(&event_id).map(|w| {
+				// ethy tracks all witnesses but only a subset are able to be submitted to XRPL
+				// count signatures from the XRPL authorized signers only
+				w.iter()
+					.filter(|(idx, _sig)| {
+						let ethy_pub_key = self.validators.validators.get(*idx as usize);
+						if let Some(ethy_pub_key) = ethy_pub_key {
+							self.xrpl_validators.authority_index(ethy_pub_key).is_some()
+						} else {
+							false
+						}
+					})
+					.count()
+			}),
+		}
+		.unwrap_or(0_usize);
+
+		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, witness_count);
+		let no_consensus = witness_count >= proof_threshold;
+		if no_consensus {
+			trace!(target: "ethy", "💎 Ethy is not getting consensus because witness_count of {:?} >= proof_threshold {:?}", witness_count, proof_threshold);
+		}
+		no_consensus
 	}
 	/// Return event metadata
 	pub fn event_metadata(&self, event_id: EventProofId) -> Option<&EventMetadata> {
@@ -166,12 +200,11 @@ impl WitnessRecord {
 			return Ok(WitnessStatus::DigestUnverified)
 		};
 
-		// Convert authority ECDSA public key into ordered index
+		// Convert authority secp256k1 public key into ordered index
 		// this is useful to efficiently generate the full proof later
 		let authority_index = self
 			.validators
-			.iter()
-			.position(|v| v == &witness.authority_id)
+			.authority_index(&witness.authority_id)
 			.ok_or(WitnessError::UnknownAuthority)? as AuthorityIndex;
 
 		// There are 2 cases:
@@ -233,7 +266,9 @@ fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 mod test {
 	use sp_application_crypto::Pair;
 
-	use seed_primitives::ethy::{crypto::AuthorityPair, AuthorityIndex, EthyChainId, Witness};
+	use seed_primitives::ethy::{
+		crypto::AuthorityPair, AuthorityIndex, EthyChainId, ValidatorSet, Witness,
+	};
 
 	use super::{compact_sequence, Signature, WitnessError, WitnessRecord, WitnessStatus};
 
@@ -244,12 +279,21 @@ mod test {
 		vec![alice_pair, bob_pair, charlie_pair]
 	}
 
+	fn dev_signers_xrpl() -> Vec<AuthorityPair> {
+		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
+		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
+		vec![alice_pair, bob_pair]
+	}
+
 	#[test]
 	fn proof_signatures_ordered_by_validator_index() {
 		let validator_keys = dev_signers();
 		let mut witness_record = WitnessRecord {
 			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
-			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
 			..Default::default()
 		};
 
@@ -291,8 +335,10 @@ mod test {
 	fn note_event_witness_duplicate_witness() {
 		let validator_keys = dev_signers();
 		let mut witness_record = WitnessRecord {
-			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
-			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
 			..Default::default()
 		};
 
@@ -335,8 +381,10 @@ mod test {
 	fn note_event_witness_mismatched_digest() {
 		let validator_keys = dev_signers();
 		let mut witness_record = WitnessRecord {
-			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
-			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
 			..Default::default()
 		};
 
@@ -365,8 +413,14 @@ mod test {
 	fn note_event_witness_mismatched_digest_xrpl() {
 		let validator_keys = dev_signers();
 		let mut witness_record = WitnessRecord {
-			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
-			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			xrpl_validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
 			..Default::default()
 		};
 
@@ -419,7 +473,10 @@ mod test {
 		let validator_keys = dev_signers();
 		let mut witness_record = WitnessRecord {
 			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
-			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
 			..Default::default()
 		};
 
@@ -463,16 +520,20 @@ mod test {
 		let validator_keys = dev_signers();
 		let mut witness_record = WitnessRecord {
 			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
-			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				proof_threshold: 2,
+				..Default::default()
+			},
 			..Default::default()
 		};
-
+		let chain_id = EthyChainId::Ethereum;
 		let event_id = 5_u64;
 		let digest = [1_u8; 32];
 		let alice_validator = &validator_keys[0];
 		let witness = &Witness {
 			digest,
-			chain_id: EthyChainId::Ethereum,
+			chain_id,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: alice_validator.public(),
@@ -480,12 +541,12 @@ mod test {
 		};
 
 		assert!(witness_record.note_event_witness(witness).is_ok());
-		assert!(!witness_record.has_consensus(event_id, 2));
+		assert!(!witness_record.has_consensus(event_id, chain_id));
 
 		let bob_validator = &validator_keys[1];
 		let witness = &Witness {
 			digest,
-			chain_id: EthyChainId::Ethereum,
+			chain_id,
 			event_id,
 			validator_set_id: 5_u64,
 			authority_id: bob_validator.public(),
@@ -493,8 +554,9 @@ mod test {
 		};
 
 		assert!(witness_record.note_event_witness(witness).is_ok());
+
 		// unverified
-		assert!(!witness_record.has_consensus(event_id, 2));
+		assert!(!witness_record.has_consensus(event_id, chain_id));
 
 		witness_record.note_event_metadata(
 			event_id,
@@ -504,7 +566,71 @@ mod test {
 		);
 		witness_record.process_unverified_witnesses(event_id);
 
-		assert!(witness_record.has_consensus(event_id, 2));
+		assert!(witness_record.has_consensus(event_id, chain_id));
+		assert!(witness_record.has_consensus(event_id, chain_id));
+	}
+
+	#[test]
+	fn has_consensus_xrpl() {
+		let xrpl_validator_keys = dev_signers_xrpl();
+		let validator_keys = dev_signers();
+		let validator_set_id = 1_u64;
+		let mut witness_record = WitnessRecord {
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				proof_threshold: 3,
+				id: validator_set_id,
+			},
+			xrpl_validators: ValidatorSet {
+				validators: xrpl_validator_keys.iter().map(|x| x.public()).collect(),
+				proof_threshold: 2,
+				id: validator_set_id,
+			},
+			..Default::default()
+		};
+		let chain_id = EthyChainId::Xrpl;
+		let event_id = 5_u64;
+		let digest = [1_u8; 32];
+		let alice_validator = &validator_keys[0];
+		let witness = &Witness {
+			digest,
+			chain_id,
+			event_id,
+			validator_set_id,
+			authority_id: alice_validator.public(),
+			signature: alice_validator.sign(&digest),
+		};
+		witness_record.note_event_metadata(event_id, digest, Default::default(), EthyChainId::Xrpl);
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
+		assert!(!witness_record.has_consensus(event_id, chain_id));
+
+		// charlie is not an XRPL signer so cannot affect consensus
+		let charlie_validator = &validator_keys[2];
+		let witness = &Witness {
+			digest,
+			chain_id,
+			event_id,
+			validator_set_id,
+			authority_id: charlie_validator.public(),
+			signature: charlie_validator.sign(&digest),
+		};
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
+		assert!(!witness_record.has_consensus(event_id, chain_id));
+
+		// bob signs and we have consensus
+		let bob_validator = &validator_keys[1];
+		let witness = &Witness {
+			digest,
+			chain_id,
+			event_id,
+			validator_set_id,
+			authority_id: bob_validator.public(),
+			signature: bob_validator.sign(&digest),
+		};
+		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
+		witness_record.process_unverified_witnesses(event_id);
+
+		assert!(witness_record.has_consensus(event_id, chain_id));
 	}
 
 	#[test]
@@ -512,7 +638,10 @@ mod test {
 		let validator_keys = dev_signers();
 		let mut witness_record = WitnessRecord {
 			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
-			validators: validator_keys.iter().map(|x| x.public()).collect(),
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
 			..Default::default()
 		};
 

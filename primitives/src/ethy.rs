@@ -96,10 +96,24 @@ pub struct ValidatorSet<AuthorityId> {
 	pub proof_threshold: u32,
 }
 
-impl<AuthorityId> ValidatorSet<AuthorityId> {
+impl Default for ValidatorSet<AuthorityId> {
+	fn default() -> Self {
+		Self::empty()
+	}
+}
+
+impl ValidatorSet<AuthorityId> {
 	/// Return an empty validator set with id of 0.
 	pub fn empty() -> Self {
 		Self { validators: Default::default(), id: Default::default(), proof_threshold: 0 }
+	}
+	/// Return whether the validator set is empty or not
+	pub fn is_empty(&self) -> bool {
+		self.validators.is_empty()
+	}
+	/// Return the authority index of `who` in the validator set
+	pub fn authority_index(&self, who: &AuthorityId) -> Option<usize> {
+		self.validators.iter().position(|v| v == who)
 	}
 }
 
@@ -134,9 +148,7 @@ pub struct Witness {
 	pub validator_set_id: ValidatorSetId,
 	/// Node public key (i.e. Ethy session key)
 	pub authority_id: AuthorityId,
-	/// Node signature
-	/// Over `keccak(abi.encodePacked(self.message, self.nonce))`
-	/// a 512-bit value, plus 8 bits for recovery ID.
+	/// ECDSA signature over `digest`
 	pub signature: AuthoritySignature,
 }
 
@@ -229,8 +241,10 @@ sp_api::decl_runtime_apis! {
 	/// Runtime API for ETHY validators.
 	pub trait EthyApi
 	{
-		/// Return the Ethy validator set for `chain_id` (i.e Secp256k1 public keys of the authorized validator set)
+		/// Return the Ethy validator set (i.e Secp256k1 public keys of the authorized validator set)
 		fn validator_set() -> ValidatorSet<AuthorityId>;
+		/// Return the (subset) of Ethy validators configured for XRPL signing (i.e Secp256k1 public keys of the authorized validator set)
+		fn xrpl_signers() -> ValidatorSet<AuthorityId>;
 	}
 }
 

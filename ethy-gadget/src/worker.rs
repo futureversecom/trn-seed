@@ -22,10 +22,11 @@ use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, FinalityNotification};
 use sc_network_gossip::GossipEngine;
 use sp_api::BlockId;
+use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
-	traits::{Block, Convert, Header},
+	traits::{Block, Convert, Header, One},
 };
 
 use seed_primitives::ethy::{
@@ -40,7 +41,7 @@ use crate::{
 	metric_inc, metric_set,
 	metrics::Metrics,
 	notification,
-	types::{make_proof_key, EventMetadata, ProofRequest},
+	types::{data_to_digest, make_proof_key, EventMetadata, ProofRequest},
 	witness_record::WitnessRecord,
 	Client,
 };
@@ -136,19 +137,23 @@ where
 	C::Api: EthyApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
-	/// Return the current active validator set at header `header`.
+	/// Return the active validator set at `header`.
+	///
+	/// The returned set is prioritized as follows:
+	/// 1) validator set from a block signalling new set
+	/// 2) otherwise, query the runtime state
 	///
 	/// Note that the validator set could be `None`. This is the case if we don't find
-	/// a ETHY authority set change and we can't fetch the authority set from the
-	/// ETHY on-chain state.
+	/// an Ethy authority set change and we can't fetch the authority set from the
+	/// Ethy on-chain state.
 	///
-	/// Such a failure is usually an indication that the ETHY pallet has not been deployed (yet).
+	/// Such a failure is usually an indication that the Ethy pallet has not been deployed (yet).
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		let new = if let Some(new) = find_authorities_change::<B>(header) {
 			Some(new)
 		} else {
-			let at = BlockId::hash(header.hash());
 			// queries the Ethy pallet to get the active validator set public keys
+			let at = BlockId::hash(header.hash());
 			self.client.runtime_api().validator_set(&at).ok()
 		};
 
@@ -157,47 +162,33 @@ where
 		new
 	}
 
+	/// Return the signers authorized for signing XRPL messages
+	/// It is always a subset of the total ethy `validator_set`
+	///
+	/// note: XRPL cannot make use of the total signer set and is limited to 8 total signers
+	///
+	/// Always query the chain state incase the authorized list changed
+	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
+		let at = BlockId::hash(header.hash());
+		let xrpl_signers = self.client.runtime_api().xrpl_signers(&at).ok();
+		trace!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
+
+		xrpl_signers
+	}
+
 	/// Handle finality notification for non-signers (no locally available validator keys)
 	fn handle_finality_notification_passive(&mut self, notification: FinalityNotification<B>) {
 		for ProofRequest { chain_id, event_id, data, block } in
 			extract_proof_requests::<B>(&notification.header).into_iter()
 		{
 			trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
-
-			// it's possible the event already has a proof stored e.g.
-			// ethy protocol completed by validators for the event and broadcast prior to the
-			// finalized block being imported locally if so update the proof's block hash
-			let proof_key = make_proof_key(chain_id, event_id);
-			let get_proof = Backend::get_aux(self.backend.as_ref(), proof_key.as_ref());
-
-			// Try update the existing proof if it exists
-			if let Ok(Some(encoded_proof)) = get_proof {
-				if let Ok(VersionedEventProof::V1 { 0: mut proof }) =
-					VersionedEventProof::decode(&mut &encoded_proof[..])
-				{
-					proof.block = block;
-					if let Err(err) = Backend::insert_aux(
-						self.backend.as_ref(),
-						&[(proof_key.as_ref(), VersionedEventProof::V1(proof).encode().as_ref())],
-						&[],
-					) {
-						error!(target: "ethy", "💎 failed to update existing proof: {:?}, {:?}", event_id, err);
-						continue
-					}
-				} else {
-					error!(target: "ethy", "💎 failed decoding event proof v1: {:?}", event_id);
-					continue
-				}
-			}
-
-			let digest = match crate::types::data_to_digest(chain_id, data, [0_u8; 33]) {
+			let digest = match data_to_digest(chain_id, data, [0_u8; 33]) {
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
 					continue
 				},
 			};
-
 			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
 			// with the event metadata available we may be able to make a proof (provided there's
 			// enough witnesses ready)
@@ -205,45 +196,14 @@ where
 		}
 	}
 
-	/// Check finalized blocks for proof requests
-	fn handle_finality_notification(&mut self, notification: FinalityNotification<B>) {
-		debug!(target: "ethy", "💎 finality notification: {:?}", notification);
-		let number = *notification.header.number();
-
-		// On start-up ignore old finality notifications that we're not interested in.
-		if number <= *self.best_grandpa_block_header.number() {
-			debug!(target: "ethy", "💎 Got unexpected finality for old block #{:?}", number);
-			return
-		}
-
-		if let Some(active) = self.validator_set(&notification.header) {
-			// Authority set change or genesis set id triggers new voting rounds
-			// this block has a different validator set id to the one we know about OR
-			// it's the first block
-			if active.id != self.validator_set.id ||
-				(active.id == GENESIS_AUTHORITY_SET_ID &&
-					self.validator_set.validators.is_empty())
-			{
-				debug!(target: "ethy", "💎 new active validator set: {:?}", active);
-				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
-				metric_set!(self, ethy_validator_set_id, active.id);
-				self.gossip_validator.set_active_validators(active.validators.clone());
-				self.witness_record.set_validators(active.validators.clone());
-				self.validator_set = active;
-			}
-		}
-
-		let authority_id = if let Some(id) =
-			self.key_store.authority_id(self.validator_set.validators.as_slice())
-		{
-			trace!(target: "ethy", "💎 Local authority id: {:?}", id);
-			id
-		} else {
-			trace!(target: "ethy", "💎 No authority id - can't vote for events in: {:?}", notification.header.hash());
-			return self.handle_finality_notification_passive(notification)
-		};
+	/// Handle processing finalized block events for active validators (requires local active, ethy
+	/// key)
+	fn handle_finality_notification_active(
+		&mut self,
+		notification: FinalityNotification<B>,
+		authority_id: Public,
+	) {
 		let authority_public_key = EthyEcdsaToPublicKey::convert(authority_id.clone());
-
 		// Search block header for ethy signing requests
 		// Then sign and broadcast a witness
 		for ProofRequest { chain_id, event_id, data, block } in
@@ -252,7 +212,7 @@ where
 			debug!(target: "ethy", "💎 got event proof request. chain_id: {:?}. event id: {:?}, data: {:?}", chain_id, event_id, hex::encode(&data));
 
 			// `data` must be transformed into a 32 byte digest before signing
-			let digest = match crate::types::data_to_digest(chain_id, data, authority_public_key) {
+			let digest = match data_to_digest(chain_id, data, authority_public_key) {
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
@@ -290,8 +250,78 @@ where
 			self.gossip_engine.gossip_message(topic::<B>(), broadcast_witness, false);
 			debug!(target: "ethy", "💎 gossiped witness for event: {:?}", witness.event_id);
 		}
+	}
 
-		self.best_grandpa_block_header = notification.header;
+	/// Check finalized blocks for proof requests
+	fn handle_finality_notification(&mut self, notification: FinalityNotification<B>) {
+		debug!(target: "ethy", "💎 finality notification: {:?}", notification);
+		let new_header = notification.header.clone();
+		let number = *new_header.number();
+
+		// On start-up ignore old finality notifications that we're not interested in.
+		if number <= *self.best_grandpa_block_header.number() {
+			debug!(target: "ethy", "💎 unexpected finality for old block #{:?}", number);
+			return
+		}
+
+		// block finality notifications are un-reliable and may skip block numbers but ethy requires
+		// all blocks are processed. ensure we backfill all blocks between the the last processed
+		// block by ethy and the new finalized block notification
+		if number > *self.best_grandpa_block_header.number() + One::one() {
+			debug!(target: "ethy", "💎 finality notification for non-sequential future block #{:?}", number);
+			match self.backend.blockchain().header(BlockId::Number(number - One::one())) {
+				Ok(Some(parent_header)) => {
+					let n = FinalityNotification {
+						hash: parent_header.hash(),
+						header: parent_header.clone(),
+						// these fields are unused by ethy
+						tree_route: Arc::new([]),
+						stale_heads: Arc::new([]),
+					};
+					self.handle_finality_notification(n);
+				},
+				Ok(None) => {
+					error!(target: "ethy", "💎 missing prior block #{:?}", number - One::one())
+				},
+				Err(err) => {
+					error!(target: "ethy", "💎 error fetching prior block #{:?}. {:?}", number - One::one(), err)
+				},
+			}
+		}
+
+		// Check the block for any validator set changes and update local view
+		if let Some(active) = self.validator_set(&new_header) {
+			// Authority set change or genesis set id triggers new authorities
+			// this block has a different validator set id to the one we know about OR
+			// it's the first block
+			if self.validator_set.is_empty() ||
+				active.id != self.validator_set.id ||
+				active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty()
+			{
+				debug!(target: "ethy", "💎 new active validator set: {:?}", active);
+				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
+				metric_set!(self, ethy_validator_set_id, active.id);
+				self.gossip_validator.set_active_validators(active.validators.clone());
+				self.witness_record.set_validators(
+					active.clone(),
+					self.xrpl_validator_set(&new_header).unwrap_or_default(),
+				);
+				self.validator_set = active;
+			}
+		}
+
+		// Process proof requests
+		if let Some(authority_id) =
+			self.key_store.authority_id(self.validator_set.validators.as_slice())
+		{
+			trace!(target: "ethy", "💎 Local authority id: {:?}", authority_id);
+			self.handle_finality_notification_active(notification, authority_id)
+		} else {
+			trace!(target: "ethy", "💎 No authority id - can't witness events in: {:?}", new_header.hash());
+			self.handle_finality_notification_passive(notification)
+		};
+
+		self.best_grandpa_block_header = new_header;
 	}
 
 	/// Note an individual witness for a message
@@ -334,43 +364,35 @@ where
 		let EventMetadata { chain_id, block_hash, digest } =
 			self.witness_record.event_metadata(event_id).unwrap();
 
-		let proof_threshold = self.validator_set.proof_threshold as usize;
-		if proof_threshold < self.validator_set.validators.len() / 2 {
-			// safety check, < 50% doesn't make sense
-			error!(target: "ethy", "💎 Ethy proof threshold too low!: {:?}, validator set: {:?}", proof_threshold, self.validator_set.validators.len());
-			return
-		}
+		let signatures = self.witness_record.signatures_for(event_id);
+		let event_proof = EventProof {
+			digest: *digest,
+			event_id,
+			validator_set_id: self.validator_set.id,
+			block: *block_hash,
+			signatures: signatures.clone(),
+		};
 
-		// TODO: if chain_id is XRPL this must be a majority of the XRPL validators only, not any
-		// majority
-		if self.witness_record.has_consensus(event_id, proof_threshold) {
-			let signatures = self.witness_record.signatures_for(event_id);
+		if self.witness_record.has_consensus(event_id, *chain_id) {
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", event_id, signatures, self.validator_set.id);
 
-			let event_proof = EventProof {
-				digest: *digest,
-				event_id,
-				validator_set_id: self.validator_set.id,
-				block: *block_hash,
-				signatures,
-			};
 			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
 
 			// Add proof to the DB that this event has been notarized specifically by the
 			// given threshold of validators
 			// DB key is (engine_id + chain_id + proof_id)
 			let proof_key = make_proof_key(*chain_id, event_proof.event_id);
-			if Backend::insert_aux(
+
+			if let Err(err) = Backend::insert_aux(
 				self.backend.as_ref(),
 				&[(proof_key.as_ref(), versioned_event_proof.encode().as_ref())],
 				&[],
-			)
-			.is_err()
-			{
+			) {
 				// this is a warning for now, because until the round lifecycle is improved, we will
 				// conclude certain rounds multiple times.
-				warn!(target: "ethy", "💎 failed to store proof: {:?}", event_proof);
+				error!(target: "ethy", "💎 failed to store proof: {:?} for key [{:?}, {:?}]. Error received: {:?}", event_proof, proof_key, versioned_event_proof.encode(), err);
 			}
+
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC
 			// subscriptions
 			self.event_proof_sender
@@ -380,13 +402,20 @@ where
 			self.witness_record.mark_complete(event_id);
 			self.gossip_validator.mark_complete(event_id);
 		} else {
-			trace!(target: "ethy", "💎 no consensus for event: {:?}, can't make proof yet", event_id);
+			let debug_proof_key = make_proof_key(*chain_id, event_proof.event_id);
+			trace!(target: "ethy", "💎 no consensus for event: {:?}, can't make proof yet. Likely did not store proof for key {:?}", event_id, debug_proof_key);
 		}
 	}
 
 	/// Main loop for Ethy worker.
 	pub(crate) async fn run(mut self) {
 		debug!(target: "Ethy", "💎 run Ethy worker, best finalized block: #{:?}.", self.best_grandpa_block_header.number());
+
+		// wait for sync to complete before accepting ethy messages...
+		while self.sync_oracle.is_major_syncing() {
+			debug!(target: "ethy", "💎 Waiting for major sync to complete...");
+			futures_timer::Delay::new(Duration::from_secs(4)).await;
+		}
 
 		let mut finality_notifications = self.client.finality_notification_stream().fuse();
 		let mut witnesses = Box::pin(self.gossip_engine.messages_for(topic::<B>()).filter_map(

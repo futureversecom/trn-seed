@@ -40,7 +40,7 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
-	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{fungibles::Transfer, UnixTime, ValidatorSet as ValidatorSetT},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId, Parameter,
@@ -56,9 +56,9 @@ use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
-	FinalSessionTracker as FinalSessionTrackerT,
+	FinalSessionTracker as FinalSessionTrackerT, Hold,
 };
-use seed_primitives::AccountId;
+use seed_primitives::{AccountId, AssetId, Balance};
 
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
@@ -92,12 +92,12 @@ pub trait Config:
 {
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
-	/// The bridge contract address on Ethereum
-	type BridgeContractAddress: Get<H160>;
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)
 	type BridgePalletId: Get<PalletId>;
 	/// The runtime call type.
 	type Call: From<Call<Self>>;
+	/// Bond required by challenger to make a challenge
+	type ChallengeBond: Get<Balance>;
 	// The duration in blocks of one epoch
 	type EpochDuration: Get<u64>;
 	/// Pallet subscribing to of notarized eth calls
@@ -118,8 +118,14 @@ pub trait Config:
 		+ MaybeSerializeDeserialize;
 	/// Reports the final session of na eras
 	type FinalSessionTracker: FinalSessionTrackerT;
+	/// Handles a multi-currency fungible asset system
+	type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+	/// The native token asset Id (managed by pallet-balances)
+	type NativeAssetId: Get<AssetId>;
 	/// The threshold of notarizations required to approve an Ethereum event
 	type NotarizationThreshold: Get<Percent>;
+	/// Bond required for an account to act as relayer
+	type RelayerBond: Get<Balance>;
 	/// Returns the block timestamp
 	type UnixTime: UnixTime;
 }
@@ -128,12 +134,14 @@ decl_storage! {
 	trait Store for Module<T: Config> as EthBridge {
 		/// Whether the bridge is paused (e.g. during validator transitions or by governance)
 		BridgePaused get(fn bridge_paused): bool;
+		/// Maps from event claim id to challenger and bond amount paid
+		ChallengerAccount get(fn challenger_account): map hasher(twox_64_concat) EventClaimId => Option<(T::AccountId, Balance)>;
 		/// The (optimistic) challenge period after which a submitted event is considered valid
 		ChallengePeriod get(fn challenge_period): T::BlockNumber = T::BlockNumber::from(150_u32); // 10 Minutes
+		/// The bridge contract address on Ethereum
+		pub ContractAddress get(fn contract_address): EthAddress;
 		/// The minimum number of block confirmations needed to notarize an Ethereum event
 		EventBlockConfirmations get(fn event_block_confirmations): u64 = 3;
-		/// Events cannot be claimed after this time (seconds)
-		EventDeadlineSeconds get(fn event_deadline_seconds): u64 = 604_800; // 1 week
 		/// Notarizations for queued events
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
@@ -156,6 +164,8 @@ decl_storage! {
 		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EthySigningRequest>;
 		/// List of all event ids that are currently being challenged
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
+		/// Status of pending event claims
+		PendingClaimStatus get(fn pending_claim_status): map hasher(twox_64_concat) EventProofId => Option<EventClaimStatus>;
 		/// Tracks processed message Ids (prevent replay)
 		ProcessedMessageIds get(fn processed_message_ids): Vec<EventClaimId>;
 		/// The block in which we process the next authority change
@@ -167,6 +177,8 @@ decl_storage! {
 		NextEthCallId: EthCallId;
 		/// The permissioned relayer
 		Relayer get(fn relayer): Option<T::AccountId>;
+		/// Maps from relayer account to their paid bond amount
+		RelayerPaidBond get(fn relayer_paid_bond): map hasher(twox_64_concat) T::AccountId => Balance;
 		/// Queue of pending EthCallOracle requests
 		EthCallRequests get(fn eth_call_requests): Vec<EthCallId>;
 		/// EthCallOracle notarizations keyed by (Id, Notary)
@@ -198,10 +210,20 @@ decl_event! {
 		ProcessingFailed(EventClaimId, EventRouterError),
 		/// An event has been challenged (claim_id, challenger)
 		Challenged(EventClaimId, AccountId),
+		/// The event is still awaiting consensus. Process block pushed out (claim_id, process_at)
+		ProcessAtExtended(EventClaimId, BlockNumber),
 		/// An event proof has been sent for signing by ethy-gadget
-		EventSend { event_proof_id: EventProofId, chain_id: EthyChainId },
+		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
-		EventSubmit(EventClaimId, EventClaim, BlockNumber)
+		EventSubmit(EventClaimId, EventClaim, BlockNumber),
+		/// An account has deposited a relayer bond
+		RelayerBondDeposit(AccountId, Balance),
+		/// An account has withdrawn a relayer bond
+		RelayerBondWithdraw(AccountId, Balance),
+		/// A new relayer has been set
+		RelayerSet(Option<AccountId>),
+		/// The bridge contract address has been set
+		SetContractAddress(EthAddress),
 	}
 }
 
@@ -230,10 +252,16 @@ decl_error! {
 		Internal,
 		/// Caller does not have permission for that action
 		NoPermission,
-		/// There is no event claim assosciated with the supplied claim_id
+		/// There is no event claim associated with the supplied claim_id
 		NoClaim,
 		/// There is already a challenge for this claim
 		ClaimAlreadyChallenged,
+		/// The relayer is active and cant unbond the specified amount
+		CantUnbondRelayer,
+		/// The relayer already has a bonded amount
+		CantBondRelayer,
+		/// The relayer hasn't paid the relayer bond so can't be set as the active relayer
+		NoBondPaid,
 	}
 }
 
@@ -258,8 +286,20 @@ decl_module! {
 			}
 
 			// 2) Process validated messages
+			// Removed message_id from MessagesValidAt and processes
 			let mut processed_message_ids = Self::processed_message_ids();
 			for message_id in MessagesValidAt::<T>::take(block_number) {
+				if Self::pending_claim_status(message_id) == Some(EventClaimStatus::Challenged) {
+					// We are still waiting on the challenge to be processed, push out by challenge period
+					let new_process_at = block_number + Self::challenge_period();
+					<MessagesValidAt<T>>::append(
+						new_process_at,
+						message_id,
+					);
+					Self::deposit_event(Event::<T>::ProcessAtExtended(message_id, new_process_at));
+					continue
+				}
+				// Removed PendingEventClaim from storage and processes
 				if let Some(EventClaim { source, destination, data, .. } ) = PendingEventClaims::take(message_id) {
 					// keep a runtime hardcoded list of destination <> palletId
 					match T::EventRouter::route(&source, &destination, &data) {
@@ -277,6 +317,8 @@ decl_module! {
 				if let Err(idx) = processed_message_ids.binary_search(&message_id) {
 					processed_message_ids.insert(idx, message_id);
 				}
+				// Tidy up status check
+				PendingClaimStatus::remove(message_id);
 			}
 			if !processed_message_ids.is_empty() {
 				impls::prune_claim_ids(&mut processed_message_ids);
@@ -301,7 +343,56 @@ decl_module! {
 		/// Set the relayer address
 		pub fn set_relayer(origin, relayer: T::AccountId) {
 			ensure_root(origin)?;
-			<Relayer<T>>::put(relayer)
+			// Ensure relayer has bonded more than relayer bond amount
+			ensure!(Self::relayer_paid_bond(relayer) >= T::RelayerBond::get(), Error::<T>::NoBondPaid);
+			<Relayer<T>>::put(relayer);
+			Self::deposit_event(Event::<T>::RelayerSet(Some(relayer)));
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Submit bond for relayer account
+		pub fn deposit_relayer_bond(origin) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+
+			// Ensure relayer doesn't already have a bond set
+			ensure!(Self::relayer_paid_bond(origin) == 0, Error::<T>::CantBondRelayer);
+
+			let relayer_bond = T::RelayerBond::get();
+			// Attempt to place a hold from the relayer account
+			T::MultiCurrency::place_hold(
+				T::BridgePalletId::get(),
+				&origin,
+				T::NativeAssetId::get(),
+				relayer_bond,
+			)?;
+			<RelayerPaidBond<T>>::insert(origin, relayer_bond);
+			Self::deposit_event(Event::<T>::RelayerBondDeposit(origin, relayer_bond));
+			Ok(())
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Withdraw relayer bond amount
+		pub fn withdraw_relayer_bond(origin) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+
+			// Ensure account is not the current relayer
+			if Self::relayer() == Some(origin) {
+				ensure!(Self::relayer() != Some(origin), Error::<T>::CantUnbondRelayer);
+			};
+			let relayer_paid_bond = Self::relayer_paid_bond(origin);
+			ensure!(relayer_paid_bond > 0, Error::<T>::CantUnbondRelayer);
+
+			// Attempt to release the relayers hold
+			T::MultiCurrency::release_hold(
+				T::BridgePalletId::get(),
+				&origin,
+				T::NativeAssetId::get(),
+				relayer_paid_bond,
+			)?;
+			<RelayerPaidBond<T>>::remove(origin);
+
+			Self::deposit_event(Event::<T>::RelayerBondWithdraw(origin, relayer_paid_bond));
+			Ok(())
 		}
 
 		#[weight = DbWeight::get().writes(1)]
@@ -309,13 +400,6 @@ decl_module! {
 		pub fn set_event_block_confirmations(origin, confirmations: u64) {
 			ensure_root(origin)?;
 			EventBlockConfirmations::put(confirmations)
-		}
-
-		#[weight = DbWeight::get().writes(1)]
-		/// Set event deadline (seconds). Events cannot be notarized after this time has elapsed
-		pub fn set_event_deadline(origin, seconds: u64) {
-			ensure_root(origin)?;
-			EventDeadlineSeconds::put(seconds);
 		}
 
 		#[weight = DbWeight::get().writes(1)]
@@ -330,6 +414,14 @@ decl_module! {
 		pub fn set_challenge_period(origin, blocks: T::BlockNumber) {
 			ensure_root(origin)?;
 			<ChallengePeriod<T>>::put(blocks);
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Set the bridge contract address on Ethereum (requires governance)
+		pub fn set_contract_address(origin, contract_address: EthAddress) {
+			ensure_root(origin)?;
+			ContractAddress::put(contract_address);
+			Self::deposit_event(<Event<T>>::SetContractAddress(contract_address));
 		}
 
 		#[weight = DbWeight::get().writes(1)]
@@ -363,6 +455,7 @@ decl_module! {
 				};
 
 				PendingEventClaims::insert(event_id, &event_claim);
+				PendingClaimStatus::insert(event_id, EventClaimStatus::Pending);
 
 				// TODO: there should be some limit per block
 				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + Self::challenge_period();
@@ -378,16 +471,27 @@ decl_module! {
 		/// An event can only be challenged once
 		pub fn submit_challenge(origin, event_claim_id: EventClaimId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			// TODO Bond challenge value until event has been verified
+
 			// Validate event_id existence
 			ensure!(PendingEventClaims::contains_key(event_claim_id), Error::<T>::NoClaim);
-
 			// Check that event isn't already being challenged
-			ensure!(!PendingClaimChallenges::get().iter().any(|&x| x == event_claim_id), Error::<T>::ClaimAlreadyChallenged);
+			ensure!(Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Pending), Error::<T>::ClaimAlreadyChallenged);
+
+			let challenger_bond = T::ChallengeBond::get();
+			// try lock challenger bond
+			T::MultiCurrency::place_hold(
+				T::BridgePalletId::get(),
+				&origin,
+				T::NativeAssetId::get(),
+				challenger_bond,
+			)?;
 
 			// Add event to challenged event storage
 			// Not sorted so we can check using FIFO
+			// Include challenger account for releasing funds in case claim is invalid
 			PendingClaimChallenges::append(event_claim_id);
+			<ChallengerAccount<T>>::insert(event_claim_id, (origin, challenger_bond));
+			PendingClaimStatus::insert(event_claim_id, EventClaimStatus::Challenged);
 
 			Self::deposit_event(Event::<T>::Challenged(event_claim_id, origin));
 			Ok(())

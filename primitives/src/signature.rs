@@ -2,6 +2,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{ecdsa, H160};
 use sp_io::hashing::keccak_256;
+use sp_std::vec::Vec;
 
 #[derive(
 	Eq, PartialEq, Copy, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Default, PartialOrd, Ord,
@@ -71,8 +72,36 @@ impl From<ecdsa::Signature> for EthereumSignature {
 
 impl sp_runtime::traits::Verify for EthereumSignature {
 	type Signer = EthereumSigner;
+
+	/// Verify this signature is for `msg` produced by `signer`
+	///
+	/// As a fallback checks if the signature verifies using Ethereum's 'personal sign' scheme
+	/// `keccak256(prefix + message.len() + message)`
 	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId20) -> bool {
-		let m = keccak_256(msg.get());
+		let message = msg.get();
+		let m = keccak_256(message);
+
+		let native_signature_valid =
+			match sp_io::crypto::secp256k1_ecdsa_recover(self.0.as_ref(), &m) {
+				Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
+				Err(sp_io::EcdsaVerifyError::BadRS) => {
+					log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
+					false
+				},
+				Err(sp_io::EcdsaVerifyError::BadV) => {
+					log::error!(target: "evm", "Error recovering: Incorrect value of V");
+					false
+				},
+				Err(sp_io::EcdsaVerifyError::BadSignature) => {
+					log::error!(target: "evm", "Error recovering: Invalid signature");
+					false
+				},
+			};
+		if native_signature_valid {
+			return true
+		}
+
+		let m = keccak_256(personal_sign_message(message).as_slice());
 		match sp_io::crypto::secp256k1_ecdsa_recover(self.0.as_ref(), &m) {
 			Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
 			Err(sp_io::EcdsaVerifyError::BadRS) => {
@@ -89,6 +118,20 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 			},
 		}
 	}
+}
+
+/// Constructs the message that Ethereum RPC's `personal_sign` and `eth_sign` would sign.
+pub fn personal_sign_message(message: &[u8]) -> Vec<u8> {
+	let mut l = message.len();
+	let mut rev = Vec::new();
+	while l > 0 {
+		rev.push(b'0' + (l % 10) as u8);
+		l /= 10;
+	}
+	let mut v = b"\x19Ethereum Signed Message:\n".to_vec();
+	v.extend(rev.into_iter().rev());
+	v.extend_from_slice(message);
+	v
 }
 
 /// Public key for an Ethereum / Moonbeam compatible account
@@ -145,8 +188,9 @@ impl std::fmt::Display for EthereumSigner {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use hex_literal::hex;
 	use sp_core::{ecdsa, Pair};
-	use sp_runtime::traits::IdentifyAccount;
+	use sp_runtime::traits::{IdentifyAccount, Verify};
 
 	#[test]
 	fn test_account_derivation_1() {
@@ -163,6 +207,7 @@ mod tests {
 		let expected_account = AccountId20::from(expected_hex_account);
 		assert_eq!(account.into_account(), expected_account);
 	}
+
 	#[test]
 	fn test_account_derivation_2() {
 		// Test from https://asecuritysite.com/encryption/ethadd
@@ -177,5 +222,53 @@ mod tests {
 		let account: EthereumSigner = public_key.into();
 		let expected_account = AccountId20::from(expected_hex_account);
 		assert_eq!(account.into_account(), expected_account);
+	}
+
+	#[test]
+	fn verify_personal_sign_works() {
+		let msg = "test eth signed message";
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+		]);
+		let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
+		let signature: EthereumSignature = ecdsa::Signature(hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
+
+		assert!(signature.verify(msg.as_ref(), &address.into_account()));
+	}
+
+	#[test]
+	fn verify_personal_sign_works_2() {
+		let msg = "hello world";
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854"
+		]);
+		let address: EthereumSigner = pair.public().into(); // 0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b
+		let signature: EthereumSignature = ecdsa::Signature(hex!["7f7e3ea07fb9727820359e0fbf741cfff4cec056cf4fb791e27c3f4218deaefa29f989d0635080893eda68df5593785476b940245089a7e0dc35492c803b91761c"]).into();
+
+		assert!(signature.verify(msg.as_ref(), &address.into_account()));
+	}
+
+	#[test]
+	fn verify_personal_sign_works_3() {
+		let msg = "0x6460040300ff64d3f6efe2317ee2807d223a0bdc4c0c49dfdb44460020000400000001000000ff752da18c6a9310be5f586409e414696b4fb6b459f5cd7022eb62f2e2199521aaa3c6ff03969eede192b85b5ab05606317dfca02c0c9a2dac573ef447703680";
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"cb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854"
+		]);
+		let address: EthereumSigner = pair.public().into(); // 0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b
+		let signature: EthereumSignature = ecdsa::Signature(hex!["214a27f8f43b938e6a58539140e659fd6c0e87b7f67d99f8afc4e10ad9c94c2322a7da1d2d8f466271b68c3d3166bfe9d890a414361ea3186e7880ccce50c6cc1b"]).into();
+
+		assert!(signature.verify(msg.as_ref(), &address.into_account()));
+	}
+
+	#[test]
+	fn verify_fails() {
+		let msg = "test eth signed message";
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+		]);
+		let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
+		let signature: EthereumSignature = ecdsa::Signature(hex!["ad0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
+
+		assert!(!signature.verify(msg.as_ref(), &address.into_account()));
 	}
 }

@@ -162,7 +162,6 @@ impl<T: Config> Module<T> {
 	/// - check for exact log data match
 	/// - check log source == bridge contract address
 	/// - confirmations `>= T::EventConfirmations`
-	/// - message has not expired older than `T::EventDeadline`
 	///
 	/// Returns result of the validation
 	pub(crate) fn offchain_try_notarize_event(
@@ -218,7 +217,7 @@ impl<T: Config> Module<T> {
 				);
 				return EventClaimResult::UnexpectedData
 			}
-			if log.address != T::BridgeContractAddress::get() {
+			if log.address != Self::contract_address() {
 				return EventClaimResult::UnexpectedContractAddress
 			}
 		} else {
@@ -242,36 +241,6 @@ impl<T: Config> Module<T> {
 		let block_confirmations = latest_block_number.saturating_sub(observed_block_number);
 		if block_confirmations < Self::event_block_confirmations() {
 			return EventClaimResult::NotEnoughConfirmations
-		}
-
-		// calculate if the block is expired w some high degree of confidence without making
-		// a query. time since the event = block_confirmations * ~12 seconds avg
-		if block_confirmations * 12 > Self::event_deadline_seconds() {
-			return EventClaimResult::Expired
-		}
-
-		//  check the block this tx is in if the timestamp > deadline
-		let observed_block: EthBlock = match T::EthereumRpcClient::get_block_by_number(
-			LatestOrNumber::Number(observed_block_number),
-		) {
-			Ok(None) => return EventClaimResult::DataProviderErr,
-			Ok(Some(block)) => block,
-			Err(err) => {
-				log!(error, "💎 eth_getBlockByNumber observed failed: {:?}", err);
-				return EventClaimResult::DataProviderErr
-			},
-		};
-
-		// claim is past the expiration deadline
-		// eth. block timestamp (seconds)
-		// deadline (seconds)
-		if T::UnixTime::now()
-			.as_secs()
-			.saturated_into::<u64>()
-			.saturating_sub(observed_block.timestamp.saturated_into::<u64>()) >
-			Self::event_deadline_seconds()
-		{
-			return EventClaimResult::Expired
 		}
 
 		EventClaimResult::Valid
@@ -443,10 +412,10 @@ impl<T: Config> Module<T> {
 		result: EventClaimResult,
 		notary_id: &T::EthyId,
 	) -> DispatchResult {
-		if !PendingEventClaims::contains_key(event_claim_id) {
-			// there's no claim active
-			return Err(Error::<T>::InvalidClaim.into())
-		}
+		ensure!(
+			Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Challenged),
+			Error::<T>::InvalidClaim
+		);
 
 		// Store the new notarization
 		<EventNotarizations<T>>::insert::<EventClaimId, T::EthyId, EventClaimResult>(
@@ -471,64 +440,126 @@ impl<T: Config> Module<T> {
 		if Percent::from_rational(nay_count, notary_count) >
 			(Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct()))
 		{
-			if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
-				event_claim_id,
-				NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
-				None,
-			)
-			.maybe_cursor
-			{
-				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
-				return Err(Error::<T>::Internal.into())
-			}
-			PendingClaimChallenges::mutate(|event_ids| {
-				event_ids
-					.iter()
-					.position(|x| *x == event_claim_id)
-					.map(|idx| event_ids.remove(idx));
-			});
-
-			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-				// TODO: voting is complete, the event is invalid
-				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::<T>::Invalid(event_claim_id));
-				return Ok(())
-			} else {
-				log!(error, "💎 unexpected empty claim");
-				return Err(Error::<T>::InvalidClaim.into())
-			}
+			Self::handle_invalid_claim(event_claim_id)?;
 		}
 
 		// Claim is valid
 		if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get() {
-			// no need to track info on this claim any more since it's approved
-			if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
-				event_claim_id,
-				NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
-				None,
-			)
-			.maybe_cursor
-			{
-				log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
-				return Err(Error::<T>::Internal.into())
-			}
-			PendingClaimChallenges::mutate(|event_ids| {
-				event_ids
-					.iter()
-					.position(|x| *x == event_claim_id)
-					.map(|idx| event_ids.remove(idx));
-			});
-
-			if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
-				// TODO: voting is complete, the event is valid
-				// handle slashing, ensure event is requeued for execution
-				Self::deposit_event(Event::<T>::Verified(event_claim_id));
-			} else {
-				log!(error, "💎 unexpected empty claim");
-				return Err(Error::<T>::InvalidClaim.into())
-			}
+			Self::handle_valid_claim(event_claim_id)?;
 		}
 
+		Ok(())
+	}
+
+	/// Handle claim after challenge has proven claim to be invalid
+	/// Slash relayer and pay slashed amount to challenger
+	/// repay challenger bond to challenger
+	/// Remove the active relayer
+	pub(crate) fn handle_invalid_claim(event_claim_id: EventClaimId) -> DispatchResult {
+		if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
+			event_claim_id,
+			NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
+			None,
+		)
+		.maybe_cursor
+		{
+			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+			return Err(Error::<T>::Internal.into())
+		}
+		PendingClaimChallenges::mutate(|event_ids| {
+			event_ids
+				.iter()
+				.position(|x| *x == event_claim_id)
+				.map(|idx| event_ids.remove(idx));
+		});
+
+		if let Some(_event_claim) = PendingEventClaims::take(event_claim_id) {
+			if let Some((challenger, bond_amount)) = <ChallengerAccount<T>>::take(event_claim_id) {
+				// Challenger is correct, the event is invalid.
+				// Return challenger bond to challenger and reward challenger with relayer bond
+				T::MultiCurrency::release_hold(
+					T::BridgePalletId::get(),
+					&challenger,
+					T::NativeAssetId::get(),
+					bond_amount,
+				)?;
+
+				if let Some(relayer) = Self::relayer() {
+					// Relayer bond goes to challenger
+					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer);
+					T::MultiCurrency::spend_hold(
+						T::BridgePalletId::get(),
+						&relayer,
+						T::NativeAssetId::get(),
+						&[(challenger, relayer_paid_bond)],
+					)?;
+					// Relayer has been slashed, remove their stored bond amount and set relayer to
+					// None
+					<Relayer<T>>::kill();
+				};
+
+				PendingClaimStatus::remove(event_claim_id);
+				Self::deposit_event(Event::<T>::RelayerSet(None));
+			} else {
+				// This shouldn't happen
+				log!(error, "💎 unexpected missing challenger account");
+			}
+			Self::deposit_event(Event::<T>::Invalid(event_claim_id));
+			return Ok(())
+		} else {
+			log!(error, "💎 unexpected empty claim");
+			return Err(Error::<T>::InvalidClaim.into())
+		}
+	}
+
+	/// Handle claim after challenge has proven claim to be valid
+	/// Pay challenger bond to relayer
+	pub(crate) fn handle_valid_claim(event_claim_id: EventClaimId) -> DispatchResult {
+		// no need to track info on this claim any more since it's approved
+		if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
+			event_claim_id,
+			NotaryKeys::<T>::decode_len().unwrap_or(1_000) as u32,
+			None,
+		)
+		.maybe_cursor
+		{
+			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+			return Err(Error::<T>::Internal.into())
+		}
+		// Remove the claim from pending_claim_challenges
+		PendingClaimChallenges::mutate(|event_ids| {
+			event_ids
+				.iter()
+				.position(|x| *x == event_claim_id)
+				.map(|idx| event_ids.remove(idx));
+		});
+
+		if PendingEventClaims::contains_key(event_claim_id) {
+			if let Some(relayer) = Self::relayer() {
+				if let Some((challenger, bond_amount)) =
+					<ChallengerAccount<T>>::take(event_claim_id)
+				{
+					// Challenger is incorrect, the event is valid. Send funds to relayer
+					T::MultiCurrency::spend_hold(
+						T::BridgePalletId::get(),
+						&challenger,
+						T::NativeAssetId::get(),
+						&[(relayer, bond_amount)],
+					)?;
+				} else {
+					// This shouldn't happen
+					log!(error, "💎 unexpected missing challenger account");
+				}
+
+				PendingClaimStatus::insert(event_claim_id, EventClaimStatus::ProvenValid);
+				Self::deposit_event(Event::<T>::Verified(event_claim_id));
+			} else {
+				log!(error, "💎 No relayer set");
+			}
+		} else {
+			log!(error, "💎 unexpected empty claim");
+			return Err(Error::<T>::InvalidClaim.into())
+		}
 		Ok(())
 	}
 
@@ -653,7 +684,7 @@ impl<T: Config> Module<T> {
 		// notify ethereum contract about validator set change
 		if let Ok(event_proof_id) = Self::send_event(
 			&T::BridgePalletId::get().into_account_truncating(),
-			&T::BridgeContractAddress::get(),
+			&Self::contract_address(),
 			new_validator_set_message.as_slice(),
 		) {
 			// Signal the Event Id that will be used for the proof of validator set change.
@@ -706,7 +737,7 @@ impl<T: Config> Module<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
-		Self::deposit_event(Event::<T>::EventSend { event_proof_id, chain_id: request.chain_id() });
+		Self::deposit_event(Event::<T>::EventSend { event_proof_id, signing_request: request });
 	}
 }
 
@@ -776,11 +807,11 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	where
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
-		if T::FinalSessionTracker::is_active_session_final() {
-			// Store the keys for usage next session
-			let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
-			<NextNotaryKeys<T>>::put(next_queued_authorities);
+		// Store the keys for usage next session
+		let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+		<NextNotaryKeys<T>>::put(next_queued_authorities);
 
+		if T::FinalSessionTracker::is_active_session_final() {
 			// Next authority change is 5 minutes before this session ends
 			// (Just before the start of the next epoch)
 			// next_block = current_block + epoch_duration - 75 (5 minutes in blocks)

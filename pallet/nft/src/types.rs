@@ -84,6 +84,7 @@ pub struct CollectionInformation<AccountId> {
 	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
 	// Maximum number of tokens allowed in a collection
 	pub max_issuance: Option<TokenCount>,
+	pub source_chain: OriginChain,
 	// The chain in which the collection was minted originally
 	pub source_chain: OriginChain,
 }

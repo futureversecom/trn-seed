@@ -214,12 +214,23 @@ pub enum EventClaimResult {
 	NotEnoughConfirmations,
 	/// Tx event logs indicated this claim does not match the event
 	UnexpectedData,
-	/// The deposit tx is past the expiration deadline
-	Expired,
 	/// The Tx Receipt was not present
 	NoTxReceipt,
 	/// The event source did not match the tx receipt `to` field
 	UnexpectedSource,
+}
+
+/// Current status of a pending event claim
+/// Invalid claims get removed from storage so no need to have an enum variant for ProvedInvalid
+#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
+pub enum EventClaimStatus {
+	/// The event is awaiting processing after the challenge period
+	Pending,
+	/// The event has been challenged and is awaiting notarization
+	Challenged,
+	/// The event has been challenged and has been proven to be valid
+	/// This event will now be processed after the challenge period
+	ProvenValid,
 }
 
 /// An independent notarization of a bridged value

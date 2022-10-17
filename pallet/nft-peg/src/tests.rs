@@ -276,7 +276,7 @@ fn do_deposit_works_with_existing_bridged_collection() {
 }
 
 #[test]
-fn do_withdraw_emits_event() {
+fn do_withdraw_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let bridged_chain_source = H160::zero();
 		let token_address_source = hex!["d9145cce52d386f254917e481eb44e9943f39138"];
@@ -295,7 +295,7 @@ fn do_withdraw_emits_event() {
 		]);
 
 		assert_ok!(Pallet::<Test>::on_event(&bridged_chain_source, &data));
-
+		// Wait for mint to occur
 		NftPeg::on_initialize(6);
 
 		let collection_ids = vec![collection_id];
@@ -307,19 +307,11 @@ fn do_withdraw_emits_event() {
 			bridged_chain_source
 		));
 
-		let token_ids =
-			BoundedVec::<BoundedVec<U256, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(vec![
-				BoundedVec::<U256, MaxIdsPerMultipleMint>::try_from(vec![U256::from(1)]).unwrap(),
-			])
-			.unwrap();
-
-		let token_ids: Vec<Vec<U256>> =
-			token_ids.clone().into_iter().map(|i| i.into_inner()).collect();
-
-		System::assert_last_event(MockEvent::NftPeg(crate::Event::EthErc721Withdrawal {
-			token_addresses: vec![token_address],
-			token_ids,
-			destination: bridged_chain_source,
-		}));
+		assert_eq!(Pallet::<Test>::eth_to_root_nft(token_address), None);
+		assert_eq!(Pallet::<Test>::root_to_eth_nft(collection_id), None);
+		assert_eq!(
+			Nft::token_balance(AccountId20::from(root_address)).unwrap().get(&collection_id),
+			Some(&1)
+		);
 	});
 }

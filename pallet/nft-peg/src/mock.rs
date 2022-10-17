@@ -182,6 +182,7 @@ impl pallet_nft_peg::Config for Test {
 	type DelayLength = DelayLength;
 	type MaxAddresses = MaxAddresses;
 	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type EthBridge = MockEthBridge;
 }
 
 /// Mock ethereum bridge

@@ -65,8 +65,8 @@ pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	ethy::crypto::AuthorityId as EthBridgeId, AccountId, Address, AssetId, BabeId, Balance,
-	BlockNumber, Hash, Index, Signature,
+	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
+	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, Hash, Index, Signature,
 };
 
 mod bag_thresholds;
@@ -105,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 8,
+	spec_version: 12,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -689,21 +689,22 @@ impl pallet_tx_fee_pot::Config for Runtime {
 parameter_types! {
 	/// The bridge pallet address
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
-	/// The Ethereum bridge contract address (deployed on Ethereum)
-	pub const EthereumBridgeContractAddress: [u8; 20] = hex_literal::hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d");
+	/// Bond amount for a challenger
+	pub const ChallengeBond: Balance = 100 * ONE_ROOT;
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
+	/// Bond amount for a relayer
+	pub const RelayerBond: Balance = 100 * ONE_ROOT;
 }
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
-	/// The deployed Ethereum bridge contract address (source for incoming message, destination for
-	/// outgoing)
-	type BridgeContractAddress = EthereumBridgeContractAddress;
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)
 	type BridgePalletId = BridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
+	/// The bond required to make a challenge
+	type ChallengeBond = ChallengeBond;
 	// The duration in blocks of one epoch
 	type EpochDuration = EpochDuration;
 	/// The runtime event type.
@@ -718,8 +719,14 @@ impl pallet_ethy::Config for Runtime {
 	type EthyId = EthBridgeId;
 	/// Reports final session status of an era
 	type FinalSessionTracker = StakingSessionTracker;
+	/// Handles multi-currency fungible asset system
+	type MultiCurrency = AssetsExt;
+	/// The native asset id used for challenger and relayer bonds
+	type NativeAssetId = XrpAssetId;
 	/// The threshold of positive notarizations to approve an event claim
 	type NotarizationThreshold = NotarizationThreshold;
+	/// The bond required to become a relayer
+	type RelayerBond = RelayerBond;
 	/// Timestamp provider
 	type UnixTime = Timestamp;
 }
@@ -863,6 +870,22 @@ impl pallet_erc20_peg::Config for Runtime {
 	type PegPalletId = PegPalletId;
 	/// The overarching event type.
 	type Event = Event;
+}
+
+parameter_types! {
+	pub const NftPegPalletId: PalletId = PalletId(*b"rn/nftpg");
+	pub const DelayLength: BlockNumber = 5;
+	pub const MaxAddresses: u32 = 5;
+	pub const MaxIdsPerMultipleMint: u32 = 50;
+}
+
+impl pallet_nft_peg::Config for Runtime {
+	type Event = Event;
+	type PalletId = NftPegPalletId;
+	type DelayLength = DelayLength;
+	type MaxAddresses = MaxAddresses;
+	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type EthBridge = EthBridge;
 }
 
 parameter_types! {
@@ -1279,8 +1302,16 @@ impl_runtime_apis! {
 	}
 
 	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
-		fn validator_set() -> seed_primitives::ethy::ValidatorSet<EthBridgeId> {
+		fn validator_set() -> ValidatorSet<EthBridgeId> {
 			EthBridge::validator_set()
+		}
+		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
+			let door_signers = XRPLBridge::door_signers();
+			ValidatorSet {
+				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
+				validators: door_signers,
+				id: EthBridge::notary_set_id(), // the set Id is the same as the overall Ethy set Id
+			}
 		}
 	}
 }
