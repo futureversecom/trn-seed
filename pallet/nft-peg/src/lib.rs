@@ -9,10 +9,7 @@ use pallet_nft::OriginChain;
 use scale_info::TypeInfo;
 use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
-use sp_runtime::{
-	traits::{AccountIdConversion},
-	DispatchError, SaturatedConversion,
-};
+use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 pub use pallet::*;
@@ -26,10 +23,8 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_support::transactional;
-	use frame_system::pallet_prelude::*;
-	use frame_system::ensure_signed;
+	use frame_support::{pallet_prelude::*, transactional};
+	use frame_system::{ensure_signed, pallet_prelude::*};
 	use seed_primitives::EthAddress;
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -212,11 +207,8 @@ where
 			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
 
-			Self::do_deposit(
-				token_addresses,
-				token_ids,
-				*destination,
-			).map_err(|err| (weight, err))?;
+			Self::do_deposit(token_addresses, token_ids, *destination)
+				.map_err(|err| (weight, err))?;
 
 			weight = T::DbWeight::get().writes(1);
 

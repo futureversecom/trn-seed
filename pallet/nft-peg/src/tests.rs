@@ -117,11 +117,7 @@ fn do_deposit_creates_tokens_and_collection() {
 		let token_addresses =
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
-		assert_ok!(Pallet::<Test>::do_deposit(
-			token_addresses,
-			token_ids,
-			test_vals.destination
-		));
+		assert_ok!(Pallet::<Test>::do_deposit(token_addresses, token_ids, test_vals.destination));
 
 		assert_eq!(
 			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),

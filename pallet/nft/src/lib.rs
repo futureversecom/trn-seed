@@ -508,7 +508,7 @@ pub mod pallet {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-		
+
 			// Check we can issue the new tokens
 			let collection_uuid = Self::next_collection_uuid()?;
 
