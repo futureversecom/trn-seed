@@ -53,19 +53,6 @@ fn event_handler_decodes_correctly() {
 }
 
 #[test]
-fn deposit_bridge_events_schedule_a_mint() {
-	ExtBuilder::default().build().execute_with(|| {
-		let mint_delay_length = 6;
-		let test_vals = TestVals::default();
-
-		// Event is sent
-		assert_ok!(Pallet::<Test>::decode_deposit_event(&test_vals.source, &test_vals.data));
-		// Mint of bridged tokens are scheduled for some configured point in the future
-		assert_eq!(DelayedMints::<Test>::contains_key(mint_delay_length), true);
-	})
-}
-
-#[test]
 fn decode_deposit_event_errs_too_many_tokens() {
 	ExtBuilder::default().build().execute_with(|| {
 		let mint_delay_length = 6;
@@ -113,50 +100,6 @@ fn decode_deposit_event_errs_too_many_addresses() {
 			(0_u64, Error::<Test>::ExceedsMaxAddresses.into())
 		);
 		assert_eq!(DelayedMints::<Test>::contains_key(mint_delay_length), false);
-	})
-}
-
-#[test]
-fn scheduled_mint_events_create_nfts() {
-	ExtBuilder::default().build().execute_with(|| {
-		let empty_name = "".encode();
-		let test_vals = TestVals::default();
-		let peg_info = PeggedNftInfo::<Test> {
-			source: test_vals.source,
-			token_addresses: BoundedVec::<H160, MaxAddresses>::try_from(vec![
-				test_vals.token_address,
-			])
-			.unwrap(),
-			token_ids:
-				BoundedVec::<BoundedVec<U256, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(vec![
-					BoundedVec::<U256, MaxIdsPerMultipleMint>::try_from(vec![U256::from(
-						test_vals.designated_function,
-					)])
-					.unwrap(),
-				])
-				.unwrap(),
-			destination: test_vals.destination,
-		};
-
-		DelayedMints::<Test>::insert(0, peg_info);
-
-		let collection_id = Nft::next_collection_uuid().unwrap();
-
-		// Simulate a wait period for the mint operation
-		NftPeg::on_initialize(0);
-
-		assert_eq!(Nft::next_collection_uuid().unwrap(), 1124);
-		assert_eq!(
-			Nft::collection_info(collection_id).unwrap(),
-			CollectionInformation {
-				owner: <Test as pallet_nft::Config>::PalletId::get().into_account_truncating(),
-				name: empty_name,
-				metadata_scheme: MetadataScheme::Ethereum(H160::zero()),
-				royalties_schedule: None,
-				max_issuance: None,
-				source_chain: OriginChain::Ethereum
-			}
-		);
 	})
 }
 
