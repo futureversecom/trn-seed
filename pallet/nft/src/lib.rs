@@ -457,7 +457,7 @@ pub mod pallet {
 			let token_owner = token_owner.unwrap_or(owner);
 			if initial_issuance > Zero::zero() {
 				let token_ids: Vec<SerialNumber> = (0..initial_issuance).collect();
-				Self::do_mint(&token_owner, collection_uuid, token_ids, OriginChain::Root)?;
+				Self::do_mint(&token_owner, collection_uuid, token_ids, source_chain)?;
 			}
 			// will not overflow, asserted prior qed.
 			<NextCollectionId<T>>::mutate(|i| *i += u32::one());
