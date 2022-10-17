@@ -888,21 +888,6 @@ impl pallet_nft_peg::Config for Runtime {
 	type EthBridge = EthBridge;
 }
 
-parameter_types! {
-	pub const NftPegPalletId: PalletId = PalletId(*b"  nftpeg");
-	pub const DelayLength: BlockNumber = 5;
-	pub const MaxAddresses: u32 = 30;
-	pub const MaxIdsPerMultipleMint: u32 = 50;
-}
-
-impl pallet_nft_peg::Config for Runtime {
-	type Event = Event;
-	type PalletId = NftPegPalletId;
-	type DelayLength = DelayLength;
-	type MaxAddresses = MaxAddresses;
-	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
-}
-
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
