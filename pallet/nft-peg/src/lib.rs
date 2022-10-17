@@ -339,15 +339,11 @@ where
 			// somewhat bounded as well, but there should be a way to reduce this complexity
 			for token_id in &token_ids[idx] {
 				pallet_nft::Pallet::<T>::do_burn(&who.into(), collection_id, token_id)?;
-
 				source_token_ids[idx].push(Token::Uint(U256::from(token_id.clone())))
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
-			let token_address =
-				RootNftToErc721::<T>::take(collection_id).ok_or(Error::<T>::NoMappedTokenExists)?;
-
-			EthToRootNft::<T>::remove(token_address);
+			let token_address = Pallet::<T>::root_to_eth_nft(collection_id).ok_or(Error::<T>::NoMappedTokenExists)?;
 			source_collection_ids.push(Token::Address(token_address));
 		}
 
