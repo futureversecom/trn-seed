@@ -90,7 +90,7 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		Erc721DepositFailed(DispatchError)
+		Erc721DepositFailed(DispatchError),
 	}
 
 	#[pallet::hooks]
@@ -247,7 +247,7 @@ where
 	// bridge
 	fn do_deposit(
 		// Sending contract address
-		source: &H160,
+		_source: &H160,
 		// Addresses of the tokens
 		token_addresses: BoundedVec<H160, T::MaxAddresses>,
 		// Lists of token ids for the above addresses(For a given address `n`, its tokens are at
@@ -339,9 +339,7 @@ where
 			for token_id in &token_ids[idx] {
 				pallet_nft::Pallet::<T>::do_burn(&who.into(), collection_id, token_id)?;
 
-				source_token_ids[idx].push(
-					Token::Uint(U256::from(token_id.clone()))
-				)
+				source_token_ids[idx].push(Token::Uint(U256::from(token_id.clone())))
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
@@ -353,14 +351,12 @@ where
 		}
 
 		let source = <T as pallet::Config>::PalletId::get().into_account_truncating();
-		let source_token_ids = source_token_ids.into_iter().map(|k| {
-			Token::Array(k)
-		}).collect();
+		let source_token_ids = source_token_ids.into_iter().map(|k| Token::Array(k)).collect();
 
 		let messsage = ethabi::encode(&[
 			Token::Array(source_collection_ids),
 			Token::Array(source_token_ids),
-			Token::Address(destination)
+			Token::Address(destination),
 		]);
 
 		T::EthBridge::send_event(&source, &Pallet::<T>::contract_address(), &messsage)?;
@@ -396,7 +392,7 @@ where
 				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
 		} else {
-			return Err((weight, Error::<T>::InvalidAbiPrefix.into()))
+			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
 		}
 	}
 }

@@ -310,9 +310,7 @@ fn do_withdraw_works() {
 		assert_eq!(Pallet::<Test>::eth_to_root_nft(token_address), None);
 		assert_eq!(Pallet::<Test>::root_to_eth_nft(collection_id), None);
 		assert_eq!(
-			Nft::token_balance(AccountId20::from(root_address))
-				.unwrap()
-				.get(&collection_id),
+			Nft::token_balance(AccountId20::from(root_address)).unwrap().get(&collection_id),
 			Some(&1)
 		);
 	});
