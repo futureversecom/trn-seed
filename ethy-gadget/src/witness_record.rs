@@ -126,11 +126,11 @@ impl WitnessRecord {
 		.unwrap_or(0_usize);
 
 		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, witness_count);
-		let no_consensus = witness_count >= proof_threshold;
-		if no_consensus {
+		let has_consensus = witness_count >= proof_threshold;
+		if !has_consensus {
 			trace!(target: "ethy", "💎 Ethy is not getting consensus because witness_count of {:?} >= proof_threshold {:?}", witness_count, proof_threshold);
 		}
-		no_consensus
+		has_consensus
 	}
 	/// Return event metadata
 	pub fn event_metadata(&self, event_id: EventProofId) -> Option<&EventMetadata> {
