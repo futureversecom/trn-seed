@@ -45,6 +45,118 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	pub fn do_create_collection(
+		owner: T::AccountId,
+		name: CollectionNameType,
+		initial_issuance: TokenCount,
+		max_issuance: Option<TokenCount>,
+		token_owner: Option<T::AccountId>,
+		metadata_scheme: MetadataScheme,
+		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+		source_chain: OriginChain,
+	) -> Result<u32, DispatchError> {
+		// Check we can issue the new tokens
+		let collection_uuid = Self::next_collection_uuid()?;
+
+		// Check max issuance is valid
+		if let Some(max_issuance) = max_issuance {
+			ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
+			ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+		}
+
+		// Validate collection attributes
+		ensure!(
+			!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
+			Error::<T>::CollectionNameInvalid
+		);
+		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+		let metadata_scheme =
+			metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+		if let Some(royalties_schedule) = royalties_schedule.clone() {
+			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+		}
+
+		<CollectionInfo<T>>::insert(
+			collection_uuid,
+			CollectionInformation {
+				owner: owner.clone(),
+				name,
+				metadata_scheme,
+				royalties_schedule: None,
+				max_issuance: None,
+				source_chain,
+			},
+		);
+
+		// Now mint the collection tokens
+		let token_owner = token_owner.unwrap_or(owner);
+		if initial_issuance > Zero::zero() {
+			let token_ids: Vec<SerialNumber> = (0..initial_issuance).collect();
+			Self::do_mint(&token_owner, collection_uuid, token_ids, source_chain)?;
+		}
+		// will not overflow, asserted prior qed.
+		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
+
+		Self::deposit_event(Event::<T>::CollectionCreate {
+			collection_uuid,
+			token_count: initial_issuance,
+			owner: token_owner,
+		});
+		Ok(collection_uuid)
+	}
+
+	pub fn do_burn(
+		who: &T::AccountId,
+		collection_id: CollectionUuid,
+		serial_number: &SerialNumber,
+	) -> DispatchResult {
+		ensure!(
+			!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
+			Error::<T>::TokenLocked
+		);
+		ensure!(
+			Self::token_owner(collection_id, serial_number) == Some(who.clone()),
+			Error::<T>::NoPermission
+		);
+		<TokenOwner<T>>::remove(collection_id, serial_number);
+
+		let _ = <TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(who, |mut balances| {
+			match &mut balances {
+				Some(balances) => {
+					match (balances).get_mut(&collection_id) {
+						Some(balance) => {
+							let new_balance = balance.saturating_sub(1);
+							if new_balance.is_zero() {
+								balances.remove(&collection_id);
+							} else {
+								*balance = new_balance;
+							}
+							Ok(())
+						},
+						None => return Err(Error::NoToken.into()), // should not happen
+					}
+				},
+				None => return Err(Error::NoToken.into()), // should not happen
+			}
+		})?;
+
+		if let Some(collection_issuance) = Self::collection_issuance(collection_id) {
+			if collection_issuance.saturating_sub(1).is_zero() {
+				// this is the last of the tokens
+				<CollectionInfo<T>>::remove(collection_id);
+				<CollectionIssuance<T>>::remove(collection_id);
+			} else {
+				<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
+					if let Some(q) = &mut q {
+						*q = q.saturating_sub(1)
+					}
+				});
+			}
+		}
+
+		Ok(())
+	}
+
 	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721
 	/// metadata token_uri)
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
@@ -479,118 +591,5 @@ impl<T: Config> IsTokenOwner for Pallet<T> {
 		} else {
 			false
 		}
-	}
-}
-
-impl<T: Config> Pallet<T> {
-	pub fn do_create_collection(
-		owner: T::AccountId,
-		name: CollectionNameType,
-		initial_issuance: TokenCount,
-		max_issuance: Option<TokenCount>,
-		token_owner: Option<T::AccountId>,
-		metadata_scheme: MetadataScheme,
-		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
-		source_chain: OriginChain,
-	) -> Result<u32, DispatchError> {
-		// Check we can issue the new tokens
-		let collection_uuid = Self::next_collection_uuid()?;
-
-		// Check max issuance is valid
-		if let Some(max_issuance) = max_issuance {
-			ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
-			ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
-		}
-
-		// Validate collection attributes
-		ensure!(
-			!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
-			Error::<T>::CollectionNameInvalid
-		);
-		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
-		let metadata_scheme =
-			metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
-		if let Some(royalties_schedule) = royalties_schedule.clone() {
-			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
-		}
-
-		<CollectionInfo<T>>::insert(
-			collection_uuid,
-			CollectionInformation {
-				owner: owner.clone(),
-				name,
-				metadata_scheme,
-				royalties_schedule: None,
-				max_issuance: None,
-				source_chain,
-			},
-		);
-
-		// Now mint the collection tokens
-		let token_owner = token_owner.unwrap_or(owner);
-		if initial_issuance > Zero::zero() {
-			Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
-		}
-		// will not overflow, asserted prior qed.
-		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
-
-		Self::deposit_event(Event::<T>::CollectionCreate {
-			collection_uuid,
-			token_count: initial_issuance,
-			owner: token_owner,
-		});
-		Ok(collection_uuid)
-	}
-
-	pub fn do_burn(
-		who: &T::AccountId,
-		collection_id: CollectionUuid,
-		serial_number: &SerialNumber,
-	) -> DispatchResult {
-		ensure!(
-			!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
-			Error::<T>::TokenLocked
-		);
-		ensure!(
-			Self::token_owner(collection_id, serial_number) == Some(who.clone()),
-			Error::<T>::NoPermission
-		);
-		<TokenOwner<T>>::remove(collection_id, serial_number);
-
-		let _ = <TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(who, |mut balances| {
-			match &mut balances {
-				Some(balances) => {
-					match (balances).get_mut(&collection_id) {
-						Some(balance) => {
-							let new_balance = balance.saturating_sub(1);
-							if new_balance.is_zero() {
-								balances.remove(&collection_id);
-							} else {
-								*balance = new_balance;
-							}
-							Ok(())
-						},
-						None => return Err(Error::NoToken.into()), // should not happen
-					}
-				},
-				None => return Err(Error::NoToken.into()), // should not happen
-			}
-		})?;
-
-		if let Some(collection_issuance) = Self::collection_issuance(collection_id) {
-			if collection_issuance.saturating_sub(1).is_zero() {
-				// this is the last of the tokens
-				<CollectionInfo<T>>::remove(collection_id);
-				<CollectionIssuance<T>>::remove(collection_id);
-			} else {
-				<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
-					if let Some(q) = &mut q {
-						*q = q.saturating_sub(1)
-					}
-				});
-			}
-		}
-
-		Ok(())
 	}
 }
