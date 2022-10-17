@@ -75,7 +75,7 @@ pub mod pallet {
 		InvalidAbiEncoding,
 		/// The prefix uint in the abi encoded data was invalid
 		InvalidAbiPrefix,
-		/// No collection info found for the supposedly existing collection
+		/// No collection info exists
 		NoCollectionInfo,
 		/// No mapped token was stored for bridging the token back to the bridged chain
 		/// chain(Should not happen)
@@ -213,7 +213,6 @@ where
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
 
 			Self::do_deposit(
-				&source,
 				token_addresses,
 				token_ids,
 				*destination,
@@ -237,8 +236,6 @@ where
 	// Root-side representation of them Expects ERC721 tokens sent and verified through the existing
 	// bridge
 	fn do_deposit(
-		// Sending contract address
-		_source: &H160,
 		// Addresses of the tokens
 		token_addresses: BoundedVec<H160, T::MaxAddresses>,
 		// Lists of token ids for the above addresses(For a given address `n`, its tokens are at
@@ -341,13 +338,13 @@ where
 		let source = <T as pallet::Config>::PalletId::get().into_account_truncating();
 		let source_token_ids = source_token_ids.into_iter().map(|k| Token::Array(k)).collect();
 
-		let messsage = ethabi::encode(&[
+		let message = ethabi::encode(&[
 			Token::Array(source_collection_ids),
 			Token::Array(source_token_ids),
 			Token::Address(destination),
 		]);
 
-		T::EthBridge::send_event(&source, &Pallet::<T>::contract_address(), &messsage)?;
+		T::EthBridge::send_event(&source, &Pallet::<T>::contract_address(), &message)?;
 
 		Ok(())
 	}

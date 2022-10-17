@@ -118,7 +118,6 @@ fn do_deposit_creates_tokens_and_collection() {
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
 		assert_ok!(Pallet::<Test>::do_deposit(
-			&test_vals.source,
 			token_addresses,
 			token_ids,
 			test_vals.destination
@@ -159,7 +158,6 @@ fn do_deposit_works_with_existing_bridged_collection() {
 
 		// Given existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(
-			&test_vals.source,
 			token_addresses.clone(),
 			token_ids,
 			test_vals.destination
@@ -189,7 +187,6 @@ fn do_deposit_works_with_existing_bridged_collection() {
 
 		// When bridged tokens are sent for existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(
-			&test_vals.source,
 			token_addresses,
 			new_token_ids,
 			test_vals.destination

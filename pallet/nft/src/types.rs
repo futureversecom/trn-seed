@@ -66,6 +66,7 @@ pub enum OfferType<AccountId> {
 }
 
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+/// Describes the chain that the bridged resource originated from
 pub enum OriginChain {
 	Ethereum,
 	Root,
