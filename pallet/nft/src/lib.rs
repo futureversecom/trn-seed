@@ -456,7 +456,8 @@ pub mod pallet {
 			// Now mint the collection tokens
 			let token_owner = token_owner.unwrap_or(owner);
 			if initial_issuance > Zero::zero() {
-				Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
+				let token_ids: Vec<SerialNumber> = (0..initial_issuance).collect();
+				Self::do_mint(&token_owner, collection_uuid, token_ids, OriginChain::Root)?;
 			}
 			// will not overflow, asserted prior qed.
 			<NextCollectionId<T>>::mutate(|i| *i += u32::one());
@@ -659,7 +660,8 @@ pub mod pallet {
 			// Now mint the collection tokens
 			let token_owner = token_owner.unwrap_or(origin);
 			if initial_issuance > Zero::zero() {
-				Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
+				let token_ids: Vec<SerialNumber> = (0..initial_issuance).collect();
+				Self::do_mint(&token_owner, collection_uuid, token_ids, OriginChain::Root)?;
 			}
 			// will not overflow, asserted prior qed.
 			<NextCollectionId<T>>::mutate(|i| *i += u32::one());
@@ -714,7 +716,9 @@ pub mod pallet {
 
 			let owner = token_owner.unwrap_or(origin);
 
-			Self::do_mint(&owner, collection_id, serial_number, quantity)?;
+			let token_ids: Vec<SerialNumber> = (serial_number..quantity).collect();
+			Self::do_mint(&owner, collection_id, token_ids, OriginChain::Root)?;
+
 			Self::deposit_event(Event::<T>::Mint {
 				collection_id,
 				first_serial_number: serial_number,

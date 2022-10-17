@@ -17,7 +17,6 @@ use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
 use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
-use sp_core::U256;
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -186,84 +185,58 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Mint additional tokens in a collection
+	/// Token Ids are passed in manually
 	pub fn do_mint(
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
-		serial_number: SerialNumber,
-		quantity: TokenCount,
+		token_ids: Vec<SerialNumber>,
+		source_chain: OriginChain,
 	) -> DispatchResult {
-		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		// counter for tokens minted in the case a token mint fails
+		let mut tokens_minted: TokenCount = 0;
 
 		// Mint the set tokens
-		for serial_number in serial_number..serial_number + quantity {
-			<TokenOwner<T>>::insert(collection_id, serial_number as SerialNumber, &owner);
+		for serial_number in token_ids.iter() {
+			if <TokenOwner<T>>::contains_key(collection_id, serial_number) {
+				// This should not happen as serial numbers are handled internally
+				log!(
+					warn,
+					"🃏 Token Couldn't be minted as a token already exists: ({:?},{:?})",
+					collection_id,
+					serial_number
+				);
+			} else {
+				<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
+				tokens_minted += 1;
+			}
 		}
 
 		// update token balances
 		<TokenBalance<T>>::mutate(&owner, |mut balances| {
 			if let Some(balances) = &mut balances {
-				*balances.entry(collection_id).or_default() += quantity
+				*balances.entry(collection_id).or_default() += tokens_minted
 			} else {
 				let mut map = BTreeMap::new();
-				map.insert(collection_id, quantity);
+				map.insert(collection_id, tokens_minted);
 				*balances = Some(map)
 			}
 		});
-
+		// Update collection issuance
 		<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
 			if let Some(q) = &mut q {
-				*q = q.saturating_add(quantity)
+				*q = q.saturating_add(tokens_minted)
 			} else {
-				*q = Some(quantity)
-			}
-		});
-		<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
-			if let Some(q) = &mut q {
-				*q = q.saturating_add(quantity)
-			} else {
-				*q = Some(quantity)
+				*q = Some(tokens_minted)
 			}
 		});
 
-		Ok(())
-	}
-
-	/// Mint additional tokens in a collection, with an extra check that existing tokens are not
-	/// being minted
-	pub fn do_mint_multiple(
-		owner: &T::AccountId,
-		collection_id: CollectionUuid,
-		token_ids: &[U256],
-	) -> DispatchResult {
-		// Mint the set tokens
-		for serial_number in token_ids.into_iter() {
-			let serial_number: SerialNumber = serial_number.as_u32();
-
-			<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
-			// update token balances
-			<TokenBalance<T>>::mutate(&owner, |mut balances| {
-				if let Some(balances) = &mut balances {
-					*balances.entry(collection_id).or_default() += 1
-				} else {
-					let mut map = BTreeMap::new();
-					map.insert(collection_id, 1);
-					*balances = Some(map)
-				}
-			});
-
-			<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
-				if let Some(q) = &mut q {
-					*q = q.saturating_add(1)
-				} else {
-					*q = Some(1)
-				}
-			});
-
+		if source_chain == OriginChain::Root {
+			// Only need to keep track of next serial number if minting incrementally on Root
 			<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
 				if let Some(q) = &mut q {
-					*q = q.saturating_add(1)
+					*q = q.saturating_add(tokens_minted)
 				} else {
-					*q = Some(1)
+					*q = Some(tokens_minted)
 				}
 			});
 		}
