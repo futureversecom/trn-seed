@@ -239,6 +239,11 @@ impl<T: Config> Pallet<T> {
 		for serial_number in token_ids.into_iter() {
 			let serial_number: SerialNumber = serial_number.as_u32();
 
+			ensure!(
+				Self::token_owner(collection_id, serial_number) == None,
+				Error::<T>::NoPermission
+			);
+
 			<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
 			// update token balances
 			<TokenBalance<T>>::mutate(&owner, |mut balances| {
@@ -250,23 +255,24 @@ impl<T: Config> Pallet<T> {
 					*balances = Some(map)
 				}
 			});
-
-			<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
-				if let Some(q) = &mut q {
-					*q = q.saturating_add(1)
-				} else {
-					*q = Some(1)
-				}
-			});
-
-			<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
-				if let Some(q) = &mut q {
-					*q = q.saturating_add(1)
-				} else {
-					*q = Some(1)
-				}
-			});
 		}
+
+		<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
+			if let Some(q) = &mut q {
+				*q = q.saturating_add(token_ids.len() as u32)
+			} else {
+				*q = Some(token_ids.len() as u32)
+			}
+		});
+
+		<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
+			if let Some(q) = &mut q {
+				*q = q.saturating_add(token_ids.len() as u32)
+			} else {
+				*q = Some(token_ids.len() as u32)
+			}
+		});
+
 		Ok(())
 	}
 

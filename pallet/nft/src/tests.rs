@@ -2791,7 +2791,8 @@ fn mints_multiple_specified_tokens_by_id() {
 		let collection_owner = 1_u64;
 		let collection_id = 1;
 		let token_ids = [U256([0; 4])];
-
+		let mut expected = BTreeMap::new();
+		expected.insert(1, 1);
 		token_ids.iter().for_each(|i| {
 			let serial_number = i.as_u32();
 
@@ -2800,6 +2801,6 @@ fn mints_multiple_specified_tokens_by_id() {
 
 		assert!(Nft::token_balance(collection_owner).is_none());
 		assert_ok!(Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids));
-		assert!(Nft::token_balance(collection_owner).is_some());
+		assert_eq!(Nft::token_balance(collection_owner), Some(expected));
 	});
 }
