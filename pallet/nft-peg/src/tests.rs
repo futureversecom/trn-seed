@@ -73,7 +73,6 @@ fn decode_deposit_event_errs_too_many_tokens() {
 			Pallet::<Test>::decode_deposit_event(&test_vals.source, &data),
 			(0_u64, Error::<Test>::ExceedsMaxTokens.into())
 		);
-		assert_eq!(DelayedMints::<Test>::contains_key(mint_delay_length), false);
 	})
 }
 
@@ -99,7 +98,6 @@ fn decode_deposit_event_errs_too_many_addresses() {
 			Pallet::<Test>::decode_deposit_event(&test_vals.source, &data),
 			(0_u64, Error::<Test>::ExceedsMaxAddresses.into())
 		);
-		assert_eq!(DelayedMints::<Test>::contains_key(mint_delay_length), false);
 	})
 }
 

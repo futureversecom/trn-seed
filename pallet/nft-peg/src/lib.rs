@@ -55,11 +55,6 @@ pub mod pallet {
 	#[pallet::getter(fn root_to_eth_nft)]
 	pub type RootNftToErc721<T: Config> = StorageMap<_, Twox64Concat, u32, H160, OptionQuery>;
 
-	#[pallet::storage]
-	#[pallet::getter(fn delayed_mints)]
-	pub type DelayedMints<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, PeggedNftInfo<T>, OptionQuery>;
-
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Send more addresses than are allowed
