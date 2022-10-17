@@ -48,14 +48,12 @@ pub mod pallet {
 	// Map Ethereum Collection ids to Root collection ids
 	#[pallet::storage]
 	#[pallet::getter(fn eth_to_root_nft)]
-	pub type EthToRootNft<T: Config> =
-		StorageMap<_, Twox64Concat, H160, CollectionUuid, OptionQuery>;
+	pub type EthToRootNft<T: Config> = StorageMap<_, Twox64Concat, H160, u32, OptionQuery>;
 
 	// Map Ethereum Collection ids to Root collection ids
 	#[pallet::storage]
 	#[pallet::getter(fn root_to_eth_nft)]
-	pub type RootNftToErc721<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionUuid, H160, OptionQuery>;
+	pub type RootNftToErc721<T: Config> = StorageMap<_, Twox64Concat, u32, H160, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn delayed_mints)]
@@ -128,7 +126,7 @@ pub struct PeggedNftInfo<T: Config> {
 	token_addresses: BoundedVec<H160, T::MaxAddresses>,
 	/// List of token ids. For a given address `n` from `token_addresses`, its corresponding token
 	/// ids exist at `token_ids[n]`.
-	token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
+	token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses>,
 	/// The address to send the tokens to
 	destination: H160,
 }
@@ -137,7 +135,10 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn decode_deposit_event(data: &[u8]) -> Result<u64, (u64, DispatchError)> {
+	fn decode_deposit_event(
+		source: &sp_core::H160,
+		data: &[u8],
+	) -> Result<u64, (u64, DispatchError)> {
 		let mut weight = 0;
 		let abi_decoded = match ethabi::decode(
 			&[
@@ -176,17 +177,16 @@ where
 
 			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
 			let token_ids: Result<
-				Vec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>>,
+				Vec<BoundedVec<U256, T::MaxTokensPerCollection>>,
 				(u64, DispatchError),
 			> = token_ids
 				.iter()
 				.map(|k| {
 					if let Token::Array(token_ids) = k {
-						let new: Vec<SerialNumber> = token_ids
+						let new: Vec<U256> = token_ids
 							.iter()
 							.filter_map(|j| {
 								if let Token::Uint(token_id) = j {
-									let token_id: SerialNumber = (*token_id).saturated_into();
 									Some(token_id.clone())
 								} else {
 									None
@@ -202,7 +202,7 @@ where
 				.collect();
 
 			let token_ids: BoundedVec<
-				BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+				BoundedVec<U256, T::MaxTokensPerCollection>,
 				T::MaxAddresses,
 			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
@@ -232,10 +232,11 @@ where
 		token_addresses: BoundedVec<H160, T::MaxAddresses>,
 		// Lists of token ids for the above addresses(For a given address `n`, its tokens are at
 		// `token_ids[n]`)
-		token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
+		token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses>,
 		// Root address to deposit the tokens into
 		destination: H160,
 	) -> Result<(), DispatchError> {
+		let initial_issuance: u32 = token_addresses.len() as u32;
 		let max_issuance = None;
 		let royalties_schedule = None;
 		let destination: T::AccountId = destination.into();
@@ -254,36 +255,36 @@ where
 
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
-			let collection_id: CollectionUuid = match Self::eth_to_root_nft(address) {
-				Some(collection_id) => collection_id,
-				None => {
-					// Collection doesn't exist, create a new collection
-					let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
-						collection_owner_account,
-						name.clone(),
-						0_u32,
-						max_issuance,
-						Some(destination.clone()),
-						metadata_scheme.clone(),
-						royalties_schedule.clone(),
-						source_chain.clone(),
-					)?;
+			if let Some(root_collection_id) = Self::eth_to_root_nft(address) {
+				EthToRootNft::<T>::insert(address, root_collection_id);
+				RootNftToErc721::<T>::insert(root_collection_id, address);
+				pallet_nft::Pallet::<T>::do_mint_multiple(
+					&destination,
+					root_collection_id,
+					current_collections_tokens,
+				)?;
+			} else {
+				let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
+					collection_owner_account,
+					name.clone(),
+					initial_issuance,
+					max_issuance,
+					Some(destination.clone()),
+					metadata_scheme.clone(),
+					royalties_schedule.clone(),
+					source_chain.clone(),
+				)?;
 
-					// Populate both mappings, building the relationship between the bridged chain
-					// token, and this chain's token
-					EthToRootNft::<T>::insert(address, new_collection_id);
-					RootNftToErc721::<T>::insert(new_collection_id, address);
-					new_collection_id
-				},
-			};
-
-			// Mint the tokens
-			pallet_nft::Pallet::<T>::do_mint(
-				&destination,
-				collection_id,
-				current_collections_tokens.clone().into_inner(),
-				OriginChain::Ethereum,
-			)?;
+				// Populate both mappings, building the relationship between the bridged chain
+				// token, and this chain's token
+				EthToRootNft::<T>::insert(address, new_collection_id);
+				RootNftToErc721::<T>::insert(new_collection_id, address);
+				pallet_nft::Pallet::<T>::do_mint_multiple(
+					&destination,
+					new_collection_id,
+					current_collections_tokens,
+				)?;
+			}
 		}
 		Ok(())
 	}
@@ -348,7 +349,7 @@ where
 	type Address = <T as pallet::Config>::PalletId;
 	type SourceAddress = GetEthAddress<T>;
 
-	fn on_event(_source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
+	fn on_event(source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
 		let weight = 0;
 
 		// Decode prefix from first 32 bytes of data
@@ -364,7 +365,7 @@ where
 			// let data = &data[~33..];
 
 			match prefix {
-				1_u32 => Self::decode_deposit_event(data),
+				1_u32 => Self::decode_deposit_event(source, data),
 				2_u32 => Self::decode_state_sync_event(data),
 				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
