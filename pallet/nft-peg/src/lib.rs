@@ -137,10 +137,7 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn decode_deposit_event(
-		source: &sp_core::H160,
-		data: &[u8],
-	) -> Result<u64, (u64, DispatchError)> {
+	fn decode_deposit_event(data: &[u8]) -> Result<u64, (u64, DispatchError)> {
 		let mut weight = 0;
 		let abi_decoded = match ethabi::decode(
 			&[
@@ -351,7 +348,7 @@ where
 	type Address = <T as pallet::Config>::PalletId;
 	type SourceAddress = GetEthAddress<T>;
 
-	fn on_event(source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
+	fn on_event(_source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
 		let weight = 0;
 
 		// Decode prefix from first 32 bytes of data
@@ -367,7 +364,7 @@ where
 			// let data = &data[~33..];
 
 			match prefix {
-				1_u32 => Self::decode_deposit_event(source, data),
+				1_u32 => Self::decode_deposit_event(data),
 				2_u32 => Self::decode_state_sync_event(data),
 				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
