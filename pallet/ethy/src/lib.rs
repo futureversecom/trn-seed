@@ -435,11 +435,12 @@ decl_module! {
 
 			// TODO: place some limit on `data` length (it should match on contract side)
 			// Message(event_id, msg.caller, destination, data);
-			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data)] = ethabi::decode(&[
+			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data), Token::Uint(fee)] = ethabi::decode(&[
 				ParamType::Uint(64),
 				ParamType::Address,
 				ParamType::Address,
 				ethabi::ParamType::Bytes,
+                ParamType::Uint(64),
 			], event.as_slice()).map_err(|_| Error::<T>::InvalidClaim)?.as_slice() {
 				let event_id: EventClaimId = (*event_id).saturated_into();
 				ensure!(!PendingEventClaims::contains_key(event_id), Error::<T>::EventReplayPending); // NOTE(surangap): prune PendingEventClaims also?
