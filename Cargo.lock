@@ -4902,6 +4902,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-event-proof",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "rustc-hex",
@@ -5342,6 +5343,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-event-proof",
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
@@ -7607,6 +7609,8 @@ dependencies = [
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
+ "ethabi",
+ "ethereum-types",
  "frame-support",
  "impl-trait-for-tuples",
  "parity-scale-codec",

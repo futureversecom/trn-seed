@@ -19,6 +19,7 @@ serde_json = { version = "1.0.64", default-features = false, features = ["alloc"
 
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
+pallet-event-proof = { path = "../../pallet/event_proof", default-features = false }
 
 # Substrate packages
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
@@ -55,4 +56,5 @@ std = [
 	"sp-std/std",
 	"seed-primitives/std",
 	"seed-pallet-common/std",
+	"pallet-event-proof/std"
 ]

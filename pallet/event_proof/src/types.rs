@@ -12,9 +12,9 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use crate::eth_types::EthereumEventInfo;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use seed_pallet_common::eth_types::EthereumEventInfo;
 use seed_primitives::validator::ChainId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]

@@ -15,10 +15,12 @@ use sp_core::H160;
 use sp_std::{fmt::Debug, vec::Vec};
 
 use seed_primitives::{
-	ethy::{EventClaimId, EventProofId},
+	ethy::EventClaimId,
+	validator::{EventProofId, ValidatorSetId},
 	AssetId, Balance, TokenId,
 };
 
+pub mod eth_types;
 pub mod utils;
 
 /// syntactic sugar for logging.
@@ -238,19 +240,22 @@ pub trait EthereumBridge {
 }
 
 /// Interface for pallet-ethy and XRPL tx signing
-pub trait EthyXrplBridgeAdapter<AuthorityId> {
-	/// Request ethy generate a signature for the given tx data
+pub trait EventProofAdapter {
+	/// Request and generate a signature for the given tx data
 	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
-	/// Return the current set of Ethy validators
-	fn validators() -> Vec<AuthorityId>;
+	/// Request and generate a signature for the given tx data
+	fn sign_eth_transaction(
+		source: &H160,
+		destination: &H160,
+		app_event: &[u8],
+		validator_set_id: ValidatorSetId,
+	) -> Result<EventProofId, DispatchError>;
 }
 
 /// Interface for pallet-ethy and XRPL tx signing
-pub trait EventProofAdapter {
+pub trait ValidatorAdapter {
 	/// Request and generate a signature for the given tx data
-	fn sign_xrpl_transaction(
-		tx_data: &[u8],
-	) -> Result<seed_primitives::validator::EventProofId, DispatchError>;
+	fn validator_set_id() -> ValidatorSetId;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

@@ -62,7 +62,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
+		/// Event Proof Adapter for event proofs
 		type EventProofAdapter: EventProofAdapter;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>

@@ -31,7 +31,7 @@ xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", rev = "0
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false }
-#pallet-event-proof = { path = "../../pallet/event_proof", default-features = false }
+pallet-event-proof = { path = "../../pallet/event_proof", default-features = false }
 
 [dev-dependencies]
 sp-io = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27' }
@@ -57,6 +57,7 @@ std = [
   'pallet-timestamp/std',
   "seed-pallet-common/std",
   "pallet-assets-ext/std",
+  "pallet-event-proof/std"
 ]
 try-runtime = ['frame-support/try-runtime']
 

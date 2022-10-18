@@ -5,7 +5,7 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -13,7 +13,10 @@ use sp_runtime::{
 };
 
 use seed_pallet_common::EventProofAdapter;
-use seed_primitives::{validator::EventProofId, AccountId, AssetId, Balance, BlockNumber};
+use seed_primitives::{
+	validator::{EventProofId, ValidatorSetId},
+	AccountId, AssetId, Balance, BlockNumber,
+};
 
 use crate as pallet_xrpl_bridge;
 
@@ -162,8 +165,17 @@ impl pallet_xrpl_bridge::Config for Test {
 pub struct MockEventProofAdapter;
 
 impl EventProofAdapter for MockEventProofAdapter {
-	/// Mock implementation of EthyXrplBridgeAdapter
+	/// Mock implementation of EventProofAdapter
 	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
+		Ok(1)
+	}
+
+	fn sign_eth_transaction(
+		_source: &H160,
+		_destination: &H160,
+		_app_event: &[u8],
+		_validator_set_id: ValidatorSetId,
+	) -> Result<EventProofId, DispatchError> {
 		Ok(1)
 	}
 }

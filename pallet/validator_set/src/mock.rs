@@ -13,7 +13,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::EnsureRoot;
 use pallet_session::historical as pallet_session_historical;
-use seed_pallet_common::{EthyXrplBridgeAdapter, FinalSessionTracker};
+use seed_pallet_common::FinalSessionTracker;
 use seed_primitives::{
 	ethy::{crypto::AuthorityId as AuthorityIdE, EventProofId},
 	validator::crypto::AuthorityId,
@@ -251,23 +251,6 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = MockUnixTime;
-}
-
-pub struct MockEthyAdapter;
-
-impl EthyXrplBridgeAdapter<AuthorityIdE> for MockEthyAdapter {
-	/// Mock implementation of EthyXrplBridgeAdapter
-	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
-		Ok(1)
-	}
-	fn validators() -> Vec<AuthorityIdE> {
-		// some hard coded validators
-		vec![
-			AuthorityIdE::from_slice(&[1_u8; 33]).unwrap(),
-			AuthorityIdE::from_slice(&[2_u8; 33]).unwrap(),
-			AuthorityIdE::from_slice(&[3_u8; 33]).unwrap(),
-		]
-	}
 }
 
 parameter_types! {

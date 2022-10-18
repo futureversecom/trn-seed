@@ -1,11 +1,13 @@
 use codec::Encode;
 use frame_support::pallet_prelude::*;
+use seed_pallet_common::eth_types::EthereumEventInfo;
+use sp_core::H160;
 use sp_runtime::generic::DigestItem;
 
 use seed_pallet_common::EventProofAdapter;
-use seed_primitives::validator::{ConsensusLog, EventProofId};
+use seed_primitives::validator::{ConsensusLog, EventProofId, ValidatorSetId};
 
-use crate::{types::SigningRequest, *};
+use crate::*;
 
 impl<T: Config> Pallet<T> {
 	/// Submit an event proof signing request in the block, for use by the ethy-gadget protocol
@@ -13,7 +15,7 @@ impl<T: Config> Pallet<T> {
 		// if bridge is paused (e.g transitioning authority set at the end of an era)
 		// delay proofs until it is ready again
 		if Self::bridge_paused() {
-			PendingEventProofs::<T>::insert(event_proof_id, request);
+			<PendingEventProofs<T>>::insert(event_proof_id, request);
 			Self::deposit_event(Event::<T>::ProofDelayed(event_proof_id));
 			return
 		}
@@ -39,9 +41,30 @@ impl<T: Config> EventProofAdapter for Pallet<T> {
 	/// Returns an Id for the proof
 	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
 		let event_proof_id = Self::next_event_proof_id();
-		NextEventProofId::<T>::put(event_proof_id.wrapping_add(1));
+		<NextEventProofId<T>>::put(event_proof_id.wrapping_add(1));
 
 		Self::do_request_event_proof(event_proof_id, SigningRequest::XrplTx(tx_data.to_vec()));
+		Ok(event_proof_id)
+	}
+
+	fn sign_eth_transaction(
+		source: &H160,
+		destination: &H160,
+		app_event: &[u8],
+		validator_set_id: ValidatorSetId,
+	) -> Result<EventProofId, DispatchError> {
+		let event_proof_id = Self::next_event_proof_id();
+		<NextEventProofId<T>>::put(event_proof_id.wrapping_add(1));
+
+		let event_proof_info = EthereumEventInfo {
+			source: *source,
+			destination: *destination,
+			message: app_event.to_vec(),
+			validator_set_id,
+			event_proof_id,
+		};
+
+		Self::do_request_event_proof(event_proof_id, SigningRequest::Ethereum(event_proof_info));
 		Ok(event_proof_id)
 	}
 }

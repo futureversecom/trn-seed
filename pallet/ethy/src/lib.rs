@@ -56,13 +56,14 @@ use sp_runtime::{
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
-	log, EthCallOracleSubscriber, EthereumEventRouter, EventRouterError,
-	FinalSessionTracker as FinalSessionTrackerT, Hold,
+	log, EthCallOracleSubscriber, EthereumEventRouter, EventProofAdapter, EventRouterError,
+	FinalSessionTracker as FinalSessionTrackerT, Hold, ValidatorAdapter,
 };
 use seed_primitives::{AccountId, AssetId, Balance};
 
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
+use seed_primitives::validator::ValidatorSetId;
 
 mod impls;
 #[cfg(test)]
@@ -108,6 +109,10 @@ pub trait Config:
 	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// The runtime event type.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+	/// Adapter to call functions from Validator Set
+	type ValidatorAdapter: ValidatorAdapter;
+	/// Event Proof Adapter for event proofs
+	type EventProofAdapter: EventProofAdapter;
 	/// Handles routing received Ethereum events upon verification
 	type EventRouter: EthereumEventRouter;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
@@ -149,10 +154,6 @@ decl_storage! {
 		/// Notarizations for queued events
 		/// Either: None = no notarization exists OR Some(yay/nay)
 		EventNotarizations get(fn event_notarizations): double_map hasher(twox_64_concat) EventClaimId, hasher(twox_64_concat) T::EthyId => Option<EventClaimResult>;
-		/// The maximum number of delayed events that can be processed in on_initialize()
-		DelayedEventProofsPerBlock get(fn delayed_event_proofs_per_block): u8 = 5;
-		/// Id of the next event proof
-		NextEventProofId get(fn next_event_proof_id): EventProofId;
 		/// Scheduled notary (validator) public keys for the next session
 		NextNotaryKeys get(fn next_notary_keys): Vec<T::EthyId>;
 		/// Active notary (validator) public keys
@@ -168,8 +169,6 @@ decl_storage! {
 		NotarySetProofId get(fn notary_set_proof_id): EventProofId;
 		/// Queued event claims, can be challenged within challenge period
 		PendingEventClaims get(fn pending_event_claims): map hasher(twox_64_concat) EventClaimId => Option<EventClaim>;
-		/// Queued event proofs to be processed once bridge has been re-enabled
-		PendingEventProofs get(fn pending_event_proofs): map hasher(twox_64_concat) EventProofId => Option<EthySigningRequest>;
 		/// List of all event ids that are currently being challenged
 		PendingClaimChallenges get(fn pending_claim_challenges): Vec<EventClaimId>;
 		/// Status of pending event claims
@@ -335,17 +334,6 @@ decl_module! {
 				ProcessedMessageIds::put(processed_message_ids);
 			}
 
-			// 3) Try process delayed proofs
-			consumed_weight += DbWeight::get().reads(2 as Weight);
-			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
-				let max_delayed_events = Self::delayed_event_proofs_per_block();
-				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
-				for (event_proof_id, signing_request) in PendingEventProofs::iter().take(max_delayed_events as usize) {
-					Self::do_request_event_proof(event_proof_id, signing_request);
-					PendingEventProofs::remove(event_proof_id);
-				}
-			}
-
 			consumed_weight
 		}
 
@@ -421,13 +409,6 @@ decl_module! {
 		pub fn set_event_block_confirmations(origin, confirmations: u64) {
 			ensure_root(origin)?;
 			EventBlockConfirmations::put(confirmations)
-		}
-
-		#[weight = DbWeight::get().writes(1)]
-		/// Set max number of delayed events that can be processed per block
-		pub fn set_delayed_event_proofs_per_block(origin, count: u8) {
-			ensure_root(origin)?;
-			DelayedEventProofsPerBlock::put(count);
 		}
 
 		#[weight = DbWeight::get().writes(1)]

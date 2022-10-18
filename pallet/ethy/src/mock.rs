@@ -23,10 +23,14 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use scale_info::TypeInfo;
 use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterResult,
-	FinalSessionTracker,
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventProofAdapter,
+	EventRouterResult, FinalSessionTracker, ValidatorAdapter,
 };
-use seed_primitives::{ethy::crypto::AuthorityId, AssetId, Balance, Signature};
+use seed_primitives::{
+	ethy::crypto::AuthorityId,
+	validator::{EventProofId, ValidatorSetId},
+	AssetId, Balance, Signature,
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{H160, H256, U256};
 use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
@@ -35,7 +39,7 @@ use sp_runtime::{
 	traits::{
 		BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify,
 	},
-	Percent,
+	DispatchError, Percent,
 };
 use std::{
 	sync::Arc,
@@ -73,6 +77,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
+		EventProof: pallet_event_proof::{Pallet, Storage, Event<T>},
 	}
 );
 
@@ -133,6 +138,34 @@ impl Config for TestRuntime {
 	type NativeAssetId = XrpAssetId;
 	type RelayerBond = RelayerBond;
 	type MaxXrplKeys = MaxXrplKeys;
+	type EventProofAdapter = MockEventProofAdapter;
+	type ValidatorAdapter = MockValidatorAdapter;
+}
+
+pub struct MockEventProofAdapter;
+
+impl EventProofAdapter for MockEventProofAdapter {
+	/// Mock implementation of EventProofAdapter
+	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
+		Ok(1)
+	}
+
+	fn sign_eth_transaction(
+		_source: &H160,
+		_destination: &H160,
+		_app_event: &[u8],
+		_validator_set_id: ValidatorSetId,
+	) -> Result<EventProofId, DispatchError> {
+		Ok(1)
+	}
+}
+
+pub struct MockValidatorAdapter;
+
+impl ValidatorAdapter for MockValidatorAdapter {
+	fn validator_set_id() -> ValidatorSetId {
+		1
+	}
 }
 
 parameter_types! {
@@ -190,6 +223,12 @@ impl pallet_balances::Config for TestRuntime {
 	type WeightInfo = ();
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
+}
+
+impl pallet_event_proof::Config for TestRuntime {
+	type Event = Event;
+	type ApproveOrigin = EnsureRoot<Self::AccountId>;
+	type WeightInfo = ();
 }
 
 /// Values in EthBlock that we store in mock storage

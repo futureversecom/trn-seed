@@ -2,31 +2,40 @@
 #![allow(clippy::unused_unit)]
 #![allow(clippy::upper_case_acronyms)]
 
-mod eth_types;
-mod impls;
-mod types;
-
+use crate::types::*;
 use frame_support::{pallet_prelude::*, weights::constants::RocksDbWeight as DbWeight};
+use frame_system::pallet_prelude::*;
 
-use frame_system::offchain::CreateSignedTransaction;
 pub use pallet::*;
-use seed_primitives::validator::EventProofId;
 
+pub mod impls;
+#[test]
+mod tests;
+pub mod types;
+pub mod weights;
+
+use weights::WeightInfo;
+
+pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 pub const ENGINE_ID: sp_runtime::ConsensusEngineId = *b"EGN-";
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::types::SigningRequest;
+	use seed_primitives::validator::EventProofId;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
+	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// Origin from which certain extrinsics are allowed.
+		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::pallet]
+	// To avoid MaxEncodedLen trait not emplemented for Vec<T::AccountId> error
 	#[pallet::without_storage_info]
 	#[pallet::generate_store(pub(super) trait Store)]
 	pub struct Pallet<T>(_);
@@ -58,8 +67,6 @@ pub mod pallet {
 	/// Id of the next event proof
 	pub type NextEventProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
 
-	// Pallets use events to inform users when important changes are made.
-	// https://docs.substrate.io/v3/runtime/events-and-errors
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -71,24 +78,7 @@ pub mod pallet {
 
 	// Errors inform users that something went wrong.
 	#[pallet::error]
-	pub enum Error<T> {
-		/// Validator is already in the validator set.
-		DuplicateValidator,
-		/// Validator not found in the validator set.
-		ValidatorNotFound,
-		/// The bridge is paused pending validator set changes (once every era / 24 hours)
-		/// It will reactive after ~10 minutes
-		BridgePaused,
-		/// Error returned when making unsigned transactions with signed payloads in off-chain
-		/// worker
-		OffchainUnsignedTxSignedPayload,
-		/// Claim was invalid e.g. not properly ABI encoded
-		InvalidClaim,
-		/// A notarization was invalid
-		InvalidNotarization,
-		/// Some internal operation failed
-		Internal,
-	}
+	pub enum Error<T> {}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
@@ -115,5 +105,16 @@ pub mod pallet {
 	// These functions materialize as "extrinsics", which are often compared to transactions.
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {}
+	impl<T: Config> Pallet<T> {
+		#[pallet::weight((<T as Config>::WeightInfo::set_delayed_event_proofs_per_block(), DispatchClass::Operational))]
+		/// Set max number of delayed events that can be processed per block
+		pub fn set_delayed_event_proofs_per_block(
+			origin: OriginFor<T>,
+			count: u8,
+		) -> DispatchResult {
+			T::ApproveOrigin::ensure_origin(origin)?;
+			<DelayedEventProofsPerBlock<T>>::put(count);
+			Ok(())
+		}
+	}
 }
