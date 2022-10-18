@@ -440,7 +440,7 @@ decl_module! {
 				ParamType::Address,
 				ParamType::Address,
 				ethabi::ParamType::Bytes,
-                ParamType::Uint(64),
+				ParamType::Uint(64),
 			], event.as_slice()).map_err(|_| Error::<T>::InvalidClaim)?.as_slice() {
 				let event_id: EventClaimId = (*event_id).saturated_into();
 				ensure!(!PendingEventClaims::contains_key(event_id), Error::<T>::EventReplayPending); // NOTE(surangap): prune PendingEventClaims also?
