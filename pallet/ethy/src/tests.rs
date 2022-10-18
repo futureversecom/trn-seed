@@ -23,7 +23,10 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use hex_literal::hex;
-use seed_pallet_common::{EthCallFailure, EthereumBridge};
+use pallet_event_proof::types::SigningRequest;
+use seed_pallet_common::{
+	eth_types::EthereumEventInfo, EthCallFailure, EthereumBridge, EventProofAdapter,
+};
 use seed_primitives::{
 	ethy::{
 		crypto::AuthorityId, ConsensusLog, EthyChainId, EthyEcdsaToEthereum, EventClaimId,
@@ -46,9 +49,8 @@ use crate::{
 	impls::prune_claim_ids,
 	mock::*,
 	types::{
-		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash,
-		EthereumEventInfo, EthySigningRequest, EventClaim, EventClaimResult, EventProofId,
-		TransactionReceipt,
+		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim,
+		EventClaimResult, EventProofId, TransactionReceipt,
 	},
 	BridgePaused, Config, Error, EthCallRequestInfo, Event, EventClaimStatus, Module,
 	ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
@@ -896,7 +898,7 @@ fn pre_last_session_change() {
 			Token::Uint(1_u64.into()),
 		]);
 
-		let signing_request = EthySigningRequest::Ethereum(EthereumEventInfo {
+		let signing_request = SigningRequest::Ethereum(EthereumEventInfo {
 			event_proof_id,
 			validator_set_id: MockValidatorAdapter::validator_set_id(),
 			source: BridgePalletId::get().into_account_truncating(),
@@ -927,7 +929,7 @@ fn pre_last_session_change() {
 
 		// ethy-gadget notified about new validators
 		assert_eq!(
-			System::digest().logs[1],
+			System::digest().logs[0],
 			DigestItem::Consensus(
 				ETHY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(ValidatorSet {
@@ -992,7 +994,7 @@ fn on_new_session_updates_keys() {
 
 		// Log should be thrown, indicating handle_authorities_change was called
 		assert_eq!(
-			System::digest().logs[1],
+			System::digest().logs[0],
 			DigestItem::Consensus(
 				ETHY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(ValidatorSet {
@@ -1006,14 +1008,14 @@ fn on_new_session_updates_keys() {
 
 		// Storage updated
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
-		assert_eq!(EventProof::next_event_proof_id(), event_proof_id + 1);
+		assert_eq!(EventProof::next_event_proof_id(), event_proof_id);
 		assert!(EthBridge::next_authority_change().is_none());
 		// Two logs thrown in next_authority_change
-		assert_eq!(System::digest().logs.len(), 2);
+		assert_eq!(System::digest().logs.len(), 1);
 
 		// Calling on_before_session_ending should NOT call handle_authorities_change again
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(System::digest().logs.len(), 2);
+		assert_eq!(System::digest().logs.len(), 1);
 		assert!(!EthBridge::bridge_paused());
 		assert!(EthBridge::next_notary_keys().is_empty());
 		assert_eq!(EthBridge::notary_keys(), next_keys);
@@ -1072,7 +1074,7 @@ fn on_before_session_ending_handles_authorities() {
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		// Log should be thrown, indicating handle_authorities_change was called
 		assert_eq!(
-			System::digest().logs[1],
+			System::digest().logs[0],
 			DigestItem::Consensus(
 				ETHY_ENGINE_ID,
 				ConsensusLog::AuthoritiesChange(ValidatorSet {
@@ -1086,7 +1088,7 @@ fn on_before_session_ending_handles_authorities() {
 
 		// Storage updated
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
-		assert_eq!(EventProof::next_event_proof_id(), event_proof_id + 1);
+		assert_eq!(EventProof::next_event_proof_id(), event_proof_id);
 		assert!(EthBridge::next_authority_change().is_none());
 		assert!(!EthBridge::bridge_paused());
 		assert!(EthBridge::next_notary_keys().is_empty());

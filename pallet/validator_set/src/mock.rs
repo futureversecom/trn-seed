@@ -13,10 +13,10 @@ use frame_support::{
 use frame_system as system;
 use frame_system::EnsureRoot;
 use pallet_session::historical as pallet_session_historical;
-use seed_pallet_common::FinalSessionTracker;
+use seed_pallet_common::{EventProofAdapter, FinalSessionTracker, ValidatorAdapter};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId as AuthorityIdE, EventProofId},
-	validator::crypto::AuthorityId,
+	validator::{crypto::AuthorityId, ValidatorSetId},
 	xrpl::{LedgerIndex, XrpTransaction},
 	AssetId, Balance, BlockNumber, Signature,
 };
@@ -243,7 +243,7 @@ parameter_types! {
 
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
-	type EthyAdapter = MockEthyAdapter;
+	type EventProofAdapter = MockEventProofAdapter;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
@@ -251,6 +251,24 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = MockUnixTime;
+}
+
+pub struct MockEventProofAdapter;
+
+impl EventProofAdapter for MockEventProofAdapter {
+	/// Mock implementation of EventProofAdapter
+	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
+		Ok(1)
+	}
+
+	fn sign_eth_transaction(
+		_source: &H160,
+		_destination: &H160,
+		_app_event: &[u8],
+		_validator_set_id: ValidatorSetId,
+	) -> Result<EventProofId, DispatchError> {
+		Ok(1)
+	}
 }
 
 parameter_types! {

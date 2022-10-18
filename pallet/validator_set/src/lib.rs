@@ -32,10 +32,12 @@ use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
 use hex_literal::hex;
 pub use pallet::*;
 use pallet_xrpl_bridge::XrplBridgeCall;
-use seed_pallet_common::{log, CreateExt, FinalSessionTracker as FinalSessionTrackerT};
+use seed_pallet_common::{
+	log, CreateExt, FinalSessionTracker as FinalSessionTrackerT, ValidatorAdapter,
+};
 use seed_primitives::{
 	ethy::EthyChainId,
-	validator::{EventProofId, ValidatorSet},
+	validator::{EventProofId, ValidatorSet, ValidatorSetId},
 	AssetId, Balance,
 };
 use sp_core::H160;

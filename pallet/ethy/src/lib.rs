@@ -55,12 +55,12 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
+use pallet_event_proof::types::SigningRequest;
 use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventRouter, EventProofAdapter, EventRouterError,
 	FinalSessionTracker as FinalSessionTrackerT, Hold, ValidatorAdapter,
 };
 use seed_primitives::{AccountId, AssetId, Balance};
-
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
 use seed_primitives::validator::ValidatorSetId;
@@ -220,7 +220,7 @@ decl_event! {
 		/// The event is still awaiting consensus. Process block pushed out (claim_id, process_at)
 		ProcessAtExtended(EventClaimId, BlockNumber),
 		/// An event proof has been sent for signing by ethy-gadget
-		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
+		EventSend { event_proof_id: EventProofId, signing_request: SigningRequest },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
 		EventSubmit(EventClaimId, EventClaim, BlockNumber),
 		/// An account has deposited a relayer bond

@@ -9,7 +9,7 @@ use frame_system::pallet_prelude::*;
 pub use pallet::*;
 
 pub mod impls;
-#[test]
+#[cfg(test)]
 mod tests;
 pub mod types;
 pub mod weights;
@@ -62,10 +62,16 @@ pub mod pallet {
 	pub type PendingEventProofs<T: Config> =
 		StorageMap<_, Twox64Concat, EventProofId, SigningRequest>;
 
+	#[pallet::type_value]
+	pub fn DefaultNextEventProofId() -> u64 {
+		1_u64
+	}
+
 	#[pallet::storage]
 	#[pallet::getter(fn next_event_proof_id)]
 	/// Id of the next event proof
-	pub type NextEventProofId<T: Config> = StorageValue<_, EventProofId, ValueQuery>;
+	pub type NextEventProofId<T: Config> =
+		StorageValue<_, EventProofId, ValueQuery, DefaultNextEventProofId>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
