@@ -872,6 +872,22 @@ impl pallet_erc20_peg::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	pub const NftPegPalletId: PalletId = PalletId(*b"rn/nftpg");
+	pub const DelayLength: BlockNumber = 5;
+	pub const MaxAddresses: u32 = 10;
+	pub const MaxIdsPerMultipleMint: u32 = 50;
+}
+
+impl pallet_nft_peg::Config for Runtime {
+	type Event = Event;
+	type PalletId = NftPegPalletId;
+	type DelayLength = DelayLength;
+	type MaxAddresses = MaxAddresses;
+	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type EthBridge = EthBridge;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -915,7 +931,8 @@ construct_runtime! {
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
-		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>}
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
+		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>}
 	}
 }
 
