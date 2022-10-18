@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
 
 			ensure!(
 				Self::token_owner(collection_id, serial_number) == None,
-				Error::<T>::NoPermission
+				Error::<T>::DuplicateToken
 			);
 
 			<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
