@@ -251,7 +251,7 @@ where
 				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
 			// Weight for do_mint_multiple. TODO: return from do_mint_multiple
-			weight = (current_collections_tokens.len() as u64).saturating_mul(
+			weight = (weight as u64).saturating_add(current_collections_tokens.len() as u64).saturating_mul(
 				(T::DbWeight::get().writes(2).saturating_add(T::DbWeight::get().reads(1)))
 					.saturating_add(
 						T::DbWeight::get().writes(2).saturating_add(T::DbWeight::get().reads(2)),
