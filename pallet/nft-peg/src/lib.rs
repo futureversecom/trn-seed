@@ -90,10 +90,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
 		#[pallet::weight(T::DbWeight::get().writes(1))]
-		pub fn set_contract_address(
-			origin: OriginFor<T>,
-			contract: H160,
-		) -> DispatchResult {
+		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::set(contract);
 			Ok(().into())
@@ -261,12 +258,16 @@ where
 				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
 			// Weight for do_mint_multiple. TODO: return from do_mint_multiple
-			weight = (weight as u64).saturating_add(current_collections_tokens.len() as u64).saturating_mul(
-				(T::DbWeight::get().writes(2).saturating_add(T::DbWeight::get().reads(1)))
-					.saturating_add(
-						T::DbWeight::get().writes(2).saturating_add(T::DbWeight::get().reads(2)),
-					),
-			);
+			weight = (weight as u64)
+				.saturating_add(current_collections_tokens.len() as u64)
+				.saturating_mul(
+					(T::DbWeight::get().writes(2).saturating_add(T::DbWeight::get().reads(1)))
+						.saturating_add(
+							T::DbWeight::get()
+								.writes(2)
+								.saturating_add(T::DbWeight::get().reads(2)),
+						),
+				);
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
 			if let Some(root_collection_id) = Self::eth_to_root_nft(address) {
