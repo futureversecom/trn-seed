@@ -86,7 +86,7 @@ pub struct CollectionInformation<AccountId> {
 	// Maximum number of tokens allowed in a collection
 	pub max_issuance: Option<TokenCount>,
 	// The chain in which the collection was minted originally
-	pub source_chain: OriginChain,
+	pub origin_chain: OriginChain,
 }
 
 /// Denotes the metadata URI referencing scheme used by a collection

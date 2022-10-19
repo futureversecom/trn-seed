@@ -1,13 +1,8 @@
-use crate::{
-	mock::{Event as MockEvent, *},
-	*,
-};
+use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use pallet_nft::{CollectionInformation, MetadataScheme};
-use seed_primitives::AccountId20;
-use sp_runtime::traits::AccountIdConversion;
+use seed_primitives::AccountId;
 
 struct TestVals {
 	source: H160,
@@ -57,7 +52,6 @@ fn event_handler_decodes_correctly() {
 #[test]
 fn decode_deposit_event_errs_too_many_tokens() {
 	ExtBuilder::default().build().execute_with(|| {
-		let mint_delay_length = 6;
 		let test_vals = TestVals::default();
 
 		// Too many tokens
@@ -72,7 +66,7 @@ fn decode_deposit_event_errs_too_many_tokens() {
 		]);
 
 		assert_noop!(
-			Pallet::<Test>::decode_deposit_event(&test_vals.source, &data),
+			Pallet::<Test>::decode_deposit_event(&data),
 			(0_u64, Error::<Test>::ExceedsMaxTokens.into())
 		);
 	})
@@ -82,8 +76,6 @@ fn decode_deposit_event_errs_too_many_tokens() {
 fn decode_deposit_event_errs_too_many_addresses() {
 	ExtBuilder::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
-
-		let mint_delay_length = 6;
 
 		let inner_token = vec![Token::Uint(test_vals.inner_token_id)];
 		// Too many addresses
@@ -97,7 +89,7 @@ fn decode_deposit_event_errs_too_many_addresses() {
 		]);
 
 		assert_noop!(
-			Pallet::<Test>::decode_deposit_event(&test_vals.source, &data),
+			Pallet::<Test>::decode_deposit_event(&data),
 			(0_u64, Error::<Test>::ExceedsMaxAddresses.into())
 		);
 	})
@@ -109,15 +101,19 @@ fn do_deposit_creates_tokens_and_collection() {
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 		let test_vals = TestVals::default();
 		let token_ids =
-			BoundedVec::<BoundedVec<U256, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(vec![
-				BoundedVec::<U256, MaxIdsPerMultipleMint>::try_from(vec![U256::from(1)]).unwrap(),
-			])
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
+				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![1_u32])
+					.unwrap()],
+			)
 			.unwrap();
 
 		let token_addresses =
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
-		assert_ok!(Pallet::<Test>::do_deposit(token_addresses, token_ids, test_vals.destination));
+		let token_information =
+			GroupedTokenInfo::new(token_ids, token_addresses, test_vals.destination.into());
+
+		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 
 		assert_eq!(
 			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
@@ -128,11 +124,12 @@ fn do_deposit_creates_tokens_and_collection() {
 			Some(test_vals.token_address)
 		);
 		Nft::collection_exists(expected_collection_id);
+		// Token balance should be 1 as one token was deposited
 		assert_eq!(
-			Nft::token_balance(AccountId20::from(test_vals.destination))
+			Nft::token_balance(AccountId::from(test_vals.destination))
 				.unwrap()
 				.get(&expected_collection_id),
-			Some(&(2))
+			Some(&(1))
 		);
 	})
 }
@@ -144,21 +141,19 @@ fn do_deposit_works_with_existing_bridged_collection() {
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
 		let token_ids =
-			BoundedVec::<BoundedVec<U256, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(vec![
-				BoundedVec::<U256, MaxIdsPerMultipleMint>::try_from(vec![U256::from(1)]).unwrap(),
-			])
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
+				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![1_u32])
+					.unwrap()],
+			)
 			.unwrap();
 
 		let token_addresses =
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
-		// Given existing collection
-		assert_ok!(Pallet::<Test>::do_deposit(
-			token_addresses.clone(),
-			token_ids,
-			test_vals.destination
-		));
+		let token_information =
+			GroupedTokenInfo::new(token_ids, token_addresses.clone(), test_vals.destination.into());
 
+		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert_eq!(
 			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
 			Some(expected_collection_id)
@@ -168,26 +163,26 @@ fn do_deposit_works_with_existing_bridged_collection() {
 			Some(test_vals.token_address)
 		);
 		Nft::collection_exists(expected_collection_id);
+		// Token balance should be 1 as one token was deposited
 		assert_eq!(
-			Nft::token_balance(AccountId20::from(test_vals.destination))
+			Nft::token_balance(AccountId::from(test_vals.destination))
 				.unwrap()
 				.get(&expected_collection_id),
-			Some(&(2))
+			Some(&1)
 		);
 
 		let new_token_ids =
-			BoundedVec::<BoundedVec<U256, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(vec![
-				BoundedVec::<U256, MaxIdsPerMultipleMint>::try_from(vec![U256::from(2)]).unwrap(),
-			])
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
+				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![2_u32])
+					.unwrap()],
+			)
 			.unwrap();
 
-		// When bridged tokens are sent for existing collection
-		assert_ok!(Pallet::<Test>::do_deposit(
-			token_addresses,
-			new_token_ids,
-			test_vals.destination
-		));
+		let token_information =
+			GroupedTokenInfo::new(new_token_ids, token_addresses, test_vals.destination.into());
 
+		// When bridged tokens are sent for existing collection
+		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert_eq!(
 			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
 			Some(expected_collection_id)
@@ -196,12 +191,12 @@ fn do_deposit_works_with_existing_bridged_collection() {
 			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
 			Some(test_vals.token_address)
 		);
-		// Then balance is increased. Existing collection was updated with new token
+		// Then balance should now be 2 as another token was deposited
 		assert_eq!(
-			Nft::token_balance(AccountId20::from(test_vals.destination))
+			Nft::token_balance(AccountId::from(test_vals.destination))
 				.unwrap()
 				.get(&expected_collection_id),
-			Some(&(3))
+			Some(&2)
 		);
 	})
 }
@@ -218,18 +213,30 @@ fn do_withdraw_works() {
 
 		let collection_ids = vec![collection_id];
 
-		assert_ok!(Pallet::<Test>::do_withdraw(
-			test_vals.destination,
-			collection_ids.clone(),
+		assert_ok!(Pallet::<Test>::withdraw(
+			Origin::signed(AccountId::from(test_vals.destination)),
+			collection_ids,
 			vec![vec![1]],
-			test_vals.source
+			H160::from_low_u64_be(123),
 		));
 
-		assert_eq!(
-			Nft::token_balance(AccountId20::from(test_vals.destination))
-				.unwrap()
-				.get(&collection_id),
-			Some(&1)
+		// Token should be burnt
+		assert!(Nft::token_balance(AccountId::from(test_vals.source)).is_none());
+		assert!(Nft::token_owner(collection_id, 1).is_none());
+	});
+}
+
+#[test]
+fn do_withdraw_invalid_token_length_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_noop!(
+			Pallet::<Test>::do_withdraw(
+				&AccountId::from(H160::default()),
+				&vec![1, 2, 3],
+				&vec![vec![1]],
+				H160::default()
+			),
+			Error::<Test>::TokenListLengthMismatch
 		);
 	});
 }
@@ -237,11 +244,8 @@ fn do_withdraw_works() {
 #[test]
 fn sets_contract_address() {
 	ExtBuilder::default().build().execute_with(|| {
-		let address = H160::zero();
-		assert_ok!(Pallet::<Test>::set_contract_address(
-			tests::RawOrigin::Root.into(),
-			H160::zero(),
-		));
+		let address = H160::from_low_u64_be(123);
+		assert_ok!(Pallet::<Test>::set_contract_address(tests::RawOrigin::Root.into(), address,));
 
 		assert_eq!(NftPeg::contract_address(), address);
 	});
