@@ -232,6 +232,8 @@ decl_event! {
 		RelayerBondWithdraw(AccountId, Balance),
 		/// A new relayer has been set
 		RelayerSet(Option<AccountId>),
+		/// The schedule to unpause the bridge has failed (scheduled_block)
+		UnpauseScheduleFail(BlockNumber),
 		/// The bridge contract address has been set
 		SetContractAddress(EthAddress),
 	}

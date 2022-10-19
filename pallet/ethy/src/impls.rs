@@ -838,8 +838,9 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				// Schedule an un-pausing of the bridge to give the relayer time to relay the
 				// authority set change.
 				// Delay set to 75 blocks = 5 minutes
+				let scheduled_block = <frame_system::Pallet<T>>::block_number() + 75_u32.into();
 				if T::Scheduler::schedule(
-					DispatchTime::At(<frame_system::Pallet<T>>::block_number() + 75_u32.into()),
+					DispatchTime::At(scheduled_block),
 					None,
 					63,
 					frame_system::RawOrigin::Root.into(),
@@ -847,7 +848,10 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				)
 				.is_err()
 				{
-					log!(warn, "ethy/schedule failed");
+					// The scheduler failed for some reason, throw a log and event so we can
+					// unpause manually
+					Self::deposit_event(Event::<T>::UnpauseScheduleFail(scheduled_block));
+					log!(warn, "💎 Unpause bridge schedule failed");
 				}
 			} else {
 				// Unpause the bridge now
