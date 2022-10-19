@@ -361,6 +361,8 @@ pub mod pallet {
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
+		/// Token already exists
+		DuplicateToken,
 	}
 
 	#[pallet::hooks]

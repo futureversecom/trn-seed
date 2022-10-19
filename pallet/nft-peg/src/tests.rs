@@ -3,9 +3,11 @@ use crate::{
 	*,
 };
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
+use frame_system::RawOrigin;
 use hex_literal::hex;
 use pallet_nft::{CollectionInformation, MetadataScheme};
 use seed_primitives::AccountId20;
+use sp_runtime::traits::AccountIdConversion;
 
 struct TestVals {
 	source: H160,
@@ -229,5 +231,18 @@ fn do_withdraw_works() {
 				.get(&collection_id),
 			Some(&1)
 		);
+	});
+}
+
+#[test]
+fn sets_contract_address() {
+	ExtBuilder::default().build().execute_with(|| {
+		let address = H160::zero();
+		assert_ok!(Pallet::<Test>::set_contract_address(
+			tests::RawOrigin::Root.into(),
+			H160::zero(),
+		));
+
+		assert_eq!(NftPeg::contract_address(), address);
 	});
 }

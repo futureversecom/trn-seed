@@ -89,6 +89,13 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
+			ensure_root(origin)?;
+			ContractAddress::<T>::put(contract);
+			Ok(().into())
+		}
+
 		#[pallet::weight(10000)]
 		#[transactional]
 		pub fn withdraw(
