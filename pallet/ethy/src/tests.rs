@@ -1006,6 +1006,7 @@ fn on_new_session_updates_keys() {
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		assert!(EthBridge::next_authority_change().is_none());
+		assert!(EthBridge::authorities_changed_this_era());
 		// Two logs thrown in next_authority_change
 		assert_eq!(System::digest().logs.len(), 2);
 
@@ -1015,13 +1016,15 @@ fn on_new_session_updates_keys() {
 		assert!(!EthBridge::bridge_paused());
 		assert!(EthBridge::next_notary_keys().is_empty());
 		assert_eq!(EthBridge::notary_keys(), next_keys);
+		assert!(!EthBridge::authorities_changed_this_era());
 	});
 }
 
 #[test]
 /// This test ensures that authorities are changed in the event that the 5 minute window was missed
-/// This will quickly change the authorities right before the session ending but in practice
-/// should never happen
+/// This will quickly change the authorities right before the session ending.
+/// This can happen in the case of a forced era, if it does happen, the bridge will be scheduled to
+/// unpause after 5 minutes.
 fn on_before_session_ending_handles_authorities() {
 	ExtBuilder::default().next_session_final().build().execute_with(|| {
 		let default_account = AccountId::default();
@@ -1086,9 +1089,64 @@ fn on_before_session_ending_handles_authorities() {
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		assert!(EthBridge::next_authority_change().is_none());
-		assert!(!EthBridge::bridge_paused());
 		assert!(EthBridge::next_notary_keys().is_empty());
 		assert_eq!(EthBridge::notary_keys(), next_keys);
+
+		// Item should be scheduled and bridge still paused
+		assert!(EthBridge::bridge_paused());
+		let scheduled_block: BlockNumber = block_number + 75_u32;
+
+		// This should unpause bridge
+		Scheduler::on_initialize(scheduled_block.into());
+		assert!(!EthBridge::bridge_paused());
+	});
+}
+
+#[test]
+/// This test is similar to the one above except NextAuthorityChange is never set so simulates
+/// a new era being forced before the final session
+fn on_before_session_ending_handles_authorities_without_on_new_session() {
+	ExtBuilder::default().next_session_final().build().execute_with(|| {
+		let default_account = AccountId::default();
+		let next_keys_iter = vec![
+			(&default_account, AuthorityId::from_slice(&[3_u8; 33]).unwrap()),
+			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
+		]
+		.into_iter();
+
+		// Call on_new_session but is_active_session_final is false
+		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
+			true,
+			next_keys_iter.clone(),
+			next_keys_iter.clone(),
+		);
+		// next notary keys queued up
+		assert_eq!(
+			EthBridge::next_notary_keys(),
+			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
+		);
+		// Next authority change not scheduled, not final session
+		assert!(EthBridge::next_authority_change().is_none());
+
+		// Block number as 2 triggers is_active_session_final = true
+		let block_number: BlockNumber = 2;
+		System::set_block_number(block_number.into());
+
+		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
+		// changed in on_initialize
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+
+		// Item should be scheduled and bridge still paused
+		assert!(EthBridge::bridge_paused());
+		let scheduled_block: BlockNumber = block_number + 75_u32;
+
+		// Block before scheduled should not unpause bridge
+		Scheduler::on_initialize((scheduled_block - 1_u32).into());
+		assert!(EthBridge::bridge_paused());
+
+		// Scheduler unpauses bridge
+		Scheduler::on_initialize(scheduled_block.into());
+		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -2009,6 +2067,33 @@ fn test_submit_event_replay_check() {
 
 		// check the processed_message_ids has [3]
 		assert_eq!(EthBridge::processed_message_ids(), vec![3]);
+	});
+}
+
+#[test]
+fn pause_bridge_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Check initial state
+		assert_eq!(EthBridge::bridge_paused(), false);
+
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), true));
+		assert_eq!(EthBridge::bridge_paused(), true);
+
+		// And unpause again
+		assert_ok!(EthBridge::set_bridge_paused(frame_system::RawOrigin::Root.into(), false));
+		assert_eq!(EthBridge::bridge_paused(), false);
+	});
+}
+
+#[test]
+fn set_bridge_paused_not_root_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let account = H160::from_low_u64_be(123);
+
+		assert_noop!(
+			EthBridge::set_bridge_paused(Origin::signed(account.into()), true),
+			DispatchError::BadOrigin
+		);
 	});
 }
 

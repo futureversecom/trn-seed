@@ -23,6 +23,7 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize, Serializer};
+use sp_core::H160;
 use sp_runtime::{PerThing, Permill};
 use sp_std::prelude::*;
 
@@ -31,6 +32,23 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 
 /// OfferId type used to distinguish different offers on NFTs
 pub type OfferId = u64;
+
+// A value placed in storage that represents the current version of the NFT storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+// This should match directly with the semantic versions of the Rust crate.
+#[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq, TypeInfo)]
+pub enum Releases {
+	/// storage version pre-runtime v1
+	V0,
+	/// storage version > runtime v13
+	V1,
+}
+
+impl Default for Releases {
+	fn default() -> Self {
+		Releases::V0
+	}
+}
 
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
@@ -47,6 +65,13 @@ pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
 }
 
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+/// Describes the chain that the bridged resource originated from
+pub enum OriginChain {
+	Ethereum,
+	Root,
+}
+
 // Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 pub struct CollectionInformation<AccountId> {
@@ -60,6 +85,8 @@ pub struct CollectionInformation<AccountId> {
 	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
 	// Maximum number of tokens allowed in a collection
 	pub max_issuance: Option<TokenCount>,
+	// The chain in which the collection was minted originally
+	pub source_chain: OriginChain,
 }
 
 /// Denotes the metadata URI referencing scheme used by a collection
@@ -85,6 +112,9 @@ pub enum MetadataScheme {
 	/// Inner value is the shared IPFS CID, each token in the collection shares the same CID
 	/// full metadata URI construction: `ipfs://<shared_file_CID>.json`
 	IpfsShared(Vec<u8>),
+	// Collection metadata is located on Ethereum in the relevant field on the source token
+	// ethereum://<contractaddress>/<originalid>
+	Ethereum(H160),
 }
 
 impl MetadataScheme {
@@ -95,6 +125,7 @@ impl MetadataScheme {
 			MetadataScheme::Https(_path) => "https://",
 			MetadataScheme::IpfsDir(_path) => "ipfs://",
 			MetadataScheme::IpfsShared(_path) => "ipfs://",
+			MetadataScheme::Ethereum(_path) => "ethereum://",
 		}
 	}
 	/// Returns a sanitized version of the metadata URI
@@ -120,6 +151,7 @@ impl MetadataScheme {
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
 			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
+			MetadataScheme::Ethereum(_original_id) => MetadataScheme::Ethereum(H160::zero()),
 		})
 	}
 }

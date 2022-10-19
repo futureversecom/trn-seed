@@ -105,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 12,
+	spec_version: 13,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -322,6 +322,25 @@ impl pallet_echo::Config for Runtime {
 	type Event = Event;
 	type EthereumBridge = EthBridge;
 	type PalletId = EchoPalletId;
+}
+
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+		RuntimeBlockWeights::get().max_block;
+	pub const MaxScheduledPerBlock: u32 = 50;
+}
+impl pallet_scheduler::Config for Runtime {
+	type Event = Event;
+	type Origin = Origin;
+	type PalletsOrigin = OriginCaller;
+	type Call = Call;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+	type WeightInfo = ();
+	type PreimageProvider = ();
+	type NoPreimagePostponement = ();
 }
 
 parameter_types! {
@@ -690,14 +709,16 @@ parameter_types! {
 	/// The bridge pallet address
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
 	/// Bond amount for a challenger
-	pub const ChallengeBond: Balance = 100 * ONE_ROOT;
+	pub const ChallengeBond: Balance = 100 * ONE_XRP;
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 	/// Bond amount for a relayer
 	pub const RelayerBond: Balance = 100 * ONE_ROOT;
 	/// Max Xrpl notary (validator) public keys
 	pub const MaxXrplKeys: u8 = 8;
+	pub const RelayerBond: Balance = 100 * ONE_XRP;
 }
+
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
@@ -729,10 +750,14 @@ impl pallet_ethy::Config for Runtime {
 	type NotarizationThreshold = NotarizationThreshold;
 	/// The bond required to become a relayer
 	type RelayerBond = RelayerBond;
+	/// The pallet handling scheduled Runtime calls
+	type Scheduler = Scheduler;
 	/// Timestamp provider
 	type UnixTime = Timestamp;
 	/// Max Xrpl notary (validator) public keys
 	type MaxXrplKeys = MaxXrplKeys;
+	/// Pallets origin type
+	type PalletsOrigin = OriginCaller;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -876,6 +901,22 @@ impl pallet_erc20_peg::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	pub const NftPegPalletId: PalletId = PalletId(*b"rn/nftpg");
+	pub const DelayLength: BlockNumber = 5;
+	pub const MaxAddresses: u32 = 10;
+	pub const MaxIdsPerMultipleMint: u32 = 50;
+}
+
+impl pallet_nft_peg::Config for Runtime {
+	type Event = Event;
+	type PalletId = NftPegPalletId;
+	type DelayLength = DelayLength;
+	type MaxAddresses = MaxAddresses;
+	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type EthBridge = EthBridge;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -885,6 +926,7 @@ construct_runtime! {
 		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
 		Babe: pallet_babe,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -919,7 +961,8 @@ construct_runtime! {
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
-		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>}
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
+		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>}
 	}
 }
 

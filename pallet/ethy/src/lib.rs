@@ -41,7 +41,11 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
-	traits::{fungibles::Transfer, UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{
+		fungibles::Transfer,
+		schedule::{Anon, DispatchTime},
+		UnixTime, ValidatorSet as ValidatorSetT,
+	},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId, Parameter,
@@ -128,6 +132,10 @@ pub trait Config:
 	type NotarizationThreshold: Get<Percent>;
 	/// Bond required for an account to act as relayer
 	type RelayerBond: Get<Balance>;
+	/// The Scheduler.
+	type Scheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
+	/// Overarching type of all pallets origins.
+	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 	/// Returns the block timestamp
 	type UnixTime: UnixTime;
 	/// Max Xrpl notary (validator) public keys
@@ -136,6 +144,8 @@ pub trait Config:
 
 decl_storage! {
 	trait Store for Module<T: Config> as EthBridge {
+		/// Flag to indicate whether authorities have been changed during the current era
+		AuthoritiesChangedThisEra get(fn authorities_changed_this_era): bool;
 		/// Whether the bridge is paused (e.g. during validator transitions or by governance)
 		BridgePaused get(fn bridge_paused): bool;
 		/// Maps from event claim id to challenger and bond amount paid
@@ -232,6 +242,8 @@ decl_event! {
 		RelayerSet(Option<AccountId>),
 		/// Xrpl Door signers are set
 		XrplDoorSignersSet,
+		/// The schedule to unpause the bridge has failed (scheduled_block)
+		UnpauseScheduleFail(BlockNumber),
 		/// The bridge contract address has been set
 		SetContractAddress(EthAddress),
 	}
@@ -446,6 +458,16 @@ decl_module! {
 		}
 
 		#[weight = DbWeight::get().writes(1)]
+		/// Pause or unpause the bridge (requires governance)
+		pub fn set_bridge_paused(origin, paused: bool) {
+			ensure_root(origin)?;
+			match paused {
+				true => BridgePaused::put(true),
+				false => BridgePaused::kill(),
+			};
+		}
+
+		#[weight = DbWeight::get().writes(1)]
 		/// Submit ABI encoded event data from the Ethereum bridge contract
 		/// - tx_hash The Ethereum transaction hash which triggered the event
 		/// - event ABI encoded bridge event
@@ -474,6 +496,7 @@ decl_module! {
 					destination: *destination,
 					data: data.clone(),
 				};
+
 				PendingEventClaims::insert(event_id, &event_claim);
 				PendingClaimStatus::insert(event_id, EventClaimStatus::Pending);
 
