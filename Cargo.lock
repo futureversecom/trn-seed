@@ -4720,6 +4720,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-scheduler",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "rustc-hex",
@@ -4958,6 +4959,22 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-scheduler"
+version = "4.0.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -7440,6 +7457,7 @@ dependencies = [
  "pallet-nft-peg",
  "pallet-nomination-pools",
  "pallet-offences",
+ "pallet-scheduler",
  "pallet-session",
  "pallet-staking",
  "pallet-sudo",
