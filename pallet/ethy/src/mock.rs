@@ -12,6 +12,15 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
+use crate::{
+	self as pallet_ethy,
+	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
+	types::{
+		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult,
+		EthAddress, EthBlock, EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
+	},
+	Config,
+};
 use codec::{Decode, Encode};
 use ethereum_types::U64;
 use frame_support::{
@@ -42,16 +51,6 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 
-use crate::{
-	self as pallet_ethy,
-	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
-	types::{
-		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult,
-		EthAddress, EthBlock, EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
-	},
-	Config,
-};
-
 pub const XRP_ASSET_ID: AssetId = 1;
 
 type BlockNumber = u64;
@@ -73,6 +72,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -131,6 +131,8 @@ impl Config for TestRuntime {
 	type MultiCurrency = AssetsExt;
 	type NativeAssetId = XrpAssetId;
 	type RelayerBond = RelayerBond;
+	type Scheduler = Scheduler;
+	type PalletsOrigin = OriginCaller;
 }
 
 parameter_types! {
@@ -188,6 +190,23 @@ impl pallet_balances::Config for TestRuntime {
 	type WeightInfo = ();
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
+}
+
+parameter_types! {
+	pub const MaxScheduledPerBlock: u32 = 50;
+}
+impl pallet_scheduler::Config for TestRuntime {
+	type Event = Event;
+	type Origin = Origin;
+	type PalletsOrigin = OriginCaller;
+	type Call = Call;
+	type MaximumWeight = ();
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
+	type WeightInfo = ();
+	type PreimageProvider = ();
+	type NoPreimagePostponement = ();
 }
 
 /// Values in EthBlock that we store in mock storage

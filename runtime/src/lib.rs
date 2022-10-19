@@ -709,12 +709,13 @@ parameter_types! {
 	/// The bridge pallet address
 	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
 	/// Bond amount for a challenger
-	pub const ChallengeBond: Balance = 100 * ONE_ROOT;
+	pub const ChallengeBond: Balance = 100 * ONE_XRP;
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 	/// Bond amount for a relayer
-	pub const RelayerBond: Balance = 100 * ONE_ROOT;
+	pub const RelayerBond: Balance = 100 * ONE_XRP;
 }
+
 impl pallet_ethy::Config for Runtime {
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
