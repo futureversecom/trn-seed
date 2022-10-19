@@ -190,18 +190,22 @@ impl<T: Config> Pallet<T> {
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-	) -> DispatchResult {
+	) -> Result<u64, DispatchError> {
 		ensure!(serial_numbers.len() > Zero::zero(), Error::<T>::NoToken);
+		let mut weight: u64 = 0;
+
 		let collection_info = match Self::collection_info(collection_id) {
 			Some(info) => info,
 			None => return Err(Error::<T>::NoCollection.into()),
 		};
+		weight = weight + T::DbWeight::get().reads(1);
 
 		// counter for tokens minted in the case a token mint fails
 		let mut tokens_minted: TokenCount = 0;
 
 		// Mint the set tokens
 		for serial_number in serial_numbers.iter() {
+			weight = weight + T::DbWeight::get().reads(1);
 			if <TokenOwner<T>>::contains_key(collection_id, serial_number) {
 				// This should not happen as serial numbers are handled internally
 				// However we can't err if it does occur as that could potentially mean the loss
@@ -213,6 +217,7 @@ impl<T: Config> Pallet<T> {
 					serial_number
 				);
 			} else {
+				weight = weight + T::DbWeight::get().writes(1);
 				<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
 				tokens_minted += 1;
 			}
@@ -221,7 +226,7 @@ impl<T: Config> Pallet<T> {
 		if tokens_minted == TokenCount::zero() {
 			// No tokens were minted so no need to update storage,
 			// but we also don't want to throw an error as this could mean tokens are lost
-			return Ok(())
+			return Ok(weight)
 		}
 
 		// update token balances
@@ -243,6 +248,8 @@ impl<T: Config> Pallet<T> {
 				*q = Some(tokens_minted)
 			}
 		});
+		// Weight for two above, unconditional mutates
+		weight = weight + T::DbWeight::get().reads_writes(2, 2);
 
 		if collection_info.origin_chain == OriginChain::Root {
 			// Only increment next serial number if NFT originates from Root,
@@ -254,9 +261,10 @@ impl<T: Config> Pallet<T> {
 					*q = Some(tokens_minted)
 				}
 			});
+			weight = weight + T::DbWeight::get().reads_writes(1, 1);
 		}
 
-		Ok(())
+		Ok(weight)
 	}
 
 	/// Find the tokens owned by an `address` in the given collection

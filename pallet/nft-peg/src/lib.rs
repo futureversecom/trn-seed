@@ -14,10 +14,11 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
+pub use pallet::*;
 use pallet_nft::OriginChain;
 use scale_info::TypeInfo;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
@@ -25,8 +26,6 @@ use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec, vec::Vec};
-
-pub use pallet::*;
 
 #[cfg(test)]
 pub mod mock;
@@ -150,18 +149,28 @@ impl<T: Config> Get<H160> for GetEthAddress<T> {
 	}
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Decode, Encode, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
-pub struct PeggedNftInfo<T: Config> {
-	/// Sender contract
-	source: H160,
-	/// NFT token addresses
-	token_addresses: BoundedVec<H160, T::MaxAddresses>,
-	/// List of token ids. For a given address `n` from `token_addresses`, its corresponding token
-	/// ids exist at `token_ids[n]`.
-	token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
-	/// The address to send the tokens to
-	destination: H160,
+#[derive(Debug, PartialEq, Clone, Encode, Decode, TypeInfo)]
+/// Contains information about a token
+pub struct TokenInfo<T: Config> {
+	// The address of the contract
+	token_address: H160,
+	// The ids of the tokens belonging to the contract
+	token_ids: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+}
+
+pub struct GroupedTokenInfo<T: Config>(Vec<TokenInfo<T>>);
+impl<T: Config> GroupedTokenInfo<T> {
+	fn new(
+		token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
+		token_addresses: BoundedVec<H160, T::MaxAddresses>,
+	) -> Self {
+		let token_information: Vec<TokenInfo<T>> = token_ids
+			.into_iter()
+			.zip(token_addresses.into_iter())
+			.map(|(token_ids, token_address)| TokenInfo { token_address, token_ids })
+			.collect();
+		GroupedTokenInfo(token_information)
+	}
 }
 
 impl<T: Config> Pallet<T>
@@ -238,8 +247,15 @@ where
 			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
 
-			let do_deposit_weight = Self::do_deposit(token_addresses, token_ids, *destination)
-				.map_err(|err| (weight, err))?;
+			ensure!(
+				token_addresses.len() == token_ids.len(),
+				(weight, Error::<T>::UnequalTokenCount.into())
+			);
+
+			let token_information = GroupedTokenInfo::new(token_ids, token_addresses);
+
+			let do_deposit_weight =
+				Self::do_deposit(token_information, *destination).map_err(|err| (weight, err))?;
 
 			weight = T::DbWeight::get().writes(1).saturating_add(do_deposit_weight);
 
@@ -260,11 +276,12 @@ where
 	// bridge
 	fn do_deposit(
 		// Addresses of the tokens
-		token_addresses: BoundedVec<H160, T::MaxAddresses>,
-		// Lists of token ids for the above addresses(For a given address `n`, its tokens are at
-		// `token_ids[n]`)
-		token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
-		// Root address to deposit the tokens into
+		// token_addresses: BoundedVec<H160, T::MaxAddresses>,
+		// // Lists of token ids for the above addresses(For a given address `n`, its tokens are at
+		// // `token_ids[n]`)
+		// token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		// T::MaxAddresses>, Root address to deposit the tokens into
+		token_info: GroupedTokenInfo<T>,
 		destination: H160,
 	) -> Result<u64, DispatchError> {
 		let mut weight: Weight = 0;
@@ -273,54 +290,51 @@ where
 		let metadata_scheme = pallet_nft::MetadataScheme::Ethereum(Self::contract_address());
 		let name = "".encode();
 
-		ensure!(token_addresses.len() == token_ids.len(), Error::<T>::UnequalTokenCount);
-
-		for (collection_idx, address) in token_addresses.iter().enumerate() {
-			// Get the list of token ids corresponding to the current collection
-			let current_collections_tokens = &token_ids[collection_idx];
+		for current_token in token_info.0.iter() {
+			// // Get the list of token ids corresponding to the current collection
+			// let current_collections_tokens = &token_ids[collection_idx];
 			// Assign collection owner to pallet. User can claim it later
 			let collection_owner_account =
 				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
-			// Weight for do_mint_multiple. TODO: return from do_mint_multiple
-			weight = weight
-				.saturating_add(current_collections_tokens.len() as Weight)
-				.saturating_mul(
-					(T::DbWeight::get().reads_writes(1, 2))
-						.saturating_add(T::DbWeight::get().reads_writes(2, 2)),
-				);
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
-			let collection_id: CollectionUuid = match Self::eth_to_root_nft(address) {
-				Some(collection_id) => collection_id,
-				None => {
-					// Collection doesn't exist, create a new collection
-					let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
-						collection_owner_account,
-						name.clone(),
-						0_u32,
-						None,
-						Some(destination.clone()),
-						metadata_scheme.clone(),
-						None,
-						OriginChain::Ethereum,
-					)?;
+			let collection_id: CollectionUuid =
+				match Self::eth_to_root_nft(current_token.token_address) {
+					Some(collection_id) => collection_id,
+					None => {
+						// Collection doesn't exist, create a new collection
+						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
+							collection_owner_account,
+							name.clone(),
+							0_u32,
+							None,
+							Some(destination.clone()),
+							metadata_scheme.clone(),
+							None,
+							OriginChain::Ethereum,
+						)?;
 
-					// Populate both mappings, building the relationship between the bridged chain
-					// token, and this chain's token
-					EthToRootNft::<T>::insert(address, new_collection_id);
-					RootNftToErc721::<T>::insert(new_collection_id, address);
-					new_collection_id
-				},
-			};
+						// Populate both mappings, building the relationship between the bridged
+						// chain token, and this chain's token
+						EthToRootNft::<T>::insert(current_token.token_address, new_collection_id);
+						RootNftToErc721::<T>::insert(
+							new_collection_id,
+							current_token.token_address,
+						);
+						new_collection_id
+					},
+				};
 
 			// Mint the tokens
-			pallet_nft::Pallet::<T>::do_mint(
+			let mint_weight = pallet_nft::Pallet::<T>::do_mint(
 				&destination,
 				collection_id,
-				current_collections_tokens.clone().into_inner(),
+				current_token.token_ids.clone().into_inner(),
+				// token_info..into_inner(),
 			)?;
-			weight = weight.saturating_add(T::DbWeight::get().writes(2));
+			weight =
+				weight.saturating_add(T::DbWeight::get().writes(2)).saturating_add(mint_weight);
 		}
 
 		Self::deposit_event(Event::<T>::Erc721Deposit { destination });
