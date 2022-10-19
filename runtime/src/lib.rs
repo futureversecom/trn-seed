@@ -714,6 +714,8 @@ parameter_types! {
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
 	/// Bond amount for a relayer
 	pub const RelayerBond: Balance = 100 * ONE_XRP;
+	/// Max Xrpl notary (validator) public keys
+	pub const MaxXrplKeys: u8 = 8;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -753,6 +755,8 @@ impl pallet_ethy::Config for Runtime {
 	type UnixTime = Timestamp;
 	/// Pallets origin type
 	type PalletsOrigin = OriginCaller;
+	/// Max Xrpl notary (validator) public keys
+	type MaxXrplKeys = MaxXrplKeys;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -1316,7 +1320,7 @@ impl_runtime_apis! {
 			EthBridge::validator_set()
 		}
 		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
-			let door_signers = XRPLBridge::door_signers();
+			let door_signers = EthBridge::notary_xrpl_keys();
 			ValidatorSet {
 				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
 				validators: door_signers,

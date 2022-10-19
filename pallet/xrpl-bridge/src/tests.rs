@@ -276,55 +276,6 @@ fn set_door_address_fail() {
 }
 
 #[test]
-fn set_door_signers_fails() {
-	new_test_ext().execute_with(|| {
-		// too many
-		assert_noop!(
-			XRPLBridge::set_door_signers(
-				Origin::root(),
-				(0..10).map(|i| AuthorityId::from_slice(&[i as u8; 33]).unwrap()).collect(),
-			),
-			Error::<Test>::TooManySigners,
-		);
-		// duplicates
-		assert_noop!(
-			XRPLBridge::set_door_signers(
-				Origin::root(),
-				vec![
-					AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
-					AuthorityId::from_slice(&[2_u8; 33]).unwrap()
-				],
-			),
-			Error::<Test>::InvalidSigners,
-		);
-		// not in the ethy validator set
-		assert_noop!(
-			XRPLBridge::set_door_signers(
-				Origin::root(),
-				vec![
-					AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
-					AuthorityId::from_slice(&[5_u8; 33]).unwrap()
-				],
-			),
-			Error::<Test>::InvalidSigners,
-		);
-	});
-}
-
-#[test]
-fn set_door_signers() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(XRPLBridge::set_door_signers(
-			Origin::root(),
-			vec![
-				AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
-				AuthorityId::from_slice(&[2_u8; 33]).unwrap()
-			],
-		));
-	});
-}
-
-#[test]
 fn clear_storages() {
 	new_test_ext().execute_with(|| {
 		let process_block = 5;

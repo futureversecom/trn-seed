@@ -113,6 +113,7 @@ parameter_types! {
 	pub const ChallengerBond: Balance = 100;
 	pub const RelayerBond: Balance = 202;
 	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
+	pub const MaxXrplKeys: u8 = 8;
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
@@ -131,6 +132,7 @@ impl Config for TestRuntime {
 	type MultiCurrency = AssetsExt;
 	type NativeAssetId = XrpAssetId;
 	type RelayerBond = RelayerBond;
+	type MaxXrplKeys = MaxXrplKeys;
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
 }
