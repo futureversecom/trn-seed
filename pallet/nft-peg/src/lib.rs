@@ -12,6 +12,7 @@ use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::weights::Weight;
 pub use pallet::*;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
 use sp_std::{boxed::Box, vec, vec::Vec};
@@ -45,15 +46,17 @@ pub mod pallet {
 	#[pallet::getter(fn contract_address)]
 	pub type ContractAddress<T> = StorageValue<_, EthAddress, ValueQuery>;
 
-	// Map Ethereum Collection ids to Root collection ids
+	// Map Ethereum contract address to Root collection id
 	#[pallet::storage]
 	#[pallet::getter(fn eth_to_root_nft)]
-	pub type EthToRootNft<T: Config> = StorageMap<_, Twox64Concat, H160, u32, OptionQuery>;
+	pub type EthToRootNft<T: Config> =
+		StorageMap<_, Twox64Concat, EthAddress, CollectionUuid, OptionQuery>;
 
-	// Map Ethereum Collection ids to Root collection ids
+	// Map Root collection id to Ethereum contract address
 	#[pallet::storage]
 	#[pallet::getter(fn root_to_eth_nft)]
-	pub type RootNftToErc721<T: Config> = StorageMap<_, Twox64Concat, u32, H160, OptionQuery>;
+	pub type RootNftToErc721<T: Config> =
+		StorageMap<_, Twox64Concat, CollectionUuid, EthAddress, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -81,7 +84,17 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		Erc721DepositFailed(DispatchError),
+		/// An ERC721 deposit was made
+		Erc721Deposit { destination: T::AccountId },
+		/// An ERC721 withdraw was made
+		Erc721Withdraw {
+			origin: T::AccountId,
+			collection_ids: Vec<CollectionUuid>,
+			token_ids: Vec<Vec<SerialNumber>>,
+			destination: H160,
+		},
+		/// The NFT-peg contract address was set
+		ContractAddressSet { contract: H160 },
 	}
 
 	#[pallet::call]
@@ -93,6 +106,7 @@ pub mod pallet {
 		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(contract);
+			Self::deposit_event(Event::<T>::ContractAddressSet { contract });
 			Ok(().into())
 		}
 
@@ -105,7 +119,13 @@ pub mod pallet {
 			destination: H160,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_withdraw(H160::from(who.into()), collection_ids, token_ids, destination)?;
+			Self::do_withdraw(&who, &collection_ids, &token_ids, destination)?;
+			Self::deposit_event(Event::<T>::Erc721Withdraw {
+				origin: who,
+				collection_ids,
+				token_ids,
+				destination,
+			});
 			Ok(().into())
 		}
 	}
@@ -128,7 +148,7 @@ pub struct PeggedNftInfo<T: Config> {
 	token_addresses: BoundedVec<H160, T::MaxAddresses>,
 	/// List of token ids. For a given address `n` from `token_addresses`, its corresponding token
 	/// ids exist at `token_ids[n]`.
-	token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses>,
+	token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
 	/// The address to send the tokens to
 	destination: H160,
 }
@@ -137,10 +157,7 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn decode_deposit_event(
-		source: &sp_core::H160,
-		data: &[u8],
-	) -> Result<u64, (u64, DispatchError)> {
+	fn decode_deposit_event(data: &[u8]) -> Result<u64, (u64, DispatchError)> {
 		let mut weight = 0;
 		let abi_decoded = match ethabi::decode(
 			&[
@@ -179,16 +196,17 @@ where
 
 			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
 			let token_ids: Result<
-				Vec<BoundedVec<U256, T::MaxTokensPerCollection>>,
+				Vec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>>,
 				(u64, DispatchError),
 			> = token_ids
 				.iter()
 				.map(|k| {
 					if let Token::Array(token_ids) = k {
-						let new: Vec<U256> = token_ids
+						let new: Vec<SerialNumber> = token_ids
 							.iter()
 							.filter_map(|j| {
 								if let Token::Uint(token_id) = j {
+									let token_id: SerialNumber = (*token_id).saturated_into();
 									Some(token_id.clone())
 								} else {
 									None
@@ -204,7 +222,7 @@ where
 				.collect();
 
 			let token_ids: BoundedVec<
-				BoundedVec<U256, T::MaxTokensPerCollection>,
+				BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 				T::MaxAddresses,
 			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
@@ -234,17 +252,13 @@ where
 		token_addresses: BoundedVec<H160, T::MaxAddresses>,
 		// Lists of token ids for the above addresses(For a given address `n`, its tokens are at
 		// `token_ids[n]`)
-		token_ids: BoundedVec<BoundedVec<U256, T::MaxTokensPerCollection>, T::MaxAddresses>,
+		token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
 		// Root address to deposit the tokens into
 		destination: H160,
 	) -> Result<u64, DispatchError> {
-		let mut weight = 0;
+		let mut weight: Weight = 0;
 
-		let initial_issuance: u32 = token_addresses.len() as u32;
-		let max_issuance = None;
-		let royalties_schedule = None;
 		let destination: T::AccountId = destination.into();
-		let source_chain = OriginChain::Ethereum;
 		let metadata_scheme = pallet_nft::MetadataScheme::Ethereum(Self::contract_address());
 		let name = "".encode();
 
@@ -258,59 +272,60 @@ where
 				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
 
 			// Weight for do_mint_multiple. TODO: return from do_mint_multiple
-			weight = (weight as u64)
-				.saturating_add(current_collections_tokens.len() as u64)
+			weight = weight
+				.saturating_add(current_collections_tokens.len() as Weight)
 				.saturating_mul(
-					(T::DbWeight::get().writes(2).saturating_add(T::DbWeight::get().reads(1)))
-						.saturating_add(
-							T::DbWeight::get()
-								.writes(2)
-								.saturating_add(T::DbWeight::get().reads(2)),
-						),
+					(T::DbWeight::get().reads_writes(1, 2))
+						.saturating_add(T::DbWeight::get().reads_writes(2, 2)),
 				);
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
-			if let Some(root_collection_id) = Self::eth_to_root_nft(address) {
-				pallet_nft::Pallet::<T>::do_mint_multiple(
-					&destination,
-					root_collection_id,
-					current_collections_tokens,
-				)?;
-			} else {
-				let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
-					collection_owner_account,
-					name.clone(),
-					initial_issuance,
-					max_issuance,
-					Some(destination.clone()),
-					metadata_scheme.clone(),
-					royalties_schedule.clone(),
-					source_chain.clone(),
-				)?;
+			let collection_id: CollectionUuid = match Self::eth_to_root_nft(address) {
+				Some(collection_id) => collection_id,
+				None => {
+					// Collection doesn't exist, create a new collection
+					let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
+						collection_owner_account,
+						name.clone(),
+						0_u32,
+						None,
+						Some(destination.clone()),
+						metadata_scheme.clone(),
+						None,
+						OriginChain::Ethereum,
+					)?;
 
-				// Populate both mappings, building the relationship between the bridged chain
-				// token, and this chain's token
-				EthToRootNft::<T>::insert(address, new_collection_id);
-				RootNftToErc721::<T>::insert(new_collection_id, address);
-				pallet_nft::Pallet::<T>::do_mint_multiple(
-					&destination,
-					new_collection_id,
-					current_collections_tokens,
-				)?;
-				weight = weight.saturating_add(T::DbWeight::get().writes(2));
-			}
+					// Populate both mappings, building the relationship between the bridged chain
+					// token, and this chain's token
+					EthToRootNft::<T>::insert(address, new_collection_id);
+					RootNftToErc721::<T>::insert(new_collection_id, address);
+					new_collection_id
+				},
+			};
+
+			// Mint the tokens
+			pallet_nft::Pallet::<T>::do_mint(
+				&destination,
+				collection_id,
+				current_collections_tokens.clone().into_inner(),
+			)?;
+			weight = weight.saturating_add(T::DbWeight::get().writes(2));
 		}
+
+		Self::deposit_event(Event::<T>::Erc721Deposit { destination });
 		Ok(weight)
 	}
 
 	// Accepts one or more Ethereum originated ERC721 tokens to be sent back over the bridge
 	pub fn do_withdraw(
-		who: H160,
-		collection_ids: Vec<CollectionUuid>,
-		token_ids: Vec<Vec<SerialNumber>>,
-		// Root address to deposit the tokens into
+		who: &T::AccountId,
+		collection_ids: &Vec<CollectionUuid>,
+		token_ids: &Vec<Vec<SerialNumber>>,
+		// Ethereum address to deposit the tokens into
 		destination: H160,
 	) -> Result<(), DispatchError> {
+		ensure!(collection_ids.len() == token_ids.len(), Error::<T>::UnequalTokenCount);
+
 		let mut source_collection_ids = vec![];
 		let mut source_token_ids = vec![];
 
@@ -318,7 +333,7 @@ where
 			if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
 				// At the time of writing, only Ethereum-originated NFTs can be bridged back.
 				ensure!(
-					collection_info.source_chain == OriginChain::Ethereum,
+					collection_info.origin_chain == OriginChain::Ethereum,
 					Error::<T>::NoPermissionToBridge
 				);
 			} else {
@@ -331,7 +346,7 @@ where
 			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
 			// somewhat bounded as well, but there should be a way to reduce this complexity
 			for token_id in &token_ids[idx] {
-				pallet_nft::Pallet::<T>::do_burn(&who.into(), collection_id, token_id)?;
+				pallet_nft::Pallet::<T>::do_burn(who, collection_id.clone(), token_id)?;
 				source_token_ids[idx].push(Token::Uint(U256::from(token_id.clone())))
 			}
 
@@ -360,10 +375,10 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {
-	type Address = <T as pallet::Config>::PalletId;
+	type Address = <T as Config>::PalletId;
 	type SourceAddress = GetEthAddress<T>;
 
-	fn on_event(source: &sp_core::H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
+	fn on_event(_source: &H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
 		let weight = 0;
 
 		// Decode prefix from first 32 bytes of data
@@ -379,7 +394,7 @@ where
 			// let data = &data[~33..];
 
 			match prefix {
-				1_u32 => Self::decode_deposit_event(source, data),
+				1_u32 => Self::decode_deposit_event(data),
 				2_u32 => Self::decode_state_sync_event(data),
 				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}

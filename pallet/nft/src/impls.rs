@@ -17,7 +17,6 @@ use crate::*;
 use frame_support::{ensure, traits::Get, transactional};
 use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
-use sp_core::U256;
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -186,92 +185,76 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Mint additional tokens in a collection
+	/// Token Ids are passed in manually
 	pub fn do_mint(
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
-		serial_number: SerialNumber,
-		quantity: TokenCount,
+		serial_numbers: Vec<SerialNumber>,
 	) -> DispatchResult {
-		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		ensure!(serial_numbers.len() > Zero::zero(), Error::<T>::NoToken);
+		let collection_info = match Self::collection_info(collection_id) {
+			Some(info) => info,
+			None => return Err(Error::<T>::NoCollection.into()),
+		};
+
+		// counter for tokens minted in the case a token mint fails
+		let mut tokens_minted: TokenCount = 0;
 
 		// Mint the set tokens
-		for serial_number in serial_number..serial_number + quantity {
-			<TokenOwner<T>>::insert(collection_id, serial_number as SerialNumber, &owner);
+		for serial_number in serial_numbers.iter() {
+			if <TokenOwner<T>>::contains_key(collection_id, serial_number) {
+				// This should not happen as serial numbers are handled internally
+				// However we can't err if it does occur as that could potentially mean the loss
+				// of unprocessed tokens due to NFT bridging
+				log!(
+					warn,
+					"🃏 Token Couldn't be minted as this token_id already exists: ({:?},{:?})",
+					collection_id,
+					serial_number
+				);
+			} else {
+				<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
+				tokens_minted += 1;
+			}
+		}
+
+		if tokens_minted == TokenCount::zero() {
+			// No tokens were minted so no need to update storage,
+			// but we also don't want to throw an error as this could mean tokens are lost
+			return Ok(())
 		}
 
 		// update token balances
 		<TokenBalance<T>>::mutate(&owner, |mut balances| {
 			if let Some(balances) = &mut balances {
-				*balances.entry(collection_id).or_default() += quantity
+				*balances.entry(collection_id).or_default() += tokens_minted
 			} else {
 				let mut map = BTreeMap::new();
-				map.insert(collection_id, quantity);
+				map.insert(collection_id, tokens_minted);
 				*balances = Some(map)
 			}
 		});
 
+		// Update collection issuance
 		<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
 			if let Some(q) = &mut q {
-				*q = q.saturating_add(quantity)
+				*q = q.saturating_add(tokens_minted)
 			} else {
-				*q = Some(quantity)
-			}
-		});
-		<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
-			if let Some(q) = &mut q {
-				*q = q.saturating_add(quantity)
-			} else {
-				*q = Some(quantity)
+				*q = Some(tokens_minted)
 			}
 		});
 
-		Ok(())
-	}
-
-	/// Mint additional tokens in a collection, with an extra check that existing tokens are not
-	/// being minted
-	pub fn do_mint_multiple(
-		owner: &T::AccountId,
-		collection_id: CollectionUuid,
-		token_ids: &[U256],
-	) -> DispatchResult {
-		// Mint the set tokens
-		for serial_number in token_ids.into_iter() {
-			let serial_number: SerialNumber = serial_number.as_u32();
-
-			ensure!(
-				Self::token_owner(collection_id, serial_number) == None,
-				Error::<T>::DuplicateToken
-			);
-
-			<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
-			// update token balances
-			<TokenBalance<T>>::mutate(&owner, |mut balances| {
-				if let Some(balances) = &mut balances {
-					*balances.entry(collection_id).or_default() += 1
+		if collection_info.origin_chain == OriginChain::Root {
+			// Only increment next serial number if NFT originates from Root,
+			// We don't care about this field for Ethereum originated NFTs
+			<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
+				if let Some(q) = &mut q {
+					*q = q.saturating_add(tokens_minted)
 				} else {
-					let mut map = BTreeMap::new();
-					map.insert(collection_id, 1);
-					*balances = Some(map)
+					*q = Some(tokens_minted)
 				}
 			});
 		}
-
-		<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
-			if let Some(q) = &mut q {
-				*q = q.saturating_add(token_ids.len() as u32)
-			} else {
-				*q = Some(token_ids.len() as u32)
-			}
-		});
-
-		<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
-			if let Some(q) = &mut q {
-				*q = q.saturating_add(token_ids.len() as u32)
-			} else {
-				*q = Some(token_ids.len() as u32)
-			}
-		});
 
 		Ok(())
 	}
@@ -500,22 +483,7 @@ impl<T: Config> Pallet<T> {
 		};
 		(new_cursor, response)
 	}
-}
 
-// Interface for determining ownership of an NFT from some account
-impl<T: Config> IsTokenOwner for Pallet<T> {
-	type AccountId = T::AccountId;
-
-	fn is_owner(account: &Self::AccountId, token_id: &TokenId) -> bool {
-		if let Some(owner) = Self::token_owner(token_id.0, token_id.1) {
-			&owner == account
-		} else {
-			false
-		}
-	}
-}
-
-impl<T: Config> Pallet<T> {
 	pub fn do_create_collection(
 		owner: T::AccountId,
 		name: CollectionNameType,
@@ -524,7 +492,7 @@ impl<T: Config> Pallet<T> {
 		token_owner: Option<T::AccountId>,
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
-		source_chain: OriginChain,
+		origin_chain: OriginChain,
 	) -> Result<u32, DispatchError> {
 		// Check we can issue the new tokens
 		let collection_uuid = Self::next_collection_uuid()?;
@@ -553,16 +521,17 @@ impl<T: Config> Pallet<T> {
 				owner: owner.clone(),
 				name,
 				metadata_scheme,
-				royalties_schedule: None,
-				max_issuance: None,
-				source_chain,
+				royalties_schedule,
+				max_issuance,
+				origin_chain: origin_chain.clone(),
 			},
 		);
 
 		// Now mint the collection tokens
 		let token_owner = token_owner.unwrap_or(owner);
 		if initial_issuance > Zero::zero() {
-			Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
+			let token_ids: Vec<SerialNumber> = (0..initial_issuance).collect();
+			Self::do_mint(&token_owner, collection_uuid, token_ids)?;
 		}
 		// will not overflow, asserted prior qed.
 		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
@@ -613,7 +582,6 @@ impl<T: Config> Pallet<T> {
 		if let Some(collection_issuance) = Self::collection_issuance(collection_id) {
 			if collection_issuance.saturating_sub(1).is_zero() {
 				// this is the last of the tokens
-				<CollectionInfo<T>>::remove(collection_id);
 				<CollectionIssuance<T>>::remove(collection_id);
 			} else {
 				<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
@@ -625,5 +593,18 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Ok(())
+	}
+}
+
+// Interface for determining ownership of an NFT from some account
+impl<T: Config> IsTokenOwner for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	fn is_owner(account: &Self::AccountId, token_id: &TokenId) -> bool {
+		if let Some(owner) = Self::token_owner(token_id.0, token_id.1) {
+			&owner == account
+		} else {
+			false
+		}
 	}
 }
