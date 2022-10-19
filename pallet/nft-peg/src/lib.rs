@@ -158,18 +158,23 @@ pub struct TokenInfo<T: Config> {
 	token_ids: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 }
 
-pub struct GroupedTokenInfo<T: Config>(Vec<TokenInfo<T>>);
+pub struct GroupedTokenInfo<T: Config> {
+	tokens: Vec<TokenInfo<T>>,
+	destination: T::AccountId,
+}
+
 impl<T: Config> GroupedTokenInfo<T> {
 	fn new(
 		token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
 		token_addresses: BoundedVec<H160, T::MaxAddresses>,
+		destination: T::AccountId,
 	) -> Self {
 		let token_information: Vec<TokenInfo<T>> = token_ids
 			.into_iter()
 			.zip(token_addresses.into_iter())
 			.map(|(token_ids, token_address)| TokenInfo { token_address, token_ids })
 			.collect();
-		GroupedTokenInfo(token_information)
+		GroupedTokenInfo { tokens: token_information, destination }
 	}
 }
 
@@ -252,7 +257,8 @@ where
 				(weight, Error::<T>::TokenListLengthMismatch.into())
 			);
 
-			let token_information = GroupedTokenInfo::new(token_ids, token_addresses);
+			let token_information =
+				GroupedTokenInfo::new(token_ids, token_addresses, destination.clone().into());
 
 			let do_deposit_weight =
 				Self::do_deposit(token_information, *destination).map_err(|err| (weight, err))?;
@@ -284,7 +290,7 @@ where
 		let metadata_scheme = pallet_nft::MetadataScheme::Ethereum(Self::contract_address());
 		let name = "".encode();
 
-		for current_token in token_info.0.iter() {
+		for current_token in token_info.tokens.iter() {
 			// Assign collection owner to pallet. User can claim it later
 			let collection_owner_account =
 				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();

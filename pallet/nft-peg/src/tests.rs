@@ -110,7 +110,8 @@ fn do_deposit_creates_tokens_and_collection() {
 		let token_addresses =
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
-		let token_information = GroupedTokenInfo::new(token_ids, token_addresses);
+		let token_information =
+			GroupedTokenInfo::new(token_ids, token_addresses, test_vals.destination.into());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 
@@ -149,7 +150,8 @@ fn do_deposit_works_with_existing_bridged_collection() {
 		let token_addresses =
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
-		let token_information = GroupedTokenInfo::new(token_ids, token_addresses.clone());
+		let token_information =
+			GroupedTokenInfo::new(token_ids, token_addresses.clone(), test_vals.destination.into());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert_eq!(
@@ -176,7 +178,8 @@ fn do_deposit_works_with_existing_bridged_collection() {
 			)
 			.unwrap();
 
-		let token_information = GroupedTokenInfo::new(new_token_ids, token_addresses);
+		let token_information =
+			GroupedTokenInfo::new(new_token_ids, token_addresses, test_vals.destination.into());
 
 		// When bridged tokens are sent for existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
