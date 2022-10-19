@@ -1095,10 +1095,6 @@ fn on_before_session_ending_handles_authorities() {
 		assert!(EthBridge::bridge_paused());
 		let scheduled_block: BlockNumber = block_number + 75_u32;
 
-		// Block before scheduled should not unpause bridge
-		Scheduler::on_initialize((scheduled_block - 1_u32).into());
-		assert!(EthBridge::bridge_paused());
-
 		// This should unpause bridge
 		Scheduler::on_initialize(scheduled_block.into());
 		assert!(!EthBridge::bridge_paused());
@@ -1142,6 +1138,10 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 		// Item should be scheduled and bridge still paused
 		assert!(EthBridge::bridge_paused());
 		let scheduled_block: BlockNumber = block_number + 75_u32;
+
+		// Block before scheduled should not unpause bridge
+		Scheduler::on_initialize((scheduled_block - 1_u32).into());
+		assert!(EthBridge::bridge_paused());
 
 		// Scheduler unpauses bridge
 		Scheduler::on_initialize(scheduled_block.into());
