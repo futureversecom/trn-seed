@@ -233,7 +233,7 @@ fn do_withdraw_invalid_token_length_should_fail() {
 				&vec![vec![1]],
 				H160::default()
 			),
-			Error::<Test>::UnequalTokenCount
+			Error::<Test>::TokenListLengthMismatch
 		);
 	});
 }

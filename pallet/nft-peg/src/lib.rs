@@ -88,7 +88,7 @@ pub mod pallet {
 		/// The state sync decoding feature is not implemented
 		StateSyncDisabled,
 		/// Multiple tokens were passed from contract, but amounts were unqeual per each array
-		UnequalTokenCount,
+		TokenListLengthMismatch,
 	}
 
 	#[pallet::event]
@@ -177,8 +177,8 @@ impl<T: Config> Pallet<T>
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn decode_deposit_event(data: &[u8]) -> Result<u64, (u64, DispatchError)> {
-		let mut weight = 0;
+	fn decode_deposit_event(data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
+		let mut weight: Weight = 0;
 		let abi_decoded = match ethabi::decode(
 			&[
 				// Bit to predetermine which function to route to; unused here
@@ -249,7 +249,7 @@ where
 
 			ensure!(
 				token_addresses.len() == token_ids.len(),
-				(weight, Error::<T>::UnequalTokenCount.into())
+				(weight, Error::<T>::TokenListLengthMismatch.into())
 			);
 
 			let token_information = GroupedTokenInfo::new(token_ids, token_addresses);
@@ -267,7 +267,7 @@ where
 	}
 
 	// TODO implement state sync feature for collection_owner, name and metadata
-	fn decode_state_sync_event(_data: &[u8]) -> Result<u64, (u64, DispatchError)> {
+	fn decode_state_sync_event(_data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
 		Err((0, Error::<T>::StateSyncDisabled.into()))
 	}
 
@@ -277,7 +277,7 @@ where
 	fn do_deposit(
 		token_info: GroupedTokenInfo<T>,
 		destination: H160,
-	) -> Result<u64, DispatchError> {
+	) -> Result<Weight, DispatchError> {
 		let mut weight: Weight = 0;
 
 		let destination: T::AccountId = destination.into();
@@ -323,7 +323,6 @@ where
 				&destination,
 				collection_id,
 				current_token.token_ids.clone().into_inner(),
-				// token_info..into_inner(),
 			)?;
 			weight =
 				weight.saturating_add(T::DbWeight::get().writes(2)).saturating_add(mint_weight);
@@ -341,7 +340,7 @@ where
 		// Ethereum address to deposit the tokens into
 		destination: H160,
 	) -> Result<(), DispatchError> {
-		ensure!(collection_ids.len() == token_ids.len(), Error::<T>::UnequalTokenCount);
+		ensure!(collection_ids.len() == token_ids.len(), Error::<T>::TokenListLengthMismatch);
 
 		let mut source_collection_ids = vec![];
 		let mut source_token_ids = vec![];

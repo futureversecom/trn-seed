@@ -14,13 +14,12 @@
  */
 
 use crate::*;
-use frame_support::{ensure, traits::Get, transactional};
+use codec::alloc::string::ToString;
+use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 use sp_std::collections::btree_map::BTreeMap;
-
-use codec::alloc::string::ToString;
 
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
@@ -190,9 +189,9 @@ impl<T: Config> Pallet<T> {
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-	) -> Result<u64, DispatchError> {
+	) -> Result<Weight, DispatchError> {
 		ensure!(serial_numbers.len() > Zero::zero(), Error::<T>::NoToken);
-		let mut weight: u64 = 0;
+		let mut weight: Weight = 0;
 
 		let collection_info = match Self::collection_info(collection_id) {
 			Some(info) => info,
