@@ -20,7 +20,7 @@ use scale_info::TypeInfo;
 use seed_primitives::SerialNumber;
 use sp_core::H160;
 use sp_runtime::traits::Get;
-use std::marker::PhantomData;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 #[derive(Debug, PartialEq, Clone, Encode, Decode, TypeInfo)]
 /// Contains information about a token
