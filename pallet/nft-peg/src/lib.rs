@@ -92,7 +92,7 @@ pub mod pallet {
 		#[pallet::weight(T::DbWeight::get().writes(1))]
 		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
 			ensure_root(origin)?;
-			ContractAddress::<T>::set(contract);
+			ContractAddress::<T>::put(contract);
 			Ok(().into())
 		}
 
