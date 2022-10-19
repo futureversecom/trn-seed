@@ -178,15 +178,8 @@ fn do_deposit_works_with_existing_bridged_collection() {
 
 		let token_information = GroupedTokenInfo::new(new_token_ids, token_addresses);
 
-		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-
 		// When bridged tokens are sent for existing collection
-		// assert_ok!(Pallet::<Test>::do_deposit(
-		// 	token_addresses,
-		// 	new_token_ids,
-		// 	test_vals.destination
-		// ));
-
+		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert_eq!(
 			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
 			Some(expected_collection_id)

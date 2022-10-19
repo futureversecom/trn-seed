@@ -275,12 +275,6 @@ where
 	// Root-side representation of them Expects ERC721 tokens sent and verified through the existing
 	// bridge
 	fn do_deposit(
-		// Addresses of the tokens
-		// token_addresses: BoundedVec<H160, T::MaxAddresses>,
-		// // Lists of token ids for the above addresses(For a given address `n`, its tokens are at
-		// // `token_ids[n]`)
-		// token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-		// T::MaxAddresses>, Root address to deposit the tokens into
 		token_info: GroupedTokenInfo<T>,
 		destination: H160,
 	) -> Result<u64, DispatchError> {
@@ -291,8 +285,6 @@ where
 		let name = "".encode();
 
 		for current_token in token_info.0.iter() {
-			// // Get the list of token ids corresponding to the current collection
-			// let current_collections_tokens = &token_ids[collection_idx];
 			// Assign collection owner to pallet. User can claim it later
 			let collection_owner_account =
 				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
