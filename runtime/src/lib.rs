@@ -105,7 +105,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 12,
+	spec_version: 13,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -896,6 +896,22 @@ impl pallet_erc20_peg::Config for Runtime {
 	type Event = Event;
 }
 
+parameter_types! {
+	pub const NftPegPalletId: PalletId = PalletId(*b"rn/nftpg");
+	pub const DelayLength: BlockNumber = 5;
+	pub const MaxAddresses: u32 = 10;
+	pub const MaxIdsPerMultipleMint: u32 = 50;
+}
+
+impl pallet_nft_peg::Config for Runtime {
+	type Event = Event;
+	type PalletId = NftPegPalletId;
+	type DelayLength = DelayLength;
+	type MaxAddresses = MaxAddresses;
+	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type EthBridge = EthBridge;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -940,7 +956,8 @@ construct_runtime! {
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
-		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>}
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
+		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>}
 	}
 }
 

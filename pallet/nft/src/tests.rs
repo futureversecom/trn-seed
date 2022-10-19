@@ -17,11 +17,14 @@ use super::*;
 use crate::mock::{
 	has_event, AccountId, AssetsExt, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 };
+use codec::Encode;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok,
+	storage::StorageMap,
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use seed_primitives::TokenId;
+use sp_core::{H160, U256};
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -124,6 +127,65 @@ fn make_new_simple_offer(
 }
 
 #[test]
+fn migration_v0_to_v1() {
+	use frame_support::traits::OnRuntimeUpgrade;
+	use migration::v1_storage;
+
+	TestExt::default().build().execute_with(|| {
+		// setup old values
+		v1_storage::CollectionInfo::<Test>::insert(
+			123,
+			v1_storage::CollectionInformation::<AccountId> {
+				owner: 123_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
+				max_issuance: None,
+			},
+		);
+		v1_storage::CollectionInfo::<Test>::insert(
+			124,
+			v1_storage::CollectionInformation::<AccountId> {
+				owner: 124_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
+				max_issuance: None,
+			},
+		);
+
+		// run upgrade
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V0);
+		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		assert_eq!(
+			CollectionInfo::<Test>::get(123).expect("listing exists"),
+			CollectionInformation::<AccountId> {
+				owner: 123_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
+				max_issuance: None,
+				source_chain: OriginChain::Root,
+			},
+		);
+		assert_eq!(
+			CollectionInfo::<Test>::get(124).expect("listing exists"),
+			CollectionInformation::<AccountId> {
+				owner: 124_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
+				max_issuance: None,
+				source_chain: OriginChain::Root,
+			},
+		);
+
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V1);
+	});
+}
+
+#[test]
 fn next_collection_uuid_works() {
 	TestExt::default().build().execute_with(|| {
 		// This tests assumes parachain_id is set to 100 in mock
@@ -197,6 +259,7 @@ fn create_collection() {
 				metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				royalties_schedule: Some(royalties_schedule.clone()),
 				max_issuance: None,
+				source_chain: OriginChain::Root
 			}
 		);
 
@@ -2692,5 +2755,52 @@ fn transfer_many_tokens_changes_token_balance() {
 			new_owner_map.insert(collection_id, changed_quantity);
 			assert_eq!(Nft::token_balance(new_owner).unwrap(), new_owner_map);
 		}
+	});
+}
+
+#[test]
+fn cannot_mint_bridged_collections() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let token_owner = 2_u64;
+
+		let collection_id = Pallet::<Test>::do_create_collection(
+			collection_owner,
+			"".encode(),
+			0,
+			None,
+			None,
+			MetadataScheme::Ethereum(H160::zero()),
+			None,
+			// "From ethereum"
+			OriginChain::Ethereum,
+		)
+		.unwrap();
+
+		// Collection already exists on origin chain; not allowed to be minted here
+		assert_err!(
+			Nft::mint(Some(collection_owner).into(), collection_id, 42069, Some(token_owner),),
+			Error::<Test>::AttemptedMintOnBridgedToken
+		);
+	});
+}
+
+#[test]
+fn mints_multiple_specified_tokens_by_id() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = 1;
+		let token_ids = [U256([0; 4])];
+		let mut expected = BTreeMap::new();
+		expected.insert(1, 1);
+		token_ids.iter().for_each(|i| {
+			let serial_number = i.as_u32();
+
+			assert_eq!(Nft::token_owner(collection_id, serial_number), None);
+		});
+
+		assert!(Nft::token_balance(collection_owner).is_none());
+		assert_ok!(Nft::do_mint_multiple(&collection_owner, collection_id, &token_ids));
+		assert_eq!(Nft::token_balance(collection_owner), Some(expected));
 	});
 }

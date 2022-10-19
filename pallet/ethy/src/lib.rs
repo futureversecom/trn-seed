@@ -473,6 +473,7 @@ decl_module! {
 					destination: *destination,
 					data: data.clone(),
 				};
+
 				PendingEventClaims::insert(event_id, &event_claim);
 				PendingClaimStatus::insert(event_id, EventClaimStatus::Pending);
 
