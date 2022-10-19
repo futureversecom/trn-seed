@@ -14,13 +14,11 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
-use core::marker::PhantomData;
+use codec::Encode;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;
 use pallet_nft::OriginChain;
-use scale_info::TypeInfo;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
 use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
@@ -31,6 +29,9 @@ use sp_std::{boxed::Box, vec, vec::Vec};
 pub mod mock;
 #[cfg(test)]
 mod tests;
+mod types;
+pub use types::*;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -54,7 +55,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn contract_address)]
-	pub type ContractAddress<T> = StorageValue<_, EthAddress, ValueQuery>;
+	pub type ContractAddress<T: Config> = StorageValue<_, EthAddress, ValueQuery>;
 
 	// Map Ethereum contract address to Root collection id
 	#[pallet::storage]
@@ -138,43 +139,6 @@ pub mod pallet {
 			});
 			Ok(().into())
 		}
-	}
-}
-
-pub struct GetEthAddress<T>(PhantomData<T>);
-
-impl<T: Config> Get<H160> for GetEthAddress<T> {
-	fn get() -> H160 {
-		Pallet::<T>::contract_address()
-	}
-}
-
-#[derive(Debug, PartialEq, Clone, Encode, Decode, TypeInfo)]
-/// Contains information about a token
-pub struct TokenInfo<T: Config> {
-	// The address of the contract
-	token_address: H160,
-	// The ids of the tokens belonging to the contract
-	token_ids: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-}
-
-pub struct GroupedTokenInfo<T: Config> {
-	tokens: Vec<TokenInfo<T>>,
-	destination: T::AccountId,
-}
-
-impl<T: Config> GroupedTokenInfo<T> {
-	fn new(
-		token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
-		token_addresses: BoundedVec<H160, T::MaxAddresses>,
-		destination: T::AccountId,
-	) -> Self {
-		let token_information: Vec<TokenInfo<T>> = token_ids
-			.into_iter()
-			.zip(token_addresses.into_iter())
-			.map(|(token_ids, token_address)| TokenInfo { token_address, token_ids })
-			.collect();
-		GroupedTokenInfo { tokens: token_information, destination }
 	}
 }
 
@@ -398,7 +362,7 @@ where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {
 	type Address = <T as Config>::PalletId;
-	type SourceAddress = GetEthAddress<T>;
+	type SourceAddress = GetContractAddress<T>;
 
 	fn on_event(_source: &H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
 		let weight = 0;
@@ -415,10 +379,10 @@ where
 			// TODO: get the correct split of prefix versus rest of data to optimize decoding i.e.
 			// let data = &data[~33..];
 
-			match prefix {
-				1_u32 => Self::decode_deposit_event(data),
-				2_u32 => Self::decode_state_sync_event(data),
-				_ => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
+			match MessageDestination::from(prefix) {
+				MessageDestination::Deposit => Self::decode_deposit_event(data),
+				MessageDestination::StateSync => Self::decode_state_sync_event(data),
+				MessageDestination::Other => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
 		} else {
 			return Err((weight, Error::<T>::InvalidAbiPrefix.into()))
