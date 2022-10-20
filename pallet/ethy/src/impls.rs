@@ -74,15 +74,20 @@ impl<T: Config> XrplEthyBridgeAdapter<T::EthyId> for Module<T> {
 
 impl<T: Config> Module<T> {
 	pub fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
+		let validators = Self::get_xrpl_notary_keys(validator_list);
+		<NotaryXrplKeys<T>>::put(&validators);
+	}
+
+	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {
 		// Filter validator_list from WhiteList Validators.
-		let validators: Vec<T::EthyId> = validator_list
+		validator_list
 			.into_iter()
 			.filter(|validator| XrplDoorSigners::<T>::get(validator))
 			.map(|validator| -> T::EthyId { validator.clone() })
 			.take(T::MaxXrplKeys::get().into())
-			.collect();
-		<NotaryXrplKeys<T>>::put(&validators);
+			.collect()
 	}
+
 	/// Check the nodes local keystore for an active (staked) Ethy session key
 	/// Returns the public key and index of the key in the current notary set
 	pub(crate) fn find_active_ethy_key() -> Option<(T::EthyId, u16)> {
