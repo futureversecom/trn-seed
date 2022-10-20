@@ -154,6 +154,16 @@ impl MetadataScheme {
 			MetadataScheme::Ethereum(_original_id) => MetadataScheme::Ethereum(H160::zero()),
 		})
 	}
+	/// Returns a MetadataScheme from an index and metadata_path
+	pub fn from_index(index: u8, metadata_path: Vec<u8>) -> Result<Self, ()> {
+		match index {
+			0 => Ok(MetadataScheme::Https(metadata_path)),
+			1 => Ok(MetadataScheme::Http(metadata_path)),
+			2 => Ok(MetadataScheme::IpfsDir(metadata_path)),
+			3 => Ok(MetadataScheme::IpfsShared(metadata_path)),
+			_ => return Err(()),
+		}
+	}
 }
 
 #[cfg(feature = "std")]

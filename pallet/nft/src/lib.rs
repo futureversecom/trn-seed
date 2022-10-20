@@ -45,7 +45,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 mod weights;
-use weights::WeightInfo;
+pub use weights::WeightInfo;
 
 mod impls;
 mod migration;
