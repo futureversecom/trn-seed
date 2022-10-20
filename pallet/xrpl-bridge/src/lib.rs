@@ -31,7 +31,7 @@ use sp_runtime::{
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
 
-use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
+use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter, XrplEthyBridgeAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
 	xrpl::{LedgerIndex, XrplAddress, XrplTxHash, XrplTxNonce},
@@ -65,7 +65,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		type EthyAdapter: EthyXrplBridgeAdapter<AuthorityId>;
+		type EthyAdapter: XrplEthyBridgeAdapter<AuthorityId>;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>
