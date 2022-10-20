@@ -717,6 +717,23 @@ impl<T: Config> Module<T> {
 			AuthoritiesChangedThisEra::put(true);
 		}
 
+		// request for proof xrpl - SignerListSet
+		let signer_entries = Self::get_xrpl_notary_keys(next_keys)
+			.into_iter()
+			.map(|k| EthyEcdsaToEthereum::convert(k.as_ref())) // TODO(surangap): use a correct conversion function
+			.map(|entry| (entry.into(), 1_u16)) // TODO(surangap): proper way to store weights
+			.collect::<Vec<_>>();
+		if let Ok(event_proof_id) = T::XrplAdapter::submit_signer_list_set_request(signer_entries) {
+			// Signal the Event Id that will be used for the proof of xrpl notary set change.
+			// Any observer can subscribe to this event and submit the resulting proof to keep
+			// the authority set of the xrpl door address updated.
+			Self::deposit_event(Event::<T>::XrplAuthoritySetChange(
+				event_proof_id,
+				next_validator_set_id,
+			));
+			XrplNotarySetProofId::put(event_proof_id);
+		}
+
 		// notify ethy-gadget about validator set change
 		let log = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
