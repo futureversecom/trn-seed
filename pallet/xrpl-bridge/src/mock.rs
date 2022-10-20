@@ -177,6 +177,14 @@ impl XrplEthyBridgeAdapter<AuthorityId> for MockEthyAdapter {
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		]
 	}
+	fn xrp_validators() -> Vec<AuthorityId> {
+		// some hard coded validators
+		vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+		]
+	}
 }
 
 // Build genesis storage according to the mock runtime.

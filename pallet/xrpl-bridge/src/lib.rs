@@ -472,7 +472,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> EthyXrplBridgeAdapter<H160> for Module<T> {
+impl<T: Config> EthyXrplBridgeAdapter<H160> for Pallet<T> {
 	fn submit_signer_list_set_request(
 		signer_entries: Vec<(H160, u16)>,
 	) -> Result<EventProofId, DispatchError> {
