@@ -151,7 +151,8 @@ std = [
 	"precompile-utils/std",
 	"rustc-hex/std",
 	"pallet-erc20-peg/std",
-	"pallet-nft-peg/std"
+	"pallet-nft-peg/std",
+	"frame-try-runtime/std",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",
