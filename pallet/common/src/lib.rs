@@ -237,6 +237,14 @@ pub trait XrplEthyBridgeAdapter<AuthorityId> {
 	fn xrp_validators() -> Vec<AuthorityId>;
 }
 
+/// Interface from ethy to xrpl-bridge
+pub trait EthyXrplBridgeAdapter<AuthorityId> {
+	/// Request xrpl-bridge to submit signer_list_set.
+	fn submit_signer_list_set_request(
+		_: Vec<(AuthorityId, u16)>,
+	) -> Result<EventProofId, DispatchError>;
+}
+
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]
 pub enum EthCallFailure {
 	/// Return data exceeds limit
