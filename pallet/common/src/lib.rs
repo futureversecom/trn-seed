@@ -233,6 +233,8 @@ pub trait XrplEthyBridgeAdapter<AuthorityId> {
 	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
 	/// Return the current set of Ethy validators
 	fn validators() -> Vec<AuthorityId>;
+	/// Return the current set of xrp validators
+	fn xrp_validators() -> Vec<AuthorityId>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

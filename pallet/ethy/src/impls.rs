@@ -67,6 +67,9 @@ impl<T: Config> XrplEthyBridgeAdapter<T::EthyId> for Module<T> {
 	fn validators() -> Vec<T::EthyId> {
 		Self::notary_keys()
 	}
+	fn xrp_validators() -> Vec<T::EthyId> {
+		Self::notary_xrpl_keys()
+	}
 }
 
 impl<T: Config> Module<T> {
