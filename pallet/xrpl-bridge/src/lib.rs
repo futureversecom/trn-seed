@@ -29,7 +29,10 @@ use sp_runtime::{
 	ArithmeticError, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
-use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
+use xrpl_codec::{
+	traits::BinarySerialize,
+	transaction::{Payment, SignerListSet},
+};
 
 use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter, XrplEthyBridgeAdapter};
 use seed_primitives::{
@@ -41,6 +44,8 @@ use seed_primitives::{
 use crate::helpers::{XrpTransaction, XrpWithdrawTransaction, XrplTxData};
 
 pub use pallet::*;
+use seed_primitives::ethy::EventProofId;
+use sp_core::H160;
 
 mod helpers;
 
@@ -464,5 +469,35 @@ impl<T: Config> Pallet<T> {
 		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 		DoorNonce::<T>::set(next_nonce);
 		Ok(nonce)
+	}
+}
+
+impl<T: Config> EthyXrplBridgeAdapter<H160> for Module<T> {
+	fn submit_signer_list_set_request(
+		signer_entries: Vec<(H160, u16)>,
+	) -> Result<EventProofId, DispatchError> {
+		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
+		// TODO: need a fee oracle, this is over estimating the fee
+		// https://github.com/futureversecom/seed/issues/107
+		let tx_fee = Self::door_tx_fee();
+		let tx_nonce = Self::door_nonce_inc()?;
+		let signer_quorum: u32 = T::EthyAdapter::xrp_validators().len().saturating_sub(1) as u32;
+		let signer_entries = signer_entries
+			.into_iter()
+			.map(|(account, weight)| (account.into(), weight))
+			.collect();
+
+		let signer_list_set = SignerListSet::new(
+			door_address.into(),
+			tx_fee,
+			tx_nonce,
+			signer_quorum,
+			signer_entries,
+			// omit signer key since this is a 'MultiSigner' tx
+			None,
+		);
+		let tx_blob = signer_list_set.binary_serialize(true);
+
+		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
 	}
 }
