@@ -18,7 +18,7 @@ pub fn next_asset_uuid(next_id: u32, parachain_id: u32) -> Option<u32> {
 	// Check ids fit within limited bit sizes
 	// next_id max 22 bits, parachain_id max 10 bits
 	if next_id + 1_u32 > MAX_U22 || parachain_id > MAX_U10 {
-		return None
+		return None;
 	}
 
 	// next_id is the first 22 bits, parachain_id is the last 10 bits

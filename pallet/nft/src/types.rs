@@ -133,7 +133,7 @@ impl MetadataScheme {
 		let prefix = self.prefix();
 		let santitize_ = |path: Vec<u8>| {
 			if path.is_empty() {
-				return Err(())
+				return Err(());
 			}
 			// some best effort attempts to sanitize `path`
 			let mut path = core::str::from_utf8(&path).map_err(|_| ())?.trim();
@@ -230,9 +230,10 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	/// - not overcommitted (> 100%)
 	/// - < MAX_ENTITLEMENTS
 	pub fn validate(&self) -> bool {
-		!self.entitlements.is_empty() &&
-			self.entitlements.len() <= MAX_ENTITLEMENTS &&
-			self.entitlements
+		!self.entitlements.is_empty()
+			&& self.entitlements.len() <= MAX_ENTITLEMENTS
+			&& self
+				.entitlements
 				.iter()
 				.map(|(_who, share)| share.deconstruct() as u32)
 				.sum::<u32>() <= Permill::ACCURACY
@@ -242,7 +243,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	pub fn calculate_total_entitlement(&self) -> Permill {
 		// if royalties are in a strange state
 		if !self.validate() {
-			return Permill::zero()
+			return Permill::zero();
 		}
 		Permill::from_parts(
 			self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>(),

@@ -98,7 +98,7 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 				},
 			};
 		if native_signature_valid {
-			return true
+			return true;
 		}
 
 		let m = keccak_256(personal_sign_message(message).as_slice());
