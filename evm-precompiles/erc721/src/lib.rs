@@ -86,13 +86,13 @@ where
 					};
 
 					if let Err(err) = handle.check_function_modifier(match selector {
-						Action::Approve
-						| Action::SafeTransferFrom
-						| Action::TransferFrom
-						| Action::SafeTransferFromCallData => FunctionModifier::NonPayable,
+						Action::Approve |
+						Action::SafeTransferFrom |
+						Action::TransferFrom |
+						Action::SafeTransferFromCallData => FunctionModifier::NonPayable,
 						_ => FunctionModifier::View,
 					}) {
-						return Some(Err(err.into()));
+						return Some(Err(err.into()))
 					}
 
 					match selector {
@@ -104,15 +104,13 @@ where
 						Action::Approve => Self::approve(collection_id, handle),
 						Action::GetApproved => Self::get_approved(collection_id, handle),
 						Action::TransferFrom => Self::transfer_from(collection_id, handle),
-						Action::SafeTransferFrom
-						| Action::SafeTransferFromCallData
-						| Action::IsApprovedForAll
-						| Action::SetApprovalForAll => {
-							return Some(Err(revert("function not implemented yet").into()))
-						},
+						Action::SafeTransferFrom |
+						Action::SafeTransferFromCallData |
+						Action::IsApprovedForAll |
+						Action::SetApprovalForAll => return Some(Err(revert("function not implemented yet").into())),
 					}
 				};
-				return Some(result);
+				return Some(result)
 			}
 		}
 		None
@@ -164,7 +162,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into());
+			return Err(revert("expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -222,7 +220,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into());
+			return Err(revert("expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id = (collection_id, serial_number);
@@ -231,8 +229,8 @@ where
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
 
 		// Build call with origin.
-		if handle.context().caller == from
-			|| Some(Runtime::AccountId::from(handle.context().caller)) == approved_account
+		if handle.context().caller == from ||
+			Some(Runtime::AccountId::from(handle.context().caller)) == approved_account
 		{
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
@@ -241,7 +239,7 @@ where
 				pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
 			)?;
 		} else {
-			return Err(revert("caller not approved").into());
+			return Err(revert("caller not approved").into())
 		}
 
 		log3(
@@ -277,7 +275,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into());
+			return Err(revert("expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -318,7 +316,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into());
+			return Err(revert("expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
@@ -380,7 +378,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into());
+			return Err(revert("expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 

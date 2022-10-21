@@ -385,7 +385,7 @@ where
 				MessageDestination::Other => Err((weight, Error::<T>::InvalidAbiPrefix.into())),
 			}
 		} else {
-			return Err((weight, Error::<T>::InvalidAbiPrefix.into()));
+			return Err((weight, Error::<T>::InvalidAbiPrefix.into()))
 		}
 	}
 }

@@ -351,8 +351,8 @@ impl<T: Config> Pallet<T> {
 							} => {},
 							XrplTxData::Xls20 => {},
 						}
-						let clear_block_number = <frame_system::Pallet<T>>::block_number()
-							+ T::ClearTxPeriod::get().into();
+						let clear_block_number = <frame_system::Pallet<T>>::block_number() +
+							T::ClearTxPeriod::get().into();
 						<SettledXRPTransactionDetails<T>>::append(
 							&clear_block_number,
 							transaction_hash.clone(),

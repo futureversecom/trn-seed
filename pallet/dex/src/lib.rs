@@ -888,8 +888,8 @@ impl<T: Config> Pallet<T> {
 				.sub(U256::from(amount_1_in).mul(U256::from(fee_numerator))?)?;
 
 			ensure!(
-				balance_0_adjusted.mul(balance_1_adjusted)?
-					>= U256::from(reserve_0).mul(U256::from(reserve_1))?.mul(
+				balance_0_adjusted.mul(balance_1_adjusted)? >=
+					U256::from(reserve_0).mul(U256::from(reserve_1))?.mul(
 						U256::from(fee_denominator)
 							.checked_pow(U256::from(2_u32))
 							.ok_or(ArithmeticError::Overflow)?

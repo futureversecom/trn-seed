@@ -37,9 +37,8 @@ impl From<TryDispatchError> for PrecompileFailure {
 	fn from(f: TryDispatchError) -> PrecompileFailure {
 		match f {
 			TryDispatchError::Evm(e) => PrecompileFailure::Error { exit_status: e },
-			TryDispatchError::Substrate(e) => {
-				revert(alloc::format!("Dispatched call failed with error: {e:?}"))
-			},
+			TryDispatchError::Substrate(e) =>
+				revert(alloc::format!("Dispatched call failed with error: {e:?}")),
 		}
 	}
 }
@@ -72,7 +71,7 @@ where
 		let remaining_gas = handle.remaining_gas();
 		let required_gas = Runtime::GasWeightMapping::weight_to_gas(dispatch_info.weight);
 		if required_gas > remaining_gas {
-			return Err(TryDispatchError::Evm(ExitError::OutOfGas));
+			return Err(TryDispatchError::Evm(ExitError::OutOfGas))
 		}
 
 		// Dispatch call.
