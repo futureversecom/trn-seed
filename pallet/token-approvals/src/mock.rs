@@ -150,9 +150,9 @@ impl IsTokenOwner for MockTokenOwner {
 	fn is_owner(account: &Self::AccountId, token_id: &TokenId) -> bool {
 		let test_account: AccountId = 10;
 		if account == &test_account && token_id == &(0u32, 0u32) {
-			return true
+			return true;
 		}
-		return false
+		return false;
 	}
 }
 

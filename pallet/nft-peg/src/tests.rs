@@ -201,7 +201,6 @@ fn do_deposit_works_with_existing_bridged_collection() {
 	})
 }
 
-
 #[test]
 fn handles_duplicated_tokens_sent() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -213,8 +212,9 @@ fn handles_duplicated_tokens_sent() {
 
 		let token_ids =
 			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_set)
-					.unwrap()],
+				vec![
+					BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_set).unwrap()
+				],
 			)
 			.unwrap();
 
@@ -235,7 +235,6 @@ fn handles_duplicated_tokens_sent() {
 		);
 		Nft::collection_exists(expected_collection_id);
 
-
 		assert_eq!(
 			Nft::token_balance(AccountId::from(test_vals.destination))
 				.unwrap()
@@ -243,12 +242,14 @@ fn handles_duplicated_tokens_sent() {
 			Some(&5)
 		);
 
-		let new_token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_set_duplicates)
-					.unwrap()],
-			)
-			.unwrap();
+		let new_token_ids = BoundedVec::<
+			BoundedVec<SerialNumber, MaxIdsPerMultipleMint>,
+			MaxAddresses,
+		>::try_from(vec![
+			BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_set_duplicates)
+				.unwrap(),
+		])
+		.unwrap();
 
 		let token_information =
 			GroupedTokenInfo::new(new_token_ids, token_addresses, test_vals.destination.into());
@@ -263,7 +264,7 @@ fn handles_duplicated_tokens_sent() {
 			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
 			Some(test_vals.token_address)
 		);
-		
+
 		// Expected amount == 8, as duplicated token is never counted
 		assert_eq!(
 			Nft::token_balance(AccountId::from(test_vals.destination))

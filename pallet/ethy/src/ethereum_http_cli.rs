@@ -113,7 +113,7 @@ impl EthereumRpcClient {
 			value
 		} else {
 			log!(error, "💎 Eth http uri is not configured! set --eth-http=<value> on start up");
-			return Err(BridgeRpcError::OcwConfig)
+			return Err(BridgeRpcError::OcwConfig);
 		};
 		let eth_http_uri =
 			core::str::from_utf8(&eth_http_uri).map_err(|_| BridgeRpcError::OcwConfig)?;
@@ -158,7 +158,7 @@ impl EthereumRpcClient {
 
 		if response.code != 200 {
 			log!(error, "💎 http request status code: {}", response.code);
-			return Err(BridgeRpcError::HttpFetch)
+			return Err(BridgeRpcError::HttpFetch);
 		}
 
 		// Read the response body and check it's valid utf-8

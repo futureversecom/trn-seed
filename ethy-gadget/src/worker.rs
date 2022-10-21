@@ -186,7 +186,7 @@ where
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue
+					continue;
 				},
 			};
 			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
@@ -216,14 +216,14 @@ where
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue
+					continue;
 				},
 			};
 			let signature = match self.key_store.sign_prehashed(&authority_id, &digest) {
 				Ok(sig) => sig,
 				Err(err) => {
 					error!(target: "ethy", "💎 error signing witness: {:?}", err);
-					continue
+					continue;
 				},
 			};
 
@@ -261,7 +261,7 @@ where
 		// On start-up ignore old finality notifications that we're not interested in.
 		if number <= *self.best_grandpa_block_header.number() {
 			debug!(target: "ethy", "💎 unexpected finality for old block #{:?}", number);
-			return
+			return;
 		}
 
 		// block finality notifications are un-reliable and may skip block numbers but ethy requires
@@ -294,9 +294,9 @@ where
 			// Authority set change or genesis set id triggers new authorities
 			// this block has a different validator set id to the one we know about OR
 			// it's the first block
-			if self.validator_set.is_empty() ||
-				active.id != self.validator_set.id ||
-				active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty()
+			if self.validator_set.is_empty()
+				|| active.id != self.validator_set.id
+				|| active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty()
 			{
 				debug!(target: "ethy", "💎 new active validator set: {:?}", active);
 				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
@@ -333,7 +333,7 @@ where
 		// only share if it's the first time witnessing the event
 		if let Err(err) = self.witness_record.note_event_witness(&witness) {
 			warn!(target: "ethy", "💎 failed to note witness: {:?}, {:?}", witness, err);
-			return
+			return;
 		}
 
 		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
@@ -355,7 +355,7 @@ where
 			let event_metadata = self.witness_record.event_metadata(event_id);
 			if event_metadata.is_none() {
 				debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
-				return
+				return;
 			}
 		}
 
