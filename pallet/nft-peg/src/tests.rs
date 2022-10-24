@@ -325,7 +325,6 @@ fn sets_contract_address() {
 	});
 }
 
-
 #[test]
 fn errs_when_uint_too_large() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -335,7 +334,7 @@ fn errs_when_uint_too_large() {
 			// Some large Uint > u32
 			Token::Uint(U256([1, 1, 1, 1])),
 			// Some normal sized Uint
-			Token::Uint(test_vals.inner_token_id)
+			Token::Uint(test_vals.inner_token_id),
 		];
 
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
@@ -354,19 +353,9 @@ fn errs_when_uint_too_large() {
 		);
 
 		// No values should exist, as decode_deposit_event failed
-		assert_eq!(
-			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
-			None
-		);
-		assert_eq!(
-			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
-			None
-		);
+		assert_eq!(Pallet::<Test>::eth_to_root_nft(test_vals.token_address), None);
+		assert_eq!(Pallet::<Test>::root_to_eth_nft(expected_collection_id), None);
 		assert_eq!(Nft::collection_exists(expected_collection_id), false);
-		assert_eq!(
-			Nft::token_balance(AccountId::from(test_vals.destination)),
-			None
-		);
-
+		assert_eq!(Nft::token_balance(AccountId::from(test_vals.destination)), None);
 	});
 }
