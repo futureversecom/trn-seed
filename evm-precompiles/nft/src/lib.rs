@@ -19,9 +19,6 @@ pub enum Action {
 	/// Create a new NFT collection
 	/// name, max_issuance, metadata_type, metadata_path, royalty_addresses, royalty_entitlements
 	InitializeCollection = "initializeCollection(bytes,uint32,uint8,bytes,address[],uint32[])",
-	/// Mint an NFT in a collection
-	/// collection_id, quantity, owner
-	Mint = "mint(uint32,uint32,address)",
 }
 
 /// Provides access to the NFT pallet
@@ -54,7 +51,6 @@ where
 
 			match selector {
 				Action::InitializeCollection => Self::initialize_collection(handle),
-				Action::Mint => Self::mint(handle),
 			}
 		};
 		return result
@@ -162,48 +158,5 @@ where
 					.to_vec(),
 			)),
 		}
-	}
-
-	fn mint(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
-		// Parse input.
-		read_args!(
-			handle,
-			{
-				collection_id: U256,
-				quantity: U256,
-				owner: Address
-			}
-		);
-
-		// Parse collection id
-		if collection_id > CollectionUuid::MAX.into() {
-			return Err(revert("expected collection ID <= 2^32").into())
-		}
-		let collection_id: CollectionUuid = collection_id.saturated_into();
-
-		// Parse quantity
-		if quantity > TokenCount::MAX.into() {
-			return Err(revert("expected quantity <= 2^32").into())
-		}
-		let quantity: TokenCount = quantity.saturated_into();
-
-		// Parse owner
-		let owner: H160 = owner.into();
-		let token_owner: Option<Runtime::AccountId> =
-			if owner == H160::default() { None } else { Some(owner.into()) };
-
-		let origin = handle.context().caller;
-
-		// Dispatch call (if enough gas).
-		RuntimeHelper::<Runtime>::try_dispatch(
-			handle,
-			Some(origin.into()).into(),
-			pallet_nft::Call::<Runtime>::mint { collection_id, quantity, token_owner },
-		)?;
-
-		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 }

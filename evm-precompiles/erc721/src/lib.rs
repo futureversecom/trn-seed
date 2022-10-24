@@ -7,6 +7,7 @@ use frame_support::{
 	traits::OriginTrait,
 };
 use pallet_evm::PrecompileSet;
+use pallet_nft::TokenCount;
 use sp_core::{H160, U256};
 use sp_runtime::traits::SaturatedConversion;
 use sp_std::marker::PhantomData;
@@ -36,6 +37,10 @@ pub enum Action {
 	Name = "name()",
 	Symbol = "symbol()",
 	TokenURI = "tokenURI(uint256)",
+	// The Root Network extensions
+	// Mint an NFT in a collection
+	// quantity, receiver
+	Mint = "mint(uint32,address)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -96,14 +101,18 @@ where
 					}
 
 					match selector {
+						// Core ERC721
 						Action::OwnerOf => Self::owner_of(collection_id, handle),
 						Action::BalanceOf => Self::balance_of(collection_id, handle),
-						Action::Name => Self::name(collection_id, handle),
-						Action::Symbol => Self::symbol(collection_id, handle),
-						Action::TokenURI => Self::token_uri(collection_id, handle),
 						Action::Approve => Self::approve(collection_id, handle),
 						Action::GetApproved => Self::get_approved(collection_id, handle),
 						Action::TransferFrom => Self::transfer_from(collection_id, handle),
+						// ERC721-Metadata
+						Action::Name => Self::name(collection_id, handle),
+						Action::Symbol => Self::symbol(collection_id, handle),
+						Action::TokenURI => Self::token_uri(collection_id, handle),
+						// The Root Network extensions
+						Action::Mint => Self::mint(collection_id, handle),
 						Action::SafeTransferFrom |
 						Action::SafeTransferFromCallData |
 						Action::IsApprovedForAll |
@@ -392,5 +401,45 @@ where
 				)
 				.build(),
 		))
+	}
+
+	fn mint(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				quantity: U256,
+				receiver: Address
+			}
+		);
+
+		// Parse quantity
+		if quantity > TokenCount::MAX.into() {
+			return Err(revert("expected quantity <= 2^32").into())
+		}
+		let quantity: TokenCount = quantity.saturated_into();
+
+		// Parse receiver
+		let receiver: H160 = receiver.into();
+		let origin = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::mint {
+				collection_id,
+				quantity,
+				token_owner: Some(receiver.into()),
+			},
+		)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 }
