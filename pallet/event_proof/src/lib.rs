@@ -5,12 +5,16 @@
 use crate::types::*;
 use frame_support::{pallet_prelude::*, weights::constants::RocksDbWeight as DbWeight};
 use frame_system::pallet_prelude::*;
+use seed_primitives::validator::EventProofId;
 
 pub use pallet::*;
 
 pub mod impls;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod mock;
+
 pub mod types;
 pub mod weights;
 
@@ -22,7 +26,6 @@ pub const ENGINE_ID: sp_runtime::ConsensusEngineId = *b"EGN-";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_primitives::validator::EventProofId;
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]

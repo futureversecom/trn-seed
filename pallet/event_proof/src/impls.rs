@@ -2,10 +2,12 @@ use codec::Encode;
 use frame_support::pallet_prelude::*;
 use seed_pallet_common::eth_types::EthereumEventInfo;
 use sp_core::H160;
-use sp_runtime::generic::DigestItem;
 
 use seed_pallet_common::EventProofAdapter;
-use seed_primitives::validator::{ConsensusLog, EventProofId, ValidatorSetId};
+use seed_primitives::{
+	DigestItem,
+	validator::{ConsensusLog, EventProofId, ValidatorSetId}
+};
 
 use crate::*;
 
