@@ -227,7 +227,7 @@ impl frame_system::Config for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
-	pub const WeightToFeeReduction: Permill = Permill::from_parts(125); // 0.000125%
+	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
 }
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
