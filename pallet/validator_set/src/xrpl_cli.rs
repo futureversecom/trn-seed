@@ -21,14 +21,14 @@ use xrpl::{
 	tokio::AsyncWebsocketClient,
 };
 
-use crate::{
-	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, TransactionEntryResponse, XrplTxHash},
-	ChainCallId, H160,
-};
+use crate::{ChainCallId, H160};
 use codec::alloc::string::String;
 use futures::StreamExt;
 use scale_info::prelude::string::ToString;
-use seed_pallet_common::{get_lifetime_str_ref, log};
+use seed_pallet_common::{
+	get_lifetime_str_ref, log,
+	xrpl_types::{BridgeRpcError, BridgeXrplWebsocketApi, TransactionEntryResponse, XrplTxHash},
+};
 use seed_primitives::{
 	xrpl::{LedgerIndex, XrpTransaction, XrplTxData},
 	AccountId, Balance, XRP_HTTP_URI,

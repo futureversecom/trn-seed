@@ -1,8 +1,5 @@
 use crate as pallet_validator_set;
-use crate::{
-	xrpl_types::{BridgeRpcError, XrplTxHash},
-	BridgeXrplWebsocketApi, ChainCallId, Config, ValidatorIdOf,
-};
+use crate::{BridgeXrplWebsocketApi, ChainCallId, Config, ValidatorIdOf};
 use async_trait::async_trait;
 use frame_support::{
 	parameter_types,
@@ -13,7 +10,10 @@ use frame_support::{
 use frame_system as system;
 use frame_system::EnsureRoot;
 use pallet_session::historical as pallet_session_historical;
-use seed_pallet_common::{EthyXrplBridgeAdapter, FinalSessionTracker};
+use seed_pallet_common::{
+	xrpl_types::{BridgeRpcError, XrplTxHash},
+	EthyXrplBridgeAdapter, FinalSessionTracker,
+};
 use seed_primitives::{
 	ethy::{crypto::AuthorityId as AuthorityIdE, EventProofId},
 	validator::crypto::AuthorityId,
@@ -98,11 +98,10 @@ pub type Extrinsic = TestXt<Call, ()>;
 pub(crate) mod test_storage {
 	//! storage used by tests to store mock XrplBlocks and TransactionReceipts
 	use super::AccountId; //, MockBlockResponse, MockReceiptResponse
-	use crate::{
-		xrpl_types::{ChainCallId, CheckedChainCallResult},
-		Config,
-	};
+	use crate::Config;
 	use frame_support::decl_storage;
+	//, MockBlockResponse, MockReceiptResponse
+	use seed_pallet_common::xrpl_types::{ChainCallId, CheckedChainCallResult};
 	//use seed_pallet_common::XrplCallFailure;
 	use seed_primitives::xrpl::XrplAddress;
 

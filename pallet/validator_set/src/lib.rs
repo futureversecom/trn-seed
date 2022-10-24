@@ -13,12 +13,7 @@ mod tests_validator;
 mod benchmarking;
 mod xrpl_cli;
 mod xrpl_impls;
-mod xrpl_types;
 
-use crate::xrpl_types::{
-	BridgeXrplWebsocketApi, ChainCallId, CheckedChainCallRequest, CheckedChainCallResult,
-	NotarizationPayload,
-};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -26,6 +21,10 @@ use frame_support::{
 		OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT,
 	},
 	PalletId,
+};
+use seed_pallet_common::xrpl_types::{
+	BridgeXrplWebsocketApi, ChainCallId, CheckedChainCallRequest, CheckedChainCallResult,
+	NotarizationPayload,
 };
 
 use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};

@@ -1,7 +1,7 @@
 use super::*;
-use crate::xrpl_types::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
+use seed_pallet_common::xrpl_types::*;
 use seed_primitives::{validator::crypto::AuthorityId, xrpl::XrplTxData, Balance};
 use sp_core::{
 	offchain::{

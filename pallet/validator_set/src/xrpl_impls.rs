@@ -12,10 +12,10 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use seed_pallet_common::log;
+use seed_pallet_common::{log, xrpl_types::*};
 use seed_primitives::validator::EventClaimId;
 
-use crate::{xrpl_types::*, *};
+use crate::*;
 
 impl<T: Config> Pallet<T> {
 	/// Check the nodes local keystore for an active (staked) Validator session key
