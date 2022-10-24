@@ -11,9 +11,9 @@ pub use pallet::*;
 
 pub mod impls;
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod mock;
+#[cfg(test)]
+mod tests;
 
 pub mod types;
 pub mod weights;

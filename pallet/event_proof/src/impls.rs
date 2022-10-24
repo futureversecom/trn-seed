@@ -5,8 +5,8 @@ use sp_core::H160;
 
 use seed_pallet_common::EventProofAdapter;
 use seed_primitives::{
+	validator::{ConsensusLog, EventProofId, ValidatorSetId},
 	DigestItem,
-	validator::{ConsensusLog, EventProofId, ValidatorSetId}
 };
 
 use crate::*;

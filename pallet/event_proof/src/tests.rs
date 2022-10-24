@@ -1,13 +1,14 @@
 use super::*;
-use mock::*;
 use crate::Event;
 use frame_support::{assert_noop, assert_ok};
-use seed_primitives::{AccountId, Balance, DigestItem};
+use mock::*;
+use seed_pallet_common::{eth_types::EthereumEventInfo, EventProofAdapter};
+use seed_primitives::{
+	validator::{crypto::AuthorityId, ChainId, ConsensusLog},
+	AccountId, Balance, DigestItem,
+};
 use sp_core::H160;
 use sp_runtime::traits::BadOrigin;
-use seed_primitives::validator::{ChainId, ConsensusLog, crypto::AuthorityId};
-use seed_pallet_common::eth_types::EthereumEventInfo;
-use seed_pallet_common::EventProofAdapter;
 
 #[test]
 fn xrpl_tx_signing_request() {
@@ -22,11 +23,8 @@ fn xrpl_tx_signing_request() {
 
 		let signing_request = SigningRequest::XrplTx("hello world".as_bytes().to_vec());
 		System::assert_has_event(
-			Event::<Test>::EventSend {
-				event_proof_id,
-				signing_request: signing_request.clone(),
-			}
-			.into(),
+			Event::<Test>::EventSend { event_proof_id, signing_request: signing_request.clone() }
+				.into(),
 		);
 		assert_eq!(
 			System::digest().logs[0],
@@ -75,7 +73,12 @@ fn delayed_event_proof() {
 		});
 
 		// Generate event proof
-		assert_ok!(EventProof::sign_eth_transaction(&source, &destination, &message, MockValidatorAdapter::validator_set_id()));
+		assert_ok!(EventProof::sign_eth_transaction(
+			&source,
+			&destination,
+			&message,
+			MockValidatorAdapter::validator_set_id()
+		));
 		// Ensure event has been added to delayed claims
 		assert_eq!(EventProof::pending_event_proofs(event_proof_id), Some(event_proof_info));
 		assert_eq!(EventProof::next_event_proof_id(), event_proof_id + 1);
@@ -123,7 +126,12 @@ fn multiple_delayed_event_proof() {
 			});
 			events_for_proving.push(event_proof_info.clone());
 			// Generate event proof
-			assert_ok!(EventProof::sign_eth_transaction(&source, &destination, &message, MockValidatorAdapter::validator_set_id()));
+			assert_ok!(EventProof::sign_eth_transaction(
+				&source,
+				&destination,
+				&message,
+				MockValidatorAdapter::validator_set_id()
+			));
 			// Ensure event has been added to delayed claims
 			assert_eq!(EventProof::pending_event_proofs(event_proof_id), Some(event_proof_info));
 			assert_eq!(EventProof::next_event_proof_id(), event_proof_id + 1);
@@ -204,7 +212,12 @@ fn set_delayed_event_proofs_per_block() {
 				event_proof_id,
 			});
 			// Generate event proof
-			assert_ok!(EventProof::sign_eth_transaction(&source, &destination, &message, MockValidatorAdapter::validator_set_id()));
+			assert_ok!(EventProof::sign_eth_transaction(
+				&source,
+				&destination,
+				&message,
+				MockValidatorAdapter::validator_set_id()
+			));
 			// Ensure event has been added to delayed claims
 			assert_eq!(EventProof::pending_event_proofs(event_proof_id), Some(event_proof_info));
 			assert_eq!(EventProof::next_event_proof_id(), event_proof_id + 1);
@@ -254,7 +267,12 @@ fn sign_eth_transaction() {
 		let event_proof_id = EventProof::next_event_proof_id();
 
 		// Generate event proof
-		assert_ok!(EventProof::sign_eth_transaction(&source, &destination, &message, MockValidatorAdapter::validator_set_id()));
+		assert_ok!(EventProof::sign_eth_transaction(
+			&source,
+			&destination,
+			&message,
+			MockValidatorAdapter::validator_set_id()
+		));
 		// Ensure event has not been added to delayed queue
 		assert_eq!(EventProof::pending_event_proofs(event_proof_id), None);
 		assert_eq!(EventProof::next_event_proof_id(), event_proof_id + 1);
@@ -273,8 +291,18 @@ fn request_multiple_event_proofs() {
 		let destination = H160::from_low_u64_be(555);
 		let message = &b"hello world"[..];
 
-		assert_ok!(EventProof::sign_eth_transaction(&source, &destination, &message, MockValidatorAdapter::validator_set_id()));
-		assert_ok!(EventProof::sign_eth_transaction(&source, &destination, &message, MockValidatorAdapter::validator_set_id()));
+		assert_ok!(EventProof::sign_eth_transaction(
+			&source,
+			&destination,
+			&message,
+			MockValidatorAdapter::validator_set_id()
+		));
+		assert_ok!(EventProof::sign_eth_transaction(
+			&source,
+			&destination,
+			&message,
+			MockValidatorAdapter::validator_set_id()
+		));
 		let block_digest = <frame_system::Pallet<Test>>::digest();
 		assert_eq!(block_digest.logs.len(), 2_usize);
 	});

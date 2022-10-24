@@ -52,8 +52,8 @@ use crate::{
 		CheckedEthCallRequest, CheckedEthCallResult, EthAddress, EthBlock, EthHash, EventClaim,
 		EventClaimResult, EventProofId, TransactionReceipt,
 	},
-	BridgePaused, Config, Error, EthCallRequestInfo, EventClaimStatus, Module,
-	ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
+	BridgePaused, Config, Error, EthCallRequestInfo, EventClaimStatus, Module, ETHY_ENGINE_ID,
+	SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 
 use pallet_event_proof::Event;
