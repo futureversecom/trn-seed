@@ -123,7 +123,7 @@ fn do_deposit_creates_tokens_and_collection() {
 			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
 			Some(test_vals.token_address)
 		);
-		Nft::collection_exists(expected_collection_id);
+		assert_eq!(Nft::collection_exists(expected_collection_id), true);
 		// Token balance should be 1 as one token was deposited
 		assert_eq!(
 			Nft::token_balance(AccountId::from(test_vals.destination))
@@ -202,6 +202,80 @@ fn do_deposit_works_with_existing_bridged_collection() {
 }
 
 #[test]
+fn handles_duplicated_tokens_sent() {
+	ExtBuilder::default().build().execute_with(|| {
+		let test_vals = TestVals::default();
+		let expected_collection_id = Nft::next_collection_uuid().unwrap();
+
+		let token_set = vec![0, 1, 2, 3, 4];
+		let token_set_duplicates = vec![4, 5, 6, 7]; // One duplicate token
+
+		let token_ids =
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
+				vec![
+					BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_set).unwrap()
+				],
+			)
+			.unwrap();
+
+		let token_addresses =
+			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
+
+		let token_information =
+			GroupedTokenInfo::new(token_ids, token_addresses.clone(), test_vals.destination.into());
+
+		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
+		assert_eq!(
+			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			Some(expected_collection_id)
+		);
+		assert_eq!(
+			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			Some(test_vals.token_address)
+		);
+		Nft::collection_exists(expected_collection_id);
+
+		assert_eq!(
+			Nft::token_balance(AccountId::from(test_vals.destination))
+				.unwrap()
+				.get(&expected_collection_id),
+			Some(&5)
+		);
+
+		let new_token_ids = BoundedVec::<
+			BoundedVec<SerialNumber, MaxIdsPerMultipleMint>,
+			MaxAddresses,
+		>::try_from(vec![
+			BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_set_duplicates)
+				.unwrap(),
+		])
+		.unwrap();
+
+		let token_information =
+			GroupedTokenInfo::new(new_token_ids, token_addresses, test_vals.destination.into());
+
+		// When bridged tokens are sent for existing collection
+		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
+		assert_eq!(
+			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			Some(expected_collection_id)
+		);
+		assert_eq!(
+			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			Some(test_vals.token_address)
+		);
+
+		// Expected amount == 8, as duplicated token is never counted
+		assert_eq!(
+			Nft::token_balance(AccountId::from(test_vals.destination))
+				.unwrap()
+				.get(&expected_collection_id),
+			Some(&8)
+		);
+	})
+}
+
+#[test]
 fn do_withdraw_works() {
 	ExtBuilder::default().build().execute_with(|| {
 		let collection_id = Nft::next_collection_uuid().unwrap();
@@ -238,15 +312,5 @@ fn do_withdraw_invalid_token_length_should_fail() {
 			),
 			Error::<Test>::TokenListLengthMismatch
 		);
-	});
-}
-
-#[test]
-fn sets_contract_address() {
-	ExtBuilder::default().build().execute_with(|| {
-		let address = H160::from_low_u64_be(123);
-		assert_ok!(Pallet::<Test>::set_contract_address(tests::RawOrigin::Root.into(), address,));
-
-		assert_eq!(NftPeg::contract_address(), address);
 	});
 }
