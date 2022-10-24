@@ -159,8 +159,9 @@ impl EthySigningRequest {
 	pub fn data(&self) -> Vec<u8> {
 		match self {
 			// Ethereum event signing requires keccak hashing the event
-			Self::Ethereum(event) =>
-				sp_io::hashing::keccak_256(&event.abi_encode().as_slice()).to_vec(),
+			Self::Ethereum(event) => {
+				sp_io::hashing::keccak_256(&event.abi_encode().as_slice()).to_vec()
+			},
 			// XRPL tx hashing must happen before signing to inject the public key
 			Self::XrplTx(data) => data.clone(),
 		}
