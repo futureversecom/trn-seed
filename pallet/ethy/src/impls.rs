@@ -679,6 +679,8 @@ impl<T: Config> Module<T> {
 				next_validator_set_id,
 			));
 			NotarySetProofId::put(event_proof_id);
+			// Indicate that the authorities have been changed
+			AuthoritiesChangedThisEra::put(true);
 		}
 
 		// notify ethy-gadget about validator set change
@@ -694,7 +696,6 @@ impl<T: Config> Module<T> {
 		<frame_system::Pallet<T>>::deposit_log(log);
 		// Pause the bridge
 		BridgePaused::put(true);
-		// Remove the next authority change, indicating that this has been processed
 		<NextAuthorityChange<T>>::kill();
 	}
 }
@@ -788,15 +789,38 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	fn on_before_session_ending() {
 		// Re-activate the bridge, allowing claims & proofs again
 		if T::FinalSessionTracker::is_active_session_final() {
-			if Self::next_authority_change().is_some() {
-				// For some reason the authorities haven't been changed yet, do this now
+			if !Self::authorities_changed_this_era() {
+				// The authorities haven't been changed yet
+				// This could be due to a new era being forced before the final session
 				Self::handle_authorities_change();
+
+				// Schedule an un-pausing of the bridge to give the relayer time to relay the
+				// authority set change.
+				// Delay set to 75 blocks = 5 minutes
+				let scheduled_block = <frame_system::Pallet<T>>::block_number() + 75_u32.into();
+				if T::Scheduler::schedule(
+					DispatchTime::At(scheduled_block),
+					None,
+					63,
+					frame_system::RawOrigin::Root.into(),
+					Call::set_bridge_paused { paused: false }.into(),
+				)
+				.is_err()
+				{
+					// The scheduler failed for some reason, throw a log and event so we can
+					// unpause manually
+					Self::deposit_event(Event::<T>::UnpauseScheduleFail(scheduled_block));
+					log!(warn, "💎 Unpause bridge schedule failed");
+				}
+			} else {
+				// Unpause the bridge now
+				BridgePaused::kill();
 			}
 
 			log!(trace, "💎 session & era ending, set new validator keys");
 			// A proof should've been generated now so we can reactivate the bridge with the new
 			// validator set
-			BridgePaused::kill();
+			AuthoritiesChangedThisEra::kill();
 			// Time to update the bridge validator keys.
 			let next_notary_keys = NextNotaryKeys::<T>::take();
 			// Store the new keys and increment the validator set id

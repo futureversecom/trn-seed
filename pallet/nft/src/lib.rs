@@ -28,8 +28,10 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use frame_support::{ensure, traits::Get, transactional, PalletId};
-use seed_pallet_common::{Hold, OnTransferSubscriber, TransferExt};
+use frame_support::{
+	ensure, traits::Get, transactional, weights::constants::RocksDbWeight as DbWeight, PalletId,
+};
+use seed_pallet_common::{log, Hold, OnTransferSubscriber, TransferExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{One, Saturating, Zero},
@@ -46,6 +48,7 @@ mod weights;
 use weights::WeightInfo;
 
 mod impls;
+mod migration;
 mod types;
 
 pub use impls::*;
@@ -64,7 +67,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-
+	use sp_runtime::traits::AccountIdConversion;
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]
@@ -89,6 +92,7 @@ pub mod pallet {
 			NextMarketplaceId::<T>::put(1 as MarketplaceId);
 			NextListingId::<T>::put(1 as ListingId);
 			NextOfferId::<T>::put(1 as OfferId);
+			StorageVersion::<T>::put(Releases::V1);
 		}
 	}
 
@@ -204,6 +208,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn next_offer_id)]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
+
+	/// Version of this module's storage schema
+	#[pallet::storage]
+	pub type StorageVersion<T> = StorageValue<_, Releases, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -351,6 +359,8 @@ pub mod pallet {
 		InvalidMaxIssuance,
 		/// The collection max issuance has been reached and no more tokens can be minted
 		MaxIssuanceReached,
+		/// Attemped to mint a token that was bridged from a different chain
+		AttemptedMintOnBridgedToken,
 	}
 
 	#[pallet::hooks]
@@ -363,10 +373,65 @@ pub mod pallet {
 			// 'buy' weight is comparable to successful closure of an auction
 			T::WeightInfo::buy() * removed_count as Weight
 		}
+
+		fn on_runtime_upgrade() -> Weight {
+			use frame_support::IterableStorageMap;
+			use migration::v1_storage;
+
+			if <StorageVersion<T>>::get() == Releases::V0 {
+				<StorageVersion<T>>::put(Releases::V1);
+
+				let old_collection_info: Vec<(
+					CollectionUuid,
+					v1_storage::CollectionInformation<T::AccountId>,
+				)> = v1_storage::CollectionInfo::<T>::iter().collect();
+
+				let weight = old_collection_info.len() as Weight;
+				for (collection_id, info) in old_collection_info {
+					let collection_info_migrated = types::CollectionInformation {
+						owner: info.owner,
+						name: info.name,
+						metadata_scheme: info.metadata_scheme,
+						royalties_schedule: info.royalties_schedule,
+						max_issuance: info.max_issuance,
+						origin_chain: OriginChain::Root,
+					};
+
+					<CollectionInfo<T>>::insert(collection_id, collection_info_migrated);
+				}
+
+				log!(warn, "🃏 collection info migrated");
+				return 6_000_000 as Weight +
+					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
+			} else {
+				Zero::zero()
+			}
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::weight(10000)]
+		/// Bridged collections from Ethereum will initially lack an owner. These collections will
+		/// be assigned to the pallet. This allows for claiming those collections assuming they were
+		/// assigned to the pallet
+		pub fn claim_unowned_collection(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			let _who = ensure_root(origin);
+
+			if let Some(mut collection_info) = Self::collection_info(collection_id) {
+				ensure!(
+					collection_info.owner == T::PalletId::get().into_account_truncating(),
+					Error::<T>::NoPermission
+				);
+				collection_info.owner = new_owner;
+			};
+			Ok(())
+		}
+
 		/// Set the owner of a collection
 		/// Caller must be the current collection owner
 		#[pallet::weight(T::WeightInfo::set_owner())]
@@ -443,53 +508,16 @@ pub mod pallet {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
-			// Check we can issue the new tokens
-			let collection_uuid = Self::next_collection_uuid()?;
-
-			// Check max issuance is valid
-			if let Some(max_issuance) = max_issuance {
-				ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
-				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
-			}
-
-			// Validate collection attributes
-			ensure!(
-				!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
-				Error::<T>::CollectionNameInvalid
-			);
-			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
-			let metadata_scheme =
-				metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
-			if let Some(royalties_schedule) = royalties_schedule.clone() {
-				ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
-			}
-
-			<CollectionInfo<T>>::insert(
-				collection_uuid,
-				CollectionInformation {
-					owner: origin.clone(),
-					name,
-					metadata_scheme,
-					royalties_schedule,
-					max_issuance,
-				},
-			);
-
-			// Now mint the collection tokens
-			let token_owner = token_owner.unwrap_or(origin);
-			if initial_issuance > Zero::zero() {
-				Self::do_mint(&token_owner, collection_uuid, 0 as SerialNumber, initial_issuance)?;
-			}
-			// will not overflow, asserted prior qed.
-			<NextCollectionId<T>>::mutate(|i| *i += u32::one());
-
-			Self::deposit_event(Event::<T>::CollectionCreate {
-				collection_uuid,
-				token_count: initial_issuance,
-				owner: token_owner,
-			});
-
+			Self::do_create_collection(
+				origin,
+				name,
+				initial_issuance,
+				max_issuance,
+				token_owner,
+				metadata_scheme,
+				royalties_schedule,
+				OriginChain::Root,
+			)?;
 			Ok(())
 		}
 
@@ -516,6 +544,12 @@ pub mod pallet {
 			// Permission and existence check
 			if let Some(collection_info) = Self::collection_info(collection_id) {
 				ensure!(collection_info.owner == origin, Error::<T>::NoPermission);
+				// Cannot mint for a token that was bridged from Ethereum
+				ensure!(
+					collection_info.origin_chain == OriginChain::Root,
+					Error::<T>::AttemptedMintOnBridgedToken
+				);
+
 				if let Some(max_issuance) = collection_info.max_issuance {
 					ensure!(
 						max_issuance >= serial_number.saturating_add(quantity),
@@ -527,8 +561,8 @@ pub mod pallet {
 			}
 
 			let owner = token_owner.unwrap_or(origin);
-
-			Self::do_mint(&owner, collection_id, serial_number, quantity)?;
+			let token_ids: Vec<SerialNumber> = (serial_number..serial_number + quantity).collect();
+			Self::do_mint(&owner, collection_id, token_ids)?;
 			Self::deposit_event(Event::<T>::Mint {
 				collection_id,
 				first_serial_number: serial_number,
@@ -572,54 +606,9 @@ pub mod pallet {
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
 			let (collection_id, serial_number) = token_id;
 
-			ensure!(
-				!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
-				Error::<T>::TokenLocked
-			);
-			ensure!(
-				Self::token_owner(collection_id, serial_number) == Some(origin.clone()),
-				Error::<T>::NoPermission
-			);
-			<TokenOwner<T>>::remove(collection_id, serial_number);
-
-			let _ =
-				<TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(&origin, |mut balances| {
-					match &mut balances {
-						Some(balances) => {
-							match (balances).get_mut(&collection_id) {
-								Some(balance) => {
-									let new_balance = balance.saturating_sub(1);
-									if new_balance.is_zero() {
-										balances.remove(&collection_id);
-									} else {
-										*balance = new_balance;
-									}
-									Ok(())
-								},
-								None => return Err(Error::NoToken.into()), // should not happen
-							}
-						},
-						None => return Err(Error::NoToken.into()), // should not happen
-					}
-				})?;
-
-			if let Some(collection_issuance) = Self::collection_issuance(collection_id) {
-				if collection_issuance.saturating_sub(1).is_zero() {
-					// this is the last of the tokens
-					<CollectionInfo<T>>::remove(collection_id);
-					<CollectionIssuance<T>>::remove(collection_id);
-				} else {
-					<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
-						if let Some(q) = &mut q {
-							*q = q.saturating_sub(1)
-						}
-					});
-				}
-			}
-
+			Self::do_burn(&origin, collection_id, &serial_number)?;
 			Self::deposit_event(Event::<T>::Burn { collection_id, serial_number });
 			Ok(())
 		}
