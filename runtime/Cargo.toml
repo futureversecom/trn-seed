@@ -27,6 +27,7 @@ pallet-grandpa = { git = "https://github.com/futureversecom/substrate", branch =
 pallet-im-online = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-nomination-pools = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-offences = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-scheduler = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-session = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-staking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-sudo = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
@@ -73,6 +74,7 @@ pallet-token-approvals = { path = "../pallet/token-approvals", default-features 
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
 pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
+pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -148,7 +150,8 @@ std = [
 	"pallet-evm-precompiles-erc20/std",
 	"precompile-utils/std",
 	"rustc-hex/std",
-	"pallet-erc20-peg/std"
+	"pallet-erc20-peg/std",
+	"pallet-nft-peg/std"
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

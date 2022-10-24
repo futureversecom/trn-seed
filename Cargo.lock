@@ -4903,6 +4903,7 @@ dependencies = [
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-event-proof",
+ "pallet-scheduler",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "rustc-hex",
@@ -5109,6 +5110,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nft-peg"
+version = "2.0.1"
+dependencies = [
+ "ethabi",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-nft",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-nomination-pools"
 version = "1.0.0"
 source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
@@ -5139,6 +5164,22 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-scheduler"
+version = "4.0.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -7543,7 +7584,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.13"
+version = "0.0.15"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -7681,8 +7722,10 @@ dependencies = [
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-nft",
+ "pallet-nft-peg",
  "pallet-nomination-pools",
  "pallet-offences",
+ "pallet-scheduler",
  "pallet-session",
  "pallet-staking",
  "pallet-sudo",

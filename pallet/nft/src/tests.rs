@@ -17,11 +17,14 @@ use super::*;
 use crate::mock::{
 	has_event, AccountId, AssetsExt, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 };
+use codec::Encode;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_err, assert_noop, assert_ok,
+	storage::StorageMap,
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use seed_primitives::TokenId;
+use sp_core::H160;
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -124,6 +127,65 @@ fn make_new_simple_offer(
 }
 
 #[test]
+fn migration_v0_to_v1() {
+	use frame_support::traits::OnRuntimeUpgrade;
+	use migration::v1_storage;
+
+	TestExt::default().build().execute_with(|| {
+		// setup old values
+		v1_storage::CollectionInfo::<Test>::insert(
+			123,
+			v1_storage::CollectionInformation::<AccountId> {
+				owner: 123_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
+				max_issuance: None,
+			},
+		);
+		v1_storage::CollectionInfo::<Test>::insert(
+			124,
+			v1_storage::CollectionInformation::<AccountId> {
+				owner: 124_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
+				max_issuance: None,
+			},
+		);
+
+		// run upgrade
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V0);
+		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		assert_eq!(
+			CollectionInfo::<Test>::get(123).expect("listing exists"),
+			CollectionInformation::<AccountId> {
+				owner: 123_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
+				max_issuance: None,
+				origin_chain: OriginChain::Root,
+			},
+		);
+		assert_eq!(
+			CollectionInfo::<Test>::get(124).expect("listing exists"),
+			CollectionInformation::<AccountId> {
+				owner: 124_u64,
+				name: vec![],
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
+				max_issuance: None,
+				origin_chain: OriginChain::Root,
+			},
+		);
+
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V1);
+	});
+}
+
+#[test]
 fn next_collection_uuid_works() {
 	TestExt::default().build().execute_with(|| {
 		// This tests assumes parachain_id is set to 100 in mock
@@ -197,6 +259,7 @@ fn create_collection() {
 				metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				royalties_schedule: Some(royalties_schedule.clone()),
 				max_issuance: None,
+				origin_chain: OriginChain::Root
 			}
 		);
 
@@ -462,7 +525,6 @@ fn burn() {
 		assert!(has_event(Event::<Test>::Burn { collection_id, serial_number: 2 }));
 
 		assert!(!<CollectionIssuance<Test>>::contains_key(collection_id));
-		assert!(!<CollectionInfo<Test>>::contains_key(collection_id));
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 0));
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 1));
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 2));
@@ -2692,5 +2754,127 @@ fn transfer_many_tokens_changes_token_balance() {
 			new_owner_map.insert(collection_id, changed_quantity);
 			assert_eq!(Nft::token_balance(new_owner).unwrap(), new_owner_map);
 		}
+	});
+}
+
+#[test]
+fn cannot_mint_bridged_collections() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let token_owner = 2_u64;
+
+		let collection_id = Pallet::<Test>::do_create_collection(
+			collection_owner,
+			"".encode(),
+			0,
+			None,
+			None,
+			MetadataScheme::Ethereum(H160::zero()),
+			None,
+			// "From ethereum"
+			OriginChain::Ethereum,
+		)
+		.unwrap();
+
+		// Collection already exists on origin chain; not allowed to be minted here
+		assert_err!(
+			Nft::mint(Some(collection_owner).into(), collection_id, 42069, Some(token_owner),),
+			Error::<Test>::AttemptedMintOnBridgedToken
+		);
+	});
+}
+
+#[test]
+fn mints_multiple_specified_tokens_by_id() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let token_owner = 2_u64;
+		let token_ids: Vec<SerialNumber> = vec![0, 2, 5, 9, 1000];
+		let collection_id = Nft::next_collection_uuid().unwrap();
+
+		assert_ok!(Nft::do_create_collection(
+			collection_owner,
+			b"test-collection".to_vec(),
+			0,
+			None,
+			None,
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			None,
+			OriginChain::Ethereum,
+		));
+
+		// Do mint with Ethereum as origin chain
+		assert_ok!(Nft::do_mint(&token_owner, collection_id, token_ids.clone()));
+
+		// Ownership checks
+		let mut expected = BTreeMap::new();
+		expected.insert(collection_id, token_ids.len() as u32);
+		assert_eq!(Nft::token_balance(token_owner), Some(expected));
+		token_ids.iter().for_each(|serial_number| {
+			assert_eq!(Nft::token_owner(collection_id, serial_number), Some(token_owner));
+		});
+
+		// Next serial number should be 0, origin chain is Ethereum so we don't count this
+		assert!(Nft::next_serial_number(collection_id).is_none());
+	});
+}
+
+#[test]
+fn mint_duplicate_token_id_should_fail_silently() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let token_owner = 2_u64;
+		let token_ids: Vec<SerialNumber> = vec![0, 2, 5, 9, 1000, 0, 2, 5, 9, 1000];
+		let collection_id = Nft::next_collection_uuid().unwrap();
+
+		assert_ok!(Nft::do_create_collection(
+			collection_owner,
+			b"test-collection".to_vec(),
+			0,
+			None,
+			None,
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			None,
+			OriginChain::Ethereum,
+		));
+
+		// Do mint with Ethereum as origin chain
+		assert_ok!(Nft::do_mint(&token_owner, collection_id, token_ids.clone()));
+		// Minting to another account_id should still succeed, but the token balance of this account
+		// will be 0. This is because the tokens are already minted and each token will be silently
+		// skipped
+		let other_owner = 4_u64;
+		assert_ok!(Nft::do_mint(&other_owner, collection_id, token_ids.clone()));
+
+		// Ownership checks
+		let mut expected = BTreeMap::new();
+		// We expect the token balance to be 5 as that is the number of unique token_ids in the vec
+		expected.insert(collection_id, 5_u32);
+		assert_eq!(Nft::token_balance(token_owner), Some(expected.clone()));
+		token_ids.iter().for_each(|serial_number| {
+			assert_eq!(Nft::token_owner(collection_id, serial_number), Some(token_owner));
+		});
+
+		// Collection issuance should be 5 to indicate the 5 unique tokens
+		assert_eq!(Nft::collection_issuance(collection_id), Some(5_u32));
+		// Other owner shouldn't have any tokens
+		assert_eq!(Nft::token_balance(other_owner), None);
+
+		// Now try with 3 more unique tokens
+		let token_ids: Vec<SerialNumber> = vec![0, 2, 3000, 40005, 5, 1234, 9, 1000];
+		assert_ok!(Nft::do_mint(&other_owner, collection_id, token_ids.clone()));
+
+		// Collection issuance should now be 8 to indicate the 3 additional unique tokens
+		assert_eq!(Nft::collection_issuance(collection_id), Some(8_u32));
+		// We expect the token balance to be 3
+		let mut expected_other = BTreeMap::new();
+		expected_other.insert(collection_id, 3_u32);
+		assert_eq!(Nft::token_balance(other_owner), Some(expected_other));
+		vec![3000, 40005, 1234].iter().for_each(|serial_number| {
+			assert_eq!(Nft::token_owner(collection_id, serial_number), Some(other_owner));
+		});
+
+		// Token owners balance shouldn't have changed
+		assert_eq!(Nft::token_balance(token_owner), Some(expected));
 	});
 }

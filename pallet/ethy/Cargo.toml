@@ -38,6 +38,7 @@ sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "p
 pallet-assets-ext = { path = "../assets-ext" }
 pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-scheduler = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 [features]
 default = ["std"]

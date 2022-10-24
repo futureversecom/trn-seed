@@ -14,7 +14,8 @@
  */
 
 use crate::*;
-use frame_support::{ensure, traits::Get, transactional};
+use codec::alloc::string::ToString;
+use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
@@ -75,6 +76,15 @@ impl<T: Config> Pallet<T> {
 						&mut token_uri,
 						"ipfs://{}.json",
 						core::str::from_utf8(&shared_cid).unwrap_or("")
+					)
+					.expect("Not written");
+				},
+				MetadataScheme::Ethereum(contract_address) => {
+					write!(
+						&mut token_uri,
+						"ethereum://{}/{}",
+						contract_address.to_string(),
+						token_id.1
 					)
 					.expect("Not written");
 				},
@@ -174,46 +184,86 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Mint additional tokens in a collection
+	/// Token Ids are passed in manually
 	pub fn do_mint(
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
-		serial_number: SerialNumber,
-		quantity: TokenCount,
-	) -> DispatchResult {
-		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		serial_numbers: Vec<SerialNumber>,
+	) -> Result<Weight, DispatchError> {
+		ensure!(serial_numbers.len() > Zero::zero(), Error::<T>::NoToken);
+		let mut weight: Weight = 0;
+
+		let collection_info = match Self::collection_info(collection_id) {
+			Some(info) => info,
+			None => return Err(Error::<T>::NoCollection.into()),
+		};
+		weight = weight + T::DbWeight::get().reads(1);
+
+		// counter for tokens minted in the case a token mint fails
+		let mut tokens_minted: TokenCount = 0;
 
 		// Mint the set tokens
-		for serial_number in serial_number..serial_number + quantity {
-			<TokenOwner<T>>::insert(collection_id, serial_number as SerialNumber, &owner);
+		for serial_number in serial_numbers.iter() {
+			weight = weight + T::DbWeight::get().reads(1);
+			if <TokenOwner<T>>::contains_key(collection_id, serial_number) {
+				// This should not happen as serial numbers are handled internally
+				// However we can't err if it does occur as that could potentially mean the loss
+				// of unprocessed tokens due to NFT bridging
+				log!(
+					warn,
+					"🃏 Token Couldn't be minted as this token_id already exists: ({:?},{:?})",
+					collection_id,
+					serial_number
+				);
+			} else {
+				weight = weight + T::DbWeight::get().writes(1);
+				<TokenOwner<T>>::insert(collection_id, serial_number, &owner);
+				tokens_minted += 1;
+			}
+		}
+
+		if tokens_minted == TokenCount::zero() {
+			// No tokens were minted so no need to update storage,
+			// but we also don't want to throw an error as this could mean tokens are lost
+			return Ok(weight)
 		}
 
 		// update token balances
 		<TokenBalance<T>>::mutate(&owner, |mut balances| {
 			if let Some(balances) = &mut balances {
-				*balances.entry(collection_id).or_default() += quantity
+				*balances.entry(collection_id).or_default() += tokens_minted
 			} else {
 				let mut map = BTreeMap::new();
-				map.insert(collection_id, quantity);
+				map.insert(collection_id, tokens_minted);
 				*balances = Some(map)
 			}
 		});
 
+		// Update collection issuance
 		<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
 			if let Some(q) = &mut q {
-				*q = q.saturating_add(quantity)
+				*q = q.saturating_add(tokens_minted)
 			} else {
-				*q = Some(quantity)
+				*q = Some(tokens_minted)
 			}
 		});
-		<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
-			if let Some(q) = &mut q {
-				*q = q.saturating_add(quantity)
-			} else {
-				*q = Some(quantity)
-			}
-		});
+		// Weight for two above, unconditional mutates
+		weight = weight + T::DbWeight::get().reads_writes(2, 2);
 
-		Ok(())
+		if collection_info.origin_chain == OriginChain::Root {
+			// Only increment next serial number if NFT originates from Root,
+			// We don't care about this field for Ethereum originated NFTs
+			<NextSerialNumber<T>>::mutate(collection_id, |mut q| {
+				if let Some(q) = &mut q {
+					*q = q.saturating_add(tokens_minted)
+				} else {
+					*q = Some(tokens_minted)
+				}
+			});
+			weight = weight + T::DbWeight::get().reads_writes(1, 1);
+		}
+
+		Ok(weight)
 	}
 
 	/// Find the tokens owned by an `address` in the given collection
@@ -439,6 +489,117 @@ impl<T: Config> Pallet<T> {
 			None => None,
 		};
 		(new_cursor, response)
+	}
+
+	pub fn do_create_collection(
+		owner: T::AccountId,
+		name: CollectionNameType,
+		initial_issuance: TokenCount,
+		max_issuance: Option<TokenCount>,
+		token_owner: Option<T::AccountId>,
+		metadata_scheme: MetadataScheme,
+		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+		origin_chain: OriginChain,
+	) -> Result<u32, DispatchError> {
+		// Check we can issue the new tokens
+		let collection_uuid = Self::next_collection_uuid()?;
+
+		// Check max issuance is valid
+		if let Some(max_issuance) = max_issuance {
+			ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
+			ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+		}
+
+		// Validate collection attributes
+		ensure!(
+			!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
+			Error::<T>::CollectionNameInvalid
+		);
+		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+		let metadata_scheme =
+			metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+		if let Some(royalties_schedule) = royalties_schedule.clone() {
+			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+		}
+
+		<CollectionInfo<T>>::insert(
+			collection_uuid,
+			CollectionInformation {
+				owner: owner.clone(),
+				name,
+				metadata_scheme,
+				royalties_schedule,
+				max_issuance,
+				origin_chain: origin_chain.clone(),
+			},
+		);
+
+		// Now mint the collection tokens
+		let token_owner = token_owner.unwrap_or(owner);
+		if initial_issuance > Zero::zero() {
+			let token_ids: Vec<SerialNumber> = (0..initial_issuance).collect();
+			Self::do_mint(&token_owner, collection_uuid, token_ids)?;
+		}
+		// will not overflow, asserted prior qed.
+		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
+
+		Self::deposit_event(Event::<T>::CollectionCreate {
+			collection_uuid,
+			token_count: initial_issuance,
+			owner: token_owner,
+		});
+		Ok(collection_uuid)
+	}
+
+	pub fn do_burn(
+		who: &T::AccountId,
+		collection_id: CollectionUuid,
+		serial_number: &SerialNumber,
+	) -> DispatchResult {
+		ensure!(
+			!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
+			Error::<T>::TokenLocked
+		);
+		ensure!(
+			Self::token_owner(collection_id, serial_number) == Some(who.clone()),
+			Error::<T>::NoPermission
+		);
+		<TokenOwner<T>>::remove(collection_id, serial_number);
+
+		let _ = <TokenBalance<T>>::try_mutate::<_, (), Error<T>, _>(who, |mut balances| {
+			match &mut balances {
+				Some(balances) => {
+					match (balances).get_mut(&collection_id) {
+						Some(balance) => {
+							let new_balance = balance.saturating_sub(1);
+							if new_balance.is_zero() {
+								balances.remove(&collection_id);
+							} else {
+								*balance = new_balance;
+							}
+							Ok(())
+						},
+						None => return Err(Error::NoToken.into()), // should not happen
+					}
+				},
+				None => return Err(Error::NoToken.into()), // should not happen
+			}
+		})?;
+
+		if let Some(collection_issuance) = Self::collection_issuance(collection_id) {
+			if collection_issuance.saturating_sub(1).is_zero() {
+				// this is the last of the tokens
+				<CollectionIssuance<T>>::remove(collection_id);
+			} else {
+				<CollectionIssuance<T>>::mutate(collection_id, |mut q| {
+					if let Some(q) = &mut q {
+						*q = q.saturating_sub(1)
+					}
+				});
+			}
+		}
+
+		Ok(())
 	}
 }
 
