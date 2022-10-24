@@ -256,6 +256,8 @@ pub trait EventProofAdapter {
 pub trait ValidatorAdapter {
 	/// Request and generate a signature for the given tx data
 	fn validator_set_id() -> ValidatorSetId;
+	fn bridge_paused(flag: bool);
+	fn bridge_kill();
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

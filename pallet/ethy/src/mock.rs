@@ -166,6 +166,14 @@ impl ValidatorAdapter for MockValidatorAdapter {
 	fn validator_set_id() -> ValidatorSetId {
 		1
 	}
+
+	fn bridge_paused(flag: bool) {
+		todo!()
+	}
+
+	fn bridge_kill() {
+		todo!()
+	}
 }
 
 parameter_types! {

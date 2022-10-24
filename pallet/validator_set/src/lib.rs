@@ -455,4 +455,6 @@ impl<T: Config> ValidatorAdapter for Pallet<T> {
 	fn validator_set_id() -> ValidatorSetId {
 		Self::validator_set().id
 	}
+	fn bridge_paused(flag: bool) {<BridgePaused<T>>::put(flag);}
+	fn bridge_kill() {<BridgePaused<T>>::kill();}
 }
