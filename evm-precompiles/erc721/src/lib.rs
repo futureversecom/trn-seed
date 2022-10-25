@@ -460,7 +460,8 @@ where
 			},
 		)?;
 
-		// emit transfer events quantity times
+		// emit transfer events - quantity times
+		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
 		let serial_number =
 			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
 		for token_id in serial_number..(serial_number + quantity) {
