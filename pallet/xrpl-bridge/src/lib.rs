@@ -259,10 +259,9 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			amount: Balance,
 			destination: XrplAddress,
-			ticket_sequence: XrplTxTicketSequence,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::add_to_withdraw(who, amount, destination, ticket_sequence)
+			Self::add_to_withdraw(who, amount, destination)
 		}
 
 		/// add a relayer
@@ -416,7 +415,6 @@ impl<T: Config> Pallet<T> {
 		who: AccountOf<T>,
 		amount: Balance,
 		destination: XrplAddress,
-		ticket_sequence: XrplTxTicketSequence,
 	) -> DispatchResult {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
