@@ -83,12 +83,12 @@ pub trait StatefulPrecompile {
 pub trait ErcIdConversion<RuntimeId> {
 	/// ID type used by EVM
 	type EvmId;
-	// Get runtime Id from EVM id
+	/// Get runtime Id from EVM id
 	fn evm_id_to_runtime_id(
 		evm_id: Self::EvmId,
 		precompile_address_prefix: &[u8; 4],
 	) -> Option<RuntimeId>;
-	// Get EVM id from runtime Id
+	/// Get EVM id from runtime Id
 	fn runtime_id_to_evm_id(
 		runtime_id: RuntimeId,
 		precompile_address_prefix: &[u8; 4],

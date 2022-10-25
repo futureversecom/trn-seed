@@ -7,7 +7,9 @@ use pallet_evm::Precompile;
 use pallet_nft::{
 	CollectionNameType, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, WeightInfo,
 };
+use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use precompile_utils::prelude::*;
+use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
@@ -16,8 +18,9 @@ use sp_std::{marker::PhantomData, vec::Vec};
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	/// Create a new NFT collection
-	/// name, max_issuance, metadata_type, metadata_path, royalty_addresses, royalty_entitlements
-	InitializeCollection = "initializeCollection(bytes,uint32,uint8,bytes,address[],uint32[])",
+	/// collection_owner, name, max_issuance, metadata_type, metadata_path, royalty_addresses, royalty_entitlements
+	InitializeCollection =
+		"initializeCollection(address,bytes,uint32,uint8,bytes,address[],uint32[])",
 }
 
 /// Provides access to the NFT pallet
@@ -33,6 +36,7 @@ impl<Runtime> Precompile for NftPrecompile<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
 	Runtime: frame_system::Config + pallet_nft::Config + pallet_evm::Config,
+	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<pallet_nft::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
@@ -66,6 +70,7 @@ impl<Runtime> NftPrecompile<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
 	Runtime: frame_system::Config + pallet_nft::Config + pallet_evm::Config,
+	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<pallet_nft::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
@@ -77,6 +82,7 @@ where
 		read_args!(
 			handle,
 			{
+				collection_owner: Address,
 				name: Bytes,
 				max_issuance: U256,
 				metadata_type: U256,
@@ -86,6 +92,8 @@ where
 			}
 		);
 
+		// Parse owner
+		let collection_owner: H160 = collection_owner.into();
 		// Parse name
 		let name: CollectionNameType = name.as_bytes().to_vec();
 
@@ -134,12 +142,11 @@ where
 				None
 			};
 
-		let origin = handle.context().caller;
 		handle.record_cost(<Runtime as pallet_nft::Config>::WeightInfo::create_collection())?;
 
 		// Dispatch call (if enough gas).
 		let collection_id = pallet_nft::Pallet::<Runtime>::do_create_collection(
-			origin.into(),
+			collection_owner.into(),
 			name,
 			0, // Initial issuance is set to 0
 			max_issuance,
@@ -152,7 +159,14 @@ where
 		// Build output.
 		match collection_id {
 			Ok(collection_id) => {
-				Ok(succeed(EvmDataWriter::new().write(U256::from(collection_id)).build()))
+				let precompile_address =
+					Runtime::runtime_id_to_evm_id(collection_id, ERC721_PRECOMPILE_ADDRESS_PREFIX);
+				Ok(succeed(
+					EvmDataWriter::new()
+						.write(precompile_address)
+						.write(U256::from(collection_id))
+						.build(),
+				))
 			},
 			Err(err) => Err(revert(
 				alloc::format!("NFT: Initialize collection failed {:?}", err.stripped())
