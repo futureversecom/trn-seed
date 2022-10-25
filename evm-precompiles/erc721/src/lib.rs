@@ -40,7 +40,7 @@ pub enum Action {
 	// The Root Network extensions
 	// Mint an NFT in a collection
 	// quantity, receiver
-	Mint = "mint(uint32,address)",
+	Mint = "mint(address,uint32)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -409,24 +409,23 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
+		let origin = handle.context().caller;
+
 		// Parse input.
 		read_args!(
 			handle,
 			{
-				quantity: U256,
-				receiver: Address
+				to: Address,
+				quantity: U256
 			}
 		);
+		let to: H160 = to.into();
 
 		// Parse quantity
 		if quantity > TokenCount::MAX.into() {
 			return Err(revert("expected quantity <= 2^32").into())
 		}
 		let quantity: TokenCount = quantity.saturated_into();
-
-		// Parse receiver
-		let receiver: H160 = receiver.into();
-		let origin = handle.context().caller;
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -435,9 +434,22 @@ where
 			pallet_nft::Call::<Runtime>::mint {
 				collection_id,
 				quantity,
-				token_owner: Some(receiver.into()),
+				token_owner: Some(to.into()),
 			},
 		)?;
+
+		// emit transfer events quantity times
+		let serial_number = pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
+		for token_id in serial_number..(serial_number+quantity) {
+			log3(
+				handle.code_address(),
+				SELECTOR_LOG_TRANSFER,
+				origin,
+				to,
+				EvmDataWriter::new().write(token_id).build(),
+			)
+			.record(handle)?;
+		}
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))

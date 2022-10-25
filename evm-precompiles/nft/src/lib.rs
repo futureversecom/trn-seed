@@ -8,7 +8,6 @@ use pallet_nft::{
 	CollectionNameType, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, WeightInfo,
 };
 use precompile_utils::prelude::*;
-use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
