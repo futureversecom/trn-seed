@@ -133,7 +133,7 @@ impl MetadataScheme {
 		let prefix = self.prefix();
 		let santitize_ = |path: Vec<u8>| {
 			if path.is_empty() {
-				return Err(());
+				return Err(())
 			}
 			// some best effort attempts to sanitize `path`
 			let mut path = core::str::from_utf8(&path).map_err(|_| ())?.trim();
@@ -151,7 +151,8 @@ impl MetadataScheme {
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
 			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
-			MetadataScheme::Ethereum(_original_id) => MetadataScheme::Ethereum(H160::zero()),
+			// Ethereum inner value is an H160 and does not need sanitizing
+			MetadataScheme::Ethereum(address) => MetadataScheme::Ethereum(address),
 		})
 	}
 }
@@ -230,10 +231,9 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	/// - not overcommitted (> 100%)
 	/// - < MAX_ENTITLEMENTS
 	pub fn validate(&self) -> bool {
-		!self.entitlements.is_empty()
-			&& self.entitlements.len() <= MAX_ENTITLEMENTS
-			&& self
-				.entitlements
+		!self.entitlements.is_empty() &&
+			self.entitlements.len() <= MAX_ENTITLEMENTS &&
+			self.entitlements
 				.iter()
 				.map(|(_who, share)| share.deconstruct() as u32)
 				.sum::<u32>() <= Permill::ACCURACY
@@ -243,7 +243,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	pub fn calculate_total_entitlement(&self) -> Permill {
 		// if royalties are in a strange state
 		if !self.validate() {
-			return Permill::zero();
+			return Permill::zero()
 		}
 		Permill::from_parts(
 			self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>(),
@@ -372,6 +372,7 @@ mod test {
 	use super::{ListingResponse, MetadataScheme, RoyaltiesSchedule, TokenId, TokenInfo};
 	use crate::mock::{AccountId, TestExt};
 	use serde_json;
+	use sp_core::H160;
 	use sp_runtime::Permill;
 
 	#[test]
@@ -398,6 +399,11 @@ mod test {
 		assert_eq!(
 			MetadataScheme::Http(b"test.com".to_vec()).sanitize(),
 			Ok(MetadataScheme::Http(b"test.com".to_vec()))
+		);
+
+		assert_eq!(
+			MetadataScheme::Ethereum(H160::from_low_u64_be(123)).sanitize(),
+			Ok(MetadataScheme::Ethereum(H160::from_low_u64_be(123)))
 		);
 	}
 
