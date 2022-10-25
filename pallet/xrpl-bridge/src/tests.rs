@@ -333,6 +333,5 @@ fn get_door_ticket_sequence_success_over_next_round() {
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
-
 	})
 }
