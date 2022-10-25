@@ -123,6 +123,8 @@ pub trait Config:
 		+ MaybeSerializeDeserialize;
 	/// Reports the final session of na eras
 	type FinalSessionTracker: FinalSessionTrackerT;
+	/// Max amount of new signers that can be set an in extrinsic
+	type MaxNewSigners: Get<u8>;
 	/// Handles a multi-currency fungible asset system
 	type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
 	/// The native token asset Id (managed by pallet-balances)
@@ -283,6 +285,8 @@ decl_error! {
 		CantBondRelayer,
 		/// The relayer hasn't paid the relayer bond so can't be set as the active relayer
 		NoBondPaid,
+		/// Someone tried to set a greater amount of validators than allowed
+		MaxNewSignersExceeded
 	}
 }
 
@@ -360,10 +364,12 @@ decl_module! {
 			consumed_weight
 		}
 
-		#[weight = DbWeight::get().writes(1)]
-		/// new door signers
+		#[weight = DbWeight::get().writes(new_signers.len() as u64).saturating_add(DbWeight::get().reads(1)).saturating_add(DbWeight::get().reads_writes(3, 3))]
+		/// Set new XRPL door signers
 		pub fn set_xrpl_door_signers(origin, new_signers: Vec<T::EthyId>) {
 			ensure_root(origin)?;
+			ensure!((new_signers.len() as u8) < T::MaxNewSigners::get(), Error::<T>::MaxNewSignersExceeded);
+
 			for new_signer in new_signers.iter() {
 				XrplDoorSigners::<T>::insert(new_signer, true);
 			}
