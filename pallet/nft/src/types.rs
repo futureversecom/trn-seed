@@ -151,7 +151,8 @@ impl MetadataScheme {
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
 			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
-			MetadataScheme::Ethereum(_original_id) => MetadataScheme::Ethereum(H160::zero()),
+			// Ethereum inner value is an H160 and does not need sanitizing
+			MetadataScheme::Ethereum(address) => MetadataScheme::Ethereum(address),
 		})
 	}
 }
@@ -372,10 +373,10 @@ mod test {
 	use super::{ListingResponse, MetadataScheme, RoyaltiesSchedule, TokenId, TokenInfo};
 	use crate::mock::{AccountId, TestExt};
 	use serde_json;
+	use sp_core::H160;
 	use sp_runtime::Permill;
 
 	#[test]
-
 	fn metadata_path_sanitize() {
 		// empty
 		assert_eq!(MetadataScheme::Http(b"".to_vec()).sanitize(), Err(()),);
@@ -398,6 +399,11 @@ mod test {
 		assert_eq!(
 			MetadataScheme::Http(b"test.com".to_vec()).sanitize(),
 			Ok(MetadataScheme::Http(b"test.com".to_vec()))
+		);
+
+		assert_eq!(
+			MetadataScheme::Ethereum(H160::from_low_u64_be(123)).sanitize(),
+			Ok(MetadataScheme::Ethereum(H160::from_low_u64_be(123)))
 		);
 	}
 
