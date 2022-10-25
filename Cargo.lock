@@ -7411,7 +7411,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.15"
+version = "0.0.17"
 dependencies = [
  "clap",
  "ethy-gadget",
