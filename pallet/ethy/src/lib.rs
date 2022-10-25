@@ -387,7 +387,7 @@ decl_module! {
 			Self::deposit_event(Event::<T>::RelayerSet(Some(relayer)));
 		}
 
-		#[weight = DbWeight::get().writes(1)]
+		#[weight = DbWeight::get().reads_writes(3, 3).saturating_add(DbWeight::get().writes(3).saturating_add(DbWeight::get().reads(2)))]
 		/// Submit bond for relayer account
 		pub fn deposit_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -408,7 +408,7 @@ decl_module! {
 			Ok(())
 		}
 
-		#[weight = DbWeight::get().writes(1)]
+		#[weight = DbWeight::get().writes(3).saturating_add(DbWeight::get().reads(3))]
 		/// Withdraw relayer bond amount
 		pub fn withdraw_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
