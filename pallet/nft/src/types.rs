@@ -376,7 +376,6 @@ mod test {
 	use sp_runtime::Permill;
 
 	#[test]
-
 	fn metadata_path_sanitize() {
 		// empty
 		assert_eq!(MetadataScheme::Http(b"".to_vec()).sanitize(), Err(()),);
