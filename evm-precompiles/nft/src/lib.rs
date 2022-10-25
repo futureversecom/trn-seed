@@ -45,14 +45,14 @@ where
 			};
 
 			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
-				return Err(err.into())
+				return Err(err.into());
 			}
 
 			match selector {
 				Action::InitializeCollection => Self::initialize_collection(handle),
 			}
 		};
-		return result
+		return result;
 	}
 }
 
@@ -92,7 +92,7 @@ where
 		// Parse max issuance
 		// If max issuance is 0, we assume no max issuance is set
 		if max_issuance > u32::MAX.into() {
-			return Err(revert("NFT: Expected max_issuance <= 2^32").into())
+			return Err(revert("NFT: Expected max_issuance <= 2^32").into());
 		}
 		let max_issuance: TokenCount = max_issuance.saturated_into();
 		let max_issuance: Option<TokenCount> = match max_issuance {
@@ -102,7 +102,7 @@ where
 
 		// Parse Metadata
 		if metadata_type > u8::MAX.into() {
-			return Err(revert("NFT: Invalid metadata_type, expected u8").into())
+			return Err(revert("NFT: Invalid metadata_type, expected u8").into());
 		}
 		let metadata_type: u8 = metadata_type.saturated_into();
 		let metadata_path: Vec<u8> = metadata_path.as_bytes().to_vec();
@@ -113,7 +113,7 @@ where
 		if royalty_addresses.len() != royalty_entitlements.len() {
 			return Err(
 				revert("NFT: Royalty addresses and entitlements must be the same length").into()
-			)
+			);
 		}
 		let royalty_entitlements = royalty_entitlements.into_iter().map(|entitlement| {
 			let entitlement: u32 = entitlement.saturated_into();
@@ -151,8 +151,9 @@ where
 
 		// Build output.
 		match collection_id {
-			Ok(collection_id) =>
-				Ok(succeed(EvmDataWriter::new().write(U256::from(collection_id)).build())),
+			Ok(collection_id) => {
+				Ok(succeed(EvmDataWriter::new().write(U256::from(collection_id)).build()))
+			},
 			Err(err) => Err(revert(
 				alloc::format!("NFT: Initialize collection failed {:?}", err.stripped())
 					.as_bytes()

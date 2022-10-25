@@ -99,13 +99,13 @@ where
 					};
 
 					if let Err(err) = handle.check_function_modifier(match selector {
-						Action::Approve |
-						Action::SafeTransferFrom |
-						Action::TransferFrom |
-						Action::SafeTransferFromCallData => FunctionModifier::NonPayable,
+						Action::Approve
+						| Action::SafeTransferFrom
+						| Action::TransferFrom
+						| Action::SafeTransferFromCallData => FunctionModifier::NonPayable,
 						_ => FunctionModifier::View,
 					}) {
-						return Some(Err(err.into()))
+						return Some(Err(err.into()));
 					}
 
 					match selector {
@@ -121,20 +121,23 @@ where
 						Action::TokenURI => Self::token_uri(collection_id, handle),
 						// Ownable
 						Action::Owner => Self::owner(collection_id, handle),
-						Action::RenounceOwnership =>
-							Self::renounce_ownership(collection_id, handle),
-						Action::TransferOwnership =>
-							Self::transfer_ownership(collection_id, handle),
+						Action::RenounceOwnership => {
+							Self::renounce_ownership(collection_id, handle)
+						},
+						Action::TransferOwnership => {
+							Self::transfer_ownership(collection_id, handle)
+						},
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
-						Action::SafeTransferFrom |
-						Action::SafeTransferFromCallData |
-						Action::IsApprovedForAll |
-						Action::SetApprovalForAll =>
-							return Some(Err(revert("ERC721: Function not implemented yet").into())),
+						Action::SafeTransferFrom
+						| Action::SafeTransferFromCallData
+						| Action::IsApprovedForAll
+						| Action::SetApprovalForAll => {
+							return Some(Err(revert("ERC721: Function not implemented yet").into()))
+						},
 					}
 				};
-				return Some(result)
+				return Some(result);
 			}
 		}
 		None
@@ -186,7 +189,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -244,7 +247,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id = (collection_id, serial_number);
@@ -253,8 +256,8 @@ where
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
 
 		// Build call with origin.
-		if handle.context().caller == from ||
-			Some(Runtime::AccountId::from(handle.context().caller)) == approved_account
+		if handle.context().caller == from
+			|| Some(Runtime::AccountId::from(handle.context().caller)) == approved_account
 		{
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
@@ -263,7 +266,7 @@ where
 				pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
 			)?;
 		} else {
-			return Err(revert("ERC721: Caller not approved").into())
+			return Err(revert("ERC721: Caller not approved").into());
 		}
 
 		log3(
@@ -299,7 +302,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -340,7 +343,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
@@ -368,8 +371,9 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None =>
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
+			None => {
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
+			},
 		}
 	}
 
@@ -387,8 +391,9 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None =>
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
+			None => {
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
+			},
 		}
 	}
 
@@ -404,7 +409,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("ERC721: Expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -440,7 +445,7 @@ where
 
 		// Parse quantity
 		if quantity > TokenCount::MAX.into() {
-			return Err(revert("ERC721: Expected quantity <= 2^32").into())
+			return Err(revert("ERC721: Expected quantity <= 2^32").into());
 		}
 		let quantity: TokenCount = quantity.saturated_into();
 
@@ -485,8 +490,9 @@ where
 					.write(Address::from(Into::<H160>::into(collection_info.owner)))
 					.build(),
 			)),
-			None =>
-				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
+			None => {
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec()))
+			},
 		}
 	}
 

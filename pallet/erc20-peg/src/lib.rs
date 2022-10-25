@@ -294,7 +294,7 @@ impl<T: Config> Module<T> {
 						// EVM payment delays are not supported
 						Err(Error::<T>::EvmWithdrawalFailed.into())
 					},
-				}
+				};
 			}
 		};
 
@@ -366,7 +366,7 @@ impl<T: Config> Module<T> {
 		let payment_id = NextDelayedPaymentId::get();
 		if !payment_id.checked_add(One::one()).is_some() {
 			Self::deposit_event(Event::<T>::NoAvailableDelayedPaymentIds);
-			return
+			return;
 		}
 		let payment_block = <frame_system::Pallet<T>>::block_number().saturating_add(delay);
 		DelayedPayments::insert(payment_id, &pending_payment);
@@ -413,7 +413,7 @@ impl<T: Config> Module<T> {
 			if let Some((min_amount, delay)) = payment_delay {
 				if U256::from(min_amount) <= deposit_event.amount {
 					Self::delay_payment(delay, PendingPayment::Deposit(deposit_event.clone()));
-					return Ok(())
+					return Ok(());
 				}
 			};
 		}

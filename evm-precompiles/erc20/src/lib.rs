@@ -83,11 +83,12 @@ where
 					};
 
 					if let Err(err) = handle.check_function_modifier(match selector {
-						Action::Approve | Action::Transfer | Action::TransferFrom =>
-							FunctionModifier::NonPayable,
+						Action::Approve | Action::Transfer | Action::TransferFrom => {
+							FunctionModifier::NonPayable
+						},
 						_ => FunctionModifier::View,
 					}) {
-						return Some(Err(err.into()))
+						return Some(Err(err.into()));
 					}
 
 					match selector {
@@ -103,7 +104,7 @@ where
 					}
 				};
 
-				return Some(result)
+				return Some(result);
 			}
 		}
 		None
@@ -299,8 +300,8 @@ where
 			let caller: Runtime::AccountId = handle.context().caller.into();
 
 			handle.record_cost(
-				RuntimeHelper::<Runtime>::db_read_gas_cost() +
-					RuntimeHelper::<Runtime>::db_write_gas_cost(),
+				RuntimeHelper::<Runtime>::db_read_gas_cost()
+					+ RuntimeHelper::<Runtime>::db_write_gas_cost(),
 			)?;
 
 			// Update approval balance,
