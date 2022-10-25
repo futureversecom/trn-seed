@@ -136,6 +136,8 @@ pub mod pallet {
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 		DoorAddressSet(XrplAddress),
+		DoorNextTicketSequenceParamSet(u32, u32),
+		DoorTicketSequenceSet(u32),
 	}
 
 	#[pallet::hooks]
@@ -357,6 +359,43 @@ pub mod pallet {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			DoorAddress::<T>::put(door_address);
 			Self::deposit_event(Event::<T>::DoorAddressSet(door_address));
+			Ok(())
+		}
+
+		/// Set the door account ticket sequence params for the next round
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_ticket_sequence_params_next_round(), DispatchClass::Operational))]
+		pub fn set_door_ticket_sequence_params_next_round(origin: OriginFor<T>, start_ticket_sequence: u32, ticket_bucket_size: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			let current_ticket_sequence = Self::door_ticket_sequence();
+			let current_start_ticket_sequence = Self::door_start_ticket_sequence();
+
+			if start_ticket_sequence < current_ticket_sequence || start_ticket_sequence < current_start_ticket_sequence {
+				return Err(DispatchError::Other("start_ticket_sequence {start_ticket_sequence} is lesser than current values"));
+			}
+			if ticket_bucket_size == 0 {
+				return Err(DispatchError::Other("ticket_bucket_size should be more than zero"));
+			}
+
+			DoorStartTicketSequenceNext::<T>::put(start_ticket_sequence);
+			DoorTicketBucketSizeNext::<T>::put(ticket_bucket_size);
+			Self::deposit_event(Event::<T>::DoorNextTicketSequenceParamSet(start_ticket_sequence, ticket_bucket_size));
+			Ok(())
+		}
+
+		/// Set the door account current ticket sequence
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_ticket_sequence(), DispatchClass::Operational))]
+		pub fn set_door_ticket_sequence(origin: OriginFor<T>, ticket_sequence: u32, ) -> DispatchResult {
+			ensure_root(origin)?;
+			let current_ticket_sequence = Self::door_ticket_sequence();
+			let current_start_ticket_sequence = Self::door_start_ticket_sequence();
+			let current_ticket_bucket_size = Self::door_ticket_bucket_size();
+
+			if ticket_sequence < current_ticket_sequence || ticket_sequence < current_start_ticket_sequence || ticket_sequence > (current_start_ticket_sequence + current_ticket_bucket_size) {
+				return Err(DispatchError::Other("ticket_sequence {ticket_sequence} is invalid with the current ticket sequence params"));
+			}
+
+			DoorTicketSequence::<T>::put(ticket_sequence);
+			Self::deposit_event(Event::<T>::DoorTicketSequenceSet(ticket_sequence));
 			Ok(())
 		}
 	}

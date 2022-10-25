@@ -54,6 +54,8 @@ pub trait WeightInfo {
 	fn remove_relayer() -> Weight;
 	fn set_door_nonce() -> Weight;
 	fn set_xrpl_door_address() -> Weight;
+	fn set_door_ticket_sequence_params_next_round() -> Weight;
+	fn set_door_ticket_sequence() -> Weight;
 }
 
 /// Weights for pallet_liquid_staking using the Substrate node and recommended hardware.
@@ -100,6 +102,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(15 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
+
+	fn set_door_ticket_sequence_params_next_round() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+	}
+
+	fn set_door_ticket_sequence() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().reads(15 as Weight))
+			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+	}
 }
 
 // For backwards compatibility and tests
@@ -140,6 +158,22 @@ impl WeightInfo for () {
 
 	fn set_xrpl_door_address() -> Weight {
 		(190_935_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+
+	fn set_door_ticket_sequence_params_next_round() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+
+	fn set_door_ticket_sequence() -> Weight {
+		(190_935_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
 	}
