@@ -401,8 +401,8 @@ pub mod pallet {
 				}
 
 				log!(warn, "🃏 collection info migrated");
-				return 6_000_000 as Weight
-					+ DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1);
+				return 6_000_000 as Weight +
+					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
 			} else {
 				Zero::zero()
 			}
@@ -557,7 +557,7 @@ pub mod pallet {
 					);
 				}
 			} else {
-				return Err(Error::<T>::NoCollection.into());
+				return Err(Error::<T>::NoCollection.into())
 			}
 
 			let owner = token_owner.unwrap_or(origin);
@@ -641,7 +641,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
-				return Err(Error::<T>::NoToken.into());
+				return Err(Error::<T>::NoToken.into())
 			}
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace_id)?;
@@ -737,7 +737,7 @@ pub mod pallet {
 					seller: listing.seller,
 				});
 			} else {
-				return Err(Error::<T>::NotForFixedPriceSale.into());
+				return Err(Error::<T>::NotForFixedPriceSale.into())
 			}
 			Ok(())
 		}
@@ -768,7 +768,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
-				return Err(Error::<T>::NoToken.into());
+				return Err(Error::<T>::NoToken.into())
 			}
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace_id)?;
@@ -879,7 +879,7 @@ pub mod pallet {
 				});
 				Ok(())
 			} else {
-				return Err(Error::<T>::NotForAuction.into());
+				return Err(Error::<T>::NotForAuction.into())
 			}
 		}
 
