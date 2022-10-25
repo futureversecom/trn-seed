@@ -110,6 +110,14 @@ pub mod pallet {
 		InvalidSigners,
 		/// Submitted a duplicate transaction hash
 		TxReplay,
+		/// The NextTicketSequence has not been set
+		NextTicketSequenceNotSet,
+		/// The NextTicketBucketSize has not been set
+		NextTicketBucketSizeNotSet,
+		/// The TicketSequence has not been set
+		TicketSequenceNotSet,
+		/// The TicketBucketSize has not been set
+		TicketBucketSizeNotSet,
 	}
 
 	#[pallet::event]
@@ -183,11 +191,50 @@ pub mod pallet {
 	/// The nonce/sequence of the XRPL door account
 	pub type DoorNonce<T: Config> = StorageValue<_, XrplTxNonce, ValueQuery, DefaultDoorNonce>;
 
+	#[pallet::type_value]
+	pub fn DefaultDoorTicketSequence() -> u32 {
+		0_u32
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn door_ticket_sequence)]
+	/// The current ticket sequence of the XRPL door account
+	pub type DoorTicketSequence<T: Config> = StorageValue<_, XrplTxTicketSequence, ValueQuery, DefaultDoorTicketSequence>;
+
+	#[pallet::type_value]
+	pub fn DefaultDoorStartTicketSequence() -> u32 {
+		0_u32
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn door_start_ticket_sequence)]
+	/// The start ticket sequence of the XRPL door account for the current bucket
+	pub type DoorStartTicketSequence<T: Config> = StorageValue<_, XrplTxTicketSequence, ValueQuery, DefaultDoorStartTicketSequence>;
+
+	#[pallet::type_value]
+	pub fn DefaultDoorTicketBucketSize() -> u32 {
+		// https://xrpl.org/tickets.html#limitations
+		250_u32
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn door_ticket_bucket_size)]
+	/// The ticket bucket size of the XRPL door account for the current round
+	pub type DoorTicketBucketSize<T: Config> = StorageValue<_, u32, ValueQuery, DefaultDoorTicketBucketSize>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn door_start_ticket_sequence_next)]
+	/// The start ticket sequence of the XRPL door account for the next bucket
+	pub type DoorStartTicketSequenceNext<T: Config> = StorageValue<_, XrplTxTicketSequence>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn door_ticket_bucket_size_next)]
+	/// The ticket bucket size of the XRPL door account for the next round
+	pub type DoorTicketBucketSizeNext<T: Config> = StorageValue<_, u32, ValueQuery, DefaultDoorTicketBucketSize>;
+
 	/// Default door tx fee 1 XRP
 	#[pallet::type_value]
 	pub fn DefaultDoorTxFee() -> u64 {
 		1_000_000_u64
 	}
+
 	#[pallet::storage]
 	#[pallet::getter(fn door_tx_fee)]
 	/// The flat fee for XRPL door txs
@@ -428,13 +475,9 @@ impl<T: Config> Pallet<T> {
 		let _ =
 			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
 
-		//  make tx_nonce = 0 if ticket_sequence is used
-		let tx_nonce = match ticket_sequence {
-			0 => Self::door_nonce_inc()?,
-			_ => 0,
-		};
+		let ticket_sequence = Self::door_ticket_sequence_inc()?;
 		let tx_data = XrpWithdrawTransaction {
-			tx_nonce,
+			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
 			tx_fee,
 			amount,
 			destination,
@@ -478,5 +521,32 @@ impl<T: Config> Pallet<T> {
 		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 		DoorNonce::<T>::set(next_nonce);
 		Ok(nonce)
+	}
+
+	// Return the current door ticket sequence and increment it in storage
+	pub fn door_ticket_sequence_inc() -> Result<XrplTxTicketSequence, DispatchError> {
+		let current_sequence = Self::door_ticket_sequence();
+		let start_sequence = Self::door_start_ticket_sequence();
+		let bucket_size = Self::door_ticket_bucket_size();
+
+		let next_sequence = current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+		if next_sequence > start_sequence + bucket_size {
+			// we ran out current bucket, check the next_start_sequence
+			let next_start_sequence = Self::door_start_ticket_sequence_next().ok_or(Error::<T>::NextTicketSequenceNotSet)?;
+			let next_bucket_size = Self::door_ticket_bucket_size_next();
+
+			if next_start_sequence == start_sequence {
+				return Err(Error::<T>::NextTicketSequenceNotSet.into())
+			} else {
+				// update next to current and clear next
+				DoorStartTicketSequence::<T>::set(next_start_sequence);
+				DoorTicketBucketSize::<T>::set(next_bucket_size);
+
+				DoorStartTicketSequenceNext::<T>::kill();
+				DoorTicketBucketSizeNext::<T>::kill();
+			}
+		}
+		DoorTicketSequence::<T>::set(next_sequence);
+		Ok(current_sequence)
 	}
 }
