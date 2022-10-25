@@ -304,3 +304,35 @@ fn clear_storages() {
 		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
 	});
 }
+
+#[test]
+fn get_door_ticket_sequence_success_at_start() {
+	new_test_ext().execute_with(|| {
+		<DoorStartTicketSequenceNext<Test>>::put(1);
+		<DoorTicketBucketSizeNext<Test>>::put(250);
+
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(0));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+	})
+}
+
+#[test]
+fn get_door_ticket_sequence_success_over_next_round() {
+	new_test_ext().execute_with(|| {
+		<DoorStartTicketSequenceNext<Test>>::put(1);
+		<DoorTicketBucketSizeNext<Test>>::put(2);
+
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(0));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		<DoorStartTicketSequenceNext<Test>>::put(3);
+		<DoorTicketBucketSizeNext<Test>>::put(2);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		<DoorStartTicketSequenceNext<Test>>::put(10);
+		<DoorTicketBucketSizeNext<Test>>::put(10);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
+
+	})
+}

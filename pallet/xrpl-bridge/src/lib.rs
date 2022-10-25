@@ -211,8 +211,7 @@ pub mod pallet {
 
 	#[pallet::type_value]
 	pub fn DefaultDoorTicketBucketSize() -> u32 {
-		// https://xrpl.org/tickets.html#limitations
-		250_u32
+		0_u32
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn door_ticket_bucket_size)]
@@ -227,7 +226,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn door_ticket_bucket_size_next)]
 	/// The ticket bucket size of the XRPL door account for the next round
-	pub type DoorTicketBucketSizeNext<T: Config> = StorageValue<_, u32, ValueQuery, DefaultDoorTicketBucketSize>;
+	pub type DoorTicketBucketSizeNext<T: Config> = StorageValue<_, u32>;
 
 	/// Default door tx fee 1 XRP
 	#[pallet::type_value]
@@ -475,7 +474,7 @@ impl<T: Config> Pallet<T> {
 		let _ =
 			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
 
-		let ticket_sequence = Self::door_ticket_sequence_inc()?;
+		let ticket_sequence = Self::get_door_ticket_sequence()?;
 		let tx_data = XrpWithdrawTransaction {
 			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
 			tx_fee,
@@ -524,16 +523,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	// Return the current door ticket sequence and increment it in storage
-	pub fn door_ticket_sequence_inc() -> Result<XrplTxTicketSequence, DispatchError> {
+	pub fn get_door_ticket_sequence() -> Result<XrplTxTicketSequence, DispatchError> {
 		let current_sequence = Self::door_ticket_sequence();
 		let start_sequence = Self::door_start_ticket_sequence();
 		let bucket_size = Self::door_ticket_bucket_size();
 
-		let next_sequence = current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		if next_sequence > start_sequence + bucket_size {
+		let mut next_sequence = current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+		if next_sequence >= start_sequence + bucket_size {
 			// we ran out current bucket, check the next_start_sequence
 			let next_start_sequence = Self::door_start_ticket_sequence_next().ok_or(Error::<T>::NextTicketSequenceNotSet)?;
-			let next_bucket_size = Self::door_ticket_bucket_size_next();
+			let next_bucket_size = Self::door_ticket_bucket_size_next().ok_or(Error::<T>::NextTicketBucketSizeNotSet)?;
 
 			if next_start_sequence == start_sequence {
 				return Err(Error::<T>::NextTicketSequenceNotSet.into())
@@ -541,6 +540,7 @@ impl<T: Config> Pallet<T> {
 				// update next to current and clear next
 				DoorStartTicketSequence::<T>::set(next_start_sequence);
 				DoorTicketBucketSize::<T>::set(next_bucket_size);
+				next_sequence = next_start_sequence;
 
 				DoorStartTicketSequenceNext::<T>::kill();
 				DoorTicketBucketSizeNext::<T>::kill();
