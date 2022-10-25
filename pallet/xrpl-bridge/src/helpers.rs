@@ -17,6 +17,7 @@ use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 
+use seed_primitives::xrpl::XrplTxTicketSequence;
 use seed_primitives::{
 	xrpl::{XrplAddress, XrplTxHash, XrplTxNonce},
 	Balance,
@@ -35,6 +36,7 @@ pub struct XrpTransaction {
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
 	pub tx_nonce: XrplTxNonce,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
 	pub amount: Balance,
 	pub destination: XrplAddress,
 }
@@ -62,6 +64,7 @@ impl Default for XrpWithdrawTransaction {
 		XrpWithdrawTransaction {
 			tx_fee: 0,
 			tx_nonce: 0,
+			tx_ticket_sequence: 0,
 			amount: 0,
 			destination: XrplAddress::default(),
 		}

@@ -41,6 +41,7 @@ use seed_primitives::{
 use crate::helpers::{XrpTransaction, XrpWithdrawTransaction, XrplTxData};
 
 pub use pallet::*;
+use seed_primitives::xrpl::XrplTxTicketSequence;
 
 mod helpers;
 
@@ -60,6 +61,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use seed_primitives::xrpl::XrplTxTicketSequence;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
@@ -257,9 +259,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			amount: Balance,
 			destination: XrplAddress,
+			ticket_sequence: XrplTxTicketSequence,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::add_to_withdraw(who, amount, destination)
+			Self::add_to_withdraw(who, amount, destination, ticket_sequence)
 		}
 
 		/// add a relayer
@@ -413,6 +416,7 @@ impl<T: Config> Pallet<T> {
 		who: AccountOf<T>,
 		amount: Balance,
 		destination: XrplAddress,
+		ticket_sequence: XrplTxTicketSequence,
 	) -> DispatchResult {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
@@ -426,8 +430,18 @@ impl<T: Config> Pallet<T> {
 		let _ =
 			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
 
-		let tx_nonce = Self::door_nonce_inc()?;
-		let tx_data = XrpWithdrawTransaction { tx_nonce, tx_fee, amount, destination };
+		//  make tx_nonce = 0 if ticket_sequence is used
+		let tx_nonce = match ticket_sequence {
+			0 => Self::door_nonce_inc()?,
+			_ => 0,
+		};
+		let tx_data = XrpWithdrawTransaction {
+			tx_nonce,
+			tx_fee,
+			amount,
+			destination,
+			tx_ticket_sequence: ticket_sequence,
+		};
 
 		let proof_id = Self::submit_withdraw_request(door_address.into(), tx_data)?;
 
@@ -442,13 +456,15 @@ impl<T: Config> Pallet<T> {
 		door_address: [u8; 20],
 		tx_data: XrpWithdrawTransaction,
 	) -> Result<u64, DispatchError> {
-		let XrpWithdrawTransaction { tx_fee, tx_nonce, amount, destination } = tx_data;
+		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
+			tx_data;
 
 		let payment = Payment::new(
 			door_address,
 			destination.into(),
 			amount.saturated_into(),
 			tx_nonce,
+			tx_ticket_sequence,
 			tx_fee,
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
