@@ -265,7 +265,7 @@ where
 			amount,
 			false,
 		)
-		.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?;
+		.map_err(|e| revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e)))?;
 
 		log3(
 			handle.code_address(),
@@ -324,7 +324,9 @@ where
 				amount,
 				false,
 			)
-			.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?;
+			.map_err(|e| {
+				revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e))
+			})?;
 		}
 		log3(
 			handle.code_address(),

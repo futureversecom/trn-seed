@@ -22,7 +22,8 @@ pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address
 pub const SELECTOR_LOG_APPROVAL: [u8; 32] = keccak256!("Approval(address,address,uint256)");
 
 /// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
-pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] = keccak256!("OwnershipTransferred(address,address)");
+pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
+	keccak256!("OwnershipTransferred(address,address)");
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -120,14 +121,17 @@ where
 						Action::TokenURI => Self::token_uri(collection_id, handle),
 						// Ownable
 						Action::Owner => Self::owner(collection_id, handle),
-						Action::RenounceOwnership => Self::renounce_ownership(collection_id, handle),
-						Action::TransferOwnership => Self::transfer_ownership(collection_id, handle),
+						Action::RenounceOwnership =>
+							Self::renounce_ownership(collection_id, handle),
+						Action::TransferOwnership =>
+							Self::transfer_ownership(collection_id, handle),
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
 						Action::SafeTransferFrom |
 						Action::SafeTransferFromCallData |
 						Action::IsApprovedForAll |
-						Action::SetApprovalForAll => return Some(Err(revert("function not implemented yet").into())),
+						Action::SetApprovalForAll =>
+							return Some(Err(revert("ERC721: Function not implemented yet").into())),
 					}
 				};
 				return Some(result)
@@ -182,7 +186,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -193,7 +197,7 @@ where
 					.write(Address::from(Into::<H160>::into(owner_account_id)))
 					.build(),
 			)),
-			None => Err(revert(alloc::format!("Token does not exist").as_bytes().to_vec())),
+			None => Err(revert(alloc::format!("ERC721: Token does not exist").as_bytes().to_vec())),
 		}
 	}
 
@@ -240,7 +244,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id = (collection_id, serial_number);
@@ -259,7 +263,7 @@ where
 				pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
 			)?;
 		} else {
-			return Err(revert("caller not approved").into())
+			return Err(revert("ERC721: Caller not approved").into())
 		}
 
 		log3(
@@ -295,7 +299,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -336,7 +340,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
@@ -348,7 +352,7 @@ where
 					.write(Address::from(Into::<H160>::into(approved_account)))
 					.build(),
 			)),
-			None => Ok(succeed(alloc::format!("No accounts approved").as_bytes().to_vec())),
+			None => Ok(succeed(alloc::format!("ERC721: No accounts approved").as_bytes().to_vec())),
 		}
 	}
 
@@ -364,7 +368,8 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None => Err(revert(alloc::format!("Collection does not exist").as_bytes().to_vec())),
+			None =>
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
 		}
 	}
 
@@ -382,7 +387,8 @@ where
 					.write::<Bytes>(collection_info.name.as_slice().into())
 					.build(),
 			)),
-			None => Err(revert(alloc::format!("Collection does not exist").as_bytes().to_vec())),
+			None =>
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
 		}
 	}
 
@@ -398,7 +404,7 @@ where
 		// since `u32` is the native `SerialNumber` type used by the NFT module.
 		// it's not possible for the module to issue Ids larger than this
 		if serial_number > u32::MAX.into() {
-			return Err(revert("expected token id <= 2^32").into())
+			return Err(revert("ERC721: Expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
@@ -434,7 +440,7 @@ where
 
 		// Parse quantity
 		if quantity > TokenCount::MAX.into() {
-			return Err(revert("expected quantity <= 2^32").into())
+			return Err(revert("ERC721: Expected quantity <= 2^32").into())
 		}
 		let quantity: TokenCount = quantity.saturated_into();
 
@@ -450,8 +456,9 @@ where
 		)?;
 
 		// emit transfer events quantity times
-		let serial_number = pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
-		for token_id in serial_number..(serial_number+quantity) {
+		let serial_number =
+			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
+		for token_id in serial_number..(serial_number + quantity) {
 			log3(
 				handle.code_address(),
 				SELECTOR_LOG_TRANSFER,
@@ -478,7 +485,8 @@ where
 					.write(Address::from(Into::<H160>::into(collection_info.owner)))
 					.build(),
 			)),
-			None => Err(revert(alloc::format!("Collection does not exist").as_bytes().to_vec())),
+			None =>
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
 		}
 	}
 
@@ -506,7 +514,9 @@ where
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
 			origin,
-			EvmDataWriter::new().write(Address::from(Into::<H160>::into(burn_account))).build(),
+			EvmDataWriter::new()
+				.write(Address::from(Into::<H160>::into(burn_account)))
+				.build(),
 		)
 		.record(handle)?;
 
@@ -530,10 +540,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_nft::Call::<Runtime>::set_owner {
-				collection_id,
-				new_owner: new_owner.into(),
-			},
+			pallet_nft::Call::<Runtime>::set_owner { collection_id, new_owner: new_owner.into() },
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
