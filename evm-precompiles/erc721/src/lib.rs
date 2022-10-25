@@ -21,6 +21,9 @@ pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_APPROVAL: [u8; 32] = keccak256!("Approval(address,address,uint256)");
 
+/// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] = keccak256!("OwnershipTransferred(address,address)");
+
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
@@ -37,6 +40,10 @@ pub enum Action {
 	Name = "name()",
 	Symbol = "symbol()",
 	TokenURI = "tokenURI(uint256)",
+	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
+	Owner = "owner()",
+	RenounceOwnership = "renounceOwnership()",
+	TransferOwnership = "transferOwnership(address)",
 	// The Root Network extensions
 	// Mint an NFT in a collection
 	// quantity, receiver
@@ -111,6 +118,10 @@ where
 						Action::Name => Self::name(collection_id, handle),
 						Action::Symbol => Self::symbol(collection_id, handle),
 						Action::TokenURI => Self::token_uri(collection_id, handle),
+						// Ownable
+						Action::Owner => Self::owner(collection_id, handle),
+						Action::RenounceOwnership => Self::renounce_ownership(collection_id, handle),
+						Action::TransferOwnership => Self::transfer_ownership(collection_id, handle),
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
 						Action::SafeTransferFrom |
@@ -450,6 +461,89 @@ where
 			)
 			.record(handle)?;
 		}
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn owner(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+			Some(collection_info) => Ok(succeed(
+				EvmDataWriter::new()
+					.write(Address::from(Into::<H160>::into(collection_info.owner)))
+					.build(),
+			)),
+			None => Err(revert(alloc::format!("Collection does not exist").as_bytes().to_vec())),
+		}
+	}
+
+	fn renounce_ownership(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		let origin = handle.context().caller;
+		let burn_account: H160 = H160::default();
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::set_owner {
+				collection_id,
+				new_owner: burn_account.into(),
+			},
+		)?;
+
+		// emit OwnershipTransferred(address,address) event
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
+			origin,
+			EvmDataWriter::new().write(Address::from(Into::<H160>::into(burn_account))).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn transfer_ownership(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		let origin = handle.context().caller;
+
+		// Parse input.
+		read_args!(handle, { new_owner: Address });
+		let new_owner: H160 = new_owner.into();
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::set_owner {
+				collection_id,
+				new_owner: new_owner.into(),
+			},
+		)?;
+
+		// emit OwnershipTransferred(address,address) event
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
+			origin,
+			EvmDataWriter::new().write(Address::from(Into::<H160>::into(new_owner))).build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
