@@ -153,14 +153,14 @@ parameter_types! {
 
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
+	type EthyAdapter = MockEthyAdapter;
+	type MultiCurrency = AssetsExt;
+	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
+	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
-	type MultiCurrency = AssetsExt;
-	type XrpAssetId = XrpAssetId;
 	type UnixTime = TimestampPallet;
-	type ApproveOrigin = EnsureRoot<Self::AccountId>;
-	type EthyAdapter = MockEthyAdapter;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 }
 

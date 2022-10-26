@@ -606,7 +606,7 @@ impl<T: Config> Pallet<T> {
 			) >= T::TicketSequenceThreshold::get()
 			&& !Self::ticket_sequence_threshold_reached_emitted()
 		{
-			Self::deposit_event(Event::TicketSequenceThresholdReached(current_sequence));
+			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached(current_sequence));
 			TicketSequenceThresholdReachedEmitted::<T>::put(true);
 		}
 

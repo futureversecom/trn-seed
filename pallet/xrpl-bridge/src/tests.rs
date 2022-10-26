@@ -1,6 +1,8 @@
 use super::*;
+use crate::mock::{
+	new_test_ext, AssetsExt, Origin, System, Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
+};
 use frame_support::{assert_err, assert_noop, assert_ok};
-use mock::*;
 use seed_primitives::{AccountId, Balance};
 use sp_core::H160;
 use sp_runtime::{traits::BadOrigin, Percent};
@@ -342,7 +344,7 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		let relayer = create_account(b"6490B68F1116BFE87DDD");
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
-		assert_err!(
+		assert_noop!(
 			XRPLBridge::get_door_ticket_sequence(),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
@@ -360,8 +362,18 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 
+		println!("{:?}", System::events());
 		// try to get again - error
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
 		assert_err!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
+		println!("{:?}", System::events());
+
+		// try to get again - error
+		assert_noop!(
 			XRPLBridge::get_door_ticket_sequence(),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
@@ -436,5 +448,48 @@ fn get_door_ticket_sequence_success_force_set_current_round() {
 			2_u32,  // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
+	})
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn get_door_ticket_sequence_event_TicketSequenceThresholdReached_emitted() {
+	new_test_ext().execute_with(|| {
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+
+		// set the params for next round
+		assert_ok!(XRPLBridge::set_door_ticket_sequence_params_next_allocation(
+			Origin::signed(relayer),
+			3_u32, // start ticket sequence next round
+			3_u32, // ticket sequence bucket size next round
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+
+		println!("{:?}", System::events());
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
+		println!("{:?}", System::events());
+		// TODO(surangap): check why events are empty
+		// System::assert_has_event(
+		// 	Event::<Test>::TicketSequenceThresholdReached(0).into()
+		// );
+
+		// try to get again - error
+		assert_err!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
 	})
 }
