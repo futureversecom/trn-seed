@@ -449,6 +449,21 @@ where
 		}
 		let quantity: TokenCount = quantity.saturated_into();
 
+		// emit transfer events - quantity times
+		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
+		let serial_number =
+			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
+		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
+			log3(
+				handle.code_address(),
+				SELECTOR_LOG_TRANSFER,
+				origin,
+				to,
+				EvmDataWriter::new().write(token_id).build(),
+			)
+			.record(handle)?;
+		}
+
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
@@ -459,22 +474,6 @@ where
 				token_owner: Some(to.into()),
 			},
 		)?;
-
-		// emit transfer events - quantity times
-		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
-		let serial_number =
-			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
-		for token_id in (serial_number - quantity)..serial_number {
-			// serial_number incremented from mint
-			log3(
-				handle.code_address(),
-				SELECTOR_LOG_TRANSFER,
-				origin,
-				to,
-				EvmDataWriter::new().write(token_id).build(),
-			)
-			.record(handle)?;
-		}
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
