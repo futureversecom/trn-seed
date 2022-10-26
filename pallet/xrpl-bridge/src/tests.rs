@@ -354,8 +354,8 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		// set the params for next round
 		assert_ok!(XRPLBridge::set_door_ticket_sequence_params_next_round(
 			Origin::signed(relayer),
-			3_u32,	// start ticket sequence next round
-			2_u32,	// ticket sequence bucket size next round
+			3_u32, // start ticket sequence next round
+			2_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
@@ -387,15 +387,15 @@ fn get_door_ticket_sequence_success_over_next_round() {
 		// need to set the next ticket params on or before the last of current
 		assert_ok!(XRPLBridge::set_door_ticket_sequence_params_next_round(
 			Origin::signed(relayer),
-			3_u32,	// start ticket sequence next round
-			2_u32,	// ticket sequence bucket size next round
+			3_u32, // start ticket sequence next round
+			2_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 		assert_ok!(XRPLBridge::set_door_ticket_sequence_params_next_round(
 			Origin::signed(relayer),
-			10_u32,	// start ticket sequence next round
-			10_u32,	// ticket sequence bucket size next round
+			10_u32, // start ticket sequence next round
+			10_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
@@ -432,8 +432,8 @@ fn get_door_ticket_sequence_success_force_set_current_round() {
 		// need to set the next ticket params on or before the last of current
 		assert_ok!(XRPLBridge::set_door_ticket_sequence_params_next_round(
 			Origin::signed(relayer),
-			11_u32,	// start ticket sequence next round
-			2_u32,	// ticket sequence bucket size next round
+			11_u32, // start ticket sequence next round
+			2_u32,  // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
 	})
