@@ -20,13 +20,13 @@ use frame_support::{
 		fungibles::{Inspect, Mutate, Transfer},
 		UnixTime,
 	},
-	transactional,
+	transactional,fail,
 	weights::constants::RocksDbWeight as DbWeight,
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{One, Zero},
-	ArithmeticError, SaturatedConversion,
+	ArithmeticError, Percent, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
@@ -60,7 +60,6 @@ pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::fail;
 	use super::*;
 	use seed_primitives::xrpl::XrplTxTicketSequence;
 
@@ -95,6 +94,9 @@ pub mod pallet {
 
 		/// Unix time
 		type UnixTime: UnixTime;
+
+		/// Threshold to emit event TicketSequenceThresholdReached
+		type TicketSequenceThreshold: Get<Percent>;
 	}
 
 	#[pallet::error]
@@ -145,11 +147,12 @@ pub mod pallet {
 			ticket_sequence_start_next: u32,
 			ticket_bucket_size_next: u32,
 		},
-		DoorTicketSequenceParamSet{
+		DoorTicketSequenceParamSet {
 			ticket_sequence: u32,
 			ticket_sequence_start: u32,
 			ticket_bucket_size: u32,
 		},
+		TicketSequenceThresholdReached(u32),
 	}
 
 	#[pallet::hooks]
@@ -244,6 +247,16 @@ pub mod pallet {
 	#[pallet::getter(fn door_ticket_bucket_size_next)]
 	/// The ticket bucket size of the XRPL door account for the next round
 	pub type DoorTicketBucketSizeNext<T: Config> = StorageValue<_, u32>;
+
+	#[pallet::type_value]
+	pub fn DefaultTicketSequenceThresholdReachedEmitted() -> bool {
+		false
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn ticket_sequence_threshold_reached_emitted)]
+	/// The ticket bucket size of the XRPL door account for the next round
+	pub type TicketSequenceThresholdReachedEmitted<T: Config> =
+		StorageValue<_, bool, ValueQuery, DefaultTicketSequenceThresholdReachedEmitted>;
 
 	/// Default door tx fee 1 XRP
 	#[pallet::type_value]
@@ -402,7 +415,7 @@ pub mod pallet {
 
 			DoorStartTicketSequenceNext::<T>::put(start_ticket_sequence);
 			DoorTicketBucketSizeNext::<T>::put(ticket_bucket_size);
-			Self::deposit_event(Event::<T>::DoorNextTicketSequenceParamSet{
+			Self::deposit_event(Event::<T>::DoorNextTicketSequenceParamSet {
 				ticket_sequence_start_next: start_ticket_sequence,
 				ticket_bucket_size_next: ticket_bucket_size,
 			});
@@ -607,6 +620,16 @@ impl<T: Config> Pallet<T> {
 		let start_sequence = Self::door_start_ticket_sequence();
 		let bucket_size = Self::door_ticket_bucket_size();
 
+		// check if TicketSequenceThreshold reached. notify by emitting TicketSequenceThresholdReached
+		if bucket_size != 0
+			&& Percent::from_rational(current_sequence - start_sequence, bucket_size)
+				>= T::TicketSequenceThreshold::get()
+			&& !Self::ticket_sequence_threshold_reached_emitted()
+		{
+			Self::deposit_event(Event::TicketSequenceThresholdReached(current_sequence));
+			TicketSequenceThresholdReachedEmitted::<T>::put(true);
+		}
+
 		let mut next_sequence =
 			current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 		let last_sequence =
@@ -625,13 +648,16 @@ impl<T: Config> Pallet<T> {
 				DoorStartTicketSequence::<T>::set(next_start_sequence);
 				DoorTicketBucketSize::<T>::set(next_bucket_size);
 				current_sequence = next_start_sequence;
-				next_sequence = current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+				next_sequence =
+					current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 
 				DoorStartTicketSequenceNext::<T>::kill();
 				DoorTicketBucketSizeNext::<T>::kill();
+				TicketSequenceThresholdReachedEmitted::<T>::kill();
 			}
 		}
 		DoorTicketSequence::<T>::set(next_sequence);
+
 		Ok(current_sequence)
 	}
 }

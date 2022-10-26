@@ -1,9 +1,9 @@
 use super::*;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use mock::*;
 use seed_primitives::{AccountId, Balance};
 use sp_core::H160;
-use sp_runtime::traits::BadOrigin;
+use sp_runtime::{traits::BadOrigin, Percent};
 
 /// Helper function to create an AccountId from  a slice
 fn create_account(address: &[u8]) -> AccountId {
@@ -321,13 +321,13 @@ fn get_door_ticket_sequence_success_at_start() {
 #[test]
 fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 	new_test_ext().execute_with(|| {
-		assert_noop!(
+		assert_err!(
 			XRPLBridge::get_door_ticket_sequence(),
-			Error::<Test>::NextTicketSequenceNotSet
+			Error::<Test>::NextStartTicketSequenceNotSet
 		);
 		assert_noop!(
 			XRPLBridge::get_door_ticket_sequence(),
-			Error::<Test>::NextTicketSequenceNotSet
+			Error::<Test>::NextStartTicketSequenceNotSet
 		);
 
 		// set the params for next round
@@ -337,9 +337,9 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 
 		// try to get again - error
-		assert_noop!(
+		assert_err!(
 			XRPLBridge::get_door_ticket_sequence(),
-			Error::<Test>::NextTicketSequenceNotSet
+			Error::<Test>::NextStartTicketSequenceNotSet
 		);
 	})
 }
