@@ -160,6 +160,14 @@ fn withdraw_request_works() {
 		let account = create_account(account_address);
 		process_transaction(account_address); // 2000 XRP deposited
 
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_door_ticket_sequence_params_current_round(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
 		// door address unset
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination),
@@ -198,6 +206,13 @@ fn withdraw_request_works_with_door_fee() {
 		let initial_xrp_balance = xrp_balance_of(account_address);
 		let withdraw_amount: u64 = 1_000;
 
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_door_ticket_sequence_params_current_round(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
 		// set door address
 		assert_ok!(XRPLBridge::set_door_address(Origin::root(), b"6490B68F1116BFE87DDC".into()));
 

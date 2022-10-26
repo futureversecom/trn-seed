@@ -15,12 +15,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
+	fail,
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Inspect, Mutate, Transfer},
 		UnixTime,
 	},
-	transactional,fail,
+	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 };
 use frame_system::pallet_prelude::*;
