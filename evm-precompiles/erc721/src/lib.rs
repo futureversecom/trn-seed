@@ -464,7 +464,7 @@ where
 		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
 		let serial_number =
 			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
-		for token_id in serial_number..(serial_number + quantity) {
+		for token_id in (serial_number - quantity)..serial_number { // serial_number incremented from mint
 			log3(
 				handle.code_address(),
 				SELECTOR_LOG_TRANSFER,
