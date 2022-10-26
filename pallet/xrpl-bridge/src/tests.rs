@@ -308,30 +308,85 @@ fn clear_storages() {
 #[test]
 fn get_door_ticket_sequence_success_at_start() {
 	new_test_ext().execute_with(|| {
-		<DoorStartTicketSequenceNext<Test>>::put(1);
-		<DoorTicketBucketSizeNext<Test>>::put(250);
+		// set the current round at the start
+		<DoorTicketSequence<Test>>::put(1);
+		<DoorStartTicketSequence<Test>>::put(1);
+		<DoorTicketBucketSize<Test>>::put(250);
 
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(0));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+	})
+}
+
+#[test]
+fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceNotSet
+		);
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceNotSet
+		);
+
+		// set the params for next round
+		<DoorStartTicketSequenceNext<Test>>::put(3);
+		<DoorTicketBucketSizeNext<Test>>::put(2);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+
+		// try to get again - error
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceNotSet
+		);
 	})
 }
 
 #[test]
 fn get_door_ticket_sequence_success_over_next_round() {
 	new_test_ext().execute_with(|| {
-		<DoorStartTicketSequenceNext<Test>>::put(1);
-		<DoorTicketBucketSizeNext<Test>>::put(2);
+		// set the current round at the start
+		<DoorTicketSequence<Test>>::put(1);
+		<DoorStartTicketSequence<Test>>::put(1);
+		<DoorTicketBucketSize<Test>>::put(2);
 
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(0));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+		// need to set the next ticket params on or before the last of current
 		<DoorStartTicketSequenceNext<Test>>::put(3);
 		<DoorTicketBucketSizeNext<Test>>::put(2);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 		<DoorStartTicketSequenceNext<Test>>::put(10);
 		<DoorTicketBucketSizeNext<Test>>::put(10);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
+	})
+}
+
+#[test]
+fn get_door_ticket_sequence_success_force_set_current_round() {
+	new_test_ext().execute_with(|| {
+		// set the current round at the start
+		<DoorTicketSequence<Test>>::put(1);
+		<DoorStartTicketSequence<Test>>::put(1);
+		<DoorTicketBucketSize<Test>>::put(10);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+
+		// force set current values to (current=5 start=5, bucket_size=2)
+		<DoorTicketSequence<Test>>::put(5);
+		<DoorStartTicketSequence<Test>>::put(5);
+		<DoorTicketBucketSize<Test>>::put(3);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(6));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(7));
+
+		// need to set the next ticket params on or before the last of current
+		<DoorStartTicketSequenceNext<Test>>::put(11);
+		<DoorTicketBucketSizeNext<Test>>::put(2);
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
 	})
 }

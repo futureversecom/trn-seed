@@ -60,6 +60,7 @@ pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::fail;
 	use super::*;
 	use seed_primitives::xrpl::XrplTxTicketSequence;
 
@@ -110,14 +111,18 @@ pub mod pallet {
 		InvalidSigners,
 		/// Submitted a duplicate transaction hash
 		TxReplay,
-		/// The NextTicketSequence has not been set
-		NextTicketSequenceNotSet,
+		/// The NextStartTicketSequence has not been set
+		NextStartTicketSequenceNotSet,
 		/// The NextTicketBucketSize has not been set
 		NextTicketBucketSizeNotSet,
 		/// The TicketSequence has not been set
 		TicketSequenceNotSet,
 		/// The TicketBucketSize has not been set
 		TicketBucketSizeNotSet,
+		/// The NextStartTicketSequence or NextTicketBucketSize is invalid
+		NextTicketSequenceParamsInvalid,
+		/// The NextStartTicketSequence or NextTicketBucketSize is invalid
+		TicketSequenceParamsInvalid,
 	}
 
 	#[pallet::event]
@@ -136,8 +141,15 @@ pub mod pallet {
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 		DoorAddressSet(XrplAddress),
-		DoorNextTicketSequenceParamSet(u32, u32),
-		DoorTicketSequenceSet(u32),
+		DoorNextTicketSequenceParamSet {
+			ticket_sequence_start_next: u32,
+			ticket_bucket_size_next: u32,
+		},
+		DoorTicketSequenceParamSet{
+			ticket_sequence: u32,
+			ticket_sequence_start: u32,
+			ticket_bucket_size: u32,
+		},
 	}
 
 	#[pallet::hooks]
@@ -372,50 +384,58 @@ pub mod pallet {
 			start_ticket_sequence: u32,
 			ticket_bucket_size: u32,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			let relayer = ensure_signed(origin)?;
+			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
+			ensure!(active_relayer, Error::<T>::NotPermitted);
+
 			let current_ticket_sequence = Self::door_ticket_sequence();
 			let current_start_ticket_sequence = Self::door_start_ticket_sequence();
 
 			if start_ticket_sequence < current_ticket_sequence
 				|| start_ticket_sequence < current_start_ticket_sequence
 			{
-				return Err(DispatchError::Other(
-					"start_ticket_sequence {start_ticket_sequence} is lesser than current values",
-				));
+				fail!(Error::<T>::NextTicketSequenceParamsInvalid);
 			}
 			if ticket_bucket_size == 0 {
-				return Err(DispatchError::Other("ticket_bucket_size should be more than zero"));
+				fail!(Error::<T>::NextTicketSequenceParamsInvalid);
 			}
 
 			DoorStartTicketSequenceNext::<T>::put(start_ticket_sequence);
 			DoorTicketBucketSizeNext::<T>::put(ticket_bucket_size);
-			Self::deposit_event(Event::<T>::DoorNextTicketSequenceParamSet(
-				start_ticket_sequence,
-				ticket_bucket_size,
-			));
+			Self::deposit_event(Event::<T>::DoorNextTicketSequenceParamSet{
+				ticket_sequence_start_next: start_ticket_sequence,
+				ticket_bucket_size_next: ticket_bucket_size,
+			});
 			Ok(())
 		}
 
-		/// Set the door account current ticket sequence
-		#[pallet::weight((<T as Config>::WeightInfo::set_door_ticket_sequence(), DispatchClass::Operational))]
-		pub fn set_door_ticket_sequence(
+		/// Set the door account current ticket sequence params - force set
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_ticket_sequence_params_current_round(), DispatchClass::Operational))]
+		pub fn set_door_ticket_sequence_params_current_round(
 			origin: OriginFor<T>,
 			ticket_sequence: u32,
+			start_ticket_sequence: u32,
+			ticket_bucket_size: u32,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			ensure_root(origin)?; // only the root will be able to do it
 			let current_ticket_sequence = Self::door_ticket_sequence();
 			let current_start_ticket_sequence = Self::door_start_ticket_sequence();
-			let current_ticket_bucket_size = Self::door_ticket_bucket_size();
 
-			if ticket_sequence < current_ticket_sequence
-				|| ticket_sequence < current_start_ticket_sequence
-				|| ticket_sequence > (current_start_ticket_sequence + current_ticket_bucket_size)
-			{
-				return Err(DispatchError::Other("ticket_sequence {ticket_sequence} is invalid with the current ticket sequence params"));
+			if ticket_sequence < current_ticket_sequence {
+				fail!(Error::<T>::TicketSequenceParamsInvalid);
+			}
+			if start_ticket_sequence < current_start_ticket_sequence {
+				fail!(Error::<T>::TicketSequenceParamsInvalid);
 			}
 
 			DoorTicketSequence::<T>::put(ticket_sequence);
-			Self::deposit_event(Event::<T>::DoorTicketSequenceSet(ticket_sequence));
+			DoorStartTicketSequence::<T>::put(start_ticket_sequence);
+			DoorTicketBucketSize::<T>::put(ticket_bucket_size);
+			Self::deposit_event(Event::<T>::DoorTicketSequenceParamSet {
+				ticket_sequence,
+				ticket_sequence_start: start_ticket_sequence,
+				ticket_bucket_size,
+			});
 			Ok(())
 		}
 	}
@@ -583,26 +603,29 @@ impl<T: Config> Pallet<T> {
 
 	// Return the current door ticket sequence and increment it in storage
 	pub fn get_door_ticket_sequence() -> Result<XrplTxTicketSequence, DispatchError> {
-		let current_sequence = Self::door_ticket_sequence();
+		let mut current_sequence = Self::door_ticket_sequence();
 		let start_sequence = Self::door_start_ticket_sequence();
 		let bucket_size = Self::door_ticket_bucket_size();
 
 		let mut next_sequence =
 			current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		if next_sequence >= start_sequence + bucket_size {
+		let last_sequence =
+			start_sequence.checked_add(bucket_size).ok_or(ArithmeticError::Overflow)?;
+		if current_sequence >= last_sequence {
 			// we ran out current bucket, check the next_start_sequence
 			let next_start_sequence = Self::door_start_ticket_sequence_next()
-				.ok_or(Error::<T>::NextTicketSequenceNotSet)?;
+				.ok_or(Error::<T>::NextStartTicketSequenceNotSet)?;
 			let next_bucket_size = Self::door_ticket_bucket_size_next()
 				.ok_or(Error::<T>::NextTicketBucketSizeNotSet)?;
 
 			if next_start_sequence == start_sequence {
-				return Err(Error::<T>::NextTicketSequenceNotSet.into());
+				return Err(Error::<T>::NextStartTicketSequenceNotSet.into());
 			} else {
 				// update next to current and clear next
 				DoorStartTicketSequence::<T>::set(next_start_sequence);
 				DoorTicketBucketSize::<T>::set(next_bucket_size);
-				next_sequence = next_start_sequence;
+				current_sequence = next_start_sequence;
+				next_sequence = current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 
 				DoorStartTicketSequenceNext::<T>::kill();
 				DoorTicketBucketSizeNext::<T>::kill();
