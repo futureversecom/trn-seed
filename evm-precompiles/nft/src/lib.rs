@@ -167,6 +167,7 @@ where
 					Runtime::runtime_id_to_evm_id(collection_id, ERC721_PRECOMPILE_ADDRESS_PREFIX);
 
 				// emit InitializeCollection event
+				// TODO: add all event parameters
 				(Log {
 					address: handle.code_address().into(),
 					topics: vec![
