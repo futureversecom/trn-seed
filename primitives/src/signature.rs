@@ -1,5 +1,8 @@
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::fmt;
 use scale_info::TypeInfo;
+// use serde::de::{Error, Visitor};
+// use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::{ecdsa, H160};
 use sp_io::hashing::keccak_256;
 use sp_std::vec::Vec;
@@ -52,6 +55,44 @@ impl Into<H160> for AccountId20 {
 	}
 }
 
+// #[derive(Serialize, Deserialize)]
+// struct SignatureMessage {
+// 	method: String,
+// 	#[serde(deserialize_with = "deserialize_hex")]
+// 	signature: Vec<u8>,
+// }
+// pub fn deserialize_hex<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<u8>, D::Error> {
+// 	deserializer.deserialize_str(BytesVisitor)
+// }
+//
+// /// Deserializes "0x" prefixed hex strings into Vec<u8>s
+// pub(crate) struct BytesVisitor;
+// impl<'a> Visitor<'a> for BytesVisitor {
+// 	type Value = Vec<u8>;
+//
+// 	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+// 		write!(formatter, "a 0x-prefixed, hex-encoded vector of bytes")
+// 	}
+//
+// 	fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+// 	where
+// 		E: Error,
+// 	{
+// 		if value.len() >= 2 && value.starts_with("0x") && value.len() & 1 == 0 {
+// 			Ok(decode_hex(&value[2..]).expect("it is hex"))
+// 		} else {
+// 			Err(Error::custom(
+// 				"Invalid bytes format. Expected a 0x-prefixed hex string with even length",
+// 			))
+// 		}
+// 	}
+// }
+//
+// // decode a non-0x prefixed hex string into a `Vec<u8>`
+// fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
+// 	(0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect()
+// }
+
 #[cfg(feature = "std")]
 impl std::str::FromStr for AccountId20 {
 	type Err = &'static str;
@@ -80,43 +121,52 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId20) -> bool {
 		let message = msg.get();
 		let m = keccak_256(message);
-
-		let native_signature_valid =
-			match sp_io::crypto::secp256k1_ecdsa_recover(self.0.as_ref(), &m) {
-				Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
-				Err(sp_io::EcdsaVerifyError::BadRS) => {
-					log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
-					false
-				},
-				Err(sp_io::EcdsaVerifyError::BadV) => {
-					log::error!(target: "evm", "Error recovering: Incorrect value of V");
-					false
-				},
-				Err(sp_io::EcdsaVerifyError::BadSignature) => {
-					log::error!(target: "evm", "Error recovering: Invalid signature");
-					false
-				},
-			};
-		if native_signature_valid {
+		// Standard signature
+		if verify_signature(self.0.as_ref(), &m, signer) {
 			return true;
 		}
 
+		// Ethereum signed signature
 		let m = keccak_256(personal_sign_message(message).as_slice());
-		match sp_io::crypto::secp256k1_ecdsa_recover(self.0.as_ref(), &m) {
-			Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
-			Err(sp_io::EcdsaVerifyError::BadRS) => {
-				log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
-				false
-			},
-			Err(sp_io::EcdsaVerifyError::BadV) => {
-				log::error!(target: "evm", "Error recovering: Incorrect value of V");
-				false
-			},
-			Err(sp_io::EcdsaVerifyError::BadSignature) => {
-				log::error!(target: "evm", "Error recovering: Invalid signature");
-				false
-			},
+		if verify_signature(self.0.as_ref(), &m, signer) {
+			return true;
 		}
+
+		// Custom cool looking signature
+		// let message: SignatureMessage = match serde_json::from_slice(message) {
+		// 	Ok(msg) => msg,
+		// 	Err(_) => {
+		// 		log::error!(target: "evm", "Error recovering: Invalid payload");
+		// 		return false;
+		// 	},
+		// };
+		// let msg = message.to_hex();
+		// Hello world
+		// "\x19Ethereum Signed Message:\n32Root SignedMessage\nHello world"
+
+		let root_message = keccak_256(personal_sign_message_2(&message).as_slice());
+		let m = keccak_256(personal_sign_message(&root_message).as_slice());
+		let x = verify_signature(self.0.as_ref(), &m, signer);
+		x
+	}
+}
+
+pub fn verify_signature(signature: &[u8; 65], message: &[u8; 32], signer: &AccountId20) -> bool {
+	let recovered = sp_io::crypto::secp256k1_ecdsa_recover(signature, &message);
+	match sp_io::crypto::secp256k1_ecdsa_recover(signature, &message) {
+		Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
+		Err(sp_io::EcdsaVerifyError::BadRS) => {
+			log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
+			false
+		},
+		Err(sp_io::EcdsaVerifyError::BadV) => {
+			log::error!(target: "evm", "Error recovering: Incorrect value of V");
+			false
+		},
+		Err(sp_io::EcdsaVerifyError::BadSignature) => {
+			log::error!(target: "evm", "Error recovering: Invalid signature");
+			false
+		},
 	}
 }
 
@@ -130,6 +180,13 @@ pub fn personal_sign_message(message: &[u8]) -> Vec<u8> {
 	}
 	let mut v = b"\x19Ethereum Signed Message:\n".to_vec();
 	v.extend(rev.into_iter().rev());
+	v.extend_from_slice(message);
+	v
+}
+
+/// Constructs the message that Ethereum RPC's `personal_sign` and `eth_sign` would sign.
+pub fn personal_sign_message_2(message: &[u8]) -> Vec<u8> {
+	let mut v = b"Root Signed Message:\n".to_vec();
 	v.extend_from_slice(message);
 	v
 }
@@ -223,6 +280,56 @@ mod tests {
 		let expected_account = AccountId20::from(expected_hex_account);
 		assert_eq!(account.into_account(), expected_account);
 	}
+	//
+	// #[test]
+	// fn verify_personal_sign_works_custom_signature() {
+	// 	let test_msg = r#"{"method":"test","signature":"0xdd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"}"#;
+	// 	let expected_signature = hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"].to_vec();
+	// 	let sig_msg: SignatureMessage = serde_json::from_str(test_msg).expect("it deserializes");
+	// 	assert_eq!(sig_msg.signature, hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"].to_vec());
+	// 	let msg = "test eth signed message";
+	// 	let pair = ecdsa::Pair::from_seed(&hex![
+	// 		"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+	// 	]);
+	// 	let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
+	// 	let signature: EthereumSignature = ecdsa::Signature(hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
+	//
+	// 	assert!(signature.verify(test_msg.as_ref(), &address.into_account()));
+	// }
+
+	// #[test]
+	// fn verify_personal_sign_works_root_signed() {
+	// 	let test_msg = "Root Signed Message:\n0xdd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b";
+	// 	let expected_signature = hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"].to_vec();
+	// 	let sig_msg: SignatureMessage = serde_json::from_str(test_msg).expect("it deserializes");
+	// 	assert_eq!(sig_msg.signature, hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"].to_vec());
+	// 	let msg = "test eth signed message";
+	// 	let pair = ecdsa::Pair::from_seed(&hex![
+	// 		"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+	// 	]);
+	// 	let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
+	// 	let signature: EthereumSignature = ecdsa::Signature(hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
+	//
+	// 	assert!(signature.verify(test_msg.as_ref(), &address.into_account()));
+	// }
+
+	// #[test]
+	// fn verify_personal_sign_works_root_signed_test() {
+	// 	let test_msg = "Root Signed Message:\n0xdd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b";
+	// 	let expected_signature = hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"].to_vec();
+	// 	let sig_msg: SignatureMessage = serde_json::from_str(test_msg).expect("it deserializes");
+	// 	assert_eq!(sig_msg.signature, hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"].to_vec());
+	// 	let msg = "test eth signed message";
+	// 	let pair = ecdsa::Pair::from_seed(&hex![
+	// 		"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+	// 	]);
+	// 	let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
+	// 	let signature: EthereumSignature = ecdsa::Signature(hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
+	// 	sp_io::crypto::secp256k1_ecdsa_recover(
+	// 		signature,
+	// 		&sp_io::crypto::secp256k1_ecdsa_recover(signature, &message),
+	// 	)
+	// }
 
 	#[test]
 	fn verify_personal_sign_works() {
@@ -231,6 +338,23 @@ mod tests {
 			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
 		]);
 		let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
+		println!("{:?}",hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]);
+		// 0x000992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c600
+		let signature: EthereumSignature = ecdsa::Signature(hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
+
+		assert!(signature.verify(msg.as_ref(), &address.into_account()));
+	}
+
+	#[test]
+	fn verify_personal_sign_works_random_test() {
+		let msg = "test eth signed message";
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+		]);
+		let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
+		println!("{:?}",hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]);
+		// println!("{:?}", address.into_account());
+		// 0x000992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c600
 		let signature: EthereumSignature = ecdsa::Signature(hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
 
 		assert!(signature.verify(msg.as_ref(), &address.into_account()));

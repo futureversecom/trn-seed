@@ -1,6 +1,8 @@
 //! Common types across runtimes, pallets, and/or client
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate core;
+
 pub use opaque::*;
 pub use signature::*;
 pub use types::*;
