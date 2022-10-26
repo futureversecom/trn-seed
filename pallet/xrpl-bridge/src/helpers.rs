@@ -76,3 +76,16 @@ impl Default for XrplTxData {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
 	}
 }
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct XrplTicketSequenceParams {
+	pub start_sequence: u32,
+	pub bucket_size: u32,
+}
+
+impl Default for XrplTicketSequenceParams {
+	fn default() -> Self {
+		XrplTicketSequenceParams { start_sequence: 0_u32, bucket_size: 0_u32 }
+	}
+}
