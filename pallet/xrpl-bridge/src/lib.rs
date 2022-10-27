@@ -414,6 +414,7 @@ pub mod pallet {
 
 			if ticket_sequence < current_ticket_sequence
 				|| start_ticket_sequence < current_params.start_sequence
+				|| ticket_bucket_size == 0
 			{
 				fail!(Error::<T>::TicketSequenceParamsInvalid);
 			}
