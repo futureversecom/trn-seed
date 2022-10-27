@@ -54,14 +54,14 @@ frame-system = { git = "https://github.com/futureversecom/substrate", branch = "
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate" , branch = "polkadot-v0.9.27" }
 
 # Frontier
-fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fc-db = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fc-mapping-sync = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fc-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fc-rpc-core = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fp-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fp-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fp-storage = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+fc-consensus = { path = "../../frontier-seed/client/consensus"}
+fc-db = { path = "../../frontier-seed/client/db" }
+fc-mapping-sync = { path = "../../frontier-seed/client/mapping-sync" }
+fc-rpc = { path = "../../frontier-seed/client/rpc" }
+fc-rpc-core = { path = "../../frontier-seed/client/rpc-core" }
+fp-consensus = { path = "../../frontier-seed/primitives/consensus" }
+fp-rpc = { path = "../../frontier-seed/primitives/rpc" }
+fp-storage = { path = "../../frontier-seed/primitives/storage" }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.14.0", features = ["server", "macros"] }

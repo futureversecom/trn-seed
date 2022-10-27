@@ -36,6 +36,8 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
+// use fp_evm::ManagedPayment;
+
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
@@ -396,7 +398,6 @@ where
 		M::get().mul(*weight as Balance)
 	}
 }
-
 #[cfg(test)]
 mod tests {
 	use super::*;
