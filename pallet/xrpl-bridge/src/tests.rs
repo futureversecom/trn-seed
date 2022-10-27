@@ -359,7 +359,7 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 
-		// try to get again - error
+		// try to fetch again - error
 		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
 		assert_err!(
 			XRPLBridge::get_door_ticket_sequence(),
@@ -368,7 +368,7 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
 		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(5).into());
 
-		// try to get again - error
+		// try to fetch again - error
 		assert_noop!(
 			XRPLBridge::get_door_ticket_sequence(),
 			Error::<Test>::NextTicketSequenceParamsNotSet
@@ -479,7 +479,7 @@ fn get_door_ticket_sequence_check_events_emitted() {
 		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
 		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(5).into());
 
-		// try to get again - error - but no TicketSequenceThresholdReached
+		// try to fetch again - error - but no TicketSequenceThresholdReached
 		System::reset_events();
 		assert_eq!(System::events(), []);
 		assert_noop!(
@@ -582,7 +582,7 @@ fn set_door_ticket_sequence_params_current_allocation_failure() {
 			Error::<Test>::TicketSequenceParamsInvalid
 		);
 
-		// try to get it, should give the next ticket sequence in current allocation
+		// try to fetch it, should give the next ticket sequence in current allocation
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
 
 		// Force set the current param set with ticket_sequence < current ticket_sequence
@@ -609,7 +609,7 @@ fn set_door_ticket_sequence_params_current_allocation_failure() {
 			Error::<Test>::TicketSequenceParamsInvalid
 		);
 
-		// try to get it, should give the next ticket sequence in current allocation
+		// try to fetch it, should give the next ticket sequence in current allocation
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
 
 		// Force set the current param set with valid params, but with relayer
@@ -633,7 +633,7 @@ fn set_door_ticket_sequence_params_current_allocation_failure() {
 			200_u32
 		));
 
-		// try to get it, should give the start of the new allocation
+		// try to fetch it, should give the start of the new allocation
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
 	})
 }
@@ -746,7 +746,7 @@ fn set_door_ticket_sequence_params_next_allocation_failure() {
 			Error::<Test>::NextTicketSequenceParamsInvalid
 		);
 
-		// try to get it, should give the next ticket sequence in current allocation
+		// try to fetch it, should give the next ticket sequence in current allocation
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
 
 		// set the next param set with start_ticket_sequence < current ticket_sequence
@@ -771,7 +771,7 @@ fn set_door_ticket_sequence_params_next_allocation_failure() {
 			Error::<Test>::NextTicketSequenceParamsInvalid
 		);
 
-		// try to get it, should give the next ticket sequence in current allocation
+		// try to fetch it, should give the next ticket sequence in current allocation
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
 
 		// set the next param set with valid params, but with !relayer
@@ -800,7 +800,7 @@ fn set_door_ticket_sequence_params_next_allocation_failure() {
 			.into(),
 		);
 
-		// try to get it, should give from the current allocation
+		// try to fetch it, should give from the current allocation
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
 
