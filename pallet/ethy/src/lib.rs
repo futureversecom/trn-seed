@@ -242,7 +242,7 @@ decl_event! {
 		/// Xrpl Door signers are set
 		XrplDoorSignersSet,
 		/// The schedule to unpause the bridge has failed (scheduled_block)
-		UnpauseScheduleFail(BlockNumber),
+		FinaliseScheduleFail(BlockNumber),
 		/// The bridge contract address has been set
 		SetContractAddress(EthAddress),
 	}
@@ -464,6 +464,13 @@ decl_module! {
 				true => BridgePaused::put(true),
 				false => BridgePaused::kill(),
 			};
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Pause or unpause the bridge (requires governance)
+		pub fn finalise_authorities_change(origin) {
+			ensure_none(origin)?;
+			Self::do_finalise_authorities_change();
 		}
 
 		#[weight = DbWeight::get().writes(1)]
