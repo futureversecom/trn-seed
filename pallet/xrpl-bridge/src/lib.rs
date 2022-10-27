@@ -233,7 +233,7 @@ pub mod pallet {
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn ticket_sequence_threshold_reached_emitted)]
-	/// The ticket bucket size of the XRPL door account for the next round
+	/// Keeps track whether the TicketSequenceThresholdReached event is emitted
 	pub type TicketSequenceThresholdReachedEmitted<T: Config> =
 		StorageValue<_, bool, ValueQuery, DefaultTicketSequenceThresholdReachedEmitted>;
 
