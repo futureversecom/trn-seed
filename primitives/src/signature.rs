@@ -1,8 +1,5 @@
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::fmt;
 use scale_info::TypeInfo;
-// use serde::de::{Error, Visitor};
-// use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::{ecdsa, H160};
 use sp_io::hashing::{blake2_256, keccak_256};
 use sp_std::vec::Vec;
@@ -262,8 +259,6 @@ mod tests {
 			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
 		]);
 		let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
-		println!("{:?}",hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]);
-		// 0x000992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c600
 		let signature: EthereumSignature = ecdsa::Signature(hex!["dd0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
 
 		assert!(signature.verify(msg.as_ref(), &address.into_account()));
