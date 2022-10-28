@@ -26,7 +26,7 @@ serde = { version = '1.0.144', features = ['derive'], optional = true }
 sp-runtime = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 sp-std = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
 sp-core = { git = 'https://github.com/futureversecom/substrate.git', branch = 'polkadot-v0.9.27', default-features = false }
-xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", rev = "0.0.8" }
+xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", rev = "0.0.9" }
 
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
