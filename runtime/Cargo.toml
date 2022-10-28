@@ -64,6 +64,7 @@ precompile-utils = { path = "../evm-precompiles/utils", default-features = false
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
+ethabi = { version = "17.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
@@ -78,6 +79,7 @@ pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
+primitive-types = {version = "0.11.1", default-features = false, features = ["impl-codec", "impl-serde"] }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
@@ -129,6 +131,7 @@ std = [
 	"sp-std/std",
 	"sp-transaction-pool/std",
 	"sp-version/std",
+	"seed-pallet-common/std",
 	"pallet-assets-ext/std",
 	"pallet-dex/std",
 	"pallet-ethy/std",
@@ -137,6 +140,7 @@ std = [
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
 	"seed-primitives/std",
+	"primitive-types/std",
 	"fp-rpc/std",
 	"fp-self-contained/std",
 	"pallet-base-fee/std",
@@ -152,6 +156,7 @@ std = [
 	"rustc-hex/std",
 	"pallet-erc20-peg/std",
 	"pallet-nft-peg/std",
+	"ethabi/std",
 ]
 try-runtime = [
 	"frame-executive/try-runtime",

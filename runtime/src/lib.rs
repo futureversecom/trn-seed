@@ -12,8 +12,7 @@ use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
 use pallet_evm::{
-	runner::stack::Runner, Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator,
-	Runner as RunnerT,
+	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
@@ -89,6 +88,11 @@ use precompiles::FutureversePrecompiles;
 
 mod staking;
 use staking::OnChainAccuracy;
+
+pub mod runner;
+use runner::FeePreferencesRunner;
+
+pub(crate) const LOG_TARGET: &str = "runtime";
 
 #[cfg(test)]
 mod tests;
@@ -841,7 +845,7 @@ impl pallet_evm::Config for Runtime {
 	type AddressMapping = AddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<XrpCurrency>;
 	type Event = Event;
-	type Runner = Runner<Self>;
+	type Runner = FeePreferencesRunner<Self, Self>;
 	type PrecompilesType = FutureversePrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EthereumChainId;
