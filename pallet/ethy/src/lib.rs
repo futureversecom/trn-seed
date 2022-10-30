@@ -467,7 +467,8 @@ decl_module! {
 		}
 
 		#[weight = DbWeight::get().writes(1)]
-		/// Pause or unpause the bridge (requires governance)
+		/// Finalise authority changes, unpauses bridge and sets new notary keys
+		/// Called internally after force new era
 		pub fn finalise_authorities_change(origin) {
 			ensure_none(origin)?;
 			Self::do_finalise_authorities_change();
