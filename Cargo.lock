@@ -10046,7 +10046,17 @@ source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a
 dependencies = [
  "ripemd",
  "sha2 0.10.6",
- "xrpl-codec-utils",
+ "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
+]
+
+[[package]]
+name = "xrpl-codec"
+version = "0.1.0"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
+dependencies = [
+ "ripemd",
+ "sha2 0.10.6",
+ "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
 ]
 
 [[package]]
