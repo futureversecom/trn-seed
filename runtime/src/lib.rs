@@ -347,6 +347,13 @@ impl pallet_scheduler::Config for Runtime {
 	type NoPreimagePostponement = ();
 }
 
+impl pallet_utility::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
@@ -930,6 +937,8 @@ construct_runtime! {
 		Babe: pallet_babe,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+		Utility: pallet_utility::{Pallet, Call, Event},
+
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
