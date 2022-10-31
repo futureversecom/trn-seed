@@ -39,3 +39,4 @@ std = [
     "seed-primitives/std",
     "pallet-nft/std",
 ]
+
