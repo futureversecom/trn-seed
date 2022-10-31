@@ -364,7 +364,7 @@ decl_module! {
 			consumed_weight
 		}
 
-		#[weight = DbWeight::get().writes(new_signers.len() as u64).saturating_add(DbWeight::get().reads(1)).saturating_add(DbWeight::get().reads_writes(3, 3))]
+		#[weight = DbWeight::get().writes(new_signers.len() as u64).saturating_add(DbWeight::get().reads_writes(4, 3))]
 		/// Set new XRPL door signers
 		pub fn set_xrpl_door_signers(origin, new_signers: Vec<T::EthyId>) {
 			ensure_root(origin)?;
@@ -387,7 +387,7 @@ decl_module! {
 			Self::deposit_event(Event::<T>::RelayerSet(Some(relayer)));
 		}
 
-		#[weight = DbWeight::get().reads_writes(3, 3).saturating_add(DbWeight::get().writes(3).saturating_add(DbWeight::get().reads(2)))]
+		#[weight = DbWeight::get().reads_writes(5, 6)]
 		/// Submit bond for relayer account
 		pub fn deposit_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -408,7 +408,7 @@ decl_module! {
 			Ok(())
 		}
 
-		#[weight = DbWeight::get().writes(3).saturating_add(DbWeight::get().reads(3))]
+		#[weight = DbWeight::get().reads_writes(3, 3)]
 		/// Withdraw relayer bond amount
 		pub fn withdraw_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
