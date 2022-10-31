@@ -135,10 +135,7 @@ where
 			if royalty_addresses.len() > 0 {
 				let entitlements = royalty_addresses
 					.into_iter()
-					.map(|address| {
-						let address: H160 = address.into();
-						address.into()
-					})
+					.map(|address| H160::from(address).into())
 					.zip(royalty_entitlements)
 					.collect();
 				Some(RoyaltiesSchedule { entitlements })

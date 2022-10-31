@@ -550,7 +550,6 @@ where
 			pallet_nft::Call::<Runtime>::set_owner { collection_id, new_owner: new_owner.into() },
 		)?;
 
-		// emit OwnershipTransferred(address,address) event
 		log2(
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
