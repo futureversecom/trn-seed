@@ -3,7 +3,7 @@ extern crate alloc;
 
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
-use pallet_evm::{Log, Precompile};
+use pallet_evm::{GasWeightMapping, Log, Precompile};
 use pallet_nft::{
 	CollectionNameType, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, WeightInfo,
 };
@@ -80,7 +80,7 @@ where
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 {
 	fn initialize_collection(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_log_costs_manual(7, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -143,9 +143,12 @@ where
 				None
 			};
 
-		handle.record_cost(<Runtime as pallet_nft::Config>::WeightInfo::create_collection())?;
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_nft::Config>::WeightInfo::create_collection(),
+		))?;
 
-		// Dispatch call (if enough gas).
+		// Dispatch call
 		let collection_id = pallet_nft::Pallet::<Runtime>::do_create_collection(
 			collection_owner.into(),
 			name,

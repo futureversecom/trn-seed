@@ -180,7 +180,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_log_costs_manual(1, 32)?;
 
 		// Parse input.
 		read_args!(handle, { serial_number: U256 });
@@ -286,7 +286,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -431,8 +431,6 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(2, 32)?;
 
-		let origin = handle.context().caller;
-
 		// Parse input.
 		read_args!(
 			handle,
@@ -448,6 +446,7 @@ where
 			return Err(revert("ERC721: Expected quantity <= 2^32").into());
 		}
 		let quantity: TokenCount = quantity.saturated_into();
+		let origin = handle.context().caller;
 
 		// emit transfer events - quantity times
 		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
@@ -501,8 +500,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
-
 		let origin = handle.context().caller;
 		let burn_account: H160 = H160::default();
 
@@ -535,7 +532,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(1, 32)?;
 
 		let origin = handle.context().caller;
 

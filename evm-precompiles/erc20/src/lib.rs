@@ -166,7 +166,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost() * 2)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Read input.
 		read_args!(handle, { owner: Address });
@@ -174,6 +174,7 @@ where
 
 		// Fetch info.
 		// TODO Check staking balances
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost() * 2)?;
 		let amount: U256 =
 			<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::reducible_balance(
 				asset_id,
@@ -190,7 +191,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Read input.
 		read_args!(handle, { owner: Address, spender: Address });
@@ -214,7 +215,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(handle, { spender: Address, amount: U256 });
@@ -251,7 +252,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(handle, { to: Address, amount: U256 });
