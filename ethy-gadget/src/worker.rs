@@ -393,6 +393,8 @@ where
 				error!(target: "ethy", "💎 failed to store proof: {:?} for key [{:?}, {:?}]. Error received: {:?}", event_proof, proof_key, versioned_event_proof.encode(), err);
 			}
 
+			trace!(target: "ethy", "💎 stored proof under key {:?}", proof_key);
+
 			// Notify an subscribers that we've got a witness for a new message e.g. open RPC
 			// subscriptions
 			self.event_proof_sender
