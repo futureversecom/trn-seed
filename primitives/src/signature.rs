@@ -1,7 +1,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{ecdsa, H160};
-use sp_io::hashing::keccak_256;
+use sp_io::hashing::{blake2_256, keccak_256};
 use sp_std::vec::Vec;
 
 #[derive(
@@ -80,43 +80,38 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 	fn verify<L: sp_runtime::traits::Lazy<[u8]>>(&self, mut msg: L, signer: &AccountId20) -> bool {
 		let message = msg.get();
 		let m = keccak_256(message);
-
-		let native_signature_valid =
-			match sp_io::crypto::secp256k1_ecdsa_recover(self.0.as_ref(), &m) {
-				Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
-				Err(sp_io::EcdsaVerifyError::BadRS) => {
-					log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
-					false
-				},
-				Err(sp_io::EcdsaVerifyError::BadV) => {
-					log::error!(target: "evm", "Error recovering: Incorrect value of V");
-					false
-				},
-				Err(sp_io::EcdsaVerifyError::BadSignature) => {
-					log::error!(target: "evm", "Error recovering: Invalid signature");
-					false
-				},
-			};
-		if native_signature_valid {
+		// Standard signature
+		if verify_signature(self.0.as_ref(), &m, signer) {
 			return true;
 		}
 
+		// Ethereum signed signature
 		let m = keccak_256(personal_sign_message(message).as_slice());
-		match sp_io::crypto::secp256k1_ecdsa_recover(self.0.as_ref(), &m) {
-			Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
-			Err(sp_io::EcdsaVerifyError::BadRS) => {
-				log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
-				false
-			},
-			Err(sp_io::EcdsaVerifyError::BadV) => {
-				log::error!(target: "evm", "Error recovering: Incorrect value of V");
-				false
-			},
-			Err(sp_io::EcdsaVerifyError::BadSignature) => {
-				log::error!(target: "evm", "Error recovering: Invalid signature");
-				false
-			},
+		if verify_signature(self.0.as_ref(), &m, signer) {
+			return true;
 		}
+
+		/// Try blake2_256 hashing the message, this is to prevent invalid characters showing in Metamask
+		let m = keccak_256(personal_sign_message(&blake2_256(message)[..]).as_slice());
+		verify_signature(self.0.as_ref(), &m, signer)
+	}
+}
+
+pub fn verify_signature(signature: &[u8; 65], message: &[u8; 32], signer: &AccountId20) -> bool {
+	match sp_io::crypto::secp256k1_ecdsa_recover(signature, &message) {
+		Ok(pubkey) => AccountId20(keccak_256(&pubkey)[12..].try_into().unwrap()) == *signer,
+		Err(sp_io::EcdsaVerifyError::BadRS) => {
+			log::error!(target: "evm", "Error recovering: Incorrect value of R or S");
+			false
+		},
+		Err(sp_io::EcdsaVerifyError::BadV) => {
+			log::error!(target: "evm", "Error recovering: Incorrect value of V");
+			false
+		},
+		Err(sp_io::EcdsaVerifyError::BadSignature) => {
+			log::error!(target: "evm", "Error recovering: Invalid signature");
+			false
+		},
 	}
 }
 
@@ -222,6 +217,39 @@ mod tests {
 		let account: EthereumSigner = public_key.into();
 		let expected_account = AccountId20::from(expected_hex_account);
 		assert_eq!(account.into_account(), expected_account);
+	}
+
+	#[test]
+	fn test_account_derivation_raw() {
+		let message = keccak_256(b"\x19Ethereum Signed Message:\n7Testing");
+		// Hash of message: 0x7cb2a5416e92bcb656bb09626c685f876b57e2962dc20b3376bfdf1c01ef863f
+		let signature_raw = hex!["a2681e584058b5725e86b7d00c9a05963eff07543c9fb7e7f1a9b9980b5ae17b5428b8ccc0306c37923f5ef3e7762fd6ddf5f0278aae976f5fa8363f14e71aaa1c"];
+
+		let mut expected_hex_account = [0u8; 20];
+		hex::decode_to_slice("3DA64aDE0Fd4354c3c7FF6A45A849b8CB94e3D2b", &mut expected_hex_account)
+			.expect("example data is 20 bytes of valid hex");
+
+		// Test ecdsa recover function
+		let result = sp_io::crypto::secp256k1_ecdsa_recover(&signature_raw, &message);
+		match result {
+			Ok(pub_key) => {
+				println!("{:?}", pub_key);
+				assert_eq!(
+					AccountId20::from(expected_hex_account),
+					AccountId20(keccak_256(&pub_key)[12..].try_into().unwrap())
+				)
+			},
+			_ => assert!(false),
+		}
+
+		// Now check verify function
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"bbf3533f0c06a5715eed1c9887c0ec55398dfed316798d8df9c2ff4b3f4765c4"
+		]);
+		let address: EthereumSigner = pair.public().into(); // 0x3DA64aDE0Fd4354c3c7FF6A45A849b8CB94e3D2b
+		let signature: EthereumSignature = ecdsa::Signature(signature_raw).into();
+		let message = "Testing";
+		assert!(signature.verify(message.as_ref(), &address.into_account()));
 	}
 
 	#[test]
