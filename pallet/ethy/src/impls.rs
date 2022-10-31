@@ -728,6 +728,24 @@ impl<T: Config> Module<T> {
 		<NextAuthorityChange<T>>::kill();
 	}
 
+	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
+	pub fn do_finalise_authorities_change() {
+		log!(trace, "💎 session & era ending, set new validator keys");
+
+		// Unpause the bridge
+		BridgePaused::kill();
+		// A proof should've been generated now so we can reactivate the bridge with the new
+		// validator set
+		AuthoritiesChangedThisEra::kill();
+		// Time to update the bridge validator keys.
+		let next_notary_keys = NextNotaryKeys::<T>::take();
+		// Store the new keys and increment the validator set id
+		// Next notary keys should be unset, until populated by new session logic
+		<NotaryKeys<T>>::put(&next_notary_keys);
+		Self::update_xrpl_notary_keys(&next_notary_keys);
+		NotarySetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
+	}
+
 	/// Submit an event proof signing request in the block, for use by the ethy-gadget protocol
 	pub(crate) fn do_request_event_proof(
 		event_proof_id: EventProofId,
@@ -857,32 +875,19 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 					DispatchTime::At(scheduled_block),
 					None,
 					63,
-					frame_system::RawOrigin::Root.into(),
-					Call::set_bridge_paused { paused: false }.into(),
+					frame_system::RawOrigin::None.into(),
+					Call::finalise_authorities_change {}.into(),
 				)
 				.is_err()
 				{
-					// The scheduler failed for some reason, throw a log and event so we can
-					// unpause manually
-					Self::deposit_event(Event::<T>::UnpauseScheduleFail(scheduled_block));
+					// The scheduler failed for some reason, throw a log and event
+					Self::deposit_event(Event::<T>::FinaliseScheduleFail(scheduled_block));
 					log!(warn, "💎 Unpause bridge schedule failed");
 				}
 			} else {
-				// Unpause the bridge now
-				BridgePaused::kill();
+				// Authorities have been changed, finalise those changes immediately
+				Self::do_finalise_authorities_change();
 			}
-
-			log!(trace, "💎 session & era ending, set new validator keys");
-			// A proof should've been generated now so we can reactivate the bridge with the new
-			// validator set
-			AuthoritiesChangedThisEra::kill();
-			// Time to update the bridge validator keys.
-			let next_notary_keys = NextNotaryKeys::<T>::take();
-			// Store the new keys and increment the validator set id
-			// Next notary keys should be unset, until populated by new session logic
-			<NotaryKeys<T>>::put(&next_notary_keys);
-			Self::update_xrpl_notary_keys(&next_notary_keys);
-			NotarySetId::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
 		}
 	}
 	fn on_disabled(_i: u32) {}
