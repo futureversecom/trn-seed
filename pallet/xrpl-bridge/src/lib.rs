@@ -370,8 +370,8 @@ pub mod pallet {
 		}
 
 		/// Set the door account ticket sequence params for the next allocation
-		#[pallet::weight((<T as Config>::WeightInfo::set_door_ticket_sequence_params_next_allocation(), DispatchClass::Operational))]
-		pub fn set_door_ticket_sequence_params_next_allocation(
+		#[pallet::weight((<T as Config>::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
+		pub fn set_ticket_sequence_next_allocation(
 			origin: OriginFor<T>,
 			start_ticket_sequence: u32,
 			ticket_bucket_size: u32,
@@ -401,8 +401,8 @@ pub mod pallet {
 		}
 
 		/// Set the door account current ticket sequence params for current allocation - force set
-		#[pallet::weight((<T as Config>::WeightInfo::set_door_ticket_sequence_params_current_allocation(), DispatchClass::Operational))]
-		pub fn set_door_ticket_sequence_params_current_allocation(
+		#[pallet::weight((<T as Config>::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
+		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
 			ticket_sequence: u32,
 			start_ticket_sequence: u32,
