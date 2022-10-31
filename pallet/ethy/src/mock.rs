@@ -114,6 +114,7 @@ parameter_types! {
 	pub const RelayerBond: Balance = 202;
 	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
 	pub const MaxXrplKeys: u8 = 8;
+	pub const MaxNewSigners: u8 = 20;
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
@@ -135,6 +136,7 @@ impl Config for TestRuntime {
 	type MaxXrplKeys = MaxXrplKeys;
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
+	type MaxNewSigners = MaxNewSigners;
 }
 
 parameter_types! {

@@ -720,6 +720,7 @@ parameter_types! {
 	pub const RelayerBond: Balance = 100 * ONE_XRP;
 	/// Max Xrpl notary (validator) public keys
 	pub const MaxXrplKeys: u8 = 8;
+	pub const MaxNewSigners: u8 = 20;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -745,6 +746,7 @@ impl pallet_ethy::Config for Runtime {
 	type EthyId = EthBridgeId;
 	/// Reports final session status of an era
 	type FinalSessionTracker = StakingSessionTracker;
+	type MaxNewSigners = MaxNewSigners;
 	/// Handles multi-currency fungible asset system
 	type MultiCurrency = AssetsExt;
 	/// The native asset id used for challenger and relayer bonds
