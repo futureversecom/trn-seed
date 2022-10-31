@@ -157,12 +157,14 @@ impl WitnessRecord {
 			.entry(event_id)
 			.or_insert(EventMetadata { block_hash, digest, chain_id });
 	}
+
 	/// Note a witness if we haven't seen it before
 	/// Returns true if the witness was noted, i.e previously unseen
 	pub fn note_event_witness(&mut self, witness: &Witness) -> Result<WitnessStatus, WitnessError> {
 		// Is the witness for a completed event?
 		if let Some(completed_watermark) = self.completed_events.first() {
 			if witness.event_id <= *completed_watermark {
+				trace!(target: "ethy", "💎 not noting witness this witness because event already complete: {:?}", witness.event_id);
 				return Err(WitnessError::CompletedEvent);
 			}
 		}
