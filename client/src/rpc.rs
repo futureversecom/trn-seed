@@ -38,6 +38,7 @@ use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use ethy_gadget::notification::EthyEventProofStream;
 use ethy_gadget_rpc::{EthyApiServer, EthyRpcHandler};
 use seed_primitives::{ethy::EthyApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
+use seed_runtime::Runtime;
 
 /// Extra RPC deps for Ethy
 pub struct EthyDeps {
@@ -156,6 +157,7 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
 	C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
+	C::Api: pallet_nft_rpc::NftRuntimeApi<Block, AccountId, Runtime>,
 	P: TransactionPool<Block = Block> + 'static,
 	SC: SelectChain<Block> + 'static,
 {
@@ -163,6 +165,7 @@ where
 		Eth, EthApiServer, EthFilter, EthFilterApiServer, EthPubSub, EthPubSubApiServer, Net,
 		NetApiServer, Web3, Web3ApiServer,
 	};
+	use pallet_nft_rpc::{Nft, NftApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 	use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
@@ -226,6 +229,7 @@ where
 		)
 		.into_rpc(),
 	)?;
+	io.merge(Nft::new(client.clone()).into_rpc())?;
 
 	// Ethereum compatible RPCs
 	io.merge(
