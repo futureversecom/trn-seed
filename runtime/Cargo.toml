@@ -163,4 +163,5 @@ std = [
 try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-try-runtime",
+	"pallet-utility/try-runtime",
 ]
