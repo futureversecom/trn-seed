@@ -15,8 +15,8 @@ use seed_primitives::{Balance, BlockNumber};
 use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
 	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, Session, SessionKeys, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
-	XrpCurrency,
+	Executive, Runtime, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, System,
+	Timestamp, TxFeePot, XrpCurrency,
 };
 
 use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
@@ -228,6 +228,9 @@ fn staking_final_session_tracking_ethy() {
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
 
 		advance_session(); // era 3 starts (forced) and keys contain the updated key
+		/// Call on_initialize for scheduler to update keys and unpause bridge
+		let scheduled_block: BlockNumber = System::block_number() + 75_u32;
+		Scheduler::on_initialize(scheduled_block.into());
 		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
 	});
 }
