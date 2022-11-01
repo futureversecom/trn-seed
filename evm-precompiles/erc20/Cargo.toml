@@ -14,7 +14,7 @@ seed-primitives = { path = "../../primitives", default-features = false }
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
 num_enum = { version = "0.5.3", default-features = false }
 precompile-utils = { path = "../utils", default-features = false }
-scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 
 # Substrate
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
