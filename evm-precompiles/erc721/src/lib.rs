@@ -18,8 +18,12 @@ use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
 
-/// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
+/// Solidity selector of the Approval log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_APPROVAL: [u8; 32] = keccak256!("Approval(address,address,uint256)");
+
+/// Solidity selector of the Approval for all log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
+	keccak256!("ApprovalForAll(address,address,bool)");
 
 /// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
@@ -115,6 +119,12 @@ where
 						Action::Approve => Self::approve(collection_id, handle),
 						Action::GetApproved => Self::get_approved(collection_id, handle),
 						Action::TransferFrom => Self::transfer_from(collection_id, handle),
+						Action::IsApprovedForAll => {
+							Self::is_approved_for_all(collection_id, handle)
+						},
+						Action::SetApprovalForAll => {
+							Self::set_approval_for_all(collection_id, handle)
+						},
 						// ERC721-Metadata
 						Action::Name => Self::name(collection_id, handle),
 						Action::Symbol => Self::symbol(collection_id, handle),
@@ -129,10 +139,7 @@ where
 						},
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
-						Action::SafeTransferFrom
-						| Action::SafeTransferFromCallData
-						| Action::IsApprovedForAll
-						| Action::SetApprovalForAll => {
+						Action::SafeTransferFrom | Action::SafeTransferFromCallData => {
 							return Some(Err(revert("ERC721: Function not implemented yet").into()))
 						},
 					}
@@ -252,12 +259,20 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id = (collection_id, serial_number);
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		// Get token approval
 		let approved_account: Option<Runtime::AccountId> =
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
+		// Get collection approval
+		let approved_for_all_account =
+			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
+				Runtime::AccountId::from(from),
+				collection_id,
+			);
 
-		// Build call with origin.
+		// Build call with origin, check account is approved
 		if handle.context().caller == from
 			|| Some(Runtime::AccountId::from(handle.context().caller)) == approved_account
+			|| Some(Runtime::AccountId::from(handle.context().caller)) == approved_for_all_account
 		{
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
@@ -335,7 +350,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(1, 32)?;
 
 		// Parse input.
 		read_args!(handle, { serial_number: U256 });
@@ -357,6 +372,61 @@ where
 			)),
 			None => Ok(succeed(alloc::format!("ERC721: No accounts approved").as_bytes().to_vec())),
 		}
+	}
+
+	fn is_approved_for_all(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { owner: Address, operator: Address });
+		let owner: Runtime::AccountId = H160::from(owner).into();
+		let operator: Runtime::AccountId = H160::from(operator).into();
+
+		let is_approved = match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
+			owner,
+			collection_id,
+		) {
+			Some(approved_account) => approved_account == operator,
+			None => false,
+		};
+
+		Ok(succeed(EvmDataWriter::new().write(is_approved).build()))
+	}
+
+	fn set_approval_for_all(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { operator: Address, approved: bool });
+		let operator = H160::from(operator);
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			None.into(),
+			pallet_token_approvals::Call::<Runtime>::erc721_approval_for_all {
+				caller: handle.context().caller.into(),
+				operator_account: operator.clone().into(),
+				collection_uuid: collection_id,
+				approved,
+			},
+		)?;
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_APPROVAL_FOR_ALL,
+			handle.context().caller,
+			operator,
+			EvmDataWriter::new().write(approved).build(),
+		)
+		.record(handle)?;
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 
 	fn name(
