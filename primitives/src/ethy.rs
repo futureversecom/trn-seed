@@ -163,7 +163,7 @@ pub struct EventProof {
 	pub validator_set_id: ValidatorSetId,
 	/// Signatures for the proof.
 	///
-	/// The length of this `Vec` must match number of validators in the current set (see
+	/// The length of this `Vec` must match the number of validators in the current set (see
 	/// [Witness::validator_set_id]).
 	pub signatures: Vec<(AuthorityIndex, crypto::AuthoritySignature)>,
 	/// Finalized block hash of the event (when it was requested)
@@ -176,14 +176,25 @@ impl EventProof {
 		let empty_sig = AuthoritySignature::from(sp_core::ecdsa::Signature::default());
 		self.signatures.iter().filter(|(_id, sig)| sig != &empty_sig).count()
 	}
-	/// Return a full list or signatures, ordered by authority index, with blank values added if a
+	/// Return a full list of signatures, ordered by authority index, with blank values added if a
 	/// real signature is missing
 	/// `n_signatures` - the total number of signatures that should be returned when expanded (it is
 	/// the size of the validator set `validator_set_id`)
 	pub fn expanded_signatures(&self, n_signatures: usize) -> Vec<crypto::AuthoritySignature> {
 		let empty_sig = AuthoritySignature::from(sp_core::ecdsa::Signature::default());
+
+		// The length of the signatures is expected to be the same as the length of the validators in the current set
+		if n_signatures != self.signatures.len() {
+			log::warn!(target: "ethy", "💎 The amount of signatures received is not equal to the amount of validators, there may be an unexpected amount of signatures stored/retrieved");
+		}
+
 		let mut signatures = vec![empty_sig; n_signatures];
+
 		for (idx, signature) in self.signatures.iter() {
+			// Avoid errors by stopping early if there are more signatures than validator addresses stored
+			if idx >= &(n_signatures as u32) {
+				return signatures;
+			}
 			signatures[*idx as usize] = signature.clone();
 		}
 		signatures
@@ -292,6 +303,24 @@ mod test {
 			]
 		);
 		assert_eq!(proof.signature_count(), 3);
+	}
+
+	#[test]
+	fn handles_different_validator_and_signatures_length() {
+		let proof = EventProof {
+			signatures: vec![
+				(1, Signature::from_raw([1_u8; 65]).into()),
+				(3, Signature::from_raw([3_u8; 65]).into()),
+				(4, Signature::from_raw([4_u8; 65]).into()),
+			],
+			digest: Default::default(),
+			block: Default::default(),
+			event_id: 1,
+			validator_set_id: 1,
+		};
+
+		// Ensures we don't panic with a low amount of validators
+		proof.expanded_signatures(1);
 	}
 
 	#[test]
