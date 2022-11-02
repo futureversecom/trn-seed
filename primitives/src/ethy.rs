@@ -306,6 +306,24 @@ mod test {
 	}
 
 	#[test]
+	fn handles_different_validator_and_signatures_length() {
+		let proof = EventProof {
+			signatures: vec![
+				(1, Signature::from_raw([1_u8; 65]).into()),
+				(3, Signature::from_raw([3_u8; 65]).into()),
+				(4, Signature::from_raw([4_u8; 65]).into()),
+			],
+			digest: Default::default(),
+			block: Default::default(),
+			event_id: 1,
+			validator_set_id: 1,
+		};
+
+		// Ensures we don't panic with a low amount of validators
+		proof.expanded_signatures(1);
+	}
+
+	#[test]
 	fn ethy_chain_id() {
 		assert_eq!(Into::<u8>::into(EthyChainId::Ethereum), 1_u8);
 		assert_eq!(Into::<u8>::into(EthyChainId::Xrpl), 2_u8);
