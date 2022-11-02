@@ -17,6 +17,7 @@ use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 
+use seed_primitives::xrpl::XrplTxTicketSequence;
 use seed_primitives::{
 	xrpl::{XrplAddress, XrplTxHash, XrplTxNonce},
 	Balance,
@@ -35,6 +36,7 @@ pub struct XrpTransaction {
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
 	pub tx_nonce: XrplTxNonce,
+	pub tx_ticket_sequence: XrplTxTicketSequence,
 	pub amount: Balance,
 	pub destination: XrplAddress,
 }
@@ -62,6 +64,7 @@ impl Default for XrpWithdrawTransaction {
 		XrpWithdrawTransaction {
 			tx_fee: 0,
 			tx_nonce: 0,
+			tx_ticket_sequence: 0,
 			amount: 0,
 			destination: XrplAddress::default(),
 		}
@@ -71,5 +74,18 @@ impl Default for XrpWithdrawTransaction {
 impl Default for XrplTxData {
 	fn default() -> Self {
 		XrplTxData::Payment { amount: 0, address: H160::default() }
+	}
+}
+
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct XrplTicketSequenceParams {
+	pub start_sequence: u32,
+	pub bucket_size: u32,
+}
+
+impl Default for XrplTicketSequenceParams {
+	fn default() -> Self {
+		XrplTicketSequenceParams { start_sequence: 0_u32, bucket_size: 0_u32 }
 	}
 }

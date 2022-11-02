@@ -357,6 +357,8 @@ impl pallet_utility::Config for Runtime {
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
+	/// % threshold to emit event TicketSequenceThresholdReached
+	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -369,6 +371,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
+	type TicketSequenceThreshold = TicketSequenceThreshold;
 }
 
 parameter_types! {

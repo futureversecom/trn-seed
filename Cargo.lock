@@ -1642,7 +1642,7 @@ dependencies = [
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
  "thiserror",
- "xrpl-codec",
+ "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
 ]
 
 [[package]]
@@ -5240,7 +5240,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
- "xrpl-codec",
+ "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
 ]
 
 [[package]]
@@ -10062,13 +10062,36 @@ source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a
 dependencies = [
  "ripemd",
  "sha2 0.10.6",
- "xrpl-codec-utils",
+ "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
+]
+
+[[package]]
+name = "xrpl-codec"
+version = "0.1.0"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
+dependencies = [
+ "ripemd",
+ "sha2 0.10.6",
+ "xrpl-codec-utils 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
 ]
 
 [[package]]
 name = "xrpl-codec-utils"
 version = "0.1.0"
 source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
+dependencies = [
+ "hashbrown 0.12.3",
+ "lazy_static",
+ "proc-macro2",
+ "quote",
+ "serde_json",
+ "syn",
+]
+
+[[package]]
+name = "xrpl-codec-utils"
+version = "0.1.0"
+source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
 dependencies = [
  "hashbrown 0.12.3",
  "lazy_static",

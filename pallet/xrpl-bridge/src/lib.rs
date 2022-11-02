@@ -15,6 +15,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
+	fail,
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Inspect, Mutate, Transfer},
@@ -26,7 +27,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{One, Zero},
-	ArithmeticError, SaturatedConversion,
+	ArithmeticError, Percent, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
@@ -38,9 +39,12 @@ use seed_primitives::{
 	AccountId, AssetId, Balance, Timestamp,
 };
 
-use crate::helpers::{XrpTransaction, XrpWithdrawTransaction, XrplTxData};
+use crate::helpers::{
+	XrpTransaction, XrpWithdrawTransaction, XrplTicketSequenceParams, XrplTxData,
+};
 
 pub use pallet::*;
+use seed_primitives::xrpl::XrplTxTicketSequence;
 
 mod helpers;
 
@@ -60,6 +64,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use seed_primitives::xrpl::XrplTxTicketSequence;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
@@ -92,6 +97,9 @@ pub mod pallet {
 
 		/// Unix time
 		type UnixTime: UnixTime;
+
+		/// Threshold to emit event TicketSequenceThresholdReached
+		type TicketSequenceThreshold: Get<Percent>;
 	}
 
 	#[pallet::error]
@@ -108,6 +116,12 @@ pub mod pallet {
 		InvalidSigners,
 		/// Submitted a duplicate transaction hash
 		TxReplay,
+		/// The NextTicketSequenceParams has not been set
+		NextTicketSequenceParamsNotSet,
+		/// The NextTicketSequenceParams is invalid
+		NextTicketSequenceParamsInvalid,
+		/// The TicketSequenceParams is invalid
+		TicketSequenceParamsInvalid,
 	}
 
 	#[pallet::event]
@@ -126,6 +140,16 @@ pub mod pallet {
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
 		DoorAddressSet(XrplAddress),
+		DoorNextTicketSequenceParamSet {
+			ticket_sequence_start_next: u32,
+			ticket_bucket_size_next: u32,
+		},
+		DoorTicketSequenceParamSet {
+			ticket_sequence: u32,
+			ticket_sequence_start: u32,
+			ticket_bucket_size: u32,
+		},
+		TicketSequenceThresholdReached(u32),
 	}
 
 	#[pallet::hooks]
@@ -181,11 +205,44 @@ pub mod pallet {
 	/// The nonce/sequence of the XRPL door account
 	pub type DoorNonce<T: Config> = StorageValue<_, XrplTxNonce, ValueQuery, DefaultDoorNonce>;
 
+	#[pallet::type_value]
+	pub fn DefaultDoorTicketSequence() -> u32 {
+		0_u32
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn door_ticket_sequence)]
+	/// The current ticket sequence of the XRPL door account
+	pub type DoorTicketSequence<T: Config> =
+		StorageValue<_, XrplTxTicketSequence, ValueQuery, DefaultDoorTicketSequence>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn door_ticket_sequence_params)]
+	/// The Ticket sequence params of the XRPL door account for the current allocation
+	pub type DoorTicketSequenceParams<T: Config> =
+		StorageValue<_, XrplTicketSequenceParams, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn door_ticket_sequence_params_next)]
+	/// The Ticket sequence params of the XRPL door account for the next allocation
+	pub type DoorTicketSequenceParamsNext<T: Config> =
+		StorageValue<_, XrplTicketSequenceParams, ValueQuery>;
+
+	#[pallet::type_value]
+	pub fn DefaultTicketSequenceThresholdReachedEmitted() -> bool {
+		false
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn ticket_sequence_threshold_reached_emitted)]
+	/// Keeps track whether the TicketSequenceThresholdReached event is emitted
+	pub type TicketSequenceThresholdReachedEmitted<T: Config> =
+		StorageValue<_, bool, ValueQuery, DefaultTicketSequenceThresholdReachedEmitted>;
+
 	/// Default door tx fee 1 XRP
 	#[pallet::type_value]
 	pub fn DefaultDoorTxFee() -> u64 {
 		1_000_000_u64
 	}
+
 	#[pallet::storage]
 	#[pallet::getter(fn door_tx_fee)]
 	/// The flat fee for XRPL door txs
@@ -311,6 +368,69 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::DoorAddressSet(door_address));
 			Ok(())
 		}
+
+		/// Set the door account ticket sequence params for the next allocation
+		#[pallet::weight((<T as Config>::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
+		pub fn set_ticket_sequence_next_allocation(
+			origin: OriginFor<T>,
+			start_ticket_sequence: u32,
+			ticket_bucket_size: u32,
+		) -> DispatchResult {
+			let relayer = ensure_signed(origin)?;
+			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
+			ensure!(active_relayer, Error::<T>::NotPermitted);
+
+			let current_ticket_sequence = Self::door_ticket_sequence();
+			let current_params = Self::door_ticket_sequence_params();
+
+			if start_ticket_sequence < current_ticket_sequence
+				|| start_ticket_sequence < current_params.start_sequence
+				|| ticket_bucket_size == 0
+			{
+				fail!(Error::<T>::NextTicketSequenceParamsInvalid);
+			}
+			DoorTicketSequenceParamsNext::<T>::put(XrplTicketSequenceParams {
+				start_sequence: start_ticket_sequence,
+				bucket_size: ticket_bucket_size,
+			});
+			Self::deposit_event(Event::<T>::DoorNextTicketSequenceParamSet {
+				ticket_sequence_start_next: start_ticket_sequence,
+				ticket_bucket_size_next: ticket_bucket_size,
+			});
+			Ok(())
+		}
+
+		/// Set the door account current ticket sequence params for current allocation - force set
+		#[pallet::weight((<T as Config>::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
+		pub fn set_ticket_sequence_current_allocation(
+			origin: OriginFor<T>,
+			ticket_sequence: u32,
+			start_ticket_sequence: u32,
+			ticket_bucket_size: u32,
+		) -> DispatchResult {
+			ensure_root(origin)?; // only the root will be able to do it
+			let current_ticket_sequence = Self::door_ticket_sequence();
+			let current_params = Self::door_ticket_sequence_params();
+
+			if ticket_sequence < current_ticket_sequence
+				|| start_ticket_sequence < current_params.start_sequence
+				|| ticket_bucket_size == 0
+			{
+				fail!(Error::<T>::TicketSequenceParamsInvalid);
+			}
+
+			DoorTicketSequence::<T>::put(ticket_sequence);
+			DoorTicketSequenceParams::<T>::put(XrplTicketSequenceParams {
+				start_sequence: start_ticket_sequence,
+				bucket_size: ticket_bucket_size,
+			});
+			Self::deposit_event(Event::<T>::DoorTicketSequenceParamSet {
+				ticket_sequence,
+				ticket_sequence_start: start_ticket_sequence,
+				ticket_bucket_size,
+			});
+			Ok(())
+		}
 	}
 }
 
@@ -426,8 +546,14 @@ impl<T: Config> Pallet<T> {
 		let _ =
 			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
 
-		let tx_nonce = Self::door_nonce_inc()?;
-		let tx_data = XrpWithdrawTransaction { tx_nonce, tx_fee, amount, destination };
+		let ticket_sequence = Self::get_door_ticket_sequence()?;
+		let tx_data = XrpWithdrawTransaction {
+			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
+			tx_fee,
+			amount,
+			destination,
+			tx_ticket_sequence: ticket_sequence,
+		};
 
 		let proof_id = Self::submit_withdraw_request(door_address.into(), tx_data)?;
 
@@ -442,13 +568,15 @@ impl<T: Config> Pallet<T> {
 		door_address: [u8; 20],
 		tx_data: XrpWithdrawTransaction,
 	) -> Result<u64, DispatchError> {
-		let XrpWithdrawTransaction { tx_fee, tx_nonce, amount, destination } = tx_data;
+		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
+			tx_data;
 
 		let payment = Payment::new(
 			door_address,
 			destination.into(),
 			amount.saturated_into(),
 			tx_nonce,
+			tx_ticket_sequence,
 			tx_fee,
 			// omit signer key since this is a 'MultiSigner' tx
 			None,
@@ -464,5 +592,51 @@ impl<T: Config> Pallet<T> {
 		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 		DoorNonce::<T>::set(next_nonce);
 		Ok(nonce)
+	}
+
+	// Return the current door ticket sequence and increment it in storage
+	pub fn get_door_ticket_sequence() -> Result<XrplTxTicketSequence, DispatchError> {
+		let mut current_sequence = Self::door_ticket_sequence();
+		let ticket_params = Self::door_ticket_sequence_params();
+
+		// check if TicketSequenceThreshold reached. notify by emitting TicketSequenceThresholdReached
+		if ticket_params.bucket_size != 0
+			&& Percent::from_rational(
+				current_sequence - ticket_params.start_sequence,
+				ticket_params.bucket_size,
+			) >= T::TicketSequenceThreshold::get()
+			&& !Self::ticket_sequence_threshold_reached_emitted()
+		{
+			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached(current_sequence));
+			TicketSequenceThresholdReachedEmitted::<T>::put(true);
+		}
+
+		let mut next_sequence =
+			current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+		let last_sequence = ticket_params
+			.start_sequence
+			.checked_add(ticket_params.bucket_size)
+			.ok_or(ArithmeticError::Overflow)?;
+		if current_sequence >= last_sequence {
+			// we ran out current bucket, check the next_start_sequence
+			let next_ticket_params = Self::door_ticket_sequence_params_next();
+			if next_ticket_params == XrplTicketSequenceParams::default()
+				|| next_ticket_params.start_sequence == ticket_params.start_sequence
+			{
+				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into());
+			} else {
+				// update next to current and clear next
+				DoorTicketSequenceParams::<T>::set(next_ticket_params.clone());
+				current_sequence = next_ticket_params.start_sequence;
+				next_sequence =
+					current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+
+				DoorTicketSequenceParamsNext::<T>::kill();
+				TicketSequenceThresholdReachedEmitted::<T>::kill();
+			}
+		}
+		DoorTicketSequence::<T>::set(next_sequence);
+
+		Ok(current_sequence)
 	}
 }

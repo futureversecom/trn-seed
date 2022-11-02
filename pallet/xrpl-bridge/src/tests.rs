@@ -1,9 +1,11 @@
 use super::*;
-use frame_support::{assert_noop, assert_ok};
-use mock::*;
+use crate::mock::{
+	new_test_ext, AssetsExt, Origin, System, Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
+};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use seed_primitives::{AccountId, Balance};
 use sp_core::H160;
-use sp_runtime::traits::BadOrigin;
+use sp_runtime::{traits::BadOrigin, Percent};
 
 /// Helper function to create an AccountId from  a slice
 fn create_account(address: &[u8]) -> AccountId {
@@ -160,6 +162,14 @@ fn withdraw_request_works() {
 		let account = create_account(account_address);
 		process_transaction(account_address); // 2000 XRP deposited
 
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
 		// door address unset
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination),
@@ -198,6 +208,13 @@ fn withdraw_request_works_with_door_fee() {
 		let initial_xrp_balance = xrp_balance_of(account_address);
 		let withdraw_amount: u64 = 1_000;
 
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
 		// set door address
 		assert_ok!(XRPLBridge::set_door_address(Origin::root(), b"6490B68F1116BFE87DDC".into()));
 
@@ -303,4 +320,487 @@ fn clear_storages() {
 		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_none());
 		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
 	});
+}
+
+#[test]
+fn get_door_ticket_sequence_success_at_start() {
+	new_test_ext().execute_with(|| {
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
+
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+	})
+}
+
+#[test]
+fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+
+		// set the params for next round
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			3_u32, // start ticket sequence next round
+			2_u32, // ticket sequence bucket size next round
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+
+		// try to fetch again - error
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
+		assert_err!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
+		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(5).into());
+
+		// try to fetch again - error
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+	})
+}
+
+#[test]
+fn get_door_ticket_sequence_success_over_next_round() {
+	new_test_ext().execute_with(|| {
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			2_u32
+		));
+
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+		// need to set the next ticket params on or before the last of current
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			3_u32, // start ticket sequence next round
+			2_u32, // ticket sequence bucket size next round
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			10_u32, // start ticket sequence next round
+			10_u32, // ticket sequence bucket size next round
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
+	})
+}
+
+#[test]
+fn get_door_ticket_sequence_success_force_set_current_round() {
+	new_test_ext().execute_with(|| {
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		// set initial ticket sequence params
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			10_u32
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+
+		// force set current values to (current=5 start=5, bucket_size=2)
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			5_u32,
+			5_u32,
+			3_u32
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(6));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(7));
+
+		// need to set the next ticket params on or before the last of current
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			11_u32, // start ticket sequence next round
+			2_u32,  // ticket sequence bucket size next round
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
+	})
+}
+
+#[test]
+#[allow(non_snake_case)]
+fn get_door_ticket_sequence_check_events_emitted() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+
+		// set the params for next round
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			3_u32, // start ticket sequence next round
+			3_u32, // ticket sequence bucket size next round
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+		// event should be emitted here since (5 - 3)/3 = 0.66 == TicketSequenceThreshold
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
+		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(5).into());
+
+		// try to fetch again - error - but no TicketSequenceThresholdReached
+		System::reset_events();
+		assert_eq!(System::events(), []);
+		assert_noop!(
+			XRPLBridge::get_door_ticket_sequence(),
+			Error::<Test>::NextTicketSequenceParamsNotSet
+		);
+		assert_eq!(System::events(), []);
+
+		// set the params for next round
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			10_u32, // start ticket sequence next round
+			5_u32,  // ticket sequence bucket size next round
+		));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+	})
+}
+
+#[test]
+fn set_ticket_sequence_current_allocation_success() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		// set initial ticket sequence params
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
+		System::assert_has_event(
+			Event::<Test>::DoorTicketSequenceParamSet {
+				ticket_sequence: 1_u32,
+				ticket_sequence_start: 1_u32,
+				ticket_bucket_size: 200_u32,
+			}
+			.into(),
+		);
+
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+
+		// Force set the current param set
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			10_u32,
+			1_u32,
+			200_u32
+		));
+		System::assert_has_event(
+			Event::<Test>::DoorTicketSequenceParamSet {
+				ticket_sequence: 10_u32,
+				ticket_sequence_start: 1_u32,
+				ticket_bucket_size: 200_u32,
+			}
+			.into(),
+		);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+	})
+}
+
+#[test]
+fn set_ticket_sequence_current_allocation_failure() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		// set initial ticket sequence params - success
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			200_u32
+		));
+		System::assert_has_event(
+			Event::<Test>::DoorTicketSequenceParamSet {
+				ticket_sequence: 1_u32,
+				ticket_sequence_start: 1_u32,
+				ticket_bucket_size: 200_u32,
+			}
+			.into(),
+		);
+
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+
+		// Force set the current param set with ticket_bucket_size = 0
+		System::reset_events();
+		assert_noop!(
+			XRPLBridge::set_ticket_sequence_current_allocation(
+				Origin::root(),
+				10_u32,
+				10_u32,
+				0_u32
+			),
+			Error::<Test>::TicketSequenceParamsInvalid
+		);
+
+		// try to fetch it, should give the next ticket sequence in current allocation
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+
+		// Force set the current param set with ticket_sequence < current ticket_sequence
+		System::reset_events();
+		assert_noop!(
+			XRPLBridge::set_ticket_sequence_current_allocation(
+				Origin::root(),
+				2_u32,
+				1_u32,
+				200_u32
+			),
+			Error::<Test>::TicketSequenceParamsInvalid
+		);
+
+		// Force set the current param set with start_ticket_sequence < current start_ticket_sequence
+		System::reset_events();
+		assert_noop!(
+			XRPLBridge::set_ticket_sequence_current_allocation(
+				Origin::root(),
+				10_u32,
+				0_u32,
+				200_u32
+			),
+			Error::<Test>::TicketSequenceParamsInvalid
+		);
+
+		// try to fetch it, should give the next ticket sequence in current allocation
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+
+		// Force set the current param set with valid params, but with relayer
+		System::reset_events();
+		assert_noop!(
+			XRPLBridge::set_ticket_sequence_current_allocation(
+				Origin::signed(relayer),
+				10_u32,
+				1_u32,
+				200_u32
+			),
+			BadOrigin
+		);
+
+		// Force set the same valid params set, with root
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			10_u32,
+			1_u32,
+			200_u32
+		));
+
+		// try to fetch it, should give the start of the new allocation
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+	})
+}
+
+#[test]
+fn set_ticket_sequence_next_allocation_success() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		// no initial ticket sequence params, start setting the params for next allocation
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			1_u32,
+			200_u32
+		));
+		System::assert_has_event(
+			Event::<Test>::DoorNextTicketSequenceParamSet {
+				ticket_sequence_start_next: 1_u32,
+				ticket_bucket_size_next: 200_u32,
+			}
+			.into(),
+		);
+
+		// We did not set the initial door ticket sequence,
+		// In a correct setup, we should set the initial param set using set_ticket_sequence_current_allocation().
+		// This demonstrates that even without it, setting the next params would be enough. It will switch over and continue
+		// switch over happened, should give start of the next allocation(1,200)
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+
+		// Force update the current param set
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			10_u32,
+			1_u32,
+			12_u32
+		));
+		System::assert_has_event(
+			Event::<Test>::DoorTicketSequenceParamSet {
+				ticket_sequence: 10_u32,
+				ticket_sequence_start: 1_u32,
+				ticket_bucket_size: 12_u32,
+			}
+			.into(),
+		);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+
+		// set the next params
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			15_u32,
+			10_u32
+		));
+		System::assert_has_event(
+			Event::<Test>::DoorNextTicketSequenceParamSet {
+				ticket_sequence_start_next: 15_u32,
+				ticket_bucket_size_next: 10_u32,
+			}
+			.into(),
+		);
+
+		// try to fetch, should still give the next in current allocation(11) since current allocation
+		// is not consumed yet
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(12));
+
+		// current allocation exhausted, switch over and give start of next allocation
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(15));
+	})
+}
+
+#[test]
+fn set_ticket_sequence_next_allocation_failure() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+
+		// set initial ticket sequence params - success
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
+			Origin::root(),
+			1_u32,
+			1_u32,
+			5_u32
+		));
+		System::assert_has_event(
+			Event::<Test>::DoorTicketSequenceParamSet {
+				ticket_sequence: 1_u32,
+				ticket_sequence_start: 1_u32,
+				ticket_bucket_size: 5_u32,
+			}
+			.into(),
+		);
+
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
+
+		// set the next param set with ticket_bucket_size = 0
+		System::reset_events();
+		assert_noop!(
+			XRPLBridge::set_ticket_sequence_next_allocation(Origin::signed(relayer), 10_u32, 0_u32),
+			Error::<Test>::NextTicketSequenceParamsInvalid
+		);
+
+		// try to fetch it, should give the next ticket sequence in current allocation
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
+
+		// set the next param set with start_ticket_sequence < current ticket_sequence
+		System::reset_events();
+		assert_noop!(
+			XRPLBridge::set_ticket_sequence_next_allocation(
+				Origin::signed(relayer),
+				1_u32,
+				200_u32
+			),
+			Error::<Test>::NextTicketSequenceParamsInvalid
+		);
+
+		// set the next param set with start_ticket_sequence < current start_ticket_sequence
+		System::reset_events();
+		assert_noop!(
+			XRPLBridge::set_ticket_sequence_next_allocation(
+				Origin::signed(relayer),
+				0_u32,
+				200_u32
+			),
+			Error::<Test>::NextTicketSequenceParamsInvalid
+		);
+
+		// try to fetch it, should give the next ticket sequence in current allocation
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+
+		// set the next param set with valid params, but with !relayer
+		System::reset_events();
+		assert_noop!(
+			XRPLBridge::set_ticket_sequence_next_allocation(
+				Origin::signed(create_account(b"6490B68F1116BFE87DDE")),
+				10_u32,
+				200_u32
+			),
+			Error::<Test>::NotPermitted
+		);
+
+		// same valid params set, with relayer
+		System::reset_events();
+		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
+			Origin::signed(relayer),
+			10_u32,
+			200_u32
+		));
+		System::assert_has_event(
+			Event::<Test>::DoorNextTicketSequenceParamSet {
+				ticket_sequence_start_next: 10_u32,
+				ticket_bucket_size_next: 200_u32,
+			}
+			.into(),
+		);
+
+		// try to fetch it, should give from the current allocation
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+
+		// switch over
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(10));
+	})
 }
