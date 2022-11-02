@@ -4998,6 +4998,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nft-rpc"
+version = "2.1.1"
+dependencies = [
+ "jsonrpsee",
+ "pallet-nft",
+ "pallet-nft-rpc-runtime-api",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-nft-rpc-runtime-api"
+version = "2.1.1"
+dependencies = [
+ "pallet-nft",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-nomination-pools"
 version = "1.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
@@ -7427,6 +7458,7 @@ dependencies = [
  "futures",
  "hex-literal",
  "jsonrpsee",
+ "pallet-nft-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
@@ -7546,6 +7578,7 @@ dependencies = [
  "pallet-im-online",
  "pallet-nft",
  "pallet-nft-peg",
+ "pallet-nft-rpc-runtime-api",
  "pallet-nomination-pools",
  "pallet-offences",
  "pallet-scheduler",

@@ -65,7 +65,8 @@ pub mod keys {
 }
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
-	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, Hash, Index, Signature,
+	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
+	Signature, TokenId,
 };
 
 mod bag_thresholds;
@@ -1164,6 +1165,19 @@ impl_runtime_apis! {
 			UncheckedExtrinsic::new_unsigned(
 				pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
 			)
+		}
+	}
+
+	impl pallet_nft_rpc_runtime_api::NftApi<
+		Block,
+		AccountId,
+		Runtime,
+	> for Runtime {
+		fn owned_tokens(collection_id: CollectionUuid, who: AccountId) -> Vec<TokenId> {
+			Nft::owned_tokens(collection_id, &who)
+		}
+		fn token_uri(token_id: TokenId) -> Vec<u8> {
+			Nft::token_uri(token_id)
 		}
 	}
 

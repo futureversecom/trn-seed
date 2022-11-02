@@ -72,6 +72,7 @@ pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-echo = { path = "../pallet/echo", default-features = false }
 pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
+pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
@@ -138,6 +139,7 @@ std = [
 	"pallet-dex/std",
 	"pallet-ethy/std",
 	"pallet-nft/std",
+	"pallet-nft-rpc-runtime-api/std",
 	"pallet-xrpl-bridge/std",
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
