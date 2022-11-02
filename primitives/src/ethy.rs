@@ -192,7 +192,7 @@ impl EventProof {
 
 		for (idx, signature) in self.signatures.iter() {
 			// Avoid errors by stopping early if there are more signatures than validator addresses stored
-			if idx > &(n_signatures as u32) {
+			if idx >= &(n_signatures as u32) {
 				return signatures;
 			}
 			signatures[*idx as usize] = signature.clone();
