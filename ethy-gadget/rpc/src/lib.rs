@@ -146,7 +146,8 @@ where
 		) {
 			if let Some(encoded_proof) = maybe_encoded_proof {
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
-					let response = build_xrpl_tx_proof_response(versioned_proof);
+					let response =
+						build_xrpl_tx_proof_response::<C, B>(&self.client, versioned_proof);
 					return Ok(response);
 				}
 			}
@@ -196,15 +197,36 @@ where
 }
 
 /// Build an `XrplTxProofResponse` from a `VersionedEventProof`
-pub fn build_xrpl_tx_proof_response(
+pub fn build_xrpl_tx_proof_response<C, B>(
+	client: &C,
 	versioned_event_proof: VersionedEventProof,
-) -> Option<XrplTxProofResponse> {
+) -> Option<XrplTxProofResponse>
+where
+	B: Block<Hash = H256>,
+	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	C::Api: EthyRuntimeApi<B>,
+{
 	match versioned_event_proof {
 		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) => {
+			let xrpl_validator_set =
+				client.runtime_api().xrpl_signers(&BlockId::hash(block.into())).ok()?;
+
+			let validator_set =
+				client.runtime_api().validator_set(&BlockId::hash(block.into())).ok()?;
+
 			Some(XrplTxProofResponse {
 				event_id,
 				signatures: signatures
 					.into_iter()
+					.filter(|(i, _)| {
+						let pub_key = validator_set.validators.get(*i as usize);
+						if let Some(pub_key) = pub_key {
+							// we only care about the availability of the pub_key in xrpl_validator_set or not, doesn't matter the position.
+							xrpl_validator_set.authority_index(pub_key).is_some()
+						} else {
+							false
+						}
+					})
 					.map(|(i, s)| {
 						// XRPL requires ECDSA signatures are DER encoded
 						// https://github.com/XRPLF/xrpl.js/blob/76b73e16a97e1a371261b462ee1a24f1c01dbb0c/packages/ripple-keypairs/src/i.ts#L58-L60
