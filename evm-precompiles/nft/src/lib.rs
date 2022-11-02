@@ -3,7 +3,7 @@ extern crate alloc;
 
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
-use pallet_evm::{GasWeightMapping, Log, Precompile};
+use pallet_evm::{GasWeightMapping, Precompile};
 use pallet_nft::{
 	CollectionNameType, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, WeightInfo,
 };
@@ -12,11 +12,11 @@ use precompile_utils::prelude::*;
 use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, Permill};
-use sp_std::{marker::PhantomData, vec, vec::Vec};
+use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the InitializeCollection log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_INITIALIZE_COLLECTION: [u8; 32] =
-	keccak256!("InitializeCollection(address,bytes,uint32,uint8,bytes)");
+	keccak256!("InitializeCollection(address,address)"); // collection_owner, collection_address
 
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -166,20 +166,12 @@ where
 				let precompile_address =
 					Runtime::runtime_id_to_evm_id(collection_id, ERC721_PRECOMPILE_ADDRESS_PREFIX);
 
-				// emit InitializeCollection event
-				// TODO: add all event parameters
-				(Log {
-					address: handle.code_address().into(),
-					topics: vec![
-						SELECTOR_LOG_INITIALIZE_COLLECTION.into(),
-						collection_owner.into(),
-						// name.into(),
-						// max_issuance.into(),
-						// metadata_type.into(),
-						// metadata_path.into(),
-					],
-					data: (EvmDataWriter::new().write(precompile_address).build()).into(),
-				})
+				log2(
+					handle.code_address(),
+					SELECTOR_LOG_INITIALIZE_COLLECTION,
+					collection_owner,
+					EvmDataWriter::new().write(precompile_address).build(),
+				)
 				.record(handle)?;
 
 				Ok(succeed(
