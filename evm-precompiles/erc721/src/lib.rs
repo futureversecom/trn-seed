@@ -304,8 +304,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		// Ok(succeed(EvmDataWriter::new().write(true).build()))
-		Ok(succeed([]))
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 
 	fn safe_transfer_from(
