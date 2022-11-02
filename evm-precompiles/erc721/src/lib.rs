@@ -6,7 +6,7 @@ use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::OriginTrait,
 };
-use pallet_evm::PrecompileSet;
+use pallet_evm::{Context, ExitReason, PrecompileSet};
 use pallet_nft::TokenCount;
 use sp_core::{H160, U256};
 use sp_runtime::traits::SaturatedConversion;
@@ -28,6 +28,8 @@ pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 /// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 	keccak256!("OwnershipTransferred(address,address)");
+
+pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
 
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -53,6 +55,8 @@ pub enum Action {
 	// Mint an NFT in a collection
 	// quantity, receiver
 	Mint = "mint(address,uint32)",
+	// Selector used by SafeTransferFrom function
+	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -119,6 +123,10 @@ where
 						Action::Approve => Self::approve(collection_id, handle),
 						Action::GetApproved => Self::get_approved(collection_id, handle),
 						Action::TransferFrom => Self::transfer_from(collection_id, handle),
+						Action::SafeTransferFrom => Self::safe_transfer_from(collection_id, handle),
+						Action::SafeTransferFromCallData => {
+							Self::safe_transfer_from_call_data(collection_id, handle)
+						},
 						Action::IsApprovedForAll => {
 							Self::is_approved_for_all(collection_id, handle)
 						},
@@ -139,7 +147,7 @@ where
 						},
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
-						Action::SafeTransferFrom | Action::SafeTransferFromCallData => {
+						_ => {
 							return Some(Err(revert("ERC721: Function not implemented yet").into()))
 						},
 					}
@@ -262,6 +270,8 @@ where
 		// Get token approval
 		let approved_account: Option<Runtime::AccountId> =
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		// Get collection approval
 		let approved_for_all_account =
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
@@ -283,6 +293,143 @@ where
 		} else {
 			return Err(revert("ERC721: Caller not approved").into());
 		}
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER,
+			handle.context().caller,
+			to,
+			EvmDataWriter::new().write(serial_number).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		// Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
+	}
+
+	fn safe_transfer_from(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				from: Address,
+				to: Address,
+				serial_number: U256
+			}
+		);
+		let data: &[u8] = b"";
+		Self::do_safe_transfer(collection_id, handle, from, to, serial_number, Bytes::from(data))
+	}
+
+	fn safe_transfer_from_call_data(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(4, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				from: Address,
+				to: Address,
+				serial_number: U256,
+				data: Bytes
+			}
+		);
+		Self::do_safe_transfer(collection_id, handle, from, to, serial_number, data)
+	}
+
+	fn do_safe_transfer(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+		from: Address,
+		to: Address,
+		serial_number: U256,
+		data: Bytes,
+	) -> EvmResult<PrecompileOutput> {
+		let from: H160 = from.into();
+		let to: H160 = to.into();
+
+		// For now we only support Ids < u32 max
+		// since `u32` is the native `SerialNumber` type used by the NFT module.
+		// it's not possible for the module to issue Ids larger than this
+		if serial_number > u32::MAX.into() {
+			return Err(revert("ERC721: Expected token id <= 2^32").into());
+		}
+		let serial_number: SerialNumber = serial_number.saturated_into();
+		let token_id = (collection_id, serial_number);
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		// Get token approval
+		let approved_account: Option<Runtime::AccountId> =
+			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		// Get collection approval
+		let approved_for_all_account =
+			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
+				Runtime::AccountId::from(from),
+				collection_id,
+			);
+
+		// Check approvals/ ownership
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		if Some(Runtime::AccountId::from(handle.context().caller))
+			!= pallet_nft::Pallet::<Runtime>::token_owner(collection_id, serial_number)
+			&& Some(Runtime::AccountId::from(handle.context().caller)) != approved_account
+			&& Some(Runtime::AccountId::from(handle.context().caller)) != approved_for_all_account
+		{
+			return Err(revert("ERC721: Caller not approved").into());
+		}
+
+		// Check that target implements onERC721Received
+
+		// Check that caller is not a smart contract s.t. no code is inserted into
+		// pallet_evm::AccountCodes except if the caller is another precompile i.e. CallPermit
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let caller_code = pallet_evm::Pallet::<Runtime>::account_codes(to);
+		if !(caller_code.is_empty()) {
+			// Setup input for onErc721Received call
+			let sub_context = Context {
+				address: to,
+				caller: handle.context().caller,
+				apparent_value: Default::default(),
+			};
+			let input = EvmDataWriter::new_with_selector(Action::OnErc721Received)
+				.write::<Address>(from.into())
+				.write::<Address>(to.into())
+				.write::<U256>(serial_number.into())
+				.write::<Bytes>(data)
+				.build();
+			let (reason, output) =
+				handle.call(to, None, input.clone(), handle.gas_limit(), false, &sub_context);
+			// Check response from call
+			match reason {
+				ExitReason::Succeed(_) => {
+					if output[..4] != ON_ERC721_RECEIVED_FUNCTION_SELECTOR.to_vec() {
+						return Err(
+							revert("ERC721: transfer to non ERC721Receiver implementer").into()
+						);
+					}
+				},
+				_ => {
+					return Err(revert("ERC721: transfer to non ERC721Receiver implementer").into())
+				},
+			};
+		}
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(Runtime::AccountId::from(from)).into(),
+			pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
+		)?;
 
 		log3(
 			handle.code_address(),
@@ -385,6 +532,7 @@ where
 		let owner: Runtime::AccountId = H160::from(owner).into();
 		let operator: Runtime::AccountId = H160::from(operator).into();
 
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let is_approved = match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
 			owner,
 			collection_id,
