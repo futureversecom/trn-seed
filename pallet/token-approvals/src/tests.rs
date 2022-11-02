@@ -246,3 +246,55 @@ fn update_erc20_approval_not_approved_should_fail() {
 		);
 	});
 }
+
+#[test]
+fn set_erc721_approval_for_all() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let operator: AccountId = 11;
+		let collection_id: CollectionUuid = 1;
+
+		// Set approval to true
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator,
+			collection_id,
+			true
+		));
+		assert_eq!(
+			TokenApprovals::erc721_approvals_for_all(caller, collection_id).unwrap(),
+			operator
+		);
+
+		// Remove approval
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator,
+			collection_id,
+			false
+		));
+		assert!(TokenApprovals::erc721_approvals_for_all(caller, collection_id).is_none());
+	});
+}
+
+#[test]
+fn set_erc721_approval_for_all_caller_is_operator_should_fail() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let collection_id: CollectionUuid = 1;
+
+		// Set approval to true
+		assert_noop!(
+			TokenApprovals::erc721_approval_for_all(
+				None.into(),
+				caller,
+				caller,
+				collection_id,
+				true
+			),
+			Error::<Test>::CallerNotOperator
+		);
+	});
+}
