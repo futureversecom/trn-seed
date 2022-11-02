@@ -229,6 +229,8 @@ where
 		)
 		.into_rpc(),
 	)?;
+
+	// The Root Network RPCs
 	io.merge(Nft::new(client.clone()).into_rpc())?;
 
 	// Ethereum compatible RPCs

@@ -34,8 +34,8 @@ pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeAp
 /// NFT RPC methods.
 #[rpc(client, server, namespace = "nft")]
 pub trait NftApi<AccountId> {
-	#[method(name = "collectedTokens")]
-	fn collected_tokens(
+	#[method(name = "ownedTokens")]
+	fn owned_tokens(
 		&self,
 		collection_id: CollectionUuid,
 		who: AccountId,
@@ -66,7 +66,7 @@ where
 	C::Api: NftRuntimeApi<Block, AccountId, T>,
 	AccountId: Codec,
 {
-	fn collected_tokens(
+	fn owned_tokens(
 		&self,
 		collection_id: CollectionUuid,
 		who: AccountId,
@@ -74,7 +74,7 @@ where
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);
-		api.collected_tokens(&at, collection_id, who)
+		api.owned_tokens(&at, collection_id, who)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 

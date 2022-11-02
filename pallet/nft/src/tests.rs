@@ -279,7 +279,7 @@ fn create_collection() {
 		// Bit shifted to account for parachain_id
 		assert_eq!(Nft::next_collection_uuid().unwrap(), collection_id + (1 << 10));
 		assert_eq!(
-			Nft::collected_tokens(collection_id, &token_owner),
+			Nft::owned_tokens(collection_id, &token_owner),
 			vec![0, 1, 2, 3, 4]
 				.into_iter()
 				.map(|t| (collection_id, t))
@@ -300,14 +300,14 @@ fn create_collection() {
 		assert_eq!(Nft::next_serial_number(collection_id).unwrap(), quantity + additional_quantity);
 
 		assert_eq!(
-			Nft::collected_tokens(collection_id, &token_owner),
+			Nft::owned_tokens(collection_id, &token_owner),
 			vec![0, 1, 2, 3, 4]
 				.into_iter()
 				.map(|t| (collection_id, t))
 				.collect::<Vec<TokenId>>()
 		);
 		assert_eq!(
-			Nft::collected_tokens(collection_id, &(token_owner + 1)),
+			Nft::owned_tokens(collection_id, &(token_owner + 1)),
 			vec![5, 6, 7].into_iter().map(|t| (collection_id, t)).collect::<Vec<TokenId>>()
 		);
 		assert_eq!(
@@ -440,8 +440,8 @@ fn transfer() {
 			new_owner
 		}));
 
-		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
-		assert_eq!(Nft::collected_tokens(collection_id, &new_owner), vec![token_id]);
+		assert!(Nft::owned_tokens(collection_id, &token_owner).is_empty());
+		assert_eq!(Nft::owned_tokens(collection_id, &new_owner), vec![token_id]);
 		assert_eq!(Nft::token_balance(&token_owner).unwrap().get(&collection_id), None);
 		assert_eq!(Nft::token_balance(&new_owner).unwrap().get(&collection_id), Some(&1));
 	});
@@ -528,7 +528,7 @@ fn burn() {
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 0));
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 1));
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 2));
-		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
+		assert!(Nft::owned_tokens(collection_id, &token_owner).is_empty());
 		assert_eq!(Nft::token_balance(&token_owner).unwrap().get(&collection_id), None);
 	});
 }
@@ -621,7 +621,7 @@ fn sell() {
 			}
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
-			assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
+			assert_eq!(Nft::owned_tokens(collection_id, &buyer), tokens);
 			assert_eq!(
 				Nft::token_balance(&collection_owner).unwrap().get(&collection_id),
 				Some(&2)
@@ -1122,7 +1122,7 @@ fn buy() {
 		// ownership changed
 		assert!(Nft::token_locks(&token_id).is_none());
 		assert!(Nft::open_collection_listings(collection_id, listing_id).is_none());
-		assert_eq!(Nft::collected_tokens(collection_id, &buyer), vec![token_id]);
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer), vec![token_id]);
 	});
 }
 
@@ -1207,7 +1207,7 @@ fn buy_with_royalties() {
 			.is_none());
 
 			// ownership changed
-			assert!(Nft::collected_tokens(collection_id, &buyer).contains(&token_id));
+			assert!(Nft::owned_tokens(collection_id, &buyer).contains(&token_id));
 		});
 }
 
@@ -1285,7 +1285,7 @@ fn sell_to_anybody() {
 		.is_none());
 
 		// ownership changed
-		assert_eq!(Nft::collected_tokens(collection_id, &buyer), vec![token_id]);
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer), vec![token_id]);
 	});
 }
 
@@ -1406,7 +1406,7 @@ fn auction_bundle() {
 		// end auction
 		let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
-		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer), tokens);
 		assert_eq!(Nft::token_balance(&collection_owner).unwrap().get(&collection_id), Some(&(2)));
 		assert_eq!(
 			Nft::token_balance(&buyer).unwrap().get(&collection_id),
@@ -1515,7 +1515,7 @@ fn auction() {
 
 			// ownership changed
 			assert!(Nft::token_locks(&token_id).is_none());
-			assert_eq!(Nft::collected_tokens(collection_id, &bidder_2), vec![token_id]);
+			assert_eq!(Nft::owned_tokens(collection_id, &bidder_2), vec![token_id]);
 			assert!(Nft::open_collection_listings(collection_id, listing_id).is_none());
 
 			// event logged
@@ -1644,7 +1644,7 @@ fn auction_royalty_payments() {
 			));
 
 			// ownership changed
-			assert_eq!(Nft::collected_tokens(collection_id, &bidder), vec![token_id]);
+			assert_eq!(Nft::owned_tokens(collection_id, &bidder), vec![token_id]);
 		});
 }
 

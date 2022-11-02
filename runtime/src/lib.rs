@@ -1159,8 +1159,8 @@ impl_runtime_apis! {
 		AccountId,
 		Runtime,
 	> for Runtime {
-		fn collected_tokens(collection_id: CollectionUuid, who: AccountId) -> Vec<TokenId> {
-			Nft::collected_tokens(collection_id, &who)
+		fn owned_tokens(collection_id: CollectionUuid, who: AccountId) -> Vec<TokenId> {
+			Nft::owned_tokens(collection_id, &who)
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)

@@ -267,7 +267,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Find the tokens owned by an `address` in the given collection
-	pub fn collected_tokens(collection_id: CollectionUuid, address: &T::AccountId) -> Vec<TokenId> {
+	pub fn owned_tokens(collection_id: CollectionUuid, address: &T::AccountId) -> Vec<TokenId> {
 		let mut owned_tokens = Vec::<TokenId>::default();
 
 		let mut owned_in_collection: Vec<TokenId> =
