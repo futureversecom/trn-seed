@@ -171,7 +171,7 @@ where
 	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		let at = BlockId::hash(header.hash());
 		let xrpl_signers = self.client.runtime_api().xrpl_signers(&at).ok();
-		info!(target: "ethy", "💎 xrpl new validator set: {:?}", xrpl_signers);
+		info!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
 
 		xrpl_signers
 	}
