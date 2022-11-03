@@ -2246,9 +2246,7 @@ fn token_uri_construction() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::Ethereum(
-				collection_address
-			),
+			MetadataScheme::Ethereum(collection_address),
 			None,
 		));
 		assert_eq!(

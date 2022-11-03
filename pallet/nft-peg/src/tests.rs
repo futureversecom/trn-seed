@@ -1,10 +1,10 @@
 use crate::{mock::*, *};
+use core::fmt::Write;
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use pallet_nft::MetadataScheme;
 use seed_primitives::AccountId;
-use core::fmt::Write;
 
 struct TestVals {
 	source: H160,
@@ -128,7 +128,10 @@ fn do_deposit_creates_tokens_and_collection() {
 		assert_eq!(Nft::collection_exists(expected_collection_id), true);
 
 		let collection_info = Nft::collection_info(expected_collection_id).unwrap();
-		assert_eq!(collection_info.metadata_scheme, MetadataScheme::Ethereum(test_vals.token_address));
+		assert_eq!(
+			collection_info.metadata_scheme,
+			MetadataScheme::Ethereum(test_vals.token_address)
+		);
 
 		// Token balance should be 1 as one token was deposited
 		assert_eq!(

@@ -263,7 +263,8 @@ where
 				match Self::eth_to_root_nft(current_token.token_address) {
 					Some(collection_id) => collection_id,
 					None => {
-						let metadata_scheme = pallet_nft::MetadataScheme::Ethereum(current_token.token_address);
+						let metadata_scheme =
+							pallet_nft::MetadataScheme::Ethereum(current_token.token_address);
 						// Collection doesn't exist, create a new collection
 						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 							collection_owner_account,
