@@ -10,7 +10,7 @@ use pallet_evm::{Context, ExitReason, PrecompileSet};
 use pallet_nft::TokenCount;
 use sp_core::{H160, U256};
 use sp_runtime::traits::SaturatedConversion;
-use sp_std::marker::PhantomData;
+use sp_std::{marker::PhantomData, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
@@ -55,6 +55,7 @@ pub enum Action {
 	// Mint an NFT in a collection
 	// quantity, receiver
 	Mint = "mint(address,uint32)",
+	OwnedTokens = "ownedTokens(address,uint16,uint32)",
 	// Selector used by SafeTransferFrom function
 	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
 }
@@ -147,6 +148,7 @@ where
 						},
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
+						Action::OwnedTokens => Self::owned_tokens(collection_id, handle),
 						_ => {
 							return Some(Err(revert("ERC721: Function not implemented yet").into()))
 						},
@@ -693,6 +695,41 @@ where
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn owned_tokens(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		read_args!(handle, { owner: Address, limit: U256, cursor: U256 });
+
+		// Parse inputs
+		let owner: H160 = owner.into();
+		if limit > u16::MAX.into() {
+			return Err(revert("ERC721: Expected limit <= 2^32").into());
+		}
+		let limit: u16 = limit.saturated_into();
+		if cursor > SerialNumber::MAX.into() {
+			return Err(revert("ERC721: Expected cursor <= 2^32").into());
+		}
+		let cursor: SerialNumber = cursor.saturated_into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let (new_cursor, collected_tokens) = pallet_nft::Pallet::<Runtime>::owned_tokens_paginated(
+			collection_id,
+			&owner.into(),
+			cursor,
+			limit,
+		);
+		// Build output.
+		Ok(succeed(
+			EvmDataWriter::new()
+				.write::<u32>(new_cursor)
+				.write::<Vec<u32>>(collected_tokens)
+				.build(),
+		))
 	}
 
 	fn owner(
