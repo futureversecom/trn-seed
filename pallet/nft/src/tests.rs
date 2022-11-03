@@ -2250,7 +2250,7 @@ fn token_uri_construction() {
 			None,
 		));
 		assert_eq!(
-			Nft::token_uri((collection_id, token_id)),			
+			Nft::token_uri((collection_id, token_id)),
 			b"ethereum://0x0000\xE2\x80\xA6007b/1".to_vec()
 		);
 	});
