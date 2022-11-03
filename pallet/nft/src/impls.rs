@@ -80,13 +80,8 @@ impl<T: Config> Pallet<T> {
 					.expect("Not written");
 				},
 				MetadataScheme::Ethereum(contract_address) => {
-					write!(
-						&mut token_uri,
-						"ethereum://{:?}/{}",
-						contract_address,
-						token_id.1
-					)
-					.expect("Not written");
+					write!(&mut token_uri, "ethereum://{:?}/{}", contract_address, token_id.1)
+						.expect("Not written");
 				},
 			}
 			token_uri.inner().clone()
