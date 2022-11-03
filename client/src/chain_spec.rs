@@ -1,5 +1,6 @@
 use hex_literal::hex;
 use sc_service::ChainType;
+use seed_runtime::constants::{XRP_DECIMALS, XRP_SYMBOL};
 use seed_runtime::{
 	constants::{
 		ONE_ROOT, ONE_XRP, ROOT_ASSET_ID, ROOT_DECIMALS, ROOT_MINIMUM_BALANCE, ROOT_NAME,
@@ -235,12 +236,7 @@ fn testnet_genesis(
 			ROOT_SYMBOL.as_bytes().to_vec(),
 			ROOT_DECIMALS,
 		),
-		(
-			XRP_ASSET_ID,
-			XRP_NAME.as_bytes().to_vec(),
-			ROOT_SYMBOL.as_bytes().to_vec(),
-			ROOT_DECIMALS,
-		),
+		(XRP_ASSET_ID, XRP_NAME.as_bytes().to_vec(), XRP_SYMBOL.as_bytes().to_vec(), XRP_DECIMALS),
 	];
 	let assets = vec![
 		(ROOT_ASSET_ID, root_key, true, ROOT_MINIMUM_BALANCE),
