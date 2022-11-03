@@ -77,7 +77,7 @@ mod bag_thresholds;
 pub mod constants;
 use constants::{
 	RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT,
-	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION, DECODED_FEE_PROXY_LOCATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -97,7 +97,6 @@ pub mod runner;
 use runner::FeePreferencesRunner;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
-
 #[cfg(test)]
 mod tests;
 
@@ -898,7 +897,7 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 	}
 
 	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
-		let decoded_override_destination = H160::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 187]);
+		let decoded_override_destination = H160::from_slice(DECODED_FEE_PROXY_LOCATION);
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
 			log::info!("OVERRIDDEN");
@@ -996,6 +995,20 @@ impl From<InvalidEvmTransactionError> for RuntimeError {
 		RuntimeError::Unknown
 	}
 }
+
+// impl From<InvalidEvmTransactionError> for pallet_evm::Error<Runtime> {
+// 	fn from(err: InvalidEvmTransactionError) -> RuntimeError  {
+// 		// TODO: match on each and give correct variant
+// 		pallet_evm::Error<Runtime>::BalanceLow
+// 	}
+// }
+
+// impl From<InvalidEvmTransactionError> for pallet_ethereum::Error<Runtime> {
+// 	fn from(err: InvalidEvmTransactionError) -> RuntimeError  {
+// 		// TODO: match on each and give correct variant
+// 		pallet_ethereum::Error<Runtime>::BalanceLow
+// 	}
+// }
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
