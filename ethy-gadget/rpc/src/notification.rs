@@ -17,13 +17,14 @@
 use serde::{Deserialize, Serialize};
 use sp_core::{Bytes, H256};
 
+use seed_primitives::ethy::crypto::AuthorityId;
 use seed_primitives::{
 	ethy::{EventProofId, ValidatorSetId},
 	AccountId20,
 };
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct EventProofResponse {
+pub struct EthEventProofResponse {
 	/// The event proof Id
 	pub event_id: EventProofId,
 	/// The signatures in the request
@@ -39,12 +40,17 @@ pub struct EventProofResponse {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct XrplTxProofResponse {
+pub struct XrplEventProofResponse {
 	/// The event proof Id
 	pub event_id: EventProofId,
-	/// The signatures in the request and the index of the authority ('notary keys' which produced
-	/// it)
-	pub signatures: Vec<(u32, Bytes)>,
-	/// The block hash of the event (finalized)
+	/// The Xrpl validator signatures in the request
+	pub signatures: Vec<Bytes>,
+	/// The Xrpl validators that signed the request
+	pub validators: Vec<AuthorityId>,
+	/// The validators set Id that signed the proof
+	pub validator_set_id: ValidatorSetId,
+	/// THe block hash of the event (finalized)
 	pub block: H256,
+	/// Metadata tag
+	pub tag: Option<Bytes>,
 }
