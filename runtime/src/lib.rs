@@ -858,11 +858,7 @@ pub enum RuntimeError {
 
 
 pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
-// pub struct HandleTxValidation<E>(CheckEvmTransaction<E>);
-
-// impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<Runtime> for HandleTxValidation<E> {
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
-		// fn validate_in_pool_for(evm_config: &CheckEvmTransaction<Runtime>, who: &AccountId) -> Result<(), InvalidEvmTransactionError> {
 	fn validate_in_pool_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
 			if evm_config.transaction.nonce < who.nonce {
 			return Err(InvalidEvmTransactionError::TxNonceTooLow.into());
@@ -1000,20 +996,6 @@ impl From<InvalidEvmTransactionError> for RuntimeError {
 		RuntimeError::Unknown
 	}
 }
-
-// impl From<InvalidEvmTransactionError> for pallet_evm::Error<Runtime> {
-// 	fn from(err: InvalidEvmTransactionError) -> RuntimeError  {
-// 		// TODO: match on each and give correct variant
-// 		pallet_evm::Error<Runtime>::BalanceLow
-// 	}
-// }
-
-// impl From<InvalidEvmTransactionError> for pallet_ethereum::Error<Runtime> {
-// 	fn from(err: InvalidEvmTransactionError) -> RuntimeError  {
-// 		// TODO: match on each and give correct variant
-// 		pallet_ethereum::Error<Runtime>::BalanceLow
-// 	}
-// }
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
