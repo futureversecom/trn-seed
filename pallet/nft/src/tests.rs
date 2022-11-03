@@ -2237,7 +2237,7 @@ fn token_uri_construction() {
 			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.json".to_vec(),
 		);
 
-		let collection_address = H160::zero();
+		let collection_address = H160::from_low_u64_be(123);
 		let token_id = 1;
 		collection_id = Nft::next_collection_uuid().unwrap();
 		assert_ok!(Nft::create_collection(
@@ -2250,8 +2250,8 @@ fn token_uri_construction() {
 			None,
 		));
 		assert_eq!(
-			Nft::token_uri((collection_id, token_id)),
-			format!("ethereum://{}/{}", collection_address.to_string(), token_id).as_bytes()
+			Nft::token_uri((collection_id, token_id)),			
+			b"ethereum://0x0000\xE2\x80\xA6007b/1".to_vec()
 		);
 	});
 }
