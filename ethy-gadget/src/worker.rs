@@ -171,7 +171,7 @@ where
 	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		let at = BlockId::hash(header.hash());
 		let xrpl_signers = self.client.runtime_api().xrpl_signers(&at).ok();
-		trace!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
+		info!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
 
 		xrpl_signers
 	}
@@ -298,8 +298,8 @@ where
 				|| active.id != self.validator_set.id
 				|| active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty()
 			{
-				debug!(target: "ethy", "💎 new active validator set: {:?}", active);
-				debug!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
+				info!(target: "ethy", "💎 new active validator set: {:?}", active);
+				info!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
 				metric_set!(self, ethy_validator_set_id, active.id);
 				self.gossip_validator.set_active_validators(active.validators.clone());
 				self.witness_record.set_validators(
@@ -409,7 +409,7 @@ where
 
 	/// Main loop for Ethy worker.
 	pub(crate) async fn run(mut self) {
-		debug!(target: "Ethy", "💎 run Ethy worker, best finalized block: #{:?}.", self.best_grandpa_block_header.number());
+		info!(target: "ethy", "💎 run Ethy worker, best finalized block: #{:?}.", self.best_grandpa_block_header.number());
 
 		// wait for sync to complete before accepting ethy messages...
 		while self.sync_oracle.is_major_syncing() {
