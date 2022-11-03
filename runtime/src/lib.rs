@@ -901,22 +901,24 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 		Ok(())
 	}
 
-	// fn with_balance_for(evm_config: &CheckEvmTransaction<Runtime>, who: &AccountId) -> Result<(), E> {
 	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
+		let decoded_override_destination = H160::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 187]);
+		// If we are not overriding with a fee preference, proceed with calculating a fee
+		if evm_config.transaction.to != Some(decoded_override_destination) {
+			log::info!("OVERRIDDEN");
 			// Get fee data from either a legacy or typed transaction input.
-		let (_, effective_gas_price) = Self::transaction_fee_input(evm_config)?;
+			let (_, effective_gas_price) = Self::transaction_fee_input(evm_config)?;
 
-		// TODO: Alter the transaction fee logic here
-
-		// let fee = effective_gas_price
-		// 	.unwrap_or_default()
-		// 	.saturating_mul(evm_config.transaction.gas_limit);
-		// if evm_config.config.is_transactional || fee > U256::zero() {
-			// let total_payment = evm_config.transaction.value.saturating_add(fee);
-			// if who.balance < total_payment {
-			// 	return Err(InvalidEvmTransactionError::BalanceTooLow.into());
-			// }
-		// }
+			let fee = effective_gas_price
+				.unwrap_or_default()
+				.saturating_mul(evm_config.transaction.gas_limit);
+			if evm_config.config.is_transactional || fee > U256::zero() {
+				let total_payment = evm_config.transaction.value.saturating_add(fee);
+				if who.balance < total_payment {
+					return Err(InvalidEvmTransactionError::BalanceTooLow.into());
+				}
+			}
+		}
 		Ok(())
 	}
 
