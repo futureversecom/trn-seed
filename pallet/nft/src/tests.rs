@@ -2236,6 +2236,25 @@ fn token_uri_construction() {
 			Nft::token_uri((collection_id, 1)),
 			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.json".to_vec(),
 		);
+
+		let collection_address = H160::zero();
+		let token_id = 1;
+		collection_id = Nft::next_collection_uuid().unwrap();
+		assert_ok!(Nft::create_collection(
+			Some(owner).into(),
+			b"test-collection".to_vec(),
+			quantity,
+			None,
+			None,
+			MetadataScheme::Ethereum(
+				collection_address
+			),
+			None,
+		));
+		assert_eq!(
+			Nft::token_uri((collection_id, token_id)),
+			format!("ethereum://{}/{}", collection_address.to_string(), token_id).as_bytes()
+		);
 	});
 }
 
