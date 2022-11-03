@@ -27,6 +27,7 @@ use seed_primitives::TokenId;
 use sp_core::H160;
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
+use std::fmt::Write;
 
 // Create an NFT collection
 // Returns the created `collection_id`
@@ -2239,6 +2240,7 @@ fn token_uri_construction() {
 
 		let collection_address = H160::from_low_u64_be(123);
 		let token_id = 1;
+
 		collection_id = Nft::next_collection_uuid().unwrap();
 		assert_ok!(Nft::create_collection(
 			Some(owner).into(),
@@ -2249,9 +2251,10 @@ fn token_uri_construction() {
 			MetadataScheme::Ethereum(collection_address),
 			None,
 		));
+
 		assert_eq!(
 			Nft::token_uri((collection_id, token_id)),
-			b"ethereum://0x0000\xE2\x80\xA6007b/1".to_vec()
+			b"ethereum://0x000000000000000000000000000000000000007b/1".to_vec()
 		);
 	});
 }

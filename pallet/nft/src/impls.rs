@@ -82,8 +82,8 @@ impl<T: Config> Pallet<T> {
 				MetadataScheme::Ethereum(contract_address) => {
 					write!(
 						&mut token_uri,
-						"ethereum://{}/{}",
-						contract_address.to_string(),
+						"ethereum://{:?}/{}",
+						contract_address,
 						token_id.1
 					)
 					.expect("Not written");
