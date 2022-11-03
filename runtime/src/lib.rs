@@ -8,8 +8,9 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::{Decode, Encode};
-use fp_rpc::TransactionStatus;
+use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
+use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
 use pallet_evm::{
@@ -21,7 +22,7 @@ use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
 		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup,
-		PostDispatchInfoOf, Verify, UniqueSaturatedInto
+		PostDispatchInfoOf, UniqueSaturatedInto, Verify,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -30,9 +31,8 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Percent,
 };
 pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
-use sp_std::prelude::*;
 use sp_std::marker::PhantomData;
-use evm::backend::Basic;
+use sp_std::prelude::*;
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -76,8 +76,9 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT,
-	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION, DECODED_FEE_PROXY_LOCATION,
+	RootAssetId, XrpAssetId, DAYS, DECODED_FEE_PROXY_LOCATION, EPOCH_DURATION_IN_SLOTS,
+	MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA,
+	SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -852,14 +853,13 @@ const fn seed_london() -> EvmConfig {
 pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 pub enum RuntimeError {
-	Unknown
+	Unknown,
 }
-
 
 pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
 	fn validate_in_pool_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
-			if evm_config.transaction.nonce < who.nonce {
+		if evm_config.transaction.nonce < who.nonce {
 			return Err(InvalidEvmTransactionError::TxNonceTooLow.into());
 		}
 		Self::validate_common(evm_config)
@@ -900,7 +900,6 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 		let decoded_override_destination = H160::from_slice(DECODED_FEE_PROXY_LOCATION);
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
-			log::info!("OVERRIDDEN");
 			// Get fee data from either a legacy or typed transaction input.
 			let (_, effective_gas_price) = Self::transaction_fee_input(evm_config)?;
 
@@ -917,7 +916,9 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 		Ok(())
 	}
 
-	fn transaction_fee_input(evm_config: &CheckEvmTransaction<E>) -> Result<(U256, Option<U256>), E> {
+	fn transaction_fee_input(
+		evm_config: &CheckEvmTransaction<E>,
+	) -> Result<(U256, Option<U256>), E> {
 		match (
 			evm_config.transaction.gas_price,
 			evm_config.transaction.max_fee_per_gas,
@@ -928,7 +929,7 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 			// EIP-1559 transaction without tip.
 			(None, Some(max_fee_per_gas), None) => {
 				Ok((max_fee_per_gas, Some(evm_config.config.base_fee)))
-			}
+			},
 			// EIP-1559 tip.
 			(None, Some(max_fee_per_gas), Some(max_priority_fee_per_gas)) => {
 				if max_priority_fee_per_gas > max_fee_per_gas {
@@ -941,7 +942,7 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 					.unwrap_or_else(U256::max_value)
 					.min(max_fee_per_gas);
 				Ok((max_fee_per_gas, Some(effective_gas_price)))
-			}
+			},
 			_ => {
 				if evm_config.config.is_transactional {
 					Err(InvalidEvmTransactionError::InvalidPaymentInput.into())
@@ -949,7 +950,7 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 					// Allow non-set fee input for non-transactional calls.
 					Ok((U256::zero(), None))
 				}
-			}
+			},
 		}
 	}
 
@@ -987,28 +988,12 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 	}
 }
 
-
-
 impl From<InvalidEvmTransactionError> for RuntimeError {
-	fn from(err: InvalidEvmTransactionError) -> RuntimeError  {
+	fn from(err: InvalidEvmTransactionError) -> RuntimeError {
 		// TODO: match on each and give correct variant
 		RuntimeError::Unknown
 	}
 }
-
-// impl From<InvalidEvmTransactionError> for pallet_evm::Error<Runtime> {
-// 	fn from(err: InvalidEvmTransactionError) -> RuntimeError  {
-// 		// TODO: match on each and give correct variant
-// 		pallet_evm::Error<Runtime>::BalanceLow
-// 	}
-// }
-
-// impl From<InvalidEvmTransactionError> for pallet_ethereum::Error<Runtime> {
-// 	fn from(err: InvalidEvmTransactionError) -> RuntimeError  {
-// 		// TODO: match on each and give correct variant
-// 		pallet_ethereum::Error<Runtime>::BalanceLow
-// 	}
-// }
 
 impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
@@ -1019,7 +1004,7 @@ impl pallet_evm::Config for Runtime {
 	type AddressMapping = AddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<XrpCurrency>;
 	type Event = Event;
-	type Runner = FeePreferencesRunner<Self, Self>;  
+	type Runner = FeePreferencesRunner<Self, Self>;
 	type PrecompilesType = FutureversePrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EthereumChainId;
