@@ -1,9 +1,6 @@
 use crate::Dex;
 use ethabi::{ParamType, Token};
-use frame_support::{
-	ensure,
-	traits::{fungibles::InspectMetadata, Get},
-};
+use frame_support::{ensure, traits::fungibles::InspectMetadata};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -201,15 +198,15 @@ where
 			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional)
 				.map_err(|err| RunnerError { error: err.into(), weight })?;
 
-			let native_asset_id = <T as pallet_assets_ext::Config>::NativeAssetId::get();
+			let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
 			let decimals = <pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
-				&native_asset_id,
+				&gas_token_asset_id,
 			);
 			let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 
 			// Buy the native fee currency paying with the user's nominated token
 			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
-			let path = vec![payment_asset_id, native_asset_id];
+			let path = vec![payment_asset_id, gas_token_asset_id];
 
 			if total_fee_scaled > 0 {
 				// total_fee_scaled is 0 when user doesnt have native currency
