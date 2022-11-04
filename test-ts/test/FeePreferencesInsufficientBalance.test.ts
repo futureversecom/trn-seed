@@ -1,3 +1,5 @@
+// Call an EVM transaction with fee preferences for an account that has zero native token balance, ensuring that the preferred asset with liquidity is spent instead
+
 import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import { Contract, Wallet, utils } from 'ethers';
@@ -51,8 +53,6 @@ const assetIdToERC20ContractAddress = (assetId: string | Number): string => {
   return web3.utils.toChecksumAddress(`0xCCCCCCCC${asset_id_hex}000000000000000000000000`);
 }
 
-// Call an EVM transaction with fee preferences for an account that has zero native token balance,
-// ensuring that the preferred asset with liquidity is spent instead
 describe("Fee Preferences", function () {
   const ALICE_PRIVATE_KEY = '0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854';
   const BOB_PRIVATE_KEY = '0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf';

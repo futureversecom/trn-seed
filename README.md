@@ -21,7 +21,7 @@ Unit tests
 cargo test
 ```
 E2E tests
-Run the node locally, then run:
+Start the node, then run:
 
 ```shell
 cd test-ts

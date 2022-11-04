@@ -237,6 +237,7 @@ parameter_types! {
 	pub const OperationalFeeMultiplier: u8 = 5;
 	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
 }
+
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type Event = Event;
@@ -827,6 +828,7 @@ parameter_types! {
 	/// 0.000015 XRP per gas
 	pub const DefaultBaseFeePerGas: u64 = 1_500_000_000_000;
 }
+
 impl pallet_base_fee::Config for Runtime {
 	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
 	type Event = Event;
@@ -852,12 +854,9 @@ const fn seed_london() -> EvmConfig {
 }
 pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
-pub enum RuntimeError {
-	Unknown,
-}
-
 pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
+	
 	fn validate_in_pool_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
 		if evm_config.transaction.nonce < who.nonce {
 			return Err(InvalidEvmTransactionError::TxNonceTooLow.into());
@@ -985,13 +984,6 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 		}
 
 		Ok(())
-	}
-}
-
-impl From<InvalidEvmTransactionError> for RuntimeError {
-	fn from(err: InvalidEvmTransactionError) -> RuntimeError {
-		// TODO: match on each and give correct variant
-		RuntimeError::Unknown
 	}
 }
 

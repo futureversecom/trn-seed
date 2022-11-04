@@ -4,7 +4,6 @@ import { Contract, Wallet} from 'ethers';
 import {ApiPromise, WsProvider, Keyring} from '@polkadot/api';
 import {hexToU8a} from '@polkadot/util';
 import {AddressOrPair} from "@polkadot/api/types";
-// import ERC721PrecompileCaller from '../artifacts/contracts/ERC721PrecompileCaller.sol/ERC721PrecompileCaller.json';
 
 const erc721Abi = [
   'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
@@ -56,8 +55,6 @@ const main = async () => {
   let precompileCaller: Contract;
   // Setup api instance
     const wsProvider = new WsProvider(`ws://localhost:9944`);
-    // const wsProvider = new WsProvider(`wss://porcini.au.rootnet.app/ws`);
-
 
     // Setup Root api instance and keyring
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
