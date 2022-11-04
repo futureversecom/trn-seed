@@ -62,7 +62,7 @@ fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 }
 
 /// seed implementation of the evm runner which handles the case where users are attempting
-/// to set their payment asset. In this case, we will exchange their desired asset into native
+/// to set their payment asset. In this case, we will exchange their desired asset into gas
 /// token (XRP) to complete the transaction
 pub struct FeePreferencesRunner<T, U>(PhantomData<(T, U)>);
 
@@ -103,7 +103,7 @@ where
 		}
 	}
 
-	// Calculate gas price for transaction to use for exchanging asset into native currency
+	// Calculate gas price for transaction to use for exchanging asset into gas-token currency
 	pub fn calculate_total_gas(
 		gas_limit: u64,
 		max_fee_per_gas: Option<U256>,
@@ -204,12 +204,12 @@ where
 			);
 			let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 
-			// Buy the native fee currency paying with the user's nominated token
+			// Buy the gas asset fee currency paying with the user's nominated token
 			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
 			let path = vec![payment_asset_id, gas_token_asset_id];
 
 			if total_fee_scaled > 0 {
-				// total_fee_scaled is 0 when user doesnt have native currency
+				// total_fee_scaled is 0 when user doesnt have gas asset currency
 				Dex::do_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
 					.map_err(|err| {
 						// TODO implement err into RunnerError
@@ -226,7 +226,7 @@ where
 			}
 		}
 
-		// continue with the call - with fees payable in native currency - via dex swap
+		// continue with the call - with fees payable in gas asset currency - via dex swap
 		<Runner<T> as RunnerT<T>>::call(
 			source,
 			target,
