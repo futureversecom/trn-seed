@@ -214,12 +214,13 @@ where
 					.map_err(|err| {
 						// TODO implement err into RunnerError
 						log!(
-							debug,
-							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?}",
+							error,
+							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
 							payment_asset_id,
 							max_payment,
 							total_fee_scaled,
-							err
+							err,
+							path
 						);
 						RunnerError { error: Self::Error::WithdrawFailed, weight }
 					})?;

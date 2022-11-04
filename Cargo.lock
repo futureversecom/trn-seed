@@ -1830,7 +1830,7 @@ dependencies = [
  "evm",
  "fc-db",
  "fc-rpc-core",
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "fp-rpc",
  "fp-storage",
  "futures",
@@ -2002,7 +2002,7 @@ source = "git+https://github.com/futureversecom/frontier?branch=frevert/multicur
 dependencies = [
  "ethereum",
  "ethereum-types",
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "frame-support",
  "parity-scale-codec 3.2.1",
  "sp-core",
@@ -2023,13 +2023,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "fp-evm"
+version = "3.0.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27#e9a7cb20b9a459540a165c8312e722f9ba70b282"
+dependencies = [
+ "evm",
+ "frame-support",
+ "parity-scale-codec 3.2.1",
+ "serde",
+ "sp-core",
+ "sp-std",
+]
+
+[[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency#3efffa2383a93f92bd285b7180b79db653864f0f"
 dependencies = [
  "ethereum",
  "ethereum-types",
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "parity-scale-codec 3.2.1",
  "scale-info 2.3.0",
  "sp-api",
@@ -4672,7 +4685,7 @@ name = "pallet-base-fee"
 version = "1.0.0"
 source = "git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency#3efffa2383a93f92bd285b7180b79db653864f0f"
 dependencies = [
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "frame-support",
  "frame-system",
  "parity-scale-codec 3.2.1",
@@ -4802,13 +4815,13 @@ dependencies = [
  "evm",
  "fp-consensus",
  "fp-ethereum",
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "fp-rpc",
  "fp-self-contained",
  "fp-storage",
  "frame-support",
  "frame-system",
- "pallet-evm",
+ "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "pallet-timestamp",
  "parity-scale-codec 3.2.1",
  "rlp",
@@ -4855,7 +4868,31 @@ version = "6.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency#3efffa2383a93f92bd285b7180b79db653864f0f"
 dependencies = [
  "evm",
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "log",
+ "pallet-timestamp",
+ "parity-scale-codec 3.2.1",
+ "primitive-types",
+ "rlp",
+ "scale-info 2.3.0",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm"
+version = "6.0.0-dev"
+source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27#e9a7cb20b9a459540a165c8312e722f9ba70b282"
+dependencies = [
+ "evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27)",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -4878,7 +4915,7 @@ name = "pallet-evm-precompile-blake2"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency#3efffa2383a93f92bd285b7180b79db653864f0f"
 dependencies = [
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
 ]
 
 [[package]]
@@ -4886,7 +4923,7 @@ name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency#3efffa2383a93f92bd285b7180b79db653864f0f"
 dependencies = [
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "num",
 ]
 
@@ -4895,7 +4932,7 @@ name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency#3efffa2383a93f92bd285b7180b79db653864f0f"
 dependencies = [
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "tiny-keccak",
 ]
 
@@ -4904,7 +4941,7 @@ name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency#3efffa2383a93f92bd285b7180b79db653864f0f"
 dependencies = [
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "ripemd",
  "sp-io",
 ]
@@ -4913,13 +4950,13 @@ dependencies = [
 name = "pallet-evm-precompiles-erc20"
 version = "2.0.0"
 dependencies = [
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "frame-support",
  "frame-system",
  "num_enum",
  "pallet-assets",
  "pallet-assets-ext",
- "pallet-evm",
+ "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "pallet-token-approvals",
  "parity-scale-codec 3.2.1",
  "precompile-utils",
@@ -4935,11 +4972,11 @@ dependencies = [
 name = "pallet-evm-precompiles-erc721"
 version = "2.0.0"
 dependencies = [
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "frame-support",
  "frame-system",
  "num_enum",
- "pallet-evm",
+ "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "pallet-nft",
  "pallet-token-approvals",
  "parity-scale-codec 3.2.1",
@@ -4955,11 +4992,11 @@ dependencies = [
 name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
 dependencies = [
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27)",
  "frame-support",
  "frame-system",
  "num_enum",
- "pallet-evm",
+ "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27)",
  "pallet-nft",
  "precompile-utils",
  "scale-info 1.0.0",
@@ -5699,7 +5736,7 @@ version = "0.1.0"
 dependencies = [
  "affix",
  "evm",
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "frame-support",
  "frame-system",
  "hex",
@@ -5707,7 +5744,7 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "num_enum",
- "pallet-evm",
+ "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "parity-scale-codec 3.2.1",
  "precompile-utils-macro",
  "sha3 0.10.6",
@@ -7664,7 +7701,7 @@ dependencies = [
  "ethabi",
  "ethereum",
  "evm",
- "fp-evm",
+ "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "fp-rpc",
  "fp-self-contained",
  "frame-election-provider-support",
@@ -7689,7 +7726,7 @@ dependencies = [
  "pallet-erc20-peg",
  "pallet-ethereum",
  "pallet-ethy",
- "pallet-evm",
+ "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=frevert/multicurrency)",
  "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
