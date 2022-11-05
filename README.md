@@ -28,6 +28,8 @@ cd test-ts
 yarn
 npx hardhat test
 ```
+Note: currently requires running one suite at a time with `.only()`, until a solution for testing with fresh state is found
+
 
 ## Formatting/Linting
 ```
