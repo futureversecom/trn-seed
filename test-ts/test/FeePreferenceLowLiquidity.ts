@@ -165,13 +165,13 @@ describe("Fee Preferences under low token pair liquidity", function () {
 
     let didContainError = false;
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
-    await executeForPreviousEvent(api, { method: 'ExtrinsicFailed' }, 2, async (eventData) => {
-      if (eventData.event.data.dispatchError) {
+    await executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
+      if ('dispatchError' in event.data) {
         didContainError = true;
         // Expect error is emitted from EVM pallet, which is currently 27
-        expect(eventData.event.data.dispatchError.index).to.equal('27')
+        expect(event.data.dispatchError.index).to.equal('27')
         // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
-        expect(eventData.event.data.dispatchError.error).to.equal('0x03000000')
+        expect(event.data.dispatchError.error).to.equal('0x03000000')
       }
     });
 

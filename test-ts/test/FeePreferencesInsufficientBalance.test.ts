@@ -55,7 +55,7 @@ const assetIdToERC20ContractAddress = (assetId: string | Number): string => {
   return web3.utils.toChecksumAddress(`0xCCCCCCCC${asset_id_hex}000000000000000000000000`);
 }
 
-describe("Fee Preferences", function () {
+describe("Fee Preferences in low asset balance scenario", function () {
   const ALICE_PRIVATE_KEY = '0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854';
   const BOB_PRIVATE_KEY = '0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf';
   const EMPTY_ACCT_PRIVATE_KEY = '0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589';
@@ -164,13 +164,13 @@ describe("Fee Preferences", function () {
     await sleep(7000);
     let didContainError = false;
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
-    await executeForPreviousEvent(api, { method: 'ExtrinsicFailed' }, 2, async (eventData) => {
-      if (eventData.event.data.dispatchError) {
+    await executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
+      if ('dispatchError' in event.data) {
         didContainError = true;
         // Expect error is emitted from EVM pallet, which is currently 27
-        expect(eventData.event.data.dispatchError.index).to.equal('27')
+        expect(event.data.dispatchError.index).to.equal('27')
         // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
-        expect(eventData.event.data.dispatchError.error).to.equal('0x03000000')
+        expect(event.data.dispatchError.error).to.equal('0x03000000')
       }
     });
 
