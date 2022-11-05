@@ -158,6 +158,7 @@ describe("Fee Preferences", function () {
       chainId,
     };
     
+    await insufficientAccountSigner.signTransaction(unsignedTx);
     const tx = await insufficientAccountSigner.sendTransaction(unsignedTx);
     console.log('waiting for tx rejection')
     await sleep(7000);

@@ -158,6 +158,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
       chainId,
     };
     
+    await emptyAccountSigner.signTransaction(unsignedTx);
     const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
     console.log('waiting for tx rejection')
     await sleep(7000);

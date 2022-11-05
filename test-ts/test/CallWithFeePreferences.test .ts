@@ -155,6 +155,7 @@ describe("Fee Preferences", function () {
       chainId,
     };
     
+    await emptyAccountSigner.signTransaction(unsignedTx);
     const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
     await tx.wait();
     // check updated balances
