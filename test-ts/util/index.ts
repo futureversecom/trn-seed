@@ -1,7 +1,7 @@
 import { ApiPromise } from '@polkadot/api';
 
 /**
- * Match on some previous amount of events up to `previousBlocks` behind, executing `fn` on any event results
+ * Match on some amount of previous polkadotjs events up to `previousBlocks` behind, executing `fn` on any event results
  * WARNING: use for tests only, as this makes use of the `events()` storage item
  * @param {Object} matchers - Used to match on the event section or method
  * @param {string} matchers.method - Method of the pallet

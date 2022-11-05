@@ -856,7 +856,6 @@ pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
-	
 	fn validate_in_pool_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
 		if evm_config.transaction.nonce < who.nonce {
 			return Err(InvalidEvmTransactionError::TxNonceTooLow.into());
