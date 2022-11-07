@@ -33,9 +33,9 @@ Returns the amount of output token that can be obtained by swapping an amount of
   "jsonrpc": "2.0",
   "method": "dex_quote",
   "params": [
-    "0x0000000000000000000000000000000000000000000000000000000000000001",
-    1124,
-    2145
+    1,
+    5,
+    10
   ],
   "id": 1
 }
@@ -46,7 +46,7 @@ Returns the amount of output token that can be obtained by swapping an amount of
 ```sh
 curl -X POST \
   -H "Content-Type: application/json" \
-  -d '{"id":1, "jsonrpc":"2.0", "method":"dex_quote", "params":[ "0x0000000000000000000000000000000000000000000000000000000000000001", 2, 10 ]}' \
+  -d '{"id":1, "jsonrpc":"2.0", "method":"dex_quote", "params":[ 1, 5, 10 ]}' \
   http://localhost:9933
 ```
 
@@ -55,7 +55,7 @@ curl -X POST \
 ```json
 {
   "jsonrpc": "2.0",
-  "result": { "Ok": "0x5" },
+  "result": { "Ok": 2 },
   "id": 1
 }
 ```
