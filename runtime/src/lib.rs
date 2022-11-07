@@ -1168,6 +1168,33 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_dex_rpc_runtime_api::DexApi<
+		Block,
+		Runtime,
+	> for Runtime {
+		fn quote(
+			amount_a: U256,
+			reserve_a: u128,
+			reserve_b: u128,
+		) -> Result<U256, sp_runtime::DispatchError> {
+			Dex::quote(amount_a, reserve_a, reserve_b)
+		}
+
+		fn get_amounts_out(
+			amount_in: Balance,
+			path: Vec<AssetId>,
+		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
+			Dex::get_amounts_out(amount_in, &path)
+		}
+
+		fn get_amounts_in(
+			amount_out: Balance,
+			path: Vec<AssetId>,
+		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
+			Dex::get_amounts_in(amount_out, &path)
+		}
+	}
+
 	impl pallet_nft_rpc_runtime_api::NftApi<
 		Block,
 		AccountId,
