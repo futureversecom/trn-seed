@@ -14,7 +14,6 @@
  */
 
 use crate::*;
-use codec::alloc::string::ToString;
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
