@@ -65,7 +65,8 @@ pub mod keys {
 }
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
-	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, Hash, Index, Signature,
+	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
+	Signature, TokenId,
 };
 
 mod bag_thresholds;
@@ -109,7 +110,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 16,
+	spec_version: 18,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -347,9 +348,18 @@ impl pallet_scheduler::Config for Runtime {
 	type NoPreimagePostponement = ();
 }
 
+impl pallet_utility::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
+	/// % threshold to emit event TicketSequenceThresholdReached
+	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -362,6 +372,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
+	type TicketSequenceThreshold = TicketSequenceThreshold;
 }
 
 parameter_types! {
@@ -720,6 +731,7 @@ parameter_types! {
 	pub const RelayerBond: Balance = 100 * ONE_XRP;
 	/// Max Xrpl notary (validator) public keys
 	pub const MaxXrplKeys: u8 = 8;
+	pub const MaxNewSigners: u8 = 20;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -745,6 +757,7 @@ impl pallet_ethy::Config for Runtime {
 	type EthyId = EthBridgeId;
 	/// Reports final session status of an era
 	type FinalSessionTracker = StakingSessionTracker;
+	type MaxNewSigners = MaxNewSigners;
 	/// Handles multi-currency fungible asset system
 	type MultiCurrency = AssetsExt;
 	/// The native asset id used for challenger and relayer bonds
@@ -930,6 +943,8 @@ construct_runtime! {
 		Babe: pallet_babe,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+		Utility: pallet_utility::{Pallet, Call, Event},
+
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -1150,6 +1165,19 @@ impl_runtime_apis! {
 			UncheckedExtrinsic::new_unsigned(
 				pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
 			)
+		}
+	}
+
+	impl pallet_nft_rpc_runtime_api::NftApi<
+		Block,
+		AccountId,
+		Runtime,
+	> for Runtime {
+		fn owned_tokens(collection_id: CollectionUuid, who: AccountId) -> Vec<TokenId> {
+			Nft::owned_tokens(collection_id, &who)
+		}
+		fn token_uri(token_id: TokenId) -> Vec<u8> {
+			Nft::token_uri(token_id)
 		}
 	}
 

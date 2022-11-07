@@ -7,7 +7,7 @@ edition = "2021"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 log = { version = "0.4.17", default-features = false }
-scale-info = { version = "2.2.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.145", default-features = false, optional = true, features = ["derive"] }
 
 # Substrate
@@ -34,6 +34,7 @@ pallet-sudo = { git = "https://github.com/futureversecom/substrate", branch = "p
 pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-utility = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-block-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-consensus-babe = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
@@ -72,6 +73,7 @@ pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-echo = { path = "../pallet/echo", default-features = false }
 pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
+pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
@@ -118,6 +120,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
+	"pallet-utility/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-babe/std",
@@ -137,6 +140,7 @@ std = [
 	"pallet-dex/std",
 	"pallet-ethy/std",
 	"pallet-nft/std",
+	"pallet-nft-rpc-runtime-api/std",
 	"pallet-xrpl-bridge/std",
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
@@ -163,4 +167,5 @@ std = [
 try-runtime = [
 	"frame-executive/try-runtime",
 	"frame-try-runtime",
+	"pallet-utility/try-runtime",
 ]

@@ -1085,20 +1085,25 @@ fn on_before_session_ending_handles_authorities() {
 			),
 		);
 
-		// Storage updated
+		// Storage should represent the storage before the authorities are finalized
+		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
+		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert!(EthBridge::next_authority_change().is_none());
+		assert_eq!(EthBridge::next_notary_keys(), next_keys);
+		assert!(EthBridge::notary_keys().is_empty());
+		assert!(EthBridge::bridge_paused());
+
+		// Item should be scheduled
+		let scheduled_block: BlockNumber = block_number + 75_u32;
+		Scheduler::on_initialize(scheduled_block.into());
+
+		// This should update all the storage items
+		assert!(!EthBridge::bridge_paused());
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		assert!(EthBridge::next_authority_change().is_none());
 		assert!(EthBridge::next_notary_keys().is_empty());
 		assert_eq!(EthBridge::notary_keys(), next_keys);
-
-		// Item should be scheduled and bridge still paused
-		assert!(EthBridge::bridge_paused());
-		let scheduled_block: BlockNumber = block_number + 75_u32;
-
-		// This should unpause bridge
-		Scheduler::on_initialize(scheduled_block.into());
-		assert!(!EthBridge::bridge_paused());
 	});
 }
 

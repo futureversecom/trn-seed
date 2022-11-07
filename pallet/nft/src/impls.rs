@@ -80,13 +80,8 @@ impl<T: Config> Pallet<T> {
 					.expect("Not written");
 				},
 				MetadataScheme::Ethereum(contract_address) => {
-					write!(
-						&mut token_uri,
-						"ethereum://{}/{}",
-						contract_address.to_string(),
-						token_id.1
-					)
-					.expect("Not written");
+					write!(&mut token_uri, "ethereum://{:?}/{}", contract_address, token_id.1)
+						.expect("Not written");
 				},
 			}
 			token_uri.inner().clone()
@@ -267,7 +262,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Find the tokens owned by an `address` in the given collection
-	pub fn collected_tokens(collection_id: CollectionUuid, address: &T::AccountId) -> Vec<TokenId> {
+	pub fn owned_tokens(collection_id: CollectionUuid, address: &T::AccountId) -> Vec<TokenId> {
 		let mut owned_tokens = Vec::<TokenId>::default();
 
 		let mut owned_in_collection: Vec<TokenId> =
