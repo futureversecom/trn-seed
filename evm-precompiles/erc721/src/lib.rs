@@ -299,7 +299,7 @@ where
 		log3(
 			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
-			handle.context().caller,
+			from,
 			to,
 			EvmDataWriter::new().write(serial_number).build(),
 		)
@@ -435,7 +435,7 @@ where
 		log3(
 			handle.code_address(),
 			SELECTOR_LOG_TRANSFER,
-			handle.context().caller,
+			from,
 			to,
 			EvmDataWriter::new().write(serial_number).build(),
 		)
@@ -772,9 +772,7 @@ where
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
 			origin,
-			EvmDataWriter::new()
-				.write(Address::from(Into::<H160>::into(burn_account)))
-				.build(),
+			EvmDataWriter::new().write(Address::from(burn_account)).build(),
 		)
 		.record(handle)?;
 
@@ -805,7 +803,7 @@ where
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
 			origin,
-			EvmDataWriter::new().write(Address::from(Into::<H160>::into(new_owner))).build(),
+			EvmDataWriter::new().write(Address::from(new_owner)).build(),
 		)
 		.record(handle)?;
 
