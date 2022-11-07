@@ -4713,7 +4713,6 @@ dependencies = [
  "seed-primitives",
  "sp-api",
  "sp-blockchain",
- "sp-core",
  "sp-runtime",
  "sp-std",
 ]
@@ -4725,7 +4724,6 @@ dependencies = [
  "pallet-dex",
  "seed-primitives",
  "sp-api",
- "sp-core",
  "sp-runtime",
  "sp-std",
 ]
