@@ -5,17 +5,6 @@ import { JsonRpcProvider, Provider } from "@ethersproject/providers";
 import PrecompileCaller from '../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json';
 
 const xrpTokenAddress = web3.utils.toChecksumAddress('0xCCCCCCCC00000002000000000000000000000000');
-const erc20Abi = [
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)',
-  'function approve(address spender, uint256 amount) public returns (bool)',
-  'function allowance(address owner, address spender) public view returns (uint256)',
-  'function balanceOf(address who) public view returns (uint256)',
-  'function name() public view returns (string memory)',
-  'function symbol() public view returns (string memory)',
-  'function decimals() public view returns (uint8)',
-  'function transfer(address who, uint256 amount)',
-];
 
 describe('ERC20 Precompile', function () {
   let seedSigner: Wallet;

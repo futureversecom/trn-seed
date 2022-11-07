@@ -1,57 +1,12 @@
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import { Contract, Wallet, utils } from 'ethers';
-import web3 from 'web3';
 
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { executeForPreviousEvent } from '../../util/index'
-
-const typedefs = {
-  AccountId: 'EthereumAccountId',
-  AccountId20: 'EthereumAccountId',
-  AccountId32: 'EthereumAccountId',
-  Address: 'AccountId',
-  LookupSource: 'AccountId',
-  Lookup0: 'AccountId',
-  EthereumSignature: {
-    r: 'H256',
-    s: 'H256',
-    v: 'U8'
-  },
-  ExtrinsicSignature: 'EthereumSignature',
-  SessionKeys: '([u8; 32], [u8; 32])'
-};
-
-const FEE_PROXY_ADDRESS = '0x00000000000000000000000000000000000004bb';
-
-const FEE_PROXY_ABI = [
-  'function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)',
-];
-
-const ERC20_ABI = [
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)',
-  'function approve(address spender, uint256 amount) public returns (bool)',
-  'function allowance(address owner, address spender) public view returns (uint256)',
-  'function balanceOf(address who) public view returns (uint256)',
-  'function name() public view returns (string memory)',
-  'function symbol() public view returns (string memory)',
-  'function decimals() public view returns (uint8)',
-  'function transfer(address who, uint256 amount)',
-];
-
-const NATIVE_TOKEN_ID = 1;
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const assetIdToERC20ContractAddress = (assetId: string | Number): string => {
-  const asset_id_hex = (+assetId).toString(16).padStart(8, '0');
-  return web3.utils.toChecksumAddress(`0xCCCCCCCC${asset_id_hex}000000000000000000000000`);
-}
+import { executeForPreviousEvent, typedefs, sleep, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS } from '../../util/index'
 
 describe("Fee Preferences under low token pair liquidity", function () {
   const ALICE_PRIVATE_KEY = '0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854';
@@ -61,50 +16,13 @@ describe("Fee Preferences under low token pair liquidity", function () {
   let bob: KeyringPair;
   let emptyAccount: KeyringPair;
   let emptyAccountSigner: Wallet;
-  let xrpToken: Contract;
   let feeToken: Contract;
+  let xrpToken: Contract
   let api: ApiPromise;
-
-  async function setup() {
-    const wsProvider = new WsProvider(`ws://localhost:9944`);  
-    const keyring = new Keyring({ type: 'ethereum' });
-    const alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
-  
-    // Empty with regards to native balance only
-    const emptyAcct = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
-    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
-
-    await api.tx.assetsExt.createAsset().signAndSend(alice);
-  
-    await sleep(4000);
-  
-    // mint some tokens
-    const feeTokenAssetId = 1124;
-    await api.tx.assets.mint(feeTokenAssetId, alice.address, 2_000_000_000_000_000).signAndSend(alice);
-    await sleep(7000);
-    await api.tx.assets.mint(feeTokenAssetId, emptyAcct.address, 2_000_000_000_000_000).signAndSend(alice);
-  
-    await sleep(4000);
-  
-    // add liquidity for XRP<->token
-    const xrpTokenId = 2;
-    await api.tx.dex.addLiquidity(
-      feeTokenAssetId,
-      xrpTokenId,
-        100_000,
-        100_000,
-        100_000,
-        100_000,
-      0,
-    ).signAndSend(alice);
-    
-    await sleep(4000);
-  }
-
   let jsonProvider: JsonRpcProvider;
 
   // Setup api instance and keyring wallet addresses for alice and bob
-  beforeEach(async () => {
+  before(async () => {
     // Setup providers for jsonRPCs and WS
     jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
     const keyring = new Keyring({ type: 'ethereum' });
@@ -118,17 +36,44 @@ describe("Fee Preferences under low token pair liquidity", function () {
     xrpToken = new Contract(xrpTokenAddress, ERC20_ABI, emptyAccountSigner);    
     const feeTokenAssetId = 1124;
     feeToken = new Contract(assetIdToERC20ContractAddress(feeTokenAssetId), ERC20_ABI, emptyAccountSigner);
+
+    const wsProvider = new WsProvider(`ws://localhost:9944`);  
+    const alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
+  
+    // Empty with regards to native balance only
+    const emptyAcct = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
+    // add liquidity for XRP<->token
+    const xrpTokenId = 2;
+
+    const txes = [
+      await api.tx.assetsExt.createAsset(),
+      await api.tx.assets.mint(feeTokenAssetId, alice.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(feeTokenAssetId, emptyAcct.address, 2_000_000_000_000_000),
+      api.tx.dex.addLiquidity(
+        feeTokenAssetId,
+        xrpTokenId,
+          100_000,
+          100_000,
+          100_000,
+          100_000,
+        0,
+      )
+    ];
+
+    await new Promise<void>((resolve) => {
+      api.tx.utility
+        .batch(txes)
+        .signAndSend(alice, ({ status }) => {
+          if (status.isInBlock) {
+            console.log(`setup block hash: ${status.asInBlock}`);
+            resolve();
+          }
+        })
+      });
   });
 
   it('Fails to pay fees in non-native token if insufficient liquidity', async () => {
-    await loadFixture(setup);
-
-    // get token balances
-    const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
-    ]);
-
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
     const transferAmount = 1;
     let iface = new utils.Interface(ERC20_ABI);
@@ -159,7 +104,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
     };
     
     await emptyAccountSigner.signTransaction(unsignedTx);
-    const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+    await emptyAccountSigner.sendTransaction(unsignedTx);
     console.log('waiting for tx rejection')
     await sleep(7000);
 
@@ -177,6 +122,5 @@ describe("Fee Preferences under low token pair liquidity", function () {
 
     // The error should have been received in recent history
     expect(didContainError).to.be.true
-
   });
 });

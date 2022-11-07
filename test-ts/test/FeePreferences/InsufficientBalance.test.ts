@@ -1,64 +1,22 @@
 // Call an EVM transaction with fee preferences for an account that has zero native token balance, ensuring that the preferred asset with liquidity is spent instead
 
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import {expect} from "chai";
 import { Contract, Wallet, utils } from 'ethers';
-import web3 from 'web3';
 
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { executeForPreviousEvent } from '../../util/index'
-
-const typedefs = {
-  AccountId: 'EthereumAccountId',
-  AccountId20: 'EthereumAccountId',
-  AccountId32: 'EthereumAccountId',
-  Address: 'AccountId',
-  LookupSource: 'AccountId',
-  Lookup0: 'AccountId',
-  EthereumSignature: {
-    r: 'H256',
-    s: 'H256',
-    v: 'U8'
-  },
-  ExtrinsicSignature: 'EthereumSignature',
-  SessionKeys: '([u8; 32], [u8; 32])'
-};
-
-const FEE_PROXY_ADDRESS = '0x00000000000000000000000000000000000004bb';
-
-const FEE_PROXY_ABI = [
-  'function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)',
-];
-
-const ERC20_ABI = [
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)',
-  'function approve(address spender, uint256 amount) public returns (bool)',
-  'function allowance(address owner, address spender) public view returns (uint256)',
-  'function balanceOf(address who) public view returns (uint256)',
-  'function name() public view returns (string memory)',
-  'function symbol() public view returns (string memory)',
-  'function decimals() public view returns (uint8)',
-  'function transfer(address who, uint256 amount)',
-];
-
-const NATIVE_TOKEN_ID = 1;
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const assetIdToERC20ContractAddress = (assetId: string | Number): string => {
-  const asset_id_hex = (+assetId).toString(16).padStart(8, '0');
-  return web3.utils.toChecksumAddress(`0xCCCCCCCC${asset_id_hex}000000000000000000000000`);
-}
+import { executeForPreviousEvent, typedefs, sleep, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS } from '../../util/index'
 
 describe("Fee Preferences in low asset balance scenario", function () {
   const ALICE_PRIVATE_KEY = '0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854';
   const BOB_PRIVATE_KEY = '0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf';
   const EMPTY_ACCT_PRIVATE_KEY = '0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589';
+
+  const feeTokenAssetId = 1124;
+  const xrpTokenId = 2;
 
   let bob: KeyringPair;
   let insufficientAccount: KeyringPair;
@@ -67,69 +25,53 @@ describe("Fee Preferences in low asset balance scenario", function () {
   let feeToken: Contract;
   let api: ApiPromise;
 
-  async function setup() {
-    const wsProvider = new WsProvider(`ws://localhost:9944`);  
-    const keyring = new Keyring({ type: 'ethereum' });
-    const alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
-  
-    // Empty with regards to native balance only
-    const insufficientAccount = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
-    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
-    await api.tx.assetsExt.createAsset().signAndSend(alice);
-  
-    await sleep(4000);
-  
-    // mint some tokens
-    const feeTokenAssetId = 1124;
-    await api.tx.assets.mint(feeTokenAssetId, alice.address, 2_000_000_000_000_000).signAndSend(alice);
-    await sleep(7000);
-    // Give the account a low amount of tokens
-    await api.tx.assets.mint(feeTokenAssetId, insufficientAccount.address, 2_000).signAndSend(alice);
-  
-    await sleep(4000);
-  
-    // add liquidity for XRP<->token
-    const xrpTokenId = 2;
-    await api.tx.dex.addLiquidity(
-      feeTokenAssetId,
-      xrpTokenId,
-        100_000_000_000,
-        100_000_000_000,
-        100_000_000_000,
-        100_000_000_000,
-      0,
-    ).signAndSend(alice);
-    
-    await sleep(4000);
-  }
-
   // Setup api instance and keyring wallet addresses for alice and bob
-  beforeEach(async () => {
+  before(async () => {
     // Setup providers for jsonRPCs and WS
     const jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
+    const wsProvider = new WsProvider(`ws://localhost:9944`);  
     const keyring = new Keyring({ type: 'ethereum' });
     // alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
     insufficientAccount = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
-
     insufficientAccountSigner = new Wallet(EMPTY_ACCT_PRIVATE_KEY).connect(jsonProvider); // 'development' seed
 
     const xrpTokenAddress = assetIdToERC20ContractAddress(NATIVE_TOKEN_ID);
     xrpToken = new Contract(xrpTokenAddress, ERC20_ABI, insufficientAccountSigner);    
-    const feeTokenAssetId = 1124;
     feeToken = new Contract(assetIdToERC20ContractAddress(feeTokenAssetId), ERC20_ABI, insufficientAccountSigner);
+
+    const alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
+  
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
+    
+    const txes = [
+      api.tx.assetsExt.createAsset(),
+      api.tx.assets.mint(feeTokenAssetId, alice.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(feeTokenAssetId, insufficientAccount.address, 2_000),
+      api.tx.dex.addLiquidity(
+        feeTokenAssetId,
+        xrpTokenId,
+          100_000_000_000,
+          100_000_000_000,
+          100_000_000_000,
+          100_000_000_000,
+        0,
+      )
+    ];
+
+    await new Promise<void>((resolve) => {
+      api.tx.utility
+        .batch(txes)
+        .signAndSend(alice, ({ status }) => {
+          if (status.isInBlock) {
+            console.log(`setup block hash: ${status.asInBlock}`);
+            resolve();
+          }
+        })
+      });
   });
 
   it('Cannot pay fees with non-native, preferred token if low asset balance', async () => {
-    await loadFixture(setup);
-
-    // get token balances
-    const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(insufficientAccount.address),
-      feeToken.balanceOf(insufficientAccount.address),
-    ]);
-
-    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
     const transferAmount = 1;
     let iface = new utils.Interface(ERC20_ABI);
     const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);

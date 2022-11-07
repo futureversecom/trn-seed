@@ -8,6 +8,7 @@ import ERC721PrecompileCaller from '../artifacts/contracts/ERC721PrecompileCalle
 import OnERC721ReceivedSucceeds from '../artifacts/contracts/OnERC721Received.sol/OnERC721ReceivedSucceeds.json';
 import OnERC721ReceivedFails from '../artifacts/contracts/OnERC721Received.sol/OnERC721ReceivedFails.json';
 import web3 from 'web3';
+import { typedefs } from '../util/index'
 
 const erc721Abi = [
   'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
@@ -38,21 +39,6 @@ const nftAbi = [
   'event InitializeCollection(address indexed collectionOwner, address precompileAddress)',
   'function initializeCollection(address owner, bytes name, uint32 maxIssuance, uint8 metadataType, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)'
 ]
-
-const typedefs = {
-  AccountId: 'EthereumAccountId',
-  AccountId20: 'EthereumAccountId',
-  AccountId32: 'EthereumAccountId',
-  Address: 'AccountId',
-  LookupSource: 'AccountId',
-  Lookup0: 'AccountId',
-  EthereumSignature: {
-    r: 'H256',
-    s: 'H256',
-    v: 'U8'
-  },
-  ExtrinsicSignature: 'EthereumSignature'
-};
 
 // NFT Collection information
 const name = "test-collection";
