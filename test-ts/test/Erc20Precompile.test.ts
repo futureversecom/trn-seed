@@ -3,7 +3,6 @@ import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
 import web3 from 'web3';
 import { JsonRpcProvider, Provider } from "@ethersproject/providers";
 import PrecompileCaller from '../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json';
-import { Keyring } from '@polkadot/api';
 
 const xrpTokenAddress = web3.utils.toChecksumAddress('0xCCCCCCCC00000002000000000000000000000000');
 const erc20Abi = [
@@ -43,7 +42,7 @@ describe('ERC20 Precompile', function () {
 
     expect(
         await xrpToken.name()
-    ).to.equal("XRP");
+    ).to.equal("ROOT");
 
     expect(
         await xrpToken.symbol()
