@@ -51,19 +51,19 @@ sp-transaction-pool = { git = "https://github.com/futureversecom/substrate", bra
 sp-version = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 # EVM support
-fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
-fp-self-contained = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
+fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+fp-self-contained = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 evm = { git = "https://github.com/futureversecom/evm", rev = "01bcbd2205a212c34451d3b4fabc962793b057d3", default-features = false, features = ["with-codec"] }
 
 hex-literal = { version = "0.3.4", default-features = false }
-pallet-base-fee = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
-pallet-ethereum = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
-pallet-evm-precompile-blake2 = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
-pallet-evm-precompile-modexp = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
-pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
-pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "frevert/multicurrency" }
+pallet-base-fee = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+pallet-ethereum = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+pallet-evm-precompile-blake2 = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+pallet-evm-precompile-modexp = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+pallet-evm-precompile-simple = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 precompile-utils = { path = "../evm-precompiles/utils", default-features = false }
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }

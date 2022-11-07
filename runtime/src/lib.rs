@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
-use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
+use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction, InvalidTransactionWrapper};
 use pallet_evm::{
 	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
@@ -876,7 +876,7 @@ impl pallet_evm::Config for Runtime {
 impl pallet_ethereum::Config for Runtime {
 	type Event = Event;
 	type StateRoot = pallet_ethereum::IntermediateStateRoot<Runtime>;
-	type HandleTxValidation = HandleTxValidation<pallet_ethereum::Error<Runtime>>;
+	type HandleTxValidation = HandleTxValidation<InvalidTransactionWrapper>;
 }
 
 pub struct TransactionConverter;

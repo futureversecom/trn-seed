@@ -5,7 +5,7 @@ use crate::mock::{
 use frame_support::{assert_err, assert_noop, assert_ok};
 use seed_primitives::{AccountId, Balance};
 use sp_core::H160;
-use sp_runtime::{traits::BadOrigin, Percent};
+use sp_runtime::traits::BadOrigin;
 
 /// Helper function to create an AccountId from  a slice
 fn create_account(address: &[u8]) -> AccountId {
