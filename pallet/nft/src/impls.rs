@@ -283,6 +283,57 @@ impl<T: Config> Pallet<T> {
 		return owned_tokens;
 	}
 
+	/// Find the tokens owned by an `address` in the given collection
+	/// limit return tokens that are larger than the cursor
+	/// Returns list of tokens and the new cursor for the next owned SerialNumber
+	/// not included in the returned list
+	pub fn owned_tokens_paginated(
+		collection_id: CollectionUuid,
+		address: &T::AccountId,
+		cursor: SerialNumber,
+		limit: u16,
+	) -> (SerialNumber, Vec<SerialNumber>) {
+		// Collect all tokens owned by address
+		let mut owned_tokens: Vec<SerialNumber> = <TokenOwner<T>>::iter_prefix(collection_id)
+			.filter_map(
+				|(serial_number, owner)| {
+					if &owner == address {
+						Some(serial_number)
+					} else {
+						None
+					}
+				},
+			)
+			.collect::<Vec<SerialNumber>>();
+		// Sort the vec to ensure no tokens are missed
+		owned_tokens.sort();
+		// Store the last owned token by this account
+		let last_id: SerialNumber = owned_tokens.last().copied().unwrap_or_default();
+
+		// Shorten list to any tokens above the cursor and return the limit
+		// Note max limit is restricted by MAX_OWNED_TOKENS_LIMIT const
+		let response: Vec<SerialNumber> = owned_tokens
+			.into_iter()
+			.filter(|serial_number| serial_number >= &cursor)
+			.take(sp_std::cmp::min(limit, MAX_OWNED_TOKENS_LIMIT).into())
+			.collect();
+
+		let new_cursor: SerialNumber = match response.last().copied() {
+			Some(highest) => {
+				if highest != last_id {
+					// There are still tokens remaining that aren't being returned in this call, return the next cursor
+					highest.saturating_add(1)
+				} else {
+					// 0 indicates that this is the end of the owned tokens
+					0
+				}
+			},
+			None => 0,
+		};
+
+		(new_cursor, response)
+	}
+
 	/// Remove a single fixed price listing and all it's metadata
 	pub fn remove_fixed_price_listing(listing_id: ListingId) {
 		let listing_type = Listings::<T>::take(listing_id);

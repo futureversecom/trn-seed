@@ -8,10 +8,10 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "test": "hardhat test",
-    "clean": "rm -rf ./cache/ && hardhat clean && hardhat typechain",
-    "hardhat:deploy": "hardhat run scripts/deploy.ts --network hardhat",
-    "hardhat:deploy:seed": "hardhat run scripts/deploy.ts --network seed"
+    "test": "hardhat test --network seed",
+    "test::erc721": "hardhat test test/erc721Precompile.test.ts --network seed",
+    "test::erc20": "hardhat test test/erc20Precompile.test.ts --network seed",
+    "clean": "rm -rf ./cache/ && hardhat clean && hardhat typechain"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^1.0.2",
