@@ -7,6 +7,7 @@ import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
+import { serializeTransaction } from "ethers/src.ts/utils";
 
 const typedefs = {
   AccountId: 'EthereumAccountId',
@@ -105,7 +106,6 @@ describe("Fee Preferences", function () {
     // Setup providers for jsonRPCs and WS
     const jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
     const keyring = new Keyring({ type: 'ethereum' });
-    // alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
     emptyAccount = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
 
@@ -117,9 +117,11 @@ describe("Fee Preferences", function () {
     feeToken = new Contract(assetIdToERC20ContractAddress(feeTokenAssetId), ERC20_ABI, emptyAccountSigner);
   });
 
-  it('Pays fees in non-native token', async () => {
+  before(async () => {
     await loadFixture(setup);
+  })
 
+  it('Pays fees in non-native token', async () => {
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
       xrpToken.balanceOf(emptyAccount.address),
@@ -168,4 +170,134 @@ describe("Fee Preferences", function () {
     // Verify fee token was burned for fees
     expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance)
   });
+
+
+  it('Pays fees in non-native token via legacy tx', async () => {
+    // get token balances
+    const [xrpBalance, tokenBalance] = await Promise.all([
+      xrpToken.balanceOf(emptyAccount.address),
+      feeToken.balanceOf(emptyAccount.address),
+    ]);
+
+    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
+    const transferAmount = 1;
+    let iface = new utils.Interface(ERC20_ABI);
+    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+
+    const maxFeePaymentInToken = 10_000_000_000;
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
+    const nonce = await emptyAccountSigner.getTransactionCount();
+    const gasLimit = 23316; // '0x5b14' = 23316;
+    const gasPrice = 15_000_000_000_000; 
+
+    const unsignedTx = { // legacy tx
+      from: emptyAccount.address,
+      to: FEE_PROXY_ADDRESS,
+      nonce,
+      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
+        feeToken.address,
+        maxFeePaymentInToken,
+        feeToken.address,
+        transferInput,
+      ]),
+      gasLimit,
+      gasPrice,
+    };
+    
+    await emptyAccountSigner.signTransaction(unsignedTx);
+    const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+    await tx.wait();
+    // check updated balances
+    const [xrpBalanceUpdated, tokenBalanceUpdated] = await Promise.all([
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
+    ]);
+    // verify XRP balance has not changed (payment made in non-native token)
+    expect(xrpBalanceUpdated.sub(xrpBalance).toString()).to.equal('0');
+    // Verify fee token was burned for fees
+    expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance)
+  });
+
+  it('Does not pay in non-native token with gasLimit 0', async () => {
+    // get token balances
+    const [xrpBalance, tokenBalance] = await Promise.all([
+      xrpToken.balanceOf(emptyAccount.address),
+      feeToken.balanceOf(emptyAccount.address),
+    ]);
+
+    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
+    const transferAmount = 1;
+    let iface = new utils.Interface(ERC20_ABI);
+    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+
+    const maxFeePaymentInToken = 10_000_000_000;
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
+    const nonce = await emptyAccountSigner.getTransactionCount();
+    const chainId = 3999;
+    const maxPriorityFeePerGas = 0; // 1_500_000_000 = '0x59682f00'
+    const gasLimit = 0;
+    const maxFeePerGas = 0; // 30_001_500_000_000 = '0x1b4944c00f00'  
+
+
+    const unsignedTx = { // eip1559 tx
+      type: 2,
+      from: emptyAccount.address,
+      to: FEE_PROXY_ADDRESS,
+      nonce,
+      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
+        feeToken.address,
+        maxFeePaymentInToken,
+        feeToken.address,
+        transferInput,
+      ]),
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      chainId,
+    };
+    
+    try {
+      const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+      await tx.wait();
+    }
+    catch (err) {
+      expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
+    }
+  })
+
+  it('Does not pay fees in non-native token with gasLimit 0 - legacy tx', async () => {
+    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
+    const transferAmount = 1;
+    let iface = new utils.Interface(ERC20_ABI);
+    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+
+    const maxFeePaymentInToken = 10_000_000_000;
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
+    const nonce = await emptyAccountSigner.getTransactionCount();
+    const gasLimit = 0;
+    const gasPrice = 15_000_000_000_000; 
+  
+    const unsignedTx = { // legacy tx
+      from: emptyAccount.address,
+      to: FEE_PROXY_ADDRESS,
+      nonce,
+      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
+        feeToken.address,
+        maxFeePaymentInToken,
+        feeToken.address,
+        transferInput,
+      ]),
+      gasLimit,
+      gasPrice,
+    };
+
+    try {
+      const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+      await tx.wait();
+    }
+    catch (err) {
+      console.log(err)
+      expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
+    }
+  })
 });
