@@ -66,6 +66,8 @@ curl -X POST \
 
 Returns the amount of output tokens that you would receive if you sent an amount of input tokens to the DEX.
 
+***Note**: This RPC requires liquidity for the given pair in the `path` param to be present in the DEX.*
+
 #### Parameters
 
 - `amountIn`: The amount of input token to be sent to the DEX.
@@ -126,6 +128,8 @@ curl -X POST \
 ### `getAmountsIn`
 
 Returns the amount of input token that you would need to send to the DEX in order to receive an amount of output token.
+
+***Note**: This RPC requires liquidity for the given pair in the `path` param to be present in the DEX.*
 
 #### Parameters
 
