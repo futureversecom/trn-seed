@@ -4704,6 +4704,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-dex-rpc"
+version = "0.0.1"
+dependencies = [
+ "jsonrpsee",
+ "pallet-dex",
+ "pallet-dex-rpc-runtime-api",
+ "seed-primitives",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-dex-rpc-runtime-api"
+version = "0.0.1"
+dependencies = [
+ "pallet-dex",
+ "seed-primitives",
+ "sp-api",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-echo"
 version = "1.0.0"
 dependencies = [
@@ -7551,6 +7578,7 @@ dependencies = [
  "futures",
  "hex-literal",
  "jsonrpsee",
+ "pallet-dex-rpc",
  "pallet-nft-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
@@ -7655,6 +7683,7 @@ dependencies = [
  "pallet-balances",
  "pallet-base-fee",
  "pallet-dex",
+ "pallet-dex-rpc-runtime-api",
  "pallet-echo",
  "pallet-election-provider-multi-phase",
  "pallet-erc20-peg",
