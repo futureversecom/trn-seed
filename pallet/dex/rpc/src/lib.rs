@@ -23,7 +23,7 @@ use jsonrpsee::{
 	proc_macros::rpc,
 };
 use pallet_dex::Config;
-use seed_primitives::types::{BlockNumber, AssetId, Balance};
+use seed_primitives::types::{AssetId, Balance, BlockNumber};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::U256;
