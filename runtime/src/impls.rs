@@ -18,6 +18,8 @@
 
 use core::ops::Mul;
 
+use evm::backend::Basic;
+use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -31,12 +33,12 @@ use pallet_evm::AddressMapping as AddressMappingT;
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, UniqueSaturatedInto, Verify, Zero},
+	traits::{
+		AccountIdConversion, Extrinsic, SaturatedConversion, UniqueSaturatedInto, Verify, Zero,
+	},
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
-use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
-use evm::backend::Basic;
 
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::{
@@ -46,9 +48,8 @@ use seed_pallet_common::{
 use seed_primitives::{AccountId, Balance, Index, Signature};
 
 use crate::{
-	constants::DECODED_FEE_PROXY_LOCATION,
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic,
+	constants::FEE_PROXY, BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId,
+	Staking, System, UncheckedExtrinsic,
 };
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -441,7 +442,7 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 	}
 
 	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
-		let decoded_override_destination = H160::from_slice(DECODED_FEE_PROXY_LOCATION);
+		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY);
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
 			// Get fee data from either a legacy or typed transaction input.
