@@ -31,6 +31,11 @@ const erc721Abi = [
   'function transferOwnership(address owner)',
 ];
 
+const nftAbi = [
+  'event InitializeCollection(address indexed collectionOwner, address precompileAddress)',
+  'function initializeCollection(address owner, bytes name, uint32 maxIssuance, uint8 metadataType, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)'
+]
+
 const typedefs = {
   AccountId: 'EthereumAccountId',
   AccountId20: 'EthereumAccountId',
@@ -193,7 +198,7 @@ describe('ERC721 Precompile', function () {
     expect(
         await nftContract.ownerOf(serial_number)
     ).to.equal(receiverAddress);
-  })
+  });
 
 
   it('approve and transferFrom via transaction', async () => {
@@ -361,5 +366,42 @@ describe('ERC721 Precompile', function () {
     expect(
         await nftContract.owner()
     ).to.equal(constants.AddressZero);
+  });
+
+
+  it('initialize collection', async () => {
+    // Precompile address for nft precompile is 1721
+    const nftPrecompileAddress = '0x00000000000000000000000000000000000006b9';
+    const nftProxy = new Contract(nftPrecompileAddress, nftAbi, bobSigner);
+
+    const owner = aliceSigner.address;
+    const name = ethers.utils.formatBytes32String("My Collection");
+    const maxIssuance = 100;
+    const metadataType = 1;
+    const metadataPath = ethers.utils.formatBytes32String("example.com");
+    const royaltyAddresses = [aliceSigner.address];
+    const royaltyEntitlements = [1000];
+
+    // Generate expected precompile address
+    const collectionId = await api.query.nft.nextCollectionId();
+    const collectionIdBin = (+collectionId).toString(2).padStart(22, '0');
+    const parachainIdBin = (100).toString(2).padStart(10, '0');
+    const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
+    const collectionIdHex = (+collectionUuid).toString(16).padStart(8, '0');
+    const precompile_address = ethers.utils.getAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
+
+    const initializeTx = await nftProxy.connect(bobSigner).initializeCollection(
+        owner,
+        name,
+        maxIssuance,
+        metadataType,
+        metadataPath,
+        royaltyAddresses,
+        royaltyEntitlements
+    );
+    let receipt = await initializeTx.wait();
+    expect((receipt?.events as any)[0].event).to.equal('InitializeCollection');
+    expect((receipt?.events as any)[0].args.collectionOwner).to.equal(aliceSigner.address);
+    expect((receipt?.events as any)[0].args.precompileAddress).to.equal(precompile_address);
   });
 });
