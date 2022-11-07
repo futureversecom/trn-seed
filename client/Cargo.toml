@@ -83,6 +83,7 @@ ethy-gadget = { path = "../ethy-gadget" }
 ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 seed-primitives = { path = "../primitives" }
 seed-runtime = { path = "../runtime" }
+pallet-dex-rpc = { path = "../pallet/dex/rpc" }
 pallet-nft-rpc = { path = "../pallet/nft/rpc" }
 
 # CLI-specific dependencies

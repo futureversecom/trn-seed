@@ -70,6 +70,7 @@ ethabi = { version = "17.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
+pallet-dex-rpc-runtime-api = { path = "../pallet/dex/rpc/runtime-api", default-features = false }
 pallet-echo = { path = "../pallet/echo", default-features = false }
 pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
@@ -138,6 +139,7 @@ std = [
 	"seed-pallet-common/std",
 	"pallet-assets-ext/std",
 	"pallet-dex/std",
+	"pallet-dex-rpc-runtime-api/std",
 	"pallet-ethy/std",
 	"pallet-nft/std",
 	"pallet-nft-rpc-runtime-api/std",
