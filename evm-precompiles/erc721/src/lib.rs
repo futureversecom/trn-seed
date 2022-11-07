@@ -29,6 +29,7 @@ pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 	keccak256!("OwnershipTransferred(address,address)");
 
+/// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
 
 #[precompile_utils::generate_function_selector]
