@@ -424,6 +424,7 @@ pub mod pallet {
 				start_sequence: start_ticket_sequence,
 				bucket_size: ticket_bucket_size,
 			});
+			TicketSequenceThresholdReachedEmitted::<T>::kill();
 			Self::deposit_event(Event::<T>::DoorTicketSequenceParamSet {
 				ticket_sequence,
 				ticket_sequence_start: start_ticket_sequence,
@@ -602,7 +603,7 @@ impl<T: Config> Pallet<T> {
 		// check if TicketSequenceThreshold reached. notify by emitting TicketSequenceThresholdReached
 		if ticket_params.bucket_size != 0
 			&& Percent::from_rational(
-				current_sequence - ticket_params.start_sequence,
+				current_sequence - ticket_params.start_sequence + 1,
 				ticket_params.bucket_size,
 			) >= T::TicketSequenceThreshold::get()
 			&& !Self::ticket_sequence_threshold_reached_emitted()

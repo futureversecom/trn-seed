@@ -357,17 +357,16 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 			2_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
+		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(4).into());
 
 		// try to fetch again - error
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
 		assert_err!(
 			XRPLBridge::get_door_ticket_sequence(),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
-		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(5).into());
-
 		// try to fetch again - error
 		assert_noop!(
 			XRPLBridge::get_door_ticket_sequence(),
@@ -471,13 +470,17 @@ fn get_door_ticket_sequence_check_events_emitted() {
 			3_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
-
 		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
-		// event should be emitted here since (5 - 3)/3 = 0.66 == TicketSequenceThreshold
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		// event should be emitted here since ((4 - 3) + 1)/3 = 0.66 == TicketSequenceThreshold
 		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
-		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(5).into());
+		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(4).into());
+
+		// try to fetch again - error - but no TicketSequenceThresholdReached
+		System::reset_events();
+		assert_eq!(System::events(), []);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+		assert_eq!(System::events(), []);
 
 		// try to fetch again - error - but no TicketSequenceThresholdReached
 		System::reset_events();
