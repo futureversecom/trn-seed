@@ -7,6 +7,22 @@ export const ALICE_PRIVATE_KEY = '0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4f
 export const NATIVE_TOKEN_ID = 2;
 export const FEE_TOKEN_ID = 1124;
 
+export const typedefs = {
+  AccountId: 'EthereumAccountId',
+  AccountId20: 'EthereumAccountId',
+  AccountId32: 'EthereumAccountId',
+  Address: 'AccountId',
+  LookupSource: 'AccountId',
+  Lookup0: 'AccountId',
+  EthereumSignature: {
+    r: 'H256',
+    s: 'H256',
+    v: 'U8'
+  },
+  ExtrinsicSignature: 'EthereumSignature',
+  SessionKeys: '([u8; 32], [u8; 32])'
+};
+
 export const rpc = {
   dex: {
     quote: {
@@ -68,7 +84,7 @@ describe('DexRPC', () => {
     const keyring = new Keyring({ type: 'ethereum' });
     const alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
 
-    api = await ApiPromise.create({ provider: wsProvider, rpc });
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc });
     console.log('connected to api.')
     
     console.log('setting up dex liquidity...');
@@ -101,8 +117,7 @@ describe('DexRPC', () => {
     console.log('done setting up dex liquidity.');
   });
 
-  it('quote rpc works', async () => {
-    // test via http
+  it('quote rpc works [http - axios]', async () => {
     const httpResult = await axios.post('http://localhost:9933', {
       id: 1,
       jsonrpc:"2.0",
@@ -113,15 +128,15 @@ describe('DexRPC', () => {
     expect(httpResult.data).to.haveOwnProperty('result');
     expect(httpResult.data.result).to.haveOwnProperty('Ok');
     expect(httpResult.data.result.Ok).to.eql(2);
+  });
 
-    // test via polkadotjs substrate library
+  it('quote rpc works [library]', async () => {
     const result = await (api.rpc as any).dex.quote(1, 5, 10);
     expect(result).to.haveOwnProperty('Ok');
     expect(result.Ok).to.eql(2);
   });
 
-  it('getAmountsOut rpc works', async () => {
-    // test via http
+  it('getAmountsOut rpc works [http - axios]', async () => {
     const httpResult = await axios.post('http://localhost:9933', {
       id: 1,
       jsonrpc:"2.0",
@@ -132,15 +147,15 @@ describe('DexRPC', () => {
     expect(httpResult.data).to.haveOwnProperty('result');
     expect(httpResult.data.result).to.haveOwnProperty('Ok');
     expect(httpResult.data.result.Ok).to.eqls([100,398799840958623]);
-  
-    // test via polkadotjs substrate library
+  });
+
+  it('getAmountsOut rpc works [library]', async () => {
     const result = await (api.rpc as any).dex.getAmountsOut(100, [2, 1124]);
     expect(result).to.haveOwnProperty('Ok');
     expect(result.Ok).to.eqls([100,398799840958623]);
   });
 
-  it('getAmountsIn rpc works', async () => {
-    // test via http
+  it('getAmountsIn rpc works [http - axios]', async () => {
     const httpResult = await axios.post('http://localhost:9933', {
       id: 1,
       jsonrpc:"2.0",
@@ -151,8 +166,9 @@ describe('DexRPC', () => {
     expect(httpResult.data).to.haveOwnProperty('result');
     expect(httpResult.data.result).to.haveOwnProperty('Ok');
     expect(httpResult.data.result.Ok).to.eqls([401203771314007, 100]);
-  
-    // test via polkadotjs substrate library
+  });
+
+  it('getAmountsIn rpc works [library]', async () => {
     const result = await (api.rpc as any).dex.getAmountsIn(100, [1124, 2]);
     expect(result).to.haveOwnProperty('Ok');
     expect(result.Ok).to.eqls([401203771314007, 100]);
