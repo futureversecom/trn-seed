@@ -12,7 +12,6 @@ const erc721Abi = [
   'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
   'event Approval(address indexed owner, address indexed approved, uint256 tokenId)',
   'event ApprovalForAll(address indexed owner, address indexed operator, bool approved)',
-  'event OwnershipTransferred(address indexed oldOwner, address newOwner)',
   'function balanceOf(address who) public view returns (uint256)',
   'function ownerOf(uint256 tokenId) public view returns (address)',
   'function safeTransferFrom(address from, address to, uint256 tokenId)',
@@ -24,8 +23,11 @@ const erc721Abi = [
   'function name() public view returns (string memory)',
   'function symbol() public view returns (string memory)',
   'function tokenURI(uint256 tokenId) public view returns (string memory)',
+  // Root specific precompiles
   'function mint(address owner, uint32 quantity)',
   'function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns(uint32, uint32[] memory)',
+  // Ownable
+  'event OwnershipTransferred(address indexed oldOwner, address newOwner)',
   'function owner() public view returns (address)',
   'function renounceOwnership()',
   'function transferOwnership(address owner)',
