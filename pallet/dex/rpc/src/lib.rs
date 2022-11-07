@@ -26,7 +26,6 @@ use pallet_dex::Config;
 use seed_primitives::types::{AssetId, Balance, BlockNumber};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::U256;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
 
 pub use pallet_dex_rpc_runtime_api::{self as runtime_api, DexApi as DexRuntimeApi};
@@ -37,10 +36,10 @@ pub trait DexApi {
 	#[method(name = "quote")]
 	fn quote(
 		&self,
-		amount_a: U256,
+		amount_a: u128,
 		reserve_a: u128,
 		reserve_b: u128,
-	) -> RpcResult<Result<U256, DispatchError>>;
+	) -> RpcResult<Result<u128, DispatchError>>;
 
 	#[method(name = "getAmountsOut")]
 	fn get_amounts_out(
@@ -79,10 +78,10 @@ where
 {
 	fn quote(
 		&self,
-		amount_a: U256,
+		amount_a: u128,
 		reserve_a: u128,
 		reserve_b: u128,
-	) -> RpcResult<Result<U256, DispatchError>> {
+	) -> RpcResult<Result<u128, DispatchError>> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(self.client.info().best_hash);
 		api.quote(&at, amount_a, reserve_a, reserve_b)

@@ -20,7 +20,6 @@
 
 use pallet_dex::Config;
 use seed_primitives::types::{AssetId, Balance};
-use sp_core::U256;
 use sp_runtime::DispatchError;
 use sp_std::prelude::*;
 
@@ -31,10 +30,10 @@ sp_api::decl_runtime_apis! {
 	{
 		/// Returns amount of output token that can be obtained by swapping an amount of input token
 		fn quote(
-			amount_a: U256,
+			amount_a: u128,
 			reserve_a: u128,
 			reserve_b: u128,
-		) -> Result<U256, DispatchError>;
+		) -> Result<u128, DispatchError>;
 
 		/// Returns the amount of output tokens that you would receive if you sent an amount of input tokens
 		fn get_amounts_out(

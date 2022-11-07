@@ -1173,11 +1173,11 @@ impl_runtime_apis! {
 		Runtime,
 	> for Runtime {
 		fn quote(
-			amount_a: U256,
+			amount_a: u128,
 			reserve_a: u128,
 			reserve_b: u128,
-		) -> Result<U256, sp_runtime::DispatchError> {
-			Dex::quote(amount_a, reserve_a, reserve_b)
+		) -> Result<u128, sp_runtime::DispatchError> {
+			Dex::quote(amount_a.into(), reserve_a, reserve_b).map(|r| r.low_u128())
 		}
 
 		fn get_amounts_out(
