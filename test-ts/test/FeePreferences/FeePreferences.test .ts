@@ -300,4 +300,54 @@ describe("Fee Preferences", function () {
       expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
     }
   })
+
+  it('Pays fees in non-native token with priority fee', async () => {
+    // get token balances
+    const [xrpBalance, tokenBalance] = await Promise.all([
+      xrpToken.balanceOf(emptyAccount.address),
+      feeToken.balanceOf(emptyAccount.address),
+    ]);
+
+    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
+    const transferAmount = 1;
+    let iface = new utils.Interface(ERC20_ABI);
+    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+
+    const maxFeePaymentInToken = 10_000_000_000;
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
+    const nonce = await emptyAccountSigner.getTransactionCount();
+    const chainId = 3999;
+    const maxPriorityFeePerGas = 1_500_000_000; // 1_500_000_000 = '0x59682f00'
+    const gasLimit = 23316; // '0x5b14' = 23316;
+    const maxFeePerGas = 30_001_500_000_0000; // 30_001_500_000_000 = '0x1b4944c00f00'  
+    const unsignedTx = { // eip1559 tx
+      type: 2,
+      from: emptyAccount.address,
+      to: FEE_PROXY_ADDRESS,
+      nonce,
+      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
+        feeToken.address,
+        maxFeePaymentInToken,
+        feeToken.address,
+        transferInput,
+      ]),
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      chainId,
+    };
+    
+    await emptyAccountSigner.signTransaction(unsignedTx);
+    const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+    await tx.wait();
+    // check updated balances
+    const [xrpBalanceUpdated, tokenBalanceUpdated] = await Promise.all([
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
+    ]);
+    // verify XRP balance has not changed (payment made in non-native token)
+    expect(xrpBalanceUpdated.sub(xrpBalance).toString()).to.equal('0');
+    // Verify fee token was burned for fees
+    expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance)
+  });
 });
