@@ -7,6 +7,7 @@ import {AddressOrPair} from "@polkadot/api/types";
 import ERC721PrecompileCaller from '../artifacts/contracts/ERC721PrecompileCaller.sol/ERC721PrecompileCaller.json';
 import OnERC721ReceivedSucceeds from '../artifacts/contracts/OnERC721Received.sol/OnERC721ReceivedSucceeds.json';
 import OnERC721ReceivedFails from '../artifacts/contracts/OnERC721Received.sol/OnERC721ReceivedFails.json';
+import web3 from 'web3';
 
 const erc721Abi = [
   'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
@@ -88,7 +89,7 @@ describe('ERC721 Precompile', function () {
               if (method == 'CollectionCreate') {
                 let collection_uuid = (data.toJSON() as any)[0];
                 const collection_id_hex = (+collection_uuid).toString(16).padStart(8, '0');
-                nftPrecompileAddress = ethers.utils.getAddress(`0xAAAAAAAA${collection_id_hex}000000000000000000000000`);
+                nftPrecompileAddress = web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}000000000000000000000000`);
                 nftContract = new Contract(nftPrecompileAddress, erc721Abi, bobSigner);
                 resolve();
               }
@@ -390,7 +391,7 @@ describe('ERC721 Precompile', function () {
     const parachainIdBin = (100).toString(2).padStart(10, '0');
     const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
     const collectionIdHex = (+collectionUuid).toString(16).padStart(8, '0');
-    const precompile_address = ethers.utils.getAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
+    const precompile_address = web3.utils.toChecksumAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
 
     const initializeTx = await nftProxy.connect(bobSigner).initializeCollection(
         owner,
