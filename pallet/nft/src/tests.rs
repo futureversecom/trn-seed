@@ -212,6 +212,81 @@ fn next_collection_uuid_works() {
 }
 
 #[test]
+fn owned_tokens_paginated_works() {
+	TestExt::default().build().execute_with(|| {
+		let token_owner = 2_u64;
+		let quantity = 5000;
+		let collection_id = Nft::next_collection_uuid().unwrap();
+
+		// mint token Ids 0-4999
+		assert_ok!(Nft::create_collection(
+			Some(token_owner).into(),
+			b"test-collection".to_vec(),
+			quantity,
+			None,
+			Some(token_owner),
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+
+		// First 100
+		let cursor: u32 = 0;
+		let limit: u16 = 100;
+		let expected_tokens: Vec<SerialNumber> = (cursor..100).collect();
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(100_u32, expected_tokens)
+		);
+
+		// 100 - 300
+		let cursor: u32 = 100;
+		let limit: u16 = 200;
+		let expected_tokens: Vec<SerialNumber> = (cursor..300).collect();
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(300_u32, expected_tokens)
+		);
+
+		// Limit higher than MAX_OWNED_TOKENS_LIMIT gets reduced
+		let cursor: u32 = 1000;
+		let limit: u16 = 10000;
+		let expected_tokens: Vec<SerialNumber> =
+			(cursor..cursor + MAX_OWNED_TOKENS_LIMIT as u32).collect();
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(cursor + MAX_OWNED_TOKENS_LIMIT as u32, expected_tokens)
+		);
+
+		// should return empty vec in unknown collection
+		let cursor: u32 = 0;
+		let limit: u16 = 100;
+		let expected_tokens: Vec<SerialNumber> = vec![];
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id + 1, &token_owner, cursor, limit),
+			(0_u32, expected_tokens)
+		);
+
+		// should return empty vec if cursor is set too high
+		let cursor: u32 = 5000;
+		let limit: u16 = 100;
+		let expected_tokens: Vec<SerialNumber> = vec![];
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(0_u32, expected_tokens)
+		);
+
+		// Last 100 should return cursor of 0
+		let cursor: u32 = 4900;
+		let limit: u16 = 100;
+		let expected_tokens: Vec<SerialNumber> = (cursor..5000).collect();
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(0, expected_tokens)
+		);
+	});
+}
+
+#[test]
 fn set_owner() {
 	TestExt::default().build().execute_with(|| {
 		// setup token collection + one token

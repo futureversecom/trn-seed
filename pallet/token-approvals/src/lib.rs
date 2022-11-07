@@ -25,7 +25,7 @@
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{IsTokenOwner, OnTransferSubscriber};
-use seed_primitives::{AssetId, Balance, TokenId};
+use seed_primitives::{AssetId, Balance, CollectionUuid, TokenId};
 use sp_runtime::{traits::Zero, DispatchResult};
 
 #[cfg(test)]
@@ -54,6 +54,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn erc721_approvals)]
 	pub type ERC721Approvals<T: Config> = StorageMap<_, Twox64Concat, TokenId, T::AccountId>;
+
+	// Account with transfer approval for an NFT collection of another account
+	#[pallet::storage]
+	#[pallet::getter(fn erc721_approvals_for_all)]
+	pub type ERC721ApprovalsForAll<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, CollectionUuid, T::AccountId>;
 
 	// Mapping from account/ asset_id to an approved balance of another account
 	#[pallet::storage]
@@ -89,7 +95,7 @@ pub mod pallet {
 		/// Mapping from token_id to operator
 		/// clears approval on transfer
 		/// mapping(uint256 => address) private _tokenApprovals;
-		#[pallet::weight(125_000_000)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn erc721_approval(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
@@ -104,10 +110,20 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Public method which allows users to remove approvals on a token they own
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+		pub fn erc721_remove_approval(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+			ensure!(ERC721Approvals::<T>::contains_key(token_id), Error::<T>::ApprovalDoesntExist);
+			ensure!(T::IsTokenOwner::is_owner(&origin, &token_id), Error::<T>::NotTokenOwner);
+			Self::remove_erc721_approval(&token_id);
+			Ok(())
+		}
+
 		/// Set approval for an account to transfer an amount of tokens on behalf of the caller
 		/// Mapping from caller to spender and amount
 		/// mapping(address => mapping(address => uint256)) private _allowances;
-		#[pallet::weight(100_000_000)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
 		pub fn erc20_approval(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
@@ -123,7 +139,7 @@ pub mod pallet {
 
 		/// Removes an approval over an account and asset_id
 		/// mapping(address => mapping(address => uint256)) private _allowances;
-		#[pallet::weight(100_000_000)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn erc20_update_approval(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
@@ -144,13 +160,23 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Public method which allows users to remove approvals on a token they own
-		#[pallet::weight(100_000_000)]
-		pub fn erc721_remove_approval(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
-			ensure!(ERC721Approvals::<T>::contains_key(token_id), Error::<T>::ApprovalDoesntExist);
-			ensure!(T::IsTokenOwner::is_owner(&origin, &token_id), Error::<T>::NotTokenOwner);
-			Self::remove_erc721_approval(&token_id);
+		/// Set approval for an account (or contract) to transfer any tokens from a collection
+		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn erc721_approval_for_all(
+			origin: OriginFor<T>,
+			caller: T::AccountId,
+			operator_account: T::AccountId,
+			collection_uuid: CollectionUuid,
+			approved: bool,
+		) -> DispatchResult {
+			let _ = ensure_none(origin)?;
+			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
+			if approved {
+				ERC721ApprovalsForAll::<T>::insert(caller, collection_uuid, operator_account);
+			} else {
+				ERC721ApprovalsForAll::<T>::remove(caller, collection_uuid);
+			}
 			Ok(())
 		}
 	}
