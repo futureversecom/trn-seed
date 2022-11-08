@@ -187,16 +187,22 @@ where
 		if target == H160::from_low_u64_be(FEE_PROXY_ADDRESS) {
 			let (_, weight) = T::FeeCalculator::min_gas_price();
 
-			let (payment_asset_id, max_payment, new_target, new_input) = Self::decode_input(input)
-				.map_err(|err| RunnerError { error: err.into(), weight })?;
+			let (payment_asset_id, max_payment, new_target, new_input) = match Self::decode_input(input) {
+				Ok((payment_asset_id, max_payment, new_target, new_input)) => {
+					(payment_asset_id, max_payment, new_target, new_input)
+				}
+				Err(err) => return Err(RunnerError { error: err.into(), weight }),
+			};
 
 			// set input and target to new input and actual target for passthrough
 			input = new_input;
 			target = new_target;
 
 			// let total_fee = U256::from(gas_limit) * gas_price;
-			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional)
-				.map_err(|err| RunnerError { error: err.into(), weight })?;
+			let total_fee = match Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional) {
+				Ok(total_fee) => total_fee,
+				Err(err) => return Err(RunnerError { error: err.into(), weight }),
+			};
 
 			let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
 			let decimals = <pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
@@ -211,6 +217,7 @@ where
 			if total_fee_scaled > 0 {
 				// total_fee_scaled is 0 when user doesnt have gas asset currency
 				Dex::do_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
+					.map(|_| ())
 					.map_err(|err| {
 						// TODO implement err into RunnerError
 						log!(
@@ -223,7 +230,7 @@ where
 							path
 						);
 						RunnerError { error: Self::Error::WithdrawFailed, weight }
-					})?;
+					})?
 			}
 		}
 
