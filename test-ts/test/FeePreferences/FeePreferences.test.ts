@@ -1,4 +1,4 @@
-import {expect} from "chai";
+import { expect } from "chai";
 import { Contract, Wallet, utils } from 'ethers';
 
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
@@ -6,13 +6,11 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { typedefs, sleep, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS } from '../../util/index'
+import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY } from '../../utils';
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
 describe("Fee Preferences", function () {
-  const ALICE_PRIVATE_KEY = '0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854';
-  const BOB_PRIVATE_KEY = '0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf';
   const EMPTY_ACCT_PRIVATE_KEY = '0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589';
 
   let bob: KeyringPair;
@@ -182,6 +180,7 @@ describe("Fee Preferences", function () {
     const gasLimit = 0;
     const maxFeePerGas = 0; // 30_001_500_000_000 = '0x1b4944c00f00'  
 
+
     const unsignedTx = { // eip1559 tx
       type: 2,
       from: emptyAccount.address,
@@ -203,11 +202,8 @@ describe("Fee Preferences", function () {
       const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
       await tx.wait();
     }
-    catch (err) {
-      console.log(err)
-      expect(err.code).to.be.eq("SERVER_ERROR")
-      const body = JSON.parse(err.body);
-      expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")
+    catch (err: any) {
+      expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
     }
   })
 
@@ -241,11 +237,8 @@ describe("Fee Preferences", function () {
       const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
       await tx.wait();
     }
-    catch (err) {
-      console.log(err)
-      expect(err.code).to.be.eq("SERVER_ERROR")
-      const body = JSON.parse(err.body);
-      expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")
+    catch (err: any) {
+      expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
     }
   })
 

@@ -3,6 +3,7 @@ import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
 import web3 from 'web3';
 import { JsonRpcProvider, Provider } from "@ethersproject/providers";
 import PrecompileCaller from '../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json';
+import { ERC20_ABI } from '../utils';
 
 const xrpTokenAddress = web3.utils.toChecksumAddress('0xCCCCCCCC00000002000000000000000000000000');
 
@@ -18,7 +19,7 @@ describe('ERC20 Precompile', function () {
     jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
 
     seedSigner = new Wallet('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf').connect(jsonProvider); // 'development' seed
-    xrpToken = new Contract(xrpTokenAddress, erc20Abi, seedSigner);
+    xrpToken = new Contract(xrpTokenAddress, ERC20_ABI, seedSigner);
 
     let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
     precompileCaller = await factory.deploy();

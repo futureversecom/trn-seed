@@ -1,14 +1,11 @@
-import {expect} from "chai";
-import { ethers } from "hardhat";
-import { Contract, Wallet, constants} from 'ethers';
-import {ApiPromise, WsProvider, Keyring} from '@polkadot/api';
-import {hexToU8a} from '@polkadot/util';
-import {AddressOrPair} from "@polkadot/api/types";
-import ERC721PrecompileCaller from '../artifacts/contracts/ERC721PrecompileCaller.sol/ERC721PrecompileCaller.json';
-import OnERC721ReceivedSucceeds from '../artifacts/contracts/OnERC721Received.sol/OnERC721ReceivedSucceeds.json';
-import OnERC721ReceivedFails from '../artifacts/contracts/OnERC721Received.sol/OnERC721ReceivedFails.json';
 import web3 from 'web3';
-import { typedefs } from '../util/index'
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { Contract, Wallet, constants } from 'ethers';
+import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
+import { hexToU8a } from '@polkadot/util';
+import { AddressOrPair } from "@polkadot/api/types";
+import { typedefs } from '../utils';
 
 const erc721Abi = [
   'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
