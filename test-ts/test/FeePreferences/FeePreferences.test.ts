@@ -218,7 +218,7 @@ describe("Fee Preferences", function () {
     expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance)
   });
 
-  it.only('Does not pay in non-native token if max fee payment is insufficient', async () => {
+  it('Does not pay in non-native token if max fee payment is insufficient', async () => {
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
     const transferAmount = 1;
     let iface = new utils.Interface(ERC20_ABI);
