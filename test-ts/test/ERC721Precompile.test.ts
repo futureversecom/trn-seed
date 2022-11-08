@@ -5,7 +5,7 @@ import { Contract, Wallet, constants } from 'ethers';
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { hexToU8a } from '@polkadot/util';
 import { AddressOrPair } from "@polkadot/api/types";
-import { typedefs } from '../utils';
+import { typedefs } from '../common';
 
 const erc721Abi = [
   'event Transfer(address indexed from, address indexed to, uint256 tokenId)',

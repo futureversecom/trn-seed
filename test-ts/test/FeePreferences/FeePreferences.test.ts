@@ -6,7 +6,7 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, executeForPreviousEvent, sleep } from '../../utils/index';
+import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, executeForPreviousEvent, sleep, EVM_PALLET_INDEX, WITHDRAW_FAILED_ERROR_INDEX } from '../../common/index';
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
@@ -218,13 +218,7 @@ describe("Fee Preferences", function () {
     expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance)
   });
 
-  it('Does not pay in non-native token if max fee payment is insufficient', async () => {
-    // get token balances
-    const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
-    ]);
-
+  it.only('Does not pay in non-native token if max fee payment is insufficient', async () => {
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
     const transferAmount = 1;
     let iface = new utils.Interface(ERC20_ABI);
@@ -261,17 +255,20 @@ describe("Fee Preferences", function () {
     await sleep(4000);
 
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
-    const [ dispatchErrIndex, dispatchError ] = await new Promise<any>((resolve) => {
-        executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
-          resolve([ event.data?.dispatchError?.index, event.data?.dispatchError?.error ]);
+    const [dispatchErrIndex, dispatchError] = await new Promise<any>((resolve) => {
+      executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
+        console.log(event.data.dispatchError.toHuman())
+        if ('dispatchError' in event.data) {
+          // Use toHuman to get the actual values
+          const { index, error } = event.data.dispatchError.toHuman().Module;
+          resolve([index, error]);
+        };
+        resolve(['', '']);
       });
     });
 
-    // Expect error is emitted from EVM pallet, which is currently 3
-    expect(dispatchErrIndex).to.equal(3);
-
-    // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
-    // expect(event.data.dispatchError.error).to.equal('0x03000000')
+    expect(dispatchErrIndex).to.equal(EVM_PALLET_INDEX);
+    expect(dispatchError).to.equal(WITHDRAW_FAILED_ERROR_INDEX)
   });
 
   it('Does not pay in non-native token with gasLimit 0', async () => {
@@ -310,6 +307,7 @@ describe("Fee Preferences", function () {
       await tx.wait();
     }
     catch (err: any) {
+      // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.27-TRN/ts-tests/tests/test-transaction-cost.ts
       expect(err.code).to.be.eq("SERVER_ERROR")
       const body = JSON.parse(err.body);
       expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")      
@@ -347,6 +345,7 @@ describe("Fee Preferences", function () {
       await tx.wait();
     }
     catch (err: any) {
+      // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.27-TRN/ts-tests/tests/test-transaction-cost.ts
       expect(err.code).to.be.eq("SERVER_ERROR")
       const body = JSON.parse(err.body);
       expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")    }

@@ -1,6 +1,6 @@
 // Call an EVM transaction with fee preferences for an account that has zero native token balance, ensuring that the preferred asset with liquidity is spent instead
 
-import {expect} from "chai";
+import { expect } from "chai";
 import { Contract, Wallet, utils } from 'ethers';
 
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
@@ -8,7 +8,7 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { executeForPreviousEvent, typedefs, sleep, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY } from '../../utils';
+import { executeForPreviousEvent, typedefs, sleep, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, EVM_PALLET_INDEX, WITHDRAW_FAILED_ERROR_INDEX } from '../../common';
 
 const EMPTY_ACCT_PRIVATE_KEY = '0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589';
 const feeTokenAssetId = 1124;
@@ -26,18 +26,18 @@ describe("Fee Preferences in low asset balance scenario", function () {
     // Setup providers for jsonRPCs and WS
     const jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
     const wsProvider = new WsProvider(`ws://localhost:9944`);
-    
+
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
 
     const keyring = new Keyring({ type: 'ethereum' });
     const alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
-    
+
     insufficientAccount = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
     insufficientAccountSigner = new Wallet(EMPTY_ACCT_PRIVATE_KEY).connect(jsonProvider); // 'development' seed
 
     feeToken = new Contract(assetIdToERC20ContractAddress(feeTokenAssetId), ERC20_ABI, insufficientAccountSigner);
-    
+
     const txs = [
       api.tx.assetsExt.createAsset(),
       api.tx.assets.mint(feeTokenAssetId, alice.address, 2_000_000_000_000_000),
@@ -45,10 +45,10 @@ describe("Fee Preferences in low asset balance scenario", function () {
       api.tx.dex.addLiquidity(
         feeTokenAssetId,
         NATIVE_TOKEN_ID,
-          100_000_000_000,
-          100_000_000_000,
-          100_000_000_000,
-          100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
+        100_000_000_000,
         0,
       )
     ];
@@ -62,7 +62,7 @@ describe("Fee Preferences in low asset balance scenario", function () {
             resolve();
           }
         })
-      });
+    });
   });
 
   it('Cannot pay fees with non-native, preferred token if low asset balance', async () => {
@@ -72,7 +72,7 @@ describe("Fee Preferences in low asset balance scenario", function () {
 
     const maxFeePaymentInToken = 10_000_000_000;
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, insufficientAccountSigner);
-    
+
     const nonce = await insufficientAccountSigner.getTransactionCount();
     const chainId = 3999;
     const maxPriorityFeePerGas = 0; // 1_500_000_000 = '0x59682f00'
@@ -94,24 +94,27 @@ describe("Fee Preferences in low asset balance scenario", function () {
       maxPriorityFeePerGas,
       chainId,
     };
-    
+
     await insufficientAccountSigner.signTransaction(unsignedTx);
-    const tx = await insufficientAccountSigner.sendTransaction(unsignedTx);
+    await insufficientAccountSigner.sendTransaction(unsignedTx);
     console.log('waiting for tx rejection...')
     await sleep(4000);
-    let didContainError = false;
+
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
-    await executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
-      if ('dispatchError' in event.data) {
-        didContainError = true;
-        // Expect error is emitted from EVM pallet, which is currently 27
-        expect(event.data.dispatchError.index).to.equal('27')
-        // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
-        expect(event.data.dispatchError.error).to.equal('0x03000000')
-      }
+    const [dispatchErrIndex, dispatchError] = await new Promise<any>((resolve) => {
+      executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
+        console.log(event.data.dispatchError.toHuman())
+        if ('dispatchError' in event.data) {
+          // Use toHuman to get the actual values
+          const { index, error } = event.data.dispatchError.toHuman().Module;
+          resolve([index, error]);
+        };
+        resolve(['', '']);
+      });
     });
 
-    // The error should have been received in recent history
-    expect(didContainError).to.be.true
+    expect(dispatchErrIndex).to.equal(EVM_PALLET_INDEX);
+    // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
+    expect(dispatchError).to.equal(WITHDRAW_FAILED_ERROR_INDEX)
   });
 });
