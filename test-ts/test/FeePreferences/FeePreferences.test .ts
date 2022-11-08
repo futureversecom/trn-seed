@@ -122,7 +122,6 @@ describe("Fee Preferences", function () {
     expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance)
   });
 
-
   it('Pays fees in non-native token via legacy tx', async () => {
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
@@ -183,7 +182,6 @@ describe("Fee Preferences", function () {
     const gasLimit = 0;
     const maxFeePerGas = 0; // 30_001_500_000_000 = '0x1b4944c00f00'  
 
-
     const unsignedTx = { // eip1559 tx
       type: 2,
       from: emptyAccount.address,
@@ -206,7 +204,10 @@ describe("Fee Preferences", function () {
       await tx.wait();
     }
     catch (err) {
-      expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
+      console.log(err)
+      expect(err.code).to.be.eq("SERVER_ERROR")
+      const body = JSON.parse(err.body);
+      expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")
     }
   })
 
@@ -242,7 +243,9 @@ describe("Fee Preferences", function () {
     }
     catch (err) {
       console.log(err)
-      expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
+      expect(err.code).to.be.eq("SERVER_ERROR")
+      const body = JSON.parse(err.body);
+      expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")
     }
   })
 
