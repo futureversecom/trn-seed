@@ -33,9 +33,7 @@ use pallet_evm::AddressMapping as AddressMappingT;
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	traits::{
-		AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero,
-	},
+	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
