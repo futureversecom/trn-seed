@@ -6,7 +6,7 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY } from '../../utils/index';
+import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, executeForPreviousEvent, sleep } from '../../utils/index';
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
@@ -18,6 +18,7 @@ describe("Fee Preferences", function () {
   let emptyAccountSigner: Wallet;
   let xrpToken: Contract;
   let feeToken: Contract;
+  let api: ApiPromise;
 
   before(async () => {
     // Setup providers for jsonRPCs and WS
@@ -38,7 +39,7 @@ describe("Fee Preferences", function () {
   
     // Empty with regards to native balance only
     const emptyAcct = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
-    const api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     
     // add liquidity for XRP<->token
     const xrpTokenId = 2;
@@ -254,20 +255,19 @@ describe("Fee Preferences", function () {
     };
     
     await emptyAccountSigner.signTransaction(unsignedTx);
-    const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
-    await tx.wait();
+    await emptyAccountSigner.sendTransaction(unsignedTx);
+    await sleep(4000)
+    let didContainError: bool = false;
+    console.log('dfd');
+    await executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
+      didContainError = true;
+      // Expect error is emitted from EVM pallet, which is currently 27
+      expect(event.data.dispatchError.index).to.equal('27')
+      // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
+      expect(event.data.dispatchError.error).to.equal('0x03000000')
+    });
 
-    // ^ error here
-
-    // check updated balances
-    const [xrpBalanceUpdated, tokenBalanceUpdated] = await Promise.all([
-      xrpToken.balanceOf(emptyAccountSigner.address),
-      feeToken.balanceOf(emptyAccountSigner.address),
-    ]);
-    // verify XRP balance has not changed (payment made in non-native token)
-    expect(xrpBalanceUpdated.sub(xrpBalance).toString()).to.equal('0');
-    // Verify fee token was burned for fees
-    expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance)
+    expect(didContainError).to.be.true;
   });
 
   it('Does not pay in non-native token with gasLimit 0', async () => {
