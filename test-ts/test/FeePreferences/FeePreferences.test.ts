@@ -257,7 +257,6 @@ describe("Fee Preferences", function () {
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
     const [dispatchErrIndex, dispatchError] = await new Promise<any>((resolve) => {
       executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
-        console.log(event.data.dispatchError.toHuman())
         if ('dispatchError' in event.data) {
           // Use toHuman to get the actual values
           const { index, error } = event.data.dispatchError.toHuman().Module;

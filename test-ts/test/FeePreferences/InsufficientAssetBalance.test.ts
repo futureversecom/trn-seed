@@ -14,7 +14,6 @@ const EMPTY_ACCT_PRIVATE_KEY = '0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14
 const feeTokenAssetId = 1124;
 
 describe("Fee Preferences in low asset balance scenario", function () {
-
   let api: ApiPromise;
   let bob: KeyringPair;
   let insufficientAccount: KeyringPair;
@@ -103,7 +102,6 @@ describe("Fee Preferences in low asset balance scenario", function () {
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
     const [dispatchErrIndex, dispatchError] = await new Promise<any>((resolve) => {
       executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
-        console.log(event.data.dispatchError.toHuman())
         if ('dispatchError' in event.data) {
           // Use toHuman to get the actual values
           const { index, error } = event.data.dispatchError.toHuman().Module;
@@ -114,7 +112,6 @@ describe("Fee Preferences in low asset balance scenario", function () {
     });
 
     expect(dispatchErrIndex).to.equal(EVM_PALLET_INDEX);
-    // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
     expect(dispatchError).to.equal(WITHDRAW_FAILED_ERROR_INDEX)
   });
 });

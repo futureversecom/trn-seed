@@ -99,7 +99,6 @@ describe("Fee Preferences under low token pair liquidity", function () {
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
     const [dispatchErrIndex, dispatchError] = await new Promise<any>((resolve) => {
       executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
-        console.log(event.data.dispatchError.toHuman())
         if ('dispatchError' in event.data) {
           // Use toHuman to get the actual values
           const { index, error } = event.data.dispatchError.toHuman().Module;
@@ -110,7 +109,6 @@ describe("Fee Preferences under low token pair liquidity", function () {
     });
 
     expect(dispatchErrIndex).to.equal(EVM_PALLET_INDEX);
-    // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
     expect(dispatchError).to.equal(WITHDRAW_FAILED_ERROR_INDEX)
 
   });
