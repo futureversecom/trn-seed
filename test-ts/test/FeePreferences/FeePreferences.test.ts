@@ -13,12 +13,12 @@ import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FE
 describe("Fee Preferences", function () {
   const EMPTY_ACCT_PRIVATE_KEY = '0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589';
 
+  let api: ApiPromise;
   let bob: KeyringPair;
   let emptyAccount: KeyringPair;
   let emptyAccountSigner: Wallet;
   let xrpToken: Contract;
   let feeToken: Contract;
-  let api: ApiPromise;
 
   before(async () => {
     // Setup providers for jsonRPCs and WS
@@ -256,18 +256,25 @@ describe("Fee Preferences", function () {
     
     await emptyAccountSigner.signTransaction(unsignedTx);
     await emptyAccountSigner.sendTransaction(unsignedTx);
-    await sleep(4000)
-    let didContainError: bool = false;
-    console.log('dfd');
-    await executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
-      didContainError = true;
-      // Expect error is emitted from EVM pallet, which is currently 27
-      expect(event.data.dispatchError.index).to.equal('27')
-      // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
-      expect(event.data.dispatchError.error).to.equal('0x03000000')
+    
+    console.log('waiting for tx rejection...')
+    await sleep(4000);
+
+    // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
+    const [ dispatchErrIndex, dispatchError ] = await new Promise<any>((resolve) => {
+        executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
+          if ('dispatchError' in event.data) {
+            resolve([ event.data.dispatchError.index, event.data.dispatchError.error ]);
+          };
+          resolve([ '', '' ]);
+      });
     });
 
-    expect(didContainError).to.be.true;
+    // Expect error is emitted from EVM pallet, which is currently 3
+    expect(dispatchErrIndex).to.equal(3);
+
+    // Expect WithdrawFailed error at index 0x03000000(third error of EVM pallet)
+    // expect(event.data.dispatchError.error).to.equal('0x03000000')
   });
 
   it('Does not pay in non-native token with gasLimit 0', async () => {
