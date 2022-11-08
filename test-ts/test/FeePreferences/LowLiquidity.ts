@@ -6,7 +6,7 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { executeForPreviousEvent, typedefs, sleep, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, GAS_TOKEN_ID, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY } from '../../utils';
+import { executeForPreviousEvent, typedefs, sleep, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, GAS_TOKEN_ID, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, assetIdToERC20ContractAddress } from '../../utils';
 
 const feeTokenAssetId = 1124;
 const EMPTY_ACCT_PRIVATE_KEY = '0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589';
@@ -17,6 +17,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
   let bob: KeyringPair;
   let emptyAccountSigner: Wallet;
   let feeToken: Contract;
+  let aliceSigner: Wallet;
 
   before(async () => {
     // Setup providers for jsonRPCs and WS
@@ -29,7 +30,9 @@ describe("Fee Preferences under low token pair liquidity", function () {
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
     const alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
     const emptyAcct = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
-    emptyAccountSigner = new Wallet(EMPTY_ACCT_PRIVATE_KEY).connect(jsonProvider); // 'development' seed
+    emptyAccountSigner = new Wallet(EMPTY_ACCT_PRIVATE_KEY).connect(jsonProvider);
+    aliceSigner = new Wallet(ALICE_PRIVATE_KEY).connect(jsonProvider);
+    feeToken = new Contract(assetIdToERC20ContractAddress(feeTokenAssetId), ERC20_ABI, aliceSigner);
 
     const txes = [
       api.tx.assetsExt.createAsset(),
