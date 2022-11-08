@@ -98,7 +98,7 @@ describe("Fee Preferences in low asset balance scenario", function () {
     await insufficientAccountSigner.signTransaction(unsignedTx);
     const tx = await insufficientAccountSigner.sendTransaction(unsignedTx);
     console.log('waiting for tx rejection...')
-    await sleep(7000);
+    await sleep(4000);
     let didContainError = false;
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
     await executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {

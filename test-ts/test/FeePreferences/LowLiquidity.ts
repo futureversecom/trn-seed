@@ -6,7 +6,7 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { executeForPreviousEvent, typedefs, sleep, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, GAS_TOKEN_ID, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY } from '../../utils';
+import { executeForPreviousEvent, typedefs, sleep, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, GAS_TOKEN_ID, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY } from '../../utils';
 
 const feeTokenAssetId = 1124;
 const EMPTY_ACCT_PRIVATE_KEY = '0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589';
@@ -91,7 +91,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
     await emptyAccountSigner.signTransaction(unsignedTx);
     await emptyAccountSigner.sendTransaction(unsignedTx);
     console.log('waiting for tx rejection')
-    await sleep(7000);
+    await sleep(4000);
 
     let didContainError = false;
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
