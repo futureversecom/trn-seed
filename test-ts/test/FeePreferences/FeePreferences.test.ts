@@ -263,10 +263,7 @@ describe("Fee Preferences", function () {
     // Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
     const [ dispatchErrIndex, dispatchError ] = await new Promise<any>((resolve) => {
         executeForPreviousEvent(api, { method: 'ExtrinsicFailed', section: 'system' }, 2, async (event) => {
-          if ('dispatchError' in event.data) {
-            resolve([ event.data.dispatchError.index, event.data.dispatchError.error ]);
-          };
-          resolve([ '', '' ]);
+          resolve([ event.data?.dispatchError?.index, event.data?.dispatchError?.error ]);
       });
     });
 
