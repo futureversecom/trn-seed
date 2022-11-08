@@ -6,7 +6,7 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY } from '../../utils';
+import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY } from '../../utils/index';
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
@@ -180,7 +180,6 @@ describe("Fee Preferences", function () {
     const gasLimit = 0;
     const maxFeePerGas = 0; // 30_001_500_000_000 = '0x1b4944c00f00'  
 
-
     const unsignedTx = { // eip1559 tx
       type: 2,
       from: emptyAccount.address,
@@ -203,7 +202,9 @@ describe("Fee Preferences", function () {
       await tx.wait();
     }
     catch (err: any) {
-      expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
+      expect(err.code).to.be.eq("SERVER_ERROR")
+      const body = JSON.parse(err.body);
+      expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")      
     }
   })
 
@@ -238,8 +239,9 @@ describe("Fee Preferences", function () {
       await tx.wait();
     }
     catch (err: any) {
-      expect(err.code).to.be.eq("INSUFFICIENT_FUNDS")
-    }
+      expect(err.code).to.be.eq("SERVER_ERROR")
+      const body = JSON.parse(err.body);
+      expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")    }
   })
 
   it('Pays fees in non-native token with priority fee', async () => {
