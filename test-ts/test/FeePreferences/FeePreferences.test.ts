@@ -6,7 +6,7 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, executeForPreviousEvent, sleep, EVM_PALLET_INDEX, WITHDRAW_FAILED_ERROR_INDEX } from '../../common/index';
+import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, executeForPreviousEvent, sleep, EVM_PALLET_INDEX, WITHDRAW_FAILED_ERROR_INDEX } from '../../common';
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
