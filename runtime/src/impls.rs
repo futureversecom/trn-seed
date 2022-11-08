@@ -400,6 +400,7 @@ where
 }
 
 pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
+
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
 	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
 		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY);
@@ -421,6 +422,7 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 		Ok(())
 	}
 }
+
 #[cfg(test)]
 mod tests {
 	use super::*;
