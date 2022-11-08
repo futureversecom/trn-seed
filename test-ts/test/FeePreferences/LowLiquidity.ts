@@ -110,6 +110,5 @@ describe("Fee Preferences under low token pair liquidity", function () {
 
     expect(dispatchErrIndex).to.equal(EVM_PALLET_INDEX);
     expect(dispatchError).to.equal(WITHDRAW_FAILED_ERROR_INDEX)
-
   });
 });

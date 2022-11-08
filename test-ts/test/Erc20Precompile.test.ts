@@ -32,11 +32,11 @@ describe('ERC20 Precompile', function () {
 
     expect(
         await xrpToken.name()
-    ).to.equal("ROOT");
+    ).to.equal("XRP");
 
     expect(
         await xrpToken.symbol()
-    ).to.equal("ROOT");
+    ).to.equal("XRP");
   });
 
   it('XRP transfer, balanceOf', async () => {
