@@ -34,7 +34,7 @@ use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	traits::{
-		AccountIdConversion, Extrinsic, SaturatedConversion, UniqueSaturatedInto, Verify, Zero,
+		AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero,
 	},
 	ConsensusEngineId, Permill,
 };
