@@ -1,5 +1,4 @@
 import { expect } from "chai";
-// import chaiAsPromised from 'chai-as-promised'
 import { Contract, Wallet, utils } from 'ethers';
 
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
