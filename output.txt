@@ -1,0 +1,47 @@
+2022-11-09 14:26:34 Seed 🌱    
+2022-11-09 14:26:34 ✌️  version 0.0.22-2c65579c7a4    
+2022-11-09 14:26:34 ❤️  by Centrality Developers <support@centrality.ai>, 2017-2022    
+2022-11-09 14:26:34 📋 Chain specification: Seed Dev    
+2022-11-09 14:26:34 🏷  Node name: ugly-relation-6387    
+2022-11-09 14:26:34 👤 Role: AUTHORITY    
+2022-11-09 14:26:34 💾 Database: RocksDb at /tmp/substrateWwMiEH/chains/seed_dev/db/full    
+2022-11-09 14:26:34 ⛓  Native runtime: root-19 (root-0.tx1.au1)    
+2022-11-09 14:26:35 [0] 💸 generated 1 npos voters, 1 from validators and 0 nominators    
+2022-11-09 14:26:35 🔨 Initializing Genesis block/state (state: 0xb9ea…2d40, header-hash: 0xf6f5…e139)    
+2022-11-09 14:26:35 👴 Loading GRANDPA authority set from genesis on what appears to be first startup.    
+2022-11-09 14:26:36 👶 Creating empty BABE epoch changes on what appears to be first startup.    
+2022-11-09 14:26:36 Using default protocol ID "sup" because none is configured in the chain specs    
+2022-11-09 14:26:36 🏷  Local node identity is: 12D3KooWDRFNJvCNyP8Sya3LUbDwZAnJ6fv175Z2o83HGNxJ3Pcc    
+2022-11-09 14:26:36 💻 Operating system: linux    
+2022-11-09 14:26:36 💻 CPU architecture: x86_64    
+2022-11-09 14:26:36 💻 Target environment: gnu    
+2022-11-09 14:26:36 💻 CPU: 12th Gen Intel(R) Core(TM) i9-12900K    
+2022-11-09 14:26:36 💻 CPU cores: 16    
+2022-11-09 14:26:36 💻 Memory: 31843MB    
+2022-11-09 14:26:36 💻 Kernel: 5.15.0-52-generic    
+2022-11-09 14:26:36 💻 Linux distribution: Ubuntu 22.04 LTS    
+2022-11-09 14:26:36 💻 Virtual machine: no    
+2022-11-09 14:26:36 📦 Highest known block at #0    
+2022-11-09 14:26:36 〽️ Prometheus exporter started at 127.0.0.1:9615    
+2022-11-09 14:26:36 Running JSON-RPC HTTP server: addr=127.0.0.1:9933, allowed origins=None    
+2022-11-09 14:26:36 Running JSON-RPC WS server: addr=127.0.0.1:9944, allowed origins=None    
+2022-11-09 14:26:36 👶 Starting BABE Authorship worker    
+2022-11-09 14:26:36 💎 run Ethy worker, best finalized block: #0.    
+2022-11-09 14:26:39 Accepting new connection, 1/100
+2022-11-09 14:26:40 🙌 Starting consensus session on top of parent 0xf6f5e4f46fe586ad2f830202fb1c1d964a98057e16bd1a2edc49ed912bc2e139    
+2022-11-09 14:26:40 🎁 Prepared block for proposing at 1 (3 ms) [hash: 0x110e5c1553e476a720eaff3bd6032c803c1951b3aa6afb33300f0d410acc44b1; parent_hash: 0xf6f5…e139; extrinsics (1): [0xa295…5c8d]]    
+2022-11-09 14:26:40 🔖 Pre-sealed block for proposal at 1. Hash now 0x381738884ed4e3f3c206f7cd55be762eba577a527268a29766084308c7c43bfb, previously 0x110e5c1553e476a720eaff3bd6032c803c1951b3aa6afb33300f0d410acc44b1.    
+2022-11-09 14:26:40 👶 New epoch 0 launching at block 0x3817…3bfb (block slot 417005500 >= start slot 417005500).    
+2022-11-09 14:26:40 👶 Next epoch starts at slot 417009100    
+2022-11-09 14:26:40 ✨ Imported #1 (0x3817…3bfb)    
+2022-11-09 14:26:41 💤 Idle (0 peers), best: #1 (0x3817…3bfb), finalized #0 (0xf6f5…e139), ⬇ 0 ⬆ 0    
+2022-11-09 14:26:44 🙌 Starting consensus session on top of parent 0x381738884ed4e3f3c206f7cd55be762eba577a527268a29766084308c7c43bfb    
+2022-11-09 14:26:44 🎁 Prepared block for proposing at 2 (0 ms) [hash: 0xf0ac4ce987e452faaaf8ab11cf1f1ca740a10632c1c05d4904d79e4eafd3bc21; parent_hash: 0x3817…3bfb; extrinsics (2): [0xe363…c8e7, 0x4bb2…2dd9]]    
+2022-11-09 14:26:44 🔖 Pre-sealed block for proposal at 2. Hash now 0x5f8238adad2eb0cada717ba0e1f5426a8eee2c766483acf800f82cc6f500da66, previously 0xf0ac4ce987e452faaaf8ab11cf1f1ca740a10632c1c05d4904d79e4eafd3bc21.    
+2022-11-09 14:26:44 ✨ Imported #2 (0x5f82…da66)    
+2022-11-09 14:26:44 returning error    
+2022-11-09 14:26:46 💤 Idle (0 peers), best: #2 (0x5f82…da66), finalized #0 (0xf6f5…e139), ⬇ 0 ⬆ 0    
+2022-11-09 14:26:48 🙌 Starting consensus session on top of parent 0x5f8238adad2eb0cada717ba0e1f5426a8eee2c766483acf800f82cc6f500da66    
+2022-11-09 14:26:48 🎁 Prepared block for proposing at 3 (0 ms) [hash: 0x33e55bae5096af2df484647c9f503ddff6908bf56319c6c1848f2c2c8bcabfeb; parent_hash: 0x5f82…da66; extrinsics (1): [0x92b0…e7de]]    
+2022-11-09 14:26:48 🔖 Pre-sealed block for proposal at 3. Hash now 0x5caa57195945035dd239698ca2fee7ec20e02fa1fa805f8be7d4035453f8ad85, previously 0x33e55bae5096af2df484647c9f503ddff6908bf56319c6c1848f2c2c8bcabfeb.    
+2022-11-09 14:26:48 ✨ Imported #3 (0x5caa…ad85)    

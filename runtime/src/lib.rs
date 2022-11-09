@@ -1413,8 +1413,9 @@ fn transaction_asset_check(action: TransactionAction, input: Vec<u8>) -> Result<
 		if asset_balance < 40000000000000000000000000 {
 			log::info!("returning error");
 			// Double check this error is the correct one
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(3)));
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment));
 		}
+		// TODO: Add another check for liquidity
 	}
 	Ok(())
 }
