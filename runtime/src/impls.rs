@@ -18,6 +18,8 @@
 
 use core::ops::Mul;
 
+use evm::backend::Basic;
+use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -44,8 +46,8 @@ use seed_pallet_common::{
 use seed_primitives::{AccountId, Balance, Index, Signature};
 
 use crate::{
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic,
+	constants::FEE_PROXY, BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId,
+	Staking, System, UncheckedExtrinsic,
 };
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -394,6 +396,20 @@ where
 
 	fn weight_to_fee(weight: &Weight) -> Balance {
 		M::get().mul(*weight as Balance)
+	}
+}
+
+pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
+
+impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
+	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
+		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY);
+		// If we are not overriding with a fee preference, proceed with calculating a fee
+		if evm_config.transaction.to != Some(decoded_override_destination) {
+			// call default trait function instead
+			<() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
+		}
+		Ok(())
 	}
 }
 

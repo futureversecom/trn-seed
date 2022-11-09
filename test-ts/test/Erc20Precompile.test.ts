@@ -2,20 +2,10 @@ import { expect } from "chai";
 import { Contract, ContractFactory, Wallet, utils, BigNumber } from 'ethers';
 import web3 from 'web3';
 import { JsonRpcProvider, Provider } from "@ethersproject/providers";
-import PrecompileCaller from '../artifacts/contracts/ERC20PrecompileCaller.sol/ERC20PrecompileCaller.json';
+import PrecompileCaller from '../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json';
+import { ERC20_ABI } from '../common';
 
 const xrpTokenAddress = web3.utils.toChecksumAddress('0xCCCCCCCC00000002000000000000000000000000');
-const erc20Abi = [
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
-  'event Approval(address indexed owner, address indexed spender, uint256 value)',
-  'function approve(address spender, uint256 amount) public returns (bool)',
-  'function allowance(address owner, address spender) public view returns (uint256)',
-  'function balanceOf(address who) public view returns (uint256)',
-  'function name() public view returns (string memory)',
-  'function symbol() public view returns (string memory)',
-  'function decimals() public view returns (uint8)',
-  'function transfer(address who, uint256 amount)',
-];
 
 describe('ERC20 Precompile', function () {
   let seedSigner: Wallet;
@@ -29,7 +19,7 @@ describe('ERC20 Precompile', function () {
     jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
 
     seedSigner = new Wallet('0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf').connect(jsonProvider); // 'development' seed
-    xrpToken = new Contract(xrpTokenAddress, erc20Abi, seedSigner);
+    xrpToken = new Contract(xrpTokenAddress, ERC20_ABI, seedSigner);
 
     let factory = new ContractFactory(PrecompileCaller.abi, PrecompileCaller.bytecode, seedSigner);
     precompileCaller = await factory.deploy();
@@ -52,11 +42,15 @@ describe('ERC20 Precompile', function () {
   it('XRP transfer, balanceOf', async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
     const transferAmount = 12345;
+    const startingAmount = await xrpToken.balanceOf(seedSigner.address);
+
     await expect(
         xrpToken.transfer(receiverAddress, transferAmount)
     ).to.emit(xrpToken, 'Transfer').withArgs(seedSigner.address, receiverAddress, transferAmount);
 
     expect(await xrpToken.balanceOf(receiverAddress)).to.be.equal(transferAmount);
+    // Account should be decremented by the sent amount + fees
+    expect(await xrpToken.balanceOf(seedSigner.address)).to.be.lessThan(startingAmount - transferAmount);
   })
 
   it('XRP transfer amounts via EVM', async () => {

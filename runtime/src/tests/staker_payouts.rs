@@ -228,7 +228,7 @@ fn staking_final_session_tracking_ethy() {
 		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
 
 		advance_session(); // era 3 starts (forced) and keys contain the updated key
-		/// Call on_initialize for scheduler to update keys and unpause bridge
+				   // Call on_initialize for scheduler to update keys and unpause bridge
 		let scheduled_block: BlockNumber = System::block_number() + 75_u32;
 		Scheduler::on_initialize(scheduled_block.into());
 		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());

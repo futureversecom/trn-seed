@@ -183,7 +183,8 @@ impl EventProof {
 	pub fn expanded_signatures(&self, n_signatures: usize) -> Vec<crypto::AuthoritySignature> {
 		let empty_sig = AuthoritySignature::from(sp_core::ecdsa::Signature::default());
 
-		// The length of the signatures is expected to be the same as the length of the validators in the current set
+		// The length of the signatures is expected to be the same as the length of the validators
+		// in the current set
 		if n_signatures != self.signatures.len() {
 			log::warn!(target: "ethy", "💎 The amount of signatures received is not equal to the amount of validators, there may be an unexpected amount of signatures stored/retrieved");
 		}
@@ -191,7 +192,8 @@ impl EventProof {
 		let mut signatures = vec![empty_sig; n_signatures];
 
 		for (idx, signature) in self.signatures.iter() {
-			// Avoid errors by stopping early if there are more signatures than validator addresses stored
+			// Avoid errors by stopping early if there are more signatures than validator addresses
+			// stored
 			if idx >= &(n_signatures as u32) {
 				return signatures;
 			}

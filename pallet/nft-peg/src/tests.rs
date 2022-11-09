@@ -1,7 +1,5 @@
 use crate::{mock::*, *};
-use core::fmt::Write;
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
-use frame_system::RawOrigin;
 use hex_literal::hex;
 use pallet_nft::MetadataScheme;
 use seed_primitives::AccountId;

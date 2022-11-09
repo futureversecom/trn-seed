@@ -27,7 +27,6 @@ use seed_primitives::TokenId;
 use sp_core::H160;
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
-use std::fmt::Write;
 
 // Create an NFT collection
 // Returns the created `collection_id`

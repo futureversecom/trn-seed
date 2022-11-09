@@ -214,12 +214,13 @@ where
 					.map_err(|err| {
 						// TODO implement err into RunnerError
 						log!(
-							debug,
-							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?}",
+							error,
+							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
 							payment_asset_id,
 							max_payment,
 							total_fee_scaled,
-							err
+							err,
+							path
 						);
 						RunnerError { error: Self::Error::WithdrawFailed, weight }
 					})?;
@@ -402,8 +403,7 @@ mod tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::from(1000000u64);
-			let (base_fee, _weight) = BaseFee::min_gas_price();
+			let (_base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_ok!(Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false));
 		});
@@ -432,8 +432,7 @@ mod tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit = 100_000_u64;
 			let max_fee_per_gas = None;
-			let max_priority_fee_per_gas = U256::from(1_000_000_u64);
-			let (base_fee, _weight) = BaseFee::min_gas_price();
+			let (_base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_ok!(Runner::calculate_total_gas(gas_limit, max_fee_per_gas, false));
 		});
@@ -445,8 +444,7 @@ mod tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::MAX;
-			let (base_fee, _weight) = BaseFee::min_gas_price();
+			let (_base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_noop!(
 				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false),
@@ -460,8 +458,6 @@ mod tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::MAX;
-			let max_priority_fee_per_gas = U256::from(1000000u64);
-			let (base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_noop!(
 				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false),
