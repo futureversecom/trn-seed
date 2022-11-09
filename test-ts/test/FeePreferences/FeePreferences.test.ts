@@ -248,9 +248,15 @@ describe("Fee Preferences", function () {
     };
     
     await emptyAccountSigner.signTransaction(unsignedTx);
-    const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
 
-    await tx.wait();
+    try {
+      const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+      await tx.wait();
+    } catch(err) {
+      expect(err.reason).to.be.eq('insufficient funds for intrinsic transaction cost')
+      expect(err.code).to.be.eq('INSUFFICIENT_FUNDS')
+    }
+
     // const receipt = await Promise.race([tx.wait(), sleep(8000)]);
     // expect(receipt).to.be.undefined;
 
