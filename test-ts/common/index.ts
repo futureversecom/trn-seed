@@ -124,3 +124,14 @@ export const executeForPreviousEvent = async (
     currentInHistory++;
   }
 }
+
+export function raceTxAgainstBlock<T>(tx: Promise<T>) {
+  const blockTime = 4000;
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve, reject) => {
+    Promise.resolve(tx).then(res => resolve(res), err => reject(err));
+    const threshold = sleep(blockTime);
+    Promise.resolve(threshold)
+      .finally(() => reject("The tx.wait took too long. Likely due to known issue where tx is not included given an error"))
+  });
+}

@@ -1,4 +1,5 @@
 import { expect } from "chai";
+// import chaiAsPromised from 'chai-as-promised'
 import { Contract, Wallet, utils } from 'ethers';
 
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
@@ -6,8 +7,7 @@ import { hexToU8a } from '@polkadot/util';
 import { KeyringPair } from "@polkadot/keyring/types";
 import { JsonRpcProvider } from "@ethersproject/providers";
 
-import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, executeForPreviousEvent, sleep, EVM_PALLET_INDEX, WITHDRAW_FAILED_ERROR_INDEX } from '../../common';
-
+import { typedefs, assetIdToERC20ContractAddress, NATIVE_TOKEN_ID, ERC20_ABI, FEE_PROXY_ABI, FEE_PROXY_ADDRESS, ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, raceTxAgainstBlock, executeForPreviousEvent, sleep, EVM_PALLET_INDEX, WITHDRAW_FAILED_ERROR_INDEX } from '../../common';
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
 describe("Fee Preferences", function () {
@@ -348,5 +348,84 @@ describe("Fee Preferences", function () {
       expect(err.code).to.be.eq("SERVER_ERROR")
       const body = JSON.parse(err.body);
       expect(body.error.message).to.be.eq("submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))")    }
+  });
+
+
+  it('Workaround snippet notifies in error scenario', async () => {
+    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
+    const transferAmount = 1;
+    let iface = new utils.Interface(ERC20_ABI);
+    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+
+    const maxFeePaymentInToken = 1; // <-- insufficient payment
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
+    const nonce = await emptyAccountSigner.getTransactionCount();
+    const chainId = 3999;
+    const maxPriorityFeePerGas = 1_500_000_000; // 1_500_000_000 = '0x59682f00'
+    const gasLimit = 23316; // '0x5b14' = 23316;
+    const maxFeePerGas = 30_001_500_000_0000; // 30_001_500_000_000 = '0x1b4944c00f00'  
+    const unsignedTx = { // eip1559 tx
+      type: 2,
+      from: emptyAccount.address,
+      to: FEE_PROXY_ADDRESS,
+      nonce,
+      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
+        feeToken.address,
+        maxFeePaymentInToken,
+        feeToken.address,
+        transferInput,
+      ]),
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      chainId,
+    };
+    
+    await emptyAccountSigner.signTransaction(unsignedTx);
+    const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+
+
+    try {
+      await raceTxAgainstBlock(tx.wait());
+    } catch(err) {
+      expect(err).to.be.eq("The tx.wait took too long. Likely due to known issue where tx is not included given an error");
+    }
+  });
+
+  it('Workaround script returns successfully in non-error scenario', async () => {
+    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
+    const transferAmount = 1;
+    let iface = new utils.Interface(ERC20_ABI);
+    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+
+    const maxFeePaymentInToken = 10_000_000_000;
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
+    const nonce = await emptyAccountSigner.getTransactionCount();
+    const chainId = 3999;
+    const maxPriorityFeePerGas = 0; // 1_500_000_000 = '0x59682f00'
+    const gasLimit = 23316; // '0x5b14' = 23316;
+    const maxFeePerGas = 30_001_500_000_0000; // 30_001_500_000_000 = '0x1b4944c00f00'  
+    const unsignedTx = { // eip1559 tx
+      type: 2,
+      from: emptyAccount.address,
+      to: FEE_PROXY_ADDRESS,
+      nonce,
+      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
+        feeToken.address,
+        maxFeePaymentInToken,
+        feeToken.address,
+        transferInput,
+      ]),
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      chainId,
+    };
+    
+    await emptyAccountSigner.signTransaction(unsignedTx);
+    const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+
+    const awaitedTx = await raceTxAgainstBlock(tx.wait());
+    // expect(awaitedTx)
   });
 });
