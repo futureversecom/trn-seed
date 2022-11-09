@@ -1409,7 +1409,6 @@ fn transaction_asset_check(action: TransactionAction, input: Vec<u8>) -> Result<
 		// Replace with current gas (For now, just want to demonstrate tx rejection with error)
 		if asset_balance < 40000000000000000000000000 {
 			log::info!("returning error");
-			// Double check this error is the correct one
 			return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment));
 		}
 		// TODO: Add another check for liquidity
