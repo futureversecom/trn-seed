@@ -11,7 +11,7 @@ use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_ethereum::{
-	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
+	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction, TransactionAction
 };
 use pallet_evm::{
 	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
@@ -94,6 +94,8 @@ use staking::OnChainAccuracy;
 
 pub mod runner;
 use runner::FeePreferencesRunner;
+
+use crate::constants::FEE_PROXY;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
 #[cfg(test)]
@@ -1252,6 +1254,7 @@ impl_runtime_apis! {
 			estimate: bool,
 			access_list: Option<Vec<(H160, Vec<H256>)>>,
 		) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
+
 			let config = if estimate {
 				let mut config = <Runtime as pallet_evm::Config>::config().clone();
 				config.estimate = true;
@@ -1393,6 +1396,26 @@ impl_runtime_apis! {
 	}
 }
 
+
+fn transaction_asset_check(action: TransactionAction, input: Vec<u8>) -> Result<(), TransactionValidityError> {
+	let fee_proxy = TransactionAction::Call(
+		// TODO: get fee proxy location nicely
+		H160::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 187])
+	);
+
+	if action == fee_proxy {
+		let (asset_id, _balance, _address, _bytes) = FeePreferencesRunner::<Runtime, Runtime>::decode_input(input).unwrap();
+		let asset_balance = Assets::total_supply(asset_id);
+		// Replace with current gas (For now, just want to demonstrate tx rejection with error)
+		if asset_balance < 40000000000000000000000000 {
+			log::info!("returning error");
+			// Double check this error is the correct one
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(3)));
+		}
+	}
+	Ok(())
+}
+
 impl fp_self_contained::SelfContainedCall for Call {
 	type SignedInfo = H160;
 
@@ -1415,7 +1438,7 @@ impl fp_self_contained::SelfContainedCall for Call {
 		signed_info: &Self::SignedInfo,
 		dispatch_info: &DispatchInfoOf<Self>,
 		len: usize,
-	) -> Option<TransactionValidity> {
+	) -> Option<TransactionValidity> { 
 		match self {
 			Call::Ethereum(ref call) => {
 				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))
@@ -1471,6 +1494,19 @@ fn validate_self_contained_inner(
 		};
 		let extra_validation =
 			SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
+
+		// Perform tx submitter asset balance checks required for fee proxying
+		match call.clone() {
+			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
+				match transaction {
+					pallet_ethereum::Transaction::Legacy(t) => transaction_asset_check(t.action, t.input),
+					pallet_ethereum::Transaction::EIP2930(t) => transaction_asset_check(t.action, t.input),
+					pallet_ethereum::Transaction::EIP1559(t) => transaction_asset_check(t.action, t.input),
+				}
+		},
+			_ => Ok(()),
+		}?;
+
 		// Then, do the controls defined by the ethereum pallet.
 		let self_contained_validation = eth_call
 			.validate_self_contained(signed_info, dispatch_info, len)
