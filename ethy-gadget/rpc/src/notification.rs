@@ -17,7 +17,6 @@
 use serde::{Deserialize, Serialize};
 use sp_core::{Bytes, H256};
 
-use seed_primitives::ethy::crypto::AuthorityId;
 use seed_primitives::{
 	ethy::{EventProofId, ValidatorSetId},
 	AccountId20,
@@ -46,7 +45,7 @@ pub struct XrplEventProofResponse {
 	/// The Xrpl validator signatures in the request
 	pub signatures: Vec<Bytes>,
 	/// The Xrpl validators that signed the request
-	pub validators: Vec<AuthorityId>,
+	pub validators: Vec<Bytes>,
 	/// The validators set Id that signed the proof
 	pub validator_set_id: ValidatorSetId,
 	/// THe block hash of the event (finalized)

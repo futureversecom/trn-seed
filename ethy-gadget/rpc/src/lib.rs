@@ -40,6 +40,7 @@ use seed_primitives::{
 
 mod notification;
 use notification::{EthEventProofResponse, XrplEventProofResponse};
+use seed_primitives::ethy::EthyEcdsaToPublicKey;
 
 /// Provides RPC methods for interacting with Ethy.
 #[allow(clippy::needless_return)]
@@ -219,6 +220,7 @@ where
 
 			let validator_set =
 				client.runtime_api().validator_set(&BlockId::hash(block.into())).ok()?;
+			let mut xrpl_signer_set: Vec<Bytes> = Default::default();
 
 			Some(XrplEventProofResponse {
 				event_id,
@@ -228,7 +230,15 @@ where
 						let pub_key = validator_set.validators.get(*i as usize);
 						if let Some(pub_key) = pub_key {
 							// we only care about the availability of the pub_key in xrpl_validator_set or not, doesn't matter the position.
-							xrpl_validator_set.authority_index(pub_key).is_some()
+							match xrpl_validator_set.authority_index(pub_key) {
+								Some(_) => {
+									xrpl_signer_set.push(Bytes::from(
+										EthyEcdsaToPublicKey::convert(pub_key.clone()).to_vec(),
+									));
+									true
+								},
+								None => false,
+							}
 						} else {
 							false
 						}
@@ -250,7 +260,7 @@ where
 					})
 					.map(|s| Bytes::from(s.as_ref().to_vec()))
 					.collect(),
-				validators: xrpl_validator_set.validators,
+				validators: xrpl_signer_set,
 				validator_set_id: xrpl_validator_set.id,
 				block: block.into(),
 				tag: None,
