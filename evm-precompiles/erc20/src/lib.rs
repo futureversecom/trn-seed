@@ -115,10 +115,19 @@ where
 			Runtime::evm_id_to_runtime_id(Address(address), ERC20_PRECOMPILE_ADDRESS_PREFIX)
 		{
 			// totaly supply `0` is a good enough check for asset existence
-			!<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::total_issuance(
+			if <pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::total_issuance(
 				asset_id,
 			)
-			.is_zero()
+			.is_zero() {
+				return false
+			}
+			// Check whether this precompile address has some code stored within the EVM pallet
+			if pallet_evm::Pallet::<Runtime>::is_account_empty(&address) {
+				// No code exists, let's add some filler code, this will mean the precompile address passes
+				// checks that reference an address's byte code i.e. EXTCODESIZE
+				pallet_evm::Pallet::<Runtime>::create_account(address, b"ERC20 precompile".to_vec());
+			}
+			true
 		} else {
 			false
 		}

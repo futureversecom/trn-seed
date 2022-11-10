@@ -165,8 +165,17 @@ where
 		if let Some(collection_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC721_PRECOMPILE_ADDRESS_PREFIX)
 		{
-			// route to NFT module only if the (collection, series) exists
-			pallet_nft::Pallet::<Runtime>::collection_exists(collection_id)
+			// Check whether the collection exists
+			if !pallet_nft::Pallet::<Runtime>::collection_exists(collection_id) {
+				return false
+			}
+			// Check whether this precompile address has some code stored within the EVM pallet
+			if pallet_evm::Pallet::<Runtime>::is_account_empty(&address) {
+				// No code exists, let's add some filler code, this will mean the precompile address passes
+				// checks that reference an address's byte code i.e. EXTCODESIZE
+				pallet_evm::Pallet::<Runtime>::create_account(address, b"ERC721 precompile".to_vec());
+			}
+			true
 		} else {
 			false
 		}
@@ -307,7 +316,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn safe_transfer_from(
@@ -443,7 +452,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn approve(
@@ -492,7 +501,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn get_approved(
@@ -576,7 +585,7 @@ where
 			EvmDataWriter::new().write(approved).build(),
 		)
 		.record(handle)?;
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn name(

@@ -6,7 +6,7 @@ edition = "2021"
 repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
-scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 precompile-utils = { path = "../utils", default-features = false }
 num_enum = { version = "0.5.3", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
@@ -20,8 +20,8 @@ sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "po
 sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 # Frontier
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
 
 [features]
 default = ["std"]

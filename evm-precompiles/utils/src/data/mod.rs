@@ -474,18 +474,6 @@ impl EvmData for bool {
 	}
 }
 
-impl EvmData for () {
-	fn read(_reader: &mut EvmDataReader) -> MayRevert<Self> {
-		Ok(())
-	}
-
-	fn write(_writer: &mut EvmDataWriter, _value: Self) {}
-
-	fn has_static_size() -> bool {
-		true
-	}
-}
-
 impl EvmData for Bytes {
 	fn read(reader: &mut EvmDataReader) -> MayRevert<Self> {
 		Ok(Bytes(BoundedBytes::<ConstU32Max>::read(reader)?.into_vec()))
