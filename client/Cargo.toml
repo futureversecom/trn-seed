@@ -54,14 +54,14 @@ frame-system = { git = "https://github.com/futureversecom/substrate", branch = "
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate" , branch = "polkadot-v0.9.27" }
 
 # Frontier
-fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fc-db = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fc-mapping-sync = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fc-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fc-rpc-core = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fp-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fp-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
-fp-storage = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+fc-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
+fc-db = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
+fc-mapping-sync = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
+fc-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
+fc-rpc-core = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
+fp-consensus = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
+fp-rpc = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
+fp-storage = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-Precompile-fix" }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.14.0", features = ["server", "macros"] }

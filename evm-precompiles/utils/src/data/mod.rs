@@ -228,8 +228,8 @@ struct OffsetDatum {
 	offset_position: usize,
 	// Data pointed by the offset that must be inserted at the end of container data.
 	data: Vec<u8>,
-	// Inside of arrays, the offset is not from the start of array data (length), but from the
-	// start of the item. This shift allow to correct this.
+	// Inside of arrays, the offset is not from the start of array data (length), but from the start
+	// of the item. This shift allow to correct this.
 	offset_shift: usize,
 }
 
@@ -468,6 +468,18 @@ impl EvmData for bool {
 
 		writer.data.extend_from_slice(&buffer);
 	}
+
+	fn has_static_size() -> bool {
+		true
+	}
+}
+
+impl EvmData for () {
+	fn read(_reader: &mut EvmDataReader) -> MayRevert<Self> {
+		Ok(())
+	}
+
+	fn write(_writer: &mut EvmDataWriter, _value: Self) {}
 
 	fn has_static_size() -> bool {
 		true
