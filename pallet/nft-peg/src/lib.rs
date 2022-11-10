@@ -251,20 +251,20 @@ where
 		let mut weight: Weight = 0;
 
 		let destination: T::AccountId = destination.into();
-		let metadata_scheme = pallet_nft::MetadataScheme::Ethereum(Self::contract_address());
 		let name = "".encode();
 
 		for current_token in token_info.tokens.iter() {
 			// Assign collection owner to pallet. User can claim it later
 			let collection_owner_account =
 				<T as pallet_nft::Config>::PalletId::get().into_account_truncating();
-
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
 			let collection_id: CollectionUuid =
 				match Self::eth_to_root_nft(current_token.token_address) {
 					Some(collection_id) => collection_id,
 					None => {
+						let metadata_scheme =
+							pallet_nft::MetadataScheme::Ethereum(current_token.token_address);
 						// Collection doesn't exist, create a new collection
 						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 							collection_owner_account,

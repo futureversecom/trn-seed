@@ -10,7 +10,9 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
-use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
+use pallet_ethereum::{
+	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
+};
 use pallet_evm::{
 	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
@@ -80,8 +82,8 @@ use constants::{
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, PercentageOfWeight,
-	SlashImbalanceHandler, StakingSessionTracker,
+	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
+	PercentageOfWeight, SlashImbalanceHandler, StakingSessionTracker,
 };
 
 pub mod precompiles;
@@ -94,7 +96,6 @@ pub mod runner;
 use runner::FeePreferencesRunner;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
-
 #[cfg(test)]
 mod tests;
 
@@ -110,7 +111,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 18,
+	spec_version: 19,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -234,6 +235,7 @@ parameter_types! {
 	pub const OperationalFeeMultiplier: u8 = 5;
 	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
 }
+
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type Event = Event;
@@ -824,6 +826,7 @@ parameter_types! {
 	/// 0.000015 XRP per gas
 	pub const DefaultBaseFeePerGas: u64 = 1_500_000_000_000;
 }
+
 impl pallet_base_fee::Config for Runtime {
 	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
 	type Event = Event;
@@ -869,15 +872,16 @@ impl pallet_evm::Config for Runtime {
 	fn config() -> &'static EvmConfig {
 		&SEED_EVM_CONFIG
 	}
+	type HandleTxValidation = HandleTxValidation<pallet_evm::Error<Runtime>>;
 }
 
 impl pallet_ethereum::Config for Runtime {
 	type Event = Event;
 	type StateRoot = pallet_ethereum::IntermediateStateRoot<Runtime>;
+	type HandleTxValidation = HandleTxValidation<InvalidTransactionWrapper>;
 }
 
 pub struct TransactionConverter;
-
 impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
 	fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_unsigned(
@@ -1165,6 +1169,33 @@ impl_runtime_apis! {
 			UncheckedExtrinsic::new_unsigned(
 				pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
 			)
+		}
+	}
+
+	impl pallet_dex_rpc_runtime_api::DexApi<
+		Block,
+		Runtime,
+	> for Runtime {
+		fn quote(
+			amount_a: u128,
+			reserve_a: u128,
+			reserve_b: u128,
+		) -> Result<u128, sp_runtime::DispatchError> {
+			Dex::quote(amount_a.into(), reserve_a, reserve_b).map(|r| r.low_u128())
+		}
+
+		fn get_amounts_out(
+			amount_in: Balance,
+			path: Vec<AssetId>,
+		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
+			Dex::get_amounts_out(amount_in, &path)
+		}
+
+		fn get_amounts_in(
+			amount_out: Balance,
+			path: Vec<AssetId>,
+		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
+			Dex::get_amounts_in(amount_out, &path)
 		}
 	}
 

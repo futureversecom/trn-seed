@@ -1,0 +1,42 @@
+[package]
+name = "pallet-evm-precompiles-nft"
+version = "2.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2021"
+repository = "https://github.com/cennznet/cennznet"
+
+[dependencies]
+scale-info = { version = "1.0.0", default-features = false, features = ["derive"] }
+precompile-utils = { path = "../utils", default-features = false }
+num_enum = { version = "0.5.3", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
+pallet-nft = { path = "../../pallet/nft", default-features = false }
+
+# Substrate
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+
+# Frontier
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+
+[features]
+default = ["std"]
+std = [
+    "scale-info/std",
+    "fp-evm/std",
+    "pallet-evm/std",
+    "frame-system/std",
+    "frame-support/std",
+    "num_enum/std",
+    "precompile-utils/std",
+    "sp-core/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "seed-primitives/std",
+    "pallet-nft/std",
+]
+

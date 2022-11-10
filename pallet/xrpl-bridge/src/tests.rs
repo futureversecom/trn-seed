@@ -5,7 +5,7 @@ use crate::mock::{
 use frame_support::{assert_err, assert_noop, assert_ok};
 use seed_primitives::{AccountId, Balance};
 use sp_core::H160;
-use sp_runtime::{traits::BadOrigin, Percent};
+use sp_runtime::traits::BadOrigin;
 
 /// Helper function to create an AccountId from  a slice
 fn create_account(address: &[u8]) -> AccountId {
@@ -357,17 +357,16 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 			2_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
+		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(4).into());
 
 		// try to fetch again - error
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
 		assert_err!(
 			XRPLBridge::get_door_ticket_sequence(),
 			Error::<Test>::NextTicketSequenceParamsNotSet
 		);
-		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
-		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(5).into());
-
 		// try to fetch again - error
 		assert_noop!(
 			XRPLBridge::get_door_ticket_sequence(),
@@ -471,13 +470,17 @@ fn get_door_ticket_sequence_check_events_emitted() {
 			3_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
-
 		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), false);
-		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
-		// event should be emitted here since (5 - 3)/3 = 0.66 == TicketSequenceThreshold
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
+		// event should be emitted here since ((4 - 3) + 1)/3 = 0.66 == TicketSequenceThreshold
 		assert_eq!(XRPLBridge::ticket_sequence_threshold_reached_emitted(), true);
-		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(5).into());
+		System::assert_has_event(Event::<Test>::TicketSequenceThresholdReached(4).into());
+
+		// try to fetch again - error - but no TicketSequenceThresholdReached
+		System::reset_events();
+		assert_eq!(System::events(), []);
+		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(5));
+		assert_eq!(System::events(), []);
 
 		// try to fetch again - error - but no TicketSequenceThresholdReached
 		System::reset_events();
@@ -597,7 +600,8 @@ fn set_ticket_sequence_current_allocation_failure() {
 			Error::<Test>::TicketSequenceParamsInvalid
 		);
 
-		// Force set the current param set with start_ticket_sequence < current start_ticket_sequence
+		// Force set the current param set with start_ticket_sequence < current
+		// start_ticket_sequence
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
@@ -661,9 +665,10 @@ fn set_ticket_sequence_next_allocation_success() {
 		);
 
 		// We did not set the initial door ticket sequence,
-		// In a correct setup, we should set the initial param set using set_ticket_sequence_current_allocation().
-		// This demonstrates that even without it, setting the next params would be enough. It will switch over and continue
-		// switch over happened, should give start of the next allocation(1,200)
+		// In a correct setup, we should set the initial param set using
+		// set_ticket_sequence_current_allocation(). This demonstrates that even without it, setting
+		// the next params would be enough. It will switch over and continue switch over happened,
+		// should give start of the next allocation(1,200)
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(1));
 
 		// Force update the current param set
@@ -699,8 +704,8 @@ fn set_ticket_sequence_next_allocation_success() {
 			.into(),
 		);
 
-		// try to fetch, should still give the next in current allocation(11) since current allocation
-		// is not consumed yet
+		// try to fetch, should still give the next in current allocation(11) since current
+		// allocation is not consumed yet
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(11));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(12));
 

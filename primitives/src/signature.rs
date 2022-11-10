@@ -91,7 +91,8 @@ impl sp_runtime::traits::Verify for EthereumSignature {
 			return true;
 		}
 
-		/// Try blake2_256 hashing the message, this is to prevent invalid characters showing in Metamask
+		// Try blake2_256 hashing the message, this is to prevent invalid characters showing in
+		// Metamask
 		let m = keccak_256(personal_sign_message(&blake2_256(message)[..]).as_slice());
 		verify_signature(self.0.as_ref(), &m, signer)
 	}

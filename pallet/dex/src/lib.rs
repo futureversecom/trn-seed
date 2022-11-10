@@ -410,7 +410,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Given some amount of an asset and pair reserves, returns an equivalent amount of the other
 	/// asset
-	fn quote(
+	pub fn quote(
 		amount_a: U256,
 		reserve_a: u128,
 		reserve_b: u128,

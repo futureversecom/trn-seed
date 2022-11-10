@@ -1,9 +1,6 @@
 use crate::Dex;
 use ethabi::{ParamType, Token};
-use frame_support::{
-	ensure,
-	traits::{fungibles::InspectMetadata, Get},
-};
+use frame_support::{ensure, traits::fungibles::InspectMetadata};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -65,7 +62,7 @@ fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 }
 
 /// seed implementation of the evm runner which handles the case where users are attempting
-/// to set their payment asset. In this case, we will exchange their desired asset into native
+/// to set their payment asset. In this case, we will exchange their desired asset into gas
 /// token (XRP) to complete the transaction
 pub struct FeePreferencesRunner<T, U>(PhantomData<(T, U)>);
 
@@ -106,7 +103,7 @@ where
 		}
 	}
 
-	// Calculate gas price for transaction to use for exchanging asset into native currency
+	// Calculate gas price for transaction to use for exchanging asset into gas-token currency
 	pub fn calculate_total_gas(
 		gas_limit: u64,
 		max_fee_per_gas: Option<U256>,
@@ -201,35 +198,36 @@ where
 			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional)
 				.map_err(|err| RunnerError { error: err.into(), weight })?;
 
-			let native_asset_id = <T as pallet_assets_ext::Config>::NativeAssetId::get();
+			let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
 			let decimals = <pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
-				&native_asset_id,
+				&gas_token_asset_id,
 			);
 			let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 
-			// Buy the native fee currency paying with the user's nominated token
+			// Buy the gas asset fee currency paying with the user's nominated token
 			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
-			let path = vec![payment_asset_id, native_asset_id];
+			let path = vec![payment_asset_id, gas_token_asset_id];
 
 			if total_fee_scaled > 0 {
-				// total_fee_scaled is 0 when user doesnt have native currency
+				// total_fee_scaled is 0 when user doesnt have gas asset currency
 				Dex::do_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
 					.map_err(|err| {
 						// TODO implement err into RunnerError
 						log!(
-							debug,
-							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?}",
+							error,
+							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
 							payment_asset_id,
 							max_payment,
 							total_fee_scaled,
-							err
+							err,
+							path
 						);
 						RunnerError { error: Self::Error::WithdrawFailed, weight }
 					})?;
 			}
 		}
 
-		// continue with the call - with fees payable in native currency - via dex swap
+		// continue with the call - with fees payable in gas asset currency - via dex swap
 		<Runner<T> as RunnerT<T>>::call(
 			source,
 			target,
@@ -405,8 +403,7 @@ mod tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::from(1000000u64);
-			let (base_fee, _weight) = BaseFee::min_gas_price();
+			let (_base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_ok!(Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false));
 		});
@@ -435,8 +432,7 @@ mod tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit = 100_000_u64;
 			let max_fee_per_gas = None;
-			let max_priority_fee_per_gas = U256::from(1_000_000_u64);
-			let (base_fee, _weight) = BaseFee::min_gas_price();
+			let (_base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_ok!(Runner::calculate_total_gas(gas_limit, max_fee_per_gas, false));
 		});
@@ -448,8 +444,7 @@ mod tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::MAX;
-			let (base_fee, _weight) = BaseFee::min_gas_price();
+			let (_base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_noop!(
 				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false),
@@ -463,8 +458,6 @@ mod tests {
 		sp_io::TestExternalities::new_empty().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::MAX;
-			let max_priority_fee_per_gas = U256::from(1000000u64);
-			let (base_fee, _weight) = BaseFee::min_gas_price();
 
 			assert_noop!(
 				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false),

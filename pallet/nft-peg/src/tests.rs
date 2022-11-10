@@ -1,7 +1,7 @@
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
-use frame_system::RawOrigin;
 use hex_literal::hex;
+use pallet_nft::MetadataScheme;
 use seed_primitives::AccountId;
 
 struct TestVals {
@@ -111,7 +111,7 @@ fn do_deposit_creates_tokens_and_collection() {
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
 		let token_information =
-			GroupedTokenInfo::new(token_ids, token_addresses, test_vals.destination.into());
+			GroupedTokenInfo::new(token_ids.clone(), token_addresses, test_vals.destination.into());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 
@@ -124,6 +124,13 @@ fn do_deposit_creates_tokens_and_collection() {
 			Some(test_vals.token_address)
 		);
 		assert_eq!(Nft::collection_exists(expected_collection_id), true);
+
+		let collection_info = Nft::collection_info(expected_collection_id).unwrap();
+		assert_eq!(
+			collection_info.metadata_scheme,
+			MetadataScheme::Ethereum(test_vals.token_address)
+		);
+
 		// Token balance should be 1 as one token was deposited
 		assert_eq!(
 			Nft::token_balance(AccountId::from(test_vals.destination))
