@@ -695,7 +695,7 @@ where
 		)?;
 
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn owned_tokens(
