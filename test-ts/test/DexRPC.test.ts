@@ -2,6 +2,9 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { hexToU8a } from "@polkadot/util";
 import axios from "axios";
 import { expect } from "chai";
+import { ChildProcess } from 'child_process';
+
+import { sleep, startStandaloneNode } from '../common'
 
 export const ALICE_PRIVATE_KEY =
 	"0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854";
@@ -80,8 +83,11 @@ export const rpc = {
 
 describe("DexRPC", () => {
 	let api: ApiPromise;
+	let aliceNode: ChildProcess;
 
 	before(async () => {
+		aliceNode = startStandaloneNode('alice', { tmp: true, printLogs: false });
+
 		const wsProvider = new WsProvider(`ws://localhost:9944`);
 
 		const keyring = new Keyring({ type: "ethereum" });
@@ -92,9 +98,6 @@ describe("DexRPC", () => {
 			types: typedefs,
 			rpc,
 		});
-		console.log("connected to api.");
-
-		console.log("setting up dex liquidity...");
 
 		const txs = [
 			api.tx.assetsExt.createAsset(), // create asset
@@ -127,6 +130,12 @@ describe("DexRPC", () => {
 		console.log("done setting up dex liquidity.");
 	});
 
+	after(async () => {
+		await api?.disconnect();
+		aliceNode?.kill('SIGINT');
+		await sleep(4000)
+	  })
+  
 	it("quote rpc works [http - axios]", async () => {
 		const httpResult = await axios.post("http://localhost:9933", {
 			id: 1,

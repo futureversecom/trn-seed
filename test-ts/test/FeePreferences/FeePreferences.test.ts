@@ -4,6 +4,7 @@ import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { Contract, utils, Wallet } from "ethers";
+import { ChildProcess } from 'child_process';
 
 import {
 	ALICE_PRIVATE_KEY,
@@ -18,6 +19,7 @@ import {
 	sleep,
 	typedefs,
 	WITHDRAW_FAILED_ERROR_INDEX,
+  startStandaloneNode
 } from "../../common";
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
@@ -33,7 +35,11 @@ describe("Fee Preferences", function () {
 	let xrpToken: Contract;
 	let feeToken: Contract;
 
+	let aliceNode: ChildProcess;
+
 	before(async () => {
+		aliceNode = startStandaloneNode('alice', { tmp: true, printLogs: false });
+
 		// Setup providers for jsonRPCs and WS
 		const jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
 		const keyring = new Keyring({ type: "ethereum" });
@@ -52,7 +58,6 @@ describe("Fee Preferences", function () {
 			ERC20_ABI,
 			emptyAccountSigner
 		);
-
 		const wsProvider = new WsProvider(`ws://localhost:9944`);
 		const alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
 
@@ -62,7 +67,6 @@ describe("Fee Preferences", function () {
 
 		// add liquidity for XRP<->token
 		const xrpTokenId = 2;
-
 		const txes = [
 			api.tx.assetsExt.createAsset(),
 			api.tx.assets.mint(feeTokenAssetId, alice.address, 2_000_000_000_000_000),
@@ -90,9 +94,15 @@ describe("Fee Preferences", function () {
 				}
 			});
 		});
+	
 	});
 
-	beforeEach(async () => {});
+	after(async () => {
+	  await api?.disconnect();
+	  aliceNode?.kill('SIGINT');
+	  await sleep(4000)
+	})
+
 
 	it("Pays fees in non-native token", async () => {
 		// get token balances

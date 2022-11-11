@@ -5,8 +5,9 @@ import { expect } from "chai";
 import { constants, Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
+import { ChildProcess } from 'child_process';
 
-import { typedefs } from "../common";
+import { typedefs, startStandaloneNode, sleep } from "../common";
 
 const erc721Abi = [
 	"event Transfer(address indexed from, address indexed to, uint256 tokenId)",
@@ -53,8 +54,11 @@ describe("ERC721 Precompile", function () {
 	// Address for NFT collection
 	let nftPrecompileAddress: string;
 	let precompileCaller: Contract;
+	let aliceNode: ChildProcess;
+
 	// Setup api instance
 	before(async () => {
+		aliceNode = startStandaloneNode('alice', { tmp: true, printLogs: false });
 		const wsProvider = new WsProvider(`ws://localhost:9944`);
 
 		// Setup Root api instance and keyring
@@ -101,6 +105,12 @@ describe("ERC721 Precompile", function () {
 			.deploy(nftPrecompileAddress);
 	});
 
+	after(async () => {
+		await api?.disconnect();
+		aliceNode?.kill('SIGINT');
+		await sleep(4000)
+	  })
+  
 	it("name, symbol, ownerOf, tokenURI, balanceOf", async () => {
 		expect(await nftContract.name()).to.equal(name);
 
