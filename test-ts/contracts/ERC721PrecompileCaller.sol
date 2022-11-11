@@ -35,6 +35,6 @@ contract ERC721PrecompileCaller {
         address to,
         uint256 token_id
     ) external {
-        return IERC721(precompile).transferFrom(from, to, tokenId);
+        IERC721(precompile).transferFrom(from, to, tokenId);
     }
 }
