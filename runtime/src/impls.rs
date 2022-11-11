@@ -39,7 +39,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker,
+	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
 use seed_primitives::{AccountId, Balance, Index, Signature};
 
@@ -380,6 +380,27 @@ impl EthereumEventRouterT for EthereumEventRouter {
 		} else {
 			Err((0, EventRouterError::NoReceiver))
 		}
+	}
+}
+
+pub struct OnNewAssetSubscription;
+
+impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for OnNewAssetSubscription
+where
+	RuntimeId: From<u32> + Into<u32>,
+{
+	fn on_asset_create(runtime_id: RuntimeId, precompile_address_prefix: &[u8; 4]) {
+		// Insert some code into the evm for the precompile address,
+		// This will mean the precompile address passes checks that reference an address's byte code
+		// i.e. EXTCODESIZE
+		let address = <Runtime as ErcIdConversion<RuntimeId>>::runtime_id_to_evm_id(
+			runtime_id,
+			precompile_address_prefix,
+		);
+		pallet_evm::Pallet::<Runtime>::create_account(
+			address.into(),
+			b"TRN Asset Precompile".to_vec(),
+		);
 	}
 }
 

@@ -14,15 +14,18 @@
  */
 
 use crate as pallet_nft;
-use frame_support::{parameter_types, PalletId};
+use frame_support::{parameter_types, traits::FindAuthor, weights::Weight, PalletId};
 use frame_system::{limits, EnsureRoot};
-use seed_pallet_common::OnTransferSubscriber;
+use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
+use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, TokenId};
-use sp_core::H256;
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
+	ConsensusEngineId,
 };
+use std::marker::PhantomData;
 
 pub type AccountId = u64;
 
@@ -40,6 +43,8 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Event<T>},
+		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
+		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 	}
 );
 
@@ -114,6 +119,7 @@ impl pallet_assets_ext::Config for Test {
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
+	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -129,9 +135,85 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 }
 
+pub struct FixedGasPrice;
+impl FeeCalculator for FixedGasPrice {
+	fn min_gas_price() -> (U256, Weight) {
+		(1.into(), 0u64)
+	}
+}
+
+pub struct FindAuthorTruncated;
+impl FindAuthor<H160> for FindAuthorTruncated {
+	fn find_author<'a, I>(_digests: I) -> Option<H160>
+	where
+		I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+	{
+		None
+	}
+}
+
+pub struct MockAddressMapping;
+impl AddressMapping<AccountId> for MockAddressMapping {
+	fn into_account_id(_address: H160) -> AccountId {
+		0_u64
+	}
+}
+
+pub struct MockBlockHashMapping<Test>(PhantomData<Test>);
+impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
+	fn block_hash(_number: u32) -> H256 {
+		H256::default()
+	}
+}
+
+impl pallet_evm::Config for Test {
+	type FeeCalculator = FixedGasPrice;
+	type GasWeightMapping = ();
+	type BlockHashMapping = MockBlockHashMapping<Test>;
+	type CallOrigin = EnsureAddressNever<AccountId>;
+	type WithdrawOrigin = EnsureAddressNever<AccountId>;
+	type AddressMapping = MockAddressMapping;
+	type Currency = Balances;
+	type Event = Event;
+	type Runner = pallet_evm::runner::stack::Runner<Self>;
+	type PrecompilesType = ();
+	type PrecompilesValue = ();
+	type ChainId = ();
+	type BlockGasLimit = ();
+	type OnChargeTransaction = ();
+	type FindAuthor = FindAuthorTruncated;
+}
+
+parameter_types! {
+	pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Config for Test {
+	type Moment = u64;
+	type OnTimestampSet = ();
+	type MinimumPeriod = MinimumPeriod;
+	type WeightInfo = ();
+}
+
 pub struct MockTransferSubscriber;
 impl OnTransferSubscriber for MockTransferSubscriber {
 	fn on_nft_transfer(_token_id: &TokenId) {}
+}
+
+pub struct MockNewAssetSubscription;
+
+impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for MockNewAssetSubscription
+where
+	RuntimeId: From<u32> + Into<u32>,
+{
+	fn on_asset_create(runtime_id: RuntimeId, _precompile_address_prefix: &[u8; 4]) {
+		// Mock address without conversion
+		let address = H160::from_low_u64_be(runtime_id.into().into());
+		pallet_evm::Pallet::<Test>::create_account(
+			address.into(),
+			b"TRN Asset Precompile".to_vec(),
+		);
+	}
 }
 
 parameter_types! {
@@ -146,6 +228,7 @@ impl crate::Config for Test {
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
+	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type WeightInfo = ();

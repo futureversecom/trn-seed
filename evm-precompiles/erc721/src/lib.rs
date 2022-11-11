@@ -166,16 +166,7 @@ where
 			Runtime::evm_id_to_runtime_id(Address(address), ERC721_PRECOMPILE_ADDRESS_PREFIX)
 		{
 			// Check whether the collection exists
-			if !pallet_nft::Pallet::<Runtime>::collection_exists(collection_id) {
-				return false
-			}
-			// Check whether this precompile address has some code stored within the EVM pallet
-			if pallet_evm::Pallet::<Runtime>::is_account_empty(&address) {
-				// No code exists, let's add some filler code, this will mean the precompile address passes
-				// checks that reference an address's byte code i.e. EXTCODESIZE
-				pallet_evm::Pallet::<Runtime>::create_account(address, b"ERC721 precompile".to_vec());
-			}
-			true
+			pallet_nft::Pallet::<Runtime>::collection_exists(collection_id)
 		} else {
 			false
 		}

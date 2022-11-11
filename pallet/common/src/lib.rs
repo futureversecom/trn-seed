@@ -125,6 +125,16 @@ pub trait OnTransferSubscriber {
 	fn on_nft_transfer(token_id: &TokenId);
 }
 
+/// Subscriber for when a new asset or nft is created
+pub trait OnNewAssetSubscriber<RuntimeId> {
+	/// The nft with the given token_id was transferred.
+	fn on_asset_create(runtime_id: RuntimeId, precompile_prefix: &[u8; 4]);
+}
+
+impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for () {
+	fn on_asset_create(_runtime_id: RuntimeId, _precompile_prefix: &[u8; 4]) {}
+}
+
 /// Reports whether the current session is the final session in a staking era (pre-authority change)
 pub trait FinalSessionTracker {
 	/// Returns whether the active session is the final session of an era

@@ -91,6 +91,7 @@ mod staking;
 use staking::OnChainAccuracy;
 
 pub mod runner;
+use crate::impls::OnNewAssetSubscription;
 use runner::FeePreferencesRunner;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
@@ -146,7 +147,7 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for .5 seconds of compute with a 12 second average block time.
-const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND * 2;
+const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND / 2;
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
@@ -300,6 +301,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type ParachainId = WorldId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = RootAssetId;
+	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -314,6 +316,7 @@ impl pallet_nft::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = TokenApprovals;
+	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type WeightInfo = ();

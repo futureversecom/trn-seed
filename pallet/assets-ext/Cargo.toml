@@ -23,10 +23,13 @@ sp-runtime = { git = "https://github.com/futureversecom/substrate", default-feat
 
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
+precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
 
 [dev-dependencies]
 sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27" }
+pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 [features]
 default = ["std"]
@@ -41,4 +44,5 @@ std = [
 	"sp-std/std",
 	"seed-pallet-common/std",
 	"seed-primitives/std",
+	"precompile-utils/std"
 ]
