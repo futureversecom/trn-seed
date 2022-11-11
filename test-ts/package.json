@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "prettier-format": "prettier --config prettierrc.js './**/*.ts' --write",
     "test": "hardhat test --network seed",
     "test::erc721": "hardhat test test/erc721Precompile.test.ts --network seed",
     "test::erc20": "hardhat test test/erc20Precompile.test.ts --network seed",
@@ -36,6 +37,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.3"
+    "@openzeppelin/contracts": "^4.7.3",
+    "@trivago/prettier-plugin-sort-imports": "^3.4.0",
+    "@typescript-eslint/parser": "^5.42.1",
+    "prettier": "^2.7.1"
   }
 }
