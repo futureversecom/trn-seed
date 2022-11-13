@@ -1,13 +1,11 @@
-import {expect} from "chai";
-import { ethers } from "hardhat";
-import { Contract, Wallet, constants} from 'ethers';
-import {ApiPromise, WsProvider, Keyring} from '@polkadot/api';
-import {hexToU8a} from '@polkadot/util';
-import {AddressOrPair} from "@polkadot/api/types";
-import ERC721PrecompileCaller from '../artifacts/contracts/ERC721PrecompileCaller.sol/ERC721PrecompileCaller.json';
-import OnERC721ReceivedSucceeds from '../artifacts/contracts/OnERC721Received.sol/OnERC721ReceivedSucceeds.json';
-import OnERC721ReceivedFails from '../artifacts/contracts/OnERC721Received.sol/OnERC721ReceivedFails.json';
 import web3 from 'web3';
+import { expect } from "chai";
+import { ethers } from "hardhat";
+import { Contract, Wallet, constants } from 'ethers';
+import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
+import { hexToU8a } from '@polkadot/util';
+import { AddressOrPair } from "@polkadot/api/types";
+import { typedefs } from '../common';
 
 const erc721Abi = [
   'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
@@ -38,21 +36,6 @@ const nftAbi = [
   'event InitializeCollection(address indexed collectionOwner, address precompileAddress)',
   'function initializeCollection(address owner, bytes name, uint32 maxIssuance, uint8 metadataType, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)'
 ]
-
-const typedefs = {
-  AccountId: 'EthereumAccountId',
-  AccountId20: 'EthereumAccountId',
-  AccountId32: 'EthereumAccountId',
-  Address: 'AccountId',
-  LookupSource: 'AccountId',
-  Lookup0: 'AccountId',
-  EthereumSignature: {
-    r: 'H256',
-    s: 'H256',
-    v: 'U8'
-  },
-  ExtrinsicSignature: 'EthereumSignature'
-};
 
 // NFT Collection information
 const name = "test-collection";

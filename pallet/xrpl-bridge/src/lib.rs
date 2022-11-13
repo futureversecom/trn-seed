@@ -600,7 +600,8 @@ impl<T: Config> Pallet<T> {
 		let mut current_sequence = Self::door_ticket_sequence();
 		let ticket_params = Self::door_ticket_sequence_params();
 
-		// check if TicketSequenceThreshold reached. notify by emitting TicketSequenceThresholdReached
+		// check if TicketSequenceThreshold reached. notify by emitting
+		// TicketSequenceThresholdReached
 		if ticket_params.bucket_size != 0
 			&& Percent::from_rational(
 				current_sequence - ticket_params.start_sequence + 1,

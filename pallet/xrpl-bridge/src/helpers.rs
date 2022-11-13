@@ -17,9 +17,8 @@ use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 
-use seed_primitives::xrpl::XrplTxTicketSequence;
 use seed_primitives::{
-	xrpl::{XrplAddress, XrplTxHash, XrplTxNonce},
+	xrpl::{XrplAddress, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
 	Balance,
 };
 
