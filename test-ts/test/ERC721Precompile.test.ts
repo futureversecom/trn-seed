@@ -270,7 +270,7 @@ describe('ERC721 Precompile', function () {
 
 
   it('name, symbol, ownerOf, tokenURI via EVM', async () => {
-    const serial_number = 5;
+    const serial_number = 4;
 
     // Check state proxy calls
     expect(
@@ -293,7 +293,7 @@ describe('ERC721 Precompile', function () {
 
   it('approve and transferFrom via EVM', async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
-    const serial_number = 6;
+    const serial_number = 5;
 
     // Bob approves contract for serial_number
     const approval = await nftContract.connect(bobSigner).approve(precompileCaller.address, serial_number)
@@ -314,6 +314,97 @@ describe('ERC721 Precompile', function () {
     ).to.emit(nftContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, serial_number);
 
     // contract_address now owner of serial_number
+    expect(
+        await precompileCaller.balanceOfProxy(receiverAddress)
+    ).to.equal(1);
+    expect(
+        await precompileCaller.ownerOfProxy(serial_number)
+    ).to.equal(receiverAddress);
+  });
+
+
+  it('approve and setApprovalForAll via EVM', async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    let serial_number = 6;
+
+    // Transfer NFT to contract so it can pass the approval
+    let transfer = await nftContract.connect(bobSigner).transferFrom(bobSigner.address, precompileCaller.address, serial_number);
+    await transfer.wait();
+    // Check transfer worked, events asserted in previous tests
+    expect(
+        await precompileCaller.ownerOfProxy(serial_number)
+    ).to.equal(precompileCaller.address);
+
+    // Approve receiverAddress
+    const approve = await precompileCaller.connect(bobSigner).approveProxy(aliceSigner.address, serial_number, {gasLimit: 50000});
+    await approve.wait();
+
+    // Check approval through proxy
+    expect(
+        await precompileCaller.getApprovedProxy(serial_number)
+    ).to.equal(aliceSigner.address);
+
+    // Alice should now be able to transfer as she was approved with the above call
+    transfer = await nftContract.connect(aliceSigner).transferFrom(precompileCaller.address, receiverAddress, serial_number);
+    await transfer.wait();
+    // Check transfer worked
+    expect(
+        await precompileCaller.ownerOfProxy(serial_number)
+    ).to.equal(receiverAddress);
+
+    serial_number = 7;
+    // Transfer NFT to contract so it can pass the approval and transfer
+    transfer = await nftContract.connect(bobSigner).transferFrom(bobSigner.address, precompileCaller.address, serial_number);
+    await transfer.wait();
+    // Check transfer worked
+    expect(
+        await precompileCaller.ownerOfProxy(serial_number)
+    ).to.equal(precompileCaller.address);
+
+    // Approval before should be false
+    expect(
+        await precompileCaller.isApprovedForAllProxy(precompileCaller.address, aliceSigner.address)
+    ).to.equal(false);
+
+    const approvalForAll = await precompileCaller.connect(bobSigner).setApprovalForAllProxy(aliceSigner.address, true, {gasLimit: 50000});
+    await approvalForAll.wait();
+
+    // Check approval through proxy
+    expect(
+        await precompileCaller.isApprovedForAllProxy(precompileCaller.address, aliceSigner.address)
+    ).to.equal(true);
+
+    // Alice should now be able to transfer as she was approved with the above call
+    transfer = await nftContract.connect(aliceSigner).transferFrom(precompileCaller.address, receiverAddress, serial_number);
+    await transfer.wait();
+    // Check transfer worked
+    expect(
+        await precompileCaller.ownerOfProxy(serial_number)
+    ).to.equal(receiverAddress);
+  });
+
+
+  it('approve and safeTransferFrom via EVM', async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const serial_number = 8;
+
+    // Bob approves contract for serial_number
+    const approval = await nftContract.connect(bobSigner).approve(precompileCaller.address, serial_number);
+    await approval.wait();
+    // Approved should be correct
+    expect(
+        await nftContract.getApproved(serial_number)
+    ).to.equal(precompileCaller.address);
+
+    // Transfer serial_number to receiverAddress
+    const transfer = await precompileCaller
+        .connect(bobSigner)
+        .safeTransferFromProxy(bobSigner.address, receiverAddress, serial_number, {gasLimit: 50000})
+    expect(
+        await transfer.wait()
+    ).to.emit(nftContract, 'Transfer').withArgs(bobSigner.address, receiverAddress, serial_number);
+
+    // receiver address now owner of serial_number
     expect(
         await precompileCaller.balanceOfProxy(receiverAddress)
     ).to.equal(1);
