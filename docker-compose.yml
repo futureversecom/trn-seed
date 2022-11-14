@@ -2,14 +2,16 @@
 version: '3'
 services:
   validator-0:
-    image: ghcr.io/futureversecom/seed:latest
+    image: ghcr.io/futureversecom/seed:0.0.19
     volumes:
     - ./data/validator-0:/mnt/data
     - ./chain-spec:/mnt/chain-spec/:ro
     command:
-      - --alice
+      # - --alice
+      - --bootnodes=/dns4/bootnode-0.cicd.rootnet.app/tcp/30333/p2p/12D3KooWApbepSHWhDzqz9GWFXzKWiWQmkhAVUdW9KBG5K8vNWxJ
+      - --chain=/mnt/chain-spec/porcini.json
       - --validator
-      - --chain=dev
+      # - --chain=dev
       - --base-path=/mnt/data
       - --name=validator-0
       - --unsafe-ws-external
@@ -20,13 +22,15 @@ services:
       - "9944:9944"
       - "30333:30333"
   validator-1:
-    image: ghcr.io/futureversecom/seed:latest
+    image: ghcr.io/futureversecom/seed:0.0.19
     volumes:
     - ./data/validator-1:/mnt/data
     - ./chain-spec:/mnt/chain-spec/:ro
     command:
-      - --bob
+      # - --bob
+      - --bootnodes=/dns4/bootnode-0.cicd.rootnet.app/tcp/30333/p2p/12D3KooWApbepSHWhDzqz9GWFXzKWiWQmkhAVUdW9KBG5K8vNWxJ
+      - --chain=/mnt/chain-spec/porcini.json
       - --validator
-      - --chain=dev
+      # - --chain=dev
       - --base-path=/mnt/data
       - --name=validator-1
