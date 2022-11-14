@@ -93,6 +93,7 @@ mod staking;
 use staking::OnChainAccuracy;
 
 pub mod runner;
+use crate::impls::OnNewAssetSubscription;
 use runner::FeePreferencesRunner;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
@@ -302,6 +303,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type ParachainId = WorldId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = RootAssetId;
+	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -316,6 +318,7 @@ impl pallet_nft::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = TokenApprovals;
+	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type WeightInfo = ();

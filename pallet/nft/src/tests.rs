@@ -20,7 +20,6 @@ use crate::mock::{
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
-	storage::StorageMap,
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use seed_primitives::TokenId;
@@ -127,61 +126,57 @@ fn make_new_simple_offer(
 }
 
 #[test]
-fn migration_v0_to_v1() {
+fn migration_v1_to_v2() {
 	use frame_support::traits::OnRuntimeUpgrade;
-	use migration::v1_storage;
 
 	TestExt::default().build().execute_with(|| {
-		// setup old values
-		v1_storage::CollectionInfo::<Test>::insert(
-			123,
-			v1_storage::CollectionInformation::<AccountId> {
-				owner: 123_u64,
-				name: vec![],
-				royalties_schedule: None,
-				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
-				max_issuance: None,
-			},
-		);
-		v1_storage::CollectionInfo::<Test>::insert(
-			124,
-			v1_storage::CollectionInformation::<AccountId> {
-				owner: 124_u64,
-				name: vec![],
-				royalties_schedule: None,
-				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
-				max_issuance: None,
-			},
-		);
-
 		// run upgrade
-		assert_eq!(StorageVersion::<Test>::get(), Releases::V0);
+		// Insert storage version
+		StorageVersion::<Test>::put(Releases::V1);
+
+		// Mock some collections
+		let mock_collection_info = CollectionInformation {
+			owner: 1_u64,
+			name: b"test-collection".to_vec(),
+			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			royalties_schedule: None,
+			max_issuance: None,
+			origin_chain: OriginChain::Root,
+		};
+		let collection_id_1: CollectionUuid = 1;
+		let collection_id_2: CollectionUuid = 2;
+		let collection_id_3: CollectionUuid = 3;
+		CollectionInfo::<Test>::insert(collection_id_1, mock_collection_info.clone());
+		CollectionInfo::<Test>::insert(collection_id_2, mock_collection_info.clone());
+		CollectionInfo::<Test>::insert(collection_id_3, mock_collection_info);
+
+		// EVM pallet should NOT have account code for collections
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_1 as u64).into()
+		));
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_2 as u64).into()
+		));
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_3 as u64).into()
+		));
+
+		// Run upgrade
 		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
 
-		assert_eq!(
-			CollectionInfo::<Test>::get(123).expect("listing exists"),
-			CollectionInformation::<AccountId> {
-				owner: 123_u64,
-				name: vec![],
-				royalties_schedule: None,
-				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
-				max_issuance: None,
-				origin_chain: OriginChain::Root,
-			},
-		);
-		assert_eq!(
-			CollectionInfo::<Test>::get(124).expect("listing exists"),
-			CollectionInformation::<AccountId> {
-				owner: 124_u64,
-				name: vec![],
-				royalties_schedule: None,
-				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
-				max_issuance: None,
-				origin_chain: OriginChain::Root,
-			},
-		);
+		// Version should be updated
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V2);
 
-		assert_eq!(StorageVersion::<Test>::get(), Releases::V1);
+		// EVM pallet should have account code for collections
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_1 as u64).into()
+		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_2 as u64).into()
+		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_3 as u64).into()
+		));
 	});
 }
 
@@ -337,6 +332,11 @@ fn create_collection() {
 				origin_chain: OriginChain::Root
 			}
 		);
+
+		// EVM pallet should have account code for collection
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id as u64).into()
+		));
 
 		assert!(has_event(Event::<Test>::CollectionCreate {
 			collection_uuid: collection_id,

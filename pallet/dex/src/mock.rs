@@ -105,6 +105,7 @@ impl pallet_assets_ext::Config for Test {
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
+	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
 }
 

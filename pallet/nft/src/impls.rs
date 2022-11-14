@@ -15,7 +15,10 @@
 
 use crate::*;
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
-use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
+use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
+use seed_pallet_common::{
+	log, utils::next_asset_uuid, Hold, IsTokenOwner, OnNewAssetSubscriber, OnTransferSubscriber,
+};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 use sp_std::collections::btree_map::BTreeMap;
@@ -588,6 +591,12 @@ impl<T: Config> Pallet<T> {
 		}
 		// will not overflow, asserted prior qed.
 		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
+
+		// Add some code to the EVM
+		T::OnNewAssetSubscription::on_asset_create(
+			collection_uuid,
+			ERC721_PRECOMPILE_ADDRESS_PREFIX,
+		);
 
 		Self::deposit_event(Event::<T>::CollectionCreate {
 			collection_uuid,

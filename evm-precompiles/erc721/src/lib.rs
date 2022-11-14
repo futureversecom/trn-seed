@@ -165,7 +165,7 @@ where
 		if let Some(collection_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC721_PRECOMPILE_ADDRESS_PREFIX)
 		{
-			// route to NFT module only if the (collection, series) exists
+			// Check whether the collection exists
 			pallet_nft::Pallet::<Runtime>::collection_exists(collection_id)
 		} else {
 			false
@@ -307,7 +307,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn safe_transfer_from(
@@ -443,7 +443,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn approve(
@@ -492,7 +492,7 @@ where
 		.record(handle)?;
 
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn get_approved(
@@ -576,7 +576,7 @@ where
 			EvmDataWriter::new().write(approved).build(),
 		)
 		.record(handle)?;
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn name(
@@ -695,7 +695,7 @@ where
 		)?;
 
 		// Build output.
-		Ok(succeed(EvmDataWriter::new().write(true).build()))
+		Ok(succeed([]))
 	}
 
 	fn owned_tokens(
