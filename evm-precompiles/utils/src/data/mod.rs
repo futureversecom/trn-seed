@@ -229,7 +229,7 @@ struct OffsetDatum {
 	// Data pointed by the offset that must be inserted at the end of container data.
 	data: Vec<u8>,
 	// Inside of arrays, the offset is not from the start of array data (length), but from the start
-	// of the item. This shift allow to correct this.
+	// of the item. This shift allows us to correct this.
 	offset_shift: usize,
 }
 
