@@ -1667,6 +1667,7 @@ dependencies = [
  "libsecp256k1 0.6.0",
  "log",
  "parity-scale-codec 3.2.1",
+ "rustc-hex",
  "sc-client-api",
  "sc-rpc",
  "sc-utils",
