@@ -182,6 +182,7 @@ impl pallet_evm::Config for Test {
 	type BlockGasLimit = ();
 	type OnChargeTransaction = ();
 	type FindAuthor = FindAuthorTruncated;
+	type HandleTxValidation = ();
 }
 
 parameter_types! {
