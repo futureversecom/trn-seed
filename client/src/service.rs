@@ -112,7 +112,7 @@ pub fn new_partial(
 			Ok((worker, telemetry))
 		})
 		.transpose()?;
-	
+
 	log::info!("got telemetry");
 
 	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
@@ -130,7 +130,7 @@ pub fn new_partial(
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
 		)?;
-	
+
 	log::info!("got client, backend, keystore_container, task_manager");
 
 	let client = Arc::new(client);
@@ -338,7 +338,6 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 
 	log::info!("got ethy protocol name");
 
-		
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
 			config: &config,
