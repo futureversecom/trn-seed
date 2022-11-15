@@ -86,6 +86,9 @@ seed-runtime = { path = "../runtime" }
 pallet-dex-rpc = { path = "../pallet/dex/rpc" }
 pallet-nft-rpc = { path = "../pallet/nft/rpc" }
 
+# Diagnostics
+log = "0.4.0"
+
 # CLI-specific dependencies
 try-runtime-cli = { git = "https://github.com/futureversecom/substrate", optional = true , branch = "polkadot-v0.9.27-debug" }
 

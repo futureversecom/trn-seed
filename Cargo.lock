@@ -7509,6 +7509,7 @@ dependencies = [
  "futures",
  "hex-literal",
  "jsonrpsee",
+ "log",
  "pallet-dex-rpc",
  "pallet-nft-rpc",
  "pallet-transaction-payment",
