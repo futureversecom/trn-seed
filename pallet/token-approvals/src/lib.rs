@@ -24,7 +24,7 @@
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{IsTokenOwner, OnTransferSubscriber};
+use seed_pallet_common::{GetTokenOwner, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, TokenId};
 use sp_runtime::{traits::Zero, DispatchResult};
 
@@ -47,7 +47,7 @@ pub mod pallet {
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: frame_system::Config {
 		/// NFT ownership interface
-		type IsTokenOwner: IsTokenOwner<AccountId = Self::AccountId>;
+		type GetTokenOwner: GetTokenOwner<AccountId = Self::AccountId>;
 	}
 
 	// Account with transfer approval for a single NFT
@@ -55,11 +55,17 @@ pub mod pallet {
 	#[pallet::getter(fn erc721_approvals)]
 	pub type ERC721Approvals<T: Config> = StorageMap<_, Twox64Concat, TokenId, T::AccountId>;
 
-	// Account with transfer approval for an NFT collection of another account
+	// Accounts with transfer approval for an NFT collection of another account
 	#[pallet::storage]
 	#[pallet::getter(fn erc721_approvals_for_all)]
-	pub type ERC721ApprovalsForAll<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, T::AccountId, Twox64Concat, CollectionUuid, T::AccountId>;
+	pub type ERC721ApprovalsForAll<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Twox64Concat,
+		(CollectionUuid, T::AccountId),
+		bool,
+	>;
 
 	// Mapping from account/ asset_id to an approved balance of another account
 	#[pallet::storage]
@@ -75,8 +81,12 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// The token doesn't exist
+		NoToken,
 		/// The account is not the owner of the token
 		NotTokenOwner,
+		/// The account is not the owner of the token or an approved account
+		NotTokenOwnerOrApproved,
 		/// The caller account can't be the same as the operator account
 		CallerNotOperator,
 		/// The caller is not approved for the requested amount
@@ -104,8 +114,19 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
-			// Check that origin owns NFT
-			ensure!(T::IsTokenOwner::is_owner(&caller, &token_id), Error::<T>::NotTokenOwner);
+			// Check that origin owns NFT or is approved_for_all
+			let token_owner = match T::GetTokenOwner::get_owner(&token_id) {
+				Some(owner) => owner,
+				None => return Err(Error::<T>::NoToken.into()),
+			};
+
+			let is_approved_for_all =
+				Self::erc721_approvals_for_all(&token_owner, (token_id.0, caller.clone()))
+					.unwrap_or_default();
+			ensure!(
+				token_owner == caller || is_approved_for_all,
+				Error::<T>::NotTokenOwnerOrApproved
+			);
 			ERC721Approvals::<T>::insert(token_id, &operator_account);
 			Ok(())
 		}
@@ -115,7 +136,10 @@ pub mod pallet {
 		pub fn erc721_remove_approval(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(ERC721Approvals::<T>::contains_key(token_id), Error::<T>::ApprovalDoesntExist);
-			ensure!(T::IsTokenOwner::is_owner(&origin, &token_id), Error::<T>::NotTokenOwner);
+			ensure!(
+				T::GetTokenOwner::get_owner(&token_id) == Some(origin),
+				Error::<T>::NotTokenOwner
+			);
 			Self::remove_erc721_approval(&token_id);
 			Ok(())
 		}
@@ -173,9 +197,13 @@ pub mod pallet {
 			let _ = ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			if approved {
-				ERC721ApprovalsForAll::<T>::insert(caller, collection_uuid, operator_account);
+				ERC721ApprovalsForAll::<T>::insert(
+					caller,
+					(collection_uuid, operator_account),
+					true,
+				);
 			} else {
-				ERC721ApprovalsForAll::<T>::remove(caller, collection_uuid);
+				ERC721ApprovalsForAll::<T>::remove(caller, (collection_uuid, operator_account));
 			}
 			Ok(())
 		}

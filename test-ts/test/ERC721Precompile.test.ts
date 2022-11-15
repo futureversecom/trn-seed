@@ -191,6 +191,11 @@ describe('ERC721 Precompile', function () {
     const receiverAddress = await Wallet.createRandom().getAddress();
     const serial_number = 1;
 
+    // getApproved should be zero address
+    expect(
+        await nftContract.getApproved(serial_number)
+    ).to.equal(constants.AddressZero);
+
     // Bob approves alice for serial_number
     const approval = await nftContract.approve(aliceSigner.address, serial_number)
     expect(

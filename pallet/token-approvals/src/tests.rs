@@ -31,6 +31,30 @@ fn set_erc721_approval() {
 }
 
 #[test]
+fn set_erc721_approval_approved_for_all() {
+	TestExt::default().build().execute_with(|| {
+		let token_owner: AccountId = 10;
+		let caller: AccountId = 12;
+		let operator: AccountId = 13;
+		let collection_id: CollectionUuid = 0;
+		let token_id: TokenId = (collection_id, 0);
+
+		// Token owner approves caller for all
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			token_owner,
+			caller,
+			collection_id,
+			true
+		));
+
+		// Caller is not token owner, but they are approved for all so this passes
+		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
+		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
+	});
+}
+
+#[test]
 fn set_erc721_approval_not_token_owner_should_fail() {
 	TestExt::default().build().execute_with(|| {
 		let caller: AccountId = 10;
@@ -39,7 +63,7 @@ fn set_erc721_approval_not_token_owner_should_fail() {
 
 		assert_noop!(
 			TokenApprovals::erc721_approval(None.into(), caller, operator, token_id),
-			Error::<Test>::NotTokenOwner,
+			Error::<Test>::NoToken,
 		);
 	});
 }
@@ -262,9 +286,8 @@ fn set_erc721_approval_for_all() {
 			collection_id,
 			true
 		));
-		assert_eq!(
-			TokenApprovals::erc721_approvals_for_all(caller, collection_id).unwrap(),
-			operator
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator)).unwrap()
 		);
 
 		// Remove approval
@@ -275,7 +298,54 @@ fn set_erc721_approval_for_all() {
 			collection_id,
 			false
 		));
-		assert!(TokenApprovals::erc721_approvals_for_all(caller, collection_id).is_none());
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator)).is_none()
+		);
+	});
+}
+
+#[test]
+fn set_erc721_approval_for_all_multiple_approvals() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let operator_1: AccountId = 11;
+		let operator_2: AccountId = 12;
+		let operator_3: AccountId = 13;
+		let collection_id: CollectionUuid = 1;
+
+		// Set approval to true for all three accounts
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator_1,
+			collection_id,
+			true
+		));
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator_2,
+			collection_id,
+			true
+		));
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator_3,
+			collection_id,
+			true
+		));
+
+		// Check storage
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_1)).unwrap()
+		);
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_2)).unwrap()
+		);
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_3)).unwrap()
+		);
 	});
 }
 

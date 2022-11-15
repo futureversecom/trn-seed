@@ -17,7 +17,7 @@ use crate::*;
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
-	log, utils::next_asset_uuid, Hold, IsTokenOwner, OnNewAssetSubscriber, OnTransferSubscriber,
+	log, utils::next_asset_uuid, GetTokenOwner, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
@@ -654,19 +654,18 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
+		// Remove approvals for this token
+		T::OnTransferSubscription::on_nft_transfer(&(collection_id, *serial_number));
+
 		Ok(())
 	}
 }
 
-// Interface for determining ownership of an NFT from some account
-impl<T: Config> IsTokenOwner for Pallet<T> {
+// Interface for getting ownership of an NFT
+impl<T: Config> GetTokenOwner for Pallet<T> {
 	type AccountId = T::AccountId;
 
-	fn is_owner(account: &Self::AccountId, token_id: &TokenId) -> bool {
-		if let Some(owner) = Self::token_owner(token_id.0, token_id.1) {
-			&owner == account
-		} else {
-			false
-		}
+	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId> {
+		Self::token_owner(token_id.0, token_id.1)
 	}
 }

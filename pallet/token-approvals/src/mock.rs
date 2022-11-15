@@ -16,7 +16,7 @@
 use crate as token_approvals;
 use frame_support::{parameter_types, PalletId};
 use frame_system::EnsureRoot;
-use seed_pallet_common::IsTokenOwner;
+use seed_pallet_common::GetTokenOwner;
 use seed_primitives::{AssetId, Balance, TokenId};
 use sp_core::H256;
 use sp_runtime::{
@@ -146,20 +146,20 @@ impl pallet_nft::Config for Test {
 }
 
 pub struct MockTokenOwner;
-impl IsTokenOwner for MockTokenOwner {
+impl GetTokenOwner for MockTokenOwner {
 	type AccountId = AccountId;
 
-	fn is_owner(account: &Self::AccountId, token_id: &TokenId) -> bool {
-		let test_account: AccountId = 10;
-		if account == &test_account && token_id == &(0u32, 0u32) {
-			return true;
+	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId> {
+		let test_account: Self::AccountId = 10;
+		if token_id == &(0u32, 0u32) {
+			return Some(test_account);
 		}
-		return false;
+		return None;
 	}
 }
 
 impl crate::Config for Test {
-	type IsTokenOwner = MockTokenOwner;
+	type GetTokenOwner = MockTokenOwner;
 }
 
 #[derive(Default)]

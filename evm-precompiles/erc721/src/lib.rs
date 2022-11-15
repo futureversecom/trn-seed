@@ -275,17 +275,18 @@ where
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		// Get collection approval
-		let approved_for_all_account =
+		// Get approval_for_all
+		let is_approved_for_all =
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
 				Runtime::AccountId::from(from),
-				collection_id,
-			);
+				(collection_id, Runtime::AccountId::from(handle.context().caller)),
+			)
+			.unwrap_or_default();
 
 		// Build call with origin, check account is approved
 		if handle.context().caller == from
 			|| Some(Runtime::AccountId::from(handle.context().caller)) == approved_account
-			|| Some(Runtime::AccountId::from(handle.context().caller)) == approved_for_all_account
+			|| is_approved_for_all
 		{
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
@@ -373,19 +374,20 @@ where
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		// Get collection approval
-		let approved_for_all_account =
+		// Get approval_for_all
+		let is_approved_for_all =
 			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
 				Runtime::AccountId::from(from),
-				collection_id,
-			);
+				(collection_id, Runtime::AccountId::from(handle.context().caller)),
+			)
+			.unwrap_or_default();
 
 		// Check approvals/ ownership
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		if Some(Runtime::AccountId::from(handle.context().caller))
 			!= pallet_nft::Pallet::<Runtime>::token_owner(collection_id, serial_number)
 			&& Some(Runtime::AccountId::from(handle.context().caller)) != approved_account
-			&& Some(Runtime::AccountId::from(handle.context().caller)) != approved_for_all_account
+			&& !is_approved_for_all
 		{
 			return Err(revert("ERC721: Caller not approved").into());
 		}
@@ -510,17 +512,18 @@ where
 			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
-		match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
-			collection_id,
-			serial_number,
-		)) {
-			Some(approved_account) => Ok(succeed(
-				EvmDataWriter::new()
-					.write(Address::from(Into::<H160>::into(approved_account)))
-					.build(),
-			)),
-			None => Ok(succeed(alloc::format!("ERC721: No accounts approved").as_bytes().to_vec())),
-		}
+
+		// Return either the approved account or zero address if no account is approved
+		let approved_account: H160 =
+			match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
+				collection_id,
+				serial_number,
+			)) {
+				Some(approved_account) => (approved_account).into(),
+				None => H160::default(),
+			};
+
+		Ok(succeed(EvmDataWriter::new().write(Address::from(approved_account)).build()))
 	}
 
 	fn is_approved_for_all(
@@ -535,13 +538,11 @@ where
 		let operator: Runtime::AccountId = H160::from(operator).into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let is_approved = match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
+		let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
 			owner,
-			collection_id,
-		) {
-			Some(approved_account) => approved_account == operator,
-			None => false,
-		};
+			(collection_id, operator),
+		)
+		.unwrap_or_default();
 
 		Ok(succeed(EvmDataWriter::new().write(is_approved).build()))
 	}
