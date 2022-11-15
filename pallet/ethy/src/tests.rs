@@ -2171,3 +2171,17 @@ fn set_door_signers() {
 		));
 	});
 }
+
+#[test]
+fn genesis_xrp_door_signers_works() {
+	ExtBuilder::default().xrp_door_signers([1_u8; 33]).build().execute_with(|| {
+		assert_eq!(
+			EthBridge::xrpl_door_signers(AuthorityId::from_slice(&[1_u8; 33]).unwrap()),
+			true
+		);
+		assert_eq!(
+			EthBridge::xrpl_door_signers(AuthorityId::from_slice(&[2_u8; 33]).unwrap()),
+			false
+		);
+	});
+}

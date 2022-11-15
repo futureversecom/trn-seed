@@ -37,7 +37,7 @@ use seed_pallet_common::{
 };
 use seed_primitives::{ethy::crypto::AuthorityId, AssetId, Balance, Signature};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::{H160, H256, U256};
+use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
 use sp_runtime::{
 	testing::{Header, TestXt},
@@ -646,6 +646,7 @@ pub struct ExtBuilder {
 	next_session_final: bool,
 	active_session_final: bool,
 	endowed_account: Option<(AccountId, Balance)>,
+	xrp_door_signer: Option<[u8; 33]>,
 }
 
 impl ExtBuilder {
@@ -669,6 +670,10 @@ impl ExtBuilder {
 		self.endowed_account = Some((AccountId::from(account), balance));
 		self
 	}
+	pub fn xrp_door_signers(mut self, xrp_door_signer: [u8; 33]) -> Self {
+		self.xrp_door_signer = Some(xrp_door_signer);
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext =
 			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
@@ -688,6 +693,15 @@ impl ExtBuilder {
 				.assimilate_storage(&mut ext)
 				.unwrap();
 		}
+
+		if self.xrp_door_signer.is_some() {
+			let xrp_door_signers: Vec<AuthorityId> =
+				vec![AuthorityId::from_slice(self.xrp_door_signer.unwrap().as_slice()).unwrap()];
+			pallet_ethy::GenesisConfig::<TestRuntime> { xrp_door_signers }
+				.assimilate_storage(&mut ext)
+				.unwrap();
+		}
+
 		let mut ext: sp_io::TestExternalities = ext.into();
 
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
