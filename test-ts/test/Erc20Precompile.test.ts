@@ -1,9 +1,9 @@
 import { JsonRpcProvider, Provider } from "@ethersproject/providers";
+import { ApiPromise } from "@polkadot/api";
 import { expect } from "chai";
+import { ChildProcess } from "child_process";
 import { BigNumber, Contract, ContractFactory, utils, Wallet } from "ethers";
 import web3 from "web3";
-import { ChildProcess } from 'child_process';
-import { ApiPromise } from "@polkadot/api";
 
 import PrecompileCaller from "../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json";
 import { ERC20_ABI, sleep, startStandaloneNode } from "../common";
@@ -23,7 +23,7 @@ describe("ERC20 Precompile", function () {
 
 	// Setup api instance
 	before(async () => {
-		aliceNode = startStandaloneNode('alice', { tmp: true, printLogs: false });
+		aliceNode = startStandaloneNode("alice", { tmp: true, printLogs: false });
 		// Setup providers for jsonRPCs and WS
 		jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
 		seedSigner = new Wallet(
@@ -41,10 +41,9 @@ describe("ERC20 Precompile", function () {
 
 	after(async () => {
 		await api?.disconnect();
-		aliceNode?.kill('SIGINT');
-		await sleep(4000)
-	  })
-  
+		aliceNode?.kill("SIGINT");
+		await sleep(4000);
+	});
 
 	it("name, symbol, decimals", async () => {
 		expect(await xrpToken.decimals()).to.equal(6);

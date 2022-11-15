@@ -2,12 +2,12 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { AddressOrPair } from "@polkadot/api/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
+import { ChildProcess } from "child_process";
 import { constants, Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
-import { ChildProcess } from 'child_process';
 
-import { typedefs, startStandaloneNode, sleep } from "../common";
+import { sleep, startStandaloneNode, typedefs } from "../common";
 
 const erc721Abi = [
 	"event Transfer(address indexed from, address indexed to, uint256 tokenId)",
@@ -58,7 +58,7 @@ describe("ERC721 Precompile", function () {
 
 	// Setup api instance
 	before(async () => {
-		aliceNode = startStandaloneNode('alice', { tmp: true, printLogs: false });
+		aliceNode = startStandaloneNode("alice", { tmp: true, printLogs: false });
 		const wsProvider = new WsProvider(`ws://localhost:9944`);
 
 		// Setup Root api instance and keyring
@@ -107,10 +107,10 @@ describe("ERC721 Precompile", function () {
 
 	after(async () => {
 		await api?.disconnect();
-		aliceNode?.kill('SIGINT');
-		await sleep(4000)
-	  })
-  
+		aliceNode?.kill("SIGINT");
+		await sleep(4000);
+	});
+
 	it("name, symbol, ownerOf, tokenURI, balanceOf", async () => {
 		expect(await nftContract.name()).to.equal(name);
 

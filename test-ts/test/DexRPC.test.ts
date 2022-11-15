@@ -2,9 +2,9 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { hexToU8a } from "@polkadot/util";
 import axios from "axios";
 import { expect } from "chai";
-import { ChildProcess } from 'child_process';
+import { ChildProcess } from "child_process";
 
-import { sleep, startStandaloneNode } from '../common'
+import { sleep, startStandaloneNode } from "../common";
 
 export const ALICE_PRIVATE_KEY =
 	"0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854";
@@ -86,7 +86,7 @@ describe("DexRPC", () => {
 	let aliceNode: ChildProcess;
 
 	before(async () => {
-		aliceNode = startStandaloneNode('alice', { tmp: true, printLogs: false });
+		aliceNode = startStandaloneNode("alice", { tmp: true, printLogs: false });
 
 		const wsProvider = new WsProvider(`ws://localhost:9944`);
 
@@ -132,10 +132,10 @@ describe("DexRPC", () => {
 
 	after(async () => {
 		await api?.disconnect();
-		aliceNode?.kill('SIGINT');
-		await sleep(4000)
-	  })
-  
+		aliceNode?.kill("SIGINT");
+		await sleep(4000);
+	});
+
 	it("quote rpc works [http - axios]", async () => {
 		const httpResult = await axios.post("http://localhost:9933", {
 			id: 1,

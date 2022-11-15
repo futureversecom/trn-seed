@@ -5,5 +5,5 @@ module.exports = {
 		es2021: true,
 	},
 	parser: "@typescript-eslint/parser",
-	extends: "eslint:recommended",
+	extends: ["eslint:recommended", "prettier"],
 };

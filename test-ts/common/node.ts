@@ -32,7 +32,7 @@ export function startStandaloneNode(
 		charlie: { ws: 9946, http: 9935, p2p: 30335 },
 	};
 
-	const aliceNodeId = '12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp';
+	const aliceNodeId = "12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp";
 
 	const proc = child.spawn(nodePath, [
 		"--dev",
@@ -51,11 +51,7 @@ export function startStandaloneNode(
 			  ]),
 		// only print logs from the alice node
 		...(authority === "alice" && options.printLogs
-			? [
-					"--rpc-cors",
-					"all",
-					"--ws-external",
-			  ]
+			? ["--rpc-cors", "all", "--ws-external"]
 			: []),
 	]);
 	__NODE_STATE[authority].isRunning = true;

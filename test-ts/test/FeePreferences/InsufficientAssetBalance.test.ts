@@ -4,8 +4,8 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
+import { ChildProcess } from "child_process";
 import { Contract, utils, Wallet } from "ethers";
-import { ChildProcess } from 'child_process';
 
 import {
 	ALICE_PRIVATE_KEY,
@@ -37,9 +37,9 @@ describe("Fee Preferences in low asset balance scenario", function () {
 
 	// Setup api instance and keyring wallet addresses for alice and bob
 	before(async () => {
-		aliceNode = startStandaloneNode('alice', { tmp: true, printLogs: false });
+		aliceNode = startStandaloneNode("alice", { tmp: true, printLogs: false });
 
-		await  sleep(10000)
+		await sleep(10000);
 		// Setup providers for jsonRPCs and WS
 		const jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
 		const wsProvider = new WsProvider(`ws://localhost:9944`);
@@ -87,10 +87,9 @@ describe("Fee Preferences in low asset balance scenario", function () {
 
 	after(async () => {
 		await api?.disconnect();
-		aliceNode?.kill('SIGINT');
-		await sleep(4000)
-	  })
-  
+		aliceNode?.kill("SIGINT");
+		await sleep(4000);
+	});
 
 	it("Cannot pay fees with non-native, preferred token if low asset balance", async () => {
 		const transferAmount = 1;

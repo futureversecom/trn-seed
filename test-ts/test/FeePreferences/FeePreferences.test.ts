@@ -3,8 +3,8 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
+import { ChildProcess } from "child_process";
 import { Contract, utils, Wallet } from "ethers";
-import { ChildProcess } from 'child_process';
 
 import {
 	ALICE_PRIVATE_KEY,
@@ -17,9 +17,9 @@ import {
 	FEE_PROXY_ADDRESS,
 	NATIVE_TOKEN_ID,
 	sleep,
+	startStandaloneNode,
 	typedefs,
 	WITHDRAW_FAILED_ERROR_INDEX,
-  startStandaloneNode
 } from "../../common";
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
@@ -38,7 +38,7 @@ describe("Fee Preferences", function () {
 	let aliceNode: ChildProcess;
 
 	before(async () => {
-		aliceNode = startStandaloneNode('alice', { tmp: true, printLogs: false });
+		aliceNode = startStandaloneNode("alice", { tmp: true, printLogs: false });
 
 		// Setup providers for jsonRPCs and WS
 		const jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
@@ -94,15 +94,13 @@ describe("Fee Preferences", function () {
 				}
 			});
 		});
-	
 	});
 
 	after(async () => {
-	  await api?.disconnect();
-	  aliceNode?.kill('SIGINT');
-	  await sleep(4000)
-	})
-
+		await api?.disconnect();
+		aliceNode?.kill("SIGINT");
+		await sleep(4000);
+	});
 
 	it("Pays fees in non-native token", async () => {
 		// get token balances
