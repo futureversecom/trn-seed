@@ -86,7 +86,7 @@ pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
-primitive-types = {version = "0.11.1", default-features = false, features = ["impl-codec", "impl-serde"] }
+primitive-types = {version = "0.12.1", default-features = false, features = ["impl-codec", "impl-serde"] }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
