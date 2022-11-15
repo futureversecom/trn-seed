@@ -112,6 +112,8 @@ pub fn new_partial(
 			Ok((worker, telemetry))
 		})
 		.transpose()?;
+	
+	log::info!("got telemetry");
 
 	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
 		config.wasm_method,
@@ -120,12 +122,17 @@ pub fn new_partial(
 		config.runtime_cache_size,
 	);
 
+	log::info!("got executor");
+
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
 		)?;
+	
+	log::info!("got client, backend, keystore_container, task_manager");
+
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -133,7 +140,11 @@ pub fn new_partial(
 		telemetry
 	});
 
+	log::info!("spawned telemetry task");
+
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
+	log::info!("longest chain selected");
 
 	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
 		config.transaction_pool.clone(),
@@ -143,8 +154,13 @@ pub fn new_partial(
 		client.clone(),
 	);
 
+	log::info!("got transaction pool");
+
 	let frontier_backend =
 		Arc::new(FrontierBackend::open(&config.database, &db_config_dir(config))?);
+
+	log::info!("got frontier backend");
+
 	let filter_pool: Option<FilterPool> = Some(Arc::new(Mutex::new(BTreeMap::new())));
 	let fee_history_cache: FeeHistoryCache = Arc::new(Mutex::new(BTreeMap::new()));
 	let fee_history_cache_limit: FeeHistoryCacheLimit = cli.run.fee_history_limit;
@@ -156,11 +172,15 @@ pub fn new_partial(
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
+	log::info!("got grandpa block import");
+
 	let (babe_block_import, babe_link) = sc_consensus_babe::block_import(
 		sc_consensus_babe::Config::get(&*client)?,
 		grandpa_block_import.clone(),
 		client.clone(),
 	)?;
+
+	log::info!("got babe block import");
 
 	let frontier_block_import = FrontierBlockImport::new(
 		babe_block_import.clone(),
@@ -168,7 +188,11 @@ pub fn new_partial(
 		frontier_backend.clone(),
 	);
 
+	log::info!("got frontier block import");
+
 	let slot_duration = babe_link.config().slot_duration();
+
+	log::info!("got babe slot duration");
 
 	let import_queue = sc_consensus_babe::import_queue(
 		babe_link.clone(),
@@ -195,6 +219,8 @@ pub fn new_partial(
 		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
+
+	log::info!("got import queue");
 
 	let import_setup = (frontier_block_import, grandpa_link, babe_link);
 
