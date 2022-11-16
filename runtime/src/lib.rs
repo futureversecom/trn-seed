@@ -403,7 +403,7 @@ impl pallet_dex::Config for Runtime {
 }
 
 impl pallet_token_approvals::Config for Runtime {
-	type IsTokenOwner = Nft;
+	type GetTokenOwner = Nft;
 }
 
 parameter_types! {

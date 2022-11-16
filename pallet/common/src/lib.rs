@@ -111,12 +111,12 @@ pub trait CreateExt {
 	) -> Result<AssetId, DispatchError>;
 }
 
-/// The interface that states whether an account owns a token
-pub trait IsTokenOwner {
+/// The interface that gets the owner of a token
+pub trait GetTokenOwner {
 	type AccountId;
 
-	/// Gets whether account owns NFT of TokenId
-	fn is_owner(account: &Self::AccountId, token_id: &TokenId) -> bool;
+	/// Gets whether account owns NFT of TokenId, returns None if token doesn't exist
+	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId>;
 }
 
 /// The nft with the given token_id was transferred.
