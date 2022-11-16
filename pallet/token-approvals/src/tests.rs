@@ -31,6 +31,30 @@ fn set_erc721_approval() {
 }
 
 #[test]
+fn migration_v0_to_v1() {
+	use frame_support::{traits::OnRuntimeUpgrade, StorageDoubleMap};
+	use migration::v1_storage;
+
+	TestExt::default().build().execute_with(|| {
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 0);
+
+		// setup old values
+		v1_storage::ERC721ApprovalsForAll::<Test>::insert(1, 2, 3);
+		v1_storage::ERC721ApprovalsForAll::<Test>::insert(4, 5, 6);
+		v1_storage::ERC721ApprovalsForAll::<Test>::insert(7, 8, 9);
+
+		// Run upgrade
+		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		// Check storage after
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
+		assert!(ERC721ApprovalsForAll::<Test>::get(1, (2, 3)).unwrap());
+		assert!(ERC721ApprovalsForAll::<Test>::get(4, (5, 6)).unwrap());
+		assert!(ERC721ApprovalsForAll::<Test>::get(7, (8, 9)).unwrap());
+	});
+}
+
+#[test]
 fn set_erc721_approval_approved_for_all() {
 	TestExt::default().build().execute_with(|| {
 		let token_owner: AccountId = 10;
