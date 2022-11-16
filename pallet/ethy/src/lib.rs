@@ -207,6 +207,14 @@ decl_storage! {
 		/// EthCallOracle request info
 		EthCallRequestInfo get(fn eth_call_request_info): map hasher(twox_64_concat) EthCallId => Option<CheckedEthCallRequest>;
 	}
+	add_extra_genesis {
+		config(xrp_door_signers): Vec<T::EthyId>;
+		build(|config: &GenesisConfig<T>| {
+			for new_signer in config.xrp_door_signers.iter() {
+				XrplDoorSigners::<T>::insert(new_signer, true);
+			}
+		});
+	}
 }
 
 decl_event! {
