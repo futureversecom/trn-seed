@@ -150,9 +150,7 @@ where
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
 						Action::OwnedTokens => Self::owned_tokens(collection_id, handle),
-						_ => {
-							return Some(Err(revert("ERC721: Function not implemented yet").into()))
-						},
+						_ => return Some(Err(revert("ERC721: Function not implemented").into())),
 					}
 				};
 				return Some(result);
@@ -212,6 +210,7 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		// Build output.
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		match pallet_nft::Pallet::<Runtime>::token_owner(collection_id, serial_number) {
 			Some(owner_account_id) => Ok(succeed(
 				EvmDataWriter::new()
@@ -226,13 +225,14 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_log_costs_manual(1, 32)?;
 
 		// Read input.
 		read_args!(handle, { owner: Address });
 		let owner: H160 = owner.into();
 
 		// Build output.
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		Ok(succeed(
 			EvmDataWriter::new()
 				.write(U256::from(pallet_nft::Pallet::<Runtime>::token_balance_of(
@@ -268,26 +268,14 @@ where
 			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
-		let token_id = (collection_id, serial_number);
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		// Get token approval
-		let approved_account: Option<Runtime::AccountId> =
-			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
+		let token_id: TokenId = (collection_id, serial_number);
 
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		// Get approval_for_all
-		let is_approved_for_all =
-			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
-				Runtime::AccountId::from(from),
-				(collection_id, Runtime::AccountId::from(handle.context().caller)),
-			)
-			.unwrap_or_default();
-
-		// Build call with origin, check account is approved
-		if handle.context().caller == from
-			|| Some(Runtime::AccountId::from(handle.context().caller)) == approved_account
-			|| is_approved_for_all
-		{
+		// Check approvals/ ownership
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3))?;
+		if pallet_token_approvals::Pallet::<Runtime>::is_approved_or_owner(
+			token_id,
+			Runtime::AccountId::from(handle.context().caller),
+		) {
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
 				handle,
@@ -367,33 +355,18 @@ where
 			return Err(revert("ERC721: Expected token id <= 2^32").into());
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
-		let token_id = (collection_id, serial_number);
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		// Get token approval
-		let approved_account: Option<Runtime::AccountId> =
-			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals(token_id);
-
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		// Get approval_for_all
-		let is_approved_for_all =
-			pallet_token_approvals::Pallet::<Runtime>::erc721_approvals_for_all(
-				Runtime::AccountId::from(from),
-				(collection_id, Runtime::AccountId::from(handle.context().caller)),
-			)
-			.unwrap_or_default();
+		let token_id: TokenId = (collection_id, serial_number);
 
 		// Check approvals/ ownership
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		if Some(Runtime::AccountId::from(handle.context().caller))
-			!= pallet_nft::Pallet::<Runtime>::token_owner(collection_id, serial_number)
-			&& Some(Runtime::AccountId::from(handle.context().caller)) != approved_account
-			&& !is_approved_for_all
-		{
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3))?;
+		if !pallet_token_approvals::Pallet::<Runtime>::is_approved_or_owner(
+			token_id,
+			Runtime::AccountId::from(handle.context().caller),
+		) {
 			return Err(revert("ERC721: Caller not approved").into());
 		}
 
 		// Check that target implements onERC721Received
-
 		// Check that caller is not a smart contract s.t. no code is inserted into
 		// pallet_evm::AccountCodes except if the caller is another precompile i.e. CallPermit
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -514,6 +487,7 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		// Return either the approved account or zero address if no account is approved
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let approved_account: H160 =
 			match pallet_token_approvals::Pallet::<Runtime>::erc721_approvals((
 				collection_id,
@@ -622,8 +596,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
+		handle.record_log_costs_manual(1, 32)?;
 		read_args!(handle, { serial_number: U256 });
 
 		// For now we only support Ids < u32 max
@@ -635,6 +608,7 @@ where
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
 		// Build output.
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		Ok(succeed(
 			EvmDataWriter::new()
 				.write::<Bytes>(
@@ -671,6 +645,7 @@ where
 
 		// emit transfer events - quantity times
 		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let serial_number =
 			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
 		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
@@ -788,11 +763,10 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(1, 32)?;
 
-		let origin = handle.context().caller;
-
 		// Parse input.
 		read_args!(handle, { new_owner: Address });
 		let new_owner: H160 = new_owner.into();
+		let origin = handle.context().caller;
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(

@@ -217,6 +217,31 @@ impl<T: Config> Pallet<T> {
 		// Check that origin owns NFT
 		ERC721Approvals::<T>::remove(token_id);
 	}
+
+	/// Mimics the following Solidity function
+	/// function _isApprovedOrOwner(address spender, uint256 tokenId) internal view virtual returns (bool) {
+	///    address owner = ERC721.ownerOf(tokenId);
+	///    return (spender == owner || isApprovedForAll(owner, spender) || getApproved(tokenId) == spender);
+	/// }
+	pub fn is_approved_or_owner(token_id: TokenId, spender: T::AccountId) -> bool {
+		// Check if spender is owner
+		let token_owner = T::GetTokenOwner::get_owner(&token_id);
+		if Some(spender.clone()) == token_owner {
+			return true;
+		}
+
+		// Check approvalForAll
+		if let Some(owner) = token_owner {
+			if Self::erc721_approvals_for_all(owner, (token_id.0, spender.clone()))
+				.unwrap_or_default()
+			{
+				return true;
+			}
+		}
+
+		// Lastly, Check token approval
+		Some(spender) == Self::erc721_approvals(token_id)
+	}
 }
 
 impl<T: Config> OnTransferSubscriber for Pallet<T> {

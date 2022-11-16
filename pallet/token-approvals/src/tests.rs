@@ -368,3 +368,40 @@ fn set_erc721_approval_for_all_caller_is_operator_should_fail() {
 		);
 	});
 }
+
+#[test]
+fn is_approved_or_owner_works() {
+	TestExt::default().build().execute_with(|| {
+		let token_owner: AccountId = 10;
+		let approved_for_all_account: AccountId = 11;
+		let approved_account: AccountId = 12;
+		let collection_id: CollectionUuid = 0;
+		let token_id: TokenId = (collection_id, 0);
+
+		// Should return false for both as approvals have not been set up
+		assert!(!TokenApprovals::is_approved_or_owner(token_id, approved_for_all_account));
+		assert!(!TokenApprovals::is_approved_or_owner(token_id, approved_account));
+
+		// set approve for all
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			token_owner,
+			approved_for_all_account,
+			collection_id,
+			true
+		));
+
+		// set approve
+		assert_ok!(TokenApprovals::erc721_approval(
+			None.into(),
+			token_owner,
+			approved_account,
+			token_id
+		));
+
+		// Should return true for all three
+		assert!(TokenApprovals::is_approved_or_owner(token_id, token_owner));
+		assert!(TokenApprovals::is_approved_or_owner(token_id, approved_for_all_account));
+		assert!(TokenApprovals::is_approved_or_owner(token_id, approved_account));
+	});
+}
