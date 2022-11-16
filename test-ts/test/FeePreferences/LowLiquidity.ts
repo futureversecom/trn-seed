@@ -4,6 +4,7 @@ import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { Contract, utils, Wallet } from "ethers";
+import { ChildProcess } from "child_process";
 
 import {
 	ALICE_PRIVATE_KEY,
@@ -16,6 +17,7 @@ import {
 	FEE_PROXY_ADDRESS,
 	GAS_TOKEN_ID,
 	sleep,
+	startStandaloneNode,
 	typedefs,
 	WITHDRAW_FAILED_ERROR_INDEX,
 } from "../../common";
@@ -30,8 +32,11 @@ describe("Fee Preferences under low token pair liquidity", function () {
 	let emptyAccountSigner: Wallet;
 	let feeToken: Contract;
 	let aliceSigner: Wallet;
+	let aliceNode: ChildProcess;
 
 	before(async () => {
+		aliceNode = startStandaloneNode("alice", { tmp: true, printLogs: false });
+
 		// Setup providers for jsonRPCs and WS
 		const jsonProvider = new JsonRpcProvider(`http://localhost:9933`);
 		const wsProvider = new WsProvider(`ws://localhost:9944`);
@@ -81,6 +86,12 @@ describe("Fee Preferences under low token pair liquidity", function () {
 		});
 	});
 
+	after(async () => {
+		await api?.disconnect();
+		aliceNode?.kill("SIGINT");
+		await sleep(4000);
+	});
+	
 	it("Fails to pay fees in non-native token if insufficient liquidity", async () => {
 		// call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
 		const transferAmount = 1;

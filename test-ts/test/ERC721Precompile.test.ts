@@ -98,7 +98,6 @@ describe('ERC721 Precompile', function () {
 		await sleep(4000);
 	});
 
-
   it('name, symbol, ownerOf, tokenURI, balanceOf', async () => {
     expect(
         await nftContract.name()
