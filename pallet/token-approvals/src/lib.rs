@@ -106,6 +106,7 @@ pub mod pallet {
 				weights::constants::RocksDbWeight as DbWeight, IterableStorageDoubleMap,
 			};
 			use migration::v1_storage;
+			use sp_std::vec::Vec;
 
 			if StorageVersion::get::<Self>() == 0 {
 				StorageVersion::new(1).put::<Self>();
@@ -248,10 +249,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Mimics the following Solidity function
-	/// function _isApprovedOrOwner(address spender, uint256 tokenId) internal view virtual returns (bool) {
-	///    address owner = ERC721.ownerOf(tokenId);
-	///    return (spender == owner || isApprovedForAll(owner, spender) || getApproved(tokenId) == spender);
-	/// }
+	/// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/a1948250ab8c441f6d327a65754cb20d2b1b4554/contracts/token/ERC721/ERC721.sol#L239
 	pub fn is_approved_or_owner(token_id: TokenId, spender: T::AccountId) -> bool {
 		// Check if spender is owner
 		let token_owner = T::GetTokenOwner::get_owner(&token_id);

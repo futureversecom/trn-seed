@@ -75,6 +75,7 @@ fn set_erc721_approval_approved_for_all() {
 		// Caller is not token owner, but they are approved for all so this passes
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
+		// 000_001_500_000_000_000
 	});
 }
 
