@@ -5,7 +5,9 @@ import { Contract, Wallet, constants } from 'ethers';
 import { ApiPromise, WsProvider, Keyring } from '@polkadot/api';
 import { hexToU8a } from '@polkadot/util';
 import { AddressOrPair } from "@polkadot/api/types";
-import { typedefs } from '../common';
+import { ChildProcess } from "child_process";
+
+import { sleep, startStandaloneNode, typedefs } from '../common';
 
 const erc721Abi = [
   'event Transfer(address indexed from, address indexed to, uint256 tokenId)',
@@ -52,8 +54,12 @@ describe('ERC721 Precompile', function () {
   // Address for NFT collection
   let nftPrecompileAddress: string;
   let precompileCaller: Contract;
+  let aliceNode: ChildProcess;
+
   // Setup api instance
   before(async () => {
+		aliceNode = startStandaloneNode("alice", { tmp: true, printLogs: false });
+
     const wsProvider = new WsProvider(`ws://localhost:9944`);
 
     // Setup Root api instance and keyring
@@ -86,6 +92,11 @@ describe('ERC721 Precompile', function () {
     precompileCaller = await factory.connect(bobSigner).deploy(nftPrecompileAddress);
   });
 
+  after(async () => {
+		await api?.disconnect();
+		aliceNode?.kill("SIGINT");
+		await sleep(4000);
+	});
 
   it('name, symbol, ownerOf, tokenURI, balanceOf', async () => {
     expect(
