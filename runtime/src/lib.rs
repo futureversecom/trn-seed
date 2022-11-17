@@ -93,7 +93,7 @@ mod staking;
 use staking::OnChainAccuracy;
 
 pub mod runner;
-use crate::impls::OnNewAssetSubscription;
+use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 use runner::FeePreferencesRunner;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
@@ -859,7 +859,7 @@ impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
 	type GasWeightMapping = FutureverseGasWeightMapping;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
-	type CallOrigin = EnsureAddressNever<AccountId>;
+	type CallOrigin = FutureverseEnsureAddressSame<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
 	type AddressMapping = AddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<XrpCurrency>;
