@@ -57,7 +57,7 @@ pallet-transaction-payment = { git = "https://github.com/futureversecom/substrat
 fc-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
 fc-db = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
 fc-mapping-sync = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
-fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
+fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug", features = [ "rpc_binary_search_estimate" ] }
 fc-rpc-core = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
 fp-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
 fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }

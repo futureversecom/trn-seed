@@ -1707,7 +1707,6 @@ name = "evm-core"
 version = "0.35.0"
 source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
 dependencies = [
- "log",
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
@@ -4944,6 +4943,30 @@ dependencies = [
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-fee-proxy"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-base-fee",
+ "pallet-dex",
+ "pallet-evm",
+ "pallet-token-approvals",
+ "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "seed-pallet-common",
  "seed-primitives",
  "sp-core",
  "sp-runtime",
