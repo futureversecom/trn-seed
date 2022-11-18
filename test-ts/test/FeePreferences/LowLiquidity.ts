@@ -3,8 +3,8 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, utils, Wallet } from "ethers";
 import { ChildProcess } from "child_process";
+import { Contract, utils, Wallet } from "ethers";
 
 import {
 	ALICE_PRIVATE_KEY,
@@ -91,7 +91,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
 		aliceNode?.kill("SIGINT");
 		await sleep(4000);
 	});
-	
+
 	it("Fails to pay fees in non-native token if insufficient liquidity", async () => {
 		// call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
 		const transferAmount = 1;
