@@ -8,6 +8,7 @@
     "test": "hardhat test --network seed",
     "test::erc721": "hardhat test test/erc721Precompile.test.ts --network seed",
     "test::erc20": "hardhat test test/erc20Precompile.test.ts --network seed",
+    "test::call-estimates": "hardhat test test/TestCallGasEstimates.test.ts --network seed",
     "clean": "rm -rf ./cache/ && hardhat clean && hardhat typechain"
   },
   "devDependencies": {
