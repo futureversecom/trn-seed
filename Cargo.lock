@@ -4950,30 +4950,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-evm-precompiles-fee-proxy"
-version = "2.0.0"
-dependencies = [
- "fp-evm",
- "frame-support",
- "frame-system",
- "num_enum",
- "pallet-assets",
- "pallet-assets-ext",
- "pallet-base-fee",
- "pallet-dex",
- "pallet-evm",
- "pallet-token-approvals",
- "parity-scale-codec",
- "precompile-utils",
- "scale-info",
- "seed-pallet-common",
- "seed-primitives",
- "sp-core",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
 dependencies = [
@@ -7525,7 +7501,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.25"
+version = "0.0.26"
 dependencies = [
  "clap",
  "ethy-gadget",
