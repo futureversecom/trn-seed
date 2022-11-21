@@ -656,7 +656,7 @@ impl<T: Config> EthyXrplBridgeAdapter<H160> for Pallet<T> {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
 		let tx_fee = Self::door_tx_fee();
-		let tx_nonce = Self::door_nonce_inc()?;
+		let ticket_sequence = Self::get_door_ticket_sequence()?;
 		let signer_quorum: u32 = T::EthyAdapter::xrp_validators().len().saturating_sub(1) as u32;
 		let signer_entries = signer_entries
 			.into_iter()
@@ -666,7 +666,8 @@ impl<T: Config> EthyXrplBridgeAdapter<H160> for Pallet<T> {
 		let signer_list_set = SignerListSet::new(
 			door_address.into(),
 			tx_fee,
-			tx_nonce,
+			0_u32,
+			ticket_sequence,
 			signer_quorum,
 			signer_entries,
 			// omit signer key since this is a 'MultiSigner' tx
