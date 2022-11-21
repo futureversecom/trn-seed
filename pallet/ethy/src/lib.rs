@@ -1,4 +1,3 @@
-#![feature(slice_take)]
 /* Copyright 2021-2022 Centrality Investments Limited
  *
  * Licensed under the LGPL, Version 3.0 (the "License");
@@ -124,6 +123,8 @@ pub trait Config:
 		+ MaybeSerializeDeserialize;
 	/// Reports the final session of na eras
 	type FinalSessionTracker: FinalSessionTrackerT;
+	/// Max amount of new signers that can be set an in extrinsic
+	type MaxNewSigners: Get<u8>;
 	/// Handles a multi-currency fungible asset system
 	type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
 	/// The native token asset Id (managed by pallet-balances)
@@ -211,6 +212,14 @@ decl_storage! {
 		/// EthCallOracle request info
 		EthCallRequestInfo get(fn eth_call_request_info): map hasher(twox_64_concat) EthCallId => Option<CheckedEthCallRequest>;
 	}
+	add_extra_genesis {
+		config(xrp_door_signers): Vec<T::EthyId>;
+		build(|config: &GenesisConfig<T>| {
+			for new_signer in config.xrp_door_signers.iter() {
+				XrplDoorSigners::<T>::insert(new_signer, true);
+			}
+		});
+	}
 }
 
 decl_event! {
@@ -251,7 +260,7 @@ decl_event! {
 		/// Xrpl Door signers are set
 		XrplDoorSignersSet,
 		/// The schedule to unpause the bridge has failed (scheduled_block)
-		UnpauseScheduleFail(BlockNumber),
+		FinaliseScheduleFail(BlockNumber),
 		/// The bridge contract address has been set
 		SetContractAddress(EthAddress),
 	}
@@ -292,6 +301,8 @@ decl_error! {
 		CantBondRelayer,
 		/// The relayer hasn't paid the relayer bond so can't be set as the active relayer
 		NoBondPaid,
+		/// Someone tried to set a greater amount of validators than allowed
+		MaxNewSignersExceeded
 	}
 }
 
@@ -369,10 +380,12 @@ decl_module! {
 			consumed_weight
 		}
 
-		#[weight = DbWeight::get().writes(1)]
-		/// new door signers
+		#[weight = DbWeight::get().writes(new_signers.len() as u64).saturating_add(DbWeight::get().reads_writes(4, 3))]
+		/// Set new XRPL door signers
 		pub fn set_xrpl_door_signers(origin, new_signers: Vec<T::EthyId>) {
 			ensure_root(origin)?;
+			ensure!((new_signers.len() as u8) < T::MaxNewSigners::get(), Error::<T>::MaxNewSignersExceeded);
+
 			for new_signer in new_signers.iter() {
 				XrplDoorSigners::<T>::insert(new_signer, true);
 			}
@@ -390,7 +403,7 @@ decl_module! {
 			Self::deposit_event(Event::<T>::RelayerSet(Some(relayer)));
 		}
 
-		#[weight = DbWeight::get().writes(1)]
+		#[weight = DbWeight::get().reads_writes(5, 6)]
 		/// Submit bond for relayer account
 		pub fn deposit_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -411,7 +424,7 @@ decl_module! {
 			Ok(())
 		}
 
-		#[weight = DbWeight::get().writes(1)]
+		#[weight = DbWeight::get().reads_writes(3, 3)]
 		/// Withdraw relayer bond amount
 		pub fn withdraw_relayer_bond(origin) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -473,6 +486,14 @@ decl_module! {
 				true => BridgePaused::put(true),
 				false => BridgePaused::kill(),
 			};
+		}
+
+		#[weight = DbWeight::get().writes(1)]
+		/// Finalise authority changes, unpauses bridge and sets new notary keys
+		/// Called internally after force new era
+		pub fn finalise_authorities_change(origin) {
+			ensure_none(origin)?;
+			Self::do_finalise_authorities_change();
 		}
 
 		#[weight = DbWeight::get().writes(1)]

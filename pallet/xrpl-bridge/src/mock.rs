@@ -9,7 +9,7 @@ use sp_core::{ByteArray, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	DispatchError,
+	DispatchError, Percent,
 };
 
 use seed_pallet_common::XrplEthyBridgeAdapter;
@@ -125,6 +125,7 @@ impl pallet_assets_ext::Config for Test {
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = XrpAssetId;
+	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -148,18 +149,20 @@ pub const DAYS: BlockNumber = HOURS * 24;
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
+	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 }
 
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
+	type EthyAdapter = MockEthyAdapter;
+	type MultiCurrency = AssetsExt;
+	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = ();
+	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
-	type MultiCurrency = AssetsExt;
-	type XrpAssetId = XrpAssetId;
 	type UnixTime = TimestampPallet;
-	type ApproveOrigin = EnsureRoot<Self::AccountId>;
-	type EthyAdapter = MockEthyAdapter;
+	type TicketSequenceThreshold = TicketSequenceThreshold;
 }
 
 pub struct MockEthyAdapter;

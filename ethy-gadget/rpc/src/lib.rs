@@ -39,7 +39,8 @@ use seed_primitives::{
 };
 
 mod notification;
-use notification::{EventProofResponse, XrplTxProofResponse};
+use notification::{EthEventProofResponse, XrplEventProofResponse};
+use seed_primitives::ethy::EthyEcdsaToPublicKey;
 
 /// Provides RPC methods for interacting with Ethy.
 #[allow(clippy::needless_return)]
@@ -53,7 +54,10 @@ pub trait EthyApi<Notification> {
 	///
 	/// Returns `null` if missing
 	#[method(name = "getEventProof")]
-	fn get_event_proof(&self, event_proof_id: EventProofId) -> RpcResult<Option<Notification>>;
+	fn get_event_proof(
+		&self,
+		event_proof_id: EventProofId,
+	) -> RpcResult<Option<EthEventProofResponse>>;
 
 	/// Query a proof for a `event_proof_id` and XRPL chain Id
 	///
@@ -62,7 +66,7 @@ pub trait EthyApi<Notification> {
 	fn get_xrpl_tx_proof(
 		&self,
 		event_proof_id: EventProofId,
-	) -> RpcResult<Option<XrplTxProofResponse>>;
+	) -> RpcResult<Option<XrplEventProofResponse>>;
 }
 
 /// Implements the EthyApi RPC trait for interacting with ethy-gadget.
@@ -90,7 +94,7 @@ where
 	}
 }
 
-impl<C, B> EthyApiServer<EventProofResponse> for EthyRpcHandler<C, B>
+impl<C, B> EthyApiServer<EthEventProofResponse> for EthyRpcHandler<C, B>
 where
 	B: Block<Hash = H256>,
 	C: ProvideRuntimeApi<B> + AuxStore + Send + Sync + 'static,
@@ -113,7 +117,7 @@ where
 		self.executor.spawn("ethy-rpc-subscription", Some("rpc"), fut.boxed());
 	}
 
-	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<EventProofResponse>> {
+	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<EthEventProofResponse>> {
 		if let Ok(maybe_encoded_proof) = self.client.get_aux(
 			[
 				ETHY_ENGINE_ID.as_slice(),
@@ -127,14 +131,17 @@ where
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let event_proof_response =
 						build_event_proof_response::<C, B>(&self.client, versioned_proof);
-					return Ok(event_proof_response)
+					return Ok(event_proof_response);
 				}
 			}
 		}
 		Ok(None)
 	}
 
-	fn get_xrpl_tx_proof(&self, event_id: EventProofId) -> RpcResult<Option<XrplTxProofResponse>> {
+	fn get_xrpl_tx_proof(
+		&self,
+		event_id: EventProofId,
+	) -> RpcResult<Option<XrplEventProofResponse>> {
 		if let Ok(maybe_encoded_proof) = self.client.get_aux(
 			[
 				ETHY_ENGINE_ID.as_slice(),
@@ -146,8 +153,9 @@ where
 		) {
 			if let Some(encoded_proof) = maybe_encoded_proof {
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
-					let response = build_xrpl_tx_proof_response(versioned_proof);
-					return Ok(response)
+					let response =
+						build_xrpl_tx_proof_response::<C, B>(&self.client, versioned_proof);
+					return Ok(response);
 				}
 			}
 		}
@@ -155,11 +163,11 @@ where
 	}
 }
 
-/// Build an `EventProofResponse` from a `VersionedEventProof`
+/// Build an `EthEventProofResponse` from a `VersionedEventProof`
 pub fn build_event_proof_response<C, B>(
 	client: &C,
 	versioned_event_proof: VersionedEventProof,
-) -> Option<EventProofResponse>
+) -> Option<EthEventProofResponse>
 where
 	B: Block<Hash = H256>,
 	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
@@ -179,7 +187,7 @@ where
 				.map(Into::into)
 				.collect();
 
-			Some(EventProofResponse {
+			Some(EthEventProofResponse {
 				event_id: event_proof.event_id,
 				signatures: event_proof
 					.expanded_signatures(validator_addresses.len())
@@ -195,17 +203,47 @@ where
 	}
 }
 
-/// Build an `XrplTxProofResponse` from a `VersionedEventProof`
-pub fn build_xrpl_tx_proof_response(
+/// Build an `XrplEventProofResponse` from a `VersionedEventProof`
+pub fn build_xrpl_tx_proof_response<C, B>(
+	client: &C,
 	versioned_event_proof: VersionedEventProof,
-) -> Option<XrplTxProofResponse> {
+) -> Option<XrplEventProofResponse>
+where
+	B: Block<Hash = H256>,
+	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
+	C::Api: EthyRuntimeApi<B>,
+{
 	match versioned_event_proof {
 		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) => {
-			Some(XrplTxProofResponse {
+			let xrpl_validator_set =
+				client.runtime_api().xrpl_signers(&BlockId::hash(block.into())).ok()?;
+
+			let validator_set =
+				client.runtime_api().validator_set(&BlockId::hash(block.into())).ok()?;
+			let mut xrpl_signer_set: Vec<Bytes> = Default::default();
+
+			Some(XrplEventProofResponse {
 				event_id,
 				signatures: signatures
 					.into_iter()
-					.map(|(i, s)| {
+					.filter(|(i, _)| {
+						let pub_key = validator_set.validators.get(*i as usize);
+						if let Some(pub_key) = pub_key {
+							// we only care about the availability of the pub_key in xrpl_validator_set or not, doesn't matter the position.
+							match xrpl_validator_set.authority_index(pub_key) {
+								Some(_) => {
+									xrpl_signer_set.push(Bytes::from(
+										EthyEcdsaToPublicKey::convert(pub_key.clone()).to_vec(),
+									));
+									true
+								},
+								None => false,
+							}
+						} else {
+							false
+						}
+					})
+					.map(|(_, s)| {
 						// XRPL requires ECDSA signatures are DER encoded
 						// https://github.com/XRPLF/xrpl.js/blob/76b73e16a97e1a371261b462ee1a24f1c01dbb0c/packages/ripple-keypairs/src/i.ts#L58-L60
 						let sig_ = s.deref();
@@ -218,11 +256,14 @@ pub fn build_xrpl_tx_proof_response(
 						// https://xrpl.org/transaction-malleability.html#alternate-secp256k1-signatures
 						// https://github.com/indutny/elliptic/blob/43ac7f230069bd1575e1e4a58394a512303ba803/lib/elliptic/ec/index.js#L146-L150
 						sig_normalized.normalize_s();
-						(i, sig_normalized.serialize_der())
+						sig_normalized.serialize_der()
 					})
-					.map(|(i, s)| (i, Bytes::from(s.as_ref().to_vec())))
+					.map(|s| Bytes::from(s.as_ref().to_vec()))
 					.collect(),
+				validators: xrpl_signer_set,
+				validator_set_id: xrpl_validator_set.id,
 				block: block.into(),
+				tag: None,
 			})
 		},
 	}

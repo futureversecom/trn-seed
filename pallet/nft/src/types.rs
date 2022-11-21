@@ -42,6 +42,8 @@ pub enum Releases {
 	V0,
 	/// storage version > runtime v13
 	V1,
+	/// storage version > runtime v19
+	V2,
 }
 
 impl Default for Releases {
@@ -133,7 +135,7 @@ impl MetadataScheme {
 		let prefix = self.prefix();
 		let santitize_ = |path: Vec<u8>| {
 			if path.is_empty() {
-				return Err(())
+				return Err(());
 			}
 			// some best effort attempts to sanitize `path`
 			let mut path = core::str::from_utf8(&path).map_err(|_| ())?.trim();
@@ -151,8 +153,19 @@ impl MetadataScheme {
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
 			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
 			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
-			MetadataScheme::Ethereum(_original_id) => MetadataScheme::Ethereum(H160::zero()),
+			// Ethereum inner value is an H160 and does not need sanitizing
+			MetadataScheme::Ethereum(address) => MetadataScheme::Ethereum(address),
 		})
+	}
+	/// Returns a MetadataScheme from an index and metadata_path
+	pub fn from_index(index: u8, metadata_path: Vec<u8>) -> Result<Self, ()> {
+		match index {
+			0 => Ok(MetadataScheme::Https(metadata_path)),
+			1 => Ok(MetadataScheme::Http(metadata_path)),
+			2 => Ok(MetadataScheme::IpfsDir(metadata_path)),
+			3 => Ok(MetadataScheme::IpfsShared(metadata_path)),
+			_ => return Err(()),
+		}
 	}
 }
 
@@ -230,9 +243,10 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	/// - not overcommitted (> 100%)
 	/// - < MAX_ENTITLEMENTS
 	pub fn validate(&self) -> bool {
-		!self.entitlements.is_empty() &&
-			self.entitlements.len() <= MAX_ENTITLEMENTS &&
-			self.entitlements
+		!self.entitlements.is_empty()
+			&& self.entitlements.len() <= MAX_ENTITLEMENTS
+			&& self
+				.entitlements
 				.iter()
 				.map(|(_who, share)| share.deconstruct() as u32)
 				.sum::<u32>() <= Permill::ACCURACY
@@ -242,7 +256,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	pub fn calculate_total_entitlement(&self) -> Permill {
 		// if royalties are in a strange state
 		if !self.validate() {
-			return Permill::zero()
+			return Permill::zero();
 		}
 		Permill::from_parts(
 			self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>(),
@@ -371,10 +385,10 @@ mod test {
 	use super::{ListingResponse, MetadataScheme, RoyaltiesSchedule, TokenId, TokenInfo};
 	use crate::mock::{AccountId, TestExt};
 	use serde_json;
+	use sp_core::H160;
 	use sp_runtime::Permill;
 
 	#[test]
-
 	fn metadata_path_sanitize() {
 		// empty
 		assert_eq!(MetadataScheme::Http(b"".to_vec()).sanitize(), Err(()),);
@@ -397,6 +411,11 @@ mod test {
 		assert_eq!(
 			MetadataScheme::Http(b"test.com".to_vec()).sanitize(),
 			Ok(MetadataScheme::Http(b"test.com".to_vec()))
+		);
+
+		assert_eq!(
+			MetadataScheme::Ethereum(H160::from_low_u64_be(123)).sanitize(),
+			Ok(MetadataScheme::Ethereum(H160::from_low_u64_be(123)))
 		);
 	}
 

@@ -14,9 +14,11 @@
  */
 
 use crate::*;
-use codec::alloc::string::ToString;
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
-use seed_pallet_common::{log, utils::next_asset_uuid, Hold, IsTokenOwner, OnTransferSubscriber};
+use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
+use seed_pallet_common::{
+	log, utils::next_asset_uuid, GetTokenOwner, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
+};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, DispatchError, DispatchResult};
 use sp_std::collections::btree_map::BTreeMap;
@@ -80,20 +82,15 @@ impl<T: Config> Pallet<T> {
 					.expect("Not written");
 				},
 				MetadataScheme::Ethereum(contract_address) => {
-					write!(
-						&mut token_uri,
-						"ethereum://{}/{}",
-						contract_address.to_string(),
-						token_id.1
-					)
-					.expect("Not written");
+					write!(&mut token_uri, "ethereum://{:?}/{}", contract_address, token_id.1)
+						.expect("Not written");
 				},
 			}
 			token_uri.inner().clone()
 		} else {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
-			return Default::default()
+			return Default::default();
 		}
 	}
 
@@ -225,7 +222,7 @@ impl<T: Config> Pallet<T> {
 		if tokens_minted == TokenCount::zero() {
 			// No tokens were minted so no need to update storage,
 			// but we also don't want to throw an error as this could mean tokens are lost
-			return Ok(weight)
+			return Ok(weight);
 		}
 
 		// update token balances
@@ -267,7 +264,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Find the tokens owned by an `address` in the given collection
-	pub fn collected_tokens(collection_id: CollectionUuid, address: &T::AccountId) -> Vec<TokenId> {
+	pub fn owned_tokens(collection_id: CollectionUuid, address: &T::AccountId) -> Vec<TokenId> {
 		let mut owned_tokens = Vec::<TokenId>::default();
 
 		let mut owned_in_collection: Vec<TokenId> =
@@ -286,7 +283,58 @@ impl<T: Config> Pallet<T> {
 			owned_tokens.append(&mut owned_in_collection);
 		}
 
-		return owned_tokens
+		return owned_tokens;
+	}
+
+	/// Find the tokens owned by an `address` in the given collection
+	/// limit return tokens that are larger than the cursor
+	/// Returns list of tokens and the new cursor for the next owned SerialNumber
+	/// not included in the returned list
+	pub fn owned_tokens_paginated(
+		collection_id: CollectionUuid,
+		address: &T::AccountId,
+		cursor: SerialNumber,
+		limit: u16,
+	) -> (SerialNumber, Vec<SerialNumber>) {
+		// Collect all tokens owned by address
+		let mut owned_tokens: Vec<SerialNumber> = <TokenOwner<T>>::iter_prefix(collection_id)
+			.filter_map(
+				|(serial_number, owner)| {
+					if &owner == address {
+						Some(serial_number)
+					} else {
+						None
+					}
+				},
+			)
+			.collect::<Vec<SerialNumber>>();
+		// Sort the vec to ensure no tokens are missed
+		owned_tokens.sort();
+		// Store the last owned token by this account
+		let last_id: SerialNumber = owned_tokens.last().copied().unwrap_or_default();
+
+		// Shorten list to any tokens above the cursor and return the limit
+		// Note max limit is restricted by MAX_OWNED_TOKENS_LIMIT const
+		let response: Vec<SerialNumber> = owned_tokens
+			.into_iter()
+			.filter(|serial_number| serial_number >= &cursor)
+			.take(sp_std::cmp::min(limit, MAX_OWNED_TOKENS_LIMIT).into())
+			.collect();
+
+		let new_cursor: SerialNumber = match response.last().copied() {
+			Some(highest) => {
+				if highest != last_id {
+					// There are still tokens remaining that aren't being returned in this call, return the next cursor
+					highest.saturating_add(1)
+				} else {
+					// 0 indicates that this is the end of the owned tokens
+					0
+				}
+			},
+			None => 0,
+		};
+
+		(new_cursor, response)
 	}
 
 	/// Remove a single fixed price listing and all it's metadata
@@ -443,7 +491,7 @@ impl<T: Config> Pallet<T> {
 					None => Vec::new(),
 				};
 
-				return Some(TokenInfo { owner, royalties })
+				return Some(TokenInfo { owner, royalties });
 			}
 		}
 		None
@@ -480,12 +528,13 @@ impl<T: Config> Pallet<T> {
 			.collect();
 
 		let new_cursor = match last_id {
-			Some(id) =>
+			Some(id) => {
 				if highest_cursor != id {
 					Some(highest_cursor + 1)
 				} else {
 					None
-				},
+				}
+			},
 			None => None,
 		};
 		(new_cursor, response)
@@ -543,6 +592,12 @@ impl<T: Config> Pallet<T> {
 		// will not overflow, asserted prior qed.
 		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
 
+		// Add some code to the EVM
+		T::OnNewAssetSubscription::on_asset_create(
+			collection_uuid,
+			ERC721_PRECOMPILE_ADDRESS_PREFIX,
+		);
+
 		Self::deposit_event(Event::<T>::CollectionCreate {
 			collection_uuid,
 			token_count: initial_issuance,
@@ -599,19 +654,18 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
+		// Remove approvals for this token
+		T::OnTransferSubscription::on_nft_transfer(&(collection_id, *serial_number));
+
 		Ok(())
 	}
 }
 
-// Interface for determining ownership of an NFT from some account
-impl<T: Config> IsTokenOwner for Pallet<T> {
+// Interface for getting ownership of an NFT
+impl<T: Config> GetTokenOwner for Pallet<T> {
 	type AccountId = T::AccountId;
 
-	fn is_owner(account: &Self::AccountId, token_id: &TokenId) -> bool {
-		if let Some(owner) = Self::token_owner(token_id.0, token_id.1) {
-			&owner == account
-		} else {
-			false
-		}
+	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId> {
+		Self::token_owner(token_id.0, token_id.1)
 	}
 }

@@ -1,0 +1,19 @@
+
+[package]
+name = "pallet-dex-rpc"
+version = "0.0.1"
+authors = ["Centrality Developers <developers@centrality.ai>"]
+edition = "2021"
+license = "GPL-3.0"
+
+[dependencies]
+jsonrpsee = { version = "0.14.0", features = ["server", "macros"] }
+
+sp-api = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+sp-blockchain = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+
+pallet-dex = { path = "../" }
+pallet-dex-rpc-runtime-api = { path = "./runtime-api" }
+seed-primitives = { path = "../../../primitives" }

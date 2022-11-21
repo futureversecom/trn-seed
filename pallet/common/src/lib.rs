@@ -111,18 +111,28 @@ pub trait CreateExt {
 	) -> Result<AssetId, DispatchError>;
 }
 
-/// The interface that states whether an account owns a token
-pub trait IsTokenOwner {
+/// The interface that gets the owner of a token
+pub trait GetTokenOwner {
 	type AccountId;
 
-	/// Gets whether account owns NFT of TokenId
-	fn is_owner(account: &Self::AccountId, token_id: &TokenId) -> bool;
+	/// Gets whether account owns NFT of TokenId, returns None if token doesn't exist
+	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId>;
 }
 
 /// The nft with the given token_id was transferred.
 pub trait OnTransferSubscriber {
 	/// The nft with the given token_id was transferred.
 	fn on_nft_transfer(token_id: &TokenId);
+}
+
+/// Subscriber for when a new asset or nft is created
+pub trait OnNewAssetSubscriber<RuntimeId> {
+	/// The nft with the given token_id was transferred.
+	fn on_asset_create(runtime_id: RuntimeId, precompile_prefix: &[u8; 4]);
+}
+
+impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for () {
+	fn on_asset_create(_runtime_id: RuntimeId, _precompile_prefix: &[u8; 4]) {}
 }
 
 /// Reports whether the current session is the final session in a staking era (pre-authority change)

@@ -23,8 +23,11 @@ use frame_support::{
 	},
 	transactional, PalletId,
 };
-use frame_system::pallet_prelude::OriginFor;
-use seed_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
+use frame_system::pallet_prelude::*;
+use precompile_utils::constants::ERC20_PRECOMPILE_ADDRESS_PREFIX;
+use seed_pallet_common::{
+	utils::next_asset_uuid, CreateExt, Hold, OnNewAssetSubscriber, TransferExt,
+};
 use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
 use sp_std::prelude::*;
@@ -86,6 +89,8 @@ pub mod pallet {
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type NativeAssetId: Get<AssetId>;
+		/// Handler for when a new asset has been created
+		type OnNewAssetSubscription: OnNewAssetSubscriber<AssetId>;
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -159,6 +164,41 @@ pub mod pallet {
 		MaxHolds,
 		/// Failed to create a new asset
 		CreateAssetFailed,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			use frame_support::weights::constants::RocksDbWeight as DbWeight;
+
+			if StorageVersion::get::<Self>() == 0 {
+				StorageVersion::new(1).put::<Self>();
+
+				// Add evm code root and XRP assets
+				// Hardcoded asset ids to avoid the need to pull in seed_runtime crate purely for runtime upgrade
+				T::OnNewAssetSubscription::on_asset_create(1, ERC20_PRECOMPILE_ADDRESS_PREFIX);
+				T::OnNewAssetSubscription::on_asset_create(2, ERC20_PRECOMPILE_ADDRESS_PREFIX);
+				let mut weight = 2 as Weight;
+
+				let highest_asset_id = <NextAssetId<T>>::get();
+				for asset_id in 1_u32..highest_asset_id {
+					if let Some(asset_uuid) =
+						next_asset_uuid(asset_id, T::ParachainId::get().into())
+					{
+						T::OnNewAssetSubscription::on_asset_create(
+							asset_uuid,
+							ERC20_PRECOMPILE_ADDRESS_PREFIX,
+						);
+						weight += 1;
+					}
+				}
+
+				return 6_000_000 as Weight
+					+ DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1);
+			} else {
+				Zero::zero()
+			}
+		}
 	}
 
 	#[pallet::call]
@@ -487,6 +527,9 @@ impl<T: Config> CreateExt for Pallet<T> {
 
 		// update the next id, will not overflow, asserted prior qed.
 		<NextAssetId<T>>::mutate(|i| *i += u32::one());
+
+		// Add asset code to evm pallet
+		T::OnNewAssetSubscription::on_asset_create(next_asset_id, ERC20_PRECOMPILE_ADDRESS_PREFIX);
 
 		Self::deposit_event(Event::CreateAsset {
 			asset_id: next_asset_id,

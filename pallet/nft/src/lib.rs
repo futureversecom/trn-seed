@@ -31,10 +31,10 @@
 use frame_support::{
 	ensure, traits::Get, transactional, weights::constants::RocksDbWeight as DbWeight, PalletId,
 };
-use seed_pallet_common::{log, Hold, OnTransferSubscriber, TransferExt};
+use seed_pallet_common::{log, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
-	traits::{One, Saturating, Zero},
+	traits::{AccountIdConversion, One, Saturating, Zero},
 	DispatchResult, PerThing, Permill,
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -45,7 +45,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 mod weights;
-use weights::WeightInfo;
+pub use weights::WeightInfo;
 
 mod impls;
 mod migration;
@@ -59,6 +59,8 @@ pub use types::*;
 pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
+/// The maximum amount of listings to return
+pub const MAX_OWNED_TOKENS_LIMIT: u16 = 500;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
@@ -67,7 +69,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::AccountIdConversion;
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]
@@ -92,7 +94,7 @@ pub mod pallet {
 			NextMarketplaceId::<T>::put(1 as MarketplaceId);
 			NextListingId::<T>::put(1 as ListingId);
 			NextOfferId::<T>::put(1 as OfferId);
-			StorageVersion::<T>::put(Releases::V1);
+			StorageVersion::<T>::put(Releases::V2);
 		}
 	}
 
@@ -108,6 +110,8 @@ pub mod pallet {
 			+ Hold<AccountId = Self::AccountId>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
+		/// Handler for when an NFT collection has been created
+		type OnNewAssetSubscription: OnNewAssetSubscriber<CollectionUuid>;
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
@@ -375,34 +379,26 @@ pub mod pallet {
 		}
 
 		fn on_runtime_upgrade() -> Weight {
-			use frame_support::IterableStorageMap;
-			use migration::v1_storage;
+			use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 
-			if <StorageVersion<T>>::get() == Releases::V0 {
-				<StorageVersion<T>>::put(Releases::V1);
+			if <StorageVersion<T>>::get() == Releases::V1 {
+				<StorageVersion<T>>::put(Releases::V2);
 
-				let old_collection_info: Vec<(
-					CollectionUuid,
-					v1_storage::CollectionInformation<T::AccountId>,
-				)> = v1_storage::CollectionInfo::<T>::iter().collect();
+				let collection_info: Vec<(CollectionUuid, CollectionInformation<T::AccountId>)> =
+					CollectionInfo::<T>::iter().collect();
 
-				let weight = old_collection_info.len() as Weight;
-				for (collection_id, info) in old_collection_info {
-					let collection_info_migrated = types::CollectionInformation {
-						owner: info.owner,
-						name: info.name,
-						metadata_scheme: info.metadata_scheme,
-						royalties_schedule: info.royalties_schedule,
-						max_issuance: info.max_issuance,
-						origin_chain: OriginChain::Root,
-					};
-
-					<CollectionInfo<T>>::insert(collection_id, collection_info_migrated);
+				let weight = collection_info.len() as Weight;
+				for (collection_id, _) in collection_info {
+					// Add asset info into evm pallet for all existing collections
+					T::OnNewAssetSubscription::on_asset_create(
+						collection_id,
+						ERC721_PRECOMPILE_ADDRESS_PREFIX,
+					);
 				}
 
-				log!(warn, "🃏 collection info migrated");
-				return 6_000_000 as Weight +
-					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
+				log!(warn, "🃏 NFT collection info migrated");
+				return 6_000_000 as Weight
+					+ DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1);
 			} else {
 				Zero::zero()
 			}
@@ -557,7 +553,7 @@ pub mod pallet {
 					);
 				}
 			} else {
-				return Err(Error::<T>::NoCollection.into())
+				return Err(Error::<T>::NoCollection.into());
 			}
 
 			let owner = token_owner.unwrap_or(origin);
@@ -641,7 +637,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
-				return Err(Error::<T>::NoToken.into())
+				return Err(Error::<T>::NoToken.into());
 			}
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace_id)?;
@@ -737,7 +733,7 @@ pub mod pallet {
 					seller: listing.seller,
 				});
 			} else {
-				return Err(Error::<T>::NotForFixedPriceSale.into())
+				return Err(Error::<T>::NotForFixedPriceSale.into());
 			}
 			Ok(())
 		}
@@ -768,7 +764,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			if tokens.is_empty() {
-				return Err(Error::<T>::NoToken.into())
+				return Err(Error::<T>::NoToken.into());
 			}
 
 			let royalties_schedule = Self::check_bundle_royalties(&tokens, marketplace_id)?;
@@ -879,7 +875,7 @@ pub mod pallet {
 				});
 				Ok(())
 			} else {
-				return Err(Error::<T>::NotForAuction.into())
+				return Err(Error::<T>::NotForAuction.into());
 			}
 		}
 

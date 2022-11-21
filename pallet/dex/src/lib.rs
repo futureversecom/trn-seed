@@ -410,7 +410,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Given some amount of an asset and pair reserves, returns an equivalent amount of the other
 	/// asset
-	fn quote(
+	pub fn quote(
 		amount_a: U256,
 		reserve_a: u128,
 		reserve_b: u128,
@@ -713,7 +713,7 @@ impl<T: Config> Pallet<T> {
 		Ok(amount_in)
 	}
 
-	fn get_amounts_out(
+	pub fn get_amounts_out(
 		amount_in: Balance,
 		path: &[AssetId],
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
@@ -754,7 +754,7 @@ impl<T: Config> Pallet<T> {
 		Ok(amounts)
 	}
 
-	fn get_amounts_in(
+	pub fn get_amounts_in(
 		amount_out: Balance,
 		path: &[AssetId],
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
@@ -888,8 +888,8 @@ impl<T: Config> Pallet<T> {
 				.sub(U256::from(amount_1_in).mul(U256::from(fee_numerator))?)?;
 
 			ensure!(
-				balance_0_adjusted.mul(balance_1_adjusted)? >=
-					U256::from(reserve_0).mul(U256::from(reserve_1))?.mul(
+				balance_0_adjusted.mul(balance_1_adjusted)?
+					>= U256::from(reserve_0).mul(U256::from(reserve_1))?.mul(
 						U256::from(fee_denominator)
 							.checked_pow(U256::from(2_u32))
 							.ok_or(ArithmeticError::Overflow)?
@@ -940,7 +940,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Ensured atomic.
 	#[transactional]
-	fn do_swap_with_exact_target(
+	pub fn do_swap_with_exact_target(
 		who: &T::AccountId,
 		amount_out: Balance,
 		amount_in_max: Balance,

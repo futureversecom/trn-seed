@@ -1,17 +1,79 @@
 use crate::{
 	mock::{test_ext, AssetId, AssetsExt, AssetsExtPalletId, MockAccountId, NativeAssetId, Test},
-	Error, Holds, NextAssetId,
+	Config, Error, Holds, NextAssetId, Pallet,
 };
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
+	pallet_prelude::*,
 	traits::tokens::fungibles::{Inspect, Transfer},
 	PalletId,
 };
-use seed_pallet_common::{CreateExt, Hold, TransferExt};
+use seed_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
 use seed_primitives::Balance;
+use sp_core::H160;
 use sp_runtime::traits::{AccountIdConversion, Zero};
 
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");
+
+#[test]
+fn migration_v0_to_v1() {
+	use frame_support::traits::OnRuntimeUpgrade;
+
+	test_ext().build().execute_with(|| {
+		// run upgrade
+		// Insert storage version
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 0);
+
+		// Mock some assets
+		<NextAssetId<Test>>::put(4);
+		let parachain_id: u32 = <Test as Config>::ParachainId::get().into();
+		let asset_id_1: AssetId = next_asset_uuid(1, parachain_id).unwrap();
+		let asset_id_2: AssetId = next_asset_uuid(2, parachain_id).unwrap();
+		let asset_id_3: AssetId = next_asset_uuid(3, parachain_id).unwrap();
+
+		// EVM pallet should NOT have account code for assets
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(asset_id_1 as u64).into()
+		));
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(asset_id_2 as u64).into()
+		));
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(asset_id_3 as u64).into()
+		));
+		// Hardcoded assets 1 and 2
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(1 as u64).into()
+		));
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(2 as u64).into()
+		));
+
+		// Run upgrade
+		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		// Version should be updated
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
+
+		// EVM pallet should have account code for collections
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(asset_id_1 as u64).into()
+		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(asset_id_2 as u64).into()
+		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(asset_id_3 as u64).into()
+		));
+		// Hardcoded assets 1 and 2
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(1 as u64).into()
+		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(2 as u64).into()
+		));
+	});
+}
 
 #[test]
 fn transfer() {
@@ -491,9 +553,9 @@ fn place_and_release_hold_multiple_assets_and_pallets() {
 			assert_eq!(AssetsExt::balance(doge_asset_id, &alice), initial_balance);
 			// storage cleared
 			assert!(
-				!Holds::<Test>::contains_key(dn_asset_id, alice) &&
-					!Holds::<Test>::contains_key(doge_asset_id, alice) &&
-					!Holds::<Test>::contains_key(xrp_asset_id, alice)
+				!Holds::<Test>::contains_key(dn_asset_id, alice)
+					&& !Holds::<Test>::contains_key(doge_asset_id, alice)
+					&& !Holds::<Test>::contains_key(xrp_asset_id, alice)
 			);
 		});
 }
@@ -853,8 +915,6 @@ fn next_asset_uuid_works() {
 #[test]
 fn create() {
 	test_ext().build().execute_with(|| {
-		// This tests assumes parachain_id is set to 100 in mock
-
 		// check default value (set upon build)
 		assert_eq!(<NextAssetId<Test>>::get(), 1);
 
@@ -868,17 +928,24 @@ fn create() {
 		assert_eq!(AssetsExt::next_asset_uuid().unwrap(), expected_result);
 
 		pub const ALICE: MockAccountId = 1;
+		let parachain_id: u32 = <Test as Config>::ParachainId::get().into();
 
 		// create token & verify asset_uuid increment
 		let usdc = <AssetsExt as CreateExt>::create(&ALICE).unwrap();
-		assert_eq!(usdc, 1 << 10 | 100);
+		assert_eq!(usdc, 1 << 10 | parachain_id);
 		assert_eq!(AssetsExt::minimum_balance(usdc), 1);
 		assert_eq!(AssetsExt::total_issuance(usdc), 0);
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(usdc as u64).into()
+		));
 
 		// create token & verify asset_uuid increment
 		let weth = <AssetsExt as CreateExt>::create(&ALICE).unwrap();
-		assert_eq!(weth, 2 << 10 | 100);
+		assert_eq!(weth, 2 << 10 | parachain_id);
 		assert_eq!(AssetsExt::minimum_balance(weth), 1);
-		assert_eq!(AssetsExt::total_issuance(usdc), 0);
+		assert_eq!(AssetsExt::total_issuance(weth), 0);
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(weth as u64).into()
+		));
 	});
 }

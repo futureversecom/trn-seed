@@ -31,6 +31,55 @@ fn set_erc721_approval() {
 }
 
 #[test]
+fn migration_v0_to_v1() {
+	use frame_support::{traits::OnRuntimeUpgrade, StorageDoubleMap};
+	use migration::v1_storage;
+
+	TestExt::default().build().execute_with(|| {
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 0);
+
+		// setup old values
+		v1_storage::ERC721ApprovalsForAll::<Test>::insert(1, 2, 3);
+		v1_storage::ERC721ApprovalsForAll::<Test>::insert(4, 5, 6);
+		v1_storage::ERC721ApprovalsForAll::<Test>::insert(7, 8, 9);
+
+		// Run upgrade
+		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+		// Check storage after
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
+		assert!(ERC721ApprovalsForAll::<Test>::get(1, (2, 3)).unwrap());
+		assert!(ERC721ApprovalsForAll::<Test>::get(4, (5, 6)).unwrap());
+		assert!(ERC721ApprovalsForAll::<Test>::get(7, (8, 9)).unwrap());
+	});
+}
+
+#[test]
+fn set_erc721_approval_approved_for_all() {
+	TestExt::default().build().execute_with(|| {
+		let token_owner: AccountId = 10;
+		let caller: AccountId = 12;
+		let operator: AccountId = 13;
+		let collection_id: CollectionUuid = 0;
+		let token_id: TokenId = (collection_id, 0);
+
+		// Token owner approves caller for all
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			token_owner,
+			caller,
+			collection_id,
+			true
+		));
+
+		// Caller is not token owner, but they are approved for all so this passes
+		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
+		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
+		// 000_001_500_000_000_000
+	});
+}
+
+#[test]
 fn set_erc721_approval_not_token_owner_should_fail() {
 	TestExt::default().build().execute_with(|| {
 		let caller: AccountId = 10;
@@ -39,7 +88,7 @@ fn set_erc721_approval_not_token_owner_should_fail() {
 
 		assert_noop!(
 			TokenApprovals::erc721_approval(None.into(), caller, operator, token_id),
-			Error::<Test>::NotTokenOwner,
+			Error::<Test>::NoToken,
 		);
 	});
 }
@@ -244,5 +293,140 @@ fn update_erc20_approval_not_approved_should_fail() {
 			),
 			Error::<Test>::CallerNotApproved
 		);
+	});
+}
+
+#[test]
+fn set_erc721_approval_for_all() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let operator: AccountId = 11;
+		let collection_id: CollectionUuid = 1;
+
+		// Set approval to true
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator,
+			collection_id,
+			true
+		));
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator)).unwrap()
+		);
+
+		// Remove approval
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator,
+			collection_id,
+			false
+		));
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator)).is_none()
+		);
+	});
+}
+
+#[test]
+fn set_erc721_approval_for_all_multiple_approvals() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let operator_1: AccountId = 11;
+		let operator_2: AccountId = 12;
+		let operator_3: AccountId = 13;
+		let collection_id: CollectionUuid = 1;
+
+		// Set approval to true for all three accounts
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator_1,
+			collection_id,
+			true
+		));
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator_2,
+			collection_id,
+			true
+		));
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			caller,
+			operator_3,
+			collection_id,
+			true
+		));
+
+		// Check storage
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_1)).unwrap()
+		);
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_2)).unwrap()
+		);
+		assert!(
+			TokenApprovals::erc721_approvals_for_all(caller, (collection_id, operator_3)).unwrap()
+		);
+	});
+}
+
+#[test]
+fn set_erc721_approval_for_all_caller_is_operator_should_fail() {
+	TestExt::default().build().execute_with(|| {
+		let caller: AccountId = 10;
+		let collection_id: CollectionUuid = 1;
+
+		// Set approval to true
+		assert_noop!(
+			TokenApprovals::erc721_approval_for_all(
+				None.into(),
+				caller,
+				caller,
+				collection_id,
+				true
+			),
+			Error::<Test>::CallerNotOperator
+		);
+	});
+}
+
+#[test]
+fn is_approved_or_owner_works() {
+	TestExt::default().build().execute_with(|| {
+		let token_owner: AccountId = 10;
+		let approved_for_all_account: AccountId = 11;
+		let approved_account: AccountId = 12;
+		let collection_id: CollectionUuid = 0;
+		let token_id: TokenId = (collection_id, 0);
+
+		// Should return false for both as approvals have not been set up
+		assert!(!TokenApprovals::is_approved_or_owner(token_id, approved_for_all_account));
+		assert!(!TokenApprovals::is_approved_or_owner(token_id, approved_account));
+
+		// set approve for all
+		assert_ok!(TokenApprovals::erc721_approval_for_all(
+			None.into(),
+			token_owner,
+			approved_for_all_account,
+			collection_id,
+			true
+		));
+
+		// set approve
+		assert_ok!(TokenApprovals::erc721_approval(
+			None.into(),
+			token_owner,
+			approved_account,
+			token_id
+		));
+
+		// Should return true for all three
+		assert!(TokenApprovals::is_approved_or_owner(token_id, token_owner));
+		assert!(TokenApprovals::is_approved_or_owner(token_id, approved_for_all_account));
+		assert!(TokenApprovals::is_approved_or_owner(token_id, approved_account));
 	});
 }

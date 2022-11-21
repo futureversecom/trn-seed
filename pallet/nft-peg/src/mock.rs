@@ -124,6 +124,7 @@ impl pallet_assets_ext::Config for Test {
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
+	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -164,6 +165,7 @@ impl pallet_nft::Config for Test {
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
+	type OnNewAssetSubscription = ();
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type WeightInfo = ();

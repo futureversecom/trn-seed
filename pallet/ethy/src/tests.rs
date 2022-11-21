@@ -455,8 +455,8 @@ fn handle_event_notarization_valid_claims() {
 			// When the yay_count reaches over the NotarizationThreshold of 66% the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(yay_count, notary_count) >=
-					<TestRuntime as Config>::NotarizationThreshold::get()
+				if Percent::from_rational(yay_count, notary_count)
+					>= <TestRuntime as Config>::NotarizationThreshold::get()
 				{
 					// Any further notarizations should return InvalidClaim error
 					assert_noop!(
@@ -476,8 +476,8 @@ fn handle_event_notarization_valid_claims() {
 				}
 				yay_count += 1;
 
-				if Percent::from_rational(yay_count, notary_count) >=
-					<TestRuntime as Config>::NotarizationThreshold::get()
+				if Percent::from_rational(yay_count, notary_count)
+					>= <TestRuntime as Config>::NotarizationThreshold::get()
 				{
 					// Over threshold, storage should be updated
 					assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
@@ -753,10 +753,10 @@ fn handle_event_notarization_invalid_claims() {
 			// When the nay_count reaches over 100 - NotarizationThreshold (33%) the storage should
 			// be updated
 			for i in 0..9 {
-				if Percent::from_rational(nay_count, notary_count) >
-					(Percent::from_parts(
-						100_u8 -
-							<TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
+				if Percent::from_rational(nay_count, notary_count)
+					> (Percent::from_parts(
+						100_u8
+							- <TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
 					// further notarizations should return InvalidClaim error
 					assert_noop!(
@@ -776,10 +776,10 @@ fn handle_event_notarization_invalid_claims() {
 				}
 				nay_count += 1;
 
-				if Percent::from_rational(nay_count, notary_count) >
-					(Percent::from_parts(
-						100_u8 -
-							<TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
+				if Percent::from_rational(nay_count, notary_count)
+					> (Percent::from_parts(
+						100_u8
+							- <TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
 					)) {
 					// Over threshold, storage should be removed
 					assert!(EthBridge::pending_claim_challenges().is_empty());
@@ -1085,20 +1085,25 @@ fn on_before_session_ending_handles_authorities() {
 			),
 		);
 
-		// Storage updated
+		// Storage should represent the storage before the authorities are finalized
+		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
+		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert!(EthBridge::next_authority_change().is_none());
+		assert_eq!(EthBridge::next_notary_keys(), next_keys);
+		assert!(EthBridge::notary_keys().is_empty());
+		assert!(EthBridge::bridge_paused());
+
+		// Item should be scheduled
+		let scheduled_block: BlockNumber = block_number + 75_u32;
+		Scheduler::on_initialize(scheduled_block.into());
+
+		// This should update all the storage items
+		assert!(!EthBridge::bridge_paused());
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		assert!(EthBridge::next_authority_change().is_none());
 		assert!(EthBridge::next_notary_keys().is_empty());
 		assert_eq!(EthBridge::notary_keys(), next_keys);
-
-		// Item should be scheduled and bridge still paused
-		assert!(EthBridge::bridge_paused());
-		let scheduled_block: BlockNumber = block_number + 75_u32;
-
-		// This should unpause bridge
-		Scheduler::on_initialize(scheduled_block.into());
-		assert!(!EthBridge::bridge_paused());
 	});
 }
 
@@ -1306,8 +1311,8 @@ fn delayed_event_proof() {
 		BridgePaused::kill();
 		// initialize pallet and initiate event proof
 		let max_delayed_events = EthBridge::delayed_event_proofs_per_block() as u64;
-		let expected_weight: Weight = DbWeight::get().reads(3 as Weight) +
-			DbWeight::get().writes(2 as Weight) * max_delayed_events;
+		let expected_weight: Weight = DbWeight::get().reads(3 as Weight)
+			+ DbWeight::get().writes(2 as Weight) * max_delayed_events;
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
 			expected_weight
@@ -1353,8 +1358,8 @@ fn multiple_delayed_event_proof() {
 		// initialize pallet and initiate event proof
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
-			DbWeight::get().reads(3 as Weight) +
-				DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
+			DbWeight::get().reads(3 as Weight)
+				+ DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
 		);
 
 		let mut removed_count = 0;
@@ -1375,8 +1380,8 @@ fn multiple_delayed_event_proof() {
 		// Now initialize next block and process the rest
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 2),
-			DbWeight::get().reads(3 as Weight) +
-				DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
+			DbWeight::get().reads(3 as Weight)
+				+ DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
 		);
 
 		let mut removed_count = 0;
@@ -1431,8 +1436,8 @@ fn set_delayed_event_proofs_per_block() {
 		// initialize pallet and initiate event proof
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
-			DbWeight::get().reads(3 as Weight) +
-				DbWeight::get().writes(2 as Weight) * new_max_delayed_events as u64
+			DbWeight::get().reads(3 as Weight)
+				+ DbWeight::get().writes(2 as Weight) * new_max_delayed_events as u64
 		);
 
 		for i in 0..new_max_delayed_events {
@@ -2164,5 +2169,19 @@ fn set_door_signers() {
 				AuthorityId::from_slice(&[2_u8; 33]).unwrap()
 			],
 		));
+	});
+}
+
+#[test]
+fn genesis_xrp_door_signers_works() {
+	ExtBuilder::default().xrp_door_signers([1_u8; 33]).build().execute_with(|| {
+		assert_eq!(
+			EthBridge::xrpl_door_signers(AuthorityId::from_slice(&[1_u8; 33]).unwrap()),
+			true
+		);
+		assert_eq!(
+			EthBridge::xrpl_door_signers(AuthorityId::from_slice(&[2_u8; 33]).unwrap()),
+			false
+		);
 	});
 }

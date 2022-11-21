@@ -99,7 +99,7 @@ pub fn new_partial(
 	ServiceError,
 > {
 	if config.keystore_remote.is_some() {
-		return Err(ServiceError::Other("Remote Keystores are not supported.".into()))
+		return Err(ServiceError::Other("Remote Keystores are not supported.".into()));
 	}
 
 	let telemetry = config
@@ -113,6 +113,8 @@ pub fn new_partial(
 		})
 		.transpose()?;
 
+	log::info!("got telemetry");
+
 	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
 		config.wasm_method,
 		config.default_heap_pages,
@@ -120,12 +122,17 @@ pub fn new_partial(
 		config.runtime_cache_size,
 	);
 
+	log::info!("got executor");
+
 	let (client, backend, keystore_container, task_manager) =
 		sc_service::new_full_parts::<Block, RuntimeApi, _>(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
 		)?;
+
+	log::info!("got client, backend, keystore_container, task_manager");
+
 	let client = Arc::new(client);
 
 	let telemetry = telemetry.map(|(worker, telemetry)| {
@@ -133,7 +140,11 @@ pub fn new_partial(
 		telemetry
 	});
 
+	log::info!("spawned telemetry task");
+
 	let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
+	log::info!("longest chain selected");
 
 	let transaction_pool = sc_transaction_pool::BasicPool::new_full(
 		config.transaction_pool.clone(),
@@ -143,8 +154,13 @@ pub fn new_partial(
 		client.clone(),
 	);
 
+	log::info!("got transaction pool");
+
 	let frontier_backend =
 		Arc::new(FrontierBackend::open(&config.database, &db_config_dir(config))?);
+
+	log::info!("got frontier backend");
+
 	let filter_pool: Option<FilterPool> = Some(Arc::new(Mutex::new(BTreeMap::new())));
 	let fee_history_cache: FeeHistoryCache = Arc::new(Mutex::new(BTreeMap::new()));
 	let fee_history_cache_limit: FeeHistoryCacheLimit = cli.run.fee_history_limit;
@@ -156,11 +172,15 @@ pub fn new_partial(
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
 
+	log::info!("got grandpa block import");
+
 	let (babe_block_import, babe_link) = sc_consensus_babe::block_import(
 		sc_consensus_babe::Config::get(&*client)?,
 		grandpa_block_import.clone(),
 		client.clone(),
 	)?;
+
+	log::info!("got babe block import");
 
 	let frontier_block_import = FrontierBlockImport::new(
 		babe_block_import.clone(),
@@ -168,7 +188,11 @@ pub fn new_partial(
 		frontier_backend.clone(),
 	);
 
+	log::info!("got frontier block import");
+
 	let slot_duration = babe_link.config().slot_duration();
+
+	log::info!("got babe slot duration");
 
 	let import_queue = sc_consensus_babe::import_queue(
 		babe_link.clone(),
@@ -195,6 +219,8 @@ pub fn new_partial(
 		sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
 		telemetry.as_ref().map(|x| x.handle()),
 	)?;
+
+	log::info!("got import queue");
 
 	let import_setup = (frontier_block_import, grandpa_link, babe_link);
 
@@ -225,6 +251,7 @@ fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
 
 /// Builds a new service for a full client.
 pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, ServiceError> {
+	log::info!("new_full entered");
 	let sc_service::PartialComponents {
 		client,
 		backend,
@@ -243,6 +270,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			),
 	} = new_partial(&config, cli)?;
 
+	log::info!("Partial components initialized");
+
 	// Set eth http bridge config
 	// the config is stored into the offchain context where it can
 	// be accessed later by the crml-eth-bridge offchain worker.
@@ -254,6 +283,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		);
 	}
 
+	log::info!("got eth http uri");
+
 	if let Some(ref xrp_http_uri) = cli.run.xrp_http {
 		backend.offchain_storage().unwrap().set(
 			sp_core::offchain::STORAGE_PREFIX,
@@ -262,20 +293,28 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		)
 	}
 
+	log::info!("got xrp http uri");
+
 	if let Some(url) = &config.keystore_remote {
 		match remote_keystore(url) {
 			Ok(k) => keystore_container.set_remote_keystore(k),
-			Err(e) =>
+			Err(e) => {
 				return Err(ServiceError::Other(format!(
 					"Error hooking up remote keystore for {}: {}",
 					url, e
-				))),
+				)))
+			},
 		};
 	}
+
+	log::info!("got remote keystore interaction");
+
 	let grandpa_protocol_name = sc_finality_grandpa::protocol_standard_name(
 		&client.block_hash(0).ok().flatten().expect("Genesis block exists; qed"),
 		&config.chain_spec,
 	);
+
+	log::info!("got grandpa protocol name");
 
 	// register grandpa p2p protocol
 	config
@@ -288,12 +327,16 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		Vec::default(),
 	));
 
+	log::info!("registered grandpa protocol");
+
 	let genesis_hash = client.block_hash(0).ok().flatten().expect("Genesis block exists; qed");
 	let ethy_protocol_name = ethy_gadget::protocol_standard_name(&genesis_hash, &config.chain_spec);
 	config
 		.network
 		.extra_sets
 		.push(ethy_gadget::ethy_peers_set_config(ethy_protocol_name.clone()));
+
+	log::info!("got ethy protocol name");
 
 	let (network, system_rpc_tx, network_starter) =
 		sc_service::build_network(sc_service::BuildNetworkParams {
@@ -306,6 +349,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			warp_sync: Some(warp_sync),
 		})?;
 
+	log::info!("built network");
+
 	if config.offchain_worker.enabled {
 		sc_service::build_offchain_workers(
 			&config,
@@ -315,6 +360,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		);
 	}
 
+	log::info!("offchain worker check/build");
+
 	let role = config.role.clone();
 	let force_authoring = config.force_authoring;
 	let backoff_authoring_blocks: Option<()> = None;
@@ -322,6 +369,9 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 	let enable_grandpa = !config.disable_grandpa;
 	let prometheus_registry = config.prometheus_registry().cloned();
 	let overrides = crate::rpc::overrides_handle(client.clone());
+
+	log::info!("got overrides handle");
+
 	let block_data_cache = Arc::new(fc_rpc::EthBlockDataCacheTask::new(
 		task_manager.spawn_handle(),
 		overrides.clone(),
@@ -329,8 +379,13 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		50,
 		prometheus_registry.clone(),
 	));
+
+	log::info!("got block data cache task");
+
 	let (event_proof_sender, event_proof_stream) =
 		ethy_gadget::notification::EthyEventProofStream::channel();
+
+	log::info!("got ethy proof stream");
 
 	let (block_import, grandpa_link, babe_link) = import_setup;
 
@@ -355,6 +410,9 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			backend.clone(),
 			Some(shared_authority_set.clone()),
 		);
+
+		log::info!("got finality proof provider");
+
 		let shared_voter_state = sc_finality_grandpa::SharedVoterState::empty();
 
 		move |deny_unsafe, subscription_task_executor: sc_rpc::SubscriptionTaskExecutor| {
@@ -394,6 +452,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		}
 	};
 
+	log::info!("built rpc extensions");
+
 	let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 		network: network.clone(),
 		client: client.clone(),
@@ -407,6 +467,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		telemetry: telemetry.as_mut(),
 	})?;
 
+	log::info!("spawned rpc handlers");
+
 	spawn_frontier_tasks(
 		&task_manager,
 		client.clone(),
@@ -417,6 +479,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		fee_history_cache,
 		fee_history_cache_limit,
 	);
+
+	log::info!("spawned frontier tasks");
 
 	if role.is_authority() {
 		let proposer_factory = sc_basic_authorship::ProposerFactory::new(
@@ -474,12 +538,18 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 		};
 
+		log::info!("got babe config");
+
 		let babe = sc_consensus_babe::start_babe(babe_config)?;
+
+		log::info!("got babe task");
+
 		task_manager.spawn_essential_handle().spawn_blocking(
 			"babe-proposer",
 			Some("block-authoring"),
 			babe,
 		);
+		log::info!("spawned babe task");
 	}
 
 	// if the node isn't actively participating in consensus then it doesn't
@@ -497,12 +567,17 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		protocol_name: ethy_protocol_name,
 		_phantom: std::marker::PhantomData,
 	};
+
+	log::info!("got keystore, ethy params");
+
 	// Start the ETHY bridge gadget.
 	task_manager.spawn_essential_handle().spawn_blocking(
 		"ethy-gadget",
 		None,
 		ethy_gadget::start_ethy_gadget::<_, _, _, _>(ethy_params),
 	);
+
+	log::info!("spawned ethy gadget");
 
 	let grandpa_config = sc_finality_grandpa::Config {
 		gossip_duration: Duration::from_millis(333),
@@ -532,6 +607,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			telemetry: telemetry.as_ref().map(|x| x.handle()),
 		};
 
+		log::info!("got grandpa config");
+
 		// the GRANDPA voter task is considered infallible, i.e.
 		// if it fails we take down the service with it.
 		task_manager.spawn_essential_handle().spawn_blocking(
@@ -539,9 +616,11 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 			None,
 			sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
 		);
+		log::info!("spawned grandpa config");
 	}
 
 	network_starter.start_network();
+	log::info!("started network");
 	Ok(task_manager)
 }
 

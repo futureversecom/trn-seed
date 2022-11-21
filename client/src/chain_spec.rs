@@ -1,14 +1,15 @@
 use hex_literal::hex;
 use sc_service::ChainType;
+use seed_runtime::constants::{XRP_DECIMALS, XRP_SYMBOL};
 use seed_runtime::{
 	constants::{
 		ONE_ROOT, ONE_XRP, ROOT_ASSET_ID, ROOT_DECIMALS, ROOT_MINIMUM_BALANCE, ROOT_NAME,
 		ROOT_SYMBOL, XRP_ASSET_ID, XRP_MINIMUM_BALANCE, XRP_NAME,
 	},
 	keys::*,
-	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, Forcing, GenesisConfig,
-	SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig, Forcing,
+	GenesisConfig, SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig,
+	SystemConfig, XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
 use sp_runtime::{
@@ -86,6 +87,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 					AccountId::from(hex!("C0F0f4ab324C46e55D02D0033343B4Be8A55532d")), // Faith
 				],
 				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
+				vec![authority_keys_from_seed("Alice").4],
 				false,
 			)
 		},
@@ -144,6 +146,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
 				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
+				vec![authority_keys_from_seed("Alice").4, authority_keys_from_seed("Bob").4],
 				false,
 			)
 		},
@@ -202,6 +205,13 @@ pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 				],
 				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
+				vec![
+					authority_keys_from_seed("Alice").4,
+					authority_keys_from_seed("Bob").4,
+					authority_keys_from_seed("Charlie").4,
+					authority_keys_from_seed("Dave").4,
+					authority_keys_from_seed("Eve").4,
+				],
 				false,
 			)
 		},
@@ -226,6 +236,7 @@ fn testnet_genesis(
 	root_key: AccountId,
 	accounts_to_fund: Vec<AccountId>,
 	xrp_relayers: Vec<AccountId>,
+	xrp_door_signers: Vec<EthBridgeId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
 	let metadata = vec![
@@ -235,12 +246,7 @@ fn testnet_genesis(
 			ROOT_SYMBOL.as_bytes().to_vec(),
 			ROOT_DECIMALS,
 		),
-		(
-			XRP_ASSET_ID,
-			XRP_NAME.as_bytes().to_vec(),
-			ROOT_SYMBOL.as_bytes().to_vec(),
-			ROOT_DECIMALS,
-		),
+		(XRP_ASSET_ID, XRP_NAME.as_bytes().to_vec(), XRP_SYMBOL.as_bytes().to_vec(), XRP_DECIMALS),
 	];
 	let assets = vec![
 		(ROOT_ASSET_ID, root_key, true, ROOT_MINIMUM_BALANCE),
@@ -268,6 +274,8 @@ fn testnet_genesis(
 		grandpa: Default::default(),
 		im_online: Default::default(),
 		nft: Default::default(),
+		// NOTE(surangap): keeping xrpl stuff inside the eth bridge isn't elegant. Refactor this to validator-set pallet in the future.
+		eth_bridge: EthBridgeConfig { xrp_door_signers },
 		session: SessionConfig {
 			keys: initial_authorities
 				.iter()

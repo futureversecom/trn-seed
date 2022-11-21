@@ -20,7 +20,6 @@ use crate::mock::{
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
-	storage::StorageMap,
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use seed_primitives::TokenId;
@@ -127,61 +126,57 @@ fn make_new_simple_offer(
 }
 
 #[test]
-fn migration_v0_to_v1() {
+fn migration_v1_to_v2() {
 	use frame_support::traits::OnRuntimeUpgrade;
-	use migration::v1_storage;
 
 	TestExt::default().build().execute_with(|| {
-		// setup old values
-		v1_storage::CollectionInfo::<Test>::insert(
-			123,
-			v1_storage::CollectionInformation::<AccountId> {
-				owner: 123_u64,
-				name: vec![],
-				royalties_schedule: None,
-				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
-				max_issuance: None,
-			},
-		);
-		v1_storage::CollectionInfo::<Test>::insert(
-			124,
-			v1_storage::CollectionInformation::<AccountId> {
-				owner: 124_u64,
-				name: vec![],
-				royalties_schedule: None,
-				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
-				max_issuance: None,
-			},
-		);
-
 		// run upgrade
-		assert_eq!(StorageVersion::<Test>::get(), Releases::V0);
+		// Insert storage version
+		StorageVersion::<Test>::put(Releases::V1);
+
+		// Mock some collections
+		let mock_collection_info = CollectionInformation {
+			owner: 1_u64,
+			name: b"test-collection".to_vec(),
+			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			royalties_schedule: None,
+			max_issuance: None,
+			origin_chain: OriginChain::Root,
+		};
+		let collection_id_1: CollectionUuid = 1;
+		let collection_id_2: CollectionUuid = 2;
+		let collection_id_3: CollectionUuid = 3;
+		CollectionInfo::<Test>::insert(collection_id_1, mock_collection_info.clone());
+		CollectionInfo::<Test>::insert(collection_id_2, mock_collection_info.clone());
+		CollectionInfo::<Test>::insert(collection_id_3, mock_collection_info);
+
+		// EVM pallet should NOT have account code for collections
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_1 as u64).into()
+		));
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_2 as u64).into()
+		));
+		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_3 as u64).into()
+		));
+
+		// Run upgrade
 		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
 
-		assert_eq!(
-			CollectionInfo::<Test>::get(123).expect("listing exists"),
-			CollectionInformation::<AccountId> {
-				owner: 123_u64,
-				name: vec![],
-				royalties_schedule: None,
-				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
-				max_issuance: None,
-				origin_chain: OriginChain::Root,
-			},
-		);
-		assert_eq!(
-			CollectionInfo::<Test>::get(124).expect("listing exists"),
-			CollectionInformation::<AccountId> {
-				owner: 124_u64,
-				name: vec![],
-				royalties_schedule: None,
-				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
-				max_issuance: None,
-				origin_chain: OriginChain::Root,
-			},
-		);
+		// Version should be updated
+		assert_eq!(StorageVersion::<Test>::get(), Releases::V2);
 
-		assert_eq!(StorageVersion::<Test>::get(), Releases::V1);
+		// EVM pallet should have account code for collections
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_1 as u64).into()
+		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_2 as u64).into()
+		));
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id_3 as u64).into()
+		));
 	});
 }
 
@@ -207,6 +202,81 @@ fn next_collection_uuid_works() {
 
 		// Next collection_uuid should fail (Reaches 22 bits max)
 		assert_noop!(Nft::next_collection_uuid(), Error::<Test>::NoAvailableIds);
+	});
+}
+
+#[test]
+fn owned_tokens_paginated_works() {
+	TestExt::default().build().execute_with(|| {
+		let token_owner = 2_u64;
+		let quantity = 5000;
+		let collection_id = Nft::next_collection_uuid().unwrap();
+
+		// mint token Ids 0-4999
+		assert_ok!(Nft::create_collection(
+			Some(token_owner).into(),
+			b"test-collection".to_vec(),
+			quantity,
+			None,
+			Some(token_owner),
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+		));
+
+		// First 100
+		let cursor: u32 = 0;
+		let limit: u16 = 100;
+		let expected_tokens: Vec<SerialNumber> = (cursor..100).collect();
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(100_u32, expected_tokens)
+		);
+
+		// 100 - 300
+		let cursor: u32 = 100;
+		let limit: u16 = 200;
+		let expected_tokens: Vec<SerialNumber> = (cursor..300).collect();
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(300_u32, expected_tokens)
+		);
+
+		// Limit higher than MAX_OWNED_TOKENS_LIMIT gets reduced
+		let cursor: u32 = 1000;
+		let limit: u16 = 10000;
+		let expected_tokens: Vec<SerialNumber> =
+			(cursor..cursor + MAX_OWNED_TOKENS_LIMIT as u32).collect();
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(cursor + MAX_OWNED_TOKENS_LIMIT as u32, expected_tokens)
+		);
+
+		// should return empty vec in unknown collection
+		let cursor: u32 = 0;
+		let limit: u16 = 100;
+		let expected_tokens: Vec<SerialNumber> = vec![];
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id + 1, &token_owner, cursor, limit),
+			(0_u32, expected_tokens)
+		);
+
+		// should return empty vec if cursor is set too high
+		let cursor: u32 = 5000;
+		let limit: u16 = 100;
+		let expected_tokens: Vec<SerialNumber> = vec![];
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(0_u32, expected_tokens)
+		);
+
+		// Last 100 should return cursor of 0
+		let cursor: u32 = 4900;
+		let limit: u16 = 100;
+		let expected_tokens: Vec<SerialNumber> = (cursor..5000).collect();
+		assert_eq!(
+			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			(0, expected_tokens)
+		);
 	});
 }
 
@@ -263,6 +333,11 @@ fn create_collection() {
 			}
 		);
 
+		// EVM pallet should have account code for collection
+		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
+			&H160::from_low_u64_be(collection_id as u64).into()
+		));
+
 		assert!(has_event(Event::<Test>::CollectionCreate {
 			collection_uuid: collection_id,
 			token_count: quantity,
@@ -279,7 +354,7 @@ fn create_collection() {
 		// Bit shifted to account for parachain_id
 		assert_eq!(Nft::next_collection_uuid().unwrap(), collection_id + (1 << 10));
 		assert_eq!(
-			Nft::collected_tokens(collection_id, &token_owner),
+			Nft::owned_tokens(collection_id, &token_owner),
 			vec![0, 1, 2, 3, 4]
 				.into_iter()
 				.map(|t| (collection_id, t))
@@ -300,14 +375,14 @@ fn create_collection() {
 		assert_eq!(Nft::next_serial_number(collection_id).unwrap(), quantity + additional_quantity);
 
 		assert_eq!(
-			Nft::collected_tokens(collection_id, &token_owner),
+			Nft::owned_tokens(collection_id, &token_owner),
 			vec![0, 1, 2, 3, 4]
 				.into_iter()
 				.map(|t| (collection_id, t))
 				.collect::<Vec<TokenId>>()
 		);
 		assert_eq!(
-			Nft::collected_tokens(collection_id, &(token_owner + 1)),
+			Nft::owned_tokens(collection_id, &(token_owner + 1)),
 			vec![5, 6, 7].into_iter().map(|t| (collection_id, t)).collect::<Vec<TokenId>>()
 		);
 		assert_eq!(
@@ -440,8 +515,8 @@ fn transfer() {
 			new_owner
 		}));
 
-		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
-		assert_eq!(Nft::collected_tokens(collection_id, &new_owner), vec![token_id]);
+		assert!(Nft::owned_tokens(collection_id, &token_owner).is_empty());
+		assert_eq!(Nft::owned_tokens(collection_id, &new_owner), vec![token_id]);
 		assert_eq!(Nft::token_balance(&token_owner).unwrap().get(&collection_id), None);
 		assert_eq!(Nft::token_balance(&new_owner).unwrap().get(&collection_id), Some(&1));
 	});
@@ -528,7 +603,7 @@ fn burn() {
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 0));
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 1));
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 2));
-		assert!(Nft::collected_tokens(collection_id, &token_owner).is_empty());
+		assert!(Nft::owned_tokens(collection_id, &token_owner).is_empty());
 		assert_eq!(Nft::token_balance(&token_owner).unwrap().get(&collection_id), None);
 	});
 }
@@ -621,7 +696,7 @@ fn sell() {
 			}
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
-			assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
+			assert_eq!(Nft::owned_tokens(collection_id, &buyer), tokens);
 			assert_eq!(
 				Nft::token_balance(&collection_owner).unwrap().get(&collection_id),
 				Some(&2)
@@ -1037,9 +1112,9 @@ fn buy_with_marketplace_royalties() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				initial_balance_owner + sale_price -
-					marketplace_entitlement * sale_price -
-					royalties_schedule.clone().entitlements[0].1 * sale_price
+				initial_balance_owner + sale_price
+					- marketplace_entitlement * sale_price
+					- royalties_schedule.clone().entitlements[0].1 * sale_price
 			);
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 		});
@@ -1122,7 +1197,7 @@ fn buy() {
 		// ownership changed
 		assert!(Nft::token_locks(&token_id).is_none());
 		assert!(Nft::open_collection_listings(collection_id, listing_id).is_none());
-		assert_eq!(Nft::collected_tokens(collection_id, &buyer), vec![token_id]);
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer), vec![token_id]);
 	});
 }
 
@@ -1188,8 +1263,8 @@ fn buy_with_royalties() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				initial_balance_seller + sale_price -
-					royalties_schedule
+				initial_balance_seller + sale_price
+					- royalties_schedule
 						.clone()
 						.entitlements
 						.into_iter()
@@ -1207,7 +1282,7 @@ fn buy_with_royalties() {
 			.is_none());
 
 			// ownership changed
-			assert!(Nft::collected_tokens(collection_id, &buyer).contains(&token_id));
+			assert!(Nft::owned_tokens(collection_id, &buyer).contains(&token_id));
 		});
 }
 
@@ -1285,7 +1360,7 @@ fn sell_to_anybody() {
 		.is_none());
 
 		// ownership changed
-		assert_eq!(Nft::collected_tokens(collection_id, &buyer), vec![token_id]);
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer), vec![token_id]);
 	});
 }
 
@@ -1406,7 +1481,7 @@ fn auction_bundle() {
 		// end auction
 		let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
-		assert_eq!(Nft::collected_tokens(collection_id, &buyer), tokens);
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer), tokens);
 		assert_eq!(Nft::token_balance(&collection_owner).unwrap().get(&collection_id), Some(&(2)));
 		assert_eq!(
 			Nft::token_balance(&buyer).unwrap().get(&collection_id),
@@ -1515,7 +1590,7 @@ fn auction() {
 
 			// ownership changed
 			assert!(Nft::token_locks(&token_id).is_none());
-			assert_eq!(Nft::collected_tokens(collection_id, &bidder_2), vec![token_id]);
+			assert_eq!(Nft::owned_tokens(collection_id, &bidder_2), vec![token_id]);
 			assert!(Nft::open_collection_listings(collection_id, listing_id).is_none());
 
 			// event logged
@@ -1623,8 +1698,8 @@ fn auction_royalty_payments() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				reserve_price -
-					royalties_schedule
+				reserve_price
+					- royalties_schedule
 						.entitlements
 						.into_iter()
 						.map(|(_, e)| e * reserve_price)
@@ -1644,7 +1719,7 @@ fn auction_royalty_payments() {
 			));
 
 			// ownership changed
-			assert_eq!(Nft::collected_tokens(collection_id, &bidder), vec![token_id]);
+			assert_eq!(Nft::owned_tokens(collection_id, &bidder), vec![token_id]);
 		});
 }
 
@@ -2235,6 +2310,25 @@ fn token_uri_construction() {
 		assert_eq!(
 			Nft::token_uri((collection_id, 1)),
 			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.json".to_vec(),
+		);
+
+		let collection_address = H160::from_low_u64_be(123);
+		let token_id = 1;
+
+		collection_id = Nft::next_collection_uuid().unwrap();
+		assert_ok!(Nft::create_collection(
+			Some(owner).into(),
+			b"test-collection".to_vec(),
+			quantity,
+			None,
+			None,
+			MetadataScheme::Ethereum(collection_address),
+			None,
+		));
+
+		assert_eq!(
+			Nft::token_uri((collection_id, token_id)),
+			b"ethereum://0x000000000000000000000000000000000000007b/1".to_vec()
 		);
 	});
 }

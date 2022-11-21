@@ -83,11 +83,12 @@ where
 					};
 
 					if let Err(err) = handle.check_function_modifier(match selector {
-						Action::Approve | Action::Transfer | Action::TransferFrom =>
-							FunctionModifier::NonPayable,
+						Action::Approve | Action::Transfer | Action::TransferFrom => {
+							FunctionModifier::NonPayable
+						},
 						_ => FunctionModifier::View,
 					}) {
-						return Some(Err(err.into()))
+						return Some(Err(err.into()));
 					}
 
 					match selector {
@@ -103,7 +104,7 @@ where
 					}
 				};
 
-				return Some(result)
+				return Some(result);
 			}
 		}
 		None
@@ -165,7 +166,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost() * 2)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Read input.
 		read_args!(handle, { owner: Address });
@@ -173,6 +174,7 @@ where
 
 		// Fetch info.
 		// TODO Check staking balances
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost() * 2)?;
 		let amount: U256 =
 			<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::reducible_balance(
 				asset_id,
@@ -189,7 +191,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Read input.
 		read_args!(handle, { owner: Address, spender: Address });
@@ -213,7 +215,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(handle, { spender: Address, amount: U256 });
@@ -250,7 +252,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(handle, { to: Address, amount: U256 });
@@ -265,7 +267,7 @@ where
 			amount,
 			false,
 		)
-		.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?;
+		.map_err(|e| revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e)))?;
 
 		log3(
 			handle.code_address(),
@@ -299,8 +301,8 @@ where
 			let caller: Runtime::AccountId = handle.context().caller.into();
 
 			handle.record_cost(
-				RuntimeHelper::<Runtime>::db_read_gas_cost() +
-					RuntimeHelper::<Runtime>::db_write_gas_cost(),
+				RuntimeHelper::<Runtime>::db_read_gas_cost()
+					+ RuntimeHelper::<Runtime>::db_write_gas_cost(),
 			)?;
 
 			// Update approval balance,
@@ -324,7 +326,9 @@ where
 				amount,
 				false,
 			)
-			.map_err(|e| revert(alloc::format!("Dispatched call failed with error: {:?}", e)))?;
+			.map_err(|e| {
+				revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e))
+			})?;
 		}
 		log3(
 			handle.code_address(),

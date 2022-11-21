@@ -10,10 +10,11 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
-use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
+use pallet_ethereum::{
+	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
+};
 use pallet_evm::{
-	runner::stack::Runner, Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator,
-	Runner as RunnerT,
+	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
@@ -66,7 +67,8 @@ pub mod keys {
 }
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
-	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, Hash, Index, Signature,
+	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
+	Signature, TokenId,
 };
 
 mod bag_thresholds;
@@ -80,8 +82,8 @@ use constants::{
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
-	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, PercentageOfWeight,
-	SlashImbalanceHandler, StakingSessionTracker,
+	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
+	PercentageOfWeight, SlashImbalanceHandler, StakingSessionTracker,
 };
 
 pub mod precompiles;
@@ -90,6 +92,11 @@ use precompiles::FutureversePrecompiles;
 mod staking;
 use staking::OnChainAccuracy;
 
+pub mod runner;
+use crate::impls::OnNewAssetSubscription;
+use runner::FeePreferencesRunner;
+
+pub(crate) const LOG_TARGET: &str = "runtime";
 #[cfg(test)]
 mod tests;
 
@@ -105,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 13,
+	spec_version: 22,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -140,7 +147,7 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-/// We allow for .5 seconds of compute with a 12 second average block time.
+/// We allow for 2 seconds of compute with a 4 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND / 2;
 
 parameter_types! {
@@ -227,8 +234,9 @@ impl frame_system::Config for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
-	pub const WeightToFeeReduction: Permill = Permill::from_parts(7_000); // 0.007%
+	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
 }
+
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type Event = Event;
@@ -295,6 +303,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type ParachainId = WorldId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = RootAssetId;
+	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -309,6 +318,7 @@ impl pallet_nft::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = TokenApprovals;
+	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type WeightInfo = ();
@@ -343,9 +353,18 @@ impl pallet_scheduler::Config for Runtime {
 	type NoPreimagePostponement = ();
 }
 
+impl pallet_utility::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
+	/// % threshold to emit event TicketSequenceThresholdReached
+	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -358,6 +377,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
+	type TicketSequenceThreshold = TicketSequenceThreshold;
 }
 
 parameter_types! {
@@ -383,7 +403,7 @@ impl pallet_dex::Config for Runtime {
 }
 
 impl pallet_token_approvals::Config for Runtime {
-	type IsTokenOwner = Nft;
+	type GetTokenOwner = Nft;
 }
 
 parameter_types! {
@@ -716,6 +736,7 @@ parameter_types! {
 	pub const RelayerBond: Balance = 100 * ONE_XRP;
 	/// Max Xrpl notary (validator) public keys
 	pub const MaxXrplKeys: u8 = 8;
+	pub const MaxNewSigners: u8 = 20;
 }
 
 impl pallet_ethy::Config for Runtime {
@@ -741,6 +762,7 @@ impl pallet_ethy::Config for Runtime {
 	type EthyId = EthBridgeId;
 	/// Reports final session status of an era
 	type FinalSessionTracker = StakingSessionTracker;
+	type MaxNewSigners = MaxNewSigners;
 	/// Handles multi-currency fungible asset system
 	type MultiCurrency = AssetsExt;
 	/// The native asset id used for challenger and relayer bonds
@@ -809,6 +831,7 @@ parameter_types! {
 	/// 0.000015 XRP per gas
 	pub const DefaultBaseFeePerGas: u64 = 1_500_000_000_000;
 }
+
 impl pallet_base_fee::Config for Runtime {
 	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
 	type Event = Event;
@@ -843,7 +866,7 @@ impl pallet_evm::Config for Runtime {
 	type AddressMapping = AddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<XrpCurrency>;
 	type Event = Event;
-	type Runner = Runner<Self>;
+	type Runner = FeePreferencesRunner<Self, Self>;
 	type PrecompilesType = FutureversePrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EthereumChainId;
@@ -854,15 +877,16 @@ impl pallet_evm::Config for Runtime {
 	fn config() -> &'static EvmConfig {
 		&SEED_EVM_CONFIG
 	}
+	type HandleTxValidation = HandleTxValidation<pallet_evm::Error<Runtime>>;
 }
 
 impl pallet_ethereum::Config for Runtime {
 	type Event = Event;
 	type StateRoot = pallet_ethereum::IntermediateStateRoot<Runtime>;
+	type HandleTxValidation = HandleTxValidation<InvalidTransactionWrapper>;
 }
 
 pub struct TransactionConverter;
-
 impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
 	fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_unsigned(
@@ -928,6 +952,8 @@ construct_runtime! {
 		Babe: pallet_babe,
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+		Utility: pallet_utility::{Pallet, Call, Event},
+
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -956,7 +982,7 @@ construct_runtime! {
 		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>},
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
 
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
@@ -1148,6 +1174,46 @@ impl_runtime_apis! {
 			UncheckedExtrinsic::new_unsigned(
 				pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
 			)
+		}
+	}
+
+	impl pallet_dex_rpc_runtime_api::DexApi<
+		Block,
+		Runtime,
+	> for Runtime {
+		fn quote(
+			amount_a: u128,
+			reserve_a: u128,
+			reserve_b: u128,
+		) -> Result<u128, sp_runtime::DispatchError> {
+			Dex::quote(amount_a.into(), reserve_a, reserve_b).map(|r| r.low_u128())
+		}
+
+		fn get_amounts_out(
+			amount_in: Balance,
+			path: Vec<AssetId>,
+		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
+			Dex::get_amounts_out(amount_in, &path)
+		}
+
+		fn get_amounts_in(
+			amount_out: Balance,
+			path: Vec<AssetId>,
+		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
+			Dex::get_amounts_in(amount_out, &path)
+		}
+	}
+
+	impl pallet_nft_rpc_runtime_api::NftApi<
+		Block,
+		AccountId,
+		Runtime,
+	> for Runtime {
+		fn owned_tokens(collection_id: CollectionUuid, who: AccountId) -> Vec<TokenId> {
+			Nft::owned_tokens(collection_id, &who)
+		}
+		fn token_uri(token_id: TokenId) -> Vec<u8> {
+			Nft::token_uri(token_id)
 		}
 	}
 
@@ -1356,8 +1422,9 @@ impl fp_self_contained::SelfContainedCall for Call {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			Call::Ethereum(ref call) =>
-				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
+			Call::Ethereum(ref call) => {
+				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))
+			},
 			_ => None,
 		}
 	}
@@ -1369,8 +1436,9 @@ impl fp_self_contained::SelfContainedCall for Call {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			Call::Ethereum(call) =>
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
+			Call::Ethereum(call) => {
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
+			},
 			_ => None,
 		}
 	}

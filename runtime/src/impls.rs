@@ -18,6 +18,8 @@
 
 use core::ops::Mul;
 
+use evm::backend::Basic;
+use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -39,13 +41,13 @@ use sp_std::{marker::PhantomData, prelude::*};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker,
+	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
 use seed_primitives::{AccountId, Balance, Index, Signature};
 
 use crate::{
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic,
+	constants::FEE_PROXY, BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId,
+	Staking, System, UncheckedExtrinsic,
 };
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -196,7 +198,7 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	{
 		if let Some(author_index) = F::find_author(digests) {
 			if let Some(stash) = Session::validators().get(author_index as usize) {
-				return Some(Into::<H160>::into(*stash))
+				return Some(Into::<H160>::into(*stash));
 			}
 		}
 		None
@@ -334,11 +336,11 @@ impl FinalSessionTracker for StakingSessionTracker {
 		// active era is one behind (i.e. in the *last session of the active era*, or *first session
 		// of the new current era*, depending on how you look at it).
 		if let Some(era_start_session_index) = Staking::eras_start_session_index(active_era) {
-			if Session::current_index() ==
-				era_start_session_index + SessionsPerEra::get().saturating_sub(1)
+			if Session::current_index()
+				== era_start_session_index + SessionsPerEra::get().saturating_sub(1)
 			{
 				// natural era rotation
-				return true
+				return true;
 			}
 		}
 
@@ -346,7 +348,7 @@ impl FinalSessionTracker for StakingSessionTracker {
 		return match Staking::force_era() {
 			Forcing::ForceNew | Forcing::ForceAlways => true,
 			Forcing::NotForcing | Forcing::ForceNone => false,
-		}
+		};
 	}
 }
 
@@ -363,15 +365,15 @@ impl EthereumEventRouterT for EthereumEventRouter {
 		if destination == &<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::address() {
 			<pallet_echo::Pallet<Runtime> as EthereumEventSubscriber>::process_event(source, data)
 				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
-		} else if destination ==
-			&<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
+		} else if destination
+			== &<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
 		{
 			<pallet_erc20_peg::Pallet<Runtime> as EthereumEventSubscriber>::process_event(
 				source, data,
 			)
 			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
-		} else if destination ==
-			&<pallet_nft_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
+		} else if destination
+			== &<pallet_nft_peg::Pallet<Runtime> as EthereumEventSubscriber>::address()
 		{
 			<pallet_nft_peg::Pallet<Runtime> as EthereumEventSubscriber>::process_event(
 				source, data,
@@ -380,6 +382,27 @@ impl EthereumEventRouterT for EthereumEventRouter {
 		} else {
 			Err((0, EventRouterError::NoReceiver))
 		}
+	}
+}
+
+pub struct OnNewAssetSubscription;
+
+impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for OnNewAssetSubscription
+where
+	RuntimeId: From<u32> + Into<u32>,
+{
+	fn on_asset_create(runtime_id: RuntimeId, precompile_address_prefix: &[u8; 4]) {
+		// Insert some code into the evm for the precompile address,
+		// This will mean the precompile address passes checks that reference an address's byte code
+		// i.e. EXTCODESIZE
+		let address = <Runtime as ErcIdConversion<RuntimeId>>::runtime_id_to_evm_id(
+			runtime_id,
+			precompile_address_prefix,
+		);
+		pallet_evm::Pallet::<Runtime>::create_account(
+			address.into(),
+			b"TRN Asset Precompile".to_vec(),
+		);
 	}
 }
 
@@ -394,6 +417,20 @@ where
 
 	fn weight_to_fee(weight: &Weight) -> Balance {
 		M::get().mul(*weight as Balance)
+	}
+}
+
+pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
+
+impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
+	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
+		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY);
+		// If we are not overriding with a fee preference, proceed with calculating a fee
+		if evm_config.transaction.to != Some(decoded_override_destination) {
+			// call default trait function instead
+			<() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
+		}
+		Ok(())
 	}
 }
 

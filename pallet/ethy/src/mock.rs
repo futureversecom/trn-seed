@@ -40,7 +40,7 @@ use seed_primitives::{
 	AssetId, Balance, Signature,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::{H160, H256, U256};
+use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
 use sp_runtime::{
 	testing::{Header, TestXt},
@@ -117,6 +117,7 @@ parameter_types! {
 	pub const RelayerBond: Balance = 202;
 	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
 	pub const MaxXrplKeys: u8 = 8;
+	pub const MaxNewSigners: u8 = 20;
 }
 impl Config for TestRuntime {
 	type AuthoritySet = MockValidatorSet;
@@ -138,6 +139,7 @@ impl Config for TestRuntime {
 	type MaxXrplKeys = MaxXrplKeys;
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
+	type MaxNewSigners = MaxNewSigners;
 	type XrplAdapter = MockXrplAdapter;
 }
 
@@ -187,6 +189,7 @@ impl pallet_assets_ext::Config for TestRuntime {
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
+	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
 }
 
@@ -472,13 +475,14 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		block_number: LatestOrNumber,
 	) -> Result<Option<EthBlock>, BridgeRpcError> {
 		let mock_block_response = match block_number {
-			LatestOrNumber::Latest =>
-				test_storage::BlockResponseAt::iter().last().map(|x| x.1).or(None),
+			LatestOrNumber::Latest => {
+				test_storage::BlockResponseAt::iter().last().map(|x| x.1).or(None)
+			},
 			LatestOrNumber::Number(block) => test_storage::BlockResponseAt::get(block),
 		};
 		println!("get_block_by_number at: {:?}", mock_block_response);
 		if mock_block_response.is_none() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let mock_block_response = mock_block_response.unwrap();
 
@@ -497,7 +501,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		let mock_receipt: Option<MockReceiptResponse> =
 			test_storage::TransactionReceiptFor::get(hash);
 		if mock_receipt.is_none() {
-			return Ok(None)
+			return Ok(None);
 		}
 		let mock_receipt = mock_receipt.unwrap();
 		let transaction_receipt = TransactionReceipt {
@@ -519,8 +523,9 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	) -> Result<Vec<u8>, BridgeRpcError> {
 		let block_number = match at_block {
 			LatestOrNumber::Number(n) => n,
-			LatestOrNumber::Latest =>
-				test_storage::BlockResponseAt::iter().last().unwrap().1.block_number,
+			LatestOrNumber::Latest => {
+				test_storage::BlockResponseAt::iter().last().unwrap().1.block_number
+			},
 		};
 		println!("eth_call at: {:?}", block_number);
 		test_storage::CallAt::get(block_number, target).ok_or(BridgeRpcError::HttpFetch)
@@ -654,6 +659,7 @@ pub struct ExtBuilder {
 	next_session_final: bool,
 	active_session_final: bool,
 	endowed_account: Option<(AccountId, Balance)>,
+	xrp_door_signer: Option<[u8; 33]>,
 }
 
 impl ExtBuilder {
@@ -677,6 +683,10 @@ impl ExtBuilder {
 		self.endowed_account = Some((AccountId::from(account), balance));
 		self
 	}
+	pub fn xrp_door_signers(mut self, xrp_door_signer: [u8; 33]) -> Self {
+		self.xrp_door_signer = Some(xrp_door_signer);
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext =
 			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
@@ -696,6 +706,15 @@ impl ExtBuilder {
 				.assimilate_storage(&mut ext)
 				.unwrap();
 		}
+
+		if self.xrp_door_signer.is_some() {
+			let xrp_door_signers: Vec<AuthorityId> =
+				vec![AuthorityId::from_slice(self.xrp_door_signer.unwrap().as_slice()).unwrap()];
+			pallet_ethy::GenesisConfig::<TestRuntime> { xrp_door_signers }
+				.assimilate_storage(&mut ext)
+				.unwrap();
+		}
+
 		let mut ext: sp_io::TestExternalities = ext.into();
 
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));

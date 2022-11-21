@@ -163,7 +163,7 @@ impl WitnessRecord {
 		// Is the witness for a completed event?
 		if let Some(completed_watermark) = self.completed_events.first() {
 			if witness.event_id <= *completed_watermark {
-				return Err(WitnessError::CompletedEvent)
+				return Err(WitnessError::CompletedEvent);
 			}
 		}
 
@@ -174,7 +174,7 @@ impl WitnessRecord {
 			.unwrap_or_default()
 		{
 			trace!(target: "ethy", "💎 witness previously seen: {:?}", witness.event_id);
-			return Err(WitnessError::DuplicateWitness)
+			return Err(WitnessError::DuplicateWitness);
 		}
 
 		// witness metadata may not be available at this point
@@ -184,7 +184,7 @@ impl WitnessRecord {
 			// Witnesses for XRPL are special cases and have unique digests per authority
 			if metadata.digest != witness.digest && witness.chain_id != EthyChainId::Xrpl {
 				warn!(target: "ethy", "💎 witness has bad digest: {:?} from {:?}", witness.event_id, witness.authority_id);
-				return Err(WitnessError::MismatchedDigest)
+				return Err(WitnessError::MismatchedDigest);
 			}
 		} else {
 			// store witness for re-verification later
@@ -193,7 +193,7 @@ impl WitnessRecord {
 				.entry(witness.event_id)
 				.and_modify(|witnesses| witnesses.push(witness.clone()))
 				.or_insert_with(|| vec![witness.clone()]);
-			return Ok(WitnessStatus::DigestUnverified)
+			return Ok(WitnessStatus::DigestUnverified);
 		};
 
 		// Convert authority secp256k1 public key into ordered index
@@ -242,20 +242,20 @@ impl WitnessRecord {
 /// sequence
 fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 	if completed_events.len() < 2 {
-		return completed_events
+		return completed_events;
 	}
 
 	let mut watermark_idx = 0;
 	for i in 0..completed_events.len() - 1 {
 		if completed_events[i] + 1 as EventProofId == completed_events[i + 1] {
 			watermark_idx = i + 1;
-			continue
+			continue;
 		} else {
-			break
+			break;
 		}
 	}
 
-	return completed_events.split_at(watermark_idx).1
+	return completed_events.split_at(watermark_idx).1;
 }
 
 #[cfg(test)]
