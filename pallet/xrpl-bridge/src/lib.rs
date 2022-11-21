@@ -47,8 +47,8 @@ use crate::helpers::{
 };
 
 pub use pallet::*;
-use seed_primitives::xrpl::XrplTxTicketSequence;
 use seed_primitives::ethy::EventProofId;
+use seed_primitives::xrpl::XrplTxTicketSequence;
 use sp_core::H160;
 
 mod helpers;
