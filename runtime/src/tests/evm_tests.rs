@@ -5,11 +5,12 @@ use ethereum::EIP1559Transaction;
 use frame_support::{assert_ok, traits::fungible::Inspect};
 use pallet_ethereum::{Transaction, TransactionAction};
 use sp_core::{H256, U256};
+use sp_runtime::DispatchError::BadOrigin;
 
 use crate::{
 	constants::ONE_XRP,
-	tests::{bob, charlie, ExtBuilder},
-	BaseFee, Ethereum, EthereumChainId, Origin, XrpCurrency,
+	tests::{alice, bob, charlie, ExtBuilder},
+	BaseFee, Ethereum, EthereumChainId, Origin, XrpCurrency, EVM,
 };
 
 #[test]
@@ -65,5 +66,44 @@ fn evm_transfer_and_gas_uses_xrp() {
 
 		assert!(XrpCurrency::balance(&charlie()) < charlie_xrp_after_call_1 + 5 * ONE_XRP);
 		assert_eq!(charlie_initial_xrp + 5 * ONE_XRP, XrpCurrency::balance(&bob()),);
+	});
+}
+
+#[test]
+fn evm_call_success_by_any_address() {
+	ExtBuilder::default().build().execute_with(|| {
+		let result = EVM::call(
+			Origin::signed(charlie()),
+			charlie().into(),
+			bob().into(),
+			Vec::new(),
+			U256::default(),
+			1000000,
+			U256::from(1_500_000_000_000_u64),
+			None,
+			None,
+			Vec::new(),
+		);
+		result.expect("EVM can be called");
+	});
+}
+
+#[test]
+fn evm_call_fail_by_origin_mismatch() {
+	ExtBuilder::default().build().execute_with(|| {
+		let result = EVM::call(
+			Origin::signed(alice()),
+			charlie().into(),
+			bob().into(),
+			Vec::new(),
+			U256::default(),
+			1000000,
+			U256::from(1_500_000_000_000_u64),
+			None,
+			None,
+			Vec::new(),
+		);
+		assert!(result.is_err());
+		assert_eq!(result.unwrap_err().error, BadOrigin);
 	});
 }
