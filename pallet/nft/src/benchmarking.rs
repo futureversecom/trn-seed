@@ -25,13 +25,6 @@ use sp_runtime::Permill;
 
 use crate::Pallet as Nft;
 
-/// payment asset
-// const PAYMENT_ASSET: u32 = 16_000;
-/// sale price, 1 million 4dp asset
-// const PRICE: u128 = 1_000_000 * 10_000;
-/// QUANTITY
-// const QUANTITY: u32 = 100;
-
 // Create an NFT collection
 // Returns the created `collection_id`
 fn setup_collection<T: Config>(
@@ -60,22 +53,6 @@ fn setup_collection<T: Config>(
 
 	(collection_id, royalties)
 }
-
-// Create a token for benchmarking
-/* fn setup_token<T: Config>(owner: T::AccountId) -> CollectionUuid {
-	let collection_owner: T::AccountId = whitelisted_caller();
-	let (collection_id, _) = setup_collection::<T>(collection_owner.clone());
-
-	<Nft<T>>::mint(
-		RawOrigin::Signed(collection_owner).into(),
-		collection_id,
-		QUANTITY,
-		Some(owner).clone(),
-	);
-
-	collection_id
-}
-*/
 
 benchmarks! {
 	set_owner {
