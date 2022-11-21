@@ -1,0 +1,34 @@
+[package]
+name = "pallet-fee-proxy"
+version = "0.1.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2021"
+license = "GPL-3.0"
+repository = "https://github.com/futureversecom/seed"
+description = "Root Network Fee Proxy Pallet"
+
+[dependencies]
+seed-primitives = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
+
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+
+sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+frame-system = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "scale-info/std",
+    "seed-primitives/std",
+    "seed-pallet-common/std",
+    "sp-core/std",
+    "sp-std/std",
+    "frame-support/std",
+    "frame-system/std"
+]

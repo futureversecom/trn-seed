@@ -20,6 +20,8 @@ use core::ops::Mul;
 
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
+use frame_support::dispatch::RawOrigin;
+use frame_support::traits::{Imbalance, IsSubType};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -28,9 +30,13 @@ use frame_support::{
 		Currency, ExistenceRequirement, FindAuthor, OnUnbalanced, SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
+	Callable,
 };
-use pallet_evm::AddressMapping as AddressMappingT;
+use pallet_election_provider_multi_phase::NegativeImbalanceOf;
+use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
+use pallet_transaction_payment::OnChargeTransaction;
 use sp_core::{H160, U256};
+use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
@@ -43,7 +49,7 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, Balance, Index, Signature};
+use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
 	constants::FEE_PROXY, BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId,
@@ -431,6 +437,112 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 			<() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
 		}
 		Ok(())
+	}
+}
+
+pub struct FeeProxyCurrencyAdapter<C>(PhantomData<C>);
+
+impl<T, C> OnChargeTransaction<T> for FeeProxyCurrencyAdapter<C>
+where
+	T: frame_system::Config<AccountId = AccountId>
+		+ pallet_transaction_payment::Config
+		+ pallet_fee_proxy::Config
+		+ pallet_dex::Config,
+	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
+	C: OnChargeTransaction<T>,
+	Balance: From<<C as OnChargeTransaction<T>>::Balance>,
+	// C: Currency<<T as frame_system::Config>::AccountId>,
+	// C::PositiveImbalance: Imbalance<
+	// 	<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+	// 	Opposite = C::NegativeImbalance,
+	// >,
+	// C::NegativeImbalance: Imbalance<
+	// 	<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+	// 	Opposite = C::PositiveImbalance,
+	// >,
+	// OU: OnUnbalanced<NegativeImbalanceOf<C>>,
+{
+	// type LiquidityInfo = Option<NegativeImbalanceOf<C>>;
+	type LiquidityInfo = <C as OnChargeTransaction<T>>::LiquidityInfo;
+
+	type Balance = <C as OnChargeTransaction<T>>::Balance;
+
+	/// Withdraw the predicted fee from the transaction origin.
+	///
+	/// Note: The `fee` already includes the `tip`.
+	fn withdraw_fee(
+		who: &T::AccountId,
+		call: &<T as frame_system::Config>::Call,
+		info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
+		fee: Self::Balance,
+		tip: Self::Balance,
+	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+		// Check whether call is of subtype fee-proxy, then hit the dex
+		if let Some(pallet_fee_proxy::Call::call_with_fee_preferences { payment_asset, call }) =
+			<<T as frame_system::Config>::Call as IsSubType<
+				<pallet_fee_proxy::Pallet<T> as Callable<T>>::Call,
+			>>::is_sub_type(call)
+		{
+			// This is a fee preference call, exchange the fee
+			let path: &[AssetId] =
+				&[*payment_asset, <T as pallet_fee_proxy::Config>::NativeAssetId::get()];
+			pallet_dex::Pallet::<T>::do_swap_with_exact_target(
+				who,
+				fee.into(),
+				<T as pallet_fee_proxy::Config>::MaxExchangeBalance::get(),
+				path,
+			)
+			.map_err(|_| InvalidTransaction::Payment)?;
+		};
+		// if matches!(
+		// 	call.is_sub_type(),
+		// 	Some(pallet_fee_proxy::Call::call_with_fee_preferences { .. })
+		// ) {
+		// 	// This is a fee preference call, exchange the fee
+		// 	// TODO How do we get the fee preference for this call? Can we even get the fee preference?
+		// }
+		<C as OnChargeTransaction<T>>::withdraw_fee(who, call, info, fee, tip)
+	}
+
+	/// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.
+	/// Since the predicted fee might have been too high, parts of the fee may
+	/// be refunded.
+	///
+	/// Note: The `corrected_fee` already includes the `tip`.
+	fn correct_and_deposit_fee(
+		who: &T::AccountId,
+		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
+		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::Call>,
+		corrected_fee: Self::Balance,
+		tip: Self::Balance,
+		already_withdrawn: Self::LiquidityInfo,
+	) -> Result<(), TransactionValidityError> {
+		<C as OnChargeTransaction<T>>::correct_and_deposit_fee(
+			who,
+			dispatch_info,
+			post_info,
+			corrected_fee,
+			tip,
+			already_withdrawn,
+		)
+	}
+}
+
+pub struct FutureverseEnsureAddressSame<AccountId>(sp_std::marker::PhantomData<AccountId>);
+
+impl<OuterOrigin, AccountId> EnsureAddressOrigin<OuterOrigin>
+	for FutureverseEnsureAddressSame<AccountId>
+where
+	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>> + From<RawOrigin<AccountId>>,
+	AccountId: Into<H160> + Copy,
+{
+	type Success = AccountId;
+
+	fn try_address_origin(address: &H160, origin: OuterOrigin) -> Result<AccountId, OuterOrigin> {
+		origin.into().and_then(|o| match o {
+			RawOrigin::Signed(who) if &who.into() == address => Ok(who),
+			r => Err(OuterOrigin::from(r)),
+		})
 	}
 }
 

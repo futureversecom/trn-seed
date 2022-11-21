@@ -4956,6 +4956,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-fee-proxy"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-grandpa"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
@@ -7630,6 +7644,7 @@ dependencies = [
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
  "pallet-evm-precompiles-nft",
+ "pallet-fee-proxy",
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-nft",

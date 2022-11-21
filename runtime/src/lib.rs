@@ -93,7 +93,7 @@ mod staking;
 use staking::OnChainAccuracy;
 
 pub mod runner;
-use crate::impls::OnNewAssetSubscription;
+use crate::impls::{FeeProxyCurrencyAdapter, FutureverseEnsureAddressSame, OnNewAssetSubscription};
 use runner::FeePreferencesRunner;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
@@ -238,7 +238,8 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
+	type OnChargeTransaction =
+		FeeProxyCurrencyAdapter<pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>>; // FeeProxyCurrencyAdapter<XrpCurrency, TxFeePot>;
 	type Event = Event;
 	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -332,6 +333,20 @@ impl pallet_echo::Config for Runtime {
 	type Event = Event;
 	type EthereumBridge = EthBridge;
 	type PalletId = EchoPalletId;
+}
+
+parameter_types! {
+	/// TODO Arbitrary value for max exchange balance
+	pub const MaxExchangeBalance: Balance = 10000000000;
+}
+impl pallet_fee_proxy::Config for Runtime {
+	type Event = Event;
+	// type Origin = Origin;
+	// type PalletsOrigin = OriginCaller;
+	type Call = Call;
+	type PalletsOrigin = OriginCaller;
+	type NativeAssetId = XrpAssetId;
+	type MaxExchangeBalance = MaxExchangeBalance;
 }
 
 parameter_types! {
@@ -859,7 +874,7 @@ impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
 	type GasWeightMapping = FutureverseGasWeightMapping;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
-	type CallOrigin = EnsureAddressNever<AccountId>;
+	type CallOrigin = FutureverseEnsureAddressSame<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
 	type AddressMapping = AddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<XrpCurrency>;
@@ -974,6 +989,7 @@ construct_runtime! {
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage},
 		Historical: pallet_session::historical::{Pallet},
 		Echo: pallet_echo::{Pallet, Call, Storage, Event},
+		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event},
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
