@@ -29,7 +29,7 @@ use seed_primitives::{
 		crypto::AuthorityId, ConsensusLog, EthyChainId, EthyEcdsaToEthereum, EventClaimId,
 		ValidatorSet,
 	},
-	xrpl::XrplAddress,
+	xrpl::XrplAccountId,
 	BlockNumber,
 };
 use sp_core::{ByteArray, H160, H256, U256};
@@ -2148,7 +2148,7 @@ fn set_contract_address_not_root_should_fail() {
 #[test]
 fn set_door_signers_fails() {
 	ExtBuilder::default().build().execute_with(|| {
-		let caller = XrplAddress::from_low_u64_be(1);
+		let caller = XrplAccountId::from_low_u64_be(1);
 		assert_noop!(
 			EthBridge::set_xrpl_door_signers(
 				Origin::signed(AccountId::from(caller)),

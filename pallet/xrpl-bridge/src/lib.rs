@@ -38,7 +38,7 @@ use xrpl_codec::{
 use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
-	xrpl::{LedgerIndex, XrplAddress, XrplTxHash, XrplTxNonce},
+	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxNonce},
 	AccountId, AssetId, Balance, Timestamp,
 };
 
@@ -140,11 +140,11 @@ pub mod pallet {
 			proof_id: u64,
 			sender: T::AccountId,
 			amount: Balance,
-			destination: XrplAddress,
+			destination: XrplAccountId,
 		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
-		DoorAddressSet(XrplAddress),
+		DoorAddressSet(XrplAccountId),
 		DoorNextTicketSequenceParamSet {
 			ticket_sequence_start_next: u32,
 			ticket_bucket_size_next: u32,
@@ -256,7 +256,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn door_address)]
 	/// The door address on XRPL
-	pub type DoorAddress<T: Config> = StorageValue<_, XrplAddress>;
+	pub type DoorAddress<T: Config> = StorageValue<_, XrplAccountId>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -318,7 +318,7 @@ pub mod pallet {
 		pub fn withdraw_xrp(
 			origin: OriginFor<T>,
 			amount: Balance,
-			destination: XrplAddress,
+			destination: XrplAccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::add_to_withdraw(who, amount, destination)
@@ -367,7 +367,10 @@ pub mod pallet {
 		/// Set XRPL door address managed by this pallet
 		#[pallet::weight((<T as Config>::WeightInfo::set_xrpl_door_address(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn set_door_address(origin: OriginFor<T>, door_address: XrplAddress) -> DispatchResult {
+		pub fn set_door_address(
+			origin: OriginFor<T>,
+			door_address: XrplAccountId,
+		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			DoorAddress::<T>::put(door_address);
 			Self::deposit_event(Event::<T>::DoorAddressSet(door_address));
@@ -538,7 +541,7 @@ impl<T: Config> Pallet<T> {
 	pub fn add_to_withdraw(
 		who: AccountOf<T>,
 		amount: Balance,
-		destination: XrplAddress,
+		destination: XrplAccountId,
 	) -> DispatchResult {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
@@ -648,9 +651,9 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> EthyToXrplBridgeAdapter<H160> for Pallet<T> {
+impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 	fn submit_signer_list_set_request(
-		signer_entries: Vec<(H160, u16)>,
+		signer_entries: Vec<(XrplAccountId, u16)>,
 	) -> Result<EventProofId, DispatchError> {
 		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
 		// TODO: need a fee oracle, this is over estimating the fee
