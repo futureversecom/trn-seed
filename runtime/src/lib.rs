@@ -827,8 +827,8 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 
 parameter_types! {
 	/// Floor network base fee per gas
-	/// 0.000015 XRP per gas
-	pub const DefaultBaseFeePerGas: u64 = 1_500_000_000_000;
+	/// 0.000015 XRP per gas, 15000 GWEI
+	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
 }
 
 impl pallet_base_fee::Config for Runtime {
