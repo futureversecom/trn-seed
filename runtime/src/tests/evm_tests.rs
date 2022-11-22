@@ -31,7 +31,7 @@ fn evm_transfer_and_gas_uses_xrp() {
 			s: H256::default(),
 			odd_y_parity: true,
 		});
-		
+
 		// gas only in xrp
 		assert_ok!(Ethereum::transact(
 			Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(charlie().into())),
