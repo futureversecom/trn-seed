@@ -21,7 +21,7 @@ fn evm_transfer_and_gas_uses_xrp() {
 			nonce: U256::zero(),
 			max_priority_fee_per_gas: U256::from(1_u64),
 			max_fee_per_gas: BaseFee::base_fee_per_gas(),
-			gas_limit: U256::from(1_000_000_u64),
+			gas_limit: U256::from(21_000),
 			action: TransactionAction::Call(bob().into()),
 			value: U256::zero(),
 			input: vec![],
@@ -31,6 +31,7 @@ fn evm_transfer_and_gas_uses_xrp() {
 			s: H256::default(),
 			odd_y_parity: true,
 		});
+		
 		// gas only in xrp
 		assert_ok!(Ethereum::transact(
 			Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(charlie().into())),
@@ -39,9 +40,8 @@ fn evm_transfer_and_gas_uses_xrp() {
 
 		let charlie_xrp_after_call_1 = XrpCurrency::balance(&charlie());
 		assert!(charlie_xrp_after_call_1 < charlie_initial_xrp);
-		let empty_call_gas = charlie_initial_xrp - charlie_xrp_after_call_1;
-		println!("{:?}", empty_call_gas);
-		assert!(empty_call_gas < 2 * ONE_XRP); // keep gas cost low
+		let empty_call_gas_cost = charlie_initial_xrp - charlie_xrp_after_call_1;
+		assert!(empty_call_gas_cost == 315_000); // 0.315 XRP is lowest cost of TX
 
 		// transfer in xrp
 		let transaction = Transaction::EIP1559(EIP1559Transaction {
