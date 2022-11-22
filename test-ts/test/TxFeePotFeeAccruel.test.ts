@@ -12,7 +12,6 @@ import type { TestCall } from "../typechain-types";
 
 const FIRST_ASSET_ID = 1124;
 
-// Note: Tests must be run in order, synchronously
 describe("TxFeePot fees accruel", () => {
 	let api: ApiPromise;
 	let alice: KeyringPair;
@@ -29,6 +28,13 @@ describe("TxFeePot fees accruel", () => {
 		});
 		const keyring = new Keyring({ type: "ethereum" });
 		alice = keyring.addFromSeed(hexToU8a(ALICE_PRIVATE_KEY));
+
+		// create asset
+		await new Promise<void>((resolve) => {
+			api.tx.assetsExt.createAsset().signAndSend(alice, ({ status }) => {
+				if (status.isInBlock) resolve();
+			});
+		});
 
 		// EVM variables
 		const provider = new JsonRpcProvider(`http://localhost:9933`);
@@ -70,23 +76,19 @@ describe("TxFeePot fees accruel", () => {
 	});
 
 	it("Extrinsic transactions accrue base fee in TxFeePot", async () => {
-		const txs = [
-			api.tx.assetsExt.createAsset(), // create asset
-			api.tx.assets.mint(
-				// mint 1M tokens (18 decimals) to alice
-				FIRST_ASSET_ID,
-				alice.address,
-				utils.parseEther("1").toString(),
-			),
-		];
+		const tx = api.tx.assets.mint(
+			// mint 1M tokens (18 decimals) to alice
+			FIRST_ASSET_ID,
+			alice.address,
+			utils.parseEther("1").toString(),
+		);
 		await new Promise<void>((resolve) => {
-			api.tx.utility.batch(txs).signAndSend(alice, ({ status }) => {
+			tx.signAndSend(alice, ({ status }) => {
 				if (status.isInBlock) resolve();
 			});
 		});
-		console.log("Created and minted asset:", FIRST_ASSET_ID);
 
-		const feesFromExtrinsic = 335_787;
+		const feesFromExtrinsic = 323_287;
 		const currentAccruedFees = +(
 			await api.query.txFeePot.eraTxFees()
 		).toString();
