@@ -4,9 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "prettier-format": "prettier --config prettierrc.js './**/*.ts' --write",
     "test": "hardhat test --network seed",
     "test::erc721": "hardhat test test/erc721Precompile.test.ts --network seed",
     "test::erc20": "hardhat test test/erc20Precompile.test.ts --network seed",
+    "test::call-estimates": "hardhat test test/TestCallGasEstimates.test.ts --network seed",
     "clean": "rm -rf ./cache/ && hardhat clean && hardhat typechain"
   },
   "devDependencies": {
@@ -24,6 +26,7 @@
     "axios": "^1.1.3",
     "chai": "^4.3.6",
     "dotenv": "^16.0.1",
+    "eslint-config-prettier": "^8.5.0",
     "ethers": "^5.7.2",
     "hardhat": "^2.12.1",
     "hardhat-gas-reporter": "^1.0.9",
@@ -36,6 +39,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.3"
+    "@openzeppelin/contracts": "^4.7.3",
+    "@trivago/prettier-plugin-sort-imports": "^3.4.0",
+    "@typescript-eslint/parser": "^5.42.1",
+    "prettier": "^2.7.1"
   }
 }

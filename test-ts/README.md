@@ -1,13 +1,21 @@
-# Sample Hardhat Project
+# Seed E2E Tests
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+The tests include utils for spinning up and down the node locally, and running E2E tests against it
 
-Try running some of the following tasks:
+## Dependencies
+
+Install yarn dependencies
 
 ```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
+yarn
+```
+
+## Running tests
+
+The test suite will handle spinning up and down the local node for it to test against. To run the tests:
+
+Run:
+
+```shell
+yarn test
 ```

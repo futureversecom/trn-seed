@@ -57,9 +57,7 @@ pub mod currency {
 
 /// Common constants of parachains.
 mod constants {
-	use frame_support::weights::{constants::WEIGHT_PER_SECOND, Weight};
 	use seed_primitives::BlockNumber;
-	use sp_runtime::Perbill;
 
 	/// This determines the average expected block time that we are targeting. Blocks will be
 	/// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
@@ -89,16 +87,6 @@ mod constants {
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 	pub const HOURS: BlockNumber = MINUTES * 60;
 	pub const DAYS: BlockNumber = HOURS * 24;
-
-	/// We assume that ~5% of the block weight is consumed by `on_initialize` handlers. This is
-	/// used to limit the maximal weight of a single extrinsic.
-	pub const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
-	/// We allow `Normal` extrinsics to fill up the block up to 75%, the rest can be used by
-	/// Operational  extrinsics.
-	pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-
-	/// We allow for 0.5 seconds of compute with a 6 second average block time.
-	pub const MAXIMUM_BLOCK_WEIGHT: Weight = WEIGHT_PER_SECOND / 2;
 
 	/// The decoded location for the fee proxy function selector
 	pub const FEE_PROXY: u64 = 1211;
