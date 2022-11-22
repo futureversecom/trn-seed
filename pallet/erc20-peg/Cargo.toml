@@ -45,3 +45,4 @@ std = [
     "sp-core/std",
     "ethabi/std"
 ]
+try-runtime = ["frame-support/try-runtime"]

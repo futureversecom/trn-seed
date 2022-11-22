@@ -16,7 +16,6 @@ frame-election-provider-support = { git = "https://github.com/futureversecom/sub
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
 frame-system-rpc-runtime-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
-frame-try-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
 pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
 pallet-authorship = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
 pallet-babe = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
@@ -88,6 +87,10 @@ seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
 primitive-types = {version = "0.11.1", default-features = false, features = ["impl-codec", "impl-serde"] }
 
+# Try-runtime
+frame-try-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
+try-runtime-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
+
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
 
@@ -107,6 +110,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"frame-system-rpc-runtime-api/std",
+	"frame-try-runtime/std",
 	"pallet-authorship/std",
 	"pallet-assets/std",
 	"pallet-babe/std",
@@ -168,10 +172,43 @@ std = [
 	"pallet-erc20-peg/std",
 	"pallet-nft-peg/std",
 	"ethabi/std",
-	"evm/std"
+	"evm/std",
+	"try-runtime-cli"
 ]
+
 try-runtime = [
-	"frame-executive/try-runtime",
 	"frame-try-runtime",
+	"frame-executive/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-babe/try-runtime",
+	"pallet-timestamp/try-runtime",
+	"pallet-scheduler/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-balances/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-offences/try-runtime",
+	"pallet-session/try-runtime",
+	"pallet-grandpa/try-runtime",
+	"pallet-im-online/try-runtime",
+	"pallet-sudo/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-ethereum/try-runtime",
+	# "pallet-evm/try-runtime",
+	# "pallet-base-fee/try-runtime",
+	# Local
+	"pallet-assets-ext/try-runtime",
+	"pallet-dex/try-runtime",
+	"pallet-nft/try-runtime",
+	"pallet-xrpl-bridge/try-runtime",
+	"pallet-token-approvals/try-runtime",
+	"pallet-echo/try-runtime",
+	"pallet-tx-fee-pot/try-runtime",
+	"pallet-ethy/try-runtime",
+	"pallet-erc20-peg/try-runtime",
+	"pallet-nft-peg/try-runtime",
 ]

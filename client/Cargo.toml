@@ -89,8 +89,11 @@ pallet-nft-rpc = { path = "../pallet/nft/rpc" }
 # Diagnostics
 log = "0.4.0"
 
+# Try Runtime
+frame-try-runtime = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27-debug" }
+try-runtime-cli = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27-debug" }
+
 # CLI-specific dependencies
-try-runtime-cli = { git = "https://github.com/futureversecom/substrate", optional = true , branch = "polkadot-v0.9.27-debug" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
