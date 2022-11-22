@@ -238,7 +238,7 @@ pub trait EthereumBridge {
 }
 
 /// Interface from xrpl-bridge to ethy
-pub trait XrplEthyBridgeAdapter<AuthorityId> {
+pub trait XrplBridgeToEthyAdapter<AuthorityId> {
 	/// Request ethy generate a signature for the given tx data
 	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
 	/// Return the current set of Ethy validators
@@ -248,7 +248,7 @@ pub trait XrplEthyBridgeAdapter<AuthorityId> {
 }
 
 /// Interface from ethy to xrpl-bridge
-pub trait EthyXrplBridgeAdapter<AuthorityId> {
+pub trait EthyToXrplBridgeAdapter<AuthorityId> {
 	/// Request xrpl-bridge to submit signer_list_set.
 	fn submit_signer_list_set_request(
 		_: Vec<(AuthorityId, u16)>,

@@ -59,7 +59,7 @@ use sp_runtime::{
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 use seed_pallet_common::{
-	log, EthCallOracleSubscriber, EthereumEventRouter, EthyXrplBridgeAdapter, EventRouterError,
+	log, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter, EventRouterError,
 	FinalSessionTracker as FinalSessionTrackerT, Hold,
 };
 use seed_primitives::{AccountId, AssetId, Balance};
@@ -142,7 +142,7 @@ pub trait Config:
 	/// Max Xrpl notary (validator) public keys
 	type MaxXrplKeys: Get<u8>;
 	/// Xrpl-bridge adapter
-	type XrplAdapter: EthyXrplBridgeAdapter<H160>;
+	type XrplBridgeAdapter: EthyToXrplBridgeAdapter<H160>;
 }
 
 decl_storage! {

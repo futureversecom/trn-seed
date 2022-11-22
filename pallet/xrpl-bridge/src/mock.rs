@@ -12,7 +12,7 @@ use sp_runtime::{
 	DispatchError, Percent,
 };
 
-use seed_pallet_common::XrplEthyBridgeAdapter;
+use seed_pallet_common::XrplBridgeToEthyAdapter;
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	AccountId, AssetId, Balance, BlockNumber,
@@ -167,8 +167,8 @@ impl pallet_xrpl_bridge::Config for Test {
 
 pub struct MockEthyAdapter;
 
-impl XrplEthyBridgeAdapter<AuthorityId> for MockEthyAdapter {
-	/// Mock implementation of XrplEthyBridgeAdapter
+impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
+	/// Mock implementation of XrplBridgeToEthyAdapter
 	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
 		Ok(1)
 	}

@@ -35,7 +35,7 @@ use xrpl_codec::{
 	transaction::{Payment, SignerListSet},
 };
 
-use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter, XrplEthyBridgeAdapter};
+use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
 	xrpl::{LedgerIndex, XrplAddress, XrplTxHash, XrplTxNonce},
@@ -75,7 +75,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		type EthyAdapter: XrplEthyBridgeAdapter<AuthorityId>;
+		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>
@@ -648,7 +648,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> EthyXrplBridgeAdapter<H160> for Pallet<T> {
+impl<T: Config> EthyToXrplBridgeAdapter<H160> for Pallet<T> {
 	fn submit_signer_list_set_request(
 		signer_entries: Vec<(H160, u16)>,
 	) -> Result<EventProofId, DispatchError> {

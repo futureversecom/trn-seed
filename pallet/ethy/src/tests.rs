@@ -23,7 +23,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use hex_literal::hex;
-use seed_pallet_common::{EthCallFailure, EthereumBridge, XrplEthyBridgeAdapter};
+use seed_pallet_common::{EthCallFailure, EthereumBridge, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::{
 		crypto::AuthorityId, ConsensusLog, EthyChainId, EthyEcdsaToEthereum, EventClaimId,

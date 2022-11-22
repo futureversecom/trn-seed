@@ -32,7 +32,7 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use scale_info::TypeInfo;
 use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EthyXrplBridgeAdapter,
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter,
 	EventRouterResult, FinalSessionTracker,
 };
 use seed_primitives::{
@@ -140,12 +140,12 @@ impl Config for TestRuntime {
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
 	type MaxNewSigners = MaxNewSigners;
-	type XrplAdapter = MockXrplAdapter;
+	type XrplBridgeAdapter = MockXrplBridgeAdapter;
 }
 
-pub struct MockXrplAdapter;
-impl EthyXrplBridgeAdapter<H160> for MockXrplAdapter {
-	/// Mock implementation of EthyXrplBridgeAdapter
+pub struct MockXrplBridgeAdapter;
+impl EthyToXrplBridgeAdapter<H160> for MockXrplBridgeAdapter {
+	/// Mock implementation of EthyToXrplBridgeAdapter
 	fn submit_signer_list_set_request(_: Vec<(H160, u16)>) -> Result<EventProofId, DispatchError> {
 		Ok(1)
 	}

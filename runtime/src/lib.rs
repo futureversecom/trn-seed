@@ -780,7 +780,7 @@ impl pallet_ethy::Config for Runtime {
 	/// Max Xrpl notary (validator) public keys
 	type MaxXrplKeys = MaxXrplKeys;
 	/// Xrpl-bridge adapter
-	type XrplAdapter = XRPLBridge;
+	type XrplBridgeAdapter = XRPLBridge;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
