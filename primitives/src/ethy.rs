@@ -17,7 +17,9 @@
 //! Shared between eth-bridge pallet & ethy-gadget worker
 
 use codec::{Decode, Encode};
+use ripemd::{Digest as _, Ripemd160};
 use scale_info::TypeInfo;
+use sha2::Sha256;
 use sp_application_crypto::ByteArray;
 use sp_runtime::{traits::Convert, KeyTypeId};
 use sp_std::prelude::*;
@@ -237,6 +239,20 @@ impl Convert<AuthorityId, [u8; 33]> for EthyEcdsaToPublicKey {
 		)
 		.map(|k| k.serialize_compressed())
 		.unwrap_or([0_u8; 33])
+	}
+}
+
+/// Convert a 33 byte Secp256k1 pub key to an XRPL account ID
+pub struct EthyEcdsaToXRPLAccountId;
+impl Convert<&[u8], [u8; 20]> for EthyEcdsaToXRPLAccountId {
+	fn convert(compressed_key: &[u8]) -> [u8; 20] {
+		libsecp256k1::PublicKey::parse_slice(
+			compressed_key,
+			Some(libsecp256k1::PublicKeyFormat::Compressed),
+		)
+		.map(|k| k.serialize_compressed())
+		.map(|k| Ripemd160::digest(Sha256::digest(&k)).into())
+		.unwrap_or([0_u8; 20])
 	}
 }
 

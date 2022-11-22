@@ -19,7 +19,7 @@ use seed_pallet_common::{
 	log, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
 	FinalSessionTracker as FinalSessionTrackerT, XrplBridgeToEthyAdapter,
 };
-use seed_primitives::ethy::EthyEcdsaToEthereum;
+use seed_primitives::ethy::{EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId};
 
 use crate::{types::*, *};
 
@@ -723,7 +723,7 @@ impl<T: Config> Module<T> {
 		// request for proof xrpl - SignerListSet
 		let signer_entries = Self::get_xrpl_notary_keys(next_keys)
 			.into_iter()
-			.map(|k| EthyEcdsaToEthereum::convert(k.as_ref())) // TODO(surangap): use a correct conversion function
+			.map(|k| EthyEcdsaToXRPLAccountId::convert(k.as_ref()))
 			.map(|entry| (entry.into(), 1_u16)) // TODO(surangap): proper way to store weights
 			.collect::<Vec<_>>();
 		if let Ok(event_proof_id) =

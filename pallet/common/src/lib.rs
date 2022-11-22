@@ -248,10 +248,10 @@ pub trait XrplBridgeToEthyAdapter<AuthorityId> {
 }
 
 /// Interface from ethy to xrpl-bridge
-pub trait EthyToXrplBridgeAdapter<AuthorityId> {
+pub trait EthyToXrplBridgeAdapter<AccountId> {
 	/// Request xrpl-bridge to submit signer_list_set.
 	fn submit_signer_list_set_request(
-		_: Vec<(AuthorityId, u16)>,
+		_: Vec<(AccountId, u16)>,
 	) -> Result<EventProofId, DispatchError>;
 }
 
