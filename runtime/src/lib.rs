@@ -946,48 +946,48 @@ construct_runtime! {
 		NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-		Babe: pallet_babe,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
-		Utility: pallet_utility::{Pallet, Call, Event},
+		System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+		Babe: pallet_babe = 1,
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent}= 2,
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
+		Utility: pallet_utility::{Pallet, Call, Event} = 4,
 
 		// Monetary
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Authorship: pallet_authorship::{Pallet, Call, Storage},
-		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Offences: pallet_offences::{Pallet, Storage, Event},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
+		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>} = 7,
+		Authorship: pallet_authorship::{Pallet, Call, Storage} = 8,
+		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
+		Offences: pallet_offences::{Pallet, Storage, Event} = 10,
 
 		// Validators
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned},
-		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
+		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 12,
+		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
 
 		// World
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
-		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
-		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage},
-		Historical: pallet_session::historical::{Pallet},
-		Echo: pallet_echo::{Pallet, Call, Storage, Event},
+		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 14,
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 15,
+		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>} = 16,
+		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>} = 17,
+		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
+		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
+		Historical: pallet_session::historical::{Pallet} = 20,
+		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
 
 		// Election pallet. Only works with staking
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
-		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>},
-		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
+		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
+		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>} = 23,
+		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage} = 24,
 
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
 
 		// EVM
-		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
-		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
-		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
-		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>}
+		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
+		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
+		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 28,
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
+		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 	}
 }
 
