@@ -13,7 +13,7 @@ import type { TestCall } from "../typechain-types";
 const FIRST_ASSET_ID = 1124;
 
 // Note: Tests must be run in order, synchronously
-describe("TestCall", () => {
+describe("TxFeePot fees accruel", () => {
 	let api: ApiPromise;
 	let alice: KeyringPair;
 	let aliceSigner: Wallet;
