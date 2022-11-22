@@ -39,7 +39,7 @@ describe("TestCall", () => {
 		const currentAccruedFees = +(
 			await api.query.txFeePot.eraTxFees()
 		).toString();
-		// expect(currentAccruedFees).to.equal(0);
+		expect(currentAccruedFees).to.equal(0);
 
 		accruedFees = currentAccruedFees;
 	});
