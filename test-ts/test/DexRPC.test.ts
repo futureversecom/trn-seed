@@ -4,7 +4,13 @@ import axios from "axios";
 import { expect } from "chai";
 import { ChildProcess } from "child_process";
 
-import { ALICE_PRIVATE_KEY, GAS_TOKEN_ID, sleep, typedefs } from "../common";
+import {
+	ALICE_PRIVATE_KEY,
+	GAS_TOKEN_ID,
+	sleep,
+	startStandaloneNode,
+	typedefs,
+} from "../common";
 
 const TOKEN_ID = 1124;
 
@@ -67,6 +73,8 @@ describe("DexRPC", () => {
 	let aliceNode: ChildProcess;
 
 	before(async () => {
+		aliceNode = startStandaloneNode("alice", { tmp: true, printLogs: false });
+
 		const wsProvider = new WsProvider(`ws://localhost:9944`);
 
 		const keyring = new Keyring({ type: "ethereum" });
