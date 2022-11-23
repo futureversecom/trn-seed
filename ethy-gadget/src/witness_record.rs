@@ -161,9 +161,12 @@ impl WitnessRecord {
 	/// Returns true if the witness was noted, i.e previously unseen
 	pub fn note_event_witness(&mut self, witness: &Witness) -> Result<WitnessStatus, WitnessError> {
 		// Is the witness for a completed event?
-		if let Some(completed_watermark) = self.completed_events.first() {
-			if witness.event_id <= *completed_watermark {
-				return Err(WitnessError::CompletedEvent);
+		if self.completed_events.len() > 1 {
+			// Handling the edge case for the very first completed event since the start
+			if let Some(completed_watermark) = self.completed_events.first() {
+				if witness.event_id <= *completed_watermark {
+					return Err(WitnessError::CompletedEvent);
+				}
 			}
 		}
 
