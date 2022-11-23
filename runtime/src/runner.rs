@@ -194,7 +194,6 @@ where
 			input = new_input;
 			target = new_target;
 
-			// let total_fee = U256::from(gas_limit) * gas_price;
 			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional)
 				.map_err(|err| RunnerError { error: err.into(), weight })?;
 

@@ -20,6 +20,7 @@ use core::ops::Mul;
 
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
+use frame_support::traits::fungibles::InspectMetadata;
 use frame_support::{
 	dispatch::RawOrigin,
 	pallet_prelude::*,
@@ -52,8 +53,8 @@ use seed_pallet_common::{
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
-	constants::FEE_PROXY, BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId,
-	Staking, System, UncheckedExtrinsic,
+	constants::FEE_PROXY, BlockHashCount, Call, FeePreferencesRunner, Runtime, Session,
+	SessionsPerEra, SlashPotId, Staking, System, UncheckedExtrinsic,
 };
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -434,7 +435,8 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
 			// call default trait function instead
-			<() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
+			// TODO Don't forget to uncomment this you egg
+			// <() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
 		}
 		Ok(())
 	}
@@ -447,8 +449,10 @@ where
 	T: frame_system::Config<AccountId = AccountId>
 		+ pallet_transaction_payment::Config
 		+ pallet_fee_proxy::Config
-		+ pallet_dex::Config,
-	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
+		+ pallet_dex::Config
+		+ pallet_evm::Config,
+	<T as frame_system::Config>::Call:
+		IsSubType<pallet_fee_proxy::Call<T>> + IsSubType<pallet_evm::Call<T>>,
 	C: OnChargeTransaction<T>,
 	Balance: From<<C as OnChargeTransaction<T>>::Balance>,
 {
@@ -476,6 +480,38 @@ where
 		}) = <<T as frame_system::Config>::Call as IsSubType<pallet_fee_proxy::Call<T>>>::is_sub_type(
 			call,
 		) {
+			// TODO Check if pallet_evm call and exchange gas_limit * total_fee_per_gas to cover fees, we will exchange back later
+			// Check if the inner call is an evm call. This will increase gas required
+			// if let Some(pallet_evm::Call::call {
+			// 	gas_limit,
+			// 	value,
+			// 	max_fee_per_gas,
+			// 	is_transactional,
+			// 	..
+			// }) = <<T as frame_system::Config>::Call as IsSubType<pallet_evm::Call<T>>>::is_sub_type(
+			// 	call,
+			// ) {
+			// 	let max_fee_per_gas = match (max_fee_per_gas, is_transactional) {
+			// 		(Some(max_fee_per_gas), _) => max_fee_per_gas,
+			// 		// Gas price check is skipped for non-transactional calls that don't
+			// 		// define a `max_fee_per_gas` input.
+			// 		(None, false) => Default::default(),
+			// 		// Unreachable, previously validated. Handle gracefully.
+			// 		_ => Default::default(),
+			// 	};
+			//
+			// 	// After eip-1559 we make sure the account can pay both the evm execution and priority
+			// 	// fees.
+			// 	let total_fee =
+			// 		max_fee_per_gas.checked_mul(U256::from(gas_limit)).unwrap_or_default();
+			// 	// let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
+			// 	let decimals =
+			// 		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
+			// 			&payment_asset,
+			// 		);
+			// 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
+			// }
+
 			let path: &[AssetId] =
 				&[*payment_asset, <T as pallet_fee_proxy::Config>::NativeAssetId::get()];
 			let total_fee: Balance = Balance::from(fee).saturating_add(*evm_estimate);

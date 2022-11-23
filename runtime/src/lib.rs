@@ -16,6 +16,7 @@ use pallet_ethereum::{
 use pallet_evm::{
 	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
+use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
@@ -28,7 +29,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError,
 	},
-	ApplyExtrinsicResult, Percent,
+	ApplyExtrinsicResult, FixedPointNumber, Percent, Perquintill,
 };
 pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 use sp_std::prelude::*;
@@ -235,6 +236,9 @@ parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
 	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
+	pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+	pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
+	pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -243,7 +247,8 @@ impl pallet_transaction_payment::Config for Runtime {
 	type Event = Event;
 	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
-	type FeeMultiplierUpdate = ();
+	type FeeMultiplierUpdate =
+		TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 

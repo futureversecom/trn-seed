@@ -15,6 +15,7 @@ use sp_std::prelude::*;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_support::weights::extract_actual_weight;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -46,7 +47,7 @@ pub mod pallet {
 		CallWithFeePreferences {
 			payment_asset: AssetId,
 			predicted_weight: Weight,
-			used_weight: Option<Weight>,
+			used_weight: Weight,
 		},
 	}
 
@@ -64,7 +65,10 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// call an internal call with specified gas token
 		/// TODO Better weight estimate
-		#[pallet::weight(5)]
+		#[pallet::weight({
+			let dispatch_info = call.get_dispatch_info();
+			(dispatch_info.weight.saturating_add(10_000), dispatch_info.class)
+		})]
 		pub fn call_with_fee_preferences(
 			origin: OriginFor<T>,
 			payment_asset: AssetId,
@@ -83,9 +87,14 @@ pub mod pallet {
 			let dispatch_info: DispatchInfo = call.get_dispatch_info();
 			let predicted_weight = dispatch_info.weight;
 
+			// TODO Potential fix:
+			// TODO Check users XRP balance before the call
 			let post_dispatch_info = call.dispatch(origin).map_err(|err| err.error)?;
 
-			let used_weight = post_dispatch_info.actual_weight;
+			// TODO Check users XRP balance after the call and exchange back to fee token
+
+			let used_weight = post_dispatch_info.calc_actual_weight(&dispatch_info);
+
 			// Deposit runtime event
 			Self::deposit_event(Event::CallWithFeePreferences {
 				payment_asset,
