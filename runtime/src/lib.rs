@@ -1464,8 +1464,7 @@ impl FeePreferencesData {
 impl Call {
 	fn transaction_asset_check(source: &H160, eth_tx: EthereumTransaction, action: TransactionAction) -> Result<(), TransactionValidityError> {
 		let fee_proxy = TransactionAction::Call(
-			// TODO: get fee proxy location nicely
-			H160::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 187])
+			H160::from_low_u64_be(FEE_PROXY)
 		);
 	
 		if action == fee_proxy {
