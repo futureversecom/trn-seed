@@ -20,16 +20,16 @@ use core::ops::Mul;
 
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
-use frame_support::dispatch::RawOrigin;
-use frame_support::traits::{Imbalance, IsSubType};
 use frame_support::{
+	dispatch::RawOrigin,
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, OnUnbalanced, SignedImbalance, WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, Imbalance, IsSubType, OnUnbalanced,
+		SignedImbalance, WithdrawReasons,
 	},
-	weights::WeightToFee,
+	weights::{DispatchInfo, WeightToFee},
 	Callable,
 };
 use pallet_election_provider_multi_phase::NegativeImbalanceOf;
@@ -451,16 +451,6 @@ where
 	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
 	C: OnChargeTransaction<T>,
 	Balance: From<<C as OnChargeTransaction<T>>::Balance>,
-	// C: Currency<<T as frame_system::Config>::AccountId>,
-	// C::PositiveImbalance: Imbalance<
-	// 	<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-	// 	Opposite = C::NegativeImbalance,
-	// >,
-	// C::NegativeImbalance: Imbalance<
-	// 	<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-	// 	Opposite = C::PositiveImbalance,
-	// >,
-	// OU: OnUnbalanced<NegativeImbalanceOf<C>>,
 {
 	// type LiquidityInfo = Option<NegativeImbalanceOf<C>>;
 	type LiquidityInfo = <C as OnChargeTransaction<T>>::LiquidityInfo;
@@ -478,29 +468,22 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		// Check whether call is of subtype fee-proxy, then hit the dex
-		if let Some(pallet_fee_proxy::Call::call_with_fee_preferences { payment_asset, call }) =
-			<<T as frame_system::Config>::Call as IsSubType<
-				<pallet_fee_proxy::Pallet<T> as Callable<T>>::Call,
-			>>::is_sub_type(call)
-		{
-			// This is a fee preference call, exchange the fee
+		if let Some(pallet_fee_proxy::Call::call_with_fee_preferences {
+			payment_asset,
+			max_payment,
+			evm_estimate,
+			call,
+		}) = <<T as frame_system::Config>::Call as IsSubType<pallet_fee_proxy::Call<T>>>::is_sub_type(
+			call,
+		) {
 			let path: &[AssetId] =
 				&[*payment_asset, <T as pallet_fee_proxy::Config>::NativeAssetId::get()];
-			pallet_dex::Pallet::<T>::do_swap_with_exact_target(
-				who,
-				fee.into(),
-				<T as pallet_fee_proxy::Config>::MaxExchangeBalance::get(),
-				path,
-			)
-			.map_err(|_| InvalidTransaction::Payment)?;
+			let total_fee: Balance = Balance::from(fee).saturating_add(*evm_estimate);
+
+			pallet_dex::Pallet::<T>::do_swap_with_exact_target(who, total_fee, *max_payment, path)
+				.map_err(|_| InvalidTransaction::Payment)?;
 		};
-		// if matches!(
-		// 	call.is_sub_type(),
-		// 	Some(pallet_fee_proxy::Call::call_with_fee_preferences { .. })
-		// ) {
-		// 	// This is a fee preference call, exchange the fee
-		// 	// TODO How do we get the fee preference for this call? Can we even get the fee preference?
-		// }
+
 		<C as OnChargeTransaction<T>>::withdraw_fee(who, call, info, fee, tip)
 	}
 

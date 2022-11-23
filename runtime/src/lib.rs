@@ -346,7 +346,6 @@ impl pallet_fee_proxy::Config for Runtime {
 	type Call = Call;
 	type PalletsOrigin = OriginCaller;
 	type NativeAssetId = XrpAssetId;
-	type MaxExchangeBalance = MaxExchangeBalance;
 }
 
 parameter_types! {

@@ -2,23 +2,19 @@
 
 pub use pallet::*;
 
-use codec::Codec;
 use frame_support::{
 	dispatch::Dispatchable,
 	pallet_prelude::*,
-	traits::OriginTrait,
+	traits::IsSubType,
 	weights::{DispatchInfo, GetDispatchInfo, PostDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
-use seed_primitives::{AccountId, AssetId};
+use seed_primitives::{AccountId, AssetId, Balance};
 use sp_std::prelude::*;
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::dispatch::UnfilteredDispatchable;
-	use frame_support::traits::IsSubType;
-	use seed_primitives::Balance;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -29,35 +25,18 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The system event type
 		type Event: From<Event> + IsType<<Self as frame_system::Config>::Event>;
-		/// The aggregated origin which the dispatch will take.
-		// type Origin: OriginTrait<PalletsOrigin = Self::PalletsOrigin>
-		// 	+ From<Self::PalletsOrigin>
-		// 	+ IsType<<Self as frame_system::Config>::Origin>;
-		/// The caller origin, overarching type of all pallets origins.
-		// type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>
-		// 	+ Codec
-		// 	+ Clone
-		// 	+ Eq
-		// 	+ TypeInfo;
-		/// The runtime call type.
-		// type Call: From<Call<Self>>;
 		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>;
-		// + IsSubType<Call<Self>>
-		// + IsType<<Self as frame_system::Config>::Call>;
-
 		/// The caller origin, overarching type of all pallets origins.
 		type PalletsOrigin: Parameter
 			+ Into<<Self as frame_system::Config>::Origin>
 			+ IsType<<<Self as frame_system::Config>::Origin as frame_support::traits::OriginTrait>::PalletsOrigin>;
-
+		/// The fee asset that will be exchanged
 		type NativeAssetId: Get<AssetId>;
-
-		type MaxExchangeBalance: Get<Balance>;
 	}
 
 	#[pallet::event]
@@ -75,27 +54,35 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The call failed to dispatch
 		DispatchFailed,
+		/// The inner call is a fee preference call
+		NestedFeePreferenceCall,
+		/// The selected fee token is equal to the native gas token
+		FeeTokenIsGasToken,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// call an internal call with specified gas token
 		/// TODO Better weight estimate
-		#[pallet::weight(100000)]
+		#[pallet::weight(5)]
 		pub fn call_with_fee_preferences(
 			origin: OriginFor<T>,
-			call: Box<<T as Config>::Call>,
 			payment_asset: AssetId,
+			max_payment: Balance,
+			evm_estimate: Balance,
+			call: Box<<T as Config>::Call>,
 		) -> DispatchResult {
 			let _ = ensure_signed(origin.clone())?;
 
-			// let call = <T as Config>::Call::from(call);
+			ensure!(payment_asset != T::NativeAssetId::get(), Error::<T>::FeeTokenIsGasToken);
+			ensure!(
+				!matches!(call.is_sub_type(), Some(Call::call_with_fee_preferences { .. })),
+				Error::<T>::NestedFeePreferenceCall
+			);
+
 			let dispatch_info: DispatchInfo = call.get_dispatch_info();
 			let predicted_weight = dispatch_info.weight;
-			// let origin = <T as Config>::Origin::from(origin);
 
-			// TODO Some limit on nested fee preferences calls
-			// TODO better errors
 			let post_dispatch_info = call.dispatch(origin).map_err(|err| err.error)?;
 
 			let used_weight = post_dispatch_info.actual_weight;
@@ -105,19 +92,6 @@ pub mod pallet {
 				predicted_weight,
 				used_weight,
 			});
-
-			// match post_dispatch_info {
-			// 	Ok(dispatch_info) => {
-			// 		let used_weight = dispatch_info.actual_weight;
-			// 		// Deposit runtime event
-			// 		Self::deposit_event(Event::CallWithFeePreferences {
-			// 			payment_asset,
-			// 			predicted_weight,
-			// 			used_weight,
-			// 		});
-			// 	},
-			// 	Err(e) => return Err(Error::<T>::DispatchFailed.into()),
-			// }
 
 			Ok(())
 		}
