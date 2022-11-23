@@ -1,5 +1,6 @@
 use codec::Encode;
 use ethabi::Token;
+use frame_support::log::warn;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
@@ -15,6 +16,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
+use seed_pallet_common::logger::debug;
 use seed_pallet_common::{
 	log, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
 	FinalSessionTracker as FinalSessionTrackerT, XrplBridgeToEthyAdapter,
@@ -686,7 +688,7 @@ impl<T: Config> Module<T> {
 		//       Queue at end of session - 5 minutes
 		// 	  -> block on_initialize if NextAuthorityChange(n) <- this function is CALLED here
 		//    new_session (start now + 1)
-
+		debug!(target: "ethy-pallet", "💎 handling authority set change..");
 		let next_keys = &NextNotaryKeys::<T>::get();
 		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
 
@@ -721,23 +723,31 @@ impl<T: Config> Module<T> {
 		}
 
 		// request for proof xrpl - SignerListSet
+		debug!(target: "ethy-pallet", "💎 next keys: {:?}", next_keys);
 		let signer_entries = Self::get_xrpl_notary_keys(next_keys)
 			.into_iter()
 			.map(|k| EthyEcdsaToXRPLAccountId::convert(k.as_ref()))
 			.map(|entry| (entry.into(), 1_u16)) // TODO(surangap): proper way to store weights
 			.collect::<Vec<_>>();
-		if let Ok(event_proof_id) =
-			T::XrplBridgeAdapter::submit_signer_list_set_request(signer_entries)
-		{
-			// Signal the Event Id that will be used for the proof of xrpl notary set change.
-			// Any observer can subscribe to this event and submit the resulting proof to keep
-			// the authority set of the xrpl door address updated.
-			Self::deposit_event(Event::<T>::XrplAuthoritySetChange(
-				event_proof_id,
-				next_validator_set_id,
-			));
-			XrplNotarySetProofId::put(event_proof_id);
-		}
+
+		debug!(target: "ethy-pallet", "💎 xrpl new signer entries: {:?}", signer_entries);
+		// if let Ok(event_proof_id) =
+		match T::XrplBridgeAdapter::submit_signer_list_set_request(signer_entries) {
+			Ok(event_proof_id) => {
+				// Signal the Event Id that will be used for the proof of xrpl notary set change.
+				// Any observer can subscribe to this event and submit the resulting proof to keep
+				// the authority set of the xrpl door address updated.
+				Self::deposit_event(Event::<T>::XrplAuthoritySetChange(
+					event_proof_id,
+					next_validator_set_id,
+				));
+				XrplNotarySetProofId::put(event_proof_id);
+			},
+			Err(e) => {
+				warn!(target: "ethy-pallet", "💎 Failed to send xrpl signer list set request {:?}", e);
+				// TODO(surangap): emit a failure event here
+			},
+		};
 
 		// notify ethy-gadget about validator set change
 		let log = DigestItem::Consensus(
@@ -757,7 +767,7 @@ impl<T: Config> Module<T> {
 
 	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
 	pub fn do_finalise_authorities_change() {
-		log!(trace, "💎 session & era ending, set new validator keys");
+		debug!(target: "ethy-pallet", "💎 session & era ending, set new validator keys");
 
 		// Unpause the bridge
 		BridgePaused::kill();
