@@ -12,7 +12,10 @@ use precompile_utils::{
 use primitive_types::{H160, H256, U256};
 use seed_pallet_common::log;
 use seed_primitives::{AccountId, AssetId, Balance};
-use sp_runtime::traits::SaturatedConversion;
+use sp_runtime::{
+	transaction_validity::{TransactionValidityError, InvalidTransaction},
+	traits::SaturatedConversion
+};
 use sp_std::{marker::PhantomData, prelude::*};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -25,7 +28,6 @@ pub enum FeePreferencesError {
 	FailedToDecodeInput,
 	InvalidPaymentAsset,
 	FeeExceedsMaxPayment,
-	UnknownError,
 }
 
 impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
@@ -35,6 +37,23 @@ impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
 			FeePreferencesError::GasPriceTooLow => pallet_evm::Error::GasPriceTooLow,
 			FeePreferencesError::FeeOverflow => pallet_evm::Error::FeeOverflow,
 			_ => pallet_evm::Error::WithdrawFailed,
+		}
+	}
+}
+
+
+impl From<FeePreferencesError> for TransactionValidityError {
+	fn from(error: FeePreferencesError) -> Self {
+		match error {
+			// Errors related to improperly designating a call or something "call-like" should all return an invalid call error
+			FeePreferencesError::InvalidFunctionSelector |
+			FeePreferencesError::InvalidInputArguments |
+			FeePreferencesError::FailedToDecodeInput |
+			FeePreferencesError::InvalidPaymentAsset => TransactionValidityError::Invalid(InvalidTransaction::Call),
+			FeePreferencesError::WithdrawFailed |
+			FeePreferencesError::GasPriceTooLow |
+			FeePreferencesError::FeeOverflow |
+			FeePreferencesError::FeeExceedsMaxPayment => TransactionValidityError::Invalid(InvalidTransaction::Payment),
 		}
 	}
 }
@@ -49,7 +68,7 @@ const FEE_PROXY_ADDRESS: u64 = 1211; // 0x04BB = 00000100 10111011
 
 /// Convert 18dp wei values to correct dp equivalents
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.000001 cpay
-fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
+pub fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
 	let (quotient, remainder) = (value / unit_value, value % unit_value);
 	if remainder == U256::from(0) {

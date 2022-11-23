@@ -14,7 +14,7 @@ use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction, TransactionAction
 };
 use pallet_evm::{
-	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
+	Account as EVMAccount, AddressMapping as AddressMappingT, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
@@ -42,13 +42,14 @@ pub use frame_support::{
 	construct_runtime,
 	dispatch::GetDispatchInfo,
 	parameter_types,
-	traits::{ConstU32, CurrencyToVote, Everything, IsInVec, KeyOwnerProofSystem, Randomness},
+	traits::{ConstU32, CurrencyToVote, Everything, fungibles::InspectMetadata, IsInVec, KeyOwnerProofSystem, Randomness},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		ConstantMultiplier, DispatchClass, IdentityFee, Weight,
 	},
 	PalletId, StorageValue,
 };
+
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
@@ -1399,24 +1400,85 @@ impl_runtime_apis! {
 	}
 }
 
+// Any data needed for computing fee preferences
+struct FeePreferencesData {
+	account: AccountId,
+	path: Vec<u32>,
+	gas_token_asset_id: u32,
+	total_fee_scaled: u128,
+	max_payment: u128,
+}
 
-fn transaction_asset_check(action: TransactionAction, input: Vec<u8>) -> Result<(), TransactionValidityError> {
-	let fee_proxy = TransactionAction::Call(
-		// TODO: get fee proxy location nicely
-		H160::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 187])
-	);
+// Serve as a wrapper error for other errors, simply returning those inner error types when origin error types need them back
+// enum FeePreferencesDataError {
+// 	FeePreferencesError(runner::FeePreferencesError),
+// 	TransactionValidityError(TransactionValidityError)
+// }
 
-	if action == fee_proxy {
-		let (asset_id, _balance, _address, _bytes) = FeePreferencesRunner::<Runtime, Runtime>::decode_input(input).unwrap();
-		let asset_balance = Assets::total_supply(asset_id);
-		// Replace with current gas (For now, just want to demonstrate tx rejection with error)
-		if asset_balance < 40000000000000000000000000 {
-			log::info!("returning error");
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment));
+enum FeePreferencesDataError {
+	CalculateGasFailed,
+	FailedDecoding,
+}
+
+impl From<FeePreferencesDataError> for TransactionValidityError {
+	fn from(error: FeePreferencesDataError) -> Self {
+		match error {
+			// At the time of writing, there aren't any error variants that would indicate anything other than invalid specification of a call
+			FeePreferencesDataError::CalculateGasFailed |
+			FeePreferencesDataError::FailedDecoding => TransactionValidityError::Invalid(
+				InvalidTransaction::Call
+			)
 		}
-		// TODO: Add another check for liquidity
 	}
-	Ok(())
+}
+
+impl FeePreferencesData {
+	fn new(source: H160, eth_tx: EthereumTransaction) -> Result<Self, FeePreferencesDataError> {
+		let (input, gas_limit, max_fee_per_gas) = match eth_tx {
+			EthereumTransaction::Legacy(t) => (t.input, t.gas_limit, None),
+			EthereumTransaction::EIP2930(t) => (t.input, t.gas_limit, None),
+			EthereumTransaction::EIP1559(t) => (t.input, t.gas_limit, Some(t.max_fee_per_gas)),
+		};
+	
+		let (payment_asset_id, max_payment, new_target, new_input) = FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)
+			.map_err(|_| FeePreferencesDataError::FailedDecoding)?;
+	
+		let total_fee = FeePreferencesRunner::<Runtime, Runtime>::calculate_total_gas(
+			gas_limit.as_u64(),
+			max_fee_per_gas,
+			false
+		).map_err(|_| FeePreferencesDataError::CalculateGasFailed)?;
+	
+		let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
+		let decimals = <pallet_assets_ext::Pallet<Runtime> as InspectMetadata<AccountId>>::decimals(
+			&gas_token_asset_id,
+		);
+		let total_fee_scaled = runner::scale_wei_to_correct_decimals(total_fee, decimals);
+	
+		let account = <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(source);
+		let path = vec![payment_asset_id, gas_token_asset_id];
+		Ok(FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled, max_payment })
+	}
+}
+
+impl Call {
+	fn transaction_asset_check(source: &H160, eth_tx: EthereumTransaction, action: TransactionAction) -> Result<(), TransactionValidityError> {
+		let fee_proxy = TransactionAction::Call(
+			// TODO: get fee proxy location nicely
+			H160::from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 187])
+		);
+	
+		if action == fee_proxy {
+			let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled, max_payment } = FeePreferencesData::new(source.clone(), eth_tx)?;
+			if total_fee_scaled > 0 {
+				if Dex::can_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path) {
+					return Ok(());
+				}
+				return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment));
+			}
+		}
+		Ok(())
+	}
 }
 
 impl fp_self_contained::SelfContainedCall for Call {
@@ -1490,22 +1552,19 @@ fn validate_self_contained_inner(
 		// frontier, but to keep the same behavior as before, we must perform
 		// the controls that were performed on the unsigned extrinsic.
 		use sp_runtime::traits::SignedExtension as _;
-		let input_len = match transaction {
-			pallet_ethereum::Transaction::Legacy(t) => t.input.len(),
-			pallet_ethereum::Transaction::EIP2930(t) => t.input.len(),
-			pallet_ethereum::Transaction::EIP1559(t) => t.input.len(),
+		let (input_len, action) = match transaction {
+			pallet_ethereum::Transaction::Legacy(t) => (t.input.len(), t.action),
+			pallet_ethereum::Transaction::EIP2930(t) => (t.input.len(), t.action),
+			pallet_ethereum::Transaction::EIP1559(t) => (t.input.len(), t.action),
 		};
+
 		let extra_validation =
 			SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
 
 		// Perform tx submitter asset balance checks required for fee proxying
 		match call.clone() {
 			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
-				match transaction {
-					pallet_ethereum::Transaction::Legacy(t) => transaction_asset_check(t.action, t.input),
-					pallet_ethereum::Transaction::EIP2930(t) => transaction_asset_check(t.action, t.input),
-					pallet_ethereum::Transaction::EIP1559(t) => transaction_asset_check(t.action, t.input),
-				}
+				Call::transaction_asset_check(signed_info, transaction, action)
 		},
 			_ => Ok(()),
 		}?;

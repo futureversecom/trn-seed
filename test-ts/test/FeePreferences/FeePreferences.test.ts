@@ -11,15 +11,12 @@ import {
 	assetIdToERC20ContractAddress,
 	BOB_PRIVATE_KEY,
 	ERC20_ABI,
-	EVM_PALLET_INDEX,
-	executeForPreviousEvent,
 	FEE_PROXY_ABI,
 	FEE_PROXY_ADDRESS,
 	NATIVE_TOKEN_ID,
 	sleep,
 	startStandaloneNode,
 	typedefs,
-	WITHDRAW_FAILED_ERROR_INDEX,
 } from "../../common";
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
@@ -311,33 +308,13 @@ describe("Fee Preferences", function () {
 			chainId,
 		};
 
-		await emptyAccountSigner.signTransaction(unsignedTx);
-		const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
-		const receipt = await Promise.race([tx.wait(), sleep(8000)]);
-		expect(receipt).to.be.undefined;
-
-		// Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
-		const [dispatchErrIndex, dispatchError] = await new Promise<any>(
-			(resolve) => {
-				executeForPreviousEvent(
-					api,
-					{ method: "ExtrinsicFailed", section: "system" },
-					2,
-					async (event) => {
-						if ("dispatchError" in event.data) {
-							// Use toHuman to get the actual values
-							const { index, error } =
-								event.data.dispatchError.toHuman().Module;
-							resolve([index, error]);
-						}
-						resolve(["", ""]);
-					}
-				);
-			}
-		);
-
-		expect(dispatchErrIndex).to.equal(EVM_PALLET_INDEX);
-		expect(dispatchError).to.equal(WITHDRAW_FAILED_ERROR_INDEX);
+		try {
+			const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+			await tx.wait();
+		} catch (err: any) {
+			expect(err.code).to.be.eq("INSUFFICIENT_FUNDS");
+			expect(err.reason).to.be.eq("insufficient funds for intrinsic transaction cost");
+		}
 	});
 
 	it("Does not pay in non-native token with gasLimit 0", async () => {
@@ -378,7 +355,6 @@ describe("Fee Preferences", function () {
 			maxPriorityFeePerGas,
 			chainId,
 		};
-
 		try {
 			const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
 			await tx.wait();
@@ -437,96 +413,5 @@ describe("Fee Preferences", function () {
 				"submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))"
 			);
 		}
-	});
-
-	it("Workaround snippet notifies in error scenario", async () => {
-		// call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
-		const transferAmount = 1;
-		let iface = new utils.Interface(ERC20_ABI);
-		const transferInput = iface.encodeFunctionData("transfer", [
-			bob.address,
-			transferAmount,
-		]);
-
-		const maxFeePaymentInToken = 1; // <-- insufficient payment
-		const feeProxy = new Contract(
-			FEE_PROXY_ADDRESS,
-			FEE_PROXY_ABI,
-			emptyAccountSigner
-		);
-		const nonce = await emptyAccountSigner.getTransactionCount();
-		const chainId = 3999;
-		const maxPriorityFeePerGas = 1_500_000_000; // 1_500_000_000 = '0x59682f00'
-		const gasLimit = 23316; // '0x5b14' = 23316;
-		const maxFeePerGas = 30_001_500_000_0000; // 30_001_500_000_000 = '0x1b4944c00f00'
-		const unsignedTx = {
-			// eip1559 tx
-			type: 2,
-			from: emptyAccount.address,
-			to: FEE_PROXY_ADDRESS,
-			nonce,
-			data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
-				feeToken.address,
-				maxFeePaymentInToken,
-				feeToken.address,
-				transferInput,
-			]),
-			gasLimit,
-			maxFeePerGas,
-			maxPriorityFeePerGas,
-			chainId,
-		};
-
-		await emptyAccountSigner.signTransaction(unsignedTx);
-		const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
-		const receipt = await Promise.race([tx.wait(), sleep(8000)]);
-		expect(receipt).to.be.undefined;
-	});
-
-	it("Workaround script returns successfully in non-error scenario", async () => {
-		// call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
-		const transferAmount = 1;
-		let iface = new utils.Interface(ERC20_ABI);
-		const transferInput = iface.encodeFunctionData("transfer", [
-			bob.address,
-			transferAmount,
-		]);
-
-		const maxFeePaymentInToken = 10_000_000_000;
-		const feeProxy = new Contract(
-			FEE_PROXY_ADDRESS,
-			FEE_PROXY_ABI,
-			emptyAccountSigner
-		);
-		const nonce = await emptyAccountSigner.getTransactionCount();
-		const chainId = 3999;
-		const maxPriorityFeePerGas = 0; // 1_500_000_000 = '0x59682f00'
-		const gasLimit = 23316; // '0x5b14' = 23316;
-		const maxFeePerGas = 30_001_500_000_0000; // 30_001_500_000_000 = '0x1b4944c00f00'
-		const unsignedTx = {
-			// eip1559 tx
-			type: 2,
-			from: emptyAccount.address,
-			to: FEE_PROXY_ADDRESS,
-			nonce,
-			data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
-				feeToken.address,
-				maxFeePaymentInToken,
-				feeToken.address,
-				transferInput,
-			]),
-			gasLimit,
-			maxFeePerGas,
-			maxPriorityFeePerGas,
-			chainId,
-		};
-
-		await emptyAccountSigner.signTransaction(unsignedTx);
-		const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
-		const receipt = await Promise.race([tx.wait(), sleep(8000)]);
-		expect(receipt).to.not.be.undefined;
-		expect(receipt).to.haveOwnProperty("status");
-		expect(receipt).to.haveOwnProperty("confirmations");
-		expect(receipt).to.haveOwnProperty("gasUsed");
 	});
 });

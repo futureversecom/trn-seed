@@ -795,7 +795,7 @@ impl<T: Config> Pallet<T> {
 		Ok(amounts)
 	}
 
-	// Uniwapv2 `_swap` implementation in rust
+	// Uniswapv2 `_swap` implementation in rust
 	// TODO: may need re-entrancy lock for this function
 	fn _swap(amounts: &[Balance], path: &[AssetId], to: &T::AccountId) -> DispatchResult {
 		let mut i: usize = 0;
@@ -957,5 +957,46 @@ impl<T: Config> Pallet<T> {
 		Self::_swap(&amounts, &path, who)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out));
 		Ok(amounts[0])
+	}
+
+	/// Check that a party can perform `do_swap_with_exact_target`. Avoids ensure! for compatibility with transaction checks
+	pub fn can_swap_with_exact_target(
+		who: &T::AccountId,
+		amount_out: Balance,
+		amount_in_max: Balance,
+		path: &[AssetId],
+	) -> bool {
+		if let Ok(amounts) = Self::get_amounts_in(amount_out, &path) {
+			if amounts[0] > amount_in_max {
+				// excessive supply
+				return false;
+			}
+
+			let mut i: usize = 0;
+			while i < path.len() - 1 {
+				let (input, output) = (path[i], path[i + 1]);
+				let amount_out = amounts[i + 1];
+
+				if input == output {
+					return false;
+				}
+
+				let trading_pair = TradingPair::new(input, output);
+				let (amount_0_out, amount_1_out) =
+					if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
+					
+				if amount_0_out == 0 && amount_1_out == 0 {
+					return false;
+				}
+
+				let (reserve_0, reserve_1) = LiquidityPool::<T>::get(trading_pair);
+				if amount_0_out > reserve_0 || amount_1_out > reserve_1 {
+					return false;
+				}
+				i += 1;
+			}
+			return true;
+		}
+		false
 	}
 }

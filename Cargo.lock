@@ -4687,6 +4687,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -4943,30 +4944,6 @@ dependencies = [
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
- "seed-primitives",
- "sp-core",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-evm-precompiles-fee-proxy"
-version = "2.0.0"
-dependencies = [
- "fp-evm",
- "frame-support",
- "frame-system",
- "num_enum",
- "pallet-assets",
- "pallet-assets-ext",
- "pallet-base-fee",
- "pallet-dex",
- "pallet-evm",
- "pallet-token-approvals",
- "parity-scale-codec",
- "precompile-utils",
- "scale-info",
- "seed-pallet-common",
  "seed-primitives",
  "sp-core",
  "sp-runtime",
