@@ -26,7 +26,7 @@ const feeTokenAssetId = 1124;
 const EMPTY_ACCT_PRIVATE_KEY =
 	"0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589";
 
-describe.only("Fee Preferences under low token pair liquidity", function () {
+describe("Fee Preferences under low token pair liquidity", function () {
 	let api: ApiPromise;
 	let bob: KeyringPair;
 	let emptyAccountSigner: Wallet;

@@ -1470,10 +1470,13 @@ impl Call {
 		if action == fee_proxy {
 			let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled, max_payment } = FeePreferencesData::new(source.clone(), eth_tx)?;
 			if total_fee_scaled > 0 {
-				if Dex::can_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path) {
-					return Ok(());
-				}
-				return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment));
+				// if Dex::can_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path) {
+				// 	return Ok(());
+				// }
+				return Dex::can_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
+					.map(|_| ())
+					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment));
+				// return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment));
 			}
 		}
 		Ok(())
@@ -1564,7 +1567,7 @@ fn validate_self_contained_inner(
 		match call.clone() {
 			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
 				Call::transaction_asset_check(signed_info, transaction, action)
-		},
+			},
 			_ => Ok(()),
 		}?;
 
