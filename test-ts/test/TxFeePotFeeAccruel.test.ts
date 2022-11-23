@@ -8,6 +8,7 @@ import { ethers } from "hardhat";
 import web3 from "web3";
 
 import { ALICE_PRIVATE_KEY, ERC20_ABI, typedefs } from "../common";
+import TestCallData from '../artifacts/contracts/TestCall.sol/TestCall.json';
 import type { TestCall } from "../typechain-types";
 
 const FIRST_ASSET_ID = 1124;
@@ -15,9 +16,11 @@ const FIRST_ASSET_ID = 1124;
 describe("TxFeePot fees accruel", () => {
 	let api: ApiPromise;
 	let alice: KeyringPair;
+	let provider: JsonRpcProvider;
 	let aliceSigner: Wallet;
 	let test: TestCall;
-	let accruedFees: number = 0;
+	let xrpInitialIssuance: number;
+	let accruedFees: number;
 
 	before(async () => {
 		// Substrate variables
@@ -37,40 +40,55 @@ describe("TxFeePot fees accruel", () => {
 		});
 
 		// EVM variables
-		const provider = new JsonRpcProvider(`http://localhost:9933`);
+		provider = new JsonRpcProvider(`http://localhost:9933`);
 		aliceSigner = new Wallet(ALICE_PRIVATE_KEY).connect(provider);
 
-		accruedFees = +(
-			await api.query.txFeePot.eraTxFees()
-		).toString();
+		xrpInitialIssuance = +(await api.query.balances.totalIssuance()).toString();
+		accruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
 	});
 
-	// TODO: TOTAL issuance check before and at the end
-
 	it("Contract creation transaction accrues base fee in TxFeePot", async () => {
-		const TestFactory = await ethers.getContractFactory("TestCall");
-		test = await TestFactory.connect(aliceSigner).deploy();
-		await test.deployed();
+		const fees = await provider.getFeeData();
+
+		const factory = new ethers.ContractFactory(TestCallData.abi, TestCallData.bytecode, aliceSigner);
+		const estimatedGas = await provider.estimateGas(factory.getDeployTransaction());
+
+		test = await factory.connect(aliceSigner).deploy({
+			gasLimit: estimatedGas,
+			maxFeePerGas: fees.lastBaseFeePerGas!,
+			maxPriorityFeePerGas: 0,
+		}) as TestCall;
+		const receipt = await test.deployTransaction.wait();
 		console.log("TestCall deployed to:", test.address);
 
-		const feesFromCreateContract = 6_472_828;
+		const feesFromContractDeployment = receipt.effectiveGasPrice
+			?.mul(estimatedGas)
+			.div(10 ** 12)
+			.toNumber();
 		const currentAccruedFees = +(
 			await api.query.txFeePot.eraTxFees()
 		).toString();
-		expect(currentAccruedFees - accruedFees).to.equal(feesFromCreateContract);
+		expect(currentAccruedFees - accruedFees)
+			.to.be.greaterThanOrEqual(feesFromContractDeployment)
+			.and.lessThanOrEqual(feesFromContractDeployment + 1); // account for rounding errors
 
 		accruedFees = currentAccruedFees;
 	});
 
 	it("Contract call transaction accrues base fee in TxFeePot", async () => {
-		const tx = await test.set(1);
-		await tx.wait();
+		const fees = await provider.getFeeData();
 
-		const feesFromContractCall = 135_323;
+		const gasEstimate = await test.estimateGas.set(1, { maxFeePerGas: fees.lastBaseFeePerGas!, maxPriorityFeePerGas: 0 });
+		const tx = await test.set(1, { gasLimit: gasEstimate, maxFeePerGas: fees.lastBaseFeePerGas!, maxPriorityFeePerGas: 0 });
+		const receipt = await tx.wait();
+
+		const feesFromContractCall = receipt.effectiveGasPrice?.mul(gasEstimate).div(10 ** 12).toNumber();
 		const currentAccruedFees = +(
 			await api.query.txFeePot.eraTxFees()
 		).toString();
-		expect(currentAccruedFees - accruedFees).to.equal(feesFromContractCall);
+		expect(currentAccruedFees - accruedFees)
+			.to.be.greaterThanOrEqual(feesFromContractCall)
+			.and.lessThanOrEqual(feesFromContractCall + 1); // account for rounding errors
 
 		accruedFees = currentAccruedFees;
 	});
@@ -88,33 +106,46 @@ describe("TxFeePot fees accruel", () => {
 			});
 		});
 
-		const feesFromExtrinsic = 323_287;
+		const feesFromExtrinsicLower = 320_000, feesFromExtrinsicUpper = 330_000;
 		const currentAccruedFees = +(
 			await api.query.txFeePot.eraTxFees()
 		).toString();
-		expect(currentAccruedFees - accruedFees).to.equal(feesFromExtrinsic);
+		expect(currentAccruedFees - accruedFees).to.be.greaterThan(feesFromExtrinsicLower).and.lessThan(feesFromExtrinsicUpper);
 
 		accruedFees = currentAccruedFees;
 	});
 
 	it("Pre-compile contract transaction accrues base fee in TxFeePot", async () => {
+		const fees = await provider.getFeeData();
+
 		const erc20Token = FIRST_ASSET_ID.toString(16).padStart(8, "0");
 		const erc20TokenAddress = web3.utils.toChecksumAddress(
 			`0xCCCCCCCC${erc20Token}000000000000000000000000`
 		);
 		const erc20 = new Contract(erc20TokenAddress, ERC20_ABI, aliceSigner);
+		const gasEstimate = await erc20.estimateGas.transfer("0x000000000000000000000000000000000000DEAD", 1,
+			{ maxFeePerGas: fees.lastBaseFeePerGas! }
+		);
 		const tx = await erc20.transfer(
 			"0x000000000000000000000000000000000000DEAD",
-			1
+			1,
+			{ gasLimit: gasEstimate, maxFeePerGas: fees.lastBaseFeePerGas! }
 		);
-		await tx.wait();
+		const receipt = await tx.wait();
 
-		const feesFromPrecompile = 69_671;
+		const feesFromPrecompile = receipt.effectiveGasPrice?.mul(gasEstimate).div(10 ** 12).toNumber();
 		const currentAccruedFees = +(
 			await api.query.txFeePot.eraTxFees()
 		).toString();
-		expect(currentAccruedFees - accruedFees).to.equal(feesFromPrecompile);
+		expect(currentAccruedFees - accruedFees)
+			.to.be.greaterThanOrEqual(feesFromPrecompile)
+			.and.lessThanOrEqual(feesFromPrecompile + 1); // account for rounding errors
 
 		accruedFees = currentAccruedFees;
+	});
+
+	it('XRP total issuance remains unchanged', async () => {
+		const totalIssuance = +(await api.query.balances.totalIssuance()).toString();
+		expect(totalIssuance).to.equal(xrpInitialIssuance);
 	});
 });
