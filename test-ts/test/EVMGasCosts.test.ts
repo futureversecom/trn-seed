@@ -7,6 +7,7 @@ import { utils, Wallet } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
+import MockERC20Data from "../artifacts/contracts/MockERC20.sol/MockERC20.json";
 import { ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, typedefs } from "../common";
 import type { MockERC20 } from "../typechain-types";
 
@@ -90,7 +91,7 @@ describe("EVM gas costs", () => {
 		// assert XRP used
 		const xrpGasCost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
 		const xrpCost6DP = +xrpGasCost.div(10 ** 12).toString();
-  	const xrpCostScaled = +utils.formatEther(xrpGasCost).toString();
+		const xrpCostScaled = +utils.formatEther(xrpGasCost).toString();
 		expect(xrpCost6DP).to.eql(315000);
 		expect(xrpCostScaled).to.eql(0.315);
 	});
@@ -121,9 +122,11 @@ describe("EVM gas costs", () => {
 		);
 
 		// assert XRP used
-		const oneXRP6DP = 1_000_000, oneXRPScaled = 1;
+		const oneXRP6DP = 1_000_000,
+			oneXRPScaled = 1;
 		const xrpCost6DP = +totalPaid.div(10 ** 12).toString() - oneXRP6DP; // subtract XRP sent
-  	const xrpCostScaled = +utils.formatEther(totalPaid).toString() - oneXRPScaled; // subtract XRP sent
+		const xrpCostScaled =
+			+utils.formatEther(totalPaid).toString() - oneXRPScaled; // subtract XRP sent
 		expect(xrpCost6DP).to.eql(315000);
 		expect(+xrpCostScaled.toFixed(3)).to.eql(0.315);
 	});
@@ -132,26 +135,34 @@ describe("EVM gas costs", () => {
 		const fees = await provider.getFeeData();
 		const aliceBalanceBefore = await aliceSigner.getBalance();
 
-		const ERC20Factory = await ethers.getContractFactory("MockERC20");
-		erc20Contract = await ERC20Factory.connect(aliceSigner).deploy();
-		await erc20Contract.deployed();
+		const factory = new ethers.ContractFactory(
+			MockERC20Data.abi,
+			MockERC20Data.bytecode,
+			aliceSigner
+		);
+		const gasEstimate = await provider.estimateGas(
+			factory.getDeployTransaction()
+		);
+		erc20Contract = (await factory.connect(aliceSigner).deploy({
+			gasLimit: gasEstimate,
+			maxFeePerGas: fees.lastBaseFeePerGas!,
+			maxPriorityFeePerGas: 0,
+		})) as MockERC20;
+		const receipt = await erc20Contract.deployTransaction.wait();
 		console.log("erc20Contract deployed to:", erc20Contract.address);
 
-		const aliceBalanceAfter = await aliceSigner.getBalance();
-		const balanceDiff = aliceBalanceBefore.sub(aliceBalanceAfter);
-
 		// assert gas used
-		const lowerbound = 7_050_000,
-			upperbound = 7_055_000;
-		expect(balanceDiff.div(fees.lastBaseFeePerGas!).toNumber())
-			.is.greaterThan(lowerbound)
-			.and.is.lessThan(upperbound);
+		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
+		const aliceBalanceAfter = await aliceSigner.getBalance();
+		expect(aliceBalanceBefore.sub(aliceBalanceAfter).toString()).to.eql(
+			totalPaid.toString()
+		);
 
 		// assert XRP used
-		const xrpCost6DP = +balanceDiff.div(10 ** 12).toString();
-  	const xrpCostScaled = +utils.formatEther(balanceDiff).toString();
-		expect(xrpCost6DP).to.eql(105_769_959);
-		expect(xrpCostScaled).to.eql(105.769959);
+		const xrpCost6DP = +totalPaid.div(10 ** 12).toString();
+		const xrpCostScaled = +utils.formatEther(totalPaid).toString();
+		expect(xrpCost6DP).to.eql(52_574_490);
+		expect(xrpCostScaled).to.eql(52.57449);
 	});
 
 	it("gas cost for token mint", async () => {
@@ -189,7 +200,7 @@ describe("EVM gas costs", () => {
 
 		// assert XRP used
 		const xrpCost6DP = +totalPaid.div(10 ** 12).toString();
-  	const xrpCostScaled = +utils.formatEther(totalPaid).toString();
+		const xrpCostScaled = +utils.formatEther(totalPaid).toString();
 		expect(xrpCost6DP).to.eql(1_130_085);
 		expect(xrpCostScaled).to.eql(1.130085);
 	});
@@ -229,9 +240,9 @@ describe("EVM gas costs", () => {
 
 		// assert XRP used
 		const xrpCost6DP = +totalPaid.div(10 ** 12).toString();
-  	const xrpCostScaled = +utils.formatEther(totalPaid).toString();
+		const xrpCostScaled = +utils.formatEther(totalPaid).toString();
 		expect(xrpCost6DP).to.eql(763_050);
-		expect(xrpCostScaled).to.eql(0.763050);
+		expect(xrpCostScaled).to.eql(0.76305);
 	});
 
 	it("gas cost for pre-compile token transfer", async () => {
@@ -279,7 +290,7 @@ describe("EVM gas costs", () => {
 
 		// assert XRP used
 		const xrpCost6DP = +totalPaid.div(10 ** 12).toString();
-  	const xrpCostScaled = +utils.formatEther(totalPaid).toString();
+		const xrpCostScaled = +utils.formatEther(totalPaid).toString();
 		expect(xrpCost6DP).to.eql(348_645);
 		expect(xrpCostScaled).to.eql(0.348645);
 	});
