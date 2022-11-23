@@ -38,7 +38,7 @@ use xrpl_codec::{
 use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
-	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxNonce},
+	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash},
 	AccountId, AssetId, Balance, Timestamp,
 };
 
@@ -200,15 +200,6 @@ pub mod pallet {
 		StorageMap<_, Identity, XrplTxHash, T::AccountId>;
 
 	#[pallet::type_value]
-	pub fn DefaultDoorNonce() -> u32 {
-		0_u32
-	}
-	#[pallet::storage]
-	#[pallet::getter(fn door_nonce)]
-	/// The nonce/sequence of the XRPL door account
-	pub type DoorNonce<T: Config> = StorageValue<_, XrplTxNonce, ValueQuery, DefaultDoorNonce>;
-
-	#[pallet::type_value]
 	pub fn DefaultDoorTicketSequence() -> u32 {
 		0_u32
 	}
@@ -346,16 +337,8 @@ pub mod pallet {
 			}
 		}
 
-		/// Set the door account tx nonce
-		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
-		pub fn set_door_nonce(origin: OriginFor<T>, nonce: u32) -> DispatchResult {
-			ensure_root(origin)?;
-			DoorNonce::<T>::set(nonce);
-			Ok(())
-		}
-
 		/// Set the door tx fee amount
-		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_tx_fee(), DispatchClass::Operational))]
 		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
 			ensure_root(origin)?;
 			DoorTxFee::<T>::set(fee);
@@ -591,14 +574,6 @@ impl<T: Config> Pallet<T> {
 		let tx_blob = payment.binary_serialize(true);
 
 		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
-	}
-
-	// Return the current door nonce and increment it in storage
-	pub fn door_nonce_inc() -> Result<XrplTxNonce, DispatchError> {
-		let nonce = Self::door_nonce();
-		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		DoorNonce::<T>::set(next_nonce);
-		Ok(nonce)
 	}
 
 	// Return the current door ticket sequence and increment it in storage

@@ -141,16 +141,6 @@ fn set_door_tx_fee_works() {
 }
 
 #[test]
-fn door_nonce_inc_works() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(XRPLBridge::door_nonce_inc());
-		let id = DoorNonce::<Test>::get();
-		assert_ok!(XRPLBridge::door_nonce_inc());
-		assert_eq!(DoorNonce::<Test>::get(), id + 1);
-	});
-}
-
-#[test]
 fn withdraw_request_works() {
 	new_test_ext().execute_with(|| {
 		// For this test we will set the door_tx_fee to 0
