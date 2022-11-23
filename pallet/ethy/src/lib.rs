@@ -218,6 +218,14 @@ decl_storage! {
 			for new_signer in config.xrp_door_signers.iter() {
 				XrplDoorSigners::<T>::insert(new_signer, true);
 			}
+			// set the NotaryXrplKeys as well
+			let genesis_xrpl_keys = NotaryKeys::<T>::get()
+				.into_iter()
+				.filter(|validator| XrplDoorSigners::<T>::get(validator))
+				.map(|validator| -> T::EthyId { validator.clone() })
+				.take(T::MaxXrplKeys::get().into())
+				.collect::<Vec<_>>();
+			NotaryXrplKeys::<T>::put(genesis_xrpl_keys);
 		});
 	}
 }
