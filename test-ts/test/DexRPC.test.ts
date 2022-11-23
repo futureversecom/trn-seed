@@ -4,28 +4,15 @@ import axios from "axios";
 import { expect } from "chai";
 import { ChildProcess } from "child_process";
 
-import { sleep, startStandaloneNode } from "../common";
+import {
+	ALICE_PRIVATE_KEY,
+	GAS_TOKEN_ID,
+	sleep,
+	startStandaloneNode,
+	typedefs,
+} from "../common";
 
-export const ALICE_PRIVATE_KEY =
-	"0xcb6df9de1efca7a3998a8ead4e02159d5fa99c3e0d4fd6432667390bb4726854";
-export const NATIVE_TOKEN_ID = 2;
-export const FEE_TOKEN_ID = 1124;
-
-export const typedefs = {
-	AccountId: "EthereumAccountId",
-	AccountId20: "EthereumAccountId",
-	AccountId32: "EthereumAccountId",
-	Address: "AccountId",
-	LookupSource: "AccountId",
-	Lookup0: "AccountId",
-	EthereumSignature: {
-		r: "H256",
-		s: "H256",
-		v: "U8",
-	},
-	ExtrinsicSignature: "EthereumSignature",
-	SessionKeys: "([u8; 32], [u8; 32])",
-};
+const TOKEN_ID = 1124;
 
 export const rpc = {
 	dex: {
@@ -101,15 +88,11 @@ describe("DexRPC", () => {
 
 		const txs = [
 			api.tx.assetsExt.createAsset(), // create asset
-			api.tx.assets.mint(
-				FEE_TOKEN_ID,
-				alice.address,
-				"1000000000000000000000000"
-			), // mint 1M tokens (18 decimals) to alice
+			api.tx.assets.mint(TOKEN_ID, alice.address, "1000000000000000000000000"), // mint 1M tokens (18 decimals) to alice
 			api.tx.dex.addLiquidity(
 				// provide liquidity
-				FEE_TOKEN_ID,
-				NATIVE_TOKEN_ID,
+				TOKEN_ID,
+				GAS_TOKEN_ID,
 				"1000000000000000000000", // 1000 tokens
 				250_000_000,
 				"1000000000000000000000", // 1000 tokens
@@ -160,7 +143,7 @@ describe("DexRPC", () => {
 			id: 1,
 			jsonrpc: "2.0",
 			method: "dex_getAmountsOut",
-			params: [100, [2, 1124]],
+			params: [100, [GAS_TOKEN_ID, TOKEN_ID]],
 		});
 		expect(httpResult.status).to.eql(200);
 		expect(httpResult.data).to.haveOwnProperty("result");
@@ -169,7 +152,10 @@ describe("DexRPC", () => {
 	});
 
 	it("getAmountsOut rpc works [library]", async () => {
-		const result = await (api.rpc as any).dex.getAmountsOut(100, [2, 1124]);
+		const result = await (api.rpc as any).dex.getAmountsOut(100, [
+			GAS_TOKEN_ID,
+			TOKEN_ID,
+		]);
 		expect(result).to.haveOwnProperty("Ok");
 		expect(result.Ok).to.eqls([100, 398799840958623]);
 	});
@@ -179,7 +165,7 @@ describe("DexRPC", () => {
 			id: 1,
 			jsonrpc: "2.0",
 			method: "dex_getAmountsIn",
-			params: [100, [1124, 2]],
+			params: [100, [TOKEN_ID, GAS_TOKEN_ID]],
 		});
 		expect(httpResult.status).to.eql(200);
 		expect(httpResult.data).to.haveOwnProperty("result");
@@ -188,7 +174,10 @@ describe("DexRPC", () => {
 	});
 
 	it("getAmountsIn rpc works [library]", async () => {
-		const result = await (api.rpc as any).dex.getAmountsIn(100, [1124, 2]);
+		const result = await (api.rpc as any).dex.getAmountsIn(100, [
+			TOKEN_ID,
+			GAS_TOKEN_ID,
+		]);
 		expect(result).to.haveOwnProperty("Ok");
 		expect(result.Ok).to.eqls([401203771314007, 100]);
 	});
