@@ -684,7 +684,7 @@ mod test {
 	}
 
 	#[test]
-	/// Compancy sequence should leave at least the lowest two events
+	/// Compact sequence should leave at least the lowest two events
 	fn compact_sequence_works() {
 		assert_eq!(compact_sequence(&mut [1]), [1]);
 		assert_eq!(compact_sequence(&mut [0, 1]), [0, 1]);
