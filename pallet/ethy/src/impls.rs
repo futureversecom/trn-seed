@@ -745,7 +745,7 @@ impl<T: Config> Module<T> {
 			},
 			Err(e) => {
 				warn!(target: "ethy-pallet", "💎 Failed to send xrpl signer list set request {:?}", e);
-				// TODO(surangap): emit a failure event here
+				Self::deposit_event(Event::<T>::XrplAuthoritySetChangeRequestFailed);
 			},
 		};
 

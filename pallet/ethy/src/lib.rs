@@ -271,6 +271,8 @@ decl_event! {
 		FinaliseScheduleFail(BlockNumber),
 		/// The bridge contract address has been set
 		SetContractAddress(EthAddress),
+		/// Xrpl authority set change request failed
+		XrplAuthoritySetChangeRequestFailed
 	}
 }
 
