@@ -8,7 +8,12 @@ import { ethers } from "hardhat";
 import web3 from "web3";
 
 import MockERC20Data from "../artifacts/contracts/MockERC20.sol/MockERC20.json";
-import { ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, typedefs } from "../common";
+import {
+	ALICE_PRIVATE_KEY,
+	BOB_PRIVATE_KEY,
+	DEAD_ADDRESS,
+	typedefs,
+} from "../common";
 import type { MockERC20 } from "../typechain-types";
 
 const FIRST_ASSET_ID = 1124;
@@ -104,7 +109,7 @@ describe("EVM gas costs", () => {
 		const aliceBalanceBefore = await aliceSigner.getBalance();
 
 		const tx = await aliceSigner.sendTransaction({
-			to: "0x000000000000000000000000000000000000DEAD",
+			to: DEAD_ADDRESS,
 			value: utils.parseEther("1"),
 			gasLimit: BASE_GAS_COST,
 			maxFeePerGas: fees.lastBaseFeePerGas!,
