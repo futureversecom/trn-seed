@@ -7,7 +7,7 @@ import { Contract, utils, Wallet } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
-import { ALICE_PRIVATE_KEY, ERC20_ABI, typedefs } from "../common";
+import { ALICE_PRIVATE_KEY, DEAD_ADDRESS, ERC20_ABI, typedefs } from "../common";
 import TestCallData from '../artifacts/contracts/TestCall.sol/TestCall.json';
 import type { TestCall } from "../typechain-types";
 
@@ -123,11 +123,11 @@ describe("TxFeePot fees accruel", () => {
 			`0xCCCCCCCC${erc20Token}000000000000000000000000`
 		);
 		const erc20 = new Contract(erc20TokenAddress, ERC20_ABI, aliceSigner);
-		const gasEstimate = await erc20.estimateGas.transfer("0x000000000000000000000000000000000000DEAD", 1,
+		const gasEstimate = await erc20.estimateGas.transfer(DEAD_ADDRESS, 1,
 			{ maxFeePerGas: fees.lastBaseFeePerGas! }
 		);
 		const tx = await erc20.transfer(
-			"0x000000000000000000000000000000000000DEAD",
+			DEAD_ADDRESS,
 			1,
 			{ gasLimit: gasEstimate, maxFeePerGas: fees.lastBaseFeePerGas! }
 		);
