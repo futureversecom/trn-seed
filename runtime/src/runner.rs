@@ -12,7 +12,7 @@ use precompile_utils::{
 use primitive_types::{H160, H256, U256};
 use seed_pallet_common::log;
 use seed_primitives::{AccountId, AssetId, Balance};
-use sp_runtime::traits::SaturatedConversion;
+use sp_runtime::traits::{Get, SaturatedConversion};
 use sp_std::{marker::PhantomData, prelude::*};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -49,7 +49,7 @@ const FEE_PROXY_ADDRESS: u64 = 1211; // 0x04BB = 00000100 10111011
 
 /// Convert 18dp wei values to correct dp equivalents
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.000001 cpay
-fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
+pub fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
 	let (quotient, remainder) = (value / unit_value, value % unit_value);
 	if remainder == U256::from(0) {
@@ -69,6 +69,7 @@ pub struct FeePreferencesRunner<T, U>(PhantomData<(T, U)>);
 impl<T, U> FeePreferencesRunner<T, U>
 where
 	T: pallet_evm::Config<AccountId = AccountId>,
+	T: pallet_assets_ext::Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 {
 	/// Decodes the input for call_with_fee_preferences
@@ -105,10 +106,11 @@ where
 
 	// Calculate gas price for transaction to use for exchanging asset into gas-token currency
 	pub fn calculate_total_gas(
+		gas_token_asset: AssetId,
 		gas_limit: u64,
 		max_fee_per_gas: Option<U256>,
 		is_transactional: bool,
-	) -> Result<U256, FeePreferencesError> {
+	) -> Result<Balance, FeePreferencesError> {
 		let max_fee_per_gas = match (max_fee_per_gas, is_transactional) {
 			(Some(max_fee_per_gas), _) => max_fee_per_gas,
 			// Gas price check is skipped for non-transactional calls that don't
@@ -124,14 +126,20 @@ where
 			.checked_mul(U256::from(gas_limit))
 			.ok_or(FeePreferencesError::FeeOverflow)?;
 
-		Ok(total_fee.into())
+		let decimals = <pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
+			&gas_token_asset,
+		);
+		let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
+
+		Ok(total_fee_scaled)
 	}
 }
 
 impl<T, U> RunnerT<T> for FeePreferencesRunner<T, U>
 where
-	T: pallet_evm::Config<AccountId = AccountId>,
-	T: pallet_assets_ext::Config,
+	T: pallet_evm::Config<AccountId = AccountId>
+		+ pallet_assets_ext::Config
+		+ pallet_fee_proxy::Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
 {
@@ -194,35 +202,36 @@ where
 			input = new_input;
 			target = new_target;
 
-			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional)
-				.map_err(|err| RunnerError { error: err.into(), weight })?;
-
-			let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
-			let decimals = <pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
-				&gas_token_asset_id,
-			);
-			let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
+			let gas_token_asset = <T as pallet_fee_proxy::Config>::FeeAssetId::get();
+			let total_fee = Self::calculate_total_gas(
+				gas_token_asset,
+				gas_limit,
+				max_fee_per_gas,
+				is_transactional,
+			)
+			.map_err(|err| RunnerError { error: err.into(), weight })?;
 
 			// Buy the gas asset fee currency paying with the user's nominated token
 			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
-			let path = vec![payment_asset_id, gas_token_asset_id];
+			let path = vec![payment_asset_id, gas_token_asset];
 
-			if total_fee_scaled > 0 {
+			if total_fee > 0 {
 				// total_fee_scaled is 0 when user doesnt have gas asset currency
-				Dex::do_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
-					.map_err(|err| {
+				Dex::do_swap_with_exact_target(&account, total_fee, max_payment, &path).map_err(
+					|err| {
 						// TODO implement err into RunnerError
 						log!(
 							error,
 							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
 							payment_asset_id,
 							max_payment,
-							total_fee_scaled,
+							total_fee,
 							err,
 							path
 						);
 						RunnerError { error: Self::Error::WithdrawFailed, weight }
-					})?;
+					},
+				)?;
 			}
 		}
 

@@ -20,21 +20,18 @@ use core::ops::Mul;
 
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
-use frame_support::traits::fungibles::InspectMetadata;
 use frame_support::{
 	dispatch::RawOrigin,
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, Imbalance, IsSubType, OnUnbalanced,
-		SignedImbalance, WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, IsSubType, OnUnbalanced, SignedImbalance,
+		WithdrawReasons,
 	},
-	weights::{DispatchInfo, WeightToFee},
-	Callable,
+	weights::WeightToFee,
 };
-use pallet_election_provider_multi_phase::NegativeImbalanceOf;
-use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
+use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin};
 use pallet_transaction_payment::OnChargeTransaction;
 use sp_core::{H160, U256};
 use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf};
@@ -435,35 +432,33 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
 			// call default trait function instead
-			// TODO Don't forget to uncomment this you egg
-			// <() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
+			<() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
 		}
 		Ok(())
 	}
 }
 
-pub struct FeeProxyCurrencyAdapter<C>(PhantomData<C>);
+pub struct FeeProxyCurrencyAdapter<C, U>(PhantomData<(C, U)>);
 
-impl<T, C> OnChargeTransaction<T> for FeeProxyCurrencyAdapter<C>
+impl<T, C, U> OnChargeTransaction<T> for FeeProxyCurrencyAdapter<C, U>
 where
 	T: frame_system::Config<AccountId = AccountId>
 		+ pallet_transaction_payment::Config
 		+ pallet_fee_proxy::Config
 		+ pallet_dex::Config
-		+ pallet_evm::Config,
-	<T as frame_system::Config>::Call:
-		IsSubType<pallet_fee_proxy::Call<T>> + IsSubType<pallet_evm::Call<T>>,
+		+ pallet_evm::Config
+		+ pallet_assets_ext::Config,
+	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
+	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
 	C: OnChargeTransaction<T>,
+	U: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<<C as OnChargeTransaction<T>>::Balance>,
 {
-	// type LiquidityInfo = Option<NegativeImbalanceOf<C>>;
+	type Balance = <C as OnChargeTransaction<T>>::Balance;
 	type LiquidityInfo = <C as OnChargeTransaction<T>>::LiquidityInfo;
 
-	type Balance = <C as OnChargeTransaction<T>>::Balance;
-
-	/// Withdraw the predicted fee from the transaction origin.
-	///
-	/// Note: The `fee` already includes the `tip`.
+	/// Intercept the withdraw fee, and swap any tokens to gas tokens if the call is
+	/// pallet_fee_proxy.call_with_fee_preferences()
 	fn withdraw_fee(
 		who: &T::AccountId,
 		call: &<T as frame_system::Config>::Call,
@@ -471,51 +466,39 @@ where
 		fee: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-		// Check whether call is of subtype fee-proxy, then hit the dex
+		// Check whether this call has specified fee preferences
 		if let Some(pallet_fee_proxy::Call::call_with_fee_preferences {
 			payment_asset,
 			max_payment,
-			evm_estimate,
 			call,
+			..
 		}) = <<T as frame_system::Config>::Call as IsSubType<pallet_fee_proxy::Call<T>>>::is_sub_type(
 			call,
 		) {
-			// TODO Check if pallet_evm call and exchange gas_limit * total_fee_per_gas to cover fees, we will exchange back later
-			// Check if the inner call is an evm call. This will increase gas required
-			// if let Some(pallet_evm::Call::call {
-			// 	gas_limit,
-			// 	value,
-			// 	max_fee_per_gas,
-			// 	is_transactional,
-			// 	..
-			// }) = <<T as frame_system::Config>::Call as IsSubType<pallet_evm::Call<T>>>::is_sub_type(
-			// 	call,
-			// ) {
-			// 	let max_fee_per_gas = match (max_fee_per_gas, is_transactional) {
-			// 		(Some(max_fee_per_gas), _) => max_fee_per_gas,
-			// 		// Gas price check is skipped for non-transactional calls that don't
-			// 		// define a `max_fee_per_gas` input.
-			// 		(None, false) => Default::default(),
-			// 		// Unreachable, previously validated. Handle gracefully.
-			// 		_ => Default::default(),
-			// 	};
-			//
-			// 	// After eip-1559 we make sure the account can pay both the evm execution and priority
-			// 	// fees.
-			// 	let total_fee =
-			// 		max_fee_per_gas.checked_mul(U256::from(gas_limit)).unwrap_or_default();
-			// 	// let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
-			// 	let decimals =
-			// 		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
-			// 			&payment_asset,
-			// 		);
-			// 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
-			// }
+			let mut total_fee: Balance = Balance::from(fee);
+			let native_asset = <T as pallet_fee_proxy::Config>::FeeAssetId::get();
 
-			let path: &[AssetId] =
-				&[*payment_asset, <T as pallet_fee_proxy::Config>::NativeAssetId::get()];
-			let total_fee: Balance = Balance::from(fee).saturating_add(*evm_estimate);
+			// Check if the inner call is an evm call. This will increase total gas to swap
+			// This is required as the fee value here does not take into account the max
+			// fee from an evm call. For all other extrinsics, the fee parameter
+			// should cover all required fees.
+			if let Some(pallet_evm::Call::call { gas_limit, max_fee_per_gas, .. }) =
+				<<T as pallet_fee_proxy::Config>::Call as IsSubType<pallet_evm::Call<T>>>::is_sub_type(
+					call,
+				) {
+				let evm_fee = FeePreferencesRunner::<T, U>::calculate_total_gas(
+					native_asset,
+					*gas_limit,
+					Some(*max_fee_per_gas),
+					true,
+				)
+				.ok()
+				.unwrap_or_default();
 
+				total_fee = total_fee.saturating_add(evm_fee);
+			}
+
+			let path: &[AssetId] = &[*payment_asset, native_asset];
 			pallet_dex::Pallet::<T>::do_swap_with_exact_target(who, total_fee, *max_payment, path)
 				.map_err(|_| InvalidTransaction::Payment)?;
 		};
