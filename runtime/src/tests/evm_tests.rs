@@ -15,6 +15,7 @@ use crate::{
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
+pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
 
 #[test]
 fn evm_base_transaction_cost_uses_xrp() {
@@ -22,13 +23,13 @@ fn evm_base_transaction_cost_uses_xrp() {
 		let base_tx_gas_cost_scaled =
 			scale_wei_to_6dp(BASE_TX_GAS_COST * BaseFee::base_fee_per_gas().as_u128());
 		let charlie_initial_balance = XrpCurrency::balance(&charlie());
-		assert_eq!(base_tx_gas_cost_scaled, 315_000); // ensure minimum tx price is 0.315 XRP
+		assert_eq!(base_tx_gas_cost_scaled, MINIMUM_XRP_TX_COST); // ensure minimum tx price is 0.315 XRP
 
 		let transaction = Transaction::EIP1559(EIP1559Transaction {
 			nonce: U256::zero(),
 			max_priority_fee_per_gas: U256::from(1_u64),
 			max_fee_per_gas: BaseFee::base_fee_per_gas(),
-			gas_limit: U256::from(21_000),
+			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action: TransactionAction::Call(bob().into()),
 			value: U256::zero(),
 			input: vec![],
@@ -64,7 +65,7 @@ fn evm_transfer_transaction_uses_xrp() {
 			nonce: U256::one(),
 			max_priority_fee_per_gas: U256::from(1_u64),
 			max_fee_per_gas: BaseFee::base_fee_per_gas(),
-			gas_limit: U256::from(21_000),
+			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action: TransactionAction::Call(bob().into()),
 			value: U256::from(5 * 10_u128.pow(18_u32)), // transfer value, 5 XRP
 			chain_id: EthereumChainId::get(),
