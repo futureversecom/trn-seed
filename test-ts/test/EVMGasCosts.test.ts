@@ -144,11 +144,11 @@ describe("EVM gas costs", () => {
 			MockERC20Data.bytecode,
 			aliceSigner
 		);
-		const gasEstimate = await provider.estimateGas(
+		const actualGasEstimate = await provider.estimateGas(
 			factory.getDeployTransaction()
 		);
 		erc20Contract = (await factory.connect(aliceSigner).deploy({
-			gasLimit: gasEstimate,
+			gasLimit: actualGasEstimate,
 			maxFeePerGas: fees.lastBaseFeePerGas!,
 			maxPriorityFeePerGas: 0,
 		})) as MockERC20;
@@ -156,7 +156,7 @@ describe("EVM gas costs", () => {
 		console.log("erc20Contract deployed to:", erc20Contract.address);
 
 		// assert gas used
-		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
+		const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
 		const aliceBalanceAfter = await aliceSigner.getBalance();
 		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
@@ -172,29 +172,29 @@ describe("EVM gas costs", () => {
 		const aliceBalanceBefore = await aliceSigner.getBalance();
 
 		const wantGasEstimate = 75_339;
-		const gasEstimate = await erc20Contract
+		const actualGasEstimate = await erc20Contract
 			.connect(aliceSigner)
 			.estimateGas.mint(aliceSigner.address, 1000, {
 				maxFeePerGas: fees.lastBaseFeePerGas!,
 				maxPriorityFeePerGas: 0,
 			});
-		expect(gasEstimate.toNumber()).to.eql(wantGasEstimate);
+		expect(actualGasEstimate.toNumber()).to.eql(wantGasEstimate);
 
 		const tx = await erc20Contract
 			.connect(aliceSigner)
 			.mint(aliceSigner.address, 1000, {
-				gasLimit: gasEstimate,
+				gasLimit: actualGasEstimate,
 				maxFeePerGas: fees.lastBaseFeePerGas!,
 				maxPriorityFeePerGas: 0,
 			});
 		const receipt = await tx.wait();
 
 		// assert gas used
-		const wantActualGasUsed = 71_403;
-		expect(receipt.gasUsed?.toNumber()).to.eql(wantActualGasUsed);
-		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantActualGasUsed);
+		const wantGasUsed = 71_403;
+		expect(receipt.gasUsed?.toNumber()).to.eql(wantGasUsed);
+		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantGasUsed);
 
-		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
+		const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
 		const aliceBalanceAfter = await aliceSigner.getBalance();
 		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
@@ -210,29 +210,29 @@ describe("EVM gas costs", () => {
 		const aliceBalanceBefore = await aliceSigner.getBalance();
 
 		const wantGasEstimate = 50_870;
-		const gasEstimate = await erc20Contract
+		const actualGasEstimate = await erc20Contract
 			.connect(aliceSigner)
 			.estimateGas.transfer(bobSigner.address, 500, {
 				maxFeePerGas: fees.lastBaseFeePerGas!,
 				maxPriorityFeePerGas: 0,
 			});
-		expect(gasEstimate.toNumber()).to.eql(wantGasEstimate);
+		expect(actualGasEstimate.toNumber()).to.eql(wantGasEstimate);
 
 		const tx = await erc20Contract
 			.connect(aliceSigner)
 			.transfer(bobSigner.address, 500, {
-				gasLimit: gasEstimate,
+				gasLimit: actualGasEstimate,
 				maxFeePerGas: fees.lastBaseFeePerGas!,
 				maxPriorityFeePerGas: 0,
 			});
 		const receipt = await tx.wait();
 
 		// assert gas used
-		const wantActualGasUsed = 49_483;
-		expect(receipt.gasUsed?.toNumber()).to.eql(wantActualGasUsed);
-		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantActualGasUsed);
+		const wantGasUsed = 49_483;
+		expect(receipt.gasUsed?.toNumber()).to.eql(wantGasUsed);
+		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantGasUsed);
 
-		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
+		const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
 		const aliceBalanceAfter = await aliceSigner.getBalance();
 		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
@@ -258,29 +258,29 @@ describe("EVM gas costs", () => {
 		const aliceBalanceBefore = await aliceSigner.getBalance();
 
 		const wantGasEstimate = 23_243;
-		const gasEstimate = await erc20PrecompileContract
+		const actualGasEstimate = await erc20PrecompileContract
 			.connect(aliceSigner)
 			.estimateGas.transfer(bobSigner.address, 500, {
 				maxFeePerGas: fees.lastBaseFeePerGas!,
 				maxPriorityFeePerGas: 0,
 			});
-		expect(gasEstimate.toNumber()).to.eql(wantGasEstimate);
+		expect(actualGasEstimate.toNumber()).to.eql(wantGasEstimate);
 
 		const tx = await erc20PrecompileContract
 			.connect(aliceSigner)
 			.transfer(bobSigner.address, 500, {
-				gasLimit: gasEstimate,
+				gasLimit: actualGasEstimate,
 				maxFeePerGas: fees.lastBaseFeePerGas!,
 				maxPriorityFeePerGas: 0,
 			});
 		const receipt = await tx.wait();
 
 		// assert gas used
-		const wantActualGasUsed = 22_953;
-		expect(receipt.gasUsed?.toNumber()).to.eql(wantActualGasUsed);
-		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantActualGasUsed);
+		const wantGasUsed = 22_953;
+		expect(receipt.gasUsed?.toNumber()).to.eql(wantGasUsed);
+		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantGasUsed);
 
-		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
+		const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
 		const aliceBalanceAfter = await aliceSigner.getBalance();
 		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
