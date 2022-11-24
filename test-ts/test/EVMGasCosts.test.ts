@@ -12,6 +12,10 @@ import { ALICE_PRIVATE_KEY, BOB_PRIVATE_KEY, typedefs } from "../common";
 import type { MockERC20 } from "../typechain-types";
 
 const FIRST_ASSET_ID = 1124;
+const BASE_GAS_COST = 21_000;
+const BASE_FEE_PER_GAS = 15_000_000_000_000;
+const PRIORITY_FEE_PER_GAS = 1_500_000_000;
+const MAX_FEE_PER_GAS = BASE_FEE_PER_GAS * 2 + PRIORITY_FEE_PER_GAS;
 
 // Note: Tests must be run in order, synchronously
 describe("EVM gas costs", () => {
@@ -39,7 +43,7 @@ describe("EVM gas costs", () => {
 			api.tx.assets.mint(
 				FIRST_ASSET_ID,
 				alice.address,
-				"1000000000000000000000000"
+				utils.parseEther("1000").toString()
 			),
 		];
 		await new Promise<void>((resolve) => {
@@ -57,14 +61,13 @@ describe("EVM gas costs", () => {
 
 	it("default gas fees", async () => {
 		const fees = await provider.getFeeData();
-		expect(fees.lastBaseFeePerGas?.toNumber()).to.eql(15_000_000_000_000); // base fee = 15000 gwei
-		expect(fees.maxFeePerGas?.toNumber()).to.eql(30_001_500_000_000);
-		expect(fees.maxPriorityFeePerGas?.toNumber()).to.eql(1_500_000_000);
-		expect(fees.gasPrice?.toNumber()).to.eql(15_000_000_000_000);
+		expect(fees.lastBaseFeePerGas?.toNumber()).to.eql(BASE_FEE_PER_GAS); // base fee = 15000 gwei
+		expect(fees.maxFeePerGas?.toNumber()).to.eql(MAX_FEE_PER_GAS);
+		expect(fees.maxPriorityFeePerGas?.toNumber()).to.eql(PRIORITY_FEE_PER_GAS);
+		expect(fees.gasPrice?.toNumber()).to.eql(BASE_FEE_PER_GAS);
 	});
 
 	it("gas cost for evm call", async () => {
-		const callCost = 21_000;
 		const fees = await provider.getFeeData();
 		const nonce = await aliceSigner.getTransactionCount();
 		const unsignedTx = {
@@ -74,7 +77,7 @@ describe("EVM gas costs", () => {
 			to: bobSigner.address,
 			nonce,
 			data: "",
-			gasLimit: callCost,
+			gasLimit: BASE_GAS_COST,
 			maxFeePerGas: fees.lastBaseFeePerGas!,
 			maxPriorityFeePerGas: 0,
 			chainId: 3999,
@@ -84,49 +87,45 @@ describe("EVM gas costs", () => {
 		const receipt = await tx.wait();
 
 		// assert gas used
-		expect(receipt.gasUsed?.toNumber()).to.eql(callCost);
-		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(callCost);
+		expect(receipt.gasUsed?.toNumber()).to.eql(BASE_GAS_COST);
+		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(BASE_GAS_COST);
 		expect(receipt.effectiveGasPrice?.toNumber()).to.eql(15_000_000_000_000);
 
 		// assert XRP used
 		const xrpGasCost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
-		const xrpCost6DP = +xrpGasCost.div(10 ** 12).toString();
-		const xrpCostScaled = +utils.formatEther(xrpGasCost).toString();
+		const xrpCost6DP = xrpGasCost.div(10 ** 12).toNumber();
+		const xrpCostScaled = +utils.formatEther(xrpGasCost);
 		expect(xrpCost6DP).to.eql(315000);
 		expect(xrpCostScaled).to.eql(0.315);
 	});
 
 	it("gas cost for XRP transfer", async () => {
-		const sendEthGasCost = 21_000;
 		const fees = await provider.getFeeData();
 		const aliceBalanceBefore = await aliceSigner.getBalance();
 
 		const tx = await aliceSigner.sendTransaction({
-			to: "0x0000000000000000000000000000000000000000",
+			to: "0x000000000000000000000000000000000000DEAD",
 			value: utils.parseEther("1"),
-			gasLimit: sendEthGasCost,
+			gasLimit: BASE_GAS_COST,
 			maxFeePerGas: fees.lastBaseFeePerGas!,
 			maxPriorityFeePerGas: 0, // no miner tip
 		});
 		const receipt = await tx.wait();
-		expect(receipt.gasUsed?.toNumber()).to.eql(sendEthGasCost);
-		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(sendEthGasCost);
+		expect(receipt.gasUsed?.toNumber()).to.eql(BASE_GAS_COST);
+		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(BASE_GAS_COST);
 
 		// assert gas used
 		const totalPaid = receipt.effectiveGasPrice
-			?.mul(sendEthGasCost)
+			?.mul(BASE_GAS_COST)
 			.add(utils.parseEther("1"));
 		const aliceBalanceAfter = await aliceSigner.getBalance();
-		expect(aliceBalanceBefore.sub(aliceBalanceAfter).toString()).to.eql(
-			totalPaid.toString()
-		);
+		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
 		// assert XRP used
 		const oneXRP6DP = 1_000_000,
 			oneXRPScaled = 1;
-		const xrpCost6DP = +totalPaid.div(10 ** 12).toString() - oneXRP6DP; // subtract XRP sent
-		const xrpCostScaled =
-			+utils.formatEther(totalPaid).toString() - oneXRPScaled; // subtract XRP sent
+		const xrpCost6DP = totalPaid.div(10 ** 12).toNumber() - oneXRP6DP; // subtract XRP sent
+		const xrpCostScaled = +utils.formatEther(totalPaid) - oneXRPScaled; // subtract XRP sent
 		expect(xrpCost6DP).to.eql(315000);
 		expect(+xrpCostScaled.toFixed(3)).to.eql(0.315);
 	});
@@ -154,13 +153,11 @@ describe("EVM gas costs", () => {
 		// assert gas used
 		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
 		const aliceBalanceAfter = await aliceSigner.getBalance();
-		expect(aliceBalanceBefore.sub(aliceBalanceAfter).toString()).to.eql(
-			totalPaid.toString()
-		);
+		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
 		// assert XRP used
-		const xrpCost6DP = +totalPaid.div(10 ** 12).toString();
-		const xrpCostScaled = +utils.formatEther(totalPaid).toString();
+		const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
+		const xrpCostScaled = +utils.formatEther(totalPaid);
 		expect(xrpCost6DP).to.eql(52_574_490);
 		expect(xrpCostScaled).to.eql(52.57449);
 	});
@@ -194,13 +191,11 @@ describe("EVM gas costs", () => {
 
 		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
 		const aliceBalanceAfter = await aliceSigner.getBalance();
-		expect(aliceBalanceBefore.sub(aliceBalanceAfter).toString()).to.eql(
-			totalPaid.toString()
-		);
+		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
 		// assert XRP used
-		const xrpCost6DP = +totalPaid.div(10 ** 12).toString();
-		const xrpCostScaled = +utils.formatEther(totalPaid).toString();
+		const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
+		const xrpCostScaled = +utils.formatEther(totalPaid);
 		expect(xrpCost6DP).to.eql(1_130_085);
 		expect(xrpCostScaled).to.eql(1.130085);
 	});
@@ -234,13 +229,11 @@ describe("EVM gas costs", () => {
 
 		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
 		const aliceBalanceAfter = await aliceSigner.getBalance();
-		expect(aliceBalanceBefore.sub(aliceBalanceAfter).toString()).to.eql(
-			totalPaid.toString()
-		);
+		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
 		// assert XRP used
-		const xrpCost6DP = +totalPaid.div(10 ** 12).toString();
-		const xrpCostScaled = +utils.formatEther(totalPaid).toString();
+		const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
+		const xrpCostScaled = +utils.formatEther(totalPaid);
 		expect(xrpCost6DP).to.eql(763_050);
 		expect(xrpCostScaled).to.eql(0.76305);
 	});
@@ -284,13 +277,11 @@ describe("EVM gas costs", () => {
 
 		const totalPaid = receipt.effectiveGasPrice?.mul(gasEstimate);
 		const aliceBalanceAfter = await aliceSigner.getBalance();
-		expect(aliceBalanceBefore.sub(aliceBalanceAfter).toString()).to.eql(
-			totalPaid.toString()
-		);
+		expect(aliceBalanceBefore.sub(aliceBalanceAfter)).to.eql(totalPaid);
 
 		// assert XRP used
-		const xrpCost6DP = +totalPaid.div(10 ** 12).toString();
-		const xrpCostScaled = +utils.formatEther(totalPaid).toString();
+		const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
+		const xrpCostScaled = +utils.formatEther(totalPaid);
 		expect(xrpCost6DP).to.eql(348_645);
 		expect(xrpCostScaled).to.eql(0.348645);
 	});
