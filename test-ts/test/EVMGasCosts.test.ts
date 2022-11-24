@@ -94,7 +94,7 @@ describe("EVM gas costs", () => {
 		// assert gas used
 		expect(receipt.gasUsed?.toNumber()).to.eql(BASE_GAS_COST);
 		expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(BASE_GAS_COST);
-		expect(receipt.effectiveGasPrice?.toNumber()).to.eql(15_000_000_000_000);
+		expect(receipt.effectiveGasPrice?.toNumber()).to.eql(BASE_FEE_PER_GAS);
 
 		// assert XRP used
 		const xrpGasCost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
