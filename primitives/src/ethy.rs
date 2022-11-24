@@ -346,4 +346,17 @@ mod test {
 		assert_eq!(Into::<u8>::into(EthyChainId::Ethereum), 1_u8);
 		assert_eq!(Into::<u8>::into(EthyChainId::Xrpl), 2_u8);
 	}
+
+	#[test]
+	fn ethy_ecdsa_to_xrpl_account_id() {
+		// values taken from https://xrpl.org/assign-a-regular-key-pair.html
+		let xrpl_account_id = hex!("1620d685fb08d81a70d0b668749cf2e130ea7540");
+
+		assert_eq!(
+			EthyEcdsaToXRPLAccountId::convert(&hex!(
+				"03AEEFE1E8ED4BBC009DE996AC03A8C6B5713B1554794056C66E5B8D1753C7DD0E"
+			)),
+			xrpl_account_id,
+		);
+	}
 }
