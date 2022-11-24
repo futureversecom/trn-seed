@@ -45,9 +45,9 @@ fn evm_base_transaction_cost_uses_xrp() {
 			transaction,
 		));
 
-		let charlie_xrp_after_call_1 = XrpCurrency::balance(&charlie());
-		assert!(charlie_xrp_after_call_1 < charlie_initial_balance);
-		let empty_call_gas_cost = charlie_initial_balance - charlie_xrp_after_call_1;
+		let charlie_new_balance = XrpCurrency::balance(&charlie());
+		assert!(charlie_new_balance < charlie_initial_balance);
+		let empty_call_gas_cost = charlie_initial_balance - charlie_new_balance;
 		assert!(empty_call_gas_cost == base_tx_gas_cost_scaled); // 0.315 XRP is lowest cost of TX
 	});
 }
