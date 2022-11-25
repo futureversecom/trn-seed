@@ -409,7 +409,7 @@ dependencies = [
 [[package]]
 name = "beefy-merkle-tree"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "beefy-primitives",
  "sp-api",
@@ -418,7 +418,7 @@ dependencies = [
 [[package]]
 name = "beefy-primitives"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
@@ -1637,26 +1637,35 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
+ "sc-block-builder",
  "sc-chain-spec",
  "sc-client-api",
+ "sc-consensus",
  "sc-keystore",
  "sc-network",
  "sc-network-gossip",
  "sc-network-test",
+ "sc-service",
  "sc-utils",
  "seed-primitives",
+ "serde",
  "sp-api",
  "sp-application-crypto",
  "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
  "sp-core",
+ "sp-finality-grandpa",
+ "sp-keyring",
  "sp-keystore",
  "sp-runtime",
+ "sp-tracing",
  "strum",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
+ "tempfile",
  "thiserror",
+ "tokio",
  "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8)",
 ]
 
@@ -7018,7 +7027,7 @@ dependencies = [
 [[package]]
 name = "sc-network-test"
 version = "0.8.0"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "async-std",
  "async-trait",
@@ -8116,7 +8125,7 @@ dependencies = [
 [[package]]
 name = "sp-consensus-aura"
 version = "0.10.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
@@ -8814,7 +8823,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-client"
 version = "2.0.1"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "async-trait",
  "futures",
@@ -8840,7 +8849,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-runtime"
 version = "2.0.0"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
@@ -8884,7 +8893,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-runtime-client"
 version = "2.0.0"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "futures",
  "parity-scale-codec",

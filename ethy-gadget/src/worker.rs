@@ -14,20 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use std::{sync::Arc, time::Duration};
-
 use codec::{Codec, Decode, Encode};
 use futures::StreamExt;
 use log::{debug, error, info, trace, warn};
 use sc_client_api::{Backend, FinalityNotification};
 use sc_network_gossip::GossipEngine;
-use sp_api::BlockId;
+use sp_api::{BlockId, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_runtime::{
 	generic::OpaqueDigestItemId,
 	traits::{Block, Convert, Header, One},
 };
+use std::{sync::Arc, time::Duration};
 
 use seed_primitives::ethy::{
 	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof,
@@ -45,12 +44,13 @@ use crate::{
 	witness_record::WitnessRecord,
 	Client,
 };
-pub(crate) struct WorkerParams<B, BE, C, SO>
+pub(crate) struct WorkerParams<B, BE, C, R, SO>
 where
 	B: Block,
 {
 	pub client: Arc<C>,
 	pub backend: Arc<BE>,
+	pub runtime: Arc<R>,
 	pub key_store: EthyKeystore,
 	pub event_proof_sender: notification::EthyEventProofSender,
 	pub gossip_engine: GossipEngine<B>,
@@ -60,14 +60,17 @@ where
 }
 
 /// An ETHY worker plays the ETHY protocol
-pub(crate) struct EthyWorker<B, C, BE, SO>
+pub(crate) struct EthyWorker<B, C, BE, R, SO>
 where
 	B: Block,
 	BE: Backend<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyApi<B>,
 	C: Client<B, BE>,
 {
 	client: Arc<C>,
 	backend: Arc<BE>,
+	runtime: Arc<R>,
 	key_store: EthyKeystore,
 	event_proof_sender: notification::EthyEventProofSender,
 	gossip_engine: GossipEngine<B>,
@@ -83,12 +86,13 @@ where
 	sync_oracle: SO,
 }
 
-impl<B, C, BE, SO> EthyWorker<B, C, BE, SO>
+impl<B, C, BE, R, SO> EthyWorker<B, C, BE, R, SO>
 where
 	B: Block + Codec,
 	BE: Backend<B>,
 	C: Client<B, BE>,
-	C::Api: EthyApi<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return a new ETHY worker instance.
@@ -97,10 +101,11 @@ where
 	/// ETHY pallet has been deployed on-chain.
 	///
 	/// The ETHY pallet is needed in order to keep track of the ETHY authority set.
-	pub(crate) fn new(worker_params: WorkerParams<B, BE, C, SO>) -> Self {
+	pub(crate) fn new(worker_params: WorkerParams<B, BE, C, R, SO>) -> Self {
 		let WorkerParams {
 			client,
 			backend,
+			runtime,
 			key_store,
 			event_proof_sender,
 			gossip_engine,
@@ -116,6 +121,7 @@ where
 		EthyWorker {
 			client,
 			backend,
+			runtime,
 			key_store,
 			event_proof_sender,
 			gossip_engine,
@@ -129,12 +135,13 @@ where
 	}
 }
 
-impl<B, C, BE, SO> EthyWorker<B, C, BE, SO>
+impl<B, C, BE, R, SO> EthyWorker<B, C, BE, R, SO>
 where
 	B: Block,
 	BE: Backend<B>,
 	C: Client<B, BE>,
-	C::Api: EthyApi<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return the active validator set at `header`.
@@ -154,7 +161,7 @@ where
 		} else {
 			// queries the Ethy pallet to get the active validator set public keys
 			let at = BlockId::hash(header.hash());
-			self.client.runtime_api().validator_set(&at).ok()
+			self.runtime.runtime_api().validator_set(&at).ok()
 		};
 
 		trace!(target: "ethy", "💎 active validator set: {:?}", new);
@@ -170,7 +177,7 @@ where
 	/// Always query the chain state incase the authorized list changed
 	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		let at = BlockId::hash(header.hash());
-		let xrpl_signers = self.client.runtime_api().xrpl_signers(&at).ok();
+		let xrpl_signers = self.runtime.runtime_api().xrpl_signers(&at).ok();
 		info!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
 
 		xrpl_signers
@@ -500,13 +507,167 @@ where
 #[cfg(test)]
 pub(crate) mod test {
 	use super::*;
-	use substrate_test_runtime_client::runtime::{Block, Digest, DigestItem};
+	use crate::{
+		notification::EthyEventProofTracingKey,
+		testing::Keyring,
+		tests::{
+			create_ethy_keystore, make_ethy_ids, two_validators::TestApi, EthyPeer, EthyTestNet,
+			ETHY_PROTOCOL_NAME,
+		},
+		witness_record::test::create_witness,
+	};
+	use sc_network::NetworkService;
+	use sc_network_test::{PeersFullClient, TestNetFactory};
+	use sc_utils::notification::NotificationStream;
+	use seed_primitives::ethy::crypto::AuthorityPair;
+	use seed_primitives::ethy::{crypto::AuthorityId, EthyChainId, ValidatorSet};
+	use sp_api::HeaderT;
+	use sp_core::Pair;
+	use substrate_test_runtime_client::{
+		runtime::{Block, Digest, DigestItem, Header, H256},
+		Backend,
+	};
 
-	use crate::testing::Keyring;
-	use seed_primitives::ethy::ValidatorSet;
+	fn create_ethy_worker(
+		peer: &EthyPeer,
+		key: &Keyring,
+		validators: Vec<AuthorityId>,
+	) -> EthyWorker<Block, PeersFullClient, Backend, TestApi, Arc<NetworkService<Block, H256>>> {
+		let keystore = create_ethy_keystore(*key);
+		let api = Arc::new(TestApi {});
+		let network = peer.network_service().clone();
+		let sync_oracle = network.clone();
+		let gossip_validator = Arc::new(crate::gossip::GossipValidator::new(validators));
+		let gossip_engine =
+			GossipEngine::new(network, ETHY_PROTOCOL_NAME, gossip_validator.clone(), None);
+		let (sender, _receiver) = NotificationStream::<_, EthyEventProofTracingKey>::channel();
 
-	pub(crate) fn make_ethy_ids(keys: &[Keyring]) -> Vec<Public> {
-		keys.iter().map(|key| key.clone().public().into()).collect()
+		let worker_params = crate::worker::WorkerParams {
+			client: peer.client().as_client(),
+			backend: peer.client().as_backend(),
+			runtime: api,
+			key_store: Some(keystore).into(),
+			event_proof_sender: sender,
+			gossip_engine,
+			gossip_validator,
+			metrics: None,
+			sync_oracle,
+		};
+		EthyWorker::<_, _, _, _, _>::new(worker_params)
+	}
+
+	#[test]
+	fn handle_witness_works() {
+		let keys = &[Keyring::Alice, Keyring::Bob];
+		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
+		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
+		let validators = make_ethy_ids(keys);
+		let mut net = EthyTestNet::new(1, 0);
+		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], validators.clone());
+
+		// Create validator set with proof threshold of 2
+		let validator_set = ValidatorSet { validators, id: 1, proof_threshold: 2 };
+		worker.witness_record.set_validators(validator_set.clone(), validator_set);
+
+		let event_id: EventProofId = 5;
+		let chain_id = EthyChainId::Ethereum;
+		let digest = [1_u8; 32];
+
+		// Create witness for Alice
+		let witness_1 = create_witness(&alice_pair, event_id, chain_id, digest);
+
+		// Manually enter event metadata
+		// TODO, find a way for the worker to do this, rather than injecting metadata manually
+		worker
+			.witness_record
+			.note_event_metadata(event_id, digest, [2_u8; 32], chain_id);
+
+		// Handle the witness
+		worker.handle_witness(witness_1);
+		// Check we have 1 signature
+		assert_eq!(worker.witness_record.signatures_for(event_id).len(), 1);
+
+		let witness_2 = create_witness(&bob_pair, event_id, chain_id, digest);
+		worker
+			.witness_record
+			.note_event_metadata(event_id, digest, [2_u8; 32], chain_id);
+		worker.handle_witness(witness_2);
+
+		// Check we have 0 signatures. The event should have reached consensus and  witness signatures removed
+		assert_eq!(worker.witness_record.signatures_for(event_id).len(), 0);
+	}
+
+	#[test]
+	fn handle_witness_first_two_events() {
+		let keys = &[Keyring::Alice, Keyring::Bob];
+		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
+		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
+		let validators = make_ethy_ids(keys);
+		let mut net = EthyTestNet::new(1, 0);
+		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], validators.clone());
+
+		// Create validator set with proof threshold of 2
+		let validator_set = ValidatorSet { validators, id: 1, proof_threshold: 2 };
+		worker.witness_record.set_validators(validator_set.clone(), validator_set);
+
+		// First event to be processed is event id 2, to simulate out of sync events with XRPL and Ethereum
+		// Events
+		let event_id_2: EventProofId = 2;
+		let chain_id = EthyChainId::Ethereum;
+		let digest = [1_u8; 32];
+
+		// Create witness for Alice
+		let witness_1 = create_witness(&alice_pair, event_id_2, chain_id, digest);
+		worker
+			.witness_record
+			.note_event_metadata(event_id_2, digest, [2_u8; 32], chain_id);
+		worker.handle_witness(witness_1);
+		assert_eq!(worker.witness_record.signatures_for(event_id_2).len(), 1);
+
+		// Create witness for Bob
+		let witness_2 = create_witness(&bob_pair, event_id_2, chain_id, digest);
+		worker
+			.witness_record
+			.note_event_metadata(event_id_2, digest, [2_u8; 32], chain_id);
+		worker.handle_witness(witness_2);
+		assert_eq!(worker.witness_record.signatures_for(event_id_2).len(), 0);
+
+		// Second event to be processed is event id 1, an XRPL event
+		let event_id_1: EventProofId = 1;
+		let chain_id = EthyChainId::Xrpl;
+		let digest = [2_u8; 32];
+
+		// Create witness for Alice
+		let witness_1 = create_witness(&alice_pair, event_id_1, chain_id, digest);
+		worker
+			.witness_record
+			.note_event_metadata(event_id_1, digest, [2_u8; 32], chain_id);
+		worker.handle_witness(witness_1);
+		assert_eq!(worker.witness_record.signatures_for(event_id_1).len(), 1);
+
+		// Create witness for Bob
+		let witness_2 = create_witness(&bob_pair, event_id_1, chain_id, digest);
+		worker
+			.witness_record
+			.note_event_metadata(event_id_1, digest, [2_u8; 32], chain_id);
+		worker.handle_witness(witness_2);
+
+		// Check we have 0 signatures. The event should have reached consensus and  witness signatures removed
+		assert_eq!(worker.witness_record.signatures_for(event_id_1).len(), 0);
+
+		// Now we attempt to process event 0, which should not go through as completed_events now contains
+		// events [1,2]
+		let event_id_0: EventProofId = 0;
+		let chain_id = EthyChainId::Ethereum;
+		let digest = [3_u8; 32];
+
+		// Create witness for Alice
+		let witness_1 = create_witness(&alice_pair, event_id_0, chain_id, digest);
+		worker
+			.witness_record
+			.note_event_metadata(event_id_0, digest, [2_u8; 32], chain_id);
+		worker.handle_witness(witness_1);
+		assert_eq!(worker.witness_record.signatures_for(event_id_0).len(), 0);
 	}
 
 	#[test]

@@ -270,7 +270,7 @@ fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 }
 
 #[cfg(test)]
-mod test {
+pub(crate) mod test {
 	use super::{compact_sequence, Signature, WitnessError, WitnessRecord, WitnessStatus};
 	use seed_primitives::ethy::{
 		crypto::AuthorityPair, AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
@@ -291,7 +291,7 @@ mod test {
 	}
 
 	/// Helper function for creating a Witness
-	fn create_witness(
+	pub fn create_witness(
 		validator: &AuthorityPair,
 		event_id: EventProofId,
 		chain_id: EthyChainId,
