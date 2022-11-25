@@ -727,11 +727,11 @@ impl<T: Config> Module<T> {
 		let signer_entries = Self::get_xrpl_notary_keys(next_keys)
 			.into_iter()
 			.map(|k| EthyEcdsaToXRPLAccountId::convert(k.as_ref()))
-			.map(|entry| (entry.into(), 1_u16)) // TODO(surangap): proper way to store weights
+			// TODO(surangap): Add a proper way to store XRPL weights if we intend to allow having different weights
+			.map(|entry| (entry.into(), 1_u16))
 			.collect::<Vec<_>>();
 
 		debug!(target: "ethy-pallet", "💎 xrpl new signer entries: {:?}", signer_entries);
-		// if let Ok(event_proof_id) =
 		match T::XrplBridgeAdapter::submit_signer_list_set_request(signer_entries) {
 			Ok(event_proof_id) => {
 				// Signal the Event Id that will be used for the proof of xrpl notary set change.
