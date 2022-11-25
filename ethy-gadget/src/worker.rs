@@ -588,9 +588,6 @@ pub(crate) mod test {
 		assert_eq!(worker.witness_record.signatures_for(event_id).len(), 1);
 
 		let witness_2 = create_witness(&bob_pair, event_id, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id, digest, [2_u8; 32], chain_id);
 		worker.handle_witness(witness_2);
 
 		// Check we have 0 signatures. The event should have reached consensus and  witness signatures removed
@@ -626,9 +623,6 @@ pub(crate) mod test {
 
 		// Create witness for Bob
 		let witness_2 = create_witness(&bob_pair, event_id_2, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id_2, digest, [2_u8; 32], chain_id);
 		worker.handle_witness(witness_2);
 		assert_eq!(worker.witness_record.signatures_for(event_id_2).len(), 0);
 
@@ -647,9 +641,6 @@ pub(crate) mod test {
 
 		// Create witness for Bob
 		let witness_2 = create_witness(&bob_pair, event_id_1, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id_1, digest, [2_u8; 32], chain_id);
 		worker.handle_witness(witness_2);
 
 		// Check we have 0 signatures. The event should have reached consensus and  witness signatures removed
