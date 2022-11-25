@@ -70,42 +70,45 @@ pub trait EthyApi<Notification> {
 }
 
 /// Implements the EthyApi RPC trait for interacting with ethy-gadget.
-pub struct EthyRpcHandler<C, B> {
+pub struct EthyRpcHandler<C, R, B> {
 	event_proof_stream: EthyEventProofStream,
 	executor: SubscriptionTaskExecutor,
 	/// Handle to a client + backend
 	client: Arc<C>,
+	runtime: Arc<R>,
 	phantom: PhantomData<B>,
 }
 
-impl<C, B> EthyRpcHandler<C, B>
+impl<C, R, B> EthyRpcHandler<C, R, B>
 where
-	B: Block<Hash = H256>,
-	C: ProvideRuntimeApi<B> + AuxStore + Send + Sync + 'static,
-	C::Api: EthyRuntimeApi<B>,
+	C: AuxStore + Send + Sync + 'static,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyRuntimeApi<B>,
 {
 	/// Creates a new EthyRpcHandler instance.
 	pub fn new(
 		event_proof_stream: EthyEventProofStream,
 		executor: SubscriptionTaskExecutor,
 		client: Arc<C>,
+		runtime: Arc<R>,
 	) -> Self {
-		Self { client, event_proof_stream, executor, phantom: PhantomData }
+		Self { client, event_proof_stream, executor, runtime, phantom: PhantomData }
 	}
 }
 
-impl<C, B> EthyApiServer<EthEventProofResponse> for EthyRpcHandler<C, B>
+impl<C, R, B> EthyApiServer<EthEventProofResponse> for EthyRpcHandler<C, R, B>
 where
 	B: Block<Hash = H256>,
-	C: ProvideRuntimeApi<B> + AuxStore + Send + Sync + 'static,
-	C::Api: EthyRuntimeApi<B>,
+	C: AuxStore + Send + Sync + 'static,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyRuntimeApi<B>,
 {
 	fn subscribe_event_proofs(&self, pending: PendingSubscription) {
-		let client_handle = self.client.clone();
+		let runtime_handle = self.runtime.clone();
 		let stream = self
 			.event_proof_stream
 			.subscribe()
-			.map(move |p| build_event_proof_response::<C, B>(&client_handle, p));
+			.map(move |p| build_event_proof_response::<R, B>(&runtime_handle, p));
 
 		let fut = async move {
 			// asynchronous portion of the function
@@ -130,7 +133,7 @@ where
 			if let Some(encoded_proof) = maybe_encoded_proof {
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let event_proof_response =
-						build_event_proof_response::<C, B>(&self.client, versioned_proof);
+						build_event_proof_response::<R, B>(&self.runtime, versioned_proof);
 					return Ok(event_proof_response);
 				}
 			}
@@ -154,7 +157,7 @@ where
 			if let Some(encoded_proof) = maybe_encoded_proof {
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let response =
-						build_xrpl_tx_proof_response::<C, B>(&self.client, versioned_proof);
+						build_xrpl_tx_proof_response::<R, B>(&self.runtime, versioned_proof);
 					return Ok(response);
 				}
 			}
@@ -164,18 +167,18 @@ where
 }
 
 /// Build an `EthEventProofResponse` from a `VersionedEventProof`
-pub fn build_event_proof_response<C, B>(
-	client: &C,
+pub fn build_event_proof_response<R, B>(
+	runtime: &R,
 	versioned_event_proof: VersionedEventProof,
 ) -> Option<EthEventProofResponse>
 where
 	B: Block<Hash = H256>,
-	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	C::Api: EthyRuntimeApi<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyRuntimeApi<B>,
 {
 	match versioned_event_proof {
 		VersionedEventProof::V1(event_proof) => {
-			let proof_validator_set = client
+			let proof_validator_set = runtime
 				.runtime_api()
 				.validator_set(&BlockId::hash(event_proof.block.into()))
 				.ok()?;
@@ -204,22 +207,22 @@ where
 }
 
 /// Build an `XrplEventProofResponse` from a `VersionedEventProof`
-pub fn build_xrpl_tx_proof_response<C, B>(
-	client: &C,
+pub fn build_xrpl_tx_proof_response<R, B>(
+	runtime: &R,
 	versioned_event_proof: VersionedEventProof,
 ) -> Option<XrplEventProofResponse>
 where
 	B: Block<Hash = H256>,
-	C: ProvideRuntimeApi<B> + Send + Sync + 'static,
-	C::Api: EthyRuntimeApi<B>,
+	R: ProvideRuntimeApi<B>,
+	R::Api: EthyRuntimeApi<B>,
 {
 	match versioned_event_proof {
 		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) => {
 			let xrpl_validator_set =
-				client.runtime_api().xrpl_signers(&BlockId::hash(block.into())).ok()?;
+				runtime.runtime_api().xrpl_signers(&BlockId::hash(block.into())).ok()?;
 
 			let validator_set =
-				client.runtime_api().validator_set(&BlockId::hash(block.into())).ok()?;
+				runtime.runtime_api().validator_set(&BlockId::hash(block.into())).ok()?;
 			let mut xrpl_signer_set: Vec<Bytes> = Default::default();
 
 			Some(XrplEventProofResponse {

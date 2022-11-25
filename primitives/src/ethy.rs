@@ -105,6 +105,13 @@ impl Default for ValidatorSet<AuthorityId> {
 }
 
 impl ValidatorSet<AuthorityId> {
+	pub fn new<I>(validators: I, id: ValidatorSetId, proof_threshold: u32) -> Self
+	where
+		I: IntoIterator<Item = AuthorityId>,
+	{
+		let validators: Vec<AuthorityId> = validators.into_iter().collect();
+		Self { validators, id, proof_threshold }
+	}
 	/// Return an empty validator set with id of 0.
 	pub fn empty() -> Self {
 		Self { validators: Default::default(), id: Default::default(), proof_threshold: 0 }
