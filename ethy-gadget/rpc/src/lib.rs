@@ -82,8 +82,9 @@ pub struct EthyRpcHandler<C, R, B> {
 impl<C, R, B> EthyRpcHandler<C, R, B>
 where
 	C: AuxStore + Send + Sync + 'static,
-	R: ProvideRuntimeApi<B>,
+	R: ProvideRuntimeApi<B> + Sync + Send + 'static,
 	R::Api: EthyRuntimeApi<B>,
+	B: Block<Hash = H256>,
 {
 	/// Creates a new EthyRpcHandler instance.
 	pub fn new(
@@ -100,7 +101,7 @@ impl<C, R, B> EthyApiServer<EthEventProofResponse> for EthyRpcHandler<C, R, B>
 where
 	B: Block<Hash = H256>,
 	C: AuxStore + Send + Sync + 'static,
-	R: ProvideRuntimeApi<B>,
+	R: ProvideRuntimeApi<B> + Sync + Send + 'static,
 	R::Api: EthyRuntimeApi<B>,
 {
 	fn subscribe_event_proofs(&self, pending: PendingSubscription) {
