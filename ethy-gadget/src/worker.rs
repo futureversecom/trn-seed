@@ -516,6 +516,7 @@ pub(crate) mod test {
 		},
 		witness_record::test::create_witness,
 	};
+	use sc_client_api::AuxStore;
 	use sc_network::NetworkService;
 	use sc_network_test::{PeersFullClient, TestNetFactory};
 	use sc_utils::notification::NotificationStream;
@@ -527,6 +528,37 @@ pub(crate) mod test {
 		runtime::{Block, Digest, DigestItem, Header, H256},
 		Backend,
 	};
+
+	fn get_proof(
+		event_id: EventProofId,
+		chain_id: EthyChainId,
+		worker: &EthyWorker<
+			Block,
+			PeersFullClient,
+			Backend,
+			TestApi,
+			Arc<NetworkService<Block, H256>>,
+		>,
+	) -> Option<EventProof> {
+		if let Ok(maybe_encoded_proof) = worker.client.get_aux(
+			[
+				ETHY_ENGINE_ID.as_slice(),
+				&[chain_id.into()].as_slice(),
+				&event_id.to_be_bytes().as_slice(),
+			]
+			.concat()
+			.as_ref(),
+		) {
+			if let Some(encoded_proof) = maybe_encoded_proof {
+				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
+					match versioned_proof {
+						VersionedEventProof::V1(event_proof) => return Some(event_proof),
+					}
+				}
+			}
+		}
+		None
+	}
 
 	fn create_ethy_worker(
 		peer: &EthyPeer,
@@ -592,6 +624,10 @@ pub(crate) mod test {
 
 		// Check we have 0 signatures. The event should have reached consensus and  witness signatures removed
 		assert_eq!(worker.witness_record.signatures_for(event_id).len(), 0);
+
+		// check for proof in the aux store
+		let proof = get_proof(event_id, EthyChainId::Ethereum, &worker);
+		assert_eq!(proof.unwrap().event_id, event_id);
 	}
 
 	#[test]
@@ -659,6 +695,14 @@ pub(crate) mod test {
 			.note_event_metadata(event_id_0, digest, [2_u8; 32], chain_id);
 		worker.handle_witness(witness_1);
 		assert_eq!(worker.witness_record.signatures_for(event_id_0).len(), 0);
+
+		// check for proof in the aux store
+		let proof = get_proof(event_id_1, EthyChainId::Xrpl, &worker);
+		assert_eq!(proof.unwrap().event_id, event_id_1);
+		let proof = get_proof(event_id_2, EthyChainId::Ethereum, &worker);
+		assert_eq!(proof.unwrap().event_id, event_id_2);
+		let proof = get_proof(event_id_0, EthyChainId::Ethereum, &worker);
+		assert_eq!(proof, None);
 	}
 
 	#[test]
