@@ -95,7 +95,7 @@ use staking::OnChainAccuracy;
 
 pub mod runner;
 use crate::impls::OnNewAssetSubscription;
-use runner::FeePreferencesRunner;
+use runner::{FeePreferencesData, FeePreferencesRunner};
 
 use crate::constants::FEE_PROXY;
 
@@ -1400,87 +1400,28 @@ impl_runtime_apis! {
 	}
 }
 
-// Any data needed for computing fee preferences
-struct FeePreferencesData {
-	account: AccountId,
-	path: Vec<u32>,
-	gas_token_asset_id: u32,
-	total_fee_scaled: u128,
-	max_payment: u128,
-}
+fn transaction_asset_check(source: &H160, eth_tx: EthereumTransaction, action: TransactionAction) -> Result<(), TransactionValidityError> {
+	let fee_proxy = TransactionAction::Call(
+		H160::from_low_u64_be(FEE_PROXY)
+	);
 
-// Serve as a wrapper error for other errors, simply returning those inner error types when origin error types need them back
-// enum FeePreferencesDataError {
-// 	FeePreferencesError(runner::FeePreferencesError),
-// 	TransactionValidityError(TransactionValidityError)
-// }
-
-enum FeePreferencesDataError {
-	CalculateGasFailed,
-	FailedDecoding,
-}
-
-impl From<FeePreferencesDataError> for TransactionValidityError {
-	fn from(error: FeePreferencesDataError) -> Self {
-		match error {
-			// At the time of writing, there aren't any error variants that would indicate anything other than invalid specification of a call
-			FeePreferencesDataError::CalculateGasFailed |
-			FeePreferencesDataError::FailedDecoding => TransactionValidityError::Invalid(
-				InvalidTransaction::Call
-			)
-		}
-	}
-}
-
-impl FeePreferencesData {
-	fn new(source: H160, eth_tx: EthereumTransaction) -> Result<Self, FeePreferencesDataError> {
+	if action == fee_proxy {
 		let (input, gas_limit, max_fee_per_gas) = match eth_tx {
 			EthereumTransaction::Legacy(t) => (t.input, t.gas_limit, None),
 			EthereumTransaction::EIP2930(t) => (t.input, t.gas_limit, None),
 			EthereumTransaction::EIP1559(t) => (t.input, t.gas_limit, Some(t.max_fee_per_gas)),
 		};
-	
-		let (payment_asset_id, max_payment, new_target, new_input) = FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)
-			.map_err(|_| FeePreferencesDataError::FailedDecoding)?;
-	
-		let total_fee = FeePreferencesRunner::<Runtime, Runtime>::calculate_total_gas(
-			gas_limit.as_u64(),
-			max_fee_per_gas,
-			false
-		).map_err(|_| FeePreferencesDataError::CalculateGasFailed)?;
-	
-		let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
-		let decimals = <pallet_assets_ext::Pallet<Runtime> as InspectMetadata<AccountId>>::decimals(
-			&gas_token_asset_id,
-		);
-		let total_fee_scaled = runner::scale_wei_to_correct_decimals(total_fee, decimals);
-	
-		let account = <Runtime as pallet_evm::Config>::AddressMapping::into_account_id(source);
-		let path = vec![payment_asset_id, gas_token_asset_id];
-		Ok(FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled, max_payment })
-	}
-}
 
-impl Call {
-	fn transaction_asset_check(source: &H160, eth_tx: EthereumTransaction, action: TransactionAction) -> Result<(), TransactionValidityError> {
-		let fee_proxy = TransactionAction::Call(
-			H160::from_low_u64_be(FEE_PROXY)
-		);
-	
-		if action == fee_proxy {
-			let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled, max_payment } = FeePreferencesData::new(source.clone(), eth_tx)?;
-			if total_fee_scaled > 0 {
-				// if Dex::can_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path) {
-				// 	return Ok(());
-				// }
-				return Dex::can_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
-					.map(|_| ())
-					.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment));
-				// return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment));
-			}
+		let (payment_asset_id, max_payment, _target, _input) = FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;			
+		let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled } = runner::get_fee_preferences_data::<Runtime, Runtime>(source, gas_limit.as_u64(), max_fee_per_gas, payment_asset_id)?;
+		
+		if total_fee_scaled > 0 {
+			return Dex::can_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
+				.map(|_| ())
+				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment));
 		}
-		Ok(())
 	}
+	Ok(())
 }
 
 impl fp_self_contained::SelfContainedCall for Call {
@@ -1566,7 +1507,7 @@ fn validate_self_contained_inner(
 		// Perform tx submitter asset balance checks required for fee proxying
 		match call.clone() {
 			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
-				Call::transaction_asset_check(signed_info, transaction, action)
+				transaction_asset_check(signed_info, transaction, action)
 			},
 			_ => Ok(()),
 		}?;
