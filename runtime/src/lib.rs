@@ -11,10 +11,12 @@ use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_ethereum::{
-	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction, TransactionAction
+	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
+	TransactionAction,
 };
 use pallet_evm::{
-	Account as EVMAccount, AddressMapping as AddressMappingT, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
+	Account as EVMAccount, AddressMapping as AddressMappingT, EnsureAddressNever, EvmConfig,
+	FeeCalculator, Runner as RunnerT,
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
@@ -42,7 +44,10 @@ pub use frame_support::{
 	construct_runtime,
 	dispatch::GetDispatchInfo,
 	parameter_types,
-	traits::{ConstU32, CurrencyToVote, Everything, fungibles::InspectMetadata, IsInVec, KeyOwnerProofSystem, Randomness},
+	traits::{
+		fungibles::InspectMetadata, ConstU32, CurrencyToVote, Everything, IsInVec,
+		KeyOwnerProofSystem, Randomness,
+	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		ConstantMultiplier, DispatchClass, IdentityFee, Weight,
@@ -1400,10 +1405,12 @@ impl_runtime_apis! {
 	}
 }
 
-fn transaction_asset_check(source: &H160, eth_tx: EthereumTransaction, action: TransactionAction) -> Result<(), TransactionValidityError> {
-	let fee_proxy = TransactionAction::Call(
-		H160::from_low_u64_be(FEE_PROXY)
-	);
+fn transaction_asset_check(
+	source: &H160,
+	eth_tx: EthereumTransaction,
+	action: TransactionAction,
+) -> Result<(), TransactionValidityError> {
+	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY));
 
 	if action == fee_proxy {
 		let (input, gas_limit, max_fee_per_gas) = match eth_tx {
@@ -1412,9 +1419,16 @@ fn transaction_asset_check(source: &H160, eth_tx: EthereumTransaction, action: T
 			EthereumTransaction::EIP1559(t) => (t.input, t.gas_limit, Some(t.max_fee_per_gas)),
 		};
 
-		let (payment_asset_id, max_payment, _target, _input) = FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;			
-		let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled } = runner::get_fee_preferences_data::<Runtime, Runtime>(source, gas_limit.as_u64(), max_fee_per_gas, payment_asset_id)?;
-		
+		let (payment_asset_id, max_payment, _target, _input) =
+			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
+		let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled } =
+			runner::get_fee_preferences_data::<Runtime, Runtime>(
+				source,
+				gas_limit.as_u64(),
+				max_fee_per_gas,
+				payment_asset_id,
+			)?;
+
 		if total_fee_scaled > 0 {
 			return Dex::can_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
 				.map(|_| ())
@@ -1446,7 +1460,7 @@ impl fp_self_contained::SelfContainedCall for Call {
 		signed_info: &Self::SignedInfo,
 		dispatch_info: &DispatchInfoOf<Self>,
 		len: usize,
-	) -> Option<TransactionValidity> { 
+	) -> Option<TransactionValidity> {
 		match self {
 			Call::Ethereum(ref call) => {
 				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))

@@ -13,8 +13,8 @@ use primitive_types::{H160, H256, U256};
 use seed_pallet_common::log;
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_runtime::{
-	transaction_validity::{TransactionValidityError, InvalidTransaction},
-	traits::SaturatedConversion
+	traits::SaturatedConversion,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
@@ -41,19 +41,22 @@ impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
 	}
 }
 
-
 impl From<FeePreferencesError> for TransactionValidityError {
 	fn from(error: FeePreferencesError) -> Self {
 		match error {
 			// Errors related to improperly designating a call or something "call-like" should all return an invalid call error
-			FeePreferencesError::InvalidFunctionSelector |
-			FeePreferencesError::InvalidInputArguments |
-			FeePreferencesError::FailedToDecodeInput |
-			FeePreferencesError::InvalidPaymentAsset => TransactionValidityError::Invalid(InvalidTransaction::Call),
-			FeePreferencesError::WithdrawFailed |
-			FeePreferencesError::GasPriceTooLow |
-			FeePreferencesError::FeeOverflow |
-			FeePreferencesError::FeeExceedsMaxPayment => TransactionValidityError::Invalid(InvalidTransaction::Payment),
+			FeePreferencesError::InvalidFunctionSelector
+			| FeePreferencesError::InvalidInputArguments
+			| FeePreferencesError::FailedToDecodeInput
+			| FeePreferencesError::InvalidPaymentAsset => {
+				TransactionValidityError::Invalid(InvalidTransaction::Call)
+			},
+			FeePreferencesError::WithdrawFailed
+			| FeePreferencesError::GasPriceTooLow
+			| FeePreferencesError::FeeOverflow
+			| FeePreferencesError::FeeExceedsMaxPayment => {
+				TransactionValidityError::Invalid(InvalidTransaction::Payment)
+			},
 		}
 	}
 }
@@ -88,21 +91,22 @@ pub struct FeePreferencesData {
 	pub total_fee_scaled: u128,
 }
 
-pub fn get_fee_preferences_data<T, U>(source: &H160, gas_limit: u64, max_fee_per_gas: Option<U256>, payment_asset_id: u32) -> Result<FeePreferencesData, FeePreferencesError>
+pub fn get_fee_preferences_data<T, U>(
+	source: &H160,
+	gas_limit: u64,
+	max_fee_per_gas: Option<U256>,
+	payment_asset_id: u32,
+) -> Result<FeePreferencesData, FeePreferencesError>
 where
 	T: pallet_evm::Config<AccountId = AccountId> + pallet_assets_ext::Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 {
-	let total_fee = FeePreferencesRunner::<T, U>::calculate_total_gas(
-		gas_limit,
-		max_fee_per_gas,
-		false
-	)?;
+	let total_fee =
+		FeePreferencesRunner::<T, U>::calculate_total_gas(gas_limit, max_fee_per_gas, false)?;
 
 	let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
-	let decimals = <pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
-		&gas_token_asset_id,
-	);
+	let decimals =
+		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(&gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 
 	let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
@@ -244,7 +248,13 @@ where
 			input = new_input;
 			target = new_target;
 
-			let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled } = get_fee_preferences_data::<T, U>(&source, gas_limit, max_fee_per_gas, payment_asset_id)
+			let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled } =
+				get_fee_preferences_data::<T, U>(
+					&source,
+					gas_limit,
+					max_fee_per_gas,
+					payment_asset_id,
+				)
 				.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
 
 			if total_fee_scaled > 0 {

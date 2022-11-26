@@ -978,7 +978,7 @@ impl<T: Config> Pallet<T> {
 			let trading_pair = TradingPair::new(input, output);
 			let (amount_0_out, amount_1_out) =
 				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
-				
+
 			ensure!(amount_0_out > 0 || amount_1_out > 0, Error::<T>::InsufficientOutputAmount);
 
 			let (reserve_0, reserve_1) = LiquidityPool::<T>::get(trading_pair);
