@@ -24,7 +24,8 @@ use sp_std::{cmp::min, convert::TryInto, prelude::*, vec};
 mod mock;
 mod tests;
 mod types;
-use types::{SafeMath, TradingPair};
+use types::SafeMath;
+pub use types::TradingPair;
 pub mod weights;
 pub use weights::WeightInfo;
 pub type Price = FixedU128;
@@ -957,37 +958,5 @@ impl<T: Config> Pallet<T> {
 		Self::_swap(&amounts, &path, who)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out));
 		Ok(amounts[0])
-	}
-
-	/// Check that a party can perform `do_swap_with_exact_target` by running through checks for `do_swap_with_exact_target` and `_swap`.
-	pub fn can_swap_with_exact_target(
-		who: &T::AccountId,
-		amount_out: Balance,
-		amount_in_max: Balance,
-		path: &[AssetId],
-	) -> Result<bool, DispatchError> {
-		let amounts = Self::get_amounts_in(amount_out, &path)?;
-		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
-
-		let mut i: usize = 0;
-		while i < path.len() - 1 {
-			let (input, output) = (path[i], path[i + 1]);
-			let amount_out = amounts[i + 1];
-			ensure!(input != output, Error::<T>::IdenticalTokenAddress);
-
-			let trading_pair = TradingPair::new(input, output);
-			let (amount_0_out, amount_1_out) =
-				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
-
-			ensure!(amount_0_out > 0 || amount_1_out > 0, Error::<T>::InsufficientOutputAmount);
-
-			let (reserve_0, reserve_1) = LiquidityPool::<T>::get(trading_pair);
-			ensure!(
-				amount_0_out < reserve_0 && amount_1_out < reserve_1,
-				Error::<T>::InsufficientLiquidity
-			);
-			i += 1;
-		}
-		Ok(true)
 	}
 }
