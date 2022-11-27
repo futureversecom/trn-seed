@@ -1422,7 +1422,7 @@ fn transaction_asset_check(
 
 		let (payment_asset_id, max_payment, _target, _input) =
 			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
-		let FeePreferencesData { account, path, gas_token_asset_id: _, total_fee_scaled } =
+		let FeePreferencesData { account: _, path, gas_token_asset_id: _, total_fee_scaled } =
 			runner::get_fee_preferences_data::<Runtime, Runtime>(
 				source,
 				gas_limit.as_u64(),
@@ -1439,35 +1439,6 @@ fn transaction_asset_check(
 				amounts[0] <= max_payment,
 				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
-			let mut i: usize = 0;
-			while i < path.len() - 1 {
-				let (input, output) = (path[i], path[i + 1]);
-				let amount_out = amounts[i + 1];
-				// Identical token
-				ensure!(
-					input != output,
-					TransactionValidityError::Invalid(InvalidTransaction::Call)
-				);
-
-				let trading_pair = TradingPair::new(input, output);
-				let (amount_0_out, amount_1_out) =
-					if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
-
-				// Insufficient output
-				ensure!(
-					amount_0_out > 0 || amount_1_out > 0,
-					TransactionValidityError::Invalid(InvalidTransaction::Payment)
-				);
-
-				let (reserve_0, reserve_1) = Dex::liquidity_pool(trading_pair);
-				// Insufficient liquidity
-				ensure!(
-					amount_0_out < reserve_0 && amount_1_out < reserve_1,
-					TransactionValidityError::Invalid(InvalidTransaction::Payment)
-				);
-				i += 1;
-			}
-			// All checks passed; can perform fee proxy
 			return Ok(());
 		}
 	}
