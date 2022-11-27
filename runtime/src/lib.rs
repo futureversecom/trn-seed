@@ -1433,8 +1433,6 @@ fn transaction_asset_check(
 		if total_fee_scaled > 0 {
 			let amounts = Dex::get_amounts_in(total_fee_scaled, &path)
 				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
-
-			// Ahead is repeated code from the Dex, as that code should not be changed
 			ensure!(
 				amounts[0] <= max_payment,
 				TransactionValidityError::Invalid(InvalidTransaction::Payment)
