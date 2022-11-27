@@ -248,7 +248,7 @@ where
 			input = new_input;
 			target = new_target;
 
-			let FeePreferencesData { account, path, gas_token_asset_id, total_fee_scaled } =
+			let FeePreferencesData { account, path, gas_token_asset_id: _, total_fee_scaled } =
 				get_fee_preferences_data::<T, U>(
 					&source,
 					gas_limit,
