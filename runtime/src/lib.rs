@@ -99,7 +99,7 @@ mod staking;
 use staking::OnChainAccuracy;
 
 pub mod runner;
-use crate::impls::OnNewAssetSubscription;
+use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 use runner::{FeePreferencesData, FeePreferencesRunner};
 
 use crate::constants::FEE_PROXY;
@@ -869,7 +869,7 @@ impl pallet_evm::Config for Runtime {
 	type FeeCalculator = BaseFee;
 	type GasWeightMapping = FutureverseGasWeightMapping;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
-	type CallOrigin = EnsureAddressNever<AccountId>;
+	type CallOrigin = FutureverseEnsureAddressSame<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
 	type AddressMapping = AddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<XrpCurrency>;

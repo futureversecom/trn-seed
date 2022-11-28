@@ -20,6 +20,7 @@ use core::ops::Mul;
 
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
+use frame_support::dispatch::RawOrigin;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -29,7 +30,7 @@ use frame_support::{
 	},
 	weights::WeightToFee,
 };
-use pallet_evm::AddressMapping as AddressMappingT;
+use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -431,6 +432,24 @@ impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for Hand
 			<() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
 		}
 		Ok(())
+	}
+}
+
+pub struct FutureverseEnsureAddressSame<AccountId>(sp_std::marker::PhantomData<AccountId>);
+
+impl<OuterOrigin, AccountId> EnsureAddressOrigin<OuterOrigin>
+	for FutureverseEnsureAddressSame<AccountId>
+where
+	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>> + From<RawOrigin<AccountId>>,
+	AccountId: Into<H160> + Copy,
+{
+	type Success = AccountId;
+
+	fn try_address_origin(address: &H160, origin: OuterOrigin) -> Result<AccountId, OuterOrigin> {
+		origin.into().and_then(|o| match o {
+			RawOrigin::Signed(who) if &who.into() == address => Ok(who),
+			r => Err(OuterOrigin::from(r)),
+		})
 	}
 }
 
