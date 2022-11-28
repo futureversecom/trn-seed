@@ -30,12 +30,15 @@ use sp_runtime::{
 	ArithmeticError, Percent, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
-use xrpl_codec::{traits::BinarySerialize, transaction::Payment};
+use xrpl_codec::{
+	traits::BinarySerialize,
+	transaction::{Payment, SignerListSet},
+};
 
-use seed_pallet_common::{CreateExt, EthyXrplBridgeAdapter};
+use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
-	xrpl::{LedgerIndex, XrplAddress, XrplTxHash, XrplTxNonce},
+	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxNonce},
 	AccountId, AssetId, Balance, Timestamp,
 };
 
@@ -44,6 +47,7 @@ use crate::helpers::{
 };
 
 pub use pallet::*;
+use seed_primitives::ethy::EventProofId;
 use seed_primitives::xrpl::XrplTxTicketSequence;
 
 mod helpers;
@@ -70,7 +74,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-		type EthyAdapter: EthyXrplBridgeAdapter<AuthorityId>;
+		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>
@@ -135,11 +139,11 @@ pub mod pallet {
 			proof_id: u64,
 			sender: T::AccountId,
 			amount: Balance,
-			destination: XrplAddress,
+			destination: XrplAccountId,
 		},
 		RelayerAdded(T::AccountId),
 		RelayerRemoved(T::AccountId),
-		DoorAddressSet(XrplAddress),
+		DoorAddressSet(XrplAccountId),
 		DoorNextTicketSequenceParamSet {
 			ticket_sequence_start_next: u32,
 			ticket_bucket_size_next: u32,
@@ -251,7 +255,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn door_address)]
 	/// The door address on XRPL
-	pub type DoorAddress<T: Config> = StorageValue<_, XrplAddress>;
+	pub type DoorAddress<T: Config> = StorageValue<_, XrplAccountId>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -313,7 +317,7 @@ pub mod pallet {
 		pub fn withdraw_xrp(
 			origin: OriginFor<T>,
 			amount: Balance,
-			destination: XrplAddress,
+			destination: XrplAccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::add_to_withdraw(who, amount, destination)
@@ -362,7 +366,10 @@ pub mod pallet {
 		/// Set XRPL door address managed by this pallet
 		#[pallet::weight((<T as Config>::WeightInfo::set_xrpl_door_address(), DispatchClass::Operational))]
 		#[transactional]
-		pub fn set_door_address(origin: OriginFor<T>, door_address: XrplAddress) -> DispatchResult {
+		pub fn set_door_address(
+			origin: OriginFor<T>,
+			door_address: XrplAccountId,
+		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 			DoorAddress::<T>::put(door_address);
 			Self::deposit_event(Event::<T>::DoorAddressSet(door_address));
@@ -533,7 +540,7 @@ impl<T: Config> Pallet<T> {
 	pub fn add_to_withdraw(
 		who: AccountOf<T>,
 		amount: Balance,
-		destination: XrplAddress,
+		destination: XrplAccountId,
 	) -> DispatchResult {
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
@@ -640,5 +647,36 @@ impl<T: Config> Pallet<T> {
 		DoorTicketSequence::<T>::set(next_sequence);
 
 		Ok(current_sequence)
+	}
+}
+
+impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
+	fn submit_signer_list_set_request(
+		signer_entries: Vec<(XrplAccountId, u16)>,
+	) -> Result<EventProofId, DispatchError> {
+		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
+		// TODO: need a fee oracle, this is over estimating the fee
+		// https://github.com/futureversecom/seed/issues/107
+		let tx_fee = Self::door_tx_fee();
+		let ticket_sequence = Self::get_door_ticket_sequence()?;
+		let signer_quorum: u32 = T::EthyAdapter::xrp_validators().len().saturating_sub(1) as u32;
+		let signer_entries = signer_entries
+			.into_iter()
+			.map(|(account, weight)| (account.into(), weight))
+			.collect();
+
+		let signer_list_set = SignerListSet::new(
+			door_address.into(),
+			tx_fee,
+			0_u32,
+			ticket_sequence,
+			signer_quorum,
+			signer_entries,
+			// omit signer key since this is a 'MultiSigner' tx
+			None,
+		);
+		let tx_blob = signer_list_set.binary_serialize(true);
+
+		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
 	}
 }

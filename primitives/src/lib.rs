@@ -98,8 +98,9 @@ pub mod xrpl {
 	/// An index to a block.
 	pub type LedgerIndex = u64;
 
-	/// An XRPL address (classic)
-	pub type XrplAddress = H160;
+	/// An XRPL AccountId
+	// https://xrpl.org/accounts.html#address-encoding
+	pub type XrplAccountId = H160;
 
 	/// An XRPL tx hash
 	pub type XrplTxHash = H512;

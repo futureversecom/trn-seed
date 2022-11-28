@@ -17,7 +17,9 @@
 //! Shared between eth-bridge pallet & ethy-gadget worker
 
 use codec::{Decode, Encode};
+use ripemd::{Digest as _, Ripemd160};
 use scale_info::TypeInfo;
+use sha2::Sha256;
 use sp_application_crypto::ByteArray;
 use sp_runtime::{traits::Convert, KeyTypeId};
 use sp_std::prelude::*;
@@ -103,6 +105,13 @@ impl Default for ValidatorSet<AuthorityId> {
 }
 
 impl ValidatorSet<AuthorityId> {
+	pub fn new<I>(validators: I, id: ValidatorSetId, proof_threshold: u32) -> Self
+	where
+		I: IntoIterator<Item = AuthorityId>,
+	{
+		let validators: Vec<AuthorityId> = validators.into_iter().collect();
+		Self { validators, id, proof_threshold }
+	}
 	/// Return an empty validator set with id of 0.
 	pub fn empty() -> Self {
 		Self { validators: Default::default(), id: Default::default(), proof_threshold: 0 }
@@ -240,6 +249,20 @@ impl Convert<AuthorityId, [u8; 33]> for EthyEcdsaToPublicKey {
 	}
 }
 
+/// Convert a 33 byte Secp256k1 pub key to an XRPL account ID
+pub struct EthyEcdsaToXRPLAccountId;
+impl Convert<&[u8], [u8; 20]> for EthyEcdsaToXRPLAccountId {
+	fn convert(compressed_key: &[u8]) -> [u8; 20] {
+		libsecp256k1::PublicKey::parse_slice(
+			compressed_key,
+			Some(libsecp256k1::PublicKeyFormat::Compressed),
+		)
+		.map(|k| k.serialize_compressed())
+		.map(|k| Ripemd160::digest(Sha256::digest(&k)).into())
+		.unwrap_or([0_u8; 20])
+	}
+}
+
 /// An `EventProof` with a version number. This variant will be appended
 /// to the block justifications for the block for which the signed witness
 /// has been generated.
@@ -329,5 +352,18 @@ mod test {
 	fn ethy_chain_id() {
 		assert_eq!(Into::<u8>::into(EthyChainId::Ethereum), 1_u8);
 		assert_eq!(Into::<u8>::into(EthyChainId::Xrpl), 2_u8);
+	}
+
+	#[test]
+	fn ethy_ecdsa_to_xrpl_account_id() {
+		// values taken from https://xrpl.org/assign-a-regular-key-pair.html
+		let xrpl_account_id = hex!("1620d685fb08d81a70d0b668749cf2e130ea7540");
+
+		assert_eq!(
+			EthyEcdsaToXRPLAccountId::convert(&hex!(
+				"03AEEFE1E8ED4BBC009DE996AC03A8C6B5713B1554794056C66E5B8D1753C7DD0E"
+			)),
+			xrpl_account_id,
+		);
 	}
 }

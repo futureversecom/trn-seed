@@ -558,8 +558,9 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 		if role.is_authority() { Some(keystore_container.sync_keystore()) } else { None };
 
 	let ethy_params = ethy_gadget::EthyParams {
-		client,
+		client: client.clone(),
 		backend,
+		runtime: client.clone(),
 		key_store: keystore.clone(),
 		network: network.clone(),
 		event_proof_sender,
@@ -574,7 +575,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
 	task_manager.spawn_essential_handle().spawn_blocking(
 		"ethy-gadget",
 		None,
-		ethy_gadget::start_ethy_gadget::<_, _, _, _>(ethy_params),
+		ethy_gadget::start_ethy_gadget::<_, _, _, _, _>(ethy_params),
 	);
 
 	log::info!("spawned ethy gadget");

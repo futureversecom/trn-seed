@@ -160,10 +160,19 @@ impl WitnessRecord {
 	/// Note a witness if we haven't seen it before
 	/// Returns true if the witness was noted, i.e previously unseen
 	pub fn note_event_witness(&mut self, witness: &Witness) -> Result<WitnessStatus, WitnessError> {
-		// Is the witness for a completed event?
-		if let Some(completed_watermark) = self.completed_events.first() {
-			if witness.event_id <= *completed_watermark {
-				return Err(WitnessError::CompletedEvent);
+		// Check if the witness is for a completed event, based on the pruned completed_events vec
+		// First check if the event_id is contained within completed_events
+		if self.completed_events.iter().any(|id| id == &witness.event_id) {
+			return Err(WitnessError::CompletedEvent);
+		} else {
+			// If we have only 1 event, and it's not in completed events, that means the completed_events id is
+			// 1 and the new event_id is 0, so comparing with the lowest won't work
+			if self.completed_events.len() > 1 {
+				if let Some(completed_watermark) = self.completed_events.first() {
+					if witness.event_id <= *completed_watermark {
+						return Err(WitnessError::CompletedEvent);
+					}
+				}
 			}
 		}
 
@@ -241,12 +250,14 @@ impl WitnessRecord {
 /// Compact a sorted vec of IDs by replacing a monotonic sequence of IDs with the last ID in the
 /// sequence
 fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
-	if completed_events.len() < 2 {
+	// Note: (JasonT) We keep at least 2 events in completed events to handle the first two events (0,1)
+	// being processed in the incorrect order
+	if completed_events.len() < 3 {
 		return completed_events;
 	}
 
 	let mut watermark_idx = 0;
-	for i in 0..completed_events.len() - 1 {
+	for i in 0..completed_events.len() - 2 {
 		if completed_events[i] + 1 as EventProofId == completed_events[i + 1] {
 			watermark_idx = i + 1;
 			continue;
@@ -259,14 +270,12 @@ fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 }
 
 #[cfg(test)]
-mod test {
-	use sp_application_crypto::Pair;
-
-	use seed_primitives::ethy::{
-		crypto::AuthorityPair, AuthorityIndex, EthyChainId, ValidatorSet, Witness,
-	};
-
+pub(crate) mod test {
 	use super::{compact_sequence, Signature, WitnessError, WitnessRecord, WitnessStatus};
+	use seed_primitives::ethy::{
+		crypto::AuthorityPair, AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
+	};
+	use sp_application_crypto::Pair;
 
 	fn dev_signers() -> Vec<AuthorityPair> {
 		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
@@ -279,6 +288,23 @@ mod test {
 		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
 		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
 		vec![alice_pair, bob_pair]
+	}
+
+	/// Helper function for creating a Witness
+	pub fn create_witness(
+		validator: &AuthorityPair,
+		event_id: EventProofId,
+		chain_id: EthyChainId,
+		digest: [u8; 32],
+	) -> Witness {
+		Witness {
+			digest,
+			chain_id,
+			event_id,
+			validator_set_id: 5_u64,
+			authority_id: validator.public(),
+			signature: validator.sign(&digest),
+		}
 	}
 
 	#[test]
@@ -337,38 +363,23 @@ mod test {
 			},
 			..Default::default()
 		};
-
 		let digest = [1_u8; 32];
 		let event_id = 5_u64;
-		let alice_validator = &validator_keys[0];
+
 		witness_record.note_event_metadata(
 			event_id,
 			digest,
 			Default::default(),
 			EthyChainId::Ethereum,
 		);
-		let witness = &Witness {
-			digest,
-			chain_id: EthyChainId::Ethereum,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: alice_validator.public(),
-			signature: alice_validator.sign(&digest),
-		};
 
+		// Create witness with Alice key and attempt to note witness twice
+		let witness = &create_witness(&validator_keys[0], event_id, EthyChainId::Ethereum, digest);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		assert_eq!(witness_record.note_event_witness(witness), Err(WitnessError::DuplicateWitness));
 
-		let bob_validator = &validator_keys[1];
-		let witness = &Witness {
-			digest,
-			chain_id: EthyChainId::Ethereum,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: bob_validator.public(),
-			signature: bob_validator.sign(&digest),
-		};
-
+		// Create witness with Bob key and attempt to note witness twice
+		let witness = &create_witness(&validator_keys[1], event_id, EthyChainId::Ethereum, digest);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		assert_eq!(witness_record.note_event_witness(witness), Err(WitnessError::DuplicateWitness));
 	}
@@ -384,21 +395,13 @@ mod test {
 			..Default::default()
 		};
 
-		let alice_validator = &validator_keys[0];
-		let digest = [1_u8; 32];
 		let event_id = 5_u64;
-		let witness = &Witness {
-			digest,
-			chain_id: EthyChainId::Ethereum,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: alice_validator.public(),
-			signature: alice_validator.sign(&digest),
-		};
+		let digest = [1_u8; 32];
+		let witness = &create_witness(&validator_keys[0], event_id, EthyChainId::Ethereum, digest);
 
 		witness_record.note_event_metadata(
 			event_id,
-			[2_u8; 32],
+			[2_u8; 32], // Digest created in create_witness() is [1_u8; 32]
 			Default::default(),
 			EthyChainId::Ethereum,
 		);
@@ -420,23 +423,15 @@ mod test {
 			..Default::default()
 		};
 
-		let alice_validator = &validator_keys[0];
-		let digest = [1_u8; 32];
 		let event_id = 5_u64;
-		let witness = &Witness {
-			digest,
-			chain_id: EthyChainId::Xrpl,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: alice_validator.public(),
-			signature: alice_validator.sign(&digest),
-		};
+		let digest = [1_u8; 32];
+		let witness = &create_witness(&validator_keys[0], event_id, EthyChainId::Xrpl, digest);
 
 		witness_record.note_event_metadata(
 			event_id,
-			[2_u8; 32],
+			[2_u8; 32], // Digest created in create_witness() is [1_u8; 32]
 			Default::default(),
-			EthyChainId::Ethereum,
+			EthyChainId::Xrpl,
 		);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 	}
@@ -445,16 +440,11 @@ mod test {
 	fn note_event_witness_unknown_authority() {
 		let dave_pair = AuthorityPair::from_string("//Dave", None).unwrap();
 		let mut witness_record = WitnessRecord::default();
-		let digest = [1_u8; 32];
 		let event_id = 5_u64;
-		let witness = &Witness {
-			digest,
-			chain_id: EthyChainId::Ethereum,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: dave_pair.public(),
-			signature: dave_pair.sign(&[1u8; 32]),
-		};
+		let digest = [1_u8; 32];
+
+		let witness = &create_witness(&dave_pair, event_id, EthyChainId::Ethereum, digest);
+
 		witness_record.note_event_metadata(
 			event_id,
 			digest,
@@ -475,29 +465,13 @@ mod test {
 			},
 			..Default::default()
 		};
-
 		let event_id = 5_u64;
 		let digest = [1_u8; 32];
-		let alice_validator = &validator_keys[0];
-		let witness = &Witness {
-			digest,
-			chain_id: EthyChainId::Ethereum,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: alice_validator.public(),
-			signature: alice_validator.sign(&digest),
-		};
+
+		let witness = &create_witness(&validator_keys[0], event_id, EthyChainId::Ethereum, digest);
 		assert!(witness_record.note_event_witness(witness).is_ok());
 
-		let bob_validator = &validator_keys[2];
-		let witness = &Witness {
-			digest,
-			chain_id: EthyChainId::Ethereum,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: bob_validator.public(),
-			signature: bob_validator.sign(&digest),
-		};
+		let witness = &create_witness(&validator_keys[2], event_id, EthyChainId::Ethereum, digest);
 		assert!(witness_record.note_event_witness(witness).is_ok());
 
 		// event complete
@@ -508,7 +482,109 @@ mod test {
 		assert!(witness_record.event_meta.get(&event_id).is_none());
 		assert!(witness_record.has_witnessed.get(&event_id).is_none());
 		assert!(witness_record.witnesses.get(&event_id).is_none());
-		assert!(witness_record.completed_events.iter().any(|x| *x == event_id));
+		assert_eq!(witness_record.completed_events, vec![event_id]);
+	}
+
+	#[test]
+	/// This test checks the edge case where the first two events (0 and 1) are noted in the incorrect
+	/// order. Both should be processed and completed once and only once
+	fn note_event_witness_completed_event_first_two_incorrect_order() {
+		let validator_keys = dev_signers();
+		let mut witness_record = WitnessRecord {
+			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			..Default::default()
+		};
+		let event_id_0 = 0_u64;
+		let event_id_1 = 1_u64;
+		let event_id_2 = 2_u64;
+		let digest = [1_u8; 32];
+		let chain_id = EthyChainId::Xrpl;
+
+		// Note and complete event_id 1
+		let witness_1 = &create_witness(&validator_keys[0], event_id_1, chain_id, digest);
+		assert!(witness_record.note_event_witness(witness_1).is_ok());
+		witness_record.mark_complete(event_id_1);
+		// Further witness on this event should fail
+		assert_eq!(witness_record.note_event_witness(witness_1), Err(WitnessError::CompletedEvent));
+		// completed_events should contain event_id 1
+		assert_eq!(witness_record.completed_events, vec![event_id_1]);
+
+		// Note and complete event_id 0 (Ethereum event)
+		let chain_id = EthyChainId::Ethereum;
+		let witness_0 = &create_witness(&validator_keys[1], event_id_0, chain_id, digest);
+		assert!(witness_record.note_event_witness(witness_0).is_ok());
+		witness_record.mark_complete(event_id_0);
+		// Further witness on this event should fail
+		assert_eq!(witness_record.note_event_witness(witness_0), Err(WitnessError::CompletedEvent));
+		// completed_events should contain event_id 0 and 1 (Not pruned)
+		assert_eq!(witness_record.completed_events, vec![event_id_0, event_id_1]);
+
+		// Note and complete event_id 2
+		let witness_2 = &create_witness(&validator_keys[2], event_id_2, chain_id, digest);
+		assert!(witness_record.note_event_witness(witness_2).is_ok());
+		witness_record.mark_complete(event_id_2);
+		// completed_events should contain event_id 2 (0 now pruned), we keep both 1 and 2
+		assert_eq!(witness_record.completed_events, vec![event_id_1, event_id_2]);
+
+		// Further witness on all three events should fail
+		assert_eq!(witness_record.note_event_witness(witness_0), Err(WitnessError::CompletedEvent));
+		assert_eq!(witness_record.note_event_witness(witness_1), Err(WitnessError::CompletedEvent));
+		assert_eq!(witness_record.note_event_witness(witness_2), Err(WitnessError::CompletedEvent));
+	}
+
+	#[test]
+	/// This test checks the edge case where the first two events (0 and 1) are noted in the correct
+	/// order. Both should be processed and completed once and only once
+	fn note_event_witness_completed_event_first_two_correct_order() {
+		let validator_keys = dev_signers();
+		let mut witness_record = WitnessRecord {
+			// this determines the validator indexes as (0, alice), (1, bob), (2, charlie), etc.
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			..Default::default()
+		};
+		let event_id_0 = 0_u64;
+		let event_id_1 = 1_u64;
+		let event_id_2 = 2_u64;
+		let digest = [1_u8; 32];
+		let chain_id = EthyChainId::Ethereum;
+
+		// Note and complete event_id 0
+		let witness_0 = &create_witness(&validator_keys[2], event_id_0, chain_id, digest);
+		assert!(witness_record.note_event_witness(witness_0).is_ok());
+		witness_record.mark_complete(event_id_0);
+		// Further witness on this event should fail
+		assert_eq!(witness_record.note_event_witness(witness_0), Err(WitnessError::CompletedEvent));
+		// completed_events should contain event_id 0
+		assert_eq!(witness_record.completed_events, vec![event_id_0]);
+
+		// Note and complete event_id 1 (XRPL event)
+		let chain_id = EthyChainId::Xrpl;
+		let witness_1 = &create_witness(&validator_keys[0], event_id_1, chain_id, digest);
+		assert!(witness_record.note_event_witness(witness_1).is_ok());
+		witness_record.mark_complete(event_id_1);
+		// Further witness on this event should fail
+		assert_eq!(witness_record.note_event_witness(witness_1), Err(WitnessError::CompletedEvent));
+		// completed_events should contain event_id 0 and 1 (not pruned)
+		assert_eq!(witness_record.completed_events, vec![event_id_0, event_id_1]);
+
+		// Note and complete event_id 2 (XRPL event)
+		let witness_2 = &create_witness(&validator_keys[1], event_id_2, chain_id, digest);
+		assert!(witness_record.note_event_witness(witness_2).is_ok());
+		witness_record.mark_complete(event_id_2);
+		// completed_events should contain event_id 2 (0 now pruned), we keep both 1 and 2
+		assert_eq!(witness_record.completed_events, vec![event_id_1, event_id_2]);
+
+		// Further witness on all three events should fail
+		assert_eq!(witness_record.note_event_witness(witness_0), Err(WitnessError::CompletedEvent));
+		assert_eq!(witness_record.note_event_witness(witness_1), Err(WitnessError::CompletedEvent));
+		assert_eq!(witness_record.note_event_witness(witness_2), Err(WitnessError::CompletedEvent));
 	}
 
 	#[test]
@@ -526,40 +602,18 @@ mod test {
 		let chain_id = EthyChainId::Ethereum;
 		let event_id = 5_u64;
 		let digest = [1_u8; 32];
-		let alice_validator = &validator_keys[0];
-		let witness = &Witness {
-			digest,
-			chain_id,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: alice_validator.public(),
-			signature: alice_validator.sign(&digest),
-		};
 
+		let witness = &create_witness(&validator_keys[0], event_id, chain_id, digest);
 		assert!(witness_record.note_event_witness(witness).is_ok());
 		assert!(!witness_record.has_consensus(event_id, chain_id));
 
-		let bob_validator = &validator_keys[1];
-		let witness = &Witness {
-			digest,
-			chain_id,
-			event_id,
-			validator_set_id: 5_u64,
-			authority_id: bob_validator.public(),
-			signature: bob_validator.sign(&digest),
-		};
-
+		let witness = &create_witness(&validator_keys[1], event_id, chain_id, digest);
 		assert!(witness_record.note_event_witness(witness).is_ok());
 
 		// unverified
 		assert!(!witness_record.has_consensus(event_id, chain_id));
 
-		witness_record.note_event_metadata(
-			event_id,
-			digest,
-			Default::default(),
-			EthyChainId::Ethereum,
-		);
+		witness_record.note_event_metadata(event_id, digest, Default::default(), chain_id);
 		witness_record.process_unverified_witnesses(event_id);
 
 		assert!(witness_record.has_consensus(event_id, chain_id));
@@ -585,44 +639,21 @@ mod test {
 			..Default::default()
 		};
 		let chain_id = EthyChainId::Xrpl;
-		let event_id = 5_u64;
 		let digest = [1_u8; 32];
-		let alice_validator = &validator_keys[0];
-		let witness = &Witness {
-			digest,
-			chain_id,
-			event_id,
-			validator_set_id,
-			authority_id: alice_validator.public(),
-			signature: alice_validator.sign(&digest),
-		};
-		witness_record.note_event_metadata(event_id, digest, Default::default(), EthyChainId::Xrpl);
+		let event_id = 5_u64;
+		let witness = &create_witness(&validator_keys[0], event_id, chain_id, digest);
+
+		witness_record.note_event_metadata(event_id, digest, Default::default(), chain_id);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		assert!(!witness_record.has_consensus(event_id, chain_id));
 
 		// charlie is not an XRPL signer so cannot affect consensus
-		let charlie_validator = &validator_keys[2];
-		let witness = &Witness {
-			digest,
-			chain_id,
-			event_id,
-			validator_set_id,
-			authority_id: charlie_validator.public(),
-			signature: charlie_validator.sign(&digest),
-		};
+		let witness = &create_witness(&validator_keys[2], event_id, chain_id, digest);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		assert!(!witness_record.has_consensus(event_id, chain_id));
 
 		// bob signs and we have consensus
-		let bob_validator = &validator_keys[1];
-		let witness = &Witness {
-			digest,
-			chain_id,
-			event_id,
-			validator_set_id,
-			authority_id: bob_validator.public(),
-			signature: bob_validator.sign(&digest),
-		};
+		let witness = &create_witness(&validator_keys[1], event_id, chain_id, digest);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 		witness_record.process_unverified_witnesses(event_id);
 
@@ -648,23 +679,18 @@ mod test {
 
 		// id 3 should be accepted
 		let digest = [1_u8; 32];
-		let alice_validator = &validator_keys[0];
-		let witness = &Witness {
-			digest,
-			chain_id: EthyChainId::Ethereum,
-			event_id: 3,
-			validator_set_id: 5_u64,
-			authority_id: alice_validator.public(),
-			signature: alice_validator.sign(&digest),
-		};
+		let witness = &create_witness(&validator_keys[0], 3, EthyChainId::Ethereum, digest);
 		assert!(witness_record.note_event_witness(witness).is_ok());
 	}
 
 	#[test]
+	/// Compact sequence should leave at least the lowest two events
 	fn compact_sequence_works() {
 		assert_eq!(compact_sequence(&mut [1]), [1]);
-		assert_eq!(compact_sequence(&mut [0, 1]), [1]);
-		assert_eq!(compact_sequence(&mut [0, 1, 2]), [2]);
+		assert_eq!(compact_sequence(&mut [0, 1]), [0, 1]);
+		assert_eq!(compact_sequence(&mut [0, 1, 2]), [1, 2]);
+		assert_eq!(compact_sequence(&mut [1, 2, 3, 4, 5]), [4, 5]);
 		assert_eq!(compact_sequence(&mut [1, 2, 3, 8, 9]), [3, 8, 9]);
+		assert_eq!(compact_sequence(&mut [1, 2, 3, 4, 9]), [4, 9]);
 	}
 }
