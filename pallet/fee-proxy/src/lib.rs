@@ -17,6 +17,11 @@ use frame_system::pallet_prelude::*;
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_std::prelude::*;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -27,7 +32,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config {
 		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>

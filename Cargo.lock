@@ -4973,12 +4973,13 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "pallet-evm",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
  "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 
