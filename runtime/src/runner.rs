@@ -13,7 +13,7 @@ use primitive_types::{H160, H256, U256};
 use seed_pallet_common::log;
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_runtime::{
-	traits::{Get, SaturatedConversion},
+	traits::SaturatedConversion,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use sp_std::{marker::PhantomData, prelude::*};
@@ -85,13 +85,11 @@ pub fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 
 // Any data needed for computing fee preferences
 pub struct FeePreferencesData {
-	pub account: AccountId,
 	pub path: Vec<u32>,
 	pub total_fee_scaled: u128,
 }
 
 pub fn get_fee_preferences_data<T, U>(
-	source: &H160,
 	gas_limit: u64,
 	max_fee_per_gas: Option<U256>,
 	payment_asset_id: u32,
@@ -108,9 +106,8 @@ where
 		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(&gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 
-	let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 	let path = vec![payment_asset_id, gas_token_asset_id];
-	Ok(FeePreferencesData { total_fee_scaled, account, path })
+	Ok(FeePreferencesData { total_fee_scaled, path })
 }
 
 /// seed implementation of the evm runner which handles the case where users are attempting
@@ -160,7 +157,7 @@ where
 		gas_limit: u64,
 		max_fee_per_gas: Option<U256>,
 		is_transactional: bool,
-	) -> Result<Balance, FeePreferencesError> {
+	) -> Result<U256, FeePreferencesError> {
 		let max_fee_per_gas = match (max_fee_per_gas, is_transactional) {
 			(Some(max_fee_per_gas), _) => max_fee_per_gas,
 			// Gas price check is skipped for non-transactional calls that don't
@@ -245,15 +242,12 @@ where
 			input = new_input;
 			target = new_target;
 
-			let FeePreferencesData { account, path, total_fee_scaled } =
-				get_fee_preferences_data::<T, U>(
-					&source,
-					gas_limit,
-					max_fee_per_gas,
-					payment_asset_id,
-				)
-				.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
+			let FeePreferencesData { path, total_fee_scaled } =
+				get_fee_preferences_data::<T, U>(gas_limit, max_fee_per_gas, payment_asset_id)
+					.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
 
+			let account =
+				<T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 			if total_fee_scaled > 0 {
 				// total_fee_scaled is 0 when user doesnt have gas asset currency
 				Dex::do_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)

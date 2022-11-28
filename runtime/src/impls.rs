@@ -49,9 +49,10 @@ use seed_pallet_common::{
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
+use crate::runner::get_fee_preferences_data;
 use crate::{
-	constants::FEE_PROXY, BlockHashCount, Call, FeePreferencesRunner, Runtime, Session,
-	SessionsPerEra, SlashPotId, Staking, System, UncheckedExtrinsic,
+	constants::FEE_PROXY, BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId,
+	Staking, System, UncheckedExtrinsic,
 };
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -486,16 +487,16 @@ where
 				<<T as pallet_fee_proxy::Config>::Call as IsSubType<pallet_evm::Call<T>>>::is_sub_type(
 					call,
 				) {
-				let evm_fee = FeePreferencesRunner::<T, U>::calculate_total_gas(
-					native_asset,
-					*gas_limit,
-					Some(*max_fee_per_gas),
-					true,
-				)
-				.ok()
-				.unwrap_or_default();
-
-				total_fee = total_fee.saturating_add(evm_fee);
+				if let Some(fee_preferences_data) =
+					get_fee_preferences_data::<T, U>(
+						*gas_limit,
+						Some(*max_fee_per_gas),
+						*payment_asset,
+					)
+					.ok()
+				{
+					total_fee = total_fee.saturating_add(fee_preferences_data.total_fee_scaled);
+				}
 			}
 
 			let path: &[AssetId] = &[*payment_asset, native_asset];

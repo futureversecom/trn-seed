@@ -1438,7 +1438,6 @@ impl_runtime_apis! {
 }
 
 fn transaction_asset_check(
-	source: &H160,
 	eth_tx: EthereumTransaction,
 	action: TransactionAction,
 ) -> Result<(), TransactionValidityError> {
@@ -1453,9 +1452,8 @@ fn transaction_asset_check(
 
 		let (payment_asset_id, max_payment, _target, _input) =
 			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
-		let FeePreferencesData { account: _, path, total_fee_scaled } =
+		let FeePreferencesData { path, total_fee_scaled } =
 			runner::get_fee_preferences_data::<Runtime, Runtime>(
-				source,
 				gas_limit.as_u64(),
 				max_fee_per_gas,
 				payment_asset_id,
@@ -1557,7 +1555,7 @@ fn validate_self_contained_inner(
 		// Perform tx submitter asset balance checks required for fee proxying
 		match call.clone() {
 			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
-				transaction_asset_check(signed_info, transaction, action)
+				transaction_asset_check(transaction, action)
 			},
 			_ => Ok(()),
 		}?;
