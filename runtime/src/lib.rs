@@ -12,6 +12,7 @@ use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
+	TransactionAction,
 };
 use pallet_evm::{
 	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
@@ -42,14 +43,18 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::GetDispatchInfo,
-	parameter_types,
-	traits::{ConstU32, CurrencyToVote, Everything, IsInVec, KeyOwnerProofSystem, Randomness},
+	ensure, parameter_types,
+	traits::{
+		fungibles::InspectMetadata, ConstU32, CurrencyToVote, Everything, IsInVec,
+		KeyOwnerProofSystem, Randomness,
+	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		ConstantMultiplier, DispatchClass, IdentityFee, Weight,
 	},
 	PalletId, StorageValue,
 };
+
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
@@ -95,7 +100,9 @@ use staking::OnChainAccuracy;
 
 pub mod runner;
 use crate::impls::OnNewAssetSubscription;
-use runner::FeePreferencesRunner;
+use runner::{FeePreferencesData, FeePreferencesRunner};
+
+use crate::constants::FEE_PROXY;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
 #[cfg(test)]
@@ -1256,6 +1263,7 @@ impl_runtime_apis! {
 			estimate: bool,
 			access_list: Option<Vec<(H160, Vec<H256>)>>,
 		) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
+
 			let config = if estimate {
 				let mut config = <Runtime as pallet_evm::Config>::config().clone();
 				config.estimate = true;
@@ -1417,6 +1425,43 @@ impl_runtime_apis! {
 	}
 }
 
+fn transaction_asset_check(
+	source: &H160,
+	eth_tx: EthereumTransaction,
+	action: TransactionAction,
+) -> Result<(), TransactionValidityError> {
+	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY));
+
+	if action == fee_proxy {
+		let (input, gas_limit, max_fee_per_gas) = match eth_tx {
+			EthereumTransaction::Legacy(t) => (t.input, t.gas_limit, None),
+			EthereumTransaction::EIP2930(t) => (t.input, t.gas_limit, None),
+			EthereumTransaction::EIP1559(t) => (t.input, t.gas_limit, Some(t.max_fee_per_gas)),
+		};
+
+		let (payment_asset_id, max_payment, _target, _input) =
+			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
+		let FeePreferencesData { account: _, path, total_fee_scaled } =
+			runner::get_fee_preferences_data::<Runtime, Runtime>(
+				source,
+				gas_limit.as_u64(),
+				max_fee_per_gas,
+				payment_asset_id,
+			)?;
+
+		if total_fee_scaled > 0 {
+			let amounts = Dex::get_amounts_in(total_fee_scaled, &path)
+				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+			ensure!(
+				amounts[0] <= max_payment,
+				TransactionValidityError::Invalid(InvalidTransaction::Payment)
+			);
+			return Ok(());
+		}
+	}
+	Ok(())
+}
+
 impl fp_self_contained::SelfContainedCall for Call {
 	type SignedInfo = H160;
 
@@ -1488,13 +1533,23 @@ fn validate_self_contained_inner(
 		// frontier, but to keep the same behavior as before, we must perform
 		// the controls that were performed on the unsigned extrinsic.
 		use sp_runtime::traits::SignedExtension as _;
-		let input_len = match transaction {
-			pallet_ethereum::Transaction::Legacy(t) => t.input.len(),
-			pallet_ethereum::Transaction::EIP2930(t) => t.input.len(),
-			pallet_ethereum::Transaction::EIP1559(t) => t.input.len(),
+		let (input_len, action) = match transaction {
+			pallet_ethereum::Transaction::Legacy(t) => (t.input.len(), t.action),
+			pallet_ethereum::Transaction::EIP2930(t) => (t.input.len(), t.action),
+			pallet_ethereum::Transaction::EIP1559(t) => (t.input.len(), t.action),
 		};
+
 		let extra_validation =
 			SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
+
+		// Perform tx submitter asset balance checks required for fee proxying
+		match call.clone() {
+			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
+				transaction_asset_check(signed_info, transaction, action)
+			},
+			_ => Ok(()),
+		}?;
+
 		// Then, do the controls defined by the ethereum pallet.
 		let self_contained_validation = eth_call
 			.validate_self_contained(signed_info, dispatch_info, len)
