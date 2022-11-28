@@ -40,3 +40,4 @@ std = [
     "seed-pallet-common/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
+try-runtime = ["frame-support/try-runtime"]

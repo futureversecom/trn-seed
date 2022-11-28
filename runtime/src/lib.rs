@@ -12,9 +12,11 @@ use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
+	TransactionAction,
 };
 use pallet_evm::{
-	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
+	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
+	Runner as RunnerT,
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
@@ -41,14 +43,18 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::GetDispatchInfo,
-	parameter_types,
-	traits::{ConstU32, CurrencyToVote, Everything, IsInVec, KeyOwnerProofSystem, Randomness},
+	ensure, parameter_types,
+	traits::{
+		fungibles::InspectMetadata, ConstU32, CurrencyToVote, Everything, IsInVec,
+		KeyOwnerProofSystem, Randomness,
+	},
 	weights::{
 		constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
 		ConstantMultiplier, DispatchClass, IdentityFee, Weight,
 	},
 	PalletId, StorageValue,
 };
+
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
@@ -94,7 +100,9 @@ use staking::OnChainAccuracy;
 
 pub mod runner;
 use crate::impls::{FeeProxyCurrencyAdapter, FutureverseEnsureAddressSame, OnNewAssetSubscription};
-use runner::FeePreferencesRunner;
+use runner::{FeePreferencesData, FeePreferencesRunner};
+
+use crate::constants::FEE_PROXY;
 
 pub(crate) const LOG_TARGET: &str = "runtime";
 #[cfg(test)]
@@ -836,8 +844,8 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 
 parameter_types! {
 	/// Floor network base fee per gas
-	/// 0.000015 XRP per gas
-	pub const DefaultBaseFeePerGas: u64 = 1_500_000_000_000;
+	/// 0.000015 XRP per gas, 15000 GWEI
+	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
 }
 
 impl pallet_base_fee::Config for Runtime {
@@ -879,7 +887,7 @@ impl pallet_evm::Config for Runtime {
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EthereumChainId;
 	type BlockGasLimit = BlockGasLimit;
-	type OnChargeTransaction = ();
+	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	// internal EVM config
 	fn config() -> &'static EvmConfig {
@@ -956,49 +964,50 @@ construct_runtime! {
 		NodeBlock = generic::Block<Header, sp_runtime::OpaqueExtrinsic>,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-		Babe: pallet_babe,
-		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
-		Utility: pallet_utility::{Pallet, Call, Event},
+		System: frame_system::{Pallet, Call, Storage, Config, Event<T>} = 0,
+		Babe: pallet_babe = 1,
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent}= 2,
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
+		Utility: pallet_utility::{Pallet, Call, Event} = 4,
 
 		// Monetary
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Authorship: pallet_authorship::{Pallet, Call, Storage},
-		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Offences: pallet_offences::{Pallet, Storage, Event},
+		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>} = 6,
+		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>} = 7,
+		Authorship: pallet_authorship::{Pallet, Call, Storage} = 8,
+		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
+		Offences: pallet_offences::{Pallet, Storage, Event} = 10,
 
 		// Validators
-		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned},
-		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
+		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 12,
+		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
 
 		// World
-		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
-		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>},
-		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>},
-		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage},
-		Historical: pallet_session::historical::{Pallet},
-		Echo: pallet_echo::{Pallet, Call, Storage, Event},
-		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>},
+		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 14,
+		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 15,
+		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>} = 16,
+		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>} = 17,
+		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
+		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
+		Historical: pallet_session::historical::{Pallet} = 20,
+		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
 
 		// Election pallet. Only works with staking
-		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned},
-		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>},
-		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
+		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
+		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>} = 23,
+		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage} = 24,
 
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
+		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
 
 		// EVM
-		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin},
-		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event},
-		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>},
-		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>}
+		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
+		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
+		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 28,
+		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
+		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
+
+		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
 	}
 }
 
@@ -1266,6 +1275,7 @@ impl_runtime_apis! {
 			estimate: bool,
 			access_list: Option<Vec<(H160, Vec<H256>)>>,
 		) -> Result<pallet_evm::CallInfo, sp_runtime::DispatchError> {
+
 			let config = if estimate {
 				let mut config = <Runtime as pallet_evm::Config>::config().clone();
 				config.estimate = true;
@@ -1405,6 +1415,63 @@ impl_runtime_apis! {
 			}
 		}
 	}
+
+	#[cfg(feature = "try-runtime")]
+	impl frame_try_runtime::TryRuntime<Block> for Runtime {
+		fn on_runtime_upgrade() -> (Weight, Weight) {
+			log::info!("try-runtime::on_runtime_upgrade.");
+
+			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
+			// have a backtrace here. If any of the pre/post migration checks fail, we shall stop
+			// right here and right now.
+			let weight = Executive::try_runtime_upgrade().map_err(|err|{
+				log::info!("try-runtime::on_runtime_upgrade failed with: {:?}", err);
+				err
+			}).unwrap();
+			(weight, RuntimeBlockWeights::get().max_block)
+		}
+
+		fn execute_block_no_check(block: Block) -> Weight {
+			Executive::execute_block_no_check(block)
+		}
+	}
+}
+
+fn transaction_asset_check(
+	source: &H160,
+	eth_tx: EthereumTransaction,
+	action: TransactionAction,
+) -> Result<(), TransactionValidityError> {
+	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY));
+
+	if action == fee_proxy {
+		let (input, gas_limit, max_fee_per_gas) = match eth_tx {
+			EthereumTransaction::Legacy(t) => (t.input, t.gas_limit, None),
+			EthereumTransaction::EIP2930(t) => (t.input, t.gas_limit, None),
+			EthereumTransaction::EIP1559(t) => (t.input, t.gas_limit, Some(t.max_fee_per_gas)),
+		};
+
+		let (payment_asset_id, max_payment, _target, _input) =
+			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
+		let FeePreferencesData { account: _, path, total_fee_scaled } =
+			runner::get_fee_preferences_data::<Runtime, Runtime>(
+				source,
+				gas_limit.as_u64(),
+				max_fee_per_gas,
+				payment_asset_id,
+			)?;
+
+		if total_fee_scaled > 0 {
+			let amounts = Dex::get_amounts_in(total_fee_scaled, &path)
+				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+			ensure!(
+				amounts[0] <= max_payment,
+				TransactionValidityError::Invalid(InvalidTransaction::Payment)
+			);
+			return Ok(());
+		}
+	}
+	Ok(())
 }
 
 impl fp_self_contained::SelfContainedCall for Call {
@@ -1478,13 +1545,23 @@ fn validate_self_contained_inner(
 		// frontier, but to keep the same behavior as before, we must perform
 		// the controls that were performed on the unsigned extrinsic.
 		use sp_runtime::traits::SignedExtension as _;
-		let input_len = match transaction {
-			pallet_ethereum::Transaction::Legacy(t) => t.input.len(),
-			pallet_ethereum::Transaction::EIP2930(t) => t.input.len(),
-			pallet_ethereum::Transaction::EIP1559(t) => t.input.len(),
+		let (input_len, action) = match transaction {
+			pallet_ethereum::Transaction::Legacy(t) => (t.input.len(), t.action),
+			pallet_ethereum::Transaction::EIP2930(t) => (t.input.len(), t.action),
+			pallet_ethereum::Transaction::EIP1559(t) => (t.input.len(), t.action),
 		};
+
 		let extra_validation =
 			SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
+
+		// Perform tx submitter asset balance checks required for fee proxying
+		match call.clone() {
+			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
+				transaction_asset_check(signed_info, transaction, action)
+			},
+			_ => Ok(()),
+		}?;
+
 		// Then, do the controls defined by the ethereum pallet.
 		let self_contained_validation = eth_call
 			.validate_self_contained(signed_info, dispatch_info, len)

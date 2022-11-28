@@ -98,8 +98,9 @@ impl<T: Config> OnUnbalanced<FeePositiveImbalanceOf<T>> for Pallet<T> {
 	}
 }
 
-/// On tx fee settlement, move funds to tx fee pot address
-/// tx payment pallet calls this to notify it burned `amount`
+/// On tx fee settlement, move funds to tx fee pot address.
+/// Pallets can call this to signify a "burn" from their perspective.
+/// EVM tx base fees are also accrued here - via providing impl for EVMCurrencyAdapter
 impl<T: Config> OnUnbalanced<FeeNegativeImbalanceOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: FeeNegativeImbalanceOf<T>) {
 		// this amount was burnt from caller when tx fees were paid (incl. tip), move the funds into

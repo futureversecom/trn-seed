@@ -24,7 +24,8 @@ use sp_std::{cmp::min, convert::TryInto, prelude::*, vec};
 mod mock;
 mod tests;
 mod types;
-use types::{SafeMath, TradingPair};
+use types::SafeMath;
+pub use types::TradingPair;
 pub mod weights;
 pub use weights::WeightInfo;
 pub type Price = FixedU128;
@@ -795,7 +796,7 @@ impl<T: Config> Pallet<T> {
 		Ok(amounts)
 	}
 
-	// Uniwapv2 `_swap` implementation in rust
+	// Uniswapv2 `_swap` implementation in rust
 	// TODO: may need re-entrancy lock for this function
 	fn _swap(amounts: &[Balance], path: &[AssetId], to: &T::AccountId) -> DispatchResult {
 		let mut i: usize = 0;

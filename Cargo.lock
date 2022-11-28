@@ -1707,6 +1707,7 @@ name = "evm-core"
 version = "0.35.0"
 source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
@@ -5033,6 +5034,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -7533,6 +7535,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-system",
+ "frame-try-runtime",
  "futures",
  "hex-literal",
  "jsonrpsee",
@@ -7701,6 +7704,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
+ "try-runtime-cli",
 ]
 
 [[package]]

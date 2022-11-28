@@ -130,32 +130,12 @@ describe("Fee Preferences under low token pair liquidity", function () {
 			chainId,
 		};
 
-		await emptyAccountSigner.signTransaction(unsignedTx);
-		await emptyAccountSigner.sendTransaction(unsignedTx);
-		console.log("waiting for tx rejection");
-		await sleep(4000);
-
-		// Expect system.ExtrinsicFailed to signal ModuleError of evm pallet
-		const [dispatchErrIndex, dispatchError] = await new Promise<any>(
-			(resolve) => {
-				executeForPreviousEvent(
-					api,
-					{ method: "ExtrinsicFailed", section: "system" },
-					2,
-					async (event) => {
-						if ("dispatchError" in event.data) {
-							// Use toHuman to get the actual values
-							const { index, error } =
-								event.data.dispatchError.toHuman().Module;
-							resolve([index, error]);
-						}
-						resolve(["", ""]);
-					}
-				);
-			}
-		);
-
-		expect(dispatchErrIndex).to.equal(EVM_PALLET_INDEX);
-		expect(dispatchError).to.equal(WITHDRAW_FAILED_ERROR_INDEX);
+		try {
+			const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
+			await tx.wait();
+		} catch (err: any) {
+			expect(err.code).to.be.eq("INSUFFICIENT_FUNDS");
+			expect(err.reason).to.be.eq("insufficient funds for intrinsic transaction cost");
+		}
 	});
 });

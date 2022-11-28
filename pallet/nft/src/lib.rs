@@ -378,6 +378,17 @@ pub mod pallet {
 			T::WeightInfo::buy() * removed_count as Weight
 		}
 
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<(), &'static str> {
+			// This function is called before a runtime upgrade is executed. Here we can
+			// test if our remote data is in the desired state. It's important to say that
+			// pre_upgrade won't be called when a real runtime upgrade is executed.
+
+			log::info!("Pre Upgrade.");
+
+			Ok(())
+		}
+
 		fn on_runtime_upgrade() -> Weight {
 			use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 
@@ -402,6 +413,17 @@ pub mod pallet {
 			} else {
 				Zero::zero()
 			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade() -> Result<(), &'static str> {
+			// This function is called after a runtime upgrade is executed. Here we can
+			// test if the new state of blockchain data is valid. It's important to say that
+			// post_upgrade won't be called when a real runtime upgrade is executed.
+
+			log::info!("Post Upgrade.");
+
+			Ok(())
 		}
 	}
 

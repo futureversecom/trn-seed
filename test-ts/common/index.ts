@@ -34,6 +34,7 @@ export const FEE_PROXY_ADDRESS = "0x00000000000000000000000000000000000004bb";
 export const EVM_PALLET_INDEX = "27";
 // The current index of the pallet WithdrawFailed error
 export const WITHDRAW_FAILED_ERROR_INDEX = "0x03000000";
+export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 /** ABIs */
 
