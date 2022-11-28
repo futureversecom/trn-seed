@@ -15,9 +15,8 @@
 
 use super::*;
 use crate::mock::{AccountId, FeeProxy, System, Test, TestExt, XRP_ASSET_ID};
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use seed_primitives::{AssetId, Balance};
-use std::cmp::max;
 
 #[test]
 fn call_with_fee_preferences_works() {

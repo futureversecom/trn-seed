@@ -14,7 +14,7 @@ use frame_support::{
 	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
-use seed_primitives::{AccountId, AssetId, Balance};
+use seed_primitives::{AssetId, Balance};
 use sp_std::prelude::*;
 
 #[cfg(test)]
