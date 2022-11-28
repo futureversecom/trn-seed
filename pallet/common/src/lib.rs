@@ -237,12 +237,22 @@ pub trait EthereumBridge {
 	) -> Result<EventProofId, DispatchError>;
 }
 
-/// Interface for pallet-ethy and XRPL tx signing
-pub trait EthyXrplBridgeAdapter<AuthorityId> {
+/// Interface from xrpl-bridge to ethy
+pub trait XrplBridgeToEthyAdapter<AuthorityId> {
 	/// Request ethy generate a signature for the given tx data
 	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
 	/// Return the current set of Ethy validators
 	fn validators() -> Vec<AuthorityId>;
+	/// Return the current set of xrp validators
+	fn xrp_validators() -> Vec<AuthorityId>;
+}
+
+/// Interface from ethy to xrpl-bridge
+pub trait EthyToXrplBridgeAdapter<AccountId> {
+	/// Request xrpl-bridge to submit signer_list_set.
+	fn submit_signer_list_set_request(
+		_: Vec<(AccountId, u16)>,
+	) -> Result<EventProofId, DispatchError>;
 }
 
 #[derive(Encode, Decode, Debug, PartialEq, TypeInfo)]

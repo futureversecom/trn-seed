@@ -1,6 +1,6 @@
 [package]
 name = "seed-client"
-version = "0.0.25"
+version = "0.0.26"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 publish = false
@@ -57,7 +57,7 @@ pallet-transaction-payment = { git = "https://github.com/futureversecom/substrat
 fc-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
 fc-db = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
 fc-mapping-sync = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
-fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
+fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug", features = [ "rpc_binary_search_estimate" ] }
 fc-rpc-core = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
 fp-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
 fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
@@ -89,8 +89,11 @@ pallet-nft-rpc = { path = "../pallet/nft/rpc" }
 # Diagnostics
 log = "0.4.0"
 
+# Try Runtime
+frame-try-runtime = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27-debug" }
+try-runtime-cli = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27-debug" }
+
 # CLI-specific dependencies
-try-runtime-cli = { git = "https://github.com/futureversecom/substrate", optional = true , branch = "polkadot-v0.9.27-debug" }
 
 [build-dependencies]
 substrate-build-script-utils = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }

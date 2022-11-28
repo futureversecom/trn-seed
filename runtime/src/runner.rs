@@ -12,7 +12,10 @@ use precompile_utils::{
 use primitive_types::{H160, H256, U256};
 use seed_pallet_common::log;
 use seed_primitives::{AccountId, AssetId, Balance};
-use sp_runtime::traits::SaturatedConversion;
+use sp_runtime::{
+	traits::SaturatedConversion,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
 use sp_std::{marker::PhantomData, prelude::*};
 
 #[derive(Debug, Eq, PartialEq)]
@@ -25,7 +28,6 @@ pub enum FeePreferencesError {
 	FailedToDecodeInput,
 	InvalidPaymentAsset,
 	FeeExceedsMaxPayment,
-	UnknownError,
 }
 
 impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
@@ -35,6 +37,26 @@ impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
 			FeePreferencesError::GasPriceTooLow => pallet_evm::Error::GasPriceTooLow,
 			FeePreferencesError::FeeOverflow => pallet_evm::Error::FeeOverflow,
 			_ => pallet_evm::Error::WithdrawFailed,
+		}
+	}
+}
+
+impl From<FeePreferencesError> for TransactionValidityError {
+	fn from(error: FeePreferencesError) -> Self {
+		match error {
+			// Errors related to improperly designating a call or something "call-like" should all return an invalid call error
+			FeePreferencesError::InvalidFunctionSelector
+			| FeePreferencesError::InvalidInputArguments
+			| FeePreferencesError::FailedToDecodeInput
+			| FeePreferencesError::InvalidPaymentAsset => {
+				TransactionValidityError::Invalid(InvalidTransaction::Call)
+			},
+			FeePreferencesError::WithdrawFailed
+			| FeePreferencesError::GasPriceTooLow
+			| FeePreferencesError::FeeOverflow
+			| FeePreferencesError::FeeExceedsMaxPayment => {
+				TransactionValidityError::Invalid(InvalidTransaction::Payment)
+			},
 		}
 	}
 }
@@ -59,6 +81,36 @@ fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 		// it is lost in this divide operation
 		(quotient + 1).as_u128()
 	}
+}
+
+// Any data needed for computing fee preferences
+pub struct FeePreferencesData {
+	pub account: AccountId,
+	pub path: Vec<u32>,
+	pub total_fee_scaled: u128,
+}
+
+pub fn get_fee_preferences_data<T, U>(
+	source: &H160,
+	gas_limit: u64,
+	max_fee_per_gas: Option<U256>,
+	payment_asset_id: u32,
+) -> Result<FeePreferencesData, FeePreferencesError>
+where
+	T: pallet_evm::Config<AccountId = AccountId> + pallet_assets_ext::Config,
+	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
+{
+	let total_fee =
+		FeePreferencesRunner::<T, U>::calculate_total_gas(gas_limit, max_fee_per_gas, false)?;
+
+	let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
+	let decimals =
+		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(&gas_token_asset_id);
+	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
+
+	let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
+	let path = vec![payment_asset_id, gas_token_asset_id];
+	Ok(FeePreferencesData { total_fee_scaled, account, path })
 }
 
 /// seed implementation of the evm runner which handles the case where users are attempting
@@ -194,19 +246,14 @@ where
 			input = new_input;
 			target = new_target;
 
-			// let total_fee = U256::from(gas_limit) * gas_price;
-			let total_fee = Self::calculate_total_gas(gas_limit, max_fee_per_gas, is_transactional)
-				.map_err(|err| RunnerError { error: err.into(), weight })?;
-
-			let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
-			let decimals = <pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(
-				&gas_token_asset_id,
-			);
-			let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
-
-			// Buy the gas asset fee currency paying with the user's nominated token
-			let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source);
-			let path = vec![payment_asset_id, gas_token_asset_id];
+			let FeePreferencesData { account, path, total_fee_scaled } =
+				get_fee_preferences_data::<T, U>(
+					&source,
+					gas_limit,
+					max_fee_per_gas,
+					payment_asset_id,
+				)
+				.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
 
 			if total_fee_scaled > 0 {
 				// total_fee_scaled is 0 when user doesnt have gas asset currency

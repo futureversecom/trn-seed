@@ -32,10 +32,13 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use scale_info::TypeInfo;
 use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterResult,
-	FinalSessionTracker,
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter,
+	EventRouterResult, FinalSessionTracker,
 };
-use seed_primitives::{ethy::crypto::AuthorityId, AssetId, Balance, Signature};
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventProofId},
+	AssetId, Balance, Signature,
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
@@ -44,7 +47,7 @@ use sp_runtime::{
 	traits::{
 		BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify,
 	},
-	Percent,
+	DispatchError, Percent,
 };
 use std::{
 	sync::Arc,
@@ -137,6 +140,15 @@ impl Config for TestRuntime {
 	type Scheduler = Scheduler;
 	type PalletsOrigin = OriginCaller;
 	type MaxNewSigners = MaxNewSigners;
+	type XrplBridgeAdapter = MockXrplBridgeAdapter;
+}
+
+pub struct MockXrplBridgeAdapter;
+impl EthyToXrplBridgeAdapter<H160> for MockXrplBridgeAdapter {
+	/// Mock implementation of EthyToXrplBridgeAdapter
+	fn submit_signer_list_set_request(_: Vec<(H160, u16)>) -> Result<EventProofId, DispatchError> {
+		Ok(1)
+	}
 }
 
 parameter_types! {

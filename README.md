@@ -13,6 +13,14 @@ To run the project locally, first build the code, then run
 ./target/release/seed --dev
 ```
 
+## Development
+
+### Channel
+The project currently relies on the Rust Stable channel. Set this with
+```shell
+rustup default stable
+```
+
 ## Testing
 To test the project, run unit and E2E tests
 
@@ -26,10 +34,8 @@ Start the node, then run:
 ```shell
 cd test-ts
 yarn
-npx hardhat test
+yarn test
 ```
-Note: currently requires running one test at a time with `.only()`, until a solution for testing with fresh state is found
-
 
 ## Formatting/Linting
 ```
