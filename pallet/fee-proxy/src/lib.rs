@@ -17,14 +17,22 @@ use frame_system::pallet_prelude::*;
 use seed_primitives::{AssetId, Balance};
 use sp_std::prelude::*;
 
+mod impls;
 #[cfg(test)]
 mod mock;
+mod runner;
 #[cfg(test)]
 mod tests;
+pub use runner::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
+
+pub(crate) const LOG_TARGET: &str = "fee-preferences";
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use pallet_transaction_payment::OnChargeTransaction;
+	use precompile_utils::{Address, ErcIdConversion};
+	use seed_primitives::AccountId;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -32,7 +40,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config:
+		frame_system::Config<AccountId = AccountId> + pallet_transaction_payment::Config
+	{
 		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
@@ -48,6 +58,10 @@ pub mod pallet {
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type FeeAssetId: Get<AssetId>;
+		/// The OnChargeTransaction to route to after intercept
+		type OnChargeTransaction: OnChargeTransaction<Self>;
+		/// Convert EVM addresses into Runtime Id identifiers and vice versa
+		type ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>;
 	}
 
 	#[pallet::event]

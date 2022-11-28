@@ -4971,9 +4971,15 @@ dependencies = [
 name = "pallet-fee-proxy"
 version = "0.1.0"
 dependencies = [
+ "ethabi",
  "frame-support",
  "frame-system",
+ "pallet-assets-ext",
+ "pallet-dex",
+ "pallet-evm",
+ "pallet-transaction-payment",
  "parity-scale-codec",
+ "precompile-utils",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
@@ -7624,7 +7630,6 @@ dependencies = [
 name = "seed-runtime"
 version = "0.1.0"
 dependencies = [
- "ethabi",
  "ethereum",
  "evm",
  "fp-evm",

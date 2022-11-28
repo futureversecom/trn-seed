@@ -1,17 +1,33 @@
-use crate::Dex;
+/* Copyright 2019-2021 Centrality Investments Limited
+ *
+ * Licensed under the LGPL, Version 3.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * You may obtain a copy of the License at the root of this project source code,
+ * or at:
+ *     https://centrality.ai/licenses/gplv3.txt
+ *     https://centrality.ai/licenses/lgplv3.txt
+ */
+
+use crate::Config;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, traits::fungibles::InspectMetadata};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
 };
+use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use precompile_utils::{
 	constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, Address as EthAddress, ErcIdConversion,
 };
-// use primitive_types::{H160, H256, U256}; // TODO: use this instead of seed_pallet_common imports
-use primitive_types::{H160, H256, U256};
 use seed_pallet_common::log;
 use seed_primitives::{AccountId, AssetId, Balance};
+use sp_core::{H160, H256, U256};
+use sp_runtime::traits::Get;
 use sp_runtime::{
 	traits::SaturatedConversion,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
@@ -66,8 +82,6 @@ impl From<FeePreferencesError> for TransactionValidityError {
 /// bytes4(keccak256(bytes("callWithFeePreferences(address,uint128,address,bytes)")));
 /// TODO - use #[precompile_utils::generate_function_selector]
 const FEE_FUNCTION_SELECTOR: [u8; 4] = [0x25, 0x5a, 0x34, 0x32];
-/// Precompile address for fee preferences
-const FEE_PROXY_ADDRESS: u64 = 1211; // 0x04BB = 00000100 10111011
 
 /// Convert 18dp wei values to correct dp equivalents
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.000001 cpay
@@ -95,13 +109,13 @@ pub fn get_fee_preferences_data<T, U>(
 	payment_asset_id: u32,
 ) -> Result<FeePreferencesData, FeePreferencesError>
 where
-	T: pallet_evm::Config<AccountId = AccountId> + pallet_assets_ext::Config,
+	T: pallet_evm::Config<AccountId = AccountId> + pallet_assets_ext::Config + Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 {
 	let total_fee =
 		FeePreferencesRunner::<T, U>::calculate_total_gas(gas_limit, max_fee_per_gas, false)?;
 
-	let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
+	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
 	let decimals =
 		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(&gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
@@ -179,7 +193,10 @@ where
 
 impl<T, U> RunnerT<T> for FeePreferencesRunner<T, U>
 where
-	T: pallet_evm::Config<AccountId = AccountId> + pallet_assets_ext::Config,
+	T: pallet_evm::Config<AccountId = AccountId>
+		+ pallet_assets_ext::Config
+		+ pallet_dex::Config
+		+ Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
 {
@@ -250,10 +267,14 @@ where
 				<T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 			if total_fee_scaled > 0 {
 				// total_fee_scaled is 0 when user doesnt have gas asset currency
-				Dex::do_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
-					.map_err(|err| {
-						// TODO implement err into RunnerError
-						log!(
+				pallet_dex::Pallet::<T>::do_swap_with_exact_target(
+					&account,
+					total_fee_scaled,
+					max_payment,
+					&path,
+				)
+				.map_err(|err| {
+					log!(
 							error,
 							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
 							payment_asset_id,
@@ -262,8 +283,8 @@ where
 							err,
 							path
 						);
-						RunnerError { error: Self::Error::WithdrawFailed, weight }
-					})?;
+					RunnerError { error: Self::Error::WithdrawFailed, weight }
+				})?;
 			}
 		}
 

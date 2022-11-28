@@ -9,4 +9,7 @@ mod precompile_addresses {
 	pub const ERC20_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xCC; 4];
 	/// Precompile address for NFT
 	pub const NFT_PRECOMPILE: u64 = 1721;
+	/// The decoded location for the fee proxy function selector
+	/// 0x04BB = 00000100 10111011
+	pub const FEE_PROXY_ADDRESS: u64 = 1211;
 }

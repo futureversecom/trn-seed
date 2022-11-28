@@ -68,7 +68,6 @@ pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-fe
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 pallet-evm-precompiles-nft = { path = "../evm-precompiles/nft", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
-ethabi = { version = "17.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
@@ -173,7 +172,6 @@ std = [
 	"rustc-hex/std",
 	"pallet-erc20-peg/std",
 	"pallet-nft-peg/std",
-	"ethabi/std",
 	"evm/std",
 	"try-runtime-cli"
 ]

@@ -26,15 +26,12 @@ use frame_support::{
 	traits::{
 		fungible::Inspect,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, IsSubType, OnUnbalanced, SignedImbalance,
-		WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, OnUnbalanced, SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin};
-use pallet_transaction_payment::OnChargeTransaction;
 use sp_core::{H160, U256};
-use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
 	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
@@ -42,17 +39,16 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-use precompile_utils::{Address, ErcIdConversion};
+use precompile_utils::{constants::FEE_PROXY_ADDRESS, Address, ErcIdConversion};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
+use seed_primitives::{AccountId, Balance, Index, Signature};
 
-use crate::runner::get_fee_preferences_data;
 use crate::{
-	constants::FEE_PROXY, BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId,
-	Staking, System, UncheckedExtrinsic,
+	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
+	UncheckedExtrinsic,
 };
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -429,105 +425,13 @@ pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E
 
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
 	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
-		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY);
+		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY_ADDRESS);
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
 			// call default trait function instead
 			<() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
 		}
 		Ok(())
-	}
-}
-
-pub struct FeeProxyCurrencyAdapter<C, U>(PhantomData<(C, U)>);
-
-impl<T, C, U> OnChargeTransaction<T> for FeeProxyCurrencyAdapter<C, U>
-where
-	T: frame_system::Config<AccountId = AccountId>
-		+ pallet_transaction_payment::Config
-		+ pallet_fee_proxy::Config
-		+ pallet_dex::Config
-		+ pallet_evm::Config
-		+ pallet_assets_ext::Config,
-	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
-	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
-	C: OnChargeTransaction<T>,
-	U: ErcIdConversion<AssetId, EvmId = Address>,
-	Balance: From<<C as OnChargeTransaction<T>>::Balance>,
-{
-	type Balance = <C as OnChargeTransaction<T>>::Balance;
-	type LiquidityInfo = <C as OnChargeTransaction<T>>::LiquidityInfo;
-
-	/// Intercept the withdraw fee, and swap any tokens to gas tokens if the call is
-	/// pallet_fee_proxy.call_with_fee_preferences()
-	fn withdraw_fee(
-		who: &T::AccountId,
-		call: &<T as frame_system::Config>::Call,
-		info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
-		fee: Self::Balance,
-		tip: Self::Balance,
-	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-		// Check whether this call has specified fee preferences
-		if let Some(pallet_fee_proxy::Call::call_with_fee_preferences {
-			payment_asset,
-			max_payment,
-			call,
-			..
-		}) = <<T as frame_system::Config>::Call as IsSubType<pallet_fee_proxy::Call<T>>>::is_sub_type(
-			call,
-		) {
-			let mut total_fee: Balance = Balance::from(fee);
-			let native_asset = <T as pallet_fee_proxy::Config>::FeeAssetId::get();
-
-			// Check if the inner call is an evm call. This will increase total gas to swap
-			// This is required as the fee value here does not take into account the max
-			// fee from an evm call. For all other extrinsics, the fee parameter
-			// should cover all required fees.
-			if let Some(pallet_evm::Call::call { gas_limit, max_fee_per_gas, .. }) =
-				<<T as pallet_fee_proxy::Config>::Call as IsSubType<pallet_evm::Call<T>>>::is_sub_type(
-					call,
-				) {
-				if let Some(fee_preferences_data) =
-					get_fee_preferences_data::<T, U>(
-						*gas_limit,
-						Some(*max_fee_per_gas),
-						*payment_asset,
-					)
-					.ok()
-				{
-					total_fee = total_fee.saturating_add(fee_preferences_data.total_fee_scaled);
-				}
-			}
-
-			let path: &[AssetId] = &[*payment_asset, native_asset];
-			pallet_dex::Pallet::<T>::do_swap_with_exact_target(who, total_fee, *max_payment, path)
-				.map_err(|_| InvalidTransaction::Payment)?;
-		};
-
-		<C as OnChargeTransaction<T>>::withdraw_fee(who, call, info, fee, tip)
-	}
-
-	/// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.
-	/// Since the predicted fee might have been too high, parts of the fee may
-	/// be refunded.
-	///
-	/// Note: The `corrected_fee` already includes the `tip`.
-	fn correct_and_deposit_fee(
-		who: &T::AccountId,
-		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
-		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::Call>,
-		corrected_fee: Self::Balance,
-		tip: Self::Balance,
-		already_withdrawn: Self::LiquidityInfo,
-	) -> Result<(), TransactionValidityError> {
-		<C as OnChargeTransaction<T>>::correct_and_deposit_fee(
-			who,
-			dispatch_info,
-			post_info,
-			corrected_fee,
-			tip,
-			already_withdrawn,
-		)
 	}
 }
 

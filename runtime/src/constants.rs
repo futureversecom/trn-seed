@@ -87,7 +87,4 @@ mod constants {
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 	pub const HOURS: BlockNumber = MINUTES * 60;
 	pub const DAYS: BlockNumber = HOURS * 24;
-
-	/// The decoded location for the fee proxy function selector
-	pub const FEE_PROXY: u64 = 1211;
 }

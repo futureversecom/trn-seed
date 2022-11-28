@@ -91,6 +91,7 @@ use impls::{
 	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
 	PercentageOfWeight, SlashImbalanceHandler, StakingSessionTracker,
 };
+use pallet_fee_proxy::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
 
 pub mod precompiles;
 use precompiles::FutureversePrecompiles;
@@ -98,13 +99,10 @@ use precompiles::FutureversePrecompiles;
 mod staking;
 use staking::OnChainAccuracy;
 
-pub mod runner;
-use crate::impls::{FeeProxyCurrencyAdapter, FutureverseEnsureAddressSame, OnNewAssetSubscription};
-use runner::{FeePreferencesData, FeePreferencesRunner};
+use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
-use crate::constants::FEE_PROXY;
+use precompile_utils::constants::FEE_PROXY_ADDRESS;
 
-pub(crate) const LOG_TARGET: &str = "runtime";
 #[cfg(test)]
 mod tests;
 
@@ -246,10 +244,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = FeeProxyCurrencyAdapter<
-		pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>,
-		Self,
-	>;
+	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
 	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -350,6 +345,8 @@ impl pallet_fee_proxy::Config for Runtime {
 	type Event = Event;
 	type PalletsOrigin = OriginCaller;
 	type FeeAssetId = XrpAssetId;
+	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
+	type ErcIdConversion = Self;
 }
 
 parameter_types! {
@@ -1441,7 +1438,7 @@ fn transaction_asset_check(
 	eth_tx: EthereumTransaction,
 	action: TransactionAction,
 ) -> Result<(), TransactionValidityError> {
-	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY));
+	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY_ADDRESS));
 
 	if action == fee_proxy {
 		let (input, gas_limit, max_fee_per_gas) = match eth_tx {
@@ -1453,7 +1450,7 @@ fn transaction_asset_check(
 		let (payment_asset_id, max_payment, _target, _input) =
 			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
 		let FeePreferencesData { path, total_fee_scaled } =
-			runner::get_fee_preferences_data::<Runtime, Runtime>(
+			get_fee_preferences_data::<Runtime, Runtime>(
 				gas_limit.as_u64(),
 				max_fee_per_gas,
 				payment_asset_id,
