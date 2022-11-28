@@ -1420,7 +1420,7 @@ fn transaction_asset_check(
 
 		let (payment_asset_id, max_payment, _target, _input) =
 			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
-		let FeePreferencesData { account: _, path, gas_token_asset_id: _, total_fee_scaled } =
+		let FeePreferencesData { account: _, path, total_fee_scaled } =
 			runner::get_fee_preferences_data::<Runtime, Runtime>(
 				source,
 				gas_limit.as_u64(),

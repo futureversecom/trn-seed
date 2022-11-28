@@ -71,7 +71,7 @@ const FEE_PROXY_ADDRESS: u64 = 1211; // 0x04BB = 00000100 10111011
 
 /// Convert 18dp wei values to correct dp equivalents
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.000001 cpay
-pub fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
+fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
 	let (quotient, remainder) = (value / unit_value, value % unit_value);
 	if remainder == U256::from(0) {
@@ -87,7 +87,6 @@ pub fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 pub struct FeePreferencesData {
 	pub account: AccountId,
 	pub path: Vec<u32>,
-	pub gas_token_asset_id: u32,
 	pub total_fee_scaled: u128,
 }
 
@@ -111,8 +110,7 @@ where
 
 	let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 	let path = vec![payment_asset_id, gas_token_asset_id];
-
-	Ok(FeePreferencesData { gas_token_asset_id, total_fee_scaled, account, path })
+	Ok(FeePreferencesData { total_fee_scaled, account, path })
 }
 
 /// seed implementation of the evm runner which handles the case where users are attempting
@@ -248,7 +246,7 @@ where
 			input = new_input;
 			target = new_target;
 
-			let FeePreferencesData { account, path, gas_token_asset_id: _, total_fee_scaled } =
+			let FeePreferencesData { account, path, total_fee_scaled } =
 				get_fee_preferences_data::<T, U>(
 					&source,
 					gas_limit,
