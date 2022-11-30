@@ -317,6 +317,8 @@ pub mod pallet {
 		OfferCancel { offer_id: OfferId, token_id: TokenId },
 		/// An offer has been cancelled
 		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
+		/// An offer has been cancelled
+		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
 
 	#[pallet::error]
@@ -440,13 +442,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _who = ensure_root(origin);
 
-			if let Some(mut collection_info) = Self::collection_info(collection_id) {
-				ensure!(
-					collection_info.owner == T::PalletId::get().into_account_truncating(),
-					Error::<T>::NoPermission
-				);
-				collection_info.owner = new_owner;
-			};
+			CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection| -> DispatchResult {
+				let collection = maybe_collection.as_mut().ok_or(Error::<T>::NoCollection)?;
+				ensure!(collection.owner == Self::account_id(), Error::<T>::NoPermission);
+
+				collection.owner = new_owner.clone();
+				Ok(())
+			})?;
+			let event = Event::<T>::CollectionClaimed { account: new_owner, collection_id };
+			Self::deposit_event(event);
+
 			Ok(())
 		}
 
@@ -1135,5 +1140,12 @@ pub mod pallet {
 				Err(Error::<T>::InvalidOffer.into())
 			}
 		}
+	}
+}
+
+impl<T: Config> Pallet<T>  {
+	/// The account ID of the auctions pot.
+	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
 	}
 }
