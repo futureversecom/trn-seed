@@ -35,6 +35,12 @@ jobs:
         uses: actions/checkout@v3
       - name: Install toolchain
         run: rustup show
+      - name: Ls
+        run: |
+          ls -a
+      - name: Remove ovveride
+        run: |
+          rustup override unset
       - name: Format
         run: |
           cargo -V
