@@ -9,12 +9,11 @@ use sc_cli::Result;
 use sc_client_api::BlockBackend;
 use seed_primitives::EthereumSigner;
 use seed_runtime as runtime;
-use sp_core::Encode;
-use sp_core::Pair;
+use sp_core::{Encode, Pair};
 use sp_inherents::{InherentData, InherentDataProvider};
-use sp_runtime::generic::SignedPayload;
-use sp_runtime::traits::IdentifyAccount;
-use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
+use sp_runtime::{
+	generic::SignedPayload, traits::IdentifyAccount, OpaqueExtrinsic, SaturatedConversion,
+};
 
 use std::{sync::Arc, time::Duration};
 
