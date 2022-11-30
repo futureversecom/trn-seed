@@ -15,10 +15,10 @@ To run the project locally, first build the code, then run
 
 ## Development
 
-### Channel
-The project currently relies on the Rust Stable channel. Set this with
+### Getting the right toolchain
+To get the right toolchain execute the following command:
 ```shell
-rustup default stable
+rustup show
 ```
 
 ## Testing

@@ -34,14 +34,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
       - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          components: rustfmt
-          default: true
-          override: true
+        run: rustup show
       - name: Format
         run: |
           cargo -V
@@ -49,10 +42,10 @@ jobs:
       - name: Build
         run: |
           cargo -V
-          cargo check --release
+          cargo check --release --all-features
       - name: Test
         run: |
           cargo -V
-          cargo test --workspace
+          cargo test --workspace --all-features
       #- name: Benchmark (build only)
       #  run: cargo check --features=runtime-benchmarks
