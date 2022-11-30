@@ -75,8 +75,8 @@ substrate-frame-rpc-system = { git = "https://github.com/futureversecom/substrat
 pallet-transaction-payment-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/futureversecom/substrate", optional = true , branch = "polkadot-v0.9.27-debug" }
-frame-benchmarking-cli = { git = "https://github.com/futureversecom/substrate", optional = true , branch = "polkadot-v0.9.27-debug" }
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27-debug" }
+frame-benchmarking-cli = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27-debug" }
 
 # Local Dependencies
 ethy-gadget = { path = "../ethy-gadget" }
@@ -100,7 +100,7 @@ substrate-build-script-utils = { git = "https://github.com/futureversecom/substr
 
 [features]
 default = []
-runtime-benchmarks = ["frame-benchmarking", "frame-benchmarking-cli"]
+runtime-benchmarks = ["frame-benchmarking", "frame-benchmarking-cli", "seed-runtime/runtime-benchmarks"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = ["seed-runtime/try-runtime", "try-runtime-cli"]
