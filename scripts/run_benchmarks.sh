@@ -28,6 +28,9 @@ CHAIN="dev"
 
 EXECUTION_MODE="Normal"
 LIST_PALLETS=false
+USE_TEMPLATE=false
+TEMPLATE_LOCATION="./scripts/pallet_template.hbs"
+TEMPLATE_ARG=""
 
 if [ $# -eq 0 ]; then
     echo "Select modus operandi: "
@@ -85,18 +88,36 @@ if [ $# -eq 0 ]; then
                 ;;
             esac
         done
+        
+        echo "Do you want to generate weights for runtime or generate weightinfo for pallet?"
+        select opt in Runtime-Weights Pallet-WeightInfo; do
+            case $opt in
+                Runtime-Weights)
+                    USE_TEMPLATE=false
+                    break
+                ;;
+                Pallet-WeightInfo)
+                    USE_TEMPLATE=true
+                    break
+                ;;
+                *)
+                    echo "Invalid option $REPLY"
+                ;;
+            esac
+        done
     fi
 fi
 
 
 # Read flags
-while getopts dqfblp: flag
+while getopts dqfblp:t flag
 do
     case "${flag}" in
         f) EXECUTION_MODE="Fast";;
         q) EXECUTION_MODE="Lightspeed";;
         p) PALLET=${OPTARG};;
         l) LIST_PALLETS=true;;
+        t) USE_TEMPLATE=true;;
     esac
 done
 
@@ -109,6 +130,10 @@ fi
 if [ "$EXECUTION_MODE" = "Lightspeed" ]; then
     STEPS=2
     REPEAT=1
+fi
+
+if "$USE_TEMPLATE"; then
+    TEMPLATE_ARG="--template $TEMPLATE_LOCATION"
 fi
 
 START_TIMER_1=$(date +%s)
@@ -162,8 +187,6 @@ if "$LIST_PALLETS"; then
     exit 0;
 fi
 
-
-
 ERR_FILE="$OUTPUT_FOLDER/benchmarking_errors.txt"
 # Delete the error file before each run.
 rm -f $ERR_FILE
@@ -186,7 +209,7 @@ for PALLET in "${PALLETS[@]}"; do
     
     echo "[+] Benchmarking $PALLET";
     
-    OUTPUT=$(./target/$MODE/seed benchmark pallet --chain=$CHAIN --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output $OUTPUT_FOLDER 2>&1 )
+    OUTPUT=$(./target/$MODE/seed benchmark pallet --chain=$CHAIN --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 $TEMPLATE_ARG --output $OUTPUT_FOLDER 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
         echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
