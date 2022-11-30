@@ -1147,10 +1147,3 @@ pub mod pallet {
 		}
 	}
 }
-
-impl<T: Config> Pallet<T> {
-	/// The account ID of the auctions pot.
-	pub fn account_id() -> T::AccountId {
-		T::PalletId::get().into_account_truncating()
-	}
-}

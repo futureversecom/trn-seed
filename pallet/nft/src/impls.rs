@@ -659,6 +659,11 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+	/// The account ID of the auctions pot.
+	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
+	}
 }
 
 // Interface for getting ownership of an NFT
