@@ -45,7 +45,7 @@ pub use frame_support::{
 	dispatch::GetDispatchInfo,
 	ensure, parameter_types,
 	traits::{
-		fungibles::InspectMetadata, ConstU32, CurrencyToVote, Everything, IsInVec,
+		fungibles::{Inspect, InspectMetadata}, ConstU32, CurrencyToVote, Everything, IsInVec,
 		KeyOwnerProofSystem, Randomness,
 	},
 	weights::{
@@ -1443,6 +1443,16 @@ fn transaction_asset_check(
 
 		let (payment_asset_id, max_payment, _target, _input) =
 			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
+		// ensure user owns max payment amount
+		let user_asset_balance = <pallet_assets_ext::Pallet<Runtime> as Inspect<<Runtime as frame_system::Config>::AccountId>>::reducible_balance(
+			payment_asset_id,
+			&<Runtime as frame_system::Config>::AccountId::from(*source),
+			false,
+		);
+		ensure!(
+			user_asset_balance >= max_payment,
+			TransactionValidityError::Invalid(InvalidTransaction::Payment)
+		);
 		let FeePreferencesData { account: _, path, total_fee_scaled } =
 			runner::get_fee_preferences_data::<Runtime, Runtime>(
 				source,
