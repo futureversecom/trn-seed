@@ -315,9 +315,9 @@ pub mod pallet {
 		},
 		/// An offer has been cancelled
 		OfferCancel { offer_id: OfferId, token_id: TokenId },
-		/// An offer has been cancelled
+		/// An offer has been accepted
 		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
-		/// An offer has been cancelled
+		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
 

@@ -27,8 +27,7 @@ use frame_support::{
 use frame_system::RawOrigin;
 use seed_primitives::TokenId;
 use sp_core::H160;
-use sp_runtime::DispatchError::BadOrigin;
-use sp_runtime::Permill;
+use sp_runtime::{DispatchError::BadOrigin, Permill};
 use sp_std::collections::btree_map::BTreeMap;
 
 // Create an NFT collection
@@ -3046,7 +3045,6 @@ mod claim_unowned_collection {
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let new_owner = ALICE;
 
-			//assert_ok!(Nft::create_collection(RawOrigin::Signed(pallet_account.clone()).into(), "My Collection".into(), 0, None, None, metadata, None));
 			let ok = Nft::claim_unowned_collection(
 				RawOrigin::Root.into(),
 				collection_id,
