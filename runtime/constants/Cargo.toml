@@ -1,0 +1,15 @@
+[package]
+name = "seed-runtime-constants"
+version = "0.9.28"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2021"
+
+[dependencies]
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"sp-runtime/std"
+]

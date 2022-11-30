@@ -7753,6 +7753,7 @@ dependencies = [
  "seed-client",
  "seed-pallet-common",
  "seed-primitives",
+ "seed-runtime-constants",
  "serde",
  "sp-api",
  "sp-block-builder",
@@ -7770,6 +7771,14 @@ dependencies = [
  "sp-version",
  "substrate-wasm-builder",
  "try-runtime-cli",
+]
+
+[[package]]
+name = "seed-runtime-constants"
+version = "0.9.28"
+dependencies = [
+ "frame-support",
+ "sp-runtime",
 ]
 
 [[package]]
