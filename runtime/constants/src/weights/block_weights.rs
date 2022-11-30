@@ -17,15 +17,15 @@
 
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2022-11-24 (Y/M/D)
-//! HOSTNAME: `fedora`, CPU: `13th Gen Intel(R) Core(TM) i7-13700K`
+//! HOSTNAME: `ip-172-31-40-128`, CPU: `Intel(R) Xeon(R) CPU E5-2676 v3 @ 2.40GHz`
 //!
 //! SHORT-NAME: `block`, LONG-NAME: `BlockExecution`, RUNTIME: `Seed Dev`
 //! WARMUPS: `10`, REPEAT: `100`
-//! WEIGHT-PATH: `./runtime/constants/src/weights/`
+//! WEIGHT-PATH: `./output`
 //! WEIGHT-METRIC: `Average`, WEIGHT-MUL: `1.0`, WEIGHT-ADD: `0`
 
 // Executed Command:
-//   ./target/release/seed
+//   ./seed
 //   benchmark
 //   overhead
 //   --chain=dev
@@ -33,7 +33,7 @@
 //   --wasm-execution=compiled
 //   --warmup=10
 //   --repeat=100
-//   --weight-path=./runtime/constants/src/weights/
+//   --weight-path=./output
 
 use frame_support::{
 	parameter_types,
@@ -45,16 +45,16 @@ parameter_types! {
 	/// Calculated by multiplying the *Average* with `1.0` and adding `0`.
 	///
 	/// Stats nanoseconds:
-	///   Min, Max: 2_967_776, 3_218_448
-	///   Average:  3_058_865
-	///   Median:   3_064_143
-	///   Std-Dev:  45202.16
+	///   Min, Max: 8_309_216, 8_709_023
+	///   Average:  8_503_864
+	///   Median:   8_505_290
+	///   Std-Dev:  71444.14
 	///
 	/// Percentiles nanoseconds:
-	///   99th: 3_195_503
-	///   95th: 3_134_552
-	///   75th: 3_077_808
-	pub const BlockExecutionWeight: Weight = 3_058_865 * WEIGHT_PER_NANOS;
+	///   99th: 8_675_766
+	///   95th: 8_619_674
+	///   75th: 8_539_607
+	pub const BlockExecutionWeight: Weight = 8_503_864 * WEIGHT_PER_NANOS;
 }
 
 #[cfg(test)]
