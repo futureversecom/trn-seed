@@ -156,8 +156,8 @@ fn withdraw_request_works() {
 		// For this test we will set the door_tx_fee to 0
 		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
 
-		let door = XrplAddress::from_slice(b"5490B68F2d16B3E87cba");
-		let destination = XrplAddress::from_slice(b"6490B68F1116BFE87DDD");
+		let door = XrplAccountId::from_slice(b"5490B68F2d16B3E87cba");
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		let account_address = b"6490B68F1116BFE87DDC";
 		let account = create_account(account_address);
 		process_transaction(account_address); // 2000 XRP deposited
@@ -204,7 +204,7 @@ fn withdraw_request_works_with_door_fee() {
 		let account_address = b"6490B68F1116BFE87DDC";
 		let account = create_account(account_address);
 		process_transaction(account_address); // 2000 XRP deposited
-		let destination = XrplAddress::from_slice(b"6490B68F1116BFE87DDD");
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		let initial_xrp_balance = xrp_balance_of(account_address);
 		let withdraw_amount: u64 = 1_000;
 
@@ -259,7 +259,7 @@ fn withdraw_request_burn_fails() {
 		assert_ok!(XRPLBridge::set_door_address(Origin::root(), b"6490B68F1116BFE87DDC".into()));
 
 		let account = create_account(b"6490B68F1116BFE87DDC");
-		let destination = XrplAddress::from_slice(b"6490B68F1116BFE87DDD");
+		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination),
 			ArithmeticError::Underflow
@@ -280,7 +280,7 @@ fn set_door_address_success() {
 fn set_door_address_fail() {
 	new_test_ext().execute_with(|| {
 		let xprl_door_address = b"6490B68F1116BFE87DDD";
-		let caller = XrplAddress::from_low_u64_be(1);
+		let caller = XrplAccountId::from_low_u64_be(1);
 		assert_noop!(
 			XRPLBridge::set_door_address(
 				Origin::signed(AccountId::from(caller)),

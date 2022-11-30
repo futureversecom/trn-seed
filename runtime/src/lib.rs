@@ -118,7 +118,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 22,
+	spec_version: 23,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -794,6 +794,8 @@ impl pallet_ethy::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	/// Max Xrpl notary (validator) public keys
 	type MaxXrplKeys = MaxXrplKeys;
+	/// Xrpl-bridge adapter
+	type XrplBridgeAdapter = XRPLBridge;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {

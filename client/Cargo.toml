@@ -1,6 +1,6 @@
 [package]
 name = "seed-client"
-version = "0.0.26"
+version = "0.0.27"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 publish = false
