@@ -3040,7 +3040,7 @@ mod claim_unowned_collection {
 	}
 
 	#[test]
-	fn collection_needs_to_exists() {
+	fn collection_needs_to_exist() {
 		TestExt::default().build().execute_with(|| {
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let new_owner = ALICE;
