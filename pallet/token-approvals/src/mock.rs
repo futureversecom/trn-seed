@@ -152,9 +152,9 @@ impl GetTokenOwner for MockTokenOwner {
 	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId> {
 		let test_account: Self::AccountId = 10;
 		if token_id == &(0u32, 0u32) {
-			return Some(test_account);
+			return Some(test_account)
 		}
-		return None;
+		return None
 	}
 }
 

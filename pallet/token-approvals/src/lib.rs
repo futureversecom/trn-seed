@@ -121,8 +121,8 @@ pub mod pallet {
 					ERC721ApprovalsForAll::<T>::insert(owner, (collection_id, spender), true);
 				}
 
-				return 6_000_000 as Weight
-					+ DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1);
+				return 6_000_000 as Weight +
+					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
 			} else {
 				Zero::zero()
 			}
@@ -254,7 +254,7 @@ impl<T: Config> Pallet<T> {
 		// Check if spender is owner
 		let token_owner = T::GetTokenOwner::get_owner(&token_id);
 		if Some(spender.clone()) == token_owner {
-			return true;
+			return true
 		}
 
 		// Check approvalForAll
@@ -262,7 +262,7 @@ impl<T: Config> Pallet<T> {
 			if Self::erc721_approvals_for_all(owner, (token_id.0, spender.clone()))
 				.unwrap_or_default()
 			{
-				return true;
+				return true
 			}
 		}
 

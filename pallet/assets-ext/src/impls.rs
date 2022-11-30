@@ -102,7 +102,7 @@ where
 		new_balance: Self::Balance,
 	) -> DispatchResult {
 		if amount.is_zero() {
-			return Ok(());
+			return Ok(())
 		}
 		let min_balance = Self::free_balance(who);
 		ensure!(new_balance >= min_balance, pallet_assets::Error::<T>::BalanceLow);
@@ -136,7 +136,7 @@ where
 	) -> Result<Self::PositiveImbalance, DispatchError> {
 		// used by pallet-transaction payment & pallet-staking
 		if value.is_zero() {
-			return Ok(PositiveImbalance::new(0, U::get()));
+			return Ok(PositiveImbalance::new(0, U::get()))
 		}
 		<pallet_assets::Pallet<T>>::increase_balance(U::get(), who, value)?;
 		<Pallet<T>>::deposit_event(Event::InternalDeposit {
@@ -173,18 +173,18 @@ where
 				WithdrawReasons::all(),
 				ExistenceRequirement::AllowDeath,
 			) {
-				return SignedImbalance::Negative(n);
+				return SignedImbalance::Negative(n)
 			}
 		}
 
 		if let Some(increase_by) = new_balance.checked_sub(free) {
 			let p = Self::deposit_creating(who, increase_by);
-			return SignedImbalance::Positive(p);
+			return SignedImbalance::Positive(p)
 		}
 
 		// no change to balance
 		// either withdraw failed or free == new_balance
-		return SignedImbalance::Positive(PositiveImbalance::default());
+		return SignedImbalance::Positive(PositiveImbalance::default())
 	}
 	// unused staking/inflation related methods
 	fn can_slash(_who: &T::AccountId, _value: Self::Balance) -> bool {
