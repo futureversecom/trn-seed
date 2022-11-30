@@ -42,7 +42,7 @@ jobs:
       - name: Build
         run: |
           cargo -V
-          cargo check --release
+          cargo check --release --all-features
       - name: Test
         run: |
           cargo -V
