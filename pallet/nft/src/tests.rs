@@ -14,11 +14,13 @@
  */
 
 use super::*;
-use crate::mock::{
-	has_event, AccountId, AssetsExt, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
+use crate::{
+	mock::{
+		has_event, AccountId, AssetsExt, Event as MockEvent, NativeAssetId, Nft, NftPalletId,
+		System, Test, TestExt, ALICE, BOB,
+	},
+	Event as NftEvent,
 };
-use crate::mock::{Event as MockEvent, ALICE, BOB};
-use crate::Event as NftEvent;
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
