@@ -100,7 +100,7 @@ substrate-build-script-utils = { git = "https://github.com/futureversecom/substr
 
 [features]
 default = []
-runtime-benchmarks = ["frame-benchmarking", "frame-benchmarking-cli"]
+runtime-benchmarks = ["frame-benchmarking", "frame-benchmarking-cli", "seed-runtime/runtime-benchmarks"]
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
 try-runtime = ["seed-runtime/try-runtime", "try-runtime-cli"]

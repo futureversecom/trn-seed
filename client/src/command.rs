@@ -7,6 +7,9 @@ use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 use seed_runtime::Block;
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_benchmarking_cli::BenchmarkCmd;
+
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
 		"Seed 🌱".into()
@@ -103,6 +106,29 @@ pub fn run() -> sc_cli::Result<()> {
 					Ok(())
 				});
 				Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
+			})
+		},
+		#[cfg(feature = "runtime-benchmarks")]
+		Some(Subcommand::Benchmark(cmd)) => {
+			let runner = cli.create_runner(cmd)?;
+
+			runner.sync_run(|config| {
+				// This switch needs to be in the client, since the client decides
+				// which sub-commands it wants to support.
+				match cmd {
+					BenchmarkCmd::Pallet(cmd) => {
+						if !cfg!(feature = "runtime-benchmarks") {
+							return Err(
+								"Runtime benchmarking wasn't enabled when building the node. \
+							You can enable it with `--features runtime-benchmarks`."
+									.into(),
+							)
+						}
+
+						cmd.run::<Block, service::ExecutorDispatch>(config)
+					},
+					_ => panic!("Welp"),
+				}
 			})
 		},
 		#[cfg(feature = "try-runtime")]
