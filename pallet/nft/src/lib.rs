@@ -367,6 +367,8 @@ pub mod pallet {
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
+		/// Cannot claim already claimed collections
+		CannotClaimNonClaimableCollections,
 	}
 
 	#[pallet::hooks]
@@ -440,11 +442,11 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
-			let _who = ensure_root(origin);
+			let _who = ensure_root(origin)?;
 
 			CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection| -> DispatchResult {
 				let collection = maybe_collection.as_mut().ok_or(Error::<T>::NoCollection)?;
-				ensure!(collection.owner == Self::account_id(), Error::<T>::NoPermission);
+				ensure!(collection.owner == Self::account_id(), Error::<T>::CannotClaimNonClaimableCollections);
 
 				collection.owner = new_owner.clone();
 				Ok(())
