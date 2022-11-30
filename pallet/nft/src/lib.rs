@@ -315,8 +315,10 @@ pub mod pallet {
 		},
 		/// An offer has been cancelled
 		OfferCancel { offer_id: OfferId, token_id: TokenId },
-		/// An offer has been cancelled
+		/// An offer has been accepted
 		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
+		/// Collection has been claimed
+		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
 
 	#[pallet::error]
@@ -365,6 +367,8 @@ pub mod pallet {
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
+		/// Cannot claim already claimed collections
+		CannotClaimNonClaimableCollections,
 	}
 
 	#[pallet::hooks]
@@ -429,7 +433,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(10000)]
+		#[pallet::weight(T::WeightInfo::claim_unowned_collection())]
 		/// Bridged collections from Ethereum will initially lack an owner. These collections will
 		/// be assigned to the pallet. This allows for claiming those collections assuming they were
 		/// assigned to the pallet
@@ -438,15 +442,21 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
-			let _who = ensure_root(origin);
+			let _who = ensure_root(origin)?;
 
-			if let Some(mut collection_info) = Self::collection_info(collection_id) {
+			CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection| -> DispatchResult {
+				let collection = maybe_collection.as_mut().ok_or(Error::<T>::NoCollection)?;
 				ensure!(
-					collection_info.owner == T::PalletId::get().into_account_truncating(),
-					Error::<T>::NoPermission
+					collection.owner == Self::account_id(),
+					Error::<T>::CannotClaimNonClaimableCollections
 				);
-				collection_info.owner = new_owner;
-			};
+
+				collection.owner = new_owner.clone();
+				Ok(())
+			})?;
+			let event = Event::<T>::CollectionClaimed { account: new_owner, collection_id };
+			Self::deposit_event(event);
+
 			Ok(())
 		}
 
