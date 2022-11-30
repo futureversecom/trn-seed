@@ -1458,7 +1458,7 @@ fn transaction_asset_check(
 				amounts[0] <= max_payment,
 				TransactionValidityError::Invalid(InvalidTransaction::Payment)
 			);
-			return Ok(());
+			return Ok(())
 		}
 	}
 	Ok(())
@@ -1488,9 +1488,8 @@ impl fp_self_contained::SelfContainedCall for Call {
 		len: usize,
 	) -> Option<TransactionValidity> {
 		match self {
-			Call::Ethereum(ref call) => {
-				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len))
-			},
+			Call::Ethereum(ref call) =>
+				Some(validate_self_contained_inner(&self, &call, signed_info, dispatch_info, len)),
 			_ => None,
 		}
 	}
@@ -1502,9 +1501,8 @@ impl fp_self_contained::SelfContainedCall for Call {
 		len: usize,
 	) -> Option<Result<(), TransactionValidityError>> {
 		match self {
-			Call::Ethereum(call) => {
-				call.pre_dispatch_self_contained(signed_info, dispatch_info, len)
-			},
+			Call::Ethereum(call) =>
+				call.pre_dispatch_self_contained(signed_info, dispatch_info, len),
 			_ => None,
 		}
 	}
@@ -1546,9 +1544,8 @@ fn validate_self_contained_inner(
 
 		// Perform tx submitter asset balance checks required for fee proxying
 		match call.clone() {
-			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) => {
-				transaction_asset_check(signed_info, transaction, action)
-			},
+			Call::Ethereum(pallet_ethereum::Call::transact { transaction }) =>
+				transaction_asset_check(signed_info, transaction, action),
 			_ => Ok(()),
 		}?;
 

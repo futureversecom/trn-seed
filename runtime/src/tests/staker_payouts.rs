@@ -113,9 +113,9 @@ fn era_payout_redistributes_era_tx_fees() {
 		// Tx fees are taken from the user and added to the 'tx fee pot'
 		let tx_fee_pot_era0_balance = TxFeePot::era_pot_balance();
 		assert!(
-			tx_fee_pot_era0_balance > 0
-				&& XrpCurrency::balance(&charlie()) + tx_fee_pot_era0_balance
-					== charlie_initial_balance
+			tx_fee_pot_era0_balance > 0 &&
+				XrpCurrency::balance(&charlie()) + tx_fee_pot_era0_balance ==
+					charlie_initial_balance
 		);
 		// after tx fee paid, issuance ok
 		assert_eq!(genesis_xrp_issuance, XrpCurrency::total_issuance());

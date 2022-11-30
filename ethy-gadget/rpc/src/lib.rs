@@ -135,7 +135,7 @@ where
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let event_proof_response =
 						build_event_proof_response::<R, B>(&self.runtime, versioned_proof);
-					return Ok(event_proof_response);
+					return Ok(event_proof_response)
 				}
 			}
 		}
@@ -159,7 +159,7 @@ where
 				if let Ok(versioned_proof) = VersionedEventProof::decode(&mut &encoded_proof[..]) {
 					let response =
 						build_xrpl_tx_proof_response::<R, B>(&self.runtime, versioned_proof);
-					return Ok(response);
+					return Ok(response)
 				}
 			}
 		}
@@ -233,7 +233,8 @@ where
 					.filter(|(i, _)| {
 						let pub_key = validator_set.validators.get(*i as usize);
 						if let Some(pub_key) = pub_key {
-							// we only care about the availability of the pub_key in xrpl_validator_set or not, doesn't matter the position.
+							// we only care about the availability of the pub_key in
+							// xrpl_validator_set or not, doesn't matter the position.
 							match xrpl_validator_set.authority_index(pub_key) {
 								Some(_) => {
 									xrpl_signer_set.push(Bytes::from(

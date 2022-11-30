@@ -126,12 +126,12 @@ where
 			let maybe_known = known_votes.get(&event_id).map(|v| v.binary_search(&authority_id));
 			if let Some(Ok(_)) = maybe_known {
 				trace!(target: "ethy", "💎 witness from: {:?}, event: {:?} is already known", &authority_id, event_id);
-				return ValidationResult::Discard;
+				return ValidationResult::Discard
 			}
 
 			if !self.active_validators.read().iter().any(|v| *v == authority_id) {
 				trace!(target: "ethy", "💎 witness from: {:?}, event: {:?} is not an active authority", &authority_id, event_id);
-				return ValidationResult::Discard;
+				return ValidationResult::Discard
 			}
 
 			// verify witness is a valid signature for `digest`, this does NOT guarantee digest is
@@ -156,7 +156,7 @@ where
 				}
 
 				trace!(target: "ethy", "💎 valid witness: {:?}, event: {:?}", &authority_id, event_id);
-				return ValidationResult::ProcessAndKeep(self.topic);
+				return ValidationResult::ProcessAndKeep(self.topic)
 			} else {
 				// TODO: decrease peer reputation
 				warn!(target: "ethy", "💎 bad signature: {:?}, event: {:?}", authority_id, event_id);
@@ -200,7 +200,7 @@ where
 		let complete_events = self.complete_events.read();
 		Box::new(move |_who, intent, _topic, mut data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
-				return do_rebroadcast;
+				return do_rebroadcast
 			}
 
 			let witness = match Witness::decode(&mut data) {

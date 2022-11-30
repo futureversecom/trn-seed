@@ -175,7 +175,8 @@ pub mod pallet {
 				StorageVersion::new(1).put::<Self>();
 
 				// Add evm code root and XRP assets
-				// Hardcoded asset ids to avoid the need to pull in seed_runtime crate purely for runtime upgrade
+				// Hardcoded asset ids to avoid the need to pull in seed_runtime crate purely for
+				// runtime upgrade
 				T::OnNewAssetSubscription::on_asset_create(1, ERC20_PRECOMPILE_ADDRESS_PREFIX);
 				T::OnNewAssetSubscription::on_asset_create(2, ERC20_PRECOMPILE_ADDRESS_PREFIX);
 				let mut weight = 2 as Weight;
@@ -193,8 +194,8 @@ pub mod pallet {
 					}
 				}
 
-				return 6_000_000 as Weight
-					+ DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1);
+				return 6_000_000 as Weight +
+					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
 			} else {
 				Zero::zero()
 			}

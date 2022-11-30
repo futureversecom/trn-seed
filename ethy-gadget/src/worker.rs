@@ -193,7 +193,7 @@ where
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue;
+					continue
 				},
 			};
 			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
@@ -223,14 +223,14 @@ where
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue;
+					continue
 				},
 			};
 			let signature = match self.key_store.sign_prehashed(&authority_id, &digest) {
 				Ok(sig) => sig,
 				Err(err) => {
 					error!(target: "ethy", "💎 error signing witness: {:?}", err);
-					continue;
+					continue
 				},
 			};
 
@@ -268,7 +268,7 @@ where
 		// On start-up ignore old finality notifications that we're not interested in.
 		if number <= *self.best_grandpa_block_header.number() {
 			debug!(target: "ethy", "💎 unexpected finality for old block #{:?}", number);
-			return;
+			return
 		}
 
 		// block finality notifications are un-reliable and may skip block numbers but ethy requires
@@ -301,9 +301,9 @@ where
 			// Authority set change or genesis set id triggers new authorities
 			// this block has a different validator set id to the one we know about OR
 			// it's the first block
-			if self.validator_set.is_empty()
-				|| active.id != self.validator_set.id
-				|| active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty()
+			if self.validator_set.is_empty() ||
+				active.id != self.validator_set.id ||
+				active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty()
 			{
 				info!(target: "ethy", "💎 new active validator set: {:?}", active);
 				info!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
@@ -340,7 +340,7 @@ where
 		// only share if it's the first time witnessing the event
 		if let Err(err) = self.witness_record.note_event_witness(&witness) {
 			warn!(target: "ethy", "💎 failed to note witness: {:?}, {:?}", witness, err);
-			return;
+			return
 		}
 
 		self.gossip_engine.gossip_message(topic::<B>(), witness.encode(), false);
@@ -362,7 +362,7 @@ where
 			let event_metadata = self.witness_record.event_metadata(event_id);
 			if event_metadata.is_none() {
 				debug!(target: "ethy", "💎 missing event metadata: {:?}, can't make proof yet", event_id);
-				return;
+				return
 			}
 		}
 
@@ -520,8 +520,10 @@ pub(crate) mod test {
 	use sc_network::NetworkService;
 	use sc_network_test::{PeersFullClient, TestNetFactory};
 	use sc_utils::notification::NotificationStream;
-	use seed_primitives::ethy::crypto::AuthorityPair;
-	use seed_primitives::ethy::{crypto::AuthorityId, EthyChainId, ValidatorSet};
+	use seed_primitives::ethy::{
+		crypto::{AuthorityId, AuthorityPair},
+		EthyChainId, ValidatorSet,
+	};
 	use sp_api::HeaderT;
 	use sp_core::Pair;
 	use substrate_test_runtime_client::{
@@ -622,7 +624,8 @@ pub(crate) mod test {
 		let witness_2 = create_witness(&bob_pair, event_id, chain_id, digest);
 		worker.handle_witness(witness_2);
 
-		// Check we have 0 signatures. The event should have reached consensus and  witness signatures removed
+		// Check we have 0 signatures. The event should have reached consensus and  witness
+		// signatures removed
 		assert_eq!(worker.witness_record.signatures_for(event_id).len(), 0);
 
 		// check for proof in the aux store
@@ -643,8 +646,8 @@ pub(crate) mod test {
 		let validator_set = ValidatorSet { validators, id: 1, proof_threshold: 2 };
 		worker.witness_record.set_validators(validator_set.clone(), validator_set);
 
-		// First event to be processed is event id 2, to simulate out of sync events with XRPL and Ethereum
-		// Events
+		// First event to be processed is event id 2, to simulate out of sync events with XRPL and
+		// Ethereum Events
 		let event_id_2: EventProofId = 2;
 		let chain_id = EthyChainId::Ethereum;
 		let digest = [1_u8; 32];
@@ -679,11 +682,12 @@ pub(crate) mod test {
 		let witness_2 = create_witness(&bob_pair, event_id_1, chain_id, digest);
 		worker.handle_witness(witness_2);
 
-		// Check we have 0 signatures. The event should have reached consensus and  witness signatures removed
+		// Check we have 0 signatures. The event should have reached consensus and  witness
+		// signatures removed
 		assert_eq!(worker.witness_record.signatures_for(event_id_1).len(), 0);
 
-		// Now we attempt to process event 0, which should not go through as completed_events now contains
-		// events [1,2]
+		// Now we attempt to process event 0, which should not go through as completed_events now
+		// contains events [1,2]
 		let event_id_0: EventProofId = 0;
 		let chain_id = EthyChainId::Ethereum;
 		let digest = [3_u8; 32];

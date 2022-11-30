@@ -47,8 +47,7 @@ use crate::helpers::{
 };
 
 pub use pallet::*;
-use seed_primitives::ethy::EventProofId;
-use seed_primitives::xrpl::XrplTxTicketSequence;
+use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
 
 mod helpers;
 
@@ -390,9 +389,9 @@ pub mod pallet {
 			let current_ticket_sequence = Self::door_ticket_sequence();
 			let current_params = Self::door_ticket_sequence_params();
 
-			if start_ticket_sequence < current_ticket_sequence
-				|| start_ticket_sequence < current_params.start_sequence
-				|| ticket_bucket_size == 0
+			if start_ticket_sequence < current_ticket_sequence ||
+				start_ticket_sequence < current_params.start_sequence ||
+				ticket_bucket_size == 0
 			{
 				fail!(Error::<T>::NextTicketSequenceParamsInvalid);
 			}
@@ -419,9 +418,9 @@ pub mod pallet {
 			let current_ticket_sequence = Self::door_ticket_sequence();
 			let current_params = Self::door_ticket_sequence_params();
 
-			if ticket_sequence < current_ticket_sequence
-				|| start_ticket_sequence < current_params.start_sequence
-				|| ticket_bucket_size == 0
+			if ticket_sequence < current_ticket_sequence ||
+				start_ticket_sequence < current_params.start_sequence ||
+				ticket_bucket_size == 0
 			{
 				fail!(Error::<T>::TicketSequenceParamsInvalid);
 			}
@@ -479,8 +478,8 @@ impl<T: Config> Pallet<T> {
 							} => {},
 							XrplTxData::Xls20 => {},
 						}
-						let clear_block_number = <frame_system::Pallet<T>>::block_number()
-							+ T::ClearTxPeriod::get().into();
+						let clear_block_number = <frame_system::Pallet<T>>::block_number() +
+							T::ClearTxPeriod::get().into();
 						<SettledXRPTransactionDetails<T>>::append(
 							&clear_block_number,
 							transaction_hash.clone(),
@@ -609,12 +608,12 @@ impl<T: Config> Pallet<T> {
 
 		// check if TicketSequenceThreshold reached. notify by emitting
 		// TicketSequenceThresholdReached
-		if ticket_params.bucket_size != 0
-			&& Percent::from_rational(
+		if ticket_params.bucket_size != 0 &&
+			Percent::from_rational(
 				current_sequence - ticket_params.start_sequence + 1,
 				ticket_params.bucket_size,
-			) >= T::TicketSequenceThreshold::get()
-			&& !Self::ticket_sequence_threshold_reached_emitted()
+			) >= T::TicketSequenceThreshold::get() &&
+			!Self::ticket_sequence_threshold_reached_emitted()
 		{
 			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached(current_sequence));
 			TicketSequenceThresholdReachedEmitted::<T>::put(true);
@@ -629,10 +628,10 @@ impl<T: Config> Pallet<T> {
 		if current_sequence >= last_sequence {
 			// we ran out current bucket, check the next_start_sequence
 			let next_ticket_params = Self::door_ticket_sequence_params_next();
-			if next_ticket_params == XrplTicketSequenceParams::default()
-				|| next_ticket_params.start_sequence == ticket_params.start_sequence
+			if next_ticket_params == XrplTicketSequenceParams::default() ||
+				next_ticket_params.start_sequence == ticket_params.start_sequence
 			{
-				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into());
+				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into())
 			} else {
 				// update next to current and clear next
 				DoorTicketSequenceParams::<T>::set(next_ticket_params.clone());

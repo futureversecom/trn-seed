@@ -475,14 +475,13 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		block_number: LatestOrNumber,
 	) -> Result<Option<EthBlock>, BridgeRpcError> {
 		let mock_block_response = match block_number {
-			LatestOrNumber::Latest => {
-				test_storage::BlockResponseAt::iter().last().map(|x| x.1).or(None)
-			},
+			LatestOrNumber::Latest =>
+				test_storage::BlockResponseAt::iter().last().map(|x| x.1).or(None),
 			LatestOrNumber::Number(block) => test_storage::BlockResponseAt::get(block),
 		};
 		println!("get_block_by_number at: {:?}", mock_block_response);
 		if mock_block_response.is_none() {
-			return Ok(None);
+			return Ok(None)
 		}
 		let mock_block_response = mock_block_response.unwrap();
 
@@ -501,7 +500,7 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 		let mock_receipt: Option<MockReceiptResponse> =
 			test_storage::TransactionReceiptFor::get(hash);
 		if mock_receipt.is_none() {
-			return Ok(None);
+			return Ok(None)
 		}
 		let mock_receipt = mock_receipt.unwrap();
 		let transaction_receipt = TransactionReceipt {
@@ -523,9 +522,8 @@ impl BridgeEthereumRpcApi for MockEthereumRpcClient {
 	) -> Result<Vec<u8>, BridgeRpcError> {
 		let block_number = match at_block {
 			LatestOrNumber::Number(n) => n,
-			LatestOrNumber::Latest => {
-				test_storage::BlockResponseAt::iter().last().unwrap().1.block_number
-			},
+			LatestOrNumber::Latest =>
+				test_storage::BlockResponseAt::iter().last().unwrap().1.block_number,
 		};
 		println!("eth_call at: {:?}", block_number);
 		test_storage::CallAt::get(block_number, target).ok_or(BridgeRpcError::HttpFetch)
