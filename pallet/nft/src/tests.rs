@@ -17,19 +17,19 @@ use super::*;
 use crate::mock::{
 	has_event, AccountId, AssetsExt, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 };
+use crate::mock::{Event as MockEvent, ALICE, BOB};
+use crate::Event as NftEvent;
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::{fungibles::Inspect, OnInitialize},
 };
+use frame_system::RawOrigin;
 use seed_primitives::TokenId;
 use sp_core::H160;
+use sp_runtime::DispatchError::BadOrigin;
 use sp_runtime::Permill;
 use sp_std::collections::btree_map::BTreeMap;
-use frame_system::RawOrigin;
-use crate::mock::{ALICE, BOB, Event as MockEvent};
-use crate::Event as NftEvent;
-use sp_runtime::DispatchError::BadOrigin;
 
 // Create an NFT collection
 // Returns the created `collection_id`
@@ -2989,17 +2989,26 @@ mod claim_unowned_collection {
 			let new_owner = ALICE;
 
 			assert_ne!(new_owner, pallet_account);
-			assert_ok!(Nft::create_collection(RawOrigin::Signed(pallet_account.clone()).into(), "My Collection".into(), 0, None, None, metadata, None));
-			assert_ok!(Nft::claim_unowned_collection(RawOrigin::Root.into(), collection_id, new_owner.clone()));
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(pallet_account.clone()).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				metadata,
+				None
+			));
+			assert_ok!(Nft::claim_unowned_collection(
+				RawOrigin::Root.into(),
+				collection_id,
+				new_owner.clone()
+			));
 
 			// Storage
 			assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().owner, new_owner);
 
 			// Events
-			let event = NftEvent::CollectionClaimed {
-				account: new_owner,
-				collection_id,
-			};
+			let event = NftEvent::CollectionClaimed { account: new_owner, collection_id };
 			let event = MockEvent::Nft(event);
 			assert_eq!(System::events().last().unwrap().event, event);
 		});
@@ -3013,8 +3022,20 @@ mod claim_unowned_collection {
 			let pallet_account = Nft::account_id();
 			let new_owner = ALICE;
 
-			assert_ok!(Nft::create_collection(RawOrigin::Signed(pallet_account.clone()).into(), "My Collection".into(), 0, None, None, metadata, None));
-			let ok = Nft::claim_unowned_collection(RawOrigin::Signed(new_owner.clone()).into(), collection_id, new_owner.clone());
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(pallet_account.clone()).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				metadata,
+				None
+			));
+			let ok = Nft::claim_unowned_collection(
+				RawOrigin::Signed(new_owner.clone()).into(),
+				collection_id,
+				new_owner.clone(),
+			);
 			assert_noop!(ok, BadOrigin);
 		});
 	}
@@ -3026,7 +3047,11 @@ mod claim_unowned_collection {
 			let new_owner = ALICE;
 
 			//assert_ok!(Nft::create_collection(RawOrigin::Signed(pallet_account.clone()).into(), "My Collection".into(), 0, None, None, metadata, None));
-			let ok = Nft::claim_unowned_collection(RawOrigin::Root.into(), collection_id, new_owner.clone());
+			let ok = Nft::claim_unowned_collection(
+				RawOrigin::Root.into(),
+				collection_id,
+				new_owner.clone(),
+			);
 			assert_noop!(ok, Error::<Test>::NoCollection);
 		});
 	}
@@ -3039,8 +3064,20 @@ mod claim_unowned_collection {
 			let new_owner = ALICE;
 			let old_owner = BOB;
 
-			assert_ok!(Nft::create_collection(RawOrigin::Signed(old_owner.clone()).into(), "My Collection".into(), 0, None, None, metadata, None));
-			let ok = Nft::claim_unowned_collection(RawOrigin::Root.into(), collection_id, new_owner.clone());
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(old_owner.clone()).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				metadata,
+				None
+			));
+			let ok = Nft::claim_unowned_collection(
+				RawOrigin::Root.into(),
+				collection_id,
+				new_owner.clone(),
+			);
 			assert_noop!(ok, Error::<Test>::CannotClaimNonClaimableCollections);
 		});
 	}

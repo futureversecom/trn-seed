@@ -446,7 +446,10 @@ pub mod pallet {
 
 			CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection| -> DispatchResult {
 				let collection = maybe_collection.as_mut().ok_or(Error::<T>::NoCollection)?;
-				ensure!(collection.owner == Self::account_id(), Error::<T>::CannotClaimNonClaimableCollections);
+				ensure!(
+					collection.owner == Self::account_id(),
+					Error::<T>::CannotClaimNonClaimableCollections
+				);
 
 				collection.owner = new_owner.clone();
 				Ok(())
@@ -1145,7 +1148,7 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T>  {
+impl<T: Config> Pallet<T> {
 	/// The account ID of the auctions pot.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
