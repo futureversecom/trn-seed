@@ -46,6 +46,6 @@ jobs:
       - name: Test
         run: |
           cargo -V
-          cargo test --workspace
+          cargo test --workspace --all-features
       #- name: Benchmark (build only)
       #  run: cargo check --features=runtime-benchmarks
