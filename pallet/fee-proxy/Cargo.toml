@@ -29,6 +29,10 @@ pallet-evm = { default-features = false, git = "https://github.com/futureverseco
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
+hex-literal = { version = "0.3.4" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
+pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
 
 [features]
 default = ["std"]

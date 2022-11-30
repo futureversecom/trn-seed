@@ -4974,9 +4974,13 @@ dependencies = [
  "ethabi",
  "frame-support",
  "frame-system",
+ "hex-literal",
+ "pallet-assets",
  "pallet-assets-ext",
+ "pallet-balances",
  "pallet-dex",
  "pallet-evm",
+ "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "precompile-utils",
@@ -7630,6 +7634,7 @@ dependencies = [
 name = "seed-runtime"
 version = "0.1.0"
 dependencies = [
+ "ethabi",
  "ethereum",
  "evm",
  "fp-evm",

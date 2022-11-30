@@ -17,7 +17,6 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use core::ops::Mul;
-
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{

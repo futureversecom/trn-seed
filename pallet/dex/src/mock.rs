@@ -161,12 +161,3 @@ impl TestExt {
 		ext
 	}
 }
-
-// Check the system event record contains `event`
-// pub(crate) fn has_event(event: pallet_assets::Event<Test>) -> bool {
-// 	System::events()
-// 		.into_iter()
-// 		.map(|r| r.event)
-// 		.find(|e| *e == Event::Assets(event.clone()))
-// 		.is_some()
-// }
