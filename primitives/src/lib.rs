@@ -105,6 +105,9 @@ pub mod xrpl {
 	/// An XRPL tx hash
 	pub type XrplTxHash = H512;
 
+	/// The type for identifying the XRPL Tx Nonce aka 'Sequence'
+	pub type XrplTxNonce = u32;
+
 	/// The type for identifying the XRPL Tx TicketSequence
 	pub type XrplTxTicketSequence = u32;
 }

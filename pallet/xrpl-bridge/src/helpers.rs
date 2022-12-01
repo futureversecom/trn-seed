@@ -18,7 +18,7 @@ use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 
 use seed_primitives::{
-	xrpl::{XrplAccountId, XrplTxHash, XrplTxTicketSequence},
+	xrpl::{XrplAccountId, XrplTxHash, XrplTxNonce, XrplTxTicketSequence},
 	Balance,
 };
 
@@ -34,6 +34,7 @@ pub struct XrpTransaction {
 #[scale_info(skip_type_params(T))]
 pub struct XrpWithdrawTransaction {
 	pub tx_fee: u64,
+	pub tx_nonce: XrplTxNonce,
 	pub tx_ticket_sequence: XrplTxTicketSequence,
 	pub amount: Balance,
 	pub destination: XrplAccountId,
