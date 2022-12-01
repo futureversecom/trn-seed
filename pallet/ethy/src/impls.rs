@@ -884,8 +884,9 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 			// next_block = current_block + epoch_duration - 75 (5 minutes in blocks)
 			let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
 			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
-				.saturating_add(epoch_duration.saturating_sub(75_u32).into());
+				.saturating_add(epoch_duration.saturating_sub(5_u32).into());
 			<NextAuthorityChange<T>>::put(next_block);
+			Self::deposit_event(Event::<T>::NewSessionActiveSessionFinal);
 		}
 	}
 
@@ -904,7 +905,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				// Schedule an un-pausing of the bridge to give the relayer time to relay the
 				// authority set change.
 				// Delay set to 75 blocks = 5 minutes
-				let scheduled_block = <frame_system::Pallet<T>>::block_number() + 75_u32.into();
+				let scheduled_block = <frame_system::Pallet<T>>::block_number() + 5_u32.into();
 				if T::Scheduler::schedule(
 					DispatchTime::At(scheduled_block),
 					None,

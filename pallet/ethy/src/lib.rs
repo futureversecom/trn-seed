@@ -272,7 +272,9 @@ decl_event! {
 		/// The bridge contract address has been set
 		SetContractAddress(EthAddress),
 		/// Xrpl authority set change request failed
-		XrplAuthoritySetChangeRequestFailed
+		XrplAuthoritySetChangeRequestFailed,
+		// Test event
+		NewSessionActiveSessionFinal,
 	}
 }
 
