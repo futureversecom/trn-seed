@@ -172,7 +172,7 @@ impl WeightInfo for () {
 
 	fn set_door_tx_fee() -> Weight {
 		(190_935_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(15 as Weight))
-			.saturating_add(T::DbWeight::get().writes(10 as Weight))
+			.saturating_add(RocksDbWeight::get().reads(15 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
 	}
 }
