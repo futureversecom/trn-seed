@@ -52,7 +52,7 @@ pub trait WeightInfo {
 	fn withdraw_xrp() -> Weight;
 	fn add_relayer() -> Weight;
 	fn remove_relayer() -> Weight;
-	fn set_door_tx_fee() -> Weight
+	fn set_door_tx_fee() -> Weight;
 	fn set_xrpl_door_address() -> Weight;
 	fn set_ticket_sequence_next_allocation() -> Weight;
 	fn set_ticket_sequence_current_allocation() -> Weight;
