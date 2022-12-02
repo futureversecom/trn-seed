@@ -13,7 +13,7 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 
-use crate::*;
+use crate::{Call::call_with_fee_preferences, *};
 use frame_support::traits::IsSubType;
 use pallet_transaction_payment::OnChargeTransaction;
 use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf};
@@ -49,12 +49,8 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		// Check whether this call has specified fee preferences
-		if let Some(crate::Call::call_with_fee_preferences {
-			payment_asset,
-			max_payment,
-			call,
-			..
-		}) = <<T as frame_system::Config>::Call as IsSubType<crate::Call<T>>>::is_sub_type(call)
+		if let Some(call_with_fee_preferences { payment_asset, max_payment, call }) =
+			call.is_sub_type()
 		{
 			let mut total_fee: Balance = Balance::from(fee);
 			let native_asset = <T as Config>::FeeAssetId::get();
@@ -64,7 +60,7 @@ where
 			// fee from an evm call. For all other extrinsics, the fee parameter
 			// should cover all required fees.
 			if let Some(pallet_evm::Call::call { gas_limit, max_fee_per_gas, .. }) =
-				<<T as Config>::Call as IsSubType<pallet_evm::Call<T>>>::is_sub_type(call)
+				call.is_sub_type()
 			{
 				if let Some(fee_preferences_data) =
 					get_fee_preferences_data::<T, <T as Config>::ErcIdConversion>(

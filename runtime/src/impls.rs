@@ -19,7 +19,6 @@
 use core::ops::Mul;
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
-use frame_support::dispatch::RawOrigin;
 use frame_support::{
 	dispatch::RawOrigin,
 	pallet_prelude::*,

@@ -80,7 +80,7 @@ impl From<FeePreferencesError> for TransactionValidityError {
 
 /// Convert 18dp wei values to correct dp equivalents
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.000001 cpay
-pub fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
+pub(crate) fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
 	let (quotient, remainder) = (value / unit_value, value % unit_value);
 	if remainder == U256::from(0) {

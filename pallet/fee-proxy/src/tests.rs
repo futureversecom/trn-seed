@@ -59,7 +59,7 @@ mod call_with_fee_preferences {
 	}
 
 	#[test]
-	fn call_with_fee_asset_should_fail() {
+	fn payment_asset_must_differ_from_fee_asset() {
 		TestExt::default().build().execute_with(|| {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = XRP_ASSET_ID;
@@ -82,7 +82,7 @@ mod call_with_fee_preferences {
 	}
 
 	#[test]
-	fn call_with_failing_inner_call_should_fail() {
+	fn inner_call_results_need_to_be_propagated() {
 		TestExt::default().build().execute_with(|| {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
@@ -106,7 +106,7 @@ mod call_with_fee_preferences {
 	}
 
 	#[test]
-	fn call_with_fee_preferences_nested_call_should_fail() {
+	fn inner_call_must_differ_from_outer_call() {
 		TestExt::default().build().execute_with(|| {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;

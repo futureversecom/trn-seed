@@ -19,6 +19,7 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 ethabi = { version = "17.1.0", default-features = false }
 
 sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", default-features = false, optional = true , branch = "polkadot-v0.9.27-debug" }
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
@@ -49,6 +50,9 @@ std = [
     "sp-std/std",
     "sp-core/std",
     "sp-runtime/std",
+    "frame-benchmarking/std",
     "frame-support/std",
     "frame-system/std"
 ]
+runtime-benchmarks = ["frame-benchmarking"]
+try-runtime = ["frame-support/try-runtime"]
