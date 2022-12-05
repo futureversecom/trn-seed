@@ -1722,6 +1722,7 @@ name = "evm-core"
 version = "0.35.0"
 source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
@@ -5025,6 +5026,7 @@ dependencies = [
 ]
 
 [[package]]
+<<<<<<< HEAD
 name = "pallet-fee-proxy"
 version = "0.1.0"
 dependencies = [
@@ -5040,6 +5042,17 @@ dependencies = [
  "pallet-evm",
  "pallet-timestamp",
  "pallet-transaction-payment",
+=======
+name = "pallet-fee-oracle"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-evm",
+ "pallet-timestamp",
+>>>>>>> c8109c0 (Empty pallet)
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -7753,7 +7766,11 @@ dependencies = [
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
  "pallet-evm-precompiles-nft",
+<<<<<<< HEAD
  "pallet-fee-proxy",
+=======
+ "pallet-fee-oracle",
+>>>>>>> c8109c0 (Empty pallet)
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-nft",

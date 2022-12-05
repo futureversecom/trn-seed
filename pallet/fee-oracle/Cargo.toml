@@ -1,0 +1,49 @@
+[package]
+name = "pallet-fee-oracle"
+version = "1.0.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2021"
+repository = "https://github.com/futureversecom/seed"
+description = "Static and dynamic fee setting through a pallet"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+
+# Substrate
+frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+frame-system = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+
+seed-primitives = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
+precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
+
+[dev-dependencies]
+sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
+pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"frame-support/std",
+	"frame-system/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"seed-pallet-common/std",
+	"seed-primitives/std",
+	"precompile-utils/std"
+]
+try-runtime = ["frame-support/try-runtime"]

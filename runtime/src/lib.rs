@@ -967,6 +967,14 @@ impl pallet_nft_peg::Config for Runtime {
 	type EthBridge = EthBridge;
 }
 
+parameter_types! {
+	pub const AssetsExtPalletIdd: PalletId = PalletId(*b"assetedt");
+}
+
+impl pallet_fee_oracle::Config for Runtime {
+	type Event = Event;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -1017,6 +1025,7 @@ construct_runtime! {
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
+		FeeOracle: pallet_fee_oracle::{Pallet, Call, Storage, Event<T>} = 40,
 	}
 }
 
