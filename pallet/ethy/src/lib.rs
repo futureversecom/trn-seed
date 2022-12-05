@@ -272,9 +272,7 @@ decl_event! {
 		/// The bridge contract address has been set
 		SetContractAddress(EthAddress),
 		/// Xrpl authority set change request failed
-		XrplAuthoritySetChangeRequestFailed,
-		// Test event
-		NewSessionActiveSessionFinal,
+		XrplAuthoritySetChangeRequestFailed
 	}
 }
 
@@ -503,9 +501,9 @@ decl_module! {
 		#[weight = DbWeight::get().writes(1)]
 		/// Finalise authority changes, unpauses bridge and sets new notary keys
 		/// Called internally after force new era
-		pub fn finalise_authorities_change(origin) {
+		pub fn finalise_authorities_change(origin, next_notary_keys: Vec<T::EthyId>) {
 			ensure_none(origin)?;
-			Self::do_finalise_authorities_change();
+			Self::do_finalise_authorities_change(next_notary_keys);
 		}
 
 		#[weight = DbWeight::get().writes(1)]
