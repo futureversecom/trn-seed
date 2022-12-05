@@ -2285,6 +2285,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "frame-system-benchmarking"
+version = "4.0.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "frame-system-rpc-runtime-api"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
@@ -4664,14 +4679,19 @@ name = "pallet-bags-list"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
 dependencies = [
+ "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]
@@ -4788,6 +4808,19 @@ dependencies = [
  "sp-std",
  "static_assertions",
  "strum",
+]
+
+[[package]]
+name = "pallet-election-provider-support-benchmarking"
+version = "4.0.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-system",
+ "parity-scale-codec",
+ "sp-npos-elections",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5046,6 +5079,7 @@ name = "pallet-im-online"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -5214,10 +5248,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-session-benchmarking"
+version = "4.0.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-session",
+ "pallet-staking",
+ "rand 0.7.3",
+ "sp-runtime",
+ "sp-session",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
 dependencies = [
+ "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",
  "frame-system",
@@ -5225,6 +5276,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-session",
  "parity-scale-codec",
+ "rand_chacha 0.2.2",
  "scale-info",
  "serde",
  "sp-application-crypto",
@@ -5260,6 +5312,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-inherents",
+ "sp-io",
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
@@ -5353,6 +5406,7 @@ name = "pallet-utility"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27-debug#6f24764837da5ca648f4dfb02059287d80a97303"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -7552,7 +7606,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.27"
+version = "0.0.28"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -7666,10 +7720,12 @@ dependencies = [
  "fp-evm",
  "fp-rpc",
  "fp-self-contained",
+ "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
@@ -7685,6 +7741,7 @@ dependencies = [
  "pallet-dex-rpc-runtime-api",
  "pallet-echo",
  "pallet-election-provider-multi-phase",
+ "pallet-election-provider-support-benchmarking",
  "pallet-erc20-peg",
  "pallet-ethereum",
  "pallet-ethy",
@@ -7706,6 +7763,7 @@ dependencies = [
  "pallet-offences",
  "pallet-scheduler",
  "pallet-session",
+ "pallet-session-benchmarking",
  "pallet-staking",
  "pallet-sudo",
  "pallet-timestamp",
@@ -7723,6 +7781,7 @@ dependencies = [
  "seed-client",
  "seed-pallet-common",
  "seed-primitives",
+ "seed-runtime-constants",
  "serde",
  "sp-api",
  "sp-block-builder",
@@ -7740,6 +7799,14 @@ dependencies = [
  "sp-version",
  "substrate-wasm-builder",
  "try-runtime-cli",
+]
+
+[[package]]
+name = "seed-runtime-constants"
+version = "0.9.28"
+dependencies = [
+ "frame-support",
+ "sp-runtime",
 ]
 
 [[package]]

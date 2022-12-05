@@ -55,6 +55,19 @@ fn setup_collection<T: Config>(
 }
 
 benchmarks! {
+	claim_unowned_collection {
+		let metadata = MetadataScheme::Https("google.com".into());
+		let collection_id = Nft::<T>::next_collection_uuid().unwrap();
+		let pallet_account = Nft::<T>::account_id();
+
+		assert_ok!(Nft::<T>::create_collection(RawOrigin::Signed(pallet_account).into(), "My Collection".into(), 0, None, None, metadata, None));
+
+		let new_owner: T::AccountId = account("Alice", 0, 0);
+	}: _(RawOrigin::Root, collection_id, new_owner.clone())
+	verify {
+		assert_eq!(Nft::<T>::collection_info(&collection_id).unwrap().owner, new_owner);
+	}
+
 	set_owner {
 		let creator: T::AccountId = account("creator", 0, 0);
 		let new_owner: T::AccountId = account("new_owner", 0, 0);

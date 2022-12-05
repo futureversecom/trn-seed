@@ -61,19 +61,18 @@ impl<T> Into<pallet_evm::Error<T>> for FeePreferencesError {
 impl From<FeePreferencesError> for TransactionValidityError {
 	fn from(error: FeePreferencesError) -> Self {
 		match error {
-			// Errors related to improperly designating a call or something "call-like" should all return an invalid call error
-			FeePreferencesError::InvalidFunctionSelector
-			| FeePreferencesError::InvalidInputArguments
-			| FeePreferencesError::FailedToDecodeInput
-			| FeePreferencesError::InvalidPaymentAsset => {
-				TransactionValidityError::Invalid(InvalidTransaction::Call)
-			},
-			FeePreferencesError::WithdrawFailed
-			| FeePreferencesError::GasPriceTooLow
-			| FeePreferencesError::FeeOverflow
-			| FeePreferencesError::FeeExceedsMaxPayment => {
-				TransactionValidityError::Invalid(InvalidTransaction::Payment)
-			},
+			// Errors related to improperly designating a call or something "call-like" should all
+			// return an invalid call error
+			FeePreferencesError::InvalidFunctionSelector |
+			FeePreferencesError::InvalidInputArguments |
+			FeePreferencesError::FailedToDecodeInput |
+			FeePreferencesError::InvalidPaymentAsset =>
+				TransactionValidityError::Invalid(InvalidTransaction::Call),
+			FeePreferencesError::WithdrawFailed |
+			FeePreferencesError::GasPriceTooLow |
+			FeePreferencesError::FeeOverflow |
+			FeePreferencesError::FeeExceedsMaxPayment =>
+				TransactionValidityError::Invalid(InvalidTransaction::Payment),
 		}
 	}
 }

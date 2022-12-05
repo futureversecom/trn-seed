@@ -14,17 +14,22 @@
  */
 
 use super::*;
-use crate::mock::{
-	has_event, AccountId, AssetsExt, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
+use crate::{
+	mock::{
+		has_event, AccountId, AssetsExt, Event as MockEvent, NativeAssetId, Nft, NftPalletId,
+		System, Test, TestExt, ALICE, BOB,
+	},
+	Event as NftEvent,
 };
 use codec::Encode;
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::{fungibles::Inspect, OnInitialize},
 };
+use frame_system::RawOrigin;
 use seed_primitives::TokenId;
 use sp_core::H160;
-use sp_runtime::Permill;
+use sp_runtime::{DispatchError::BadOrigin, Permill};
 use sp_std::collections::btree_map::BTreeMap;
 
 // Create an NFT collection
@@ -1112,9 +1117,9 @@ fn buy_with_marketplace_royalties() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				initial_balance_owner + sale_price
-					- marketplace_entitlement * sale_price
-					- royalties_schedule.clone().entitlements[0].1 * sale_price
+				initial_balance_owner + sale_price -
+					marketplace_entitlement * sale_price -
+					royalties_schedule.clone().entitlements[0].1 * sale_price
 			);
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 		});
@@ -1263,8 +1268,8 @@ fn buy_with_royalties() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				initial_balance_seller + sale_price
-					- royalties_schedule
+				initial_balance_seller + sale_price -
+					royalties_schedule
 						.clone()
 						.entitlements
 						.into_iter()
@@ -1698,8 +1703,8 @@ fn auction_royalty_payments() {
 			// token owner gets sale price less royalties
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				reserve_price
-					- royalties_schedule
+				reserve_price -
+					royalties_schedule
 						.entitlements
 						.into_iter()
 						.map(|(_, e)| e * reserve_price)
@@ -2971,4 +2976,109 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		// Token owners balance shouldn't have changed
 		assert_eq!(Nft::token_balance(token_owner), Some(expected));
 	});
+}
+
+mod claim_unowned_collection {
+	use super::*;
+
+	#[test]
+	fn can_claim_ownership() {
+		TestExt::default().build().execute_with(|| {
+			let metadata = MetadataScheme::Https("google.com".into());
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let pallet_account = Nft::account_id();
+			let new_owner = ALICE;
+
+			assert_ne!(new_owner, pallet_account);
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(pallet_account.clone()).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				metadata,
+				None
+			));
+			assert_ok!(Nft::claim_unowned_collection(
+				RawOrigin::Root.into(),
+				collection_id,
+				new_owner.clone()
+			));
+
+			// Storage
+			assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().owner, new_owner);
+
+			// Events
+			let event = NftEvent::CollectionClaimed { account: new_owner, collection_id };
+			let event = MockEvent::Nft(event);
+			assert_eq!(System::events().last().unwrap().event, event);
+		});
+	}
+
+	#[test]
+	fn origin_needs_to_be_root() {
+		TestExt::default().build().execute_with(|| {
+			let metadata = MetadataScheme::Https("google.com".into());
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let pallet_account = Nft::account_id();
+			let new_owner = ALICE;
+
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(pallet_account.clone()).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				metadata,
+				None
+			));
+			let ok = Nft::claim_unowned_collection(
+				RawOrigin::Signed(new_owner.clone()).into(),
+				collection_id,
+				new_owner.clone(),
+			);
+			assert_noop!(ok, BadOrigin);
+		});
+	}
+
+	#[test]
+	fn collection_needs_to_exist() {
+		TestExt::default().build().execute_with(|| {
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let new_owner = ALICE;
+
+			let ok = Nft::claim_unowned_collection(
+				RawOrigin::Root.into(),
+				collection_id,
+				new_owner.clone(),
+			);
+			assert_noop!(ok, Error::<Test>::NoCollection);
+		});
+	}
+
+	#[test]
+	fn collection_needs_to_be_owned_by_pallet() {
+		TestExt::default().build().execute_with(|| {
+			let metadata = MetadataScheme::Https("google.com".into());
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let new_owner = ALICE;
+			let old_owner = BOB;
+
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(old_owner.clone()).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				metadata,
+				None
+			));
+			let ok = Nft::claim_unowned_collection(
+				RawOrigin::Root.into(),
+				collection_id,
+				new_owner.clone(),
+			);
+			assert_noop!(ok, Error::<Test>::CannotClaimNonClaimableCollections);
+		});
+	}
 }

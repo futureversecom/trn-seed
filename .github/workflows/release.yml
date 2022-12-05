@@ -42,13 +42,7 @@ jobs:
           body_path: CHANGELOG.md
       ### build the wasm runtime for publishing
       - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly-2021-12-23
-          components: rustfmt
-          target: wasm32-unknown-unknown
-          default: true
+        run: rustup show
       - name: Build wasm (again)
         run: cargo build
       - name: Publish runtime wasm

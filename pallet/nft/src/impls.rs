@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
-			return Default::default();
+			return Default::default()
 		}
 	}
 
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
 		if tokens_minted == TokenCount::zero() {
 			// No tokens were minted so no need to update storage,
 			// but we also don't want to throw an error as this could mean tokens are lost
-			return Ok(weight);
+			return Ok(weight)
 		}
 
 		// update token balances
@@ -283,7 +283,7 @@ impl<T: Config> Pallet<T> {
 			owned_tokens.append(&mut owned_in_collection);
 		}
 
-		return owned_tokens;
+		return owned_tokens
 	}
 
 	/// Find the tokens owned by an `address` in the given collection
@@ -324,7 +324,8 @@ impl<T: Config> Pallet<T> {
 		let new_cursor: SerialNumber = match response.last().copied() {
 			Some(highest) => {
 				if highest != last_id {
-					// There are still tokens remaining that aren't being returned in this call, return the next cursor
+					// There are still tokens remaining that aren't being returned in this call,
+					// return the next cursor
 					highest.saturating_add(1)
 				} else {
 					// 0 indicates that this is the end of the owned tokens
@@ -491,7 +492,7 @@ impl<T: Config> Pallet<T> {
 					None => Vec::new(),
 				};
 
-				return Some(TokenInfo { owner, royalties });
+				return Some(TokenInfo { owner, royalties })
 			}
 		}
 		None
@@ -528,13 +529,12 @@ impl<T: Config> Pallet<T> {
 			.collect();
 
 		let new_cursor = match last_id {
-			Some(id) => {
+			Some(id) =>
 				if highest_cursor != id {
 					Some(highest_cursor + 1)
 				} else {
 					None
-				}
-			},
+				},
 			None => None,
 		};
 		(new_cursor, response)
@@ -658,6 +658,11 @@ impl<T: Config> Pallet<T> {
 		T::OnTransferSubscription::on_nft_transfer(&(collection_id, *serial_number));
 
 		Ok(())
+	}
+
+	/// The account ID of the auctions pot.
+	pub fn account_id() -> T::AccountId {
+		T::PalletId::get().into_account_truncating()
 	}
 }
 

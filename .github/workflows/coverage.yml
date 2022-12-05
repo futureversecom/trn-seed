@@ -26,12 +26,7 @@ jobs:
         with:
           ref: ${{ steps.comment-branch.outputs.head_ref || 'main' }}
       - name: Install toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          default: true
+        run: rustup show
       - name: Install tarpaulin
         run: |
           cargo install cargo-tarpaulin

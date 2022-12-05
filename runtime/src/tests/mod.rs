@@ -220,9 +220,8 @@ pub fn sign_xt(xt: CheckedExtrinsic) -> UncheckedExtrinsic {
 
 			fp_self_contained::UncheckedExtrinsic::new_signed(func, signed, signature.into(), extra)
 		},
-		fp_self_contained::CheckedSignature::Unsigned => {
-			fp_self_contained::UncheckedExtrinsic::new_unsigned(xt.function)
-		},
+		fp_self_contained::CheckedSignature::Unsigned =>
+			fp_self_contained::UncheckedExtrinsic::new_unsigned(xt.function),
 		_ => unimplemented!(),
 	}
 }

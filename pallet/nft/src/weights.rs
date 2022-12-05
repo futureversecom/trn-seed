@@ -10,6 +10,7 @@ use sp_std::marker::PhantomData;
 
 /// NFT module weights
 pub trait WeightInfo {
+	fn claim_unowned_collection() -> Weight;
 	fn set_owner() -> Weight;
 	fn create_collection() -> Weight;
 	fn mint_collection(q: u32) -> Weight;
@@ -27,6 +28,9 @@ pub trait WeightInfo {
 }
 
 impl WeightInfo for () {
+	fn claim_unowned_collection() -> Weight {
+		(10_000_000 as Weight)
+	}
 	fn set_owner() -> Weight {
 		(16_000_000 as Weight)
 			.saturating_add(DbWeight::get().reads(1 as Weight))

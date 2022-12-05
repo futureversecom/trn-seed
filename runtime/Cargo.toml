@@ -85,11 +85,18 @@ pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
+seed-runtime-constants = { path = "constants", default-features = false }
 primitive-types = {version = "0.11.1", default-features = false, features = ["impl-codec", "impl-serde"] }
 
 # Try-runtime
 frame-try-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
 try-runtime-cli = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
+
+# Benchmark dependencies
+frame-benchmarking  = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
+frame-system-benchmarking  = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
+pallet-session-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
+pallet-election-provider-support-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
 
 [build-dependencies]
 substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
@@ -212,4 +219,31 @@ try-runtime = [
 	"pallet-ethy/try-runtime",
 	"pallet-erc20-peg/try-runtime",
 	"pallet-nft-peg/try-runtime",
+]
+
+runtime-benchmarks = [
+	# Substrate
+	"frame-benchmarking",
+	"frame-system-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-grandpa/runtime-benchmarks",
+	"pallet-im-online/runtime-benchmarks",
+	"pallet-session-benchmarking",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
+	# Local
+	"pallet-nft/runtime-benchmarks",
+	"pallet-xrpl-bridge/runtime-benchmarks",
+	"pallet-dex/runtime-benchmarks",
 ]

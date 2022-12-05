@@ -163,14 +163,15 @@ impl WitnessRecord {
 		// Check if the witness is for a completed event, based on the pruned completed_events vec
 		// First check if the event_id is contained within completed_events
 		if self.completed_events.iter().any(|id| id == &witness.event_id) {
-			return Err(WitnessError::CompletedEvent);
+			return Err(WitnessError::CompletedEvent)
 		} else {
-			// If we have only 1 event, and it's not in completed events, that means the completed_events id is
-			// 1 and the new event_id is 0, so comparing with the lowest won't work
+			// If we have only 1 event, and it's not in completed events, that means the
+			// completed_events id is 1 and the new event_id is 0, so comparing with the lowest
+			// won't work
 			if self.completed_events.len() > 1 {
 				if let Some(completed_watermark) = self.completed_events.first() {
 					if witness.event_id <= *completed_watermark {
-						return Err(WitnessError::CompletedEvent);
+						return Err(WitnessError::CompletedEvent)
 					}
 				}
 			}
@@ -183,7 +184,7 @@ impl WitnessRecord {
 			.unwrap_or_default()
 		{
 			trace!(target: "ethy", "💎 witness previously seen: {:?}", witness.event_id);
-			return Err(WitnessError::DuplicateWitness);
+			return Err(WitnessError::DuplicateWitness)
 		}
 
 		// witness metadata may not be available at this point
@@ -193,7 +194,7 @@ impl WitnessRecord {
 			// Witnesses for XRPL are special cases and have unique digests per authority
 			if metadata.digest != witness.digest && witness.chain_id != EthyChainId::Xrpl {
 				warn!(target: "ethy", "💎 witness has bad digest: {:?} from {:?}", witness.event_id, witness.authority_id);
-				return Err(WitnessError::MismatchedDigest);
+				return Err(WitnessError::MismatchedDigest)
 			}
 		} else {
 			// store witness for re-verification later
@@ -202,7 +203,7 @@ impl WitnessRecord {
 				.entry(witness.event_id)
 				.and_modify(|witnesses| witnesses.push(witness.clone()))
 				.or_insert_with(|| vec![witness.clone()]);
-			return Ok(WitnessStatus::DigestUnverified);
+			return Ok(WitnessStatus::DigestUnverified)
 		};
 
 		// Convert authority secp256k1 public key into ordered index
@@ -250,23 +251,23 @@ impl WitnessRecord {
 /// Compact a sorted vec of IDs by replacing a monotonic sequence of IDs with the last ID in the
 /// sequence
 fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
-	// Note: (JasonT) We keep at least 2 events in completed events to handle the first two events (0,1)
-	// being processed in the incorrect order
+	// Note: (JasonT) We keep at least 2 events in completed events to handle the first two events
+	// (0,1) being processed in the incorrect order
 	if completed_events.len() < 3 {
-		return completed_events;
+		return completed_events
 	}
 
 	let mut watermark_idx = 0;
 	for i in 0..completed_events.len() - 2 {
 		if completed_events[i] + 1 as EventProofId == completed_events[i + 1] {
 			watermark_idx = i + 1;
-			continue;
+			continue
 		} else {
-			break;
+			break
 		}
 	}
 
-	return completed_events.split_at(watermark_idx).1;
+	return completed_events.split_at(watermark_idx).1
 }
 
 #[cfg(test)]
@@ -486,8 +487,8 @@ pub(crate) mod test {
 	}
 
 	#[test]
-	/// This test checks the edge case where the first two events (0 and 1) are noted in the incorrect
-	/// order. Both should be processed and completed once and only once
+	/// This test checks the edge case where the first two events (0 and 1) are noted in the
+	/// incorrect order. Both should be processed and completed once and only once
 	fn note_event_witness_completed_event_first_two_incorrect_order() {
 		let validator_keys = dev_signers();
 		let mut witness_record = WitnessRecord {

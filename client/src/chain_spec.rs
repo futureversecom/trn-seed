@@ -1,10 +1,9 @@
 use hex_literal::hex;
 use sc_service::ChainType;
-use seed_runtime::constants::{XRP_DECIMALS, XRP_SYMBOL};
 use seed_runtime::{
 	constants::{
 		ONE_ROOT, ONE_XRP, ROOT_ASSET_ID, ROOT_DECIMALS, ROOT_MINIMUM_BALANCE, ROOT_NAME,
-		ROOT_SYMBOL, XRP_ASSET_ID, XRP_MINIMUM_BALANCE, XRP_NAME,
+		ROOT_SYMBOL, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
 	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig, Forcing,
@@ -274,7 +273,8 @@ fn testnet_genesis(
 		grandpa: Default::default(),
 		im_online: Default::default(),
 		nft: Default::default(),
-		// NOTE(surangap): keeping xrpl stuff inside the eth bridge isn't elegant. Refactor this to validator-set pallet in the future.
+		// NOTE(surangap): keeping xrpl stuff inside the eth bridge isn't elegant. Refactor this to
+		// validator-set pallet in the future.
 		eth_bridge: EthBridgeConfig { xrp_door_signers },
 		session: SessionConfig {
 			keys: initial_authorities
