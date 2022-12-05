@@ -1,7 +1,7 @@
 //! # Pallet Fee Proxy
 //!
-//! A utility pallet providing the possibility to call any runtime extrinsic with a specified gas token
-//! and pay for fees in that token.
+//! A utility pallet providing the possibility to call any runtime extrinsic with a specified gas
+//! token and pay for fees in that token.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -34,9 +34,12 @@ pub mod pallet {
 	use precompile_utils::{Address, ErcIdConversion};
 	use seed_primitives::AccountId;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
-	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
