@@ -5046,6 +5046,7 @@ dependencies = [
 name = "pallet-fee-oracle"
 version = "1.0.0"
 dependencies = [
+ "fp-evm",
  "frame-support",
  "frame-system",
  "pallet-assets",

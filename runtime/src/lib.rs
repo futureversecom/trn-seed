@@ -246,13 +246,13 @@ impl frame_system::Config for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
-	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
 }
 
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
-	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
+	// type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
+	type WeightToFee = FeeOracle;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
@@ -836,33 +836,6 @@ impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
 	}
 }
 
-/// This is unused while Futureverse fullness is inconsistent
-pub struct BaseFeeThreshold;
-impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
-	fn lower() -> Permill {
-		Permill::zero()
-	}
-	fn ideal() -> Permill {
-		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
-		Permill::from_parts(50_000)
-	}
-	fn upper() -> Permill {
-		Permill::one()
-	}
-}
-
-parameter_types! {
-	/// Floor network base fee per gas
-	/// 0.000015 XRP per gas, 15000 GWEI
-	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
-}
-
-impl pallet_base_fee::Config for Runtime {
-	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
-	type Event = Event;
-	type Threshold = BaseFeeThreshold;
-	type DefaultElasticity = ();
-}
 
 parameter_types! {
 	/// Ethereum ChainId
@@ -883,7 +856,7 @@ const fn seed_london() -> EvmConfig {
 pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 impl pallet_evm::Config for Runtime {
-	type FeeCalculator = BaseFee;
+	type FeeCalculator = FeeOracle;
 	type GasWeightMapping = FutureverseGasWeightMapping;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = FutureverseEnsureAddressSame<AccountId>;
@@ -967,12 +940,36 @@ impl pallet_nft_peg::Config for Runtime {
 	type EthBridge = EthBridge;
 }
 
-parameter_types! {
-	pub const AssetsExtPalletIdd: PalletId = PalletId(*b"assetedt");
+
+/// This is unused while Futureverse fullness is inconsistent
+pub struct FeeOracleBaseFeeThreshold;
+impl pallet_fee_oracle::BaseFeeThreshold for FeeOracleBaseFeeThreshold {
+	fn lower() -> Permill {
+		Permill::zero()
+	}
+	fn ideal() -> Permill {
+		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
+		Permill::from_parts(50_000)
+	}
+	fn upper() -> Permill {
+		Permill::one()
+	}
 }
 
+parameter_types! {
+	/// Floor network base fee per gas
+	/// 0.000015 XRP per gas, 15000 GWEI
+	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
+	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
+
+}
+	
 impl pallet_fee_oracle::Config for Runtime {
 	type Event = Event;
+	type Threshold = FeeOracleBaseFeeThreshold;
+	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
+	type DefaultEvmElasticity = ();
+	type WeightToFeeReduction = WeightToFeeReduction;
 }
 
 construct_runtime! {
@@ -1020,7 +1017,6 @@ construct_runtime! {
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
-		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 28,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 
@@ -1264,7 +1260,7 @@ impl_runtime_apis! {
 		}
 
 		fn gas_price() -> U256 {
-			BaseFee::min_gas_price().0
+			FeeOracle::min_gas_price().0
 		}
 
 		fn account_code_at(address: H160) -> Vec<u8> {
@@ -1386,7 +1382,7 @@ impl_runtime_apis! {
 		}
 
 		fn elasticity() -> Option<Permill> {
-			Some(BaseFee::elasticity())
+			Some(FeeOracle::elasticity())
 		}
 	}
 
