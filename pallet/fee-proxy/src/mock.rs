@@ -15,8 +15,12 @@
 
 use crate as pallet_fee_proxy;
 use crate::*;
-use frame_support::weights::{ConstantMultiplier, WeightToFee};
-use frame_support::{parameter_types, traits::FindAuthor, PalletId};
+use frame_support::{
+	parameter_types,
+	traits::FindAuthor,
+	weights::{ConstantMultiplier, WeightToFee},
+	PalletId,
+};
 use frame_system::{limits, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
 use precompile_utils::{Address, ErcIdConversion};
@@ -98,7 +102,7 @@ where
 	) -> Option<RuntimeId> {
 		if H160::from(evm_id) == H160::from_low_u64_be(16000) {
 			// Our expected value for the test
-			return Some(RuntimeId::from(16000));
+			return Some(RuntimeId::from(16000))
 		}
 		None
 	}

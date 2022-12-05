@@ -20,17 +20,15 @@ use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
 };
-use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use precompile_utils::{
-	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR},
+	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_PROXY_ADDRESS},
 	Address as EthAddress, ErcIdConversion,
 };
 use seed_pallet_common::log;
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_core::{H160, H256, U256};
-use sp_runtime::traits::Get;
 use sp_runtime::{
-	traits::SaturatedConversion,
+	traits::{Get, SaturatedConversion},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use sp_std::{marker::PhantomData, prelude::*};

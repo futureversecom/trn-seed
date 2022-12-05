@@ -13,8 +13,7 @@ use ethereum::EIP1559Transaction;
 use frame_support::{
 	assert_ok,
 	dispatch::{GetDispatchInfo, RawOrigin},
-	traits::fungible::Inspect,
-	traits::fungibles::Inspect as Inspects,
+	traits::{fungible::Inspect, fungibles::Inspect as Inspects},
 };
 use pallet_ethereum::{Transaction, TransactionAction};
 use pallet_transaction_payment::ChargeTransactionPayment;

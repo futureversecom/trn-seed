@@ -14,8 +14,10 @@
  */
 
 use super::*;
-use crate::mock::{FeeProxy, Runner, System, Test, TestExt, XRP_ASSET_ID};
-use crate::runner::*;
+use crate::{
+	mock::{FeeProxy, Runner, System, Test, TestExt, XRP_ASSET_ID},
+	runner::*,
+};
 use ethabi::Token;
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
@@ -90,8 +92,8 @@ mod call_with_fee_preferences {
 			let call =
 				mock::Call::System(frame_system::Call::fill_block { ratio: Default::default() });
 
-			// Test that the error returned is the error from the inner call. In this case it is BadOrigin
-			// as fill_block requires root. This is the easiest example to use without
+			// Test that the error returned is the error from the inner call. In this case it is
+			// BadOrigin as fill_block requires root. This is the easiest example to use without
 			// pulling in more dev dependencies
 			assert_noop!(
 				FeeProxy::call_with_fee_preferences(
