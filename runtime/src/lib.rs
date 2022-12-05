@@ -959,7 +959,7 @@ impl pallet_fee_oracle::BaseFeeThreshold for FeeOracleBaseFeeThreshold {
 parameter_types! {
 	/// Floor network base fee per gas
 	/// 0.000015 XRP per gas, 15000 GWEI
-	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
+	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
 	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
 
 }
@@ -967,7 +967,7 @@ parameter_types! {
 impl pallet_fee_oracle::Config for Runtime {
 	type Event = Event;
 	type Threshold = FeeOracleBaseFeeThreshold;
-	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
+	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
 	type DefaultEvmElasticity = ();
 	type WeightToFeeReduction = WeightToFeeReduction;
 }

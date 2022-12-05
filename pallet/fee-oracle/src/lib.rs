@@ -38,11 +38,10 @@ pub mod pallet {
 		/// The overarching event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type Threshold: BaseFeeThreshold;
-		type DefaultBaseFeePerGas: Get<U256>;
+		type DefaultEvmBaseFeePerGas: Get<U256>;
 		type DefaultEvmElasticity: Get<Permill>;
 		type WeightToFeeReduction: Get<Permill>;
 	}
-
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -66,7 +65,7 @@ pub mod pallet {
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self {
-				base_fee_per_gas: T::DefaultBaseFeePerGas::get(),
+				base_fee_per_gas: T::DefaultEvmBaseFeePerGas::get(),
 				elasticity: T::DefaultEvmElasticity::get(),
 				_marker: PhantomData,
 			}
@@ -76,19 +75,28 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			<BaseFeePerGas<T>>::put(self.base_fee_per_gas);
+			<EvmBaseFeePerGas<T>>::put(self.base_fee_per_gas);
 			<EvmElasticity<T>>::put(self.elasticity);
 		}
 	}
 
 	#[pallet::type_value]
-	pub fn DefaultBaseFeePerGas<T: Config>() -> U256 {
-		T::DefaultBaseFeePerGas::get()
+	pub fn DefaultEvmBaseFeePerGas<T: Config>() -> U256 {
+		T::DefaultEvmBaseFeePerGas::get()
+	}
+
+	#[pallet::type_value]
+	pub fn DefaultWeightToFeeReduction<T: Config>() -> Permill {
+		T::WeightToFeeReduction::get()
 	}
 
 	#[pallet::storage]
 	#[pallet::getter(fn base_fee_per_gas)]
-	pub type BaseFeePerGas<T> = StorageValue<_, U256, ValueQuery, DefaultBaseFeePerGas<T>>;
+	pub type EvmBaseFeePerGas<T> = StorageValue<_, U256, ValueQuery, DefaultEvmBaseFeePerGas<T>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn extrinsic_weight_to_fee)]
+	pub type ExtrinsicWeightToFee<T> = StorageValue<_, Permill, ValueQuery, DefaultWeightToFeeReduction<T>>;
 
 	#[pallet::type_value]
 	pub fn DefaultElasticity<T: Config>() -> Permill {
@@ -117,14 +125,14 @@ pub mod pallet {
 			// Register the Weight used on_finalize.
 			// 	- One storage read to get the block_weight.
 			// 	- One storage read to get the Elasticity.
-			// 	- One write to BaseFeePerGas.
+			// 	- One write to EvmBaseFeePerGas.
 			let db_weight = <T as frame_system::Config>::DbWeight::get();
 			db_weight.reads(2).saturating_add(db_weight.write)
 		}
 
 		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
 			if <EvmElasticity<T>>::get().is_zero() {
-				// Zero elasticity means constant BaseFeePerGas.
+				// Zero elasticity means constant EvmBaseFeePerGas.
 				return;
 			}
 
@@ -154,7 +162,7 @@ pub mod pallet {
 				let coef = Permill::from_parts((usage.deconstruct() - target.deconstruct()) * 2u32);
 				// How much of the Elasticity is used to mutate base fee.
 				let coef = <EvmElasticity<T>>::get() * coef;
-				<BaseFeePerGas<T>>::mutate(|bf| {
+				<EvmBaseFeePerGas<T>>::mutate(|bf| {
 					if let Some(scaled_basefee) = bf.checked_mul(U256::from(coef.deconstruct())) {
 						// Normalize to GWEI.
 						let increase = scaled_basefee
@@ -170,7 +178,7 @@ pub mod pallet {
 				let coef = Permill::from_parts((target.deconstruct() - usage.deconstruct()) * 2u32);
 				// How much of the Elasticity is used to mutate base fee.
 				let coef = <EvmElasticity<T>>::get() * coef;
-				<BaseFeePerGas<T>>::mutate(|bf| {
+				<EvmBaseFeePerGas<T>>::mutate(|bf| {
 					if let Some(scaled_basefee) = bf.checked_mul(U256::from(coef.deconstruct())) {
 						// Normalize to GWEI.
 						let decrease = scaled_basefee
@@ -188,30 +196,28 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight((1000_000 as Weight))]
-		pub fn set_evm_base_fee(origin: OriginFor<T>) -> DispatchResult {
+		pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
+			<EvmBaseFeePerGas<T>>::put(value);
 			Ok(())
 		}
 
 		#[pallet::weight((1000_000 as Weight))]
-		pub fn set_extrinsic_base_fee(origin: OriginFor<T>) -> DispatchResult {
+		pub fn set_extrinsic_base_fee(origin: OriginFor<T>, value: Permill) -> DispatchResult {
 			ensure_root(origin)?;
+			ExtrinsicWeightToFee::<T>::put(value);
 			Ok(())
 		}
 	}
 
-
-	// /// `WeightToFee` implementation converts weight to fee using a fixed % deduction
-	// pub struct PercentageOfWeight<M>(sp_std::marker::PhantomData<M>);
-
+	// Substrate extrinsics fee control
 	impl<T> WeightToFee for Pallet<T>
 	where
 		T: Config,
 	{
 		type Balance = Balance;
-
 		fn weight_to_fee(weight: &Weight) -> Balance {
-			T::WeightToFeeReduction::get().mul(*weight as Balance)
+			Self::extrinsic_weight_to_fee().mul(*weight as Balance)
 		}
 	}
 
@@ -219,17 +225,6 @@ pub mod pallet {
 
 impl<T: Config> fp_evm::FeeCalculator for Pallet<T> {
 	fn min_gas_price() -> (U256, Weight) {
-		(<BaseFeePerGas<T>>::get(), T::DbWeight::get().reads(1))
-	}
-}
-
-impl<T: Config> Pallet<T> {
-	pub fn set_base_fee_per_gas_inner(value: U256) -> Weight {
-		<BaseFeePerGas<T>>::put(value);
-		T::DbWeight::get().write
-	}
-	pub fn set_elasticity_inner(value: Permill) -> Weight {
-		<EvmElasticity<T>>::put(value);
-		T::DbWeight::get().write
+		(<EvmBaseFeePerGas<T>>::get(), T::DbWeight::get().reads(1))
 	}
 }
