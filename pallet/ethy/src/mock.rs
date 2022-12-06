@@ -12,15 +12,11 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use crate::{
-	self as pallet_ethy,
-	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
-	types::{
-		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult,
-		EthAddress, EthBlock, EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
-	},
-	Config,
+use std::{
+	sync::Arc,
+	time::{SystemTime, UNIX_EPOCH},
 };
+
 use codec::{Decode, Encode};
 use ethereum_types::U64;
 use frame_support::{
@@ -31,14 +27,6 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use scale_info::TypeInfo;
-use seed_pallet_common::{
-	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter,
-	EventRouterResult, FinalSessionTracker,
-};
-use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
-	AssetId, Balance, Signature,
-};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
@@ -49,9 +37,24 @@ use sp_runtime::{
 	},
 	DispatchError, Percent,
 };
-use std::{
-	sync::Arc,
-	time::{SystemTime, UNIX_EPOCH},
+
+use seed_pallet_common::{
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter,
+	EventRouterResult, FinalSessionTracker,
+};
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventProofId},
+	AssetId, Balance, Signature,
+};
+
+use crate::{
+	self as pallet_ethy,
+	sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
+	types::{
+		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult,
+		EthAddress, EthBlock, EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
+	},
+	Config,
 };
 
 pub const XRP_ASSET_ID: AssetId = 1;
@@ -365,13 +368,16 @@ impl MockReceiptBuilder {
 
 pub(crate) mod test_storage {
 	//! storage used by tests to store mock EthBlocks and TransactionReceipts
-	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
+	use frame_support::decl_storage;
+
+	use seed_pallet_common::EthCallFailure;
+
 	use crate::{
 		types::{CheckedEthCallResult, EthAddress, EthCallId, EthHash},
 		Config,
 	};
-	use frame_support::decl_storage;
-	use seed_pallet_common::EthCallFailure;
+
+	use super::{AccountId, MockBlockResponse, MockReceiptResponse};
 
 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
 	decl_storage! {
@@ -383,6 +389,7 @@ pub(crate) mod test_storage {
 			pub Validators: Vec<AccountId>;
 			pub LastCallResult: Option<(EthCallId, CheckedEthCallResult)>;
 			pub LastCallFailure: Option<(EthCallId, EthCallFailure)>;
+			pub Forcing: bool;
 		}
 	}
 }
@@ -604,8 +611,8 @@ impl MockEthCallSubscriber {
 pub struct MockFinalSessionTracker;
 impl FinalSessionTracker for MockFinalSessionTracker {
 	fn is_active_session_final() -> bool {
-		// at block 2, the active session is final
-		frame_system::Pallet::<TestRuntime>::block_number() == 2
+		// at block 100, or if we are forcing, the active session is final
+		frame_system::Pallet::<TestRuntime>::block_number() == 100 || test_storage::Forcing::get()
 	}
 }
 
@@ -733,7 +740,7 @@ impl ExtBuilder {
 		if self.next_session_final {
 			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
 		} else if self.active_session_final {
-			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(2));
+			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(100));
 		}
 
 		ext

@@ -13,6 +13,7 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 #![cfg(test)]
+
 use codec::Encode;
 use ethabi::Token;
 use frame_support::{
@@ -23,6 +24,14 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use hex_literal::hex;
+use sp_core::{ByteArray, H160, H256, U256};
+use sp_keystore::{testing::KeyStore, SyncCryptoStore};
+use sp_runtime::{
+	generic::DigestItem,
+	traits::{AccountIdConversion, BadOrigin, Convert},
+	Percent, RuntimeAppPublic, SaturatedConversion,
+};
+
 use seed_pallet_common::{EthCallFailure, EthereumBridge, XrplBridgeToEthyAdapter};
 use seed_primitives::{
 	ethy::{
@@ -31,13 +40,6 @@ use seed_primitives::{
 	},
 	xrpl::XrplAccountId,
 	BlockNumber,
-};
-use sp_core::{ByteArray, H160, H256, U256};
-use sp_keystore::{testing::KeyStore, SyncCryptoStore};
-use sp_runtime::{
-	generic::DigestItem,
-	traits::{AccountIdConversion, BadOrigin, Convert},
-	Percent, RuntimeAppPublic, SaturatedConversion,
 };
 
 use crate::{
@@ -970,7 +972,7 @@ fn on_new_session_updates_keys() {
 		);
 		assert!(EthBridge::next_authority_change().is_none());
 
-		let block_number: BlockNumber = 2;
+		let block_number: BlockNumber = 100;
 		System::set_block_number(block_number.into());
 		// Call on_new_session where is_active_session_final is true, should change storage
 		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
@@ -1014,7 +1016,8 @@ fn on_new_session_updates_keys() {
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(System::digest().logs.len(), 2);
 		assert!(!EthBridge::bridge_paused());
-		assert!(EthBridge::next_notary_keys().is_empty());
+		// Next_notary_keys hasn't been cleared
+		assert_eq!(EthBridge::next_notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_keys(), next_keys);
 		assert!(!EthBridge::authorities_changed_this_era());
 	});
@@ -1052,7 +1055,7 @@ fn on_before_session_ending_handles_authorities() {
 		// Next authority change not scheduled, not final session
 		assert!(EthBridge::next_authority_change().is_none());
 
-		let block_number: BlockNumber = 2;
+		let block_number: BlockNumber = 100;
 		System::set_block_number(block_number.into());
 		// Call on_new_session where is_active_session_final is true, should change storage
 		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
@@ -1102,7 +1105,8 @@ fn on_before_session_ending_handles_authorities() {
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		assert!(EthBridge::next_authority_change().is_none());
-		assert!(EthBridge::next_notary_keys().is_empty());
+		// Next_notary_keys hasn't been cleared
+		assert_eq!(EthBridge::next_notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_keys(), next_keys);
 	});
 }
@@ -1134,7 +1138,7 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 		assert!(EthBridge::next_authority_change().is_none());
 
 		// Block number as 2 triggers is_active_session_final = true
-		let block_number: BlockNumber = 2;
+		let block_number: BlockNumber = 100;
 		System::set_block_number(block_number.into());
 
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
@@ -1152,6 +1156,82 @@ fn on_before_session_ending_handles_authorities_without_on_new_session() {
 		// Scheduler unpauses bridge
 		Scheduler::on_initialize(scheduled_block.into());
 		assert!(!EthBridge::bridge_paused());
+	});
+}
+
+#[test]
+/// This test tests the bug where the next_notary_keys were being set before the scheduled
+/// finalise_authorities_change was called
+fn force_new_era_with_scheduled_authority_change_works() {
+	ExtBuilder::default().next_session_final().build().execute_with(|| {
+		let default_account = AccountId::default();
+		let next_keys_iter = vec![
+			(&default_account, AuthorityId::from_slice(&[3_u8; 33]).unwrap()),
+			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
+		]
+		.into_iter();
+
+		// Call on_new_session but is_active_session_final is false
+		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
+			true,
+			next_keys_iter.clone(),
+			next_keys_iter.clone(),
+		);
+		// next notary keys queued up
+		assert_eq!(
+			EthBridge::next_notary_keys(),
+			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
+		);
+		// Next authority change not scheduled, not final session
+		assert!(EthBridge::next_authority_change().is_none());
+
+		// Simulate force new era
+		test_storage::Forcing::put(true);
+
+		// Add a validator to the next_keys, simulating a change in validator during the last
+		// session
+		let next_keys_expanded = vec![
+			(&default_account, AuthorityId::from_slice(&[3_u8; 33]).unwrap()),
+			(&default_account, AuthorityId::from_slice(&[4_u8; 33]).unwrap()),
+			(&default_account, AuthorityId::from_slice(&[5_u8; 33]).unwrap()),
+		]
+		.into_iter();
+
+		// Block number 50 isn't final session, but we have forced
+		let block_number: BlockNumber = 50;
+		System::set_block_number(block_number.into());
+
+		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
+		// changed in on_initialize
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		// Item should be scheduled and bridge still paused
+		assert!(EthBridge::bridge_paused());
+
+		// Call on_new_session while is_active_session_final is true due to force
+		<EthBridge as OneSessionHandler<AccountId>>::on_new_session(
+			true,
+			next_keys_expanded.clone(),
+			next_keys_expanded.clone(),
+		);
+		// next notary keys now the empty keys
+		assert_eq!(
+			EthBridge::next_notary_keys(),
+			next_keys_expanded.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
+		);
+
+		// Even though the next notary keys were updated in the new session,
+		// When we schedule the finalise_authorities_change, we still have the previous keys
+		let scheduled_block: BlockNumber = block_number + 75_u32;
+
+		// Scheduler unpauses bridge
+		Scheduler::on_initialize(scheduled_block.into());
+		assert!(!EthBridge::bridge_paused());
+
+		// Keys updated with the correct value
+		assert_eq!(
+			EthBridge::notary_keys(),
+			next_keys_iter.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
+		);
 	});
 }
 
