@@ -68,13 +68,13 @@ pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-fe
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 pallet-evm-precompiles-nft = { path = "../evm-precompiles/nft", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
-ethabi = { version = "17.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-dex-rpc-runtime-api = { path = "../pallet/dex/rpc/runtime-api", default-features = false }
 pallet-echo = { path = "../pallet/echo", default-features = false }
 pallet-ethy = { path = "../pallet/ethy", default-features = false }
+pallet-fee-proxy = { path = "../pallet/fee-proxy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
@@ -104,6 +104,7 @@ substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", 
 [dev-dependencies]
 ethereum = { version = "0.12.0", features = ["with-codec"] }
 seed-client = { path = "../client" }
+ethabi = { version = "17.1.0" }
 
 [features]
 default = [ "std" ]
@@ -155,6 +156,7 @@ std = [
 	"pallet-dex/std",
 	"pallet-dex-rpc-runtime-api/std",
 	"pallet-ethy/std",
+	"pallet-fee-proxy/std",
 	"pallet-nft/std",
 	"pallet-nft-rpc-runtime-api/std",
 	"pallet-xrpl-bridge/std",
@@ -178,7 +180,6 @@ std = [
 	"rustc-hex/std",
 	"pallet-erc20-peg/std",
 	"pallet-nft-peg/std",
-	"ethabi/std",
 	"evm/std",
 	"try-runtime-cli"
 ]

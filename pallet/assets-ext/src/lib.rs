@@ -1,8 +1,8 @@
 //! # Pallet Assets Ext
 //!
 //! An extension pallet providing a hybrid asset system over pallet-balances & pallet-assets
-//! The mycelium asset Id is used to proxy all requests to pallet-balances, while remaining tokens
-//! are managed by pallet-assets
+//! The native asset Id (XRP) is used to proxy all requests to pallet-balances, while remaining
+//! tokens are managed by pallet-assets
 //!
 //! It is intended for internal use by other pallets only
 //!

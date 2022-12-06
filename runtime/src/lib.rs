@@ -95,6 +95,7 @@ use impls::{
 	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
 	PercentageOfWeight, SlashImbalanceHandler, StakingSessionTracker,
 };
+use pallet_fee_proxy::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
 
 pub mod precompiles;
 use precompiles::FutureversePrecompiles;
@@ -104,13 +105,10 @@ use staking::OnChainAccuracy;
 
 mod weights;
 
-pub mod runner;
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
-use runner::{FeePreferencesData, FeePreferencesRunner};
 
-use crate::constants::FEE_PROXY;
+use precompile_utils::constants::FEE_PROXY_ADDRESS;
 
-pub(crate) const LOG_TARGET: &str = "runtime";
 #[cfg(test)]
 mod tests;
 
@@ -252,7 +250,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
+	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
 	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -346,6 +344,15 @@ impl pallet_echo::Config for Runtime {
 	type Event = Event;
 	type EthereumBridge = EthBridge;
 	type PalletId = EchoPalletId;
+}
+
+impl pallet_fee_proxy::Config for Runtime {
+	type Call = Call;
+	type Event = Event;
+	type PalletsOrigin = OriginCaller;
+	type FeeAssetId = XrpAssetId;
+	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
+	type ErcIdConversion = Self;
 }
 
 parameter_types! {
@@ -1004,6 +1011,8 @@ construct_runtime! {
 		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 28,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
+
+		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
 	}
 }
 
@@ -1504,7 +1513,7 @@ fn transaction_asset_check(
 	eth_tx: EthereumTransaction,
 	action: TransactionAction,
 ) -> Result<(), TransactionValidityError> {
-	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY));
+	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY_ADDRESS));
 
 	if action == fee_proxy {
 		let (input, gas_limit, max_fee_per_gas) = match eth_tx {
@@ -1527,9 +1536,8 @@ fn transaction_asset_check(
 			user_asset_balance >= max_payment,
 			TransactionValidityError::Invalid(InvalidTransaction::Payment)
 		);
-		let FeePreferencesData { account: _, path, total_fee_scaled } =
-			runner::get_fee_preferences_data::<Runtime, Runtime>(
-				source,
+		let FeePreferencesData { path, total_fee_scaled } =
+			get_fee_preferences_data::<Runtime, Runtime>(
 				gas_limit.as_u64(),
 				max_fee_per_gas,
 				payment_asset_id,

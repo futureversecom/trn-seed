@@ -17,7 +17,6 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use core::ops::Mul;
-
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
@@ -39,7 +38,7 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-use precompile_utils::{Address, ErcIdConversion};
+use precompile_utils::{constants::FEE_PROXY_ADDRESS, Address, ErcIdConversion};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
@@ -47,8 +46,8 @@ use seed_pallet_common::{
 use seed_primitives::{AccountId, Balance, Index, Signature};
 
 use crate::{
-	constants::FEE_PROXY, BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId,
-	Staking, System, UncheckedExtrinsic,
+	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
+	UncheckedExtrinsic,
 };
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -425,7 +424,7 @@ pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E
 
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
 	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
-		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY);
+		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY_ADDRESS);
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
 			// call default trait function instead

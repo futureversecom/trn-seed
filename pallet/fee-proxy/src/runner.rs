@@ -1,4 +1,19 @@
-use crate::Dex;
+/* Copyright 2019-2021 Centrality Investments Limited
+ *
+ * Licensed under the LGPL, Version 3.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * You may obtain a copy of the License at the root of this project source code,
+ * or at:
+ *     https://centrality.ai/licenses/gplv3.txt
+ *     https://centrality.ai/licenses/lgplv3.txt
+ */
+
+use crate::Config;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, traits::fungibles::InspectMetadata};
 use pallet_evm::{
@@ -6,14 +21,14 @@ use pallet_evm::{
 	Runner as RunnerT, RunnerError,
 };
 use precompile_utils::{
-	constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, Address as EthAddress, ErcIdConversion,
+	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_PROXY_ADDRESS},
+	Address as EthAddress, ErcIdConversion,
 };
-// use primitive_types::{H160, H256, U256}; // TODO: use this instead of seed_pallet_common imports
-use primitive_types::{H160, H256, U256};
 use seed_pallet_common::log;
 use seed_primitives::{AccountId, AssetId, Balance};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
-	traits::SaturatedConversion,
+	traits::{Get, SaturatedConversion},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
 };
 use sp_std::{marker::PhantomData, prelude::*};
@@ -60,17 +75,9 @@ impl From<FeePreferencesError> for TransactionValidityError {
 	}
 }
 
-/// TODO - migrate these to precompile-utils/constants?
-/// Function selector for call_with_fee_preferences
-/// bytes4(keccak256(bytes("callWithFeePreferences(address,uint128,address,bytes)")));
-/// TODO - use #[precompile_utils::generate_function_selector]
-const FEE_FUNCTION_SELECTOR: [u8; 4] = [0x25, 0x5a, 0x34, 0x32];
-/// Precompile address for fee preferences
-const FEE_PROXY_ADDRESS: u64 = 1211; // 0x04BB = 00000100 10111011
-
 /// Convert 18dp wei values to correct dp equivalents
 /// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.000001 cpay
-fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
+pub(crate) fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
 	let (quotient, remainder) = (value / unit_value, value % unit_value);
 	if remainder == U256::from(0) {
@@ -83,33 +90,31 @@ fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
 }
 
 // Any data needed for computing fee preferences
+#[derive(Debug, PartialEq)]
 pub struct FeePreferencesData {
-	pub account: AccountId,
 	pub path: Vec<u32>,
 	pub total_fee_scaled: u128,
 }
 
 pub fn get_fee_preferences_data<T, U>(
-	source: &H160,
 	gas_limit: u64,
 	max_fee_per_gas: Option<U256>,
 	payment_asset_id: u32,
 ) -> Result<FeePreferencesData, FeePreferencesError>
 where
-	T: pallet_evm::Config<AccountId = AccountId> + pallet_assets_ext::Config,
+	T: pallet_evm::Config<AccountId = AccountId> + pallet_assets_ext::Config + Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 {
 	let total_fee =
 		FeePreferencesRunner::<T, U>::calculate_total_gas(gas_limit, max_fee_per_gas, false)?;
 
-	let gas_token_asset_id = crate::constants::XRP_ASSET_ID;
+	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
 	let decimals =
 		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(&gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
 
-	let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 	let path = vec![payment_asset_id, gas_token_asset_id];
-	Ok(FeePreferencesData { total_fee_scaled, account, path })
+	Ok(FeePreferencesData { total_fee_scaled, path })
 }
 
 /// seed implementation of the evm runner which handles the case where users are attempting
@@ -181,8 +186,10 @@ where
 
 impl<T, U> RunnerT<T> for FeePreferencesRunner<T, U>
 where
-	T: pallet_evm::Config<AccountId = AccountId>,
-	T: pallet_assets_ext::Config,
+	T: pallet_evm::Config<AccountId = AccountId>
+		+ pallet_assets_ext::Config
+		+ pallet_dex::Config
+		+ Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
 {
@@ -245,21 +252,22 @@ where
 			input = new_input;
 			target = new_target;
 
-			let FeePreferencesData { account, path, total_fee_scaled } =
-				get_fee_preferences_data::<T, U>(
-					&source,
-					gas_limit,
-					max_fee_per_gas,
-					payment_asset_id,
-				)
-				.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
+			let FeePreferencesData { path, total_fee_scaled } =
+				get_fee_preferences_data::<T, U>(gas_limit, max_fee_per_gas, payment_asset_id)
+					.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
 
+			let account =
+				<T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 			if total_fee_scaled > 0 {
 				// total_fee_scaled is 0 when user doesnt have gas asset currency
-				Dex::do_swap_with_exact_target(&account, total_fee_scaled, max_payment, &path)
-					.map_err(|err| {
-						// TODO implement err into RunnerError
-						log!(
+				pallet_dex::Pallet::<T>::do_swap_with_exact_target(
+					&account,
+					total_fee_scaled,
+					max_payment,
+					&path,
+				)
+				.map_err(|err| {
+					log!(
 							error,
 							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
 							payment_asset_id,
@@ -268,8 +276,8 @@ where
 							err,
 							path
 						);
-						RunnerError { error: Self::Error::WithdrawFailed, weight }
-					})?;
+					RunnerError { error: Self::Error::WithdrawFailed, weight }
+				})?;
 			}
 		}
 
@@ -346,169 +354,5 @@ where
 			validate,
 			config,
 		)
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::{BaseFee, Runtime};
-	use frame_support::{assert_noop, assert_ok};
-	use hex_literal::hex;
-
-	/// type alias for runtime configured FeePreferencesRunner
-	type Runner = FeePreferencesRunner<Runtime, Runtime>;
-
-	#[test]
-	fn decode_input() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-      // Abi generated from below parameters using the following function name:
-      // callWithFeePreferences
-      // abi can be easily generated here https://abi.hashex.org/
-      let exp_payment_asset = 16000_u32;
-      let exp_max_payment = 123_456_789 as Balance;
-      let exp_target = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
-      let exp_input: Vec<u8> =
-        hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b"
-).to_vec();
-      let mut input = FEE_FUNCTION_SELECTOR.to_vec();
-      input.append(&mut ethabi::encode(&[
-        Token::Address(Runtime::runtime_id_to_evm_id(exp_payment_asset, ERC20_PRECOMPILE_ADDRESS_PREFIX).0),
-        Token::Uint(exp_max_payment.into()),
-        Token::Address(exp_target),
-        Token::Bytes(exp_input.clone())],
-      ));
-
-      assert_eq!(
-        Runner::decode_input(input),
-        Ok((exp_payment_asset, exp_max_payment, exp_target, exp_input))
-      );
-    });
-	}
-
-	#[test]
-	fn decode_input_invalid_function_selector_should_fail() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let bad_selector_input = vec![0x01, 0x02, 0x03, 0x04];
-			assert_noop!(
-				Runner::decode_input(bad_selector_input),
-				FeePreferencesError::InvalidFunctionSelector
-			);
-		});
-	}
-
-	#[test]
-	fn decode_input_empty_input_should_fail() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			assert_noop!(
-				Runner::decode_input(Default::default()),
-				FeePreferencesError::InvalidInputArguments
-			);
-		});
-	}
-
-	#[test]
-	fn decode_input_invalid_input_args_should_fail() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
-			input.append(&mut ethabi::encode(&[
-				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
-				Token::Array(vec![
-					Token::Uint(1u64.into()),
-					Token::Uint(2u64.into()),
-					Token::Uint(3u64.into()),
-					Token::Uint(4u64.into()),
-					Token::Uint(5u64.into()),
-				]),
-			]));
-
-			assert_noop!(Runner::decode_input(input), FeePreferencesError::FailedToDecodeInput);
-		});
-	}
-
-	#[test]
-	fn decode_input_zero_payment_asset_should_fail() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
-			input.append(&mut ethabi::encode(&[
-				Token::Address(H160::zero()),
-				Token::Uint(5u64.into()),
-				Token::Address(H160::default()),
-				Token::Bytes(vec![1_u8, 2, 3, 4, 5]),
-			]));
-
-			assert_noop!(
-				Runner::decode_input(input.to_vec()),
-				FeePreferencesError::InvalidPaymentAsset
-			);
-		});
-	}
-
-	#[test]
-	fn calculate_total_gas() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let (_base_fee, _weight) = BaseFee::min_gas_price();
-
-			assert_ok!(Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false));
-		});
-	}
-
-	#[ignore] // TODO - revisit
-	#[test]
-	fn calculate_total_gas_low_max_fee_should_fail() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit = 100_000_u64;
-			let (base_fee, _weight) = BaseFee::min_gas_price();
-
-			assert_noop!(
-				Runner::calculate_total_gas(
-					gas_limit,
-					Some(base_fee.saturating_sub(1_u64.into())),
-					false,
-				),
-				FeePreferencesError::GasPriceTooLow
-			);
-		});
-	}
-
-	#[test]
-	fn calculate_total_gas_no_max_fee_ok() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit = 100_000_u64;
-			let max_fee_per_gas = None;
-			let (_base_fee, _weight) = BaseFee::min_gas_price();
-
-			assert_ok!(Runner::calculate_total_gas(gas_limit, max_fee_per_gas, false));
-		});
-	}
-
-	#[ignore] // TODO - revisit
-	#[test]
-	fn calculate_total_gas_max_priority_fee_too_large_should_fail() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let (_base_fee, _weight) = BaseFee::min_gas_price();
-
-			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false),
-				FeePreferencesError::FeeOverflow
-			);
-		});
-	}
-
-	#[test]
-	fn calculate_total_gas_max_fee_too_large_should_fail() {
-		sp_io::TestExternalities::new_empty().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::MAX;
-
-			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false),
-				FeePreferencesError::FeeOverflow
-			);
-		});
 	}
 }
