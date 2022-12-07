@@ -106,7 +106,7 @@ pub trait Config:
 	/// Bond required by challenger to make a challenge
 	type ChallengeBond: Get<Balance>;
 	// The duration in blocks of one epoch
-	type EpochDuration: Get<Self::BlockNumber>;
+	type EpochDuration: Get<u64>;
 	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
