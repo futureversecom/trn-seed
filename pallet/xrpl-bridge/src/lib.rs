@@ -299,8 +299,8 @@ pub mod pallet {
 		}
 
 		// /// Submit xrp transaction challenge
-		// #[pallet::weight((<T as Config>::WeightInfo::submit_challenge(), DispatchClass::Operational))]
-		// #[transactional]
+		// #[pallet::weight((<T as Config>::WeightInfo::submit_challenge(),
+		// DispatchClass::Operational))] #[transactional]
 		// pub fn submit_challenge(
 		// 	origin: OriginFor<T>,
 		// 	transaction_hash: XrplTxHash,
