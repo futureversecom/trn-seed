@@ -95,6 +95,8 @@ const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 pub trait Config:
 	frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>>
 {
+	/// Length of time the bridge will be paused while the authority set changes
+	type AuthorityChangeDelay: Get<Self::BlockNumber>;
 	/// Knows the active authority set (validator stash addresses)
 	type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)
@@ -104,7 +106,7 @@ pub trait Config:
 	/// Bond required by challenger to make a challenge
 	type ChallengeBond: Get<Balance>;
 	// The duration in blocks of one epoch
-	type EpochDuration: Get<u64>;
+	type EpochDuration: Get<Self::BlockNumber>;
 	/// Pallet subscribing to of notarized eth calls
 	type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network

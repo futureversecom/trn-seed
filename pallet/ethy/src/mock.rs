@@ -121,8 +121,10 @@ parameter_types! {
 	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
 	pub const MaxXrplKeys: u8 = 8;
 	pub const MaxNewSigners: u8 = 20;
+	pub const AuthorityChangeDelay: BlockNumber = 75;
 }
 impl Config for TestRuntime {
+	type AuthorityChangeDelay = AuthorityChangeDelay;
 	type AuthoritySet = MockValidatorSet;
 	type BridgePalletId = BridgePalletId;
 	type EthCallSubscribers = MockEthCallSubscriber;

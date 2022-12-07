@@ -879,10 +879,12 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		if T::FinalSessionTracker::is_active_session_final() {
 			// Next authority change is 5 minutes before this session ends
 			// (Just before the start of the next epoch)
-			// next_block = current_block + epoch_duration - 75 (5 minutes in blocks)
-			let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
+			// next_block = current_block + epoch_duration - AuthorityChangeDelay
+			// let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
 			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
-				.saturating_add(epoch_duration.saturating_sub(75_u32).into());
+				.saturating_add(
+					T::EpochDuration::get().saturating_sub(T::AuthorityChangeDelay::get()),
+				);
 			<NextAuthorityChange<T>>::put(next_block);
 		}
 	}
@@ -904,12 +906,12 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 
 				// Schedule an un-pausing of the bridge to give the relayer time to relay the
 				// authority set change.
-				// Delay set to 75 blocks = 5 minutes
-				let scheduled_block = <frame_system::Pallet<T>>::block_number() + 75_u32.into();
+				let scheduled_block =
+					<frame_system::Pallet<T>>::block_number() + T::AuthorityChangeDelay::get();
 				if T::Scheduler::schedule(
 					DispatchTime::At(scheduled_block),
 					None,
-					63,
+					SCHEDULER_PRIORITY,
 					frame_system::RawOrigin::None.into(),
 					Call::finalise_authorities_change { next_notary_keys }.into(),
 				)

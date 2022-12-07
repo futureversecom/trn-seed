@@ -751,9 +751,13 @@ parameter_types! {
 	/// Max Xrpl notary (validator) public keys
 	pub const MaxXrplKeys: u8 = 8;
 	pub const MaxNewSigners: u8 = 20;
+	/// 75 blocks is 5 minutes before the end of the era
+	pub const AuthorityChangeDelay: BlockNumber = 75_u32.into();
 }
 
 impl pallet_ethy::Config for Runtime {
+	/// Length of time the bridge will be paused while the authority set changes
+	type AuthorityChangeDelay = AuthorityChangeDelay;
 	/// Reports the current validator / notary set
 	type AuthoritySet = Historical;
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)

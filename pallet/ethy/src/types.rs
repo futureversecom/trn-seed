@@ -45,6 +45,8 @@ pub use seed_primitives::{
 	BlockNumber,
 };
 
+pub const SCHEDULER_PRIORITY: u8 = 63;
+
 /// An EthCallOracle call Id
 pub type EthCallId = u64;
 /// An EthCallOracle request
