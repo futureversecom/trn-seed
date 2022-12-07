@@ -298,17 +298,17 @@ pub mod pallet {
 			Self::add_to_relay(relayer, ledger_index, transaction_hash, transaction, timestamp)
 		}
 
-		/// Submit xrp transaction challenge
-		#[pallet::weight((<T as Config>::WeightInfo::submit_challenge(), DispatchClass::Operational))]
-		#[transactional]
-		pub fn submit_challenge(
-			origin: OriginFor<T>,
-			transaction_hash: XrplTxHash,
-		) -> DispatchResult {
-			let challenger = ensure_signed(origin)?;
-			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
-			Ok(())
-		}
+		// /// Submit xrp transaction challenge
+		// #[pallet::weight((<T as Config>::WeightInfo::submit_challenge(), DispatchClass::Operational))]
+		// #[transactional]
+		// pub fn submit_challenge(
+		// 	origin: OriginFor<T>,
+		// 	transaction_hash: XrplTxHash,
+		// ) -> DispatchResult {
+		// 	let challenger = ensure_signed(origin)?;
+		// 	ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
+		// 	Ok(())
+		// }
 
 		/// Withdraw xrp transaction
 		#[pallet::weight((<T as Config>::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
