@@ -960,7 +960,7 @@ parameter_types! {
 	/// Floor network base fee per gas
 	/// 0.000015 XRP per gas, 15000 GWEI
 	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
-	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
+	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
 
 }
 	

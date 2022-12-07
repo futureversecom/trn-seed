@@ -10,7 +10,7 @@ use frame_system::pallet_prelude::*;
 use seed_primitives::Balance;
 
 use sp_core::U256;
-use sp_runtime::Permill;
+use sp_runtime::{Perbill, Permill};
 
 use core::ops::Mul;
 #[cfg(test)]
@@ -40,7 +40,7 @@ pub mod pallet {
 		type Threshold: BaseFeeThreshold;
 		type DefaultEvmBaseFeePerGas: Get<U256>;
 		type DefaultEvmElasticity: Get<Permill>;
-		type WeightToFeeReduction: Get<Permill>;
+		type WeightToFeeReduction: Get<Perbill>;
 	}
 
 	#[pallet::genesis_config]
@@ -86,7 +86,7 @@ pub mod pallet {
 	}
 
 	#[pallet::type_value]
-	pub fn DefaultWeightToFeeReduction<T: Config>() -> Permill {
+	pub fn DefaultWeightToFeeReduction<T: Config>() -> Perbill {
 		T::WeightToFeeReduction::get()
 	}
 
@@ -96,7 +96,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn extrinsic_weight_to_fee)]
-	pub type ExtrinsicWeightToFee<T> = StorageValue<_, Permill, ValueQuery, DefaultWeightToFeeReduction<T>>;
+	pub type ExtrinsicWeightToFee<T> = StorageValue<_, Perbill, ValueQuery, DefaultWeightToFeeReduction<T>>;
 
 	#[pallet::type_value]
 	pub fn DefaultElasticity<T: Config>() -> Permill {
@@ -195,17 +195,23 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight((1000_000 as Weight))]
+		#[pallet::weight(1000_000 as Weight)]
 		pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
 			<EvmBaseFeePerGas<T>>::put(value);
 			Ok(())
 		}
 
-		#[pallet::weight((1000_000 as Weight))]
-		pub fn set_extrinsic_base_fee(origin: OriginFor<T>, value: Permill) -> DispatchResult {
+		#[pallet::weight(1000_000 as Weight)]
+		pub fn set_extrinsic_base_fee(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
 			ExtrinsicWeightToFee::<T>::put(value);
+			Ok(())
+		}
+
+		// For local testing. Charge some low gas
+		#[pallet::weight(207_555_000 as Weight)]
+		pub fn debug_charge_feee(origin: OriginFor<T>) -> DispatchResult {
 			Ok(())
 		}
 	}

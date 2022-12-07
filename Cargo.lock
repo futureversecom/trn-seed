@@ -5049,6 +5049,7 @@ dependencies = [
  "fp-evm",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-assets",
  "pallet-balances",
  "pallet-evm",
