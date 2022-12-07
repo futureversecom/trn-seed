@@ -763,7 +763,7 @@ impl<T: Config> Module<T> {
 	}
 
 	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
-	pub fn do_finalise_authorities_change() {
+	pub fn do_finalise_authorities_change(next_notary_keys: Vec<T::EthyId>) {
 		debug!(target: "ethy-pallet", "💎 session & era ending, set new validator keys");
 
 		// Unpause the bridge
@@ -771,8 +771,6 @@ impl<T: Config> Module<T> {
 		// A proof should've been generated now so we can reactivate the bridge with the new
 		// validator set
 		AuthoritiesChangedThisEra::kill();
-		// Time to update the bridge validator keys.
-		let next_notary_keys = NextNotaryKeys::<T>::take();
 		// Store the new keys and increment the validator set id
 		// Next notary keys should be unset, until populated by new session logic
 		<NotaryKeys<T>>::put(&next_notary_keys);
@@ -881,10 +879,10 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 		if T::FinalSessionTracker::is_active_session_final() {
 			// Next authority change is 5 minutes before this session ends
 			// (Just before the start of the next epoch)
-			// next_block = current_block + epoch_duration - 75 (5 minutes in blocks)
-			let epoch_duration: u32 = T::EpochDuration::get().saturated_into();
+			// next_block = current_block + epoch_duration - AuthorityChangeDelay
+			let epoch_duration: T::BlockNumber = T::EpochDuration::get().saturated_into();
 			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
-				.saturating_add(epoch_duration.saturating_sub(75_u32).into());
+				.saturating_add(epoch_duration.saturating_sub(T::AuthorityChangeDelay::get()));
 			<NextAuthorityChange<T>>::put(next_block);
 		}
 	}
@@ -896,6 +894,9 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 	fn on_before_session_ending() {
 		// Re-activate the bridge, allowing claims & proofs again
 		if T::FinalSessionTracker::is_active_session_final() {
+			// Get the next_notary_keys for the next era
+			let next_notary_keys = NextNotaryKeys::<T>::get();
+
 			if !Self::authorities_changed_this_era() {
 				// The authorities haven't been changed yet
 				// This could be due to a new era being forced before the final session
@@ -903,14 +904,14 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 
 				// Schedule an un-pausing of the bridge to give the relayer time to relay the
 				// authority set change.
-				// Delay set to 75 blocks = 5 minutes
-				let scheduled_block = <frame_system::Pallet<T>>::block_number() + 75_u32.into();
+				let scheduled_block =
+					<frame_system::Pallet<T>>::block_number() + T::AuthorityChangeDelay::get();
 				if T::Scheduler::schedule(
 					DispatchTime::At(scheduled_block),
 					None,
-					63,
+					SCHEDULER_PRIORITY,
 					frame_system::RawOrigin::None.into(),
-					Call::finalise_authorities_change {}.into(),
+					Call::finalise_authorities_change { next_notary_keys }.into(),
 				)
 				.is_err()
 				{
@@ -920,7 +921,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Module<T> {
 				}
 			} else {
 				// Authorities have been changed, finalise those changes immediately
-				Self::do_finalise_authorities_change();
+				Self::do_finalise_authorities_change(next_notary_keys);
 			}
 		}
 	}
