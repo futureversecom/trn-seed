@@ -752,7 +752,7 @@ parameter_types! {
 	pub const MaxXrplKeys: u8 = 8;
 	pub const MaxNewSigners: u8 = 20;
 	/// 75 blocks is 5 minutes before the end of the era
-	pub const AuthorityChangeDelay: BlockNumber = 75_u32.into();
+	pub const AuthorityChangeDelay: BlockNumber = 75_u32;
 }
 
 impl pallet_ethy::Config for Runtime {
