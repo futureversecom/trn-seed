@@ -132,7 +132,10 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
-		Processed(LedgerIndex, XrplTxHash),
+		/// Processing an event succeeded
+		ProcessingOk(LedgerIndex, XrplTxHash),
+		/// Processing an event failed
+		ProcessingFailed(LedgerIndex, XrplTxHash, DispatchError),
 		/// Request to withdraw some XRP amount to XRPL
 		WithdrawRequest {
 			proof_id: u64,
@@ -463,14 +466,24 @@ impl<T: Config> Pallet<T> {
 					None => {},
 					Some((ledger_index, ref tx, _relayer)) => {
 						match tx.transaction {
-							XrplTxData::Payment { amount, address } => {
-								let _ = T::MultiCurrency::mint_into(
+							XrplTxData::Payment { amount, address } =>
+								match T::MultiCurrency::mint_into(
 									T::XrpAssetId::get(),
 									&address.into(),
 									amount,
-								);
-								writes += 1;
-							},
+								) {
+									Ok(_) => {
+										writes += 1;
+									},
+									Err(e) => {
+										writes += 1;
+										Self::deposit_event(Event::ProcessingFailed(
+											ledger_index,
+											transaction_hash,
+											e,
+										));
+									},
+								},
 							XrplTxData::CurrencyPayment {
 								amount: _,
 								address: _,
@@ -485,7 +498,7 @@ impl<T: Config> Pallet<T> {
 							transaction_hash.clone(),
 						);
 						writes += 1;
-						Self::deposit_event(Event::Processed(ledger_index, transaction_hash));
+						Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash));
 					},
 				}
 			}
