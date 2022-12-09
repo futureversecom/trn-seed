@@ -21,6 +21,7 @@ pallet-balances = { git = "https://github.com/futureversecom/substrate", default
 sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
 sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+frame-benchmarking = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27-debug", default-features = false, optional = true }
 
 # Frontier
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
@@ -58,6 +59,8 @@ std = [
 	"seed-primitives/std",
 	"precompile-utils/std",
 	"sp-core/std",
-	"fp-evm/std"
+	"fp-evm/std",
+	"frame-benchmarking/std"
 ]
 try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = ["frame-benchmarking"]

@@ -24,15 +24,8 @@ use sp_runtime::Permill;
 
 benchmarks! {
 	set_evm_base_fee {
-	}: _(RawOrigin::Root, collection_id, new_owner.clone())
-	verify {
-		assert_eq!(Nft::<T>::collection_info(&collection_id).unwrap().owner, new_owner);
-	}
+	}: _(RawOrigin::Root, 10)
 
 	set_extrinsic_base_fee {
-	}: _(RawOrigin::Signed(creator.clone()), collection_id, new_owner.clone())
-	verify {
-		assert_eq!(<Nft<T>>::collection_info(&collection_id).unwrap().owner, new_owner);
-	}
-
+	}: _(RawOrigin::Root, 10)
 }

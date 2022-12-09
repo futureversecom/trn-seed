@@ -1687,6 +1687,7 @@ mod benches {
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		// Local
 		[pallet_nft, Nft]
+		[pallet_fee_oracle, FeeOracle]
 		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);
