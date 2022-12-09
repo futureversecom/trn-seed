@@ -18,10 +18,12 @@ use pallet_evm::{
 	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
 	Runner as RunnerT,
 };
+use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
+	FixedPointNumber,
 	traits::{
 		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup,
 		PostDispatchInfoOf, Verify,
@@ -30,7 +32,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError,
 	},
-	ApplyExtrinsicResult, Percent,
+	ApplyExtrinsicResult, Percent, Perquintill,
 };
 pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 use sp_std::prelude::*;
@@ -251,7 +253,6 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
-	// type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type WeightToFee = FeeOracle;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
@@ -939,8 +940,6 @@ impl pallet_nft_peg::Config for Runtime {
 	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
 	type EthBridge = EthBridge;
 }
-
-
 /// This is unused while Futureverse fullness is inconsistent
 pub struct FeeOracleBaseFeeThreshold;
 impl pallet_fee_oracle::BaseFeeThreshold for FeeOracleBaseFeeThreshold {

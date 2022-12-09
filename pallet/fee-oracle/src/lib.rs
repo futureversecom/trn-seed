@@ -193,26 +193,31 @@ pub mod pallet {
 		}
 	}
 
+	impl<T: Config> Pallet<T> {
+		pub fn do_set_evm_base_fee(value: U256) -> DispatchResult {
+			<EvmBaseFeePerGas<T>>::put(value);
+			Ok(())
+		}
+
+		pub fn do_set_extrinsic_weight_to_fee_factor(value: Perbill) -> DispatchResult {
+			ExtrinsicWeightToFee::<T>::put(value);
+			Ok(())
+		}
+	}
+
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(1000_000 as Weight)]
 		pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
-			<EvmBaseFeePerGas<T>>::put(value);
-			Ok(())
+			Self::do_set_evm_base_fee(value)
 		}
 
 		#[pallet::weight(1000_000 as Weight)]
-		pub fn set_extrinsic_base_fee(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
+		pub fn set_extrinsic_weight_to_fee_factor(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
-			ExtrinsicWeightToFee::<T>::put(value);
-			Ok(())
-		}
-
-		// For local testing. Charge some low gas
-		#[pallet::weight(207_555_000 as Weight)]
-		pub fn debug_charge_feee(origin: OriginFor<T>) -> DispatchResult {
-			Ok(())
+			Self::do_set_extrinsic_weight_to_fee_factor(value)
 		}
 	}
 

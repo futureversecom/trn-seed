@@ -32,9 +32,16 @@ precompile-utils = { path = "../../evm-precompiles/utils", default-features = fa
 log = "0.4.0"
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
 pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN-debug" }
+
+sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
 pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
+pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
+pallet-fee-proxy = { path = "../fee-proxy" }
+pallet-dex = { path = "../dex" }
+pallet-assets-ext = { path = "../assets-ext" }
 
 [features]
 default = ["std"]
