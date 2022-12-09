@@ -640,16 +640,6 @@ where
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let serial_number =
 			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
-		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
-			log3(
-				handle.code_address(),
-				SELECTOR_LOG_TRANSFER,
-				origin,
-				to,
-				EvmDataWriter::new().write(token_id).build(),
-			)
-			.record(handle)?;
-		}
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -661,6 +651,17 @@ where
 				token_owner: Some(to.into()),
 			},
 		)?;
+
+		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
+			log3(
+				handle.code_address(),
+				SELECTOR_LOG_TRANSFER,
+				origin,
+				to,
+				EvmDataWriter::new().write(token_id).build(),
+			)
+			.record(handle)?;
+		}
 
 		// Build output.
 		Ok(succeed([]))
