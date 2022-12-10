@@ -299,12 +299,11 @@ pub mod pallet {
 		}
 
 		/// Submit xrp transaction challenge
-		#[pallet::weight((<T as Config>::WeightInfo::submit_challenge(),
-		DispatchClass::Operational))]
+		#[pallet::weight((<T as Config>::WeightInfo::submit_challenge(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_challenge(
-			origin: OriginFor<T>,
-			transaction_hash: XrplTxHash,
+			_origin: OriginFor<T>,
+			_transaction_hash: XrplTxHash,
 		) -> DispatchResult {
 			// TODO(surangap): enable this again when the challenger is completed
 			// let challenger = ensure_signed(origin)?;
