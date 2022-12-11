@@ -1,0 +1,35 @@
+name: Try Runtime
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  Runtime: ${{ github.event.inputs.runtime }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Run version and storage check
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install podman
+      run: sudo apt install podman -y
+
+    - name: Create output folder
+      run: mkdir -p output
+
+    - name: Build image
+      run: podman build -t tchain -f ./dockerimages/ubuntu-2210-minimal.Dockerfile .
+
+    - name: Run try-runtime
+      run: podman run --rm -v ./output:/output -t tchain /bin/bash .github/dockerimages/try-runtime.sh
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: assets-for-download
+        path: output
+
