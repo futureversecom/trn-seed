@@ -10,7 +10,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted]
     name: Run version and storage check
     steps:
     - uses: actions/checkout@v3
