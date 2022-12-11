@@ -2,7 +2,6 @@ name: Try Runtime
 
 on:
   workflow_dispatch:
-  pull_request:
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,10 +21,10 @@ jobs:
       run: mkdir -p output
 
     - name: Build image
-      run: podman build -t tchain -f ./dockerimages/ubuntu-2210-minimal.Dockerfile .
+      run: podman build -t tchain -f ./dockerimages/debian-10-rust.Dockerfile .
 
     - name: Run try-runtime
-      run: podman run --rm -v ./output:/output -t tchain /bin/bash .github/dockerimages/try-runtime.sh
+      run: podman run --rm -v ./output:/output -t tchain /bin/bash ./ci-scripts/try-runtime.sh
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
