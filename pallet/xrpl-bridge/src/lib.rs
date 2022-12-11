@@ -136,6 +136,8 @@ pub mod pallet {
 		ProcessingOk(LedgerIndex, XrplTxHash),
 		/// Processing an event failed
 		ProcessingFailed(LedgerIndex, XrplTxHash, DispatchError),
+		/// Transaction not supported
+		NotSupportedTransaction,
 		/// Request to withdraw some XRP amount to XRPL
 		WithdrawRequest {
 			proof_id: u64,
@@ -488,8 +490,14 @@ impl<T: Config> Pallet<T> {
 								amount: _,
 								address: _,
 								currency_id: _,
-							} => {},
-							XrplTxData::Xls20 => {},
+							} => {
+								Self::deposit_event(Event::NotSupportedTransaction);
+								continue
+							},
+							XrplTxData::Xls20 => {
+								Self::deposit_event(Event::NotSupportedTransaction);
+								continue
+							},
 						}
 						let clear_block_number = <frame_system::Pallet<T>>::block_number() +
 							T::ClearTxPeriod::get().into();
