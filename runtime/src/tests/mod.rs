@@ -13,6 +13,7 @@ use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
 
 mod evm_tests;
+mod multiplier;
 mod staker_payouts;
 
 use crate::{
