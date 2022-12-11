@@ -3,7 +3,6 @@ name: Version and Storage checker
 on:
   workflow_dispatch:
 
-
 env:
   CARGO_TERM_COLOR: always
   Runtime: ${{ github.event.inputs.runtime }}
@@ -15,12 +14,21 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Install the right toolchain
-      run: rustup show
+    - name: Install podman
+      run: apt install podman -y
 
-    - name: Build the binary
-      run: cargo build --release
+    - name: Create output folder
+      run: mkdir -p output
 
-    - name: "Run Tests"
-      run: podman run --rm -t tchain /bin/bash .github/dockerimages/run-tests.sh
+    - name: Build image
+      run: podman build -t tchain -f ./dockerimages/ubuntu-2210-minimal.Dockerfile .
+
+    - name: Run subalfred
+      run: podman run --rm -v ./output:/output -t tchain /bin/bash .github/dockerimages/subalfred.sh
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: assets-for-download
+        path: output
 
