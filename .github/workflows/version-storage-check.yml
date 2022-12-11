@@ -11,12 +11,12 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    name: Run Tests
+    name: Run version and storage check
     steps:
     - uses: actions/checkout@v3
 
     - name: Install podman
-      run: apt install podman -y
+      run: sudo apt install podman -y
 
     - name: Create output folder
       run: mkdir -p output
