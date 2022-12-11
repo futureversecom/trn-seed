@@ -1,0 +1,26 @@
+name: Version and Storage checker
+
+on:
+  workflow_dispatch:
+
+
+env:
+  CARGO_TERM_COLOR: always
+  Runtime: ${{ github.event.inputs.runtime }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Run Tests
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install the right toolchain
+      run: rustup show
+
+    - name: Build the binary
+      run: cargo build --release
+
+    - name: "Run Tests"
+      run: podman run --rm -t tchain /bin/bash .github/dockerimages/run-tests.sh
+
