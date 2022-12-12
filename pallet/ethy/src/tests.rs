@@ -925,20 +925,6 @@ fn pre_last_session_change() {
 			),
 		);
 
-		// ethy-gadget notified about new validators
-		assert_eq!(
-			System::digest().logs[1],
-			DigestItem::Consensus(
-				ETHY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(ValidatorSet {
-					validators: next_keys.to_vec(),
-					id: next_validator_set_id,
-					proof_threshold: 2,
-				})
-				.encode(),
-			),
-		);
-
 		assert_eq!(EthBridge::next_notary_keys(), next_keys);
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
@@ -990,7 +976,18 @@ fn on_new_session_updates_keys() {
 		// Now call on_initialise with the expected block to check it gets processed correctly
 		EthBridge::on_initialize(expected_block.into());
 
-		// Log should be thrown, indicating handle_authorities_change was called
+		// Storage updated
+		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
+		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
+		assert!(EthBridge::next_authority_change().is_none());
+		assert!(EthBridge::authorities_changed_this_era());
+		// only one log thrown in next_authority_change
+		assert_eq!(System::digest().logs.len(), 1);
+
+		// Calling on_before_session_ending should NOT call handle_authorities_change again,
+		// but do_finalise_authorities_change() will add notification log to the header
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(System::digest().logs.len(), 2);
 		assert_eq!(
 			System::digest().logs[1],
 			DigestItem::Consensus(
@@ -1003,18 +1000,6 @@ fn on_new_session_updates_keys() {
 				.encode(),
 			),
 		);
-
-		// Storage updated
-		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
-		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
-		assert!(EthBridge::next_authority_change().is_none());
-		assert!(EthBridge::authorities_changed_this_era());
-		// Two logs thrown in next_authority_change
-		assert_eq!(System::digest().logs.len(), 2);
-
-		// Calling on_before_session_ending should NOT call handle_authorities_change again
-		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(System::digest().logs.len(), 2);
 		assert!(!EthBridge::bridge_paused());
 		// Next_notary_keys hasn't been cleared
 		assert_eq!(EthBridge::next_notary_keys(), next_keys);
@@ -1074,19 +1059,6 @@ fn on_before_session_ending_handles_authorities() {
 		// Calling on_before_session_ending should call handle_authorities_change as it wasn't
 		// changed in on_initialize
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		// Log should be thrown, indicating handle_authorities_change was called
-		assert_eq!(
-			System::digest().logs[1],
-			DigestItem::Consensus(
-				ETHY_ENGINE_ID,
-				ConsensusLog::AuthoritiesChange(ValidatorSet {
-					validators: next_keys.to_vec(),
-					id: next_validator_set_id,
-					proof_threshold: 2,
-				})
-				.encode(),
-			),
-		);
 
 		// Storage should represent the storage before the authorities are finalized
 		assert_eq!(EthBridge::notary_set_proof_id(), event_proof_id);
@@ -1099,6 +1071,20 @@ fn on_before_session_ending_handles_authorities() {
 		// Item should be scheduled
 		let scheduled_block: BlockNumber = block_number + 75_u32;
 		Scheduler::on_initialize(scheduled_block.into());
+
+		// scheduled do_finalise_authorities_change() will add notification log to the header
+		assert_eq!(
+			System::digest().logs[1],
+			DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: next_keys.to_vec(),
+					id: next_validator_set_id,
+					proof_threshold: 2,
+				})
+				.encode(),
+			),
+		);
 
 		// This should update all the storage items
 		assert!(!EthBridge::bridge_paused());
