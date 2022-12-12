@@ -745,18 +745,6 @@ impl<T: Config> Module<T> {
 				Self::deposit_event(Event::<T>::XrplAuthoritySetChangeRequestFailed);
 			},
 		};
-
-		// notify ethy-gadget about validator set change
-		let log = DigestItem::Consensus(
-			ETHY_ENGINE_ID,
-			ConsensusLog::AuthoritiesChange(ValidatorSet {
-				validators: next_keys.to_vec(),
-				id: next_validator_set_id,
-				proof_threshold: T::NotarizationThreshold::get().mul_ceil(next_keys.len() as u32),
-			})
-			.encode(),
-		);
-		<frame_system::Pallet<T>>::deposit_log(log);
 		// Pause the bridge
 		BridgePaused::put(true);
 		<NextAuthorityChange<T>>::kill();
@@ -765,6 +753,18 @@ impl<T: Config> Module<T> {
 	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
 	pub fn do_finalise_authorities_change(next_notary_keys: Vec<T::EthyId>) {
 		debug!(target: "ethy-pallet", "💎 session & era ending, set new validator keys");
+
+		// notify ethy-gadget about validator set change
+		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
+		let log = DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::AuthoritiesChange(ValidatorSet {
+				validators: next_notary_keys.to_vec(),
+				id: next_validator_set_id,
+				proof_threshold: T::NotarizationThreshold::get().mul_ceil(next_notary_keys.len() as u32),
+			}).encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
 
 		// Unpause the bridge
 		BridgePaused::kill();
