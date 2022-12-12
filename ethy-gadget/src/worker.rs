@@ -146,8 +146,8 @@ where
 {
 	/// Query the runtime state for validator set
 	///
-	/// Note that the validator set could be `None`. This is the case if we can't fetch the authority set from the
-	/// Ethy on-chain state.
+	/// Note that the validator set could be `None`. This is the case if we can't fetch the
+	/// authority set from the Ethy on-chain state.
 	/// Such a failure is usually an indication that the Ethy pallet has not been deployed (yet).
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		// queries the Ethy pallet to get the active validator set public keys
@@ -286,12 +286,12 @@ where
 		}
 
 		// Check the block for any validator set changes or the ethy-gadget validator set is empty
-		if find_authorities_change::<B>(&new_header).is_some() || self.validator_set.is_empty()  {
+		if find_authorities_change::<B>(&new_header).is_some() || self.validator_set.is_empty() {
 			match self.validator_set(&new_header) {
 				Some(active) => {
 					// if the validator set id is different or equal to the GENESIS_AUTHORITY_SET_ID
 					// and local validator set is empty
-					if  active.id != self.validator_set.id ||
+					if active.id != self.validator_set.id ||
 						(active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty())
 					{
 						info!(target: "ethy", "💎 new active validator set: {:?}", active);
@@ -307,7 +307,7 @@ where
 				},
 				None => {
 					warn!(target: "ethy", "💎 Validator set is empty");
-				}
+				},
 			}
 		}
 

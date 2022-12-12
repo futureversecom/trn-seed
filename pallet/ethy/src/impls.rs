@@ -761,8 +761,10 @@ impl<T: Config> Module<T> {
 			ConsensusLog::AuthoritiesChange(ValidatorSet {
 				validators: next_notary_keys.to_vec(),
 				id: next_validator_set_id,
-				proof_threshold: T::NotarizationThreshold::get().mul_ceil(next_notary_keys.len() as u32),
-			}).encode(),
+				proof_threshold: T::NotarizationThreshold::get()
+					.mul_ceil(next_notary_keys.len() as u32),
+			})
+			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
 
