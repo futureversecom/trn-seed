@@ -1,18 +1,18 @@
 use crate::{self as fee_oracle, *};
 
 use frame_system::EnsureRoot;
-use pallet_evm::{EnsureAddressNever, AddressMapping, BlockHashMapping};
-use seed_primitives::AssetId;
+use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
 pub use seed_primitives::types::{AccountId, Balance};
+use seed_primitives::AssetId;
 
-use frame_support::{traits::FindAuthor, parameter_types, weights::ConstantMultiplier, PalletId};
+use frame_support::{parameter_types, traits::FindAuthor, weights::ConstantMultiplier, PalletId};
+use precompile_utils::{Address, ErcIdConversion};
 use sp_core::{H160, H256};
 use sp_runtime::{
-	ConsensusEngineId,
 	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup}, Perbill, Permill,
+	traits::{BlakeTwo256, IdentityLookup},
+	ConsensusEngineId, Perbill, Permill,
 };
-use precompile_utils::{Address, ErcIdConversion};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -30,7 +30,7 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets::{Pallet, Call, Config<T>, Storage, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		FeeOracle: fee_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        MockPallet: mock_pallet::pallet::{Pallet, Call, Config<T>},
+		MockPallet: mock_pallet::pallet::{Pallet, Call, Config<T>},
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Storage, Event<T>},
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Event<T>},
@@ -160,8 +160,8 @@ parameter_types! {
 	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
 
 }
-	
-impl crate::Config for Test{
+
+impl crate::Config for Test {
 	type Event = Event;
 	type Threshold = FeeOracleBaseFeeThreshold;
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;

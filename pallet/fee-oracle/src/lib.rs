@@ -1,10 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
-use frame_support::{
-	pallet_prelude::*,
-	weights::WeightToFee,
-};
+use frame_support::{pallet_prelude::*, weights::WeightToFee};
 use frame_system::pallet_prelude::*;
 
 use seed_primitives::Balance;
@@ -58,11 +55,7 @@ pub mod pallet {
 	#[cfg(feature = "std")]
 	impl<T: Config> GenesisConfig<T> {
 		pub fn new(base_fee_per_gas: U256, elasticity: Permill) -> Self {
-			Self {
-				base_fee_per_gas,
-				elasticity,
-				_marker: PhantomData,
-			}
+			Self { base_fee_per_gas, elasticity, _marker: PhantomData }
 		}
 	}
 
@@ -101,7 +94,8 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn extrinsic_weight_to_fee)]
-	pub type ExtrinsicWeightToFee<T> = StorageValue<_, Perbill, ValueQuery, DefaultWeightToFeeReduction<T>>;
+	pub type ExtrinsicWeightToFee<T> =
+		StorageValue<_, Perbill, ValueQuery, DefaultWeightToFeeReduction<T>>;
 
 	#[pallet::type_value]
 	pub fn DefaultElasticity<T: Config>() -> Permill {
@@ -111,7 +105,6 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn elasticity)]
 	pub type EvmElasticity<T> = StorageValue<_, Permill, ValueQuery, DefaultElasticity<T>>;
-
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -138,26 +131,28 @@ pub mod pallet {
 		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
 			if <EvmElasticity<T>>::get().is_zero() {
 				// Zero elasticity means constant EvmBaseFeePerGas.
-				return;
+				return
 			}
 
 			let lower = T::Threshold::lower();
 			let upper = T::Threshold::upper();
-			// `target` is the ideal congestion of the network where the base fee should remain unchanged.
-			// Under normal circumstances the `target` should be 50%.
-			// If we go below the `target`, the base fee is linearly decreased by the Elasticity delta of lower~target.
-			// If we go above the `target`, the base fee is linearly increased by the Elasticity delta of upper~target.
-			// The base fee is fully increased (default 12.5%) if the block is upper full (default 100%).
-			// The base fee is fully decreased (default 12.5%) if the block is lower empty (default 0%).
+			// `target` is the ideal congestion of the network where the base fee should remain
+			// unchanged. Under normal circumstances the `target` should be 50%.
+			// If we go below the `target`, the base fee is linearly decreased by the Elasticity
+			// delta of lower~target. If we go above the `target`, the base fee is linearly
+			// increased by the Elasticity delta of upper~target. The base fee is fully increased
+			// (default 12.5%) if the block is upper full (default 100%). The base fee is fully
+			// decreased (default 12.5%) if the block is lower empty (default 0%).
 			let weight = <frame_system::Pallet<T>>::block_weight();
 			let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
 
-			// We convert `weight` into block fullness and ensure we are within the lower and upper bound.
+			// We convert `weight` into block fullness and ensure we are within the lower and upper
+			// bound.
 			let weight_used =
 				Permill::from_rational(weight.total(), max_weight).clamp(lower, upper);
 			// After clamp `weighted_used` is always between `lower` and `upper`.
-			// We scale the block fullness range to the lower/upper range, and the usage represents the
-			// actual percentage within this new scale.
+			// We scale the block fullness range to the lower/upper range, and the usage represents
+			// the actual percentage within this new scale.
 			let usage = (weight_used - lower) / (upper - lower);
 
 			// Target is our ideal block fullness.
@@ -210,7 +205,6 @@ pub mod pallet {
 		}
 	}
 
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(1000_000 as Weight)]
@@ -220,7 +214,10 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(1000_000 as Weight)]
-		pub fn set_extrinsic_weight_to_fee_factor(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
+		pub fn set_extrinsic_weight_to_fee_factor(
+			origin: OriginFor<T>,
+			value: Perbill,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_set_extrinsic_weight_to_fee_factor(value)
 		}
@@ -236,7 +233,6 @@ pub mod pallet {
 			Self::extrinsic_weight_to_fee().mul(*weight as Balance)
 		}
 	}
-
 }
 
 impl<T: Config> fp_evm::FeeCalculator for Pallet<T> {

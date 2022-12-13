@@ -5,7 +5,7 @@ use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, FeeOracle, Dex, Ethereum, EthereumChainId, FeeProxy, Origin, Runtime,
+	Assets, AssetsExt, Dex, Ethereum, EthereumChainId, FeeOracle, FeeProxy, Origin, Runtime,
 	XrpCurrency, EVM,
 };
 use ethabi::Token;

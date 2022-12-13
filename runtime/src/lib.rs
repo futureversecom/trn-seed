@@ -835,7 +835,6 @@ impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
 	}
 }
 
-
 parameter_types! {
 	/// Ethereum ChainId
 	/// 3999 (local/dev/default)
@@ -959,7 +958,7 @@ parameter_types! {
 	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
 	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
 }
-	
+
 impl pallet_fee_oracle::Config for Runtime {
 	type Event = Event;
 	type Threshold = FeeOracleBaseFeeThreshold;
