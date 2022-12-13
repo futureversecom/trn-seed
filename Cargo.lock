@@ -5000,6 +5000,7 @@ dependencies = [
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
+ "seed-pallet-common",
  "seed-primitives",
  "sp-core",
  "sp-runtime",

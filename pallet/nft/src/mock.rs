@@ -225,11 +225,13 @@ parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
 	pub const TestParachainId: u32 = 100;
+	pub const MaxTokensPerCollection: u32 = 1000;
 }
 
 impl crate::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
+	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;

@@ -13,6 +13,7 @@ use sp_runtime::traits::SaturatedConversion;
 use sp_std::{marker::PhantomData, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
+use seed_pallet_common::GetTokenOwner;
 use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
@@ -206,7 +207,7 @@ where
 
 		// Build output.
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		match pallet_nft::Pallet::<Runtime>::token_owner(collection_id, serial_number) {
+		match pallet_nft::Pallet::<Runtime>::get_owner(&(collection_id, serial_number)) {
 			Some(owner_account_id) => Ok(succeed(
 				EvmDataWriter::new()
 					.write(Address::from(Into::<H160>::into(owner_account_id)))
@@ -231,7 +232,7 @@ where
 		Ok(succeed(
 			EvmDataWriter::new()
 				.write(U256::from(pallet_nft::Pallet::<Runtime>::token_balance_of(
-					owner.into(),
+					&owner.into(),
 					collection_id,
 				)))
 				.build(),
@@ -638,8 +639,11 @@ where
 		// emit transfer events - quantity times
 		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let serial_number =
-			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
+		let serial_number = match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+			Some(collection_info) => collection_info.next_serial_number,
+			None => return Err(revert("Collection does not exist").into()),
+		};
+
 		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
 			log3(
 				handle.code_address(),
@@ -686,7 +690,7 @@ where
 		let cursor: SerialNumber = cursor.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let (new_cursor, collected_tokens) = pallet_nft::Pallet::<Runtime>::owned_tokens_paginated(
+		let (new_cursor, collected_tokens) = pallet_nft::Pallet::<Runtime>::owned_tokens(
 			collection_id,
 			&owner.into(),
 			cursor,

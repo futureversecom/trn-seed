@@ -28,16 +28,14 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use frame_support::{
-	ensure, traits::Get, transactional, weights::constants::RocksDbWeight as DbWeight, PalletId,
-};
-use seed_pallet_common::{log, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
+use frame_support::{ensure, traits::Get, transactional, PalletId};
+use seed_pallet_common::{Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
 	DispatchResult, PerThing, Permill,
 };
-use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+use sp_std::prelude::*;
 
 mod benchmarking;
 #[cfg(test)]
@@ -105,6 +103,8 @@ pub mod pallet {
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// Max tokens that a collection can contain
+		type MaxTokensPerCollection: Get<u32>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>;
@@ -125,38 +125,16 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn collection_info)]
 	pub type CollectionInfo<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionUuid, CollectionInformation<T::AccountId>>;
-
-	/// Map from a collection to its total issuance
-	#[pallet::storage]
-	#[pallet::getter(fn collection_issuance)]
-	pub type CollectionIssuance<T> = StorageMap<_, Twox64Concat, CollectionUuid, TokenCount>;
+		StorageMap<_, Twox64Concat, CollectionUuid, CollectionInformation<T>>;
 
 	/// The next available incrementing collection id
 	#[pallet::storage]
 	pub type NextCollectionId<T> = StorageValue<_, u32, ValueQuery>;
 
-	/// The next available serial number in a given collection
-	#[pallet::storage]
-	#[pallet::getter(fn next_serial_number)]
-	pub type NextSerialNumber<T> = StorageMap<_, Twox64Concat, CollectionUuid, SerialNumber>;
-
 	/// Map from a token to lock status if any
 	#[pallet::storage]
 	#[pallet::getter(fn token_locks)]
 	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
-
-	/// Map from a token to its owner
-	#[pallet::storage]
-	#[pallet::getter(fn token_owner)]
-	pub type TokenOwner<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, T::AccountId>;
-
-	/// Count of tokens owned by an address, supports ERC721 `balanceOf`
-	#[pallet::storage]
-	#[pallet::getter(fn token_balance)]
-	pub type TokenBalance<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, BTreeMap<CollectionUuid, TokenCount>>;
 
 	/// The next available marketplace id
 	#[pallet::storage]
@@ -223,14 +201,17 @@ pub mod pallet {
 		/// A new collection of tokens was created
 		CollectionCreate {
 			collection_uuid: CollectionUuid,
-			token_count: TokenCount,
-			owner: T::AccountId,
+			max_issuance: Option<TokenCount>,
+			collection_owner: T::AccountId,
+			metadata_scheme: MetadataScheme,
+			name: CollectionNameType,
+			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+			origin_chain: OriginChain,
 		},
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
-			first_serial_number: SerialNumber,
-			token_count: TokenCount,
+			serial_numbers: Vec<SerialNumber>,
 			owner: T::AccountId,
 		},
 		/// A new owner was set
@@ -337,8 +318,6 @@ pub mod pallet {
 		NotForAuction,
 		/// Cannot operate on a listed NFT
 		TokenLocked,
-		/// Internal error during payment
-		InternalPayment,
 		/// Total royalties would exceed 100% of sale or an empty vec is supplied
 		RoyaltiesInvalid,
 		/// Auction bid was lower than reserve or current highest bid
@@ -359,6 +338,8 @@ pub mod pallet {
 		IsTokenOwner,
 		/// Offer amount needs to be greater than 0
 		ZeroOffer,
+		/// The number of tokens have exceeded the max tokens allowed
+		TokenLimitExceeded,
 		/// Cannot make an offer on a token up for auction
 		TokenOnAuction,
 		/// Max issuance needs to be greater than 0 and initial_issuance
@@ -393,31 +374,31 @@ pub mod pallet {
 			Ok(())
 		}
 
-		fn on_runtime_upgrade() -> Weight {
-			use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
-
-			if <StorageVersion<T>>::get() == Releases::V1 {
-				<StorageVersion<T>>::put(Releases::V2);
-
-				let collection_info: Vec<(CollectionUuid, CollectionInformation<T::AccountId>)> =
-					CollectionInfo::<T>::iter().collect();
-
-				let weight = collection_info.len() as Weight;
-				for (collection_id, _) in collection_info {
-					// Add asset info into evm pallet for all existing collections
-					T::OnNewAssetSubscription::on_asset_create(
-						collection_id,
-						ERC721_PRECOMPILE_ADDRESS_PREFIX,
-					);
-				}
-
-				log!(warn, "🃏 NFT collection info migrated");
-				return 6_000_000 as Weight +
-					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
-			} else {
-				Zero::zero()
-			}
-		}
+		// fn on_runtime_upgrade() -> Weight {
+		// 	use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
+		//
+		// 	if <StorageVersion<T>>::get() == Releases::V1 {
+		// 		<StorageVersion<T>>::put(Releases::V2);
+		//
+		// 		let collection_info: Vec<(CollectionUuid, CollectionInformation<T::AccountId>)> =
+		// 			CollectionInfo::<T>::iter().collect();
+		//
+		// 		let weight = collection_info.len() as Weight;
+		// 		for (collection_id, _) in collection_info {
+		// 			// Add asset info into evm pallet for all existing collections
+		// 			T::OnNewAssetSubscription::on_asset_create(
+		// 				collection_id,
+		// 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
+		// 			);
+		// 		}
+		//
+		// 		log!(warn, "🃏 NFT collection info migrated");
+		// 		return 6_000_000 as Weight +
+		// 			DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
+		// 	} else {
+		// 		Zero::zero()
+		// 	}
+		// }
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade() -> Result<(), &'static str> {
@@ -520,9 +501,9 @@ pub mod pallet {
 		/// `name` - the name of the collection
 		/// `initial_issuance` - number of tokens to mint now
 		/// `max_issuance` - maximum number of tokens allowed in collection
-		/// `owner` - the token owner, defaults to the caller
+		/// `token_owner` - the token owner, defaults to the caller
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
-		/// collection `royalties_schedule` - defacto royalties plan for secondary sales, this will
+		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
 		#[pallet::weight(T::WeightInfo::mint_collection(*initial_issuance))]
 		#[transactional]
@@ -566,38 +547,46 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			let serial_number = Self::next_serial_number(collection_id).unwrap_or_default();
-			ensure!(serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
 
 			// Permission and existence check
-			if let Some(collection_info) = Self::collection_info(collection_id) {
-				ensure!(collection_info.owner == origin, Error::<T>::NoPermission);
-				// Cannot mint for a token that was bridged from Ethereum
-				ensure!(
-					collection_info.origin_chain == OriginChain::Root,
-					Error::<T>::AttemptedMintOnBridgedToken
-				);
+			let mut collection_info = match Self::collection_info(collection_id) {
+				Some(info) => info,
+				None => return Err(Error::<T>::NoCollection.into()),
+			};
 
-				if let Some(max_issuance) = collection_info.max_issuance {
-					ensure!(
-						max_issuance >= serial_number.saturating_add(quantity),
-						Error::<T>::MaxIssuanceReached
-					);
-				}
-			} else {
-				return Err(Error::<T>::NoCollection.into())
+			// Caller must be collection_owner
+			ensure!(collection_info.owner == origin, Error::<T>::NoPermission);
+
+			// Check we don't exceed the token limit
+			ensure!(
+				collection_info.collection_issuance.saturating_add(quantity) <
+					T::MaxTokensPerCollection::get(),
+				Error::<T>::TokenLimitExceeded
+			);
+
+			// Cannot mint for a token that was bridged from Ethereum
+			ensure!(
+				collection_info.origin_chain == OriginChain::Root,
+				Error::<T>::AttemptedMintOnBridgedToken
+			);
+
+			let next_serial_number = collection_info.next_serial_number;
+			ensure!(next_serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
+
+			if let Some(max_issuance) = collection_info.max_issuance {
+				// Can't mint more than specified max_issuance
+				ensure!(
+					max_issuance >= next_serial_number.saturating_add(quantity),
+					Error::<T>::MaxIssuanceReached
+				);
 			}
 
-			let owner = token_owner.unwrap_or(origin);
-			let token_ids: Vec<SerialNumber> = (serial_number..serial_number + quantity).collect();
-			Self::do_mint(&owner, collection_id, token_ids)?;
-			Self::deposit_event(Event::<T>::Mint {
-				collection_id,
-				first_serial_number: serial_number,
-				token_count: quantity,
-				owner,
-			});
+			collection_info.next_serial_number = next_serial_number.saturating_add(quantity);
 
+			let owner = token_owner.unwrap_or(origin);
+			let token_ids: Vec<SerialNumber> =
+				(next_serial_number..next_serial_number + quantity).collect();
+			Self::do_mint_unchecked(collection_id, collection_info, &owner, token_ids);
 			Ok(())
 		}
 
@@ -612,11 +601,21 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(!<TokenLocks<T>>::contains_key(token_id), Error::<T>::TokenLocked);
+
+			let collection_info = match Self::collection_info(token_id.0) {
+				Some(info) => info,
+				None => return Err(Error::<T>::NoCollection.into()),
+			};
 			ensure!(
-				Self::token_owner(token_id.0, token_id.1) == Some(origin.clone()),
+				Self::is_token_owner(&origin, &collection_info, &token_id.1),
 				Error::<T>::NoPermission
 			);
-			let _ = Self::do_transfer_unchecked(token_id.clone(), &origin, &new_owner)?;
+			let _ = Self::do_transfer_unchecked(
+				token_id.clone(),
+				collection_info,
+				&origin,
+				&new_owner,
+			)?;
 
 			Self::deposit_event(Event::<T>::Transfer {
 				previous_owner: origin,
@@ -679,20 +678,7 @@ pub mod pallet {
 
 			// use the first token's collection as representative of the bundle
 			let (bundle_collection_id, _serial_number) = tokens[0];
-			for (collection_id, serial_number) in tokens.iter() {
-				ensure!(
-					!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
-					Error::<T>::TokenLocked
-				);
-				ensure!(
-					Self::token_owner(collection_id, serial_number) == Some(origin.clone()),
-					Error::<T>::NoPermission
-				);
-				<TokenLocks<T>>::insert(
-					(collection_id, serial_number),
-					TokenLockReason::Listed(listing_id),
-				);
-			}
+			Self::lock_tokens_for_listing(&tokens, &origin, listing_id)?;
 
 			let listing_end_block = <frame_system::Pallet<T>>::block_number()
 				.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
@@ -752,7 +738,16 @@ pub mod pallet {
 
 				for token_id in listing.tokens.clone() {
 					<TokenLocks<T>>::remove(token_id);
-					let _ = Self::do_transfer_unchecked(token_id, &listing.seller, &origin)?;
+					let collection_info = match Self::collection_info(token_id.0) {
+						Some(info) => info,
+						None => return Err(Error::<T>::NoCollection.into()),
+					};
+					let _ = Self::do_transfer_unchecked(
+						token_id,
+						collection_info,
+						&listing.seller,
+						&origin,
+					)?;
 				}
 				Self::remove_fixed_price_listing(listing_id);
 
@@ -806,20 +801,7 @@ pub mod pallet {
 
 			// use the first token's collection as representative of the bundle
 			let (bundle_collection_id, _serial_number) = tokens[0];
-			for (collection_id, serial_number) in tokens.iter() {
-				ensure!(
-					!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
-					Error::<T>::TokenLocked
-				);
-				ensure!(
-					Self::token_owner(collection_id, serial_number) == Some(origin.clone()),
-					Error::<T>::NoPermission
-				);
-				<TokenLocks<T>>::insert(
-					(collection_id, serial_number),
-					TokenLockReason::Listed(listing_id),
-				);
-			}
+			Self::lock_tokens_for_listing(&tokens, &origin, listing_id)?;
 
 			let listing_end_block = <frame_system::Pallet<T>>::block_number()
 				.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
@@ -856,59 +838,59 @@ pub mod pallet {
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			if let Some(Listing::Auction(mut listing)) = Self::listings(listing_id) {
-				if let Some(current_bid) = Self::listing_winning_bid(listing_id) {
-					ensure!(amount > current_bid.1, Error::<T>::BidTooLow);
-				} else {
-					// first bid
-					ensure!(amount >= listing.reserve_price, Error::<T>::BidTooLow);
-				}
+			let mut listing = match Self::listings(listing_id) {
+				Some(Listing::Auction(listing)) => listing,
+				_ => return Err(Error::<T>::NotForAuction.into()),
+			};
 
-				// try lock funds
-				T::MultiCurrency::place_hold(
-					T::PalletId::get(),
-					&origin,
-					listing.payment_asset,
-					amount,
-				)?;
-
-				<ListingWinningBid<T>>::mutate(listing_id, |maybe_current_bid| {
-					if let Some(current_bid) = maybe_current_bid {
-						// replace old bid
-						let _ = T::MultiCurrency::release_hold(
-							T::PalletId::get(),
-							&current_bid.0,
-							listing.payment_asset,
-							current_bid.1,
-						);
-					}
-					*maybe_current_bid = Some((origin.clone(), amount))
-				});
-
-				// Auto extend auction if bid is made within certain amount of time of auction
-				// duration
-				let listing_end_block = listing.close;
-				let current_block = <frame_system::Pallet<T>>::block_number();
-				let blocks_till_close = listing_end_block - current_block;
-				let new_closing_block =
-					current_block + T::BlockNumber::from(AUCTION_EXTENSION_PERIOD);
-				if blocks_till_close <= T::BlockNumber::from(AUCTION_EXTENSION_PERIOD) {
-					ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
-					ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
-					listing.close = new_closing_block;
-					Listings::<T>::insert(listing_id, Listing::Auction(listing.clone()));
-				}
-
-				Self::deposit_event(Event::<T>::Bid {
-					tokens: listing.tokens,
-					listing_id,
-					amount,
-					bidder: origin,
-				});
-				Ok(())
+			if let Some(current_bid) = Self::listing_winning_bid(listing_id) {
+				ensure!(amount > current_bid.1, Error::<T>::BidTooLow);
 			} else {
-				return Err(Error::<T>::NotForAuction.into())
+				// first bid
+				ensure!(amount >= listing.reserve_price, Error::<T>::BidTooLow);
 			}
+
+			// try lock funds
+			T::MultiCurrency::place_hold(
+				T::PalletId::get(),
+				&origin,
+				listing.payment_asset,
+				amount,
+			)?;
+
+			<ListingWinningBid<T>>::mutate(listing_id, |maybe_current_bid| {
+				if let Some(current_bid) = maybe_current_bid {
+					// replace old bid
+					let _ = T::MultiCurrency::release_hold(
+						T::PalletId::get(),
+						&current_bid.0,
+						listing.payment_asset,
+						current_bid.1,
+					);
+				}
+				*maybe_current_bid = Some((origin.clone(), amount))
+			});
+
+			// Auto extend auction if bid is made within certain amount of time of auction
+			// duration
+			let listing_end_block = listing.close;
+			let current_block = <frame_system::Pallet<T>>::block_number();
+			let blocks_till_close = listing_end_block - current_block;
+			let new_closing_block = current_block + T::BlockNumber::from(AUCTION_EXTENSION_PERIOD);
+			if blocks_till_close <= T::BlockNumber::from(AUCTION_EXTENSION_PERIOD) {
+				ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
+				ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
+				listing.close = new_closing_block;
+				Listings::<T>::insert(listing_id, Listing::Auction(listing.clone()));
+			}
+
+			Self::deposit_event(Event::<T>::Bid {
+				tokens: listing.tokens,
+				listing_id,
+				amount,
+				bidder: origin,
+			});
+			Ok(())
 		}
 
 		/// Close a sale or auction returning tokens
@@ -1008,8 +990,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
+			let collection_info = match Self::collection_info(token_id.0) {
+				Some(info) => info,
+				None => return Err(Error::<T>::NoCollection.into()),
+			};
 			ensure!(
-				Self::token_owner(token_id.0, token_id.1) != Some(origin.clone()),
+				!Self::is_token_owner(&origin, &collection_info, &token_id.1),
 				Error::<T>::IsTokenOwner
 			);
 			let offer_id = Self::next_offer_id();
@@ -1051,41 +1037,23 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			if let Some(offer_type) = Self::offers(offer_id) {
-				match offer_type {
-					OfferType::Simple(offer) => {
-						ensure!(offer.buyer == origin, Error::<T>::NotBuyer);
-						T::MultiCurrency::release_hold(
-							T::PalletId::get(),
-							&origin,
-							offer.asset_id,
-							offer.amount,
-						)?;
-						Offers::<T>::remove(offer_id);
-						if let Some(offers) = Self::token_offers(offer.token_id) {
-							if offers.len() == 1 {
-								// this is the last of the token offers
-								<TokenOffers<T>>::remove(offer.token_id);
-							} else {
-								<TokenOffers<T>>::mutate(offer.token_id, |mut offers| {
-									if let Some(offers) = &mut offers {
-										offers
-											.binary_search(&offer_id)
-											.map(|idx| offers.remove(idx))
-											.unwrap();
-									}
-								});
-							}
-						};
-						Self::deposit_event(Event::<T>::OfferCancel {
-							offer_id,
-							token_id: offer.token_id,
-						});
-						Ok(())
-					},
-				}
-			} else {
-				Err(Error::<T>::InvalidOffer.into())
+			let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
+			match offer_type {
+				OfferType::Simple(offer) => {
+					ensure!(offer.buyer == origin, Error::<T>::NotBuyer);
+					T::MultiCurrency::release_hold(
+						T::PalletId::get(),
+						&origin,
+						offer.asset_id,
+						offer.amount,
+					)?;
+					Self::remove_offer(offer_id, offer.token_id);
+					Self::deposit_event(Event::<T>::OfferCancel {
+						offer_id,
+						token_id: offer.token_id,
+					});
+					Ok(())
+				},
 			}
 		}
 
@@ -1095,54 +1063,39 @@ pub mod pallet {
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-			if let Some(offer_type) = Self::offers(offer_id) {
-				match offer_type {
-					OfferType::Simple(offer) => {
-						let token_id = offer.token_id;
-						ensure!(
-							Self::token_owner(token_id.0, token_id.1) == Some(origin.clone()),
-							Error::<T>::NoPermission
-						);
+			let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
+			match offer_type {
+				OfferType::Simple(offer) => {
+					let token_id = offer.token_id;
+					let collection_info = match Self::collection_info(token_id.0) {
+						Some(info) => info,
+						None => return Err(Error::<T>::NoCollection.into()),
+					};
+					ensure!(
+						Self::is_token_owner(&origin, &collection_info, &token_id.1),
+						Error::<T>::NoPermission
+					);
 
-						let royalties_schedule =
-							Self::check_bundle_royalties(&vec![token_id], offer.marketplace_id)?;
-						Self::process_payment_and_transfer(
-							&offer.buyer,
-							&origin,
-							offer.asset_id,
-							vec![offer.token_id],
-							offer.amount,
-							royalties_schedule,
-						)?;
+					let royalties_schedule =
+						Self::check_bundle_royalties(&vec![token_id], offer.marketplace_id)?;
+					Self::process_payment_and_transfer(
+						&offer.buyer,
+						&origin,
+						offer.asset_id,
+						vec![offer.token_id],
+						offer.amount,
+						royalties_schedule,
+					)?;
 
-						// Clean storage
-						Offers::<T>::remove(offer_id);
-						if let Some(offers) = Self::token_offers(token_id) {
-							if offers.len() == 1 {
-								// this is the last of the token offers
-								<TokenOffers<T>>::remove(token_id);
-							} else {
-								<TokenOffers<T>>::mutate(token_id, |mut offers| {
-									if let Some(offers) = &mut offers {
-										offers
-											.binary_search(&offer_id)
-											.map(|idx| offers.remove(idx))
-											.unwrap();
-									}
-								});
-							}
-						};
-						Self::deposit_event(Event::<T>::OfferAccept {
-							offer_id,
-							token_id: offer.token_id,
-							amount: offer.amount,
-							asset_id: offer.asset_id,
-						});
-						Ok(())
-					},
-				}
-			} else {
-				Err(Error::<T>::InvalidOffer.into())
+					Self::remove_offer(offer_id, token_id);
+					Self::deposit_event(Event::<T>::OfferAccept {
+						offer_id,
+						token_id: offer.token_id,
+						amount: offer.amount,
+						asset_id: offer.asset_id,
+					});
+					Ok(())
+				},
 			}
 		}
 	}

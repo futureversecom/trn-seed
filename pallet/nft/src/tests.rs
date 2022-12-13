@@ -147,6 +147,9 @@ fn migration_v1_to_v2() {
 			royalties_schedule: None,
 			max_issuance: None,
 			origin_chain: OriginChain::Root,
+			next_serial_number: 0,
+			collection_issuance: 0,
+			owned_tokens: Default::default(),
 		};
 		let collection_id_1: CollectionUuid = 1;
 		let collection_id_2: CollectionUuid = 2;
@@ -211,7 +214,7 @@ fn next_collection_uuid_works() {
 }
 
 #[test]
-fn owned_tokens_paginated_works() {
+fn owned_tokens_works() {
 	TestExt::default().build().execute_with(|| {
 		let token_owner = 2_u64;
 		let quantity = 5000;
@@ -233,7 +236,7 @@ fn owned_tokens_paginated_works() {
 		let limit: u16 = 100;
 		let expected_tokens: Vec<SerialNumber> = (cursor..100).collect();
 		assert_eq!(
-			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
 			(100_u32, expected_tokens)
 		);
 
@@ -242,7 +245,7 @@ fn owned_tokens_paginated_works() {
 		let limit: u16 = 200;
 		let expected_tokens: Vec<SerialNumber> = (cursor..300).collect();
 		assert_eq!(
-			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
 			(300_u32, expected_tokens)
 		);
 
@@ -252,7 +255,7 @@ fn owned_tokens_paginated_works() {
 		let expected_tokens: Vec<SerialNumber> =
 			(cursor..cursor + MAX_OWNED_TOKENS_LIMIT as u32).collect();
 		assert_eq!(
-			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
 			(cursor + MAX_OWNED_TOKENS_LIMIT as u32, expected_tokens)
 		);
 
@@ -261,7 +264,7 @@ fn owned_tokens_paginated_works() {
 		let limit: u16 = 100;
 		let expected_tokens: Vec<SerialNumber> = vec![];
 		assert_eq!(
-			Nft::owned_tokens_paginated(collection_id + 1, &token_owner, cursor, limit),
+			Nft::owned_tokens(collection_id + 1, &token_owner, cursor, limit),
 			(0_u32, expected_tokens)
 		);
 
@@ -270,7 +273,7 @@ fn owned_tokens_paginated_works() {
 		let limit: u16 = 100;
 		let expected_tokens: Vec<SerialNumber> = vec![];
 		assert_eq!(
-			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
 			(0_u32, expected_tokens)
 		);
 
@@ -279,7 +282,7 @@ fn owned_tokens_paginated_works() {
 		let limit: u16 = 100;
 		let expected_tokens: Vec<SerialNumber> = (cursor..5000).collect();
 		assert_eq!(
-			Nft::owned_tokens_paginated(collection_id, &token_owner, cursor, limit),
+			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
 			(0, expected_tokens)
 		);
 	});
@@ -365,7 +368,7 @@ fn create_collection() {
 				.map(|t| (collection_id, t))
 				.collect::<Vec<TokenId>>(),
 		);
-		assert_eq!(Nft::token_balance(&token_owner).unwrap().get(&collection_id), Some(&(5)));
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 5);
 
 		// check we can mint some more
 		// mint token Ids 5-7
@@ -376,7 +379,7 @@ fn create_collection() {
 			additional_quantity,
 			Some(token_owner + 1), // new owner this time
 		));
-		assert_eq!(Nft::token_balance(&token_owner + 1).unwrap().get(&collection_id), Some(&(3)));
+		assert_eq!(Nft::token_balance_of_of(&token_owner + 1, collection_id), 3);
 		assert_eq!(Nft::next_serial_number(collection_id).unwrap(), quantity + additional_quantity);
 
 		assert_eq!(
@@ -522,8 +525,8 @@ fn transfer() {
 
 		assert!(Nft::owned_tokens(collection_id, &token_owner).is_empty());
 		assert_eq!(Nft::owned_tokens(collection_id, &new_owner), vec![token_id]);
-		assert_eq!(Nft::token_balance(&token_owner).unwrap().get(&collection_id), None);
-		assert_eq!(Nft::token_balance(&new_owner).unwrap().get(&collection_id), Some(&1));
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
+		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 1);
 	});
 }
 
@@ -597,7 +600,7 @@ fn burn() {
 		// test
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 0)));
 		assert!(has_event(Event::<Test>::Burn { collection_id, serial_number: 0 }));
-		assert_eq!(Nft::token_balance(&token_owner).unwrap().get(&collection_id), Some(&2));
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 2);
 
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 1)));
 		assert!(has_event(Event::<Test>::Burn { collection_id, serial_number: 1 }));
@@ -609,7 +612,7 @@ fn burn() {
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 1));
 		assert!(!<TokenOwner<Test>>::contains_key(collection_id, 2));
 		assert!(Nft::owned_tokens(collection_id, &token_owner).is_empty());
-		assert_eq!(Nft::token_balance(&token_owner).unwrap().get(&collection_id), None);
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 	});
 }
 
@@ -702,14 +705,8 @@ fn sell() {
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 			assert_eq!(Nft::owned_tokens(collection_id, &buyer), tokens);
-			assert_eq!(
-				Nft::token_balance(&collection_owner).unwrap().get(&collection_id),
-				Some(&2)
-			);
-			assert_eq!(
-				Nft::token_balance(&buyer).unwrap().get(&collection_id),
-				Some(&(tokens.len() as TokenCount))
-			);
+			assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 2);
+			assert_eq!(Nft::token_balance_of(&buyer, collection_id), tokens.len() as TokenCount);
 		})
 }
 
@@ -1463,7 +1460,7 @@ fn auction_bundle() {
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
 		));
-		assert_eq!(Nft::token_balance(&collection_owner).unwrap().get(&collection_id), Some(&(5)));
+		assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 5);
 
 		let tokens = vec![(collection_id, 1), (collection_id, 3), (collection_id, 4)];
 		let listing_id = Nft::next_listing_id();
@@ -1487,11 +1484,8 @@ fn auction_bundle() {
 		let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
 		assert_eq!(Nft::owned_tokens(collection_id, &buyer), tokens);
-		assert_eq!(Nft::token_balance(&collection_owner).unwrap().get(&collection_id), Some(&(2)));
-		assert_eq!(
-			Nft::token_balance(&buyer).unwrap().get(&collection_id),
-			Some(&(tokens.len() as TokenCount))
-		);
+		assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 2);
+		assert_eq!(Nft::token_balance_of(&buyer, collection_id), tokens.len() as TokenCount);
 	})
 }
 
@@ -2765,9 +2759,6 @@ fn transfer_changes_token_balance() {
 		let token_owner = 2_u64;
 		let new_owner = 3_u64;
 		let initial_quantity: u32 = 1;
-		// Create BTreeMaps for both owners
-		let mut owner_map = BTreeMap::new();
-		let mut new_owner_map = BTreeMap::new();
 
 		// Mint 1 token
 		assert_ok!(Nft::create_collection(
@@ -2780,9 +2771,8 @@ fn transfer_changes_token_balance() {
 			None,
 		));
 
-		owner_map.insert(collection_id, initial_quantity);
-		assert_eq!(Nft::token_balance(token_owner).unwrap(), owner_map);
-		assert!(Nft::token_balance(new_owner).is_none());
+		assert_eq!(Nft::token_balance_of(token_owner, collection_id), initial_quantity);
+		assert_eq!(Nft::token_balance_of(new_owner, collection_id), 0);
 
 		// Mint an additional 2 tokens
 		let additional_quantity: u32 = 2;
@@ -2793,9 +2783,11 @@ fn transfer_changes_token_balance() {
 			Some(token_owner),
 		));
 
-		owner_map.insert(collection_id, initial_quantity + additional_quantity);
-		assert_eq!(Nft::token_balance(token_owner).unwrap(), owner_map);
-		assert!(Nft::token_balance(new_owner).is_none());
+		assert_eq!(
+			Nft::token_balance_of(token_owner, collection_id),
+			initial_quantity + additional_quantity
+		);
+		assert_eq!(Nft::token_balance_of(new_owner, collection_id), 0);
 
 		// Transfer 2 tokens
 		let tokens = vec![(collection_id, 0_u32), (collection_id, 1_u32)];
@@ -2803,10 +2795,11 @@ fn transfer_changes_token_balance() {
 		assert_ok!(Nft::transfer(Some(token_owner).into(), tokens[0], new_owner,));
 		assert_ok!(Nft::transfer(Some(token_owner).into(), tokens[1], new_owner,));
 
-		owner_map.insert(collection_id, initial_quantity + additional_quantity - transfer_quantity);
-		new_owner_map.insert(collection_id, transfer_quantity);
-		assert_eq!(Nft::token_balance(token_owner).unwrap(), owner_map);
-		assert_eq!(Nft::token_balance(new_owner).unwrap(), new_owner_map);
+		assert_eq!(
+			Nft::token_balance_of(token_owner, collection_id),
+			initial_quantity + additional_quantity - transfer_quantity
+		);
+		assert_eq!(Nft::token_balance_of(new_owner, collection_id), transfer_quantity);
 	});
 }
 
@@ -2818,9 +2811,6 @@ fn transfer_many_tokens_changes_token_balance() {
 		let token_owner = 2_u64;
 		let new_owner = 3_u64;
 		let initial_quantity: u32 = 100;
-		// Create BTreeMaps for both owners
-		let mut owner_map = BTreeMap::new();
-		let mut new_owner_map = BTreeMap::new();
 
 		// Mint 1 token
 		assert_ok!(Nft::create_collection(
@@ -2833,9 +2823,8 @@ fn transfer_many_tokens_changes_token_balance() {
 			None,
 		));
 
-		owner_map.insert(collection_id, initial_quantity);
-		assert_eq!(Nft::token_balance(token_owner).unwrap(), owner_map);
-		assert!(Nft::token_balance(new_owner).is_none());
+		assert_eq!(Nft::token_balance_of(token_owner, collection_id), initial_quantity);
+		assert_eq!(Nft::token_balance_of(new_owner, collection_id), 0);
 
 		for i in 0_u32..initial_quantity {
 			// Transfer token
@@ -2845,13 +2834,14 @@ fn transfer_many_tokens_changes_token_balance() {
 			// Check storage
 			let changed_quantity = i + 1;
 			if changed_quantity == initial_quantity {
-				assert_eq!(Nft::token_balance(token_owner).unwrap(), BTreeMap::new());
+				assert_eq!(Nft::token_balance_of(token_owner, collection_id), initial_quantity);
 			} else {
-				owner_map.insert(collection_id, initial_quantity - changed_quantity);
-				assert_eq!(Nft::token_balance(token_owner).unwrap(), owner_map);
+				assert_eq!(
+					Nft::token_balance_of(token_owner, collection_id),
+					initial_quantity - changed_quantity
+				);
 			}
-			new_owner_map.insert(collection_id, changed_quantity);
-			assert_eq!(Nft::token_balance(new_owner).unwrap(), new_owner_map);
+			assert_eq!(Nft::token_balance_of(new_owner, collection_id), changed_quantity);
 		}
 	});
 }
@@ -2906,9 +2896,7 @@ fn mints_multiple_specified_tokens_by_id() {
 		assert_ok!(Nft::do_mint(&token_owner, collection_id, token_ids.clone()));
 
 		// Ownership checks
-		let mut expected = BTreeMap::new();
-		expected.insert(collection_id, token_ids.len() as u32);
-		assert_eq!(Nft::token_balance(token_owner), Some(expected));
+		assert_eq!(Nft::token_balance_of(token_owner, collection_id), token_ids.len() as u32);
 		token_ids.iter().for_each(|serial_number| {
 			assert_eq!(Nft::token_owner(collection_id, serial_number), Some(token_owner));
 		});
@@ -2948,8 +2936,8 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		// Ownership checks
 		let mut expected = BTreeMap::new();
 		// We expect the token balance to be 5 as that is the number of unique token_ids in the vec
-		expected.insert(collection_id, 5_u32);
-		assert_eq!(Nft::token_balance(token_owner), Some(expected.clone()));
+		assert_eq!(Nft::token_balance_of(token_owner, collection_id), 5);
+
 		token_ids.iter().for_each(|serial_number| {
 			assert_eq!(Nft::token_owner(collection_id, serial_number), Some(token_owner));
 		});
@@ -2957,7 +2945,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		// Collection issuance should be 5 to indicate the 5 unique tokens
 		assert_eq!(Nft::collection_issuance(collection_id), Some(5_u32));
 		// Other owner shouldn't have any tokens
-		assert_eq!(Nft::token_balance(other_owner), None);
+		assert_eq!(Nft::token_balance_of(token_owner, collection_id), 0);
 
 		// Now try with 3 more unique tokens
 		let token_ids: Vec<SerialNumber> = vec![0, 2, 3000, 40005, 5, 1234, 9, 1000];
@@ -2966,15 +2954,11 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		// Collection issuance should now be 8 to indicate the 3 additional unique tokens
 		assert_eq!(Nft::collection_issuance(collection_id), Some(8_u32));
 		// We expect the token balance to be 3
-		let mut expected_other = BTreeMap::new();
-		expected_other.insert(collection_id, 3_u32);
-		assert_eq!(Nft::token_balance(other_owner), Some(expected_other));
+		assert_eq!(Nft::token_balance_of(token_owner, collection_id), 3);
+
 		vec![3000, 40005, 1234].iter().for_each(|serial_number| {
 			assert_eq!(Nft::token_owner(collection_id, serial_number), Some(other_owner));
 		});
-
-		// Token owners balance shouldn't have changed
-		assert_eq!(Nft::token_balance(token_owner), Some(expected));
 	});
 }
 

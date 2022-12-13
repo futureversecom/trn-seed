@@ -24,7 +24,7 @@ use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize, Serializer};
 use sp_core::H160;
-use sp_runtime::{PerThing, Permill};
+use sp_runtime::{BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
 
 // Time before auction ends that auction is extended if a bid is placed
@@ -32,6 +32,14 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 
 /// OfferId type used to distinguish different offers on NFTs
 pub type OfferId = u64;
+
+pub type OwnedTokens<T> = BoundedVec<
+	(
+		<T as frame_system::Config>::AccountId,
+		BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
+	),
+	<T as Config>::MaxTokensPerCollection,
+>;
 
 // A value placed in storage that represents the current version of the NFT storage. This value
 // is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
@@ -74,22 +82,35 @@ pub enum OriginChain {
 	Root,
 }
 
-// Information related to a specific collection
+/// Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
-pub struct CollectionInformation<AccountId> {
-	// The owner of the collection
-	pub owner: AccountId,
-	// A human friendly name
+#[scale_info(skip_type_params(T))]
+pub struct CollectionInformation<T: Config> {
+	/// The owner of the collection
+	pub owner: T::AccountId,
+	/// A human friendly name
 	pub name: CollectionNameType,
-	// Collection metadata reference scheme
+	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
-	// configured royalties schedule
-	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
-	// Maximum number of tokens allowed in a collection
+	/// configured royalties schedule
+	pub royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+	/// Maximum number of tokens allowed in a collection
 	pub max_issuance: Option<TokenCount>,
-	// The chain in which the collection was minted originally
+	/// The chain in which the collection was minted originally
 	pub origin_chain: OriginChain,
+	/// The next available serial_number
+	pub next_serial_number: SerialNumber,
+	/// the total count of tokens in this collection
+	pub collection_issuance: TokenCount,
+	/// All serial numbers owned by an account in a collection
+	pub owned_tokens: OwnedTokens<T>,
 }
+
+// #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
+// pub struct CollectionOwnershipInfo<T: Config> {
+// 	/// All serial numbers owned by an account in a collection
+// 	pub owned_tokens: BTreeMap<T::AccountId, BoundedVec<SerialNumber, T::MaxTokensPerCollection>>,
+// }
 
 /// Denotes the metadata URI referencing scheme used by a collection
 /// Enable token metadata URI construction by clients

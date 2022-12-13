@@ -20,7 +20,7 @@
 
 use codec::Codec;
 use pallet_nft::Config;
-use seed_primitives::types::{CollectionUuid, TokenId};
+use seed_primitives::types::{CollectionUuid, SerialNumber, TokenId};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
@@ -33,7 +33,9 @@ sp_api::decl_runtime_apis! {
 		fn owned_tokens(
 			collection_id: CollectionUuid,
 			who: AccountId,
-		) -> Vec<TokenId>;
+			cursor: SerialNumber,
+			limit: u16
+		) -> (SerialNumber, Vec<SerialNumber>);
 
 		/// Return the token metadata URI for a given token
 		fn token_uri(token_id: TokenId) -> Vec<u8>;
