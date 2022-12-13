@@ -248,4 +248,5 @@ runtime-benchmarks = [
 	"pallet-nft/runtime-benchmarks",
 	"pallet-xrpl-bridge/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",
+	"pallet-fee-oracle/runtime-benchmarks"
 ]

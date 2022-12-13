@@ -18,6 +18,9 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+mod weights;
+use weights::WeightInfo;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -42,6 +45,7 @@ pub mod pallet {
 		type DefaultEvmBaseFeePerGas: Get<U256>;
 		type DefaultEvmElasticity: Get<Permill>;
 		type WeightToFeeReduction: Get<Perbill>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::genesis_config]

@@ -18,12 +18,10 @@ use pallet_evm::{
 	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
 	Runner as RunnerT,
 };
-use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
-	FixedPointNumber,
 	traits::{
 		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup,
 		PostDispatchInfoOf, Verify,
@@ -32,7 +30,7 @@ use sp_runtime::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
 		TransactionValidityError,
 	},
-	ApplyExtrinsicResult, Percent, Perquintill,
+	ApplyExtrinsicResult, Percent,
 };
 pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
 use sp_std::prelude::*;
@@ -95,7 +93,7 @@ use constants::{
 pub mod impls;
 use impls::{
 	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
-	PercentageOfWeight, SlashImbalanceHandler, StakingSessionTracker,
+	SlashImbalanceHandler, StakingSessionTracker,
 };
 use pallet_fee_proxy::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
 
@@ -960,7 +958,6 @@ parameter_types! {
 	/// 0.000015 XRP per gas, 15000 GWEI
 	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
 	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
-
 }
 	
 impl pallet_fee_oracle::Config for Runtime {
@@ -969,6 +966,7 @@ impl pallet_fee_oracle::Config for Runtime {
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
 	type DefaultEvmElasticity = ();
 	type WeightToFeeReduction = WeightToFeeReduction;
+	type WeightInfo = ();
 }
 
 construct_runtime! {

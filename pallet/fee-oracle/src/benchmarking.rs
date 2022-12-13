@@ -17,15 +17,22 @@
 
 use super::*;
 
-use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
-use frame_support::assert_ok;
+use crate::Pallet as FeeOracle;
+
+use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
-use sp_runtime::Permill;
+use sp_core::U256;
 
 benchmarks! {
 	set_evm_base_fee {
-	}: _(RawOrigin::Root, 10)
+	}: _(RawOrigin::Root, U256::one()) 	verify {
+		assert_eq!(FeeOracle::<T>::base_fee_per_gas(), U256::one());
+	}
 
-	set_extrinsic_base_fee {
-	}: _(RawOrigin::Root, 10)
+	set_extrinsic_weight_to_fee_factor {
+	}: _(RawOrigin::Root, Perbill::one()) 	verify {
+		assert_eq!(FeeOracle::<T>::extrinsic_weight_to_fee(), Perbill::one());
+	}
 }
+
+impl_benchmark_test_suite!(FeeOracle, crate::mock::new_test_ext(), crate::mock::Test);
