@@ -720,8 +720,12 @@ impl<T: Config> Module<T> {
 
 		// request for proof xrpl - SignerListSet
 		debug!(target: "ethy-pallet", "💎 next keys: {:?}", next_keys);
-		let next_notary_xrpl_keys = Self::get_xrpl_notary_keys(next_keys);
-		if NotaryXrplKeys::<T>::get() != next_notary_xrpl_keys {
+		let mut next_notary_xrpl_keys = Self::get_xrpl_notary_keys(next_keys);
+		let mut notary_xrpl_keys = NotaryXrplKeys::<T>::get();
+		// sort to avoid same key set shuffles.
+		next_notary_xrpl_keys.sort();
+		notary_xrpl_keys.sort();
+		if notary_xrpl_keys != next_notary_xrpl_keys {
 			let signer_entries = next_notary_xrpl_keys
 				.into_iter()
 				.map(|k| EthyEcdsaToXRPLAccountId::convert(k.as_ref()))
