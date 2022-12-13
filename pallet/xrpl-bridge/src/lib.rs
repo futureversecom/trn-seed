@@ -472,11 +472,17 @@ impl<T: Config> Pallet<T> {
 		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
 			match tx.transaction {
 				XrplTxData::Payment { amount, address } => {
-					if let Err(e) = T::MultiCurrency::mint_into(T::XrpAssetId::get(), &address.into(), amount) {
-						Self::deposit_event(Event::ProcessingFailed(ledger_index, transaction_hash.clone(), e));
+					if let Err(e) =
+						T::MultiCurrency::mint_into(T::XrpAssetId::get(), &address.into(), amount)
+					{
+						Self::deposit_event(Event::ProcessingFailed(
+							ledger_index,
+							transaction_hash.clone(),
+							e,
+						));
 					}
 				},
-				XrplTxData::CurrencyPayment {amount: _, address: _, currency_id: _} => {
+				XrplTxData::CurrencyPayment { amount: _, address: _, currency_id: _ } => {
 					Self::deposit_event(Event::NotSupportedTransaction);
 					continue
 				},
