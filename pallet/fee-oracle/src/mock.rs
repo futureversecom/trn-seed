@@ -167,6 +167,7 @@ impl crate::Config for Test {
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
 	type DefaultEvmElasticity = ();
 	type WeightToFeeReduction = WeightToFeeReduction;
+	type WeightInfo = ();
 }
 
 impl mock_pallet::pallet::Config for Test {}
