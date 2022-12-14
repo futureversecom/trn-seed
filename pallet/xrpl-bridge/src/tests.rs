@@ -103,26 +103,26 @@ fn process_transaction_works() {
 	})
 }
 
-// #[test]
-// fn process_transaction_challenge_works() {
-// 	new_test_ext().execute_with(|| {
-// 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
-// 		let tx_address = b"6490B68F1116BFE87DDC";
-// 		let relayer = create_account(b"6490B68F1116BFE87DDD");
-// 		let challenger = create_account(b"6490B68F1116BFE87DDE");
-// 		XRPLBridge::initialize_relayer(&vec![relayer]);
-// 		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address, 1);
-// 		assert_ok!(XRPLBridge::submit_challenge(
-// 			Origin::signed(challenger),
-// 			XrplTxHash::from_slice(transaction_hash),
-// 		));
-// 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
-// 		System::set_block_number(XrpTxChallengePeriod::get() as u64);
-//
-// 		let xrp_balance = xrp_balance_of(tx_address);
-// 		assert_eq!(xrp_balance, 0);
-// 	})
-// }
+#[test]
+fn process_transaction_challenge_works() {
+	new_test_ext().execute_with(|| {
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let tx_address = b"6490B68F1116BFE87DDC";
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let challenger = create_account(b"6490B68F1116BFE87DDE");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address, 1);
+		assert_ok!(XRPLBridge::submit_challenge(
+			Origin::signed(challenger),
+			XrplTxHash::from_slice(transaction_hash),
+		));
+		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
+		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+
+		let xrp_balance = xrp_balance_of(tx_address);
+		assert_eq!(xrp_balance, 0);
+	})
+}
 
 #[test]
 fn set_door_tx_fee_works() {

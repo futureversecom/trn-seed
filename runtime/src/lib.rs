@@ -198,6 +198,10 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 				pallet_assets::Call::create { .. } => false,
 				_ => true,
 			},
+			Call::XRPLBridge(func) => match func {
+				pallet_xrpl_bridge::Call::submit_challenge { .. } => false,
+				_ => true,
+			},
 			_ => true,
 		}
 	}

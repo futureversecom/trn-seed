@@ -302,12 +302,11 @@ pub mod pallet {
 		#[pallet::weight((<T as Config>::WeightInfo::submit_challenge(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_challenge(
-			_origin: OriginFor<T>,
-			_transaction_hash: XrplTxHash,
+			origin: OriginFor<T>,
+			transaction_hash: XrplTxHash,
 		) -> DispatchResult {
-			// TODO(surangap): enable this again when the challenger is completed
-			// let challenger = ensure_signed(origin)?;
-			// ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
+			let challenger = ensure_signed(origin)?;
+			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
 			Ok(())
 		}
 
