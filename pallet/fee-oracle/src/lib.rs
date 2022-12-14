@@ -16,7 +16,7 @@ mod mock;
 mod test;
 
 mod weights;
-use weights::WeightInfo;
+pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

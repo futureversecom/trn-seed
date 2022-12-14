@@ -965,7 +965,7 @@ impl pallet_fee_oracle::Config for Runtime {
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
 	type DefaultEvmElasticity = ();
 	type WeightToFeeReduction = WeightToFeeReduction;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_fee_oracle::WeightInfo<Runtime>;
 }
 
 construct_runtime! {
