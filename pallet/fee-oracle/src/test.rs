@@ -1,6 +1,6 @@
 use crate::mock::*;
-use frame_support::{assert_ok, dispatch::GetDispatchInfo, traits::fungibles::Mutate};
-use frame_system::RawOrigin;
+use frame_support::{assert_ok, dispatch::GetDispatchInfo, traits::fungibles::Mutate, weights::{WeightToFee, DispatchClass}};
+use frame_system::{limits::BlockWeights, RawOrigin};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_pallet_common::CreateExt;
 use sp_runtime::{traits::SignedExtension, Perbill};
@@ -12,6 +12,7 @@ fn charges_default_extrinsic_amount() {
 		assert_ok!(AssetsExt::create(&account.into()));
 
 		let starting_fee_token_asset_balance = 4200000069;
+
 		assert_ok!(AssetsExt::mint_into(100, &account, starting_fee_token_asset_balance));
 
 		let fee_token_balance = Assets::balance(100, account);
@@ -29,9 +30,14 @@ fn charges_default_extrinsic_amount() {
 			1,
 		));
 
-		assert_eq!(Assets::balance(100, account), 4199997532);
+		let base_fee = <FeeOracle as WeightToFee>::weight_to_fee(&BlockWeights::default().get(DispatchClass::Normal).base_extrinsic);
+		let extrinsic_fee = dispatch_info.weight;
+
+		assert_eq!(Assets::balance(100, account), starting_fee_token_asset_balance - base_fee - extrinsic_fee as u128);
 	});
 }
+
+
 
 #[test]
 fn charges_extrinsic_fee_based_on_setting() {
@@ -40,6 +46,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 		assert_ok!(AssetsExt::create(&account.into()));
 
 		let starting_fee_token_asset_balance = 4200000069;
+
 		assert_ok!(AssetsExt::mint_into(100, &account, starting_fee_token_asset_balance));
 
 		let fee_token_balance = Assets::balance(100, account);
@@ -59,6 +66,9 @@ fn charges_extrinsic_fee_based_on_setting() {
 			1,
 		));
 
-		assert_eq!(Assets::balance(100, account), 4076579309);
+		let base_fee = <FeeOracle as WeightToFee>::weight_to_fee(&BlockWeights::default().get(DispatchClass::Normal).base_extrinsic);
+		let extrinsic_fee = dispatch_info.weight;
+
+		assert_eq!(Assets::balance(100, account), starting_fee_token_asset_balance - base_fee - extrinsic_fee as u128);
 	});
 }

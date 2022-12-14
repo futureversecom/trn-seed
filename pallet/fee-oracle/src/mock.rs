@@ -1,11 +1,11 @@
 use crate::{self as fee_oracle, *};
 
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, limits::BlockWeights };
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
 pub use seed_primitives::types::{AccountId, Balance};
 use seed_primitives::AssetId;
 
-use frame_support::{parameter_types, traits::FindAuthor, weights::ConstantMultiplier, PalletId};
+use frame_support::{parameter_types, traits::FindAuthor, weights::ConstantMultiplier, PalletId, weights::{PerDispatchClass, WeightToFee}};
 use precompile_utils::{Address, ErcIdConversion};
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -127,14 +127,23 @@ impl pallet_timestamp::Config for Test {
 
 parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
-	pub const OperationalFeeMultiplier: u8 = 5;
+	pub const OperationalFeeMultiplier: u8 = 1;
+}
+
+pub struct LengthToFeeZero;
+impl WeightToFee for LengthToFeeZero {
+	type Balance = Balance;
+
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		0
+	}
 }
 
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
 	type WeightToFee = FeeOracle;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type LengthToFee = LengthToFeeZero;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
@@ -328,7 +337,7 @@ pub mod mock_pallet {
 		}
 
 		// Some expected weight, given by a balances transfer
-		pub const WEIGHT: Weight = 207_555_000;
+		pub const WEIGHT: Weight = 0;
 
 		#[pallet::call]
 		impl<T: Config> Pallet<T> {
