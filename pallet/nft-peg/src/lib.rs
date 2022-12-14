@@ -332,7 +332,7 @@ where
 			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
 			// somewhat bounded as well, but there should be a way to reduce this complexity
 			for token_id in &token_ids[idx] {
-				pallet_nft::Pallet::<T>::do_burn(who, collection_id.clone(), token_id)?;
+				pallet_nft::Pallet::<T>::do_burn(who, collection_id.clone(), *token_id)?;
 				source_token_ids[idx].push(Token::Uint(U256::from(token_id.clone())))
 			}
 

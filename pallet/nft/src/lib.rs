@@ -505,7 +505,7 @@ pub mod pallet {
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
-		#[pallet::weight(T::WeightInfo::mint_collection(*initial_issuance))]
+		#[pallet::weight(T::WeightInfo::mint_collection())]
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
@@ -538,7 +538,7 @@ pub mod pallet {
 		/// Caller must be the collection owner
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
-		#[pallet::weight(T::WeightInfo::mint_additional(*quantity))]
+		#[pallet::weight(T::WeightInfo::mint_additional())]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
@@ -547,6 +547,8 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
+
+			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			// Permission and existence check
 			let mut collection_info = match Self::collection_info(collection_id) {
@@ -586,7 +588,7 @@ pub mod pallet {
 			let owner = token_owner.unwrap_or(origin);
 			let token_ids: Vec<SerialNumber> =
 				(next_serial_number..next_serial_number + quantity).collect();
-			Self::do_mint_unchecked(collection_id, collection_info, &owner, token_ids);
+			Self::do_mint_unchecked(collection_id, collection_info, &owner, token_ids)?;
 			Ok(())
 		}
 
@@ -607,7 +609,7 @@ pub mod pallet {
 				None => return Err(Error::<T>::NoCollection.into()),
 			};
 			ensure!(
-				Self::is_token_owner(&origin, &collection_info, &token_id.1),
+				Self::is_token_owner(&origin, &collection_info, token_id.1),
 				Error::<T>::NoPermission
 			);
 			let _ = Self::do_transfer_unchecked(
@@ -635,7 +637,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let (collection_id, serial_number) = token_id;
 
-			Self::do_burn(&origin, collection_id, &serial_number)?;
+			Self::do_burn(&origin, collection_id, serial_number)?;
 			Self::deposit_event(Event::<T>::Burn { collection_id, serial_number });
 			Ok(())
 		}
@@ -995,7 +997,7 @@ pub mod pallet {
 				None => return Err(Error::<T>::NoCollection.into()),
 			};
 			ensure!(
-				!Self::is_token_owner(&origin, &collection_info, &token_id.1),
+				!Self::is_token_owner(&origin, &collection_info, token_id.1),
 				Error::<T>::IsTokenOwner
 			);
 			let offer_id = Self::next_offer_id();
@@ -1072,7 +1074,7 @@ pub mod pallet {
 						None => return Err(Error::<T>::NoCollection.into()),
 					};
 					ensure!(
-						Self::is_token_owner(&origin, &collection_info, &token_id.1),
+						Self::is_token_owner(&origin, &collection_info, token_id.1),
 						Error::<T>::NoPermission
 					);
 

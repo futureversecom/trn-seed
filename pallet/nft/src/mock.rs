@@ -225,7 +225,7 @@ parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
 	pub const TestParachainId: u32 = 100;
-	pub const MaxTokensPerCollection: u32 = 1000;
+	pub const MaxTokensPerCollection: u32 = 10_000;
 }
 
 impl crate::Config for Test {

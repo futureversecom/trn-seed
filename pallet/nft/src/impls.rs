@@ -21,7 +21,7 @@ use seed_pallet_common::{
 	log, utils::next_asset_uuid, GetTokenOwner, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
-use sp_runtime::{traits::Zero, DispatchError, DispatchResult, SaturatedConversion};
+use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
@@ -40,24 +40,24 @@ impl<T: Config> Pallet<T> {
 
 	/// Check whether a token has been minted in a collection
 	pub fn token_exists(
-		serial_number: &SerialNumber,
+		serial_number: SerialNumber,
 		collection_info: &CollectionInformation<T>,
 	) -> bool {
 		collection_info
 			.owned_tokens
 			.iter()
-			.any(|(_, tokens)| tokens.clone().into_inner().contains(serial_number))
+			.any(|(_, tokens)| tokens.clone().into_inner().contains(&serial_number))
 	}
 
 	/// Check whether who owns the serial number in collection_info
 	pub fn is_token_owner(
 		who: &T::AccountId,
 		collection_info: &CollectionInformation<T>,
-		serial_number: &SerialNumber,
+		serial_number: SerialNumber,
 	) -> bool {
 		collection_info.owned_tokens.iter().any(|(account, tokens)| {
 			if account == who {
-				tokens.clone().into_inner().contains(serial_number)
+				tokens.clone().into_inner().contains(&serial_number)
 			} else {
 				false
 			}
@@ -197,16 +197,8 @@ impl<T: Config> Pallet<T> {
 
 		let mut new_collection_info: CollectionInformation<T> = collection_info;
 
-		new_collection_info.owned_tokens.iter_mut().for_each(|(owner, serial_numbers)| {
-			if owner == current_owner {
-				// Remove token from current owner
-				serial_numbers.retain(|serial| *serial != serial_number)
-			}
-			if owner == new_owner {
-				// Add token to new owner
-				let _ = serial_numbers.try_push(serial_number);
-			}
-		});
+		Self::remove_user_tokens(current_owner, &mut new_collection_info, vec![serial_number])?;
+		Self::add_user_tokens(new_owner, &mut new_collection_info, vec![serial_number])?;
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
@@ -224,16 +216,25 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
 	) -> Weight {
+		if serial_numbers.len() == usize::zero() {
+			return 0 as Weight
+		};
+
 		let collection_info = match Self::collection_info(collection_id) {
 			Some(info) => info,
 			None => return 0,
 		};
 
+		// remove duplicates from serial_numbers
+		let mut serial_numbers_trimmed = serial_numbers;
+		serial_numbers_trimmed.sort_unstable();
+		serial_numbers_trimmed.dedup();
+
 		// Trim the new serial_numbers and remove any that have already been minted
-		let serial_numbers_trimmed = serial_numbers
+		serial_numbers_trimmed = serial_numbers_trimmed
 			.into_iter()
 			.filter(|serial_number| {
-				if Self::token_exists(serial_number, &collection_info) {
+				if Self::token_exists(*serial_number, &collection_info) {
 					// Since we don't want to error, throw a warning instead.
 					// If we error, then some tokens may be lost
 					log!(
@@ -249,7 +250,8 @@ impl<T: Config> Pallet<T> {
 			})
 			.collect::<Vec<SerialNumber>>();
 
-		Self::do_mint_unchecked(collection_id, collection_info, owner, serial_numbers_trimmed);
+		let _ =
+			Self::do_mint_unchecked(collection_id, collection_info, owner, serial_numbers_trimmed);
 
 		T::DbWeight::get().reads_writes(1, 1)
 	}
@@ -260,23 +262,14 @@ impl<T: Config> Pallet<T> {
 		collection_info: CollectionInformation<T>,
 		token_owner: &T::AccountId,
 		serial_numbers: Vec<SerialNumber>,
-	) {
+	) -> DispatchResult {
 		let mut new_collection_info = collection_info;
 		// Update collection issuance
 		new_collection_info.collection_issuance = new_collection_info
 			.collection_issuance
 			.saturating_add(serial_numbers.len().saturated_into());
 
-		// Update ownership of tokens for token_owner
-		new_collection_info.owned_tokens.iter_mut().for_each(|(owner, serial_numbers)| {
-			if owner == token_owner {
-				// Add serial_numbers to owner, duplicate serial numbers checked prior
-				let new_serial_numbers: Vec<SerialNumber> = serial_numbers.clone().into_inner();
-				for serial_number in new_serial_numbers {
-					let _ = serial_numbers.try_push(serial_number);
-				}
-			}
-		});
+		Self::add_user_tokens(token_owner, &mut new_collection_info, serial_numbers.clone())?;
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
@@ -287,6 +280,61 @@ impl<T: Config> Pallet<T> {
 			serial_numbers,
 			owner: token_owner.clone(),
 		});
+		Ok(())
+	}
+
+	/// Adds a list of tokens to a users balance in collection_info
+	pub(crate) fn add_user_tokens(
+		token_owner: &T::AccountId,
+		collection_info: &mut CollectionInformation<T>,
+		serial_numbers: Vec<SerialNumber>,
+	) -> DispatchResult {
+		if collection_info.owned_tokens.iter().any(|(owner, _)| owner == token_owner) {
+			for (owner, owned_serial_numbers) in collection_info.owned_tokens.iter_mut() {
+				if owner != token_owner {
+					continue
+				}
+				// Add new serial numbers to existing owner
+				for serial_number in serial_numbers.clone() {
+					owned_serial_numbers
+						.try_push(serial_number)
+						.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+				}
+			}
+		} else {
+			// If token owner doesn't exist, create new entry
+			collection_info
+				.owned_tokens
+				.try_push((
+					token_owner.clone(),
+					BoundedVec::try_from(serial_numbers.clone())
+						.map_err(|_| Error::<T>::TokenLimitExceeded)?,
+				))
+				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		}
+		Ok(())
+	}
+
+	/// Removes a list of tokens from a users balance in collection_info
+	pub(crate) fn remove_user_tokens(
+		token_owner: &T::AccountId,
+		collection_info: &mut CollectionInformation<T>,
+		serial_numbers: Vec<SerialNumber>,
+	) -> DispatchResult {
+		let mut removing_all_tokens: bool = false;
+		for (owner, owned_serial_numbers) in collection_info.owned_tokens.iter_mut() {
+			if owner != token_owner {
+				continue
+			}
+			owned_serial_numbers.retain(|serial| !serial_numbers.contains(serial));
+			removing_all_tokens = owned_serial_numbers.is_empty();
+		}
+		// Check whether the owner has any tokens left, if not remove them from the collection
+		if removing_all_tokens {
+			collection_info.owned_tokens.retain(|(owner, _)| owner != token_owner);
+		}
+
+		Ok(())
 	}
 
 	/// Find the tokens owned by an `address` in the given collection
@@ -494,7 +542,7 @@ impl<T: Config> Pallet<T> {
 				None => return Err(Error::<T>::NoCollection.into()),
 			};
 			ensure!(
-				Self::is_token_owner(owner, &collection_info, &serial_number),
+				Self::is_token_owner(owner, &collection_info, *serial_number),
 				Error::<T>::NoPermission
 			);
 			<TokenLocks<T>>::insert(
@@ -565,7 +613,7 @@ impl<T: Config> Pallet<T> {
 			royalties_schedule: royalties_schedule.clone(),
 			max_issuance,
 			origin_chain: origin_chain.clone(),
-			next_serial_number: 0, // Incremented within do_mint_unchecked
+			next_serial_number: initial_issuance,
 			collection_issuance: 0,
 			owned_tokens: Default::default(),
 		};
@@ -575,7 +623,12 @@ impl<T: Config> Pallet<T> {
 			let token_owner = token_owner.unwrap_or(owner.clone());
 			let serial_numbers: Vec<SerialNumber> = (0..initial_issuance).collect();
 			// CollectionInfo gets inserted inside this mint function
-			Self::do_mint_unchecked(collection_uuid, collection_info, &token_owner, serial_numbers);
+			Self::do_mint_unchecked(
+				collection_uuid,
+				collection_info,
+				&token_owner,
+				serial_numbers,
+			)?;
 		} else {
 			// initial_issuance is 0 so we don't need to mint. However we need to still add
 			// collectionInfo to storage
@@ -606,7 +659,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_burn(
 		who: &T::AccountId,
 		collection_id: CollectionUuid,
-		serial_number: &SerialNumber,
+		serial_number: SerialNumber,
 	) -> DispatchResult {
 		ensure!(
 			!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
@@ -626,12 +679,12 @@ impl<T: Config> Pallet<T> {
 		collection_info.collection_issuance = collection_info.collection_issuance.saturating_sub(1);
 		collection_info.owned_tokens.iter_mut().for_each(|(owner, serial_numbers)| {
 			if owner == who {
-				serial_numbers.retain(|serial| serial != serial_number)
+				serial_numbers.retain(|&serial| serial != serial_number)
 			}
 		});
 
 		// Remove approvals for this token
-		T::OnTransferSubscription::on_nft_transfer(&(collection_id, *serial_number));
+		T::OnTransferSubscription::on_nft_transfer(&(collection_id, serial_number));
 
 		// Update storage with new info
 		<CollectionInfo<T>>::insert(collection_id, collection_info);
