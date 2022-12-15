@@ -1,22 +1,17 @@
 use crate::{self as fee_oracle, *};
 
-use frame_system::{limits::BlockWeights, EnsureRoot};
+use frame_system::EnsureRoot;
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
 pub use seed_primitives::types::{AccountId, Balance};
 use seed_primitives::AssetId;
 
-use frame_support::{
-	parameter_types,
-	traits::FindAuthor,
-	weights::{ConstantMultiplier, PerDispatchClass, WeightToFee},
-	PalletId,
-};
+use frame_support::{parameter_types, traits::FindAuthor, weights::WeightToFee, PalletId};
 use precompile_utils::{Address, ErcIdConversion};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId, Perbill, Permill,
+	ConsensusEngineId, Perbill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
