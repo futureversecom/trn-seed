@@ -195,10 +195,9 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 	fn contains(call: &Call) -> bool {
 		match call {
 			// Prevent asset `create` transactions from executing
-			Call::Assets(func) => match func {
-				pallet_assets::Call::create { .. } => false,
-				_ => true,
-			},
+			Call::Assets(pallet_assets::Call::create { .. }) => false,
+			// Disable XRPLBridge `submit_challenge` call
+			Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
 			_ => true,
 		}
 	}
