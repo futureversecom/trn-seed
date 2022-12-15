@@ -133,10 +133,8 @@ fn do_deposit_creates_tokens_and_collection() {
 
 		// Token balance should be 1 as one token was deposited
 		assert_eq!(
-			Nft::token_balance(AccountId::from(test_vals.destination))
-				.unwrap()
-				.get(&expected_collection_id),
-			Some(&(1))
+			Nft::token_balance_of(&AccountId::from(test_vals.destination), expected_collection_id),
+			1
 		);
 	})
 }
@@ -172,10 +170,8 @@ fn do_deposit_works_with_existing_bridged_collection() {
 		Nft::collection_exists(expected_collection_id);
 		// Token balance should be 1 as one token was deposited
 		assert_eq!(
-			Nft::token_balance(AccountId::from(test_vals.destination))
-				.unwrap()
-				.get(&expected_collection_id),
-			Some(&1)
+			Nft::token_balance_of(&AccountId::from(test_vals.destination), expected_collection_id),
+			1
 		);
 
 		let new_token_ids =
@@ -200,10 +196,8 @@ fn do_deposit_works_with_existing_bridged_collection() {
 		);
 		// Then balance should now be 2 as another token was deposited
 		assert_eq!(
-			Nft::token_balance(AccountId::from(test_vals.destination))
-				.unwrap()
-				.get(&expected_collection_id),
-			Some(&2)
+			Nft::token_balance_of(&AccountId::from(test_vals.destination), expected_collection_id),
+			2
 		);
 	})
 }
@@ -243,10 +237,8 @@ fn handles_duplicated_tokens_sent() {
 		Nft::collection_exists(expected_collection_id);
 
 		assert_eq!(
-			Nft::token_balance(AccountId::from(test_vals.destination))
-				.unwrap()
-				.get(&expected_collection_id),
-			Some(&5)
+			Nft::token_balance_of(&AccountId::from(test_vals.destination), expected_collection_id),
+			5
 		);
 
 		let new_token_ids = BoundedVec::<
@@ -274,10 +266,8 @@ fn handles_duplicated_tokens_sent() {
 
 		// Expected amount == 8, as duplicated token is never counted
 		assert_eq!(
-			Nft::token_balance(AccountId::from(test_vals.destination))
-				.unwrap()
-				.get(&expected_collection_id),
-			Some(&8)
+			Nft::token_balance_of(&AccountId::from(test_vals.destination), expected_collection_id),
+			8
 		);
 	})
 }
@@ -302,8 +292,7 @@ fn do_withdraw_works() {
 		));
 
 		// Token should be burnt
-		assert!(Nft::token_balance(AccountId::from(test_vals.source)).is_none());
-		assert!(Nft::token_owner(collection_id, 1).is_none());
+		assert_eq!(Nft::token_balance_of(&AccountId::from(test_vals.source), collection_id), 0);
 	});
 }
 

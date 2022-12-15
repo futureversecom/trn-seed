@@ -158,11 +158,13 @@ parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
 	pub const TestParachainId: u32 = 100;
+	pub const MaxTokensPerCollection: u32 = 10_000;
 }
 
 impl pallet_nft::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
+	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = ();
@@ -183,7 +185,7 @@ impl pallet_nft_peg::Config for Test {
 	type PalletId = NftPegPalletId;
 	type DelayLength = DelayLength;
 	type MaxAddresses = MaxAddresses;
-	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type MaxTokensPerMint = MaxIdsPerMultipleMint;
 	type EthBridge = MockEthBridge;
 }
 

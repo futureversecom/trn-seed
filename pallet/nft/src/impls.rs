@@ -65,6 +65,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns number of tokens owned by an account in a collection
+	/// Used by the ERC721 precompile for balance_of
 	pub fn token_balance_of(who: &T::AccountId, collection_id: CollectionUuid) -> TokenCount {
 		match Self::collection_info(collection_id) {
 			Some(collection_info) => {
@@ -197,8 +198,8 @@ impl<T: Config> Pallet<T> {
 
 		let mut new_collection_info: CollectionInformation<T> = collection_info;
 
-		Self::remove_user_tokens(current_owner, &mut new_collection_info, vec![serial_number])?;
 		Self::add_user_tokens(new_owner, &mut new_collection_info, vec![serial_number])?;
+		Self::remove_user_tokens(current_owner, &mut new_collection_info, vec![serial_number]);
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
@@ -320,7 +321,7 @@ impl<T: Config> Pallet<T> {
 		token_owner: &T::AccountId,
 		collection_info: &mut CollectionInformation<T>,
 		serial_numbers: Vec<SerialNumber>,
-	) -> DispatchResult {
+	) {
 		let mut removing_all_tokens: bool = false;
 		for (owner, owned_serial_numbers) in collection_info.owned_tokens.iter_mut() {
 			if owner != token_owner {
@@ -333,8 +334,6 @@ impl<T: Config> Pallet<T> {
 		if removing_all_tokens {
 			collection_info.owned_tokens.retain(|(owner, _)| owner != token_owner);
 		}
-
-		Ok(())
 	}
 
 	/// Find the tokens owned by an `address` in the given collection
@@ -592,7 +591,14 @@ impl<T: Config> Pallet<T> {
 		if let Some(max_issuance) = max_issuance {
 			ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
 			ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+			ensure!(
+				max_issuance <= T::MaxTokensPerCollection::get(),
+				Error::<T>::InvalidMaxIssuance
+			);
 		}
+		// If max issuance isn't set, set it to maxTokensPerCollection, this is a config value
+		// for the max tokens supported in the BoundedVec type for ownership
+		let max_issuance = max_issuance.unwrap_or(T::MaxTokensPerCollection::get());
 
 		// Validate collection attributes
 		ensure!(

@@ -201,7 +201,7 @@ pub mod pallet {
 		/// A new collection of tokens was created
 		CollectionCreate {
 			collection_uuid: CollectionUuid,
-			max_issuance: Option<TokenCount>,
+			max_issuance: TokenCount,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
 			name: CollectionNameType,
@@ -343,6 +343,7 @@ pub mod pallet {
 		/// Cannot make an offer on a token up for auction
 		TokenOnAuction,
 		/// Max issuance needs to be greater than 0 and initial_issuance
+		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
 		/// The collection max issuance has been reached and no more tokens can be minted
 		MaxIssuanceReached,
@@ -575,13 +576,11 @@ pub mod pallet {
 			let next_serial_number = collection_info.next_serial_number;
 			ensure!(next_serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
 
-			if let Some(max_issuance) = collection_info.max_issuance {
-				// Can't mint more than specified max_issuance
-				ensure!(
-					max_issuance >= next_serial_number.saturating_add(quantity),
-					Error::<T>::MaxIssuanceReached
-				);
-			}
+			// Can't mint more than specified max_issuance
+			ensure!(
+				collection_info.max_issuance >= next_serial_number.saturating_add(quantity),
+				Error::<T>::MaxIssuanceReached
+			);
 
 			collection_info.next_serial_number = next_serial_number.saturating_add(quantity);
 

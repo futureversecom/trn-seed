@@ -95,7 +95,7 @@ pub struct CollectionInformation<T: Config> {
 	/// configured royalties schedule
 	pub royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 	/// Maximum number of tokens allowed in a collection
-	pub max_issuance: Option<TokenCount>,
+	pub max_issuance: TokenCount,
 	/// The chain in which the collection was minted originally
 	pub origin_chain: OriginChain,
 	/// The next available serial_number
@@ -105,12 +105,6 @@ pub struct CollectionInformation<T: Config> {
 	/// All serial numbers owned by an account in a collection
 	pub owned_tokens: OwnedTokens<T>,
 }
-
-// #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
-// pub struct CollectionOwnershipInfo<T: Config> {
-// 	/// All serial numbers owned by an account in a collection
-// 	pub owned_tokens: BTreeMap<T::AccountId, BoundedVec<SerialNumber, T::MaxTokensPerCollection>>,
-// }
 
 /// Denotes the metadata URI referencing scheme used by a collection
 /// Enable token metadata URI construction by clients
