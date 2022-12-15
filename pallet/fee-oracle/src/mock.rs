@@ -153,20 +153,6 @@ impl pallet_transaction_payment::Config for Test {
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 
-pub struct FeeOracleBaseFeeThreshold;
-impl crate::BaseFeeThreshold for FeeOracleBaseFeeThreshold {
-	fn lower() -> Permill {
-		Permill::zero()
-	}
-	fn ideal() -> Permill {
-		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
-		Permill::from_parts(50_000)
-	}
-	fn upper() -> Permill {
-		Permill::one()
-	}
-}
-
 parameter_types! {
 	/// Floor network base fee per gas
 	/// 0.000015 XRP per gas, 15000 GWEI
@@ -177,7 +163,6 @@ parameter_types! {
 
 impl crate::Config for Test {
 	type Event = Event;
-	type Threshold = FeeOracleBaseFeeThreshold;
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
 	type DefaultEvmElasticity = ();
 	type WeightToFeeReduction = WeightToFeeReduction;

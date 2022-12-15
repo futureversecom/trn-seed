@@ -937,20 +937,6 @@ impl pallet_nft_peg::Config for Runtime {
 	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
 	type EthBridge = EthBridge;
 }
-/// This is unused while Futureverse fullness is inconsistent
-pub struct FeeOracleBaseFeeThreshold;
-impl pallet_fee_oracle::BaseFeeThreshold for FeeOracleBaseFeeThreshold {
-	fn lower() -> Permill {
-		Permill::zero()
-	}
-	fn ideal() -> Permill {
-		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
-		Permill::from_parts(50_000)
-	}
-	fn upper() -> Permill {
-		Permill::one()
-	}
-}
 
 parameter_types! {
 	/// Floor network base fee per gas
@@ -961,7 +947,6 @@ parameter_types! {
 
 impl pallet_fee_oracle::Config for Runtime {
 	type Event = Event;
-	type Threshold = FeeOracleBaseFeeThreshold;
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
 	type DefaultEvmElasticity = ();
 	type WeightToFeeReduction = WeightToFeeReduction;

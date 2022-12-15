@@ -21,12 +21,6 @@ pub use weights::WeightInfo;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-pub trait BaseFeeThreshold {
-	fn lower() -> Permill;
-	fn ideal() -> Permill;
-	fn upper() -> Permill;
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -38,7 +32,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type Threshold: BaseFeeThreshold;
 		type DefaultEvmBaseFeePerGas: Get<U256>;
 		type DefaultEvmElasticity: Get<Permill>;
 		type WeightToFeeReduction: Get<Perbill>;
@@ -117,100 +110,13 @@ pub mod pallet {
 		BaseFeeOverflow,
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_: T::BlockNumber) -> Weight {
-			// Register the Weight used on_finalize.
-			// 	- One storage read to get the block_weight.
-			// 	- One storage read to get the Elasticity.
-			// 	- One write to EvmBaseFeePerGas.
-			let db_weight = <T as frame_system::Config>::DbWeight::get();
-			db_weight.reads(2).saturating_add(db_weight.write)
-		}
-
-		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
-			if <EvmElasticity<T>>::get().is_zero() {
-				// Zero elasticity means constant EvmBaseFeePerGas.
-				return
-			}
-
-			let lower = T::Threshold::lower();
-			let upper = T::Threshold::upper();
-			// `target` is the ideal congestion of the network where the base fee should remain
-			// unchanged. Under normal circumstances the `target` should be 50%.
-			// If we go below the `target`, the base fee is linearly decreased by the Elasticity
-			// delta of lower~target. If we go above the `target`, the base fee is linearly
-			// increased by the Elasticity delta of upper~target. The base fee is fully increased
-			// (default 12.5%) if the block is upper full (default 100%). The base fee is fully
-			// decreased (default 12.5%) if the block is lower empty (default 0%).
-			let weight = <frame_system::Pallet<T>>::block_weight();
-			let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
-
-			// We convert `weight` into block fullness and ensure we are within the lower and upper
-			// bound.
-			let weight_used =
-				Permill::from_rational(weight.total(), max_weight).clamp(lower, upper);
-			// After clamp `weighted_used` is always between `lower` and `upper`.
-			// We scale the block fullness range to the lower/upper range, and the usage represents
-			// the actual percentage within this new scale.
-			let usage = (weight_used - lower) / (upper - lower);
-
-			// Target is our ideal block fullness.
-			let target = T::Threshold::ideal();
-			if usage > target {
-				// Above target, increase.
-				let coef = Permill::from_parts((usage.deconstruct() - target.deconstruct()) * 2u32);
-				// How much of the Elasticity is used to mutate base fee.
-				let coef = <EvmElasticity<T>>::get() * coef;
-				<EvmBaseFeePerGas<T>>::mutate(|bf| {
-					if let Some(scaled_basefee) = bf.checked_mul(U256::from(coef.deconstruct())) {
-						// Normalize to GWEI.
-						let increase = scaled_basefee
-							.checked_div(U256::from(1_000_000))
-							.unwrap_or_else(U256::zero);
-						*bf = bf.saturating_add(increase);
-					} else {
-						Self::deposit_event(Event::<T>::BaseFeeOverflow);
-					}
-				});
-			} else if usage < target {
-				// Below target, decrease.
-				let coef = Permill::from_parts((target.deconstruct() - usage.deconstruct()) * 2u32);
-				// How much of the Elasticity is used to mutate base fee.
-				let coef = <EvmElasticity<T>>::get() * coef;
-				<EvmBaseFeePerGas<T>>::mutate(|bf| {
-					if let Some(scaled_basefee) = bf.checked_mul(U256::from(coef.deconstruct())) {
-						// Normalize to GWEI.
-						let decrease = scaled_basefee
-							.checked_div(U256::from(1_000_000))
-							.unwrap_or_else(U256::zero);
-						*bf = bf.saturating_sub(decrease);
-					} else {
-						Self::deposit_event(Event::<T>::BaseFeeOverflow);
-					}
-				});
-			}
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		pub fn do_set_evm_base_fee(value: U256) -> DispatchResult {
-			<EvmBaseFeePerGas<T>>::put(value);
-			Ok(())
-		}
-
-		pub fn do_set_extrinsic_weight_to_fee_factor(value: Perbill) -> DispatchResult {
-			ExtrinsicWeightToFee::<T>::put(value);
-			Ok(())
-		}
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(T::WeightInfo::set_evm_base_fee())]
 		pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_set_evm_base_fee(value)
+			<EvmBaseFeePerGas<T>>::put(value);
+			Ok(())
 		}
 
 		#[pallet::weight(T::WeightInfo::set_extrinsic_weight_to_fee_factor())]
@@ -219,7 +125,8 @@ pub mod pallet {
 			value: Perbill,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_set_extrinsic_weight_to_fee_factor(value)
+			ExtrinsicWeightToFee::<T>::put(value);
+			Ok(())
 		}
 	}
 
