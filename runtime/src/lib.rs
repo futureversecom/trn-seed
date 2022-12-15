@@ -948,7 +948,6 @@ parameter_types! {
 impl pallet_fee_oracle::Config for Runtime {
 	type Event = Event;
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
-	type DefaultEvmElasticity = ();
 	type WeightToFeeReduction = WeightToFeeReduction;
 	type WeightInfo = weights::pallet_fee_oracle::WeightInfo<Runtime>;
 }
@@ -1363,7 +1362,8 @@ impl_runtime_apis! {
 		}
 
 		fn elasticity() -> Option<Permill> {
-			Some(FeeOracle::elasticity())
+			// We currently do not use or set elasticity; always return zero
+			Some(Permill::zero())
 		}
 	}
 

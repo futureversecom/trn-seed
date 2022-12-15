@@ -30,12 +30,12 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-		Assets: pallet_assets::{Pallet, Call, Config<T>, Storage, Event<T>},
+		System: frame_system::{Pallet, Call, Storage, Event<T>},
+		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
+		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-		FeeOracle: fee_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-		MockPallet: mock_pallet::pallet::{Pallet, Call, Config<T>},
+		FeeOracle: fee_oracle::{Pallet, Call, Storage, Event<T>},
+		MockPallet: mock_pallet::pallet::{Pallet, Call},
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Storage, Event<T>},
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Event<T>},
@@ -164,7 +164,6 @@ parameter_types! {
 impl crate::Config for Test {
 	type Event = Event;
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
-	type DefaultEvmElasticity = ();
 	type WeightToFeeReduction = WeightToFeeReduction;
 	type WeightInfo = ();
 }
