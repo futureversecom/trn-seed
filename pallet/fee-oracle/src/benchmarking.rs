@@ -24,12 +24,14 @@ use sp_core::U256;
 
 benchmarks! {
 	set_evm_base_fee {
+		assert_eq!(EvmBaseFeePerGas::<T>::get(), T::DefaultEvmBaseFeePerGas::get());
 	}: _(RawOrigin::Root, U256::one())
 	verify {
 		assert_eq!(FeeOracle::<T>::base_fee_per_gas(), U256::one());
 	}
 
 	set_extrinsic_weight_to_fee_factor {
+		assert_eq!(ExtrinsicWeightToFee::<T>::get(), T::WeightToFeeReduction::get());
 	}: _(RawOrigin::Root, Perbill::one())
 	verify {
 		assert_eq!(FeeOracle::<T>::extrinsic_weight_to_fee(), Perbill::one());

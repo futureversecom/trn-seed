@@ -207,13 +207,13 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(1000_000 as Weight)]
+		#[pallet::weight(T::WeightInfo::set_evm_base_fee())]
 		pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
 			Self::do_set_evm_base_fee(value)
 		}
 
-		#[pallet::weight(1000_000 as Weight)]
+		#[pallet::weight(T::WeightInfo::set_extrinsic_weight_to_fee_factor())]
 		pub fn set_extrinsic_weight_to_fee_factor(
 			origin: OriginFor<T>,
 			value: Perbill,
