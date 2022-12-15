@@ -300,6 +300,7 @@ impl<T: Config> Pallet<T> {
 					owned_serial_numbers
 						.try_push(serial_number)
 						.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+					owned_serial_numbers.sort();
 				}
 			}
 		} else {

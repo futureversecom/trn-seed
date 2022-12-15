@@ -129,62 +129,132 @@ fn make_new_simple_offer(
 	(next_offer_id, offer)
 }
 
-#[ignore]
 #[test]
-fn migration_v1_to_v2() {
-	use frame_support::traits::OnRuntimeUpgrade;
+fn migration_v2_to_v3() {
+	use frame_support::{
+		traits::{OnRuntimeUpgrade, StorageVersion},
+		StorageDoubleMap, StorageMap,
+	};
+	use migration::v1_storage;
+	use sp_std::collections::btree_map::BTreeMap;
 
 	TestExt::default().build().execute_with(|| {
 		// run upgrade
 		// Insert storage version
-		StorageVersion::<Test>::put(Releases::V1);
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 0);
 
-		// Mock some collections
-		let mock_collection_info = CollectionInformation {
-			owner: 1_u64,
-			name: b"test-collection".to_vec(),
-			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
-			royalties_schedule: None,
-			max_issuance: mock::MaxTokensPerCollection::get(),
-			origin_chain: OriginChain::Root,
-			next_serial_number: 0,
-			collection_issuance: 0,
-			owned_tokens: Default::default(),
-		};
-		let collection_id_1: CollectionUuid = 1;
-		let collection_id_2: CollectionUuid = 2;
-		let collection_id_3: CollectionUuid = 3;
-		CollectionInfo::<Test>::insert(collection_id_1, mock_collection_info.clone());
-		CollectionInfo::<Test>::insert(collection_id_2, mock_collection_info.clone());
-		CollectionInfo::<Test>::insert(collection_id_3, mock_collection_info);
+		// Mock some collections with fake user data
+		let user_1 = 5_u64;
+		let user_2 = 6_u64;
+		let user_3 = 7_u64;
+		let mut user_1_balance = BTreeMap::<CollectionUuid, TokenCount>::new();
+		let mut user_2_balance = BTreeMap::<CollectionUuid, TokenCount>::new();
+		let mut user_3_balance = BTreeMap::<CollectionUuid, TokenCount>::new();
+		// Collection 1
+		let collection_id_1 = 123;
+		v1_storage::CollectionInfo::<Test>::insert(
+			collection_id_1,
+			v1_storage::CollectionInformation::<AccountId> {
+				owner: 123_u64,
+				name: b"test-collection-1".to_vec(),
+				royalties_schedule: Some(RoyaltiesSchedule {
+					entitlements: vec![(user_2, Permill::one())],
+				}),
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
+				max_issuance: None,
+				origin_chain: OriginChain::Root,
+			},
+		);
+		v1_storage::CollectionIssuance::insert(collection_id_1, 5);
+		v1_storage::NextSerialNumber::insert(collection_id_1, 5);
+		// Setup collection 1 balances
+		v1_storage::TokenOwner::<Test>::insert(collection_id_1, 0, user_1);
+		v1_storage::TokenOwner::<Test>::insert(collection_id_1, 1, user_1);
+		v1_storage::TokenOwner::<Test>::insert(collection_id_1, 2, user_1);
+		user_1_balance.insert(collection_id_1, 3);
+		v1_storage::TokenOwner::<Test>::insert(collection_id_1, 3, user_2);
+		v1_storage::TokenOwner::<Test>::insert(collection_id_1, 4, user_2);
+		user_2_balance.insert(collection_id_1, 2);
 
-		// EVM pallet should NOT have account code for collections
-		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(collection_id_1 as u64).into()
-		));
-		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(collection_id_2 as u64).into()
-		));
-		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(collection_id_3 as u64).into()
-		));
+		// Collection 2
+		let collection_id_2 = 124;
+		v1_storage::CollectionInfo::<Test>::insert(
+			collection_id_2,
+			v1_storage::CollectionInformation::<AccountId> {
+				owner: 124_u64,
+				name: b"test-collection-2".to_vec(),
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
+				max_issuance: Some(1000),
+				origin_chain: OriginChain::Ethereum,
+			},
+		);
+		v1_storage::CollectionIssuance::insert(collection_id_2, 4);
+		v1_storage::NextSerialNumber::insert(collection_id_2, 4);
+		// Setup collection 2 balances
+		v1_storage::TokenOwner::<Test>::insert(collection_id_2, 69, user_1);
+		v1_storage::TokenOwner::<Test>::insert(collection_id_2, 123, user_1);
+		user_1_balance.insert(collection_id_2, 2);
+		v1_storage::TokenOwner::<Test>::insert(collection_id_2, 420, user_2);
+		user_2_balance.insert(collection_id_2, 1);
+		v1_storage::TokenOwner::<Test>::insert(collection_id_2, 1337, user_3);
+		user_3_balance.insert(collection_id_2, 1);
+
+		// Update token balances for both users
+		v1_storage::TokenBalance::<Test>::insert(user_1, user_1_balance);
+		v1_storage::TokenBalance::<Test>::insert(user_2, user_2_balance);
+		v1_storage::TokenBalance::<Test>::insert(user_3, user_3_balance);
 
 		// Run upgrade
 		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
 
 		// Version should be updated
-		assert_eq!(StorageVersion::<Test>::get(), Releases::V2);
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 3);
 
-		// EVM pallet should have account code for collections
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(collection_id_1 as u64).into()
-		));
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(collection_id_2 as u64).into()
-		));
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(collection_id_3 as u64).into()
-		));
+		// Collection 1 should be correctly migrated
+		let owned_tokens: OwnedTokens<Test> = BoundedVec::try_from(vec![
+			(user_1, BoundedVec::try_from(vec![0, 1, 2]).unwrap()),
+			(user_2, BoundedVec::try_from(vec![3, 4]).unwrap()),
+		])
+		.unwrap();
+		assert_eq!(
+			CollectionInfo::<Test>::get(collection_id_1).unwrap(),
+			CollectionInformation::<Test> {
+				owner: 123_u64,
+				name: b"test-collection-1".to_vec(),
+				royalties_schedule: Some(RoyaltiesSchedule {
+					entitlements: vec![(user_2, Permill::one())],
+				}),
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
+				max_issuance: mock::MaxTokensPerCollection::get(),
+				origin_chain: OriginChain::Root,
+				next_serial_number: 5,
+				collection_issuance: 5,
+				owned_tokens
+			}
+		);
+
+		// Collection 2 should be correctly migrated
+		let owned_tokens: OwnedTokens<Test> = BoundedVec::try_from(vec![
+			(user_1, BoundedVec::try_from(vec![69, 123]).unwrap()),
+			(user_2, BoundedVec::try_from(vec![420]).unwrap()),
+			(user_3, BoundedVec::try_from(vec![1337]).unwrap()),
+		])
+		.unwrap();
+		assert_eq!(
+			CollectionInfo::<Test>::get(collection_id_2).unwrap(),
+			CollectionInformation::<Test> {
+				owner: 124_u64,
+				name: b"test-collection-2".to_vec(),
+				royalties_schedule: None,
+				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
+				max_issuance: 1000,
+				origin_chain: OriginChain::Ethereum,
+				next_serial_number: 4,
+				collection_issuance: 4,
+				owned_tokens
+			}
+		);
 	});
 }
 

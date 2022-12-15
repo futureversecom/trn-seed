@@ -52,6 +52,8 @@ pub enum Releases {
 	V1,
 	/// storage version > runtime v19
 	V2,
+	/// storage version > runtime v24
+	V3,
 }
 
 impl Default for Releases {

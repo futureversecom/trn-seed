@@ -29,7 +29,7 @@
 //! number)
 
 use frame_support::{ensure, traits::Get, transactional, PalletId};
-use seed_pallet_common::{Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
+use seed_pallet_common::{log, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -92,7 +92,6 @@ pub mod pallet {
 			NextMarketplaceId::<T>::put(1 as MarketplaceId);
 			NextListingId::<T>::put(1 as ListingId);
 			NextOfferId::<T>::put(1 as OfferId);
-			StorageVersion::<T>::put(Releases::V2);
 		}
 	}
 
@@ -190,10 +189,6 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn next_offer_id)]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
-
-	/// Version of this module's storage schema
-	#[pallet::storage]
-	pub type StorageVersion<T> = StorageValue<_, Releases, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -375,31 +370,64 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// fn on_runtime_upgrade() -> Weight {
-		// 	use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
-		//
-		// 	if <StorageVersion<T>>::get() == Releases::V1 {
-		// 		<StorageVersion<T>>::put(Releases::V2);
-		//
-		// 		let collection_info: Vec<(CollectionUuid, CollectionInformation<T::AccountId>)> =
-		// 			CollectionInfo::<T>::iter().collect();
-		//
-		// 		let weight = collection_info.len() as Weight;
-		// 		for (collection_id, _) in collection_info {
-		// 			// Add asset info into evm pallet for all existing collections
-		// 			T::OnNewAssetSubscription::on_asset_create(
-		// 				collection_id,
-		// 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
-		// 			);
-		// 		}
-		//
-		// 		log!(warn, "🃏 NFT collection info migrated");
-		// 		return 6_000_000 as Weight +
-		// 			DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
-		// 	} else {
-		// 		Zero::zero()
-		// 	}
-		// }
+		fn on_runtime_upgrade() -> Weight {
+			use frame_support::{
+				weights::constants::RocksDbWeight as DbWeight, IterableStorageDoubleMap,
+				IterableStorageMap, StorageMap,
+			};
+			use migration::v1_storage;
+
+			if StorageVersion::get::<Self>() == 0 {
+				StorageVersion::new(3).put::<Self>();
+
+				let old_collection_info: Vec<(
+					CollectionUuid,
+					v1_storage::CollectionInformation<T::AccountId>,
+				)> = v1_storage::CollectionInfo::<T>::iter().collect();
+
+				let weight = old_collection_info.len() as Weight;
+				for (collection_id, info) in old_collection_info {
+					let next_serial_number = v1_storage::NextSerialNumber::get(collection_id);
+					let collection_issuance = v1_storage::CollectionIssuance::get(collection_id);
+					let mut collection_info_migrated = types::CollectionInformation {
+						owner: info.owner,
+						name: info.name,
+						metadata_scheme: info.metadata_scheme,
+						royalties_schedule: info.royalties_schedule,
+						max_issuance: info.max_issuance.unwrap_or(T::MaxTokensPerCollection::get()),
+						origin_chain: info.origin_chain,
+						next_serial_number,
+						collection_issuance,
+						owned_tokens: Default::default(),
+					};
+
+					// Add tokens for each user
+					for (serial_number, token_owner) in
+						v1_storage::TokenOwner::<T>::iter_prefix(collection_id)
+					{
+						if Self::add_user_tokens(
+							&token_owner,
+							&mut collection_info_migrated,
+							vec![serial_number],
+						)
+						.is_err()
+						{
+							// There was an error migrating tokens, caused by token limit being
+							// reached
+							log!(warn, "🃏 Error migrating tokens, collection_id: {:?}, serial_number: {:?}, token_owner: {:?}", collection_id, serial_number, token_owner);
+						}
+					}
+
+					<CollectionInfo<T>>::insert(collection_id, collection_info_migrated);
+				}
+
+				log!(warn, "🃏 NFT collection info migrated");
+				return 6_000_000 as Weight +
+					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
+			} else {
+				Zero::zero()
+			}
+		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade() -> Result<(), &'static str> {
