@@ -5,7 +5,7 @@ use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, Ethereum, EthereumChainId, FeeOracle, FeeProxy, Origin, Runtime,
+	Assets, AssetsExt, Dex, Ethereum, EthereumChainId, FeeControl, FeeProxy, Origin, Runtime,
 	XrpCurrency, EVM,
 };
 use ethabi::Token;
@@ -31,14 +31,14 @@ pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
 fn evm_base_transaction_cost_uses_xrp() {
 	ExtBuilder::default().build().execute_with(|| {
 		let base_tx_gas_cost_scaled =
-			scale_wei_to_6dp(BASE_TX_GAS_COST * FeeOracle::base_fee_per_gas().as_u128());
+			scale_wei_to_6dp(BASE_TX_GAS_COST * FeeControl::base_fee_per_gas().as_u128());
 		let charlie_initial_balance = XrpCurrency::balance(&charlie());
 		assert_eq!(base_tx_gas_cost_scaled, MINIMUM_XRP_TX_COST); // ensure minimum tx price is 0.315 XRP
 
 		let transaction = Transaction::EIP1559(EIP1559Transaction {
 			nonce: U256::zero(),
 			max_priority_fee_per_gas: U256::from(1_u64),
-			max_fee_per_gas: FeeOracle::base_fee_per_gas(),
+			max_fee_per_gas: FeeControl::base_fee_per_gas(),
 			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action: TransactionAction::Call(bob().into()),
 			value: U256::zero(),
@@ -72,7 +72,7 @@ fn evm_transfer_transaction_uses_xrp() {
 		let transaction = Transaction::EIP1559(EIP1559Transaction {
 			nonce: U256::one(),
 			max_priority_fee_per_gas: U256::from(1_u64),
-			max_fee_per_gas: FeeOracle::base_fee_per_gas(),
+			max_fee_per_gas: FeeControl::base_fee_per_gas(),
 			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action: TransactionAction::Call(bob().into()),
 			value: U256::from(5 * 10_u128.pow(18_u32)), // transfer value, 5 XRP
@@ -89,7 +89,7 @@ fn evm_transfer_transaction_uses_xrp() {
 		));
 
 		let expected_total_cost_of_tx = scale_wei_to_6dp(
-			BASE_TX_GAS_COST * FeeOracle::base_fee_per_gas().as_u128() + 5 * 10_u128.pow(18_u32),
+			BASE_TX_GAS_COST * FeeControl::base_fee_per_gas().as_u128() + 5 * 10_u128.pow(18_u32),
 		);
 		let charlie_balance_change = charlie_initial_balance - XrpCurrency::balance(&charlie());
 		assert_eq!(charlie_balance_change, expected_total_cost_of_tx);

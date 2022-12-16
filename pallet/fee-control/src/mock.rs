@@ -1,4 +1,4 @@
-use crate::{self as fee_oracle, *};
+use crate::{self as fee_control, *};
 
 use frame_system::EnsureRoot;
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
@@ -29,7 +29,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
-		FeeOracle: fee_oracle::{Pallet, Call, Storage, Event<T>},
+		FeeControl: fee_control::{Pallet, Call, Storage, Event<T>},
 		MockPallet: mock_pallet::pallet::{Pallet, Call},
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Storage, Event<T>},
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
@@ -142,7 +142,7 @@ impl WeightToFee for LengthToFeeZero {
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
-	type WeightToFee = FeeOracle;
+	type WeightToFee = FeeControl;
 	type LengthToFee = LengthToFeeZero;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
@@ -270,7 +270,7 @@ impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
 }
 
 impl pallet_evm::Config for Test {
-	type FeeCalculator = FeeOracle;
+	type FeeCalculator = FeeControl;
 	type GasWeightMapping = ();
 	type BlockHashMapping = MockBlockHashMapping<Test>;
 	type CallOrigin = EnsureAddressNever<AccountId>;

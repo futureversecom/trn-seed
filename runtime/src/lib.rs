@@ -251,7 +251,7 @@ parameter_types! {
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
-	type WeightToFee = FeeOracle;
+	type WeightToFee = FeeControl;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
@@ -854,7 +854,7 @@ const fn seed_london() -> EvmConfig {
 pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 impl pallet_evm::Config for Runtime {
-	type FeeCalculator = FeeOracle;
+	type FeeCalculator = FeeControl;
 	type GasWeightMapping = FutureverseGasWeightMapping;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = FutureverseEnsureAddressSame<AccountId>;
@@ -945,11 +945,11 @@ parameter_types! {
 	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
 }
 
-impl pallet_fee_oracle::Config for Runtime {
+impl pallet_fee_control::Config for Runtime {
 	type Event = Event;
 	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
 	type WeightToFeeReduction = WeightToFeeReduction;
-	type WeightInfo = weights::pallet_fee_oracle::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
 }
 
 construct_runtime! {
@@ -1001,7 +1001,7 @@ construct_runtime! {
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
-		FeeOracle: pallet_fee_oracle::{Pallet, Call, Storage, Event<T>} = 40,
+		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
 	}
 }
 
@@ -1240,7 +1240,7 @@ impl_runtime_apis! {
 		}
 
 		fn gas_price() -> U256 {
-			FeeOracle::min_gas_price().0
+			FeeControl::min_gas_price().0
 		}
 
 		fn account_code_at(address: H160) -> Vec<u8> {
@@ -1669,7 +1669,7 @@ mod benches {
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		// Local
 		[pallet_nft, Nft]
-		[pallet_fee_oracle, FeeOracle]
+		[pallet_fee_control, FeeControl]
 		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);

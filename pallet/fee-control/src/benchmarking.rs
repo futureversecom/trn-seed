@@ -16,7 +16,7 @@
 
 use super::*;
 
-use crate::Pallet as FeeOracle;
+use crate::Pallet as FeeControl;
 
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
@@ -27,15 +27,15 @@ benchmarks! {
 		assert_eq!(EvmBaseFeePerGas::<T>::get(), T::DefaultEvmBaseFeePerGas::get());
 	}: _(RawOrigin::Root, U256::one())
 	verify {
-		assert_eq!(FeeOracle::<T>::base_fee_per_gas(), U256::one());
+		assert_eq!(FeeControl::<T>::base_fee_per_gas(), U256::one());
 	}
 
 	set_extrinsic_weight_to_fee_factor {
 		assert_eq!(ExtrinsicWeightToFee::<T>::get(), T::WeightToFeeReduction::get());
 	}: _(RawOrigin::Root, Perbill::one())
 	verify {
-		assert_eq!(FeeOracle::<T>::extrinsic_weight_to_fee(), Perbill::one());
+		assert_eq!(FeeControl::<T>::extrinsic_weight_to_fee(), Perbill::one());
 	}
 }
 
-impl_benchmark_test_suite!(FeeOracle, crate::mock::TestExt::default().build(), crate::mock::Test);
+impl_benchmark_test_suite!(FeeControl, crate::mock::TestExt::default().build(), crate::mock::Test);

@@ -5020,14 +5020,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-fee-oracle"
+name = "pallet-fee-control"
 version = "1.0.0"
 dependencies = [
  "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -7776,7 +7775,7 @@ dependencies = [
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
  "pallet-evm-precompiles-nft",
- "pallet-fee-oracle",
+ "pallet-fee-control",
  "pallet-fee-proxy",
  "pallet-grandpa",
  "pallet-im-online",

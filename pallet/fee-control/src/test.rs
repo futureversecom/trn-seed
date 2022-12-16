@@ -35,7 +35,7 @@ fn charges_default_extrinsic_amount() {
 			1,
 		));
 
-		let base_fee = <FeeOracle as WeightToFee>::weight_to_fee(
+		let base_fee = <FeeControl as WeightToFee>::weight_to_fee(
 			&BlockWeights::default().get(DispatchClass::Normal).base_extrinsic,
 		);
 		let extrinsic_fee = dispatch_info.weight;
@@ -61,7 +61,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 		assert_eq!(fee_token_balance, starting_fee_token_asset_balance);
 		assert_ok!(MockPallet::mock_charge_fee(RawOrigin::Signed(account).into()));
 
-		assert_ok!(FeeOracle::set_extrinsic_weight_to_fee_factor(
+		assert_ok!(FeeControl::set_extrinsic_weight_to_fee_factor(
 			RawOrigin::Root.into(),
 			Perbill::from_percent(42)
 		));
@@ -77,7 +77,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 			1,
 		));
 
-		let base_fee = <FeeOracle as WeightToFee>::weight_to_fee(
+		let base_fee = <FeeControl as WeightToFee>::weight_to_fee(
 			&BlockWeights::default().get(DispatchClass::Normal).base_extrinsic,
 		);
 		let extrinsic_fee = dispatch_info.weight;
