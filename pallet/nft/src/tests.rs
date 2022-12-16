@@ -150,6 +150,7 @@ fn migration_v2_to_v3() {
 		let mut user_1_balance = BTreeMap::<CollectionUuid, TokenCount>::new();
 		let mut user_2_balance = BTreeMap::<CollectionUuid, TokenCount>::new();
 		let mut user_3_balance = BTreeMap::<CollectionUuid, TokenCount>::new();
+
 		// Collection 1
 		let collection_id_1 = 123;
 		v1_storage::CollectionInfo::<Test>::insert(
@@ -226,7 +227,7 @@ fn migration_v2_to_v3() {
 					entitlements: vec![(user_2, Permill::one())],
 				}),
 				metadata_scheme: MetadataScheme::IpfsDir(b"Test1".to_vec()),
-				max_issuance: mock::MaxTokensPerCollection::get(),
+				max_issuance: None,
 				origin_chain: OriginChain::Root,
 				next_serial_number: 5,
 				collection_issuance: 5,
@@ -248,7 +249,7 @@ fn migration_v2_to_v3() {
 				name: b"test-collection-2".to_vec(),
 				royalties_schedule: None,
 				metadata_scheme: MetadataScheme::IpfsDir(b"Test2".to_vec()),
-				max_issuance: 1000,
+				max_issuance: Some(1000),
 				origin_chain: OriginChain::Ethereum,
 				next_serial_number: 4,
 				collection_issuance: 4,
@@ -412,7 +413,7 @@ fn create_collection() {
 				name: b"test-collection".to_vec(),
 				metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				royalties_schedule: Some(royalties_schedule.clone()),
-				max_issuance: mock::MaxTokensPerCollection::get(),
+				max_issuance: None,
 				origin_chain: OriginChain::Root,
 				next_serial_number: quantity,
 				collection_issuance: quantity,
@@ -427,7 +428,7 @@ fn create_collection() {
 
 		assert!(has_event(Event::<Test>::CollectionCreate {
 			collection_uuid: collection_id,
-			max_issuance: mock::MaxTokensPerCollection::get(),
+			max_issuance: None,
 			collection_owner,
 			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			name: b"test-collection".to_vec(),

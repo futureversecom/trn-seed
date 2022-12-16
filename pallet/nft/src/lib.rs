@@ -196,7 +196,7 @@ pub mod pallet {
 		/// A new collection of tokens was created
 		CollectionCreate {
 			collection_uuid: CollectionUuid,
-			max_issuance: TokenCount,
+			max_issuance: Option<TokenCount>,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
 			name: CollectionNameType,
@@ -394,7 +394,7 @@ pub mod pallet {
 						name: info.name,
 						metadata_scheme: info.metadata_scheme,
 						royalties_schedule: info.royalties_schedule,
-						max_issuance: info.max_issuance.unwrap_or(T::MaxTokensPerCollection::get()),
+						max_issuance: info.max_issuance,
 						origin_chain: info.origin_chain,
 						next_serial_number,
 						collection_issuance,
@@ -602,19 +602,27 @@ pub mod pallet {
 			);
 
 			let next_serial_number = collection_info.next_serial_number;
-			ensure!(next_serial_number.checked_add(quantity).is_some(), Error::<T>::NoAvailableIds);
+			// Increment next serial number
+			collection_info.next_serial_number =
+				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
 
-			// Can't mint more than specified max_issuance
+			// Check early that we won't exceed the BoundedVec limit
 			ensure!(
-				collection_info.max_issuance >= next_serial_number.saturating_add(quantity),
-				Error::<T>::MaxIssuanceReached
+				collection_info.next_serial_number <= T::MaxTokensPerCollection::get(),
+				Error::<T>::TokenLimitExceeded
 			);
 
-			collection_info.next_serial_number = next_serial_number.saturating_add(quantity);
+			// Can't mint more than specified max_issuance
+			if let Some(max_issuance) = collection_info.max_issuance {
+				ensure!(
+					max_issuance >= collection_info.next_serial_number,
+					Error::<T>::MaxIssuanceReached
+				);
+			}
 
 			let owner = token_owner.unwrap_or(origin);
 			let token_ids: Vec<SerialNumber> =
-				(next_serial_number..next_serial_number + quantity).collect();
+				(next_serial_number..collection_info.next_serial_number).collect();
 			Self::do_mint_unchecked(collection_id, collection_info, &owner, token_ids)?;
 			Ok(())
 		}

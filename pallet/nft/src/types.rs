@@ -97,7 +97,7 @@ pub struct CollectionInformation<T: Config> {
 	/// configured royalties schedule
 	pub royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 	/// Maximum number of tokens allowed in a collection
-	pub max_issuance: TokenCount,
+	pub max_issuance: Option<TokenCount>,
 	/// The chain in which the collection was minted originally
 	pub origin_chain: OriginChain,
 	/// The next available serial_number

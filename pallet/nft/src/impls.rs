@@ -597,9 +597,6 @@ impl<T: Config> Pallet<T> {
 				Error::<T>::InvalidMaxIssuance
 			);
 		}
-		// If max issuance isn't set, set it to maxTokensPerCollection, this is a config value
-		// for the max tokens supported in the BoundedVec type for ownership
-		let max_issuance = max_issuance.unwrap_or(T::MaxTokensPerCollection::get());
 
 		// Validate collection attributes
 		ensure!(
