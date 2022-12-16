@@ -833,7 +833,7 @@ fn process_xrp_tx_success() {
 		));
 
 		System::reset_events();
-		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64 + 1);
+		XRPLBridge::process_xrp_tx(XrpTxChallengePeriod::get() as u64 + 1);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
 		System::assert_has_event(
 			Event::<Test>::ProcessingOk(1_000_000_u64, XrplTxHash::from_slice(transaction_hash))
@@ -869,11 +869,83 @@ fn process_xrp_tx_not_supported_transaction() {
 		));
 
 		System::reset_events();
-		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64 + 1);
+		XRPLBridge::process_xrp_tx(XrpTxChallengePeriod::get() as u64 + 1);
 		System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
 		System::assert_has_event(Event::<Test>::NotSupportedTransaction.into());
 
 		let xrp_balance = xrp_balance_of(account_address);
 		assert_eq!(xrp_balance, 0);
+	})
+}
+
+#[test]
+fn process_xrp_tx_processing_failed() {
+	new_test_ext().execute_with(|| {
+		System::set_block_number(1);
+		let account_address = b"6490B68F1116BFE87DDC";
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317C";
+		let transaction_hash2 = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317D";
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+		{
+			// submit payment tx - this will mint the max Balance for the asset ID
+			let payment_tx = XrplTxData::Payment {
+				amount: u128::MAX as Balance,
+				address: H160::from_slice(account_address),
+			};
+			assert_ok!(XRPLBridge::submit_transaction(
+				Origin::signed(relayer),
+				1_000_000,
+				XrplTxHash::from_slice(transaction_hash),
+				payment_tx,
+				1234
+			));
+
+			System::reset_events();
+			XRPLBridge::process_xrp_tx(XrpTxChallengePeriod::get() as u64 + 1);
+			System::set_block_number(XrpTxChallengePeriod::get() as u64 + 1);
+			System::assert_has_event(
+				Event::<Test>::ProcessingOk(
+					1_000_000_u64,
+					XrplTxHash::from_slice(transaction_hash),
+				)
+				.into(),
+			);
+
+			let xrp_balance =
+				AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(account_address).into());
+			assert_eq!(xrp_balance, u128::MAX);
+		}
+		{
+			// submit payment tx to mint 1 more than max Balance. Should fail.
+			let payment_tx = XrplTxData::Payment {
+				amount: 1_u128 as Balance,
+				address: H160::from_slice(account_address),
+			};
+			assert_ok!(XRPLBridge::submit_transaction(
+				Origin::signed(relayer),
+				1_000_001,
+				XrplTxHash::from_slice(transaction_hash2),
+				payment_tx,
+				1235
+			));
+
+			System::reset_events();
+			XRPLBridge::process_xrp_tx(2 * (XrpTxChallengePeriod::get() as u64) + 1);
+			System::set_block_number(2 * (XrpTxChallengePeriod::get() as u64) + 1);
+			System::assert_has_event(
+				Event::<Test>::ProcessingFailed(
+					1_000_001_u64,
+					XrplTxHash::from_slice(transaction_hash2),
+					ArithmeticError::Overflow.into(),
+				)
+				.into(),
+			);
+
+			// no changes to the account_address balance
+			let xrp_balance =
+				AssetsExt::balance(XrpAssetId::get(), &H160::from_slice(account_address).into());
+			assert_eq!(xrp_balance, u128::MAX);
+		}
 	})
 }
