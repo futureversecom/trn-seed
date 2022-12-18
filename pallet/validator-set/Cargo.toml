@@ -1,0 +1,42 @@
+[package]
+name = "pallet-validator-set"
+version = "0.1.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2021"
+repository = "https://github.com/futureversecom/seed"
+description = "Validator set management module"
+
+[dependencies]
+seed-primitives = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.145", optional = true, default-features = false }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+log = "0.4"
+
+# Substrate
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false  }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false  }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false  }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false  }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
+
+[dev-dependencies]
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
+hex-literal = { version = "0.3.4" }
+
+[features]
+default = ["std"]
+std = [
+    "seed-primitives/std",
+    "seed-pallet-common/std",
+    "codec/std",
+    "serde",
+    "sp-runtime/std",
+    "sp-std/std",
+    "frame-support/std",
+    "frame-system/std",
+    "scale-info/std",
+    "sp-core/std",
+]
+try-runtime = ["frame-support/try-runtime"]
