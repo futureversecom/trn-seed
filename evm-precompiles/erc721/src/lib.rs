@@ -644,17 +644,6 @@ where
 			None => return Err(revert("Collection does not exist").into()),
 		};
 
-		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
-			log3(
-				handle.code_address(),
-				SELECTOR_LOG_TRANSFER,
-				origin,
-				to,
-				EvmDataWriter::new().write(token_id).build(),
-			)
-			.record(handle)?;
-		}
-
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
@@ -665,6 +654,17 @@ where
 				token_owner: Some(to.into()),
 			},
 		)?;
+
+		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
+			log3(
+				handle.code_address(),
+				SELECTOR_LOG_TRANSFER,
+				origin,
+				to,
+				EvmDataWriter::new().write(token_id).build(),
+			)
+			.record(handle)?;
+		}
 
 		// Build output.
 		Ok(succeed([]))
