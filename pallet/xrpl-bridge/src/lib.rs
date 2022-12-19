@@ -482,11 +482,7 @@ impl<T: Config> Pallet<T> {
 						));
 					}
 				},
-				XrplTxData::CurrencyPayment { amount: _, address: _, currency_id: _ } => {
-					Self::deposit_event(Event::NotSupportedTransaction);
-					continue
-				},
-				XrplTxData::Xls20 => {
+				_ => {
 					Self::deposit_event(Event::NotSupportedTransaction);
 					continue
 				},
@@ -499,6 +495,7 @@ impl<T: Config> Pallet<T> {
 				transaction_hash.clone(),
 			);
 			writes += 2;
+			reads += 2;
 			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
 		}
 
