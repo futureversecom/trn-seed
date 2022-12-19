@@ -205,16 +205,23 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new asset with unique ID according to the network asset id scheme.
-		#[pallet::weight((16_000_000 as Weight).saturating_add(T::DbWeight::get().reads_writes(1, 2)))]
+		/// Sets metadata for name, symbol and decimals
+		/// name and symbol length checked within assets::force_set_metadata
+		#[pallet::weight((35_586_000 as Weight).saturating_add(T::DbWeight::get().reads_writes(3, 3)))]
 		#[transactional]
-		pub fn create_asset(origin: OriginFor<T>) -> DispatchResult {
+		pub fn create_asset(
+			origin: OriginFor<T>,
+			name: Vec<u8>,
+			symbol: Vec<u8>,
+			decimals: u8,
+		) -> DispatchResult {
 			let who = frame_system::ensure_signed(origin)?;
 
 			// reserves some native currency from the user - as this should be a costly operation
 			let deposit = T::AssetDeposit::get();
 			T::Currency::reserve(&who, deposit)?;
 
-			Self::create(&who)?;
+			Self::create_with_metadata(&who, name, symbol, decimals)?;
 			Ok(().into())
 		}
 	}
@@ -523,7 +530,7 @@ impl<T: Config> CreateExt for Pallet<T> {
 			next_asset_id,
 			owner.clone(),
 			true,
-			min_balance, // panics if min_balance is zero
+			min_balance, // errors if min_balance is zero
 		)?;
 
 		// update the next id, will not overflow, asserted prior qed.
