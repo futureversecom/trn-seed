@@ -68,9 +68,12 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
-	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -377,8 +380,8 @@ pub mod pallet {
 			};
 			use migration::v1_storage;
 
-			if StorageVersion::get::<Self>() == 0 {
-				StorageVersion::new(3).put::<Self>();
+			if StorageVersion::get::<Self>() == 1 {
+				StorageVersion::new(2).put::<Self>();
 
 				let old_collection_info: Vec<(
 					CollectionUuid,

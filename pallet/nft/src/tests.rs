@@ -141,7 +141,7 @@ fn migration_v2_to_v3() {
 	TestExt::default().build().execute_with(|| {
 		// run upgrade
 		// Insert storage version
-		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 0);
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
 
 		// Mock some collections with fake user data
 		let user_1 = 5_u64;
@@ -210,7 +210,7 @@ fn migration_v2_to_v3() {
 		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
 
 		// Version should be updated
-		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 3);
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 2);
 
 		// Collection 1 should be correctly migrated
 		let owned_tokens: OwnedTokens<Test> = BoundedVec::try_from(vec![
