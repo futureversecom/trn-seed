@@ -306,7 +306,6 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: Some(root_key),
 		},
-		base_fee: Default::default(),
 		ethereum: seed_runtime::EthereumConfig {},
 		evm: seed_runtime::EVMConfig { accounts: Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
