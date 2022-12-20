@@ -82,6 +82,7 @@ pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
 pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
+pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -176,6 +177,7 @@ std = [
 	"pallet-evm-precompiles-erc721/std",
 	"pallet-evm-precompiles-erc20/std",
 	"pallet-evm-precompiles-nft/std",
+	"pallet-fee-control/std",
 	"precompile-utils/std",
 	"rustc-hex/std",
 	"pallet-erc20-peg/std",
@@ -246,4 +248,5 @@ runtime-benchmarks = [
 	"pallet-nft/runtime-benchmarks",
 	"pallet-xrpl-bridge/runtime-benchmarks",
 	"pallet-dex/runtime-benchmarks",
+	"pallet-fee-control/runtime-benchmarks"
 ]
