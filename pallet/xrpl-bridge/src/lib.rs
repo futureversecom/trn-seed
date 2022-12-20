@@ -132,7 +132,12 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		TransactionAdded(LedgerIndex, XrplTxHash),
 		TransactionChallenge(LedgerIndex, XrplTxHash),
-		Processed(LedgerIndex, XrplTxHash),
+		/// Processing an event succeeded
+		ProcessingOk(LedgerIndex, XrplTxHash),
+		/// Processing an event failed
+		ProcessingFailed(LedgerIndex, XrplTxHash, DispatchError),
+		/// Transaction not supported
+		NotSupportedTransaction,
 		/// Request to withdraw some XRP amount to XRPL
 		WithdrawRequest {
 			proof_id: u64,
@@ -455,41 +460,45 @@ impl<T: Config> Pallet<T> {
 		};
 		let mut reads = 2 as Weight;
 		let mut writes = 0 as Weight;
-		for transaction_hash in tx_items {
-			if !<ChallengeXRPTransactionList<T>>::contains_key(transaction_hash) {
-				let tx_details = <ProcessXRPTransactionDetails<T>>::get(transaction_hash);
-				reads += 1;
-				match tx_details {
-					None => {},
-					Some((ledger_index, ref tx, _relayer)) => {
-						match tx.transaction {
-							XrplTxData::Payment { amount, address } => {
-								let _ = T::MultiCurrency::mint_into(
-									T::XrpAssetId::get(),
-									&address.into(),
-									amount,
-								);
-								writes += 1;
-							},
-							XrplTxData::CurrencyPayment {
-								amount: _,
-								address: _,
-								currency_id: _,
-							} => {},
-							XrplTxData::Xls20 => {},
-						}
-						let clear_block_number = <frame_system::Pallet<T>>::block_number() +
-							T::ClearTxPeriod::get().into();
-						<SettledXRPTransactionDetails<T>>::append(
-							&clear_block_number,
+
+		let tx_details = tx_items
+			.iter()
+			.filter(|x| !<ChallengeXRPTransactionList<T>>::contains_key(x))
+			.map(|x| (x, <ProcessXRPTransactionDetails<T>>::get(x)));
+
+		reads += tx_items.len() as u64 * 2;
+		let tx_details = tx_details.filter_map(|x| Some((x.0, x.1?)));
+
+		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
+			match tx.transaction {
+				XrplTxData::Payment { amount, address } => {
+					if let Err(e) =
+						T::MultiCurrency::mint_into(T::XrpAssetId::get(), &address.into(), amount)
+					{
+						Self::deposit_event(Event::ProcessingFailed(
+							ledger_index,
 							transaction_hash.clone(),
-						);
-						writes += 1;
-						Self::deposit_event(Event::Processed(ledger_index, transaction_hash));
-					},
-				}
+							e,
+						));
+					}
+				},
+				_ => {
+					Self::deposit_event(Event::NotSupportedTransaction);
+					continue
+				},
 			}
+
+			let clear_block_number =
+				<frame_system::Pallet<T>>::block_number() + T::ClearTxPeriod::get().into();
+			<SettledXRPTransactionDetails<T>>::append(
+				&clear_block_number,
+				transaction_hash.clone(),
+			);
+			writes += 2;
+			reads += 2;
+			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
 		}
+
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
