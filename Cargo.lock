@@ -1707,7 +1707,6 @@ name = "evm-core"
 version = "0.35.0"
 source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
 dependencies = [
- "log",
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
@@ -7628,7 +7627,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.29"
+version = "0.0.31"
 dependencies = [
  "clap",
  "ethy-gadget",
