@@ -73,6 +73,8 @@ pub mod pallet {
 		type Call: From<Call<Self>>;
 		/// Overarching type of all pallets origins.
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+		/// Max Xrpl notary (validator) public keys
+		type MaxXrplKeys: Get<u8>;
 	}
 
 	#[pallet::storage]
@@ -100,6 +102,11 @@ pub mod pallet {
 	/// Flag to indicate whether authorities have been changed during the current era
 	pub type AuthoritiesChangedThisEra<T> = StorageValue<_, bool, ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn xrpl_door_signers)]
+	/// XRPL Door Signers set by sudo (white listed validators)
+	pub type XrplDoorSigners<T: Config> =  StorageMap<_, Twox64Concat,T::EthyId, bool, ValueQuery>;
+
 
 	#[pallet::error]
 	pub enum Error<T> {}
@@ -118,7 +125,22 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T> where <T as frame_system::Config>::AccountId: From<sp_core::H160> {}
+impl<T: Config> Pallet<T> where <T as frame_system::Config>::AccountId: From<sp_core::H160> {
+	pub(crate) fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
+		let validators = Self::get_xrpl_notary_keys(validator_list);
+		<NotaryXrplKeys<T>>::put(&validators);
+	}
+
+	/// Iterate through the given validator_list and extracts the first number of MaxXrplKeys that are in the XrplDoorSigners
+	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {
+		validator_list
+			.into_iter()
+			.filter(|validator| XrplDoorSigners::<T>::get(validator))
+			.map(|validator| -> T::EthyId { validator.clone() })
+			.take(T::MaxXrplKeys::get().into())
+			.collect()
+	}
+}
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
 	type Public = T::EthyId;
@@ -135,7 +157,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		if !keys.is_empty() {
 			assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
 			NotaryKeys::<T>::put(&keys);
-			// Self::update_xrpl_notary_keys(&keys);
+			Self::update_xrpl_notary_keys(&keys);
 		}
 	}
 
