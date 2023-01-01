@@ -3,23 +3,22 @@
 
 use codec::{Decode, Encode};
 pub use frame_support::log as logger;
-use frame_support::{
-	dispatch::{DispatchError, DispatchResult},
-	sp_runtime::traits::AccountIdConversion,
-	traits::{fungibles::Transfer, Get},
-	weights::{constants::RocksDbWeight as DbWeight, Weight},
-	PalletId,
-};
+use frame_support::{dispatch::{DispatchError, DispatchResult}, sp_runtime::traits::AccountIdConversion, traits::{fungibles::Transfer, Get}, weights::{constants::RocksDbWeight as DbWeight, Weight}, PalletId, sp_io, log};
 use scale_info::TypeInfo;
 use sp_core::H160;
+use sp_runtime::traits::Convert;
 use sp_std::{fmt::Debug, vec::Vec};
 
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
+use seed_primitives::ethy::crypto::AuthorityId;
 
 pub mod utils;
+mod ethy;
+mod eth;
+mod xrpl;
 
 /// syntactic sugar for logging.
 /// the caller must define a variable `LOG_TARGET = "<my-target>"`
