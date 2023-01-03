@@ -24,7 +24,7 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion
 use sp_std::{boxed::Box, vec, vec::Vec};
 use seed_primitives::ethy::EventProofId;
 
-mod types;
+pub mod types;
 use types::*;
 
 #[frame_support::pallet]
@@ -32,6 +32,8 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, transactional};
 	use frame_system::{ensure_signed, pallet_prelude::*};
+	use seed_pallet_common::ethy::State;
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]

@@ -44,8 +44,6 @@ pub use seed_primitives::{
 	ethy::{ConsensusLog, EthyChainId, EventClaimId, EventProofId, ValidatorSet, ETHY_ENGINE_ID},
 	BlockNumber,
 };
-use crate::types::State::Active;
-
 pub const SCHEDULER_PRIORITY: u8 = 63;
 
 /// An EthCallOracle call Id
@@ -105,69 +103,6 @@ pub struct EventClaim {
 	pub destination: EthAddress,
 	/// The Ethereum ABI encoded event data as logged on Ethereum
 	pub data: Vec<u8>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
-/// Info related to an Ethereum event proof (outgoing)
-pub struct EthereumEventInfo {
-	/// The source address (contract) which posted the event
-	pub source: EthAddress,
-	/// The destination address (contract) which should receive the event
-	/// It may be symbolic, mapping to a pallet vs. a deployed contract
-	pub destination: EthAddress,
-	/// The Ethereum ABI encoded event data as logged on Ethereum
-	pub message: Vec<u8>,
-	/// The validator set id for the proof
-	pub validator_set_id: ValidatorSetId,
-	/// The event's proof id
-	pub event_proof_id: EventProofId,
-}
-
-impl EthereumEventInfo {
-	/// Ethereum ABI encode an event/message for proving (and later submission to Ethereum)
-	/// `source` the pallet pseudo address sending the event
-	/// `destination` the contract address to receive the event
-	/// `message` The message data
-	/// `validator_set_id` The id of the current validator set
-	/// `event_proof_id` The id of this outgoing event/proof
-	pub fn abi_encode(&self) -> Vec<u8> {
-		ethabi::encode(&[
-			Token::Address(self.source),
-			Token::Address(self.destination),
-			Token::Bytes(self.message.clone()),
-			Token::Uint(self.validator_set_id.into()),
-			Token::Uint(self.event_proof_id.into()),
-		])
-	}
-}
-
-/// A request for ethy-gadget to sign something
-#[derive(Debug, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
-pub enum EthySigningRequest {
-	/// Request to sign an event for Ethereum
-	Ethereum(EthereumEventInfo),
-	/// Request to sign an XRPL tx (binary serialized in 'for signing' mode)
-	XrplTx(Vec<u8>),
-}
-
-impl EthySigningRequest {
-	/// Return the Chain Id associated with the signing request
-	pub fn chain_id(&self) -> EthyChainId {
-		match self {
-			Self::Ethereum(_) => EthyChainId::Ethereum,
-			Self::XrplTx { .. } => EthyChainId::Xrpl,
-		}
-	}
-	/// Return the data for signing by ethy
-	pub fn data(&self) -> Vec<u8> {
-		match self {
-			// Ethereum event signing requires keccak hashing the event
-			Self::Ethereum(event) =>
-				sp_io::hashing::keccak_256(&event.abi_encode().as_slice()).to_vec(),
-			// XRPL tx hashing must happen before signing to inject the public key
-			Self::XrplTx(data) => data.clone(),
-		}
-	}
 }
 
 #[derive(Debug, Clone, PartialEq, TypeInfo)]
@@ -618,24 +553,6 @@ impl<'a> Deserialize<'a> for Bytes {
 // decode a non-0x prefixed hex string into a `Vec<u8>`
 fn decode_hex(s: &str) -> Result<Vec<u8>, core::num::ParseIntError> {
 	(0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect()
-}
-
-/// Interface for pallet-ethy
-pub trait EthyAdapter {
-	fn request_for_proof(request: EthySigningRequest) -> Result<EventProofId, DispatchError>;
-	// fn set_bridge_state(state: bool) -> Result<bool, DispatchError>;
-}
-
-/// state of ethy module
-#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
-pub enum State {
-	Active,
-	Paused,
-}
-impl Default for State {
-	fn default() -> Self {
-		Self::Active
-	}
 }
 
 #[cfg(test)]

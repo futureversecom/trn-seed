@@ -77,3 +77,15 @@ impl EthySigningRequest {
         }
     }
 }
+
+/// state of ethy module
+#[derive(Decode, Encode, Debug, PartialEq, Clone, TypeInfo)]
+pub enum State {
+    Active,
+    Paused,
+}
+impl Default for State {
+    fn default() -> Self {
+        Self::Active
+    }
+}

@@ -7,12 +7,12 @@ repository = "https://github.com/futureversecom/seed"
 description = "Validator set management module"
 
 [dependencies]
-seed-primitives = { path = "../../primitives", default-features = false }
-seed-pallet-common = { path = "../common", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.145", optional = true, default-features = false }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 log = "0.4"
+ethabi = { version = "17.1.0", default-features = false}
+
 
 # Substrate
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false  }
@@ -20,6 +20,10 @@ frame-system = { git = "https://github.com/futureversecom/substrate", branch = "
 sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false  }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false  }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
+
+seed-primitives = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
+pallet-ethy2 = { path = "../ethy2", default-features = false }
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }

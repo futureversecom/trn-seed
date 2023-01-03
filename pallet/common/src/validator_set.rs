@@ -1,0 +1,16 @@
+//! shared pallet types and traits
+#![cfg_attr(not(feature = "std"), no_std)]
+
+use seed_primitives::ethy::ValidatorSetId;
+
+pub trait ValidatorSetChangeHandler<EthyId> {
+    fn validator_set_changed(info: ValidatorSetChangeInfo<EthyId>);
+
+}
+
+pub struct ValidatorSetChangeInfo<EthyId> {
+    pub current_validator_set_id : ValidatorSetId,
+    pub current_validator_set: Vec<EthyId>,
+    pub next_validator_set_id: ValidatorSetId,
+    pub next_validator_set: Vec<EthyId>,
+}

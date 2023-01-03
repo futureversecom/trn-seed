@@ -16,9 +16,10 @@ use seed_primitives::{
 use seed_primitives::ethy::crypto::AuthorityId;
 
 pub mod utils;
-mod ethy;
-mod eth;
-mod xrpl;
+pub mod ethy;
+pub mod eth;
+pub mod xrpl;
+pub mod validator_set;
 
 /// syntactic sugar for logging.
 /// the caller must define a variable `LOG_TARGET = "<my-target>"`
