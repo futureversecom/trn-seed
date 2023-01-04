@@ -76,8 +76,8 @@ pub mod pallet {
 		+ MaxEncodedLen;
 		/// The duration in blocks of one epoch
 		type EpochDuration: Get<u64>;
-		/// Length of time the bridge will be paused while the authority set changes
-		type AuthorityChangeDelay: Get<Self::BlockNumber>;
+		/// Length of time the bridge will be paused while the validator set changes
+		type ValidatorChangeDelay: Get<Self::BlockNumber>;
 		/// Reports the final session of na eras
 		type FinalSessionTracker: FinalSessionTrackerT;
 		/// The Scheduler.
@@ -115,14 +115,14 @@ pub mod pallet {
 	pub type NotarySetId<T> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_authority_change)]
-	/// The block in which we process the next authority change
-	pub type NextAuthorityChange<T: Config> = StorageValue<_, T::BlockNumber>;
+	#[pallet::getter(fn next_validator_set_change)]
+	/// The block in which we process the next validator set change
+	pub type NextValidatorSetChange<T: Config> = StorageValue<_, T::BlockNumber>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn authorities_changed_this_era)]
+	#[pallet::getter(fn validators_changed_this_era)]
 	/// Flag to indicate whether authorities have been changed during the current era
-	pub type AuthoritiesChangedThisEra<T> = StorageValue<_, bool, ValueQuery>;
+	pub type ValidatorsChangedThisEra<T> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn xrpl_door_signers)]
@@ -148,13 +148,12 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A notary (validator) set change is in motion (event_proof_id, new_validator_set_id)
-		/// A proof for the change will be generated with the given `event_proof_id`
-		AuthoritySetChange(EventProofId, u64),
-		/// The schedule to unpause the bridge has failed (scheduled_block)
-		FinaliseScheduleFailed{ scheduled_at: T::BlockNumber } ,
-		/// Failed to finalize the authority change
-		AuthorityChangeFinalizeFailed { validator_set_id: ValidatorSetId },
+		/// Validator set change successful
+		ValidatorSetChangeFinalizeSuccess { validator_set_id: ValidatorSetId },
+		/// Validator set change failed
+		ValidatorSetChangeFinalizeFailed { validator_set_id: ValidatorSetId },
+		/// Validator set change finalize scheduling failed
+		ValidatorSetFinalizeSchedulingFailed{ scheduled_at: T::BlockNumber } ,
 		/// XRPL notary keys update failed
 		XRPLNoratyUpdateFailed { validator_set_id: ValidatorSetId },
 	}
@@ -163,12 +162,12 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>
 	{
-		/// Finalise authority changes, unpauses bridge and sets new notary keys
+		/// Finalise validator set change, unpauses bridge and sets new notary keys
 		/// Called internally after force new era
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn finalise_authorities_change(origin: OriginFor<T>, next_notary_keys: Vec<T::EthyId>) -> DispatchResult {
+		pub fn finalise_validator_set_change(origin: OriginFor<T>, next_notary_keys: Vec<T::EthyId>) -> DispatchResult {
 			ensure_none(origin)?;
-			Self::do_finalise_authorities_change(next_notary_keys)
+			Self::do_finalise_validator_set_change(next_notary_keys)
 		}
 	}
 }
@@ -192,34 +191,32 @@ impl<T: Config> Pallet<T> {
 		Ok(xrpl_notary_keys)
 	}
 
-	/// Handle changes to the authority set
-	/// This will be called AuthorityChangeDelay(5) minutes before the end of an era when a natural era change happens.
+	/// Handle changes to the validator set
+	/// This will be called ValidatorChangeDelay(5) minutes before the end of an era when a natural era change happens.
 	/// It should give the bridge enough time to update the keys at the remote side/blockchain
 	/// This could also be called at the end of an era when doing a forced era. In this case the actual Notary keys update will be
-	/// delayed by AuthorityChangeDelay to give the bridge enough time to update the remote side
-	pub(crate) fn handle_authorities_change() {
+	/// delayed by ValidatorChangeDelay to give the bridge enough time to update the remote side
+	pub(crate) fn handle_validator_set_change() {
 		let next_keys = NextNotaryKeys::<T>::get();
 		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
-		debug!(target: LOG_TARGET, "handling authority set change for validator set id {:?}", next_validator_set_id);
+		debug!(target: LOG_TARGET, "handling validator set change for validator set id {:?}", next_validator_set_id);
 
-		// inform the handler
 		let info = ValidatorSetChangeInfo {
 			current_validator_set_id: Self::notary_set_id(),
 			current_validator_set: Self::notary_keys(),
 			next_validator_set_id: next_validator_set_id,
 			next_validator_set: next_keys,
 		};
-		T::EthyAdapter::validator_set_changed(info);
+		// let know the ethy
+		T::EthyAdapter::validator_set_change_in_progress(info);
 	}
 
-	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
-	pub fn do_finalise_authorities_change(next_notary_keys: Vec<T::EthyId>) -> Result<(), DispatchError> {
-		debug!(target: LOG_TARGET, "do_finalise_authorities_change");
-		// Unpause the bridge
-		// T::EthyAdapter::EthyState::put(Active);
+	/// Finalise validator set changes
+	pub fn do_finalise_validator_set_change(next_notary_keys: Vec<T::EthyId>) -> Result<(), DispatchError> {
+		info!(target: LOG_TARGET, "finalise validator set change");
 		// A proof should've been generated now so we can reactivate the bridge with the new
 		// validator set
-		AuthoritiesChangedThisEra::<T>::kill();
+		ValidatorsChangedThisEra::<T>::kill();
 		// Store the new keys and increment the validator set id
 		// Next notary keys should be unset, until populated by new session logic
 		<NotaryKeys<T>>::put(&next_notary_keys);
@@ -228,58 +225,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/*
-	fn request_for_proof_validator_set_change_ethereum(next_validator_set: Vec<T::EthyId>, next_validator_set_id: ValidatorSetId) -> Result<EventProofId, DispatchError> {
-		trace!(target: "validator-set", "request_for_proof_ethereum start");
-		let next_validator_addresses: Vec<Token> = next_validator_set
-			.to_vec()
-			.into_iter()
-			.map(|k| EthyEcdsaToEthereum::convert(k.as_ref()))
-			.map(|k| Token::Address(k.into()))
-			.collect();
-		debug!(target: "validator-set", "💎 ethereum new signer addresses: {:?}", next_validator_addresses);
-
-		let validator_set_message = ethabi::encode(&[
-			Token::Array(next_validator_addresses),
-			Token::Uint(next_validator_set_id.into()),
-		]);
-
-		let event_proof_info = EthereumEventInfo {
-			message: validator_set_message.to_vec(),
-			validator_set_id: Self::validator_set().id,
-			..Default::default()
-		};
-
-		T::EthyAdapter::request_for_proof(EthySigningRequest::Ethereum(event_proof_info))
-	}
-
-	fn request_for_proof_validator_set_change_xrpl(next_validator_set: Vec<T::EthyId>, next_validator_set_id: ValidatorSetId) -> Result<EventProofId, DispatchError> {
-		trace!(target: "validator-set", "request_for_proof_xrpl start");
-		let mut next_notary_xrpl_keys = Self::get_xrpl_notary_keys(next_keys);
-		let mut notary_xrpl_keys = NotaryXrplKeys::<T>::get();
-		// sort to avoid same key set shuffles.
-		next_notary_xrpl_keys.sort();
-		notary_xrpl_keys.sort();
-
-		if notary_xrpl_keys == next_notary_xrpl_keys {
-			info!(target: "ethy-pallet", "💎 notary xrpl keys unchanged {:?}", next_notary_xrpl_keys);
-			return Ok(0) // return EventProofId = 0
-		}
-
-		let signer_entries = next_notary_xrpl_keys
-			.into_iter()
-			.map(|k| EthyEcdsaToXRPLAccountId::convert(k.as_ref()))
-			// TODO(surangap): Add a proper way to store XRPL weights if we intend to allow
-			// having different weights
-			.map(|entry| (entry.into(), 1_u16))
-			.collect::<Vec<_>>();
-		debug!(target: "validator-set", "💎 xrpl new signer entries: {:?}", signer_entries);
-
-		let xrpl_payload = T::XRPLAdapter::get_signer_list_set_payload(signer_entries)?;
-		T::EthyAdapter::request_for_proof(EthySigningRequest::XrplTx(xrpl_payload))
-	}
-
-	 */
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
@@ -311,16 +256,16 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		// Store the keys for usage next session
-		let next_queued_authorities = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
-		<NextNotaryKeys<T>>::put(next_queued_authorities);
+		let next_queued_validators = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
+		<NextNotaryKeys<T>>::put(next_queued_validators);
 
 		if T::FinalSessionTracker::is_active_session_final() {
 			// Next authority change is AuthorityChangeDelay(5 minutes) before this session ends
 			// (Just before the start of the next epoch)
 			let epoch_duration: T::BlockNumber = T::EpochDuration::get().saturated_into();
 			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
-				.saturating_add(epoch_duration.saturating_sub(T::AuthorityChangeDelay::get()));
-			<NextAuthorityChange<T>>::put(next_block);
+				.saturating_add(epoch_duration.saturating_sub(T::ValidatorChangeDelay::get()));
+			<NextValidatorSetChange<T>>::put(next_block);
 		}
 	}
 
@@ -329,42 +274,46 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	/// Note it is triggered before any [`SessionManager::end_session`] handlers,
 	/// so we can still affect the validator set.
 	fn on_before_session_ending() {
-		// Re-activate the bridge, allowing claims & proofs again
-		if T::FinalSessionTracker::is_active_session_final() {
-			// Get the next_notary_keys for the next era
-			let next_notary_keys = NextNotaryKeys::<T>::get();
-
-			if !Self::authorities_changed_this_era() {
-				// The authorities haven't been changed yet
-				// This could be due to a new era being forced before the final session
-				Self::handle_authorities_change();
-
-				// Schedule an un-pausing of the bridge to give the relayer time to relay the
-				// authority set change.
-				let scheduled_block =
-					<frame_system::Pallet<T>>::block_number() + T::AuthorityChangeDelay::get();
-				if T::Scheduler::schedule(
-					DispatchTime::At(scheduled_block),
-					None,
-					SCHEDULER_PRIORITY,
-					frame_system::RawOrigin::None.into(),
-					Call::finalise_authorities_change { next_notary_keys }.into(),
-				)
-					.is_err()
-				{
-					// The scheduler failed for some reason, throw a log and event
-					Self::deposit_event(Event::<T>::FinaliseScheduleFailed { scheduled_at: scheduled_block });
-					warn!(target: LOG_TARGET, "Scheduling finalize authorities change failed");
-				}
-			} else {
-				// Authorities have been changed, finalise those changes immediately
-				if let Err(e) = Self::do_finalise_authorities_change(next_notary_keys) {
-					// emit event
+		if !T::FinalSessionTracker::is_active_session_final() {
+			// no work here. return
+			return
+		}
+		// Get the next_notary_keys for the next era
+		let next_notary_keys = NextNotaryKeys::<T>::get();
+		if !Self::validators_changed_this_era() {
+			// The validator set change haven't been started yet
+			// This could be due to a new era being forced before the final session
+			Self::handle_validator_set_change();
+			// Schedule the finalizing of the new validator set into the future to give the ethy a sufficient time
+			let scheduled_block =
+				<frame_system::Pallet<T>>::block_number() + T::ValidatorChangeDelay::get();
+			if T::Scheduler::schedule(
+				DispatchTime::At(scheduled_block),
+				None,
+				SCHEDULER_PRIORITY,
+				frame_system::RawOrigin::None.into(),
+				Call::finalise_validator_set_change { next_notary_keys }.into(),
+			)
+				.is_err()
+			{
+				// The scheduler failed for some reason, throw an event and log
+				Self::deposit_event(Event::<T>::ValidatorSetFinalizeSchedulingFailed { scheduled_at: scheduled_block });
+				error!(target: LOG_TARGET, "Scheduling finalize validator set change failed");
+			}
+		} else {
+			// validators change have been started, finalise the changes
+			match Self::do_finalise_validator_set_change(next_notary_keys) {
+				Ok(_) => {
 					Self::deposit_event(
-						Event::<T>::AuthorityChangeFinalizeFailed{ validator_set_id: Self::notary_set_id().wrapping_add(1).into() }
+						Event::<T>::ValidatorSetChangeFinalizeSuccess{ validator_set_id: Self::notary_set_id() }
 					);
-					// 	log error
-					error!(target: LOG_TARGET, "Finalizing authorities change failed. error: {:?}", Into::<&str>::into(e));
+					info!(target: LOG_TARGET, "Validator set change finalize successful. set Id: {:?}", Self::notary_set_id());
+				},
+				Err(e) => {
+					Self::deposit_event(
+						Event::<T>::ValidatorSetChangeFinalizeFailed{ validator_set_id: Self::notary_set_id()}
+					);
+					error!(target: LOG_TARGET, "Validator set change finalize failed. set Id: {:?}, error: {:?}", Self::notary_set_id(), Into::<&str>::into(e));
 				}
 			}
 		}

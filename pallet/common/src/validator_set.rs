@@ -4,8 +4,8 @@
 use seed_primitives::ethy::ValidatorSetId;
 
 pub trait ValidatorSetChangeHandler<EthyId> {
-    fn validator_set_changed(info: ValidatorSetChangeInfo<EthyId>);
-
+    fn validator_set_change_in_progress(info: ValidatorSetChangeInfo<EthyId>);
+    fn validator_set_change_finalized(info: ValidatorSetChangeInfo<EthyId>);
 }
 
 pub struct ValidatorSetChangeInfo<EthyId> {
