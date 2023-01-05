@@ -18,11 +18,11 @@ use codec::Encode;
 use ethabi::Token;
 use frame_support::codec::{Decode, MaxEncodedLen};
 use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
-use frame_support::metadata::StorageEntryModifier::Default;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_support::traits::OneSessionHandler;
 use frame_support::traits::schedule::DispatchTime;
 use frame_support::traits::schedule::Anon;
+use frame_support::weights::constants::RocksDbWeight as DbWeight;
 use frame_system::ensure_none;
 use frame_system::pallet_prelude::OriginFor;
 use log::{debug, info, trace, warn, error};
@@ -38,11 +38,11 @@ use seed_pallet_common::ethy::State::{Active, Paused};
 use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo};
 use seed_pallet_common::xrpl::XRPLBridgeAdapter;
 use seed_primitives::ethy::{ConsensusLog, ETHY_ENGINE_ID, EventProofId, ValidatorSet, ValidatorSetId};
+use core::default::Default;
 
 /// The logging target for this pallet
 pub(crate) const LOG_TARGET: &str = "validator-set";
 pub(crate) const SCHEDULER_PRIORITY: u8 = 63;
-
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -65,7 +65,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type PalletId: Get<PalletId>;
-		/// The identifier type for an authority in this module (i.e. active validator session key)
+		/// The identifier type for a validator in this module (i.e. active validator session key)
 		/// 33 byte secp256k1 public key
 		type EthyId: Member
 		+ Parameter
@@ -115,14 +115,14 @@ pub mod pallet {
 	pub type NotarySetId<T> = StorageValue<_, u64, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn next_validator_set_change)]
+	#[pallet::getter(fn next_validator_set_change_block)]
 	/// The block in which we process the next validator set change
-	pub type NextValidatorSetChange<T: Config> = StorageValue<_, T::BlockNumber>;
+	pub type NextValidatorSetChangeBlock<T: Config> = StorageValue<_, T::BlockNumber>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn validators_changed_this_era)]
-	/// Flag to indicate whether authorities have been changed during the current era
-	pub type ValidatorsChangedThisEra<T> = StorageValue<_, bool, ValueQuery>;
+	#[pallet::getter(fn validators_change_in_progress)]
+	/// Flag to indicate whether a validator set change is in progress
+	pub type ValidatorsChangeInProgress<T> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn xrpl_door_signers)]
@@ -155,14 +155,27 @@ pub mod pallet {
 		/// Validator set change finalize scheduling failed
 		ValidatorSetFinalizeSchedulingFailed{ scheduled_at: T::BlockNumber } ,
 		/// XRPL notary keys update failed
-		XRPLNoratyUpdateFailed { validator_set_id: ValidatorSetId },
+		XRPLNotaryKeysUpdateFailed { validator_set_id: ValidatorSetId },
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Handle change in validators, ValidatorChangeDelay(5 minutes) times before the end of an era
+		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			let mut weight = 0 as Weight;
+			if Some(block_number) == Self::next_validator_set_change_block() {
+				weight += Self::start_validator_set_change();
+			}
+			weight += DbWeight::get().reads(1 as Weight);
+			weight
+		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>
 	{
-		/// Finalise validator set change, unpauses bridge and sets new notary keys
+		/// Finalises the validator set change
 		/// Called internally after force new era
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn finalise_validator_set_change(origin: OriginFor<T>, next_notary_keys: Vec<T::EthyId>) -> DispatchResult {
@@ -191,12 +204,12 @@ impl<T: Config> Pallet<T> {
 		Ok(xrpl_notary_keys)
 	}
 
-	/// Handle changes to the validator set
+	/// Starts changing the validator set
 	/// This will be called ValidatorChangeDelay(5) minutes before the end of an era when a natural era change happens.
 	/// It should give the bridge enough time to update the keys at the remote side/blockchain
 	/// This could also be called at the end of an era when doing a forced era. In this case the actual Notary keys update will be
 	/// delayed by ValidatorChangeDelay to give the bridge enough time to update the remote side
-	pub(crate) fn handle_validator_set_change() {
+	pub(crate) fn start_validator_set_change() -> Weight {
 		let next_keys = NextNotaryKeys::<T>::get();
 		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
 		debug!(target: LOG_TARGET, "handling validator set change for validator set id {:?}", next_validator_set_id);
@@ -209,19 +222,26 @@ impl<T: Config> Pallet<T> {
 		};
 		// let know the ethy
 		T::EthyAdapter::validator_set_change_in_progress(info);
+		ValidatorsChangeInProgress::<T>::put(true);
+		DbWeight::get().reads(4) + DbWeight::get().writes(1)
 	}
 
 	/// Finalise validator set changes
 	pub fn do_finalise_validator_set_change(next_notary_keys: Vec<T::EthyId>) -> Result<(), DispatchError> {
 		info!(target: LOG_TARGET, "finalise validator set change");
-		// A proof should've been generated now so we can reactivate the bridge with the new
-		// validator set
-		ValidatorsChangedThisEra::<T>::kill();
+		// A proof should've been generated now, we can finalize the validator set change and signal resume operations
+		ValidatorsChangeInProgress::<T>::kill();
 		// Store the new keys and increment the validator set id
 		// Next notary keys should be unset, until populated by new session logic
 		<NotaryKeys<T>>::put(&next_notary_keys);
 		Self::update_xrpl_notary_keys(&next_notary_keys)?;
 		NotarySetId::<T>::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
+		// Inform ethy
+		T::EthyAdapter::validator_set_change_finalized(ValidatorSetChangeInfo {
+			current_validator_set_id: Self::notary_set_id(),
+			current_validator_set: Self::notary_keys(),
+			..Default::default()
+		});
 		Ok(())
 	}
 
@@ -239,15 +259,17 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
-		if !keys.is_empty() {
-			assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
-			NotaryKeys::<T>::put(&keys);
-			if let Err(e) = Self::update_xrpl_notary_keys(&keys) {
-				Self::deposit_event(
-					Event::<T>::XRPLNoratyUpdateFailed{ validator_set_id: Self::notary_set_id().wrapping_add(1).into() }
-				);
-				error!( target: LOG_TARGET, "Update XRPL notary keys failed. error: {:?}", Into::<&str>::into(e));
-			}
+		if keys.is_empty() {
+			// no work, return
+			return
+		}
+		assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
+		NotaryKeys::<T>::put(&keys);
+		if let Err(e) = Self::update_xrpl_notary_keys(&keys) {
+			Self::deposit_event(
+				Event::<T>::XRPLNotaryKeysUpdateFailed{ validator_set_id: Self::notary_set_id().wrapping_add(1).into() }
+			);
+			error!( target: LOG_TARGET, "Update XRPL notary keys failed. error: {:?}", Into::<&str>::into(e));
 		}
 	}
 
@@ -255,6 +277,8 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		where
 			I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
+		// TODO(surangap): check and make use of _changed
+
 		// Store the keys for usage next session
 		let next_queued_validators = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
 		<NextNotaryKeys<T>>::put(next_queued_validators);
@@ -263,9 +287,9 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			// Next authority change is AuthorityChangeDelay(5 minutes) before this session ends
 			// (Just before the start of the next epoch)
 			let epoch_duration: T::BlockNumber = T::EpochDuration::get().saturated_into();
-			let next_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
+			let next_change_block: T::BlockNumber = <frame_system::Pallet<T>>::block_number()
 				.saturating_add(epoch_duration.saturating_sub(T::ValidatorChangeDelay::get()));
-			<NextValidatorSetChange<T>>::put(next_block);
+			<NextValidatorSetChangeBlock<T>>::put(next_change_block);
 		}
 	}
 
@@ -280,10 +304,10 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 		// Get the next_notary_keys for the next era
 		let next_notary_keys = NextNotaryKeys::<T>::get();
-		if !Self::validators_changed_this_era() {
-			// The validator set change haven't been started yet
+		if !Self::validators_change_in_progress() {
+			// The validator set change hasn't been started yet
 			// This could be due to a new era being forced before the final session
-			Self::handle_validator_set_change();
+			Self::start_validator_set_change();
 			// Schedule the finalizing of the new validator set into the future to give the ethy a sufficient time
 			let scheduled_block =
 				<frame_system::Pallet<T>>::block_number() + T::ValidatorChangeDelay::get();
@@ -301,7 +325,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 				error!(target: LOG_TARGET, "Scheduling finalize validator set change failed");
 			}
 		} else {
-			// validators change have been started, finalise the changes
+			// validators change is in progress already, finalise the changes
 			match Self::do_finalise_validator_set_change(next_notary_keys) {
 				Ok(_) => {
 					Self::deposit_event(

@@ -14,3 +14,14 @@ pub struct ValidatorSetChangeInfo<EthyId> {
     pub next_validator_set_id: ValidatorSetId,
     pub next_validator_set: Vec<EthyId>,
 }
+
+impl<EthyId> Default for ValidatorSetChangeInfo<EthyId> {
+    fn default() -> Self {
+        ValidatorSetChangeInfo {
+            current_validator_set_id: Default::default(),
+            current_validator_set: Default::default(),
+            next_validator_set_id: Default::default(),
+            next_validator_set: Default::default(),
+        }
+    }
+}
