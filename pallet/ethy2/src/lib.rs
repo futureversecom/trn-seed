@@ -26,7 +26,7 @@ use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion
 use sp_runtime::traits::Convert;
 use sp_std::{boxed::Box, vec, vec::Vec};
 use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthySigningRequest, XrplBridgeAdapter};
-use seed_pallet_common::ethy::State::Paused;
+use seed_pallet_common::ethy::State::{Active, Paused};
 use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface};
 use seed_primitives::ethy::crypto::AuthorityId;
 use seed_primitives::ethy::EventProofId;
@@ -275,6 +275,7 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 	}
 
 	fn validator_set_change_finalized(info: ValidatorSetChangeInfo<AuthorityId>) {
-		todo!()
+		// se ethy to Active
+		EthyState::<T>::put(Active);
 	}
 }
