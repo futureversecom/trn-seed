@@ -22,7 +22,6 @@ use core::fmt::Write;
 use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid, SerialNumber, TokenId};
-#[cfg(feature = "std")]
 use sp_core::H160;
 use sp_runtime::{BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;

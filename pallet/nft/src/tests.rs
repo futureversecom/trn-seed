@@ -15,6 +15,7 @@
 
 use super::*;
 use crate::{
+	migration::MigrateToV1,
 	mock::{
 		has_event, AccountId, AssetsExt, Event as MockEvent, MaxTokensPerListing, NativeAssetId,
 		Nft, NftPalletId, System, Test, TestExt, ALICE, BOB,
@@ -207,7 +208,7 @@ fn migration_v2_to_v3() {
 		v1_storage::TokenBalance::<Test>::insert(user_3, user_3_balance);
 
 		// Run upgrade
-		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+		<MigrateToV1<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
 
 		// Version should be updated
 		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
