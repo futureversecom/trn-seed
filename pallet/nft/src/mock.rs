@@ -224,14 +224,18 @@ parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
+	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
+	pub const MaxTokensPerListing: u32 = 100;
 }
 
 impl crate::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
+	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
+	type MaxTokensPerListing = MaxTokensPerListing;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;

@@ -10,7 +10,7 @@ use pallet_evm::{Context, ExitReason, PrecompileSet};
 use pallet_nft::TokenCount;
 use sp_core::{H160, U256};
 use sp_runtime::traits::SaturatedConversion;
-use sp_std::{marker::PhantomData, vec::Vec};
+use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_pallet_common::GetTokenOwner;
@@ -264,19 +264,22 @@ where
 			return Err(revert("ERC721: Expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
-		let token_id: TokenId = (collection_id, serial_number);
 
 		// Check approvals/ ownership
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3))?;
 		if pallet_token_approvals::Pallet::<Runtime>::is_approved_or_owner(
-			token_id,
+			(collection_id, serial_number),
 			Runtime::AccountId::from(handle.context().caller),
 		) {
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
 				handle,
 				Some(Runtime::AccountId::from(from)).into(),
-				pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
+				pallet_nft::Call::<Runtime>::transfer {
+					collection_id,
+					serial_numbers: vec![serial_number],
+					new_owner: to.into(),
+				},
 			)?;
 		} else {
 			return Err(revert("ERC721: Caller not approved").into())
@@ -400,7 +403,11 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(Runtime::AccountId::from(from)).into(),
-			pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
+			pallet_nft::Call::<Runtime>::transfer {
+				collection_id,
+				serial_numbers: vec![serial_number],
+				new_owner: to.into(),
+			},
 		)?;
 
 		log3(

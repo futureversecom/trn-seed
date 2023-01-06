@@ -16,8 +16,8 @@
 use super::*;
 use crate::{
 	mock::{
-		has_event, AccountId, AssetsExt, Event as MockEvent, NativeAssetId, Nft, NftPalletId,
-		System, Test, TestExt, ALICE, BOB,
+		has_event, AccountId, AssetsExt, Event as MockEvent, MaxTokensPerListing, NativeAssetId,
+		Nft, NftPalletId, System, Test, TestExt, ALICE, BOB,
 	},
 	Event as NftEvent,
 };
@@ -141,7 +141,7 @@ fn migration_v2_to_v3() {
 	TestExt::default().build().execute_with(|| {
 		// run upgrade
 		// Insert storage version
-		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 0);
 
 		// Mock some collections with fake user data
 		let user_1 = 5_u64;
@@ -210,7 +210,7 @@ fn migration_v2_to_v3() {
 		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
 
 		// Version should be updated
-		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 2);
+		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
 
 		// Collection 1 should be correctly migrated
 		let owned_tokens: OwnedTokens<Test> = BoundedVec::try_from(vec![
@@ -582,7 +582,6 @@ fn transfer() {
 		let collection_owner = 1_u64;
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let token_owner = 2_u64;
-		let token_id = (collection_id, 0);
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
 			b"test-collection".to_vec(),
@@ -594,21 +593,23 @@ fn transfer() {
 		));
 
 		let new_owner = 3_u64;
-		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, new_owner));
+		let serial_numbers = vec![0];
+		assert_ok!(Nft::transfer(
+			Some(token_owner).into(),
+			collection_id,
+			serial_numbers.clone(),
+			new_owner
+		));
 		assert!(has_event(Event::<Test>::Transfer {
 			previous_owner: token_owner,
 			collection_id,
-			serial_number: token_id.1,
-			new_owner
+			new_owner,
+			serial_numbers
 		}));
 
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 1);
-		assert!(Nft::is_token_owner(
-			&new_owner,
-			&Nft::collection_info(collection_id).unwrap(),
-			token_id.1
-		));
+		assert!(Nft::collection_info(collection_id).unwrap().is_token_owner(&new_owner, 0));
 	});
 }
 
@@ -619,11 +620,16 @@ fn transfer_fails_prechecks() {
 		let collection_owner = 1_u64;
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let token_owner = 2_u64;
-		let token_id = (collection_id, 0);
+		let serial_numbers = vec![0];
 
 		// no token yet
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), token_id, token_owner),
+			Nft::transfer(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				token_owner
+			),
 			Error::<Test>::NoCollection,
 		);
 
@@ -639,13 +645,19 @@ fn transfer_fails_prechecks() {
 
 		let not_the_owner = 3_u64;
 		assert_noop!(
-			Nft::transfer(Some(not_the_owner).into(), token_id, not_the_owner),
+			Nft::transfer(
+				Some(not_the_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				not_the_owner
+			),
 			Error::<Test>::NoPermission,
 		);
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			serial_numbers.clone(),
 			Some(5),
 			NativeAssetId::get(),
 			1_000,
@@ -655,7 +667,7 @@ fn transfer_fails_prechecks() {
 
 		// cannot transfer while listed
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), token_id, token_owner),
+			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner),
 			Error::<Test>::TokenLocked,
 		);
 	});
@@ -727,7 +739,8 @@ fn burn_fails_prechecks() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![(collection_id, 0)],
+			collection_id,
+			vec![0],
 			None,
 			NativeAssetId::get(),
 			1_000,
@@ -765,12 +778,13 @@ fn sell() {
 				None,
 			));
 
-			let tokens = vec![(collection_id, 1), (collection_id, 3), (collection_id, 4)];
+			let serial_numbers = vec![1, 3, 4];
 			let listing_id = Nft::next_listing_id();
 
 			assert_ok!(Nft::sell(
 				Some(collection_owner).into(),
-				tokens.clone(),
+				collection_id,
+				serial_numbers.clone(),
 				None,
 				NativeAssetId::get(),
 				1_000,
@@ -778,14 +792,20 @@ fn sell() {
 				None,
 			));
 
-			for token in tokens.iter() {
-				assert_eq!(Nft::token_locks(token).unwrap(), TokenLockReason::Listed(listing_id));
+			for serial_number in serial_numbers.iter() {
+				assert_eq!(
+					Nft::token_locks((collection_id, serial_number)).unwrap(),
+					TokenLockReason::Listed(listing_id)
+				);
 			}
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 			assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, vec![1, 3, 4]));
 			assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 2);
-			assert_eq!(Nft::token_balance_of(&buyer, collection_id), tokens.len() as TokenCount);
+			assert_eq!(
+				Nft::token_balance_of(&buyer, collection_id),
+				serial_numbers.len() as TokenCount
+			);
 		})
 }
 
@@ -794,15 +814,14 @@ fn sell_multiple_fails() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
-		let collection_id_2 = setup_collection(collection_owner);
 		// mint some tokens
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
-		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id_2, 1, None));
 
 		// empty tokens fails
 		assert_noop!(
 			Nft::sell(
 				Some(collection_owner).into(),
+				collection_id,
 				vec![],
 				None,
 				NativeAssetId::get(),
@@ -811,20 +830,6 @@ fn sell_multiple_fails() {
 				None
 			),
 			Error::<Test>::NoToken
-		);
-
-		// cannot bundle sell tokens from different collection
-		assert_noop!(
-			Nft::sell(
-				Some(collection_owner).into(),
-				vec![(collection_id, 1), (collection_id_2, 1),],
-				None,
-				NativeAssetId::get(),
-				1_000,
-				None,
-				None,
-			),
-			Error::<Test>::MixedBundleSale
 		);
 	})
 }
@@ -837,7 +842,8 @@ fn sell_multiple() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			Some(5),
 			NativeAssetId::get(),
 			1_000,
@@ -845,7 +851,8 @@ fn sell_multiple() {
 			None,
 		));
 		assert!(has_event(Event::<Test>::FixedPriceSaleList {
-			tokens: vec![token_id],
+			collection_id,
+			serial_numbers: vec![token_id.1],
 			listing_id,
 			marketplace_id: None,
 			price: 1_000,
@@ -861,7 +868,8 @@ fn sell_multiple() {
 			fixed_price: 1_000,
 			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			buyer: Some(5),
-			tokens: vec![token_id],
+			collection_id,
+			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
 			seller: token_owner,
 			royalties_schedule: Default::default(),
 			marketplace_id: None,
@@ -879,7 +887,12 @@ fn sell_multiple() {
 
 		// Can't transfer while listed for sale
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), token_id, token_owner + 1),
+			Nft::transfer(
+				Some(token_owner).into(),
+				collection_id,
+				vec![token_id.1],
+				token_owner + 1
+			),
 			Error::<Test>::TokenLocked
 		);
 	});
@@ -888,12 +901,13 @@ fn sell_multiple() {
 #[test]
 fn sell_fails() {
 	TestExt::default().build().execute_with(|| {
-		let (_, token_id, token_owner) = setup_token();
+		let (collection_id, token_id, token_owner) = setup_token();
 		// Not token owner
 		assert_noop!(
 			Nft::sell(
 				Some(token_owner + 1).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				Some(5),
 				NativeAssetId::get(),
 				1_000,
@@ -903,10 +917,27 @@ fn sell_fails() {
 			Error::<Test>::NoPermission
 		);
 
+		// Too many tokens
+		assert_ok!(Nft::mint(Some(1_u64).into(), collection_id, 300, Some(token_owner)));
+		assert_noop!(
+			Nft::sell(
+				Some(token_owner).into(),
+				collection_id,
+				(0..MaxTokensPerListing::get() + 1).collect(),
+				Some(5),
+				NativeAssetId::get(),
+				1_000,
+				None,
+				None
+			),
+			Error::<Test>::TokenLimitExceeded
+		);
+
 		// token listed already
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			Some(5),
 			NativeAssetId::get(),
 			1_000,
@@ -916,7 +947,8 @@ fn sell_fails() {
 		assert_noop!(
 			Nft::sell(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				Some(5),
 				NativeAssetId::get(),
 				1_000,
@@ -930,7 +962,8 @@ fn sell_fails() {
 		assert_noop!(
 			Nft::auction(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				NativeAssetId::get(),
 				1_000,
 				None,
@@ -944,11 +977,12 @@ fn sell_fails() {
 #[test]
 fn cancel_sell() {
 	TestExt::default().build().execute_with(|| {
-		let (_, token_id, token_owner) = setup_token();
+		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_id = Nft::next_listing_id();
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			Some(5),
 			NativeAssetId::get(),
 			1_000,
@@ -957,7 +991,8 @@ fn cancel_sell() {
 		));
 		assert_ok!(Nft::cancel_sale(Some(token_owner).into(), listing_id));
 		assert!(has_event(Event::<Test>::FixedPriceSaleClose {
-			tokens: vec![token_id],
+			collection_id,
+			serial_numbers: vec![token_id.1],
 			listing_id,
 			reason: FixedPriceClosureReason::VendorCancelled
 		}));
@@ -971,20 +1006,26 @@ fn cancel_sell() {
 		.is_none());
 
 		// it should be free to operate on the token
-		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, token_owner + 1,));
+		assert_ok!(Nft::transfer(
+			Some(token_owner).into(),
+			collection_id,
+			vec![token_id.1],
+			token_owner + 1,
+		));
 	});
 }
 
 #[test]
 fn sell_closes_on_schedule() {
 	TestExt::default().build().execute_with(|| {
-		let (_, token_id, token_owner) = setup_token();
+		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_duration = 100;
 		let listing_id = Nft::next_listing_id();
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			Some(5),
 			NativeAssetId::get(),
 			1_000,
@@ -1002,18 +1043,24 @@ fn sell_closes_on_schedule() {
 
 		// should be free to transfer now
 		let new_owner = 8;
-		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, new_owner,));
+		assert_ok!(Nft::transfer(
+			Some(token_owner).into(),
+			collection_id,
+			vec![token_id.1],
+			new_owner,
+		));
 	});
 }
 
 #[test]
 fn updates_fixed_price() {
 	TestExt::default().build().execute_with(|| {
-		let (_, token_id, token_owner) = setup_token();
+		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_id = Nft::next_listing_id();
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			Some(5),
 			NativeAssetId::get(),
 			1_000,
@@ -1022,7 +1069,8 @@ fn updates_fixed_price() {
 		));
 		assert_ok!(Nft::update_fixed_price(Some(token_owner).into(), listing_id, 1_500));
 		assert!(has_event(Event::<Test>::FixedPriceSalePriceUpdate {
-			tokens: vec![token_id],
+			collection_id,
+			serial_numbers: vec![token_id.1],
 			listing_id,
 			new_price: 1_500,
 		}));
@@ -1033,7 +1081,8 @@ fn updates_fixed_price() {
 			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			buyer: Some(5),
 			seller: token_owner,
-			tokens: vec![token_id],
+			collection_id,
+			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
 			royalties_schedule: Default::default(),
 			marketplace_id: None,
 		});
@@ -1046,7 +1095,7 @@ fn updates_fixed_price() {
 #[test]
 fn update_fixed_price_fails() {
 	TestExt::default().build().execute_with(|| {
-		let (_, token_id, token_owner) = setup_token();
+		let (collection_id, token_id, token_owner) = setup_token();
 
 		let reserve_price = 1_000;
 		let listing_id = Nft::next_listing_id();
@@ -1059,7 +1108,8 @@ fn update_fixed_price_fails() {
 
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			NativeAssetId::get(),
 			reserve_price,
 			Some(System::block_number() + 1),
@@ -1077,11 +1127,12 @@ fn update_fixed_price_fails() {
 #[test]
 fn update_fixed_price_fails_not_owner() {
 	TestExt::default().build().execute_with(|| {
-		let (_, token_id, token_owner) = setup_token();
+		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_id = Nft::next_listing_id();
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			Some(5),
 			NativeAssetId::get(),
 			1_000,
@@ -1166,7 +1217,8 @@ fn buy_with_marketplace_royalties() {
 			assert_eq!(listing_id, 0);
 			assert_ok!(Nft::sell(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				Some(buyer),
 				NativeAssetId::get(),
 				sale_price,
@@ -1229,7 +1281,8 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 			assert_noop!(
 				Nft::sell(
 					Some(token_owner).into(),
-					vec![token_id],
+					collection_id,
+					vec![token_id.1],
 					Some(buyer),
 					NativeAssetId::get(),
 					sale_price,
@@ -1254,7 +1307,8 @@ fn buy() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			Some(buyer),
 			NativeAssetId::get(),
 			price,
@@ -1300,15 +1354,15 @@ fn buy_with_royalties() {
 					(beneficiary_2, Permill::from_float(0.3333)),
 				],
 			};
-			let (collection_id, _, token_owner) =
+			let (collection_id, token_id, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 2);
-			let token_id = (collection_id, 0);
 
 			let listing_id = Nft::next_listing_id();
 			assert_eq!(listing_id, 0);
 			assert_ok!(Nft::sell(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				Some(buyer),
 				NativeAssetId::get(),
 				sale_price,
@@ -1377,7 +1431,7 @@ fn buy_fails_prechecks() {
 		.with_balances(&[(buyer, price - 1)])
 		.build()
 		.execute_with(|| {
-			let (_, token_id, token_owner) = setup_token();
+			let (collection_id, token_id, token_owner) = setup_token();
 			let buyer = 5;
 
 			let price = 1_000;
@@ -1391,7 +1445,8 @@ fn buy_fails_prechecks() {
 
 			assert_ok!(Nft::sell(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				Some(buyer),
 				NativeAssetId::get(),
 				price,
@@ -1421,7 +1476,8 @@ fn sell_to_anybody() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			None,
 			NativeAssetId::get(),
 			price,
@@ -1455,7 +1511,7 @@ fn buy_with_overcommitted_royalties() {
 		// royalties are > 100% total which could create funds out of nothing
 		// in this case, default to 0 royalties.
 		// royalty schedules should not make it into storage but we protect against it anyway
-		let (_, token_id, token_owner) = setup_token();
+		let (collection_id, token_id, token_owner) = setup_token();
 		let bad_schedule = RoyaltiesSchedule {
 			entitlements: vec![
 				(11_u64, Permill::from_float(0.125)),
@@ -1466,7 +1522,8 @@ fn buy_with_overcommitted_royalties() {
 
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			Some(buyer),
 			NativeAssetId::get(),
 			price,
@@ -1494,7 +1551,8 @@ fn cancel_auction() {
 
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			NativeAssetId::get(),
 			reserve_price,
 			Some(System::block_number() + 1),
@@ -1519,7 +1577,12 @@ fn cancel_auction() {
 		assert!(Nft::listing_end_schedule(System::block_number() + 1, listing_id).is_none());
 
 		// it should be free to operate on the token
-		assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, token_owner + 1,));
+		assert_ok!(Nft::transfer(
+			Some(token_owner).into(),
+			collection_id,
+			vec![token_id.1],
+			token_owner + 1,
+		));
 	});
 }
 
@@ -1543,12 +1606,13 @@ fn auction_bundle() {
 		));
 		assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 5);
 
-		let tokens = vec![(collection_id, 1), (collection_id, 3), (collection_id, 4)];
+		let serial_numbers = vec![1, 3, 4];
 		let listing_id = Nft::next_listing_id();
 
 		assert_ok!(Nft::auction(
 			Some(collection_owner).into(),
-			tokens.clone(),
+			collection_id,
+			serial_numbers.clone(),
 			NativeAssetId::get(),
 			price,
 			Some(1),
@@ -1556,8 +1620,11 @@ fn auction_bundle() {
 		));
 
 		assert!(Nft::open_collection_listings(collection_id, listing_id).unwrap());
-		for token in tokens.iter() {
-			assert_eq!(Nft::token_locks(token).unwrap(), TokenLockReason::Listed(listing_id));
+		for serial_number in serial_numbers.iter() {
+			assert_eq!(
+				Nft::token_locks((collection_id, serial_number)).unwrap(),
+				TokenLockReason::Listed(listing_id)
+			);
 		}
 
 		assert_ok!(Nft::bid(Some(buyer).into(), listing_id, price));
@@ -1566,7 +1633,10 @@ fn auction_bundle() {
 
 		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, vec![1, 3, 4]));
 		assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 2);
-		assert_eq!(Nft::token_balance_of(&buyer, collection_id), tokens.len() as TokenCount);
+		assert_eq!(
+			Nft::token_balance_of(&buyer, collection_id),
+			serial_numbers.len() as TokenCount
+		);
 	})
 }
 
@@ -1575,14 +1645,13 @@ fn auction_bundle_fails() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
-		let collection_id_2 = setup_collection(collection_owner);
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
-		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id_2, 1, None));
 
 		// empty tokens fails
 		assert_noop!(
 			Nft::auction(
 				Some(collection_owner).into(),
+				collection_id,
 				vec![],
 				NativeAssetId::get(),
 				1_000,
@@ -1590,19 +1659,6 @@ fn auction_bundle_fails() {
 				None
 			),
 			Error::<Test>::NoToken
-		);
-
-		// cannot bundle sell tokens from different collection
-		assert_noop!(
-			Nft::auction(
-				Some(collection_owner).into(),
-				vec![(collection_id, 1), (collection_id_2, 1),],
-				NativeAssetId::get(),
-				1_000,
-				None,
-				None
-			),
-			Error::<Test>::MixedBundleSale
 		);
 	})
 }
@@ -1624,7 +1680,8 @@ fn auction() {
 
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
@@ -1694,7 +1751,7 @@ fn bid_auto_extends() {
 		.with_balances(&[(bidder_1, reserve_price)])
 		.build()
 		.execute_with(|| {
-			let (_, token_id, token_owner) = setup_token();
+			let (collection_id, token_id, token_owner) = setup_token();
 
 			let reserve_price = 100_000;
 
@@ -1702,7 +1759,8 @@ fn bid_auto_extends() {
 
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				NativeAssetId::get(),
 				reserve_price,
 				Some(2),
@@ -1748,7 +1806,8 @@ fn auction_royalty_payments() {
 
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
@@ -1824,7 +1883,8 @@ fn close_listings_at_removes_listing_data() {
 				buyer: None,
 				close: System::block_number() + 1,
 				seller: 1,
-				tokens: vec![token_1],
+				collection_id,
+				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
 			}),
@@ -1834,7 +1894,8 @@ fn close_listings_at_removes_listing_data() {
 				reserve_price: price,
 				close: System::block_number() + 1,
 				seller: 1,
-				tokens: vec![token_1],
+				collection_id,
+				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
 			}),
@@ -1844,7 +1905,8 @@ fn close_listings_at_removes_listing_data() {
 				reserve_price: price,
 				close: System::block_number() + 1,
 				seller: 1,
-				tokens: vec![token_1],
+				collection_id,
+				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
 				royalties_schedule: Default::default(),
 				marketplace_id: None,
 			}),
@@ -1883,7 +1945,8 @@ fn close_listings_at_removes_listing_data() {
 			reason: AuctionClosureReason::SettlementFailed
 		}));
 		assert!(has_event(Event::<Test>::FixedPriceSaleClose {
-			tokens: vec![token_1],
+			collection_id,
+			serial_numbers: vec![token_1.1],
 			listing_id: 0,
 			reason: FixedPriceClosureReason::Expired
 		}));
@@ -1897,13 +1960,12 @@ fn auction_fails_prechecks() {
 
 		let reserve_price = 100_000;
 
-		let missing_token_id = (collection_id, 2);
-
 		// token doesn't exist
 		assert_noop!(
 			Nft::auction(
 				Some(token_owner).into(),
-				vec![missing_token_id],
+				collection_id,
+				vec![2],
 				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
@@ -1912,11 +1974,27 @@ fn auction_fails_prechecks() {
 			Error::<Test>::NoPermission
 		);
 
+		// Too many tokens
+		assert_ok!(Nft::mint(Some(1_u64).into(), collection_id, 300, Some(token_owner)));
+		assert_noop!(
+			Nft::auction(
+				Some(token_owner).into(),
+				collection_id,
+				(0..MaxTokensPerListing::get() + 1).collect(),
+				NativeAssetId::get(),
+				reserve_price,
+				Some(1),
+				None,
+			),
+			Error::<Test>::TokenLimitExceeded
+		);
+
 		// not owner
 		assert_noop!(
 			Nft::auction(
 				Some(token_owner + 1).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
@@ -1928,7 +2006,8 @@ fn auction_fails_prechecks() {
 		// setup listed token, and try list it again
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			NativeAssetId::get(),
 			reserve_price,
 			Some(1),
@@ -1938,7 +2017,8 @@ fn auction_fails_prechecks() {
 		assert_noop!(
 			Nft::auction(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
@@ -1951,7 +2031,8 @@ fn auction_fails_prechecks() {
 		assert_noop!(
 			Nft::sell(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				None,
 				NativeAssetId::get(),
 				reserve_price,
@@ -1978,12 +2059,13 @@ fn bid_fails_prechecks() {
 				Error::<Test>::NotForAuction
 			);
 
-			let (_, token_id, token_owner) = setup_token();
+			let (collection_id, token_id, token_owner) = setup_token();
 			let listing_id = Nft::next_listing_id();
 
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				NativeAssetId::get(),
 				reserve_price,
 				Some(1),
@@ -2034,13 +2116,14 @@ fn bid_no_balance_should_fail() {
 			Error::<Test>::NotForAuction
 		);
 
-		let (_, token_id, token_owner) = setup_token();
+		let (collection_id, token_id, token_owner) = setup_token();
 		let reserve_price = 100_000;
 		let listing_id = Nft::next_listing_id();
 
 		assert_ok!(Nft::auction(
 			Some(token_owner).into(),
-			vec![token_id],
+			collection_id,
+			vec![token_id.1],
 			NativeAssetId::get(),
 			reserve_price,
 			Some(1),
@@ -2388,12 +2471,13 @@ fn make_simple_offer_on_fixed_price_listing() {
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
-			let (_, token_id, token_owner) = setup_token();
+			let (collection_id, token_id, token_owner) = setup_token();
 			let offer_amount: Balance = 100;
 			let sell_price = 100_000;
 			assert_ok!(Nft::sell(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				None,
 				NativeAssetId::get(),
 				sell_price,
@@ -2423,13 +2507,14 @@ fn make_simple_offer_on_auction_should_fail() {
 		.with_balances(&[(buyer, initial_balance_buyer)])
 		.build()
 		.execute_with(|| {
-			let (_, token_id, token_owner) = setup_token();
+			let (collection_id, token_id, token_owner) = setup_token();
 			let offer_amount: Balance = 100;
 			let reserve_price = 100_000;
 
 			assert_ok!(Nft::auction(
 				Some(token_owner).into(),
-				vec![token_id],
+				collection_id,
+				vec![token_id.1],
 				NativeAssetId::get(),
 				reserve_price,
 				Some(System::block_number() + 1),
@@ -2751,10 +2836,14 @@ fn transfer_changes_token_balance() {
 		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 0);
 
 		// Transfer 2 tokens
-		let tokens = vec![(collection_id, 0_u32), (collection_id, 1_u32)];
-		let transfer_quantity: u32 = tokens.len() as u32;
-		assert_ok!(Nft::transfer(Some(token_owner).into(), tokens[0], new_owner,));
-		assert_ok!(Nft::transfer(Some(token_owner).into(), tokens[1], new_owner,));
+		let serial_numbers = vec![0_u32, 1_u32];
+		let transfer_quantity: u32 = serial_numbers.len() as u32;
+		assert_ok!(Nft::transfer(
+			Some(token_owner).into(),
+			collection_id,
+			serial_numbers,
+			new_owner
+		));
 
 		assert_eq!(
 			Nft::token_balance_of(&token_owner, collection_id),
@@ -2773,7 +2862,7 @@ fn transfer_many_tokens_changes_token_balance() {
 		let new_owner = 3_u64;
 		let initial_quantity: u32 = 100;
 
-		// Mint 1 token
+		// Mint tokens
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
 			b"test-collection".to_vec(),
@@ -2789,8 +2878,7 @@ fn transfer_many_tokens_changes_token_balance() {
 
 		for i in 0_u32..initial_quantity {
 			// Transfer token
-			let token_id: TokenId = (collection_id, i);
-			assert_ok!(Nft::transfer(Some(token_owner).into(), token_id, new_owner,));
+			assert_ok!(Nft::transfer(Some(token_owner).into(), collection_id, vec![i], new_owner,));
 
 			// Check storage
 			let changed_quantity = i + 1;
@@ -2800,6 +2888,54 @@ fn transfer_many_tokens_changes_token_balance() {
 			);
 			assert_eq!(Nft::token_balance_of(&new_owner, collection_id), changed_quantity);
 		}
+	});
+}
+
+#[test]
+fn transfer_many_tokens_at_once_changes_token_balance() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = 1_u64;
+		let collection_id = Nft::next_collection_uuid().unwrap();
+		let token_owner = 2_u64;
+		let new_owner = 3_u64;
+		let initial_quantity: u32 = 100;
+		let transfer_quantity: u32 = 66;
+
+		// Mint tokens
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			b"test-collection".to_vec(),
+			initial_quantity,
+			None,
+			Some(token_owner),
+			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			None,
+		));
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
+		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 0);
+
+		// Transfer tokens
+		let serial_numbers: Vec<SerialNumber> = (0..transfer_quantity).collect();
+		assert_ok!(Nft::transfer(
+			Some(token_owner).into(),
+			collection_id,
+			serial_numbers.clone(),
+			new_owner
+		));
+
+		assert!(has_event(Event::<Test>::Transfer {
+			previous_owner: token_owner,
+			collection_id,
+			new_owner,
+			serial_numbers
+		}));
+
+		// Check storage
+		assert_eq!(
+			Nft::token_balance_of(&token_owner, collection_id),
+			initial_quantity - transfer_quantity
+		);
+		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), transfer_quantity);
 	});
 }
 
@@ -2856,7 +2992,7 @@ fn mints_multiple_specified_tokens_by_id() {
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), token_ids.len() as u32);
 		let collection_info = Nft::collection_info(collection_id).unwrap();
 		token_ids.iter().for_each(|&serial_number| {
-			assert!(Nft::is_token_owner(&token_owner, &collection_info, serial_number));
+			assert!(collection_info.is_token_owner(&token_owner, serial_number));
 		});
 
 		// Next serial number should be 0, origin chain is Ethereum so we don't count this
@@ -2897,7 +3033,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 
 		let collection_info = Nft::collection_info(collection_id).unwrap();
 		token_ids.iter().for_each(|&serial_number| {
-			assert!(Nft::is_token_owner(&token_owner, &collection_info, serial_number));
+			assert!(collection_info.is_token_owner(&token_owner, serial_number));
 		});
 
 		// Collection issuance should be 5 to indicate the 5 unique tokens
@@ -2916,7 +3052,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 
 		let collection_info = Nft::collection_info(collection_id).unwrap();
 		vec![3000, 40005, 1234].iter().for_each(|&serial_number| {
-			assert!(Nft::is_token_owner(&other_owner, &collection_info, serial_number));
+			assert!(collection_info.is_token_owner(&other_owner, serial_number));
 		});
 	});
 }
@@ -2943,12 +3079,12 @@ fn token_exists_works() {
 
 		// Check that the tokens exist
 		for serial_number in 0..quantity {
-			assert!(Nft::token_exists(serial_number, &collection_info));
+			assert!(collection_info.token_exists(serial_number));
 		}
 
 		// Check that a non-existent token does not exist
 		for serial_number in quantity..1000 {
-			assert!(!Nft::token_exists(serial_number, &collection_info));
+			assert!(!collection_info.token_exists(serial_number));
 		}
 	});
 }
@@ -2996,7 +3132,7 @@ fn add_user_tokens_works() {
 		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
 
 		// Add tokens to token_owner
-		assert_ok!(Nft::add_user_tokens(&token_owner, &mut collection_info, tokens.clone()));
+		assert_ok!(collection_info.add_user_tokens(&token_owner, tokens.clone()));
 
 		let expected_owned_tokens: OwnedTokens<Test> = BoundedVec::try_from(vec![(
 			token_owner,
@@ -3008,7 +3144,7 @@ fn add_user_tokens_works() {
 		// Add tokens to token_owner_2
 		let token_owner_2 = 3_u64;
 		let tokens_2: Vec<SerialNumber> = vec![6, 9, 4, 2, 0];
-		assert_ok!(Nft::add_user_tokens(&token_owner_2, &mut collection_info, tokens_2.clone()));
+		assert_ok!(collection_info.add_user_tokens(&token_owner_2, tokens_2.clone()));
 
 		let expected_owned_tokens: OwnedTokens<Test> = BoundedVec::try_from(vec![
 			(token_owner, BoundedVec::try_from(tokens).unwrap()),
@@ -3019,7 +3155,7 @@ fn add_user_tokens_works() {
 
 		// Now remove some tokens from token_owner
 		let tokens_to_remove: Vec<SerialNumber> = vec![0, 1, 2, 3];
-		Nft::remove_user_tokens(&token_owner, &mut collection_info, tokens_to_remove.clone());
+		collection_info.remove_user_tokens(&token_owner, tokens_to_remove.clone());
 		let expected_owned_tokens: OwnedTokens<Test> = BoundedVec::try_from(vec![
 			(token_owner, BoundedVec::try_from(vec![900, 1000, 101010101]).unwrap()),
 			(token_owner_2, BoundedVec::try_from(tokens_2).unwrap()),
@@ -3041,20 +3177,20 @@ fn add_user_tokens_over_token_limit_should_fail() {
 
 		// Add tokens to token_owner
 		let tokens: Vec<SerialNumber> = (0..max).collect();
-		assert_ok!(Nft::add_user_tokens(&token_owner, &mut collection_info, tokens.clone()));
+		assert_ok!(collection_info.add_user_tokens(&token_owner, tokens.clone()));
 
 		// Adding one more token to token_owner should fail
 		assert_noop!(
-			Nft::add_user_tokens(&token_owner, &mut collection_info, vec![max]),
+			collection_info.add_user_tokens(&token_owner, vec![max]),
 			Error::<Test>::TokenLimitExceeded
 		);
 		// Adding tokens to different user still works
-		assert_ok!(Nft::add_user_tokens(&token_owner_2, &mut collection_info, vec![max]));
+		assert_ok!(collection_info.add_user_tokens(&token_owner_2, vec![max]));
 
 		// Now let's remove a token
-		Nft::remove_user_tokens(&token_owner, &mut collection_info, vec![1]);
+		collection_info.remove_user_tokens(&token_owner, vec![1]);
 		// Adding one more token to token_owner should now work
-		assert_ok!(Nft::add_user_tokens(&token_owner, &mut collection_info, vec![max]));
+		assert_ok!(collection_info.add_user_tokens(&token_owner, vec![max]));
 	});
 }
 
@@ -3067,12 +3203,12 @@ fn add_user_tokens_over_user_limit_should_fail() {
 
 		// Adding users up to max should work
 		for i in 0..max as u64 {
-			assert_ok!(Nft::add_user_tokens(&i, &mut collection_info, vec![100]));
+			assert_ok!(collection_info.add_user_tokens(&i, vec![100]));
 		}
 
 		// adding another user should fail
 		assert_noop!(
-			Nft::add_user_tokens(&(max as u64), &mut collection_info, vec![100]),
+			collection_info.add_user_tokens(&(max as u64), vec![100]),
 			Error::<Test>::TokenLimitExceeded
 		);
 	});
