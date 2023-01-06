@@ -40,7 +40,6 @@ use seed_pallet_common::xrpl::XRPLBridgeAdapter;
 use seed_primitives::ethy::{ConsensusLog, ETHY_ENGINE_ID, EventProofId, ValidatorSet, ValidatorSetId};
 use core::default::Default;
 
-/// The logging target for this pallet
 pub(crate) const LOG_TARGET: &str = "validator-set";
 pub(crate) const SCHEDULER_PRIORITY: u8 = 63;
 

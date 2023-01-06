@@ -3,11 +3,12 @@
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::TypeInfo;
-use frame_support::sp_io;
+use frame_support::{PalletId, sp_io};
 use sp_runtime::DispatchError;
 use seed_primitives::ethy::{EthyChainId, EventProofId, ValidatorSetId};
 use ethabi::Token;
 use seed_primitives::EthAddress;
+use seed_primitives::xrpl::XrplAccountId;
 
 /// Interface for pallet-ethy
 pub trait EthyAdapter {
@@ -88,4 +89,22 @@ impl Default for State {
     fn default() -> Self {
         Self::Active
     }
+}
+
+/// Common interface for all bridges
+pub trait BridgeAdapter {
+    /// returns the pallet Id
+    fn get_pallet_id() -> Result<PalletId, DispatchError>;
+}
+
+
+/// Interface for Ethereum bridge
+pub trait EthereumBridgeAdapter: BridgeAdapter {
+    fn get_contract_address() -> Result<EthAddress, DispatchError>;
+}
+
+
+/// Interface for Xrpl bridge
+pub trait XrplBridgeAdapter: BridgeAdapter {
+    fn get_signer_list_set_payload(signer_entries: Vec<(XrplAccountId, u16)>) -> Result<Vec<u8>, DispatchError>;
 }
