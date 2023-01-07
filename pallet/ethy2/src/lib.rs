@@ -30,6 +30,7 @@ use seed_pallet_common::ethy::State::{Active, Paused};
 use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface};
 use seed_primitives::ethy::crypto::AuthorityId;
 use seed_primitives::ethy::EventProofId;
+use frame_support::weights::constants::RocksDbWeight as DbWeight;
 
 pub mod types;
 use types::*;
@@ -80,14 +81,20 @@ pub mod pallet {
 	pub type XrplNotarySetProofId<T> = StorageValue<_, EventProofId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn pending_event_proofs)]
-	/// Queued event proofs to be processed once the ethy is active again
-	pub type PendingEventProofs<T> = StorageMap<_, Twox64Concat, EventProofId, EthySigningRequest>;
+	#[pallet::getter(fn pending_proof_requests)]
+	/// Queued proof requests to be processed once the ethy is active again
+	pub type PendingProofRequests<T> = StorageMap<_, Twox64Concat, EventProofId, EthySigningRequest>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn next_event_proof_id)]
 	/// Id of the next event proof
 	pub type NextEventProofId<T> = StorageValue<_, EventProofId, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn delayed_proof_requests_per_block)]
+	/// The maximum number of delayed proof requests that can be processed in on_initialize()
+	pub type DelayedProofRequestsPerBlock<T> = StorageValue<_, u8, ValueQuery>;
+
 
 	#[pallet::error]
 	pub enum Error<T> {}
@@ -117,6 +124,24 @@ pub mod pallet {
 		/// An event proof has been sent for signing by ethy-gadget
 		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
 
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			// process delayed proof requests
+			let mut weight = 0 as Weight;
+			if PendingProofRequests::<T>::iter().next().is_some() && Self::ethy_state() == Active {
+				let max_delayed_requests = Self::delayed_proof_requests_per_block();
+				weight = weight.saturating_add(max_delayed_requests as Weight * ( DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)));
+				for (event_proof_id, signing_request) in PendingProofRequests::<T>::iter().take(max_delayed_requests as usize) {
+					Self::request_for_event_proof(event_proof_id, signing_request);
+					PendingProofRequests::<T>::remove(event_proof_id);
+				}
+			}
+			weight += DbWeight::get().reads(1 as Weight);
+			weight
+		}
 	}
 
 	#[pallet::call]
@@ -199,7 +224,7 @@ impl<T: Config> Pallet<T> {
 		// if the ethy is paused (e.g transitioning authority set at the end of an era)
 		// delay the proofs until it is active again
 		if Self::ethy_state() == Paused {
-			PendingEventProofs::<T>::insert(event_proof_id, request);
+			PendingProofRequests::<T>::insert(event_proof_id, request);
 			Self::deposit_event(Event::<T>::ProofDelayed{ event_proof_id });
 			return
 		}

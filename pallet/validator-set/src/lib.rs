@@ -159,8 +159,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Handle change in validators, ValidatorChangeDelay(5 minutes) times before the end of an era
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			// Handle change in validators, ValidatorChangeDelay(5 minutes) times before the end of an era
 			let mut weight = 0 as Weight;
 			if Some(block_number) == Self::next_validator_set_change_block() {
 				weight += Self::start_validator_set_change();
