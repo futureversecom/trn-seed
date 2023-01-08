@@ -14,6 +14,8 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod types;
+
 use codec::Encode;
 use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;
@@ -22,6 +24,8 @@ use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec, vec::Vec};
+use ethabi::{ParamType, Token};
+
 
 pub(crate) const LOG_TARGET: &str = "eth-bridge";
 
@@ -32,13 +36,16 @@ pub mod pallet {
 	use frame_support::traits::fungibles::Transfer;
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use log::info;
+	use sp_core::H256;
 	use seed_pallet_common::ethy::EthySigningRequest;
 	use seed_pallet_common::Hold;
-	use seed_primitives::{AssetId, Balance, EthAddress};
-	use seed_primitives::ethy::EventProofId;
+	use seed_primitives::{AssetId, Balance, BlockNumber, EthAddress};
+	use seed_primitives::ethy::{EventClaimId, EventProofId};
+	use crate::types::{EventClaim, EventClaimStatus};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -87,6 +94,26 @@ pub mod pallet {
 	/// The bridge contract address on Ethereum
 	pub type ContractAddress<T> =  StorageValue<_, EthAddress, ValueQuery>;
 
+	#[pallet::storage]
+	#[pallet::getter(fn pending_event_claims)]
+	/// Queued event claims, can be challenged within challenge period
+	pub type PendingEventClaims<T> = StorageMap<_, Twox64Concat, EventClaimId, EventClaim, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn processed_message_ids)]
+	/// Tracks processed message Ids (prevent replay)
+	pub type ProcessedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn pending_claim_status)]
+	/// Status of pending event claims
+	pub type PendingClaimStatus<T> = StorageMap<_, Twox64Concat, EventClaimId, EventClaimStatus, OptionQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn messages_valid_at)]
+	/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
+	pub type MessagesValidAt<T: Config> = StorageMap<_, Twox64Concat, T::BlockNumber, Vec<EventClaimId>, ValueQuery>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The relayer hasn't paid the relayer bond
@@ -95,6 +122,14 @@ pub mod pallet {
 		CantBondRelayer,
 		/// The relayer is active and cant unbond the specified amount
 		CantUnbondRelayer,
+		/// Claim was invalid e.g. not properly ABI encoded
+		InvalidClaim,
+		/// Event was already submitted and is pending
+		EventReplayPending,
+		/// Event was already submitted and is complete
+		EventReplayProcessed,
+		/// Caller does not have permission for that action
+		NoPermission,
 	}
 
 	#[pallet::event]
@@ -108,6 +143,9 @@ pub mod pallet {
 		RelayerBondWithdrawn { account_id: T::AccountId, amount: Balance},
 		/// The bridge contract address has been set
 		ContractAddressSet { address: EthAddress },
+		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
+		EventSubmit { event_claim_id: EventClaimId, event_claim: EventClaim, process_at: T::BlockNumber },
+
 	}
 
 	#[pallet::call]
@@ -122,7 +160,7 @@ pub mod pallet {
 			ensure!(Self::relayer_paid_bond(&relayer) >= T::RelayerBond::get(), Error::<T>::NoBondPaid);
 			Relayer::<T>::put(&relayer);
 			info!(target: LOG_TARGET, "relayer set. Account Id: {:?}", relayer);
-			Self::deposit_event(Event::<T>::RelayerSet{ relayer_account: relayer });
+			Self::deposit_event(Event::<T>::RelayerSet { relayer_account: relayer });
 			Ok(())
 		}
 
@@ -143,7 +181,7 @@ pub mod pallet {
 				relayer_bond,
 			)?;
 			RelayerPaidBond::<T>::insert(&origin, relayer_bond);
-			Self::deposit_event(Event::<T>::RelayerBondDeposited{ account_id: origin, amount: relayer_bond});
+			Self::deposit_event(Event::<T>::RelayerBondDeposited { account_id: origin, amount: relayer_bond});
 			Ok(())
 		}
 
@@ -169,7 +207,7 @@ pub mod pallet {
 			)?;
 			RelayerPaidBond::<T>::remove(&origin);
 
-			Self::deposit_event(Event::<T>::RelayerBondWithdrawn{ account_id: origin, amount: relayer_paid_bond });
+			Self::deposit_event(Event::<T>::RelayerBondWithdrawn { account_id: origin, amount: relayer_paid_bond });
 			Ok(())
 		}
 
@@ -194,7 +232,50 @@ pub mod pallet {
 		pub fn set_contract_address(origin: OriginFor<T>, contract_address: EthAddress) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(contract_address);
-			Self::deposit_event(Event::<T>::ContractAddressSet{ address: contract_address });
+			Self::deposit_event(Event::<T>::ContractAddressSet { address: contract_address });
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		/// Submit ABI encoded event data from the Ethereum bridge contract
+		/// - tx_hash The Ethereum transaction hash which triggered the event
+		/// - event ABI encoded bridge event
+		pub fn submit_event(origin: OriginFor<T>, tx_hash: H256, event: Vec<u8>) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+
+			ensure!(Some(origin) == Self::relayer(), Error::<T>::NoPermission);
+
+			// TODO: place some limit on `data` length (it should match on contract side)
+			// event SendMessage(uint256 messageId, address source, address destination, bytes message, uint256 fee);
+			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data), Token::Uint(_fee)] = ethabi::decode(&[
+				ParamType::Uint(64),
+				ParamType::Address,
+				ParamType::Address,
+				ethabi::ParamType::Bytes,
+				ParamType::Uint(64),
+			], event.as_slice()).map_err(|_| Error::<T>::InvalidClaim)?.as_slice() {
+				let event_id: EventClaimId = (*event_id).saturated_into();
+				ensure!(!PendingEventClaims::<T>::contains_key(event_id), Error::<T>::EventReplayPending);
+				if !Self::processed_message_ids().is_empty() {
+					ensure!( event_id > Self::processed_message_ids()[0] &&
+						Self::processed_message_ids().binary_search(&event_id).is_err() , Error::<T>::EventReplayProcessed);
+				}
+				let event_claim = EventClaim {
+					tx_hash,
+					source: *source,
+					destination: *destination,
+					data: data.clone(),
+				};
+
+				PendingEventClaims::<T>::insert(event_id, &event_claim);
+				PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
+
+				// TODO: there should be some limit per block
+				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + Self::challenge_period();
+				MessagesValidAt::<T>::append(process_at, event_id);
+
+				Self::deposit_event(Event::<T>::EventSubmit { event_claim_id: event_id, event_claim, process_at });
+			}
 			Ok(())
 		}
 	}

@@ -148,6 +148,13 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>
 	{
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		/// Pause or unpause ethy (requires governance)
+		pub fn set_ethy_state(origin: OriginFor<T>, state: State) -> DispatchResult {
+			ensure_root(origin)?;
+			EthyState::<T>::put(state);
+			Ok(())
+		}
 	}
 }
 
