@@ -58,61 +58,73 @@ pub mod pallet {
 		type NativeAssetId: Get<AssetId>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
-
+		/// Bond required by challenger to make a challenge
+		type ChallengeBond: Get<Balance>;
 	}
 
+	/// Map from relayer account to their paid bond amount
 	#[pallet::storage]
 	#[pallet::getter(fn relayer_paid_bond)]
-	/// Map from relayer account to their paid bond amount
 	pub type RelayerPaidBond<T: Config> =  StorageMap<_, Twox64Concat, T::AccountId, Balance, ValueQuery>;
 
+	/// The permissioned relayer
 	#[pallet::storage]
 	#[pallet::getter(fn relayer)]
-	/// The permissioned relayer
 	pub type Relayer<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
+	/// The minimum number of block confirmations needed to notarize an Ethereum event
 	#[pallet::type_value]
 	pub fn DefaultEventBlockConfirmations() -> u64 {
 		3_u64
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn event_block_confirmations)]
-	/// The minimum number of block confirmations needed to notarize an Ethereum event
 	pub type EventBlockConfirmations<T> =  StorageValue<_, u64, ValueQuery, DefaultEventBlockConfirmations>;
 
+	/// The (optimistic) challenge period after which a submitted event is considered valid
 	#[pallet::type_value]
 	pub fn DefaultChallengePeriod<T:Config>() -> T::BlockNumber {
 		T::BlockNumber::from(150_u32) // 10 Minutes
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_period)]
-	/// The (optimistic) challenge period after which a submitted event is considered valid
 	pub type ChallengePeriod<T:Config> = StorageValue<_, T::BlockNumber, ValueQuery, DefaultChallengePeriod<T>>;
 
+	/// The bridge contract address on Ethereum
 	#[pallet::storage]
 	#[pallet::getter(fn contract_address)]
-	/// The bridge contract address on Ethereum
 	pub type ContractAddress<T> =  StorageValue<_, EthAddress, ValueQuery>;
 
+	/// Queued event claims, can be challenged within challenge period
 	#[pallet::storage]
 	#[pallet::getter(fn pending_event_claims)]
-	/// Queued event claims, can be challenged within challenge period
 	pub type PendingEventClaims<T> = StorageMap<_, Twox64Concat, EventClaimId, EventClaim, OptionQuery>;
 
+	/// Tracks processed message Ids (prevent replay)
 	#[pallet::storage]
 	#[pallet::getter(fn processed_message_ids)]
-	/// Tracks processed message Ids (prevent replay)
 	pub type ProcessedMessageIds<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
 
+	/// Status of pending event claims
 	#[pallet::storage]
 	#[pallet::getter(fn pending_claim_status)]
-	/// Status of pending event claims
 	pub type PendingClaimStatus<T> = StorageMap<_, Twox64Concat, EventClaimId, EventClaimStatus, OptionQuery>;
 
+	/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 	#[pallet::storage]
 	#[pallet::getter(fn messages_valid_at)]
-	/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 	pub type MessagesValidAt<T: Config> = StorageMap<_, Twox64Concat, T::BlockNumber, Vec<EventClaimId>, ValueQuery>;
+
+	/// List of all event ids that are currently being challenged
+	#[pallet::storage]
+	#[pallet::getter(fn pending_claim_challenges)]
+	pub type PendingClaimChallenges<T> = StorageValue<_, Vec<EventClaimId>, ValueQuery>;
+
+	/// Maps from event claim id to challenger and bond amount paid
+	#[pallet::storage]
+	#[pallet::getter(fn challenger_account)]
+	pub type ChallengerAccount<T: Config> = StorageMap<_, Twox64Concat, EventClaimId, (T::AccountId, Balance), OptionQuery>;
+
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -130,6 +142,10 @@ pub mod pallet {
 		EventReplayProcessed,
 		/// Caller does not have permission for that action
 		NoPermission,
+		/// There is already a challenge for this claim
+		ClaimAlreadyChallenged,
+		/// There is no event claim associated with the supplied claim_id
+		NoClaim,
 	}
 
 	#[pallet::event]
@@ -145,15 +161,16 @@ pub mod pallet {
 		ContractAddressSet { address: EthAddress },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
 		EventSubmit { event_claim_id: EventClaimId, event_claim: EventClaim, process_at: T::BlockNumber },
-
+		/// An event has been challenged (claim_id, challenger)
+		Challenged { claim_id: EventClaimId, challenger: T::AccountId },
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>
 	{
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Set the relayer address
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			// Ensure relayer has bonded more than relayer bond amount
@@ -164,8 +181,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Submit bond for relayer account
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn deposit_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -185,8 +202,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Withdraw relayer bond amount
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn withdraw_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -211,24 +228,24 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by Seed
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn set_event_block_confirmations(origin: OriginFor<T>, confirmations: u64) -> DispatchResult {
 			ensure_root(origin)?;
 			EventBlockConfirmations::<T>::put(confirmations);
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Set challenge period, this is the window in which an event can be challenged before processing
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn set_challenge_period(origin: OriginFor<T>, blocks: T::BlockNumber) -> DispatchResult {
 			ensure_root(origin)?;
 			ChallengePeriod::<T>::put(blocks);
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Set the bridge contract address on Ethereum (requires governance)
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn set_contract_address(origin: OriginFor<T>, contract_address: EthAddress) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(contract_address);
@@ -236,13 +253,12 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Submit ABI encoded event data from the Ethereum bridge contract
 		/// - tx_hash The Ethereum transaction hash which triggered the event
 		/// - event ABI encoded bridge event
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn submit_event(origin: OriginFor<T>, tx_hash: H256, event: Vec<u8>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
-
 			ensure!(Some(origin) == Self::relayer(), Error::<T>::NoPermission);
 
 			// TODO: place some limit on `data` length (it should match on contract side)
@@ -273,9 +289,40 @@ pub mod pallet {
 				// TODO: there should be some limit per block
 				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + Self::challenge_period();
 				MessagesValidAt::<T>::append(process_at, event_id);
-
 				Self::deposit_event(Event::<T>::EventSubmit { event_claim_id: event_id, event_claim, process_at });
 			}
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		/// Submit a challenge for an event
+		/// Challenged events won't be processed until verified by validators
+		/// An event can only be challenged once
+		pub fn submit_challenge(origin: OriginFor<T>, event_claim_id: EventClaimId) -> DispatchResult {
+			let origin = ensure_signed(origin)?;
+
+			// Validate event_id existence
+			ensure!(PendingEventClaims::<T>::contains_key(event_claim_id), Error::<T>::NoClaim);
+			// Check that event isn't already being challenged
+			ensure!(Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Pending), Error::<T>::ClaimAlreadyChallenged);
+
+			let challenger_bond = T::ChallengeBond::get();
+			// try lock challenger bond
+			T::MultiCurrency::place_hold(
+				T::PalletId::get(),
+				&origin,
+				T::NativeAssetId::get(),
+				challenger_bond,
+			)?;
+
+			// Add event to challenged event storage
+			// Not sorted so we can check using FIFO
+			// Include challenger account for releasing funds in case claim is valid
+			PendingClaimChallenges::<T>::append(event_claim_id);
+			ChallengerAccount::<T>::insert(event_claim_id, (&origin, challenger_bond));
+			PendingClaimStatus::<T>::insert(event_claim_id, EventClaimStatus::Challenged);
+
+			Self::deposit_event(Event::<T>::Challenged { claim_id: event_claim_id, challenger: origin });
 			Ok(())
 		}
 	}
