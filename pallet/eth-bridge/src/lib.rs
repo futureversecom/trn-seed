@@ -34,7 +34,7 @@ pub mod pallet {
 	use log::info;
 	use seed_pallet_common::ethy::EthySigningRequest;
 	use seed_pallet_common::Hold;
-	use seed_primitives::{AssetId, Balance};
+	use seed_primitives::{AssetId, Balance, EthAddress};
 	use seed_primitives::ethy::EventProofId;
 
 	#[pallet::pallet]
@@ -64,7 +64,28 @@ pub mod pallet {
 	/// The permissioned relayer
 	pub type Relayer<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
+	#[pallet::type_value]
+	pub fn DefaultEventBlockConfirmations() -> u64 {
+		3_u64
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn event_block_confirmations)]
+	/// The minimum number of block confirmations needed to notarize an Ethereum event
+	pub type EventBlockConfirmations<T> =  StorageValue<_, u64, ValueQuery, DefaultEventBlockConfirmations>;
 
+	#[pallet::type_value]
+	pub fn DefaultChallengePeriod<T:Config>() -> T::BlockNumber {
+		T::BlockNumber::from(150_u32) // 10 Minutes
+	}
+	#[pallet::storage]
+	#[pallet::getter(fn challenge_period)]
+	/// The (optimistic) challenge period after which a submitted event is considered valid
+	pub type ChallengePeriod<T:Config> = StorageValue<_, T::BlockNumber, ValueQuery, DefaultChallengePeriod<T>>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn contract_address)]
+	/// The bridge contract address on Ethereum
+	pub type ContractAddress<T> =  StorageValue<_, EthAddress, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -85,6 +106,8 @@ pub mod pallet {
 		RelayerBondDeposited { account_id: T::AccountId, amount: Balance},
 		/// An account has withdrawn a relayer bond
 		RelayerBondWithdrawn { account_id: T::AccountId, amount: Balance},
+		/// The bridge contract address has been set
+		ContractAddressSet { address: EthAddress },
 	}
 
 	#[pallet::call]
@@ -147,6 +170,31 @@ pub mod pallet {
 			RelayerPaidBond::<T>::remove(&origin);
 
 			Self::deposit_event(Event::<T>::RelayerBondWithdrawn{ account_id: origin, amount: relayer_paid_bond });
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by Seed
+		pub fn set_event_block_confirmations(origin: OriginFor<T>, confirmations: u64) -> DispatchResult {
+			ensure_root(origin)?;
+			EventBlockConfirmations::<T>::put(confirmations);
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		/// Set challenge period, this is the window in which an event can be challenged before processing
+		pub fn set_challenge_period(origin: OriginFor<T>, blocks: T::BlockNumber) -> DispatchResult {
+			ensure_root(origin)?;
+			ChallengePeriod::<T>::put(blocks);
+			Ok(())
+		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		/// Set the bridge contract address on Ethereum (requires governance)
+		pub fn set_contract_address(origin: OriginFor<T>, contract_address: EthAddress) -> DispatchResult {
+			ensure_root(origin)?;
+			ContractAddress::<T>::put(contract_address);
+			Self::deposit_event(Event::<T>::ContractAddressSet{ address: contract_address });
 			Ok(())
 		}
 	}
