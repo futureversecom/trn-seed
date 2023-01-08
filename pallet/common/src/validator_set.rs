@@ -1,8 +1,8 @@
 //! shared pallet types and traits
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_runtime::legacy::byte_sized_error::DispatchError;
 use seed_primitives::ethy::{EventProofId, ValidatorSetId};
+use sp_runtime::DispatchError;
 
 pub trait ValidatorSetChangeHandler<EthyId> {
     fn validator_set_change_in_progress(info: ValidatorSetChangeInfo<EthyId>);

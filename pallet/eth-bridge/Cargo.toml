@@ -27,10 +27,10 @@ sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polka
 
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
+pallet-validator-set = { path = "../validator-set", default-features = false }
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
-hex-literal = { version = "0.3.4" }
 
 [features]
 default = ["std"]
@@ -46,5 +46,7 @@ std = [
     "scale-info/std",
     "sp-core/std",
     "ethereum-types/std",
+    "rustc-hex/std",
+    "serde_json/std",
 ]
 try-runtime = ["frame-support/try-runtime"]

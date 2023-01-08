@@ -25,6 +25,10 @@ use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec, vec::Vec};
 use ethabi::{ParamType, Token};
+use frame_support::dispatch::DispatchResult;
+use seed_primitives::ethy::crypto::AuthorityId;
+use seed_primitives::ethy::EventClaimId;
+use crate::types::{CheckedEthCallResult, EthCallId, EventClaimResult};
 
 
 pub(crate) const LOG_TARGET: &str = "eth-bridge";
@@ -37,11 +41,14 @@ pub mod pallet {
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use log::info;
 	use sp_core::H256;
+	use sp_runtime::RuntimeAppPublic;
 	use seed_pallet_common::ethy::EthySigningRequest;
 	use seed_pallet_common::Hold;
+	use seed_pallet_common::validator_set::ValidatorSetInterface;
 	use seed_primitives::{AssetId, Balance, BlockNumber, EthAddress};
 	use seed_primitives::ethy::{EventClaimId, EventProofId};
-	use crate::types::{EventClaim, EventClaimStatus};
+	use seed_primitives::ethy::crypto::AuthorityId;
+	use crate::types::{EventClaim, EventClaimStatus, NotarizationPayload};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -60,6 +67,8 @@ pub mod pallet {
 		type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
 		/// Bond required by challenger to make a challenge
 		type ChallengeBond: Get<Balance>;
+		/// Validator set Adapter
+		type ValidatorSet: ValidatorSetInterface<AuthorityId>;
 	}
 
 	/// Map from relayer account to their paid bond amount
@@ -146,6 +155,8 @@ pub mod pallet {
 		ClaimAlreadyChallenged,
 		/// There is no event claim associated with the supplied claim_id
 		NoClaim,
+		/// A notarization was invalid
+		InvalidNotarization,
 	}
 
 	#[pallet::event]
@@ -325,7 +336,47 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::Challenged { claim_id: event_claim_id, challenger: origin });
 			Ok(())
 		}
+
+		/// Internal only
+		/// Validators will submit inherents with their notarization vote for a given claim
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[transactional]
+		pub fn submit_notarization(origin: OriginFor<T>, payload: NotarizationPayload, _signature: <AuthorityId as RuntimeAppPublic>::Signature) -> DispatchResult {
+			let _ = ensure_none(origin)?;
+
+			// we don't need to verify the signature here because it has been verified in
+			// `validate_unsigned` function when sending out the unsigned tx.
+			let authority_index = payload.authority_index() as usize;
+			let notary_keys = T::ValidatorSet::get_validator_set()?;
+			let notary_public_key = match notary_keys.get(authority_index) {
+				Some(id) => id,
+				None => return Err(Error::<T>::InvalidNotarization.into()),
+			};
+
+			match payload {
+				NotarizationPayload::Call{ call_id, result, .. } => Self::handle_call_notarization(call_id, result, notary_public_key),
+				NotarizationPayload::Event{ event_claim_id, result, .. } => Self::handle_event_notarization(event_claim_id, result, notary_public_key),
+			}
+		}
 	}
 }
 
-impl<T: Config> Pallet<T> where <T as frame_system::Config>::AccountId: From<sp_core::H160> {}
+impl<T: Config> Pallet<T> where <T as frame_system::Config>::AccountId: From<sp_core::H160> {
+	/// Handle a submitted call notarization
+	pub(crate) fn handle_call_notarization(
+		call_id: EthCallId,
+		result: CheckedEthCallResult,
+		notary_id: &AuthorityId,
+	) -> Result<(), DispatchError> {
+		Ok(())
+	}
+
+	/// Handle a submitted event notarization
+	pub(crate) fn handle_event_notarization(
+		event_claim_id: EventClaimId,
+		result: EventClaimResult,
+		notary_id: &AuthorityId,
+	) -> Result<(), DispatchError> {
+		Ok(())
+	}
+}
