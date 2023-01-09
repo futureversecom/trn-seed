@@ -214,14 +214,16 @@ pub mod pallet {
 			name: Vec<u8>,
 			symbol: Vec<u8>,
 			decimals: u8,
+			min_balance: Option<Balance>,
+			owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = frame_system::ensure_signed(origin)?;
 
 			// reserves some native currency from the user - as this should be a costly operation
 			let deposit = T::AssetDeposit::get();
 			T::Currency::reserve(&who, deposit)?;
-
-			Self::create_with_metadata(&who, name, symbol, decimals)?;
+			let owner = owner.unwrap_or(who);
+			Self::create_with_metadata(&owner, name, symbol, decimals, min_balance)?;
 			Ok(().into())
 		}
 	}
@@ -520,8 +522,12 @@ impl<T: Config> Hold for Pallet<T> {
 impl<T: Config> CreateExt for Pallet<T> {
 	type AccountId = <T as frame_system::Config>::AccountId;
 
-	fn create(owner: &Self::AccountId) -> Result<AssetId, DispatchError> {
-		let min_balance = 1;
+	fn create(
+		owner: &Self::AccountId,
+		min_balance: Option<Balance>,
+	) -> Result<AssetId, DispatchError> {
+		// Default to 1, errors in pallet_assets if set to 0
+		let min_balance = min_balance.unwrap_or(1);
 
 		let next_asset_id = Self::next_asset_uuid()?;
 
@@ -530,7 +536,7 @@ impl<T: Config> CreateExt for Pallet<T> {
 			next_asset_id,
 			owner.clone(),
 			true,
-			min_balance, // errors if min_balance is zero
+			min_balance,
 		)?;
 
 		// update the next id, will not overflow, asserted prior qed.
@@ -553,8 +559,9 @@ impl<T: Config> CreateExt for Pallet<T> {
 		name: Vec<u8>,
 		symbol: Vec<u8>,
 		decimals: u8,
+		min_balance: Option<Balance>,
 	) -> Result<AssetId, DispatchError> {
-		let new_asset_id = Self::create(&owner)?;
+		let new_asset_id = Self::create(&owner, min_balance)?;
 
 		// set metadata for new asset - as root origin
 		<pallet_assets::Pallet<T>>::force_set_metadata(

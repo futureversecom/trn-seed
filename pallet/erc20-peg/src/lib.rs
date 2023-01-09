@@ -441,6 +441,7 @@ impl<T: Config> Module<T> {
 					symbol.clone(),
 					symbol,
 					decimals,
+					None,
 				)
 				.map_err(|_| Error::<T>::CreateAssetFailed)?;
 

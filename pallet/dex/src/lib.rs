@@ -282,6 +282,7 @@ pub mod pallet {
 					T::LPTokenName::get(),
 					T::LPTokenSymbol::get(),
 					T::LPTokenDecimals::get(),
+					None,
 				)?;
 				TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
 				TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
