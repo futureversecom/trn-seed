@@ -17,7 +17,6 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, traits::fungibles::Inspect};
 use frame_system::RawOrigin;
-use sp_runtime::traits::StaticLookup;
 
 use crate::Pallet as Erc20Peg;
 
@@ -53,7 +52,6 @@ benchmarks! {
 
 	withdraw {
 		let alice = account::<T>("Alice");
-		let asset_id = 100u32.into();
 		let alice_balance: Balance = 10000u32.into();
 		assert_ok!(Erc20Peg::<T>::activate_withdrawals(RawOrigin::Root.into(), true));
 		assert_ok!(Erc20Peg::<T>::activate_deposits(RawOrigin::Root.into(), true));
@@ -65,6 +63,9 @@ benchmarks! {
 		let beneficiary = account::<T>("Beneficiary").into();
 		let data = ethabi::encode(&[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)]);
 		assert_ok!(Erc20Peg::<T>::on_event(&source, &data));
+
+		// This is a hack. Getting the generated AssetId is pretty hard so this is a workaround.
+		let asset_id = AssetIdToErc20::iter_keys().next().unwrap();
 		assert_ok!(T::MultiCurrency::mint_into(asset_id, &alice, alice_balance));
 
 		let withdraw_amount: Balance = 100u32.into();

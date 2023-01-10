@@ -44,6 +44,9 @@ use types::*;
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
+
+pub use weights::WeightInfo;
 
 pub trait Config: frame_system::Config<AccountId = AccountId> {
 	/// An onchain address for this pallet
@@ -59,6 +62,9 @@ pub trait Config: frame_system::Config<AccountId = AccountId> {
 		+ fungibles::Mutate<Self::AccountId>;
 	/// The overarching event type.
 	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+	/// Interface to generate weights
+	type WeightInfo: WeightInfo;
 }
 
 decl_storage! {
@@ -207,20 +213,20 @@ decl_module! {
 		}
 
 		/// Activate/deactivate deposits (root only)
-		#[weight = 10_000_000]
+		#[weight = T::WeightInfo::activate_deposits()]
 		pub fn activate_deposits(origin, activate: bool) {
 			ensure_root(origin)?;
 			DepositsActive::put(activate);
 		}
 
 		/// Activate/deactivate withdrawals (root only)
-		#[weight = 10_000_000]
+		#[weight = T::WeightInfo::activate_withdrawals()]
 		pub fn activate_withdrawals(origin, activate: bool) {
 			ensure_root(origin)?;
 			WithdrawalsActive::put(activate);
 		}
 
-		#[weight = 60_000_000]
+		#[weight = T::WeightInfo::withdraw()]
 		/// Tokens will be transferred to peg account and a proof generated to allow redemption of tokens on Ethereum
 		#[transactional]
 		pub fn withdraw(origin, asset_id: AssetId, amount: Balance, beneficiary: EthAddress) {
@@ -228,7 +234,7 @@ decl_module! {
 			Self::do_withdrawal(origin, asset_id, amount, beneficiary, WithdrawCallOrigin::Runtime)?;
 		}
 
-		#[weight = 1_000_000]
+		#[weight = T::WeightInfo::set_contract_address()]
 		/// Set the peg contract address on Ethereum (requires governance)
 		pub fn set_contract_address(origin, eth_address: EthAddress) {
 			ensure_root(origin)?;
@@ -236,9 +242,7 @@ decl_module! {
 			Self::deposit_event(<Event<T>>::SetContractAddress(eth_address));
 		}
 
-		#[weight = {
-			1_000_000 * details.len() as u64
-		}]
+		#[weight = T::WeightInfo::set_erc20_meta()]
 		/// Set the metadata details for a given ERC20 address (requires governance)
 		/// details: `[(contract address, symbol, decimals)]`
 		pub fn set_erc20_meta(origin, details: Vec<(EthAddress, Vec<u8>, u8)>) {
@@ -248,7 +252,7 @@ decl_module! {
 			}
 		}
 
-		#[weight = 1_000_000]
+		#[weight = T::WeightInfo::set_payment_delay()]
 		/// Sets the payment delay for a given AssetId
 		pub fn set_payment_delay(origin, asset_id: AssetId, min_balance: Balance, delay: T::BlockNumber) {
 			ensure_root(origin)?;

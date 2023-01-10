@@ -147,6 +147,7 @@ impl crate::Config for Test {
 	type EthBridge = MockEthBridge;
 	type PegPalletId = PegPalletId;
 	type MultiCurrency = AssetsExt;
+	type WeightInfo = ();
 }
 
 /// Mock ethereum bridge
