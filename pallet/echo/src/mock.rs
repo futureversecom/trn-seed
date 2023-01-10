@@ -80,6 +80,7 @@ impl Config for TestRuntime {
 	type Event = Event;
 	type EthereumBridge = MockBridge;
 	type PalletId = MockEchoPalletId;
+	type WeightInfo = ();
 }
 
 pub(crate) mod test_storage {
