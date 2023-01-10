@@ -36,6 +36,8 @@ use sp_std::prelude::*;
 use seed_pallet_common::{CreateExt, EthereumBridge, EthereumEventSubscriber, OnEventResult};
 use seed_primitives::{AccountId, AssetId, Balance, EthAddress};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 pub mod types;
 use types::*;
 #[cfg(test)]
