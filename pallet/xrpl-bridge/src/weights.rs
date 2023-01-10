@@ -2,25 +2,30 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2023-01-10, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `fedora`, CPU: `13th Gen Intel(R) Core(TM) i7-13700K`
+//! HOSTNAME: `justin-System-Product-Name`, CPU: `12th Gen Intel(R) Core(TM) i9-12900K`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
 // ./target/release/seed
 // benchmark
 // pallet
-// --chain=dev
-// --steps=50
-// --repeat=20
-// --pallet=pallet_xrpl_bridge
+// --chain
+// dev
+// --steps
+// 50
+// --repeat
+// 20
+// --pallet
+// pallet-xrpl-bridge
 // --extrinsic=*
-// --execution=wasm
-// --wasm-execution=compiled
-// --heap-pages=4096
-// --template
-// ./scripts/pallet_template.hbs
-// --output
-// ./output
+// --execution
+// wasm
+// --wasm-execution
+// compiled
+// --heap-pages
+// 4096
+// --template=./scripts/pallet_template.hbs
+// --output=./output
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -40,6 +45,8 @@ pub trait WeightInfo {
 	fn set_door_address() -> Weight;
 	fn set_ticket_sequence_next_allocation() -> Weight;
 	fn set_ticket_sequence_current_allocation() -> Weight;
+	fn on_runtime_upgrade() -> Weight;
+	fn on_runtime_upgrade_no_change() -> Weight;
 }
 
 // For backwards compatibility and tests
@@ -48,13 +55,13 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:1 w:1)
 	// Storage: XRPLBridge ProcessXRPTransaction (r:1 w:1)
 	fn submit_transaction() -> Weight {
-		(17_017_000 as Weight)
+		(17_378_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
 	}
 	// Storage: XRPLBridge ChallengeXRPTransactionList (r:0 w:1)
 	fn submit_challenge() -> Weight {
-		(3_534_000 as Weight)
+		(3_809_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
@@ -69,29 +76,29 @@ impl WeightInfo for () {
 	// Storage: System Digest (r:1 w:1)
 	// Storage: XRPLBridge TicketSequenceThresholdReachedEmitted (r:0 w:1)
 	fn withdraw_xrp() -> Weight {
-		(43_013_000 as Weight)
+		(44_933_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(10 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
 	}
 	// Storage: XRPLBridge Relayer (r:0 w:1)
 	fn add_relayer() -> Weight {
-		(10_003_000 as Weight)
+		(10_370_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: XRPLBridge Relayer (r:1 w:1)
 	fn remove_relayer() -> Weight {
-		(12_063_000 as Weight)
+		(12_226_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:0 w:1)
 	fn set_door_tx_fee() -> Weight {
-		(2_434_000 as Weight)
+		(2_629_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: XRPLBridge DoorAddress (r:0 w:1)
 	fn set_door_address() -> Weight {
-		(9_525_000 as Weight)
+		(9_793_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: XRPLBridge Relayer (r:1 w:0)
@@ -99,7 +106,7 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge DoorTicketSequenceParams (r:1 w:0)
 	// Storage: XRPLBridge DoorTicketSequenceParamsNext (r:0 w:1)
 	fn set_ticket_sequence_next_allocation() -> Weight {
-		(12_921_000 as Weight)
+		(13_221_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
@@ -107,8 +114,20 @@ impl WeightInfo for () {
 	// Storage: XRPLBridge DoorTicketSequenceParams (r:1 w:1)
 	// Storage: XRPLBridge TicketSequenceThresholdReachedEmitted (r:0 w:1)
 	fn set_ticket_sequence_current_allocation() -> Weight {
-		(11_977_000 as Weight)
+		(12_425_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+	}
+	// Storage: unknown [0xf359408206eb0939f15785224140c9c24e7b9012096b41c4eb3aaf947f6ea429] (r:1 w:1)
+	// Storage: unknown [0xf359408206eb0939f15785224140c9c26c27d5145ffa0e115a3c9f4c85d12554] (r:0 w:1)
+	fn on_runtime_upgrade() -> Weight {
+		(5_846_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+	}
+	// Storage: unknown [0xf359408206eb0939f15785224140c9c24e7b9012096b41c4eb3aaf947f6ea429] (r:1 w:0)
+	fn on_runtime_upgrade_no_change() -> Weight {
+		(1_520_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 	}
 }

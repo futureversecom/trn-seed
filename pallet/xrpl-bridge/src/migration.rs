@@ -1,4 +1,4 @@
-use crate::{Pallet, Config};
+use crate::{Pallet, Config, weights::WeightInfo};
 use frame_support::{
     dispatch::GetStorageVersion,
     pallet_prelude::StorageVersion,
@@ -23,13 +23,13 @@ pub fn try_migrate<T: Config>() -> u64 {
         if res.maybe_cursor.is_some() {
             // Unexpected due to this being a single storage value removal
             log::error!("DoorNonce storage item removal was not completed");
-            return T::DbWeight::get().reads_writes(1, 1)
+            return T::WeightInfo::on_runtime_upgrade()
         } else {
             log::info!("DoorNonce storage item migration completed")
         };
 
         StorageVersion::new(1).put::<Pallet<T>>();
-        return T::DbWeight::get().reads_writes(1, 2)
+        return T::WeightInfo::on_runtime_upgrade_no_change()
     }
 
     T::DbWeight::get().reads(1)

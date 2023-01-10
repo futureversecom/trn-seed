@@ -70,7 +70,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_primitives::xrpl::{XrplTxTicketSequence, XrplTxNonce};
+	use seed_primitives::xrpl::{XrplTxTicketSequence};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
