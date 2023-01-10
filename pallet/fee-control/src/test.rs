@@ -14,7 +14,7 @@ use sp_runtime::{traits::SignedExtension, Perbill};
 fn charges_default_extrinsic_amount() {
 	TestExt::default().build().execute_with(|| {
 		let account = AccountId::default();
-		assert_ok!(AssetsExt::create(&account.into()));
+		assert_ok!(AssetsExt::create(&account.into(), None));
 
 		let starting_fee_token_asset_balance = 4200000069;
 
@@ -51,7 +51,7 @@ fn charges_default_extrinsic_amount() {
 fn charges_extrinsic_fee_based_on_setting() {
 	TestExt::default().build().execute_with(|| {
 		let account = AccountId::default();
-		assert_ok!(AssetsExt::create(&account.into()));
+		assert_ok!(AssetsExt::create(&account.into(), None));
 
 		let starting_fee_token_asset_balance = 4200000069;
 
