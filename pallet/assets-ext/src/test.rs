@@ -930,7 +930,7 @@ fn create() {
 		let parachain_id: u32 = <Test as Config>::ParachainId::get().into();
 
 		// create token & verify asset_uuid increment
-		let usdc = <AssetsExt as CreateExt>::create(&ALICE).unwrap();
+		let usdc = <AssetsExt as CreateExt>::create(&ALICE, None).unwrap();
 		assert_eq!(usdc, 1 << 10 | parachain_id);
 		assert_eq!(AssetsExt::minimum_balance(usdc), 1);
 		assert_eq!(AssetsExt::total_issuance(usdc), 0);
@@ -939,7 +939,7 @@ fn create() {
 		));
 
 		// create token & verify asset_uuid increment
-		let weth = <AssetsExt as CreateExt>::create(&ALICE).unwrap();
+		let weth = <AssetsExt as CreateExt>::create(&ALICE, None).unwrap();
 		assert_eq!(weth, 2 << 10 | parachain_id);
 		assert_eq!(AssetsExt::minimum_balance(weth), 1);
 		assert_eq!(AssetsExt::total_issuance(weth), 0);
@@ -963,20 +963,23 @@ fn create_asset() {
 			let symbol: Vec<u8> = b"USDC".to_vec();
 			let decimals: u8 = 6;
 			let usdc = AssetsExt::next_asset_uuid().unwrap();
+			let min_balance: Balance = 5;
 			assert_ok!(AssetsExt::create_asset(
 				Some(ALICE).into(),
 				name.clone(),
 				symbol.clone(),
-				decimals
+				decimals,
+				Some(min_balance),
+				None
 			));
-			assert_eq!(AssetsExt::minimum_balance(usdc), 1);
+			assert_eq!(AssetsExt::minimum_balance(usdc), min_balance);
 			assert_eq!(AssetsExt::total_issuance(usdc), 0);
 			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::name(&usdc), name);
 			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::symbol(&usdc), symbol);
 			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::decimals(&usdc), decimals);
 
 			// create Weth token and verify metadata
-			let name: Vec<u8> = b"Wrapped-Eth".to_vec();
+			let name: Vec<u8> = b"Wrapd-Eth".to_vec();
 			let symbol: Vec<u8> = b"WETH".to_vec();
 			let decimals: u8 = 18;
 			let weth = AssetsExt::next_asset_uuid().unwrap();
@@ -984,9 +987,11 @@ fn create_asset() {
 				Some(BOB).into(),
 				name.clone(),
 				symbol.clone(),
-				decimals
+				decimals,
+				None,
+				None
 			));
-			assert_eq!(AssetsExt::minimum_balance(weth), 1);
+			assert_eq!(AssetsExt::minimum_balance(weth), 1); // Defaults to 1 if None is set
 			assert_eq!(AssetsExt::total_issuance(weth), 0);
 			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::name(&weth), name);
 			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::symbol(&weth), symbol);
@@ -1003,21 +1008,35 @@ fn create_asset_fails() {
 	test_ext().with_balances(&[(ALICE, initial_balance)]).build().execute_with(|| {
 		// Create asset insufficient balance should fail
 		assert_noop!(
-			AssetsExt::create_asset(Some(BOB).into(), b"USD-Coin".to_vec(), b"USDC".to_vec(), 6),
+			AssetsExt::create_asset(
+				Some(BOB).into(),
+				b"USD-Coin".to_vec(),
+				b"USDC".to_vec(),
+				6,
+				None,
+				None
+			),
 			pallet_balances::Error::<Test>::InsufficientBalance
 		);
 
 		// Create asset insufficient name should fail
 		let name: Vec<u8> = b"01234567891".to_vec();
 		assert_noop!(
-			AssetsExt::create_asset(Some(ALICE).into(), name, b"USDC".to_vec(), 6),
+			AssetsExt::create_asset(Some(ALICE).into(), name, b"USDC".to_vec(), 6, None, None),
 			pallet_assets::Error::<Test>::BadMetadata
 		);
 
 		// Create asset insufficient symbol should fail
 		let symbol: Vec<u8> = b"01234567891".to_vec();
 		assert_noop!(
-			AssetsExt::create_asset(Some(ALICE).into(), b"USD-Coin".to_vec(), symbol, 6),
+			AssetsExt::create_asset(
+				Some(ALICE).into(),
+				b"USD-Coin".to_vec(),
+				symbol,
+				6,
+				None,
+				None
+			),
 			pallet_assets::Error::<Test>::BadMetadata
 		);
 	});
