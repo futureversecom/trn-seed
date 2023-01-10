@@ -51,6 +51,8 @@ use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
 
 mod helpers;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
