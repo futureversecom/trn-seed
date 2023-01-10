@@ -53,6 +53,7 @@ mod helpers;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod offchain;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -70,6 +71,7 @@ pub use weights::WeightInfo;
 pub mod pallet {
 	use super::*;
 	use seed_primitives::xrpl::XrplTxTicketSequence;
+use sp_runtime::offchain::{http, Duration};
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -170,7 +172,26 @@ pub mod pallet {
 			let weights = Self::process_xrp_tx(n);
 			weights + Self::clear_storages(n)
 		}
+<<<<<<< HEAD
 	}
+=======
+
+		fn on_runtime_upgrade() -> Weight {
+			migration::try_migrate::<T>()
+
+		}
+		
+		fn offchain_worker(block_number: T::BlockNumber) {
+			// Received a challenge, so it's time to verify something on XRPL at the block level
+			let verify_xrpl_challenge = true;
+			if verify_xrpl_challenge {
+				if let Err(err) = offchain::get_xrpl_block_data() { 
+					log::info!("Error retrieving tx data from XRPL: {:?}", err);
+				};
+			}
+
+		}
+>>>>>>> cd88513 (Make RPC request for XRPL block data)
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -430,6 +451,18 @@ pub mod pallet {
 				ticket_bucket_size,
 			});
 			Ok(())
+		}
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			Self::validate_unsigned(source, call)
+		}
+
+		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
+			Self::pre_dispatch(call)
 		}
 	}
 }
