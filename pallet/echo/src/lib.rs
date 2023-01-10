@@ -20,6 +20,8 @@ use seed_primitives::{ethy::EventProofId, AccountId};
 use sp_core::H160;
 use sp_std::prelude::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
