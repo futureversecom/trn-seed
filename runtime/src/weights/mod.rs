@@ -5,5 +5,6 @@ pub mod pallet_balances;
 pub mod pallet_election_provider_multi_phase;
 pub mod pallet_fee_control;
 pub mod pallet_im_online;
+pub mod pallet_nft_peg;
 pub mod pallet_timestamp;
 pub mod pallet_utility;
