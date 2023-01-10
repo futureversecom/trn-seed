@@ -17,15 +17,17 @@
 mod types;
 
 use codec::Encode;
-use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
+use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId, traits::ValidatorSet as ValidatorSetT,};
 pub use pallet::*;
-use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
+use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, log};
 use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
-use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
+use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion, RuntimeAppPublic};
 use sp_std::{boxed::Box, vec, vec::Vec};
 use ethabi::{ParamType, Token};
 use frame_support::dispatch::DispatchResult;
+use log::error;
+use seed_pallet_common::validator_set::ValidatorSetInterface;
 use seed_primitives::ethy::crypto::AuthorityId;
 use seed_primitives::ethy::EventClaimId;
 use crate::types::{CheckedEthCallResult, EthCallId, EventClaimResult};
@@ -39,10 +41,11 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, transactional};
 	use frame_support::traits::fungibles::Transfer;
 	use frame_system::{ensure_signed, pallet_prelude::*};
-	use log::info;
+	use log::{debug, info, trace};
 	use sp_core::H256;
-	use sp_runtime::RuntimeAppPublic;
-	use seed_pallet_common::ethy::EthySigningRequest;
+	use sp_runtime::{Percent, RuntimeAppPublic};
+	use seed_pallet_common::ethy::{EthyAdapter, EthySigningRequest};
+	use seed_pallet_common::ethy::State::Active;
 	use seed_pallet_common::Hold;
 	use seed_pallet_common::validator_set::ValidatorSetInterface;
 	use seed_primitives::{AssetId, Balance, BlockNumber, EthAddress};
@@ -69,6 +72,14 @@ pub mod pallet {
 		type ChallengeBond: Get<Balance>;
 		/// Validator set Adapter
 		type ValidatorSet: ValidatorSetInterface<AuthorityId>;
+		/// Ethy Adapter
+		type EthyAdapter: EthyAdapter;
+		/// The threshold of notarizations required to approve an Ethereum event
+		type NotarizationThreshold: Get<Percent>;
+		/// Knows the active authority set (validator stash addresses)
+		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
+
+
 	}
 
 	/// Map from relayer account to their paid bond amount
@@ -174,6 +185,46 @@ pub mod pallet {
 		EventSubmit { event_claim_id: EventClaimId, event_claim: EventClaim, process_at: T::BlockNumber },
 		/// An event has been challenged (claim_id, challenger)
 		Challenged { claim_id: EventClaimId, challenger: T::AccountId },
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			let mut weight = 0 as Weight;
+			weight
+		}
+
+		fn offchain_worker(block_number: T::BlockNumber) {
+			debug!(target: LOG_TARGET, "Entering off-chain worker. block number:{:?}", block_number);
+			let validator_set = T::ValidatorSet::get_validator_set().unwrap();
+			debug!(target: LOG_TARGET, "Active notaries: {:?}", validator_set);
+
+			// this passes if flag `--validator` set, not necessarily in the active set
+			if !sp_io::offchain::is_validator() {
+				debug!(target: LOG_TARGET, "Not a validator, exiting");
+				return
+			}
+
+			// check a local key exists for a valid bridge notary
+			if let Some((active_key, authority_index)) = Self::find_active_ethy_key(&validator_set) {
+				// check enough validators have active notary keys
+				let supports = validator_set.len();
+				let needed = T::NotarizationThreshold::get();
+				// TODO: check every session change not block
+				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
+					info!(target: LOG_TARGET, "Waiting for validator support to activate eth-bridge: {:?}/{:?}", supports, needed);
+					return;
+				}
+				// do some notarizing
+				Self::do_event_notarization_ocw(&active_key, authority_index);
+				// spk - check if we need this, seems it's not being used
+				// Self::do_call_notarization_ocw(&active_key, authority_index);
+			} else {
+				debug!(target: LOG_TARGET, "Not an active validator, exiting");
+			}
+
+			debug!(target: LOG_TARGET, "Exiting off-chain worker");
+		}
 	}
 
 	#[pallet::call]
@@ -361,7 +412,7 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T> where <T as frame_system::Config>::AccountId: From<sp_core::H160> {
+impl<T: Config> Pallet<T> {
 	/// Handle a submitted call notarization
 	pub(crate) fn handle_call_notarization(
 		call_id: EthCallId,
@@ -379,4 +430,39 @@ impl<T: Config> Pallet<T> where <T as frame_system::Config>::AccountId: From<sp_
 	) -> Result<(), DispatchError> {
 		Ok(())
 	}
+
+	/// Check the nodes local keystore for an active (staked) Ethy session key
+	/// Returns the public key and index of the key in the current notary set
+	pub(crate) fn find_active_ethy_key(validator_set: &Vec<AuthorityId>) -> Option<(AuthorityId, u16)> {
+		// Get all signing keys for this protocol 'KeyTypeId'
+		let local_keys = AuthorityId::all();
+		if local_keys.is_empty() {
+			error!(
+				target: LOG_TARGET,
+				"No signing keys for: {:?}, cannot participate in notarization!",
+				AuthorityId::ID
+			);
+			return None
+		};
+
+		let mut maybe_active_key: Option<(AuthorityId, usize)> = None;
+		// search all local ethy keys
+		for key in local_keys {
+			if let Some(active_key_index) = validator_set.iter().position(|k| k == &key) {
+				maybe_active_key = Some((key, active_key_index));
+				break
+			}
+		}
+
+		// check if locally known keys are in the active validator set
+		if maybe_active_key.is_none() {
+			error!(target: LOG_TARGET, "No active ethy keys, exiting");
+			return None
+		}
+		maybe_active_key.map(|(key, idx)| (key, idx as u16))
+	}
+
+	/// Handle OCW event notarization protocol for validators
+	/// Receives the node's local notary session key and index in the set
+	pub(crate) fn do_event_notarization_ocw(active_key: &AuthorityId, authority_index: u16) {}
 }
