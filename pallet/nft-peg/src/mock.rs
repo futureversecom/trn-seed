@@ -185,6 +185,7 @@ impl pallet_nft_peg::Config for Test {
 	type MaxAddresses = MaxAddresses;
 	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
 	type EthBridge = MockEthBridge;
+	type NftPegWeightInfo = ();
 }
 
 /// Mock ethereum bridge
