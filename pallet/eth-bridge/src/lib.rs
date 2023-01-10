@@ -46,7 +46,7 @@ pub mod pallet {
 	use sp_runtime::{Percent, RuntimeAppPublic};
 	use seed_pallet_common::ethy::{EthyAdapter, EthySigningRequest};
 	use seed_pallet_common::ethy::State::Active;
-	use seed_pallet_common::Hold;
+	use seed_pallet_common::{EthereumEventRouter, EventRouterError, Hold};
 	use seed_pallet_common::validator_set::ValidatorSetInterface;
 	use seed_primitives::{AssetId, Balance, BlockNumber, EthAddress};
 	use seed_primitives::ethy::{EventClaimId, EventProofId};
@@ -78,7 +78,8 @@ pub mod pallet {
 		type NotarizationThreshold: Get<Percent>;
 		/// Knows the active authority set (validator stash addresses)
 		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
-
+		/// Handles routing received Ethereum events upon verification
+		type EventRouter: EthereumEventRouter;
 
 	}
 
@@ -185,13 +186,58 @@ pub mod pallet {
 		EventSubmit { event_claim_id: EventClaimId, event_claim: EventClaim, process_at: T::BlockNumber },
 		/// An event has been challenged (claim_id, challenger)
 		Challenged { claim_id: EventClaimId, challenger: T::AccountId },
+		/// The event is still awaiting consensus. Process block pushed out (claim_id, process_at)
+		ProcessAtExtended { claim_id: EventClaimId, process_at: T::BlockNumber },
+		/// Processing an event succeeded
+		ProcessingOk { claim_id : EventClaimId },
+		/// Processing an event failed
+		ProcessingFailed { claim_id: EventClaimId, error: EventRouterError },
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			let mut weight = 0 as Weight;
-			weight
+			let mut consumed_weight = 0 as Weight;
+			// process submitted eth events
+			let mut processed_message_ids = Self::processed_message_ids();
+			for message_id in MessagesValidAt::<T>::take(block_number) {
+				if Self::pending_claim_status(message_id) == Some(EventClaimStatus::Challenged) {
+					// We are still waiting on the challenge to be processed, push out by challenge period
+					let new_process_at = block_number + Self::challenge_period();
+					MessagesValidAt::<T>::append(
+						&new_process_at,
+						message_id,
+					);
+					Self::deposit_event(Event::<T>::ProcessAtExtended { claim_id: message_id, process_at: new_process_at } );
+					continue
+				}
+				// Removed PendingEventClaim from storage and processes
+				if let Some(EventClaim { source, destination, data, .. } ) = PendingEventClaims::<T>::take(message_id) {
+					// keep a runtime hardcoded list of destination <> palletId
+					match T::EventRouter::route(&source, &destination, &data) {
+						Ok(weight) => {
+							consumed_weight += weight;
+							Self::deposit_event(Event::<T>::ProcessingOk { claim_id: message_id });
+						},
+						Err((weight, err)) => {
+							consumed_weight += weight;
+							Self::deposit_event(Event::<T>::ProcessingFailed { claim_id: message_id, error: err });
+						}
+					}
+				}
+				// mark as processed
+				if let Err(idx) = processed_message_ids.binary_search(&message_id) {
+					processed_message_ids.insert(idx, message_id);
+				}
+				// Tidy up status check
+				PendingClaimStatus::<T>::remove(message_id);
+			}
+			if !processed_message_ids.is_empty() {
+				Self::prune_claim_ids(&mut processed_message_ids);
+				ProcessedMessageIds::<T>::put(processed_message_ids);
+			}
+
+			consumed_weight
 		}
 
 		fn offchain_worker(block_number: T::BlockNumber) {
@@ -465,4 +511,28 @@ impl<T: Config> Pallet<T> {
 	/// Handle OCW event notarization protocol for validators
 	/// Receives the node's local notary session key and index in the set
 	pub(crate) fn do_event_notarization_ocw(active_key: &AuthorityId, authority_index: u16) {}
+
+	/// Prunes claim ids that are less than the max contiguous claim id.
+	pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
+		// if < 1 element, nothing to do
+		if let 0..=1 = claim_ids.len() {
+			return
+		}
+		// sort first
+		claim_ids.sort();
+		// get the index of the fist element that's non contiguous.
+		let first_noncontinuous_idx = claim_ids.iter().enumerate().position(|(i, &x)| {
+			if i > 0 {
+				x != claim_ids[i - 1] + 1
+			} else {
+				false
+			}
+		});
+		// drain the array from start to (first_noncontinuous_idx - 1) since we need the max contiguous
+		// element in the pruned vector.
+		match first_noncontinuous_idx {
+			Some(idx) => claim_ids.drain(..idx - 1),
+			None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
+		};
+	}
 }
