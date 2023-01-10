@@ -90,16 +90,6 @@ benchmarks! {
 		assert_eq!(is_relayer, None);
 	}
 
-	set_door_nonce {
-		let nonce = 100;
-		// Sanity check
-		assert_ne!(DoorNonce::<T>::get(), nonce);
-
-	}: _(RawOrigin::Root, nonce)
-	verify {
-		assert_eq!(DoorNonce::<T>::get(), nonce);
-	}
-
 	set_door_tx_fee {
 		let tx_fee = 100;
 		// Sanity check
