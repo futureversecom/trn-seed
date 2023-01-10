@@ -958,6 +958,7 @@ impl pallet_nft_peg::Config for Runtime {
 	type MaxAddresses = MaxAddresses;
 	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
 	type EthBridge = EthBridge;
+	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1692,6 +1693,7 @@ mod benches {
 		// Local
 		[pallet_nft, Nft]
 		[pallet_fee_control, FeeControl]
+		[pallet_nft_peg, NftPeg]
 		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);
