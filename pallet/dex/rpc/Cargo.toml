@@ -9,10 +9,10 @@ license = "GPL-3.0"
 [dependencies]
 jsonrpsee = { version = "0.14.0", features = ["server", "macros"] }
 
-sp-api = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
-sp-blockchain = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
-sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27-debug" }
+sp-api = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-blockchain = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 
 pallet-dex = { path = "../" }
 pallet-dex-rpc-runtime-api = { path = "./runtime-api" }
