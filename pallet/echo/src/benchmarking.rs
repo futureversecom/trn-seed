@@ -15,11 +15,10 @@
 use super::*;
 
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
-use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use sp_runtime::traits::StaticLookup;
 
-use crate::Pallet as AssetsExt;
+#[allow(unused_imports)]
+use crate::Pallet as Echo;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -34,11 +33,13 @@ benchmarks! {
 	ping {
 		let alice = account::<T>("Alice");
 		let destination = account::<T>("Bob").into();
+
+		let expected_session_id = NextSessionId::<T>::get() + 1;
 	}: _(origin::<T>(&alice), destination)
 	verify {
-/* 		let next_id = AssetsExt::<T>::next_asset_uuid().unwrap();
-		assert!(next_id > id); */
+		let actual_session_id = NextSessionId::<T>::get();
+		assert_eq!(actual_session_id, expected_session_id);
 	}
 }
 
-impl_benchmark_test_suite!(AssetsExt, crate::mock::new_test_ext(), crate::mock::Test,);
+impl_benchmark_test_suite!(Echo, crate::mock::new_test_ext(), crate::mock::TestRuntime,);
