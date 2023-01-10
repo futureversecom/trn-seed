@@ -61,6 +61,7 @@ mod tests;
 mod tests_relayer;
 
 pub mod weights;
+mod migration;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -69,7 +70,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_primitives::xrpl::XrplTxTicketSequence;
+	use seed_primitives::xrpl::{XrplTxTicketSequence, XrplTxNonce};
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
@@ -168,11 +169,16 @@ pub mod pallet {
 			let weights = Self::process_xrp_tx(n);
 			weights + Self::clear_storages(n)
 		}
+
+		fn on_runtime_upgrade() -> Weight {
+			migration::try_migrate::<T>()
+		}
 	}
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::storage]
