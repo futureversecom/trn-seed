@@ -1,7 +1,10 @@
 use super::*;
 
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{assert_ok, migration::{have_storage_value, put_storage_value}};
+use frame_support::{
+	assert_ok,
+	migration::{have_storage_value, put_storage_value},
+};
 use frame_system::RawOrigin;
 
 use crate::Pallet as XrplBridge;

@@ -60,8 +60,8 @@ mod tests;
 #[cfg(test)]
 mod tests_relayer;
 
-pub mod weights;
 mod migration;
+pub mod weights;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
 
@@ -70,7 +70,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_primitives::xrpl::{XrplTxTicketSequence};
+	use seed_primitives::xrpl::XrplTxTicketSequence;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
