@@ -25,6 +25,8 @@ use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec, vec::Vec};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
