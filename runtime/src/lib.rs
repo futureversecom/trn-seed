@@ -1004,7 +1004,7 @@ construct_runtime! {
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 15,
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>} = 16,
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>} = 17,
-		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
+		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>, ValidateUnsigned} = 18,
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
