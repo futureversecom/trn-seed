@@ -942,6 +942,7 @@ impl pallet_erc20_peg::Config for Runtime {
 	type PegPalletId = PegPalletId;
 	/// The overarching event type.
 	type Event = Event;
+	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1695,6 +1696,7 @@ mod benches {
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]
 		[pallet_xrpl_bridge, XRPLBridge]
+		[pallet_erc20_peg, Erc20Peg]
 		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);

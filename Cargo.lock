@@ -4822,6 +4822,7 @@ name = "pallet-erc20-peg"
 version = "2.0.1"
 dependencies = [
  "ethabi",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal",

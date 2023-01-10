@@ -250,4 +250,5 @@ runtime-benchmarks = [
 	"pallet-dex/runtime-benchmarks",
 	"pallet-fee-control/runtime-benchmarks",
 	"pallet-nft-peg/runtime-benchmarks",
+	"pallet-erc20-peg/runtime-benchmarks",
 ]
