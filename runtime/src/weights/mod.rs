@@ -8,3 +8,4 @@ pub mod pallet_im_online;
 pub mod pallet_nft_peg;
 pub mod pallet_timestamp;
 pub mod pallet_utility;
+pub mod pallet_xrpl_bridge;

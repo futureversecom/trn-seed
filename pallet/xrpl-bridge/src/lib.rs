@@ -276,7 +276,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit xrp transaction
-		#[pallet::weight((<T as Config>::WeightInfo::submit_transaction(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::submit_transaction(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_transaction(
 			origin: OriginFor<T>,
@@ -297,7 +297,7 @@ pub mod pallet {
 		}
 
 		/// Submit xrp transaction challenge
-		#[pallet::weight((<T as Config>::WeightInfo::submit_challenge(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::submit_challenge(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
@@ -309,7 +309,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw xrp transaction
-		#[pallet::weight((<T as Config>::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn withdraw_xrp(
 			origin: OriginFor<T>,
@@ -321,7 +321,7 @@ pub mod pallet {
 		}
 
 		/// add a relayer
-		#[pallet::weight((<T as Config>::WeightInfo::add_relayer(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::add_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
@@ -331,7 +331,7 @@ pub mod pallet {
 		}
 
 		/// remove a relayer
-		#[pallet::weight((<T as Config>::WeightInfo::remove_relayer(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::remove_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
@@ -353,7 +353,7 @@ pub mod pallet {
 		}
 
 		/// Set XRPL door address managed by this pallet
-		#[pallet::weight((<T as Config>::WeightInfo::set_xrpl_door_address(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::set_door_address(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn set_door_address(
 			origin: OriginFor<T>,
@@ -366,7 +366,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account ticket sequence params for the next allocation
-		#[pallet::weight((<T as Config>::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_next_allocation(
 			origin: OriginFor<T>,
 			start_ticket_sequence: u32,
@@ -397,7 +397,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account current ticket sequence params for current allocation - force set
-		#[pallet::weight((<T as Config>::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
 			ticket_sequence: u32,

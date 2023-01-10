@@ -414,7 +414,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type EthyAdapter = EthBridge;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
@@ -1694,6 +1694,7 @@ mod benches {
 		[pallet_nft, Nft]
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]
+		[pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);
