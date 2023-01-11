@@ -82,8 +82,7 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 			Ok(())
-		})
-		.map_err(|_| Error::<T>::InvalidOffer)?;
+		})?;
 		Ok(())
 	}
 
