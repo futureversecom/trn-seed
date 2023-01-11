@@ -121,9 +121,9 @@ impl<T: Config> CollectionInformation<T> {
 					continue
 				}
 				// Add new serial numbers to existing owner
-				for serial_number in serial_numbers.clone() {
+				for serial_number in serial_numbers.iter() {
 					owned_serial_numbers
-						.try_push(serial_number)
+						.try_push(*serial_number)
 						.map_err(|_| Error::<T>::TokenLimitExceeded)?;
 					owned_serial_numbers.sort();
 				}
@@ -133,7 +133,7 @@ impl<T: Config> CollectionInformation<T> {
 			self.owned_tokens
 				.try_push((
 					token_owner.clone(),
-					BoundedVec::try_from(serial_numbers.clone())
+					BoundedVec::try_from(serial_numbers.to_vec())
 						.map_err(|_| Error::<T>::TokenLimitExceeded)?,
 				))
 				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
@@ -306,7 +306,7 @@ pub enum FixedPriceClosureReason {
 }
 
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
-#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct RoyaltiesSchedule<AccountId> {
 	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
 	pub entitlements: Vec<(AccountId, Permill)>,
@@ -334,6 +334,12 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 		Permill::from_parts(
 			self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>(),
 		)
+	}
+}
+
+impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
+	fn default() -> Self {
+		Self { entitlements: vec![] }
 	}
 }
 

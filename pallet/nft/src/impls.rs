@@ -98,12 +98,11 @@ impl<T: Config> Pallet<T> {
 		let mut royalties: RoyaltiesSchedule<T::AccountId> = Self::collection_info(collection_id)
 			.ok_or(Error::<T>::NoCollection)?
 			.royalties_schedule
-			.unwrap_or_else(|| RoyaltiesSchedule { entitlements: vec![] });
+			.unwrap_or_default();
 
-		if marketplace_id.is_none() {
+		let Some(marketplace_id) = marketplace_id else {
 			return Ok(royalties)
-		}
-		let marketplace_id = marketplace_id.unwrap();
+		};
 
 		ensure!(
 			<RegisteredMarketplaces<T>>::contains_key(marketplace_id),
@@ -170,7 +169,7 @@ impl<T: Config> Pallet<T> {
 
 		let collection_info = match Self::collection_info(collection_id) {
 			Some(info) => info,
-			None => return 0,
+			None => return T::DbWeight::get().reads(1),
 		};
 
 		// remove duplicates from serial_numbers
@@ -301,8 +300,11 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn close_listings_at(now: T::BlockNumber) -> u32 {
 		let mut removed = 0_u32;
 		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
-			match Listings::<T>::take(listing_id) {
-				Some(Listing::FixedPrice(listing)) => {
+			let Some(listing) = Listings::<T>::take(listing_id) else {
+				continue
+			};
+			match listing {
+				Listing::FixedPrice(listing) => {
 					Self::remove_listing(
 						listing_id,
 						listing.collection_id,
@@ -316,7 +318,7 @@ impl<T: Config> Pallet<T> {
 					});
 					removed += 1;
 				},
-				Some(Listing::Auction(listing)) => {
+				Listing::Auction(listing) => {
 					Self::remove_listing(
 						listing_id,
 						listing.collection_id,
@@ -325,7 +327,6 @@ impl<T: Config> Pallet<T> {
 					Self::process_auction_closure(listing, listing_id);
 					removed += 1;
 				},
-				None => (),
 			}
 		}
 		removed
@@ -347,7 +348,7 @@ impl<T: Config> Pallet<T> {
 	fn process_auction_closure(listing: AuctionListing<T>, listing_id: ListingId) {
 		// Check if there was a winning bid
 		let winning_bid = ListingWinningBid::<T>::take(listing_id);
-		if winning_bid.is_none() {
+		let Some((winner, hammer_price)) = winning_bid else {
 			// normal closure, no acceptable bids
 			// listing metadata is removed by now.
 			Self::deposit_event(Event::<T>::AuctionClose {
@@ -356,8 +357,7 @@ impl<T: Config> Pallet<T> {
 				reason: AuctionClosureReason::ExpiredNoBids,
 			});
 			return
-		}
-		let (winner, hammer_price) = winning_bid.unwrap();
+		};
 
 		// Process the winning bid
 		if let Err(err) = Self::process_payment_and_transfer(
