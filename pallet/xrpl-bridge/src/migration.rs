@@ -1,8 +1,6 @@
 use crate::{weights::WeightInfo, Config, Pallet};
 use frame_support::{
-	dispatch::GetStorageVersion,
-	pallet_prelude::StorageVersion,
-	storage::migration,
+	dispatch::GetStorageVersion, pallet_prelude::StorageVersion, storage::migration,
 	traits::PalletInfoAccess,
 };
 
