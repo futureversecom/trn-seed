@@ -105,7 +105,7 @@ substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", 
 [dev-dependencies]
 ethereum = { version = "0.12.0", features = ["with-codec"] }
 seed-client = { path = "../client" }
-ethabi = { version = "17.1.0" }
+ethabi = { version = "18.0.0" }
 
 [features]
 default = [ "std" ]
