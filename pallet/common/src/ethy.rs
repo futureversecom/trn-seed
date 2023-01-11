@@ -13,6 +13,7 @@ use seed_primitives::xrpl::XrplAccountId;
 /// Interface for pallet-ethy
 pub trait EthyAdapter {
     fn request_for_proof(request: EthySigningRequest) -> Result<EventProofId, DispatchError>;
+    fn get_ethy_state() -> State;
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]

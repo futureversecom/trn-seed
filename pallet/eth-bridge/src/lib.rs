@@ -15,6 +15,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod types;
+mod ethereum_http_cli;
 
 use codec::Encode;
 use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId, traits::ValidatorSet as ValidatorSetT,};
@@ -22,18 +23,33 @@ pub use pallet::*;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, log};
 use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
-use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion, RuntimeAppPublic};
+use sp_runtime::{offchain as rt_offchain, traits::{MaybeSerializeDeserialize, Member, SaturatedConversion}, Percent, RuntimeAppPublic, DispatchError};
 use sp_std::{boxed::Box, vec, vec::Vec};
 use ethabi::{ParamType, Token};
 use frame_support::dispatch::DispatchResult;
-use log::error;
+use frame_system::offchain::SubmitTransaction;
+use hex_literal::hex;
+use log::{debug, error, info, trace};
+use seed_pallet_common::ethy::EthyAdapter;
+use seed_pallet_common::ethy::State::Paused;
 use seed_pallet_common::validator_set::ValidatorSetInterface;
 use seed_primitives::ethy::crypto::AuthorityId;
 use seed_primitives::ethy::EventClaimId;
-use crate::types::{CheckedEthCallResult, EthCallId, EventClaimResult};
+use crate::Error::OffchainUnsignedTxSignedPayload;
+use crate::types::{BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim, EventClaimResult, LatestOrNumber, NotarizationPayload};
 
-
+/// The type to sign and send transactions.
+const UNSIGNED_TXS_PRIORITY: u64 = 100;
+/// Max notarization claims to attempt per block/OCW invocation
+const CLAIMS_PER_BLOCK: usize = 1;
+/// The logging target for this pallet
 pub(crate) const LOG_TARGET: &str = "eth-bridge";
+/// The solidity selector of bridge events
+/// i.e. output of `keccak256('SubmitEvent(address,address,bytes)')` /
+/// `0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a`
+const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
+	hex!("0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a");
+
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -41,6 +57,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, transactional};
 	use frame_support::traits::fungibles::Transfer;
 	use frame_system::{ensure_signed, pallet_prelude::*};
+	use frame_system::offchain::CreateSignedTransaction;
 	use log::{debug, info, trace};
 	use sp_core::H256;
 	use sp_runtime::{Percent, RuntimeAppPublic};
@@ -48,10 +65,10 @@ pub mod pallet {
 	use seed_pallet_common::ethy::State::Active;
 	use seed_pallet_common::{EthereumEventRouter, EventRouterError, Hold};
 	use seed_pallet_common::validator_set::ValidatorSetInterface;
-	use seed_primitives::{AssetId, Balance, BlockNumber, EthAddress};
+	use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, EthAddress};
 	use seed_primitives::ethy::{EventClaimId, EventProofId};
 	use seed_primitives::ethy::crypto::AuthorityId;
-	use crate::types::{EventClaim, EventClaimStatus, NotarizationPayload};
+	use crate::types::{BridgeEthereumRpcApi, EventClaim, EventClaimStatus, NotarizationPayload};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -59,7 +76,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type PalletId: Get<PalletId>;
 		/// Bond required for an account to act as relayer
@@ -80,6 +97,10 @@ pub mod pallet {
 		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 		/// Handles routing received Ethereum events upon verification
 		type EventRouter: EthereumEventRouter;
+		/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
+		type EthereumRpcClient: BridgeEthereumRpcApi;
+		/// The runtime call type.
+		type Call: From<Call<Self>>;
 
 	}
 
@@ -146,6 +167,11 @@ pub mod pallet {
 	#[pallet::getter(fn challenger_account)]
 	pub type ChallengerAccount<T: Config> = StorageMap<_, Twox64Concat, EventClaimId, (T::AccountId, Balance), OptionQuery>;
 
+	/// Notarizations for queued events
+	/// Either: None = no notarization exists OR Some(yay/nay)
+	#[pallet::storage]
+	#[pallet::getter(fn event_notarizations)]
+	pub type EventNotarizations<T> = StorageDoubleMap<_, Twox64Concat, EventClaimId, Twox64Concat, AuthorityId, EventClaimResult, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -169,6 +195,8 @@ pub mod pallet {
 		NoClaim,
 		/// A notarization was invalid
 		InvalidNotarization,
+		/// Error returned when making unsigned transactions with signed payloads in off-chain worker
+		OffchainUnsignedTxSignedPayload,
 	}
 
 	#[pallet::event]
@@ -510,7 +538,54 @@ impl<T: Config> Pallet<T> {
 
 	/// Handle OCW event notarization protocol for validators
 	/// Receives the node's local notary session key and index in the set
-	pub(crate) fn do_event_notarization_ocw(active_key: &AuthorityId, authority_index: u16) {}
+	pub(crate) fn do_event_notarization_ocw(active_key: &AuthorityId, authority_index: u16) {
+		// do not try to notarize events while the ethy is paused
+		if T::EthyAdapter::get_ethy_state() == Paused {
+			return
+		}
+
+		// check all pending claims we have yet to notarize and try to notarize them
+		// this will be invoked once every block
+		// we limit the total claims per invocation using `CLAIMS_PER_BLOCK` so we don't stall block
+		// production.
+		for event_claim_id in PendingClaimChallenges::<T>::get().iter().take(CLAIMS_PER_BLOCK) {
+			let event_claim = Self::pending_event_claims(event_claim_id);
+			if event_claim.is_none() {
+				// This shouldn't happen
+				error!(target: LOG_TARGET, "Notarization failed, event claim: {:?} not found", event_claim_id);
+				continue
+			};
+
+			// skip if we've notarized it previously
+			if EventNotarizations::<T>::contains_key::<EventClaimId, AuthorityId>(
+				*event_claim_id,
+				active_key.clone(),
+			) {
+				debug!(target: LOG_TARGET,  "Already notarized claim: {:?}, ignoring...", event_claim_id);
+				continue
+			}
+
+			let result = Self::offchain_try_notarize_event(*event_claim_id, event_claim.unwrap());
+			debug!(target: LOG_TARGET, "Claim verification status: {:?}", &result);
+			let payload = NotarizationPayload::Event {
+				event_claim_id: *event_claim_id,
+				authority_index,
+				result: result.clone(),
+			};
+			let _ = Self::offchain_send_notarization(active_key, payload)
+				.map_err(|err| {
+					error!(target: LOG_TARGET, "Sending notarization failed 🙈, {:?}", err);
+				})
+				.map(|_| {
+					info!(
+						target: LOG_TARGET,
+						"Sent notarization: '{:?}' for claim: {:?}",
+						result,
+						event_claim_id
+					);
+				});
+		}
+	}
 
 	/// Prunes claim ids that are less than the max contiguous claim id.
 	pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
@@ -534,5 +609,115 @@ impl<T: Config> Pallet<T> {
 			Some(idx) => claim_ids.drain(..idx - 1),
 			None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
 		};
+	}
+
+	/// Verify a bridge message
+	///
+	/// `event_claim_id` - The event claim Id
+	/// `event_claim` - The event claim info
+	/// Checks:
+	/// - check Eth full node for transaction status
+	/// - tx success
+	/// - tx sent to source contract address
+	/// - check for exact log data match
+	/// - check log source == bridge contract address
+	/// - confirmations `>= T::EventConfirmations`
+	///
+	/// Returns result of the validation
+	pub(crate) fn offchain_try_notarize_event(
+		event_claim_id: EventClaimId,
+		event_claim: EventClaim,
+	) -> EventClaimResult {
+		let EventClaim { tx_hash, data, source, destination } = event_claim;
+		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
+		if let Err(err) = result {
+			error!(target: LOG_TARGET, "Eth getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
+			return EventClaimResult::DataProviderErr
+		}
+
+		let maybe_tx_receipt = result.unwrap(); // error handled above qed.
+		let tx_receipt = match maybe_tx_receipt {
+			Some(t) => t,
+			None => return EventClaimResult::NoTxReceipt,
+		};
+		let status = tx_receipt.status.unwrap_or_default();
+		if status.is_zero() {
+			return EventClaimResult::TxStatusFailed
+		}
+
+		// this may be overly restrictive
+		// requires the transaction calls the source contract as the entrypoint or fails.
+		// example 1: contract A -> bridge contract, ok
+		// example 2: contract A -> contract B -> bridge contract, fails
+		if tx_receipt.to != Some(source) {
+			return EventClaimResult::UnexpectedSource
+		}
+
+		// search for a bridge deposit event in this tx receipt
+		let matching_log = tx_receipt.logs.iter().find(|log| {
+			log.transaction_hash == Some(tx_hash) &&
+				log.topics.contains(&SUBMIT_BRIDGE_EVENT_SELECTOR.into())
+		});
+
+		let submitted_event_data = ethabi::encode(&[
+			Token::Uint(event_claim_id.into()),
+			Token::Address(source),
+			Token::Address(destination),
+			Token::Bytes(data),
+		]);
+		if let Some(log) = matching_log {
+			// check if the Ethereum event data matches what was reported
+			// in the original claim
+			if log.data != submitted_event_data {
+				error!(
+					target: LOG_TARGET,
+					"Mismatch in provided data vs. observed data. provided: {:?} observed: {:?}",
+					submitted_event_data,
+					log.data,
+				);
+				return EventClaimResult::UnexpectedData
+			}
+			if log.address != Self::contract_address() {
+				return EventClaimResult::UnexpectedContractAddress
+			}
+		} else {
+			return EventClaimResult::NoTxLogs
+		}
+
+		//  have we got enough block confirmations to be re-org safe?
+		let observed_block_number: u64 = tx_receipt.block_number.saturated_into();
+
+		let latest_block: EthBlock =
+			match T::EthereumRpcClient::get_block_by_number(LatestOrNumber::Latest) {
+				Ok(None) => return EventClaimResult::DataProviderErr,
+				Ok(Some(block)) => block,
+				Err(err) => {
+					error!(target: LOG_TARGET, "Eth getBlockByNumber latest failed: {:?}", err);
+					return EventClaimResult::DataProviderErr
+				},
+			};
+
+		let latest_block_number = latest_block.number.unwrap_or_default().as_u64();
+		let block_confirmations = latest_block_number.saturating_sub(observed_block_number);
+		if block_confirmations < Self::event_block_confirmations() {
+			return EventClaimResult::NotEnoughConfirmations
+		}
+
+		EventClaimResult::Valid
+	}
+
+	/// Send a notarization for the given claim
+	pub(crate) fn offchain_send_notarization(
+		key: &AuthorityId,
+		payload: NotarizationPayload,
+	) -> Result<(), Error<T>> {
+		let signature =
+			key.sign(&payload.encode()).ok_or(<Error<T>>::OffchainUnsignedTxSignedPayload)?;
+
+		let call = Call::submit_notarization { payload, signature };
+
+		// Retrieve the signer to sign the payload
+		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			.map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayload)
 	}
 }
