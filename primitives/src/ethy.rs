@@ -212,57 +212,6 @@ impl EventProof {
 	}
 }
 
-/// Convert an Ethy secp256k1 public key into an Ethereum address
-pub struct EthyEcdsaToEthereum;
-impl Convert<&[u8], [u8; 20]> for EthyEcdsaToEthereum {
-	fn convert(compressed_key: &[u8]) -> [u8; 20] {
-		libsecp256k1::PublicKey::parse_slice(
-			compressed_key,
-			Some(libsecp256k1::PublicKeyFormat::Compressed),
-		)
-		// uncompress the key
-		.map(|pub_key| pub_key.serialize().to_vec())
-		// now convert to Ethereum address
-		.map(|uncompressed| {
-			sp_io::hashing::keccak_256(&uncompressed[1..])[12..]
-				.try_into()
-				.expect("32 byte digest")
-		})
-		.map_err(|_| {
-			log::error!(target: "ethy", "💎 invalid ethy public key format");
-		})
-		.unwrap_or_default()
-	}
-}
-
-/// Convert an EthyId to an secp256k1 public key
-pub struct EthyEcdsaToPublicKey;
-impl Convert<AuthorityId, [u8; 33]> for EthyEcdsaToPublicKey {
-	fn convert(a: AuthorityId) -> [u8; 33] {
-		let compressed_key = a.as_slice();
-		libsecp256k1::PublicKey::parse_slice(
-			compressed_key,
-			Some(libsecp256k1::PublicKeyFormat::Compressed),
-		)
-		.map(|k| k.serialize_compressed())
-		.unwrap_or([0_u8; 33])
-	}
-}
-
-/// Convert a 33 byte Secp256k1 pub key to an XRPL account ID
-pub struct EthyEcdsaToXRPLAccountId;
-impl Convert<&[u8], [u8; 20]> for EthyEcdsaToXRPLAccountId {
-	fn convert(compressed_key: &[u8]) -> [u8; 20] {
-		libsecp256k1::PublicKey::parse_slice(
-			compressed_key,
-			Some(libsecp256k1::PublicKeyFormat::Compressed),
-		)
-		.map(|k| k.serialize_compressed())
-		.map(|k| Ripemd160::digest(Sha256::digest(&k)).into())
-		.unwrap_or([0_u8; 20])
-	}
-}
-
 /// An `EventProof` with a version number. This variant will be appended
 /// to the block justifications for the block for which the signed witness
 /// has been generated.
@@ -289,18 +238,6 @@ mod test {
 	use super::*;
 	use hex_literal::hex;
 	use sp_core::ecdsa::Signature;
-
-	#[test]
-	fn ethy_pub_key_to_ethereum_address() {
-		let address = hex!("dB6B186A0Cf75833903A4cfA0Aa618eDa65793f4");
-
-		assert_eq!(
-			EthyEcdsaToEthereum::convert(&hex!(
-				"02276503736589d21316da95a46d82b2d5c7aa10b946abbdeb01728d7cb935235e"
-			)),
-			address,
-		);
-	}
 
 	#[test]
 	fn signature_helpers() {
@@ -352,18 +289,5 @@ mod test {
 	fn ethy_chain_id() {
 		assert_eq!(Into::<u8>::into(EthyChainId::Ethereum), 1_u8);
 		assert_eq!(Into::<u8>::into(EthyChainId::Xrpl), 2_u8);
-	}
-
-	#[test]
-	fn ethy_ecdsa_to_xrpl_account_id() {
-		// values taken from https://xrpl.org/assign-a-regular-key-pair.html
-		let xrpl_account_id = hex!("1620d685fb08d81a70d0b668749cf2e130ea7540");
-
-		assert_eq!(
-			EthyEcdsaToXRPLAccountId::convert(&hex!(
-				"03AEEFE1E8ED4BBC009DE996AC03A8C6B5713B1554794056C66E5B8D1753C7DD0E"
-			)),
-			xrpl_account_id,
-		);
 	}
 }
