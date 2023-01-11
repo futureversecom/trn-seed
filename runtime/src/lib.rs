@@ -365,6 +365,7 @@ impl pallet_echo::Config for Runtime {
 	type Event = Event;
 	type EthereumBridge = EthBridge;
 	type PalletId = EchoPalletId;
+	type WeightInfo = weights::pallet_echo::WeightInfo<Runtime>;
 }
 
 impl pallet_fee_proxy::Config for Runtime {
@@ -1697,6 +1698,7 @@ mod benches {
 		[pallet_nft_peg, NftPeg]
 		[pallet_xrpl_bridge, XRPLBridge]
 		[pallet_erc20_peg, Erc20Peg]
+		[pallet_echo, Echo]
 		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);

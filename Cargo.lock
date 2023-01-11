@@ -4769,6 +4769,7 @@ name = "pallet-echo"
 version = "1.0.0"
 dependencies = [
  "ethabi",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
