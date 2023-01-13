@@ -375,7 +375,7 @@ fn set_owner() {
 		);
 		assert_noop!(
 			Nft::set_owner(Some(collection_owner).into(), collection_id + 1, new_owner),
-			Error::<Test>::NoCollection
+			Error::<Test>::NoCollectionFound
 		);
 	});
 }
@@ -631,7 +631,7 @@ fn transfer_fails_prechecks() {
 				serial_numbers.clone(),
 				token_owner
 			),
-			Error::<Test>::NoCollection,
+			Error::<Test>::NoCollectionFound,
 		);
 
 		assert_ok!(Nft::create_collection(
@@ -719,7 +719,7 @@ fn burn_fails_prechecks() {
 		// token doesn't exist yet
 		assert_noop!(
 			Nft::burn(Some(token_owner).into(), (collection_id, 0)),
-			Error::<Test>::NoCollection
+			Error::<Test>::NoCollectionFound
 		);
 
 		assert_ok!(Nft::create_collection(
@@ -2258,7 +2258,7 @@ fn mint_fails() {
 		// add to non-existing collection fails
 		assert_noop!(
 			Nft::mint(Some(collection_owner).into(), collection_id + 1, 5, None),
-			Error::<Test>::NoCollection
+			Error::<Test>::NoCollectionFound
 		);
 
 		// not collection owner
@@ -3289,7 +3289,7 @@ mod claim_unowned_collection {
 				collection_id,
 				new_owner.clone(),
 			);
-			assert_noop!(ok, Error::<Test>::NoCollection);
+			assert_noop!(ok, Error::<Test>::NoCollectionFound);
 		});
 	}
 

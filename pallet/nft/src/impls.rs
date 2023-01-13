@@ -91,12 +91,12 @@ impl<T: Config> Pallet<T> {
 	/// 1) same collection
 	/// Although possible, we do not support:
 	/// 3) different collection, no royalties allowed
-	pub(crate) fn check_bundle_royalties(
+	pub(crate) fn calculate_bundle_royalties(
 		collection_id: CollectionUuid,
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
 		let mut royalties: RoyaltiesSchedule<T::AccountId> = Self::collection_info(collection_id)
-			.ok_or(Error::<T>::NoCollection)?
+			.ok_or(Error::<T>::NoCollectionFound)?
 			.royalties_schedule
 			.unwrap_or_default();
 
@@ -124,7 +124,8 @@ impl<T: Config> Pallet<T> {
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
-			let collection_info = maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollection)?;
+			let collection_info =
+				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
 			// Check ownership and locks
 			for serial_number in serial_numbers.iter() {
@@ -433,7 +434,7 @@ impl<T: Config> Pallet<T> {
 		listing_id: ListingId,
 	) -> DispatchResult {
 		let collection_info =
-			Self::collection_info(collection_id).ok_or(Error::<T>::NoCollection)?;
+			Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 		// Check whether token is locked and that owner owns each token
 		for serial_number in serial_numbers.iter() {
@@ -572,7 +573,8 @@ impl<T: Config> Pallet<T> {
 		);
 
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
-			let collection_info = maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollection)?;
+			let collection_info =
+				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
 			ensure!(collection_info.is_token_owner(who, serial_number), Error::<T>::NoPermission);
 			collection_info.collection_issuance =
@@ -600,9 +602,8 @@ impl<T: Config> GetTokenOwner for Pallet<T> {
 
 	/// Returns the owner of a token_id
 	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		let collection_info = match Self::collection_info(token_id.0) {
-			Some(info) => info,
-			None => return None,
+		let Some(collection_info) = Self::collection_info(token_id.0) else {
+			return None
 		};
 		match collection_info
 			.owned_tokens

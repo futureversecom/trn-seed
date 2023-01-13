@@ -323,7 +323,7 @@ pub mod pallet {
 		CollectionNameInvalid,
 		/// No more Ids are available, they've been exhausted
 		NoAvailableIds,
-		/// origin does not have permission for the operation (the token may not exist)
+		/// Origin does not have permission for the operation (the token may not exist)
 		NoPermission,
 		/// The token does not exist
 		NoToken,
@@ -331,6 +331,10 @@ pub mod pallet {
 		NotForFixedPriceSale,
 		/// The token is not listed for auction sale
 		NotForAuction,
+		/// Origin is not the collection owner and is not permitted to perform the operation
+		NotCollectionOwner,
+		/// The token is not listed for sale
+		TokenNotListed,
 		/// The maximum number of offers on this token has been reached
 		MaxOffersReached,
 		/// Cannot operate on a listed NFT
@@ -344,7 +348,7 @@ pub mod pallet {
 		/// The account_id hasn't been registered as a marketplace
 		MarketplaceNotRegistered,
 		/// The collection does not exist
-		NoCollection,
+		NoCollectionFound,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
 		/// No offer exists for the given OfferId
@@ -396,7 +400,7 @@ pub mod pallet {
 			let _who = ensure_root(origin)?;
 
 			CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection| -> DispatchResult {
-				let collection = maybe_collection.as_mut().ok_or(Error::<T>::NoCollection)?;
+				let collection = maybe_collection.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 				ensure!(
 					collection.owner == Self::account_id(),
 					Error::<T>::CannotClaimNonClaimableCollections
@@ -421,8 +425,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			let mut collection_info =
-				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollection)?;
-			ensure!(collection_info.owner == origin, Error::<T>::NoPermission);
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.owner == origin, Error::<T>::NotCollectionOwner);
 			collection_info.owner = new_owner.clone();
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
@@ -519,7 +523,7 @@ pub mod pallet {
 			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			let mut collection_info =
-				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollection)?;
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 			// Caller must be collection_owner
 			ensure!(collection_info.owner == origin, Error::<T>::NoPermission);
@@ -620,16 +624,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
-			if serial_numbers.is_empty() {
-				return Err(Error::<T>::NoToken.into())
-			}
+			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 			let bounded_serial_numbers = BoundedVec::try_from(serial_numbers.clone())
 				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-
-			let royalties_schedule = Self::check_bundle_royalties(collection_id, marketplace_id)?;
-
+			let royalties_schedule =
+				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 			let listing_id = Self::next_listing_id();
-			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			// use the first token's collection as representative of the bundle
 			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &origin, listing_id)?;
@@ -752,7 +752,8 @@ pub mod pallet {
 			let bounded_serial_numbers = BoundedVec::try_from(serial_numbers.clone())
 				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
 
-			let royalties_schedule = Self::check_bundle_royalties(collection_id, marketplace_id)?;
+			let royalties_schedule =
+				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 
 			let listing_id = Self::next_listing_id();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -816,18 +817,22 @@ pub mod pallet {
 				amount,
 			)?;
 
-			<ListingWinningBid<T>>::mutate(listing_id, |maybe_current_bid| {
-				if let Some(current_bid) = maybe_current_bid {
-					// replace old bid
-					let _ = T::MultiCurrency::release_hold(
-						T::PalletId::get(),
-						&current_bid.0,
-						listing.payment_asset,
-						current_bid.1,
-					);
-				}
-				*maybe_current_bid = Some((origin.clone(), amount))
-			});
+			<ListingWinningBid<T>>::try_mutate(
+				listing_id,
+				|maybe_current_bid| -> DispatchResult {
+					if let Some(current_bid) = maybe_current_bid {
+						// replace old bid
+						let _ = T::MultiCurrency::release_hold(
+							T::PalletId::get(),
+							&current_bid.0,
+							listing.payment_asset,
+							current_bid.1,
+						)?;
+					}
+					*maybe_current_bid = Some((origin.clone(), amount));
+					Ok(())
+				},
+			)?;
 
 			// Auto extend auction if bid is made within certain amount of time of auction
 			// duration
@@ -858,9 +863,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
+			let listing = Self::listings(listing_id).ok_or(Error::<T>::TokenNotListed)?;
 
-			match Self::listings(listing_id) {
-				Some(Listing::<T>::FixedPrice(sale)) => {
+			match listing {
+				Listing::<T>::FixedPrice(sale) => {
 					ensure!(sale.seller == origin, Error::<T>::NoPermission);
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(sale.close, listing_id);
@@ -876,7 +882,7 @@ pub mod pallet {
 						reason: FixedPriceClosureReason::VendorCancelled,
 					});
 				},
-				Some(Listing::<T>::Auction(auction)) => {
+				Listing::<T>::Auction(auction) => {
 					ensure!(auction.seller == origin, Error::<T>::NoPermission);
 					ensure!(
 						Self::listing_winning_bid(listing_id).is_none(),
@@ -895,7 +901,6 @@ pub mod pallet {
 						reason: AuctionClosureReason::VendorCancelled,
 					});
 				},
-				None => {},
 			}
 			Ok(())
 		}
@@ -928,8 +933,7 @@ pub mod pallet {
 					});
 					Ok(())
 				},
-				Some(Listing::<T>::Auction(_)) => Err(Error::<T>::NotForFixedPriceSale.into()),
-				None => Err(Error::<T>::NotForFixedPriceSale.into()),
+				_ => Err(Error::<T>::NotForFixedPriceSale.into()),
 			}
 		}
 
@@ -950,7 +954,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
 			let collection_info =
-				Self::collection_info(token_id.0).ok_or(Error::<T>::NoCollection)?;
+				Self::collection_info(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(!collection_info.is_token_owner(&origin, token_id.1), Error::<T>::IsTokenOwner);
 			let offer_id = Self::next_offer_id();
 			ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -1024,7 +1028,7 @@ pub mod pallet {
 					let (collection_id, serial_number) = offer.token_id;
 
 					let royalties_schedule =
-						Self::check_bundle_royalties(collection_id, offer.marketplace_id)?;
+						Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
 					Self::process_payment_and_transfer(
 						&offer.buyer,
 						&origin,

@@ -80,7 +80,7 @@ pub mod pallet {
 		/// The prefix uint in the abi encoded data was invalid
 		InvalidAbiPrefix,
 		/// No collection info exists
-		NoCollectionInfo,
+		NoCollectionFoundInfo,
 		/// No mapped token was stored for bridging the token back to the bridged chain
 		/// chain(Should not happen)
 		NoMappedTokenExists,
@@ -323,7 +323,7 @@ where
 					Error::<T>::NoPermissionToBridge
 				);
 			} else {
-				fail!(Error::<T>::NoCollectionInfo);
+				fail!(Error::<T>::NoCollectionFoundInfo);
 			}
 
 			// Allocate space
