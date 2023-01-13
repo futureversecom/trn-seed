@@ -35,7 +35,7 @@ use sp_runtime::traits::Saturating;
 use sp_std::{boxed::Box, vec, vec::Vec};
 use pallet_ethy2::types::Log;
 use seed_pallet_common::ethy::State::{Active, Paused};
-use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo};
+use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface};
 use seed_pallet_common::xrpl::XRPLBridgeAdapter;
 use seed_primitives::ethy::{ConsensusLog, ETHY_ENGINE_ID, EventProofId, ValidatorSet, ValidatorSetId};
 use core::default::Default;
@@ -46,11 +46,12 @@ pub(crate) const SCHEDULER_PRIORITY: u8 = 63;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, transactional};
+	use frame_support::{pallet, pallet_prelude::*, transactional};
 	use frame_support::traits::schedule::Anon;
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use frame_system::offchain::CreateSignedTransaction;
 	use sp_runtime::RuntimeAppPublic;
+	use seed_pallet_common::ethy::XRPLBridgeAdapter;
 	use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo};
 	use seed_pallet_common::xrpl::XRPLBridgeAdapter;
 	use seed_primitives::{AccountId, ValidatorId};
@@ -63,6 +64,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// Pallet Id
+		#[pallet::constant]
 		type PalletId: Get<PalletId>;
 		/// The identifier type for a validator in this module (i.e. active validator session key)
 		/// 33 byte secp256k1 public key
@@ -74,8 +77,10 @@ pub mod pallet {
 		+ MaybeSerializeDeserialize
 		+ MaxEncodedLen;
 		/// The duration in blocks of one epoch
+		#[pallet::constant]
 		type EpochDuration: Get<u64>;
-		/// Length of time the bridge will be paused while the validator set changes
+		/// Length of time the ethy will be paused while the validator set changes
+		#[pallet::constant]
 		type ValidatorChangeDelay: Get<Self::BlockNumber>;
 		/// Reports the final session of na eras
 		type FinalSessionTracker: FinalSessionTrackerT;
@@ -86,6 +91,7 @@ pub mod pallet {
 		/// Overarching type of all pallets origins.
 		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 		/// Max Xrpl notary (validator) public keys
+		#[pallet::constant]
 		type MaxXrplKeys: Get<u8>;
 		/// ethy adapter
 		type EthyAdapter: ValidatorSetChangeHandler<Self::EthyId>;
@@ -342,4 +348,26 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 	}
 	fn on_disabled(_i: u32) {}
+}
+
+impl<T: Config> ValidatorSetInterface<T::EthyId> for Pallet<T> {
+	fn get_validator_set_id() -> Result<ValidatorSetId, DispatchError> {
+		Ok(NotarySetId::<T>::get()) // spk remove Ok?
+	}
+
+	fn get_validator_set() -> Result<Vec<T::EthyId>, DispatchError> {
+		Ok(NotaryKeys::<T>::get())
+	}
+
+	fn get_next_validator_set() -> Result<Vec<T::EthyId>, DispatchError> {
+		Ok(NextNotaryKeys::<T>::get())
+	}
+
+	fn get_xrpl_validator_set() -> Result<Vec<T::EthyId>, DispatchError> {
+		Ok(NotaryXrplKeys::<T>::get())
+	}
+
+	fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Result<Vec<T::EthyId>, DispatchError> {
+		Self::get_xrpl_notary_keys(validator_list)
+	}
 }

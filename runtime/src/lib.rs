@@ -8,6 +8,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::{Decode, Encode};
+use evm::Runtime;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use pallet_ethereum::{
@@ -77,7 +78,7 @@ pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
+	ethy::{crypto::AuthorityId as EthyId, ValidatorSet},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
 	Signature, TokenId,
 };
@@ -767,67 +768,82 @@ impl pallet_tx_fee_pot::Config for Runtime {
 	type TxFeePotId = TxFeePotId;
 }
 
-parameter_types! {
-	/// The bridge pallet address
-	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
-	/// Bond amount for a challenger
-	pub const ChallengeBond: Balance = 100 * ONE_XRP;
-	/// % threshold of notarizations required to verify or prove bridge events
-	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
-	/// Bond amount for a relayer
-	pub const RelayerBond: Balance = 100 * ONE_XRP;
-	/// Max Xrpl notary (validator) public keys
-	pub const MaxXrplKeys: u8 = 8;
-	pub const MaxNewSigners: u8 = 20;
-	/// 75 blocks is 5 minutes before the end of the era
-	pub const AuthorityChangeDelay: BlockNumber = 75_u32;
-}
-
-impl pallet_ethy::Config for Runtime {
-	/// Length of time the bridge will be paused while the authority set changes
-	type AuthorityChangeDelay = AuthorityChangeDelay;
-	/// Reports the current validator / notary set
-	type AuthoritySet = Historical;
-	/// The pallet bridge address (destination for incoming messages, source for outgoing)
-	type BridgePalletId = BridgePalletId;
-	/// The runtime call type.
-	type Call = Call;
-	/// The bond required to make a challenge
-	type ChallengeBond = ChallengeBond;
-	// The duration in blocks of one epoch
-	type EpochDuration = EpochDuration;
+impl pallet_ethy2::Config for Runtime {
 	/// The runtime event type.
 	type Event = Event;
-	/// Subscribers to completed 'eth_call' jobs
-	type EthCallSubscribers = ();
-	/// Subscribers to completed event
-	type EventRouter = EthereumEventRouter;
-	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
-	type EthereumRpcClient = pallet_ethy::EthereumRpcClient;
+	/// Xrpl-bridge adapter
+	type XrplBridgeAdapter = XRPLBridge;
+	/// Ethereum bridge adapter
+	type EthereumBridgeAdapter = EthBridge;
+	/// Validator adapter
+	type ValidatorSetAdapter = ValidatorSet<EthyId>;
+}
+
+parameter_types! {
+	/// The validator set pallet address
+	pub const ValidatorSetPalletId: PalletId = PalletId(*b"valdtrst");
+	/// Max Xrpl notary (validator) public keys
+	pub const MaxXrplKeys: u8 = 8;
+	/// 75 blocks is 5 minutes before the end of the era
+	pub const ValidatorChangeDelay: BlockNumber = 75_u32;
+}
+
+impl pallet_validator_set::Config for Runtime {
+	/// The runtime event type.
+	type Event = Event;
+	/// The validator set pallet address
+	type PalletId = ValidatorSetPalletId;
 	/// The identifier type for Ethy notaries
-	type EthyId = EthBridgeId;
+	type EthyId = EthyId;
+	/// The duration in blocks of one epoch
+	type EpochDuration = EpochDuration;
+	/// Length of time the ethy will be paused while the validator set changes
+	type ValidatorChangeDelay = ValidatorChangeDelay;
 	/// Reports final session status of an era
 	type FinalSessionTracker = StakingSessionTracker;
-	type MaxNewSigners = MaxNewSigners;
-	/// Handles multi-currency fungible asset system
-	type MultiCurrency = AssetsExt;
-	/// The native asset id used for challenger and relayer bonds
-	type NativeAssetId = XrpAssetId;
-	/// The threshold of positive notarizations to approve an event claim
-	type NotarizationThreshold = NotarizationThreshold;
-	/// The bond required to become a relayer
-	type RelayerBond = RelayerBond;
 	/// The pallet handling scheduled Runtime calls
 	type Scheduler = Scheduler;
-	/// Timestamp provider
-	type UnixTime = Timestamp;
+	/// The runtime call type.
+	type Call = Call;
 	/// Pallets origin type
 	type PalletsOrigin = OriginCaller;
 	/// Max Xrpl notary (validator) public keys
 	type MaxXrplKeys = MaxXrplKeys;
-	/// Xrpl-bridge adapter
-	type XrplBridgeAdapter = XRPLBridge;
+	/// ethy adapter
+	type EthyAdapter = Ethy;
+	/// XRPL Bridge adapter
+	type XRPLBridgeAdapter = XRPLBridge;
 }
+
+parameter_types! {
+	/// Bond amount for a relayer
+	pub const RelayerBond: Balance = 100 * ONE_XRP;
+	/// Bond amount for a challenger
+	pub const ChallengeBond: Balance = 100 * ONE_XRP;
+	/// % threshold of notarizations required to verify or prove bridge events
+	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
+}
+
+impl pallet_eth_bridge::Config for Runtime {
+	/// The runtime event type.
+	type Event = Event;
+	/// The validator set pallet address
+	type PalletId = ValidatorSetPalletId;
+	/// The runtime call type.
+	type Call = Call;
+	/// ethy adapter
+	type EthyAdapter = Ethy;
+	type RelayerBond = RelayerBond;
+	type NativeAssetId = XrpAssetId;
+	type MultiCurrency = AssetsExt;
+	type ChallengeBond = ChallengeBond;
+	type ValidatorSet = ValidatorSet<EthyId>;
+	type NotarizationThreshold = NotarizationThreshold;
+	type AuthoritySet = Historical;
+	type EventRouter = EthereumEventRouter;
+	type EthereumRpcClient = pallet_eth_bridge::EthereumRpcClient;
+}
+
 
 impl frame_system::offchain::SigningTypes for Runtime {
 	type Public = <Signature as Verify>::Signer;
@@ -998,6 +1014,7 @@ construct_runtime! {
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
 		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 12,
 		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
+		ValidatorSet: pallet_validator_set:{Pallet, Call, Storage, Event<T>} = 41,
 
 		// World
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 14,
@@ -1014,15 +1031,16 @@ construct_runtime! {
 		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>} = 23,
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage} = 24,
 
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
+		Ethy: pallet_ethy2::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
+		EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 31,
 
-		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
+		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 32,
 		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
 	}
 }

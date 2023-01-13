@@ -9,6 +9,7 @@ use seed_primitives::ethy::{EthyChainId, EventProofId, ValidatorSetId};
 use ethabi::Token;
 use seed_primitives::EthAddress;
 use seed_primitives::xrpl::XrplAccountId;
+use sp_std::{fmt::Debug, vec::Vec};
 
 /// Interface for pallet-ethy
 pub trait EthyAdapter {
@@ -92,6 +93,7 @@ impl Default for State {
 }
 
 /// Common interface for all bridges
+/// all bridges should implement it
 pub trait BridgeAdapter {
     /// returns the pallet Id
     fn get_pallet_id() -> Result<PalletId, DispatchError>;
@@ -103,8 +105,10 @@ pub trait EthereumBridgeAdapter: BridgeAdapter {
     fn get_contract_address() -> Result<EthAddress, DispatchError>;
 }
 
-
-/// Interface for Xrpl bridge
-pub trait XrplBridgeAdapter: BridgeAdapter {
-    fn get_signer_list_set_payload(signer_entries: Vec<(XrplAccountId, u16)>) -> Result<Vec<u8>, DispatchError>;
+/// Interface for pallet-xrpl-bridge
+pub trait XRPLBridgeAdapter<EthyId>: BridgeAdapter {
+    fn get_door_signers() -> Result<Vec<EthyId>, DispatchError>;
+    fn get_signer_list_set_payload(
+        _: Vec<(EthyId, u16)>,
+    ) -> Result<Vec<u8>, DispatchError>;
 }

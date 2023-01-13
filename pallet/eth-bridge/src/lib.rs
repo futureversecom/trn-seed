@@ -21,7 +21,7 @@ use codec::Encode;
 use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId, traits::ValidatorSet as ValidatorSetT,};
 pub use pallet::*;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, log};
-use seed_primitives::{CollectionUuid, SerialNumber};
+use seed_primitives::{CollectionUuid, EthAddress, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{offchain as rt_offchain, traits::{MaybeSerializeDeserialize, Member, SaturatedConversion}, Percent, RuntimeAppPublic, DispatchError};
 use sp_std::{boxed::Box, vec, vec::Vec};
@@ -30,7 +30,7 @@ use frame_support::dispatch::DispatchResult;
 use frame_system::offchain::SubmitTransaction;
 use hex_literal::hex;
 use log::{debug, error, info, trace};
-use seed_pallet_common::ethy::EthyAdapter;
+use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthyAdapter};
 use seed_pallet_common::ethy::State::Paused;
 use seed_pallet_common::validator_set::ValidatorSetInterface;
 use seed_primitives::ethy::crypto::AuthorityId;
@@ -78,7 +78,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type PalletId: Get<PalletId>;
+		type PalletId: Get<PalletId>; // spk add #[pallet::constant]
 		/// Bond required for an account to act as relayer
 		type RelayerBond: Get<Balance>;
 		/// The native token asset Id (managed by pallet-balances)
@@ -719,5 +719,17 @@ impl<T: Config> Pallet<T> {
 		// Retrieve the signer to sign the payload
 		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 			.map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayload)
+	}
+}
+
+impl<T: Config> BridgeAdapter for Pallet<T> {
+	fn get_pallet_id() -> Result<PalletId, DispatchError> {
+		Ok(T::PalletId::get())
+	}
+}
+
+impl<T: Config> EthereumBridgeAdapter for Pallet<T> {
+	fn get_contract_address() -> Result<EthAddress, DispatchError> {
+		Ok(ContractAddress::<T>::get())
 	}
 }

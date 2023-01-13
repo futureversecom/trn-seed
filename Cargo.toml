@@ -8,6 +8,9 @@ members = [
 	"ethy-gadget",
 	"evm-precompiles/*"
 ]
+exclude = [
+	"pallet/ethy",
+]
 
 [profile.release]
 panic = "unwind"

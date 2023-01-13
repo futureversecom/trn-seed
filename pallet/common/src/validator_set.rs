@@ -3,6 +3,8 @@
 
 use seed_primitives::ethy::{EventProofId, ValidatorSetId};
 use sp_runtime::DispatchError;
+use sp_std::{fmt::Debug, vec::Vec};
+use seed_primitives::ValidatorId;
 
 pub trait ValidatorSetChangeHandler<EthyId> {
     fn validator_set_change_in_progress(info: ValidatorSetChangeInfo<EthyId>);
@@ -19,8 +21,8 @@ pub struct ValidatorSetChangeInfo<EthyId> {
 
 impl<EthyId> Default for ValidatorSetChangeInfo<EthyId> {
     fn default() -> Self {
-        ValidatorSetChangeInfo {
-            current_validator_set_id: Default::default(),
+        ValidatorSetChangeInfo::<EthyId> {
+            current_validator_set_id: ValidatorSetId::default(),
             current_validator_set: Default::default(),
             next_validator_set_id: Default::default(),
             next_validator_set: Default::default(),

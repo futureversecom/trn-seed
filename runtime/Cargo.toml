@@ -73,7 +73,7 @@ pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-dex-rpc-runtime-api = { path = "../pallet/dex/rpc/runtime-api", default-features = false }
 pallet-echo = { path = "../pallet/echo", default-features = false }
-pallet-ethy = { path = "../pallet/ethy", default-features = false }
+#pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-fee-proxy = { path = "../pallet/fee-proxy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
@@ -83,6 +83,11 @@ pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false 
 pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
+pallet-ethy2 = { path = "../pallet/ethy2", default-features = false }
+pallet-validator-set = { path = "../pallet/validator-set", default-features = false }
+pallet-eth-bridge = { path = "../pallet/eth-bridge", default-features = false }
+
+
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -156,7 +161,7 @@ std = [
 	"pallet-assets-ext/std",
 	"pallet-dex/std",
 	"pallet-dex-rpc-runtime-api/std",
-	"pallet-ethy/std",
+	"pallet-ethy2/std",
 	"pallet-fee-proxy/std",
 	"pallet-nft/std",
 	"pallet-nft-rpc-runtime-api/std",
@@ -183,7 +188,9 @@ std = [
 	"pallet-erc20-peg/std",
 	"pallet-nft-peg/std",
 	"evm/std",
-	"try-runtime-cli"
+	"try-runtime-cli",
+	"pallet-validator-set/std",
+	"pallet-eth-bridge/std",
 ]
 
 try-runtime = [
@@ -218,9 +225,11 @@ try-runtime = [
 	"pallet-token-approvals/try-runtime",
 	"pallet-echo/try-runtime",
 	"pallet-tx-fee-pot/try-runtime",
-	"pallet-ethy/try-runtime",
+	"pallet-ethy2/try-runtime",
 	"pallet-erc20-peg/try-runtime",
 	"pallet-nft-peg/try-runtime",
+	"pallet-validator-set/try-runtime",
+	"pallet-eth-bridge/try-runtime",
 ]
 
 runtime-benchmarks = [

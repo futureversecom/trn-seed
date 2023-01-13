@@ -25,7 +25,7 @@ use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion, DigestItem};
 use sp_runtime::traits::Convert;
 use sp_std::{boxed::Box, vec, vec::Vec};
-use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthySigningRequest, XrplBridgeAdapter};
+use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthySigningRequest, XRPLBridgeAdapter};
 use seed_pallet_common::ethy::State::{Active, Paused};
 use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface};
 use seed_primitives::ethy::crypto::AuthorityId;
@@ -42,7 +42,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, transactional};
 	use frame_system::{ensure_signed, pallet_prelude::*};
-	use seed_pallet_common::ethy::{EthereumBridgeAdapter, State, XrplBridgeAdapter};
+	use seed_pallet_common::ethy::{EthereumBridgeAdapter, State, };
 	use seed_pallet_common::validator_set::ValidatorSetInterface;
 	use seed_primitives::ethy::ValidatorSetId;
 
@@ -59,7 +59,7 @@ pub mod pallet {
 		/// Validator set Adapter
 		type ValidatorSetAdapter: ValidatorSetInterface<AuthorityId>;
 		/// XRPL Bridge Adapter
-		type XrplBridgeAdapter: XrplBridgeAdapter;
+		type XrplBridgeAdapter: XRPLBridgeAdapter<AuthorityId>;
 
 	}
 

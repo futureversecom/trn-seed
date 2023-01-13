@@ -14,16 +14,10 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-	fail,
-	pallet_prelude::*,
-	traits::{
-		fungibles::{Inspect, Mutate, Transfer},
-		UnixTime,
-	},
-	transactional,
-	weights::constants::RocksDbWeight as DbWeight,
-};
+use frame_support::{fail, pallet_prelude::*, PalletId, traits::{
+	fungibles::{Inspect, Mutate, Transfer},
+	UnixTime,
+}, transactional, weights::constants::RocksDbWeight as DbWeight};
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{One, Zero},
@@ -47,9 +41,8 @@ use crate::helpers::{
 };
 
 pub use pallet::*;
-use seed_pallet_common::ethy::{EthyAdapter, EthySigningRequest};
+use seed_pallet_common::ethy::{BridgeAdapter, EthyAdapter, EthySigningRequest, XRPLBridgeAdapter};
 use seed_pallet_common::validator_set::ValidatorSetInterface;
-use seed_pallet_common::xrpl::XRPLBridgeAdapter;
 use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
 
 mod helpers;
@@ -77,6 +70,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type PalletId: Get<PalletId>;
 		/// Ethy Adapter
 		type EthyAdapter: EthyAdapter;
 		/// Handles a multi-currency fungible asset system
@@ -655,6 +649,12 @@ impl<T: Config> Pallet<T> {
 		DoorTicketSequence::<T>::set(next_sequence);
 
 		Ok(current_sequence)
+	}
+}
+
+impl<T: Config> BridgeAdapter for Pallet<T> {
+	fn get_pallet_id() -> Result<PalletId, DispatchError> {
+		Ok(T::PalletId::get())
 	}
 }
 
