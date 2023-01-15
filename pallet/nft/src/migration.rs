@@ -120,8 +120,11 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 				for (serial_number, token_owner) in
 					v1_storage::TokenOwner::<T>::iter_prefix(collection_id)
 				{
+					let serial_numbers: Vec<SerialNumber> = vec![serial_number];
+					let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+						BoundedVec::try_from(serial_numbers).expect("Should not fail");
 					if collection_info_migrated
-						.add_user_tokens(&token_owner, vec![serial_number])
+						.add_user_tokens(&token_owner, serial_numbers)
 						.is_err()
 					{
 						// There was an error migrating tokens, caused by token limit being
@@ -179,7 +182,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 							.into_iter()
 							.map(|(_, serial_number)| serial_number)
 							.collect();
-						let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing> =
+						let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
 							match BoundedVec::try_from(old_serial_numbers) {
 								Ok(serial_numbers) => serial_numbers,
 								Err(_) => {
@@ -214,7 +217,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 							.into_iter()
 							.map(|(_, serial_number)| serial_number)
 							.collect();
-						let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing> =
+						let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
 							match BoundedVec::try_from(old_serial_numbers) {
 								Ok(serial_numbers) => serial_numbers,
 								Err(_) => {

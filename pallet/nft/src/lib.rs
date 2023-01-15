@@ -110,8 +110,6 @@ pub mod pallet {
 		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
 		type MaxTokensPerCollection: Get<u32>;
-		/// Max tokens that can be sold in one listing
-		type MaxTokensPerListing: Get<u32>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>;
@@ -323,8 +321,8 @@ pub mod pallet {
 		CollectionNameInvalid,
 		/// No more Ids are available, they've been exhausted
 		NoAvailableIds,
-		/// Origin does not have permission for the operation (the token may not exist)
-		NoPermission,
+		/// Origin does not own the NFT
+		NotTokenOwner,
 		/// The token does not exist
 		NoToken,
 		/// The token is not listed for fixed price sale
@@ -353,8 +351,10 @@ pub mod pallet {
 		InvalidMetadataPath,
 		/// No offer exists for the given OfferId
 		InvalidOffer,
-		/// The caller is not the buyer
+		/// The caller is not the specified buyer
 		NotBuyer,
+		/// The caller is not the seller of the NFT
+		NotSeller,
 		/// The caller owns the token and can't make an offer
 		IsTokenOwner,
 		/// Offer amount needs to be greater than 0
@@ -526,7 +526,7 @@ pub mod pallet {
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 			// Caller must be collection_owner
-			ensure!(collection_info.owner == origin, Error::<T>::NoPermission);
+			ensure!(collection_info.owner == origin, Error::<T>::NotCollectionOwner);
 
 			// Check we don't exceed the token limit
 			ensure!(
@@ -561,8 +561,11 @@ pub mod pallet {
 			}
 
 			let owner = token_owner.unwrap_or(origin);
-			let serial_numbers: Vec<SerialNumber> =
+			let serial_numbers_unbounded: Vec<SerialNumber> =
 				(next_serial_number..collection_info.next_serial_number).collect();
+			let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+				BoundedVec::try_from(serial_numbers_unbounded)
+					.map_err(|_| Error::<T>::TokenLimitExceeded)?;
 			Self::do_mint(collection_id, collection_info, &owner, serial_numbers)?;
 			Ok(())
 		}
@@ -574,7 +577,7 @@ pub mod pallet {
 		pub fn transfer(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -615,7 +618,7 @@ pub mod pallet {
 		pub fn sell(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			buyer: Option<T::AccountId>,
 			payment_asset: AssetId,
 			fixed_price: Balance,
@@ -655,7 +658,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::FixedPriceSaleList {
 				collection_id,
-				serial_numbers,
+				serial_numbers: serial_numbers.into_inner(),
 				listing_id,
 				marketplace_id,
 				price: fixed_price,
@@ -674,7 +677,7 @@ pub mod pallet {
 			if let Some(Listing::FixedPrice(listing)) = Self::listings(listing_id) {
 				// if buyer is specified in the listing, then `origin` must be buyer
 				if let Some(buyer) = &listing.buyer {
-					ensure!(&origin == buyer, Error::<T>::NoPermission);
+					ensure!(&origin == buyer, Error::<T>::NotBuyer);
 				}
 
 				let payouts = Self::calculate_royalty_payouts(
@@ -691,14 +694,13 @@ pub mod pallet {
 
 				<OpenCollectionListings<T>>::remove(listing.collection_id, listing_id);
 
-				let serial_numbers: Vec<SerialNumber> = listing.serial_numbers.into_inner();
-				for serial_number in serial_numbers.clone() {
-					<TokenLocks<T>>::remove((listing.collection_id, serial_number));
+				for serial_number in listing.serial_numbers.iter() {
+					<TokenLocks<T>>::remove((listing.collection_id, *serial_number));
 				}
 				// Transfer the tokens
 				let _ = Self::do_transfer(
 					listing.collection_id,
-					serial_numbers.clone(),
+					listing.serial_numbers.clone(),
 					&listing.seller,
 					&origin,
 				)?;
@@ -707,7 +709,7 @@ pub mod pallet {
 
 				Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
 					collection_id: listing.collection_id,
-					serial_numbers,
+					serial_numbers: listing.serial_numbers.into_inner(),
 					listing_id,
 					price: listing.fixed_price,
 					payment_asset: listing.payment_asset,
@@ -738,7 +740,7 @@ pub mod pallet {
 		pub fn auction(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			payment_asset: AssetId,
 			reserve_price: Balance,
 			duration: Option<T::BlockNumber>,
@@ -780,7 +782,7 @@ pub mod pallet {
 
 			Self::deposit_event(Event::<T>::AuctionOpen {
 				collection_id,
-				serial_numbers,
+				serial_numbers: serial_numbers.into_inner(),
 				payment_asset,
 				reserve_price,
 				listing_id,
@@ -867,7 +869,7 @@ pub mod pallet {
 
 			match listing {
 				Listing::<T>::FixedPrice(sale) => {
-					ensure!(sale.seller == origin, Error::<T>::NoPermission);
+					ensure!(sale.seller == origin, Error::<T>::NotSeller);
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(sale.close, listing_id);
 					for serial_number in sale.serial_numbers.iter() {
@@ -883,7 +885,7 @@ pub mod pallet {
 					});
 				},
 				Listing::<T>::Auction(auction) => {
-					ensure!(auction.seller == origin, Error::<T>::NoPermission);
+					ensure!(auction.seller == origin, Error::<T>::NotSeller);
 					ensure!(
 						Self::listing_winning_bid(listing_id).is_none(),
 						Error::<T>::TokenLocked
@@ -920,7 +922,7 @@ pub mod pallet {
 
 			match Self::listings(listing_id) {
 				Some(Listing::<T>::FixedPrice(mut sale)) => {
-					ensure!(sale.seller == origin, Error::<T>::NoPermission);
+					ensure!(sale.seller == origin, Error::<T>::NotSeller);
 
 					sale.fixed_price = new_price;
 
@@ -1029,12 +1031,16 @@ pub mod pallet {
 
 					let royalties_schedule =
 						Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
+					let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+						BoundedVec::try_from(vec![serial_number])
+							.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+
 					Self::process_payment_and_transfer(
 						&offer.buyer,
 						&origin,
 						offer.asset_id,
 						collection_id,
-						vec![serial_number],
+						serial_numbers,
 						offer.amount,
 						royalties_schedule,
 					)?;

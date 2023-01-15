@@ -20,7 +20,7 @@ use seed_pallet_common::{
 	log, utils::next_asset_uuid, GetTokenOwner, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
-use sp_runtime::{traits::Zero, DispatchError, DispatchResult, SaturatedConversion};
+use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
 	/// Does no verification
 	pub(crate) fn do_transfer(
 		collection_id: CollectionUuid,
-		serial_numbers: Vec<SerialNumber>,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 		current_owner: &T::AccountId,
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
 			for serial_number in serial_numbers.iter() {
 				ensure!(
 					collection_info.is_token_owner(current_owner, *serial_number),
-					Error::<T>::NoPermission
+					Error::<T>::NotTokenOwner
 				);
 				ensure!(
 					!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::<T>::Transfer {
 				previous_owner: current_owner.clone(),
 				collection_id,
-				serial_numbers,
+				serial_numbers: serial_numbers.into_inner(),
 				new_owner: new_owner.clone(),
 			});
 			Ok(())
@@ -198,9 +198,15 @@ impl<T: Config> Pallet<T> {
 			})
 			.collect::<Vec<SerialNumber>>();
 
-		let _ = Self::do_mint(collection_id, collection_info, owner, serial_numbers_trimmed);
-
-		T::DbWeight::get().reads_writes(1, 1)
+		let serial_numbers: Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, ()> =
+			BoundedVec::try_from(serial_numbers_trimmed);
+		match serial_numbers {
+			Ok(serial_numbers) => {
+				let _ = Self::do_mint(collection_id, collection_info, owner, serial_numbers);
+				T::DbWeight::get().reads_writes(1, 1)
+			},
+			_ => 0 as Weight,
+		}
 	}
 
 	/// Perform the mint operation and update storage accordingly.
@@ -208,7 +214,7 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		collection_info: CollectionInformation<T>,
 		token_owner: &T::AccountId,
-		serial_numbers: Vec<SerialNumber>,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
 		let mut new_collection_info = collection_info;
 		// Update collection issuance
@@ -224,7 +230,7 @@ impl<T: Config> Pallet<T> {
 		// Throw event, listing all tokens minted
 		Self::deposit_event(Event::<T>::Mint {
 			collection_id,
-			serial_numbers,
+			serial_numbers: serial_numbers.into_inner(),
 			owner: token_owner.clone(),
 		});
 		Ok(())
@@ -337,7 +343,7 @@ impl<T: Config> Pallet<T> {
 	fn remove_listing(
 		listing_id: ListingId,
 		collection_id: CollectionUuid,
-		serial_numbers: &Vec<SerialNumber>,
+		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) {
 		for serial_number in serial_numbers.iter() {
 			TokenLocks::<T>::remove((collection_id, serial_number));
@@ -366,7 +372,7 @@ impl<T: Config> Pallet<T> {
 			&listing.seller,
 			listing.payment_asset,
 			listing.collection_id,
-			listing.serial_numbers.into_inner(),
+			listing.serial_numbers,
 			hammer_price,
 			listing.royalties_schedule,
 		) {
@@ -412,7 +418,7 @@ impl<T: Config> Pallet<T> {
 		seller: &T::AccountId,
 		asset_id: AssetId,
 		collection_id: CollectionUuid,
-		serial_numbers: Vec<SerialNumber>,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 		amount: Balance,
 		royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	) -> DispatchResult {
@@ -429,7 +435,7 @@ impl<T: Config> Pallet<T> {
 	#[transactional]
 	pub(crate) fn lock_tokens_for_listing(
 		collection_id: CollectionUuid,
-		serial_numbers: &Vec<SerialNumber>,
+		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 		owner: &T::AccountId,
 		listing_id: ListingId,
 	) -> DispatchResult {
@@ -444,7 +450,7 @@ impl<T: Config> Pallet<T> {
 			);
 			ensure!(
 				collection_info.is_token_owner(owner, *serial_number),
-				Error::<T>::NoPermission
+				Error::<T>::NotTokenOwner
 			);
 		}
 
@@ -531,7 +537,10 @@ impl<T: Config> Pallet<T> {
 		// Now mint the collection tokens
 		if initial_issuance > Zero::zero() {
 			let token_owner = token_owner.unwrap_or(owner.clone());
-			let serial_numbers: Vec<SerialNumber> = (0..initial_issuance).collect();
+			let serial_numbers_unbounded: Vec<SerialNumber> = (0..initial_issuance).collect();
+			let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+				BoundedVec::try_from(serial_numbers_unbounded)
+					.map_err(|_| Error::<T>::TokenLimitExceeded)?;
 			// CollectionInfo gets inserted inside this mint function
 			Self::do_mint(collection_uuid, collection_info, &token_owner, serial_numbers)?;
 		} else {
@@ -576,7 +585,7 @@ impl<T: Config> Pallet<T> {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
 
-			ensure!(collection_info.is_token_owner(who, serial_number), Error::<T>::NoPermission);
+			ensure!(collection_info.is_token_owner(who, serial_number), Error::<T>::NotTokenOwner);
 			collection_info.collection_issuance =
 				collection_info.collection_issuance.saturating_sub(1);
 			collection_info.owned_tokens.iter_mut().for_each(|(owner, serial_numbers)| {

@@ -17,8 +17,8 @@ use super::*;
 use crate::{
 	migration::MigrateToV1,
 	mock::{
-		has_event, AccountId, AssetsExt, Event as MockEvent, MaxTokensPerListing, NativeAssetId,
-		Nft, NftPalletId, System, Test, TestExt, ALICE, BOB,
+		has_event, AccountId, AssetsExt, Event as MockEvent, NativeAssetId, Nft, NftPalletId,
+		System, Test, TestExt, ALICE, BOB,
 	},
 	Event as NftEvent,
 };
@@ -924,7 +924,7 @@ fn sell_fails() {
 			Nft::sell(
 				Some(token_owner).into(),
 				collection_id,
-				(0..MaxTokensPerListing::get() + 1).collect(),
+				(0..MaxTokensPerCollection::get() + 1).collect(),
 				Some(5),
 				NativeAssetId::get(),
 				1_000,
@@ -1981,7 +1981,7 @@ fn auction_fails_prechecks() {
 			Nft::auction(
 				Some(token_owner).into(),
 				collection_id,
-				(0..MaxTokensPerListing::get() + 1).collect(),
+				(0..MaxTokensPerCollection::get() + 1).collect(),
 				NativeAssetId::get(),
 				reserve_price,
 				Some(1),

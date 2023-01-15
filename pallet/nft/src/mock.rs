@@ -227,7 +227,6 @@ parameter_types! {
 	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
-	pub const MaxTokensPerListing: u32 = 100;
 }
 
 impl crate::Config for Test {
@@ -235,7 +234,6 @@ impl crate::Config for Test {
 	type Event = Event;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
-	type MaxTokensPerListing = MaxTokensPerListing;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;

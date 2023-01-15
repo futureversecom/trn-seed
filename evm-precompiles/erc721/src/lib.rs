@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
+use core::convert::TryFrom;
 use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
@@ -9,7 +10,7 @@ use frame_support::{
 use pallet_evm::{Context, ExitReason, PrecompileSet};
 use pallet_nft::TokenCount;
 use sp_core::{H160, U256};
-use sp_runtime::traits::SaturatedConversion;
+use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
@@ -271,13 +272,18 @@ where
 			(collection_id, serial_number),
 			Runtime::AccountId::from(handle.context().caller),
 		) {
+			let serial_numbers_unbounded: Vec<SerialNumber> = vec![serial_number];
+			let serial_numbers: BoundedVec<
+				SerialNumber,
+				<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+			> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
 				handle,
 				Some(Runtime::AccountId::from(from)).into(),
 				pallet_nft::Call::<Runtime>::transfer {
 					collection_id,
-					serial_numbers: vec![serial_number],
+					serial_numbers,
 					new_owner: to.into(),
 				},
 			)?;
@@ -400,12 +406,18 @@ where
 		}
 
 		// Dispatch call (if enough gas).
+		let serial_numbers_unbounded: Vec<SerialNumber> = vec![serial_number];
+		let serial_numbers: BoundedVec<
+			SerialNumber,
+			<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+		> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
+
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(Runtime::AccountId::from(from)).into(),
 			pallet_nft::Call::<Runtime>::transfer {
 				collection_id,
-				serial_numbers: vec![serial_number],
+				serial_numbers,
 				new_owner: to.into(),
 			},
 		)?;

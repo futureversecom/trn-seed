@@ -113,7 +113,7 @@ impl<T: Config> CollectionInformation<T> {
 	pub fn add_user_tokens(
 		&mut self,
 		token_owner: &T::AccountId,
-		serial_numbers: Vec<SerialNumber>,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
 		if self.owned_tokens.iter().any(|(owner, _)| owner == token_owner) {
 			for (owner, owned_serial_numbers) in self.owned_tokens.iter_mut() {
@@ -145,7 +145,7 @@ impl<T: Config> CollectionInformation<T> {
 	pub fn remove_user_tokens(
 		&mut self,
 		token_owner: &T::AccountId,
-		serial_numbers: Vec<SerialNumber>,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) {
 		let mut removing_all_tokens: bool = false;
 		for (owner, owned_serial_numbers) in self.owned_tokens.iter_mut() {
@@ -375,7 +375,7 @@ pub struct AuctionListing<T: Config> {
 	/// The listing collection id
 	pub collection_id: CollectionUuid,
 	/// The serial numbers for sale in this listing
-	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerListing>,
+	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
 	/// The royalties applicable to this auction
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
@@ -399,7 +399,7 @@ pub struct FixedPriceListing<T: Config> {
 	/// The listing collection id
 	pub collection_id: CollectionUuid,
 	/// The serial numbers for sale in this listing
-	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerListing>,
+	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
 	/// The royalties applicable to this sale
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
