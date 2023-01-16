@@ -628,8 +628,6 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
-			let bounded_serial_numbers = BoundedVec::try_from(serial_numbers.clone())
-				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
 			let royalties_schedule =
 				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 			let listing_id = Self::next_listing_id();
@@ -644,7 +642,7 @@ pub mod pallet {
 				fixed_price,
 				close: listing_end_block,
 				collection_id,
-				serial_numbers: bounded_serial_numbers,
+				serial_numbers: serial_numbers.clone(),
 				buyer: buyer.clone(),
 				seller: origin.clone(),
 				royalties_schedule,
@@ -751,9 +749,6 @@ pub mod pallet {
 			if serial_numbers.is_empty() {
 				return Err(Error::<T>::NoToken.into())
 			}
-			let bounded_serial_numbers = BoundedVec::try_from(serial_numbers.clone())
-				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-
 			let royalties_schedule =
 				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 
@@ -769,7 +764,7 @@ pub mod pallet {
 				reserve_price,
 				close: listing_end_block,
 				collection_id,
-				serial_numbers: bounded_serial_numbers,
+				serial_numbers: serial_numbers.clone(),
 				seller: origin.clone(),
 				royalties_schedule,
 				marketplace_id,

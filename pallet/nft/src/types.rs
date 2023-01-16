@@ -63,7 +63,7 @@ pub enum OriginChain {
 #[scale_info(skip_type_params(T))]
 pub struct TokenOwnership<T: Config> {
 	pub owner: T::AccountId,
-	pub owned_serials: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+	pub owned_serials: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
 }
 
 impl<T: Config> TokenOwnership<T> {
@@ -113,7 +113,7 @@ pub struct CollectionInformation<T: Config> {
 	/// the total count of tokens in this collection
 	pub collection_issuance: TokenCount,
 	/// All serial numbers owned by an account in a collection
-	pub owned_tokens: BoundedVec<TokenOwnership<T>, T::MaxTokensPerCollection>,
+	pub owned_tokens: BoundedVec<TokenOwnership<T>, <T as Config>::MaxTokensPerCollection>,
 }
 
 impl<T: Config> CollectionInformation<T> {
