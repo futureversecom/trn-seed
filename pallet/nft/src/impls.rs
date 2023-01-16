@@ -220,7 +220,8 @@ impl<T: Config> Pallet<T> {
 		// Update collection issuance
 		new_collection_info.collection_issuance = new_collection_info
 			.collection_issuance
-			.saturating_add(serial_numbers.len().saturated_into());
+			.checked_add(serial_numbers.len().saturated_into())
+			.ok_or(Error::<T>::TokenLimitExceeded)?;
 
 		new_collection_info.add_user_tokens(token_owner, serial_numbers.clone())?;
 
