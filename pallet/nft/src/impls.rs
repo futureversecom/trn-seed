@@ -45,8 +45,8 @@ impl<T: Config> Pallet<T> {
 				let serial_numbers: Vec<SerialNumber> = collection_info
 					.owned_tokens
 					.into_iter()
-					.find(|(account, _)| account == who)
-					.map(|(_, serial_numbers)| serial_numbers.clone().into_inner())
+					.find(|token_ownership| &token_ownership.owner == who)
+					.map(|token_ownership| token_ownership.owned_serials.clone().into_inner())
 					.unwrap_or_default();
 				serial_numbers.len() as TokenCount
 			},
@@ -256,9 +256,9 @@ impl<T: Config> Pallet<T> {
 			.owned_tokens
 			.into_inner()
 			.iter()
-			.find(|(owner, _)| owner == who)
+			.find(|token_ownership| &token_ownership.owner == who)
 		{
-			Some((_, serial_numbers)) => serial_numbers.clone().into_inner(),
+			Some(ownership_map) => ownership_map.clone().owned_serials.into_inner(),
 			None => vec![],
 		};
 
@@ -531,7 +531,7 @@ impl<T: Config> Pallet<T> {
 			origin_chain: origin_chain.clone(),
 			next_serial_number: initial_issuance,
 			collection_issuance: 0,
-			owned_tokens: Default::default(),
+			owned_tokens: BoundedVec::default(),
 		};
 
 		// Now mint the collection tokens
@@ -588,9 +588,9 @@ impl<T: Config> Pallet<T> {
 			ensure!(collection_info.is_token_owner(who, serial_number), Error::<T>::NotTokenOwner);
 			collection_info.collection_issuance =
 				collection_info.collection_issuance.saturating_sub(1);
-			collection_info.owned_tokens.iter_mut().for_each(|(owner, serial_numbers)| {
-				if owner == who {
-					serial_numbers.retain(|&serial| serial != serial_number)
+			collection_info.owned_tokens.iter_mut().for_each(|token_ownership| {
+				if token_ownership.owner == *who {
+					token_ownership.owned_serials.retain(|&serial| serial != serial_number)
 				}
 			});
 			// Remove approvals for this token
@@ -614,12 +614,10 @@ impl<T: Config> GetTokenOwner for Pallet<T> {
 		let Some(collection_info) = Self::collection_info(token_id.0) else {
 			return None
 		};
-		match collection_info
-			.owned_tokens
-			.into_iter()
-			.find(|(_, serial_numbers)| serial_numbers.clone().into_inner().contains(&token_id.1))
-		{
-			Some((owner, _)) => Some(owner),
+		match collection_info.owned_tokens.into_iter().find(|token_ownership| {
+			token_ownership.owned_serials.clone().into_inner().contains(&token_id.1)
+		}) {
+			Some(token_ownership) => Some(token_ownership.owner),
 			None => None,
 		}
 	}

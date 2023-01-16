@@ -36,13 +36,37 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 /// OfferId type used to distinguish different offers on NFTs
 pub type OfferId = u64;
 
-pub type OwnedTokens<T> = BoundedVec<
-	(
-		<T as frame_system::Config>::AccountId,
-		BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
-	),
-	<T as Config>::MaxTokensPerCollection,
->;
+/// Struct that represents the owned serial numbers within a collection of an individual account
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct TokenOwnership<T: Config> {
+	pub owner: T::AccountId,
+	pub owned_serials: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+}
+
+impl<T: Config> TokenOwnership<T> {
+	/// Creates a new TokenOwnership with the given owner and serial numbers
+	pub fn new(
+		owner: T::AccountId,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+	) -> Self {
+		Self { owner, owned_serials: serial_numbers }
+	}
+
+	/// Adds a serial to owned_serials and sorts the vec
+	pub fn add(&mut self, serial_number: SerialNumber) -> DispatchResult {
+		self.owned_serials
+			.try_push(serial_number)
+			.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		self.owned_serials.sort();
+		Ok(())
+	}
+
+	/// Returns true if the serial number is containerd within owned_serials
+	pub fn contains_serial(&self, serial_number: &SerialNumber) -> bool {
+		self.owned_serials.contains(serial_number)
+	}
+}
 
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
@@ -87,7 +111,7 @@ pub struct CollectionInformation<T: Config> {
 	/// the total count of tokens in this collection
 	pub collection_issuance: TokenCount,
 	/// All serial numbers owned by an account in a collection
-	pub owned_tokens: OwnedTokens<T>,
+	pub owned_tokens: BoundedVec<TokenOwnership<T>, T::MaxTokensPerCollection>,
 }
 
 impl<T: Config> CollectionInformation<T> {
@@ -95,14 +119,14 @@ impl<T: Config> CollectionInformation<T> {
 	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {
 		self.owned_tokens
 			.iter()
-			.any(|(_, tokens)| tokens.clone().into_inner().contains(&serial_number))
+			.any(|token_ownership| token_ownership.contains_serial(&serial_number))
 	}
 
 	/// Check whether who owns the serial number in collection_info
 	pub fn is_token_owner(&self, who: &T::AccountId, serial_number: SerialNumber) -> bool {
-		self.owned_tokens.iter().any(|(account, tokens)| {
-			if account == who {
-				tokens.clone().into_inner().contains(&serial_number)
+		self.owned_tokens.iter().any(|token_ownership| {
+			if &token_ownership.owner == who {
+				token_ownership.contains_serial(&serial_number)
 			} else {
 				false
 			}
@@ -115,27 +139,25 @@ impl<T: Config> CollectionInformation<T> {
 		token_owner: &T::AccountId,
 		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
-		if self.owned_tokens.iter().any(|(owner, _)| owner == token_owner) {
-			for (owner, owned_serial_numbers) in self.owned_tokens.iter_mut() {
-				if owner != token_owner {
+		if self
+			.owned_tokens
+			.iter()
+			.any(|token_ownership| &token_ownership.owner == token_owner)
+		{
+			for token_ownership in self.owned_tokens.iter_mut() {
+				if &token_ownership.owner != token_owner {
 					continue
 				}
 				// Add new serial numbers to existing owner
 				for serial_number in serial_numbers.iter() {
-					owned_serial_numbers
-						.try_push(*serial_number)
-						.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-					owned_serial_numbers.sort();
+					token_ownership.add(*serial_number)?;
 				}
 			}
 		} else {
 			// If token owner doesn't exist, create new entry
+			let new_token_ownership = TokenOwnership::new(token_owner.clone(), serial_numbers);
 			self.owned_tokens
-				.try_push((
-					token_owner.clone(),
-					BoundedVec::try_from(serial_numbers.to_vec())
-						.map_err(|_| Error::<T>::TokenLimitExceeded)?,
-				))
+				.try_push(new_token_ownership)
 				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
 		}
 		Ok(())
@@ -148,16 +170,18 @@ impl<T: Config> CollectionInformation<T> {
 		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) {
 		let mut removing_all_tokens: bool = false;
-		for (owner, owned_serial_numbers) in self.owned_tokens.iter_mut() {
-			if owner != token_owner {
+		for token_ownership in self.owned_tokens.iter_mut() {
+			if &token_ownership.owner != token_owner {
 				continue
 			}
-			owned_serial_numbers.retain(|serial| !serial_numbers.contains(serial));
-			removing_all_tokens = owned_serial_numbers.is_empty();
+			token_ownership.owned_serials.retain(|serial| !serial_numbers.contains(serial));
+			removing_all_tokens = token_ownership.owned_serials.is_empty();
+			break
 		}
 		// Check whether the owner has any tokens left, if not remove them from the collection
 		if removing_all_tokens {
-			self.owned_tokens.retain(|(owner, _)| owner != token_owner);
+			self.owned_tokens
+				.retain(|token_ownership| &token_ownership.owner != token_owner);
 		}
 	}
 }
