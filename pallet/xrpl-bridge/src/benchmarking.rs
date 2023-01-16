@@ -1,7 +1,10 @@
 use super::*;
 
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
-use frame_support::assert_ok;
+use frame_support::{
+	assert_ok,
+	migration::{have_storage_value, put_storage_value},
+};
 use frame_system::RawOrigin;
 
 use crate::Pallet as XrplBridge;
@@ -139,6 +142,25 @@ benchmarks! {
 		let actual_param = DoorTicketSequenceParams::<T>::get();
 		assert_eq!(actual_param, expected_param);
 	}
+
+	on_runtime_upgrade {
+		put_storage_value(<Pallet<T>>::name().as_bytes(), b"DoorNonce", b"", 123);
+	}: {
+		Pallet::<T>::on_runtime_upgrade();
+	}
+	verify {
+		assert_eq!(have_storage_value(<Pallet<T>>::name().as_bytes(), b"DoorNonce", b""), false);
+	}
+
+	on_runtime_upgrade_no_change {
+		StorageVersion::new(1).put::<Pallet<T>>();
+		put_storage_value(<Pallet<T>>::name().as_bytes(), b"DoorNonce", b"", 123);
+	}: {
+		Pallet::<T>::on_runtime_upgrade();
+	}
+	verify {
+		assert_eq!(have_storage_value(<Pallet<T>>::name().as_bytes(), b"DoorNonce", b""), true);
+	}
 }
 
-impl_benchmark_test_suite!(XrplBridge, crate::mock::new_test_ext_benchmark(), crate::mock::Test,);
+impl_benchmark_test_suite!(XrplBridge, crate::mock::new_test_ext_benchmark(), crate::mock::Test);

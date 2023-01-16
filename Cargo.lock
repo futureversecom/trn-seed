@@ -5449,6 +5449,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
