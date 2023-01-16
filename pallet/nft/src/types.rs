@@ -36,6 +36,28 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 /// OfferId type used to distinguish different offers on NFTs
 pub type OfferId = u64;
 
+/// Holds information relating to NFT offers
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+pub struct SimpleOffer<AccountId> {
+	pub token_id: TokenId,
+	pub asset_id: AssetId,
+	pub amount: Balance,
+	pub buyer: AccountId,
+	pub marketplace_id: Option<MarketplaceId>,
+}
+
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+pub enum OfferType<AccountId> {
+	Simple(SimpleOffer<AccountId>),
+}
+
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+/// Describes the chain that the bridged resource originated from
+pub enum OriginChain {
+	Ethereum,
+	Root,
+}
+
 /// Struct that represents the owned serial numbers within a collection of an individual account
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -66,28 +88,6 @@ impl<T: Config> TokenOwnership<T> {
 	pub fn contains_serial(&self, serial_number: &SerialNumber) -> bool {
 		self.owned_serials.contains(serial_number)
 	}
-}
-
-/// Holds information relating to NFT offers
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-pub struct SimpleOffer<AccountId> {
-	pub token_id: TokenId,
-	pub asset_id: AssetId,
-	pub amount: Balance,
-	pub buyer: AccountId,
-	pub marketplace_id: Option<MarketplaceId>,
-}
-
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-pub enum OfferType<AccountId> {
-	Simple(SimpleOffer<AccountId>),
-}
-
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-/// Describes the chain that the bridged resource originated from
-pub enum OriginChain {
-	Ethereum,
-	Root,
 }
 
 /// Information related to a specific collection

@@ -258,7 +258,7 @@ impl<T: Config> Pallet<T> {
 			.iter()
 			.find(|token_ownership| &token_ownership.owner == who)
 		{
-			Some(ownership_map) => ownership_map.clone().owned_serials.into_inner(),
+			Some(token_ownership) => token_ownership.owned_serials.clone().into_inner(),
 			None => vec![],
 		};
 
@@ -614,9 +614,11 @@ impl<T: Config> GetTokenOwner for Pallet<T> {
 		let Some(collection_info) = Self::collection_info(token_id.0) else {
 			return None
 		};
-		match collection_info.owned_tokens.into_iter().find(|token_ownership| {
-			token_ownership.owned_serials.clone().into_inner().contains(&token_id.1)
-		}) {
+		match collection_info
+			.owned_tokens
+			.into_iter()
+			.find(|token_ownership| token_ownership.contains_serial(&token_id.1))
+		{
 			Some(token_ownership) => Some(token_ownership.owner),
 			None => None,
 		}
