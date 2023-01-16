@@ -522,6 +522,21 @@ impl<T: Config> Pallet<T> {
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 		}
 
+		// Now mint the collection tokens
+		let mut owned_tokens = BoundedVec::default();
+		if initial_issuance > Zero::zero() {
+			// mint initial tokens to token_owner or owner
+			let token_owner = token_owner.unwrap_or(owner.clone());
+			let serial_numbers_unbounded: Vec<SerialNumber> = (0..initial_issuance).collect();
+			let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+				BoundedVec::try_from(serial_numbers_unbounded)
+					.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+			// Create token_ownership object with token_owner and initial serial_numbers
+			let token_ownership = TokenOwnership::new(token_owner, serial_numbers);
+			owned_tokens = BoundedVec::try_from(vec![token_ownership])
+				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		}
+
 		let collection_info = CollectionInformation {
 			owner: owner.clone(),
 			name: name.clone(),
@@ -530,24 +545,10 @@ impl<T: Config> Pallet<T> {
 			max_issuance,
 			origin_chain: origin_chain.clone(),
 			next_serial_number: initial_issuance,
-			collection_issuance: 0,
-			owned_tokens: BoundedVec::default(),
+			collection_issuance: initial_issuance,
+			owned_tokens,
 		};
-
-		// Now mint the collection tokens
-		if initial_issuance > Zero::zero() {
-			let token_owner = token_owner.unwrap_or(owner.clone());
-			let serial_numbers_unbounded: Vec<SerialNumber> = (0..initial_issuance).collect();
-			let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
-				BoundedVec::try_from(serial_numbers_unbounded)
-					.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-			// CollectionInfo gets inserted inside this mint function
-			Self::do_mint(collection_uuid, collection_info, &token_owner, serial_numbers)?;
-		} else {
-			// initial_issuance is 0 so we don't need to mint. However we need to still add
-			// collectionInfo to storage
-			<CollectionInfo<T>>::insert(collection_uuid, collection_info);
-		}
+		<CollectionInfo<T>>::insert(collection_uuid, collection_info);
 
 		// will not overflow, asserted prior qed.
 		<NextCollectionId<T>>::mutate(|i| *i += u32::one());

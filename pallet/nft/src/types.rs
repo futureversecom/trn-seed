@@ -72,7 +72,9 @@ impl<T: Config> TokenOwnership<T> {
 		owner: T::AccountId,
 		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> Self {
-		Self { owner, owned_serials: serial_numbers }
+		let mut owned_serials = serial_numbers.clone();
+		owned_serials.sort();
+		Self { owner, owned_serials }
 	}
 
 	/// Adds a serial to owned_serials and sorts the vec
