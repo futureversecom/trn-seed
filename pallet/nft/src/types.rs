@@ -392,7 +392,7 @@ pub enum Listing<T: Config> {
 pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
 	pub payment_asset: AssetId,
-	/// The threshold amount for a succesful bid
+	/// The threshold amount for a successful bid
 	pub reserve_price: Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,

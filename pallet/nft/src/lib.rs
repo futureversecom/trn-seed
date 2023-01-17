@@ -29,7 +29,7 @@
 //! number)
 
 use frame_support::{ensure, traits::Get, transactional, PalletId};
-use seed_pallet_common::{log, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
+use seed_pallet_common::{Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
 use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -376,6 +376,12 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Perform runtime upgrade
+		fn on_runtime_upgrade() -> Weight {
+			// use migration::MigrateToV1;
+			// <MigrateToV1<T> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade()
+			migration::try_migrate::<T>()
+		}
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
