@@ -2014,6 +2014,7 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27
 dependencies = [
  "evm",
  "frame-support",
+ "log",
  "parity-scale-codec",
  "serde",
  "sp-core",
