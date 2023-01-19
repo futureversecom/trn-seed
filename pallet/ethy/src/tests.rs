@@ -51,7 +51,8 @@ use crate::{
 		TransactionReceipt,
 	},
 	BridgePaused, Config, Error, EthCallRequestInfo, Event, EventClaimStatus, Module,
-	ETHY_ENGINE_ID, SUBMIT_BRIDGE_EVENT_SELECTOR,
+	NextNotaryKeys, NotaryKeys, NotaryXrplKeys, XrplDoorSigners, ETHY_ENGINE_ID,
+	SUBMIT_BRIDGE_EVENT_SELECTOR,
 };
 
 /// Mocks an Eth block for when get_block_by_number is called
@@ -877,7 +878,7 @@ fn pre_last_session_change() {
 		let event_proof_id = EthBridge::next_event_proof_id();
 		let next_validator_set_id = EthBridge::notary_set_id() + 1;
 		// Manually insert next keys
-		crate::NextNotaryKeys::<TestRuntime>::put(next_keys.clone());
+		NextNotaryKeys::<TestRuntime>::put(next_keys.clone());
 
 		// Manually call handle_authorities_change to simulate 5 minutes before the next epoch
 		EthBridge::handle_authorities_change();
@@ -1231,7 +1232,7 @@ fn last_session_change() {
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 		];
-		crate::NotaryKeys::<TestRuntime>::put(&current_keys);
+		NotaryKeys::<TestRuntime>::put(&current_keys);
 		assert_eq!(
 			EthBridge::validator_set(),
 			ValidatorSet {
@@ -1248,7 +1249,7 @@ fn last_session_change() {
 			AuthorityId::from_slice(&[6_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[7_u8; 33]).unwrap(),
 		];
-		crate::NextNotaryKeys::<TestRuntime>::put(&next_keys);
+		NextNotaryKeys::<TestRuntime>::put(&next_keys);
 
 		// current session is last in era: starting
 		EthBridge::handle_authorities_change();
@@ -2249,5 +2250,191 @@ fn genesis_xrp_door_signers_works() {
 			EthBridge::xrpl_door_signers(AuthorityId::from_slice(&[2_u8; 33]).unwrap()),
 			false
 		);
+	});
+}
+
+#[test]
+fn notary_xrpl_keys_unchanged_do_not_request_for_xrpl_proof() {
+	ExtBuilder::default().active_session_final().build().execute_with(|| {
+		let current_set_id = EthBridge::notary_set_id();
+
+		// setup storage
+		let current_keys = vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+		];
+		NotaryKeys::<TestRuntime>::put(&current_keys);
+		NotaryXrplKeys::<TestRuntime>::put(&current_keys);
+		for door_signer in current_keys.iter() {
+			XrplDoorSigners::<TestRuntime>::insert(door_signer, true);
+		}
+
+		assert_eq!(
+			EthBridge::validator_set(),
+			ValidatorSet {
+				validators: current_keys.clone(),
+				id: current_set_id,
+				proof_threshold: 2 // ceil(2 * 0.66)
+			}
+		);
+		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
+
+		let next_keys = current_keys.clone();
+		NextNotaryKeys::<TestRuntime>::put(&next_keys);
+
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
+		let eth_proof_id = EthBridge::next_event_proof_id();
+		// current session is last in era: starting
+		EthBridge::handle_authorities_change();
+		assert!(EthBridge::bridge_paused());
+		assert_eq!(EthBridge::notary_set_proof_id(), eth_proof_id);
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
+
+		// current session is last in era: finishing
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(EthBridge::notary_keys(), next_keys);
+		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
+		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
+
+		assert_eq!(
+			EthBridge::validator_set(),
+			ValidatorSet {
+				validators: current_keys.clone(),
+				id: current_set_id + 1,
+				proof_threshold: 2 // ceil(2 * 0.66)
+			}
+		);
+		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
+		assert!(!EthBridge::bridge_paused());
+	});
+}
+
+#[test]
+fn notary_xrpl_keys_same_set_shuffled_do_not_request_for_xrpl_proof() {
+	ExtBuilder::default().active_session_final().build().execute_with(|| {
+		let current_set_id = EthBridge::notary_set_id();
+
+		// setup storage
+		let current_keys = vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+		];
+		NotaryKeys::<TestRuntime>::put(&current_keys);
+		NotaryXrplKeys::<TestRuntime>::put(&current_keys);
+		for door_signer in current_keys.iter() {
+			XrplDoorSigners::<TestRuntime>::insert(door_signer, true);
+		}
+
+		assert_eq!(
+			EthBridge::validator_set(),
+			ValidatorSet {
+				validators: current_keys.clone(),
+				id: current_set_id,
+				proof_threshold: 2 // ceil(2 * 0.66)
+			}
+		);
+		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
+
+		let next_keys = vec![
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+		];
+		NextNotaryKeys::<TestRuntime>::put(&next_keys);
+
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
+		let eth_proof_id = EthBridge::next_event_proof_id();
+		// current session is last in era: starting
+		EthBridge::handle_authorities_change();
+		assert!(EthBridge::bridge_paused());
+		assert_eq!(EthBridge::notary_set_proof_id(), eth_proof_id);
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
+
+		// current session is last in era: finishing
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(EthBridge::notary_keys(), next_keys);
+		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
+		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
+
+		assert_eq!(
+			EthBridge::validator_set(),
+			ValidatorSet {
+				validators: next_keys.clone(),
+				id: current_set_id + 1,
+				proof_threshold: 2 // ceil(2 * 0.66)
+			}
+		);
+		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys.clone());
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0); // No change to XrplNotarySetProofId since no change to NotaryXrplKeys
+		assert!(!EthBridge::bridge_paused());
+	});
+}
+
+#[test]
+fn notary_xrpl_keys_changed_request_for_xrpl_proof() {
+	ExtBuilder::default().active_session_final().build().execute_with(|| {
+		let current_set_id = EthBridge::notary_set_id();
+
+		// setup storage
+		let current_keys = vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+		];
+		NotaryKeys::<TestRuntime>::put(&current_keys);
+		NotaryXrplKeys::<TestRuntime>::put(&current_keys);
+		for door_signer in current_keys.iter() {
+			XrplDoorSigners::<TestRuntime>::insert(door_signer, true);
+		}
+
+		assert_eq!(
+			EthBridge::validator_set(),
+			ValidatorSet {
+				validators: current_keys.clone(),
+				id: current_set_id,
+				proof_threshold: 2 // ceil(2 * 0.66)
+			}
+		);
+		assert_eq!(EthBridge::notary_xrpl_keys(), current_keys.clone());
+
+		let next_keys = vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+		];
+		NextNotaryKeys::<TestRuntime>::put(&next_keys);
+		for door_signer in next_keys.iter() {
+			XrplDoorSigners::<TestRuntime>::insert(door_signer, true);
+		}
+
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
+		let eth_proof_id = EthBridge::next_event_proof_id();
+		// current session is last in era: starting
+		EthBridge::handle_authorities_change();
+		assert!(EthBridge::bridge_paused());
+		assert_eq!(EthBridge::notary_set_proof_id(), eth_proof_id);
+		// Requested for xrpl proof since NotaryXrplKeys changed, XrplNotarySetProofId is
+		// (eth_proof_id + 1)
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
+
+		// current session is last in era: finishing
+		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
+		assert_eq!(EthBridge::notary_keys(), next_keys);
+		assert_eq!(EthBridge::notary_set_id(), current_set_id + 1);
+		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys);
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
+
+		assert_eq!(
+			EthBridge::validator_set(),
+			ValidatorSet {
+				validators: next_keys.clone(),
+				id: current_set_id + 1,
+				proof_threshold: 2 // ceil(2 * 0.66)
+			}
+		);
+		assert_eq!(EthBridge::notary_xrpl_keys(), next_keys.clone());
+		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), eth_proof_id + 1);
+		assert!(!EthBridge::bridge_paused());
 	});
 }

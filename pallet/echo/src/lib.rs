@@ -20,10 +20,15 @@ use seed_primitives::{ethy::EventProofId, AccountId};
 use sp_core::H160;
 use sp_std::prelude::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod test;
+mod weights;
+
+pub use weights::WeightInfo;
 
 // Value used to show that the origin of the ping is from this pallet
 pub const PING: u8 = 0;
@@ -48,6 +53,9 @@ pub mod pallet {
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+
+		/// Interface to access weight values
+		type WeightInfo: WeightInfo;
 	}
 
 	/// The next available offer_id
@@ -81,7 +89,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Ping extrinsic sends an event to the bridge containing a message
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::ping())]
 		pub fn ping(origin: OriginFor<T>, destination: H160) -> DispatchResult {
 			let source: H160 = ensure_signed(origin)?.into();
 

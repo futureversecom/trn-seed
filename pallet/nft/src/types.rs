@@ -209,7 +209,7 @@ pub enum TokenLockReason {
 
 /// The max. number of entitlements any royalties schedule can have
 /// just a sensible upper bound
-pub(crate) const MAX_ENTITLEMENTS: usize = 8;
+pub const MAX_ENTITLEMENTS: usize = 8;
 
 /// Reasons for an auction closure
 #[derive(Decode, Encode, Debug, Clone, PartialEq, Eq, TypeInfo)]

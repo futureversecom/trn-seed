@@ -94,7 +94,7 @@ use constants::{
 pub mod impls;
 use impls::{
 	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
-	PercentageOfWeight, SlashImbalanceHandler, StakingSessionTracker,
+	SlashImbalanceHandler, StakingSessionTracker,
 };
 use pallet_fee_proxy::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
 
@@ -125,7 +125,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 25,
+	spec_version: 26,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -195,10 +195,9 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 	fn contains(call: &Call) -> bool {
 		match call {
 			// Prevent asset `create` transactions from executing
-			Call::Assets(func) => match func {
-				pallet_assets::Call::create { .. } => false,
-				_ => true,
-			},
+			Call::Assets(pallet_assets::Call::create { .. }) => false,
+			// Disable XRPLBridge `submit_challenge` call
+			Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
 			_ => true,
 		}
 	}
@@ -269,13 +268,12 @@ impl frame_system::Config for Runtime {
 parameter_types! {
 	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
-	pub const WeightToFeeReduction: Permill = Permill::from_parts(125);
 }
 
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
-	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
+	type WeightToFee = FeeControl;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Runtime>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
@@ -367,6 +365,7 @@ impl pallet_echo::Config for Runtime {
 	type Event = Event;
 	type EthereumBridge = EthBridge;
 	type PalletId = EchoPalletId;
+	type WeightInfo = weights::pallet_echo::WeightInfo<Runtime>;
 }
 
 impl pallet_fee_proxy::Config for Runtime {
@@ -416,7 +415,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type EthyAdapter = EthBridge;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
@@ -842,7 +841,7 @@ impl frame_system::offchain::SigningTypes for Runtime {
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
 /// Given the 500ms Weight, from which 75% only are used for transactions,
 /// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
-pub const GAS_PER_SECOND: u64 = 15_000_000;
+pub const GAS_PER_SECOND: u64 = 40_000_000;
 
 /// Approximate ratio of the amount of Weight per Gas.
 /// u64 works for approximations because Weight is a very small unit compared to gas.
@@ -857,34 +856,6 @@ impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
 	fn weight_to_gas(weight: Weight) -> u64 {
 		u64::try_from(weight.wrapping_div(WEIGHT_PER_GAS)).unwrap_or(u32::MAX as u64)
 	}
-}
-
-/// This is unused while Futureverse fullness is inconsistent
-pub struct BaseFeeThreshold;
-impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
-	fn lower() -> Permill {
-		Permill::zero()
-	}
-	fn ideal() -> Permill {
-		// blocks > 5% full trigger fee increase, < 5% full trigger fee decrease
-		Permill::from_parts(50_000)
-	}
-	fn upper() -> Permill {
-		Permill::one()
-	}
-}
-
-parameter_types! {
-	/// Floor network base fee per gas
-	/// 0.000015 XRP per gas, 15000 GWEI
-	pub const DefaultBaseFeePerGas: u64 = 15_000_000_000_000;
-}
-
-impl pallet_base_fee::Config for Runtime {
-	type DefaultBaseFeePerGas = DefaultBaseFeePerGas;
-	type Event = Event;
-	type Threshold = BaseFeeThreshold;
-	type DefaultElasticity = ();
 }
 
 parameter_types! {
@@ -906,7 +877,7 @@ const fn seed_london() -> EvmConfig {
 pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 impl pallet_evm::Config for Runtime {
-	type FeeCalculator = BaseFee;
+	type FeeCalculator = FeeControl;
 	type GasWeightMapping = FutureverseGasWeightMapping;
 	type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
 	type CallOrigin = FutureverseEnsureAddressSame<AccountId>;
@@ -972,6 +943,7 @@ impl pallet_erc20_peg::Config for Runtime {
 	type PegPalletId = PegPalletId;
 	/// The overarching event type.
 	type Event = Event;
+	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -988,6 +960,21 @@ impl pallet_nft_peg::Config for Runtime {
 	type MaxAddresses = MaxAddresses;
 	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
 	type EthBridge = EthBridge;
+	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	/// Floor network base fee per gas
+	/// 0.000015 XRP per gas, 15000 GWEI
+	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
+	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
+}
+
+impl pallet_fee_control::Config for Runtime {
+	type Event = Event;
+	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
+	type WeightToFeeReduction = WeightToFeeReduction;
+	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
 }
 
 construct_runtime! {
@@ -1035,11 +1022,11 @@ construct_runtime! {
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
-		BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 28,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
+		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
 	}
 }
 
@@ -1278,7 +1265,7 @@ impl_runtime_apis! {
 		}
 
 		fn gas_price() -> U256 {
-			BaseFee::min_gas_price().0
+			FeeControl::min_gas_price().0
 		}
 
 		fn account_code_at(address: H160) -> Vec<u8> {
@@ -1400,7 +1387,8 @@ impl_runtime_apis! {
 		}
 
 		fn elasticity() -> Option<Permill> {
-			Some(BaseFee::elasticity())
+			// We currently do not use or set elasticity; always return zero
+			Some(Permill::zero())
 		}
 	}
 
@@ -1706,6 +1694,11 @@ mod benches {
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		// Local
 		[pallet_nft, Nft]
+		[pallet_fee_control, FeeControl]
+		[pallet_nft_peg, NftPeg]
+		[pallet_xrpl_bridge, XRPLBridge]
+		[pallet_erc20_peg, Erc20Peg]
+		[pallet_echo, Echo]
 		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);

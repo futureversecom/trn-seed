@@ -1,7 +1,7 @@
 use codec::Encode;
 use ethabi::Token;
 use frame_support::{
-	log::warn,
+	log::{info, warn},
 	pallet_prelude::*,
 	traits::{OneSessionHandler, UnixTime, ValidatorSet as ValidatorSetT},
 };
@@ -720,34 +720,43 @@ impl<T: Config> Module<T> {
 
 		// request for proof xrpl - SignerListSet
 		debug!(target: "ethy-pallet", "💎 next keys: {:?}", next_keys);
-		let signer_entries = Self::get_xrpl_notary_keys(next_keys)
-			.into_iter()
-			.map(|k| EthyEcdsaToXRPLAccountId::convert(k.as_ref()))
-			// TODO(surangap): Add a proper way to store XRPL weights if we intend to allow having
-			// different weights
-			.map(|entry| (entry.into(), 1_u16))
-			.collect::<Vec<_>>();
+		let mut next_notary_xrpl_keys = Self::get_xrpl_notary_keys(next_keys);
+		let mut notary_xrpl_keys = NotaryXrplKeys::<T>::get();
+		// sort to avoid same key set shuffles.
+		next_notary_xrpl_keys.sort();
+		notary_xrpl_keys.sort();
+		if notary_xrpl_keys != next_notary_xrpl_keys {
+			let signer_entries = next_notary_xrpl_keys
+				.into_iter()
+				.map(|k| EthyEcdsaToXRPLAccountId::convert(k.as_ref()))
+				// TODO(surangap): Add a proper way to store XRPL weights if we intend to allow
+				// having different weights
+				.map(|entry| (entry.into(), 1_u16))
+				.collect::<Vec<_>>();
 
-		debug!(target: "ethy-pallet", "💎 xrpl new signer entries: {:?}", signer_entries);
-		match T::XrplBridgeAdapter::submit_signer_list_set_request(signer_entries) {
-			Ok(event_proof_id) => {
-				// Signal the Event Id that will be used for the proof of xrpl notary set change.
-				// Any observer can subscribe to this event and submit the resulting proof to keep
-				// the authority set of the xrpl door address updated.
-				Self::deposit_event(Event::<T>::XrplAuthoritySetChange(
-					event_proof_id,
-					next_validator_set_id,
-				));
-				XrplNotarySetProofId::put(event_proof_id);
-			},
-			Err(e) => {
-				warn!(target: "ethy-pallet", "💎 Failed to send xrpl signer list set request {:?}", e);
-				Self::deposit_event(Event::<T>::XrplAuthoritySetChangeRequestFailed);
-			},
-		};
-		// Pause the bridge
-		BridgePaused::put(true);
-		<NextAuthorityChange<T>>::kill();
+			debug!(target: "ethy-pallet", "💎 xrpl new signer entries: {:?}", signer_entries);
+			match T::XrplBridgeAdapter::submit_signer_list_set_request(signer_entries) {
+				Ok(event_proof_id) => {
+					// Signal the Event Id that will be used for the proof of xrpl notary set change.
+					// Any observer can subscribe to this event and submit the resulting proof to keep
+					// the authority set of the xrpl door address updated.
+					Self::deposit_event(Event::<T>::XrplAuthoritySetChange(
+						event_proof_id,
+						next_validator_set_id,
+					));
+					XrplNotarySetProofId::put(event_proof_id);
+				},
+				Err(e) => {
+					warn!(target: "ethy-pallet", "💎 Failed to send xrpl signer list set request {:?}", e);
+					Self::deposit_event(Event::<T>::XrplAuthoritySetChangeRequestFailed);
+				},
+			};
+			// Pause the bridge
+			BridgePaused::put(true);
+			<NextAuthorityChange<T>>::kill();
+		} else {
+			info!(target: "ethy-pallet", "💎 notary xrpl keys unchanged {:?}", next_notary_xrpl_keys);
+		}
 	}
 
 	/// Finalize authority changes, set new notary keys, unpause bridge and increase set id
