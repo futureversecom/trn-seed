@@ -726,9 +726,12 @@ impl<T: Config> Module<T> {
 		next_notary_xrpl_keys.sort();
 		notary_xrpl_keys.sort();
 
-		// if the xrpl notaries are the same, do not request for proof
+		// if the xrpl notaries are the same, do not request for xrpl proof
 		if notary_xrpl_keys == next_notary_xrpl_keys {
 			info!(target: "ethy-pallet", "💎 notary xrpl keys unchanged {:?}", next_notary_xrpl_keys);
+			// Pause the bridge
+			BridgePaused::put(true);
+			<NextAuthorityChange<T>>::kill();
 			return
 		}
 
@@ -757,6 +760,7 @@ impl<T: Config> Module<T> {
 				Self::deposit_event(Event::<T>::XrplAuthoritySetChangeRequestFailed);
 			},
 		};
+
 		// Pause the bridge
 		BridgePaused::put(true);
 		<NextAuthorityChange<T>>::kill();

@@ -1074,6 +1074,7 @@ fn on_before_session_ending_handles_authorities() {
 		Scheduler::on_initialize(scheduled_block.into());
 
 		// scheduled do_finalise_authorities_change() will add notification log to the header
+		assert_eq!(System::digest().logs.len(), 2_usize); // spk - check the test flow again
 		assert_eq!(
 			System::digest().logs[1],
 			DigestItem::Consensus(
