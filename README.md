@@ -42,4 +42,4 @@ yarn test
 make fmt
 ```
 ## Benchmarks
-TODO!
+See the [wiki](https://github.com/futureversecom/seed/wiki/How-to-benchmark)

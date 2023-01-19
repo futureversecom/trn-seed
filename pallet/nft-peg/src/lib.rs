@@ -25,12 +25,17 @@ use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec, vec::Vec};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
 mod tests;
 mod types;
+mod weights;
+
 pub use types::*;
+pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -38,6 +43,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, transactional};
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use seed_primitives::EthAddress;
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
@@ -51,6 +57,9 @@ pub mod pallet {
 		type MaxAddresses: Get<u32>;
 		type MaxTokensPerMint: Get<u32>;
 		type EthBridge: EthereumBridge;
+
+		// Defines the weight info trait.
+		type NftPegWeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -113,7 +122,7 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
-		#[pallet::weight(T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::NftPegWeightInfo::set_contract_address())]
 		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(contract);
@@ -121,7 +130,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		#[pallet::weight(10000)]
+		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
 		#[transactional]
 		pub fn withdraw(
 			origin: OriginFor<T>,
