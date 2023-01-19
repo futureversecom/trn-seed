@@ -5,14 +5,13 @@ use crate::{
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
 	pallet_prelude::*,
-	traits::tokens::fungibles::{Inspect, Transfer},
+	traits::fungibles::{Inspect, InspectMetadata, Transfer},
 	PalletId,
 };
 use seed_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
 use seed_primitives::Balance;
 use sp_core::H160;
 use sp_runtime::traits::{AccountIdConversion, Zero};
-
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");
 
 #[test]
@@ -931,7 +930,7 @@ fn create() {
 		let parachain_id: u32 = <Test as Config>::ParachainId::get().into();
 
 		// create token & verify asset_uuid increment
-		let usdc = <AssetsExt as CreateExt>::create(&ALICE).unwrap();
+		let usdc = <AssetsExt as CreateExt>::create(&ALICE, None).unwrap();
 		assert_eq!(usdc, 1 << 10 | parachain_id);
 		assert_eq!(AssetsExt::minimum_balance(usdc), 1);
 		assert_eq!(AssetsExt::total_issuance(usdc), 0);
@@ -940,12 +939,105 @@ fn create() {
 		));
 
 		// create token & verify asset_uuid increment
-		let weth = <AssetsExt as CreateExt>::create(&ALICE).unwrap();
+		let weth = <AssetsExt as CreateExt>::create(&ALICE, None).unwrap();
 		assert_eq!(weth, 2 << 10 | parachain_id);
 		assert_eq!(AssetsExt::minimum_balance(weth), 1);
 		assert_eq!(AssetsExt::total_issuance(weth), 0);
 		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
 			&H160::from_low_u64_be(weth as u64).into()
 		));
+	});
+}
+
+#[test]
+fn create_asset() {
+	pub const ALICE: MockAccountId = 1;
+	pub const BOB: MockAccountId = 2;
+	let initial_balance = 1_000_000;
+	test_ext()
+		.with_balances(&[(ALICE, initial_balance), (BOB, initial_balance)])
+		.build()
+		.execute_with(|| {
+			// create usdc token and verify metadata
+			let name: Vec<u8> = b"USD-Coin".to_vec();
+			let symbol: Vec<u8> = b"USDC".to_vec();
+			let decimals: u8 = 6;
+			let usdc = AssetsExt::next_asset_uuid().unwrap();
+			let min_balance: Balance = 5;
+			assert_ok!(AssetsExt::create_asset(
+				Some(ALICE).into(),
+				name.clone(),
+				symbol.clone(),
+				decimals,
+				Some(min_balance),
+				None
+			));
+			assert_eq!(AssetsExt::minimum_balance(usdc), min_balance);
+			assert_eq!(AssetsExt::total_issuance(usdc), 0);
+			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::name(&usdc), name);
+			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::symbol(&usdc), symbol);
+			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::decimals(&usdc), decimals);
+
+			// create Weth token and verify metadata
+			let name: Vec<u8> = b"Wrapd-Eth".to_vec();
+			let symbol: Vec<u8> = b"WETH".to_vec();
+			let decimals: u8 = 18;
+			let weth = AssetsExt::next_asset_uuid().unwrap();
+			assert_ok!(AssetsExt::create_asset(
+				Some(BOB).into(),
+				name.clone(),
+				symbol.clone(),
+				decimals,
+				None,
+				None
+			));
+			assert_eq!(AssetsExt::minimum_balance(weth), 1); // Defaults to 1 if None is set
+			assert_eq!(AssetsExt::total_issuance(weth), 0);
+			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::name(&weth), name);
+			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::symbol(&weth), symbol);
+			assert_eq!(<AssetsExt as InspectMetadata<MockAccountId>>::decimals(&weth), decimals);
+		});
+}
+
+#[test]
+fn create_asset_fails() {
+	pub const ALICE: MockAccountId = 1;
+	pub const BOB: MockAccountId = 2;
+	let initial_balance = 5_000_000;
+
+	test_ext().with_balances(&[(ALICE, initial_balance)]).build().execute_with(|| {
+		// Create asset insufficient balance should fail
+		assert_noop!(
+			AssetsExt::create_asset(
+				Some(BOB).into(),
+				b"USD-Coin".to_vec(),
+				b"USDC".to_vec(),
+				6,
+				None,
+				None
+			),
+			pallet_balances::Error::<Test>::InsufficientBalance
+		);
+
+		// Create asset insufficient name should fail
+		let name: Vec<u8> = b"01234567891".to_vec();
+		assert_noop!(
+			AssetsExt::create_asset(Some(ALICE).into(), name, b"USDC".to_vec(), 6, None, None),
+			pallet_assets::Error::<Test>::BadMetadata
+		);
+
+		// Create asset insufficient symbol should fail
+		let symbol: Vec<u8> = b"01234567891".to_vec();
+		assert_noop!(
+			AssetsExt::create_asset(
+				Some(ALICE).into(),
+				b"USD-Coin".to_vec(),
+				symbol,
+				6,
+				None,
+				None
+			),
+			pallet_assets::Error::<Test>::BadMetadata
+		);
 	});
 }

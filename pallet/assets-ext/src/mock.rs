@@ -33,7 +33,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
+		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Event<T>},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 	}
@@ -75,7 +75,7 @@ parameter_types! {
 	pub const AssetDeposit: Balance = 1_000_000;
 	pub const AssetAccountDeposit: Balance = 16;
 	pub const ApprovalDeposit: Balance = 1;
-	pub const AssetsStringLimit: u32 = 50;
+	pub const AssetsStringLimit: u32 = 10;
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
 }

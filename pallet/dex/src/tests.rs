@@ -22,8 +22,8 @@ fn disable_trading_pair() {
 		System::set_block_number(1);
 
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE).unwrap();
-		let weth = AssetsExt::create(&ALICE).unwrap();
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let weth = AssetsExt::create(&ALICE, None).unwrap();
 
 		// normal user can not disable trading_pair
 		assert_noop!(Dex::disable_trading_pair(Origin::signed(ALICE), usdc, weth), BadOrigin);
@@ -65,8 +65,8 @@ fn reenable_trading_pair() {
 		System::set_block_number(1);
 
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE).unwrap();
-		let weth = AssetsExt::create(&ALICE).unwrap();
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let weth = AssetsExt::create(&ALICE, None).unwrap();
 
 		// normal user can not enable trading_pair
 		assert_noop!(Dex::reenable_trading_pair(Origin::signed(ALICE), usdc, weth), BadOrigin);
@@ -151,8 +151,8 @@ fn add_liquidity() {
 		System::set_block_number(1);
 
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE).unwrap();
-		let weth = AssetsExt::create(&BOB).unwrap();
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let weth = AssetsExt::create(&BOB, None).unwrap();
 
 		// mint tokens to user
 		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(1)));
@@ -288,8 +288,8 @@ fn add_liquidity_issue_15() {
 		System::set_block_number(1);
 
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE.clone()).unwrap();
-		let weth = AssetsExt::create(&BOB.clone()).unwrap();
+		let usdc = AssetsExt::create(&ALICE.clone(), None).unwrap();
+		let weth = AssetsExt::create(&BOB.clone(), None).unwrap();
 
 		// mint tokens to user
 		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(10)));
@@ -330,8 +330,8 @@ fn remove_liquidity_simple() {
 		System::set_block_number(1);
 
 		// create 2 tokens (by different users)
-		let usdc = AssetsExt::create(&ALICE).unwrap();
-		let weth = AssetsExt::create(&BOB).unwrap();
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let weth = AssetsExt::create(&BOB, None).unwrap();
 
 		// add liquidity as user
 		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(2)));
@@ -385,8 +385,8 @@ fn remove_liquidity_full() {
 		System::set_block_number(1);
 
 		// create 2 tokens (by different users)
-		let usdc = AssetsExt::create(&ALICE).unwrap();
-		let weth = AssetsExt::create(&BOB).unwrap();
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let weth = AssetsExt::create(&BOB, None).unwrap();
 
 		// fails if no LP tokens withdrawn
 		assert_eq!(
@@ -401,7 +401,7 @@ fn remove_liquidity_full() {
 		);
 
 		// maually create and enable LP token
-		let lp_token_id = AssetsExt::create(&ALICE).unwrap();
+		let lp_token_id = AssetsExt::create(&ALICE, None).unwrap();
 		TradingPairLPToken::<Test>::insert(TradingPair::new(usdc, weth), Some(lp_token_id));
 		TradingPairStatuses::<Test>::insert(
 			TradingPair::new(usdc, weth),
@@ -522,8 +522,8 @@ fn swap_with_exact_supply() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let weth = AssetsExt::create(&ALICE).unwrap();
-		let usdc = AssetsExt::create(&ALICE).unwrap();
+		let weth = AssetsExt::create(&ALICE, None).unwrap();
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
 
 		// mint tokens to user
 		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
@@ -634,8 +634,8 @@ fn swap_with_exact_target() {
 		System::set_block_number(1);
 
 		// create tokens (by different users)
-		let usdc = AssetsExt::create(&ALICE).unwrap();
-		let weth = AssetsExt::create(&ALICE).unwrap();
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let weth = AssetsExt::create(&ALICE, None).unwrap();
 
 		// mint tokens to user
 		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
@@ -761,8 +761,8 @@ fn multiple_swaps_with_multiple_lp() {
 		pub const ELLIOT: MockAccountId = 5;
 
 		// create tokens
-		let usdc = AssetsExt::create(&ALICE).unwrap();
-		let weth = AssetsExt::create(&ALICE).unwrap();
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let weth = AssetsExt::create(&ALICE, None).unwrap();
 
 		// mint 100 tokens to alice
 		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
@@ -938,8 +938,8 @@ macro_rules! swap_with_exact_supply_multi {
 				let (lp_amount_token_1, lp_amount_token_2) = $liquidity;
 
 				// create tokens
-				let token_0 = AssetsExt::create(&ALICE).unwrap();
-				let token_1 = AssetsExt::create(&ALICE).unwrap();
+				let token_0 = AssetsExt::create(&ALICE, None).unwrap();
+				let token_1 = AssetsExt::create(&ALICE, None).unwrap();
 
 				// mint input tokens to alice for LP
 				assert_ok!(AssetsExt::mint_into(token_0, &ALICE, lp_amount_token_1));
@@ -1045,8 +1045,8 @@ macro_rules! swap_with_exact_target_multi {
 				let (lp_amount_token_1, lp_amount_token_2) = $liquidity;
 
 				// create tokens
-				let token_0 = AssetsExt::create(&ALICE).unwrap();
-				let token_1 = AssetsExt::create(&ALICE).unwrap();
+				let token_0 = AssetsExt::create(&ALICE, None).unwrap();
+				let token_1 = AssetsExt::create(&ALICE, None).unwrap();
 
 				// mint input tokens to alice for LP
 				assert_ok!(AssetsExt::mint_into(token_0, &ALICE, lp_amount_token_1));

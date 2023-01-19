@@ -100,7 +100,10 @@ pub trait CreateExt {
 	type AccountId;
 
 	/// Create a new asset and return created asset ID.
-	fn create(owner: &Self::AccountId) -> Result<AssetId, DispatchError>;
+	fn create(
+		owner: &Self::AccountId,
+		min_balance: Option<Balance>,
+	) -> Result<AssetId, DispatchError>;
 
 	/// Create a new asset with metadata and return created asset ID.
 	fn create_with_metadata(
@@ -108,6 +111,7 @@ pub trait CreateExt {
 		name: Vec<u8>,
 		symbol: Vec<u8>,
 		decimals: u8,
+		min_balance: Option<Balance>,
 	) -> Result<AssetId, DispatchError>;
 }
 

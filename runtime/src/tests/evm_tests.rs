@@ -146,7 +146,14 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		let payment_asset = AssetsExt::next_asset_uuid().unwrap();
 
 		// Lets create an asset
-		assert_ok!(AssetsExt::create_asset(RawOrigin::Signed(alice()).into()));
+		assert_ok!(AssetsExt::create_asset(
+			RawOrigin::Signed(alice()).into(),
+			b"Test".to_vec(),
+			b"Test".to_vec(),
+			6,
+			None,
+			None
+		));
 
 		// Check Bob's initial balance is 0
 		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), 0);
