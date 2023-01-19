@@ -76,12 +76,8 @@ pub mod v1_storage {
 }
 
 use super::*;
-use crate::{
-	mock::{AccountId, Test, TestExt},
-	tests::create_owned_tokens,
-};
 use frame_support::{
-	traits::StorageVersion,
+	traits::{GetStorageVersion, StorageVersion},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	IterableStorageDoubleMap, IterableStorageMap, StorageMap,
 };
@@ -101,7 +97,11 @@ use sp_runtime::BoundedVec;
 ///
 /// Also removes custom StorageVersion and replaces it with the FrameV2 way of tracking version
 pub fn try_migrate<T: Config>() -> Weight {
-	if StorageVersion::get::<Pallet<T>>() == 0 {
+	let current = Pallet::<T>::current_storage_version();
+	let onchain = Pallet::<T>::on_chain_storage_version();
+	log::info!("Running migration with current storage version {current:?} / onchain {onchain:?}");
+
+	if onchain == 0 {
 		StorageVersion::new(1).put::<Pallet<T>>();
 
 		let mut weight = 0;
@@ -143,11 +143,10 @@ pub fn try_migrate<T: Config>() -> Weight {
 			<crate::CollectionInfo<T>>::insert(collection_id, collection_info_migrated);
 		}
 		log!(warn, "🃏 NFT collection info migrated");
-		weight += 6_000_000 as Weight +
-			DbWeight::get().reads_writes(
-				old_collection_info.len() as Weight + 1,
-				old_collection_info.len() as Weight + 1,
-			);
+		weight += DbWeight::get().reads_writes(
+			old_collection_info.len() as Weight + 1,
+			old_collection_info.len() as Weight + 1,
+		);
 
 		// Migrate TokenOffers
 		let old_token_offers: Vec<(TokenId, Vec<OfferId>)> =
@@ -252,8 +251,13 @@ pub fn try_migrate<T: Config>() -> Weight {
 	}
 }
 
+#[cfg(test)]
 mod migration_tests {
 	use super::*;
+	use crate::{
+		mock::{AccountId, Test, TestExt},
+		tests::create_owned_tokens,
+	};
 	use frame_support::{
 		traits::{OnRuntimeUpgrade, StorageVersion},
 		StorageDoubleMap, StorageMap,

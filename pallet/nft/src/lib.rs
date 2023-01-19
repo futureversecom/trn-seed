@@ -69,7 +69,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -378,8 +378,6 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Perform runtime upgrade
 		fn on_runtime_upgrade() -> Weight {
-			// use migration::MigrateToV1;
-			// <MigrateToV1<T> as frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade()
 			migration::try_migrate::<T>()
 		}
 		/// Check and close all expired listings
@@ -429,10 +427,10 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.owner == origin, Error::<T>::NotCollectionOwner);
+			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
 			collection_info.owner = new_owner.clone();
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
@@ -450,12 +448,12 @@ pub mod pallet {
 			marketplace_account: Option<T::AccountId>,
 			entitlement: Permill,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			ensure!(
 				entitlement.deconstruct() as u32 <= Permill::ACCURACY,
 				Error::<T>::RoyaltiesInvalid
 			);
-			let marketplace_account = marketplace_account.unwrap_or(origin);
+			let marketplace_account = marketplace_account.unwrap_or(who);
 			let marketplace_id = Self::next_marketplace_id();
 			let marketplace = Marketplace { account: marketplace_account.clone(), entitlement };
 			let next_marketplace_id = <NextMarketplaceId<T>>::get();
@@ -494,9 +492,9 @@ pub mod pallet {
 			metadata_scheme: MetadataScheme,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			Self::do_create_collection(
-				origin,
+				who,
 				name,
 				initial_issuance,
 				max_issuance,
@@ -524,7 +522,7 @@ pub mod pallet {
 			quantity: TokenCount,
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
 			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
@@ -532,7 +530,7 @@ pub mod pallet {
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 			// Caller must be collection_owner
-			ensure!(collection_info.owner == origin, Error::<T>::NotCollectionOwner);
+			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
 
 			// Check we don't exceed the token limit
 			ensure!(
@@ -566,7 +564,7 @@ pub mod pallet {
 				);
 			}
 
-			let owner = token_owner.unwrap_or(origin);
+			let owner = token_owner.unwrap_or(who);
 			let serial_numbers_unbounded: Vec<SerialNumber> =
 				(next_serial_number..collection_info.next_serial_number).collect();
 			let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
@@ -586,9 +584,9 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
-			Self::do_transfer(collection_id, serial_numbers, &origin, &new_owner)
+			Self::do_transfer(collection_id, serial_numbers, &who, &new_owner)
 		}
 
 		/// Burn a token 🔥
@@ -597,10 +595,10 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::burn())]
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			let (collection_id, serial_number) = token_id;
 
-			Self::do_burn(&origin, collection_id, serial_number)?;
+			Self::do_burn(&who, collection_id, serial_number)?;
 			Self::deposit_event(Event::<T>::Burn { collection_id, serial_number });
 			Ok(())
 		}
@@ -631,7 +629,7 @@ pub mod pallet {
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
 			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 			let royalties_schedule =
@@ -639,7 +637,7 @@ pub mod pallet {
 			let listing_id = Self::next_listing_id();
 
 			// use the first token's collection as representative of the bundle
-			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &origin, listing_id)?;
+			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &who, listing_id)?;
 
 			let listing_end_block = <frame_system::Pallet<T>>::block_number()
 				.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
@@ -650,7 +648,7 @@ pub mod pallet {
 				collection_id,
 				serial_numbers: serial_numbers.clone(),
 				buyer: buyer.clone(),
-				seller: origin.clone(),
+				seller: who.clone(),
 				royalties_schedule,
 				marketplace_id,
 			});
@@ -667,7 +665,7 @@ pub mod pallet {
 				marketplace_id,
 				price: fixed_price,
 				payment_asset,
-				seller: origin,
+				seller: who,
 			});
 			Ok(())
 		}
@@ -676,12 +674,12 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::buy())]
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
 			if let Some(Listing::FixedPrice(listing)) = Self::listings(listing_id) {
-				// if buyer is specified in the listing, then `origin` must be buyer
+				// if buyer is specified in the listing, then `who` must be buyer
 				if let Some(buyer) = &listing.buyer {
-					ensure!(&origin == buyer, Error::<T>::NotBuyer);
+					ensure!(&who == buyer, Error::<T>::NotBuyer);
 				}
 
 				let payouts = Self::calculate_royalty_payouts(
@@ -690,11 +688,7 @@ pub mod pallet {
 					listing.fixed_price,
 				);
 				// Make split transfer
-				T::MultiCurrency::split_transfer(
-					&origin,
-					listing.payment_asset,
-					payouts.as_slice(),
-				)?;
+				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
 
 				<OpenCollectionListings<T>>::remove(listing.collection_id, listing_id);
 
@@ -706,7 +700,7 @@ pub mod pallet {
 					listing.collection_id,
 					listing.serial_numbers.clone(),
 					&listing.seller,
-					&origin,
+					&who,
 				)?;
 
 				Self::remove_fixed_price_listing(listing_id);
@@ -717,7 +711,7 @@ pub mod pallet {
 					listing_id,
 					price: listing.fixed_price,
 					payment_asset: listing.payment_asset,
-					buyer: origin,
+					buyer: who,
 					seller: listing.seller,
 				});
 			} else {
@@ -750,7 +744,7 @@ pub mod pallet {
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
 			if serial_numbers.is_empty() {
 				return Err(Error::<T>::NoToken.into())
@@ -761,7 +755,7 @@ pub mod pallet {
 			let listing_id = Self::next_listing_id();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
-			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &origin, listing_id)?;
+			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &who, listing_id)?;
 
 			let listing_end_block = <frame_system::Pallet<T>>::block_number()
 				.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
@@ -771,7 +765,7 @@ pub mod pallet {
 				close: listing_end_block,
 				collection_id,
 				serial_numbers: serial_numbers.clone(),
-				seller: origin.clone(),
+				seller: who.clone(),
 				royalties_schedule,
 				marketplace_id,
 			});
@@ -788,7 +782,7 @@ pub mod pallet {
 				reserve_price,
 				listing_id,
 				marketplace_id,
-				seller: origin,
+				seller: who,
 			});
 			Ok(())
 		}
@@ -798,7 +792,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::bid())]
 		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
 			let mut listing = match Self::listings(listing_id) {
 				Some(Listing::Auction(listing)) => listing,
@@ -813,12 +807,7 @@ pub mod pallet {
 			}
 
 			// try lock funds
-			T::MultiCurrency::place_hold(
-				T::PalletId::get(),
-				&origin,
-				listing.payment_asset,
-				amount,
-			)?;
+			T::MultiCurrency::place_hold(T::PalletId::get(), &who, listing.payment_asset, amount)?;
 
 			<ListingWinningBid<T>>::try_mutate(
 				listing_id,
@@ -832,7 +821,7 @@ pub mod pallet {
 							current_bid.1,
 						)?;
 					}
-					*maybe_current_bid = Some((origin.clone(), amount));
+					*maybe_current_bid = Some((who.clone(), amount));
 					Ok(())
 				},
 			)?;
@@ -855,7 +844,7 @@ pub mod pallet {
 				serial_numbers: listing.serial_numbers.into_inner(),
 				listing_id,
 				amount,
-				bidder: origin,
+				bidder: who,
 			});
 			Ok(())
 		}
@@ -865,12 +854,12 @@ pub mod pallet {
 		/// Caller must be the listed seller
 		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			let listing = Self::listings(listing_id).ok_or(Error::<T>::TokenNotListed)?;
 
 			match listing {
 				Listing::<T>::FixedPrice(sale) => {
-					ensure!(sale.seller == origin, Error::<T>::NotSeller);
+					ensure!(sale.seller == who, Error::<T>::NotSeller);
 					Listings::<T>::remove(listing_id);
 					ListingEndSchedule::<T>::remove(sale.close, listing_id);
 					for serial_number in sale.serial_numbers.iter() {
@@ -886,7 +875,7 @@ pub mod pallet {
 					});
 				},
 				Listing::<T>::Auction(auction) => {
-					ensure!(auction.seller == origin, Error::<T>::NotSeller);
+					ensure!(auction.seller == who, Error::<T>::NotSeller);
 					ensure!(
 						Self::listing_winning_bid(listing_id).is_none(),
 						Error::<T>::TokenLocked
@@ -919,11 +908,11 @@ pub mod pallet {
 			listing_id: ListingId,
 			new_price: Balance,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 
 			match Self::listings(listing_id) {
 				Some(Listing::<T>::FixedPrice(mut sale)) => {
-					ensure!(sale.seller == origin, Error::<T>::NotSeller);
+					ensure!(sale.seller == who, Error::<T>::NotSeller);
 
 					sale.fixed_price = new_price;
 
@@ -954,11 +943,11 @@ pub mod pallet {
 			asset_id: AssetId,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
 			let collection_info =
 				Self::collection_info(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(!collection_info.is_token_owner(&origin, token_id.1), Error::<T>::IsTokenOwner);
+			ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
 			let offer_id = Self::next_offer_id();
 			ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
@@ -971,14 +960,14 @@ pub mod pallet {
 			}
 
 			// try lock funds
-			T::MultiCurrency::place_hold(T::PalletId::get(), &origin, asset_id, amount)?;
+			T::MultiCurrency::place_hold(T::PalletId::get(), &who, asset_id, amount)?;
 			<TokenOffers<T>>::try_append(token_id, offer_id)
 				.map_err(|_| Error::<T>::MaxOffersReached)?;
 			let new_offer = OfferType::<T::AccountId>::Simple(SimpleOffer {
 				token_id,
 				asset_id,
 				amount,
-				buyer: origin.clone(),
+				buyer: who.clone(),
 				marketplace_id,
 			});
 			<Offers<T>>::insert(offer_id, new_offer);
@@ -989,7 +978,7 @@ pub mod pallet {
 				amount,
 				asset_id,
 				marketplace_id,
-				buyer: origin,
+				buyer: who,
 			});
 			Ok(())
 		}
@@ -998,14 +987,14 @@ pub mod pallet {
 		/// Caller must be the offer buyer
 		#[pallet::weight(T::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
 			match offer_type {
 				OfferType::Simple(offer) => {
-					ensure!(offer.buyer == origin, Error::<T>::NotBuyer);
+					ensure!(offer.buyer == who, Error::<T>::NotBuyer);
 					T::MultiCurrency::release_hold(
 						T::PalletId::get(),
-						&origin,
+						&who,
 						offer.asset_id,
 						offer.amount,
 					)?;
@@ -1024,7 +1013,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::accept_offer())]
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
 			match offer_type {
 				OfferType::Simple(offer) => {
@@ -1038,7 +1027,7 @@ pub mod pallet {
 
 					Self::process_payment_and_transfer(
 						&offer.buyer,
-						&origin,
+						&who,
 						offer.asset_id,
 						collection_id,
 						serial_numbers,
