@@ -905,7 +905,6 @@ fn pre_last_session_change() {
 			message: new_validator_set_message.to_vec(),
 		});
 
-		println!("{:?}", System::events());
 		System::assert_has_event(
 			Event::<TestRuntime>::EventSend {
 				event_proof_id,
@@ -988,7 +987,7 @@ fn on_new_session_updates_keys() {
 		// Calling on_before_session_ending should NOT call handle_authorities_change again,
 		// but do_finalise_authorities_change() will add notification log to the header
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
-		assert_eq!(System::digest().logs.len(), 2);
+		assert_eq!(System::digest().logs.len(), 2); // previous one + new
 		assert_eq!(
 			System::digest().logs[1],
 			DigestItem::Consensus(
@@ -1074,7 +1073,7 @@ fn on_before_session_ending_handles_authorities() {
 		Scheduler::on_initialize(scheduled_block.into());
 
 		// scheduled do_finalise_authorities_change() will add notification log to the header
-		assert_eq!(System::digest().logs.len(), 2_usize); // spk - check the test flow again
+		assert_eq!(System::digest().logs.len(), 2_usize);
 		assert_eq!(
 			System::digest().logs[1],
 			DigestItem::Consensus(
@@ -1201,7 +1200,7 @@ fn force_new_era_with_scheduled_authority_change_works() {
 			next_keys_expanded.clone(),
 			next_keys_expanded.clone(),
 		);
-		// next notary keys now the empty keys
+		// next notary keys now the expanded keys
 		assert_eq!(
 			EthBridge::next_notary_keys(),
 			next_keys_expanded.clone().map(|(&_acc, pk)| pk).collect::<Vec<AuthorityId>>()
