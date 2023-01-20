@@ -18,3 +18,4 @@ RUN apt install nodejs && node --version && npm --version
 EXPOSE 9933 9944 30333
 
 ENTRYPOINT ["./scripts/run_porcini_fork.sh"]
+VOLUME ["/output"]
