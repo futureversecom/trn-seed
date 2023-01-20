@@ -13,34 +13,34 @@ async function main() {
   // Find the actual keypair in the keyring (if this is a changed value, the key
   // needs to be added to the keyring before - this assumes we have defaults, i.e.
   // Alice as the key - and this already exists on the test keyring)
-  const keyring = new Keyring({ type: 'sr25519' });
+  const keyring = new Keyring({ type: 'ecdsa' });
   const alice = keyring.addFromUri('//Alice', { name: 'Alice default' });
 
   // Retrieve the runtime to upgrade
   const code = fs.readFileSync('./data/test.wasm').toString('hex');
   const proposal = api.tx.system.setCode(`0x${code}`) // For newer versions of Substrate
+  const tx = api.tx.sudo.sudoUncheckedWeight(proposal, 0);
+  console.log(tx);
 
   console.log(`${code.length / 2} bytes`);
 
   // Perform the actual chain upgrade via the sudo module
-  api.tx.sudo
-    .sudo(proposal)
-    .signAndSend(alice, ({ events = [], status }) => {
-      console.log('Proposal status:', status.type);
+  tx.signAndSend(alice, ({ events = [], status }) => {
+    console.log('Proposal status:', status.type);
 
-      if (status.isInBlock) {
-        console.error('You have just upgraded your chain');
+    if (status.isInBlock) {
+      console.error('You have just upgraded your chain');
 
-        console.log('Included at block hash', status.asInBlock.toHex());
-        console.log('Events:');
+      console.log('Included at block hash', status.asInBlock.toHex());
+      console.log('Events:');
 
-        console.log(JSON.stringify(events.toHuman(), null, 2));
-      } else if (status.isFinalized) {
-        console.log('Finalized block hash', status.asFinalized.toHex());
+      console.log(JSON.stringify(events.toHuman(), null, 2));
+    } else if (status.isFinalized) {
+      console.log('Finalized block hash', status.asFinalized.toHex());
 
-        process.exit(0);
-      }
-    });
+      process.exit(0);
+    }
+  });
 }
 
 main().catch((error) => {
