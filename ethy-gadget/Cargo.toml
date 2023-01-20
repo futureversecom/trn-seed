@@ -48,3 +48,5 @@ sp-finality-grandpa = { git = "https://github.com/futureversecom/substrate", bra
 sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-tracing = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 substrate-test-runtime-client = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+
+env_logger = "0.10.0"
