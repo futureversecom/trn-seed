@@ -65,8 +65,8 @@ const startNode = async () => {
     console.log(`child process exited with code ${code}`);
   });
 
-  console.log("Waiting 20 seconds for node to get up and running...");
-  await delay(20000);
+  console.log("Waiting 35 seconds for node to get up and running...");
+  await delay(35000);
 }
 
 const stopNode = async () => {
