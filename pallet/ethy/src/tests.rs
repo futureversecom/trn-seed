@@ -24,7 +24,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use hex_literal::hex;
-use sp_core::{ByteArray, H160, H256, Public, U256};
+use sp_core::{ByteArray, Public, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::{
 	generic::DigestItem,
@@ -107,7 +107,7 @@ fn encode_event_message(
 }
 
 /// Ethereum ABI encode validator set message
-fn encode_validator_set_message( validator_set: &Vec<AuthorityId>, token_id: u64) -> Vec<u8> {
+fn encode_validator_set_message(validator_set: &Vec<AuthorityId>, token_id: u64) -> Vec<u8> {
 	ethabi::encode(&[
 		Token::Array(
 			validator_set
@@ -986,9 +986,9 @@ fn on_new_session_updates_keys() {
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		assert!(EthBridge::next_authority_change().is_none());
 		assert!(EthBridge::authorities_changed_this_era());
-		// only one log is deposited when the next_authority_change is executed - this is the Ethereum proof request.
-		// Xrpl proof request is not made since no change in xrpl notary keys.
-		// Also no ConsensusLog::AuthoritiesChange yet
+		// only one log is deposited when the next_authority_change is executed - this is the
+		// Ethereum proof request. Xrpl proof request is not made since no change in xrpl notary
+		// keys. Also no ConsensusLog::AuthoritiesChange yet
 		assert_eq!(System::digest().logs.len(), 1);
 		// signing request to prove validator change on Ethereum chain
 		let new_validator_set_message = encode_validator_set_message(&next_keys, 1_u64);
@@ -1013,7 +1013,8 @@ fn on_new_session_updates_keys() {
 		);
 
 		// Calling on_before_session_ending should NOT call handle_authorities_change again,
-		// but do_finalise_authorities_change() will add ConsensusLog::AuthoritiesChange notification log to the header
+		// but do_finalise_authorities_change() will add ConsensusLog::AuthoritiesChange
+		// notification log to the header
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(System::digest().logs.len(), 2); // previous one + new
 		assert_eq!(
