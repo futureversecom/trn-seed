@@ -10,4 +10,8 @@ RUN apt update -y && \
 # Install the right toolchain
 RUN rustup show
 
+# Install Node and NPM
+RUN curl -sL https://deb.nodesource.com/setup_18.x | bash -
+RUN apt install nodejs && node --version && npm --version
+
 VOLUME ["/output"]
