@@ -1,10 +1,6 @@
 #!/bin/bash
 
-# Build binary
-cargo build --locked --release
-
-# Get Porcini ChainSpec
-mkdir -p output
+# Run Scraper
 ./ci-scripts/storage-scraper.sh
 
 # Run Node

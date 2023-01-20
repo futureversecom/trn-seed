@@ -1,16 +1,26 @@
+#!/bin/bash
+
 # Build Seed
 cargo build --locked --release
 
-# Copy binary and chain spec
-rm ./ci-scripts/storage-scraper/data
-mkdir ./ci-scripts/storage-scraper/data
-cp ./target/release/seed ./ci-scripts/storage-scraper/data/binary
-cp ./chain-spec/* ./ci-scripts/storage-scraper/data/
+# Create output folder
+mkdir -p output
 
-cd ./ci-scripts/storage-scraper
+# Create data folder
+rm ./scripts/storage-scraper/data
+mkdir ./scripts/storage-scraper/data
+
+# Copy binary and chain spec
+cp ./target/release/seed ./scripts/storage-scraper/data/binary
+cp ./chain-spec/* ./scripts/storage-scraper/data/
+
+# Run Scraper
+cd ./scripts/storage-scraper
 npm i
 npm start
 
-cd ../../
 
-cp ./ci-scripts/storage-scraper/data/fork.json ./output/
+# Copy result to local output folder and to the exteral mapped output folder
+cd ../../
+cp ./scripts/storage-scraper/data/fork.json /output/
+cp ./scripts/storage-scraper/data/fork.json ./output/
