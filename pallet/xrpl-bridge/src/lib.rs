@@ -650,7 +650,7 @@ impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
 		// https://github.com/futureversecom/seed/issues/107
 		let tx_fee = Self::door_tx_fee();
 		let ticket_sequence = Self::get_door_ticket_sequence()?;
-		let signer_quorum: u32 = T::EthyAdapter::xrp_validators().len().saturating_sub(1) as u32;
+		let signer_quorum: u32 = signer_entries.len().saturating_sub(1) as u32;
 		let signer_entries = signer_entries
 			.into_iter()
 			.map(|(account, weight)| (account.into(), weight))
