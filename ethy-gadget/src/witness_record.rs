@@ -15,12 +15,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use log::{debug, trace, warn};
-use std::collections::HashMap;
-use sp_runtime::traits::{AppVerify, Convert};
 use seed_primitives::ethy::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
 	AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
 };
+use sp_runtime::traits::{AppVerify, Convert};
+use std::collections::HashMap;
 
 use crate::types::EventMetadata;
 
@@ -282,7 +282,8 @@ pub(crate) mod test {
 
 	use super::{compact_sequence, Signature, WitnessError, WitnessRecord, WitnessStatus};
 	use seed_primitives::ethy::{
-		crypto::AuthorityPair, AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness, EthyEcdsaToPublicKey,
+		crypto::AuthorityPair, AuthorityIndex, EthyChainId, EthyEcdsaToPublicKey, EventProofId,
+		ValidatorSet, Witness,
 	};
 	use sp_application_crypto::Pair;
 	use sp_runtime::traits::{AppVerify, Convert};
@@ -307,7 +308,6 @@ pub(crate) mod test {
 		chain_id: EthyChainId,
 		digest: [u8; 32],
 	) -> Witness {
-
 		let compatible_public = EthyEcdsaToPublicKey::convert(validator.public());
 
 		let digest = data_to_digest(chain_id, digest.to_vec(), compatible_public).unwrap();
@@ -726,7 +726,10 @@ pub(crate) mod test {
 
 		let witness = create_witness(&validator, event_id, chain_id, digest);
 
-		assert_eq!(witness.signature.verify(witness.digest.as_slice(), &witness.authority_id), true);
+		assert_eq!(
+			witness.signature.verify(witness.digest.as_slice(), &witness.authority_id),
+			true
+		);
 
 		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
 		assert_eq!(witness.signature.verify(wrong_digest.as_slice(), &witness.authority_id), false);
@@ -744,7 +747,10 @@ pub(crate) mod test {
 
 		let witness = create_witness(&validator, event_id, chain_id, digest);
 
-		assert_eq!(witness.signature.verify(witness.digest.as_slice(), &witness.authority_id), true);
+		assert_eq!(
+			witness.signature.verify(witness.digest.as_slice(), &witness.authority_id),
+			true
+		);
 
 		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
 		assert_eq!(witness.signature.verify(wrong_digest.as_slice(), &witness.authority_id), false);
@@ -778,5 +784,4 @@ pub(crate) mod test {
 		witness_record.note_event_metadata(event_id, digest, Default::default(), chain_id);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 	}
-
 }
