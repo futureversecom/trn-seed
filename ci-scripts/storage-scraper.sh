@@ -2,6 +2,7 @@
 cargo build --locked --release
 
 # Copy binary and chain spec
+rm ./ci-scripts/storage-scraper/data
 mkdir ./ci-scripts/storage-scraper/data
 cp ./target/release/seed ./ci-scripts/storage-scraper/data/binary
 cp ./chain-spec/* ./ci-scripts/storage-scraper/data/

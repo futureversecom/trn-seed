@@ -145,6 +145,8 @@ const generateChainSpec = async () => {
   let storage = JSON.parse(fs.readFileSync(storagePath, 'utf8'));
   let forkedSpec = JSON.parse(fs.readFileSync(forkedSpecPath, 'utf8'));
 
+  let sudo_key = forkedSpec.genesis.raw.top['0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b']; // This is Alice or Alith
+
   // Modify chain name and id
   forkedSpec.name = 'Fork :) ';
   forkedSpec.id = "fork :) ";
@@ -161,7 +163,7 @@ const generateChainSpec = async () => {
   forkedSpec.genesis.raw.top['0x5f3e4907f716ac89b6347d15ececedcaf7dad0317324aecae8744b87fc95f2f3'] = '0x02';
 
   // Set sudo key to //Alice
-  forkedSpec.genesis.raw.top['0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b'] = '0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d';
+  forkedSpec.genesis.raw.top['0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b'] = sudo_key;
 
   fs.writeFileSync(forkedSpecPath, JSON.stringify(forkedSpec, null, 4));
 
