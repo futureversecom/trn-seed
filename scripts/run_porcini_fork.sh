@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # Build binary
 cargo build --locked --release
 
