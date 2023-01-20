@@ -1,4 +1,4 @@
-name: Version and Storage checker
+name: Porcini Storage Scrap
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ env:
 jobs:
   build:
     runs-on: [self-hosted]
-    name: Run version and storage check
+    name: Scrap Porcini Storage
     steps:
     - uses: actions/checkout@v3
 
@@ -22,8 +22,8 @@ jobs:
     - name: Build image
       run: podman build -t tchain -f ./dockerimages/rust-1.65.0.Dockerfile .
 
-    - name: Run subalfred
-      run: podman run --rm -v ./output:/output -t tchain /bin/bash ./ci-scripts/subalfred.sh
+    - name: Run scraper
+      run: podman run --rm -v ./output:/output -t tchain /bin/bash ./ci-scripts/storage-scraper.sh
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
