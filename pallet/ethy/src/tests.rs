@@ -24,7 +24,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use hex_literal::hex;
-use sp_core::{ByteArray, H160, H256, U256};
+use sp_core::{ByteArray, H160, H256, Public, U256};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::{
 	generic::DigestItem,
@@ -103,6 +103,22 @@ fn encode_event_message(
 		Token::Address(source),
 		Token::Address(destination),
 		Token::Bytes(message.to_vec()),
+	])
+}
+
+/// Ethereum ABI encode validator set message
+fn encode_validator_set_message( validator_set: &Vec<AuthorityId>, token_id: u64) -> Vec<u8> {
+	ethabi::encode(&[
+		Token::Array(
+			validator_set
+				.iter()
+				.map(|k| {
+					let address: [u8; 20] = EthyEcdsaToEthereum::convert(k.as_slice());
+					Token::Address(address.into())
+				})
+				.collect(),
+		),
+		Token::Uint(token_id.into()),
 	])
 }
 
@@ -884,18 +900,7 @@ fn pre_last_session_change() {
 		EthBridge::handle_authorities_change();
 
 		// signing request to prove validator change on other chain
-		let new_validator_set_message = ethabi::encode(&[
-			Token::Array(
-				next_keys
-					.iter()
-					.map(|k| {
-						let address: [u8; 20] = EthyEcdsaToEthereum::convert(k.as_slice());
-						Token::Address(address.into())
-					})
-					.collect(),
-			),
-			Token::Uint(1_u64.into()),
-		]);
+		let new_validator_set_message = encode_validator_set_message(&next_keys, 1_u64);
 
 		let signing_request = EthySigningRequest::Ethereum(EthereumEventInfo {
 			event_proof_id,
@@ -981,11 +986,34 @@ fn on_new_session_updates_keys() {
 		assert_eq!(EthBridge::next_event_proof_id(), event_proof_id + 1);
 		assert!(EthBridge::next_authority_change().is_none());
 		assert!(EthBridge::authorities_changed_this_era());
-		// only one log thrown in next_authority_change
+		// only one log is deposited when the next_authority_change is executed - this is the Ethereum proof request.
+		// Xrpl proof request is not made since no change in xrpl notary keys.
+		// Also no ConsensusLog::AuthoritiesChange yet
 		assert_eq!(System::digest().logs.len(), 1);
+		// signing request to prove validator change on Ethereum chain
+		let new_validator_set_message = encode_validator_set_message(&next_keys, 1_u64);
+		let signing_request = EthySigningRequest::Ethereum(EthereumEventInfo {
+			event_proof_id,
+			validator_set_id: 0,
+			source: BridgePalletId::get().into_account_truncating(),
+			destination: EthBridge::contract_address(),
+			message: new_validator_set_message.to_vec(),
+		});
+		assert_eq!(
+			System::digest().logs[0],
+			DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::OpaqueSigningRequest::<AuthorityId> {
+					chain_id: EthyChainId::Ethereum,
+					event_proof_id,
+					data: signing_request.data(),
+				}
+				.encode(),
+			),
+		);
 
 		// Calling on_before_session_ending should NOT call handle_authorities_change again,
-		// but do_finalise_authorities_change() will add notification log to the header
+		// but do_finalise_authorities_change() will add ConsensusLog::AuthoritiesChange notification log to the header
 		<Module<TestRuntime> as OneSessionHandler<AccountId>>::on_before_session_ending();
 		assert_eq!(System::digest().logs.len(), 2); // previous one + new
 		assert_eq!(
