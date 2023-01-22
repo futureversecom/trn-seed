@@ -47,18 +47,19 @@ See the [wiki](https://github.com/futureversecom/seed/wiki/How-to-benchmark)
 
 
 ## Scripts
-### Run Porcini Pork
+### Run Porcini Fork
 This script scraps Porcini, stores the scraped chain specification inside the `./output` folder and runs a chain with that scraped chain spec.
 
 #### Locally
 ```bash
-./scripts/run_porcini_fork.sh
+./scripts/run_fork_porcini_and_run_it.sh
 ```
-#### Using Docker
+#### Using Podman/Docker Compose
 ```bash
-mkdir -p output
-podman build -t tporcini -f ./dockerimages/porcini-fork.Dockerfile .
-podman run --rm -p "9933:9933" -p "9944:9944" -p "30333:30333" -v ./output:/output -t tporcini
+# Docker Compose
+sudo docker-compose -f ./scripts/compose.yaml up fork-porcini-and-run-it
+# Or Podman Compose
+podman-compose -f ./scripts/compose.yaml up fork-porcini-and-run-it
 ```
 
 ### Run Runtime Upgrade

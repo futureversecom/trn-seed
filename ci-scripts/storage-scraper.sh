@@ -19,7 +19,6 @@ cd ./scripts/storage-scraper
 npm i
 npm start
 
-
 # Copy result to local output folder and to the exteral mapped output folder
 cd ../../
 cp ./scripts/storage-scraper/data/fork.json /output/

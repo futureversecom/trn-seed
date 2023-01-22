@@ -1,0 +1,23 @@
+services:
+    fork-porcini:
+        build:
+            context: ./../.
+            dockerfile: dockerimages/rust-1.65.0.Dockerfile
+        volumes:
+            - ./../output:/output
+        ports:
+            - 9933:9933
+            - 9944:9944
+            - 30333:30333
+        command: ./ci-scripts/storage-scraper.sh
+    fork-porcini-and-run-it:
+        build:
+            context: ./../.
+            dockerfile: dockerimages/rust-1.65.0.Dockerfile
+        volumes:
+            - ./../output:/output
+        ports:
+            - 9933:9933
+            - 9944:9944
+            - 30333:30333
+        command: ./scripts/run_fork_porcini_and_run_it.sh
