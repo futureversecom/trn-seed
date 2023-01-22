@@ -19,7 +19,7 @@ use seed_primitives::ethy::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
 	AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
 };
-use sp_runtime::traits::{AppVerify, Convert};
+use sp_runtime::traits::AppVerify;
 use std::collections::HashMap;
 
 use crate::types::EventMetadata;
