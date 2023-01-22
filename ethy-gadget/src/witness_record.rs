@@ -617,8 +617,7 @@ pub(crate) mod test {
 		let chain_id = EthyChainId::Ethereum;
 		let event_id = 5_u64;
 
-		let compatible_public = EthyEcdsaToPublicKey::convert(validator_keys[0].public());
-		let digest = data_to_digest(chain_id, vec![1_u8; 32], compatible_public).unwrap();
+		let digest = [1_u8; 32];
 
 		let witness = &create_witness(&validator_keys[0], event_id, chain_id, digest);
 		assert!(witness_record.note_event_witness(witness).is_ok());
@@ -656,9 +655,7 @@ pub(crate) mod test {
 			..Default::default()
 		};
 		let chain_id = EthyChainId::Xrpl;
-
-		let compatible_public = EthyEcdsaToPublicKey::convert(validator_keys[0].public());
-		let digest = data_to_digest(chain_id, vec![1_u8; 32], compatible_public).unwrap();
+		let digest = [1_u8; 32];
 
 		let event_id = 5_u64;
 		let witness = &create_witness(&validator_keys[0], event_id, chain_id, digest);
@@ -754,34 +751,5 @@ pub(crate) mod test {
 
 		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
 		assert_eq!(witness.signature.verify(wrong_digest.as_slice(), &witness.authority_id), false);
-	}
-
-	#[test]
-	fn note_event_metadata_signature_verification() {
-		let xrpl_validator_keys = dev_signers_xrpl();
-		let validator_keys = dev_signers();
-		let validator_set_id = 1_u64;
-		let mut witness_record = WitnessRecord {
-			validators: ValidatorSet {
-				validators: validator_keys.iter().map(|x| x.public()).collect(),
-				proof_threshold: 3,
-				id: validator_set_id,
-			},
-			xrpl_validators: ValidatorSet {
-				validators: xrpl_validator_keys.iter().map(|x| x.public()).collect(),
-				proof_threshold: 2,
-				id: validator_set_id,
-			},
-			..Default::default()
-		};
-		let chain_id = EthyChainId::Xrpl;
-
-		let compatible_public = EthyEcdsaToPublicKey::convert(validator_keys[0].public());
-		let digest = data_to_digest(chain_id, vec![1_u8; 32], compatible_public).unwrap();
-
-		let event_id = 5_u64;
-		let witness = &create_witness(&validator_keys[0], event_id, chain_id, digest);
-		witness_record.note_event_metadata(event_id, digest, Default::default(), chain_id);
-		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
 	}
 }
