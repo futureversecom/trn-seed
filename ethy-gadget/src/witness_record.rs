@@ -309,7 +309,6 @@ pub(crate) mod test {
 		digest: [u8; 32],
 	) -> Witness {
 		let compatible_public = EthyEcdsaToPublicKey::convert(validator.public());
-
 		let digest = data_to_digest(chain_id, digest.to_vec(), compatible_public).unwrap();
 
 		Witness {
@@ -616,7 +615,6 @@ pub(crate) mod test {
 		};
 		let chain_id = EthyChainId::Ethereum;
 		let event_id = 5_u64;
-
 		let digest = [1_u8; 32];
 
 		let witness = &create_witness(&validator_keys[0], event_id, chain_id, digest);
@@ -656,7 +654,6 @@ pub(crate) mod test {
 		};
 		let chain_id = EthyChainId::Xrpl;
 		let digest = [1_u8; 32];
-
 		let event_id = 5_u64;
 		let witness = &create_witness(&validator_keys[0], event_id, chain_id, digest);
 
