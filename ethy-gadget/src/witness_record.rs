@@ -35,14 +35,16 @@ pub enum WitnessStatus {
 
 #[derive(PartialEq, Debug)]
 pub enum WitnessError {
-	/// The digest of the witness/event_id did not match our local digest
-	MismatchedDigest,
-	/// The witness is from an unknown authority, can't be accepted
-	UnknownAuthority,
-	/// This witness has been previously seen
-	DuplicateWitness,
 	/// This witness is for an already completed event
 	CompletedEvent,
+	/// This witness has been previously seen
+	DuplicateWitness,
+	/// The digest of the witness/event_id did not match our local digest
+	MismatchedDigest,
+	/// The signature supplied with the witness could not be verified
+	SignatureVerificationFailed,
+	/// The witness is from an unknown authority, can't be accepted
+	UnknownAuthority,
 }
 
 /// Handles tracking witnesses from ethy participants
@@ -194,7 +196,7 @@ impl WitnessRecord {
 		if let Some(metadata) = self.event_metadata(witness.event_id) {
 			if !witness.signature.verify(witness.digest.as_slice(), &witness.authority_id) {
 				warn!(target: "ethy", "💎 witness digest signature verification failed: {:?} from {:?}", witness.event_id, witness.authority_id);
-				return Err(WitnessError::MismatchedDigest)
+				return Err(WitnessError::SignatureVerificationFailed)
 			}
 
 			// Witnesses for XRPL are special cases and have unique digests per authority
@@ -448,6 +450,53 @@ pub(crate) mod test {
 			EthyChainId::Xrpl,
 		);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
+	}
+
+	#[test]
+	fn note_event_witness_signature_verification_fails() {
+		let validator_keys = dev_signers();
+		let mut witness_record = WitnessRecord {
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			..Default::default()
+		};
+
+		let event_id = 5_u64;
+		let digest = [1_u8; 32];
+		let witness =
+			&mut create_witness(&validator_keys[0], event_id, EthyChainId::Ethereum, digest);
+
+		// Witness was given with the wrong digest, failing the verification when noting metadata
+		witness.digest = [42_u8; 32];
+		assert_eq!(
+			witness_record.note_event_witness(witness),
+			Err(WitnessError::SignatureVerificationFailed)
+		);
+	}
+
+	#[test]
+	fn note_event_witness_signature_verification_fails_xrpl() {
+		let validator_keys = dev_signers();
+		let mut witness_record = WitnessRecord {
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			..Default::default()
+		};
+
+		let event_id = 5_u64;
+		let digest = [1_u8; 32];
+		let witness = &mut create_witness(&validator_keys[0], event_id, EthyChainId::Xrpl, digest);
+
+		// Witness was given with the wrong digest, failing the verification when noting metadata
+		witness.digest = [42_u8; 32];
+		assert_eq!(
+			witness_record.note_event_witness(witness),
+			Err(WitnessError::SignatureVerificationFailed)
+		);
 	}
 
 	#[test]
