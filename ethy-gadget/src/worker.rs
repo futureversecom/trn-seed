@@ -154,7 +154,7 @@ where
 		let at = BlockId::hash(header.hash());
 		let validator_set = self.runtime.runtime_api().validator_set(&at).ok();
 
-		trace!(target: "ethy", "💎 active validator set: {:?}", validator_set);
+		info!(target: "ethy", "💎 active validator set: {:?}", validator_set);
 		validator_set
 	}
 
@@ -727,5 +727,47 @@ pub(crate) mod test {
 		// verify validator set is correctly extracted from digest
 		let extracted = find_authorities_change::<Block>(&header);
 		assert_eq!(extracted, Some(validator_set));
+	}
+
+	#[test]
+	fn extract_validators_from_the_runtime_and_not_form_header() {
+		let keys = &[Keyring::Alice, Keyring::Bob];
+		let runtime_validators = make_ethy_ids(keys);
+		let header_validators = make_ethy_ids(&[Keyring::Alice, Keyring::Bob, Keyring::Charlie]);
+		let mut net = EthyTestNet::new(1, 0);
+		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], runtime_validators.clone());
+
+		let mut header = Header::new(
+			1u32.into(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Digest::default(),
+		);
+		let header_validator_set =
+			ValidatorSet { validators: header_validators, id: 1_u64, proof_threshold: 3 };
+		header.digest_mut().push(DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::<Public>::AuthoritiesChange(header_validator_set.clone()).encode(),
+		));
+		let finality_notification = FinalityNotification {
+			hash: Default::default(),
+			header: header.clone(),
+			// these fields are unused by ethy
+			tree_route: Arc::new([]),
+			stale_heads: Arc::new([]),
+		};
+		worker.handle_finality_notification(finality_notification);
+
+		// stored validator set should be extracted from runtime. not from the block header. i.e
+		// same as value in runtime_validators above
+		assert_eq!(
+			worker.witness_record.get_validator_set(),
+			ValidatorSet { validators: runtime_validators.clone(), id: 0_u64, proof_threshold: 2 }
+		);
+		assert_eq!(
+			worker.witness_record.get_xrpl_validator_set(),
+			ValidatorSet { validators: runtime_validators, id: 0_u64, proof_threshold: 2 }
+		);
 	}
 }
