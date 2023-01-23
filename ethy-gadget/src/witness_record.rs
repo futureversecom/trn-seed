@@ -460,16 +460,26 @@ pub(crate) mod test {
 				validators: validator_keys.iter().map(|x| x.public()).collect(),
 				..Default::default()
 			},
+			xrpl_validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
 			..Default::default()
 		};
-
 		let event_id = 5_u64;
 		let digest = [1_u8; 32];
 		let witness =
 			&mut create_witness(&validator_keys[0], event_id, EthyChainId::Ethereum, digest);
 
-		// Witness was given with the wrong digest, failing the verification when noting metadata
-		witness.digest = [42_u8; 32];
+		witness.signature = validator_keys[0].sign(b"wrong message!");
+
+		witness_record.note_event_metadata(
+			event_id,
+			[2_u8; 32], // Digest created in create_witness() is [1_u8; 32]
+			Default::default(),
+			EthyChainId::Xrpl,
+		);
+
 		assert_eq!(
 			witness_record.note_event_witness(witness),
 			Err(WitnessError::SignatureVerificationFailed)
@@ -484,15 +494,25 @@ pub(crate) mod test {
 				validators: validator_keys.iter().map(|x| x.public()).collect(),
 				..Default::default()
 			},
+			xrpl_validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
 			..Default::default()
 		};
-
 		let event_id = 5_u64;
 		let digest = [1_u8; 32];
 		let witness = &mut create_witness(&validator_keys[0], event_id, EthyChainId::Xrpl, digest);
 
-		// Witness was given with the wrong digest, failing the verification when noting metadata
-		witness.digest = [42_u8; 32];
+		witness.signature = validator_keys[0].sign(b"wrong message!");
+
+		witness_record.note_event_metadata(
+			event_id,
+			[2_u8; 32], // Digest created in create_witness() is [1_u8; 32]
+			Default::default(),
+			EthyChainId::Xrpl,
+		);
+
 		assert_eq!(
 			witness_record.note_event_witness(witness),
 			Err(WitnessError::SignatureVerificationFailed)
