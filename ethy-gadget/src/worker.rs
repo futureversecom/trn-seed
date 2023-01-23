@@ -730,7 +730,7 @@ pub(crate) mod test {
 	}
 
 	#[test]
-	fn extract_validators_from_the_runtime_and_not_form_header() {
+	fn extract_validators_from_the_runtime_and_not_from_header() {
 		let keys = &[Keyring::Alice, Keyring::Bob];
 		let runtime_validators = make_ethy_ids(keys);
 		let header_validators = make_ethy_ids(&[Keyring::Alice, Keyring::Bob, Keyring::Charlie]);
