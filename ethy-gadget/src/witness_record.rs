@@ -477,7 +477,7 @@ pub(crate) mod test {
 			event_id,
 			[2_u8; 32], // Digest created in create_witness() is [1_u8; 32]
 			Default::default(),
-			EthyChainId::Xrpl,
+			EthyChainId::Ethereum,
 		);
 
 		assert_eq!(
