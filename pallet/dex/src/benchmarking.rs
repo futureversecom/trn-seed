@@ -32,60 +32,41 @@ pub fn account<T: Config>(name: &'static str) -> T::AccountId {
 pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 	RawOrigin::Signed(acc.clone())
 }
-/*
+
 pub struct BenchmarkData<T: Config> {
-	pub coll_owner: T::AccountId,
-	pub coll_id: CollectionUuid,
-	pub coll_tokens: Vec<TokenId>,
-	pub token_id: TokenId,
+	pub alice: T::AccountId,
+	pub asset_id_1: AssetId,
+	pub asset_id_2: AssetId,
 }
 
 // Create an NFT collection
 // Returns the created `coll_id`
 fn setup_benchmark<T: Config>() -> BenchmarkData<T> {
 	let alice = account::<T>("Alice");
-	let coll_owner = alice.clone();
-	let collection_name = "Hello".into();
-	let metadata_scheme = MetadataScheme::IpfsDir(
-		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
-	);
+	let asset_id_1 = T::MultiCurrency::create(&alice).unwrap();
+	let asset_id_2 = T::MultiCurrency::create(&alice).unwrap();
+	let mint_amount: Balance = 10000000u32.into();
 
-	let coll_id = T::NFTExt::do_create_collection(
-		coll_owner.clone(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		None,
-		OriginChain::Root,
-	)
-	.unwrap();
-	assert_ok!(T::NFTExt::do_mint(&coll_owner, coll_id, vec![1, 2]));
-	let coll_tokens: Vec<TokenId> = vec![(coll_id, 1), (coll_id, 2)];
+	assert_ok!(T::MultiCurrency::mint_into(asset_id_1, &alice, mint_amount));
+	assert_ok!(T::MultiCurrency::mint_into(asset_id_2, &alice, mint_amount));
 
-	let token_id = coll_tokens[0].clone();
+	assert_ok!(Dex::<T>::add_liquidity(
+		origin::<T>(&alice).into(),
+		asset_id_1,
+		asset_id_2,
+		100000u32.into(),
+		200000u32.into(),
+		1000u32.into(),
+		1000u32.into(),
+		100u32.into()
+	));
 
-	BenchmarkData { coll_owner, coll_id, coll_tokens, token_id }
-} */
+	BenchmarkData { alice, asset_id_1, asset_id_2 }
+}
 
 benchmarks! {
 	swap_with_exact_supply {
-		let alice = account::<T>("Alice");
-		let asset_id_1 = T::MultiCurrency::create(&alice).unwrap();
-		let asset_id_2 = T::MultiCurrency::create(&alice).unwrap();
-		let mint_amount: Balance = 10000000u32.into();
-
-		assert_ok!(T::MultiCurrency::mint_into(asset_id_1, &alice, mint_amount));
-		assert_ok!(T::MultiCurrency::mint_into(asset_id_2, &alice, mint_amount));
-
-		let amount_desired_1: Balance = 100000u32.into();
-		let amount_desired_2: Balance = 200000u32.into();
-		let amount_min_1: Balance = 1000u32.into();
-		let amount_min_2: Balance = 1000u32.into();
-		let min_share_increment: Balance = 100u32.into();
-
-		assert_ok!(Dex::<T>::add_liquidity(origin::<T>(&alice).into(), asset_id_1, asset_id_2, amount_desired_1, amount_desired_2, amount_min_1, amount_min_2, min_share_increment));
+		let BenchmarkData { alice, asset_id_1, asset_id_2, .. } = setup_benchmark::<T>();
 
 		let path = vec![asset_id_1, asset_id_2];
 		let amount_in: Balance = 100u32.into();
@@ -98,6 +79,72 @@ benchmarks! {
 		assert_eq!(after_balance, before_balance - amount_in);
 	}
 
+	swap_with_exact_target {
+		let BenchmarkData { alice, asset_id_1, asset_id_2, .. } = setup_benchmark::<T>();
 
-	impl_benchmark_test_suite!(Dex, crate::mock::new_test_ext(), crate::mock::Test,);
+		let path = vec![asset_id_1, asset_id_2];
+		let amount_out: Balance = 100u32.into();
+		let amount_in_max = 120u32.into();
+		let before_balance = T::MultiCurrency::balance(asset_id_1, &alice);
+
+	}: _(origin::<T>(&alice), amount_out, amount_in_max, path)
+	verify {
+		let after_balance = T::MultiCurrency::balance(asset_id_1, &alice);
+		assert!(after_balance < before_balance);
+	}
+
+	add_liquidity {
+		let alice = account::<T>("Alice");
+		let asset_id_1 = T::MultiCurrency::create(&alice).unwrap();
+		let asset_id_2 = T::MultiCurrency::create(&alice).unwrap();
+		let mint_amount: Balance = 10000000u32.into();
+
+		assert_ok!(T::MultiCurrency::mint_into(asset_id_1, &alice, mint_amount));
+		assert_ok!(T::MultiCurrency::mint_into(asset_id_2, &alice, mint_amount));
+		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
+
+		// Sanity check
+		assert_eq!(TradingPairStatuses::<T>::get(&trading_pair), TradingPairStatus::NotEnabled);
+
+	}: _(origin::<T>(&alice), asset_id_1, asset_id_2, 100000u32.into(), 200000u32.into(), 1000u32.into(), 1000u32.into(), 100u32.into())
+	verify {
+		assert_eq!(TradingPairStatuses::<T>::get(&trading_pair), TradingPairStatus::Enabled);
+	}
+
+	remove_liquidity {
+		let BenchmarkData { alice, asset_id_1, asset_id_2 } = setup_benchmark::<T>();
+		let before_balance = T::MultiCurrency::balance(asset_id_1, &alice);
+
+	}: _(origin::<T>(&alice), asset_id_1, asset_id_2, 100u32.into(), 10u32.into(), 10u32.into())
+	verify {
+		let after_balance = T::MultiCurrency::balance(asset_id_1, &alice);
+		assert!(after_balance > before_balance);
+	}
+
+	reenable_trading_pair {
+		let BenchmarkData { asset_id_1, asset_id_2, .. } = setup_benchmark::<T>();
+		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
+
+		assert_ok!(Dex::<T>::disable_trading_pair(RawOrigin::Root.into(), asset_id_1, asset_id_2));
+		// Sanity check
+		assert_eq!(TradingPairStatuses::<T>::get(&trading_pair), TradingPairStatus::NotEnabled);
+
+	}: _(RawOrigin::Root, asset_id_1, asset_id_2)
+	verify {
+		assert_eq!(TradingPairStatuses::<T>::get(&trading_pair), TradingPairStatus::Enabled);
+	}
+
+	disable_trading_pair {
+		let BenchmarkData { asset_id_1, asset_id_2, .. } = setup_benchmark::<T>();
+		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
+
+		// Sanity check
+		assert_eq!(TradingPairStatuses::<T>::get(&trading_pair), TradingPairStatus::Enabled);
+
+	}: _(RawOrigin::Root, asset_id_1, asset_id_2)
+	verify {
+		assert_eq!(TradingPairStatuses::<T>::get(&trading_pair), TradingPairStatus::NotEnabled);
+	}
 }
+
+impl_benchmark_test_suite!(Dex, crate::mock::new_test_ext(), crate::mock::Test,);
