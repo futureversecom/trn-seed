@@ -23,7 +23,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
 use crate::Pallet as NftPeg;
-use pallet_nft::{Pallet as Nft, TokenOwner};
+use pallet_nft::{CollectionInfo, CollectionInformation, Pallet as Nft};
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -55,14 +55,15 @@ benchmarks! {
 		assert_ok!(NftPeg::do_deposit(token_info, alice.clone().into()));
 
 		// Sanity Check
+		let collection_info: CollectionInformation<T> = CollectionInfo::<T>::get(coll_id).expect("Collection exists");
 		for serial_id in &token_ids {
-			assert!(TokenOwner::<T>::get(coll_id, *serial_id).is_some());
+			assert!(collection_info.token_exists(*serial_id));
 		}
 
 	}: _(origin::<T>(&alice), vec![coll_id], vec![token_ids.clone()], alice.clone().into())
 	verify {
 		for serial_id in token_ids {
-			assert!(TokenOwner::<T>::get(coll_id, serial_id).is_none());
+			assert!(collection_info.token_exists(serial_id));
 		}
 	}
 

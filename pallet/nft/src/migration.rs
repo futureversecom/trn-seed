@@ -94,6 +94,7 @@ use sp_runtime::BoundedVec;
 ///  - NextSerialNumber
 ///  - TokenBalance
 ///  - TokenOwner
+///  - StorageVersion (Old version)
 ///
 /// Also removes custom StorageVersion and replaces it with the FrameV2 way of tracking version
 pub fn try_migrate<T: Config>() -> Weight {
@@ -307,6 +308,20 @@ fn clear_storage_prefixes<T: Config>() {
 		log::error!("TokenOwner storage item removal was not completed");
 	} else {
 		log::info!("TokenOwner storage item successfully removed")
+	};
+
+	let res = frame_support::migration::clear_storage_prefix(
+		<Pallet<T>>::name().as_bytes(),
+		b"StorageVersion",
+		b"",
+		None,
+		None,
+	);
+
+	if res.maybe_cursor.is_some() {
+		log::error!("StorageVersion storage item removal was not completed");
+	} else {
+		log::info!("StorageVersion storage item successfully removed")
 	};
 }
 
@@ -613,6 +628,14 @@ mod migration_tests {
 				),
 				false
 			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"StorageVersion",
+					test_storage_key
+				),
+				false
+			);
 
 			// Put some storage values
 			put_storage_value(
@@ -636,6 +659,12 @@ mod migration_tests {
 			put_storage_value(
 				<Pallet<Test>>::name().as_bytes(),
 				b"CollectionIssuance",
+				test_storage_key,
+				123,
+			);
+			put_storage_value(
+				<Pallet<Test>>::name().as_bytes(),
+				b"StorageVersion",
 				test_storage_key,
 				123,
 			);
@@ -673,6 +702,14 @@ mod migration_tests {
 				),
 				true
 			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"StorageVersion",
+					test_storage_key
+				),
+				true
+			);
 
 			// Run runtime upgrade
 			<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
@@ -706,6 +743,14 @@ mod migration_tests {
 				have_storage_value(
 					<Pallet<Test>>::name().as_bytes(),
 					b"CollectionIssuance",
+					test_storage_key
+				),
+				false
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"StorageVersion",
 					test_storage_key
 				),
 				false
