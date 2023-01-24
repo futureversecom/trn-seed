@@ -77,7 +77,7 @@ pub mod v1_storage {
 
 use super::*;
 use frame_support::{
-	traits::{GetStorageVersion, StorageVersion},
+	traits::{GetStorageVersion, PalletInfoAccess, StorageVersion},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	IterableStorageDoubleMap, IterableStorageMap, StorageMap,
 };
@@ -242,6 +242,7 @@ pub fn try_migrate<T: Config>() -> Weight {
 			}
 		}
 
+		clear_storage_prefixes::<T>();
 		weight += DbWeight::get()
 			.reads_writes(old_listings.len() as Weight + 1, old_listings.len() as Weight + 1);
 
@@ -249,6 +250,64 @@ pub fn try_migrate<T: Config>() -> Weight {
 	} else {
 		Zero::zero()
 	}
+}
+
+fn clear_storage_prefixes<T: Config>() {
+	let res = frame_support::migration::clear_storage_prefix(
+		<Pallet<T>>::name().as_bytes(),
+		b"NextSerialNumber",
+		b"",
+		None,
+		None,
+	);
+
+	if res.maybe_cursor.is_some() {
+		log::error!("NextSerialNumber storage item removal was not completed");
+	} else {
+		log::info!("NextSerialNumber storage item successfully removed")
+	};
+
+	let res = frame_support::migration::clear_storage_prefix(
+		<Pallet<T>>::name().as_bytes(),
+		b"CollectionIssuance",
+		b"",
+		None,
+		None,
+	);
+
+	if res.maybe_cursor.is_some() {
+		log::error!("CollectionIssuance storage item removal was not completed");
+	} else {
+		log::info!("CollectionIssuance storage item successfully removed")
+	};
+
+	let res = frame_support::migration::clear_storage_prefix(
+		<Pallet<T>>::name().as_bytes(),
+		b"TokenBalance",
+		b"",
+		None,
+		None,
+	);
+
+	if res.maybe_cursor.is_some() {
+		log::error!("TokenBalance storage item removal was not completed");
+	} else {
+		log::info!("TokenBalance storage item successfully removed")
+	};
+
+	let res = frame_support::migration::clear_storage_prefix(
+		<Pallet<T>>::name().as_bytes(),
+		b"TokenOwner",
+		b"",
+		None,
+		None,
+	);
+
+	if res.maybe_cursor.is_some() {
+		log::error!("TokenOwner storage item removal was not completed");
+	} else {
+		log::info!("TokenOwner storage item successfully removed")
+	};
 }
 
 #[cfg(test)]
@@ -259,6 +318,7 @@ mod migration_tests {
 		tests::create_owned_tokens,
 	};
 	use frame_support::{
+		migration::{have_storage_value, put_storage_value},
 		traits::{OnRuntimeUpgrade, StorageVersion},
 		StorageDoubleMap, StorageMap,
 	};
@@ -512,6 +572,144 @@ mod migration_tests {
 					reserve_price: 12345,
 				});
 			assert_eq!(crate::Listings::<Test>::get(listing_id_2), Some(listing_2_expected));
+		});
+	}
+
+	#[test]
+	fn migration_clears_storage_prefix() {
+		TestExt::default().build().execute_with(|| {
+			let test_storage_key = b"";
+
+			// Check initial state is empty
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"NextSerialNumber",
+					test_storage_key
+				),
+				false
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"TokenBalance",
+					test_storage_key
+				),
+				false
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"TokenOwner",
+					test_storage_key
+				),
+				false
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"CollectionIssuance",
+					test_storage_key
+				),
+				false
+			);
+
+			// Put some storage values
+			put_storage_value(
+				<Pallet<Test>>::name().as_bytes(),
+				b"NextSerialNumber",
+				test_storage_key,
+				123,
+			);
+			put_storage_value(
+				<Pallet<Test>>::name().as_bytes(),
+				b"TokenBalance",
+				test_storage_key,
+				123,
+			);
+			put_storage_value(
+				<Pallet<Test>>::name().as_bytes(),
+				b"TokenOwner",
+				test_storage_key,
+				123,
+			);
+			put_storage_value(
+				<Pallet<Test>>::name().as_bytes(),
+				b"CollectionIssuance",
+				test_storage_key,
+				123,
+			);
+
+			// Check state is now some
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"NextSerialNumber",
+					test_storage_key
+				),
+				true
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"TokenBalance",
+					test_storage_key
+				),
+				true
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"TokenOwner",
+					test_storage_key
+				),
+				true
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"CollectionIssuance",
+					test_storage_key
+				),
+				true
+			);
+
+			// Run runtime upgrade
+			<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
+
+			// Check state is now empty
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"NextSerialNumber",
+					test_storage_key
+				),
+				false
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"TokenBalance",
+					test_storage_key
+				),
+				false
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"TokenOwner",
+					test_storage_key
+				),
+				false
+			);
+			assert_eq!(
+				have_storage_value(
+					<Pallet<Test>>::name().as_bytes(),
+					b"CollectionIssuance",
+					test_storage_key
+				),
+				false
+			);
 		});
 	}
 }
