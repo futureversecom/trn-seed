@@ -28,7 +28,7 @@ pub struct TokenInfo<T: Config> {
 	// The address of the contract
 	pub token_address: H160,
 	// The ids of the tokens belonging to the contract
-	pub token_ids: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+	pub token_ids: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 }
 
 pub struct GroupedTokenInfo<T: Config> {
@@ -38,7 +38,7 @@ pub struct GroupedTokenInfo<T: Config> {
 
 impl<T: Config> GroupedTokenInfo<T> {
 	pub fn new(
-		token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, T::MaxAddresses>,
+		token_ids: BoundedVec<BoundedVec<SerialNumber, T::MaxTokensPerMint>, T::MaxAddresses>,
 		token_addresses: BoundedVec<H160, T::MaxAddresses>,
 		destination: T::AccountId,
 	) -> Self {

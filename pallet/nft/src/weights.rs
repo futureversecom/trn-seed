@@ -13,8 +13,8 @@ pub trait WeightInfo {
 	fn claim_unowned_collection() -> Weight;
 	fn set_owner() -> Weight;
 	fn create_collection() -> Weight;
-	fn mint_collection(q: u32) -> Weight;
-	fn mint_additional(q: u32) -> Weight;
+	fn mint_collection() -> Weight;
+	fn mint_additional() -> Weight;
 	fn transfer() -> Weight;
 	fn burn() -> Weight;
 	fn sell() -> Weight;
@@ -41,21 +41,17 @@ impl WeightInfo for () {
 			.saturating_add(DbWeight::get().reads(1 as Weight))
 			.saturating_add(DbWeight::get().writes(5 as Weight))
 	}
-	fn mint_additional(q: u32) -> Weight {
+	fn mint_additional() -> Weight {
 		(79_200_000 as Weight)
 			// Standard Error: 2_166_000
-			.saturating_add((3_536_000 as Weight).saturating_mul(q as Weight))
 			.saturating_add(DbWeight::get().reads(4 as Weight))
 			.saturating_add(DbWeight::get().writes(2 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(q as Weight)))
 	}
-	fn mint_collection(q: u32) -> Weight {
+	fn mint_collection() -> Weight {
 		(74_033_000 as Weight)
 			// Standard Error: 58_000
-			.saturating_add((4_321_000 as Weight).saturating_mul(q as Weight))
 			.saturating_add(DbWeight::get().reads(2 as Weight))
 			.saturating_add(DbWeight::get().writes(6 as Weight))
-			.saturating_add(DbWeight::get().writes((1 as Weight).saturating_mul(q as Weight)))
 	}
 	fn transfer() -> Weight {
 		(51_000_000 as Weight)

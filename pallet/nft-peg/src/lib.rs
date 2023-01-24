@@ -55,7 +55,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DelayLength: Get<Self::BlockNumber>;
 		type MaxAddresses: Get<u32>;
-		type MaxTokensPerCollection: Get<u32>;
+		type MaxTokensPerMint: Get<u32>;
 		type EthBridge: EthereumBridge;
 
 		// Defines the weight info trait.
@@ -89,7 +89,7 @@ pub mod pallet {
 		/// The prefix uint in the abi encoded data was invalid
 		InvalidAbiPrefix,
 		/// No collection info exists
-		NoCollectionInfo,
+		NoCollectionFoundInfo,
 		/// No mapped token was stored for bridging the token back to the bridged chain
 		/// chain(Should not happen)
 		NoMappedTokenExists,
@@ -194,7 +194,7 @@ where
 
 			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
 			let token_ids: Result<
-				Vec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>>,
+				Vec<BoundedVec<SerialNumber, T::MaxTokensPerMint>>,
 				(u64, DispatchError),
 			> = token_ids
 				.iter()
@@ -220,7 +220,7 @@ where
 				.collect();
 
 			let token_ids: BoundedVec<
-				BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+				BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 				T::MaxAddresses,
 			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
@@ -298,11 +298,11 @@ where
 				};
 
 			// Mint the tokens
-			let mint_weight = pallet_nft::Pallet::<T>::do_mint(
+			let mint_weight = pallet_nft::Pallet::<T>::mint_bridged_token(
 				&destination,
 				collection_id,
 				current_token.token_ids.clone().into_inner(),
-			)?;
+			);
 			weight =
 				weight.saturating_add(T::DbWeight::get().writes(2)).saturating_add(mint_weight);
 		}
@@ -332,7 +332,7 @@ where
 					Error::<T>::NoPermissionToBridge
 				);
 			} else {
-				fail!(Error::<T>::NoCollectionInfo);
+				fail!(Error::<T>::NoCollectionFoundInfo);
 			}
 
 			// Allocate space
@@ -341,7 +341,7 @@ where
 			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
 			// somewhat bounded as well, but there should be a way to reduce this complexity
 			for token_id in &token_ids[idx] {
-				pallet_nft::Pallet::<T>::do_burn(who, collection_id.clone(), token_id)?;
+				pallet_nft::Pallet::<T>::do_burn(who, collection_id.clone(), *token_id)?;
 				source_token_ids[idx].push(Token::Uint(U256::from(token_id.clone())))
 			}
 

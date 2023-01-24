@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
+use core::convert::TryFrom;
 use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
@@ -9,10 +10,11 @@ use frame_support::{
 use pallet_evm::{Context, ExitReason, PrecompileSet};
 use pallet_nft::TokenCount;
 use sp_core::{H160, U256};
-use sp_runtime::traits::SaturatedConversion;
-use sp_std::{marker::PhantomData, vec::Vec};
+use sp_runtime::{traits::SaturatedConversion, BoundedVec};
+use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
+use seed_pallet_common::GetTokenOwner;
 use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
@@ -206,7 +208,7 @@ where
 
 		// Build output.
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		match pallet_nft::Pallet::<Runtime>::token_owner(collection_id, serial_number) {
+		match pallet_nft::Pallet::<Runtime>::get_owner(&(collection_id, serial_number)) {
 			Some(owner_account_id) => Ok(succeed(
 				EvmDataWriter::new()
 					.write(Address::from(Into::<H160>::into(owner_account_id)))
@@ -231,7 +233,7 @@ where
 		Ok(succeed(
 			EvmDataWriter::new()
 				.write(U256::from(pallet_nft::Pallet::<Runtime>::token_balance_of(
-					owner.into(),
+					&owner.into(),
 					collection_id,
 				)))
 				.build(),
@@ -263,19 +265,27 @@ where
 			return Err(revert("ERC721: Expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
-		let token_id: TokenId = (collection_id, serial_number);
 
 		// Check approvals/ ownership
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3))?;
 		if pallet_token_approvals::Pallet::<Runtime>::is_approved_or_owner(
-			token_id,
+			(collection_id, serial_number),
 			Runtime::AccountId::from(handle.context().caller),
 		) {
+			let serial_numbers_unbounded: Vec<SerialNumber> = vec![serial_number];
+			let serial_numbers: BoundedVec<
+				SerialNumber,
+				<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+			> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
 			// Dispatch call (if enough gas).
 			RuntimeHelper::<Runtime>::try_dispatch(
 				handle,
 				Some(Runtime::AccountId::from(from)).into(),
-				pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
+				pallet_nft::Call::<Runtime>::transfer {
+					collection_id,
+					serial_numbers,
+					new_owner: to.into(),
+				},
 			)?;
 		} else {
 			return Err(revert("ERC721: Caller not approved").into())
@@ -396,10 +406,20 @@ where
 		}
 
 		// Dispatch call (if enough gas).
+		let serial_numbers_unbounded: Vec<SerialNumber> = vec![serial_number];
+		let serial_numbers: BoundedVec<
+			SerialNumber,
+			<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+		> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
+
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(Runtime::AccountId::from(from)).into(),
-			pallet_nft::Call::<Runtime>::transfer { token_id, new_owner: to.into() },
+			pallet_nft::Call::<Runtime>::transfer {
+				collection_id,
+				serial_numbers,
+				new_owner: to.into(),
+			},
 		)?;
 
 		log3(
@@ -638,8 +658,10 @@ where
 		// emit transfer events - quantity times
 		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let serial_number =
-			pallet_nft::Pallet::<Runtime>::next_serial_number(collection_id).unwrap_or_default();
+		let serial_number = match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+			Some(collection_info) => collection_info.next_serial_number,
+			None => return Err(revert("Collection does not exist").into()),
+		};
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -687,7 +709,7 @@ where
 		let cursor: SerialNumber = cursor.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let (new_cursor, collected_tokens) = pallet_nft::Pallet::<Runtime>::owned_tokens_paginated(
+		let (new_cursor, collected_tokens) = pallet_nft::Pallet::<Runtime>::owned_tokens(
 			collection_id,
 			&owner.into(),
 			cursor,

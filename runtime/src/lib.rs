@@ -79,7 +79,7 @@ pub mod keys {
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
-	Signature, TokenId,
+	SerialNumber, Signature, TokenId,
 };
 
 mod bag_thresholds;
@@ -345,10 +345,14 @@ parameter_types! {
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const WorldId: seed_primitives::ParachainId = 100;
+	pub const MaxTokensPerCollection: u32 = 1_000_000;
+	pub const MaxOffers: u32 = 100;
 }
 impl pallet_nft::Config for Runtime {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
+	type MaxOffers = MaxOffers;
+	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
@@ -958,7 +962,7 @@ impl pallet_nft_peg::Config for Runtime {
 	type PalletId = NftPegPalletId;
 	type DelayLength = DelayLength;
 	type MaxAddresses = MaxAddresses;
-	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type MaxTokensPerMint = MaxIdsPerMultipleMint;
 	type EthBridge = EthBridge;
 	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
 }
@@ -1246,8 +1250,8 @@ impl_runtime_apis! {
 		AccountId,
 		Runtime,
 	> for Runtime {
-		fn owned_tokens(collection_id: CollectionUuid, who: AccountId) -> Vec<TokenId> {
-			Nft::owned_tokens(collection_id, &who)
+		fn owned_tokens(collection_id: CollectionUuid, who: AccountId, cursor: SerialNumber, limit: u16) -> (SerialNumber, Vec<SerialNumber>) {
+			Nft::owned_tokens(collection_id, &who, cursor, limit)
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)

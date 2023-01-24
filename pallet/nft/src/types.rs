@@ -15,42 +15,26 @@
 
 //! NFT module types
 
-use crate::Config;
-
-use seed_primitives::{AssetId, Balance, BlockNumber, SerialNumber, TokenId};
+use crate::{Config, Error};
 
 use codec::{Decode, Encode};
+use core::fmt::Write;
+use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize, Serializer};
+use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid, SerialNumber, TokenId};
 use sp_core::H160;
-use sp_runtime::{PerThing, Permill};
+use sp_runtime::{BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
+
+/// The max. number of entitlements any royalties schedule can have
+/// just a sensible upper bound
+pub(crate) const MAX_ENTITLEMENTS: usize = 8;
 
 // Time before auction ends that auction is extended if a bid is placed
 pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 
 /// OfferId type used to distinguish different offers on NFTs
 pub type OfferId = u64;
-
-// A value placed in storage that represents the current version of the NFT storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-// This should match directly with the semantic versions of the Rust crate.
-#[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq, TypeInfo)]
-pub enum Releases {
-	/// storage version pre-runtime v1
-	V0,
-	/// storage version > runtime v13
-	V1,
-	/// storage version > runtime v19
-	V2,
-}
-
-impl Default for Releases {
-	fn default() -> Self {
-		Releases::V0
-	}
-}
 
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
@@ -74,21 +58,134 @@ pub enum OriginChain {
 	Root,
 }
 
-// Information related to a specific collection
+/// Struct that represents the owned serial numbers within a collection of an individual account
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct TokenOwnership<T: Config> {
+	pub owner: T::AccountId,
+	pub owned_serials: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
+}
+
+impl<T: Config> TokenOwnership<T> {
+	/// Creates a new TokenOwnership with the given owner and serial numbers
+	pub fn new(
+		owner: T::AccountId,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+	) -> Self {
+		let mut owned_serials = serial_numbers.clone();
+		owned_serials.sort();
+		Self { owner, owned_serials }
+	}
+
+	/// Adds a serial to owned_serials and sorts the vec
+	pub fn add(&mut self, serial_number: SerialNumber) -> DispatchResult {
+		self.owned_serials
+			.try_push(serial_number)
+			.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		self.owned_serials.sort();
+		Ok(())
+	}
+
+	/// Returns true if the serial number is containerd within owned_serials
+	pub fn contains_serial(&self, serial_number: &SerialNumber) -> bool {
+		self.owned_serials.contains(serial_number)
+	}
+}
+
+/// Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
-pub struct CollectionInformation<AccountId> {
-	// The owner of the collection
-	pub owner: AccountId,
-	// A human friendly name
+#[scale_info(skip_type_params(T))]
+pub struct CollectionInformation<T: Config> {
+	/// The owner of the collection
+	pub owner: T::AccountId,
+	/// A human friendly name
 	pub name: CollectionNameType,
-	// Collection metadata reference scheme
+	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
-	// configured royalties schedule
-	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
-	// Maximum number of tokens allowed in a collection
+	/// configured royalties schedule
+	pub royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+	/// Maximum number of tokens allowed in a collection
 	pub max_issuance: Option<TokenCount>,
-	// The chain in which the collection was minted originally
+	/// The chain in which the collection was minted originally
 	pub origin_chain: OriginChain,
+	/// The next available serial_number
+	pub next_serial_number: SerialNumber,
+	/// the total count of tokens in this collection
+	pub collection_issuance: TokenCount,
+	/// All serial numbers owned by an account in a collection
+	pub owned_tokens: BoundedVec<TokenOwnership<T>, <T as Config>::MaxTokensPerCollection>,
+}
+
+impl<T: Config> CollectionInformation<T> {
+	/// Check whether a token has been minted in a collection
+	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {
+		self.owned_tokens
+			.iter()
+			.any(|token_ownership| token_ownership.contains_serial(&serial_number))
+	}
+
+	/// Check whether who owns the serial number in collection_info
+	pub fn is_token_owner(&self, who: &T::AccountId, serial_number: SerialNumber) -> bool {
+		self.owned_tokens.iter().any(|token_ownership| {
+			if &token_ownership.owner == who {
+				token_ownership.contains_serial(&serial_number)
+			} else {
+				false
+			}
+		})
+	}
+
+	/// Adds a list of tokens to a users balance in collection_info
+	pub fn add_user_tokens(
+		&mut self,
+		token_owner: &T::AccountId,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+	) -> DispatchResult {
+		if self
+			.owned_tokens
+			.iter()
+			.any(|token_ownership| &token_ownership.owner == token_owner)
+		{
+			for token_ownership in self.owned_tokens.iter_mut() {
+				if &token_ownership.owner != token_owner {
+					continue
+				}
+				// Add new serial numbers to existing owner
+				for serial_number in serial_numbers.iter() {
+					token_ownership.add(*serial_number)?;
+				}
+			}
+		} else {
+			// If token owner doesn't exist, create new entry
+			let new_token_ownership = TokenOwnership::new(token_owner.clone(), serial_numbers);
+			self.owned_tokens
+				.try_push(new_token_ownership)
+				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		}
+		Ok(())
+	}
+
+	/// Removes a list of tokens from a users balance in collection_info
+	pub fn remove_user_tokens(
+		&mut self,
+		token_owner: &T::AccountId,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+	) {
+		let mut removing_all_tokens: bool = false;
+		for token_ownership in self.owned_tokens.iter_mut() {
+			if &token_ownership.owner != token_owner {
+				continue
+			}
+			token_ownership.owned_serials.retain(|serial| !serial_numbers.contains(serial));
+			removing_all_tokens = token_ownership.owned_serials.is_empty();
+			break
+		}
+		// Check whether the owner has any tokens left, if not remove them from the collection
+		if removing_all_tokens {
+			self.owned_tokens
+				.retain(|token_ownership| &token_ownership.owner != token_owner);
+		}
+	}
 }
 
 /// Denotes the metadata URI referencing scheme used by a collection
@@ -167,37 +264,44 @@ impl MetadataScheme {
 			_ => return Err(()),
 		}
 	}
-}
-
-#[cfg(feature = "std")]
-pub fn serialize_utf8<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
-	let base64_str =
-		core::str::from_utf8(v).map_err(|_| serde::ser::Error::custom("Byte vec not UTF-8"))?;
-	s.serialize_str(&base64_str)
-}
-
-#[cfg(feature = "std")]
-pub fn serialize_royalties<S: Serializer, AccountId: Serialize>(
-	royalties: &Vec<(AccountId, Permill)>,
-	s: S,
-) -> Result<S::Ok, S::Error> {
-	let royalties: Vec<(&AccountId, String)> = royalties
-		.iter()
-		.map(|(account_id, per_mill)| {
-			let per_mill = format!("{:.6}", per_mill.deconstruct() as f32 / 1000000f32);
-			(account_id, per_mill)
-		})
-		.collect();
-	royalties.serialize(s)
-}
-
-/// Contains information for a particular token. Returns the attributes and owner
-#[derive(Eq, PartialEq, Decode, Encode, Default, Debug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct TokenInfo<AccountId> {
-	pub owner: AccountId,
-	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
-	pub royalties: Vec<(AccountId, Permill)>,
+	/// Returns the full token_uri for a token
+	pub fn construct_token_uri(&self, serial_number: SerialNumber) -> Vec<u8> {
+		let mut token_uri = sp_std::Writer::default();
+		match self {
+			MetadataScheme::Http(path) => {
+				let path = core::str::from_utf8(&path).unwrap_or("");
+				write!(&mut token_uri, "http://{}/{}.json", path, serial_number)
+					.expect("Not written");
+			},
+			MetadataScheme::Https(path) => {
+				let path = core::str::from_utf8(&path).unwrap_or("");
+				write!(&mut token_uri, "https://{}/{}.json", path, serial_number)
+					.expect("Not written");
+			},
+			MetadataScheme::IpfsDir(dir_cid) => {
+				write!(
+					&mut token_uri,
+					"ipfs://{}/{}.json",
+					core::str::from_utf8(&dir_cid).unwrap_or(""),
+					serial_number
+				)
+				.expect("Not written");
+			},
+			MetadataScheme::IpfsShared(shared_cid) => {
+				write!(
+					&mut token_uri,
+					"ipfs://{}.json",
+					core::str::from_utf8(&shared_cid).unwrap_or("")
+				)
+				.expect("Not written");
+			},
+			MetadataScheme::Ethereum(contract_address) => {
+				write!(&mut token_uri, "ethereum://{:?}/{}", contract_address, serial_number)
+					.expect("Not written");
+			},
+		}
+		token_uri.inner().clone()
+	}
 }
 
 /// Reason for an NFT being locked (un-transferrable)
@@ -206,10 +310,6 @@ pub enum TokenLockReason {
 	/// Token is listed for sale
 	Listed(ListingId),
 }
-
-/// The max. number of entitlements any royalties schedule can have
-/// just a sensible upper bound
-pub const MAX_ENTITLEMENTS: usize = 8;
 
 /// Reasons for an auction closure
 #[derive(Decode, Encode, Debug, Clone, PartialEq, Eq, TypeInfo)]
@@ -232,7 +332,7 @@ pub enum FixedPriceClosureReason {
 }
 
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
-#[derive(Default, Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct RoyaltiesSchedule<AccountId> {
 	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
 	pub entitlements: Vec<(AccountId, Permill)>,
@@ -263,56 +363,10 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	}
 }
 
-/// The listing response and cursor returned with the RPC getCollectionListing
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct ListingResponseWrapper<AccountId> {
-	// List of listings to be returned
-	pub listings: Vec<ListingResponse<AccountId>>,
-	// Cursor pointing to next listing in the collection
-	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_u128_option"))]
-	pub new_cursor: Option<u128>,
-}
-
-/// A type to encapsulate both auction listings and fixed price listings for RPC
-/// getCollectionListing
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub struct ListingResponse<AccountId> {
-	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_u128"))]
-	pub id: ListingId,
-	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_utf8"))]
-	pub listing_type: Vec<u8>,
-	pub payment_asset: AssetId,
-	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_u128"))]
-	pub price: Balance,
-	pub end_block: BlockNumber,
-	pub buyer: Option<AccountId>,
-	pub seller: AccountId,
-	pub token_ids: Vec<TokenId>,
-	#[cfg_attr(feature = "std", serde(serialize_with = "serialize_royalties"))]
-	pub royalties: Vec<(AccountId, Permill)>,
-}
-
-#[cfg(feature = "std")]
-pub fn serialize_u128<S: Serializer>(val: &u128, s: S) -> Result<S::Ok, S::Error> {
-	format!("{}", *val).serialize(s)
-}
-
-#[cfg(feature = "std")]
-pub fn serialize_u128_option<S: Serializer>(val: &Option<u128>, s: S) -> Result<S::Ok, S::Error> {
-	match val {
-		Some(v) => format!("{}", *v).serialize(s),
-		None => s.serialize_unit(),
+impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
+	fn default() -> Self {
+		Self { entitlements: vec![] }
 	}
-}
-
-/// A type of NFT sale listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub enum Listing<T: Config> {
-	FixedPrice(FixedPriceListing<T>),
-	Auction(AuctionListing<T>),
 }
 
 /// Information about a marketplace
@@ -324,20 +378,30 @@ pub struct Marketplace<AccountId> {
 	pub entitlement: Permill,
 }
 
+/// A type of NFT sale listing
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub enum Listing<T: Config> {
+	FixedPrice(FixedPriceListing<T>),
+	Auction(AuctionListing<T>),
+}
+
 /// Information about an auction listing
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
 	pub payment_asset: AssetId,
-	/// The threshold amount for a succesful bid
+	/// The threshold amount for a successful bid
 	pub reserve_price: Balance,
 	/// When the listing closes
 	pub close: T::BlockNumber,
 	/// The seller of the tokens
 	pub seller: T::AccountId,
-	/// The token Ids for sale in this listing
-	pub tokens: Vec<TokenId>,
+	/// The listing collection id
+	pub collection_id: CollectionUuid,
+	/// The serial numbers for sale in this listing
+	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
 	/// The royalties applicable to this auction
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
@@ -358,8 +422,10 @@ pub struct FixedPriceListing<T: Config> {
 	pub buyer: Option<T::AccountId>,
 	/// The seller of the tokens
 	pub seller: T::AccountId,
-	/// The token Ids for sale in this listing
-	pub tokens: Vec<TokenId>,
+	/// The listing collection id
+	pub collection_id: CollectionUuid,
+	/// The serial numbers for sale in this listing
+	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
 	/// The royalties applicable to this sale
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
@@ -381,9 +447,7 @@ pub type TokenCount = SerialNumber;
 
 #[cfg(test)]
 mod test {
-	use super::{ListingResponse, MetadataScheme, RoyaltiesSchedule, TokenId, TokenInfo};
-	use crate::mock::{AccountId, TestExt};
-	use serde_json;
+	use super::{MetadataScheme, RoyaltiesSchedule};
 	use sp_core::H160;
 	use sp_runtime::Permill;
 
@@ -446,68 +510,5 @@ mod test {
 			],
 		}
 		.validate());
-	}
-
-	#[test]
-	fn token_info_should_serialize() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = 1_u64;
-			let royalties = RoyaltiesSchedule::<AccountId> {
-				entitlements: vec![(3_u64, Permill::from_float(0.2))],
-			};
-
-			let token_info =
-				TokenInfo { owner: collection_owner, royalties: royalties.entitlements };
-
-			let json_str = "{\
-				\"owner\":1,\
-				\"royalties\":[\
-					[\
-						3,\
-						\"0.200000\"\
-					]\
-				]\
-			}";
-
-			assert_eq!(serde_json::to_string(&token_info).unwrap(), json_str);
-		});
-	}
-
-	#[test]
-	fn collection_listings_should_serialize() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = 1_u64;
-			let buyer = 2_u64;
-			let royalties = RoyaltiesSchedule::<AccountId> {
-				entitlements: vec![(3_u64, Permill::from_float(0.2))],
-			};
-			let token_id: TokenId = (0, 0);
-
-			let listing_response = ListingResponse {
-				id: 10,
-				listing_type: "fixedPrice".as_bytes().to_vec(),
-				payment_asset: 10,
-				price: 10,
-				end_block: 10,
-				buyer: Some(buyer),
-				seller: collection_owner,
-				royalties: royalties.entitlements,
-				token_ids: vec![token_id],
-			};
-
-			let json_str = "{\
-			\"id\":\"10\",\
-			\"listing_type\":\"fixedPrice\",\
-			\"payment_asset\":10,\
-			\"price\":\"10\",\
-			\"end_block\":10,\
-			\"buyer\":2,\
-			\"seller\":1,\
-			\"token_ids\":[[0,0]],\
-			\"royalties\":[[3,\"0.200000\"]]}\
-			";
-
-			assert_eq!(serde_json::to_string(&listing_response).unwrap(), json_str);
-		});
 	}
 }

@@ -8,6 +8,7 @@ repository = "https://github.com/futureversecom/seed"
 [dependencies]
 pallet-nft = { path = "../../pallet/nft", default-features = false }
 pallet-token-approvals = { path = "../../pallet/token-approvals", default-features = false }
+seed-pallet-common = { path = "../../pallet/common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 
 codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false }
@@ -33,6 +34,7 @@ std = [
 	"scale-info/std",
 	"pallet-nft/std",
 	"pallet-token-approvals/std",
+	"seed-pallet-common/std",
 	"fp-evm/std",
 	"pallet-evm/std",
 	"frame-support/std",
