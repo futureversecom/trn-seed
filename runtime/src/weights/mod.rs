@@ -2,6 +2,7 @@ pub mod frame_system;
 pub mod pallet_assets;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
+pub mod pallet_dex;
 pub mod pallet_echo;
 pub mod pallet_election_provider_multi_phase;
 pub mod pallet_erc20_peg;

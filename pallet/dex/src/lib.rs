@@ -208,7 +208,7 @@ pub mod pallet {
 		/// - `path`: trading path.
 		/// - `amount_in`: exact supply amount.
 		/// - `amount_out_min`: acceptable minimum target amount.
-		#[pallet::weight(<T as Config>::WeightInfo::swap_with_exact_supply(path.len() as u32))]
+		#[pallet::weight(T::WeightInfo::swap_with_exact_supply())]
 		#[transactional]
 		pub fn swap_with_exact_supply(
 			origin: OriginFor<T>,
@@ -228,7 +228,7 @@ pub mod pallet {
 		/// - `amount_out`: exact target amount.
 		/// - `amount_in_max`: acceptable maximum supply amount.
 		/// - `path`: trading path.
-		#[pallet::weight(<T as Config>::WeightInfo::swap_with_exact_target(path.len() as u32))]
+		#[pallet::weight(T::WeightInfo::swap_with_exact_target())]
 		#[transactional]
 		pub fn swap_with_exact_target(
 			origin: OriginFor<T>,
@@ -258,7 +258,7 @@ pub mod pallet {
 		/// - `amount_a_min`: amount a minimum willing to add.
 		/// - `amount_b_min`: amount b minimum willing to add.
 		/// - `min_share_increment`: minimum expected lp token shares to be recieved.
-		#[pallet::weight(<T as Config>::WeightInfo::add_liquidity())]
+		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		#[transactional]
 		pub fn add_liquidity(
 			origin: OriginFor<T>,
@@ -315,7 +315,7 @@ pub mod pallet {
 		/// - `remove_liquidity`: liquidity amount to remove.
 		/// - `min_withdrawn_a`: minimum amount of asset A to be withdrawn from LP token.
 		/// - `min_withdrawn_b`: minimum amount of asset B to be withdrawn from LP token.
-		#[pallet::weight(<T as Config>::WeightInfo::remove_liquidity())]
+		#[pallet::weight(T::WeightInfo::remove_liquidity())]
 		#[transactional]
 		pub fn remove_liquidity(
 			origin: OriginFor<T>,
@@ -343,7 +343,7 @@ pub mod pallet {
 		///
 		/// - `asset_id_a`: Asset id A.
 		/// - `asset_id_b`: Asset id B.
-		#[pallet::weight((<T as Config>::WeightInfo::reenable_trading_pair(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::reenable_trading_pair(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn reenable_trading_pair(
 			origin: OriginFor<T>,
@@ -376,7 +376,7 @@ pub mod pallet {
 		///
 		/// - `asset_id_a`: Asset id A.
 		/// - `asset_id_b`: Asset id B.
-		#[pallet::weight((<T as Config>::WeightInfo::disable_trading_pair(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::disable_trading_pair(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn disable_trading_pair(
 			origin: OriginFor<T>,

@@ -441,7 +441,7 @@ impl pallet_dex::Config for Runtime {
 	type LPTokenDecimals = LPTokenDecimals;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
-	type WeightInfo = pallet_dex::weights::PlugWeight<Runtime>;
+	type WeightInfo = weights::pallet_dex::WeightInfo<Runtime>;
 	type MultiCurrency = AssetsExt;
 }
 
@@ -1699,7 +1699,7 @@ mod benches {
 		[pallet_xrpl_bridge, XRPLBridge]
 		[pallet_erc20_peg, Erc20Peg]
 		[pallet_echo, Echo]
+		[pallet_dex, Dex]
 		// [pallet_xrpl_bridge, XRPLBridge]
-		// [pallet_dex, Dex]
 	);
 }
