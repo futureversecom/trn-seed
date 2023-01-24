@@ -21,7 +21,11 @@ use sp_runtime::{
 };
 use sp_std::{cmp::min, convert::TryInto, prelude::*, vec};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+#[cfg(test)]
 mod mock;
+#[cfg(test)]
 mod tests;
 mod types;
 use types::SafeMath;
