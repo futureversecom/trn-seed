@@ -16,9 +16,7 @@
 
 use super::*;
 
-use frame_benchmarking::{
-	account as bench_account, benchmarks, impl_benchmark_test_suite, vec, Vec,
-};
+use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite, vec};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 
@@ -43,9 +41,9 @@ pub struct BenchmarkData<T: Config> {
 // Returns the created `coll_id`
 fn setup_benchmark<T: Config>() -> BenchmarkData<T> {
 	let alice = account::<T>("Alice");
-	let asset_id_1 = T::MultiCurrency::create(&alice).unwrap();
-	let asset_id_2 = T::MultiCurrency::create(&alice).unwrap();
 	let mint_amount = Balance::from(10_000_000u32);
+	let asset_id_1 = T::MultiCurrency::create(&alice, None).unwrap();
+	let asset_id_2 = T::MultiCurrency::create(&alice, None).unwrap();
 
 	assert_ok!(T::MultiCurrency::mint_into(asset_id_1, &alice, mint_amount));
 	assert_ok!(T::MultiCurrency::mint_into(asset_id_2, &alice, mint_amount));
@@ -54,11 +52,11 @@ fn setup_benchmark<T: Config>() -> BenchmarkData<T> {
 		origin::<T>(&alice).into(),
 		asset_id_1,
 		asset_id_2,
-		100000u32.into(),
-		200000u32.into(),
-		1000u32.into(),
-		1000u32.into(),
-		100u32.into()
+		Balance::from(100_000u32),
+		Balance::from(200_000u32),
+		Balance::from(1_000u32),
+		Balance::from(1_000u32),
+		Balance::from(100u32),
 	));
 
 	BenchmarkData { alice, asset_id_1, asset_id_2 }
@@ -95,12 +93,12 @@ benchmarks! {
 
 	add_liquidity {
 		let alice = account::<T>("Alice");
-		let asset_id_1 = T::MultiCurrency::create(&alice).unwrap();
-		let asset_id_2 = T::MultiCurrency::create(&alice).unwrap();
 		let mint_amount = Balance::from(10_000_000u32);
-
+		let asset_id_1 = T::MultiCurrency::create(&alice, None).unwrap();
+		let asset_id_2 = T::MultiCurrency::create(&alice, None).unwrap();
 		assert_ok!(T::MultiCurrency::mint_into(asset_id_1, &alice, mint_amount));
 		assert_ok!(T::MultiCurrency::mint_into(asset_id_2, &alice, mint_amount));
+
 		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
 
 		// Sanity check
