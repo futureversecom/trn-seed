@@ -45,7 +45,7 @@ fn setup_benchmark<T: Config>() -> BenchmarkData<T> {
 	let alice = account::<T>("Alice");
 	let asset_id_1 = T::MultiCurrency::create(&alice).unwrap();
 	let asset_id_2 = T::MultiCurrency::create(&alice).unwrap();
-	let mint_amount: Balance = 10000000u32.into();
+	let mint_amount = Balance::from(10_000_000u32);
 
 	assert_ok!(T::MultiCurrency::mint_into(asset_id_1, &alice, mint_amount));
 	assert_ok!(T::MultiCurrency::mint_into(asset_id_2, &alice, mint_amount));
@@ -69,8 +69,8 @@ benchmarks! {
 		let BenchmarkData { alice, asset_id_1, asset_id_2, .. } = setup_benchmark::<T>();
 
 		let path = vec![asset_id_1, asset_id_2];
-		let amount_in: Balance = 100u32.into();
-		let min_amount_out = 10u32.into();
+		let amount_in = Balance::from(100u32);
+		let min_amount_out = Balance::from(10u32);
 		let before_balance = T::MultiCurrency::balance(asset_id_1, &alice);
 
 	}: _(origin::<T>(&alice), amount_in, min_amount_out, path)
@@ -83,8 +83,8 @@ benchmarks! {
 		let BenchmarkData { alice, asset_id_1, asset_id_2, .. } = setup_benchmark::<T>();
 
 		let path = vec![asset_id_1, asset_id_2];
-		let amount_out: Balance = 100u32.into();
-		let amount_in_max = 120u32.into();
+		let amount_out = Balance::from(100u32);
+		let amount_in_max = Balance::from(120u32);
 		let before_balance = T::MultiCurrency::balance(asset_id_1, &alice);
 
 	}: _(origin::<T>(&alice), amount_out, amount_in_max, path)
@@ -97,7 +97,7 @@ benchmarks! {
 		let alice = account::<T>("Alice");
 		let asset_id_1 = T::MultiCurrency::create(&alice).unwrap();
 		let asset_id_2 = T::MultiCurrency::create(&alice).unwrap();
-		let mint_amount: Balance = 10000000u32.into();
+		let mint_amount = Balance::from(10_000_000u32);
 
 		assert_ok!(T::MultiCurrency::mint_into(asset_id_1, &alice, mint_amount));
 		assert_ok!(T::MultiCurrency::mint_into(asset_id_2, &alice, mint_amount));
