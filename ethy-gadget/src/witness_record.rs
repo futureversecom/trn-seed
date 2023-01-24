@@ -246,6 +246,13 @@ impl WitnessRecord {
 
 		Ok(WitnessStatus::Verified)
 	}
+
+	pub fn get_validator_set(&self) -> ValidatorSet<AuthorityId> {
+		self.validators.clone()
+	}
+	pub fn get_xrpl_validator_set(&self) -> ValidatorSet<AuthorityId> {
+		self.validators.clone()
+	}
 }
 
 /// Compact a sorted vec of IDs by replacing a monotonic sequence of IDs with the last ID in the

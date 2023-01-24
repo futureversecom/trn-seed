@@ -144,29 +144,18 @@ where
 	R::Api: EthyApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
-	/// Return the active validator set at `header`.
+	/// Query the runtime state for validator set
 	///
-	/// The returned set is prioritized as follows:
-	/// 1) validator set from a block signalling new set
-	/// 2) otherwise, query the runtime state
-	///
-	/// Note that the validator set could be `None`. This is the case if we don't find
-	/// an Ethy authority set change and we can't fetch the authority set from the
-	/// Ethy on-chain state.
-	///
+	/// Note that the validator set could be `None`. This is the case if we can't fetch the
+	/// authority set from the Ethy on-chain state.
 	/// Such a failure is usually an indication that the Ethy pallet has not been deployed (yet).
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
-		let new = if let Some(new) = find_authorities_change::<B>(header) {
-			Some(new)
-		} else {
-			// queries the Ethy pallet to get the active validator set public keys
-			let at = BlockId::hash(header.hash());
-			self.runtime.runtime_api().validator_set(&at).ok()
-		};
+		// queries the Ethy pallet to get the active validator set public keys
+		let at = BlockId::hash(header.hash());
+		let validator_set = self.runtime.runtime_api().validator_set(&at).ok();
 
-		trace!(target: "ethy", "💎 active validator set: {:?}", new);
-
-		new
+		info!(target: "ethy", "💎 active validator set: {:?}", validator_set);
+		validator_set
 	}
 
 	/// Return the signers authorized for signing XRPL messages
@@ -296,24 +285,29 @@ where
 			}
 		}
 
-		// Check the block for any validator set changes and update local view
-		if let Some(active) = self.validator_set(&new_header) {
-			// Authority set change or genesis set id triggers new authorities
-			// this block has a different validator set id to the one we know about OR
-			// it's the first block
-			if self.validator_set.is_empty() ||
-				active.id != self.validator_set.id ||
-				active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty()
-			{
-				info!(target: "ethy", "💎 new active validator set: {:?}", active);
-				info!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
-				metric_set!(self, ethy_validator_set_id, active.id);
-				self.gossip_validator.set_active_validators(active.validators.clone());
-				self.witness_record.set_validators(
-					active.clone(),
-					self.xrpl_validator_set(&new_header).unwrap_or_default(),
-				);
-				self.validator_set = active;
+		// Check the block for any validator set changes or the ethy-gadget validator set is empty
+		if find_authorities_change::<B>(&new_header).is_some() || self.validator_set.is_empty() {
+			match self.validator_set(&new_header) {
+				Some(active) => {
+					// if the validator set id is different or equal to the GENESIS_AUTHORITY_SET_ID
+					// and local validator set is empty
+					if active.id != self.validator_set.id ||
+						(active.id == GENESIS_AUTHORITY_SET_ID && self.validator_set.is_empty())
+					{
+						info!(target: "ethy", "💎 new active validator set: {:?}", active);
+						info!(target: "ethy", "💎 old validator set: {:?}", self.validator_set);
+						metric_set!(self, ethy_validator_set_id, active.id);
+						self.gossip_validator.set_active_validators(active.validators.clone());
+						self.witness_record.set_validators(
+							active.clone(),
+							self.xrpl_validator_set(&new_header).unwrap_or_default(),
+						);
+						self.validator_set = active;
+					}
+				},
+				None => {
+					warn!(target: "ethy", "💎 Validator set is empty");
+				},
 			}
 		}
 
@@ -733,5 +727,47 @@ pub(crate) mod test {
 		// verify validator set is correctly extracted from digest
 		let extracted = find_authorities_change::<Block>(&header);
 		assert_eq!(extracted, Some(validator_set));
+	}
+
+	#[test]
+	fn extract_validators_from_the_runtime_and_not_from_header() {
+		let keys = &[Keyring::Alice, Keyring::Bob];
+		let runtime_validators = make_ethy_ids(keys);
+		let header_validators = make_ethy_ids(&[Keyring::Alice, Keyring::Bob, Keyring::Charlie]);
+		let mut net = EthyTestNet::new(1, 0);
+		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], runtime_validators.clone());
+
+		let mut header = Header::new(
+			1u32.into(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Digest::default(),
+		);
+		let header_validator_set =
+			ValidatorSet { validators: header_validators, id: 1_u64, proof_threshold: 3 };
+		header.digest_mut().push(DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::<Public>::AuthoritiesChange(header_validator_set.clone()).encode(),
+		));
+		let finality_notification = FinalityNotification {
+			hash: Default::default(),
+			header: header.clone(),
+			// these fields are unused by ethy
+			tree_route: Arc::new([]),
+			stale_heads: Arc::new([]),
+		};
+		worker.handle_finality_notification(finality_notification);
+
+		// stored validator set should be extracted from runtime. not from the block header. i.e
+		// same as value in runtime_validators above
+		assert_eq!(
+			worker.witness_record.get_validator_set(),
+			ValidatorSet { validators: runtime_validators.clone(), id: 0_u64, proof_threshold: 2 }
+		);
+		assert_eq!(
+			worker.witness_record.get_xrpl_validator_set(),
+			ValidatorSet { validators: runtime_validators, id: 0_u64, proof_threshold: 2 }
+		);
 	}
 }
