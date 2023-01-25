@@ -1,0 +1,8 @@
+# Match CI self-hosted machine image
+FROM debian:buster-slim
+
+WORKDIR /root
+COPY ./seed .
+# COPY ./target/debug/seed .
+
+ENTRYPOINT ["/root/seed"]

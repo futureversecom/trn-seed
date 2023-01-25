@@ -49,3 +49,60 @@ jobs:
           cargo test --workspace --all-features
       #- name: Benchmark (build only)
       #  run: cargo check --features=runtime-benchmarks
+  
+  e2e:
+    runs-on: [self-hosted]
+    steps:
+      - name: Cleanup # https://github.com/actions/checkout/issues/211#issuecomment-1300522915
+        uses: AutoModality/action-clean@v1
+
+      - name: "Check out the repo"
+        uses: "actions/checkout@v3"
+
+      - name: "Change dir"
+        run: "cd e2e/"
+
+      - name: "Install Node.js"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "lts/*"
+          cache: "yarn"
+
+      # - name: "Install yarn globally"
+      #   run: "npm install -g yarn"
+
+      - name: "Install the dependencies"
+        run: "yarn install --immutable --prefer-offline"
+
+      - name: "Format the code"
+        run: "yarn format"
+
+      - name: "Lint the code"
+        run: "yarn lint:ts"
+
+      - name: "Add lint summary"
+        run: |
+          echo "## Lint results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
+
+      - name: "Build & move seed binary"
+        run: |
+          cargo build
+          mv ./target/debug/seed ./
+
+      - name: "Create docker image"
+        run: "docker build -t seed/pr -f Dockerfile.ci ."
+
+      - name: "Compile the contracts and generate the TypeChain bindings"
+        run: "yarn hardhat compile"
+
+      - name: "Test the contracts"
+        run: "yarn test"
+
+      # - name: "Test the contracts and generate the coverage report"
+      #   run: "yarn coverage"
+
+      # - name: "Add test summary"
+      #   run: |
+      #     echo "## Test results" >> $GITHUB_STEP_SUMMARY
+
