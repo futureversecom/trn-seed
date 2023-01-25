@@ -11,8 +11,7 @@
     "lint": "yarn lint:ts && yarn format",
     "lint:ts": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts .",
     "test": "hardhat test",
-    "seed": "docker-compose up && docker-compose rm -fsv",
-    "prepare": "husky install"
+    "seed": "docker-compose up && docker-compose rm -fsv"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.4",
@@ -37,7 +36,6 @@
     "ethers": "^5.7.2",
     "hardhat": "^2.12.1",
     "hardhat-gas-reporter": "^1.0.9",
-    "husky": "^8.0.2",
     "prettier": "^2.8.0",
     "solidity-coverage": "^0.8.2",
     "ts-node": "^10.9.1",
