@@ -52,15 +52,15 @@ jobs:
   
   e2e:
     runs-on: [linux]
+    defaults:
+      run:
+        working-directory: ./e2e
     steps:
       - name: Cleanup # https://github.com/actions/checkout/issues/211#issuecomment-1300522915
         uses: AutoModality/action-clean@v1
 
       - name: "Check out the repo"
         uses: "actions/checkout@v3"
-
-      - name: "Change dir"
-        run: "cd e2e/"
 
       - name: "Install Node.js"
         uses: "actions/setup-node@v3"
