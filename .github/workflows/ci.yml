@@ -89,11 +89,11 @@ jobs:
         run: |
           cargo build
           mv ./target/debug/seed ./
-        working-directory: ../
+        working-directory: ./
 
       - name: "Create docker image"
         run: "docker build -t seed/pr -f Dockerfile.ci ."
-        working-directory: ../
+        working-directory: ./
 
       - name: "Compile the contracts and generate the TypeChain bindings"
         run: "yarn hardhat compile"
