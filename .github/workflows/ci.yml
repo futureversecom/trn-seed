@@ -68,8 +68,8 @@ jobs:
           node-version: "lts/*"
           cache: "yarn"
 
-      # - name: "Install yarn globally"
-      #   run: "npm install -g yarn"
+      - name: "Install yarn globally"
+        run: "npm install -g yarn"
 
       - name: "Install the dependencies"
         run: "yarn install --immutable --prefer-offline"
