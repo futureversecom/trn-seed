@@ -15,12 +15,12 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use log::{debug, trace, warn};
-use std::collections::HashMap;
-
 use seed_primitives::ethy::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
 	AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
 };
+use sp_runtime::traits::AppVerify;
+use std::collections::HashMap;
 
 use crate::types::EventMetadata;
 
@@ -35,14 +35,16 @@ pub enum WitnessStatus {
 
 #[derive(PartialEq, Debug)]
 pub enum WitnessError {
-	/// The digest of the witness/event_id did not match our local digest
-	MismatchedDigest,
-	/// The witness is from an unknown authority, can't be accepted
-	UnknownAuthority,
-	/// This witness has been previously seen
-	DuplicateWitness,
 	/// This witness is for an already completed event
 	CompletedEvent,
+	/// This witness has been previously seen
+	DuplicateWitness,
+	/// The digest of the witness/event_id did not match our local digest
+	MismatchedDigest,
+	/// The signature supplied with the witness could not be verified
+	SignatureVerificationFailed,
+	/// The witness is from an unknown authority, can't be accepted
+	UnknownAuthority,
 }
 
 /// Handles tracking witnesses from ethy participants
@@ -128,6 +130,7 @@ impl WitnessRecord {
 		trace!(target: "ethy", "💎 event {:?}, has # support: {:?}", event_id, witness_count);
 		witness_count >= proof_threshold
 	}
+
 	/// Return event metadata
 	pub fn event_metadata(&self, event_id: EventProofId) -> Option<&EventMetadata> {
 		self.event_meta.get(&event_id)
@@ -191,6 +194,11 @@ impl WitnessRecord {
 		// if so we can't fully verify `witness` is for the correct `digest` yet (i.e. validator
 		// didn't sign a different message) store `witness` as unconfirmed for verification later
 		if let Some(metadata) = self.event_metadata(witness.event_id) {
+			if !witness.signature.verify(witness.digest.as_slice(), &witness.authority_id) {
+				warn!(target: "ethy", "💎 witness digest signature verification failed: {:?} from {:?}", witness.event_id, witness.authority_id);
+				return Err(WitnessError::SignatureVerificationFailed)
+			}
+
 			// Witnesses for XRPL are special cases and have unique digests per authority
 			if metadata.digest != witness.digest && witness.chain_id != EthyChainId::Xrpl {
 				warn!(target: "ethy", "💎 witness has bad digest: {:?} from {:?}", witness.event_id, witness.authority_id);
@@ -279,11 +287,15 @@ fn compact_sequence(completed_events: &mut [EventProofId]) -> &[EventProofId] {
 
 #[cfg(test)]
 pub(crate) mod test {
+	use crate::types::data_to_digest;
+
 	use super::{compact_sequence, Signature, WitnessError, WitnessRecord, WitnessStatus};
 	use seed_primitives::ethy::{
-		crypto::AuthorityPair, AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
+		crypto::AuthorityPair, AuthorityIndex, EthyChainId, EthyEcdsaToPublicKey, EventProofId,
+		ValidatorSet, Witness,
 	};
 	use sp_application_crypto::Pair;
+	use sp_runtime::traits::{AppVerify, Convert};
 
 	fn dev_signers() -> Vec<AuthorityPair> {
 		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
@@ -305,6 +317,9 @@ pub(crate) mod test {
 		chain_id: EthyChainId,
 		digest: [u8; 32],
 	) -> Witness {
+		let compatible_public = EthyEcdsaToPublicKey::convert(validator.public());
+		let digest = data_to_digest(chain_id, digest.to_vec(), compatible_public).unwrap();
+
 		Witness {
 			digest,
 			chain_id,
@@ -442,6 +457,73 @@ pub(crate) mod test {
 			EthyChainId::Xrpl,
 		);
 		assert_eq!(witness_record.note_event_witness(witness), Ok(WitnessStatus::Verified));
+	}
+
+	#[test]
+	fn note_event_witness_signature_verification_fails() {
+		let validator_keys = dev_signers();
+		let mut witness_record = WitnessRecord {
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			xrpl_validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			..Default::default()
+		};
+		let event_id = 5_u64;
+		let digest = [1_u8; 32];
+		let witness =
+			&mut create_witness(&validator_keys[0], event_id, EthyChainId::Ethereum, digest);
+
+		witness.signature = validator_keys[0].sign(b"wrong message!");
+
+		witness_record.note_event_metadata(
+			event_id,
+			[2_u8; 32], // Digest created in create_witness() is [1_u8; 32]
+			Default::default(),
+			EthyChainId::Ethereum,
+		);
+
+		assert_eq!(
+			witness_record.note_event_witness(witness),
+			Err(WitnessError::SignatureVerificationFailed)
+		);
+	}
+
+	#[test]
+	fn note_event_witness_signature_verification_fails_xrpl() {
+		let validator_keys = dev_signers();
+		let mut witness_record = WitnessRecord {
+			validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			xrpl_validators: ValidatorSet {
+				validators: validator_keys.iter().map(|x| x.public()).collect(),
+				..Default::default()
+			},
+			..Default::default()
+		};
+		let event_id = 5_u64;
+		let digest = [1_u8; 32];
+		let witness = &mut create_witness(&validator_keys[0], event_id, EthyChainId::Xrpl, digest);
+
+		witness.signature = validator_keys[0].sign(b"wrong message!");
+
+		witness_record.note_event_metadata(
+			event_id,
+			[2_u8; 32], // Digest created in create_witness() is [1_u8; 32]
+			Default::default(),
+			EthyChainId::Xrpl,
+		);
+
+		assert_eq!(
+			witness_record.note_event_witness(witness),
+			Err(WitnessError::SignatureVerificationFailed)
+		);
 	}
 
 	#[test]
@@ -700,5 +782,47 @@ pub(crate) mod test {
 		assert_eq!(compact_sequence(&mut [1, 2, 3, 4, 5]), [4, 5]);
 		assert_eq!(compact_sequence(&mut [1, 2, 3, 8, 9]), [3, 8, 9]);
 		assert_eq!(compact_sequence(&mut [1, 2, 3, 4, 9]), [4, 9]);
+	}
+
+	#[test]
+	fn witness_signature_verification_xrpl() {
+		let validator_keys = dev_signers();
+		let validator = &validator_keys[0];
+		let chain_id = EthyChainId::Xrpl;
+		let event_id = 5;
+
+		let compatible_public = EthyEcdsaToPublicKey::convert(validator.public());
+		let digest = [2_u8; 32];
+
+		let witness = create_witness(&validator, event_id, chain_id, digest);
+
+		assert_eq!(
+			witness.signature.verify(witness.digest.as_slice(), &witness.authority_id),
+			true
+		);
+
+		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
+		assert_eq!(witness.signature.verify(wrong_digest.as_slice(), &witness.authority_id), false);
+	}
+
+	#[test]
+	fn witness_signature_verification_ethereum() {
+		let validator_keys = dev_signers();
+		let validator = &validator_keys[0];
+		let chain_id = EthyChainId::Ethereum;
+		let event_id = 5;
+
+		let compatible_public = EthyEcdsaToPublicKey::convert(validator.public());
+		let digest = [2_u8; 32];
+
+		let witness = create_witness(&validator, event_id, chain_id, digest);
+
+		assert_eq!(
+			witness.signature.verify(witness.digest.as_slice(), &witness.authority_id),
+			true
+		);
+
+		let wrong_digest = data_to_digest(chain_id, vec![3_u8; 32], compatible_public).unwrap();
+		assert_eq!(witness.signature.verify(wrong_digest.as_slice(), &witness.authority_id), false);
 	}
 }
