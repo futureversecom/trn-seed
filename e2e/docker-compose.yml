@@ -1,0 +1,124 @@
+# two node local network (alice + bob validators)
+version: "3"
+
+services:
+  seed:
+    image: ghcr.io/futureversecom/seed:latest
+    # volumes:
+    # - ./data/validator-0:/mnt/data
+    # - ./chain-spec:/mnt/chain-spec/:ro
+    command:
+      - --dev
+      # - --tmp
+      - --alice
+      - --validator
+      # - --chain=dev
+      - --base-path=/mnt/data
+      - --name=validator-0
+      - --unsafe-ws-external
+      - --unsafe-rpc-external
+      - --rpc-cors=all
+    ports:
+      - "9933:9933"
+      - "9944:9944"
+      - "30333:30333"
+
+  # validator-0:
+  #   image: ghcr.io/futureversecom/seed:latest
+  #   volumes:
+  #   - ./data/validator-0:/mnt/data
+  #   - ./chain-spec:/mnt/chain-spec/:ro
+  #   command:
+  #     - --validator
+  #     - --alice
+  #     - --chain=dev
+  #     - --base-path=/mnt/data
+  #     - --name=validator-0
+  #     - --rpc-methods=unsafe
+  #     - --unsafe-ws-external
+  #     - --unsafe-rpc-external
+  #     - --rpc-cors=all
+  #     - --telemetry-url=wss://telemetry.rootnet.app:9443/submit 0
+  #   ports:
+  #     - "9903:9933"
+  #     - "9904:9944"
+  #     - "30303:30333"
+  # validator-1:
+  #   image: ghcr.io/futureversecom/seed:latest
+  #   volumes:
+  #   - ./data/validator-1:/mnt/data
+  #   - ./chain-spec:/mnt/chain-spec/:ro
+  #   ports:
+  #     - "9913:9933"
+  #     - "9914:9944"
+  #     - "30313:30333"
+  #   command:
+  #     - --validator
+  #     - --bob
+  #     - --chain=dev
+  #     - --rpc-methods=unsafe
+  #     - --unsafe-ws-external
+  #     - --unsafe-rpc-external
+  #     - --base-path=/mnt/data
+  #     - --name=validator-1
+  #     - --telemetry-url=wss://telemetry.rootnet.app:9443/submit 0
+  # validator-2:
+  #   image: ghcr.io/futureversecom/seed:latest
+  #   volumes:
+  #   - ./data/validator-2:/mnt/data
+  #   - ./chain-spec:/mnt/chain-spec/:ro
+  #   command:
+  #     - --validator
+  #     - --charlie
+  #     - --chain=dev
+  #     - --base-path=/mnt/data
+  #     - --name=validator-2
+  #     - --rpc-methods=unsafe
+  #     - --unsafe-ws-external
+  #     - --unsafe-rpc-external
+  #     - --rpc-cors=all
+  #     - --telemetry-url=wss://telemetry.rootnet.app:9443/submit 0
+  #   ports:
+  #     - "9923:9933"
+  #     - "9924:9944"
+  #     - "30323:30333"
+  # validator-3:
+  #   image: ghcr.io/futureversecom/seed:latest
+  #   volumes:
+  #   - ./data/validator-3:/mnt/data
+  #   - ./chain-spec:/mnt/chain-spec/:ro
+  #   command:
+  #     - --validator
+  #     - --dave
+  #     - --chain=dev
+  #     - --base-path=/mnt/data
+  #     - --name=validator-3
+  #     - --rpc-methods=unsafe
+  #     - --unsafe-ws-external
+  #     - --unsafe-rpc-external
+  #     - --rpc-cors=all
+  #     - --telemetry-url=wss://telemetry.rootnet.app:9443/submit 0
+  #   ports:
+  #     - "9933:9933"
+  #     - "9934:9944"
+  #     - "30333:30333"
+  # validator-4:
+  #   image: ghcr.io/futureversecom/seed:latest
+  #   volumes:
+  #   - ./data/validator-4:/mnt/data
+  #   - ./chain-spec:/mnt/chain-spec/:ro
+  #   command:
+  #     - --validator
+  #     - --eve
+  #     - --chain=dev
+  #     - --base-path=/mnt/data
+  #     - --name=validator-4
+  #     - --rpc-methods=unsafe
+  #     - --unsafe-ws-external
+  #     - --unsafe-rpc-external
+  #     - --rpc-cors=all
+  #     - --telemetry-url=wss://telemetry.rootnet.app:9443/submit 0
+  #   ports:
+  #     - "9943:9933"
+  #     - "9944:9944"
+  #     - "30343:30333"
