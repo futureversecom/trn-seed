@@ -28,30 +28,30 @@ on:
       - ".github/workflows/*.yml"
 
 jobs:
-  # format-build-test:
-  #   runs-on: [self-hosted]
-  #   steps:
-  #     - name: Check out
-  #       uses: actions/checkout@v3
-  #     - name: Install toolchain
-  #       run: rustup show
-  #     - name: Format
-  #       run: |
-  #         cargo -V
-  #         cargo fmt --all -- --check
-  #     - name: Check
-  #       run: |
-  #         cargo -V
-  #         cargo check --release --all-features
-  #     - name: Test
-  #       run: |
-  #         cargo -V
-  #         cargo test --workspace --all-features
-  #     #- name: Benchmark (build only)
-  #     #  run: cargo check --features=runtime-benchmarks
+  format-build-test:
+    runs-on: [self-hosted]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+      - name: Install toolchain
+        run: rustup show
+      - name: Format
+        run: |
+          cargo -V
+          cargo fmt --all -- --check
+      - name: Check
+        run: |
+          cargo -V
+          cargo check --release --all-features
+      - name: Test
+        run: |
+          cargo -V
+          cargo test --workspace --all-features
+      #- name: Benchmark (build only)
+      #  run: cargo check --features=runtime-benchmarks
   
   e2e:
-    runs-on: [linux]
+    runs-on: [linux, self-hosted]
     defaults:
       run:
         working-directory: ./e2e
@@ -80,19 +80,8 @@ jobs:
       - name: "Lint the code"
         run: "yarn lint:ts"
 
-      - name: "Add lint summary"
-        run: |
-          echo "## Lint results" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
-
-      - name: "Build & move seed binary"
-        run: |
-          cargo build
-          mv ./target/debug/seed ./
-        working-directory: ./
-
       - name: "Create docker image"
-        run: "docker build -t seed/pr -f Dockerfile.ci ."
+        run: "docker build -t seed/pr -f Dockerfile ."
         working-directory: ./
 
       - name: "Compile the contracts and generate the TypeChain bindings"
