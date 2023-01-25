@@ -30,11 +30,12 @@ interface NodeOpts {
 }
 
 const defaultOpts: NodeOpts = {
-  type: "local",
+  type: "docker",
   httpPort: 9933,
   wsPort: 9944,
   dockerOpts: {
-    image: "ghcr.io/futureversecom/seed:latest",
+    // image: "ghcr.io/futureversecom/seed:latest",
+    image: "seed/pr",
   },
   binaryOpts: {
     binaryPath: "target/release/seed",
