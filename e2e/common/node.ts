@@ -23,6 +23,7 @@ interface NodeOpts {
   wsPort: number;
   dockerOpts: {
     image: string;
+    pull: boolean;
   };
   binaryOpts: {
     binaryPath: string;
@@ -36,6 +37,7 @@ const defaultOpts: NodeOpts = {
   dockerOpts: {
     // image: "ghcr.io/futureversecom/seed:latest",
     image: "seed/pr",
+    pull: false,
   },
   binaryOpts: {
     binaryPath: "target/release/seed",
@@ -104,23 +106,24 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
     nodeOpts.wsPort.toString(),
     nodeOpts.dockerOpts.image,
     "--dev",
-    "--tmp",
     "--unsafe-ws-external",
     "--unsafe-rpc-external",
     "--rpc-cors=all",
   ];
 
   // pull the image
-  await new Promise((resolve, reject) => {
-    console.info(`pulling image ${nodeOpts.dockerOpts.image}...`);
-    child.exec(`docker pull ${nodeOpts.dockerOpts.image}`, (error, stdout, _) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(stdout);
-      }
+  if (nodeOpts.dockerOpts.pull) {
+    await new Promise((resolve, reject) => {
+      console.info(`pulling image ${nodeOpts.dockerOpts.image}...`);
+      child.exec(`docker pull ${nodeOpts.dockerOpts.image}`, (error, stdout, _) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(stdout);
+        }
+      });
     });
-  });
+  }
 
   // docker run --platform linux/amd64 --rm -d -p 9933 -p 9944 ghcr.io/futureversecom/seed:latest --dev --tmp --unsafe-ws-external --unsafe-rpc-external --rpc-cors=all
   const proc = child.spawn("docker", args);
