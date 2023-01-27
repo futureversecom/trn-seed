@@ -18,6 +18,7 @@ use frame_support::{fail, pallet_prelude::*, PalletId, traits::{
 	fungibles::{Inspect, Mutate, Transfer},
 	UnixTime,
 }, transactional, weights::constants::RocksDbWeight as DbWeight};
+use frame_support::weights::Pays::No;
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{One, Zero},
@@ -593,7 +594,7 @@ impl<T: Config> Pallet<T> {
 		);
 		let tx_blob = payment.binary_serialize(true);
 
-		T::EthyAdapter::request_for_proof(EthySigningRequest::XrplTx(tx_blob))
+		T::EthyAdapter::request_for_proof(EthySigningRequest::XrplTx(tx_blob), None)
 	}
 
 	// Return the current door nonce and increment it in storage
@@ -658,8 +659,8 @@ impl<T: Config> BridgeAdapter for Pallet<T> {
 	}
 }
 
-impl<T: Config> XRPLBridgeAdapter<XrplAccountId> for Pallet<T> {
-	fn get_door_signers() -> Result<Vec<XrplAccountId>, DispatchError> {
+impl<T: Config> XRPLBridgeAdapter<AuthorityId> for Pallet<T> {
+	fn get_door_signers() -> Result<Vec<AuthorityId>, DispatchError> {
 		Self::get_door_signers()
 	}
 

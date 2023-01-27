@@ -4,7 +4,7 @@
 use codec::{Decode, Encode};
 use frame_support::dispatch::TypeInfo;
 use frame_support::{PalletId, sp_io};
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, Percent};
 use seed_primitives::ethy::{EthyChainId, EventProofId, ValidatorSetId};
 use ethabi::Token;
 use seed_primitives::EthAddress;
@@ -13,8 +13,14 @@ use sp_std::{fmt::Debug, vec::Vec};
 
 /// Interface for pallet-ethy
 pub trait EthyAdapter {
-    fn request_for_proof(request: EthySigningRequest) -> Result<EventProofId, DispatchError>;
+    /// request ethy to request for an event proof from ethy-gadget
+    /// if the event_proof_id is given, it will be used, or else next available will be used
+    fn request_for_proof(request: EthySigningRequest, event_proof_id: Option<EventProofId>) -> Result<EventProofId, DispatchError>;
+    /// get ethy state
     fn get_ethy_state() -> State;
+    /// get next event proof id
+    /// This will increment the value at NextEventProofId storage item in ethy
+    fn get_next_event_proof_id() -> EventProofId;
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Decode, Encode, TypeInfo)]
@@ -103,12 +109,13 @@ pub trait BridgeAdapter {
 /// Interface for Ethereum bridge
 pub trait EthereumBridgeAdapter: BridgeAdapter {
     fn get_contract_address() -> Result<EthAddress, DispatchError>;
+    fn get_notarization_threshold() -> Result<Percent, DispatchError>;
 }
 
 /// Interface for pallet-xrpl-bridge
 pub trait XRPLBridgeAdapter<EthyId>: BridgeAdapter {
     fn get_door_signers() -> Result<Vec<EthyId>, DispatchError>;
     fn get_signer_list_set_payload(
-        _: Vec<(EthyId, u16)>,
+        _: Vec<(XrplAccountId, u16)>,
     ) -> Result<Vec<u8>, DispatchError>;
 }

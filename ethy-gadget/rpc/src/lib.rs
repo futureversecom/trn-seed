@@ -32,7 +32,7 @@ use std::{marker::PhantomData, ops::Deref, sync::Arc};
 use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
 use seed_primitives::{
 	ethy::{
-		EthyApi as EthyRuntimeApi, EthyChainId, EventProof, EventProofId, VersionedEventProof,
+		ValidatorSetApi, EthyChainId, EventProof, EventProofId, VersionedEventProof,
 		ETHY_ENGINE_ID,
 	},
 	AccountId20,
@@ -40,7 +40,7 @@ use seed_primitives::{
 
 mod notification;
 use notification::{EthEventProofResponse, XrplEventProofResponse};
-use seed_primitives::ethy::EthyEcdsaToPublicKey;
+use seed_primitives::EthyEcdsaToPublicKey;
 
 /// Provides RPC methods for interacting with Ethy.
 #[allow(clippy::needless_return)]
@@ -83,7 +83,7 @@ impl<C, R, B> EthyRpcHandler<C, R, B>
 where
 	C: AuxStore + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Sync + Send + 'static,
-	R::Api: EthyRuntimeApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	B: Block<Hash = H256>,
 {
 	/// Creates a new EthyRpcHandler instance.
@@ -102,7 +102,7 @@ where
 	B: Block<Hash = H256>,
 	C: AuxStore + Send + Sync + 'static,
 	R: ProvideRuntimeApi<B> + Sync + Send + 'static,
-	R::Api: EthyRuntimeApi<B>,
+	R::Api: ValidatorSetApi<B>,
 {
 	fn subscribe_event_proofs(&self, pending: PendingSubscription) {
 		let runtime_handle = self.runtime.clone();
@@ -175,13 +175,13 @@ pub fn build_event_proof_response<R, B>(
 where
 	B: Block<Hash = H256>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyRuntimeApi<B>,
+	R::Api: ValidatorSetApi<B>,
 {
 	match versioned_event_proof {
 		VersionedEventProof::V1(event_proof) => {
 			let proof_validator_set = runtime
 				.runtime_api()
-				.validator_set(&BlockId::hash(event_proof.block.into()))
+				.eth_validator_set(&BlockId::hash(event_proof.block.into()))
 				.ok()?;
 
 			let validator_addresses: Vec<AccountId20> = proof_validator_set
@@ -215,15 +215,15 @@ pub fn build_xrpl_tx_proof_response<R, B>(
 where
 	B: Block<Hash = H256>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyRuntimeApi<B>,
+	R::Api: ValidatorSetApi<B>,
 {
 	match versioned_event_proof {
 		VersionedEventProof::V1(EventProof { signatures, event_id, block, .. }) => {
 			let xrpl_validator_set =
-				runtime.runtime_api().xrpl_signers(&BlockId::hash(block.into())).ok()?;
+				runtime.runtime_api().xrpl_validator_set(&BlockId::hash(block.into())).ok()?;
 
 			let validator_set =
-				runtime.runtime_api().validator_set(&BlockId::hash(block.into())).ok()?;
+				runtime.runtime_api().eth_validator_set(&BlockId::hash(block.into())).ok()?;
 			let mut xrpl_signer_set: Vec<Bytes> = Default::default();
 
 			Some(XrplEventProofResponse {

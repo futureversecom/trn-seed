@@ -20,12 +20,12 @@ use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, Pall
 use log::{debug, error, info, trace};
 pub use pallet::*;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
-use seed_primitives::{CollectionUuid, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId, SerialNumber};
+use seed_primitives::{CollectionUuid, SerialNumber, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId,};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion, DigestItem};
 use sp_runtime::traits::Convert;
 use sp_std::{boxed::Box, vec, vec::Vec};
-use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthySigningRequest, XRPLBridgeAdapter};
+use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthyAdapter, EthySigningRequest, State, XRPLBridgeAdapter};
 use seed_pallet_common::ethy::State::{Active, Paused};
 use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface};
 use seed_primitives::ethy::crypto::AuthorityId;
@@ -309,5 +309,29 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 	fn validator_set_change_finalized(info: ValidatorSetChangeInfo<AuthorityId>) {
 		// se ethy to Active
 		EthyState::<T>::put(Active);
+	}
+}
+
+impl<T: Config> EthyAdapter for Pallet<T> {
+	fn request_for_proof(request: EthySigningRequest, event_proof_id: Option<EventProofId>) -> Result<EventProofId, DispatchError> {
+		match event_proof_id {
+			Some(event_proof_id) => {
+				Self::request_for_event_proof(event_proof_id, request);
+				return Ok(event_proof_id)
+			},
+			None => {
+				let event_proof_id = Self::get_next_event_proof_id();
+				Self::request_for_event_proof(event_proof_id, request);
+				return Ok(event_proof_id)
+			}
+		}
+	}
+
+	fn get_ethy_state() -> State {
+		EthyState::<T>::get()
+	}
+
+	fn get_next_event_proof_id() -> EventProofId {
+		Self::get_next_event_proof_id()
 	}
 }

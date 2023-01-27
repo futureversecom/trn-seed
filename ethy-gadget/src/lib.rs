@@ -38,7 +38,7 @@ use sp_consensus::SyncOracle;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::Block;
 
-use seed_primitives::ethy::EthyApi;
+use seed_primitives::ethy::ValidatorSetApi;
 
 mod error;
 mod gossip;
@@ -120,7 +120,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + 'static,
 {
 	/// ETHY client
@@ -151,7 +151,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Sync + Send + 'static,
 {
 	let EthyParams {

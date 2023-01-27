@@ -28,10 +28,13 @@ use sp_runtime::{
 };
 use std::{sync::Arc, time::Duration};
 
-use seed_primitives::ethy::{
-	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof,
-	EventProofId, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
-	GENESIS_AUTHORITY_SET_ID,
+use seed_primitives::{
+	EthyEcdsaToPublicKey,
+	ethy::{
+		crypto::AuthorityId as Public, ConsensusLog, ValidatorSetApi, EventProof,
+		EventProofId, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
+		GENESIS_AUTHORITY_SET_ID,
+	}
 };
 
 use crate::{
@@ -65,7 +68,7 @@ where
 	B: Block,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	C: Client<B, BE>,
 {
 	client: Arc<C>,
@@ -92,7 +95,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return a new ETHY worker instance.
@@ -141,7 +144,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return the active validator set at `header`.
@@ -161,7 +164,7 @@ where
 		} else {
 			// queries the Ethy pallet to get the active validator set public keys
 			let at = BlockId::hash(header.hash());
-			self.runtime.runtime_api().validator_set(&at).ok()
+			self.runtime.runtime_api().eth_validator_set(&at).ok()
 		};
 
 		trace!(target: "ethy", "💎 active validator set: {:?}", new);
@@ -177,7 +180,7 @@ where
 	/// Always query the chain state incase the authorized list changed
 	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		let at = BlockId::hash(header.hash());
-		let xrpl_signers = self.runtime.runtime_api().xrpl_signers(&at).ok();
+		let xrpl_signers = self.runtime.runtime_api().xrpl_validator_set(&at).ok();
 		info!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
 
 		xrpl_signers

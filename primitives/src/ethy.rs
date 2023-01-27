@@ -223,13 +223,14 @@ pub enum VersionedEventProof {
 }
 
 sp_api::decl_runtime_apis! {
-	/// Runtime API for ETHY validators.
-	pub trait EthyApi
+	/// Runtime API for validators.
+	pub trait ValidatorSetApi
 	{
-		/// Return the Ethy validator set (i.e Secp256k1 public keys of the authorized validator set)
-		fn validator_set() -> ValidatorSet<AuthorityId>;
-		/// Return the (subset) of Ethy validators configured for XRPL signing (i.e Secp256k1 public keys of the authorized validator set)
-		fn xrpl_signers() -> ValidatorSet<AuthorityId>;
+		/// Return the validator set responsible for Ethereum Bridge(i.e Secp256k1 public keys of the active validator set)
+		fn eth_validator_set() -> ValidatorSet<AuthorityId>;
+		/// Return the validator set responsible for Xrpl Bridge(i.e Secp256k1 public keys of the active validator set)
+		/// This is a subset of active validator set
+		fn xrpl_validator_set() -> ValidatorSet<AuthorityId>;
 	}
 }
 

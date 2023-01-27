@@ -16,25 +16,28 @@
 
 mod types;
 mod ethereum_http_cli;
+pub use ethereum_http_cli::EthereumRpcClient;
 
 use codec::Encode;
 use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId, traits::ValidatorSet as ValidatorSetT,};
 pub use pallet::*;
-use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, log};
+use types::*;
+use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, Hold, log};
 use seed_primitives::{CollectionUuid, EthAddress, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{offchain as rt_offchain, traits::{MaybeSerializeDeserialize, Member, SaturatedConversion}, Percent, RuntimeAppPublic, DispatchError};
 use sp_std::{boxed::Box, vec, vec::Vec};
 use ethabi::{ParamType, Token};
 use frame_support::dispatch::DispatchResult;
+use frame_support::traits::Len;
 use frame_system::offchain::SubmitTransaction;
 use hex_literal::hex;
 use log::{debug, error, info, trace};
-use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthyAdapter};
+use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthyAdapter, EthySigningRequest};
 use seed_pallet_common::ethy::State::Paused;
 use seed_pallet_common::validator_set::ValidatorSetInterface;
 use seed_primitives::ethy::crypto::AuthorityId;
-use seed_primitives::ethy::EventClaimId;
+use seed_primitives::ethy::{EventClaimId, EventProofId};
 use crate::Error::OffchainUnsignedTxSignedPayload;
 use crate::types::{BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim, EventClaimResult, LatestOrNumber, NotarizationPayload};
 
@@ -197,6 +200,8 @@ pub mod pallet {
 		InvalidNotarization,
 		/// Error returned when making unsigned transactions with signed payloads in off-chain worker
 		OffchainUnsignedTxSignedPayload,
+		/// Some internal operation failed
+		Internal,
 	}
 
 	#[pallet::event]
@@ -204,6 +209,8 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A new relayer has been set
 		RelayerSet { relayer_account: T::AccountId },
+		/// A relayer has been removed
+		RelayerRemoved { relayer_account: T::AccountId },
 		/// An account has deposited a relayer bond
 		RelayerBondDeposited { account_id: T::AccountId, amount: Balance},
 		/// An account has withdrawn a relayer bond
@@ -220,6 +227,10 @@ pub mod pallet {
 		ProcessingOk { claim_id : EventClaimId },
 		/// Processing an event failed
 		ProcessingFailed { claim_id: EventClaimId, error: EventRouterError },
+		/// Verifying an event succeeded
+		EventVerified { claim_id: EventClaimId },
+		/// Verifying an event failed
+		EventInvalid { claim_id: EventClaimId },
 	}
 
 	#[pallet::hooks]
@@ -502,6 +513,41 @@ impl<T: Config> Pallet<T> {
 		result: EventClaimResult,
 		notary_id: &AuthorityId,
 	) -> Result<(), DispatchError> {
+		ensure!(
+			Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Challenged),
+			Error::<T>::InvalidClaim
+		);
+
+		// Store the new notarization
+		<EventNotarizations<T>>::insert::<EventClaimId, AuthorityId, EventClaimResult>(
+			event_claim_id,
+			notary_id.clone(),
+			result,
+		);
+
+		// Count notarization votes
+		let notary_count = T::AuthoritySet::validators().len() as u32;
+		let mut yay_count = 0_u32;
+		let mut nay_count = 0_u32;
+		// TODO: store the count
+		for (_id, result) in <EventNotarizations<T>>::iter_prefix(event_claim_id) {
+			match result {
+				EventClaimResult::Valid => yay_count += 1,
+				_ => nay_count += 1,
+			}
+		}
+
+		// Claim is invalid (nays > (100% - NotarizationThreshold))
+		if Percent::from_rational(nay_count, notary_count) >
+			(Percent::from_parts(100_u8 - T::NotarizationThreshold::get().deconstruct()))
+		{
+			Self::handle_invalid_claim(event_claim_id)?;
+		}
+		// Claim is valid
+		if Percent::from_rational(yay_count, notary_count) >= T::NotarizationThreshold::get() {
+			Self::handle_valid_claim(event_claim_id)?;
+		}
+
 		Ok(())
 	}
 
@@ -720,6 +766,118 @@ impl<T: Config> Pallet<T> {
 		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 			.map_err(|_| <Error<T>>::OffchainUnsignedTxSignedPayload)
 	}
+
+	/// Handle claim after challenge has proven claim to be invalid
+	/// Slash relayer and pay slashed amount to challenger
+	/// repay challenger bond to challenger
+	/// Remove the active relayer
+	pub(crate) fn handle_invalid_claim(event_claim_id: EventClaimId) -> DispatchResult {
+		if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
+			event_claim_id,
+			T::ValidatorSet::get_validator_set()?.len() as u32,
+			None,
+		)
+		.maybe_cursor
+		{
+			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+			return Err(Error::<T>::Internal.into())
+		}
+		PendingClaimChallenges::<T>::mutate(|event_ids| {
+			event_ids
+				.iter()
+				.position(|x| *x == event_claim_id)
+				.map(|idx| event_ids.remove(idx));
+		});
+
+		if let Some(_event_claim) = PendingEventClaims::<T>::take(event_claim_id) {
+			if let Some((challenger, bond_amount)) = <ChallengerAccount<T>>::take(event_claim_id) {
+				// Challenger is correct, the event is invalid.
+				// Return challenger bond to challenger and reward challenger with relayer bond
+				T::MultiCurrency::release_hold(
+					T::PalletId::get(),
+					&challenger,
+					T::NativeAssetId::get(),
+					bond_amount,
+				)?;
+
+				if let Some(relayer) = Self::relayer() {
+					// Relayer bond goes to challenger
+					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer);
+					T::MultiCurrency::spend_hold(
+						T::PalletId::get(),
+						&relayer,
+						T::NativeAssetId::get(),
+						&[(challenger, relayer_paid_bond)],
+					)?;
+					// Relayer has been slashed, remove their stored bond amount and set relayer to
+					// None
+					Self::deposit_event(Event::<T>::RelayerRemoved{ relayer_account: relayer });
+					<Relayer<T>>::kill();
+				};
+
+				PendingClaimStatus::<T>::remove(event_claim_id);
+			} else {
+				// This shouldn't happen
+				log!(error, "💎 unexpected missing challenger account");
+			}
+			Self::deposit_event(Event::<T>::EventInvalid { claim_id: event_claim_id });
+			return Ok(())
+		} else {
+			log!(error, "💎 unexpected empty claim");
+			return Err(Error::<T>::InvalidClaim.into())
+		}
+	}
+
+	/// Handle claim after challenge has proven claim to be valid
+	/// Pay challenger bond to relayer
+	pub(crate) fn handle_valid_claim(event_claim_id: EventClaimId) -> DispatchResult {
+		// no need to track info on this claim any more since it's approved
+		if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
+			event_claim_id,
+			T::ValidatorSet::get_validator_set()?.len() as u32,
+			None,
+		)
+		.maybe_cursor
+		{
+			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+			return Err(Error::<T>::Internal.into())
+		}
+		// Remove the claim from pending_claim_challenges
+		PendingClaimChallenges::<T>::mutate(|event_ids| {
+			event_ids
+				.iter()
+				.position(|x| *x == event_claim_id)
+				.map(|idx| event_ids.remove(idx));
+		});
+
+		if PendingEventClaims::<T>::contains_key(event_claim_id) {
+			if let Some(relayer) = Self::relayer() {
+				if let Some((challenger, bond_amount)) =
+					<ChallengerAccount<T>>::take(event_claim_id)
+				{
+					// Challenger is incorrect, the event is valid. Send funds to relayer
+					T::MultiCurrency::spend_hold(
+						T::PalletId::get(),
+						&challenger,
+						T::NativeAssetId::get(),
+						&[(relayer, bond_amount)],
+					)?;
+				} else {
+					// This shouldn't happen
+					log!(error, "💎 unexpected missing challenger account");
+				}
+
+				PendingClaimStatus::<T>::insert(event_claim_id, EventClaimStatus::ProvenValid);
+				Self::deposit_event(Event::<T>::EventVerified { claim_id: event_claim_id });
+			} else {
+				log!(error, "💎 No relayer set");
+			}
+		} else {
+			log!(error, "💎 unexpected empty claim");
+			return Err(Error::<T>::InvalidClaim.into())
+		}
+		Ok(())
+	}
 }
 
 impl<T: Config> BridgeAdapter for Pallet<T> {
@@ -731,5 +889,37 @@ impl<T: Config> BridgeAdapter for Pallet<T> {
 impl<T: Config> EthereumBridgeAdapter for Pallet<T> {
 	fn get_contract_address() -> Result<EthAddress, DispatchError> {
 		Ok(ContractAddress::<T>::get())
+	}
+
+	fn get_notarization_threshold() -> Result<Percent, DispatchError> {
+		Ok(T::NotarizationThreshold::get())
+	}
+}
+
+impl<T: Config> EthereumBridge for Pallet<T> {
+	/// Send an event via the bridge
+	///  A proof of the event will be generated by notaries (async)
+	///
+	/// Returns an Id for the proof
+	fn send_event(
+		source: &H160,
+		destination: &H160,
+		app_event: &[u8],
+	) -> Result<EventProofId, DispatchError> {
+		let event_proof_id = T::EthyAdapter::get_next_event_proof_id();
+
+		let event_proof_info = EthereumEventInfo {
+			source: *source,
+			destination: *destination,
+			message: app_event.to_vec(),
+			validator_set_id: T::ValidatorSet::get_validator_set_id()?,
+			event_proof_id,
+		};
+
+		T::EthyAdapter::request_for_proof(
+			EthySigningRequest::Ethereum(event_proof_info),
+			Some(event_proof_id),
+		);
+		Ok(event_proof_id)
 	}
 }

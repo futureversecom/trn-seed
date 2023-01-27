@@ -37,7 +37,7 @@ use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 // Runtime
 use ethy_gadget::notification::EthyEventProofStream;
 use ethy_gadget_rpc::{EthyApiServer, EthyRpcHandler};
-use seed_primitives::{ethy::EthyApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
+use seed_primitives::{ethy::ValidatorSetApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
 use seed_runtime::Runtime;
 
 /// Extra RPC deps for Ethy
@@ -153,7 +153,7 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: BabeApi<Block>,
 	C::Api: BlockBuilder<Block>,
-	C::Api: EthyApi<Block>,
+	C::Api: ValidatorSetApi<Block>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
 	C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,

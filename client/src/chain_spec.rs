@@ -6,9 +6,9 @@ use seed_runtime::{
 		ROOT_SYMBOL, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig, Forcing,
+	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, Forcing,
 	GenesisConfig, SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig,
-	SystemConfig, XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+	SystemConfig, XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY, ValidatorSetConfig,
 };
 use sp_core::{ecdsa, Pair, Public};
 use sp_runtime::{
@@ -23,7 +23,7 @@ use sp_runtime::{
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Type alias for the stash, controller + session key types tuple used by validators
-pub type AuthorityKeys = (AccountId, BabeId, ImOnlineId, GrandpaId, EthBridgeId);
+pub type AuthorityKeys = (AccountId, BabeId, ImOnlineId, GrandpaId, EthyId);
 
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -49,7 +49,7 @@ pub fn authority_keys_from_seed(s: &str) -> AuthorityKeys {
 		get_from_seed::<BabeId>(s),
 		get_from_seed::<ImOnlineId>(s),
 		get_from_seed::<GrandpaId>(s),
-		get_from_seed::<EthBridgeId>(s),
+		get_from_seed::<EthyId>(s),
 	)
 }
 
@@ -235,7 +235,7 @@ fn testnet_genesis(
 	root_key: AccountId,
 	accounts_to_fund: Vec<AccountId>,
 	xrp_relayers: Vec<AccountId>,
-	xrp_door_signers: Vec<EthBridgeId>,
+	xrp_door_signers: Vec<EthyId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
 	let metadata = vec![
@@ -273,9 +273,6 @@ fn testnet_genesis(
 		grandpa: Default::default(),
 		im_online: Default::default(),
 		nft: Default::default(),
-		// NOTE(surangap): keeping xrpl stuff inside the eth bridge isn't elegant. Refactor this to
-		// validator-set pallet in the future.
-		eth_bridge: EthBridgeConfig { xrp_door_signers },
 		session: SessionConfig {
 			keys: initial_authorities
 				.iter()
@@ -309,5 +306,6 @@ fn testnet_genesis(
 		ethereum: seed_runtime::EthereumConfig {},
 		evm: seed_runtime::EVMConfig { accounts: Default::default() },
 		xrpl_bridge: XRPLBridgeConfig { xrp_relayers },
+		validator_set: ValidatorSetConfig { xrp_door_signers},
 	}
 }

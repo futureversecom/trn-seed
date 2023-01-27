@@ -30,14 +30,14 @@ pub use pallet::*;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, log, FinalSessionTracker as FinalSessionTrackerT};
 use seed_primitives::{CollectionUuid, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId, SerialNumber};
 use sp_core::{H160, U256};
-use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion, DigestItem};
+use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion, DigestItem, Percent};
 use sp_runtime::traits::Saturating;
 use sp_std::{boxed::Box, vec, vec::Vec};
 use pallet_ethy2::types::Log;
 use seed_pallet_common::ethy::State::{Active, Paused};
 use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface};
-use seed_pallet_common::xrpl::XRPLBridgeAdapter;
-use seed_primitives::ethy::{ConsensusLog, ETHY_ENGINE_ID, EventProofId, ValidatorSet, ValidatorSetId};
+use seed_pallet_common::ethy::{EthereumBridgeAdapter, XRPLBridgeAdapter};
+use seed_primitives::ethy::{ConsensusLog, ETHY_ENGINE_ID, EventProofId, ValidatorSet as ValidatorSetS , ValidatorSetId};
 use core::default::Default;
 
 pub(crate) const LOG_TARGET: &str = "validator-set";
@@ -51,9 +51,8 @@ pub mod pallet {
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use frame_system::offchain::CreateSignedTransaction;
 	use sp_runtime::RuntimeAppPublic;
-	use seed_pallet_common::ethy::XRPLBridgeAdapter;
+	use seed_pallet_common::ethy::{EthereumBridgeAdapter, XRPLBridgeAdapter};
 	use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo};
-	use seed_pallet_common::xrpl::XRPLBridgeAdapter;
 	use seed_primitives::{AccountId, ValidatorId};
 
 	#[pallet::pallet]
@@ -97,6 +96,10 @@ pub mod pallet {
 		type EthyAdapter: ValidatorSetChangeHandler<Self::EthyId>;
 		/// XRPL Bridge adapter
 		type XRPLBridgeAdapter: XRPLBridgeAdapter<Self::EthyId>;
+		/// Eth Bridge adapter
+		type EthBridgeAdapter: EthereumBridgeAdapter;
+		/// Max amount of new signers that can be set an in extrinsic
+		type MaxNewSigners: Get<u8>; // spk move to a suitable location
 	}
 
 	#[pallet::storage]
@@ -146,9 +149,41 @@ pub mod pallet {
 	/// Useful for syncing the latest proof to Xrpl
 	pub type XrplNotarySetProofId<T> =  StorageValue<_,EventProofId, ValueQuery>;
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		pub xrp_door_signers: Vec<T::EthyId>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { xrp_door_signers: vec![] }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			for new_signer in self.xrp_door_signers.iter() {
+				XrplDoorSigners::<T>::insert(new_signer, true);
+			}
+			// set the NotaryXrplKeys as well
+			let genesis_xrpl_keys = NotaryKeys::<T>::get()
+				.into_iter()
+				.filter(|validator| XrplDoorSigners::<T>::get(validator))
+				.map(|validator| -> T::EthyId { validator.clone() })
+				.take(T::MaxXrplKeys::get().into())
+				.collect::<Vec<_>>();
+			NotaryXrplKeys::<T>::put(genesis_xrpl_keys);
+		}
+	}
+
 
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> {
+		/// Someone tried to set a greater amount of validators than allowed
+		MaxNewSignersExceeded
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -161,6 +196,8 @@ pub mod pallet {
 		ValidatorSetFinalizeSchedulingFailed{ scheduled_at: T::BlockNumber } ,
 		/// XRPL notary keys update failed
 		XRPLNotaryKeysUpdateFailed { validator_set_id: ValidatorSetId },
+		/// Xrpl Door signers are set
+		XrplDoorSignersSet,
 	}
 
 	#[pallet::hooks]
@@ -187,6 +224,20 @@ pub mod pallet {
 			ensure_none(origin)?;
 			Self::do_finalise_validator_set_change(next_notary_keys)
 		}
+
+		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		/// Set new XRPL door signers
+		pub fn set_xrpl_door_signers(origin: OriginFor<T>, new_signers: Vec<T::EthyId>) -> DispatchResult {
+			ensure_root(origin)?;
+			ensure!((new_signers.len() as u8) < T::MaxNewSigners::get(), Error::<T>::MaxNewSignersExceeded);
+			// TODO(surangap): To be changed with #419
+			for new_signer in new_signers.iter() {
+				XrplDoorSigners::<T>::insert(new_signer, true);
+			}
+			Self::update_xrpl_notary_keys(&Self::notary_keys());
+			Self::deposit_event(Event::<T>::XrplDoorSignersSet);
+			Ok(())
+		}
 	}
 }
 
@@ -199,10 +250,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Iterate through the given validator_list and extracts the first number of MaxXrplKeys that are in the XrplDoorSigners
 	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Result<Vec<T::EthyId>, DispatchError> {
-		let xrpl_door_signers = T::XRPLBridgeAdapter::get_door_signers()?;
 		let xrpl_notary_keys = validator_list
 			.into_iter()
-			.filter(|validator| xrpl_door_signers.contains(&validator))
+			.filter(|validator| XrplDoorSigners::<T>::get(validator))
 			.map(|validator| -> T::EthyId { validator.clone() })
 			.take(T::MaxXrplKeys::get().into())
 			.collect();
@@ -248,6 +298,26 @@ impl<T: Config> Pallet<T> {
 			..Default::default()
 		});
 		Ok(())
+	}
+
+	/// return the validator set that governs the Eth bridge
+	pub fn get_eth_validator_set() -> ValidatorSetS<T::EthyId> {
+		let validator_keys = NotaryKeys::<T>::get();
+		ValidatorSetS::<T::EthyId> {
+			proof_threshold: T::EthBridgeAdapter::get_notarization_threshold().unwrap_or(Percent::one()).mul_ceil(validator_keys.len() as u32),
+			validators: validator_keys,
+			id: NotarySetId::<T>::get(),
+		}
+	}
+
+	/// return the validator set that governs the Xrpl bridge
+	pub fn get_xrpl_validator_set() -> ValidatorSetS<T::EthyId> {
+		let validator_keys = NotaryXrplKeys::<T>::get();
+		ValidatorSetS::<T::EthyId> {
+			proof_threshold: validator_keys.len().saturating_sub(1) as u32, // tolerate 1 missing witness
+			validators: validator_keys,
+			id: NotarySetId::<T>::get(),
+		}
 	}
 
 }

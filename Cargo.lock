@@ -4845,15 +4845,21 @@ dependencies = [
 name = "pallet-eth-bridge"
 version = "0.1.0"
 dependencies = [
+ "ethabi",
+ "ethereum-types",
  "frame-support",
  "frame-system",
+ "hex",
  "hex-literal",
  "log",
+ "pallet-validator-set",
  "parity-scale-codec",
+ "rustc-hex",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
  "serde",
+ "serde_json",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -4888,8 +4894,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-ethy"
-version = "1.0.1"
+name = "pallet-ethy2"
+version = "0.1.0"
 dependencies = [
  "ethabi",
  "ethereum-types",
@@ -4897,6 +4903,7 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5461,10 +5468,12 @@ dependencies = [
 name = "pallet-validator-set"
 version = "0.1.0"
 dependencies = [
+ "ethabi",
  "frame-support",
  "frame-system",
  "hex-literal",
  "log",
+ "pallet-ethy2",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -7735,6 +7744,7 @@ dependencies = [
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
+ "ethabi",
  "frame-support",
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -7802,8 +7812,9 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-erc20-peg",
+ "pallet-eth-bridge",
  "pallet-ethereum",
- "pallet-ethy",
+ "pallet-ethy2",
  "pallet-evm",
  "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",
@@ -7832,6 +7843,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-tx-fee-pot",
  "pallet-utility",
+ "pallet-validator-set",
  "pallet-xrpl-bridge",
  "parity-scale-codec",
  "precompile-utils",
