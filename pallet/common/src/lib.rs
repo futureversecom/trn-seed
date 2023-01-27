@@ -5,13 +5,15 @@ use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
+	pallet_prelude::{MaybeSerializeDeserialize, Member},
 	sp_runtime::traits::AccountIdConversion,
 	traits::{fungibles::Transfer, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
-	PalletId,
+	PalletId, Parameter,
 };
 use scale_info::TypeInfo;
 use sp_core::H160;
+use sp_runtime::RuntimeAppPublic;
 use sp_std::{fmt::Debug, vec::Vec};
 
 use seed_primitives::{
@@ -330,4 +332,19 @@ pub trait Xls20MintRequest {
 		serial_numbers: Vec<SerialNumber>,
 		metadata_scheme: MetadataScheme,
 	) -> DispatchResult;
+}
+
+pub trait ValidatorKeystore<AuthorityId>
+where
+	AuthorityId:
+		Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Ord + MaybeSerializeDeserialize,
+{
+	fn get_active_key_with_index() -> Option<(AuthorityId, u16)>;
+}
+
+pub trait XrplValidators<Public>
+where
+	Public: Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Ord + MaybeSerializeDeserialize,
+{
+	fn get() -> Vec<Public>;
 }

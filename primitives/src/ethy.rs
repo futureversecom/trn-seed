@@ -42,7 +42,7 @@ pub const ETHY_KEY_TYPE: KeyTypeId = KeyTypeId(*b"eth-");
 
 /// Crypto types for Ethy protocol
 pub mod crypto {
-	mod app_crypto {
+	pub mod app_crypto {
 		use crate::ethy::ETHY_KEY_TYPE;
 		use sp_application_crypto::{app_crypto, ecdsa};
 		app_crypto!(ecdsa, ETHY_KEY_TYPE);
