@@ -197,7 +197,7 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 			// Prevent asset `create` transactions from executing
 			Call::Assets(pallet_assets::Call::create { .. }) => false,
 			// Disable XRPLBridge `submit_challenge` call
-			Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
+			// Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
 			_ => true,
 		}
 	}
@@ -407,9 +407,12 @@ parameter_types! {
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	/// % threshold to emit event TicketSequenceThresholdReached
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
+	pub const MaxChallenges: u32 = 3;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
+	type AuthorityId = EthBridgeId;
+	type ValidatorKeystore = EthBridge;
 	type Event = Event;
 	type EthyAdapter = EthBridge;
 	type MultiCurrency = AssetsExt;
@@ -420,6 +423,8 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
+	type MaxChallenges = MaxChallenges;
+	type XrplNotaries = EthBridge;
 }
 
 parameter_types! {

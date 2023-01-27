@@ -18,7 +18,8 @@ use sp_std::prelude::*;
 
 use seed_pallet_common::{
 	log, logger::debug, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
-	FinalSessionTracker as FinalSessionTrackerT, XrplBridgeToEthyAdapter,
+	FinalSessionTracker as FinalSessionTrackerT, ValidatorKeystore, XrplBridgeToEthyAdapter,
+	XrplValidators,
 };
 use seed_primitives::ethy::{EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId};
 
@@ -70,6 +71,12 @@ impl<T: Config> XrplBridgeToEthyAdapter<T::EthyId> for Module<T> {
 	}
 	fn xrp_validators() -> Vec<T::EthyId> {
 		Self::notary_xrpl_keys()
+	}
+}
+
+impl<T: Config> XrplValidators<T::EthyId> for Module<T> {
+	fn get() -> Vec<T::EthyId> {
+		NotaryXrplKeys::<T>::get()
 	}
 }
 
@@ -695,6 +702,7 @@ impl<T: Config> Module<T> {
 			.map(|k| EthyEcdsaToEthereum::convert(k.as_ref()))
 			.map(|k| Token::Address(k.into()))
 			.collect();
+
 		let new_validator_set_message = ethabi::encode(&[
 			Token::Array(new_validator_addresses),
 			Token::Uint(next_validator_set_id.into()),
@@ -995,4 +1003,15 @@ pub(crate) fn prune_claim_ids(claim_ids: &mut Vec<EventClaimId>) {
 		Some(idx) => claim_ids.drain(..idx - 1),
 		None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
 	};
+}
+
+impl<AuthorityId, T: Config + Config<EthyId = AuthorityId>> ValidatorKeystore<AuthorityId>
+	for Module<T>
+where
+	AuthorityId:
+		Member + Parameter + AsRef<[u8]> + RuntimeAppPublic + Ord + MaybeSerializeDeserialize,
+{
+	fn get_active_key_with_index() -> Option<(AuthorityId, u16)> {
+		Self::find_active_ethy_key()
+	}
 }

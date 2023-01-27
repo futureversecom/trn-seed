@@ -37,7 +37,7 @@ use xrpl_codec::{
 
 use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAdapter};
 use seed_primitives::{
-	ethy::crypto::AuthorityId,
+	ethy::crypto::{app_crypto, AuthorityId},
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxNonce},
 	AccountId, AssetId, Balance, Timestamp,
 };
@@ -50,9 +50,9 @@ pub use pallet::*;
 use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
 
 mod helpers;
-mod offchain;
 #[cfg(test)]
 mod mock;
+mod offchain;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
@@ -67,11 +67,23 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
+	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
 	use seed_primitives::xrpl::XrplTxTicketSequence;
-use sp_runtime::offchain::{http, Duration};
+	use sp_core::{crypto::ByteArray, H512};
+	use sp_runtime::RuntimeAppPublic;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config:
+		CreateSignedTransaction<Call<Self>> + frame_system::Config<AccountId = AccountId>
+	{
+		type AuthorityId: Member
+			+ Parameter
+			+ AsRef<[u8]>
+			+ RuntimeAppPublic
+			+ Ord
+			+ MaybeSerializeDeserialize;
+
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
@@ -104,16 +116,32 @@ use sp_runtime::offchain::{http, Duration};
 
 		/// Threshold to emit event TicketSequenceThresholdReached
 		type TicketSequenceThreshold: Get<Percent>;
+
+		type MaxChallenges: Get<u32>;
+
+		// Keystore with methods to return keys of validator by index
+		type ValidatorKeystore: ValidatorKeystore<Self::AuthorityId>;
+
+		type XrplNotaries: XrplValidators<crate::app_crypto::Public>;
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Could not grab a valid public key from the validator keystore for the given index
+		CouldNotParsePublicKey,
+		/// Signature could not be created by validator's local keystore key
+		CouldNotSignFromKeystore,
+		/// Transaction was not sent by an active relayer
 		NotPermitted,
 		RelayerDoesNotExists,
 		/// Withdraw amount must be non-zero and <= u64
 		WithdrawInvalidAmount,
 		/// The door address has not been configured
 		DoorAddressNotSet,
+		/// Offchain worker could not send transaction
+		OffchainWorkerTxSubmissionError,
+		/// Tried to set a new challenge, but the threshold has already been reached
+		TooManyChallenges,
 		/// XRPL does not allow more than 8 signers for door address
 		TooManySigners,
 		/// The signers are not known by ethy
@@ -161,6 +189,22 @@ use sp_runtime::offchain::{http, Duration};
 		TicketSequenceThresholdReached(u32),
 	}
 
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
+	/// Signed payload of the information received offchain to verify a challenge
+	pub struct ChallengeVerificationPayload<Public> {
+		challenge_submitter: Public,
+		// TODO: We need to define what this should be
+		challenge_verification_info: Vec<u8>,
+	}
+
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
+	/// Signed payload of a challenge submission
+	pub struct ChallengePayload<Public> {
+		transaction_hash: H512,
+		challenger: Public,
+		ledger_index: u64,
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
@@ -168,15 +212,74 @@ use sp_runtime::offchain::{http, Duration};
 			weights + Self::clear_storages(n)
 		}
 
-		fn offchain_worker(block_number: T::BlockNumber) {
-			// Received a challenge, so it's time to verify something on XRPL at the block level
-			let verify_xrpl_challenge = true;
-			if verify_xrpl_challenge {
-				if let Err(err) = offchain::get_xrpl_block_data() { 
-					log::info!("Error retrieving tx data from XRPL: {:?}", err);
+		fn offchain_worker(_block_number: T::BlockNumber) {
+			let (authority_id, authority_index) =
+				match T::ValidatorKeystore::get_active_key_with_index() {
+					Some((authority_id, authority_index)) => (authority_id, authority_index),
+					None => {
+						log::error!("🛠️ no active key, exiting");
+						return
+					},
 				};
-			}
 
+			// Manually parse the public key
+			let public = <app_crypto::Public as ByteArray>::from_slice(&authority_id.to_raw_vec())
+				.map_err(|()| <Error<T>>::CouldNotParsePublicKey)
+				.unwrap();
+
+			// A list of succesfully processed challenges that must be removed from storage iff the
+			// storage map iteration is finished
+			let mut processed_challenges = vec![];
+			if ChallengeXRPTransactionList::<T>::count() > 0 {
+				for (xrpl_block_hash, (challenge_submitter, ledger_number)) in
+					ChallengeXRPTransactionList::<T>::iter()
+				{
+					let public = public.clone();
+					// We are not allowed to verify our own challenges
+					if public.clone() == challenge_submitter {
+						return
+					}
+
+					if let Err(err) = offchain::get_xrpl_block_data(xrpl_block_hash, ledger_number)
+					{
+						log::error!("Could not retrieve data from XRPL RPC {:?}", err);
+						return
+					};
+
+					// TODO: Get verification info from above XRPL tx parsed results
+					let challenge_verification_info = vec![];
+
+					let payload = ChallengeVerificationPayload {
+						challenge_submitter,
+						challenge_verification_info,
+					};
+					let signature = public
+						.sign(&payload.encode())
+						.ok_or(<Error<T>>::CouldNotSignFromKeystore)
+						.unwrap();
+
+					let call: Call<T> = Call::receive_offchain_challenge_verification {
+						payload,
+						public,
+						signature,
+					};
+
+					let tx_submit =
+						SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+							.map_err(|_| <Error<T>>::OffchainWorkerTxSubmissionError);
+
+					match tx_submit {
+						Ok(_) => processed_challenges.push(xrpl_block_hash),
+						Err(err) => {
+							log::error!("Could not submit challenge verification transaction from offchain worker: {:?}", err)
+						},
+					}
+				}
+
+				processed_challenges.iter().for_each(|challenge| {
+					ChallengeXRPTransactionList::<T>::remove(challenge);
+				});
+			}
 		}
 	}
 
@@ -212,9 +315,8 @@ use sp_runtime::offchain::{http, Duration};
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
-	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
-		StorageMap<_, Identity, XrplTxHash, T::AccountId>;
+		CountedStorageMap<_, Identity, H512, (crate::app_crypto::Public, u64)>;
 
 	#[pallet::type_value]
 	pub fn DefaultDoorNonce() -> u32 {
@@ -320,10 +422,17 @@ use sp_runtime::offchain::{http, Duration};
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
-			transaction_hash: XrplTxHash,
+			challenge_payload: ChallengePayload<crate::app_crypto::Public>,
+			_public: crate::app_crypto::Public,
+			_signature: app_crypto::Signature,
 		) -> DispatchResult {
-			let challenger = ensure_signed(origin)?;
-			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, challenger);
+			// let challenger = ensure_signed(origin)?;
+			ensure_none(origin)?;
+			ensure!(ChallengeXRPTransactionList::<T>::count() < 3, Error::<T>::TooManyChallenges);
+
+			let ChallengePayload { transaction_hash, challenger, ledger_index } = challenge_payload;
+			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, (challenger, ledger_index));
+
 			Ok(())
 		}
 
@@ -455,22 +564,111 @@ use sp_runtime::offchain::{http, Duration};
 			});
 			Ok(())
 		}
+
+		#[pallet::weight(10000000)]
+		pub fn receive_offchain_challenge_verification(
+			origin: OriginFor<T>,
+			payload: ChallengeVerificationPayload<app_crypto::Public>,
+			public: crate::app_crypto::Public,
+			_signature: app_crypto::Signature,
+		) -> DispatchResult {
+			Ok(())
+		}
 	}
 
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			Self::validate_unsigned(source, call)
-		}
+			match call {
+				Call::receive_offchain_challenge_verification { payload, public, signature } => {
+					// Not only must the submitter be a validator, but verifying one's own challenge
+					// is always prohibited
+					if !T::XrplNotaries::get().contains(public) ||
+						&payload.challenge_submitter == public
+					{
+						log::error!("Received challenge verification information from a non-validator, or someone submitted a verification to their own challenge");
+						return InvalidTransaction::BadSigner.into()
+					}
 
-		fn pre_dispatch(call: &Self::Call) -> Result<(), TransactionValidityError> {
-			Self::pre_dispatch(call)
+					return Self::validate_transaction_parameters(
+						source,
+						payload.encode(),
+						public,
+						signature,
+					)
+				},
+				Call::submit_challenge { challenge_payload, public, signature } => {
+					if !T::XrplNotaries::get().contains(public) {
+						log::error!("Received challenge submission from a non-validator");
+						return InvalidTransaction::BadSigner.into()
+					}
+
+					return Self::validate_transaction_parameters(
+						source,
+						challenge_payload.encode(),
+						public,
+						signature,
+					)
+				},
+				_ => InvalidTransaction::Call.into(),
+			}
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
+	// Perform the full validation of parameters passed to unsigned calls of this module
+	fn validate_transaction_parameters(
+		source: TransactionSource,
+		payload: Vec<u8>,
+		public: &app_crypto::Public,
+		signature: &app_crypto::Signature,
+	) -> TransactionValidity {
+		use sp_runtime::RuntimeAppPublic;
+
+		if source != TransactionSource::Local {
+			log::error!(
+				"Received call from unexpected source for XRPL challenge verification information"
+			);
+			return InvalidTransaction::Call.into()
+		}
+
+		if !public.verify(&payload, signature) {
+			log::error!("Failed to verify signed Call payload of XRPL challenge information");
+			return InvalidTransaction::BadProof.into()
+		}
+
+		ValidTransaction::with_tag_prefix("XrplBridge")
+			.priority(TransactionPriority::max_value())
+			// This transaction does not require anything else to go before into the pool.
+			// In theory we could require `previous_unsigned_at` transaction to go first,
+			// but it's not necessary in our case.
+			//.and_requires()
+			// We set the `provides` tag. This makes
+			// sure only one transaction produced after `next_unsigned_at` will ever
+			// get to the transaction pool and will end up in the block.
+			// We can still have multiple transactions compete for the same "spot",
+			// and the one with higher priority will replace other one in the pool.
+			.and_provides([
+				// A tag for uniqueness of this module
+				b"x-ocw",
+				// TODO: We will need to add more tags once we decide what challenge info needs to
+				// be sent from the offchain worker This will be sure that transactions are
+				// included/ignored based on some criteria related to the challenges
+			])
+			// The transaction is only valid for next 5 blocks. After that it's
+			// going to be revalidated by the pool.
+			.longevity(5)
+			// It's fine to propagate that transaction to other peers, which means it can be
+			// created even by nodes that don't produce blocks.
+			// Note that sometimes it's better to keep it for yourself (if you are the block
+			// producer), since for instance in some schemes others may copy your solution and
+			// claim a reward.
+			.propagate(true)
+			.build()
+	}
+
 	pub fn initialize_relayer(xrp_relayers: &Vec<T::AccountId>) {
 		for relayer in xrp_relayers {
 			<Relayer<T>>::insert(relayer, true);
@@ -487,7 +685,8 @@ impl<T: Config> Pallet<T> {
 
 		let tx_details = tx_items
 			.iter()
-			.filter(|x| !<ChallengeXRPTransactionList<T>>::contains_key(x))
+			// .filter(|x| !<ChallengeXRPTransactionList<T>>::contains_key(x))
+			.filter(|x| false)
 			.map(|x| (x, <ProcessXRPTransactionDetails<T>>::get(x)));
 
 		reads += tx_items.len() as u64 * 2;

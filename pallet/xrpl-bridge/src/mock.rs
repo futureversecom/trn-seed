@@ -7,6 +7,7 @@ use frame_system as system;
 use frame_system::{limits, EnsureRoot};
 use sp_core::{ByteArray, H256};
 use sp_runtime::{
+	offchain::{testing::TestOffchainExt, OffchainWorkerExt},
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
 	DispatchError, Percent,
@@ -150,6 +151,7 @@ parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
+	pub const MaxChallenges: u32 = 3;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
@@ -163,6 +165,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = TimestampPallet;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
+	type MaxChallenges = MaxChallenges;
 }
 
 pub struct MockEthyAdapter;
@@ -192,5 +195,12 @@ impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	let (offchain, offchain_state) = TestOffchainExt::new();
+	// TODO: Can use this later for testing the offchain worker did send some transaction
+	// let (pool, pool_state) = TestTransactionPoolExt::new();
+
+	let mut ext: sp_io::TestExternalities =
+		system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+	ext
 }

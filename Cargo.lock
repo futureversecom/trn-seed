@@ -1707,7 +1707,6 @@ name = "evm-core"
 version = "0.35.0"
 source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
 dependencies = [
- "log",
  "parity-scale-codec",
  "primitive-types",
  "scale-info",
@@ -2015,7 +2014,6 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27
 dependencies = [
  "evm",
  "frame-support",
- "log",
  "parity-scale-codec",
  "serde",
  "sp-core",
@@ -4859,7 +4857,6 @@ dependencies = [
  "fp-storage",
  "frame-support",
  "frame-system",
- "log",
  "pallet-evm",
  "pallet-timestamp",
  "parity-scale-codec",
