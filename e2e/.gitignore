@@ -1,0 +1,21 @@
+
+# Deps
+node_modules
+
+# IDE
+.vscode/
+.idea/
+
+# Environment variables
+.env
+
+# Generated files
+coverage
+coverage.json
+typechain
+typechain-types
+.log
+
+#Hardhat files
+cache
+artifacts

@@ -120,6 +120,7 @@ impl pallet_assets_ext::Config for Test {
 	type NativeAssetId = NativeAssetId;
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -147,6 +148,7 @@ impl crate::Config for Test {
 	type EthBridge = MockEthBridge;
 	type PegPalletId = PegPalletId;
 	type MultiCurrency = AssetsExt;
+	type WeightInfo = ();
 }
 
 /// Mock ethereum bridge
@@ -194,4 +196,13 @@ impl ExtBuilder {
 
 		ext
 	}
+}
+
+#[allow(dead_code)]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

@@ -86,7 +86,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Signed(creator), collection_id, q.into(), Some(owner))
 	verify {
-		assert_eq!(<Nft<T>>::next_serial_number(collection_id).unwrap(), q);
+		assert_eq!(<Nft<T>>::collection_info(collection_id).unwrap().next_serial_number, q);
 	}
 }
 

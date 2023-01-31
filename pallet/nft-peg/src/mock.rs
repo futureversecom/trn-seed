@@ -126,6 +126,7 @@ impl pallet_assets_ext::Config for Test {
 	type NativeAssetId = NativeAssetId;
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -157,12 +158,16 @@ parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxAttributeLength: u8 = 140;
+	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
+	pub const MaxTokensPerCollection: u32 = 10_000;
 }
 
 impl pallet_nft::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
+	type MaxOffers = MaxOffers;
+	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = ();
@@ -183,8 +188,9 @@ impl pallet_nft_peg::Config for Test {
 	type PalletId = NftPegPalletId;
 	type DelayLength = DelayLength;
 	type MaxAddresses = MaxAddresses;
-	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type MaxTokensPerMint = MaxIdsPerMultipleMint;
 	type EthBridge = MockEthBridge;
+	type NftPegWeightInfo = ();
 }
 
 /// Mock ethereum bridge
@@ -232,4 +238,13 @@ impl ExtBuilder {
 
 		ext
 	}
+}
+
+#[allow(dead_code)]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

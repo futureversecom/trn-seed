@@ -32,15 +32,19 @@ use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
 use sp_std::prelude::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod imbalances;
 mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod test;
+mod weights;
 
 pub use imbalances::*;
 pub use impls::{AssetCurrency, DualStakingCurrency};
+pub use weights::WeightInfo;
 
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
 /// derivations e.g. `Ord`
@@ -94,6 +98,8 @@ pub mod pallet {
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+		/// Interface to generate weights
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -205,16 +211,23 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new asset with unique ID according to the network asset id scheme.
-		#[pallet::weight((16_000_000 as Weight).saturating_add(T::DbWeight::get().reads_writes(1, 2)))]
+		#[pallet::weight(<T as Config>::WeightInfo::create_asset())]
 		#[transactional]
-		pub fn create_asset(origin: OriginFor<T>) -> DispatchResult {
+		pub fn create_asset(
+			origin: OriginFor<T>,
+			name: Vec<u8>,
+			symbol: Vec<u8>,
+			decimals: u8,
+			min_balance: Option<Balance>,
+			owner: Option<T::AccountId>,
+		) -> DispatchResult {
 			let who = frame_system::ensure_signed(origin)?;
 
 			// reserves some native currency from the user - as this should be a costly operation
 			let deposit = T::AssetDeposit::get();
 			T::Currency::reserve(&who, deposit)?;
-
-			Self::create(&who)?;
+			let owner = owner.unwrap_or(who);
+			Self::create_with_metadata(&owner, name, symbol, decimals, min_balance)?;
 			Ok(().into())
 		}
 	}
@@ -513,8 +526,12 @@ impl<T: Config> Hold for Pallet<T> {
 impl<T: Config> CreateExt for Pallet<T> {
 	type AccountId = <T as frame_system::Config>::AccountId;
 
-	fn create(owner: &Self::AccountId) -> Result<AssetId, DispatchError> {
-		let min_balance = 1;
+	fn create(
+		owner: &Self::AccountId,
+		min_balance: Option<Balance>,
+	) -> Result<AssetId, DispatchError> {
+		// Default to 1, errors in pallet_assets if set to 0
+		let min_balance = min_balance.unwrap_or(1);
 
 		let next_asset_id = Self::next_asset_uuid()?;
 
@@ -523,7 +540,7 @@ impl<T: Config> CreateExt for Pallet<T> {
 			next_asset_id,
 			owner.clone(),
 			true,
-			min_balance, // panics if min_balance is zero
+			min_balance,
 		)?;
 
 		// update the next id, will not overflow, asserted prior qed.
@@ -546,8 +563,9 @@ impl<T: Config> CreateExt for Pallet<T> {
 		name: Vec<u8>,
 		symbol: Vec<u8>,
 		decimals: u8,
+		min_balance: Option<Balance>,
 	) -> Result<AssetId, DispatchError> {
-		let new_asset_id = Self::create(&owner)?;
+		let new_asset_id = Self::create(&owner, min_balance)?;
 
 		// set metadata for new asset - as root origin
 		<pallet_assets::Pallet<T>>::force_set_metadata(

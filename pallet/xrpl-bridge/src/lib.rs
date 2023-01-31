@@ -33,7 +33,7 @@ use xrpl_codec::{
 use seed_pallet_common::{CreateExt,};
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
-	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash, XrplTxNonce},
+	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash},
 	AccountId, AssetId, Balance, Timestamp,
 };
 
@@ -48,6 +48,8 @@ use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
 
 mod helpers;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -55,6 +57,7 @@ mod tests;
 #[cfg(test)]
 mod tests_relayer;
 
+mod migration;
 pub mod weights;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
@@ -162,11 +165,16 @@ pub mod pallet {
 			let weights = Self::process_xrp_tx(n);
 			weights + Self::clear_storages(n)
 		}
+
+		fn on_runtime_upgrade() -> Weight {
+			migration::try_migrate::<T>()
+		}
 	}
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::storage]
@@ -199,15 +207,6 @@ pub mod pallet {
 	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
 		StorageMap<_, Identity, XrplTxHash, T::AccountId>;
-
-	#[pallet::type_value]
-	pub fn DefaultDoorNonce() -> u32 {
-		0_u32
-	}
-	#[pallet::storage]
-	#[pallet::getter(fn door_nonce)]
-	/// The nonce/sequence of the XRPL door account
-	pub type DoorNonce<T: Config> = StorageValue<_, XrplTxNonce, ValueQuery, DefaultDoorNonce>;
 
 	#[pallet::type_value]
 	pub fn DefaultDoorTicketSequence() -> u32 {
@@ -279,7 +278,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit xrp transaction
-		#[pallet::weight((<T as Config>::WeightInfo::submit_transaction(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::submit_transaction(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_transaction(
 			origin: OriginFor<T>,
@@ -300,7 +299,7 @@ pub mod pallet {
 		}
 
 		/// Submit xrp transaction challenge
-		#[pallet::weight((<T as Config>::WeightInfo::submit_challenge(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::submit_challenge(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
@@ -312,7 +311,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw xrp transaction
-		#[pallet::weight((<T as Config>::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn withdraw_xrp(
 			origin: OriginFor<T>,
@@ -324,7 +323,7 @@ pub mod pallet {
 		}
 
 		/// add a relayer
-		#[pallet::weight((<T as Config>::WeightInfo::add_relayer(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::add_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
@@ -334,7 +333,7 @@ pub mod pallet {
 		}
 
 		/// remove a relayer
-		#[pallet::weight((<T as Config>::WeightInfo::remove_relayer(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::remove_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
@@ -347,16 +346,8 @@ pub mod pallet {
 			}
 		}
 
-		/// Set the door account tx nonce
-		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
-		pub fn set_door_nonce(origin: OriginFor<T>, nonce: u32) -> DispatchResult {
-			ensure_root(origin)?;
-			DoorNonce::<T>::set(nonce);
-			Ok(())
-		}
-
 		/// Set the door tx fee amount
-		#[pallet::weight((<T as Config>::WeightInfo::set_door_nonce(), DispatchClass::Operational))]
+		#[pallet::weight((<T as Config>::WeightInfo::set_door_tx_fee(), DispatchClass::Operational))]
 		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
 			ensure_root(origin)?;
 			DoorTxFee::<T>::set(fee);
@@ -364,7 +355,7 @@ pub mod pallet {
 		}
 
 		/// Set XRPL door address managed by this pallet
-		#[pallet::weight((<T as Config>::WeightInfo::set_xrpl_door_address(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::set_door_address(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn set_door_address(
 			origin: OriginFor<T>,
@@ -377,7 +368,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account ticket sequence params for the next allocation
-		#[pallet::weight((<T as Config>::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_next_allocation(
 			origin: OriginFor<T>,
 			start_ticket_sequence: u32,
@@ -408,7 +399,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account current ticket sequence params for current allocation - force set
-		#[pallet::weight((<T as Config>::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
 			ticket_sequence: u32,
@@ -597,14 +588,6 @@ impl<T: Config> Pallet<T> {
 		T::EthyAdapter::request_for_proof(EthySigningRequest::XrplTx(tx_blob), None)
 	}
 
-	// Return the current door nonce and increment it in storage
-	pub fn door_nonce_inc() -> Result<XrplTxNonce, DispatchError> {
-		let nonce = Self::door_nonce();
-		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		DoorNonce::<T>::set(next_nonce);
-		Ok(nonce)
-	}
-
 	// Return the current door ticket sequence and increment it in storage
 	pub fn get_door_ticket_sequence() -> Result<XrplTxTicketSequence, DispatchError> {
 		let mut current_sequence = Self::door_ticket_sequence();
@@ -670,7 +653,7 @@ impl<T: Config> XRPLBridgeAdapter<AuthorityId> for Pallet<T> {
 		// https://github.com/futureversecom/seed/issues/107
 		let tx_fee = Self::door_tx_fee();
 		let ticket_sequence = Self::get_door_ticket_sequence()?;
-		let signer_quorum: u32 = T::ValidatorSet::get_xrpl_validator_set()?.len().saturating_sub(1) as u32;
+		let signer_quorum: u32 = signer_entries.len().saturating_sub(1) as u32;
 		let signer_entries = signer_entries
 			.into_iter()
 			.map(|(account, weight)| (account.into(), weight))

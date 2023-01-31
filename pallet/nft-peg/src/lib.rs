@@ -25,12 +25,17 @@ use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec, vec::Vec};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
 mod tests;
 mod types;
+mod weights;
+
 pub use types::*;
+pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -38,6 +43,7 @@ pub mod pallet {
 	use frame_support::{pallet_prelude::*, transactional};
 	use frame_system::{ensure_signed, pallet_prelude::*};
 	use seed_primitives::EthAddress;
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
@@ -49,8 +55,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type DelayLength: Get<Self::BlockNumber>;
 		type MaxAddresses: Get<u32>;
-		type MaxTokensPerCollection: Get<u32>;
+		type MaxTokensPerMint: Get<u32>;
 		type EthBridge: EthereumBridge;
+
+		// Defines the weight info trait.
+		type NftPegWeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -80,7 +89,7 @@ pub mod pallet {
 		/// The prefix uint in the abi encoded data was invalid
 		InvalidAbiPrefix,
 		/// No collection info exists
-		NoCollectionInfo,
+		NoCollectionFoundInfo,
 		/// No mapped token was stored for bridging the token back to the bridged chain
 		/// chain(Should not happen)
 		NoMappedTokenExists,
@@ -113,7 +122,7 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
-		#[pallet::weight(T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::NftPegWeightInfo::set_contract_address())]
 		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(contract);
@@ -121,7 +130,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		#[pallet::weight(10000)]
+		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
 		#[transactional]
 		pub fn withdraw(
 			origin: OriginFor<T>,
@@ -185,7 +194,7 @@ where
 
 			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
 			let token_ids: Result<
-				Vec<BoundedVec<SerialNumber, T::MaxTokensPerCollection>>,
+				Vec<BoundedVec<SerialNumber, T::MaxTokensPerMint>>,
 				(u64, DispatchError),
 			> = token_ids
 				.iter()
@@ -211,7 +220,7 @@ where
 				.collect();
 
 			let token_ids: BoundedVec<
-				BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+				BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 				T::MaxAddresses,
 			> = BoundedVec::try_from(token_ids?)
 				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
@@ -289,11 +298,11 @@ where
 				};
 
 			// Mint the tokens
-			let mint_weight = pallet_nft::Pallet::<T>::do_mint(
+			let mint_weight = pallet_nft::Pallet::<T>::mint_bridged_token(
 				&destination,
 				collection_id,
 				current_token.token_ids.clone().into_inner(),
-			)?;
+			);
 			weight =
 				weight.saturating_add(T::DbWeight::get().writes(2)).saturating_add(mint_weight);
 		}
@@ -323,7 +332,7 @@ where
 					Error::<T>::NoPermissionToBridge
 				);
 			} else {
-				fail!(Error::<T>::NoCollectionInfo);
+				fail!(Error::<T>::NoCollectionFoundInfo);
 			}
 
 			// Allocate space
@@ -332,7 +341,7 @@ where
 			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
 			// somewhat bounded as well, but there should be a way to reduce this complexity
 			for token_id in &token_ids[idx] {
-				pallet_nft::Pallet::<T>::do_burn(who, collection_id.clone(), token_id)?;
+				pallet_nft::Pallet::<T>::do_burn(who, collection_id.clone(), *token_id)?;
 				source_token_ids[idx].push(Token::Uint(U256::from(token_id.clone())))
 			}
 

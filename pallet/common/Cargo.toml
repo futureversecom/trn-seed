@@ -17,10 +17,10 @@ ethabi = { version = "17.1.0", default-features = false}
 
 
 # Substrate
-frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27-debug" }
-sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27-debug" }
-sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27-debug" }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
+sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
+sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false , branch = "polkadot-v0.9.27" }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 seed-primitives = { path = "../../primitives", default-features = false }
 

@@ -33,7 +33,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
+		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Event<T>},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 	}
@@ -75,7 +75,7 @@ parameter_types! {
 	pub const AssetDeposit: Balance = 1_000_000;
 	pub const AssetAccountDeposit: Balance = 16;
 	pub const ApprovalDeposit: Balance = 1;
-	pub const AssetsStringLimit: u32 = 50;
+	pub const AssetsStringLimit: u32 = 10;
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
 }
@@ -200,6 +200,7 @@ impl crate::Config for Test {
 	type NativeAssetId = NativeAssetId;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = ();
 }
 
 #[derive(Default)]
@@ -276,4 +277,13 @@ impl AssetsFixture {
 	fn new(id: AssetId, symbol: &[u8], endowments: &[(MockAccountId, Balance)]) -> Self {
 		Self { id, symbol: symbol.to_vec(), endowments: endowments.to_vec() }
 	}
+}
+
+#[allow(dead_code)]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

@@ -127,6 +127,7 @@ impl pallet_assets_ext::Config for Test {
 	type NativeAssetId = XrpAssetId;
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -193,4 +194,12 @@ impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+}
+
+pub fn new_test_ext_benchmark() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

@@ -79,7 +79,7 @@ pub mod keys {
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthyId, ValidatorSet as ValidatorSetS },
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
-	Signature, TokenId,
+	SerialNumber, Signature, TokenId,
 };
 
 mod bag_thresholds;
@@ -125,7 +125,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 25,
+	spec_version: 27,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -338,6 +338,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type NativeAssetId = RootAssetId;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = weights::pallet_assets_ext::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -345,10 +346,14 @@ parameter_types! {
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const WorldId: seed_primitives::ParachainId = 100;
+	pub const MaxTokensPerCollection: u32 = 1_000_000;
+	pub const MaxOffers: u32 = 100;
 }
 impl pallet_nft::Config for Runtime {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
+	type MaxOffers = MaxOffers;
+	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
@@ -365,6 +370,7 @@ impl pallet_echo::Config for Runtime {
 	type Event = Event;
 	type EthereumBridge = EthBridge;
 	type PalletId = EchoPalletId;
+	type WeightInfo = weights::pallet_echo::WeightInfo<Runtime>;
 }
 
 impl pallet_fee_proxy::Config for Runtime {
@@ -415,7 +421,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type EthyAdapter = Ethy;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
 	type ClearTxPeriod = XrpClearTxPeriod;
@@ -862,7 +868,7 @@ impl frame_system::offchain::SigningTypes for Runtime {
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
 /// Given the 500ms Weight, from which 75% only are used for transactions,
 /// the total EVM execution gas limit is: GAS_PER_SECOND * 0.500 * 0.75 ~= 15_000_000.
-pub const GAS_PER_SECOND: u64 = 15_000_000;
+pub const GAS_PER_SECOND: u64 = 40_000_000;
 
 /// Approximate ratio of the amount of Weight per Gas.
 /// u64 works for approximations because Weight is a very small unit compared to gas.
@@ -964,6 +970,7 @@ impl pallet_erc20_peg::Config for Runtime {
 	type PegPalletId = PegPalletId;
 	/// The overarching event type.
 	type Event = Event;
+	type WeightInfo = weights::pallet_erc20_peg::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -978,8 +985,9 @@ impl pallet_nft_peg::Config for Runtime {
 	type PalletId = NftPegPalletId;
 	type DelayLength = DelayLength;
 	type MaxAddresses = MaxAddresses;
-	type MaxTokensPerCollection = MaxIdsPerMultipleMint;
+	type MaxTokensPerMint = MaxIdsPerMultipleMint;
 	type EthBridge = EthBridge;
+	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1267,8 +1275,8 @@ impl_runtime_apis! {
 		AccountId,
 		Runtime,
 	> for Runtime {
-		fn owned_tokens(collection_id: CollectionUuid, who: AccountId) -> Vec<TokenId> {
-			Nft::owned_tokens(collection_id, &who)
+		fn owned_tokens(collection_id: CollectionUuid, who: AccountId, cursor: SerialNumber, limit: u16) -> (SerialNumber, Vec<SerialNumber>) {
+			Nft::owned_tokens(collection_id, &who, cursor, limit)
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {
 			Nft::token_uri(token_id)
@@ -1711,7 +1719,11 @@ mod benches {
 		// Local
 		[pallet_nft, Nft]
 		[pallet_fee_control, FeeControl]
-		// [pallet_xrpl_bridge, XRPLBridge]
+		[pallet_nft_peg, NftPeg]
+		[pallet_xrpl_bridge, XRPLBridge]
+		[pallet_erc20_peg, Erc20Peg]
+		[pallet_echo, Echo]
+		[pallet_assets_ext, AssetsExt]
 		// [pallet_dex, Dex]
 	);
 }
