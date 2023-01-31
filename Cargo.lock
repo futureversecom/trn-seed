@@ -4926,6 +4926,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-chain-id"
+version = "1.0.0-dev"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+]
+
+[[package]]
 name = "pallet-evm-precompile-blake2"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN#b7183775ad8177f7ea8c597707b47b09c884a852"
@@ -7773,6 +7784,7 @@ dependencies = [
  "pallet-ethereum",
  "pallet-ethy",
  "pallet-evm",
+ "pallet-evm-chain-id",
  "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
