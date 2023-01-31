@@ -2,10 +2,11 @@
 #![cfg(test)]
 
 use crate::{
+	_feps::Get,
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, Ethereum, EthereumChainId, FeeControl, FeeProxy, Origin, Runtime,
+	Assets, AssetsExt, Dex, EVMChainId, Ethereum, FeeControl, FeeProxy, Origin, Runtime,
 	XrpCurrency, EVM,
 };
 use ethabi::Token;
@@ -44,7 +45,7 @@ fn evm_base_transaction_cost_uses_xrp() {
 			value: U256::zero(),
 			input: vec![],
 			access_list: vec![],
-			chain_id: EthereumChainId::get(),
+			chain_id: EVMChainId::get(),
 			r: H256::default(),
 			s: H256::default(),
 			odd_y_parity: true,
@@ -76,7 +77,7 @@ fn evm_transfer_transaction_uses_xrp() {
 			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action: TransactionAction::Call(bob().into()),
 			value: U256::from(5 * 10_u128.pow(18_u32)), // transfer value, 5 XRP
-			chain_id: EthereumChainId::get(),
+			chain_id: EVMChainId::get(),
 			input: vec![],
 			access_list: vec![],
 			r: H256::default(),
