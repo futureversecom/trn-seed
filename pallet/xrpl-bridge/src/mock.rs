@@ -127,6 +127,7 @@ impl pallet_assets_ext::Config for Test {
 	type NativeAssetId = XrpAssetId;
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = ();
 }
 
 parameter_types! {

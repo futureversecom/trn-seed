@@ -4612,6 +4612,7 @@ dependencies = [
 name = "pallet-assets-ext"
 version = "1.0.1"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-assets",

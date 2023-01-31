@@ -243,6 +243,7 @@ impl pallet_assets_ext::Config for Test {
 	type NativeAssetId = NativeAssetId;
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = ();
 }
 
 pub struct FindAuthorTruncated;

@@ -32,15 +32,19 @@ use seed_primitives::{AssetId, Balance, ParachainId};
 use sp_runtime::traits::{AccountIdConversion, One, Zero};
 use sp_std::prelude::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod imbalances;
 mod impls;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod test;
+mod weights;
 
 pub use imbalances::*;
 pub use impls::{AssetCurrency, DualStakingCurrency};
+pub use weights::WeightInfo;
 
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
 /// derivations e.g. `Ord`
@@ -94,6 +98,8 @@ pub mod pallet {
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+		/// Interface to generate weights
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -205,9 +211,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new asset with unique ID according to the network asset id scheme.
-		/// Sets metadata for name, symbol and decimals
-		/// name and symbol length checked within assets::force_set_metadata
-		#[pallet::weight((35_586_000 as Weight).saturating_add(T::DbWeight::get().reads_writes(3, 3)))]
+		#[pallet::weight(<T as Config>::WeightInfo::create_asset())]
 		#[transactional]
 		pub fn create_asset(
 			origin: OriginFor<T>,
