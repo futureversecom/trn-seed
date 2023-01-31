@@ -106,7 +106,10 @@ use staking::OnChainAccuracy;
 
 mod weights;
 
-use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
+use crate::{
+	_feps::Get,
+	impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription},
+};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 
@@ -840,6 +843,8 @@ impl frame_system::offchain::SigningTypes for Runtime {
 	type Signature = Signature;
 }
 
+impl pallet_evm_chain_id::Config for Runtime {}
+
 // Start frontier/EVM stuff
 
 /// Current approximation of the gas/s consumption considering
@@ -864,10 +869,6 @@ impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
 }
 
 parameter_types! {
-	/// Ethereum ChainId
-	/// 3999 (local/dev/default)
-	/// TODO: Configured on live chains via one-time setStorage tx at key `:EthereumChainId:`
-	pub storage EthereumChainId: u64 = 3_999;
 	pub BlockGasLimit: U256
 		= U256::from(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT / WEIGHT_PER_GAS);
 	pub PrecompilesValue: FutureversePrecompiles<Runtime> = FutureversePrecompiles::<_>::new();
@@ -893,7 +894,7 @@ impl pallet_evm::Config for Runtime {
 	type Runner = FeePreferencesRunner<Self, Self>;
 	type PrecompilesType = FutureversePrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
-	type ChainId = EthereumChainId;
+	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
 	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
@@ -1027,6 +1028,7 @@ construct_runtime! {
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
+		EVMChainId: pallet_evm_chain_id::{Pallet, Storage, Config} = 41,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 
