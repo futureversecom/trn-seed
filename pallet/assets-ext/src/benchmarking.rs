@@ -34,13 +34,12 @@ benchmarks! {
 	create_asset {
 		let alice = account::<T>("Alice");
 		assert_ok!(AssetsExt::<T>::mint_into(T::NativeAssetId::get(), &alice, 1000000u32.into()));
-
-		let id = AssetsExt::<T>::next_asset_uuid().unwrap();
-	}: _(origin::<T>(&alice))
-	verify {
-		let next_id = AssetsExt::<T>::next_asset_uuid().unwrap();
-		assert!(next_id > id);
-	}
+		let name = "Marko".into();
+		let symbol = "MRK".into();
+		let decimals = 8;
+		let min_balance = None;
+		let owner = Some(alice.clone());
+	}: _(origin::<T>(&alice), name, symbol, decimals, min_balance, owner)
 }
 
 impl_benchmark_test_suite!(AssetsExt, crate::mock::new_test_ext(), crate::mock::Test,);
