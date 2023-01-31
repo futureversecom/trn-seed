@@ -98,7 +98,6 @@ pub mod pallet {
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
-
 		/// Interface to generate weights
 		type WeightInfo: WeightInfo;
 	}
