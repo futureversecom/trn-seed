@@ -338,6 +338,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type NativeAssetId = RootAssetId;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = weights::pallet_assets_ext::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1703,7 +1704,7 @@ mod benches {
 		[pallet_xrpl_bridge, XRPLBridge]
 		[pallet_erc20_peg, Erc20Peg]
 		[pallet_echo, Echo]
-		// [pallet_xrpl_bridge, XRPLBridge]
+		[pallet_assets_ext, AssetsExt]
 		// [pallet_dex, Dex]
 	);
 }

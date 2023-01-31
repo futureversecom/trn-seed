@@ -114,6 +114,7 @@ impl pallet_assets_ext::Config for Test {
 	type NativeAssetId = RootAssetId;
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
+	type WeightInfo = ();
 }
 
 impl pallet_balances::Config for Test {
