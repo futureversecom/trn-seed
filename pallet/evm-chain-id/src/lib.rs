@@ -31,7 +31,12 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use super::*;
+	use frame_support::{
+		pallet_prelude::*,
+		transactional,
+	};
+	use frame_system::pallet_prelude::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -40,7 +45,10 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config {
+		/// The system event type
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+	}
 
 	impl<T: Config> Get<u64> for Pallet<T> {
 		fn get() -> u64 {
@@ -63,6 +71,27 @@ pub mod pallet {
 	impl<T: Config> GenesisBuild<T> for GenesisConfig {
 		fn build(&self) {
 			ChainId::<T>::put(self.chain_id);
+		}
+	}
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
+	pub enum Event<T> {
+		ChainIdSet(u64),
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
+		#[transactional]
+		pub fn set_chain_id(
+			origin: OriginFor<T>,
+			#[pallet::compact] chain_id: u64,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			ChainId::<T>::put(chain_id);
+			Self::deposit_event(Event::<T>::ChainIdSet(chain_id));
+			Ok(())
 		}
 	}
 }
