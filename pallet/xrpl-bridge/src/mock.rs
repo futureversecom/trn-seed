@@ -8,15 +8,18 @@ use frame_system::{limits, EnsureRoot};
 use sp_core::{ByteArray, H256};
 use sp_runtime::{
 	offchain::{testing::TestOffchainExt, OffchainWorkerExt},
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup},
+	testing::{Header, TestXt},
+	traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentityLookup, Verify},
 	DispatchError, Percent,
 };
 
-use seed_pallet_common::XrplBridgeToEthyAdapter;
+use seed_pallet_common::{ValidatorKeystore, XrplBridgeToEthyAdapter, XrplValidators};
 use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
-	AccountId, AssetId, Balance, BlockNumber,
+	ethy::{
+		crypto::{app_crypto::Public, AuthorityId},
+		EventProofId,
+	},
+	AccountId, AssetId, Balance, BlockNumber, Signature,
 };
 
 use crate as pallet_xrpl_bridge;
@@ -154,7 +157,52 @@ parameter_types! {
 	pub const MaxChallenges: u32 = 3;
 }
 
+pub type Extrinsic = TestXt<Call, ()>;
+
+impl frame_system::offchain::SigningTypes for Test {
+	type Public = <Signature as Verify>::Signer;
+	type Signature = Signature;
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+	Call: From<C>,
+{
+	type OverarchingCall = Call;
+	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
+where
+	Call: From<LocalCall>,
+{
+	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+		call: Call,
+		_public: <Signature as Verify>::Signer,
+		_account: AccountId,
+		nonce: u64,
+	) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
+		Some((call, (nonce, ())))
+	}
+}
+
+pub struct MockVK;
+
+impl ValidatorKeystore<Public> for MockVK {
+	fn get_active_key_with_index() -> Option<(Public, u16)> {
+		Some((Public::from_slice(&[2u8; 32]).unwrap(), 1))
+	}
+}
+
+pub struct MockXrplNotaries;
+impl XrplValidators<Public> for MockXrplNotaries {
+	fn get() -> Vec<Public> {
+		vec![]
+	}
+}
+
 impl pallet_xrpl_bridge::Config for Test {
+	type AuthorityId = AuthorityId;
 	type Event = Event;
 	type EthyAdapter = MockEthyAdapter;
 	type MultiCurrency = AssetsExt;
@@ -166,6 +214,8 @@ impl pallet_xrpl_bridge::Config for Test {
 	type UnixTime = TimestampPallet;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type MaxChallenges = MaxChallenges;
+	type ValidatorKeystore = MockVK;
+	type XrplNotaries = MockXrplNotaries;
 }
 
 pub struct MockEthyAdapter;

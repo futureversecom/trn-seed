@@ -26,7 +26,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
-	traits::{One, Zero},
+	traits::{One,Convert, Zero},
 	ArithmeticError, Percent, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
@@ -69,7 +69,7 @@ pub mod pallet {
 	use super::*;
 	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
 	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
-	use seed_primitives::xrpl::XrplTxTicketSequence;
+	use seed_primitives::{xrpl::XrplTxTicketSequence, ethy::EthyEcdsaToEthereum, AccountId20};
 	use sp_core::{crypto::ByteArray, H512};
 	use sp_runtime::RuntimeAppPublic;
 
@@ -127,6 +127,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Cannot resubmit a challenge if one is still open
+		AlreadyChallenged,
 		/// Could not grab a valid public key from the validator keystore for the given index
 		CouldNotParsePublicKey,
 		/// Signature could not be created by validator's local keystore key
@@ -230,17 +232,21 @@ pub mod pallet {
 			// A list of succesfully processed challenges that must be removed from storage iff the
 			// storage map iteration is finished
 			let mut processed_challenges = vec![];
+
 			if ChallengeXRPTransactionList::<T>::count() > 0 {
-				for (xrpl_block_hash, (challenge_submitter, ledger_number)) in
+				for ((xrpl_block_hash, ledger_index), challenge_submitter) in
 					ChallengeXRPTransactionList::<T>::iter()
 				{
 					let public = public.clone();
+
+					let converted_account: AccountId20 = EthyEcdsaToEthereum::convert(public.as_slice()).into();
+
 					// We are not allowed to verify our own challenges
-					if public.clone() == challenge_submitter {
+					if challenge_submitter.clone() == converted_account {
 						return
 					}
 
-					if let Err(err) = offchain::get_xrpl_block_data(xrpl_block_hash, ledger_number)
+					if let Err(err) = offchain::get_xrpl_block_data(xrpl_block_hash, ledger_index)
 					{
 						log::error!("Could not retrieve data from XRPL RPC {:?}", err);
 						return
@@ -269,7 +275,7 @@ pub mod pallet {
 							.map_err(|_| <Error<T>>::OffchainWorkerTxSubmissionError);
 
 					match tx_submit {
-						Ok(_) => processed_challenges.push(xrpl_block_hash),
+						Ok(_) => processed_challenges.push((xrpl_block_hash, ledger_index)),
 						Err(err) => {
 							log::error!("Could not submit challenge verification transaction from offchain worker: {:?}", err)
 						},
@@ -315,8 +321,17 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
-	pub type ChallengeXRPTransactionList<T: Config> =
-		CountedStorageMap<_, Identity, H512, (crate::app_crypto::Public, u64)>;
+	pub type ChallengeXRPTransactionList<T: Config> = CountedStorageMap<
+		_,
+		Identity,
+		// Composite key of both, as there is no CountedDoubleStorageMap
+		(H512, u64),
+		// Blake2_128Concat,
+		// u64,
+		// crate::app_crypto::Public,
+		T::AccountId,
+		OptionQuery,
+	>;
 
 	#[pallet::type_value]
 	pub fn DefaultDoorNonce() -> u32 {
@@ -422,16 +437,21 @@ pub mod pallet {
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
-			challenge_payload: ChallengePayload<crate::app_crypto::Public>,
-			_public: crate::app_crypto::Public,
-			_signature: app_crypto::Signature,
+			// challenge_payload: ChallengePayload<crate::app_crypto::Public>,
+			// _public: crate::app_crypto::Public,
+			// _signature: app_crypto::Signature,
+			transaction_hash: H512,
+			// challenger: crate::app_crypto::Public,
+			ledger_index: u64,
 		) -> DispatchResult {
-			// let challenger = ensure_signed(origin)?;
-			ensure_none(origin)?;
+			let who = ensure_signed(origin)?;
 			ensure!(ChallengeXRPTransactionList::<T>::count() < 3, Error::<T>::TooManyChallenges);
+			ensure!(ChallengeXRPTransactionList::<T>::get((&transaction_hash, &ledger_index)).is_none(), Error::<T>::AlreadyChallenged);
 
-			let ChallengePayload { transaction_hash, challenger, ledger_index } = challenge_payload;
-			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, (challenger, ledger_index));
+			// let ChallengePayload { transaction_hash, challenger, ledger_index } =
+			// challenge_payload;
+			// ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index), challenger);
+			ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index), who);
 
 			Ok(())
 		}
@@ -568,7 +588,7 @@ pub mod pallet {
 		#[pallet::weight(10000000)]
 		pub fn receive_offchain_challenge_verification(
 			origin: OriginFor<T>,
-			payload: ChallengeVerificationPayload<app_crypto::Public>,
+			payload: ChallengeVerificationPayload<T::AccountId>,
 			public: crate::app_crypto::Public,
 			_signature: app_crypto::Signature,
 		) -> DispatchResult {
@@ -580,334 +600,340 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			match call {
-				Call::receive_offchain_challenge_verification { payload, public, signature } => {
-					// Not only must the submitter be a validator, but verifying one's own challenge
-					// is always prohibited
-					if !T::XrplNotaries::get().contains(public) ||
-						&payload.challenge_submitter == public
-					{
-						log::error!("Received challenge verification information from a non-validator, or someone submitted a verification to their own challenge");
-						return InvalidTransaction::BadSigner.into()
-					}
+			if let Call::receive_offchain_challenge_verification { payload, public, signature } = call {
+				if source != TransactionSource::Local {
+					log::error!(
+					"Received call from unexpected source for XRPL challenge verification information"
+				);
+					return InvalidTransaction::Call.into()
+				}
+	
+				if !public.verify(&payload.encode(), signature) {
+					log::error!("Failed to verify signed Call payload of XRPL challenge information");
+					return InvalidTransaction::BadProof.into()
+				}
+	
 
-					return Self::validate_transaction_parameters(
-						source,
-						payload.encode(),
-						public,
-						signature,
-					)
-				},
-				Call::submit_challenge { challenge_payload, public, signature } => {
-					if !T::XrplNotaries::get().contains(public) {
-						log::error!("Received challenge submission from a non-validator");
-						return InvalidTransaction::BadSigner.into()
-					}
+				return Self::validate_transaction_parameters(
+					// challenge_payload.encode(),
+					// public,
+					// signature,
+				)
 
-					return Self::validate_transaction_parameters(
-						source,
-						challenge_payload.encode(),
-						public,
-						signature,
-					)
-				},
-				_ => InvalidTransaction::Call.into(),
+			} else {
+				InvalidTransaction::Call.into()
 			}
 		}
 	}
-}
 
-impl<T: Config> Pallet<T> {
-	// Perform the full validation of parameters passed to unsigned calls of this module
-	fn validate_transaction_parameters(
-		source: TransactionSource,
-		payload: Vec<u8>,
-		public: &app_crypto::Public,
-		signature: &app_crypto::Signature,
-	) -> TransactionValidity {
-		use sp_runtime::RuntimeAppPublic;
+	impl<T: Config> Pallet<T> {
 
-		if source != TransactionSource::Local {
-			log::error!(
-				"Received call from unexpected source for XRPL challenge verification information"
-			);
-			return InvalidTransaction::Call.into()
+		// fn get_challenge_storage_key(hash: H512, num: u64) -> H512 {
+		// 	let mut result = [0u8; 68];
+		// 	result[0..64].copy_from_slice(&hash[..]);
+		// 	result[64..68].copy_from_slice(&num.to_le_bytes()[..]);
+		// 	sha2::hash(&result).into()			
+		// }
+
+		// Perform the full validation of parameters passed to unsigned calls of this module
+		fn validate_transaction_parameters(
+			// payload: Vec<u8>,
+			// public: &app_crypto::Public,
+			// signature: &app_crypto::Signature,
+		) -> TransactionValidity {
+			ValidTransaction::with_tag_prefix("XrplBridge")
+				.priority(TransactionPriority::max_value())
+				// This transaction does not require anything else to go before into the pool.
+				// In theory we could require `previous_unsigned_at` transaction to go first,
+				// but it's not necessary in our case.
+				//.and_requires()
+				// We set the `provides` tag. This makes
+				// sure only one transaction produced after `next_unsigned_at` will ever
+				// get to the transaction pool and will end up in the block.
+				// We can still have multiple transactions compete for the same "spot",
+				// and the one with higher priority will replace other one in the pool.
+				.and_provides([
+					// A tag for uniqueness of this module
+					b"x-ocw",
+					// TODO: We will need to add more tags once we decide what challenge info needs
+					// to be sent from the offchain worker This will be sure that transactions are
+					// included/ignored based on some criteria related to the challenges
+				])
+				// The transaction is only valid for next 5 blocks. After that it's
+				// going to be revalidated by the pool.
+				.longevity(5)
+				// It's fine to propagate that transaction to other peers, which means it can be
+				// created even by nodes that don't produce blocks.
+				// Note that sometimes it's better to keep it for yourself (if you are the block
+				// producer), since for instance in some schemes others may copy your solution and
+				// claim a reward.
+				.propagate(true)
+				.build()
 		}
 
-		if !public.verify(&payload, signature) {
-			log::error!("Failed to verify signed Call payload of XRPL challenge information");
-			return InvalidTransaction::BadProof.into()
+		pub fn initialize_relayer(xrp_relayers: &Vec<T::AccountId>) {
+			for relayer in xrp_relayers {
+				<Relayer<T>>::insert(relayer, true);
+			}
 		}
 
-		ValidTransaction::with_tag_prefix("XrplBridge")
-			.priority(TransactionPriority::max_value())
-			// This transaction does not require anything else to go before into the pool.
-			// In theory we could require `previous_unsigned_at` transaction to go first,
-			// but it's not necessary in our case.
-			//.and_requires()
-			// We set the `provides` tag. This makes
-			// sure only one transaction produced after `next_unsigned_at` will ever
-			// get to the transaction pool and will end up in the block.
-			// We can still have multiple transactions compete for the same "spot",
-			// and the one with higher priority will replace other one in the pool.
-			.and_provides([
-				// A tag for uniqueness of this module
-				b"x-ocw",
-				// TODO: We will need to add more tags once we decide what challenge info needs to
-				// be sent from the offchain worker This will be sure that transactions are
-				// included/ignored based on some criteria related to the challenges
-			])
-			// The transaction is only valid for next 5 blocks. After that it's
-			// going to be revalidated by the pool.
-			.longevity(5)
-			// It's fine to propagate that transaction to other peers, which means it can be
-			// created even by nodes that don't produce blocks.
-			// Note that sometimes it's better to keep it for yourself (if you are the block
-			// producer), since for instance in some schemes others may copy your solution and
-			// claim a reward.
-			.propagate(true)
-			.build()
-	}
+		pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
+			let tx_items: Vec<XrplTxHash> = match <ProcessXRPTransaction<T>>::take(n) {
+				None => return DbWeight::get().reads(2 as Weight),
+				Some(v) => v,
+			};
+			let mut reads = 2 as Weight;
+			let mut writes = 0 as Weight;
 
-	pub fn initialize_relayer(xrp_relayers: &Vec<T::AccountId>) {
-		for relayer in xrp_relayers {
-			<Relayer<T>>::insert(relayer, true);
-		}
-	}
+			let tx_details = tx_items
+				.iter()
+				// .filter(|x| !<ChallengeXRPTransactionList<T>>::contains_key(x))
+				.filter(|x| false)
+				.map(|x| (x, <ProcessXRPTransactionDetails<T>>::get(x)));
 
-	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
-		let tx_items: Vec<XrplTxHash> = match <ProcessXRPTransaction<T>>::take(n) {
-			None => return DbWeight::get().reads(2 as Weight),
-			Some(v) => v,
-		};
-		let mut reads = 2 as Weight;
-		let mut writes = 0 as Weight;
+			reads += tx_items.len() as u64 * 2;
+			let tx_details = tx_details.filter_map(|x| Some((x.0, x.1?)));
 
-		let tx_details = tx_items
-			.iter()
-			// .filter(|x| !<ChallengeXRPTransactionList<T>>::contains_key(x))
-			.filter(|x| false)
-			.map(|x| (x, <ProcessXRPTransactionDetails<T>>::get(x)));
+			for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
+				match tx.transaction {
+					XrplTxData::Payment { amount, address } => {
+						if let Err(e) = T::MultiCurrency::mint_into(
+							T::XrpAssetId::get(),
+							&address.into(),
+							amount,
+						) {
+							Self::deposit_event(Event::ProcessingFailed(
+								ledger_index,
+								transaction_hash.clone(),
+								e,
+							));
+						}
+					},
+					_ => {
+						Self::deposit_event(Event::NotSupportedTransaction);
+						continue
+					},
+				}
 
-		reads += tx_items.len() as u64 * 2;
-		let tx_details = tx_details.filter_map(|x| Some((x.0, x.1?)));
-
-		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
-			match tx.transaction {
-				XrplTxData::Payment { amount, address } => {
-					if let Err(e) =
-						T::MultiCurrency::mint_into(T::XrpAssetId::get(), &address.into(), amount)
-					{
-						Self::deposit_event(Event::ProcessingFailed(
-							ledger_index,
-							transaction_hash.clone(),
-							e,
-						));
-					}
-				},
-				_ => {
-					Self::deposit_event(Event::NotSupportedTransaction);
-					continue
-				},
+				let clear_block_number =
+					<frame_system::Pallet<T>>::block_number() + T::ClearTxPeriod::get().into();
+				<SettledXRPTransactionDetails<T>>::append(
+					&clear_block_number,
+					transaction_hash.clone(),
+				);
+				writes += 2;
+				reads += 2;
+				Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
 			}
 
-			let clear_block_number =
-				<frame_system::Pallet<T>>::block_number() + T::ClearTxPeriod::get().into();
-			<SettledXRPTransactionDetails<T>>::append(
-				&clear_block_number,
-				transaction_hash.clone(),
-			);
-			writes += 2;
-			reads += 2;
-			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
+			DbWeight::get().reads_writes(reads, writes)
 		}
 
-		DbWeight::get().reads_writes(reads, writes)
-	}
-
-	/// Prune settled transaction data from storage
-	/// if it was scheduled to do so at block `n`
-	pub fn clear_storages(n: T::BlockNumber) -> Weight {
-		let mut reads: Weight = 0;
-		let mut writes: Weight = 0;
-		reads += 1;
-		if <SettledXRPTransactionDetails<T>>::contains_key(n) {
-			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
-				writes += 1 + tx_hashes.len() as Weight;
-				for tx_hash in tx_hashes {
-					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
+		/// Prune settled transaction data from storage
+		/// if it was scheduled to do so at block `n`
+		pub fn clear_storages(n: T::BlockNumber) -> Weight {
+			let mut reads: Weight = 0;
+			let mut writes: Weight = 0;
+			reads += 1;
+			if <SettledXRPTransactionDetails<T>>::contains_key(n) {
+				if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
+					writes += 1 + tx_hashes.len() as Weight;
+					for tx_hash in tx_hashes {
+						<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
+					}
 				}
 			}
-		}
-		DbWeight::get().reads_writes(reads, writes)
-	}
-
-	pub fn add_to_relay(
-		relayer: T::AccountId,
-		ledger_index: LedgerIndex,
-		transaction_hash: XrplTxHash,
-		transaction: XrplTxData,
-		timestamp: Timestamp,
-	) -> DispatchResult {
-		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, relayer));
-
-		Self::add_to_xrp_process(transaction_hash)?;
-		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
-		Ok(())
-	}
-
-	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResult {
-		let process_block_number =
-			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
-		ProcessXRPTransaction::<T>::append(&process_block_number, transaction_hash);
-		Ok(())
-	}
-
-	///
-	/// `who` the account requesting the withdraw
-	/// `amount` the amount of XRP drops to withdraw (- the tx fee)
-	///  `destination` the receiver classic `AccountID` on XRPL
-	pub fn add_to_withdraw(
-		who: AccountOf<T>,
-		amount: Balance,
-		destination: XrplAccountId,
-	) -> DispatchResult {
-		// TODO: need a fee oracle, this is over estimating the fee
-		// https://github.com/futureversecom/seed/issues/107
-		let tx_fee = Self::door_tx_fee();
-		ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
-		ensure!(amount.checked_add(tx_fee as Balance).is_some(), Error::<T>::WithdrawInvalidAmount); // xrp amounts are `u64`
-		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
-
-		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
-		// tx fee to maintain an accurate door balance
-		let _ =
-			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
-
-		let ticket_sequence = Self::get_door_ticket_sequence()?;
-		let tx_data = XrpWithdrawTransaction {
-			tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
-			tx_fee,
-			amount,
-			destination,
-			tx_ticket_sequence: ticket_sequence,
-		};
-
-		let proof_id = Self::submit_withdraw_request(door_address.into(), tx_data)?;
-
-		Self::deposit_event(Event::WithdrawRequest { proof_id, sender: who, amount, destination });
-
-		Ok(())
-	}
-
-	/// Construct an XRPL payment transaction and submit for signing
-	/// Returns a (proof_id, tx_blob)
-	fn submit_withdraw_request(
-		door_address: [u8; 20],
-		tx_data: XrpWithdrawTransaction,
-	) -> Result<u64, DispatchError> {
-		let XrpWithdrawTransaction { tx_fee, tx_nonce, tx_ticket_sequence, amount, destination } =
-			tx_data;
-
-		let payment = Payment::new(
-			door_address,
-			destination.into(),
-			amount.saturated_into(),
-			tx_nonce,
-			tx_ticket_sequence,
-			tx_fee,
-			// omit signer key since this is a 'MultiSigner' tx
-			None,
-		);
-		let tx_blob = payment.binary_serialize(true);
-
-		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
-	}
-
-	// Return the current door nonce and increment it in storage
-	pub fn door_nonce_inc() -> Result<XrplTxNonce, DispatchError> {
-		let nonce = Self::door_nonce();
-		let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		DoorNonce::<T>::set(next_nonce);
-		Ok(nonce)
-	}
-
-	// Return the current door ticket sequence and increment it in storage
-	pub fn get_door_ticket_sequence() -> Result<XrplTxTicketSequence, DispatchError> {
-		let mut current_sequence = Self::door_ticket_sequence();
-		let ticket_params = Self::door_ticket_sequence_params();
-
-		// check if TicketSequenceThreshold reached. notify by emitting
-		// TicketSequenceThresholdReached
-		if ticket_params.bucket_size != 0 &&
-			Percent::from_rational(
-				current_sequence - ticket_params.start_sequence + 1,
-				ticket_params.bucket_size,
-			) >= T::TicketSequenceThreshold::get() &&
-			!Self::ticket_sequence_threshold_reached_emitted()
-		{
-			Self::deposit_event(Event::<T>::TicketSequenceThresholdReached(current_sequence));
-			TicketSequenceThresholdReachedEmitted::<T>::put(true);
+			DbWeight::get().reads_writes(reads, writes)
 		}
 
-		let mut next_sequence =
-			current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-		let last_sequence = ticket_params
-			.start_sequence
-			.checked_add(ticket_params.bucket_size)
-			.ok_or(ArithmeticError::Overflow)?;
-		if current_sequence >= last_sequence {
-			// we ran out current bucket, check the next_start_sequence
-			let next_ticket_params = Self::door_ticket_sequence_params_next();
-			if next_ticket_params == XrplTicketSequenceParams::default() ||
-				next_ticket_params.start_sequence == ticket_params.start_sequence
+		pub fn add_to_relay(
+			relayer: T::AccountId,
+			ledger_index: LedgerIndex,
+			transaction_hash: XrplTxHash,
+			transaction: XrplTxData,
+			timestamp: Timestamp,
+		) -> DispatchResult {
+			let val = XrpTransaction { transaction_hash, transaction, timestamp };
+			<ProcessXRPTransactionDetails<T>>::insert(
+				&transaction_hash,
+				(ledger_index, val, relayer),
+			);
+
+			Self::add_to_xrp_process(transaction_hash)?;
+			Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
+			Ok(())
+		}
+
+		pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResult {
+			let process_block_number =
+				<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
+			ProcessXRPTransaction::<T>::append(&process_block_number, transaction_hash);
+			Ok(())
+		}
+
+		///
+		/// `who` the account requesting the withdraw
+		/// `amount` the amount of XRP drops to withdraw (- the tx fee)
+		///  `destination` the receiver classic `AccountID` on XRPL
+		pub fn add_to_withdraw(
+			who: AccountOf<T>,
+			amount: Balance,
+			destination: XrplAccountId,
+		) -> DispatchResult {
+			// TODO: need a fee oracle, this is over estimating the fee
+			// https://github.com/futureversecom/seed/issues/107
+			let tx_fee = Self::door_tx_fee();
+			ensure!(!amount.is_zero(), Error::<T>::WithdrawInvalidAmount);
+			ensure!(
+				amount.checked_add(tx_fee as Balance).is_some(),
+				Error::<T>::WithdrawInvalidAmount
+			); // xrp amounts are `u64`
+			let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
+
+			// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include
+			// the tx fee to maintain an accurate door balance
+			let _ = T::MultiCurrency::burn_from(
+				T::XrpAssetId::get(),
+				&who,
+				amount + tx_fee as Balance,
+			)?;
+
+			let ticket_sequence = Self::get_door_ticket_sequence()?;
+			let tx_data = XrpWithdrawTransaction {
+				tx_nonce: 0_u32, // Sequence = 0 when using TicketSequence
+				tx_fee,
+				amount,
+				destination,
+				tx_ticket_sequence: ticket_sequence,
+			};
+
+			let proof_id = Self::submit_withdraw_request(door_address.into(), tx_data)?;
+
+			Self::deposit_event(Event::WithdrawRequest {
+				proof_id,
+				sender: who,
+				amount,
+				destination,
+			});
+
+			Ok(())
+		}
+
+		/// Construct an XRPL payment transaction and submit for signing
+		/// Returns a (proof_id, tx_blob)
+		fn submit_withdraw_request(
+			door_address: [u8; 20],
+			tx_data: XrpWithdrawTransaction,
+		) -> Result<u64, DispatchError> {
+			let XrpWithdrawTransaction {
+				tx_fee,
+				tx_nonce,
+				tx_ticket_sequence,
+				amount,
+				destination,
+			} = tx_data;
+
+			let payment = Payment::new(
+				door_address,
+				destination.into(),
+				amount.saturated_into(),
+				tx_nonce,
+				tx_ticket_sequence,
+				tx_fee,
+				// omit signer key since this is a 'MultiSigner' tx
+				None,
+			);
+			let tx_blob = payment.binary_serialize(true);
+
+			T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
+		}
+
+		// Return the current door nonce and increment it in storage
+		pub fn door_nonce_inc() -> Result<XrplTxNonce, DispatchError> {
+			let nonce = Self::door_nonce();
+			let next_nonce = nonce.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+			DoorNonce::<T>::set(next_nonce);
+			Ok(nonce)
+		}
+
+		// Return the current door ticket sequence and increment it in storage
+		pub fn get_door_ticket_sequence() -> Result<XrplTxTicketSequence, DispatchError> {
+			let mut current_sequence = Self::door_ticket_sequence();
+			let ticket_params = Self::door_ticket_sequence_params();
+
+			// check if TicketSequenceThreshold reached. notify by emitting
+			// TicketSequenceThresholdReached
+			if ticket_params.bucket_size != 0 &&
+				Percent::from_rational(
+					current_sequence - ticket_params.start_sequence + 1,
+					ticket_params.bucket_size,
+				) >= T::TicketSequenceThreshold::get() &&
+				!Self::ticket_sequence_threshold_reached_emitted()
 			{
-				return Err(Error::<T>::NextTicketSequenceParamsNotSet.into())
-			} else {
-				// update next to current and clear next
-				DoorTicketSequenceParams::<T>::set(next_ticket_params.clone());
-				current_sequence = next_ticket_params.start_sequence;
-				next_sequence =
-					current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
-
-				DoorTicketSequenceParamsNext::<T>::kill();
-				TicketSequenceThresholdReachedEmitted::<T>::kill();
+				Self::deposit_event(Event::<T>::TicketSequenceThresholdReached(current_sequence));
+				TicketSequenceThresholdReachedEmitted::<T>::put(true);
 			}
+
+			let mut next_sequence =
+				current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
+			let last_sequence = ticket_params
+				.start_sequence
+				.checked_add(ticket_params.bucket_size)
+				.ok_or(ArithmeticError::Overflow)?;
+			if current_sequence >= last_sequence {
+				// we ran out current bucket, check the next_start_sequence
+				let next_ticket_params = Self::door_ticket_sequence_params_next();
+				if next_ticket_params == XrplTicketSequenceParams::default() ||
+					next_ticket_params.start_sequence == ticket_params.start_sequence
+				{
+					return Err(Error::<T>::NextTicketSequenceParamsNotSet.into())
+				} else {
+					// update next to current and clear next
+					DoorTicketSequenceParams::<T>::set(next_ticket_params.clone());
+					current_sequence = next_ticket_params.start_sequence;
+					next_sequence = current_sequence
+						.checked_add(One::one())
+						.ok_or(ArithmeticError::Overflow)?;
+
+					DoorTicketSequenceParamsNext::<T>::kill();
+					TicketSequenceThresholdReachedEmitted::<T>::kill();
+				}
+			}
+			DoorTicketSequence::<T>::set(next_sequence);
+
+			Ok(current_sequence)
 		}
-		DoorTicketSequence::<T>::set(next_sequence);
-
-		Ok(current_sequence)
 	}
-}
 
-impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
-	fn submit_signer_list_set_request(
-		signer_entries: Vec<(XrplAccountId, u16)>,
-	) -> Result<EventProofId, DispatchError> {
-		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
-		// TODO: need a fee oracle, this is over estimating the fee
-		// https://github.com/futureversecom/seed/issues/107
-		let tx_fee = Self::door_tx_fee();
-		let ticket_sequence = Self::get_door_ticket_sequence()?;
-		let signer_quorum: u32 = T::EthyAdapter::xrp_validators().len().saturating_sub(1) as u32;
-		let signer_entries = signer_entries
-			.into_iter()
-			.map(|(account, weight)| (account.into(), weight))
-			.collect();
+	impl<T: Config> EthyToXrplBridgeAdapter<XrplAccountId> for Pallet<T> {
+		fn submit_signer_list_set_request(
+			signer_entries: Vec<(XrplAccountId, u16)>,
+		) -> Result<EventProofId, DispatchError> {
+			let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
+			// TODO: need a fee oracle, this is over estimating the fee
+			// https://github.com/futureversecom/seed/issues/107
+			let tx_fee = Self::door_tx_fee();
+			let ticket_sequence = Self::get_door_ticket_sequence()?;
+			let signer_quorum: u32 =
+				T::EthyAdapter::xrp_validators().len().saturating_sub(1) as u32;
+			let signer_entries = signer_entries
+				.into_iter()
+				.map(|(account, weight)| (account.into(), weight))
+				.collect();
 
-		let signer_list_set = SignerListSet::new(
-			door_address.into(),
-			tx_fee,
-			0_u32,
-			ticket_sequence,
-			signer_quorum,
-			signer_entries,
-			// omit signer key since this is a 'MultiSigner' tx
-			None,
-		);
-		let tx_blob = signer_list_set.binary_serialize(true);
+			let signer_list_set = SignerListSet::new(
+				door_address.into(),
+				tx_fee,
+				0_u32,
+				ticket_sequence,
+				signer_quorum,
+				signer_entries,
+				// omit signer key since this is a 'MultiSigner' tx
+				None,
+			);
+			let tx_blob = signer_list_set.binary_serialize(true);
 
-		T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
+			T::EthyAdapter::sign_xrpl_transaction(tx_blob.as_slice())
+		}
 	}
 }
