@@ -154,7 +154,7 @@ where
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		// queries the Ethy pallet to get the active validator set public keys
 		let at = BlockId::hash(header.hash());
-		let validator_set = self.runtime.runtime_api().validator_set(&at).ok();
+		let validator_set = self.runtime.runtime_api().eth_validator_set(&at).ok();
 
 		info!(target: "ethy", "💎 active validator set: {:?}", validator_set);
 		validator_set
