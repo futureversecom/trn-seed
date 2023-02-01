@@ -23,6 +23,10 @@ FROM debian:buster-slim
 LABEL maintainer="support@centrality.ai"
 LABEL org.opencontainers.image.source=https://github.com/futureversecom/seed
 COPY --from=0 /seed-build/target/release/seed /usr/bin/
+# copy in genesis files
+COPY --from=0 /seed-build/chain-spec /seed-build/chain-spec
+# copy in wasm blob
+COPY --from=0 /seed-build/target/release/wbuild/seed-runtime/seed_runtime.compact.wasm /seed-build
 
 EXPOSE 30333 9933 9944
 ENTRYPOINT ["/usr/bin/seed"]
