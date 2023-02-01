@@ -33,9 +33,9 @@ impl<EthyId> Default for ValidatorSetChangeInfo<EthyId> {
 }
 
 pub trait ValidatorSetInterface<EthyId> {
-	fn get_validator_set_id() -> Result<ValidatorSetId, DispatchError>;
-	fn get_validator_set() -> Result<Vec<EthyId>, DispatchError>;
-	fn get_next_validator_set() -> Result<Vec<EthyId>, DispatchError>;
-	fn get_xrpl_validator_set() -> Result<Vec<EthyId>, DispatchError>;
-	fn get_xrpl_notary_keys(validator_list: &Vec<EthyId>) -> Result<Vec<EthyId>, DispatchError>;
+	fn get_validator_set_id() -> ValidatorSetId;
+	fn get_validator_set() -> Vec<EthyId>;
+	fn get_next_validator_set() -> Vec<EthyId>;
+	fn get_xrpl_validator_set() -> Vec<EthyId>;
+	fn get_xrpl_notary_keys(validator_list: &Vec<EthyId>) -> Vec<EthyId>;
 }

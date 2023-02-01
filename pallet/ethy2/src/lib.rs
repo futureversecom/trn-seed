@@ -200,8 +200,8 @@ impl<T: Config> Pallet<T> {
 
 		let next_event_proof_id = Self::get_next_event_proof_id();
 		let event_proof_info = EthereumEventInfo {
-			source: T::EthereumBridgeAdapter::get_pallet_id()?.into_account_truncating(),
-			destination: T::EthereumBridgeAdapter::get_contract_address()?,
+			source: T::EthereumBridgeAdapter::get_pallet_id().into_account_truncating(),
+			destination: T::EthereumBridgeAdapter::get_contract_address(),
 			message: validator_set_message.to_vec(),
 			validator_set_id: info.current_validator_set_id,
 			event_proof_id: next_event_proof_id,
@@ -219,8 +219,8 @@ impl<T: Config> Pallet<T> {
 	) -> Result<EventProofId, DispatchError> {
 		trace!(target: LOG_TARGET, "💎 request validator set change proof for xrpl");
 		let mut next_notary_xrpl_keys =
-			T::ValidatorSetAdapter::get_xrpl_notary_keys(&info.next_validator_set).unwrap();
-		let mut notary_xrpl_keys = T::ValidatorSetAdapter::get_xrpl_validator_set().unwrap();
+			T::ValidatorSetAdapter::get_xrpl_notary_keys(&info.next_validator_set);
+		let mut notary_xrpl_keys = T::ValidatorSetAdapter::get_xrpl_validator_set();
 
 		// sort to avoid same key set shuffles.
 		next_notary_xrpl_keys.sort();
@@ -355,7 +355,6 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 				validators: info.current_validator_set.clone(),
 				id: info.current_validator_set_id,
 				proof_threshold: T::EthereumBridgeAdapter::get_notarization_threshold()
-					.unwrap_or_default()
 					.mul_ceil(info.current_validator_set.len() as u32),
 			})
 			.encode(),

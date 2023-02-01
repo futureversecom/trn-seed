@@ -643,16 +643,12 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> BridgeAdapter for Pallet<T> {
-	fn get_pallet_id() -> Result<PalletId, DispatchError> {
-		Ok(T::PalletId::get())
+	fn get_pallet_id() -> PalletId {
+		T::PalletId::get()
 	}
 }
 
 impl<T: Config> XRPLBridgeAdapter<AuthorityId> for Pallet<T> {
-	fn get_door_signers() -> Result<Vec<AuthorityId>, DispatchError> {
-		Self::get_door_signers()
-	}
-
 	fn get_signer_list_set_payload(
 		signer_entries: Vec<(XrplAccountId, u16)>,
 	) -> Result<Vec<u8>, DispatchError> {

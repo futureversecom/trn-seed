@@ -101,7 +101,8 @@ pub mod pallet {
 		frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>>
 	{
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		type PalletId: Get<PalletId>; // spk add #[pallet::constant]
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 		/// Bond required for an account to act as relayer
 		type RelayerBond: Get<Balance>;
 		/// The native token asset Id (managed by pallet-balances)
@@ -330,7 +331,7 @@ pub mod pallet {
 				target: LOG_TARGET,
 				"Entering off-chain worker. block number:{:?}", block_number
 			);
-			let validator_set = T::ValidatorSet::get_validator_set().unwrap();
+			let validator_set = T::ValidatorSet::get_validator_set();
 			debug!(target: LOG_TARGET, "Active notaries: {:?}", validator_set);
 
 			// this passes if flag `--validator` set, not necessarily in the active set
@@ -418,7 +419,7 @@ pub mod pallet {
 
 			// Ensure account is not the current relayer
 			if Self::relayer() == Some(origin.clone()) {
-				// spk - check this logic
+				// spk - check this logic, can be simplified?
 				ensure!(Self::relayer() != Some(origin.clone()), Error::<T>::CantUnbondRelayer);
 			};
 			let relayer_paid_bond = Self::relayer_paid_bond(&origin);
@@ -591,7 +592,7 @@ pub mod pallet {
 			// we don't need to verify the signature here because it has been verified in
 			// `validate_unsigned` function when sending out the unsigned tx.
 			let authority_index = payload.authority_index() as usize;
-			let notary_keys = T::ValidatorSet::get_validator_set()?;
+			let notary_keys = T::ValidatorSet::get_validator_set();
 			let notary_public_key = match notary_keys.get(authority_index) {
 				Some(id) => id,
 				None => return Err(Error::<T>::InvalidNotarization.into()),
@@ -893,7 +894,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn handle_invalid_claim(event_claim_id: EventClaimId) -> DispatchResult {
 		if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
 			event_claim_id,
-			T::ValidatorSet::get_validator_set()?.len() as u32,
+			T::ValidatorSet::get_validator_set().len() as u32,
 			None,
 		)
 		.maybe_cursor
@@ -953,7 +954,7 @@ impl<T: Config> Pallet<T> {
 		// no need to track info on this claim any more since it's approved
 		if let Some(cursor) = <EventNotarizations<T>>::clear_prefix(
 			event_claim_id,
-			T::ValidatorSet::get_validator_set()?.len() as u32,
+			T::ValidatorSet::get_validator_set().len() as u32,
 			None,
 		)
 		.maybe_cursor
@@ -1000,18 +1001,18 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> BridgeAdapter for Pallet<T> {
-	fn get_pallet_id() -> Result<PalletId, DispatchError> {
-		Ok(T::PalletId::get())
+	fn get_pallet_id() -> PalletId {
+		T::PalletId::get()
 	}
 }
 
 impl<T: Config> EthereumBridgeAdapter for Pallet<T> {
-	fn get_contract_address() -> Result<EthAddress, DispatchError> {
-		Ok(ContractAddress::<T>::get())
+	fn get_contract_address() -> EthAddress {
+		ContractAddress::<T>::get()
 	}
 
-	fn get_notarization_threshold() -> Result<Percent, DispatchError> {
-		Ok(T::NotarizationThreshold::get())
+	fn get_notarization_threshold() -> Percent {
+		T::NotarizationThreshold::get()
 	}
 }
 
@@ -1031,7 +1032,7 @@ impl<T: Config> EthereumBridge for Pallet<T> {
 			source: *source,
 			destination: *destination,
 			message: app_event.to_vec(),
-			validator_set_id: T::ValidatorSet::get_validator_set_id()?,
+			validator_set_id: T::ValidatorSet::get_validator_set_id(),
 			event_proof_id,
 		};
 

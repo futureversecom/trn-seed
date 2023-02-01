@@ -116,7 +116,7 @@ pub mod pallet {
 		/// Eth Bridge adapter
 		type EthBridgeAdapter: EthereumBridgeAdapter;
 		/// Max amount of new signers that can be set an in extrinsic
-		type MaxNewSigners: Get<u8>; // spk move to a suitable location
+		type MaxNewSigners: Get<u8>; // TODO(surangap): Update this with #419
 	}
 
 	#[pallet::storage]
@@ -272,23 +272,20 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn update_xrpl_notary_keys(
 		validator_list: &Vec<T::EthyId>,
 	) -> Result<(), DispatchError> {
-		let validators = Self::get_xrpl_notary_keys(validator_list)?;
+		let validators = Self::get_xrpl_notary_keys(validator_list);
 		<NotaryXrplKeys<T>>::put(&validators);
 		Ok(())
 	}
 
 	/// Iterate through the given validator_list and extracts the first number of MaxXrplKeys that
 	/// are in the XrplDoorSigners
-	pub(crate) fn get_xrpl_notary_keys(
-		validator_list: &Vec<T::EthyId>,
-	) -> Result<Vec<T::EthyId>, DispatchError> {
-		let xrpl_notary_keys = validator_list
+	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {
+		validator_list
 			.into_iter()
 			.filter(|validator| XrplDoorSigners::<T>::get(validator))
 			.map(|validator| -> T::EthyId { validator.clone() })
 			.take(T::MaxXrplKeys::get().into())
-			.collect();
-		Ok(xrpl_notary_keys)
+			.collect()
 	}
 
 	/// Starts changing the validator set
@@ -344,7 +341,6 @@ impl<T: Config> Pallet<T> {
 		let validator_keys = NotaryKeys::<T>::get();
 		ValidatorSetS::<T::EthyId> {
 			proof_threshold: T::EthBridgeAdapter::get_notarization_threshold()
-				.unwrap_or(Percent::one())
 				.mul_ceil(validator_keys.len() as u32),
 			validators: validator_keys,
 			id: NotarySetId::<T>::get(),
@@ -478,25 +474,23 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 }
 
 impl<T: Config> ValidatorSetInterface<T::EthyId> for Pallet<T> {
-	fn get_validator_set_id() -> Result<ValidatorSetId, DispatchError> {
-		Ok(NotarySetId::<T>::get()) // spk remove Ok?
+	fn get_validator_set_id() -> ValidatorSetId {
+		NotarySetId::<T>::get()
 	}
 
-	fn get_validator_set() -> Result<Vec<T::EthyId>, DispatchError> {
-		Ok(NotaryKeys::<T>::get())
+	fn get_validator_set() -> Vec<T::EthyId> {
+		NotaryKeys::<T>::get()
 	}
 
-	fn get_next_validator_set() -> Result<Vec<T::EthyId>, DispatchError> {
-		Ok(NextNotaryKeys::<T>::get())
+	fn get_next_validator_set() -> Vec<T::EthyId> {
+		NextNotaryKeys::<T>::get()
 	}
 
-	fn get_xrpl_validator_set() -> Result<Vec<T::EthyId>, DispatchError> {
-		Ok(NotaryXrplKeys::<T>::get())
+	fn get_xrpl_validator_set() -> Vec<T::EthyId> {
+		NotaryXrplKeys::<T>::get()
 	}
 
-	fn get_xrpl_notary_keys(
-		validator_list: &Vec<T::EthyId>,
-	) -> Result<Vec<T::EthyId>, DispatchError> {
+	fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {
 		Self::get_xrpl_notary_keys(validator_list)
 	}
 }

@@ -103,20 +103,19 @@ impl Default for State {
 }
 
 /// Common interface for all bridges
-/// all bridges should implement it
+/// all bridges should implement this
 pub trait BridgeAdapter {
 	/// returns the pallet Id
-	fn get_pallet_id() -> Result<PalletId, DispatchError>;
+	fn get_pallet_id() -> PalletId;
 }
 
 /// Interface for Ethereum bridge
 pub trait EthereumBridgeAdapter: BridgeAdapter {
-	fn get_contract_address() -> Result<EthAddress, DispatchError>;
-	fn get_notarization_threshold() -> Result<Percent, DispatchError>;
+	fn get_contract_address() -> EthAddress;
+	fn get_notarization_threshold() -> Percent;
 }
 
 /// Interface for pallet-xrpl-bridge
 pub trait XRPLBridgeAdapter<EthyId>: BridgeAdapter {
-	fn get_door_signers() -> Result<Vec<EthyId>, DispatchError>;
 	fn get_signer_list_set_payload(_: Vec<(XrplAccountId, u16)>) -> Result<Vec<u8>, DispatchError>;
 }
