@@ -4991,7 +4991,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-ethy2"
+name = "pallet-ethy"
 version = "0.1.0"
 dependencies = [
  "ethabi",
@@ -5001,12 +5001,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "log",
- "pallet-assets",
- "pallet-assets-ext",
- "pallet-balances",
- "pallet-scheduler",
  "parity-scale-codec",
- "parking_lot 0.12.1",
  "rustc-hex",
  "scale-info",
  "seed-pallet-common",
@@ -5016,7 +5011,6 @@ dependencies = [
  "sp-application-crypto",
  "sp-core",
  "sp-io",
- "sp-keystore",
  "sp-runtime",
  "sp-std",
 ]
@@ -5572,7 +5566,7 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "log",
- "pallet-ethy2",
+ "pallet-ethy",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -7931,7 +7925,7 @@ dependencies = [
  "pallet-erc20-peg",
  "pallet-eth-bridge",
  "pallet-ethereum",
- "pallet-ethy2",
+ "pallet-ethy",
  "pallet-evm",
  "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",

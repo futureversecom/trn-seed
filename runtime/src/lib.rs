@@ -776,7 +776,7 @@ impl pallet_tx_fee_pot::Config for Runtime {
 	type TxFeePotId = TxFeePotId;
 }
 
-impl pallet_ethy2::Config for Runtime {
+impl pallet_ethy::Config for Runtime {
 	/// The runtime event type.
 	type Event = Event;
 	/// Xrpl-bridge adapter
@@ -1044,7 +1044,7 @@ construct_runtime! {
 		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>} = 23,
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage} = 24,
 
-		Ethy: pallet_ethy2::{Pallet, Call, Storage, Event<T>} = 25,
+		Ethy: pallet_ethy::{Pallet, Call, Storage, Event<T>} = 25,
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,

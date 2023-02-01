@@ -31,7 +31,7 @@ use frame_support::{
 use frame_system::{ensure_none, pallet_prelude::OriginFor};
 use log::{debug, error, info, trace, warn};
 pub use pallet::*;
-use pallet_ethy2::types::Log;
+use pallet_ethy::types::Log;
 use seed_pallet_common::{
 	ethy::{
 		EthereumBridgeAdapter,

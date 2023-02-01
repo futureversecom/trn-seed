@@ -1,1 +1,0 @@
-# Ethy Pallet
