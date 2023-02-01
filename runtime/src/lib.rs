@@ -840,9 +840,13 @@ impl frame_system::offchain::SigningTypes for Runtime {
 	type Signature = Signature;
 }
 
+parameter_types! {
+	pub const DefaultChainId: u64 = 7672;
+}
 impl pallet_evm_chain_id::Config for Runtime {
 	type Event = Event;
 	type ApproveOrigin = EnsureRoot<AccountId>;
+	type DefaultChainId = DefaultChainId;
 }
 
 // Start frontier/EVM stuff
@@ -1028,7 +1032,7 @@ construct_runtime! {
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
-		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>, Config} = 41,
+		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>} = 41,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 

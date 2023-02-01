@@ -52,6 +52,8 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Allowed origins to ease transition to council givernance
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+		/// The default chain ID to use if not set in the chain spec
+		type DefaultChainId: Get<u64>;
 	}
 
 	impl<T: Config> Get<u64> for Pallet<T> {
@@ -60,23 +62,15 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::type_value]
+	pub fn DefaultChainId<T: Config>() -> u64 {
+		T::DefaultChainId::get()
+	}
+
 	/// The EVM chain ID.
 	#[pallet::storage]
 	#[pallet::getter(fn chain_id)]
-	pub type ChainId<T> = StorageValue<_, u64, ValueQuery>;
-
-	#[pallet::genesis_config]
-	#[derive(Default)]
-	pub struct GenesisConfig {
-		pub chain_id: u64,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> GenesisBuild<T> for GenesisConfig {
-		fn build(&self) {
-			ChainId::<T>::put(self.chain_id);
-		}
-	}
+	pub type ChainId<T> = StorageValue<_, u64, ValueQuery, DefaultChainId<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]

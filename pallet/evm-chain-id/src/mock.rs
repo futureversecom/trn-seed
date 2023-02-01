@@ -13,7 +13,7 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 use crate::{self as pallet_evm_chain_id, Config};
-use frame_support::{parameter_types, traits::GenesisBuild};
+use frame_support::parameter_types;
 use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
@@ -35,7 +35,7 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>, Config},
+		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -69,25 +69,21 @@ impl frame_system::Config for TestRuntime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+parameter_types! {
+	pub const DefaultChainId: u64 = 7672;
+}
 impl Config for TestRuntime {
 	type Event = Event;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
+	type DefaultChainId = DefaultChainId;
 }
 
 #[derive(Clone, Copy, Default)]
 pub struct ExtBuilder;
 impl ExtBuilder {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut storage =
+		let storage =
 			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
-
-		// set default chain id
-		<pallet_evm_chain_id::GenesisConfig as GenesisBuild<TestRuntime>>::assimilate_storage(
-			&pallet_evm_chain_id::GenesisConfig { chain_id: 7672 },
-			&mut storage,
-		)
-		.unwrap();
-
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
 		ext
