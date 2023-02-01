@@ -17,10 +17,8 @@
 use codec::Encode;
 use ethabi::Token;
 use frame_support::{
-	ensure, fail,
 	traits::Get,
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
-	BoundedVec, PalletId,
 };
 use log::{debug, error, info, trace};
 pub use pallet::*;
@@ -32,18 +30,16 @@ use seed_pallet_common::{
 		XRPLBridgeAdapter,
 	},
 	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface},
-	EthereumBridge, EthereumEventSubscriber,
 };
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
-	CollectionUuid, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId, SerialNumber,
+	EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId,
 };
-use sp_core::{H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, Convert},
-	DigestItem, DispatchError, SaturatedConversion,
+	DigestItem, DispatchError,
 };
-use sp_std::{boxed::Box, vec, vec::Vec};
+use sp_std::{vec::Vec};
 
 pub mod types;
 use types::*;
@@ -53,8 +49,8 @@ pub(crate) const LOG_TARGET: &str = "ethy";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, transactional};
-	use frame_system::{ensure_signed, pallet_prelude::*};
+	use frame_support::{pallet_prelude::*,};
+	use frame_system::{pallet_prelude::*};
 	use seed_pallet_common::{
 		ethy::{EthereumBridgeAdapter, State},
 		validator_set::ValidatorSetInterface,
@@ -139,7 +135,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+		fn on_initialize(_block_number: T::BlockNumber) -> Weight {
 			// process delayed proof requests
 			let mut weight = 0 as Weight;
 			if PendingProofRequests::<T>::iter().next().is_some() && Self::ethy_state() == Active {

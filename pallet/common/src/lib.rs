@@ -5,7 +5,6 @@ use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
-	log, sp_io,
 	sp_runtime::traits::AccountIdConversion,
 	traits::{fungibles::Transfer, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
@@ -13,11 +12,11 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::H160;
-use sp_runtime::traits::Convert;
+
 use sp_std::{fmt::Debug, vec::Vec};
 
 use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventClaimId, EventProofId},
+	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
 

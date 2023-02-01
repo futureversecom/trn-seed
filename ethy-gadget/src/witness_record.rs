@@ -255,6 +255,7 @@ impl WitnessRecord {
 		Ok(WitnessStatus::Verified)
 	}
 
+	// test only
 	pub fn get_validator_set(&self) -> ValidatorSet<AuthorityId> {
 		self.validators.clone()
 	}

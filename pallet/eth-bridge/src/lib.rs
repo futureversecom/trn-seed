@@ -18,25 +18,22 @@ mod ethereum_http_cli;
 mod types;
 pub use ethereum_http_cli::EthereumRpcClient;
 
-use crate::{
-	types::{
-		BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim,
-		EventClaimResult, LatestOrNumber, NotarizationPayload,
-	},
-	Error::OffchainUnsignedTxSignedPayload,
+use crate::types::{
+	BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim, EventClaimResult,
+	LatestOrNumber, NotarizationPayload,
 };
 use codec::Encode;
 use ethabi::{ParamType, Token};
 use frame_support::{
 	dispatch::DispatchResult,
-	ensure, fail,
-	traits::{Get, Len, ValidatorSet as ValidatorSetT},
+	ensure,
+	traits::{Get, ValidatorSet as ValidatorSetT},
 	weights::Weight,
-	BoundedVec, PalletId,
+	PalletId,
 };
 use frame_system::offchain::SubmitTransaction;
 use hex_literal::hex;
-use log::{debug, error, info, trace};
+use log::{debug, error, info};
 pub use pallet::*;
 use seed_pallet_common::{
 	ethy::{
@@ -45,23 +42,19 @@ use seed_pallet_common::{
 	},
 	log,
 	validator_set::ValidatorSetInterface,
-	EthereumBridge, EthereumEventSubscriber, Hold,
+	EthereumBridge, Hold,
 };
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventClaimId, EventProofId},
-	CollectionUuid, EthAddress, SerialNumber,
+	EthAddress,
 };
-use sp_core::{H160, U256};
+use sp_core::H160;
 use sp_runtime::{
-	offchain as rt_offchain,
-	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion},
-	DispatchError, Percent, RuntimeAppPublic,
+	offchain as rt_offchain, traits::SaturatedConversion, DispatchError, Percent, RuntimeAppPublic,
 };
-use sp_std::{boxed::Box, vec, vec::Vec};
+use sp_std::vec::Vec;
 use types::*;
 
-/// The type to sign and send transactions.
-const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
 const CLAIMS_PER_BLOCK: usize = 1;
 /// The logging target for this pallet
@@ -78,15 +71,14 @@ pub mod pallet {
 	use crate::types::{BridgeEthereumRpcApi, EventClaim, EventClaimStatus, NotarizationPayload};
 	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer, transactional};
 	use frame_system::{ensure_signed, offchain::CreateSignedTransaction, pallet_prelude::*};
-	use log::{debug, info, trace};
+	use log::{debug, info};
 	use seed_pallet_common::{
-		ethy::{EthyAdapter, EthySigningRequest, State::Active},
-		validator_set::ValidatorSetInterface,
-		EthereumEventRouter, EventRouterError, Hold,
+		ethy::EthyAdapter, validator_set::ValidatorSetInterface, EthereumEventRouter,
+		EventRouterError, Hold,
 	};
 	use seed_primitives::{
-		ethy::{crypto::AuthorityId, EventClaimId, EventProofId},
-		AccountId, AssetId, Balance, BlockNumber, EthAddress,
+		ethy::{crypto::AuthorityId, EventClaimId},
+		AccountId, AssetId, Balance, EthAddress,
 	};
 	use sp_core::H256;
 	use sp_runtime::{Percent, RuntimeAppPublic};
@@ -611,9 +603,9 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// Handle a submitted call notarization
 	pub(crate) fn handle_call_notarization(
-		call_id: EthCallId,
-		result: CheckedEthCallResult,
-		notary_id: &AuthorityId,
+		_call_id: EthCallId,
+		_result: CheckedEthCallResult,
+		_notary_id: &AuthorityId,
 	) -> Result<(), DispatchError> {
 		Ok(())
 	}
@@ -1039,7 +1031,7 @@ impl<T: Config> EthereumBridge for Pallet<T> {
 		T::EthyAdapter::request_for_proof(
 			EthySigningRequest::Ethereum(event_proof_info),
 			Some(event_proof_id),
-		);
+		)?;
 		Ok(event_proof_id)
 	}
 }

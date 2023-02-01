@@ -14,46 +14,29 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
 use core::default::Default;
-use ethabi::Token;
 use frame_support::{
-	codec::{Decode, MaxEncodedLen},
-	ensure, fail,
+	codec::MaxEncodedLen,
+	ensure,
 	pallet_prelude::DispatchResult,
 	traits::{
 		schedule::{Anon, DispatchTime},
 		Get, OneSessionHandler,
 	},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
-	BoundedVec, PalletId,
+	PalletId,
 };
 use frame_system::{ensure_none, pallet_prelude::OriginFor};
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info};
 pub use pallet::*;
-use pallet_ethy::types::Log;
 use seed_pallet_common::{
-	ethy::{
-		EthereumBridgeAdapter,
-		State::{Active, Paused},
-		XRPLBridgeAdapter,
-	},
-	log,
+	ethy::EthereumBridgeAdapter,
 	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface},
-	EthereumBridge, EthereumEventSubscriber, FinalSessionTracker as FinalSessionTrackerT,
+	FinalSessionTracker as FinalSessionTrackerT,
 };
-use seed_primitives::{
-	ethy::{
-		ConsensusLog, EventProofId, ValidatorSet as ValidatorSetS, ValidatorSetId, ETHY_ENGINE_ID,
-	},
-	CollectionUuid, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId, SerialNumber,
-};
-use sp_core::{H160, U256};
-use sp_runtime::{
-	traits::{AccountIdConversion, Saturating},
-	DigestItem, DispatchError, Percent, SaturatedConversion,
-};
-use sp_std::{boxed::Box, vec, vec::Vec};
+use seed_primitives::ethy::{EventProofId, ValidatorSet as ValidatorSetS, ValidatorSetId};
+use sp_runtime::{traits::Saturating, DispatchError, SaturatedConversion};
+use sp_std::{vec, vec::Vec};
 
 pub(crate) const LOG_TARGET: &str = "validator-set";
 pub(crate) const SCHEDULER_PRIORITY: u8 = 63;
@@ -61,13 +44,13 @@ pub(crate) const SCHEDULER_PRIORITY: u8 = 63;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet, pallet_prelude::*, traits::schedule::Anon, transactional};
-	use frame_system::{ensure_signed, offchain::CreateSignedTransaction, pallet_prelude::*};
+	use frame_support::{pallet_prelude::*, traits::schedule::Anon};
+	use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
 	use seed_pallet_common::{
 		ethy::{EthereumBridgeAdapter, XRPLBridgeAdapter},
-		validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo},
+		validator_set::ValidatorSetChangeHandler,
 	};
-	use seed_primitives::{AccountId, ValidatorId};
+	use seed_primitives::AccountId;
 	use sp_runtime::RuntimeAppPublic;
 
 	#[pallet::pallet]
@@ -269,12 +252,9 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub(crate) fn update_xrpl_notary_keys(
-		validator_list: &Vec<T::EthyId>,
-	) -> Result<(), DispatchError> {
+	pub(crate) fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) {
 		let validators = Self::get_xrpl_notary_keys(validator_list);
 		<NotaryXrplKeys<T>>::put(&validators);
-		Ok(())
 	}
 
 	/// Iterate through the given validator_list and extracts the first number of MaxXrplKeys that
@@ -325,7 +305,7 @@ impl<T: Config> Pallet<T> {
 		// Store the new keys and increment the validator set id
 		// Next notary keys should be unset, until populated by new session logic
 		<NotaryKeys<T>>::put(&next_notary_keys);
-		Self::update_xrpl_notary_keys(&next_notary_keys)?;
+		Self::update_xrpl_notary_keys(&next_notary_keys);
 		NotarySetId::<T>::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
 		// Inform ethy
 		T::EthyAdapter::validator_set_change_finalized(ValidatorSetChangeInfo {
@@ -377,16 +357,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		}
 		assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
 		NotaryKeys::<T>::put(&keys);
-		if let Err(e) = Self::update_xrpl_notary_keys(&keys) {
-			Self::deposit_event(Event::<T>::XRPLNotaryKeysUpdateFailed {
-				validator_set_id: Self::notary_set_id().wrapping_add(1).into(),
-			});
-			error!(
-				target: LOG_TARGET,
-				"Update XRPL notary keys failed. error: {:?}",
-				Into::<&str>::into(e)
-			);
-		}
+		Self::update_xrpl_notary_keys(&keys);
 	}
 
 	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)

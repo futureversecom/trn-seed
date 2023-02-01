@@ -22,7 +22,7 @@ use frame_support::{
 		UnixTime,
 	},
 	transactional,
-	weights::{constants::RocksDbWeight as DbWeight, Pays::No},
+	weights::constants::RocksDbWeight as DbWeight,
 	PalletId,
 };
 use frame_system::pallet_prelude::*;
@@ -48,11 +48,8 @@ use crate::helpers::{
 };
 
 pub use pallet::*;
-use seed_pallet_common::{
-	ethy::{BridgeAdapter, EthyAdapter, EthySigningRequest, XRPLBridgeAdapter},
-	validator_set::ValidatorSetInterface,
-};
-use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
+use seed_pallet_common::ethy::{BridgeAdapter, EthyAdapter, EthySigningRequest, XRPLBridgeAdapter};
+use seed_primitives::xrpl::XrplTxTicketSequence;
 
 mod helpers;
 

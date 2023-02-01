@@ -17,7 +17,6 @@
 
 use codec::{Decode, Encode};
 use core::fmt;
-use ethabi::Token;
 use ethereum_types::{Bloom, U64};
 use rustc_hex::ToHex;
 use scale_info::TypeInfo;
@@ -26,7 +25,7 @@ use serde::{
 	Deserialize, Deserializer, Serialize, Serializer,
 };
 pub use sp_core::{H160, H256, U256};
-use sp_runtime::{DispatchError, RuntimeDebug};
+use sp_runtime::{RuntimeDebug};
 use sp_std::{prelude::*, vec::Vec};
 
 // following imports support serializing values to hex strings in no_std
@@ -39,7 +38,6 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use std::string::String;
 
-use seed_primitives::ethy::ValidatorSetId;
 pub use seed_primitives::{
 	ethy::{ConsensusLog, EthyChainId, EventClaimId, EventProofId, ValidatorSet, ETHY_ENGINE_ID},
 	BlockNumber,

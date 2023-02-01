@@ -17,11 +17,8 @@
 //! Shared between eth-bridge pallet & ethy-gadget worker
 
 use codec::{Decode, Encode};
-use ripemd::{Digest as _, Ripemd160};
 use scale_info::TypeInfo;
-use sha2::Sha256;
-use sp_application_crypto::ByteArray;
-use sp_runtime::{traits::Convert, KeyTypeId};
+use sp_runtime::KeyTypeId;
 use sp_std::prelude::*;
 
 use self::crypto::{AuthorityId, AuthoritySignature};

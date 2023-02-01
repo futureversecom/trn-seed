@@ -1,11 +1,7 @@
 //! shared pallet types and traits
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use seed_primitives::{
-	ethy::{EventProofId, ValidatorSetId},
-	ValidatorId,
-};
-use sp_runtime::DispatchError;
+use seed_primitives::ethy::ValidatorSetId;
 use sp_std::{fmt::Debug, vec::Vec};
 
 pub trait ValidatorSetChangeHandler<EthyId> {
