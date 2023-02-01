@@ -25,7 +25,7 @@ use serde::{
 	Deserialize, Deserializer, Serialize, Serializer,
 };
 pub use sp_core::{H160, H256, U256};
-use sp_runtime::{RuntimeDebug};
+use sp_runtime::RuntimeDebug;
 use sp_std::{prelude::*, vec::Vec};
 
 // following imports support serializing values to hex strings in no_std

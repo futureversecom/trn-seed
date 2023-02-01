@@ -39,7 +39,7 @@ use sp_runtime::{
 	traits::{AccountIdConversion, Convert},
 	DigestItem, DispatchError,
 };
-use sp_std::{vec::Vec};
+use sp_std::vec::Vec;
 
 pub mod types;
 use types::*;
@@ -49,8 +49,8 @@ pub(crate) const LOG_TARGET: &str = "ethy";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*,};
-	use frame_system::{pallet_prelude::*};
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
 	use seed_pallet_common::{
 		ethy::{EthereumBridgeAdapter, State},
 		validator_set::ValidatorSetInterface,
