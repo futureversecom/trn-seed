@@ -5,14 +5,15 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
-use sp_core::{ByteArray, H256};
+use sp_core::{ByteArray, H256, offchain::testing::{PoolState}};
+use sp_keystore::{testing::KeyStore, SyncCryptoStore, KeystoreExt};
 use sp_runtime::{
-	offchain::{testing::TestOffchainExt, OffchainWorkerExt},
+	offchain::{testing::{TestOffchainExt, TestTransactionPoolExt, OffchainState}, OffchainWorkerExt, OffchainDbExt, TransactionPoolExt},
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentityLookup, Verify},
 	DispatchError, Percent,
 };
-
+use sp_std::sync::{Arc};
 use seed_pallet_common::{ValidatorKeystore, XrplBridgeToEthyAdapter, XrplValidators};
 use seed_primitives::{
 	ethy::{
@@ -21,6 +22,7 @@ use seed_primitives::{
 	},
 	AccountId, AssetId, Balance, BlockNumber, Signature,
 };
+use parking_lot::RwLock;
 
 use crate as pallet_xrpl_bridge;
 
@@ -191,7 +193,8 @@ pub struct MockVK;
 
 impl ValidatorKeystore<Public> for MockVK {
 	fn get_active_key_with_index() -> Option<(Public, u16)> {
-		Some((Public::from_slice(&[2u8; 32]).unwrap(), 1))
+		Some((Public::from_slice(&[2u8; 33]).unwrap(), 1))
+		// Some((Public::from(value), 1))
 	}
 }
 
@@ -247,12 +250,8 @@ impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let (offchain, offchain_state) = TestOffchainExt::new();
-	// TODO: Can use this later for testing the offchain worker did send some transaction
-	// let (pool, pool_state) = TestTransactionPoolExt::new();
-
 	let mut ext: sp_io::TestExternalities =
 		system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
-	ext.register_extension(OffchainWorkerExt::new(offchain));
 	ext
 }
 
@@ -262,4 +261,24 @@ pub fn new_test_ext_benchmark() -> sp_io::TestExternalities {
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
+}
+pub fn build_offchainify(
+	mut ext: sp_io::TestExternalities,
+) -> (sp_io::TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock<OffchainState>>) {
+	// let mut ext = self.build();
+
+	use sp_runtime::RuntimeAppPublic;
+
+	let (offchain, offchain_state) = TestOffchainExt::new();
+	let (pool, pool_state) = TestTransactionPoolExt::new();
+
+	ext.register_extension(OffchainDbExt::new(offchain.clone()));
+	ext.register_extension(OffchainWorkerExt::new(offchain));
+	ext.register_extension(TransactionPoolExt::new(pool));
+
+	let keystore = KeyStore::new();
+	SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+	ext.register_extension(KeystoreExt(Arc::new(keystore)));
+
+	(ext, pool_state, offchain_state)
 }
