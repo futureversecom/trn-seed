@@ -17,6 +17,7 @@
 # -l -> Display pallets that can be benchmarked
 # -p "pallet_balance pallet_assets" -> Selects which pallets to benchmark
 
+set -e
 
 # Default vaules
 STEPS=50
