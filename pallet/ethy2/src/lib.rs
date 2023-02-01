@@ -307,7 +307,20 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 	}
 
 	fn validator_set_change_finalized(info: ValidatorSetChangeInfo<AuthorityId>) {
-		// se ethy to Active
+		info!(target: LOG_TARGET, "💎 validator set change finalized received. new validator set id: {:?}", info.current_validator_set_id);
+		// send notification to ethy-gadget
+		let log = DigestItem::Consensus(
+			ETHY_ENGINE_ID,
+			ConsensusLog::AuthoritiesChange(ValidatorSet {
+				validators: info.current_validator_set.clone(),
+				id: info.current_validator_set_id,
+				proof_threshold: T::EthereumBridgeAdapter::get_notarization_threshold().unwrap_or_default().mul_ceil(info.current_validator_set.len() as u32)
+			})
+			.encode(),
+		);
+		<frame_system::Pallet<T>>::deposit_log(log);
+
+		// set ethy to Active
 		EthyState::<T>::put(Active);
 	}
 }
