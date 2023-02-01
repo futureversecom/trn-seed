@@ -85,7 +85,6 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight((T::DbWeight::get().reads_writes(1, 1), DispatchClass::Operational))]
-		#[transactional]
 		pub fn set_chain_id(
 			origin: OriginFor<T>,
 			#[pallet::compact] chain_id: u64,
