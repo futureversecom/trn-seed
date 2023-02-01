@@ -4929,6 +4929,7 @@ dependencies = [
 name = "pallet-evm-chain-id"
 version = "1.0.0-dev"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -4937,6 +4938,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

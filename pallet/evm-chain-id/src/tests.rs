@@ -1,10 +1,10 @@
 #![cfg(test)]
-use crate::mock::{EVMChainId, Event, ExtBuilder, Origin, System, ALICE};
+use crate::mock::{EVMChainId, Event, Origin, System, TestExt, ALICE};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 
 #[test]
 fn default_chain_id() {
-	ExtBuilder::default().build().execute_with(|| {
+	TestExt::default().build().execute_with(|| {
 		let chain_id = EVMChainId::chain_id();
 		assert_eq!(chain_id, 7672);
 	});
@@ -12,7 +12,7 @@ fn default_chain_id() {
 
 #[test]
 fn update_chain_id() {
-	ExtBuilder::default().build().execute_with(|| {
+	TestExt::default().build().execute_with(|| {
 		// normal user cannot update chain id
 		assert_noop!(EVMChainId::set_chain_id(Origin::signed(ALICE), 1234), BadOrigin);
 		assert_eq!(EVMChainId::chain_id(), 7672); // chain id is not updated

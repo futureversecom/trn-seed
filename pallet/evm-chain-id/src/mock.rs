@@ -76,11 +76,12 @@ impl Config for TestRuntime {
 	type Event = Event;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type DefaultChainId = DefaultChainId;
+	type WeightInfo = ();
 }
 
 #[derive(Clone, Copy, Default)]
-pub struct ExtBuilder;
-impl ExtBuilder {
+pub struct TestExt;
+impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
 		let storage =
 			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();

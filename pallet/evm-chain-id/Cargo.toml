@@ -20,6 +20,10 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 # Substrate FRAME
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+
+# Benchmarking
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
 
 [dev-dependencies]
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
@@ -36,5 +40,7 @@ std = [
 	# Substrate FRAME
 	"frame-support/std",
 	"frame-system/std",
+	"sp-std/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = ["frame-benchmarking"]

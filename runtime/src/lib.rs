@@ -847,6 +847,7 @@ impl pallet_evm_chain_id::Config for Runtime {
 	type Event = Event;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type DefaultChainId = DefaultChainId;
+	type WeightInfo = weights::pallet_evm_chain_id::WeightInfo<Runtime>;
 }
 
 // Start frontier/EVM stuff
@@ -1711,6 +1712,8 @@ mod benches {
 		[pallet_erc20_peg, Erc20Peg]
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]
+		[pallet_evm_chain_id, EVMChainId]
+		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);
 }

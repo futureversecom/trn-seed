@@ -29,10 +29,15 @@
 
 pub use pallet::*;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
+
+pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -54,6 +59,8 @@ pub mod pallet {
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
 		/// The default chain ID to use if not set in the chain spec
 		type DefaultChainId: Get<u64>;
+		/// Interface to access weight values
+		type WeightInfo: WeightInfo;
 	}
 
 	impl<T: Config> Get<u64> for Pallet<T> {
@@ -80,7 +87,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_chain_id())]
 		pub fn set_chain_id(
 			origin: OriginFor<T>,
 			#[pallet::compact] chain_id: u64,

@@ -19,6 +19,7 @@ use super::*;
 use crate::Pallet as EVMChainId;
 
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 
 benchmarks! {
@@ -31,4 +32,8 @@ benchmarks! {
 
 }
 
-impl_benchmark_test_suite!(EVMChainId, crate::mock::TestExt::default().build(), crate::mock::TestRuntime);
+impl_benchmark_test_suite!(
+	EVMChainId,
+	crate::mock::TestExt::default().build(),
+	crate::mock::TestRuntime
+);
