@@ -2,7 +2,6 @@
 #![cfg(test)]
 
 use crate::{
-	_feps::Get,
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
@@ -14,7 +13,7 @@ use ethereum::EIP1559Transaction;
 use frame_support::{
 	assert_ok,
 	dispatch::{GetDispatchInfo, RawOrigin},
-	traits::{fungible::Inspect, fungibles::Inspect as Inspects},
+	traits::{fungible::Inspect, fungibles::Inspect as Inspects, Get},
 };
 use pallet_ethereum::{Transaction, TransactionAction};
 use pallet_transaction_payment::ChargeTransactionPayment;

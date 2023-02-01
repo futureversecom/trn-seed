@@ -50,7 +50,7 @@ pub use frame_support::{
 	ensure, parameter_types,
 	traits::{
 		fungibles::{Inspect, InspectMetadata},
-		ConstU32, CurrencyToVote, Everything, IsInVec, KeyOwnerProofSystem, Randomness,
+		ConstU32, CurrencyToVote, Everything, Get, IsInVec, KeyOwnerProofSystem, Randomness,
 	},
 	weights::{
 		constants::{ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -106,10 +106,7 @@ use staking::OnChainAccuracy;
 
 mod weights;
 
-use crate::{
-	_feps::Get,
-	impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription},
-};
+use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 
