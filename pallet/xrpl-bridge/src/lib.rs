@@ -14,11 +14,17 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{fail, pallet_prelude::*, PalletId, traits::{
-	fungibles::{Inspect, Mutate, Transfer},
-	UnixTime,
-}, transactional, weights::constants::RocksDbWeight as DbWeight};
-use frame_support::weights::Pays::No;
+use frame_support::{
+	fail,
+	pallet_prelude::*,
+	traits::{
+		fungibles::{Inspect, Mutate, Transfer},
+		UnixTime,
+	},
+	transactional,
+	weights::{constants::RocksDbWeight as DbWeight, Pays::No},
+	PalletId,
+};
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{One, Zero},
@@ -30,7 +36,7 @@ use xrpl_codec::{
 	transaction::{Payment, SignerListSet},
 };
 
-use seed_pallet_common::{CreateExt,};
+use seed_pallet_common::CreateExt;
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash},
@@ -42,8 +48,10 @@ use crate::helpers::{
 };
 
 pub use pallet::*;
-use seed_pallet_common::ethy::{BridgeAdapter, EthyAdapter, EthySigningRequest, XRPLBridgeAdapter};
-use seed_pallet_common::validator_set::ValidatorSetInterface;
+use seed_pallet_common::{
+	ethy::{BridgeAdapter, EthyAdapter, EthySigningRequest, XRPLBridgeAdapter},
+	validator_set::ValidatorSetInterface,
+};
 use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
 
 mod helpers;
@@ -66,9 +74,8 @@ pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use seed_pallet_common::ethy::EthyAdapter;
-	use seed_pallet_common::validator_set::ValidatorSetInterface;
 	use super::*;
+	use seed_pallet_common::{ethy::EthyAdapter, validator_set::ValidatorSetInterface};
 	use seed_primitives::xrpl::XrplTxTicketSequence;
 
 	#[pallet::config]
@@ -101,7 +108,6 @@ pub mod pallet {
 		type TicketSequenceThreshold: Get<Percent>;
 		/// Validator set Adapter
 		type ValidatorSet: ValidatorSetInterface<AuthorityId>;
-
 	}
 
 	#[pallet::error]
@@ -647,7 +653,9 @@ impl<T: Config> XRPLBridgeAdapter<AuthorityId> for Pallet<T> {
 		Self::get_door_signers()
 	}
 
-	fn get_signer_list_set_payload(signer_entries: Vec<(XrplAccountId, u16)>) -> Result<Vec<u8>, DispatchError> {
+	fn get_signer_list_set_payload(
+		signer_entries: Vec<(XrplAccountId, u16)>,
+	) -> Result<Vec<u8>, DispatchError> {
 		let door_address = Self::door_address().ok_or(Error::<T>::DoorAddressNotSet)?;
 		// TODO: need a fee oracle, this is over estimating the fee
 		// https://github.com/futureversecom/seed/issues/107
@@ -672,6 +680,4 @@ impl<T: Config> XRPLBridgeAdapter<AuthorityId> for Pallet<T> {
 		let tx_blob = signer_list_set.binary_serialize(true);
 		Ok(tx_blob)
 	}
-
 }
-

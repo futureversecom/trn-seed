@@ -37,7 +37,9 @@ use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 // Runtime
 use ethy_gadget::notification::EthyEventProofStream;
 use ethy_gadget_rpc::{EthyApiServer, EthyRpcHandler};
-use seed_primitives::{ethy::ValidatorSetApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
+use seed_primitives::{
+	ethy::ValidatorSetApi, opaque::Block, AccountId, Balance, BlockNumber, Hash, Index,
+};
 use seed_runtime::Runtime;
 
 /// Extra RPC deps for Ethy

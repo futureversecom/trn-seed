@@ -15,30 +15,45 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Encode;
-use ethabi::Token;
-use frame_support::codec::{Decode, MaxEncodedLen};
-use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
-use frame_support::pallet_prelude::DispatchResult;
-use frame_support::traits::OneSessionHandler;
-use frame_support::traits::schedule::DispatchTime;
-use frame_support::traits::schedule::Anon;
-use frame_support::weights::constants::RocksDbWeight as DbWeight;
-use frame_system::ensure_none;
-use frame_system::pallet_prelude::OriginFor;
-use log::{debug, info, trace, warn, error};
-pub use pallet::*;
-use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, log, FinalSessionTracker as FinalSessionTrackerT};
-use seed_primitives::{CollectionUuid, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId, SerialNumber};
-use sp_core::{H160, U256};
-use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion, DigestItem, Percent};
-use sp_runtime::traits::Saturating;
-use sp_std::{boxed::Box, vec, vec::Vec};
-use pallet_ethy2::types::Log;
-use seed_pallet_common::ethy::State::{Active, Paused};
-use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface};
-use seed_pallet_common::ethy::{EthereumBridgeAdapter, XRPLBridgeAdapter};
-use seed_primitives::ethy::{ConsensusLog, ETHY_ENGINE_ID, EventProofId, ValidatorSet as ValidatorSetS , ValidatorSetId};
 use core::default::Default;
+use ethabi::Token;
+use frame_support::{
+	codec::{Decode, MaxEncodedLen},
+	ensure, fail,
+	pallet_prelude::DispatchResult,
+	traits::{
+		schedule::{Anon, DispatchTime},
+		Get, OneSessionHandler,
+	},
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
+	BoundedVec, PalletId,
+};
+use frame_system::{ensure_none, pallet_prelude::OriginFor};
+use log::{debug, error, info, trace, warn};
+pub use pallet::*;
+use pallet_ethy2::types::Log;
+use seed_pallet_common::{
+	ethy::{
+		EthereumBridgeAdapter,
+		State::{Active, Paused},
+		XRPLBridgeAdapter,
+	},
+	log,
+	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface},
+	EthereumBridge, EthereumEventSubscriber, FinalSessionTracker as FinalSessionTrackerT,
+};
+use seed_primitives::{
+	ethy::{
+		ConsensusLog, EventProofId, ValidatorSet as ValidatorSetS, ValidatorSetId, ETHY_ENGINE_ID,
+	},
+	CollectionUuid, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId, SerialNumber,
+};
+use sp_core::{H160, U256};
+use sp_runtime::{
+	traits::{AccountIdConversion, Saturating},
+	DigestItem, DispatchError, Percent, SaturatedConversion,
+};
+use sp_std::{boxed::Box, vec, vec::Vec};
 
 pub(crate) const LOG_TARGET: &str = "validator-set";
 pub(crate) const SCHEDULER_PRIORITY: u8 = 63;
@@ -46,14 +61,14 @@ pub(crate) const SCHEDULER_PRIORITY: u8 = 63;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet, pallet_prelude::*, transactional};
-	use frame_support::traits::schedule::Anon;
-	use frame_system::{ensure_signed, pallet_prelude::*};
-	use frame_system::offchain::CreateSignedTransaction;
-	use sp_runtime::RuntimeAppPublic;
-	use seed_pallet_common::ethy::{EthereumBridgeAdapter, XRPLBridgeAdapter};
-	use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo};
+	use frame_support::{pallet, pallet_prelude::*, traits::schedule::Anon, transactional};
+	use frame_system::{ensure_signed, offchain::CreateSignedTransaction, pallet_prelude::*};
+	use seed_pallet_common::{
+		ethy::{EthereumBridgeAdapter, XRPLBridgeAdapter},
+		validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo},
+	};
 	use seed_primitives::{AccountId, ValidatorId};
+	use sp_runtime::RuntimeAppPublic;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -61,7 +76,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>> {
+	pub trait Config:
+		frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>>
+	{
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Pallet Id
 		#[pallet::constant]
@@ -69,12 +86,12 @@ pub mod pallet {
 		/// The identifier type for a validator in this module (i.e. active validator session key)
 		/// 33 byte secp256k1 public key
 		type EthyId: Member
-		+ Parameter
-		+ AsRef<[u8]>
-		+ RuntimeAppPublic
-		+ Ord
-		+ MaybeSerializeDeserialize
-		+ MaxEncodedLen;
+			+ Parameter
+			+ AsRef<[u8]>
+			+ RuntimeAppPublic
+			+ Ord
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen;
 		/// The duration in blocks of one epoch
 		#[pallet::constant]
 		type EpochDuration: Get<u64>;
@@ -110,12 +127,12 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn notary_keys)]
 	/// Active notary (validator) public keys
-	pub type NotaryKeys<T: Config> =  StorageValue<_, Vec<T::EthyId>, ValueQuery>;
+	pub type NotaryKeys<T: Config> = StorageValue<_, Vec<T::EthyId>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn notary_xrpl_keys)]
 	/// Active xrpl notary (validator) public keys
-	pub type NotaryXrplKeys<T: Config> =  StorageValue<_, Vec<T::EthyId>, ValueQuery>;
+	pub type NotaryXrplKeys<T: Config> = StorageValue<_, Vec<T::EthyId>, ValueQuery>;
 
 	/// The current validator set id
 	#[pallet::storage]
@@ -135,19 +152,19 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn xrpl_door_signers)]
 	/// XRPL Door Signers set by sudo (white listed validators)
-	pub type XrplDoorSigners<T: Config> =  StorageMap<_, Twox64Concat,T::EthyId, bool, ValueQuery>;
+	pub type XrplDoorSigners<T: Config> = StorageMap<_, Twox64Concat, T::EthyId, bool, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn notary_set_proof_id)]
-	/// The event proof Id generated by the previous validator set to notarize the current full validator set.
-	/// Useful for syncing the latest proof to Ethereum
-	pub type NotarySetProofId<T> = StorageValue<_,EventProofId, ValueQuery>;
+	/// The event proof Id generated by the previous validator set to notarize the current full
+	/// validator set. Useful for syncing the latest proof to Ethereum
+	pub type NotarySetProofId<T> = StorageValue<_, EventProofId, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn xrpl_notary_set_proof_id)]
-	/// The event proof Id generated by the previous xrpl validator set to notarize the current xrpl validator set.
-	/// Useful for syncing the latest proof to Xrpl
-	pub type XrplNotarySetProofId<T> =  StorageValue<_,EventProofId, ValueQuery>;
+	/// The event proof Id generated by the previous xrpl validator set to notarize the current xrpl
+	/// validator set. Useful for syncing the latest proof to Xrpl
+	pub type XrplNotarySetProofId<T> = StorageValue<_, EventProofId, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -178,11 +195,10 @@ pub mod pallet {
 		}
 	}
 
-
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Someone tried to set a greater amount of validators than allowed
-		MaxNewSignersExceeded
+		MaxNewSignersExceeded,
 	}
 
 	#[pallet::event]
@@ -193,7 +209,7 @@ pub mod pallet {
 		/// Validator set change failed
 		ValidatorSetChangeFinalizeFailed { validator_set_id: ValidatorSetId },
 		/// Validator set change finalize scheduling failed
-		ValidatorSetFinalizeSchedulingFailed{ scheduled_at: T::BlockNumber } ,
+		ValidatorSetFinalizeSchedulingFailed { scheduled_at: T::BlockNumber },
 		/// XRPL notary keys update failed
 		XRPLNotaryKeysUpdateFailed { validator_set_id: ValidatorSetId },
 		/// Xrpl Door signers are set
@@ -203,7 +219,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			// Handle change in validators, ValidatorChangeDelay(5 minutes) times before the end of an era
+			// Handle change in validators, ValidatorChangeDelay(5 minutes) times before the end of
+			// an era
 			let mut weight = 0 as Weight;
 			if Some(block_number) == Self::next_validator_set_change_block() {
 				weight += Self::start_validator_set_change();
@@ -214,22 +231,32 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> where
-		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
 		/// Finalises the validator set change
 		/// Called internally after force new era
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn finalise_validator_set_change(origin: OriginFor<T>, next_notary_keys: Vec<T::EthyId>) -> DispatchResult {
+		pub fn finalise_validator_set_change(
+			origin: OriginFor<T>,
+			next_notary_keys: Vec<T::EthyId>,
+		) -> DispatchResult {
 			ensure_none(origin)?;
 			Self::do_finalise_validator_set_change(next_notary_keys)
 		}
 
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Set new XRPL door signers
-		pub fn set_xrpl_door_signers(origin: OriginFor<T>, new_signers: Vec<T::EthyId>) -> DispatchResult {
+		pub fn set_xrpl_door_signers(
+			origin: OriginFor<T>,
+			new_signers: Vec<T::EthyId>,
+		) -> DispatchResult {
 			ensure_root(origin)?;
-			ensure!((new_signers.len() as u8) < T::MaxNewSigners::get(), Error::<T>::MaxNewSignersExceeded);
+			ensure!(
+				(new_signers.len() as u8) < T::MaxNewSigners::get(),
+				Error::<T>::MaxNewSignersExceeded
+			);
 			// TODO(surangap): To be changed with #419
 			for new_signer in new_signers.iter() {
 				XrplDoorSigners::<T>::insert(new_signer, true);
@@ -242,14 +269,19 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub(crate) fn update_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Result<(), DispatchError> {
+	pub(crate) fn update_xrpl_notary_keys(
+		validator_list: &Vec<T::EthyId>,
+	) -> Result<(), DispatchError> {
 		let validators = Self::get_xrpl_notary_keys(validator_list)?;
 		<NotaryXrplKeys<T>>::put(&validators);
 		Ok(())
 	}
 
-	/// Iterate through the given validator_list and extracts the first number of MaxXrplKeys that are in the XrplDoorSigners
-	pub(crate) fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Result<Vec<T::EthyId>, DispatchError> {
+	/// Iterate through the given validator_list and extracts the first number of MaxXrplKeys that
+	/// are in the XrplDoorSigners
+	pub(crate) fn get_xrpl_notary_keys(
+		validator_list: &Vec<T::EthyId>,
+	) -> Result<Vec<T::EthyId>, DispatchError> {
 		let xrpl_notary_keys = validator_list
 			.into_iter()
 			.filter(|validator| XrplDoorSigners::<T>::get(validator))
@@ -260,19 +292,23 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Starts changing the validator set
-	/// This will be called ValidatorChangeDelay(5) minutes before the end of an era when a natural era change happens.
-	/// It should give the bridge enough time to update the keys at the remote side/blockchain
-	/// This could also be called at the end of an era when doing a forced era. In this case the actual Notary keys update will be
-	/// delayed by ValidatorChangeDelay to give the bridge enough time to update the remote side
+	/// This will be called ValidatorChangeDelay(5) minutes before the end of an era when a natural
+	/// era change happens. It should give the bridge enough time to update the keys at the remote
+	/// side/blockchain This could also be called at the end of an era when doing a forced era. In
+	/// this case the actual Notary keys update will be delayed by ValidatorChangeDelay to give the
+	/// bridge enough time to update the remote side
 	pub(crate) fn start_validator_set_change() -> Weight {
 		let next_keys = NextNotaryKeys::<T>::get();
 		let next_validator_set_id = Self::notary_set_id().wrapping_add(1);
-		debug!(target: LOG_TARGET, "handling validator set change for validator set id {:?}", next_validator_set_id);
+		debug!(
+			target: LOG_TARGET,
+			"handling validator set change for validator set id {:?}", next_validator_set_id
+		);
 
 		let info = ValidatorSetChangeInfo {
 			current_validator_set_id: Self::notary_set_id(),
 			current_validator_set: Self::notary_keys(),
-			next_validator_set_id: next_validator_set_id,
+			next_validator_set_id,
 			next_validator_set: next_keys,
 		};
 		// let know the ethy
@@ -282,9 +318,12 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Finalise validator set changes
-	pub fn do_finalise_validator_set_change(next_notary_keys: Vec<T::EthyId>) -> Result<(), DispatchError> {
+	pub fn do_finalise_validator_set_change(
+		next_notary_keys: Vec<T::EthyId>,
+	) -> Result<(), DispatchError> {
 		info!(target: LOG_TARGET, "finalise validator set change");
-		// A proof should've been generated now, we can finalize the validator set change and signal resume operations
+		// A proof should've been generated now, we can finalize the validator set change and signal
+		// resume operations
 		ValidatorsChangeInProgress::<T>::kill();
 		// Store the new keys and increment the validator set id
 		// Next notary keys should be unset, until populated by new session logic
@@ -304,7 +343,9 @@ impl<T: Config> Pallet<T> {
 	pub fn get_eth_validator_set() -> ValidatorSetS<T::EthyId> {
 		let validator_keys = NotaryKeys::<T>::get();
 		ValidatorSetS::<T::EthyId> {
-			proof_threshold: T::EthBridgeAdapter::get_notarization_threshold().unwrap_or(Percent::one()).mul_ceil(validator_keys.len() as u32),
+			proof_threshold: T::EthBridgeAdapter::get_notarization_threshold()
+				.unwrap_or(Percent::one())
+				.mul_ceil(validator_keys.len() as u32),
 			validators: validator_keys,
 			id: NotarySetId::<T>::get(),
 		}
@@ -314,12 +355,12 @@ impl<T: Config> Pallet<T> {
 	pub fn get_xrpl_validator_set() -> ValidatorSetS<T::EthyId> {
 		let validator_keys = NotaryXrplKeys::<T>::get();
 		ValidatorSetS::<T::EthyId> {
-			proof_threshold: validator_keys.len().saturating_sub(1) as u32, // tolerate 1 missing witness
+			proof_threshold: validator_keys.len().saturating_sub(1) as u32, /* tolerate 1 missing
+			                                                                 * witness */
 			validators: validator_keys,
 			id: NotarySetId::<T>::get(),
 		}
 	}
-
 }
 
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
@@ -330,8 +371,8 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	type Key = T::EthyId;
 
 	fn on_genesis_session<'a, I: 'a>(validators: I)
-		where
-			I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
+	where
+		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		let keys = validators.map(|x| x.1).collect::<Vec<_>>();
 		if keys.is_empty() {
@@ -341,16 +382,20 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		assert!(NotaryKeys::<T>::decode_len().is_none(), "NotaryKeys are already initialized!");
 		NotaryKeys::<T>::put(&keys);
 		if let Err(e) = Self::update_xrpl_notary_keys(&keys) {
-			Self::deposit_event(
-				Event::<T>::XRPLNotaryKeysUpdateFailed{ validator_set_id: Self::notary_set_id().wrapping_add(1).into() }
+			Self::deposit_event(Event::<T>::XRPLNotaryKeysUpdateFailed {
+				validator_set_id: Self::notary_set_id().wrapping_add(1).into(),
+			});
+			error!(
+				target: LOG_TARGET,
+				"Update XRPL notary keys failed. error: {:?}",
+				Into::<&str>::into(e)
 			);
-			error!( target: LOG_TARGET, "Update XRPL notary keys failed. error: {:?}", Into::<&str>::into(e));
 		}
 	}
 
 	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)
-		where
-			I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
+	where
+		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		// TODO(surangap): check and make use of _changed
 
@@ -383,7 +428,8 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			// The validator set change hasn't been started yet
 			// This could be due to a new era being forced before the final session
 			Self::start_validator_set_change();
-			// Schedule the finalizing of the new validator set into the future to give the ethy a sufficient time
+			// Schedule the finalizing of the new validator set into the future to give the ethy a
+			// sufficient time
 			let scheduled_block =
 				<frame_system::Pallet<T>>::block_number() + T::ValidatorChangeDelay::get();
 			if T::Scheduler::schedule(
@@ -393,27 +439,38 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 				frame_system::RawOrigin::None.into(),
 				Call::finalise_validator_set_change { next_notary_keys }.into(),
 			)
-				.is_err()
+			.is_err()
 			{
 				// The scheduler failed for some reason, throw an event and log
-				Self::deposit_event(Event::<T>::ValidatorSetFinalizeSchedulingFailed { scheduled_at: scheduled_block });
+				Self::deposit_event(Event::<T>::ValidatorSetFinalizeSchedulingFailed {
+					scheduled_at: scheduled_block,
+				});
 				error!(target: LOG_TARGET, "Scheduling finalize validator set change failed");
 			}
 		} else {
 			// validators change is in progress already, finalise the changes
 			match Self::do_finalise_validator_set_change(next_notary_keys) {
 				Ok(_) => {
-					Self::deposit_event(
-						Event::<T>::ValidatorSetChangeFinalizeSuccess{ validator_set_id: Self::notary_set_id() }
+					Self::deposit_event(Event::<T>::ValidatorSetChangeFinalizeSuccess {
+						validator_set_id: Self::notary_set_id(),
+					});
+					info!(
+						target: LOG_TARGET,
+						"Validator set change finalize successful. set Id: {:?}",
+						Self::notary_set_id()
 					);
-					info!(target: LOG_TARGET, "Validator set change finalize successful. set Id: {:?}", Self::notary_set_id());
 				},
 				Err(e) => {
-					Self::deposit_event(
-						Event::<T>::ValidatorSetChangeFinalizeFailed{ validator_set_id: Self::notary_set_id()}
+					Self::deposit_event(Event::<T>::ValidatorSetChangeFinalizeFailed {
+						validator_set_id: Self::notary_set_id(),
+					});
+					error!(
+						target: LOG_TARGET,
+						"Validator set change finalize failed. set Id: {:?}, error: {:?}",
+						Self::notary_set_id(),
+						Into::<&str>::into(e)
 					);
-					error!(target: LOG_TARGET, "Validator set change finalize failed. set Id: {:?}, error: {:?}", Self::notary_set_id(), Into::<&str>::into(e));
-				}
+				},
 			}
 		}
 	}
@@ -437,7 +494,9 @@ impl<T: Config> ValidatorSetInterface<T::EthyId> for Pallet<T> {
 		Ok(NotaryXrplKeys::<T>::get())
 	}
 
-	fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Result<Vec<T::EthyId>, DispatchError> {
+	fn get_xrpl_notary_keys(
+		validator_list: &Vec<T::EthyId>,
+	) -> Result<Vec<T::EthyId>, DispatchError> {
 		Self::get_xrpl_notary_keys(validator_list)
 	}
 }

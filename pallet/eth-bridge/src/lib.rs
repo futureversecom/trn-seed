@@ -14,32 +14,51 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod types;
 mod ethereum_http_cli;
+mod types;
 pub use ethereum_http_cli::EthereumRpcClient;
 
+use crate::{
+	types::{
+		BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim,
+		EventClaimResult, LatestOrNumber, NotarizationPayload,
+	},
+	Error::OffchainUnsignedTxSignedPayload,
+};
 use codec::Encode;
-use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId, traits::ValidatorSet as ValidatorSetT,};
-pub use pallet::*;
-use types::*;
-use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber, Hold, log};
-use seed_primitives::{CollectionUuid, EthAddress, SerialNumber};
-use sp_core::{H160, U256};
-use sp_runtime::{offchain as rt_offchain, traits::{MaybeSerializeDeserialize, Member, SaturatedConversion}, Percent, RuntimeAppPublic, DispatchError};
-use sp_std::{boxed::Box, vec, vec::Vec};
 use ethabi::{ParamType, Token};
-use frame_support::dispatch::DispatchResult;
-use frame_support::traits::Len;
+use frame_support::{
+	dispatch::DispatchResult,
+	ensure, fail,
+	traits::{Get, Len, ValidatorSet as ValidatorSetT},
+	weights::Weight,
+	BoundedVec, PalletId,
+};
 use frame_system::offchain::SubmitTransaction;
 use hex_literal::hex;
 use log::{debug, error, info, trace};
-use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthyAdapter, EthySigningRequest};
-use seed_pallet_common::ethy::State::Paused;
-use seed_pallet_common::validator_set::ValidatorSetInterface;
-use seed_primitives::ethy::crypto::AuthorityId;
-use seed_primitives::ethy::{EventClaimId, EventProofId};
-use crate::Error::OffchainUnsignedTxSignedPayload;
-use crate::types::{BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim, EventClaimResult, LatestOrNumber, NotarizationPayload};
+pub use pallet::*;
+use seed_pallet_common::{
+	ethy::{
+		BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthyAdapter, EthySigningRequest,
+		State::Paused,
+	},
+	log,
+	validator_set::ValidatorSetInterface,
+	EthereumBridge, EthereumEventSubscriber, Hold,
+};
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventClaimId, EventProofId},
+	CollectionUuid, EthAddress, SerialNumber,
+};
+use sp_core::{H160, U256};
+use sp_runtime::{
+	offchain as rt_offchain,
+	traits::{MaybeSerializeDeserialize, Member, SaturatedConversion},
+	DispatchError, Percent, RuntimeAppPublic,
+};
+use sp_std::{boxed::Box, vec, vec::Vec};
+use types::*;
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
@@ -53,25 +72,24 @@ pub(crate) const LOG_TARGET: &str = "eth-bridge";
 const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 	hex!("0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a");
 
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, transactional};
-	use frame_support::traits::fungibles::Transfer;
-	use frame_system::{ensure_signed, pallet_prelude::*};
-	use frame_system::offchain::CreateSignedTransaction;
+	use crate::types::{BridgeEthereumRpcApi, EventClaim, EventClaimStatus, NotarizationPayload};
+	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer, transactional};
+	use frame_system::{ensure_signed, offchain::CreateSignedTransaction, pallet_prelude::*};
 	use log::{debug, info, trace};
+	use seed_pallet_common::{
+		ethy::{EthyAdapter, EthySigningRequest, State::Active},
+		validator_set::ValidatorSetInterface,
+		EthereumEventRouter, EventRouterError, Hold,
+	};
+	use seed_primitives::{
+		ethy::{crypto::AuthorityId, EventClaimId, EventProofId},
+		AccountId, AssetId, Balance, BlockNumber, EthAddress,
+	};
 	use sp_core::H256;
 	use sp_runtime::{Percent, RuntimeAppPublic};
-	use seed_pallet_common::ethy::{EthyAdapter, EthySigningRequest};
-	use seed_pallet_common::ethy::State::Active;
-	use seed_pallet_common::{EthereumEventRouter, EventRouterError, Hold};
-	use seed_pallet_common::validator_set::ValidatorSetInterface;
-	use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, EthAddress};
-	use seed_primitives::ethy::{EventClaimId, EventProofId};
-	use seed_primitives::ethy::crypto::AuthorityId;
-	use crate::types::{BridgeEthereumRpcApi, EventClaim, EventClaimStatus, NotarizationPayload};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -79,7 +97,9 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>> {
+	pub trait Config:
+		frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>>
+	{
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		type PalletId: Get<PalletId>; // spk add #[pallet::constant]
 		/// Bond required for an account to act as relayer
@@ -104,13 +124,13 @@ pub mod pallet {
 		type EthereumRpcClient: BridgeEthereumRpcApi;
 		/// The runtime call type.
 		type Call: From<Call<Self>>;
-
 	}
 
 	/// Map from relayer account to their paid bond amount
 	#[pallet::storage]
 	#[pallet::getter(fn relayer_paid_bond)]
-	pub type RelayerPaidBond<T: Config> =  StorageMap<_, Twox64Concat, T::AccountId, Balance, ValueQuery>;
+	pub type RelayerPaidBond<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, Balance, ValueQuery>;
 
 	/// The permissioned relayer
 	#[pallet::storage]
@@ -124,26 +144,29 @@ pub mod pallet {
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn event_block_confirmations)]
-	pub type EventBlockConfirmations<T> =  StorageValue<_, u64, ValueQuery, DefaultEventBlockConfirmations>;
+	pub type EventBlockConfirmations<T> =
+		StorageValue<_, u64, ValueQuery, DefaultEventBlockConfirmations>;
 
 	/// The (optimistic) challenge period after which a submitted event is considered valid
 	#[pallet::type_value]
-	pub fn DefaultChallengePeriod<T:Config>() -> T::BlockNumber {
+	pub fn DefaultChallengePeriod<T: Config>() -> T::BlockNumber {
 		T::BlockNumber::from(150_u32) // 10 Minutes
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_period)]
-	pub type ChallengePeriod<T:Config> = StorageValue<_, T::BlockNumber, ValueQuery, DefaultChallengePeriod<T>>;
+	pub type ChallengePeriod<T: Config> =
+		StorageValue<_, T::BlockNumber, ValueQuery, DefaultChallengePeriod<T>>;
 
 	/// The bridge contract address on Ethereum
 	#[pallet::storage]
 	#[pallet::getter(fn contract_address)]
-	pub type ContractAddress<T> =  StorageValue<_, EthAddress, ValueQuery>;
+	pub type ContractAddress<T> = StorageValue<_, EthAddress, ValueQuery>;
 
 	/// Queued event claims, can be challenged within challenge period
 	#[pallet::storage]
 	#[pallet::getter(fn pending_event_claims)]
-	pub type PendingEventClaims<T> = StorageMap<_, Twox64Concat, EventClaimId, EventClaim, OptionQuery>;
+	pub type PendingEventClaims<T> =
+		StorageMap<_, Twox64Concat, EventClaimId, EventClaim, OptionQuery>;
 
 	/// Tracks processed message Ids (prevent replay)
 	#[pallet::storage]
@@ -153,12 +176,15 @@ pub mod pallet {
 	/// Status of pending event claims
 	#[pallet::storage]
 	#[pallet::getter(fn pending_claim_status)]
-	pub type PendingClaimStatus<T> = StorageMap<_, Twox64Concat, EventClaimId, EventClaimStatus, OptionQuery>;
+	pub type PendingClaimStatus<T> =
+		StorageMap<_, Twox64Concat, EventClaimId, EventClaimStatus, OptionQuery>;
 
-	/// Map from block number to list of EventClaims that will be considered valid and should be forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
+	/// Map from block number to list of EventClaims that will be considered valid and should be
+	/// forwarded to handlers (i.e after the optimistic challenge period has passed without issue)
 	#[pallet::storage]
 	#[pallet::getter(fn messages_valid_at)]
-	pub type MessagesValidAt<T: Config> = StorageMap<_, Twox64Concat, T::BlockNumber, Vec<EventClaimId>, ValueQuery>;
+	pub type MessagesValidAt<T: Config> =
+		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<EventClaimId>, ValueQuery>;
 
 	/// List of all event ids that are currently being challenged
 	#[pallet::storage]
@@ -168,13 +194,22 @@ pub mod pallet {
 	/// Maps from event claim id to challenger and bond amount paid
 	#[pallet::storage]
 	#[pallet::getter(fn challenger_account)]
-	pub type ChallengerAccount<T: Config> = StorageMap<_, Twox64Concat, EventClaimId, (T::AccountId, Balance), OptionQuery>;
+	pub type ChallengerAccount<T: Config> =
+		StorageMap<_, Twox64Concat, EventClaimId, (T::AccountId, Balance), OptionQuery>;
 
 	/// Notarizations for queued events
 	/// Either: None = no notarization exists OR Some(yay/nay)
 	#[pallet::storage]
 	#[pallet::getter(fn event_notarizations)]
-	pub type EventNotarizations<T> = StorageDoubleMap<_, Twox64Concat, EventClaimId, Twox64Concat, AuthorityId, EventClaimResult, OptionQuery>;
+	pub type EventNotarizations<T> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EventClaimId,
+		Twox64Concat,
+		AuthorityId,
+		EventClaimResult,
+		OptionQuery,
+	>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -198,7 +233,8 @@ pub mod pallet {
 		NoClaim,
 		/// A notarization was invalid
 		InvalidNotarization,
-		/// Error returned when making unsigned transactions with signed payloads in off-chain worker
+		/// Error returned when making unsigned transactions with signed payloads in off-chain
+		/// worker
 		OffchainUnsignedTxSignedPayload,
 		/// Some internal operation failed
 		Internal,
@@ -212,19 +248,23 @@ pub mod pallet {
 		/// A relayer has been removed
 		RelayerRemoved { relayer_account: T::AccountId },
 		/// An account has deposited a relayer bond
-		RelayerBondDeposited { account_id: T::AccountId, amount: Balance},
+		RelayerBondDeposited { account_id: T::AccountId, amount: Balance },
 		/// An account has withdrawn a relayer bond
-		RelayerBondWithdrawn { account_id: T::AccountId, amount: Balance},
+		RelayerBondWithdrawn { account_id: T::AccountId, amount: Balance },
 		/// The bridge contract address has been set
 		ContractAddressSet { address: EthAddress },
 		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
-		EventSubmit { event_claim_id: EventClaimId, event_claim: EventClaim, process_at: T::BlockNumber },
+		EventSubmit {
+			event_claim_id: EventClaimId,
+			event_claim: EventClaim,
+			process_at: T::BlockNumber,
+		},
 		/// An event has been challenged (claim_id, challenger)
 		Challenged { claim_id: EventClaimId, challenger: T::AccountId },
 		/// The event is still awaiting consensus. Process block pushed out (claim_id, process_at)
 		ProcessAtExtended { claim_id: EventClaimId, process_at: T::BlockNumber },
 		/// Processing an event succeeded
-		ProcessingOk { claim_id : EventClaimId },
+		ProcessingOk { claim_id: EventClaimId },
 		/// Processing an event failed
 		ProcessingFailed { claim_id: EventClaimId, error: EventRouterError },
 		/// Verifying an event succeeded
@@ -241,17 +281,20 @@ pub mod pallet {
 			let mut processed_message_ids = Self::processed_message_ids();
 			for message_id in MessagesValidAt::<T>::take(block_number) {
 				if Self::pending_claim_status(message_id) == Some(EventClaimStatus::Challenged) {
-					// We are still waiting on the challenge to be processed, push out by challenge period
+					// We are still waiting on the challenge to be processed, push out by challenge
+					// period
 					let new_process_at = block_number + Self::challenge_period();
-					MessagesValidAt::<T>::append(
-						&new_process_at,
-						message_id,
-					);
-					Self::deposit_event(Event::<T>::ProcessAtExtended { claim_id: message_id, process_at: new_process_at } );
+					MessagesValidAt::<T>::append(&new_process_at, message_id);
+					Self::deposit_event(Event::<T>::ProcessAtExtended {
+						claim_id: message_id,
+						process_at: new_process_at,
+					});
 					continue
 				}
 				// Removed PendingEventClaim from storage and processes
-				if let Some(EventClaim { source, destination, data, .. } ) = PendingEventClaims::<T>::take(message_id) {
+				if let Some(EventClaim { source, destination, data, .. }) =
+					PendingEventClaims::<T>::take(message_id)
+				{
 					// keep a runtime hardcoded list of destination <> palletId
 					match T::EventRouter::route(&source, &destination, &data) {
 						Ok(weight) => {
@@ -260,8 +303,11 @@ pub mod pallet {
 						},
 						Err((weight, err)) => {
 							consumed_weight += weight;
-							Self::deposit_event(Event::<T>::ProcessingFailed { claim_id: message_id, error: err });
-						}
+							Self::deposit_event(Event::<T>::ProcessingFailed {
+								claim_id: message_id,
+								error: err,
+							});
+						},
 					}
 				}
 				// mark as processed
@@ -280,7 +326,10 @@ pub mod pallet {
 		}
 
 		fn offchain_worker(block_number: T::BlockNumber) {
-			debug!(target: LOG_TARGET, "Entering off-chain worker. block number:{:?}", block_number);
+			debug!(
+				target: LOG_TARGET,
+				"Entering off-chain worker. block number:{:?}", block_number
+			);
 			let validator_set = T::ValidatorSet::get_validator_set().unwrap();
 			debug!(target: LOG_TARGET, "Active notaries: {:?}", validator_set);
 
@@ -291,19 +340,25 @@ pub mod pallet {
 			}
 
 			// check a local key exists for a valid bridge notary
-			if let Some((active_key, authority_index)) = Self::find_active_ethy_key(&validator_set) {
+			if let Some((active_key, authority_index)) = Self::find_active_ethy_key(&validator_set)
+			{
 				// check enough validators have active notary keys
 				let supports = validator_set.len();
 				let needed = T::NotarizationThreshold::get();
 				// TODO: check every session change not block
 				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
-					info!(target: LOG_TARGET, "Waiting for validator support to activate eth-bridge: {:?}/{:?}", supports, needed);
-					return;
+					info!(
+						target: LOG_TARGET,
+						"Waiting for validator support to activate eth-bridge: {:?}/{:?}",
+						supports,
+						needed
+					);
+					return
 				}
 				// do some notarizing
 				Self::do_event_notarization_ocw(&active_key, authority_index);
-				// spk - check if we need this, seems it's not being used
-				// Self::do_call_notarization_ocw(&active_key, authority_index);
+			// spk - check if we need this, seems it's not being used
+			// Self::do_call_notarization_ocw(&active_key, authority_index);
 			} else {
 				debug!(target: LOG_TARGET, "Not an active validator, exiting");
 			}
@@ -313,15 +368,19 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> where
-		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
 		/// Set the relayer address
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			// Ensure relayer has bonded more than relayer bond amount
-			ensure!(Self::relayer_paid_bond(&relayer) >= T::RelayerBond::get(), Error::<T>::NoBondPaid);
+			ensure!(
+				Self::relayer_paid_bond(&relayer) >= T::RelayerBond::get(),
+				Error::<T>::NoBondPaid
+			);
 			Relayer::<T>::put(&relayer);
 			info!(target: LOG_TARGET, "relayer set. Account Id: {:?}", relayer);
 			Self::deposit_event(Event::<T>::RelayerSet { relayer_account: relayer });
@@ -345,7 +404,10 @@ pub mod pallet {
 				relayer_bond,
 			)?;
 			RelayerPaidBond::<T>::insert(&origin, relayer_bond);
-			Self::deposit_event(Event::<T>::RelayerBondDeposited { account_id: origin, amount: relayer_bond});
+			Self::deposit_event(Event::<T>::RelayerBondDeposited {
+				account_id: origin,
+				amount: relayer_bond,
+			});
 			Ok(())
 		}
 
@@ -371,21 +433,32 @@ pub mod pallet {
 			)?;
 			RelayerPaidBond::<T>::remove(&origin);
 
-			Self::deposit_event(Event::<T>::RelayerBondWithdrawn { account_id: origin, amount: relayer_paid_bond });
+			Self::deposit_event(Event::<T>::RelayerBondWithdrawn {
+				account_id: origin,
+				amount: relayer_paid_bond,
+			});
 			Ok(())
 		}
 
-		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to be notarized by Seed
+		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to
+		/// be notarized by Seed
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn set_event_block_confirmations(origin: OriginFor<T>, confirmations: u64) -> DispatchResult {
+		pub fn set_event_block_confirmations(
+			origin: OriginFor<T>,
+			confirmations: u64,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 			EventBlockConfirmations::<T>::put(confirmations);
 			Ok(())
 		}
 
-		/// Set challenge period, this is the window in which an event can be challenged before processing
+		/// Set challenge period, this is the window in which an event can be challenged before
+		/// processing
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn set_challenge_period(origin: OriginFor<T>, blocks: T::BlockNumber) -> DispatchResult {
+		pub fn set_challenge_period(
+			origin: OriginFor<T>,
+			blocks: T::BlockNumber,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 			ChallengePeriod::<T>::put(blocks);
 			Ok(())
@@ -393,7 +466,10 @@ pub mod pallet {
 
 		/// Set the bridge contract address on Ethereum (requires governance)
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
-		pub fn set_contract_address(origin: OriginFor<T>, contract_address: EthAddress) -> DispatchResult {
+		pub fn set_contract_address(
+			origin: OriginFor<T>,
+			contract_address: EthAddress,
+		) -> DispatchResult {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(contract_address);
 			Self::deposit_event(Event::<T>::ContractAddressSet { address: contract_address });
@@ -409,19 +485,33 @@ pub mod pallet {
 			ensure!(Some(origin) == Self::relayer(), Error::<T>::NoPermission);
 
 			// TODO: place some limit on `data` length (it should match on contract side)
-			// event SendMessage(uint256 messageId, address source, address destination, bytes message, uint256 fee);
-			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data), Token::Uint(_fee)] = ethabi::decode(&[
-				ParamType::Uint(64),
-				ParamType::Address,
-				ParamType::Address,
-				ethabi::ParamType::Bytes,
-				ParamType::Uint(64),
-			], event.as_slice()).map_err(|_| Error::<T>::InvalidClaim)?.as_slice() {
+			// event SendMessage(uint256 messageId, address source, address destination, bytes
+			// message, uint256 fee);
+			if let [Token::Uint(event_id), Token::Address(source), Token::Address(destination), Token::Bytes(data), Token::Uint(_fee)] =
+				ethabi::decode(
+					&[
+						ParamType::Uint(64),
+						ParamType::Address,
+						ParamType::Address,
+						ethabi::ParamType::Bytes,
+						ParamType::Uint(64),
+					],
+					event.as_slice(),
+				)
+				.map_err(|_| Error::<T>::InvalidClaim)?
+				.as_slice()
+			{
 				let event_id: EventClaimId = (*event_id).saturated_into();
-				ensure!(!PendingEventClaims::<T>::contains_key(event_id), Error::<T>::EventReplayPending);
+				ensure!(
+					!PendingEventClaims::<T>::contains_key(event_id),
+					Error::<T>::EventReplayPending
+				);
 				if !Self::processed_message_ids().is_empty() {
-					ensure!( event_id > Self::processed_message_ids()[0] &&
-						Self::processed_message_ids().binary_search(&event_id).is_err() , Error::<T>::EventReplayProcessed);
+					ensure!(
+						event_id > Self::processed_message_ids()[0] &&
+							Self::processed_message_ids().binary_search(&event_id).is_err(),
+						Error::<T>::EventReplayProcessed
+					);
 				}
 				let event_claim = EventClaim {
 					tx_hash,
@@ -434,9 +524,14 @@ pub mod pallet {
 				PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
 
 				// TODO: there should be some limit per block
-				let process_at: T::BlockNumber = <frame_system::Pallet<T>>::block_number() + Self::challenge_period();
+				let process_at: T::BlockNumber =
+					<frame_system::Pallet<T>>::block_number() + Self::challenge_period();
 				MessagesValidAt::<T>::append(process_at, event_id);
-				Self::deposit_event(Event::<T>::EventSubmit { event_claim_id: event_id, event_claim, process_at });
+				Self::deposit_event(Event::<T>::EventSubmit {
+					event_claim_id: event_id,
+					event_claim,
+					process_at,
+				});
 			}
 			Ok(())
 		}
@@ -445,13 +540,19 @@ pub mod pallet {
 		/// Submit a challenge for an event
 		/// Challenged events won't be processed until verified by validators
 		/// An event can only be challenged once
-		pub fn submit_challenge(origin: OriginFor<T>, event_claim_id: EventClaimId) -> DispatchResult {
+		pub fn submit_challenge(
+			origin: OriginFor<T>,
+			event_claim_id: EventClaimId,
+		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
 			// Validate event_id existence
 			ensure!(PendingEventClaims::<T>::contains_key(event_claim_id), Error::<T>::NoClaim);
 			// Check that event isn't already being challenged
-			ensure!(Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Pending), Error::<T>::ClaimAlreadyChallenged);
+			ensure!(
+				Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Pending),
+				Error::<T>::ClaimAlreadyChallenged
+			);
 
 			let challenger_bond = T::ChallengeBond::get();
 			// try lock challenger bond
@@ -469,7 +570,10 @@ pub mod pallet {
 			ChallengerAccount::<T>::insert(event_claim_id, (&origin, challenger_bond));
 			PendingClaimStatus::<T>::insert(event_claim_id, EventClaimStatus::Challenged);
 
-			Self::deposit_event(Event::<T>::Challenged { claim_id: event_claim_id, challenger: origin });
+			Self::deposit_event(Event::<T>::Challenged {
+				claim_id: event_claim_id,
+				challenger: origin,
+			});
 			Ok(())
 		}
 
@@ -477,7 +581,11 @@ pub mod pallet {
 		/// Validators will submit inherents with their notarization vote for a given claim
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		#[transactional]
-		pub fn submit_notarization(origin: OriginFor<T>, payload: NotarizationPayload, _signature: <AuthorityId as RuntimeAppPublic>::Signature) -> DispatchResult {
+		pub fn submit_notarization(
+			origin: OriginFor<T>,
+			payload: NotarizationPayload,
+			_signature: <AuthorityId as RuntimeAppPublic>::Signature,
+		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 
 			// we don't need to verify the signature here because it has been verified in
@@ -490,8 +598,10 @@ pub mod pallet {
 			};
 
 			match payload {
-				NotarizationPayload::Call{ call_id, result, .. } => Self::handle_call_notarization(call_id, result, notary_public_key),
-				NotarizationPayload::Event{ event_claim_id, result, .. } => Self::handle_event_notarization(event_claim_id, result, notary_public_key),
+				NotarizationPayload::Call { call_id, result, .. } =>
+					Self::handle_call_notarization(call_id, result, notary_public_key),
+				NotarizationPayload::Event { event_claim_id, result, .. } =>
+					Self::handle_event_notarization(event_claim_id, result, notary_public_key),
 			}
 		}
 	}
@@ -553,7 +663,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Check the nodes local keystore for an active (staked) Ethy session key
 	/// Returns the public key and index of the key in the current notary set
-	pub(crate) fn find_active_ethy_key(validator_set: &Vec<AuthorityId>) -> Option<(AuthorityId, u16)> {
+	pub(crate) fn find_active_ethy_key(
+		validator_set: &Vec<AuthorityId>,
+	) -> Option<(AuthorityId, u16)> {
 		// Get all signing keys for this protocol 'KeyTypeId'
 		let local_keys = AuthorityId::all();
 		if local_keys.is_empty() {
@@ -598,7 +710,10 @@ impl<T: Config> Pallet<T> {
 			let event_claim = Self::pending_event_claims(event_claim_id);
 			if event_claim.is_none() {
 				// This shouldn't happen
-				error!(target: LOG_TARGET, "Notarization failed, event claim: {:?} not found", event_claim_id);
+				error!(
+					target: LOG_TARGET,
+					"Notarization failed, event claim: {:?} not found", event_claim_id
+				);
 				continue
 			};
 
@@ -607,7 +722,10 @@ impl<T: Config> Pallet<T> {
 				*event_claim_id,
 				active_key.clone(),
 			) {
-				debug!(target: LOG_TARGET,  "Already notarized claim: {:?}, ignoring...", event_claim_id);
+				debug!(
+					target: LOG_TARGET,
+					"Already notarized claim: {:?}, ignoring...", event_claim_id
+				);
 				continue
 			}
 
@@ -625,9 +743,7 @@ impl<T: Config> Pallet<T> {
 				.map(|_| {
 					info!(
 						target: LOG_TARGET,
-						"Sent notarization: '{:?}' for claim: {:?}",
-						result,
-						event_claim_id
+						"Sent notarization: '{:?}' for claim: {:?}", result, event_claim_id
 					);
 				});
 		}
@@ -649,8 +765,8 @@ impl<T: Config> Pallet<T> {
 				false
 			}
 		});
-		// drain the array from start to (first_noncontinuous_idx - 1) since we need the max contiguous
-		// element in the pruned vector.
+		// drain the array from start to (first_noncontinuous_idx - 1) since we need the max
+		// contiguous element in the pruned vector.
 		match first_noncontinuous_idx {
 			Some(idx) => claim_ids.drain(..idx - 1),
 			None => claim_ids.drain(..claim_ids.len() - 1), // we need the last element to remain
@@ -677,7 +793,10 @@ impl<T: Config> Pallet<T> {
 		let EventClaim { tx_hash, data, source, destination } = event_claim;
 		let result = T::EthereumRpcClient::get_transaction_receipt(tx_hash);
 		if let Err(err) = result {
-			error!(target: LOG_TARGET, "Eth getTransactionReceipt({:?}) failed: {:?}", tx_hash, err);
+			error!(
+				target: LOG_TARGET,
+				"Eth getTransactionReceipt({:?}) failed: {:?}", tx_hash, err
+			);
 			return EventClaimResult::DataProviderErr
 		}
 
@@ -811,7 +930,7 @@ impl<T: Config> Pallet<T> {
 					)?;
 					// Relayer has been slashed, remove their stored bond amount and set relayer to
 					// None
-					Self::deposit_event(Event::<T>::RelayerRemoved{ relayer_account: relayer });
+					Self::deposit_event(Event::<T>::RelayerRemoved { relayer_account: relayer });
 					<Relayer<T>>::kill();
 				};
 

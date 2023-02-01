@@ -1,14 +1,13 @@
+use crate::ethy::crypto::AuthorityId;
 use codec::{Decode, Encode, MaxEncodedLen};
+use ripemd::{Digest as _, Ripemd160};
 use scale_info::TypeInfo;
+use sha2::Sha256;
+use sp_application_crypto::ByteArray;
 use sp_core::{ecdsa, H160};
 use sp_io::hashing::{blake2_256, keccak_256};
 use sp_runtime::traits::Convert;
 use sp_std::vec::Vec;
-use crate::ethy::crypto::AuthorityId;
-use ripemd::{Digest as _, Ripemd160};
-use sha2::Sha256;
-use sp_application_crypto::ByteArray;
-
 
 #[derive(
 	Eq, PartialEq, Copy, Clone, Encode, Decode, TypeInfo, MaxEncodedLen, Default, PartialOrd, Ord,
@@ -195,9 +194,9 @@ impl Convert<&[u8], [u8; 20]> for EthyEcdsaToXRPLAccountId {
 			compressed_key,
 			Some(libsecp256k1::PublicKeyFormat::Compressed),
 		)
-			.map(|k| k.serialize_compressed())
-			.map(|k| Ripemd160::digest(Sha256::digest(&k)).into())
-			.unwrap_or([0_u8; 20])
+		.map(|k| k.serialize_compressed())
+		.map(|k| Ripemd160::digest(Sha256::digest(&k)).into())
+		.unwrap_or([0_u8; 20])
 	}
 }
 
@@ -209,18 +208,18 @@ impl Convert<&[u8], [u8; 20]> for EthyEcdsaToEthereum {
 			compressed_key,
 			Some(libsecp256k1::PublicKeyFormat::Compressed),
 		)
-			// uncompress the key
-			.map(|pub_key| pub_key.serialize().to_vec())
-			// now convert to Ethereum address
-			.map(|uncompressed| {
-				sp_io::hashing::keccak_256(&uncompressed[1..])[12..]
-					.try_into()
-					.expect("32 byte digest")
-			})
-			.map_err(|_| {
-				log::error!(target: "ethy", "💎 invalid ethy public key format");
-			})
-			.unwrap_or_default()
+		// uncompress the key
+		.map(|pub_key| pub_key.serialize().to_vec())
+		// now convert to Ethereum address
+		.map(|uncompressed| {
+			sp_io::hashing::keccak_256(&uncompressed[1..])[12..]
+				.try_into()
+				.expect("32 byte digest")
+		})
+		.map_err(|_| {
+			log::error!(target: "ethy", "💎 invalid ethy public key format");
+		})
+		.unwrap_or_default()
 	}
 }
 
@@ -233,8 +232,8 @@ impl Convert<AuthorityId, [u8; 33]> for EthyEcdsaToPublicKey {
 			compressed_key,
 			Some(libsecp256k1::PublicKeyFormat::Compressed),
 		)
-			.map(|k| k.serialize_compressed())
-			.unwrap_or([0_u8; 33])
+		.map(|k| k.serialize_compressed())
+		.unwrap_or([0_u8; 33])
 	}
 }
 

@@ -18,11 +18,11 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_core::keccak_256;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 
-pub use seed_primitives::EthyEcdsaToEthereum;
 use seed_primitives::ethy::{
 	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
 	ETHY_KEY_TYPE,
 };
+pub use seed_primitives::EthyEcdsaToEthereum;
 
 use crate::error;
 

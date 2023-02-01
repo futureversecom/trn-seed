@@ -77,7 +77,7 @@ pub mod keys {
 	pub use super::{BabeId, EthyId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	ethy::{crypto::AuthorityId as EthyId, ValidatorSet as ValidatorSetS },
+	ethy::{crypto::AuthorityId as EthyId, ValidatorSet as ValidatorSetS},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
 	SerialNumber, Signature, TokenId,
 };
@@ -855,7 +855,6 @@ impl pallet_eth_bridge::Config for Runtime {
 	type EventRouter = EthereumEventRouter;
 	type EthereumRpcClient = pallet_eth_bridge::EthereumRpcClient;
 }
-
 
 impl frame_system::offchain::SigningTypes for Runtime {
 	type Public = <Signature as Verify>::Signer;

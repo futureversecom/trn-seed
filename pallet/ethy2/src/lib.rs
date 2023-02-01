@@ -16,21 +16,34 @@
 
 use codec::Encode;
 use ethabi::Token;
-use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
+use frame_support::{
+	ensure, fail,
+	traits::Get,
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
+	BoundedVec, PalletId,
+};
 use log::{debug, error, info, trace};
 pub use pallet::*;
-use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
-use seed_primitives::{CollectionUuid, SerialNumber, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId,};
+use seed_pallet_common::{
+	ethy::{
+		BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthyAdapter, EthySigningRequest,
+		State,
+		State::{Active, Paused},
+		XRPLBridgeAdapter,
+	},
+	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface},
+	EthereumBridge, EthereumEventSubscriber,
+};
+use seed_primitives::{
+	ethy::{crypto::AuthorityId, EventProofId},
+	CollectionUuid, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId, SerialNumber,
+};
 use sp_core::{H160, U256};
-use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion, DigestItem};
-use sp_runtime::traits::Convert;
+use sp_runtime::{
+	traits::{AccountIdConversion, Convert},
+	DigestItem, DispatchError, SaturatedConversion,
+};
 use sp_std::{boxed::Box, vec, vec::Vec};
-use seed_pallet_common::ethy::{BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthyAdapter, EthySigningRequest, State, XRPLBridgeAdapter};
-use seed_pallet_common::ethy::State::{Active, Paused};
-use seed_pallet_common::validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface};
-use seed_primitives::ethy::crypto::AuthorityId;
-use seed_primitives::ethy::EventProofId;
-use frame_support::weights::constants::RocksDbWeight as DbWeight;
 
 pub mod types;
 use types::*;
@@ -42,8 +55,10 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, transactional};
 	use frame_system::{ensure_signed, pallet_prelude::*};
-	use seed_pallet_common::ethy::{EthereumBridgeAdapter, State, };
-	use seed_pallet_common::validator_set::ValidatorSetInterface;
+	use seed_pallet_common::{
+		ethy::{EthereumBridgeAdapter, State},
+		validator_set::ValidatorSetInterface,
+	};
 	use seed_primitives::ethy::ValidatorSetId;
 
 	#[pallet::pallet]
@@ -60,7 +75,6 @@ pub mod pallet {
 		type ValidatorSetAdapter: ValidatorSetInterface<AuthorityId>;
 		/// XRPL Bridge Adapter
 		type XrplBridgeAdapter: XRPLBridgeAdapter<AuthorityId>;
-
 	}
 
 	#[pallet::storage]
@@ -83,7 +97,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn pending_proof_requests)]
 	/// Queued proof requests to be processed once the ethy is active again
-	pub type PendingProofRequests<T> = StorageMap<_, Twox64Concat, EventProofId, EthySigningRequest>;
+	pub type PendingProofRequests<T> =
+		StorageMap<_, Twox64Concat, EventProofId, EthySigningRequest>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn next_event_proof_id)]
@@ -95,7 +110,6 @@ pub mod pallet {
 	/// The maximum number of delayed proof requests that can be processed in on_initialize()
 	pub type DelayedProofRequestsPerBlock<T> = StorageValue<_, u8, ValueQuery>;
 
-
 	#[pallet::error]
 	pub enum Error<T> {}
 
@@ -104,26 +118,23 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A notary (validator) set change is in motion (event_proof_id, new_validator_set_id)
 		/// A proof for the change will be generated with the given `event_proof_id`
-		AuthoritySetChanged {
-			event_proof_id: EventProofId,
-			new_validator_set_id: ValidatorSetId,
-		},
+		AuthoritySetChanged { event_proof_id: EventProofId, new_validator_set_id: ValidatorSetId },
 		/// notary set change failed
 		AuthoritySetChangedFailed {
 			current_validator_set: ValidatorSetId,
 			new_validator_set_id: ValidatorSetId,
 		},
-		/// A notary (validator) set change for Xrpl is in motion (event_proof_id, new_validator_set_id)
-		/// A proof for the change will be generated with the given `event_proof_id`
+		/// A notary (validator) set change for Xrpl is in motion (event_proof_id,
+		/// new_validator_set_id) A proof for the change will be generated with the given
+		/// `event_proof_id`
 		XrplAuthoritySetChanged {
 			event_proof_id: EventProofId,
 			new_validator_set_id: ValidatorSetId,
 		},
 		/// Proof delayed since ethy is in paused state
-		ProofDelayed { event_proof_id: EventProofId},
+		ProofDelayed { event_proof_id: EventProofId },
 		/// An event proof has been sent for signing by ethy-gadget
 		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
-
 	}
 
 	#[pallet::hooks]
@@ -133,8 +144,14 @@ pub mod pallet {
 			let mut weight = 0 as Weight;
 			if PendingProofRequests::<T>::iter().next().is_some() && Self::ethy_state() == Active {
 				let max_delayed_requests = Self::delayed_proof_requests_per_block();
-				weight = weight.saturating_add(max_delayed_requests as Weight * ( DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)));
-				for (event_proof_id, signing_request) in PendingProofRequests::<T>::iter().take(max_delayed_requests as usize) {
+				weight = weight.saturating_add(
+					max_delayed_requests as Weight *
+						(DbWeight::get().reads(1 as Weight) +
+							DbWeight::get().writes(1 as Weight)),
+				);
+				for (event_proof_id, signing_request) in
+					PendingProofRequests::<T>::iter().take(max_delayed_requests as usize)
+				{
 					Self::request_for_event_proof(event_proof_id, signing_request);
 					PendingProofRequests::<T>::remove(event_proof_id);
 				}
@@ -145,8 +162,9 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> where
-		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
 		/// Pause or unpause ethy (requires governance)
@@ -159,15 +177,21 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	fn request_for_proof_validator_set_change_ethereum(info: ValidatorSetChangeInfo<AuthorityId>) -> Result<EventProofId, DispatchError> {
+	fn request_for_proof_validator_set_change_ethereum(
+		info: ValidatorSetChangeInfo<AuthorityId>,
+	) -> Result<EventProofId, DispatchError> {
 		trace!(target: LOG_TARGET, "💎 request validator set change proof for ethereum");
-		let next_validator_addresses: Vec<Token> = info.next_validator_set
+		let next_validator_addresses: Vec<Token> = info
+			.next_validator_set
 			.to_vec()
 			.into_iter()
 			.map(|k| EthyEcdsaToEthereum::convert(k.as_ref()))
 			.map(|k| Token::Address(k.into()))
 			.collect();
-		debug!(target: LOG_TARGET, "💎 ethereum new signer addresses: {:?}", next_validator_addresses);
+		debug!(
+			target: LOG_TARGET,
+			"💎 ethereum new signer addresses: {:?}", next_validator_addresses
+		);
 
 		let validator_set_message = ethabi::encode(&[
 			Token::Array(next_validator_addresses),
@@ -183,13 +207,19 @@ impl<T: Config> Pallet<T> {
 			event_proof_id: next_event_proof_id,
 		};
 
-		Self::request_for_event_proof(next_event_proof_id, EthySigningRequest::Ethereum(event_proof_info));
+		Self::request_for_event_proof(
+			next_event_proof_id,
+			EthySigningRequest::Ethereum(event_proof_info),
+		);
 		Ok(next_event_proof_id)
 	}
 
-	fn request_for_proof_validator_set_change_xrpl(info: ValidatorSetChangeInfo<AuthorityId>) -> Result<EventProofId, DispatchError> {
+	fn request_for_proof_validator_set_change_xrpl(
+		info: ValidatorSetChangeInfo<AuthorityId>,
+	) -> Result<EventProofId, DispatchError> {
 		trace!(target: LOG_TARGET, "💎 request validator set change proof for xrpl");
-		let mut next_notary_xrpl_keys = T::ValidatorSetAdapter::get_xrpl_notary_keys(&info.next_validator_set).unwrap();
+		let mut next_notary_xrpl_keys =
+			T::ValidatorSetAdapter::get_xrpl_notary_keys(&info.next_validator_set).unwrap();
 		let mut notary_xrpl_keys = T::ValidatorSetAdapter::get_xrpl_validator_set().unwrap();
 
 		// sort to avoid same key set shuffles.
@@ -197,7 +227,11 @@ impl<T: Config> Pallet<T> {
 		notary_xrpl_keys.sort();
 
 		if notary_xrpl_keys == next_notary_xrpl_keys {
-			info!(target: LOG_TARGET, "💎 notary xrpl keys unchanged. next validator set id: {:?}", info.next_validator_set_id);
+			info!(
+				target: LOG_TARGET,
+				"💎 notary xrpl keys unchanged. next validator set id: {:?}",
+				info.next_validator_set_id
+			);
 			return Ok(0) // return EventProofId = 0
 		}
 
@@ -212,7 +246,10 @@ impl<T: Config> Pallet<T> {
 
 		let xrpl_payload = T::XrplBridgeAdapter::get_signer_list_set_payload(signer_entries)?;
 		let next_event_proof_id = Self::get_next_event_proof_id();
-		Self::request_for_event_proof(next_event_proof_id, EthySigningRequest::XrplTx(xrpl_payload));
+		Self::request_for_event_proof(
+			next_event_proof_id,
+			EthySigningRequest::XrplTx(xrpl_payload),
+		);
 		Ok(next_event_proof_id)
 	}
 
@@ -232,7 +269,7 @@ impl<T: Config> Pallet<T> {
 		// delay the proofs until it is active again
 		if Self::ethy_state() == Paused {
 			PendingProofRequests::<T>::insert(event_proof_id, request);
-			Self::deposit_event(Event::<T>::ProofDelayed{ event_proof_id });
+			Self::deposit_event(Event::<T>::ProofDelayed { event_proof_id });
 			return
 		}
 
@@ -265,14 +302,14 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 				// store the notary set change event proof id
 				NotarySetProofId::<T>::put(event_proof_id);
 				info!(target: LOG_TARGET, "💎 authority set change proof request success. event proof If: {:?}, new validator set Id: {:?}", event_proof_id, info.next_validator_set_id);
-			}
+			},
 			Err(e) => {
 				Self::deposit_event(Event::<T>::AuthoritySetChangedFailed {
 					current_validator_set: info.current_validator_set_id,
 					new_validator_set_id: info.next_validator_set_id,
 				});
 				error!(target: LOG_TARGET, "💎 authority set change proof request failed. next validator set Id: {:?}, error: {:?}", info.next_validator_set_id, Into::<&str>::into(e));
-			}
+			},
 		}
 
 		// request for proof xrpl
@@ -280,9 +317,9 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 			Ok(event_proof_id) => {
 				// event_proof_id == 0 special case - xrpl notary keys remains the same
 				if event_proof_id != 0 {
-					// Signal the event id that will be used for the proof of xrpl notary set change.
-					// Any observer can subscribe to this event and submit the resulting proof to keep
-					// the door account signer set on the xrpl updated.
+					// Signal the event id that will be used for the proof of xrpl notary set
+					// change. Any observer can subscribe to this event and submit the resulting
+					// proof to keep the door account signer set on the xrpl updated.
 					Self::deposit_event(Event::<T>::XrplAuthoritySetChanged {
 						event_proof_id,
 						new_validator_set_id: info.next_validator_set_id,
@@ -290,7 +327,6 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 					// store the xrpl notary set change event proof id
 					XrplNotarySetProofId::<T>::put(event_proof_id);
 					info!(target: LOG_TARGET, "💎 xrpl notary set change proof request success. event proof If: {:?}, new validator set Id: {:?}", event_proof_id, info.next_validator_set_id);
-
 				}
 			},
 			Err(e) => {
@@ -299,7 +335,7 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 					new_validator_set_id: info.next_validator_set_id,
 				});
 				error!(target: LOG_TARGET, "💎 xrpl notary set change proof request failed. next validator set Id: {:?}, error: {:?}", info.next_validator_set_id, Into::<&str>::into(e));
-			}
+			},
 		}
 
 		//pause the ethy to pause all bridge activities
@@ -307,14 +343,20 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 	}
 
 	fn validator_set_change_finalized(info: ValidatorSetChangeInfo<AuthorityId>) {
-		info!(target: LOG_TARGET, "💎 validator set change finalized received. new validator set id: {:?}", info.current_validator_set_id);
+		info!(
+			target: LOG_TARGET,
+			"💎 validator set change finalized received. new validator set id: {:?}",
+			info.current_validator_set_id
+		);
 		// send notification to ethy-gadget
 		let log = DigestItem::Consensus(
 			ETHY_ENGINE_ID,
 			ConsensusLog::AuthoritiesChange(ValidatorSet {
 				validators: info.current_validator_set.clone(),
 				id: info.current_validator_set_id,
-				proof_threshold: T::EthereumBridgeAdapter::get_notarization_threshold().unwrap_or_default().mul_ceil(info.current_validator_set.len() as u32)
+				proof_threshold: T::EthereumBridgeAdapter::get_notarization_threshold()
+					.unwrap_or_default()
+					.mul_ceil(info.current_validator_set.len() as u32),
 			})
 			.encode(),
 		);
@@ -326,7 +368,10 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 }
 
 impl<T: Config> EthyAdapter for Pallet<T> {
-	fn request_for_proof(request: EthySigningRequest, event_proof_id: Option<EventProofId>) -> Result<EventProofId, DispatchError> {
+	fn request_for_proof(
+		request: EthySigningRequest,
+		event_proof_id: Option<EventProofId>,
+	) -> Result<EventProofId, DispatchError> {
 		match event_proof_id {
 			Some(event_proof_id) => {
 				Self::request_for_event_proof(event_proof_id, request);
@@ -336,7 +381,7 @@ impl<T: Config> EthyAdapter for Pallet<T> {
 				let event_proof_id = Self::get_next_event_proof_id();
 				Self::request_for_event_proof(event_proof_id, request);
 				return Ok(event_proof_id)
-			}
+			},
 		}
 	}
 

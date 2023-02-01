@@ -29,12 +29,11 @@ use sp_runtime::{
 use std::{sync::Arc, time::Duration};
 
 use seed_primitives::{
-	EthyEcdsaToPublicKey,
 	ethy::{
-		crypto::AuthorityId as Public, ConsensusLog, ValidatorSetApi, EventProof,
-		EventProofId, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
-		GENESIS_AUTHORITY_SET_ID,
-	}
+		crypto::AuthorityId as Public, ConsensusLog, EventProof, EventProofId, ValidatorSet,
+		ValidatorSetApi, VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	},
+	EthyEcdsaToPublicKey,
 };
 
 use crate::{

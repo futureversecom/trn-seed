@@ -32,8 +32,7 @@ use std::{marker::PhantomData, ops::Deref, sync::Arc};
 use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
 use seed_primitives::{
 	ethy::{
-		ValidatorSetApi, EthyChainId, EventProof, EventProofId, VersionedEventProof,
-		ETHY_ENGINE_ID,
+		EthyChainId, EventProof, EventProofId, ValidatorSetApi, VersionedEventProof, ETHY_ENGINE_ID,
 	},
 	AccountId20,
 };
