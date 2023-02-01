@@ -81,7 +81,7 @@ describe("Fee Preferences in low asset balance scenario", function () {
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, insufficientAccountSigner);
 
     const nonce = await insufficientAccountSigner.getTransactionCount();
-    const chainId = 3999;
+    const chainId = 7672;
     const maxPriorityFeePerGas = 0;
     const gasLimit = 23316;
     const maxFeePerGas = 30_001_500_000_0000;

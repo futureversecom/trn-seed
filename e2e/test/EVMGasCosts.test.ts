@@ -82,7 +82,7 @@ describe("EVM gas costs", () => {
       gasLimit: BASE_GAS_COST,
       maxFeePerGas: fees.lastBaseFeePerGas!,
       maxPriorityFeePerGas: 0,
-      chainId: 3999,
+      chainId: 7672,
     };
     const signedTx = await alithSigner.signTransaction(unsignedTx);
     const tx = await provider.sendTransaction(signedTx);
@@ -129,7 +129,7 @@ describe("EVM gas costs", () => {
       gasLimit: BASE_GAS_COST,
       maxFeePerGas: fees.lastBaseFeePerGas!,
       maxPriorityFeePerGas: 0,
-      chainId: 3999,
+      chainId: 7672,
     };
     const signedTx = await alithSigner.signTransaction(unsignedTx);
     const tx = await provider.sendTransaction(signedTx);

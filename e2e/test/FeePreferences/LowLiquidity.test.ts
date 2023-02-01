@@ -74,7 +74,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
     const maxFeePaymentInToken = 10_000_000_000;
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
     const nonce = await emptyAccountSigner.getTransactionCount();
-    const chainId = 3999;
+    const chainId = 7672;
     const maxPriorityFeePerGas = 0; // 1_500_000_000 = '0x59682f00'
     const gasLimit = 23316; // '0x5b14' = 23316;
     const maxFeePerGas = 30_001_500_000_0000; // 30_001_500_000_000 = '0x1b4944c00f00'

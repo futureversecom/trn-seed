@@ -87,7 +87,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 				],
 				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				vec![authority_keys_from_seed("Alice").4],
-				3999,
+				7672,
 				false,
 			)
 		},
@@ -147,7 +147,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 				],
 				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
 				vec![authority_keys_from_seed("Alice").4, authority_keys_from_seed("Bob").4],
-				3999,
+				7672,
 				false,
 			)
 		},
@@ -213,7 +213,7 @@ pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
 					authority_keys_from_seed("Dave").4,
 					authority_keys_from_seed("Eve").4,
 				],
-				3999,
+				7672,
 				false,
 			)
 		},

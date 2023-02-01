@@ -81,7 +81,7 @@ impl ExtBuilder {
 
 		// set default chain id
 		<pallet_evm_chain_id::GenesisConfig as GenesisBuild<TestRuntime>>::assimilate_storage(
-			&pallet_evm_chain_id::GenesisConfig { chain_id: 3999 },
+			&pallet_evm_chain_id::GenesisConfig { chain_id: 7672 },
 			&mut storage,
 		)
 		.unwrap();
