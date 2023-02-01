@@ -845,6 +845,7 @@ impl frame_system::offchain::SigningTypes for Runtime {
 
 impl pallet_evm_chain_id::Config for Runtime {
 	type Event = Event;
+	type ApproveOrigin = EnsureRoot<AccountId>;
 }
 
 // Start frontier/EVM stuff

@@ -50,6 +50,8 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// Allowed origins to ease transition to council givernance
+		type ApproveOrigin: EnsureOrigin<Self::Origin>;
 	}
 
 	impl<T: Config> Get<u64> for Pallet<T> {
@@ -89,7 +91,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			#[pallet::compact] chain_id: u64,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::ApproveOrigin::ensure_origin(origin)?;
 			ChainId::<T>::put(chain_id);
 			Self::deposit_event(Event::<T>::ChainIdSet(chain_id));
 			Ok(())

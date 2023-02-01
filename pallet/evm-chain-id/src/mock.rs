@@ -14,6 +14,7 @@
  */
 use crate::{self as pallet_evm_chain_id, Config};
 use frame_support::{parameter_types, traits::GenesisBuild};
+use frame_system::EnsureRoot;
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -70,6 +71,7 @@ impl frame_system::Config for TestRuntime {
 
 impl Config for TestRuntime {
 	type Event = Event;
+	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 }
 
 #[derive(Clone, Copy, Default)]
