@@ -120,7 +120,7 @@ mod custom_migration {
 	pub struct Upgrade;
 	impl OnRuntimeUpgrade for Upgrade {
 		fn on_runtime_upgrade() -> Weight {
-			StorageVersion::new(420).put::<EVMChainId>();
+			StorageVersion::new(0).put::<EVMChainId>();
 			100
 		}
 	}
