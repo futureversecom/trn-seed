@@ -110,6 +110,22 @@ use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 
+mod custom_migration {
+	use super::*;
+	use frame_support::{
+		traits::{OnRuntimeUpgrade, StorageVersion},
+		weights::Weight,
+	};
+
+	pub struct Upgrade;
+	impl OnRuntimeUpgrade for Upgrade {
+		fn on_runtime_upgrade() -> Weight {
+			StorageVersion::new(420).put::<EVMChainId>();
+			100
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests;
 
@@ -1073,6 +1089,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	custom_migration::Upgrade,
 >;
 
 impl_runtime_apis! {
