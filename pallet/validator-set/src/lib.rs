@@ -135,6 +135,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn xrpl_door_signers)]
 	/// XRPL Door Signers set by sudo (white listed validators)
+	// TODO(surangap): change this with #419
 	pub type XrplDoorSigners<T: Config> = StorageMap<_, Twox64Concat, T::EthyId, bool, ValueQuery>;
 
 	#[pallet::storage]
@@ -459,6 +460,10 @@ impl<T: Config> ValidatorSetInterface<T::EthyId> for Pallet<T> {
 
 	fn get_xrpl_validator_set() -> Vec<T::EthyId> {
 		NotaryXrplKeys::<T>::get()
+	}
+
+	fn get_xrpl_door_signers() -> Vec<T::EthyId> {
+		XrplDoorSigners::<T>::iter_keys().collect::<Vec<T::EthyId>>()
 	}
 
 	fn get_xrpl_notary_keys(validator_list: &Vec<T::EthyId>) -> Vec<T::EthyId> {

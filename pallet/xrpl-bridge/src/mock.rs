@@ -5,6 +5,10 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
+use seed_pallet_common::{
+	ethy::{EthyAdapter, EthySigningRequest, State},
+	validator_set::ValidatorSetInterface,
+};
 use sp_core::{ByteArray, H256};
 use sp_runtime::{
 	testing::Header,
@@ -12,9 +16,8 @@ use sp_runtime::{
 	DispatchError, Percent,
 };
 
-use seed_pallet_common::XrplBridgeToEthyAdapter;
 use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
+	ethy::{crypto::AuthorityId, EventProofId, ValidatorSetId},
 	AccountId, AssetId, Balance, BlockNumber,
 };
 
@@ -44,20 +47,20 @@ parameter_types! {
 }
 
 impl frame_system::Config for Test {
+	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = BlockLength;
-	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
+	type Call = Call;
 	type Index = u64;
 	type BlockNumber = u64;
-	type Call = Call;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type BlockHashCount = ConstU64<250>;
 	type Event = Event;
+	type BlockHashCount = ConstU64<250>;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -87,6 +90,7 @@ impl pallet_assets::Config for Test {
 	type Currency = Balances;
 	type ForceOrigin = AssetsForceOrigin;
 	type AssetDeposit = AssetDeposit;
+	type AssetAccountDeposit = AssetAccountDeposit;
 	type MetadataDepositBase = MetadataDepositBase;
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
@@ -94,7 +98,6 @@ impl pallet_assets::Config for Test {
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
-	type AssetAccountDeposit = AssetAccountDeposit;
 }
 
 parameter_types! {
@@ -103,12 +106,12 @@ parameter_types! {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
 	type DustRemoval = ();
+	type Event = Event;
 	type ExistentialDeposit = ();
 	type AccountStore = System;
-	type MaxLocks = ();
 	type WeightInfo = ();
+	type MaxLocks = ();
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 }
@@ -151,10 +154,12 @@ parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
+	pub const XrplBridgePalletId: PalletId = PalletId(*b"xrplbrdg");
 }
 
 impl pallet_xrpl_bridge::Config for Test {
 	type Event = Event;
+	type PalletId = XrplBridgePalletId;
 	type EthyAdapter = MockEthyAdapter;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
@@ -164,30 +169,83 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = TimestampPallet;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
+	type ValidatorSet = MockValidatorSet;
 }
 
 pub struct MockEthyAdapter;
 
-impl XrplBridgeToEthyAdapter<AuthorityId> for MockEthyAdapter {
-	/// Mock implementation of XrplBridgeToEthyAdapter
-	fn sign_xrpl_transaction(_tx_data: &[u8]) -> Result<EventProofId, DispatchError> {
-		Ok(1)
+/// Mock implementation of EthyAdapter
+impl EthyAdapter for MockEthyAdapter {
+	fn request_for_proof(
+		_request: EthySigningRequest,
+		_event_proof_id: Option<EventProofId>,
+	) -> Result<EventProofId, DispatchError> {
+		Ok(0)
 	}
-	fn validators() -> Vec<AuthorityId> {
-		// some hard coded validators
+	fn get_ethy_state() -> State {
+		State::Active
+	}
+
+	fn get_next_event_proof_id() -> EventProofId {
+		1_u64
+	}
+}
+
+pub struct MockValidatorSet {
+	pub max_xrpl_keys: u8,
+}
+
+impl Default for MockValidatorSet {
+	fn default() -> Self {
+		Self { max_xrpl_keys: 8_u8 }
+	}
+}
+/// Mock implementation of ValidatorSetInterface
+impl ValidatorSetInterface<AuthorityId> for MockValidatorSet {
+	fn get_validator_set_id() -> ValidatorSetId {
+		1_u64
+	}
+
+	fn get_validator_set() -> Vec<AuthorityId> {
 		vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		]
 	}
-	fn xrp_validators() -> Vec<AuthorityId> {
-		// some hard coded validators
+
+	fn get_next_validator_set() -> Vec<AuthorityId> {
 		vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
 		]
+	}
+
+	fn get_xrpl_validator_set() -> Vec<AuthorityId> {
+		vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+		]
+	}
+
+	fn get_xrpl_door_signers() -> Vec<AuthorityId> {
+		vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+		]
+	}
+
+	fn get_xrpl_notary_keys(validator_list: &Vec<AuthorityId>) -> Vec<AuthorityId> {
+		let xrpl_door_signers = Self::get_xrpl_door_signers();
+		validator_list
+			.into_iter()
+			.filter(|validator| xrpl_door_signers.contains(validator))
+			.map(|validator| -> AuthorityId { validator.clone() })
+			.take(Self::default().max_xrpl_keys.into())
+			.collect()
 	}
 }
 

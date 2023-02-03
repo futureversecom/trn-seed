@@ -33,6 +33,7 @@ pallet-validator-set = { path = "../validator-set", default-features = false }
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+parking_lot = "0.12.1"
 
 [features]
 default = ["std"]

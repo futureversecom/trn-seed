@@ -27,7 +27,7 @@ use sc_network_test::{
 	TestNetFactory,
 };
 use seed_primitives::ethy::{
-	crypto::AuthorityId, ConsensusLog, EthyApi, ValidatorSet, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
+	crypto::AuthorityId, ConsensusLog, ValidatorSet, ValidatorSetApi, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
 };
 use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
@@ -169,12 +169,12 @@ macro_rules! create_test_api {
 				}
 			}
 			sp_api::mock_impl_runtime_apis! {
-				impl EthyApi<Block> for RuntimeApi {
-					fn validator_set() -> EthyValidatorSet {
+				impl ValidatorSetApi<Block> for RuntimeApi {
+					fn eth_validator_set() -> EthyValidatorSet {
 						let validators = make_ethy_ids(&[$($inits),+]);
 						EthyValidatorSet::new(make_ethy_ids(&[$($inits),+]), 0, validators.len() as u32)
 					}
-					fn xrpl_signers() -> EthyValidatorSet {
+					fn xrpl_validator_set() -> EthyValidatorSet {
 						let validators = make_ethy_ids(&[$($inits),+]);
 						EthyValidatorSet::new(make_ethy_ids(&[$($inits),+]), 0, validators.len() as u32)
 					}

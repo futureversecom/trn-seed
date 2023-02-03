@@ -14,9 +14,9 @@ use seed_primitives::{Balance, BlockNumber};
 
 use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
-	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, System,
-	Timestamp, TxFeePot, XrpCurrency,
+	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, Executive,
+	Runtime, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, System, Timestamp, TxFeePot,
+	ValidatorSet, XrpCurrency,
 };
 
 use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
@@ -201,11 +201,11 @@ fn staking_final_session_tracking_ethy() {
 		// session 0,1,2 complete
 		start_active_era(1);
 		// in session 3
-		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(!<Runtime as pallet_validator_set::Config>::FinalSessionTracker::is_active_session_final());
 
 		advance_session();
 		// in session 4
-		assert!(!<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(!<Runtime as pallet_validator_set::Config>::FinalSessionTracker::is_active_session_final());
 
 		// Queue some new keys for alice validator
 		let (_, babe, im_online, grandpa, ethy) = authority_keys_from_seed("Alice2.0");
@@ -214,10 +214,13 @@ fn staking_final_session_tracking_ethy() {
 
 		advance_session();
 		// in session 5
-		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(
+			<Runtime as pallet_validator_set::Config>::FinalSessionTracker::is_active_session_final(
+			)
+		);
 
 		advance_session(); // era 2 starts and keys contain the updated key
-		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
+		assert!(ValidatorSet::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
 
 		// Forcing era, marks active session final, sets keys
 		let (_, babe, im_online, grandpa, ethy) = authority_keys_from_seed("Alice3.0");
@@ -225,12 +228,15 @@ fn staking_final_session_tracking_ethy() {
 		assert_ok!(Session::set_keys(RawOrigin::Signed(alice()).into(), new_keys.clone(), vec![]));
 		advance_session();
 		assert_ok!(Staking::force_new_era(RawOrigin::Root.into()));
-		assert!(<Runtime as pallet_ethy::Config>::FinalSessionTracker::is_active_session_final());
+		assert!(
+			<Runtime as pallet_validator_set::Config>::FinalSessionTracker::is_active_session_final(
+			)
+		);
 
 		advance_session(); // era 3 starts (forced) and keys contain the updated key
 				   // Call on_initialize for scheduler to update keys and unpause bridge
 		let scheduled_block: BlockNumber = System::block_number() + 75_u32;
 		Scheduler::on_initialize(scheduled_block.into());
-		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
+		assert!(ValidatorSet::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
 	});
 }
