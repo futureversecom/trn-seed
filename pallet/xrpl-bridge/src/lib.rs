@@ -75,8 +75,10 @@ pub mod pallet {
 	use super::*;
 	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
 	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
-	use seed_primitives::{xrpl::XrplTxTicketSequence, ethy::EthyEcdsaToEthereum, AccountId20};
+	use seed_primitives::{xrpl::XrplTxTicketSequence, ethy::{EthyEcdsaToEthereum, ETHY_KEY_TYPE}, AccountId20};
 	use sp_core::{crypto::ByteArray, H512};
+
+	// use sp_keystore::SyncCryptoStore;
 	use sp_runtime::RuntimeAppPublic;
 
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -255,7 +257,6 @@ pub mod pallet {
 					ChallengeXRPTransactionList::<T>::iter()
 				{
 					let public = public.clone();
-
 					let converted_account: AccountId20 = EthyEcdsaToEthereum::convert(public.as_slice()).into();
 
 					// We are not allowed to verify our own challenges
@@ -276,6 +277,7 @@ pub mod pallet {
 						challenge_submitter,
 						challenge_verification_info,
 					};
+
 					let signature = public
 						.sign(&payload.encode())
 						.ok_or(<Error<T>>::CouldNotSignFromKeystore)
@@ -284,7 +286,7 @@ pub mod pallet {
 					let call: Call<T> = Call::receive_offchain_challenge_verification {
 						payload,
 						public,
-						signature,
+						signature: crate::app_crypto::Signature::decode(&mut &signature[..]).unwrap(),
 					};
 
 					let tx_submit =
@@ -461,6 +463,7 @@ pub mod pallet {
 			// let ChallengePayload { transaction_hash, challenger, ledger_index } =
 			// challenge_payload;
 			// ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index), challenger);
+			
 			ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index), who);
 
 			Ok(())

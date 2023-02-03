@@ -1,12 +1,14 @@
 use super::*;
 use crate::mock::{
-	new_test_ext, AssetsExt, Origin, System, Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, build_offchainify,
+	Call as RuntimeCall, new_test_ext, AssetsExt, Origin, System, Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, build_offchainify
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use seed_primitives::{AccountId, Balance};
-use sp_core::{H160, H256};
-use sp_runtime::{traits::BadOrigin, offchain::testing::PendingRequest};
+use sp_core::{H160, H256, H512, offchain::testing::PendingRequest};
+use sp_runtime::{traits::BadOrigin, testing::TestXt};
+
+type Extrinsic = TestXt<RuntimeCall, ()>;
 
 /// Helper function to create an AccountId from  a slice
 fn create_account(address: &[u8]) -> AccountId {
@@ -51,6 +53,38 @@ fn submit_transaction(
 		transaction,
 		1234
 	));
+}
+
+struct PendingRequestBuilder(PendingRequest);
+
+impl PendingRequestBuilder {
+	fn new(uri: &str) -> Self {
+		Self {
+			0: PendingRequest {
+				uri: uri.to_string(),
+				sent: true,
+				..Default::default()
+			},
+		}
+	}
+	fn request(mut self, request: &[u8]) -> Self {
+		self.0.body = request.to_vec();
+		self.0.headers = vec![
+			("Content-Type".to_string(), "application/json".to_string()),
+		];
+		self
+	}
+	fn method(mut self, method: &str) -> Self {
+		self.0.method = method.into();
+		self
+	}
+	fn response(mut self, response: &[u8]) -> Self {
+		self.0.response = Some(response.to_vec());
+		self
+	}
+	fn build(self) -> PendingRequest {
+		self.0
+	}
 }
 
 #[test]
@@ -133,132 +167,40 @@ fn process_transaction_challenge_works() {
 #[test]
 fn process_transaction_challenge_offchain_worker() {
 	let ext = new_test_ext();
-	let (mut ext, _, offchain_state) = build_offchainify(ext);
+	let (mut ext, pool_state, offchain_state) = build_offchainify(ext);
 	{
 		let mut offchain_state = offchain_state.write();
-		offchain_state.expect_request(PendingRequest {
-			method: "GET".into(),
-			uri: "https://s1.ripple.com:51234/".into(),
-			response: Some(
-				br#"{
-					"result": {
-					  "ledger_hash": "B8A69BE37FCC6174ED1FBD1C54AA5ED8717C492326E31A1D547F3759BB0146AB",
-					  "ledger_index": 77500879,
-					  "metadata": {
-						"AffectedNodes": [
-						  {
-							"ModifiedNode": {
-							  "FinalFields": {
-								"Account": "rnqZnvzoJjdg7n1P9pmumJ7FQ5wxNH3gYC",
-								"Balance": "8214504483708",
-								"Flags": 0,
-								"OwnerCount": 0,
-								"Sequence": 410523
-							  },
-							  "LedgerEntryType": "AccountRoot",
-							  "LedgerIndex": "43000F3A06267991E22D4680E528A474DE7E8735D42E7E6DE8A60135B1DD50F8",
-							  "PreviousFields": {
-								"Balance": "8214169387242"
-							  },
-							  "PreviousTxnID": "C1B9F3DDFB13EBF21C4D808B9B0AFA11A91BA82994D1F7505D2D7BA74176B122",
-							  "PreviousTxnLgrSeq": 77500871
-							}
-						  },
-						  {
-							"ModifiedNode": {
-							  "FinalFields": {
-								"Account": "r3jpCGA3kFkeWSVNreuZAojaauKoi2EBKN",
-								"Balance": "118340714097",
-								"Flags": 1179648,
-								"OwnerCount": 5,
-								"Sequence": 584
-							  },
-							  "LedgerEntryType": "AccountRoot",
-							  "LedgerIndex": "9C875A7A4F712B0D7B794BF29E095C54A5AE11AA39E41BE531B79302A3624765",
-							  "PreviousFields": {
-								"Balance": "118675810608",
-								"Sequence": 583
-							  },
-							  "PreviousTxnID": "8131C53CDECF0C779D099B3EDD0BD57B000036A9F4B7A929A5310038444BD6DC",
-							  "PreviousTxnLgrSeq": 77484279
-							}
-						  }
-						],
-						"TransactionIndex": 1,
-						"TransactionResult": "tesSUCCESS"
-					  },
-					  "status": "success",
-					  "tx_json": {
-						"Account": "r3jpCGA3kFkeWSVNreuZAojaauKoi2EBKN",
-						"Amount": "335096466",
-						"Destination": "rnqZnvzoJjdg7n1P9pmumJ7FQ5wxNH3gYC",
-						"DestinationTag": 37973555,
-						"Fee": "45",
-						"Flags": 2147483648,
-						"Sequence": 583,
-						"Signers": [
-						  {
-							"Signer": {
-							  "Account": "rB6mnNWmPqx1kNvqD18s4qLKUYmcpyf4bz",
-							  "SigningPubKey": "02BFCD0BCC6A1587219C6631CA0B8EE53A1B429285A55D1E41FD94C223D8F6EEA0",
-							  "TxnSignature": "304402201AA90771064949A37EB921509A170C6C3FCABB84D95910DA4EA0F29C638F778E02205173EE56F118CE2DDB625A1AF379F98801A87D79431A996021EEFC4AA16D9B59"
-							}
-						  },
-						  {
-							"Signer": {
-							  "Account": "rHZJkynGXHhwHPEFg8XS3Pp3YMMoz7Reqa",
-							  "SigningPubKey": "03CAE88D97EAE59F5127AD7FDD13DD9F19C880BBAD476C143345B9D2BD2F781A2B",
-							  "TxnSignature": "3044022019D0B38AF3F2614D5A26687E32E3FA7435B28B8671AE5D48AE21B03DEB707EB602201FE0A3EB0AE34E10987A606BA2E5C4A9322AC104A6E0C6BCBFF95D28EDDDC7F6"
-							}
-						  }
-						],
-						"SigningPubKey": "",
-						"TransactionType": "Payment",
-						"hash": "4950A7847EA6C85BFF84F38B7FE6B8EABA0901C90C1A680C1688A35BBCACA185"
-					  },
-					  "validated": true,
-					  "warnings": [
-						{
-						  "id": 1004,
-						  "message": "This is a reporting server.  The default behavior of a reporting server is to only return validated data. If you are looking for not yet validated data, include \"ledger_index : current\" in your request, which will cause this server to forward the request to a p2p node. If the forward is successful the response will include \"forwarded\" : \"true\""
-						}
-					  ]
-					}
-				  }"#
-				.to_vec(),
-			),
-			sent: true,
-			..Default::default()
-		});
+		let expected_request = br#"{"method":"transaction_entry","params":[{"ledger_index":72014720,"tx_hash":"CAECA8C9DE80AE296D260FD86A4233D38E9DE9E749AFE4967BCE41533443B114"}]}"#;
+		let expected_response = br#"{"result":{"ledger_hash":"47268554D5076134ABB28F0C0917543850B42E65EE0798B0D492789BC9BD26E7","ledger_index":72014720,"metadata":{"AffectedNodes":[{"ModifiedNode":{"FinalFields":{"Balance":{"currency":"OCW","issuer":"rrrrrrrrrrrrrrrrrrrrBZbvji","value":"0.03276467"},"Flags":1114112,"HighLimit":{"currency":"OCW","issuer":"rK9DrarGKnVEo2nYp5MfVRXRYf5yRX3mwD","value":"0"},"HighNode":"26b","LowLimit":{"currency":"OCW","issuer":"rscF9kdWeQEgsZo4fbcX397gtWgrJvPtgy","value":"36000"},"LowNode":"0"},"LedgerEntryType":"RippleState","LedgerIndex":"7141E08A5D459A2CA5D13B35E32C1DE978B7C21D08AF694E51EFC73E83D38568","PreviousFields":{"Balance":{"currency":"OCW","issuer":"rrrrrrrrrrrrrrrrrrrrBZbvji","value":"0.03174188"}},"PreviousTxnID":"CA21645DF08EE730FC567C483DCADBD768E95F5F0656DDBA3E88D22325A6D63D","PreviousTxnLgrSeq":71993242}},{"ModifiedNode":{"FinalFields":{"Balance":{"currency":"OCW","issuer":"rrrrrrrrrrrrrrrrrrrrBZbvji","value":"4.59112055"},"Flags":1114112,"HighLimit":{"currency":"OCW","issuer":"rK9DrarGKnVEo2nYp5MfVRXRYf5yRX3mwD","value":"0"},"HighNode":"a49","LowLimit":{"currency":"OCW","issuer":"rsTAYkk7VQfBdD5btt2WzXYphER6F2BTuN","value":"1000000000000000e-3"},"LowNode":"0"},"LedgerEntryType":"RippleState","LedgerIndex":"B928AE6CB874AB69F6546A45C123071F5F8CFC4B1E8E1FE9EFD8F2CE3E14854B","PreviousFields":{"Balance":{"currency":"OCW","issuer":"rrrrrrrrrrrrrrrrrrrrBZbvji","value":"4.59214334"}},"PreviousTxnID":"C82D9B05ADED5D3A776CE576F495B254351A36BFD69D51EEDAFD4A826BFB6EF9","PreviousTxnLgrSeq":72014719}},{"ModifiedNode":{"FinalFields":{"Account":"rsTAYkk7VQfBdD5btt2WzXYphER6F2BTuN","Balance":"98324250","Flags":0,"OwnerCount":12,"Sequence":71033319},"LedgerEntryType":"AccountRoot","LedgerIndex":"DFD9FDC5BB6CD27225B22BC3EAEDF070946074F20B421E49118133A5BB9D0644","PreviousFields":{"Balance":"98324270","Sequence":71033318},"PreviousTxnID":"48A7606F614DF47D66CBC5EACC24E5738786290B21D440ED3781EB4D06B18EFF","PreviousTxnLgrSeq":72014719}}],"TransactionIndex":0,"TransactionResult":"tesSUCCESS"},"status":"success","tx_json":{"Account":"rsTAYkk7VQfBdD5btt2WzXYphER6F2BTuN","Amount":{"currency":"OCW","issuer":"rK9DrarGKnVEo2nYp5MfVRXRYf5yRX3mwD","value":"0.00102279"},"Destination":"rscF9kdWeQEgsZo4fbcX397gtWgrJvPtgy","DestinationTag":1,"Fee":"20","Flags":131072,"LastLedgerSequence":72015917,"Memos":[{"Memo":{"MemoData":"537461796B696E6720526577617264733A200A302E3030312066726F6D204461696C7920535458202D3E204F43572C"}}],"Sequence":71033318,"SigningPubKey":"ED72F2BC78ECC506BFE6211AD67CE836D0CA0A850F80769C1D3BBBD3659F38577E","TransactionType":"Payment","TxnSignature":"B300A6E4AE62C2EA8487F211228C5B03117E42E647B03C06340CD01786124B3DE0EBD49D3ADA06FA53EAEC8885EFFA17A5733BB99DE9CED342E803F71821EA04","hash":"CAECA8C9DE80AE296D260FD86A4233D38E9DE9E749AFE4967BCE41533443B114"},"validated":true,"warnings":[{"id":1004,"message":"This is a reporting server.  The default behavior of a reporting server is to only return validated data. If you are looking for not yet validated data, include \"ledger_index : current\" in your request, which will cause this server to forward the request to a p2p node. If the forward is successful the response will include \"forwarded\" : \"true\""}]}}"#;
+
+		let expected_request_response = PendingRequestBuilder::new("https://s1.ripple.com:51234/")
+			.method("POST")
+			.request(expected_request)
+			.response(expected_response)
+			.build();
+			offchain_state.expect_request(expected_request_response);
 	}
 
 	ext.execute_with(|| {
-		let transaction_hash = b"CAECA8C9DE80AE296D260FD86A4233D38E9DE9E749AFE4967BCE41533443B114";
+		let transaction_hash = H512::from_slice(b"CAECA8C9DE80AE296D260FD86A4233D38E9DE9E749AFE4967BCE41533443B114");
 		let ledger_index = 72014720;
-		// let tx_address = b"6490B68F1116BFE87DDC";
 
 		let relayer = create_account(b"6490B68F1116BFE87DDD");
 		let challenger = create_account(b"6490B68F1116BFE87DDE");
 
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
-		// submit_transaction(relayer, 1_000_000, transaction_hash, tx_address, 1);
-		assert_ok!(XRPLBridge::submit_challenge(
-			Origin::signed(challenger),
-			XrplTxHash::from_slice(transaction_hash),
-			ledger_index
-		));
-		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
-		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+		ChallengeXRPTransactionList::<Test>::insert((&transaction_hash, ledger_index), challenger);
 
 		<Pallet<Test> as Hooks<<Test as frame_system::Config>::BlockNumber>>::offchain_worker(
 			XrpTxChallengePeriod::get() as u64
 		);
 
-		// Hooks::offchain_worker(XrpTxChallengePeriod::get() as u64)
+		let tx = pool_state.write().transactions.pop().unwrap();
+		let ext = Extrinsic::decode(&mut &*tx).unwrap();
 
-		// let xrp_balance = xrp_balance_of(tx_address);
-		// assert_eq!(xrp_balance, 0);
+		// Offchain worker has submitted the challenge verification ext to the pool
+		assert!(matches!(ext.call, RuntimeCall::XRPLBridge(Call::receive_offchain_challenge_verification { .. } )));
 	})
 }
 

@@ -28,7 +28,6 @@ fn rpc_body(method: &str, tx_hash: &str, ledger_index: u64) -> Vec<u8> {
 
 fn make_rpc_call(url: &str, body: Vec<u8>) -> Result<(), http::Error> {
 	let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
-	log::info!("starting requrest");
 	let pending = Request::new(url)
 		.method(http::Method::Post)
 		.body(vec![body])
