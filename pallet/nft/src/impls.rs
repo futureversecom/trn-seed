@@ -564,6 +564,7 @@ impl<T: Config> Pallet<T> {
 			collection_uuid,
 			max_issuance,
 			collection_owner: owner,
+			serial_numbers: (0..initial_issuance).collect(),
 			metadata_scheme,
 			name,
 			royalties_schedule,

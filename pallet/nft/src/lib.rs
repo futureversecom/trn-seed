@@ -205,6 +205,7 @@ pub mod pallet {
 			collection_uuid: CollectionUuid,
 			max_issuance: Option<TokenCount>,
 			collection_owner: T::AccountId,
+			serial_numbers: Vec<SerialNumber>,
 			metadata_scheme: MetadataScheme,
 			name: CollectionNameType,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,

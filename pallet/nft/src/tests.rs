@@ -311,6 +311,7 @@ fn create_collection() {
 			collection_uuid: collection_id,
 			max_issuance: None,
 			collection_owner,
+			serial_numbers: vec![0, 1, 2, 3, 4],
 			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			name: b"test-collection".to_vec(),
 			royalties_schedule: Some(royalties_schedule.clone()),
