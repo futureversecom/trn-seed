@@ -28,8 +28,14 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use frame_support::{ensure, traits::Get, transactional, PalletId};
-use seed_pallet_common::{Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
+use frame_support::{
+	ensure,
+	traits::{tokens::fungibles::Mutate, Get},
+	transactional, PalletId,
+};
+use seed_pallet_common::{
+	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
+};
 use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -37,9 +43,10 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
-mod mock;
+pub mod mock;
 #[cfg(test)]
 mod tests;
 mod weights;
@@ -112,7 +119,9 @@ pub mod pallet {
 		type MaxTokensPerCollection: Get<u32>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
-			+ Hold<AccountId = Self::AccountId>;
+			+ Hold<AccountId = Self::AccountId>
+			+ Mutate<Self::AccountId, AssetId = AssetId>
+			+ CreateExt<AccountId = Self::AccountId>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -392,7 +401,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(T::WeightInfo::claim_unowned_collection())]
+		#[pallet::weight(1_000)]
 		/// Bridged collections from Ethereum will initially lack an owner. These collections will
 		/// be assigned to the pallet. This allows for claiming those collections assuming they were
 		/// assigned to the pallet
@@ -421,7 +430,7 @@ pub mod pallet {
 
 		/// Set the owner of a collection
 		/// Caller must be the current collection owner
-		#[pallet::weight(T::WeightInfo::set_owner())]
+		#[pallet::weight(1_000)]
 		pub fn set_owner(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -442,7 +451,7 @@ pub mod pallet {
 		/// `marketplace_account` - if specified, this account will be registered
 		/// `entitlement` - Permill, percentage of sales to go to the marketplace
 		/// If no marketplace is specified the caller will be registered
-		#[pallet::weight(16_000_000)]
+		#[pallet::weight(1_000)]
 		pub fn register_marketplace(
 			origin: OriginFor<T>,
 			marketplace_account: Option<T::AccountId>,
@@ -481,7 +490,7 @@ pub mod pallet {
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
-		#[pallet::weight(T::WeightInfo::mint_collection())]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
@@ -514,7 +523,7 @@ pub mod pallet {
 		/// Caller must be the collection owner
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
-		#[pallet::weight(T::WeightInfo::mint_additional())]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
@@ -576,7 +585,7 @@ pub mod pallet {
 
 		/// Transfer ownership of an NFT
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::transfer())]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn transfer(
 			origin: OriginFor<T>,
@@ -592,7 +601,7 @@ pub mod pallet {
 		/// Burn a token 🔥
 		///
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::burn())]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -612,12 +621,7 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
-		#[pallet::weight(
-		T::WeightInfo::sell()
-		.saturating_add(
-		T::DbWeight::get().reads_writes(2, 1).saturating_mul(serial_numbers.len() as Weight)
-		)
-		)]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn sell(
 			origin: OriginFor<T>,
@@ -671,7 +675,7 @@ pub mod pallet {
 		}
 
 		/// Buy a token listing for its specified price
-		#[pallet::weight(T::WeightInfo::buy())]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -728,12 +732,7 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[pallet::weight(
-		T::WeightInfo::sell()
-		.saturating_add(
-		T::DbWeight::get().reads_writes(2, 1).saturating_mul(serial_numbers.len() as Weight)
-		)
-		)]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn auction(
 			origin: OriginFor<T>,
@@ -789,7 +788,7 @@ pub mod pallet {
 
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
-		#[pallet::weight(T::WeightInfo::bid())]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -852,7 +851,7 @@ pub mod pallet {
 		/// Close a sale or auction returning tokens
 		/// Requires no successful bids have been made for an auction.
 		/// Caller must be the listed seller
-		#[pallet::weight(T::WeightInfo::cancel_sale())]
+		#[pallet::weight(1_000)]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let listing = Self::listings(listing_id).ok_or(Error::<T>::TokenNotListed)?;
@@ -902,7 +901,7 @@ pub mod pallet {
 		/// `listing_id` id of the fixed price listing
 		/// `new_price` new fixed price
 		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::update_fixed_price())]
+		#[pallet::weight(1_000)]
 		pub fn update_fixed_price(
 			origin: OriginFor<T>,
 			listing_id: ListingId,
@@ -934,7 +933,7 @@ pub mod pallet {
 		/// An offer can't be made on a token currently in an auction
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
-		#[pallet::weight(T::WeightInfo::make_simple_offer())]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn make_simple_offer(
 			origin: OriginFor<T>,
@@ -985,7 +984,7 @@ pub mod pallet {
 
 		/// Cancels an offer on a token
 		/// Caller must be the offer buyer
-		#[pallet::weight(T::WeightInfo::cancel_offer())]
+		#[pallet::weight(1_000)]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
@@ -1010,7 +1009,7 @@ pub mod pallet {
 
 		/// Accepts an offer on a token
 		/// Caller must be token owner
-		#[pallet::weight(T::WeightInfo::accept_offer())]
+		#[pallet::weight(1_000)]
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;

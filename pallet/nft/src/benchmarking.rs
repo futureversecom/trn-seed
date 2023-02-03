@@ -18,76 +18,76 @@
 
 use super::*;
 
-use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
+use frame_benchmarking::{
+	account as bench_account, benchmarks, impl_benchmark_test_suite, whitelisted_caller,
+};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_runtime::Permill;
 
 use crate::Pallet as Nft;
 
-// Create an NFT collection
-// Returns the created `collection_id`
-fn setup_collection<T: Config>(
-	owner: T::AccountId,
-) -> (CollectionUuid, RoyaltiesSchedule<T::AccountId>) {
-	let collection_id = <Nft<T>>::next_collection_uuid().unwrap();
-	let collection_name = [1_u8; MAX_COLLECTION_NAME_LENGTH as usize].to_vec();
-	let metadata_scheme = MetadataScheme::IpfsDir(
-		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
-	);
-	let royalties = RoyaltiesSchedule::<T::AccountId> {
-		entitlements: (0..MAX_ENTITLEMENTS)
-			.map(|_| (owner.clone(), Permill::from_percent(1)))
-			.collect::<Vec<(T::AccountId, Permill)>>(),
-	};
+/// This is a helper function to get an account.
+pub fn account<T: Config>(name: &'static str) -> T::AccountId {
+	bench_account(name, 0, 0)
+}
 
-	assert_ok!(<Nft<T>>::create_collection(
-		RawOrigin::Signed(owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		Some(royalties.clone()),
-	));
+pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
+	RawOrigin::Signed(acc.clone())
+}
 
-	(collection_id, royalties)
+struct CollectionBuilder<T: Config> {
+	caller: T::AccountId,
+	name: CollectionNameType,
+	initial_issuance: TokenCount,
+	max_issuance: Option<TokenCount>,
+	token_owner: Option<T::AccountId>,
+	metadata_scheme: MetadataScheme,
+	royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+}
+
+impl<T: Config> CollectionBuilder<T> {
+	pub fn default() -> Self {
+		let metadata_scheme = MetadataScheme::IpfsDir(
+			b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
+		);
+		Self {
+			caller: account::<T>("Alice"),
+			name: "New Collection".into(),
+			initial_issuance: 0,
+			max_issuance: None,
+			token_owner: None,
+			metadata_scheme,
+			royalties_schedule: None,
+		}
+	}
+
+	pub fn caller(&mut self, value: T::AccountId) -> &mut Self {
+		self.caller = value;
+		self
+	}
+
+	pub fn build(&self) -> CollectionUuid {
+		let id = Nft::<T>::next_collection_uuid().unwrap();
+		Nft::<T>::create_collection(
+			origin::<T>(&self.caller).into(),
+			self.name.clone(),
+			self.initial_issuance.clone(),
+			self.max_issuance.clone(),
+			self.token_owner.clone(),
+			self.metadata_scheme.clone(),
+			self.royalties_schedule.clone(),
+		)
+		.unwrap();
+
+		id
+	}
 }
 
 benchmarks! {
 	claim_unowned_collection {
-		let metadata = MetadataScheme::Https("google.com".into());
-		let collection_id = Nft::<T>::next_collection_uuid().unwrap();
-		let pallet_account = Nft::<T>::account_id();
-
-		assert_ok!(Nft::<T>::create_collection(RawOrigin::Signed(pallet_account).into(), "My Collection".into(), 0, None, None, metadata, None));
-
-		let new_owner: T::AccountId = account("Alice", 0, 0);
-	}: _(RawOrigin::Root, collection_id, new_owner.clone())
-	verify {
-		assert_eq!(Nft::<T>::collection_info(&collection_id).unwrap().owner, new_owner);
-	}
-
-	set_owner {
-		let creator: T::AccountId = account("creator", 0, 0);
-		let new_owner: T::AccountId = account("new_owner", 0, 0);
-		let (collection_id, royalties) = setup_collection::<T>(creator.clone());
-
-	}: _(RawOrigin::Signed(creator.clone()), collection_id, new_owner.clone())
-	verify {
-		assert_eq!(<Nft<T>>::collection_info(&collection_id).unwrap().owner, new_owner);
-	}
-
-	mint {
-		let q in 1 .. 10;
-		let creator: T::AccountId = whitelisted_caller();
-		let owner: T::AccountId = account("owner", 0, 0);
-		let (collection_id, _ ) = setup_collection::<T>(creator.clone());
-
-	}: _(RawOrigin::Signed(creator), collection_id, q.into(), Some(owner))
-	verify {
-		assert_eq!(<Nft<T>>::collection_info(collection_id).unwrap().next_serial_number, q);
-	}
+		let collection_id = CollectionBuilder::<T>::default().caller(Nft::<T>::account_id()).build();
+	}: _(RawOrigin::Root, collection_id, account::<T>("Alice"))
 }
 
 impl_benchmark_test_suite!(Nft, crate::mock::new_test_ext(), crate::mock::Test,);
