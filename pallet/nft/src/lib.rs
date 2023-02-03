@@ -29,9 +29,15 @@
 //! number)
 
 use frame_support::{
-	ensure, traits::Get, transactional, weights::constants::RocksDbWeight as DbWeight, PalletId,
+	ensure,
+	traits::{tokens::fungibles::Mutate, Get},
+	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
+	PalletId,
 };
-use seed_pallet_common::{log, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
+use seed_pallet_common::{
+	log, CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
+};
 use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -39,9 +45,10 @@ use sp_runtime::{
 };
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
-mod mock;
+pub mod mock;
 #[cfg(test)]
 mod tests;
 mod weights;
@@ -107,7 +114,9 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
-			+ Hold<AccountId = Self::AccountId>;
+			+ Hold<AccountId = Self::AccountId>
+			+ Mutate<Self::AccountId, AssetId = AssetId>
+			+ CreateExt<AccountId = Self::AccountId>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -485,7 +494,7 @@ pub mod pallet {
 		/// `marketplace_account` - if specified, this account will be registered
 		/// `entitlement` - Permill, percentage of sales to go to the marketplace
 		/// If no marketplace is specified the caller will be registered
-		#[pallet::weight(16_000_000)]
+		#[pallet::weight(T::WeightInfo::register_marketplace())]
 		pub fn register_marketplace(
 			origin: OriginFor<T>,
 			marketplace_account: Option<T::AccountId>,
@@ -524,7 +533,7 @@ pub mod pallet {
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// collection `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
-		#[pallet::weight(T::WeightInfo::mint_collection(*initial_issuance))]
+		#[pallet::weight(T::WeightInfo::create_collection())]
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
@@ -555,9 +564,7 @@ pub mod pallet {
 		/// `quantity` - how many tokens to mint
 		/// `token_owner` - the token owner, defaults to the caller if unspecified
 		/// Caller must be the collection owner
-		/// -----------
-		/// Weight is O(N) where N is `quantity`
-		#[pallet::weight(T::WeightInfo::mint_additional(*quantity))]
+		#[pallet::weight(T::WeightInfo::mint())]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
@@ -650,12 +657,7 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
-		#[pallet::weight(
-		T::WeightInfo::sell()
-		.saturating_add(
-		T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
-		)
-		)]
+		#[pallet::weight(T::WeightInfo::sell())]
 		#[transactional]
 		pub fn sell(
 			origin: OriginFor<T>,
@@ -778,12 +780,7 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[pallet::weight(
-		T::WeightInfo::sell()
-		.saturating_add(
-		T::DbWeight::get().reads_writes(2, 1).saturating_mul(tokens.len() as Weight)
-		)
-		)]
+		#[pallet::weight(T::WeightInfo::auction())]
 		#[transactional]
 		pub fn auction(
 			origin: OriginFor<T>,
