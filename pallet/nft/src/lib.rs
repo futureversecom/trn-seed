@@ -203,9 +203,9 @@ pub mod pallet {
 		/// A new collection of tokens was created
 		CollectionCreate {
 			collection_uuid: CollectionUuid,
+			token_issuance: TokenCount,
 			max_issuance: Option<TokenCount>,
 			collection_owner: T::AccountId,
-			serial_numbers: Vec<SerialNumber>,
 			metadata_scheme: MetadataScheme,
 			name: CollectionNameType,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
