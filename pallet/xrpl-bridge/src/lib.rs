@@ -271,7 +271,7 @@ pub mod pallet {
 						challenge_submitter,
 						challenge_verification_info,
 						transaction_hash: xrpl_block_hash,
-						ledger_index
+						ledger_index,
 					};
 
 					let signature = public
@@ -574,9 +574,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
-			// TODO: respond to the challenge by providing any specific data which was required from XRPL
+			// TODO: respond to the challenge by providing any specific data which was required from
+			// XRPL
 
-			ChallengeXRPTransactionList::<T>::remove((payload.transaction_hash, payload.ledger_index));
+			ChallengeXRPTransactionList::<T>::remove((
+				payload.transaction_hash,
+				payload.ledger_index,
+			));
 
 			Ok(())
 		}
@@ -596,15 +600,17 @@ pub mod pallet {
 					return InvalidTransaction::BadProof.into()
 				}
 
-				let original_challenge_author = ChallengeXRPTransactionList::<T>::get((payload.transaction_hash, payload.ledger_index))
-					.ok_or(InvalidTransaction::BadProof)?;
+				let original_challenge_author = ChallengeXRPTransactionList::<T>::get((
+					payload.transaction_hash,
+					payload.ledger_index,
+				))
+				.ok_or(InvalidTransaction::BadProof)?;
 
 				let sender: AccountId20 = EthyEcdsaToEthereum::convert(public.as_slice()).into();
 
 				// Not only must the submitter be a validator, but verifying one's own challenge
 				// is always prohibited
-				if !T::XrplNotaries::get().contains(public) ||
-					&original_challenge_author == &sender
+				if !T::XrplNotaries::get().contains(public) || &original_challenge_author == &sender
 				{
 					log::error!("Received challenge verification information from a non-validator, or someone submitted a verification to their own challenge");
 					return InvalidTransaction::BadSigner.into()
