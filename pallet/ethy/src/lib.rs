@@ -561,7 +561,7 @@ decl_module! {
 			ensure!(PendingEventClaims::contains_key(event_claim_id), Error::<T>::NoClaim);
 			// Check that event isn't already being challenged
 			ensure!(Self::pending_claim_status(event_claim_id) == Some(EventClaimStatus::Pending), Error::<T>::ClaimAlreadyChallenged);
-			
+
 
 			let challenger_bond = T::ChallengeBond::get();
 			// try lock challenger bond

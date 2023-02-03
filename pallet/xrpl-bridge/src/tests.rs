@@ -1,12 +1,13 @@
 use super::*;
 use crate::mock::{
-	Call as RuntimeCall, new_test_ext, AssetsExt, Origin, System, Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod, build_offchainify
+	build_offchainify, new_test_ext, AssetsExt, Call as RuntimeCall, Origin, System, Test,
+	XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use seed_primitives::{AccountId, Balance};
-use sp_core::{H160, H256, H512, offchain::testing::PendingRequest};
-use sp_runtime::{traits::BadOrigin, testing::TestXt};
+use sp_core::{offchain::testing::PendingRequest, H160, H256, H512};
+use sp_runtime::{testing::TestXt, traits::BadOrigin};
 
 type Extrinsic = TestXt<RuntimeCall, ()>;
 
@@ -59,19 +60,11 @@ struct PendingRequestBuilder(PendingRequest);
 
 impl PendingRequestBuilder {
 	fn new(uri: &str) -> Self {
-		Self {
-			0: PendingRequest {
-				uri: uri.to_string(),
-				sent: true,
-				..Default::default()
-			},
-		}
+		Self { 0: PendingRequest { uri: uri.to_string(), sent: true, ..Default::default() } }
 	}
 	fn request(mut self, request: &[u8]) -> Self {
 		self.0.body = request.to_vec();
-		self.0.headers = vec![
-			("Content-Type".to_string(), "application/json".to_string()),
-		];
+		self.0.headers = vec![("Content-Type".to_string(), "application/json".to_string())];
 		self
 	}
 	fn method(mut self, method: &str) -> Self {
@@ -178,11 +171,12 @@ fn process_transaction_challenge_offchain_worker() {
 			.request(expected_request)
 			.response(expected_response)
 			.build();
-			offchain_state.expect_request(expected_request_response);
+		offchain_state.expect_request(expected_request_response);
 	}
 
 	ext.execute_with(|| {
-		let transaction_hash = H512::from_slice(b"CAECA8C9DE80AE296D260FD86A4233D38E9DE9E749AFE4967BCE41533443B114");
+		let transaction_hash =
+			H512::from_slice(b"CAECA8C9DE80AE296D260FD86A4233D38E9DE9E749AFE4967BCE41533443B114");
 		let ledger_index = 72014720;
 
 		let relayer = create_account(b"6490B68F1116BFE87DDD");
@@ -190,17 +184,23 @@ fn process_transaction_challenge_offchain_worker() {
 
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
+		// Given: challenge exists
 		ChallengeXRPTransactionList::<Test>::insert((&transaction_hash, ledger_index), challenger);
 
+		// When: the offchain worker is invoked during the period, and calls the XRPL RPC,
+		// retrieving accurate results
 		<Pallet<Test> as Hooks<<Test as frame_system::Config>::BlockNumber>>::offchain_worker(
-			XrpTxChallengePeriod::get() as u64
+			XrpTxChallengePeriod::get() as u64,
 		);
 
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let ext = Extrinsic::decode(&mut &*tx).unwrap();
 
-		// Offchain worker has submitted the challenge verification ext to the pool
-		assert!(matches!(ext.call, RuntimeCall::XRPLBridge(Call::receive_offchain_challenge_verification { .. } )));
+		// Then: Offchain worker has submitted the challenge verification ext to the pool
+		assert!(matches!(
+			ext.call,
+			RuntimeCall::XRPLBridge(Call::receive_offchain_challenge_verification { .. })
+		));
 	})
 }
 
@@ -368,7 +368,7 @@ fn clear_storages() {
 		let process_block = 5;
 		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
 		let tx_hash_2 = XrplTxHash::from_low_u64_be(123);
-		let ledger_index:LedgerIndex = 2;
+		let ledger_index: LedgerIndex = 2;
 
 		<SettledXRPTransactionDetails<Test>>::append(process_block, (tx_hash_1, ledger_index));
 		<SettledXRPTransactionDetails<Test>>::append(process_block, (tx_hash_2, ledger_index));

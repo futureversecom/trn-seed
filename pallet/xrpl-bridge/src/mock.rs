@@ -5,15 +5,7 @@ use frame_support::{
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
-use sp_core::{ByteArray, H256, offchain::testing::{PoolState}};
-use sp_keystore::{testing::KeyStore, SyncCryptoStore, KeystoreExt};
-use sp_runtime::{
-	offchain::{testing::{TestOffchainExt, TestTransactionPoolExt, OffchainState}, OffchainWorkerExt, OffchainDbExt, TransactionPoolExt},
-	testing::{Header, TestXt},
-	traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentityLookup, Verify},
-	DispatchError, Percent, KeyTypeId,
-};
-use sp_std::sync::{Arc};
+use parking_lot::RwLock;
 use seed_pallet_common::{ValidatorKeystore, XrplBridgeToEthyAdapter, XrplValidators};
 use seed_primitives::{
 	ethy::{
@@ -22,13 +14,23 @@ use seed_primitives::{
 	},
 	AccountId, AssetId, Balance, BlockNumber, Signature,
 };
-use parking_lot::RwLock;
+use sp_core::{offchain::testing::PoolState, ByteArray, H256};
+use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStore};
+use sp_runtime::{
+	offchain::{
+		testing::{OffchainState, TestOffchainExt, TestTransactionPoolExt},
+		OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
+	},
+	testing::{Header, TestXt},
+	traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentityLookup, Verify},
+	DispatchError, KeyTypeId, Percent,
+};
+use sp_std::sync::Arc;
 
 use crate as pallet_xrpl_bridge;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
-
 
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
@@ -197,8 +199,10 @@ impl ValidatorKeystore<Public> for MockVK {
 		let keystore = KeyStore::new();
 
 		Some((
-			SyncCryptoStore::ecdsa_generate_new(&keystore, ETHY_KEY_TYPE, Some("//Alice")).unwrap().into(),
-			0
+			SyncCryptoStore::ecdsa_generate_new(&keystore, ETHY_KEY_TYPE, Some("//Alice"))
+				.unwrap()
+				.into(),
+			0,
 		))
 	}
 }
@@ -281,7 +285,8 @@ pub fn build_offchainify(
 	ext.register_extension(TransactionPoolExt::new(pool));
 
 	let keystore = KeyStore::new();
-	let _public = SyncCryptoStore::ecdsa_generate_new(&keystore, ETHY_KEY_TYPE, Some("//Alice")).unwrap();
+	let _public =
+		SyncCryptoStore::ecdsa_generate_new(&keystore, ETHY_KEY_TYPE, Some("//Alice")).unwrap();
 	ext.register_extension(KeystoreExt(Arc::new(keystore)));
 
 	(ext, pool_state, offchain_state)

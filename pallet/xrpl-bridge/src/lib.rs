@@ -26,7 +26,7 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
-	traits::{One,Convert, Zero},
+	traits::{Convert, One, Zero},
 	ArithmeticError, Percent, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
@@ -75,7 +75,11 @@ pub mod pallet {
 	use super::*;
 	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
 	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
-	use seed_primitives::{xrpl::XrplTxTicketSequence, ethy::{EthyEcdsaToEthereum, ETHY_KEY_TYPE}, AccountId20};
+	use seed_primitives::{
+		ethy::{EthyEcdsaToEthereum, ETHY_KEY_TYPE},
+		xrpl::XrplTxTicketSequence,
+		AccountId20,
+	};
 	use sp_core::{crypto::ByteArray, H512};
 
 	// use sp_keystore::SyncCryptoStore;
@@ -257,15 +261,15 @@ pub mod pallet {
 					ChallengeXRPTransactionList::<T>::iter()
 				{
 					let public = public.clone();
-					let converted_account: AccountId20 = EthyEcdsaToEthereum::convert(public.as_slice()).into();
+					let converted_account: AccountId20 =
+						EthyEcdsaToEthereum::convert(public.as_slice()).into();
 
 					// We are not allowed to verify our own challenges
 					if challenge_submitter.clone() == converted_account {
 						return
 					}
 
-					if let Err(err) = offchain::get_xrpl_block_data(xrpl_block_hash, ledger_index)
-					{
+					if let Err(err) = offchain::get_xrpl_block_data(xrpl_block_hash, ledger_index) {
 						log::error!("Could not retrieve data from XRPL RPC {:?}", err);
 						return
 					};
@@ -286,7 +290,8 @@ pub mod pallet {
 					let call: Call<T> = Call::receive_offchain_challenge_verification {
 						payload,
 						public,
-						signature: crate::app_crypto::Signature::decode(&mut &signature[..]).unwrap(),
+						signature: crate::app_crypto::Signature::decode(&mut &signature[..])
+							.unwrap(),
 					};
 
 					let tx_submit =
@@ -330,7 +335,6 @@ pub mod pallet {
 	/// Stores submitted transactions from XRPL waiting to be processed
 	/// Transactions will be cleared `ClearTxPeriod` blocks after processing
 	pub type ProcessXRPTransactionDetails<T: Config> =
-	// StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 		StorageMap<_, Identity, (XrplTxHash, LedgerIndex), (XrpTransaction, T::AccountId)>;
 
 	#[pallet::storage]
@@ -458,12 +462,16 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(ChallengeXRPTransactionList::<T>::count() < 3, Error::<T>::TooManyChallenges);
-			ensure!(ChallengeXRPTransactionList::<T>::get((&transaction_hash, &ledger_index)).is_none(), Error::<T>::AlreadyChallenged);
+			ensure!(
+				ChallengeXRPTransactionList::<T>::get((&transaction_hash, &ledger_index)).is_none(),
+				Error::<T>::AlreadyChallenged
+			);
 
 			// let ChallengePayload { transaction_hash, challenger, ledger_index } =
 			// challenge_payload;
-			// ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index), challenger);
-			
+			// ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index),
+			// challenger);
+
 			ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index), who);
 
 			Ok(())
@@ -605,26 +613,28 @@ pub mod pallet {
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-			if let Call::receive_offchain_challenge_verification { payload, public, signature } = call {
+			if let Call::receive_offchain_challenge_verification { payload, public, signature } =
+				call
+			{
 				if source != TransactionSource::Local {
 					log::error!(
 					"Received call from unexpected source for XRPL challenge verification information"
 				);
 					return InvalidTransaction::Call.into()
 				}
-	
+
 				if !public.verify(&payload.encode(), signature) {
-					log::error!("Failed to verify signed Call payload of XRPL challenge information");
+					log::error!(
+						"Failed to verify signed Call payload of XRPL challenge information"
+					);
 					return InvalidTransaction::BadProof.into()
 				}
-	
 
 				return Self::validate_transaction_parameters(
 					// challenge_payload.encode(),
 					// public,
 					// signature,
 				)
-
 			} else {
 				InvalidTransaction::Call.into()
 			}
@@ -632,17 +642,15 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-
 		// fn get_challenge_storage_key(hash: H512, num: u64) -> H512 {
 		// 	let mut result = [0u8; 68];
 		// 	result[0..64].copy_from_slice(&hash[..]);
 		// 	result[64..68].copy_from_slice(&num.to_le_bytes()[..]);
-		// 	sha2::hash(&result).into()			
+		// 	sha2::hash(&result).into()
 		// }
 
 		// Perform the full validation of parameters passed to unsigned calls of this module
-		fn validate_transaction_parameters(
-			// payload: Vec<u8>,
+		fn validate_transaction_parameters(// payload: Vec<u8>,
 			// public: &app_crypto::Public,
 			// signature: &app_crypto::Signature,
 		) -> TransactionValidity {
@@ -683,7 +691,8 @@ pub mod pallet {
 		}
 
 		pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
-			let tx_items: Vec<(XrplTxHash, LedgerIndex)> = match <ProcessXRPTransaction<T>>::take(n) {
+			let tx_items: Vec<(XrplTxHash, LedgerIndex)> = match <ProcessXRPTransaction<T>>::take(n)
+			{
 				None => return DbWeight::get().reads(2 as Weight),
 				Some(v) => v,
 			};
@@ -700,7 +709,7 @@ pub mod pallet {
 
 			// for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
 			for ((transaction_hash, ledger_index), (ref tx, _relayer)) in tx_details {
-					match tx.transaction {
+				match tx.transaction {
 					XrplTxData::Payment { amount, address } => {
 						if let Err(e) = T::MultiCurrency::mint_into(
 							T::XrpAssetId::get(),
@@ -871,10 +880,16 @@ pub mod pallet {
 			Ok(())
 		}
 
-		pub fn add_to_xrp_process(transaction_hash: XrplTxHash, ledger_index: LedgerIndex) -> DispatchResult {
+		pub fn add_to_xrp_process(
+			transaction_hash: XrplTxHash,
+			ledger_index: LedgerIndex,
+		) -> DispatchResult {
 			let process_block_number =
 				<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
-			ProcessXRPTransaction::<T>::append(&process_block_number, (&transaction_hash, ledger_index));
+			ProcessXRPTransaction::<T>::append(
+				&process_block_number,
+				(&transaction_hash, ledger_index),
+			);
 			Ok(())
 		}
 
