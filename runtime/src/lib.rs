@@ -213,8 +213,9 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 		match call {
 			// Prevent asset `create` transactions from executing
 			Call::Assets(pallet_assets::Call::create { .. }) => false,
-			// Disable XRPLBridge `submit_challenge` call
-			// Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
+			// Disable XRPLBridge challenge calls
+			Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
+			Call::XRPLBridge(pallet_xrpl_bridge::Call::receive_offchain_challenge_verification { .. }) => false,
 			_ => true,
 		}
 	}

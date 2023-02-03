@@ -1,6 +1,6 @@
 use scale_info::prelude::{format, string::String};
 use serde_json::{json, to_vec};
-use sp_core::{H256, H512};
+use sp_core::H512;
 use sp_runtime::offchain::{http, http::Request, Duration};
 use sp_std::{vec, vec::Vec};
 
@@ -50,6 +50,6 @@ fn make_rpc_call(url: &str, body: Vec<u8>) -> Result<(), http::Error> {
 		log::warn!("No UTF8 body");
 		http::Error::Unknown
 	})?;
-
+	// TODO: Return and give parsed values depending on what is needed from XRPLs
 	Ok(())
 }

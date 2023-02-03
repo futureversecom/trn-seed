@@ -211,14 +211,8 @@ pub mod pallet {
 		challenge_submitter: Public,
 		// TODO: We need to define what this should be
 		challenge_verification_info: Vec<u8>,
-	}
-
-	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
-	/// Signed payload of a challenge submission
-	pub struct ChallengePayload<Public> {
-		transaction_hash: H512,
-		challenger: Public,
 		ledger_index: u64,
+		transaction_hash: H512,
 	}
 
 	#[pallet::hooks]
@@ -238,7 +232,7 @@ pub mod pallet {
 		
 
 		fn offchain_worker(_block_number: T::BlockNumber) {
-			let (authority_id, authority_index) =
+			let (authority_id, _authority_index) =
 				match T::ValidatorKeystore::get_active_key_with_index() {
 					Some((authority_id, authority_index)) => (authority_id, authority_index),
 					None => {
@@ -251,10 +245,6 @@ pub mod pallet {
 			let public = <app_crypto::Public as ByteArray>::from_slice(&authority_id.to_raw_vec())
 				.map_err(|()| <Error<T>>::CouldNotParsePublicKey)
 				.unwrap();
-
-			// A list of succesfully processed challenges that must be removed from storage iff the
-			// storage map iteration is finished
-			let mut processed_challenges = vec![];
 
 			if ChallengeXRPTransactionList::<T>::count() > 0 {
 				for ((xrpl_block_hash, ledger_index), challenge_submitter) in
@@ -280,6 +270,8 @@ pub mod pallet {
 					let payload = ChallengeVerificationPayload {
 						challenge_submitter,
 						challenge_verification_info,
+						transaction_hash: xrpl_block_hash,
+						ledger_index
 					};
 
 					let signature = public
@@ -297,18 +289,7 @@ pub mod pallet {
 					let tx_submit =
 						SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 							.map_err(|_| <Error<T>>::OffchainWorkerTxSubmissionError);
-
-					match tx_submit {
-						Ok(_) => processed_challenges.push((xrpl_block_hash, ledger_index)),
-						Err(err) => {
-							log::error!("Could not submit challenge verification transaction from offchain worker: {:?}", err)
-						},
-					}
 				}
-
-				processed_challenges.iter().for_each(|challenge| {
-					ChallengeXRPTransactionList::<T>::remove(challenge);
-				});
 			}
 		}
 >>>>>>> cd88513 (Make RPC request for XRPL block data)
@@ -351,9 +332,6 @@ pub mod pallet {
 		Identity,
 		// Composite key of both, as there is no CountedDoubleStorageMap
 		(H512, LedgerIndex),
-		// Blake2_128Concat,
-		// u64,
-		// crate::app_crypto::Public,
 		T::AccountId,
 		OptionQuery,
 	>;
@@ -453,11 +431,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
-			// challenge_payload: ChallengePayload<crate::app_crypto::Public>,
-			// _public: crate::app_crypto::Public,
-			// _signature: app_crypto::Signature,
 			transaction_hash: H512,
-			// challenger: crate::app_crypto::Public,
 			ledger_index: u64,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -466,14 +440,7 @@ pub mod pallet {
 				ChallengeXRPTransactionList::<T>::get((&transaction_hash, &ledger_index)).is_none(),
 				Error::<T>::AlreadyChallenged
 			);
-
-			// let ChallengePayload { transaction_hash, challenger, ledger_index } =
-			// challenge_payload;
-			// ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index),
-			// challenger);
-
 			ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index), who);
-
 			Ok(())
 		}
 
@@ -602,9 +569,15 @@ pub mod pallet {
 		pub fn receive_offchain_challenge_verification(
 			origin: OriginFor<T>,
 			payload: ChallengeVerificationPayload<T::AccountId>,
-			public: crate::app_crypto::Public,
+			_public: crate::app_crypto::Public,
 			_signature: app_crypto::Signature,
 		) -> DispatchResult {
+			ensure_none(origin)?;
+
+			// TODO: respond to the challenge by providing any specific data which was required from XRPL
+
+			ChallengeXRPTransactionList::<T>::remove((payload.transaction_hash, payload.ledger_index));
+
 			Ok(())
 		}
 	}
@@ -612,17 +585,10 @@ pub mod pallet {
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
-		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			if let Call::receive_offchain_challenge_verification { payload, public, signature } =
 				call
 			{
-				if source != TransactionSource::Local {
-					log::error!(
-					"Received call from unexpected source for XRPL challenge verification information"
-				);
-					return InvalidTransaction::Call.into()
-				}
-
 				if !public.verify(&payload.encode(), signature) {
 					log::error!(
 						"Failed to verify signed Call payload of XRPL challenge information"
@@ -630,11 +596,21 @@ pub mod pallet {
 					return InvalidTransaction::BadProof.into()
 				}
 
-				return Self::validate_transaction_parameters(
-					// challenge_payload.encode(),
-					// public,
-					// signature,
-				)
+				let original_challenge_author = ChallengeXRPTransactionList::<T>::get((payload.transaction_hash, payload.ledger_index))
+					.ok_or(InvalidTransaction::BadProof)?;
+
+				let sender: AccountId20 = EthyEcdsaToEthereum::convert(public.as_slice()).into();
+
+				// Not only must the submitter be a validator, but verifying one's own challenge
+				// is always prohibited
+				if !T::XrplNotaries::get().contains(public) ||
+					&original_challenge_author == &sender
+				{
+					log::error!("Received challenge verification information from a non-validator, or someone submitted a verification to their own challenge");
+					return InvalidTransaction::BadSigner.into()
+				}
+
+				return Self::validate_transaction_parameters()
 			} else {
 				InvalidTransaction::Call.into()
 			}
@@ -642,18 +618,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		// fn get_challenge_storage_key(hash: H512, num: u64) -> H512 {
-		// 	let mut result = [0u8; 68];
-		// 	result[0..64].copy_from_slice(&hash[..]);
-		// 	result[64..68].copy_from_slice(&num.to_le_bytes()[..]);
-		// 	sha2::hash(&result).into()
-		// }
-
 		// Perform the full validation of parameters passed to unsigned calls of this module
-		fn validate_transaction_parameters(// payload: Vec<u8>,
-			// public: &app_crypto::Public,
-			// signature: &app_crypto::Signature,
-		) -> TransactionValidity {
+		fn validate_transaction_parameters() -> TransactionValidity {
 			ValidTransaction::with_tag_prefix("XrplBridge")
 				.priority(TransactionPriority::max_value())
 				// This transaction does not require anything else to go before into the pool.

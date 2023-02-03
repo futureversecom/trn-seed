@@ -201,6 +201,9 @@ fn process_transaction_challenge_offchain_worker() {
 			ext.call,
 			RuntimeCall::XRPLBridge(Call::receive_offchain_challenge_verification { .. })
 		));
+
+		// Sole challenge was processed and removed
+		assert_eq!(ChallengeXRPTransactionList::<Test>::count(), 0);
 	})
 }
 
