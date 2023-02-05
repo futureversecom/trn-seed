@@ -23,7 +23,7 @@ use sp_runtime::{
 	},
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentityLookup, Verify},
-	DispatchError, KeyTypeId, Percent,
+	DispatchError, Percent,
 };
 use sp_std::sync::Arc;
 
@@ -192,9 +192,9 @@ where
 	}
 }
 
-pub struct MockVK;
+pub struct MockValidatorKeystore;
 
-impl ValidatorKeystore<Public> for MockVK {
+impl ValidatorKeystore<Public> for MockValidatorKeystore {
 	fn get_active_key_with_index() -> Option<(Public, u16)> {
 		let keystore = KeyStore::new();
 
@@ -231,7 +231,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type UnixTime = TimestampPallet;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type MaxChallenges = MaxChallenges;
-	type ValidatorKeystore = MockVK;
+	type ValidatorKeystore = MockValidatorKeystore;
 	type XrplNotaries = MockXrplNotaries;
 }
 

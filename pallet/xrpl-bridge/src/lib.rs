@@ -49,7 +49,7 @@ use crate::helpers::{
 };
 
 pub use pallet::*;
-use seed_primitives::{ethy::EventProofId, xrpl::XrplTxTicketSequence};
+use seed_primitives::ethy::EventProofId;
 
 mod helpers;
 
@@ -76,7 +76,7 @@ pub mod pallet {
 	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
 	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
 	use seed_primitives::{
-		ethy::{EthyEcdsaToEthereum, ETHY_KEY_TYPE},
+		ethy::EthyEcdsaToEthereum,
 		xrpl::XrplTxTicketSequence,
 		AccountId20,
 	};
