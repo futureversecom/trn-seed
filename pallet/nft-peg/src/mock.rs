@@ -224,6 +224,15 @@ impl EthereumEventRouterT for MockEthereumEventRouter {
 	}
 }
 
+/// Check the system event record contains `event`
+pub(crate) fn has_event(event: crate::Event<Test>) -> bool {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		.find(|e| *e == Event::NftPeg(event.clone()))
+		.is_some()
+}
+
 #[derive(Default)]
 pub struct ExtBuilder;
 
