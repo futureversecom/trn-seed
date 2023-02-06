@@ -75,11 +75,7 @@ pub mod pallet {
 	use super::*;
 	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
 	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
-	use seed_primitives::{
-		ethy::EthyEcdsaToEthereum,
-		xrpl::XrplTxTicketSequence,
-		AccountId20,
-	};
+	use seed_primitives::{ethy::EthyEcdsaToEthereum, xrpl::XrplTxTicketSequence, AccountId20};
 	use sp_core::{crypto::ByteArray, H512};
 
 	// use sp_keystore::SyncCryptoStore;
@@ -170,6 +166,15 @@ pub mod pallet {
 		NextTicketSequenceParamsInvalid,
 		/// The TicketSequenceParams is invalid
 		TicketSequenceParamsInvalid,
+		// Offchain Errors
+		/// Could not parse a stored XRPL block hash as a string
+		CantParseXrplBlockHash,
+		/// HTTP request deadline reached
+		DeadlineReached,
+		/// Received an HTTP when making an HTTP request
+		HttpError,
+		/// Unexpected HTTP status code
+		UnexpectedStatusCode,
 	}
 
 	#[pallet::event]
@@ -259,7 +264,9 @@ pub mod pallet {
 						return
 					}
 
-					if let Err(err) = offchain::get_xrpl_block_data(xrpl_block_hash, ledger_index) {
+					if let Err(err) =
+						offchain::get_xrpl_block_data::<T>(xrpl_block_hash, ledger_index)
+					{
 						log::error!("Could not retrieve data from XRPL RPC {:?}", err);
 						return
 					};
@@ -286,9 +293,11 @@ pub mod pallet {
 							.unwrap(),
 					};
 
-					let tx_submit =
+					if let Err(_) =
 						SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-							.map_err(|_| <Error<T>>::OffchainWorkerTxSubmissionError);
+					{
+						log::error!("Offchain worker error submitting transaction to runtime");
+					}
 				}
 			}
 		}
