@@ -202,7 +202,7 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-				let _ = Self::do_mint(collection_id, collection_info, owner, serial_numbers);
+				let _ = Self::do_mint(collection_id, collection_info, owner, &serial_numbers);
 				T::DbWeight::get().reads_writes(1, 1)
 			},
 			_ => 0 as Weight,
@@ -214,7 +214,7 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		collection_info: CollectionInformation<T>,
 		token_owner: &T::AccountId,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
 		let mut new_collection_info = collection_info;
 		// Update collection issuance
@@ -227,13 +227,6 @@ impl<T: Config> Pallet<T> {
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
-
-		// Throw event, listing all tokens minted
-		Self::deposit_event(Event::<T>::Mint {
-			collection_id,
-			serial_numbers: serial_numbers.into_inner(),
-			owner: token_owner.clone(),
-		});
 		Ok(())
 	}
 
