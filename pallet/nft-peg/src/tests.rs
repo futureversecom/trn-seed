@@ -114,7 +114,7 @@ fn do_deposit_creates_tokens_and_collection() {
 			GroupedTokenInfo::new(token_ids.clone(), token_addresses, test_vals.destination.into());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint{
+		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
 			serial_numbers: token_ids[0].clone(),
 			owner: test_vals.destination.into(),
@@ -160,11 +160,14 @@ fn do_deposit_works_with_existing_bridged_collection() {
 		let token_addresses =
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
-		let token_information =
-			GroupedTokenInfo::new(token_ids.clone(), token_addresses.clone(), test_vals.destination.into());
+		let token_information = GroupedTokenInfo::new(
+			token_ids.clone(),
+			token_addresses.clone(),
+			test_vals.destination.into(),
+		);
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint{
+		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
 			serial_numbers: token_ids[0].clone(),
 			owner: test_vals.destination.into(),
@@ -197,7 +200,7 @@ fn do_deposit_works_with_existing_bridged_collection() {
 
 		// When bridged tokens are sent for existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint{
+		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
 			serial_numbers: token_ids[0].clone(),
 			owner: test_vals.destination.into(),
@@ -239,11 +242,14 @@ fn handles_duplicated_tokens_sent() {
 		let token_addresses =
 			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
 
-		let token_information =
-			GroupedTokenInfo::new(token_ids.clone(), token_addresses.clone(), test_vals.destination.into());
+		let token_information = GroupedTokenInfo::new(
+			token_ids.clone(),
+			token_addresses.clone(),
+			test_vals.destination.into(),
+		);
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint{
+		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
 			serial_numbers: token_ids[0].clone(),
 			owner: test_vals.destination.into(),
@@ -273,12 +279,15 @@ fn handles_duplicated_tokens_sent() {
 		])
 		.unwrap();
 
-		let token_information =
-			GroupedTokenInfo::new(new_token_ids.clone(), token_addresses, test_vals.destination.into());
+		let token_information = GroupedTokenInfo::new(
+			new_token_ids.clone(),
+			token_addresses,
+			test_vals.destination.into(),
+		);
 
 		// When bridged tokens are sent for existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
-		assert!(has_event(crate::Event::<Test>::Erc721Mint{
+		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
 			serial_numbers: new_token_ids[0].clone(),
 			owner: test_vals.destination.into(),
