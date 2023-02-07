@@ -50,7 +50,7 @@ pub use frame_support::{
 	ensure, parameter_types,
 	traits::{
 		fungibles::{Inspect, InspectMetadata},
-		ConstU32, CurrencyToVote, Everything, IsInVec, KeyOwnerProofSystem, Randomness,
+		ConstU32, CurrencyToVote, Everything, Get, IsInVec, KeyOwnerProofSystem, Randomness,
 	},
 	weights::{
 		constants::{ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -109,6 +109,22 @@ mod weights;
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
+
+mod custom_migration {
+	use super::*;
+	use frame_support::{
+		traits::{OnRuntimeUpgrade, StorageVersion},
+		weights::Weight,
+	};
+
+	pub struct Upgrade;
+	impl OnRuntimeUpgrade for Upgrade {
+		fn on_runtime_upgrade() -> Weight {
+			StorageVersion::new(0).put::<EVMChainId>();
+			100
+		}
+	}
+}
 
 #[cfg(test)]
 mod tests;
@@ -840,6 +856,16 @@ impl frame_system::offchain::SigningTypes for Runtime {
 	type Signature = Signature;
 }
 
+parameter_types! {
+	pub const DefaultChainId: u64 = 7672;
+}
+impl pallet_evm_chain_id::Config for Runtime {
+	type Event = Event;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type DefaultChainId = DefaultChainId;
+	type WeightInfo = weights::pallet_evm_chain_id::WeightInfo<Runtime>;
+}
+
 // Start frontier/EVM stuff
 
 /// Current approximation of the gas/s consumption considering
@@ -864,10 +890,6 @@ impl pallet_evm::GasWeightMapping for FutureverseGasWeightMapping {
 }
 
 parameter_types! {
-	/// Ethereum ChainId
-	/// 3999 (local/dev/default)
-	/// TODO: Configured on live chains via one-time setStorage tx at key `:EthereumChainId:`
-	pub storage EthereumChainId: u64 = 3_999;
 	pub BlockGasLimit: U256
 		= U256::from(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT / WEIGHT_PER_GAS);
 	pub PrecompilesValue: FutureversePrecompiles<Runtime> = FutureversePrecompiles::<_>::new();
@@ -893,7 +915,7 @@ impl pallet_evm::Config for Runtime {
 	type Runner = FeePreferencesRunner<Self, Self>;
 	type PrecompilesType = FutureversePrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
-	type ChainId = EthereumChainId;
+	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
 	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
@@ -1027,6 +1049,7 @@ construct_runtime! {
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
+		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>} = 41,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 
@@ -1066,6 +1089,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	custom_migration::Upgrade,
 >;
 
 impl_runtime_apis! {
@@ -1705,6 +1729,8 @@ mod benches {
 		[pallet_erc20_peg, Erc20Peg]
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]
+		[pallet_evm_chain_id, EVMChainId]
+		// [pallet_xrpl_bridge, XRPLBridge]
 		// [pallet_dex, Dex]
 	);
 }
