@@ -609,6 +609,17 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
+	type MaxTokensPerCollection = T::MaxTokensPerCollection;
+	type T = T;
+
+	fn do_mint(
+		collection_id: CollectionUuid,
+		collection_info: CollectionInformation<Self::T>,
+		token_owner: &Self::AccountId,
+		serial_numbers: BoundedVec<SerialNumber, Self::MaxTokensPerCollection>,
+	) -> DispatchResult {
+		Self::do_mint(collection_id, collection_info, token_owner, serial_numbers)
+	}
 
 	fn do_create_collection(
 		owner: Self::AccountId,
