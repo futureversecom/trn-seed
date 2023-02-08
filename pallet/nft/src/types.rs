@@ -135,6 +135,14 @@ impl<T: Config> CollectionInformation<T> {
 		})
 	}
 
+	/// Check whether who owns the serial number in collection_info
+	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<T::AccountId> {
+		let Some(token) = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number)) else {
+			return None
+		};
+		Some(token.owner.clone())
+	}
+
 	/// Adds a list of tokens to a users balance in collection_info
 	pub fn add_user_tokens(
 		&mut self,
@@ -432,12 +440,18 @@ pub struct FixedPriceListing<T: Config> {
 	pub marketplace_id: Option<MarketplaceId>,
 }
 
+/// NFT collection moniker
+pub type CollectionNameType = Vec<u8>;
+
 /// Auto-incrementing Uint
 /// Uniquely identifies a registered marketplace
 pub type MarketplaceId = u32;
 
 /// Unique Id for a listing
 pub type ListingId = u128;
+
+/// Denotes a quantitiy of tokens
+pub type TokenCount = SerialNumber;
 
 #[cfg(test)]
 mod test {

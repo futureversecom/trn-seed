@@ -13,12 +13,11 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 
-use crate::*;
+use crate::{traits::NFTExt, *};
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
-	log, utils::next_asset_uuid, GetTokenOwner, Hold, NFTExt, OnNewAssetSubscriber,
-	OnTransferSubscriber,
+	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
@@ -608,36 +607,8 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// Interface for getting ownership of an NFT
-impl<T: Config> GetTokenOwner for Pallet<T> {
-	type AccountId = T::AccountId;
-
-	/// Returns the owner of a token_id
-	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		let Some(collection_info) = Self::collection_info(token_id.0) else {
-			return None
-		};
-		match collection_info
-			.owned_tokens
-			.into_iter()
-			.find(|token_ownership| token_ownership.contains_serial(&token_id.1))
-		{
-			Some(token_ownership) => Some(token_ownership.owner),
-			None => None,
-		}
-	}
-}
-
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
-
-	fn do_mint(
-		owner: &Self::AccountId,
-		collection_id: CollectionUuid,
-		serial_numbers: Vec<SerialNumber>,
-	) -> DispatchResult {
-		Self::do_mint(owner, collection_id, serial_numbers).map(|_| ())
-	}
 
 	fn do_create_collection(
 		owner: Self::AccountId,
@@ -662,6 +633,9 @@ impl<T: Config> NFTExt for Pallet<T> {
 	}
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		TokenOwner::<T>::get(token_id.0, token_id.1)
+		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
+			return None
+		};
+		collection.get_token_owner(token_id.1)
 	}
 }

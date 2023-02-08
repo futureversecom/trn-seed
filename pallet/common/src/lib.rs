@@ -16,11 +16,8 @@ use sp_std::{fmt::Debug, vec::Vec};
 
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AssetId, Balance, CollectionUuid, SerialNumber, TokenId,
+	AssetId, Balance, TokenId,
 };
-use types::nft::{CollectionNameType, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount};
-
-pub mod types;
 pub mod utils;
 
 /// syntactic sugar for logging.
@@ -115,14 +112,6 @@ pub trait CreateExt {
 		decimals: u8,
 		min_balance: Option<Balance>,
 	) -> Result<AssetId, DispatchError>;
-}
-
-/// The interface that gets the owner of a token
-pub trait GetTokenOwner {
-	type AccountId;
-
-	/// Gets whether account owns NFT of TokenId, returns None if token doesn't exist
-	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId>;
 }
 
 /// The nft with the given token_id was transferred.
@@ -329,27 +318,4 @@ impl EthCallOracleSubscriber for () {
 	}
 	/// Error callback failed for some internal reason `EthCallOracle::checked_eth_call`
 	fn on_eth_call_failed(_call_id: Self::CallId, _reason: EthCallFailure) {}
-}
-
-pub trait NFTExt {
-	type AccountId;
-
-	fn do_mint(
-		owner: &Self::AccountId,
-		collection_id: CollectionUuid,
-		serial_numbers: Vec<SerialNumber>,
-	) -> DispatchResult;
-
-	fn do_create_collection(
-		owner: Self::AccountId,
-		name: CollectionNameType,
-		initial_issuance: TokenCount,
-		max_issuance: Option<TokenCount>,
-		token_owner: Option<Self::AccountId>,
-		metadata_scheme: MetadataScheme,
-		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
-		origin_chain: OriginChain,
-	) -> Result<CollectionUuid, DispatchError>;
-
-	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId>;
 }

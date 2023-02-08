@@ -47,6 +47,7 @@ pub use weights::WeightInfo;
 
 mod impls;
 mod migration;
+pub mod traits;
 mod types;
 
 pub use impls::*;

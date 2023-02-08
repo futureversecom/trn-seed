@@ -24,7 +24,8 @@
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{NFTExt, OnTransferSubscriber};
+use pallet_nft::traits::NFTExt;
+use seed_pallet_common::OnTransferSubscriber;
 use seed_primitives::{AssetId, Balance, CollectionUuid, TokenId};
 use sp_runtime::{traits::Zero, DispatchResult};
 
@@ -53,7 +54,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// NFT ownership interface
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
-
 		/// Provides weights info
 		type WeightInfo: WeightInfo;
 	}
