@@ -18,6 +18,7 @@ use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
+
 pub mod utils;
 
 /// syntactic sugar for logging.
