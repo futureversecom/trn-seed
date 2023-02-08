@@ -24,16 +24,21 @@
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::{GetTokenOwner, OnTransferSubscriber};
+use seed_pallet_common::{NFTExt, OnTransferSubscriber};
 use seed_primitives::{AssetId, Balance, CollectionUuid, TokenId};
 use sp_runtime::{traits::Zero, DispatchResult};
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod migration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 pub use pallet::*;
+
+mod weights;
+pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -47,7 +52,10 @@ pub mod pallet {
 	#[pallet::disable_frame_system_supertrait_check]
 	pub trait Config: frame_system::Config {
 		/// NFT ownership interface
-		type GetTokenOwner: GetTokenOwner<AccountId = Self::AccountId>;
+		type NFTExt: NFTExt<AccountId = Self::AccountId>;
+
+		/// Provides weights info
+		type WeightInfo: WeightInfo;
 	}
 
 	// Account with transfer approval for a single NFT
@@ -135,7 +143,7 @@ pub mod pallet {
 		/// Mapping from token_id to operator
 		/// clears approval on transfer
 		/// mapping(uint256 => address) private _tokenApprovals;
-		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(T::WeightInfo::erc721_approval())]
 		pub fn erc721_approval(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
@@ -145,7 +153,7 @@ pub mod pallet {
 			let _ = ensure_none(origin)?;
 			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
 			// Check that origin owns NFT or is approved_for_all
-			let token_owner = match T::GetTokenOwner::get_owner(&token_id) {
+			let token_owner = match T::NFTExt::get_token_owner(&token_id) {
 				Some(owner) => owner,
 				None => return Err(Error::<T>::NoToken.into()),
 			};
@@ -162,12 +170,12 @@ pub mod pallet {
 		}
 
 		/// Public method which allows users to remove approvals on a token they own
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 1))]
+		#[pallet::weight(T::WeightInfo::erc721_remove_approval())]
 		pub fn erc721_remove_approval(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(ERC721Approvals::<T>::contains_key(token_id), Error::<T>::ApprovalDoesntExist);
 			ensure!(
-				T::GetTokenOwner::get_owner(&token_id) == Some(origin),
+				T::NFTExt::get_token_owner(&token_id) == Some(origin),
 				Error::<T>::NotTokenOwner
 			);
 			Self::remove_erc721_approval(&token_id);
@@ -177,7 +185,7 @@ pub mod pallet {
 		/// Set approval for an account to transfer an amount of tokens on behalf of the caller
 		/// Mapping from caller to spender and amount
 		/// mapping(address => mapping(address => uint256)) private _allowances;
-		#[pallet::weight(T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::erc20_approval())]
 		pub fn erc20_approval(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
@@ -193,7 +201,7 @@ pub mod pallet {
 
 		/// Removes an approval over an account and asset_id
 		/// mapping(address => mapping(address => uint256)) private _allowances;
-		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(T::WeightInfo::erc20_update_approval())]
 		pub fn erc20_update_approval(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
@@ -216,7 +224,7 @@ pub mod pallet {
 
 		/// Set approval for an account (or contract) to transfer any tokens from a collection
 		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
-		#[pallet::weight(T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::erc721_approval_for_all())]
 		pub fn erc721_approval_for_all(
 			origin: OriginFor<T>,
 			caller: T::AccountId,
@@ -252,7 +260,7 @@ impl<T: Config> Pallet<T> {
 	/// https://github.com/OpenZeppelin/openzeppelin-contracts/blob/a1948250ab8c441f6d327a65754cb20d2b1b4554/contracts/token/ERC721/ERC721.sol#L239
 	pub fn is_approved_or_owner(token_id: TokenId, spender: T::AccountId) -> bool {
 		// Check if spender is owner
-		let token_owner = T::GetTokenOwner::get_owner(&token_id);
+		let token_owner = T::NFTExt::get_token_owner(&token_id);
 		if Some(spender.clone()) == token_owner {
 			return true
 		}

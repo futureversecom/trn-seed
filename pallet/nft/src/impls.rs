@@ -17,7 +17,8 @@ use crate::*;
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
-	log, utils::next_asset_uuid, GetTokenOwner, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
+	log, utils::next_asset_uuid, GetTokenOwner, Hold, NFTExt, OnNewAssetSubscriber,
+	OnTransferSubscriber,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
@@ -624,5 +625,43 @@ impl<T: Config> GetTokenOwner for Pallet<T> {
 			Some(token_ownership) => Some(token_ownership.owner),
 			None => None,
 		}
+	}
+}
+
+impl<T: Config> NFTExt for Pallet<T> {
+	type AccountId = T::AccountId;
+
+	fn do_mint(
+		owner: &Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+	) -> DispatchResult {
+		Self::do_mint(owner, collection_id, serial_numbers).map(|_| ())
+	}
+
+	fn do_create_collection(
+		owner: Self::AccountId,
+		name: CollectionNameType,
+		initial_issuance: TokenCount,
+		max_issuance: Option<TokenCount>,
+		token_owner: Option<Self::AccountId>,
+		metadata_scheme: MetadataScheme,
+		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
+		origin_chain: OriginChain,
+	) -> Result<CollectionUuid, DispatchError> {
+		Self::do_create_collection(
+			owner,
+			name,
+			initial_issuance,
+			max_issuance,
+			token_owner,
+			metadata_scheme,
+			royalties_schedule,
+			origin_chain,
+		)
+	}
+
+	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
+		TokenOwner::<T>::get(token_id.0, token_id.1)
 	}
 }

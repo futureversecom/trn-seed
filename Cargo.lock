@@ -5364,6 +5364,7 @@ dependencies = [
 name = "pallet-token-approvals"
 version = "2.0.1"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal",
@@ -7724,6 +7725,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
+ "serde",
  "sp-core",
  "sp-runtime",
  "sp-std",
