@@ -17,7 +17,6 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use sp_runtime::traits::StaticLookup;
 
 use crate::Pallet as AssetsExt;
 
