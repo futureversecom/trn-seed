@@ -555,7 +555,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::deposit_event(Event::<T>::CollectionCreate {
 			collection_uuid,
-			token_issuance: initial_issuance,
+			initial_issuance,
 			max_issuance,
 			collection_owner: owner,
 			metadata_scheme,

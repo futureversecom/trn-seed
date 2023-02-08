@@ -309,7 +309,7 @@ fn create_collection() {
 
 		assert!(has_event(Event::<Test>::CollectionCreate {
 			collection_uuid: collection_id,
-			token_issuance: 5,
+			initial_issuance: 5,
 			max_issuance: None,
 			collection_owner,
 			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),

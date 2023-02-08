@@ -203,7 +203,7 @@ pub mod pallet {
 		/// A new collection of tokens was created
 		CollectionCreate {
 			collection_uuid: CollectionUuid,
-			token_issuance: TokenCount,
+			initial_issuance: TokenCount,
 			max_issuance: Option<TokenCount>,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
