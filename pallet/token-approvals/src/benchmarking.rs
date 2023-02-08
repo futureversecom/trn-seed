@@ -38,14 +38,13 @@ pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 // Returns the created `coll_id`
 fn build_collection<T: Config>() -> (T::AccountId, CollectionUuid, TokenId) {
 	let alice = account::<T>("Alice");
-	let coll_owner = alice.clone();
 	let collection_name = "Hello".into();
 	let metadata_scheme = MetadataScheme::IpfsDir(
 		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
 	);
 
 	let collection_id = T::NFTExt::do_create_collection(
-		coll_owner.clone(),
+		alice.clone(),
 		collection_name,
 		0,
 		None,
@@ -56,7 +55,7 @@ fn build_collection<T: Config>() -> (T::AccountId, CollectionUuid, TokenId) {
 	)
 	.unwrap();
 
-	assert_ok!(T::NFTExt::do_mint(coll_owner.clone(), collection_id, 10, Some(coll_owner.clone())));
+	assert_ok!(T::NFTExt::do_mint(alice.clone(), collection_id, 10, Some(alice.clone())));
 	(alice, collection_id, TokenId::from((collection_id, 1)))
 }
 
