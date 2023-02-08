@@ -15,6 +15,7 @@
 
 use crate::{traits::NFTExt, *};
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
+use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
@@ -613,12 +614,12 @@ impl<T: Config> NFTExt for Pallet<T> {
 	type T = T;
 
 	fn do_mint(
+		origin: T::AccountId,
 		collection_id: CollectionUuid,
-		collection_info: CollectionInformation<Self::T>,
-		token_owner: &Self::AccountId,
-		serial_numbers: BoundedVec<SerialNumber, Self::MaxTokensPerCollection>,
+		quantity: TokenCount,
+		token_owner: Option<T::AccountId>,
 	) -> DispatchResult {
-		Self::do_mint(collection_id, collection_info, token_owner, serial_numbers)
+		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner)
 	}
 
 	fn do_create_collection(

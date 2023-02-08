@@ -7725,7 +7725,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
- "serde",
  "sp-core",
  "sp-runtime",
  "sp-std",

@@ -135,7 +135,7 @@ impl<T: Config> CollectionInformation<T> {
 		})
 	}
 
-	/// Check whether who owns the serial number in collection_info
+	/// Get's the token owner
 	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<T::AccountId> {
 		let Some(token) = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number)) else {
 			return None
