@@ -467,7 +467,8 @@ impl pallet_dex::Config for Runtime {
 }
 
 impl pallet_token_approvals::Config for Runtime {
-	type GetTokenOwner = Nft;
+	type NFTExt = Nft;
+	type WeightInfo = weights::pallet_token_approvals::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1730,7 +1731,7 @@ mod benches {
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]
 		[pallet_evm_chain_id, EVMChainId]
-		// [pallet_xrpl_bridge, XRPLBridge]
+		[pallet_token_approvals, TokenApprovals]
 		// [pallet_dex, Dex]
 	);
 }

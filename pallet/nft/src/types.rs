@@ -135,6 +135,14 @@ impl<T: Config> CollectionInformation<T> {
 		})
 	}
 
+	/// Get's the token owner
+	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<T::AccountId> {
+		let Some(token) = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number)) else {
+			return None
+		};
+		Some(token.owner.clone())
+	}
+
 	/// Adds a list of tokens to a users balance in collection_info
 	pub fn add_user_tokens(
 		&mut self,

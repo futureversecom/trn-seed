@@ -8,13 +8,12 @@ use frame_support::{
 	traits::OriginTrait,
 };
 use pallet_evm::{Context, ExitReason, PrecompileSet};
-use pallet_nft::TokenCount;
+use pallet_nft::{traits::NFTExt, TokenCount};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_pallet_common::GetTokenOwner;
 use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
@@ -208,7 +207,7 @@ where
 
 		// Build output.
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		match pallet_nft::Pallet::<Runtime>::get_owner(&(collection_id, serial_number)) {
+		match pallet_nft::Pallet::<Runtime>::get_token_owner(&(collection_id, serial_number)) {
 			Some(owner_account_id) => Ok(succeed(
 				EvmDataWriter::new()
 					.write(Address::from(Into::<H160>::into(owner_account_id)))
