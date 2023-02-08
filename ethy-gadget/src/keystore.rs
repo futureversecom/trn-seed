@@ -14,17 +14,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use sp_application_crypto::RuntimeAppPublic;
-use sp_core::keccak_256;
-use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-
+use crate::error;
 use seed_primitives::ethy::{
 	crypto::{AuthorityId as Public, AuthoritySignature as Signature},
 	ETHY_KEY_TYPE,
 };
-pub use seed_primitives::EthyEcdsaToEthereum;
-
-use crate::error;
+use sp_application_crypto::RuntimeAppPublic;
+use sp_core::keccak_256;
+use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
 
 /// An Ethy specific keystore implemented as a `Newtype`. This is basically a
 /// wrapper around [`sp_keystore::SyncCryptoStore`] and allows to customize

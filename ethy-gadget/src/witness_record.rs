@@ -255,10 +255,11 @@ impl WitnessRecord {
 		Ok(WitnessStatus::Verified)
 	}
 
-	// test only
+	#[cfg(test)]
 	pub fn get_validator_set(&self) -> ValidatorSet<AuthorityId> {
 		self.validators.clone()
 	}
+	#[cfg(test)]
 	pub fn get_xrpl_validator_set(&self) -> ValidatorSet<AuthorityId> {
 		self.validators.clone()
 	}

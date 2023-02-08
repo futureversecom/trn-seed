@@ -853,7 +853,7 @@ impl pallet_eth_bridge::Config for Runtime {
 	type NotarizationThreshold = NotarizationThreshold;
 	type AuthoritySet = Historical;
 	type EventRouter = EthereumEventRouter;
-	type EthereumRpcClient = pallet_eth_bridge::EthereumRpcClient;
+	type RpcClient = pallet_eth_bridge::EthereumRpcClient;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {

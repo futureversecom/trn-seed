@@ -332,6 +332,7 @@ pub struct EthBlock {
 }
 
 #[derive(Debug, Default, Clone, Eq, PartialEq, Deserialize, TypeInfo)]
+// TODO(surangap): remove once the relavant tests are moved to eth-bridge
 pub struct EthResponse<'a, D> {
 	jsonrpc: &'a str,
 	id: u32,

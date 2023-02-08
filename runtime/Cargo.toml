@@ -73,7 +73,6 @@ pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-dex-rpc-runtime-api = { path = "../pallet/dex/rpc/runtime-api", default-features = false }
 pallet-echo = { path = "../pallet/echo", default-features = false }
-#pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-fee-proxy = { path = "../pallet/fee-proxy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }

@@ -23,9 +23,9 @@ use frame_support::{
 use log::{debug, error, info, trace};
 pub use pallet::*;
 use seed_pallet_common::{
+	eth::EthereumEventInfo,
 	ethy::{
-		BridgeAdapter, EthereumBridgeAdapter, EthereumEventInfo, EthyAdapter, EthySigningRequest,
-		State,
+		BridgeAdapter, EthereumBridgeAdapter, EthyAdapter, EthySigningRequest, State,
 		State::{Active, Paused},
 		XRPLBridgeAdapter,
 	},
@@ -70,7 +70,7 @@ pub mod pallet {
 		/// Validator set Adapter
 		type ValidatorSetAdapter: ValidatorSetInterface<AuthorityId>;
 		/// XRPL Bridge Adapter
-		type XrplBridgeAdapter: XRPLBridgeAdapter<AuthorityId>;
+		type XrplBridgeAdapter: XRPLBridgeAdapter;
 	}
 
 	#[pallet::storage]

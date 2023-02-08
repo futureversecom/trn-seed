@@ -11,14 +11,12 @@ use frame_support::{
 	PalletId,
 };
 use scale_info::TypeInfo;
-use sp_core::H160;
-
-use sp_std::{fmt::Debug, vec::Vec};
-
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
 	AssetId, Balance, TokenId,
 };
+use sp_core::H160;
+use sp_std::{fmt::Debug, vec::Vec};
 
 pub mod eth;
 pub mod ethy;
@@ -243,24 +241,6 @@ pub trait EthereumBridge {
 		source: &H160,
 		destination: &H160,
 		message: &[u8],
-	) -> Result<EventProofId, DispatchError>;
-}
-
-/// Interface from xrpl-bridge to ethy
-pub trait XrplBridgeToEthyAdapter<AuthorityId> {
-	/// Request ethy generate a signature for the given tx data
-	fn sign_xrpl_transaction(tx_data: &[u8]) -> Result<EventProofId, DispatchError>;
-	/// Return the current set of Ethy validators
-	fn validators() -> Vec<AuthorityId>;
-	/// Return the current set of xrp validators
-	fn xrp_validators() -> Vec<AuthorityId>;
-}
-
-/// Interface from ethy to xrpl-bridge
-pub trait EthyToXrplBridgeAdapter<AccountId> {
-	/// Request xrpl-bridge to submit signer_list_set.
-	fn submit_signer_list_set_request(
-		_: Vec<(AccountId, u16)>,
 	) -> Result<EventProofId, DispatchError>;
 }
 

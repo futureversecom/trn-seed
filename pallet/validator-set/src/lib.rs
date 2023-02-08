@@ -95,7 +95,7 @@ pub mod pallet {
 		/// ethy adapter
 		type EthyAdapter: ValidatorSetChangeHandler<Self::EthyId>;
 		/// XRPL Bridge adapter
-		type XRPLBridgeAdapter: XRPLBridgeAdapter<Self::EthyId>;
+		type XRPLBridgeAdapter: XRPLBridgeAdapter;
 		/// Eth Bridge adapter
 		type EthBridgeAdapter: EthereumBridgeAdapter;
 		/// Max amount of new signers that can be set an in extrinsic
@@ -197,7 +197,7 @@ pub mod pallet {
 		/// XRPL notary keys update failed
 		XRPLNotaryKeysUpdateFailed { validator_set_id: ValidatorSetId },
 		/// Xrpl Door signers are set
-		XrplDoorSignersSet,
+		XrplDoorSignersSet { door_signers: Vec<T::EthyId> },
 	}
 
 	#[pallet::hooks]
@@ -246,7 +246,7 @@ pub mod pallet {
 				XrplDoorSigners::<T>::insert(new_signer, true);
 			}
 			Self::update_xrpl_notary_keys(&Self::notary_keys());
-			Self::deposit_event(Event::<T>::XrplDoorSignersSet);
+			Self::deposit_event(Event::<T>::XrplDoorSignersSet { door_signers: new_signers });
 			Ok(())
 		}
 	}

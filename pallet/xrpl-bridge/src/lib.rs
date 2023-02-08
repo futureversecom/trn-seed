@@ -645,7 +645,7 @@ impl<T: Config> BridgeAdapter for Pallet<T> {
 	}
 }
 
-impl<T: Config> XRPLBridgeAdapter<AuthorityId> for Pallet<T> {
+impl<T: Config> XRPLBridgeAdapter for Pallet<T> {
 	fn get_signer_list_set_payload(
 		signer_entries: Vec<(XrplAccountId, u16)>,
 	) -> Result<Vec<u8>, DispatchError> {

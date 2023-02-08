@@ -23,7 +23,6 @@ sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polka
 
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
-pallet-ethy = { path = "../ethy", default-features = false }
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
