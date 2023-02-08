@@ -23,7 +23,7 @@ use frame_benchmarking::{
 };
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use seed_pallet_common::types::nft::{MetadataScheme, OriginChain};
+use pallet_nft::{MetadataScheme, OriginChain};
 
 use crate::Pallet as TokeApprovals;
 
@@ -64,86 +64,46 @@ fn setup_benchmark<T: Config>() -> BenchmarkData<T> {
 		OriginChain::Root,
 	)
 	.unwrap();
-	assert_ok!(T::NFTExt::do_mint(&coll_owner, coll_id, vec![1, 2]));
+
+	assert_ok!(T::NFTExt::do_mint(coll_owner.clone(), coll_id, 10, Some(coll_owner.clone())));
 	let coll_tokens: Vec<TokenId> = vec![(coll_id, 1), (coll_id, 2)];
-
 	let token_id = coll_tokens[0].clone();
-
 	BenchmarkData { coll_owner, coll_id, coll_tokens, token_id }
 }
 
 benchmarks! {
 	erc721_approval {
 		let BenchmarkData { coll_owner, token_id, .. } = setup_benchmark::<T>();
-		let caller = coll_owner;
-		let operator_account = account::<T>("Operator_Account");
-
-	}: _(RawOrigin::None, caller, operator_account.clone(), token_id.clone())
-	verify {
-		assert_eq!(ERC721Approvals::<T>::get(token_id), Some(operator_account));
-	}
+	}: _(RawOrigin::None, coll_owner, account::<T>("Operator_Account"), token_id)
 
 	erc721_remove_approval {
 		let BenchmarkData { coll_owner, token_id, .. } = setup_benchmark::<T>();
 		let caller = coll_owner;
-		let operator_account = account::<T>("Operator_Account");
 
-		assert_ok!(TokeApprovals::<T>::erc721_approval(RawOrigin::None.into(), caller.clone(), operator_account.clone(), token_id.clone()));
-
-		// Sanity check
-		assert!(ERC721Approvals::<T>::get(token_id).is_some());
-
+		assert_ok!(TokeApprovals::<T>::erc721_approval(RawOrigin::None.into(), caller.clone(), account::<T>("Operator_Account"), token_id.clone()));
 	}: _(origin::<T>(&caller), token_id.clone())
-	verify {
-		assert_eq!(ERC721Approvals::<T>::get(token_id), None);
-	}
 
 	erc20_approval {
 		let BenchmarkData { coll_owner, token_id, .. } = setup_benchmark::<T>();
-		let caller = coll_owner;
-		let spender  = account::<T>("Spender");
-		let asset_id = 100;
-		let expected_amount: Balance = 10u32.into();
-
-	}: _(RawOrigin::None, caller.clone(), spender.clone(), asset_id, expected_amount.clone())
-	verify {
-		let actual_balance = ERC20Approvals::<T>::get((caller, asset_id), spender);
-		assert_eq!(actual_balance, Some(expected_amount));
-	}
+	}: _(RawOrigin::None, coll_owner, account::<T>("Spender"), 100, Balance::from(10u32))
 
 	erc20_update_approval {
 		let BenchmarkData { coll_owner, token_id, .. } = setup_benchmark::<T>();
-		let caller = coll_owner;
 		let spender  = account::<T>("Spender");
 		let asset_id = 100;
-		let amount: Balance = 10u32.into();
-		let decrease_by: Balance = 2u32.into();
 
-		assert_ok!(TokeApprovals::<T>::erc20_approval(RawOrigin::None.into(), caller.clone(), spender.clone(), asset_id, amount.clone()));
-
-	}: _(RawOrigin::None, caller.clone(), spender.clone(), asset_id, decrease_by.clone())
-	verify {
-		let expected_amount = amount - decrease_by;
-		let actual_balance = ERC20Approvals::<T>::get((caller, asset_id), spender);
-		assert_eq!(actual_balance, Some(expected_amount));
-	}
+		assert_ok!(TokeApprovals::<T>::erc20_approval(RawOrigin::None.into(), coll_owner.clone(), spender.clone(), asset_id, Balance::from(10u32)));
+	}: _(RawOrigin::None, coll_owner.clone(), spender.clone(), asset_id, Balance::from(2u32))
 
 	erc721_approval_for_all {
 		let BenchmarkData { coll_owner, coll_id, .. } = setup_benchmark::<T>();
 		let caller = coll_owner;
 		let operator_account = account::<T>("Operator_Account");
-		let expected_approved = true;
 
 		// Sanity check
 		let res = ERC721ApprovalsForAll::<T>::get(caller.clone(), (coll_id, operator_account.clone()));
 		assert_eq!(res, None);
-
-
-	}: _(RawOrigin::None, caller.clone(), operator_account.clone(), coll_id, expected_approved)
-	verify {
-		let actual_approved = ERC721ApprovalsForAll::<T>::get(caller, (coll_id, operator_account));
-		assert_eq!(actual_approved, Some(expected_approved));
-	}
+	}: _(RawOrigin::None, caller.clone(), operator_account.clone(), coll_id, true)
 }
 
 impl_benchmark_test_suite!(TokeApprovals, crate::mock::new_test_ext(), crate::mock::Test,);

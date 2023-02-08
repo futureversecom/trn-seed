@@ -14,16 +14,59 @@
  */
 
 use super::*;
-use crate::mock::{AccountId, Test, TestExt, TokenApprovals};
+use crate::mock::{AccountId, Nft, Test, TestExt, TokenApprovals};
 use frame_support::{assert_noop, assert_ok};
+use frame_system::RawOrigin;
+use pallet_nft::{MetadataScheme, OriginChain};
 use seed_primitives::TokenId;
+
+const ALICE: AccountId = 10;
+
+pub struct TestData {
+	pub coll_owner: AccountId,
+	pub coll_id: CollectionUuid,
+	pub coll_tokens: Vec<TokenId>,
+	pub token_id: TokenId,
+	pub token_owner: AccountId,
+}
+
+fn prepare_test() -> TestData {
+	let alice = ALICE;
+	let coll_owner = alice.clone();
+	let collection_name = "Hello".into();
+	let metadata_scheme = MetadataScheme::IpfsDir(
+		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
+	);
+
+	let coll_id = Nft::do_create_collection(
+		coll_owner.clone(),
+		collection_name,
+		0,
+		None,
+		None,
+		metadata_scheme,
+		None,
+		OriginChain::Root,
+	)
+	.unwrap();
+
+	let origin = RawOrigin::Signed(alice.clone()).into();
+	let count = 10u32;
+	assert_ok!(Nft::mint(origin, coll_id, count + 1, Some(alice)));
+	let coll_tokens: Vec<TokenId> = vec![(coll_id, count)];
+
+	let token_id = coll_tokens[0].clone();
+	let token_owner = coll_owner.clone();
+
+	TestData { coll_owner, coll_id, coll_tokens, token_id, token_owner }
+}
 
 #[test]
 fn set_erc721_approval() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
-		let operator: AccountId = 11;
-		let token_id: TokenId = (0, 0);
+		let TestData { token_owner, token_id, .. } = prepare_test();
+		let caller = token_owner;
+		let operator = caller + 1;
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
@@ -57,18 +100,17 @@ fn migration_v0_to_v1() {
 #[test]
 fn set_erc721_approval_approved_for_all() {
 	TestExt::default().build().execute_with(|| {
-		let token_owner: AccountId = 10;
-		let caller: AccountId = 12;
-		let operator: AccountId = 13;
-		let collection_id: CollectionUuid = 0;
-		let token_id: TokenId = (collection_id, 0);
+		let TestData { token_owner, token_id, coll_id, .. } = prepare_test();
+
+		let caller = token_owner + 1;
+		let operator = caller + 1;
 
 		// Token owner approves caller for all
 		assert_ok!(TokenApprovals::erc721_approval_for_all(
 			None.into(),
 			token_owner,
 			caller,
-			collection_id,
+			coll_id,
 			true
 		));
 
@@ -110,9 +152,9 @@ fn set_erc721_approval_caller_is_operator_should_fail() {
 #[test]
 fn erc721_approval_removed_on_transfer() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
-		let operator: AccountId = 11;
-		let token_id: TokenId = (0, 0);
+		let TestData { token_owner, token_id, .. } = prepare_test();
+		let caller = token_owner;
+		let operator = caller + 1;
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
@@ -124,9 +166,9 @@ fn erc721_approval_removed_on_transfer() {
 #[test]
 fn erc721_remove_approval() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
-		let operator: AccountId = 11;
-		let token_id: TokenId = (0, 0);
+		let TestData { token_owner, token_id, .. } = prepare_test();
+		let caller = token_owner;
+		let operator = caller + 1;
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 
@@ -153,9 +195,10 @@ fn erc721_remove_approval_no_approval_should_fail() {
 #[test]
 fn erc721_remove_approval_not_owner_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
-		let operator: AccountId = 11;
-		let token_id: TokenId = (0, 0);
+		let TestData { token_owner, token_id, .. } = prepare_test();
+
+		let caller = token_owner;
+		let operator = caller + 1;
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 
@@ -397,11 +440,10 @@ fn set_erc721_approval_for_all_caller_is_operator_should_fail() {
 #[test]
 fn is_approved_or_owner_works() {
 	TestExt::default().build().execute_with(|| {
-		let token_owner: AccountId = 10;
+		let TestData { token_owner, coll_id, token_id, .. } = prepare_test();
+
 		let approved_for_all_account: AccountId = 11;
 		let approved_account: AccountId = 12;
-		let collection_id: CollectionUuid = 0;
-		let token_id: TokenId = (collection_id, 0);
 
 		// Should return false for both as approvals have not been set up
 		assert!(!TokenApprovals::is_approved_or_owner(token_id, approved_for_all_account));
@@ -412,7 +454,7 @@ fn is_approved_or_owner_works() {
 			None.into(),
 			token_owner,
 			approved_for_all_account,
-			collection_id,
+			coll_id,
 			true
 		));
 
