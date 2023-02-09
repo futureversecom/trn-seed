@@ -13,7 +13,7 @@ services:
       - -d
       - /node-data
       - --telemetry-url
-      - "wss://telemetry.polkadot.io/submit/ 0"
+      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
       - --name
       - RootValidator
       - --sync
@@ -37,7 +37,7 @@ services:
       - -d
       - /node-data
       - --telemetry-url
-      - "wss://telemetry.polkadot.io/submit/ 0"
+      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
       - --name
       - RootValidator
     ports:
@@ -57,7 +57,7 @@ services:
       - -d
       - /node-data
       - --telemetry-url
-      - "wss://telemetry.polkadot.io/submit/ 0"
+      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
       - --name
       - PorciniValidator
       - --sync
@@ -81,7 +81,7 @@ services:
       - -d
       - /node-data
       - --telemetry-url
-      - "wss://telemetry.polkadot.io/submit/ 0"
+      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
       - --name
       - PorciniValidator
     ports:
