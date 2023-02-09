@@ -1027,7 +1027,7 @@ construct_runtime! {
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
 		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 12,
 		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
-		ValidatorSet: pallet_validator_set::{Pallet, Call, Storage, Event<T>, Config<T>} = 41,
+		ValidatorSet: pallet_validator_set::{Pallet, Call, Storage, Event<T>, Config<T>} = 42,
 
 		// World
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 14,
