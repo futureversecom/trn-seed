@@ -28,7 +28,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use sp_runtime::{
 	traits::{Convert, One, Zero},
-	ArithmeticError, Percent, SaturatedConversion,
+	Percent, SaturatedConversion,
 };
 use sp_std::{prelude::*, vec};
 use xrpl_codec::{
@@ -231,10 +231,6 @@ pub mod pallet {
 =======
 
 		fn offchain_worker(_block_number: T::BlockNumber) {
-			use frame_support::sp_runtime::traits::Convert;
-			use sp_application_crypto::ByteArray;
-			use sp_application_crypto::RuntimeAppPublic;
-
 			let (authority_id, _authority_index) =
 				match T::ValidatorKeystore::get_active_key_with_index() {
 					Some((authority_id, authority_index)) => (authority_id, authority_index),
@@ -605,11 +601,6 @@ pub mod pallet {
 impl<T: Config> ValidateUnsigned for Pallet<T> {
 	type Call = Call<T>;
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		use seed_primitives::{AccountId20, ethy::EthyEcdsaToEthereum};
-		use sp_application_crypto::RuntimeAppPublic;
-		use frame_support::sp_runtime::traits::Convert;
-		use sp_application_crypto::ByteArray;
-
 		if let Call::offchain_challenge_verification { payload, public, signature } =
 			call
 		{
