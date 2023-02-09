@@ -14,7 +14,7 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod ethereum_http_cli;
+mod eth_rpc_client;
 mod types;
 use crate::types::{
 	BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim, EventClaimResult,
@@ -22,7 +22,7 @@ use crate::types::{
 };
 use codec::Encode;
 use ethabi::{ParamType, Token};
-pub use ethereum_http_cli::EthereumRpcClient;
+pub use eth_rpc_client::EthereumRpcClient;
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
