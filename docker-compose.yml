@@ -16,8 +16,6 @@ services:
       - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
       - --name
       - RootValidator
-      - --sync
-      - warp
     ports:
       - "9933:9933"
       - "9944:9944"
@@ -60,8 +58,6 @@ services:
       - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
       - --name
       - PorciniValidator
-      - --sync
-      - warp
     ports:
       - "9933:9933"
       - "9944:9944"
