@@ -2,7 +2,9 @@
   "name": "Root",
   "id": "root",
   "chainType": "Live",
-  "bootNodes": [],
+  "bootNodes": [
+    "/dns4/bootnode-2.root.prod.rootnet.app/tcp/30333/p2p/12D3KooWB9tZgZnypsE5zZ1E2255F12duh7Cu5Mqnx7dsc7Abk4S"
+  ],
   "telemetryEndpoints": null,
   "protocolId": null,
   "properties": {
