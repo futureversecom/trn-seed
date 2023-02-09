@@ -1,28 +1,24 @@
-FROM rustlang/rust:nightly AS builder
-LABEL stage=build
-ARG NODE_BUILD_DIR=/seed-build
-ARG PROFILE=release
-ARG RUST_NIGHTLY=nightly-2022-03-01
-ARG RUST_VERSION=stable
+# Stage 1 - Build node
+FROM docker.io/library/rust:1.65.0-buster AS builder
 
-WORKDIR ${NODE_BUILD_DIR}
-COPY . $NODE_BUILD_DIR
+ADD . ./workdir
+WORKDIR "/workdir"
 
-RUN apt-get update && \
-    apt-get -y install apt-utils cmake pkg-config libssl-dev git clang libclang-dev && \
-    rustup uninstall nightly && \
-    rustup install $RUST_VERSION && \
-    rustup install $RUST_NIGHTLY && \
-    rustup default $RUST_VERSION && \
-    rustup target add --toolchain $RUST_NIGHTLY wasm32-unknown-unknown && \
-    mkdir -p ${NODE_BUILD_DIR}/.cargo
-ENV CARGO_HOME=${NODE_BUILD_DIR}/.cargo
-RUN cargo build "--$PROFILE"
+# This installs all dependencies that we need.
+RUN apt update -y && \
+    apt install build-essential git clang curl libssl-dev llvm libudev-dev make cmake protobuf-compiler pkg-config -y
 
-FROM debian:buster-slim
+# Install the right toolchain and build the node
+RUN rustup show && cargo build --release --locked
+
+
+# Stage 2 - Run node
+FROM docker.io/library/rust:1.65.0-buster AS run
 LABEL maintainer="support@centrality.ai"
 LABEL org.opencontainers.image.source=https://github.com/futureversecom/seed
-COPY --from=0 /seed-build/target/release/seed /usr/bin/
+COPY --from=0 /workdir/target/release/seed /usr/bin/
+
 
 EXPOSE 30333 9933 9944
+VOLUME ["/node-data"]
 ENTRYPOINT ["/usr/bin/seed"]
