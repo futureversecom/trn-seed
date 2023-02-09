@@ -5,7 +5,8 @@
   "bootNodes": [
     "/dns4/bootnode-0.cicd.rootnet.app/tcp/30333/p2p/12D3KooWApbepSHWhDzqz9GWFXzKWiWQmkhAVUdW9KBG5K8vNWxJ",
     "/dns4/bootnode-1.cicd.rootnet.app/tcp/30333/p2p/12D3KooWPQV5rvHSVeiiVpqKP5ksaUoohQwvJhLuoeHmHkKgK3My",
-    "/dns4/bootnode-2.cicd.rootnet.app/tcp/30333/p2p/12D3KooWGinmSRcU2Y1vSynWHrphfxKosFJQeD7Rr1TCDX3gJMJF"
+    "/dns4/bootnode-2.cicd.rootnet.app/tcp/30333/p2p/12D3KooWGinmSRcU2Y1vSynWHrphfxKosFJQeD7Rr1TCDX3gJMJF",
+    "/dns4/bootnode-3.cicd.rootnet.app/tcp/30333/p2p/12D3KooWBQYS4KDS6PRkLvMGpkPbkKnd3v2L8NPHo4GwhHJYe9SF"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
