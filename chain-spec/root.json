@@ -3,6 +3,8 @@
   "id": "root",
   "chainType": "Live",
   "bootNodes": [
+    "/dns4/bootnode-0.root.prod.rootnet.app/tcp/30333/p2p/12D3KooWRHjF27MLP7uxtPdx3qLVug4kutMuthvQttPy86LwJoca",
+    "/dns4/bootnode-1.root.prod.rootnet.app/tcp/30333/p2p/12D3KooWSBt3LgCgFWdoNJdrYwo1T7dMjskimcVbCMuVjnQ14vQP",
     "/dns4/bootnode-2.root.prod.rootnet.app/tcp/30333/p2p/12D3KooWB9tZgZnypsE5zZ1E2255F12duh7Cu5Mqnx7dsc7Abk4S"
   ],
   "telemetryEndpoints": null,
