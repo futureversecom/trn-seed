@@ -56,11 +56,11 @@ mod helpers;
 mod benchmarking;
 #[cfg(test)]
 mod mock;
-mod offchain;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_relayer;
+mod xrpl_rpc_client;
 
 pub mod weights;
 
@@ -82,15 +82,15 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config:
-	CreateSignedTransaction<Call<Self>> + frame_system::Config<AccountId = AccountId>
+		CreateSignedTransaction<Call<Self>> + frame_system::Config<AccountId = AccountId>
 	{
 		type AuthorityId: Member
-		+ Parameter
-		+ AsRef<[u8]>
-		+ RuntimeAppPublic
-		+ Ord
-		+ MaybeSerializeDeserialize
-		+ frame_support::sp_runtime::RuntimeAppPublic;
+			+ Parameter
+			+ AsRef<[u8]>
+			+ RuntimeAppPublic
+			+ Ord
+			+ MaybeSerializeDeserialize
+			+ frame_support::sp_runtime::RuntimeAppPublic;
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
@@ -170,10 +170,12 @@ pub mod pallet {
 		DeadlineReached,
 		/// Received an HTTP when making an HTTP request
 		HttpError,
+		/// Http response took too long to return
+		HttpTimeout,
 		/// Unexpected HTTP status code
 		UnexpectedStatusCode,
 		/// Attempted to take an xrpl ticket sequence which overflowed
-		XrplTicketSequenceTooHigh
+		XrplTicketSequenceTooHigh,
 	}
 
 	#[pallet::event]
@@ -209,14 +211,12 @@ pub mod pallet {
 		TicketSequenceThresholdReached(u32),
 	}
 
-
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
 	/// Signed payload of the information received offchain to verify a challenge
 	pub struct ChallengeVerificationPayload<Public> {
 		challenge_submitter: Public,
 		// TODO: We need to define what this should be
 		challenge_verification_info: Vec<u8>,
-		ledger_index: u64,
 		transaction_hash: H512,
 	}
 
@@ -242,13 +242,13 @@ pub mod pallet {
 
 			// Manually parse the public key
 			let public = <app_crypto::Public as ByteArray>::from_slice(
-				&sp_application_crypto::RuntimeAppPublic::to_raw_vec(&authority_id)				
+				&sp_application_crypto::RuntimeAppPublic::to_raw_vec(&authority_id),
 			)
-				.map_err(|()| <Error<T>>::CouldNotParsePublicKey)
-				.unwrap();
+			.map_err(|()| <Error<T>>::CouldNotParsePublicKey)
+			.unwrap();
 
 			if ChallengeXRPTransactionList::<T>::count() > 0 {
-				for ((xrpl_block_hash, ledger_index), challenge_submitter) in
+				for (xrpl_block_hash, challenge_submitter) in
 					ChallengeXRPTransactionList::<T>::iter()
 				{
 					let public = public.clone();
@@ -260,9 +260,7 @@ pub mod pallet {
 						return
 					}
 
-					if let Err(err) =
-						offchain::get_xrpl_block_data::<T>(xrpl_block_hash, ledger_index)
-					{
+					if let Err(err) = xrpl_rpc_client::get_xrpl_tx_data::<T>(xrpl_block_hash) {
 						log::error!("Could not retrieve data from XRPL RPC {:?}", err);
 						return
 					};
@@ -274,7 +272,6 @@ pub mod pallet {
 						challenge_submitter,
 						challenge_verification_info,
 						transaction_hash: xrpl_block_hash,
-						ledger_index,
 					};
 
 					let signature = public
@@ -319,14 +316,14 @@ pub mod pallet {
 	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
 	pub type ProcessXRPTransaction<T: Config> =
-	StorageMap<_, Twox64Concat, T::BlockNumber, Vec<(XrplTxHash, LedgerIndex)>>;
+		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<XrplTxHash>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
 	/// Stores submitted transactions from XRPL waiting to be processed
 	/// Transactions will be cleared `ClearTxPeriod` blocks after processing
 	pub type ProcessXRPTransactionDetails<T: Config> =
-		StorageMap<_, Identity, (XrplTxHash, LedgerIndex), (XrpTransaction, T::AccountId)>;
+		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
@@ -337,14 +334,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
-	pub type ChallengeXRPTransactionList<T: Config> = CountedStorageMap<
-		_,
-		Identity,
-		// Composite key of both, as there is no CountedDoubleStorageMap
-		(H512, LedgerIndex),
-		T::AccountId,
-		OptionQuery,
-	>;
+	pub type ChallengeXRPTransactionList<T: Config> =
+		CountedStorageMap<_, Identity, H512, T::AccountId, OptionQuery>;
 
 	#[pallet::type_value]
 	pub fn DefaultDoorTicketSequence() -> u32 {
@@ -429,7 +420,7 @@ pub mod pallet {
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
 			ensure!(
-				Self::process_xrp_transaction_details((transaction_hash, ledger_index)).is_none(),				
+				Self::process_xrp_transaction_details(transaction_hash).is_none(),
 				Error::<T>::TxReplay
 			);
 
@@ -442,15 +433,14 @@ pub mod pallet {
 		pub fn submit_challenge(
 			origin: OriginFor<T>,
 			transaction_hash: XrplTxHash,
-			ledger_index: u64,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(ChallengeXRPTransactionList::<T>::count() < 3, Error::<T>::TooManyChallenges);
 			ensure!(
-				ChallengeXRPTransactionList::<T>::get((&transaction_hash, &ledger_index)).is_none(),
+				ChallengeXRPTransactionList::<T>::get(&transaction_hash).is_none(),
 				Error::<T>::AlreadyChallenged
 			);
-			ChallengeXRPTransactionList::<T>::insert((&transaction_hash, ledger_index), who);
+			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, who);
 			Ok(())
 		}
 
@@ -466,10 +456,7 @@ pub mod pallet {
 			// TODO: respond to the challenge by providing any specific data which was required from
 			// XRPL
 
-			ChallengeXRPTransactionList::<T>::remove((
-				payload.transaction_hash,
-				payload.ledger_index,
-			));
+			ChallengeXRPTransactionList::<T>::remove(payload.transaction_hash);
 
 			Ok(())
 		}
@@ -596,43 +583,38 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			if let Call::offchain_challenge_verification { payload, public, signature } = call {
+				if !public.verify(&payload.encode(), signature) {
+					log::error!(
+						"Failed to verify signed Call payload of XRPL challenge information"
+					);
+					return InvalidTransaction::BadProof.into()
+				}
 
-#[pallet::validate_unsigned]
-impl<T: Config> ValidateUnsigned for Pallet<T> {
-	type Call = Call<T>;
-	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-		if let Call::offchain_challenge_verification { payload, public, signature } =
-			call
-		{
-			if !public.verify(&payload.encode(), signature) {
-				log::error!(
-					"Failed to verify signed Call payload of XRPL challenge information"
-				);
-				return InvalidTransaction::BadProof.into()
+				let original_challenge_author =
+					ChallengeXRPTransactionList::<T>::get(payload.transaction_hash)
+						.ok_or(InvalidTransaction::BadProof)?;
+
+				let sender: AccountId20 = EthyEcdsaToEthereum::convert(public.as_slice()).into();
+
+				// Not only must the submitter be a validator, but verifying one's own challenge
+				// is always prohibited
+				if !T::XrplNotaries::get().contains(public) || &original_challenge_author == &sender
+				{
+					log::error!("Received challenge verification information from a non-validator, or someone submitted a verification to their own challenge");
+					return InvalidTransaction::BadSigner.into()
+				}
+
+				return Self::validate_transaction_parameters()
+			} else {
+				InvalidTransaction::Call.into()
 			}
-
-			let original_challenge_author = ChallengeXRPTransactionList::<T>::get((
-				payload.transaction_hash,
-				payload.ledger_index,
-			))
-			.ok_or(InvalidTransaction::BadProof)?;
-
-			let sender: AccountId20 = EthyEcdsaToEthereum::convert(public.as_slice()).into();
-
-			// Not only must the submitter be a validator, but verifying one's own challenge
-			// is always prohibited
-			if !T::XrplNotaries::get().contains(public) || &original_challenge_author == &sender
-			{
-				log::error!("Received challenge verification information from a non-validator, or someone submitted a verification to their own challenge");
-				return InvalidTransaction::BadSigner.into()
-			}
-
-			return Self::validate_transaction_parameters()
-		} else {
-			InvalidTransaction::Call.into()
 		}
 	}
-}
 }
 
 impl<T: Config> Pallet<T> {
@@ -643,8 +625,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
-		let tx_items: Vec<(XrplTxHash, LedgerIndex)> = match <ProcessXRPTransaction<T>>::take(n)
-		{
+		let tx_items: Vec<XrplTxHash> = match <ProcessXRPTransaction<T>>::take(n) {
 			None => return DbWeight::get().reads(2 as Weight),
 			Some(v) => v,
 		};
@@ -659,16 +640,14 @@ impl<T: Config> Pallet<T> {
 		reads += tx_items.len() as u64 * 2;
 		let tx_details = tx_details.filter_map(|x| Some((x.0, x.1?)));
 
-		for ((transaction_hash, ledger_index), (ref tx, _relayer)) in tx_details {
+		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
 			match tx.transaction {
 				XrplTxData::Payment { amount, address } => {
-					if let Err(e) = T::MultiCurrency::mint_into(
-						T::XrpAssetId::get(),
-						&address.into(),
-						amount,
-					) {
+					if let Err(e) =
+						T::MultiCurrency::mint_into(T::XrpAssetId::get(), &address.into(), amount)
+					{
 						Self::deposit_event(Event::ProcessingFailed(
-							*ledger_index,
+							ledger_index,
 							transaction_hash.clone(),
 							e,
 						));
@@ -688,12 +667,11 @@ impl<T: Config> Pallet<T> {
 			);
 			writes += 2;
 			reads += 2;
-			Self::deposit_event(Event::ProcessingOk(*ledger_index, transaction_hash.clone()));
+			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
 		}
 
 		DbWeight::get().reads_writes(reads, writes)
 	}
-
 
 	/// Prune settled transaction data from storage
 	/// if it was scheduled to do so at block `n`
@@ -704,7 +682,7 @@ impl<T: Config> Pallet<T> {
 		if <SettledXRPTransactionDetails<T>>::contains_key(n) {
 			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
 				writes += 1 + tx_hashes.len() as Weight;
-				for tx_hash in tx_hashes {
+				for (tx_hash, _ledger_index) in tx_hashes {
 					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
 				}
 			}
@@ -720,26 +698,17 @@ impl<T: Config> Pallet<T> {
 		timestamp: Timestamp,
 	) -> DispatchResult {
 		let val = XrpTransaction { transaction_hash, transaction, timestamp };
-		<ProcessXRPTransactionDetails<T>>::insert(
-			(&transaction_hash, ledger_index),
-			(val, relayer),
-		);
+		<ProcessXRPTransactionDetails<T>>::insert(&transaction_hash, (ledger_index, val, relayer));
 
-		Self::add_to_xrp_process(transaction_hash, ledger_index)?;
+		Self::add_to_xrp_process(transaction_hash)?;
 		Self::deposit_event(Event::TransactionAdded(ledger_index, transaction_hash));
 		Ok(())
 	}
 
-	pub fn add_to_xrp_process(
-		transaction_hash: XrplTxHash,
-		ledger_index: LedgerIndex,
-	) -> DispatchResult {
+	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResult {
 		let process_block_number =
 			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
-		ProcessXRPTransaction::<T>::append(
-			&process_block_number,
-			(&transaction_hash, ledger_index),
-		);
+		ProcessXRPTransaction::<T>::append(&process_block_number, &transaction_hash);
 		Ok(())
 	}
 
@@ -825,7 +794,7 @@ impl<T: Config> Pallet<T> {
 		let mut next_sequence =
 		// current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 			current_sequence.checked_add(One::one()).ok_or(Error::<T>::XrplTicketSequenceTooHigh)?;
-			
+
 		let last_sequence = ticket_params
 			.start_sequence
 			.checked_add(ticket_params.bucket_size)

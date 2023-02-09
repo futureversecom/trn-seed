@@ -7,25 +7,21 @@ use sp_std::{vec, vec::Vec};
 
 const XRPL_ENDPOINT: &str = "https://s1.ripple.com:51234/";
 
-pub fn get_xrpl_block_data<T: Config>(
-	xrpl_block_hash: H512,
-	ledger_index: u64,
-) -> Result<(), Error<T>> {
+pub fn get_xrpl_tx_data<T: Config>(xrpl_block_hash: H512) -> Result<(), Error<T>> {
 	let hash: String = String::from_utf8(xrpl_block_hash.as_bytes().to_vec())
 		.map_err(|_| Error::<T>::CantParseXrplBlockHash)?;
 
-	let body = rpc_body("transaction_entry", &hash, ledger_index);
+	let body = rpc_body("tx", &hash);
 	make_rpc_call(XRPL_ENDPOINT, body)
 }
 
-// Build RPC body for getting tx by ledger
-fn rpc_body(method: &str, tx_hash: &str, ledger_index: u64) -> Vec<u8> {
+// Build RPC body for XRPL `tx` RPC method
+fn rpc_body(method: &str, tx_hash: &str) -> Vec<u8> {
 	let body = json!({
 		"method": method,
 		"params": [
 			{
-				"tx_hash":  format!("{}", tx_hash),
-				"ledger_index": ledger_index
+				"tx_hash":  format!("{}", tx_hash)
 			}
 		]
 	});
@@ -44,7 +40,7 @@ fn make_rpc_call<T: Config>(url: &str, body: Vec<u8>) -> Result<(), Error<T>> {
 	let response = pending
 		.try_wait(deadline)
 		.map_err(|_| Error::DeadlineReached)?
-		.map_err(|_| Error::HttpError)?;
+		.map_err(|_| Error::HttpTimeout)?;
 
 	// Let's check the status code before we proceed to reading the response.
 	if response.code != 200 {
