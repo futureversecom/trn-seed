@@ -199,7 +199,7 @@ fn process_transaction_challenge_offchain_worker() {
 		// Then: Offchain worker has submitted the challenge verification ext to the pool
 		assert!(matches!(
 			ext.call,
-			RuntimeCall::XRPLBridge(Call::receive_offchain_challenge_verification { .. })
+			RuntimeCall::XRPLBridge(Call::offchain_challenge_verification { .. })
 		));
 
 		// Sole challenge was processed and removed

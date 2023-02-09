@@ -423,10 +423,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -1635,16 +1635,16 @@ dependencies = [
  "seed-primitives",
  "serde",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-finality-grandpa",
  "sp-keyring",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-tracing",
  "strum",
  "substrate-prometheus-endpoint",
  "substrate-test-runtime-client",
@@ -1672,8 +1672,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -1781,7 +1781,7 @@ dependencies = [
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -1796,9 +1796,9 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "sc-client-db",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-database",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -1815,7 +1815,7 @@ dependencies = [
  "sc-client-api",
  "sp-api",
  "sp-blockchain",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -1850,10 +1850,10 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-storage",
  "substrate-prometheus-endpoint",
  "tokio",
 ]
@@ -1988,9 +1988,9 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27
 dependencies = [
  "ethereum",
  "parity-scale-codec",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2003,8 +2003,8 @@ dependencies = [
  "fp-evm",
  "frame-support",
  "parity-scale-codec",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-std",
 ]
 
 [[package]]
@@ -2016,8 +2016,8 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-std",
 ]
 
 [[package]]
@@ -2031,10 +2031,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2048,7 +2048,7 @@ dependencies = [
  "parity-util-mem",
  "scale-info",
  "serde",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -2074,12 +2074,12 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-io",
+ "sp-runtime",
+ "sp-runtime-interface",
+ "sp-std",
+ "sp-storage",
 ]
 
 [[package]]
@@ -2119,15 +2119,15 @@ dependencies = [
  "serde_nanos",
  "sp-api",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-database",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-externalities",
  "sp-inherents",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-storage",
+ "sp-trie",
  "tempfile",
  "thiserror",
  "thousands",
@@ -2154,10 +2154,10 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
  "sp-npos-elections",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2169,11 +2169,11 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]
@@ -2205,16 +2205,16 @@ dependencies = [
  "scale-info",
  "serde",
  "smallvec",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
+ "sp-core",
  "sp-core-hashing-proc-macro",
  "sp-inherents",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
+ "sp-runtime",
  "sp-staking",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-state-machine",
+ "sp-std",
+ "sp-tracing",
  "tt-call",
 ]
 
@@ -2262,10 +2262,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "sp-version",
 ]
 
@@ -2279,9 +2279,9 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2300,8 +2300,8 @@ source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.2
 dependencies = [
  "frame-support",
  "sp-api",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4604,8 +4604,8 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4624,10 +4624,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4641,8 +4641,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-authorship",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4659,14 +4659,14 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
  "sp-consensus-babe",
  "sp-consensus-vrf",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
+ "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
 ]
 
 [[package]]
@@ -4682,11 +4682,11 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "sp-tracing",
 ]
 
 [[package]]
@@ -4700,8 +4700,8 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4715,8 +4715,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -4734,10 +4734,10 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4750,8 +4750,8 @@ dependencies = [
  "seed-primitives",
  "sp-api",
  "sp-blockchain",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4761,8 +4761,8 @@ dependencies = [
  "pallet-dex",
  "seed-primitives",
  "sp-api",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4777,10 +4777,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4796,12 +4796,12 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.7.3",
  "scale-info",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
  "sp-npos-elections",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
  "static_assertions",
  "strum",
 ]
@@ -4816,7 +4816,7 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "sp-npos-elections",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -4838,10 +4838,10 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4866,9 +4866,9 @@ dependencies = [
  "rlp",
  "scale-info",
  "serde",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4893,12 +4893,12 @@ dependencies = [
  "seed-primitives",
  "serde",
  "serde_json",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4919,10 +4919,10 @@ dependencies = [
  "rlp",
  "scale-info",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4935,10 +4935,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4974,7 +4974,7 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27
 dependencies = [
  "fp-evm",
  "ripemd",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
 ]
 
 [[package]]
@@ -4994,9 +4994,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5016,9 +5016,9 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5034,9 +5034,9 @@ dependencies = [
  "precompile-utils",
  "scale-info",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5060,10 +5060,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5087,10 +5087,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5106,14 +5106,14 @@ dependencies = [
  "pallet-session",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-core",
  "sp-finality-grandpa",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
+ "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
 ]
 
 [[package]]
@@ -5128,12 +5128,12 @@ dependencies = [
  "pallet-authorship",
  "parity-scale-codec",
  "scale-info",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
 ]
 
 [[package]]
@@ -5157,10 +5157,10 @@ dependencies = [
  "seed-primitives",
  "serde",
  "serde_json",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5182,10 +5182,10 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5198,13 +5198,13 @@ dependencies = [
  "parity-scale-codec",
  "seed-primitives",
  "sp-api",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
  "sp-rpc",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5215,8 +5215,8 @@ dependencies = [
  "parity-scale-codec",
  "seed-primitives",
  "sp-api",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5229,11 +5229,11 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
 ]
 
 [[package]]
@@ -5248,9 +5248,9 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
 ]
 
 [[package]]
@@ -5264,9 +5264,9 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5281,13 +5281,13 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
+ "sp-trie",
 ]
 
 [[package]]
@@ -5301,9 +5301,9 @@ dependencies = [
  "pallet-session",
  "pallet-staking",
  "rand 0.7.3",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "sp-session",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
 ]
 
 [[package]]
@@ -5322,11 +5322,11 @@ dependencies = [
  "rand_chacha 0.2.2",
  "scale-info",
  "serde",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-io",
+ "sp-runtime",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
 ]
 
 [[package]]
@@ -5338,9 +5338,9 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5355,9 +5355,9 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-inherents",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "sp-timestamp",
 ]
 
@@ -5378,10 +5378,10 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5394,10 +5394,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5410,9 +5410,9 @@ dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5423,7 +5423,7 @@ dependencies = [
  "pallet-transaction-payment",
  "parity-scale-codec",
  "sp-api",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -5439,10 +5439,10 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5455,10 +5455,10 @@ dependencies = [
  "frame-system",
  "parity-scale-codec",
  "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -5502,11 +5502,12 @@ dependencies = [
  "seed-primitives",
  "serde",
  "serde_json",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
  "xrpl-codec 0.1.0 (git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9)",
 ]
 
@@ -5861,9 +5862,9 @@ dependencies = [
  "precompile-utils-macro",
  "sha3 0.10.6",
  "similar-asserts",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -6311,9 +6312,9 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "serde_json",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-version",
 ]
 
@@ -6568,8 +6569,8 @@ version = "4.1.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "log",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-wasm-interface",
  "thiserror",
 ]
 
@@ -6590,9 +6591,9 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
 ]
 
@@ -6606,10 +6607,10 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -6625,8 +6626,8 @@ dependencies = [
  "sc-telemetry",
  "serde",
  "serde_json",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -6668,11 +6669,11 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-keyring",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-panic-handler 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore",
+ "sp-panic-handler",
+ "sp-runtime",
  "sp-version",
  "thiserror",
  "tiny-bip39",
@@ -6696,14 +6697,14 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-database",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-externalities",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-storage",
+ "sp-trie",
  "substrate-prometheus-endpoint",
 ]
 
@@ -6723,13 +6724,13 @@ dependencies = [
  "parking_lot 0.12.1",
  "sc-client-api",
  "sc-state-db",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-database",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-trie",
 ]
 
 [[package]]
@@ -6749,9 +6750,9 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -6782,18 +6783,18 @@ dependencies = [
  "schnorrkel",
  "serde",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
  "sp-consensus-slots",
  "sp-consensus-vrf",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-inherents",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
  "sp-version",
  "substrate-prometheus-endpoint",
  "thiserror",
@@ -6811,13 +6812,13 @@ dependencies = [
  "sc-rpc-api",
  "serde",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -6831,7 +6832,7 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sp-blockchain",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -6847,14 +6848,14 @@ dependencies = [
  "sc-client-api",
  "sc-consensus",
  "sc-telemetry",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-slots",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-state-machine",
  "sp-timestamp",
  "thiserror",
 ]
@@ -6866,7 +6867,7 @@ source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.2
 dependencies = [
  "sc-client-api",
  "sp-authorship",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -6883,16 +6884,16 @@ dependencies = [
  "sc-executor-wasmi",
  "sc-executor-wasmtime",
  "sp-api",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-core-hashing-proc-macro",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-panic-handler 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-externalities",
+ "sp-io",
+ "sp-panic-handler",
+ "sp-runtime-interface",
  "sp-tasks",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-trie",
  "sp-version",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-wasm-interface",
  "tracing",
  "wasmi",
 ]
@@ -6908,7 +6909,7 @@ dependencies = [
  "sp-maybe-compressed-blob",
  "sp-sandbox",
  "sp-serializer",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-wasm-interface",
  "thiserror",
  "wasm-instrument",
  "wasmi",
@@ -6923,9 +6924,9 @@ dependencies = [
  "parity-scale-codec",
  "sc-allocator",
  "sc-executor-common",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime-interface",
  "sp-sandbox",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-wasm-interface",
  "wasmi",
 ]
 
@@ -6943,9 +6944,9 @@ dependencies = [
  "rustix 0.35.13",
  "sc-allocator",
  "sc-executor-common",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime-interface",
  "sp-sandbox",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-wasm-interface",
  "wasmtime",
 ]
 
@@ -6978,14 +6979,14 @@ dependencies = [
  "sc-utils",
  "serde_json",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-finality-grandpa",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
 ]
@@ -7006,8 +7007,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -7025,7 +7026,7 @@ dependencies = [
  "sc-network",
  "sc-transaction-pool-api",
  "sp-blockchain",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -7037,9 +7038,9 @@ dependencies = [
  "hex",
  "parking_lot 0.12.1",
  "serde_json",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-keystore",
  "thiserror",
 ]
 
@@ -7080,11 +7081,11 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "thiserror",
  "unsigned-varint",
@@ -7107,7 +7108,7 @@ dependencies = [
  "smallvec",
  "sp-consensus",
  "sp-finality-grandpa",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -7122,7 +7123,7 @@ dependencies = [
  "log",
  "lru",
  "sc-network",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "substrate-prometheus-endpoint",
  "tracing",
 ]
@@ -7142,8 +7143,8 @@ dependencies = [
  "sc-network-common",
  "sc-peerset",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -7165,12 +7166,12 @@ dependencies = [
  "sc-network-common",
  "sc-peerset",
  "smallvec",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-finality-grandpa",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -7198,9 +7199,9 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-tracing",
  "substrate-test-runtime",
  "substrate-test-runtime-client",
 ]
@@ -7226,9 +7227,9 @@ dependencies = [
  "sc-network",
  "sc-utils",
  "sp-api",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-offchain",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "threadpool",
  "tracing",
 ]
@@ -7276,11 +7277,11 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-keystore",
  "sp-offchain",
  "sp-rpc",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "sp-session",
  "sp-version",
 ]
@@ -7300,10 +7301,10 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-tracing",
  "sp-version",
  "thiserror",
 ]
@@ -7363,22 +7364,22 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-externalities",
  "sp-inherents",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore",
+ "sp-runtime",
  "sp-session",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-state-machine",
+ "sp-storage",
+ "sp-tracing",
  "sp-transaction-pool",
  "sp-transaction-storage-proof",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-trie",
  "sp-version",
  "substrate-prometheus-endpoint",
  "tempfile",
@@ -7399,7 +7400,7 @@ dependencies = [
  "parity-util-mem-derive",
  "parking_lot 0.12.1",
  "sc-client-api",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
 ]
 
 [[package]]
@@ -7416,9 +7417,9 @@ dependencies = [
  "sc-telemetry",
  "serde",
  "serde_json",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -7460,10 +7461,10 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-rpc",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-tracing",
  "thiserror",
  "tracing",
  "tracing-log",
@@ -7500,9 +7501,9 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-tracing",
  "sp-transaction-pool",
  "substrate-prometheus-endpoint",
  "thiserror",
@@ -7517,7 +7518,7 @@ dependencies = [
  "log",
  "serde",
  "sp-blockchain",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "thiserror",
 ]
 
@@ -7726,12 +7727,12 @@ dependencies = [
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-babe",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
  "sp-keyring",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore",
+ "sp-runtime",
  "sp-timestamp",
  "sp-transaction-storage-proof",
  "substrate-build-script-utils",
@@ -7749,9 +7750,9 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7769,12 +7770,12 @@ dependencies = [
  "serde",
  "sha2 0.10.6",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
  "sp-consensus-babe",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
  "substrate-wasm-builder",
 ]
 
@@ -7857,15 +7858,15 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-consensus-babe",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-inherents",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
  "sp-npos-elections",
  "sp-offchain",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
  "sp-session",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
@@ -7877,7 +7878,7 @@ name = "seed-runtime-constants"
 version = "0.9.28"
 dependencies = [
  "frame-support",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -8182,10 +8183,10 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "sp-api-proc-macro",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
  "sp-version",
  "thiserror",
 ]
@@ -8210,22 +8211,9 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
-]
-
-[[package]]
-name = "sp-application-crypto"
-version = "6.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -8238,23 +8226,8 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-debug-derive 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "static_assertions",
-]
-
-[[package]]
-name = "sp-arithmetic"
-version = "5.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "integer-sqrt",
- "num-traits",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-debug-derive 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-debug-derive",
+ "sp-std",
  "static_assertions",
 ]
 
@@ -8266,8 +8239,8 @@ dependencies = [
  "async-trait",
  "parity-scale-codec",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -8278,8 +8251,8 @@ dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -8295,8 +8268,8 @@ dependencies = [
  "sp-api",
  "sp-consensus",
  "sp-database",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-state-machine",
  "thiserror",
 ]
 
@@ -8310,11 +8283,11 @@ dependencies = [
  "futures-timer",
  "log",
  "parity-scale-codec",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
  "sp-version",
  "thiserror",
 ]
@@ -8328,12 +8301,12 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
  "sp-consensus",
  "sp-consensus-slots",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
  "sp-timestamp",
 ]
 
@@ -8348,15 +8321,15 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
  "sp-consensus",
  "sp-consensus-slots",
  "sp-consensus-vrf",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-inherents",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
  "sp-timestamp",
 ]
 
@@ -8368,9 +8341,9 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
+ "sp-runtime",
+ "sp-std",
  "sp-timestamp",
 ]
 
@@ -8382,9 +8355,9 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "schnorrkel",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -8419,58 +8392,12 @@ dependencies = [
  "secp256k1",
  "secrecy",
  "serde",
- "sp-core-hashing 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-debug-derive 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "ss58-registry",
- "substrate-bip39",
- "thiserror",
- "tiny-bip39",
- "wasmi",
- "zeroize",
-]
-
-[[package]]
-name = "sp-core"
-version = "6.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "base58",
- "bitflags",
- "blake2-rfc",
- "byteorder",
- "dyn-clonable",
- "ed25519-dalek",
- "futures",
- "hash-db",
- "hash256-std-hasher",
- "hex",
- "impl-serde 0.3.2",
- "lazy_static",
- "libsecp256k1 0.7.1",
- "log",
- "merlin",
- "num-traits",
- "parity-scale-codec",
- "parity-util-mem",
- "parking_lot 0.12.1",
- "primitive-types",
- "rand 0.7.3",
- "regex",
- "scale-info",
- "schnorrkel",
- "secp256k1",
- "secrecy",
- "serde",
- "sp-core-hashing 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-debug-derive 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-core-hashing",
+ "sp-debug-derive",
+ "sp-externalities",
+ "sp-runtime-interface",
+ "sp-std",
+ "sp-storage",
  "ss58-registry",
  "substrate-bip39",
  "thiserror",
@@ -8489,21 +8416,7 @@ dependencies = [
  "digest 0.10.6",
  "sha2 0.10.6",
  "sha3 0.10.6",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "twox-hash",
-]
-
-[[package]]
-name = "sp-core-hashing"
-version = "4.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "blake2",
- "byteorder",
- "digest 0.10.6",
- "sha2 0.10.6",
- "sha3 0.10.6",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-std",
  "twox-hash",
 ]
 
@@ -8514,7 +8427,7 @@ source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.2
 dependencies = [
  "proc-macro2",
  "quote",
- "sp-core-hashing 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core-hashing",
  "syn",
 ]
 
@@ -8538,35 +8451,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "sp-debug-derive"
-version = "4.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "sp-externalities"
 version = "0.12.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "environmental",
  "parity-scale-codec",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
-]
-
-[[package]]
-name = "sp-externalities"
-version = "0.12.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "environmental",
- "parity-scale-codec",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-std",
+ "sp-storage",
 ]
 
 [[package]]
@@ -8580,11 +8472,11 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -8595,9 +8487,9 @@ dependencies = [
  "async-trait",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
  "thiserror",
 ]
 
@@ -8613,40 +8505,15 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "secp256k1",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "tracing",
- "tracing-core",
-]
-
-[[package]]
-name = "sp-io"
-version = "6.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "futures",
- "hash-db",
- "libsecp256k1 0.7.1",
- "log",
- "parity-scale-codec",
- "parking_lot 0.12.1",
- "secp256k1",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-core",
+ "sp-externalities",
+ "sp-keystore",
+ "sp-runtime-interface",
+ "sp-state-machine",
+ "sp-std",
+ "sp-tracing",
+ "sp-trie",
+ "sp-wasm-interface",
  "tracing",
  "tracing-core",
 ]
@@ -8657,8 +8524,8 @@ version = "6.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "lazy_static",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
  "strum",
 ]
 
@@ -8674,25 +8541,8 @@ dependencies = [
  "parking_lot 0.12.1",
  "schnorrkel",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "thiserror",
-]
-
-[[package]]
-name = "sp-keystore"
-version = "0.12.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "async-trait",
- "futures",
- "merlin",
- "parity-scale-codec",
- "parking_lot 0.12.1",
- "schnorrkel",
- "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-core",
+ "sp-externalities",
  "thiserror",
 ]
 
@@ -8713,10 +8563,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "serde",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -8725,24 +8575,14 @@ version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "sp-api",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
 name = "sp-panic-handler"
 version = "4.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "backtrace",
- "lazy_static",
- "regex",
-]
-
-[[package]]
-name = "sp-panic-handler"
-version = "4.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -8756,7 +8596,7 @@ source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.2
 dependencies = [
  "rustc-hash",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
 ]
 
 [[package]]
@@ -8774,33 +8614,11 @@ dependencies = [
  "rand 0.7.3",
  "scale-info",
  "serde",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
-]
-
-[[package]]
-name = "sp-runtime"
-version = "6.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "either",
- "hash256-std-hasher",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "parity-util-mem",
- "paste",
- "rand 0.7.3",
- "scale-info",
- "serde",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -8811,29 +8629,12 @@ dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "primitive-types",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime-interface-proc-macro 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "static_assertions",
-]
-
-[[package]]
-name = "sp-runtime-interface"
-version = "6.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "impl-trait-for-tuples",
- "parity-scale-codec",
- "primitive-types",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-runtime-interface-proc-macro 5.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-externalities",
+ "sp-runtime-interface-proc-macro",
+ "sp-std",
+ "sp-storage",
+ "sp-tracing",
+ "sp-wasm-interface",
  "static_assertions",
 ]
 
@@ -8841,18 +8642,6 @@ dependencies = [
 name = "sp-runtime-interface-proc-macro"
 version = "5.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "Inflector",
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "sp-runtime-interface-proc-macro"
-version = "5.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
 dependencies = [
  "Inflector",
  "proc-macro-crate",
@@ -8868,10 +8657,10 @@ source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.2
 dependencies = [
  "log",
  "parity-scale-codec",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-wasm-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-io",
+ "sp-std",
+ "sp-wasm-interface",
  "wasmi",
 ]
 
@@ -8892,10 +8681,10 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-api",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
  "sp-staking",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
 ]
 
 [[package]]
@@ -8905,8 +8694,8 @@ source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.2
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -8921,33 +8710,11 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.7.3",
  "smallvec",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-panic-handler 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "thiserror",
- "tracing",
- "trie-root",
-]
-
-[[package]]
-name = "sp-state-machine"
-version = "0.12.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "hash-db",
- "log",
- "num-traits",
- "parity-scale-codec",
- "parking_lot 0.12.1",
- "rand 0.7.3",
- "smallvec",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-panic-handler 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-core",
+ "sp-externalities",
+ "sp-panic-handler",
+ "sp-std",
+ "sp-trie",
  "thiserror",
  "tracing",
  "trie-root",
@@ -8959,11 +8726,6 @@ version = "4.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 
 [[package]]
-name = "sp-std"
-version = "4.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-
-[[package]]
 name = "sp-storage"
 version = "6.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
@@ -8972,21 +8734,8 @@ dependencies = [
  "parity-scale-codec",
  "ref-cast",
  "serde",
- "sp-debug-derive 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
-]
-
-[[package]]
-name = "sp-storage"
-version = "6.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "impl-serde 0.3.2",
- "parity-scale-codec",
- "ref-cast",
- "serde",
- "sp-debug-derive 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-debug-derive",
+ "sp-std",
 ]
 
 [[package]]
@@ -8995,11 +8744,11 @@ version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "log",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-externalities",
+ "sp-io",
+ "sp-runtime-interface",
+ "sp-std",
 ]
 
 [[package]]
@@ -9013,8 +8762,8 @@ dependencies = [
  "parity-scale-codec",
  "sp-api",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
  "thiserror",
 ]
 
@@ -9024,19 +8773,7 @@ version = "5.0.0"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "parity-scale-codec",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "tracing",
- "tracing-core",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "sp-tracing"
-version = "5.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "parity-scale-codec",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-std",
  "tracing",
  "tracing-core",
  "tracing-subscriber",
@@ -9048,7 +8785,7 @@ version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
 dependencies = [
  "sp-api",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -9060,11 +8797,11 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-inherents",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
+ "sp-trie",
 ]
 
 [[package]]
@@ -9076,24 +8813,8 @@ dependencies = [
  "memory-db",
  "parity-scale-codec",
  "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "thiserror",
- "trie-db",
- "trie-root",
-]
-
-[[package]]
-name = "sp-trie"
-version = "6.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "hash-db",
- "memory-db",
- "parity-scale-codec",
- "scale-info",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
+ "sp-core",
+ "sp-std",
  "thiserror",
  "trie-db",
  "trie-root",
@@ -9110,8 +8831,8 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-core-hashing-proc-macro",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-std",
  "sp-version-proc-macro",
  "thiserror",
 ]
@@ -9135,21 +8856,9 @@ dependencies = [
  "impl-trait-for-tuples",
  "log",
  "parity-scale-codec",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-std",
  "wasmi",
  "wasmtime",
-]
-
-[[package]]
-name = "sp-wasm-interface"
-version = "6.0.0"
-source = "git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug#92cf17e68610c943f74d0b1e1ddde3c5177ae40c"
-dependencies = [
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate.git?branch=polkadot-v0.9.27-debug)",
- "wasmi",
 ]
 
 [[package]]
@@ -9264,8 +8973,8 @@ dependencies = [
  "sp-api",
  "sp-block-builder",
  "sp-blockchain",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -9300,11 +9009,11 @@ dependencies = [
  "serde_json",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
  "sp-keyring",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-state-machine",
 ]
 
 [[package]]
@@ -9328,24 +9037,24 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-api",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-application-crypto",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-consensus-babe",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-externalities",
  "sp-finality-grandpa",
  "sp-inherents",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-io",
  "sp-keyring",
  "sp-offchain",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime",
+ "sp-runtime-interface",
  "sp-session",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-state-machine",
+ "sp-std",
  "sp-transaction-pool",
- "sp-trie 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-trie",
  "sp-version",
  "substrate-wasm-builder",
  "trie-db",
@@ -9364,8 +9073,8 @@ dependencies = [
  "sp-api",
  "sp-blockchain",
  "sp-consensus",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-runtime",
  "substrate-test-client",
  "substrate-test-runtime",
 ]
@@ -9863,12 +9572,12 @@ dependencies = [
  "sc-executor",
  "sc-service",
  "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-externalities 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-keystore 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "sp-core",
+ "sp-externalities",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-state-machine",
  "sp-version",
  "zstd",
 ]

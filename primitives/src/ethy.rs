@@ -15,12 +15,12 @@
 
 //! Ethereum bridge common types & traits
 //! Shared between eth-bridge pallet & ethy-gadget worker
+pub use sp_application_crypto::ByteArray;
 
 use codec::{Decode, Encode};
 use ripemd::{Digest as _, Ripemd160};
 use scale_info::TypeInfo;
 use sha2::Sha256;
-use sp_application_crypto::ByteArray;
 use sp_runtime::{traits::Convert, KeyTypeId};
 use sp_std::prelude::*;
 

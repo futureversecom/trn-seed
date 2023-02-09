@@ -216,7 +216,7 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 			// Disable XRPLBridge challenge calls
 			Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
 			Call::XRPLBridge(
-				pallet_xrpl_bridge::Call::receive_offchain_challenge_verification { .. },
+				pallet_xrpl_bridge::Call::offchain_challenge_verification { .. },
 			) => false,
 			_ => true,
 		}

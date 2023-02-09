@@ -23,10 +23,10 @@ scale-info = { version = '2.3.0', default-features = false, features = [
   'derive',
 ] }
 serde = { version = '1.0.144', features = ['derive'], optional = true }
-sp-runtime = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27-debug", default-features = false }
-sp-std = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27-debug", default-features = false }
-sp-core = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27-debug", default-features = false }
-sp-io = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27-debug", default-features = false }
+sp-runtime = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27", default-features = false }
+sp-std = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27", default-features = false }
+sp-core = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27", default-features = false }
+sp-io = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27", default-features = false }
 xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", rev = "0.0.9" }
 serde_json = { version = "1.0.91", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
@@ -34,10 +34,11 @@ seed-pallet-common = { path = "../common", default-features = false }
 pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false }
 
 log = { version = "0.4", default-features = false }
+sp-application-crypto = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27-debug" }
-sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27-debug" }
+sp-io = { git = 'https://github.com/futureversecom/substrate.git', branch = "polkadot-v0.9.27" }
+sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 parking_lot = "0.12.1"
 
 [features]
@@ -61,7 +62,8 @@ std = [
   "pallet-assets-ext/std",
   "log/std",
   "sp-io/std",
-  "serde_json/std"
+  "serde_json/std",
+  "sp-application-crypto/std"
 ]
 runtime-benchmarks = ['frame-benchmarking']
 try-runtime = ['frame-support/try-runtime']
