@@ -5572,6 +5572,8 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "log",
+ "pallet-balances",
+ "pallet-scheduler",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -5579,6 +5581,7 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-io",
+ "sp-keystore",
  "sp-runtime",
  "sp-std",
 ]

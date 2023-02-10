@@ -27,6 +27,9 @@ seed-pallet-common = { path = "../common", default-features = false }
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 hex-literal = { version = "0.3.4" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-scheduler = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 [features]
 default = ["std"]

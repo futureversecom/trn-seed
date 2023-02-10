@@ -13,6 +13,9 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 #![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(test)]
+mod mock;
+// mod tests;
 
 use core::default::Default;
 use frame_support::{

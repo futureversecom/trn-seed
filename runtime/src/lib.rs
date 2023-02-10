@@ -834,13 +834,15 @@ parameter_types! {
 	pub const ChallengeBond: Balance = 100 * ONE_XRP;
 	/// % threshold of notarizations required to verify or prove bridge events
 	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
+	/// Eth Bridge pallet Id
+	pub const EthBridgePalletId = PalletId(*b"eth-brdg");
 }
 
 impl pallet_eth_bridge::Config for Runtime {
 	/// The runtime event type.
 	type Event = Event;
 	/// The validator set pallet address
-	type PalletId = ValidatorSetPalletId;
+	type PalletId = EthBridgePalletId;
 	/// The runtime call type.
 	type Call = Call;
 	/// ethy adapter
