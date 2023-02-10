@@ -21,8 +21,8 @@ use crate::types::{
 	EventClaimStatus, LatestOrNumber, NotarizationPayload,
 };
 use codec::Encode;
-use ethabi::{ParamType, Token};
 pub use eth_rpc_client::EthereumRpcClient;
+use ethabi::{ParamType, Token};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
@@ -43,7 +43,6 @@ pub use pallet::*;
 use seed_pallet_common::{
 	eth::EthereumEventInfo,
 	ethy::{BridgeAdapter, EthereumBridgeAdapter, EthyAdapter, EthySigningRequest, State::Paused},
-	log,
 	validator_set::ValidatorSetInterface,
 	EthereumBridge, EthereumEventRouter, EventRouterError, Hold,
 };
@@ -57,6 +56,8 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 
+/// The type to sign and send transactions.
+const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
 const CLAIMS_PER_BLOCK: usize = 1;
 /// The logging target for this pallet
@@ -583,6 +584,49 @@ pub mod pallet {
 			}
 		}
 	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			let Call::submit_notarization { payload, signature } = call else {
+				return InvalidTransaction::Call.into()
+			};
+			// notarization must be from an active notary
+			let notary_keys = T::ValidatorSet::get_validator_set();
+			let Some(notary_public_key) =  notary_keys.get(payload.authority_index() as usize) else  {
+				return InvalidTransaction::BadProof.into();
+			};
+			// notarization must not be a duplicate/equivocation
+			if <EventNotarizations<T>>::contains_key(payload.payload_id(), &notary_public_key) {
+				error!(
+					target: LOG_TARGET,
+					"💎 received equivocation from: {:?} on {:?}",
+					notary_public_key,
+					payload.payload_id()
+				);
+				return InvalidTransaction::BadProof.into()
+			}
+			// notarization is signed correctly
+			if !(notary_public_key.verify(&payload.encode(), signature)) {
+				return InvalidTransaction::BadProof.into()
+			}
+			ValidTransaction::with_tag_prefix("eth-bridge")
+				.priority(UNSIGNED_TXS_PRIORITY)
+				// 'provides' must be unique for each submission on the network (i.e. unique for
+				// each claim id and validator)
+				.and_provides([
+					b"notarize",
+					&payload.type_id().to_be_bytes(),
+					&payload.payload_id().to_be_bytes(),
+					&(payload.authority_index() as u64).to_be_bytes(),
+				])
+				.longevity(3)
+				.propagate(true)
+				.build()
+		}
+	}
 }
 
 impl<T: Config> Pallet<T> {
@@ -873,7 +917,7 @@ impl<T: Config> Pallet<T> {
 		)
 		.maybe_cursor
 		{
-			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+			error!(target: LOG_TARGET, "💎 cleaning storage entries failed: {:?}", cursor);
 			return Err(Error::<T>::Internal.into())
 		}
 		PendingClaimChallenges::<T>::mutate(|event_ids| {
@@ -884,7 +928,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		let Some(_) = PendingEventClaims::<T>::take(event_claim_id) else {
-			log!(error, "💎 unexpected empty claim");
+			error!(target: LOG_TARGET, "💎 unexpected empty claim");
 			return Err(Error::<T>::InvalidClaim.into())
 		};
 		if let Some((challenger, bond_amount)) = <ChallengerAccount<T>>::take(event_claim_id) {
@@ -915,7 +959,7 @@ impl<T: Config> Pallet<T> {
 			PendingClaimStatus::<T>::remove(event_claim_id);
 		} else {
 			// This shouldn't happen
-			log!(error, "💎 unexpected missing challenger account");
+			error!(target: LOG_TARGET, "💎 unexpected missing challenger account");
 		}
 		Self::deposit_event(Event::<T>::EventInvalid { claim_id: event_claim_id });
 		return Ok(())
@@ -932,7 +976,7 @@ impl<T: Config> Pallet<T> {
 		)
 		.maybe_cursor
 		{
-			log!(error, "💎 cleaning storage entries failed: {:?}", cursor);
+			error!(target: LOG_TARGET, "💎 cleaning storage entries failed: {:?}", cursor);
 			return Err(Error::<T>::Internal.into())
 		}
 		// Remove the claim from pending_claim_challenges
@@ -944,7 +988,7 @@ impl<T: Config> Pallet<T> {
 		});
 
 		if !PendingEventClaims::<T>::contains_key(event_claim_id) {
-			log!(error, "💎 unexpected empty claim");
+			error!(target: LOG_TARGET, "💎 unexpected empty claim");
 			return Err(Error::<T>::InvalidClaim.into())
 		}
 		if let Some(relayer) = Self::relayer() {
@@ -958,13 +1002,13 @@ impl<T: Config> Pallet<T> {
 				)?;
 			} else {
 				// This shouldn't happen
-				log!(error, "💎 unexpected missing challenger account");
+				error!(target: LOG_TARGET, "💎 unexpected missing challenger account");
 			}
 
 			PendingClaimStatus::<T>::insert(event_claim_id, EventClaimStatus::ProvenValid);
 			Self::deposit_event(Event::<T>::EventVerified { claim_id: event_claim_id });
 		} else {
-			log!(error, "💎 No relayer set");
+			error!(target: LOG_TARGET, "💎 No relayer set");
 		}
 
 		Ok(())

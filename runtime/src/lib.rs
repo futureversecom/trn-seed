@@ -1051,7 +1051,7 @@ construct_runtime! {
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 27,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
-		EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>} = 31,
+		EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 31,
 
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 32,
 		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
