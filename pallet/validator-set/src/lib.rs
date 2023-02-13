@@ -15,7 +15,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod mock;
-// mod tests;
+#[cfg(test)]
+mod tests;
 
 use core::default::Default;
 use frame_support::{
@@ -191,10 +192,12 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		/// Validator set change in progress
+		ValidatorSetChangeInProgress { next_validator_set_id: ValidatorSetId },
 		/// Validator set change successful
-		ValidatorSetChangeFinalizeSuccess { validator_set_id: ValidatorSetId },
+		ValidatorSetChangeFinalizeSuccess { new_validator_set_id: ValidatorSetId },
 		/// Validator set change failed
-		ValidatorSetChangeFinalizeFailed { validator_set_id: ValidatorSetId },
+		ValidatorSetChangeFinalizeFailed { current_validator_set_id: ValidatorSetId },
 		/// Validator set change finalize scheduling failed
 		ValidatorSetFinalizeSchedulingFailed { scheduled_at: T::BlockNumber },
 		/// XRPL notary keys update failed
@@ -295,6 +298,11 @@ impl<T: Config> Pallet<T> {
 		// let know the ethy
 		T::EthyAdapter::validator_set_change_in_progress(info);
 		ValidatorsChangeInProgress::<T>::put(true);
+		Self::deposit_event(Event::<T>::ValidatorSetChangeInProgress { next_validator_set_id });
+		info!(
+			target: LOG_TARGET,
+			"Validator set change in progress. next set Id: {:?}", next_validator_set_id
+		);
 		DbWeight::get().reads(4) + DbWeight::get().writes(1)
 	}
 
@@ -317,6 +325,14 @@ impl<T: Config> Pallet<T> {
 			current_validator_set: Self::notary_keys(),
 			..Default::default()
 		});
+		Self::deposit_event(Event::<T>::ValidatorSetChangeFinalizeSuccess {
+			new_validator_set_id: Self::notary_set_id(),
+		});
+		info!(
+			target: LOG_TARGET,
+			"Validator set change finalize successful. new set Id: {:?}",
+			Self::notary_set_id()
+		);
 		Ok(())
 	}
 
@@ -369,7 +385,6 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 		I: Iterator<Item = (&'a T::AccountId, T::EthyId)>,
 	{
 		// TODO(surangap): check and make use of _changed
-
 		// Store the keys for usage next session
 		let next_queued_validators = queued_validators.map(|(_, k)| k).collect::<Vec<_>>();
 		<NextNotaryKeys<T>>::put(next_queued_validators);
@@ -420,28 +435,16 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			}
 		} else {
 			// validators change is in progress already, finalise the changes
-			match Self::do_finalise_validator_set_change(next_notary_keys) {
-				Ok(_) => {
-					Self::deposit_event(Event::<T>::ValidatorSetChangeFinalizeSuccess {
-						validator_set_id: Self::notary_set_id(),
-					});
-					info!(
-						target: LOG_TARGET,
-						"Validator set change finalize successful. set Id: {:?}",
-						Self::notary_set_id()
-					);
-				},
-				Err(e) => {
-					Self::deposit_event(Event::<T>::ValidatorSetChangeFinalizeFailed {
-						validator_set_id: Self::notary_set_id(),
-					});
-					error!(
-						target: LOG_TARGET,
-						"Validator set change finalize failed. set Id: {:?}, error: {:?}",
-						Self::notary_set_id(),
-						Into::<&str>::into(e)
-					);
-				},
+			if let Err(e) = Self::do_finalise_validator_set_change(next_notary_keys) {
+				Self::deposit_event(Event::<T>::ValidatorSetChangeFinalizeFailed {
+					current_validator_set_id: Self::notary_set_id(),
+				});
+				error!(
+					target: LOG_TARGET,
+					"Validator set change finalize failed. set Id: {:?}, error: {:?}",
+					Self::notary_set_id(),
+					Into::<&str>::into(e)
+				);
 			}
 		}
 	}
