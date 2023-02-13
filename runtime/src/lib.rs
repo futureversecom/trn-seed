@@ -7,9 +7,11 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use crate::impls::XRP_UNIT_VALUE;
 use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use frame_support::weights::WeightToFee;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
 	TransactionAction,
@@ -24,7 +26,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
-		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup,
+		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, Get, IdentityLookup,
 		PostDispatchInfoOf, Verify,
 	},
 	transaction_validity::{
@@ -286,11 +288,27 @@ parameter_types! {
 	pub const OperationalFeeMultiplier: u8 = 5;
 }
 
+pub struct CustomWeightToFee;
+impl WeightToFee for CustomWeightToFee {
+	type Balance = Balance;
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		FeeControl::weight_to_fee(weight)
+	}
+}
+
+pub struct CustomLengthToFee;
+impl WeightToFee for CustomLengthToFee {
+	type Balance = Balance;
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		FeeControl::length_to_fee(weight)
+	}
+}
+
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
-	type WeightToFee = FeeControl;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type WeightToFee = CustomWeightToFee;
+	type LengthToFee = CustomLengthToFee;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Runtime>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
@@ -992,17 +1010,48 @@ impl pallet_nft_peg::Config for Runtime {
 }
 
 parameter_types! {
+	pub const OneXRP: Balance = ONE_XRP;
+	pub const DefaultWeightMultiplier: Perbill = Perbill::from_parts(125);
+	pub const DefaultLengthMultiplier: Balance = 1_000;
+	pub const DefaultOutputTxPrice: Balance = 100_000;
+	pub const DefaultOutputLenPrice: Balance = 10;
 	/// Floor network base fee per gas
 	/// 0.000015 XRP per gas, 15000 GWEI
 	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
-	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
+	pub const EvmXRPScaleFactor: Balance = XRP_UNIT_VALUE;
+}
+
+pub struct FeeControlInputTxWeight;
+impl Get<Weight> for FeeControlInputTxWeight {
+	fn get() -> Weight {
+		let tx_weight = <weights::pallet_balances::WeightInfo<Runtime> as pallet_balances::WeightInfo>::transfer_keep_alive();
+		let base_weight = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
+
+		return tx_weight + base_weight
+	}
+}
+
+// Needs to call an RPC (estimateGas) ¯\_(ツ)_/¯
+pub struct FeeControlInputGasLimit;
+impl Get<U256> for FeeControlInputGasLimit {
+	fn get() -> U256 {
+		21_000u32.into()
+	}
 }
 
 impl pallet_fee_control::Config for Runtime {
 	type Event = Event;
-	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
-	type WeightToFeeReduction = WeightToFeeReduction;
 	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
+	type CallOrigin = EnsureRoot<AccountId>;
+	type OneXRP = OneXRP;
+	type WeightMultiplier = DefaultWeightMultiplier;
+	type LengthMultiplier = DefaultLengthMultiplier;
+	type EvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
+	type OutputTxPrice = DefaultOutputTxPrice;
+	type OutputLenPrice = DefaultOutputLenPrice;
+	type InputTxWeight = FeeControlInputTxWeight;
+	type InputGasLimit = FeeControlInputGasLimit;
+	type EvmXRPScaleFactor = EvmXRPScaleFactor;
 }
 
 construct_runtime! {

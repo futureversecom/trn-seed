@@ -51,7 +51,7 @@ use crate::{
 };
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
-const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
+pub const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
 
 /// Convert 18dp wei values to 6dp equivalents (XRP)
 /// fractional amounts < `XRP_UNIT_VALUE` are rounded up by adding 1 / 0.000001 xrp
