@@ -28,7 +28,7 @@ impl<EthyId> Default for ValidatorSetChangeInfo<EthyId> {
 	}
 }
 
-pub trait ValidatorSetInterface<EthyId> {
+pub trait ValidatorSetAdapter<EthyId> {
 	fn get_validator_set_id() -> ValidatorSetId;
 	fn get_validator_set() -> Vec<EthyId>;
 	fn get_next_validator_set() -> Vec<EthyId>;

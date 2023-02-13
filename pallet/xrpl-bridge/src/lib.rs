@@ -72,7 +72,7 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use seed_pallet_common::{ethy::EthyAdapter, validator_set::ValidatorSetInterface};
+	use seed_pallet_common::{ethy::EthyAdapter, validator_set::ValidatorSetAdapter};
 	use seed_primitives::xrpl::XrplTxTicketSequence;
 
 	#[pallet::config]
@@ -104,7 +104,7 @@ pub mod pallet {
 		/// Threshold to emit event TicketSequenceThresholdReached
 		type TicketSequenceThreshold: Get<Percent>;
 		/// Validator set Adapter
-		type ValidatorSet: ValidatorSetInterface<AuthorityId>;
+		type ValidatorSet: ValidatorSetAdapter<AuthorityId>;
 	}
 
 	#[pallet::error]

@@ -43,7 +43,7 @@ pub use pallet::*;
 use seed_pallet_common::{
 	eth::EthereumEventInfo,
 	ethy::{BridgeAdapter, EthereumBridgeAdapter, EthyAdapter, EthySigningRequest, State::Paused},
-	validator_set::ValidatorSetInterface,
+	validator_set::ValidatorSetAdapter,
 	EthereumBridge, EthereumEventRouter, EventRouterError, Hold,
 };
 use seed_primitives::{
@@ -93,7 +93,7 @@ pub mod pallet {
 		/// Bond required by challenger to make a challenge
 		type ChallengeBond: Get<Balance>;
 		/// Validator set Adapter
-		type ValidatorSet: ValidatorSetInterface<AuthorityId>;
+		type ValidatorSet: ValidatorSetAdapter<AuthorityId>;
 		/// Ethy Adapter
 		type EthyAdapter: EthyAdapter;
 		/// The threshold of notarizations required to approve an Ethereum event

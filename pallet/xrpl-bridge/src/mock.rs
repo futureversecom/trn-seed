@@ -7,7 +7,7 @@ use frame_system as system;
 use frame_system::{limits, EnsureRoot};
 use seed_pallet_common::{
 	ethy::{EthyAdapter, EthySigningRequest, State},
-	validator_set::ValidatorSetInterface,
+	validator_set::ValidatorSetAdapter,
 };
 use sp_core::{ByteArray, H256};
 use sp_runtime::{
@@ -200,8 +200,8 @@ impl Default for MockValidatorSet {
 		Self { max_xrpl_keys: 8_u8 }
 	}
 }
-/// Mock implementation of ValidatorSetInterface
-impl ValidatorSetInterface<AuthorityId> for MockValidatorSet {
+/// Mock implementation of ValidatorSetAdapter
+impl ValidatorSetAdapter<AuthorityId> for MockValidatorSet {
 	fn get_validator_set_id() -> ValidatorSetId {
 		1_u64
 	}

@@ -35,7 +35,7 @@ use log::{debug, error, info};
 pub use pallet::*;
 use seed_pallet_common::{
 	ethy::EthereumBridgeAdapter,
-	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface},
+	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetAdapter},
 	FinalSessionTracker as FinalSessionTrackerT,
 };
 use seed_primitives::ethy::{EventProofId, ValidatorSet as ValidatorSetS, ValidatorSetId};
@@ -451,7 +451,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	fn on_disabled(_i: u32) {}
 }
 
-impl<T: Config> ValidatorSetInterface<T::EthyId> for Pallet<T> {
+impl<T: Config> ValidatorSetAdapter<T::EthyId> for Pallet<T> {
 	fn get_validator_set_id() -> ValidatorSetId {
 		NotarySetId::<T>::get()
 	}

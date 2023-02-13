@@ -29,7 +29,7 @@ use seed_pallet_common::{
 		State::{Active, Paused},
 		XRPLBridgeAdapter,
 	},
-	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetInterface},
+	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetAdapter},
 };
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
@@ -53,7 +53,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use seed_pallet_common::{
 		ethy::{EthereumBridgeAdapter, State},
-		validator_set::ValidatorSetInterface,
+		validator_set::ValidatorSetAdapter,
 	};
 	use seed_primitives::ethy::ValidatorSetId;
 
@@ -68,7 +68,7 @@ pub mod pallet {
 		/// Ethereum Bridge Adapter
 		type EthereumBridgeAdapter: EthereumBridgeAdapter;
 		/// Validator set Adapter
-		type ValidatorSetAdapter: ValidatorSetInterface<AuthorityId>;
+		type ValidatorSetAdapter: ValidatorSetAdapter<AuthorityId>;
 		/// XRPL Bridge Adapter
 		type XrplBridgeAdapter: XRPLBridgeAdapter;
 	}
