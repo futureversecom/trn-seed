@@ -11,7 +11,8 @@
     "lint": "yarn lint:ts && yarn format",
     "lint:ts": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts .",
     "test": "hardhat test",
-    "seed": "docker-compose up && docker-compose rm -fsv"
+    "seed": "docker-compose up seed && docker-compose rm -fsv",
+    "seed-sudo-local": "sudo docker-compose up seed-local  && docker-compose rm -fsv"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.4",
