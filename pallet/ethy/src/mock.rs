@@ -42,16 +42,16 @@ use seed_pallet_common::{
 		BridgeAdapter, EthereumBridgeAdapter, EthyAdapter, EthySigningRequest, State,
 		XRPLBridgeAdapter,
 	},
-	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo},
+	validator_set::{ValidatorSetAdapter, ValidatorSetChangeHandler, ValidatorSetChangeInfo},
 	FinalSessionTracker,
 };
 use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
+	ethy::{crypto::AuthorityId, EventProofId, ValidatorSetId},
 	xrpl::XrplAccountId,
 	AssetId, Balance, EthAddress, Signature,
 };
 
-use crate::{self as pallet_validator_set, Config};
+use crate::{self as pallet_ethy, Config};
 
 pub const XRP_ASSET_ID: AssetId = 1;
 
@@ -70,9 +70,8 @@ frame_support::construct_runtime!(
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		ValidatorSet: pallet_validator_set::{Pallet, Call, Storage, Event<T>},
+		Ethy: pallet_ethy::{Pallet, Call, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -119,45 +118,55 @@ parameter_types! {
 }
 impl Config for TestRuntime {
 	type Event = Event;
-	type PalletId = ValidatorSetPalletId;
-	type EthyId = AuthorityId;
-	type EpochDuration = EpochDuration;
-	type ValidatorChangeDelay = ValidatorChangeDelay;
-	type FinalSessionTracker = MockFinalSessionTracker;
-	type Scheduler = Scheduler;
-	type Call = Call;
-	type PalletsOrigin = OriginCaller;
-	type MaxXrplKeys = MaxXrplKeys;
-	type EthyAdapter = MockEthyAdapter;
-	type XRPLBridgeAdapter = MockXrplBridgeAdapter;
-	type EthBridgeAdapter = MockEthBridgeAdapter;
-	type MaxNewSigners = MaxNewSigners;
+	type EthereumBridgeAdapter = MockEthBridgeAdapter;
+	type ValidatorSetAdapter = MockValidatorSetAdapter;
+	type XrplBridgeAdapter = MockXrplBridgeAdapter;
 }
 
-pub struct MockEthyAdapter;
-impl EthyAdapter for MockEthyAdapter {
-	fn request_for_proof(
-		request: EthySigningRequest,
-		event_proof_id: Option<EventProofId>,
-	) -> Result<EventProofId, DispatchError> {
-		Ok(1)
+pub struct MockValidatorSetAdapter;
+impl ValidatorSetAdapter<AuthorityId> for MockValidatorSetAdapter {
+	fn get_validator_set_id() -> ValidatorSetId {
+		0
 	}
 
-	fn get_ethy_state() -> State {
-		State::Active
+	fn get_validator_set() -> Vec<AuthorityId> {
+		vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+		]
 	}
 
-	fn get_next_event_proof_id() -> EventProofId {
-		1 + 1
-	}
-}
-impl ValidatorSetChangeHandler<AuthorityId> for MockEthyAdapter {
-	fn validator_set_change_in_progress(info: ValidatorSetChangeInfo<AuthorityId>) {
-		()
+	fn get_next_validator_set() -> Vec<AuthorityId> {
+		vec![
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
+		]
 	}
 
-	fn validator_set_change_finalized(info: ValidatorSetChangeInfo<AuthorityId>) {
-		()
+	fn get_xrpl_validator_set() -> Vec<AuthorityId> {
+		vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+		]
+	}
+
+	fn get_xrpl_door_signers() -> Vec<AuthorityId> {
+		vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
+		]
+	}
+
+	fn get_xrpl_notary_keys(validator_list: &Vec<AuthorityId>) -> Vec<AuthorityId> {
+		let xrpl_door_signers = Self::get_xrpl_door_signers();
+		validator_list
+			.into_iter()
+			.filter(|validator| xrpl_door_signers.contains(validator))
+			.map(|validator| -> AuthorityId { validator.clone() })
+			.take(8)
+			.collect()
 	}
 }
 
@@ -205,47 +214,21 @@ impl pallet_balances::Config for TestRuntime {
 	type ReserveIdentifier = [u8; 8];
 }
 
-parameter_types! {
-	pub const MaxScheduledPerBlock: u32 = 50;
-}
-impl pallet_scheduler::Config for TestRuntime {
-	type Event = Event;
-	type Origin = Origin;
-	type PalletsOrigin = OriginCaller;
-	type Call = Call;
-	type MaximumWeight = ();
-	type ScheduleOrigin = EnsureRoot<AccountId>;
-	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
-	type MaxScheduledPerBlock = MaxScheduledPerBlock;
-	type WeightInfo = ();
-	type PreimageProvider = ();
-	type NoPreimagePostponement = ();
-}
-
-pub(crate) mod test_storage {
-	//! storage used by tests to store mock EthBlocks and TransactionReceipts
-	use super::AccountId;
-	use crate::Config;
-	use frame_support::decl_storage;
-
-	pub struct Module<T>(sp_std::marker::PhantomData<T>);
-	decl_storage! {
-		trait Store for Module<T: Config> as EthBridgeTest {
-			pub Timestamp: Option<u64>;
-			pub Validators: Vec<AccountId>;
-			pub Forcing: bool;
-		}
-	}
-}
-
-/// Mock final session tracker
-pub struct MockFinalSessionTracker;
-impl FinalSessionTracker for MockFinalSessionTracker {
-	fn is_active_session_final() -> bool {
-		// at block 100, or if we are forcing, the active session is final
-		frame_system::Pallet::<TestRuntime>::block_number() == 100 || test_storage::Forcing::get()
-	}
-}
+// pub(crate) mod test_storage {
+// 	//! storage used by tests to store mock EthBlocks and TransactionReceipts
+// 	use super::AccountId;
+// 	use crate::Config;
+// 	use frame_support::decl_storage;
+//
+// 	pub struct Module<T>(sp_std::marker::PhantomData<T>);
+// 	decl_storage! {
+// 		trait Store for Module<T: Config> as EthBridgeTest {
+// 			pub Timestamp: Option<u64>;
+// 			pub Validators: Vec<AccountId>;
+// 			pub Forcing: bool;
+// 		}
+// 	}
+// }
 
 impl frame_system::offchain::SigningTypes for TestRuntime {
 	type Public = <Signature as Verify>::Signer;
@@ -300,10 +283,6 @@ impl ExtBuilder {
 		self.endowed_account = Some((AccountId::from(account), balance));
 		self
 	}
-	pub fn xrp_door_signers(mut self, xrp_door_signer: [u8; 33]) -> Self {
-		self.xrp_door_signer = Some(xrp_door_signer);
-		self
-	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext =
 			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
@@ -316,14 +295,6 @@ impl ExtBuilder {
 
 		if !endowed_accounts.is_empty() {
 			pallet_balances::GenesisConfig::<TestRuntime> { balances: endowed_accounts }
-				.assimilate_storage(&mut ext)
-				.unwrap();
-		}
-
-		if self.xrp_door_signer.is_some() {
-			let xrp_door_signers: Vec<AuthorityId> =
-				vec![AuthorityId::from_slice(self.xrp_door_signer.unwrap().as_slice()).unwrap()];
-			pallet_validator_set::GenesisConfig::<TestRuntime> { xrp_door_signers }
 				.assimilate_storage(&mut ext)
 				.unwrap();
 		}

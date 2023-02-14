@@ -35,7 +35,7 @@ use log::{debug, error, info};
 pub use pallet::*;
 use seed_pallet_common::{
 	ethy::EthereumBridgeAdapter,
-	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetAdapter},
+	validator_set::{ValidatorSetAdapter, ValidatorSetChangeHandler, ValidatorSetChangeInfo},
 	FinalSessionTracker as FinalSessionTrackerT,
 };
 use seed_primitives::ethy::{EventProofId, ValidatorSet as ValidatorSetS, ValidatorSetId};

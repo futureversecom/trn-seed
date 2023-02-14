@@ -29,7 +29,7 @@ use seed_pallet_common::{
 		State::{Active, Paused},
 		XRPLBridgeAdapter,
 	},
-	validator_set::{ValidatorSetChangeHandler, ValidatorSetChangeInfo, ValidatorSetAdapter},
+	validator_set::{ValidatorSetAdapter, ValidatorSetChangeHandler, ValidatorSetChangeInfo},
 };
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
@@ -41,7 +41,12 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 pub mod types;
+
 use types::*;
 
 pub(crate) const LOG_TARGET: &str = "ethy";
