@@ -116,7 +116,6 @@ fn get_validator_set_change_payload_xrpl(info: &ValidatorSetChangeInfo<Authority
 fn validator_set_change_in_progress() {
 	ExtBuilder::default().build().execute_with(|| {
 		System::set_block_number(1);
-		// trigger incoming from ValidatorSet pallet
 		let current_validator_set = vec![
 			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
@@ -135,6 +134,7 @@ fn validator_set_change_in_progress() {
 		};
 		let proof_id = NextEventProofId::<TestRuntime>::get();
 		System::reset_events();
+		// trigger incoming from ValidatorSet pallet
 		Ethy::validator_set_change_in_progress(change_info.clone());
 
 		//check - eth proof and xrpl proof should be requested
@@ -167,7 +167,7 @@ fn validator_set_change_in_progress() {
 			)
 		);
 		System::assert_has_event(
-			Event::<TestRuntime>::AuthoritySetChanged {
+			Event::<TestRuntime>::AuthoritySetChangeInProgress {
 				event_proof_id: proof_id,
 				new_validator_set_id: change_info.next_validator_set_id,
 			}
@@ -197,7 +197,7 @@ fn validator_set_change_in_progress() {
 			)
 		);
 		System::assert_has_event(
-			Event::<TestRuntime>::XrplAuthoritySetChanged {
+			Event::<TestRuntime>::XrplAuthoritySetChangeInProgress {
 				event_proof_id: proof_id + 1,
 				new_validator_set_id: change_info.next_validator_set_id,
 			}
@@ -207,5 +207,47 @@ fn validator_set_change_in_progress() {
 
 		// Ethy state should be updated to Paused state
 		assert_eq!(EthyState::<TestRuntime>::get(), State::Paused);
+	});
+}
+#[test]
+fn validator_set_change_finalized() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let new_validator_set = vec![
+			AuthorityId::from_slice(&[3_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[4_u8; 33]).unwrap(),
+		];
+		let new_validator_set_id = 1;
+		let change_info = ValidatorSetChangeInfo {
+			current_validator_set_id: new_validator_set_id,
+			current_validator_set: new_validator_set,
+			..Default::default()
+		};
+		System::reset_events();
+		// trigger incoming from ValidatorSet pallet
+		Ethy::validator_set_change_finalized(change_info.clone());
+		//check
+		assert_eq!(System::digest().logs.len(), 1_usize);
+		assert_eq!(
+			System::digest().logs[0],
+			DigestItem::Consensus(
+				ETHY_ENGINE_ID,
+				ConsensusLog::AuthoritiesChange(ValidatorSet {
+					validators: change_info.current_validator_set.clone(),
+					id: change_info.current_validator_set_id,
+					proof_threshold: MockEthBridgeAdapter::get_notarization_threshold()
+						.mul_ceil(change_info.current_validator_set.len() as u32),
+				})
+				.encode()
+			)
+		);
+		System::assert_has_event(
+			Event::<TestRuntime>::AuthoritySetChangeFinalized {
+				new_validator_set_id: change_info.current_validator_set_id,
+			}
+			.into(),
+		);
+		// Ethy should be in Active state now
+		assert_eq!(EthyState::<TestRuntime>::get(), State::Active);
 	});
 }

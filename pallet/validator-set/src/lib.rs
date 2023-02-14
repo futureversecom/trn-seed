@@ -321,8 +321,10 @@ impl<T: Config> Pallet<T> {
 		NotarySetId::<T>::mutate(|next_set_id| *next_set_id = next_set_id.wrapping_add(1));
 		// Inform ethy
 		T::EthyAdapter::validator_set_change_finalized(ValidatorSetChangeInfo {
-			current_validator_set_id: Self::notary_set_id(),
-			current_validator_set: Self::notary_keys(),
+			current_validator_set_id: Self::notary_set_id(), /* now the current validator set is
+			                                                  * the new set */
+			current_validator_set: Self::notary_keys(), /* now the current validator set is the
+			                                             * new set */
 			..Default::default()
 		});
 		Self::deposit_event(Event::<T>::ValidatorSetChangeFinalizeSuccess {

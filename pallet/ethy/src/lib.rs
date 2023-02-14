@@ -119,7 +119,10 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A notary (validator) set change is in motion (event_proof_id, new_validator_set_id)
 		/// A proof for the change will be generated with the given `event_proof_id`
-		AuthoritySetChanged { event_proof_id: EventProofId, new_validator_set_id: ValidatorSetId },
+		AuthoritySetChangeInProgress {
+			event_proof_id: EventProofId,
+			new_validator_set_id: ValidatorSetId,
+		},
 		/// notary set change failed
 		AuthoritySetChangedFailed {
 			current_validator_set: ValidatorSetId,
@@ -128,10 +131,12 @@ pub mod pallet {
 		/// A notary (validator) set change for Xrpl is in motion (event_proof_id,
 		/// new_validator_set_id) A proof for the change will be generated with the given
 		/// `event_proof_id`
-		XrplAuthoritySetChanged {
+		XrplAuthoritySetChangeInProgress {
 			event_proof_id: EventProofId,
 			new_validator_set_id: ValidatorSetId,
 		},
+		/// notary (validator) set change is finalized and has been updated
+		AuthoritySetChangeFinalized { new_validator_set_id: ValidatorSetId },
 		/// Proof delayed since ethy is in paused state
 		ProofDelayed { event_proof_id: EventProofId },
 		/// An event proof has been sent for signing by ethy-gadget
@@ -296,7 +301,7 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 				// Signal the event id that will be used for the proof of validator set change.
 				// Any observer can subscribe to this event and submit the resulting proof to keep
 				// the validator set on the Ethereum bridge contract updated.
-				Self::deposit_event(Event::<T>::AuthoritySetChanged {
+				Self::deposit_event(Event::<T>::AuthoritySetChangeInProgress {
 					event_proof_id,
 					new_validator_set_id: info.next_validator_set_id,
 				});
@@ -321,7 +326,7 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 					// Signal the event id that will be used for the proof of xrpl notary set
 					// change. Any observer can subscribe to this event and submit the resulting
 					// proof to keep the door account signer set on the xrpl updated.
-					Self::deposit_event(Event::<T>::XrplAuthoritySetChanged {
+					Self::deposit_event(Event::<T>::XrplAuthoritySetChangeInProgress {
 						event_proof_id,
 						new_validator_set_id: info.next_validator_set_id,
 					});
@@ -361,6 +366,9 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 			.encode(),
 		);
 		<frame_system::Pallet<T>>::deposit_log(log);
+		Self::deposit_event(Event::<T>::AuthoritySetChangeFinalized {
+			new_validator_set_id: info.current_validator_set_id,
+		});
 
 		// set ethy to Active
 		EthyState::<T>::put(Active);
