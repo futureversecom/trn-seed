@@ -5137,7 +5137,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft"
-version = "2.0.1"
+version = "2.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5189,7 +5189,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-rpc"
-version = "2.1.1"
+version = "2.2.0"
 dependencies = [
  "jsonrpsee",
  "pallet-nft",
@@ -5208,7 +5208,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-rpc-runtime-api"
-version = "2.1.1"
+version = "2.2.0"
 dependencies = [
  "pallet-nft",
  "parity-scale-codec",
