@@ -1,0 +1,1384 @@
+/* Copyright 2019-2022 Centrality Investments Limited
+ *
+ * Licensed under the LGPL, Version 3.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * You may obtain a copy of the License at the root of this project source code,
+ * or at:
+ *     https://centrality.ai/licenses/gplv3.txt
+ *     https://centrality.ai/licenses/lgplv3.txt
+ */
+#![cfg(test)]
+
+use super::*;
+use crate::{
+	mock::{
+		AssetsExt, Balances, ChallengerBond, EpochDuration, EthBridge, EthBridgePalletId,
+		ExtBuilder, MockBlockBuilder, MockEthereumRpcClient, MockEthyAdapter, MockLog,
+		MockLogBuilder, MockReceiptBuilder, MockValidatorSet, MockValidatorSetAdapter, Origin,
+		RelayerBond, System, TestRuntime, XRP_ASSET_ID,
+	},
+	types::{EthHash, TransactionReceipt},
+};
+use frame_support::{
+	assert_err, assert_noop, assert_ok, assert_storage_noop,
+	traits::{fungibles::Inspect, Hooks, OneSessionHandler, UnixTime},
+	weights::{constants::RocksDbWeight as DbWeight, Weight},
+};
+use seed_pallet_common::ethy::EthereumBridgeAdapter;
+use seed_primitives::{
+	ethy::crypto::AuthorityId, xrpl::XrplAccountId, AccountId, AccountId20, BlockNumber, Signature,
+};
+use sp_core::{ecdsa, ByteArray, Pair, Public, H160, H256, U256};
+use sp_keystore::{testing::KeyStore, SyncCryptoStore};
+use sp_runtime::DispatchError::BadOrigin;
+use std::default::Default;
+
+/// Mocks an Eth block for when get_block_by_number is called
+/// Adds this to the mock storage
+/// The latest block will be the highest block stored
+fn mock_block_response(block_number: u64, timestamp: U256) -> EthBlock {
+	let mock_block = MockBlockBuilder::new()
+		.block_number(block_number)
+		.block_hash(H256::from_low_u64_be(block_number))
+		.timestamp(timestamp)
+		.build();
+
+	MockEthereumRpcClient::mock_block_response_at(
+		block_number.saturated_into(),
+		mock_block.clone(),
+	);
+	mock_block
+}
+
+/// Mocks a TransactionReceipt for when get_transaction_receipt is called
+/// Adds this to the mock storage
+fn create_transaction_receipt_mock(
+	block_number: u64,
+	tx_hash: EthHash,
+	to: EthAddress,
+	logs: Vec<MockLog>,
+) -> TransactionReceipt {
+	let mock_tx_receipt = MockReceiptBuilder::new()
+		.block_number(block_number)
+		.transaction_hash(tx_hash)
+		.to(to)
+		.logs(logs)
+		.build();
+
+	MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
+	mock_tx_receipt
+}
+/// Ethereum ABI encode an event message according to the 1.5 standard
+fn encode_event_message(
+	event_id: EventClaimId,
+	source: H160,
+	destination: H160,
+	message: &[u8],
+) -> Vec<u8> {
+	ethabi::encode(&[
+		Token::Uint(event_id.into()),
+		Token::Address(source),
+		Token::Address(destination),
+		Token::Bytes(message.to_vec()),
+	])
+}
+
+#[test]
+fn deposit_relayer_bond_succees() {
+	let relayer = H160::from_low_u64_be(1);
+
+	ExtBuilder::default()
+		.with_endowed_account(relayer, RelayerBond::get())
+		.build()
+		.execute_with(|| {
+			assert_ok!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())));
+			assert_eq!(EthBridge::relayer_bond(AccountId20::from(relayer)), RelayerBond::get());
+			System::assert_has_event(
+				Event::<TestRuntime>::RelayerBondDeposited {
+					account_id: relayer.into(),
+					amount: RelayerBond::get(),
+				}
+				.into(),
+			);
+		});
+}
+#[test]
+fn deposit_relayer_bond_fail_without_funds() {
+	let relayer = H160::from_low_u64_be(1);
+
+	ExtBuilder::default().build().execute_with(|| {
+		assert_noop!(
+			EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())),
+			pallet_balances::Error::<TestRuntime>::InsufficientBalance
+		);
+		assert_eq!(EthBridge::relayer_bond(AccountId20::from(relayer)), 0);
+	});
+}
+#[test]
+fn withdraw_relayer_bond_works() {
+	let relayer = H160::from_low_u64_be(1);
+	ExtBuilder::default()
+		.with_endowed_account(relayer, RelayerBond::get())
+		.build()
+		.execute_with(|| {
+			// Withdraw with no bond set should fail
+			assert_noop!(
+				EthBridge::withdraw_relayer_bond(Origin::signed(relayer.into())),
+				Error::<TestRuntime>::CantUnbondRelayer
+			);
+
+			// Submit bond
+			assert_ok!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())));
+			assert_eq!(EthBridge::relayer_bond(AccountId::from(relayer)), RelayerBond::get());
+
+			// Withdraw bond
+			assert_ok!(EthBridge::withdraw_relayer_bond(Origin::signed(relayer.into())));
+
+			// Check storage
+			assert_eq!(EthBridge::relayer_bond(AccountId::from(relayer)), 0);
+			System::assert_has_event(
+				Event::<TestRuntime>::RelayerBondWithdrawn {
+					account_id: relayer.into(),
+					amount: RelayerBond::get(),
+				}
+				.into(),
+			);
+		});
+}
+#[test]
+fn withdraw_active_relayer_bond_should_fail_for_active_relayer() {
+	let relayer = H160::from_low_u64_be(1);
+	ExtBuilder::default()
+		.with_endowed_account(relayer, RelayerBond::get())
+		.build()
+		.execute_with(|| {
+			// Submit bond
+			assert_ok!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())));
+
+			// Setting relayer should work
+			assert_ok!(EthBridge::set_relayer(
+				frame_system::RawOrigin::Root.into(),
+				relayer.into()
+			));
+
+			// Withdraw bond
+			assert_noop!(
+				EthBridge::withdraw_relayer_bond(Origin::signed(relayer.into())),
+				Error::<TestRuntime>::CantUnbondRelayer
+			);
+		});
+}
+#[test]
+fn set_relayer_works() {
+	let relayer = H160::from_low_u64_be(1);
+
+	ExtBuilder::default()
+		.with_endowed_account(relayer, RelayerBond::get())
+		.build()
+		.execute_with(|| {
+			// Submit bond
+			assert_ok!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())));
+			assert_eq!(EthBridge::relayer_bond(AccountId::from(relayer)), RelayerBond::get());
+			// set relayer
+			assert_ok!(EthBridge::set_relayer(
+				frame_system::RawOrigin::Root.into(),
+				relayer.into()
+			));
+			// check
+			System::assert_has_event(
+				Event::<TestRuntime>::RelayerSet { relayer_account: relayer.into() }.into(),
+			);
+			assert_eq!(EthBridge::relayer(), Some(relayer.into()));
+		})
+}
+#[test]
+fn set_relayer_no_bond_should_fail() {
+	let relayer = H160::from_low_u64_be(1);
+	ExtBuilder::default().build().execute_with(|| {
+		assert_noop!(
+			EthBridge::set_relayer(frame_system::RawOrigin::Root.into(), relayer.into()),
+			Error::<TestRuntime>::NoBondPaid
+		);
+	});
+}
+#[test]
+fn set_event_block_confirmations_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		// only the root can set it
+		assert_noop!(
+			EthBridge::set_event_block_confirmations(Origin::signed(AccountId::default()), 2),
+			BadOrigin
+		);
+		assert_ok!(EthBridge::set_event_block_confirmations(Origin::root(), 2));
+		System::assert_has_event(
+			Event::<TestRuntime>::EventBlockConfirmationsSet { blocks: 2 }.into(),
+		);
+	});
+}
+#[test]
+fn set_challenge_period_works() {
+	ExtBuilder::default().build().execute_with(|| {
+		// only the root can set it
+		assert_noop!(
+			EthBridge::set_challenge_period(Origin::signed(AccountId::default()), 2),
+			BadOrigin
+		);
+		assert_ok!(EthBridge::set_challenge_period(Origin::root(), 2));
+		System::assert_has_event(Event::<TestRuntime>::ChallengePeriodSet { blocks: 2 }.into());
+	});
+}
+#[test]
+fn set_contract_address_works() {
+	let contract_address = H160::from_low_u64_be(1);
+	ExtBuilder::default().build().execute_with(|| {
+		// only the root can set it
+		assert_noop!(
+			EthBridge::set_contract_address(Origin::signed(AccountId::default()), contract_address),
+			BadOrigin
+		);
+		assert_ok!(EthBridge::set_contract_address(Origin::root(), contract_address));
+		System::assert_has_event(
+			Event::<TestRuntime>::ContractAddressSet { address: contract_address }.into(),
+		);
+	});
+}
+#[test]
+fn submit_event_success() {
+	let relayer = H160::from_low_u64_be(123);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let (event_id, source, destination, message) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data = encode_event_message(event_id, source, destination, message);
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+
+		let process_at = System::block_number() + EthBridge::challenge_period();
+		assert_eq!(
+			EthBridge::pending_event_claims(event_id),
+			Some(EventClaim { tx_hash, source, destination, data: message.to_vec() })
+		);
+		assert_eq!(EthBridge::messages_valid_at(process_at), [event_id],);
+		System::assert_has_event(
+			Event::<TestRuntime>::EventSubmit {
+				event_claim_id: 1_u64,
+				event_claim: EventClaim { tx_hash, source, destination, data: message.to_vec() },
+				process_at,
+			}
+			.into(),
+		);
+	});
+}
+#[test]
+fn submit_event_non_relayer_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let not_relayer = H160::from_low_u64_be(11);
+		assert_noop!(
+			EthBridge::submit_event(Origin::signed(not_relayer.into()), H256::default(), vec![]),
+			Error::<TestRuntime>::NoPermission
+		);
+	});
+}
+#[test]
+fn submit_event_bad_encoding_fail() {
+	let relayer = H160::from_low_u64_be(123);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let event_data = vec![1u8, 2, 3, 4, 5];
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		assert_noop!(
+			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data),
+			Error::<TestRuntime>::InvalidClaim
+		);
+	});
+}
+#[test]
+fn submit_event_replay_pending_fail() {
+	let relayer = H160::from_low_u64_be(123);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let event_data = encode_event_message(
+		1_u64,
+		H160::from_low_u64_be(555),
+		H160::from_low_u64_be(555),
+		&[1_u8, 2, 3, 4, 5],
+	);
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+
+		// resubmit again
+		assert_noop!(
+			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data),
+			Error::<TestRuntime>::EventReplayPending
+		);
+	});
+}
+#[test]
+fn submit_event_replay_completed_fail() {
+	let relayer = H160::from_low_u64_be(123);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let event_data = encode_event_message(
+		1_u64,
+		H160::from_low_u64_be(555),
+		H160::from_low_u64_be(555),
+		&[1_u8, 2, 3, 4, 5],
+	);
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+
+		// Process the message
+		let process_at = System::block_number() + EthBridge::challenge_period();
+		EthBridge::on_initialize(process_at);
+
+		assert_noop!(
+			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data),
+			Error::<TestRuntime>::EventReplayProcessed
+		);
+	});
+}
+#[test]
+fn submit_challenge_works() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let (event_id, source, destination, message) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data = encode_event_message(event_id, source, destination, message);
+
+	ExtBuilder::default()
+		.relayer(relayer)
+		.with_endowed_account(challenger, ChallengerBond::get())
+		.build()
+		.execute_with(|| {
+			// No event claim should fail
+			assert_noop!(
+				EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id),
+				Error::<TestRuntime>::NoClaim
+			);
+
+			// Submit event
+			assert_ok!(EthBridge::submit_event(
+				Origin::signed(relayer.into()),
+				tx_hash.clone(),
+				event_data.clone(),
+			));
+
+			// Submit challenge
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id));
+			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id]);
+			assert_eq!(
+				EthBridge::challenger_account(event_id),
+				Some((AccountId::from(challenger), ChallengerBond::get()))
+			);
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id),
+				Some(EventClaimStatus::Challenged)
+			);
+			System::assert_has_event(
+				Event::<TestRuntime>::Challenged {
+					claim_id: event_id,
+					challenger: challenger.into(),
+				}
+				.into(),
+			);
+
+			// Subsequent challenges on the same event_id should fail
+			assert_noop!(
+				EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id),
+				Error::<TestRuntime>::ClaimAlreadyChallenged
+			);
+		});
+}
+#[test]
+fn submit_challenge_not_enough_bond_should_fail() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let (event_id, source, destination, message) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data = encode_event_message(event_id, source, destination, message);
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		// Submit event
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data.clone(),
+		));
+
+		// Submit challenge with no balance should fail
+		assert_noop!(
+			EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id),
+			pallet_balances::Error::<TestRuntime>::InsufficientBalance
+		);
+	});
+}
+#[test]
+fn submit_notarization_failed_non_active_validator() {
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<AuthorityId> =
+		(1_u8..=9_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
+	ExtBuilder::default().build().execute_with(|| {
+		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8); // this wil set up from 1 to 8
+		let inactive_validator = ecdsa::Pair::from_string("//alice", None).unwrap();
+		let notarization_payload = NotarizationPayload::Event {
+			event_claim_id: 1,
+			authority_index: 9,
+			result: EventClaimResult::Valid,
+		};
+		assert_noop!(
+			EthBridge::submit_notarization(
+				Origin::none(),
+				notarization_payload,
+				inactive_validator.sign(b"blah").into()
+			),
+			Error::<TestRuntime>::InvalidNotarization
+		);
+	});
+}
+#[test]
+fn handle_event_notarization_valid_claims() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	// First event data
+	let tx_hash_1 = EthHash::from_low_u64_be(33);
+	let (event_id_1, source_1, destination_1, message_1) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
+	// Second event data
+	let tx_hash_2 = EthHash::from_low_u64_be(33);
+	let (event_id_2, source_2, destination_2, message_2) =
+		(2_u64, H160::from_low_u64_be(666), H160::from_low_u64_be(666), &[1_u8, 2, 3, 4, 6]);
+	let event_data_2 = encode_event_message(event_id_2, source_2, destination_2, message_2);
+
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<AuthorityId> =
+		(1_u8..=9_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
+
+	ExtBuilder::default()
+		.relayer(relayer)
+		.with_endowed_account(challenger, ChallengerBond::get() * 2)
+		.build()
+		.execute_with(|| {
+			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+			let process_at = System::block_number() + EthBridge::challenge_period();
+
+			// Submit Event 1
+			assert_ok!(EthBridge::submit_event(
+				Origin::signed(relayer.into()),
+				tx_hash_1.clone(),
+				event_data_1.clone(),
+			));
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_1),
+				Some(EventClaimStatus::Pending)
+			);
+			// Submit Event 2
+			assert_ok!(EthBridge::submit_event(
+				Origin::signed(relayer.into()),
+				tx_hash_2.clone(),
+				event_data_2.clone(),
+			));
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_2),
+				Some(EventClaimStatus::Pending)
+			);
+
+			// Submit challenge 1
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			// Submit challenge 2
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_2));
+			// Check storage
+			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1, event_id_2]);
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_1),
+				Some(EventClaimStatus::Challenged)
+			);
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_2),
+				Some(EventClaimStatus::Challenged)
+			);
+
+			let mut yay_count: usize = 0;
+			let notary_count: usize = mock_notary_keys.len();
+			// Submit valid notarization for all 9 validators
+			// When the yay_count reaches over the NotarizationThreshold of 66% the storage should
+			// be updated
+			for i in 0..9 {
+				if Percent::from_rational(yay_count, notary_count) >=
+					<TestRuntime as Config>::NotarizationThreshold::get()
+				{
+					// Any further notarizations should return InvalidClaim error
+					assert_noop!(
+						EthBridge::handle_event_notarization(
+							event_id_2,
+							EventClaimResult::Valid,
+							&mock_notary_keys[i]
+						),
+						Error::<TestRuntime>::InvalidClaim
+					);
+				} else {
+					assert_ok!(EthBridge::handle_event_notarization(
+						event_id_2,
+						EventClaimResult::Valid,
+						&mock_notary_keys[i]
+					));
+				}
+				yay_count += 1;
+
+				if Percent::from_rational(yay_count, notary_count) >=
+					<TestRuntime as Config>::NotarizationThreshold::get()
+				{
+					// Over threshold, storage should be updated
+					assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+					assert_eq!(
+						EthBridge::pending_claim_status(event_id_2),
+						Some(EventClaimStatus::ProvenValid)
+					);
+				} else {
+					// Under threshold, storage not updated
+					assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1, event_id_2]);
+					assert_eq!(
+						EthBridge::pending_claim_status(event_id_2),
+						Some(EventClaimStatus::Challenged)
+					);
+				}
+			}
+
+			// Check claim remains in storage so it can still be processed
+			assert_eq!(
+				EthBridge::pending_event_claims(event_id_2),
+				Some(EventClaim {
+					source: source_2,
+					destination: destination_2,
+					tx_hash: tx_hash_2,
+					data: message_2.to_vec()
+				})
+			);
+			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1, event_id_2]);
+		});
+}
+#[test]
+/// Check whether an event that was challenged and proven to be valid is still processed
+fn process_valid_challenged_event() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	// First event data
+	let tx_hash_1 = EthHash::from_low_u64_be(33);
+	let (event_id_1, source_1, destination_1, message_1) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<AuthorityId> =
+		(1_u8..=9_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
+
+	ExtBuilder::default()
+		.relayer(relayer)
+		.with_endowed_account(challenger, ChallengerBond::get())
+		.build()
+		.execute_with(|| {
+			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+			assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &relayer.into(), false), 0);
+			assert_eq!(EthBridge::relayer_bond(AccountId::from(relayer)), RelayerBond::get());
+
+			let process_at = System::block_number() + EthBridge::challenge_period();
+
+			// Submit Event 1
+			assert_ok!(EthBridge::submit_event(
+				Origin::signed(relayer.into()),
+				tx_hash_1.clone(),
+				event_data_1.clone(),
+			));
+
+			// Submit challenge 1
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			assert_eq!(
+				EthBridge::challenger_account(event_id_1),
+				Some((AccountId::from(challenger), ChallengerBond::get()))
+			);
+
+			// Submit valid notarization for all 9 validators
+			for i in 0..mock_notary_keys.len() {
+				// We test the returned value in the previous test
+				let _ = EthBridge::handle_event_notarization(
+					event_id_1,
+					EventClaimResult::Valid,
+					&mock_notary_keys[i],
+				);
+			}
+
+			// Check balances of relayer and challenger
+			// Challenger should have no bond and no balance
+			assert_eq!(
+				AssetsExt::hold_balance(
+					&EthBridgePalletId::get(),
+					&challenger.into(),
+					&XRP_ASSET_ID
+				),
+				0
+			);
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &challenger.into()), 0);
+			assert!(EthBridge::challenger_account(event_id_1).is_none());
+
+			// Relayer should still have bond and challenger bond as balance
+			assert_eq!(
+				AssetsExt::hold_balance(&EthBridgePalletId::get(), &relayer.into(), &XRP_ASSET_ID),
+				RelayerBond::get()
+			);
+			assert_eq!(EthBridge::relayer_bond(AccountId::from(relayer)), RelayerBond::get());
+			assert_eq!(
+				AssetsExt::reducible_balance(XRP_ASSET_ID, &relayer.into(), false),
+				ChallengerBond::get()
+			);
+
+			// Check claim remains in storage so it can still be processed
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_1),
+				Some(EventClaimStatus::ProvenValid)
+			);
+			assert_eq!(
+				EthBridge::pending_event_claims(event_id_1),
+				Some(EventClaim {
+					source: source_1,
+					destination: destination_1,
+					tx_hash: tx_hash_1,
+					data: message_1.to_vec()
+				})
+			);
+			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1]);
+
+			// process event
+			EthBridge::on_initialize(process_at);
+
+			// Storage should now be fully cleared
+			assert!(EthBridge::pending_claim_challenges().is_empty());
+			assert!(EthBridge::challenger_account(event_id_1).is_none());
+			assert!(EthBridge::pending_event_claims(event_id_1).is_none());
+			assert!(EthBridge::pending_claim_status(event_id_1).is_none());
+			assert!(EthBridge::messages_valid_at(process_at).is_empty());
+			// The event is processed!
+			assert_eq!(EthBridge::processed_message_ids(), vec![event_id_1]);
+		});
+}
+#[test]
+/// Check whether an event that was challenged and proven to be valid but reaches the process block
+/// before a consensus is reached is processed after extended by the challenge period
+fn process_valid_challenged_event_delayed() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	// First event data
+	let tx_hash_1 = EthHash::from_low_u64_be(33);
+	let (event_id_1, source_1, destination_1, message_1) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<AuthorityId> =
+		(1_u8..=9_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
+
+	ExtBuilder::default()
+		.relayer(relayer)
+		.with_endowed_account(challenger, ChallengerBond::get() * 2)
+		.build()
+		.execute_with(|| {
+			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+			// The block it should be processed at
+			let process_at = System::block_number() + EthBridge::challenge_period();
+			// The actual block it will be processed at
+			let process_at_extended = process_at + EthBridge::challenge_period();
+			// Submit Event 1
+			assert_ok!(EthBridge::submit_event(
+				Origin::signed(relayer.into()),
+				tx_hash_1.clone(),
+				event_data_1.clone(),
+			));
+
+			// Submit challenge 1
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_1),
+				Some(EventClaimStatus::Challenged)
+			);
+
+			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1]);
+
+			// process events at process_at
+			EthBridge::on_initialize(process_at);
+
+			assert_eq!(EthBridge::messages_valid_at(process_at_extended), vec![event_id_1]);
+			assert!(EthBridge::messages_valid_at(process_at).is_empty());
+
+			// Submit valid notarization for all 9 validators
+			for i in 0..mock_notary_keys.len() {
+				let _ = EthBridge::handle_event_notarization(
+					event_id_1,
+					EventClaimResult::Valid,
+					&mock_notary_keys[i],
+				);
+			}
+
+			// Check claim remains in storage
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_1),
+				Some(EventClaimStatus::ProvenValid)
+			);
+			assert_eq!(
+				EthBridge::pending_event_claims(event_id_1),
+				Some(EventClaim {
+					source: source_1,
+					destination: destination_1,
+					tx_hash: tx_hash_1,
+					data: message_1.to_vec()
+				})
+			);
+			assert_eq!(EthBridge::messages_valid_at(process_at_extended), vec![event_id_1]);
+
+			// process at process_at_extended
+			EthBridge::on_initialize(process_at_extended);
+
+			// Storage should now be fully cleared
+			assert!(EthBridge::pending_claim_challenges().is_empty());
+			assert!(EthBridge::challenger_account(event_id_1).is_none());
+			assert!(EthBridge::pending_event_claims(event_id_1).is_none());
+			assert!(EthBridge::pending_claim_status(event_id_1).is_none());
+			assert!(EthBridge::messages_valid_at(process_at_extended).is_empty());
+			// The event is processed!
+			assert_eq!(EthBridge::processed_message_ids(), vec![event_id_1]);
+		});
+}
+#[test]
+fn handle_event_notarization_invalid_claims() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	// Event data
+	let tx_hash_1 = EthHash::from_low_u64_be(33);
+	let (event_id_1, source_1, destination_1, message_1) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<AuthorityId> =
+		(1_u8..=9_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
+
+	ExtBuilder::default()
+		.relayer(relayer)
+		.with_endowed_account(challenger, ChallengerBond::get())
+		.build()
+		.execute_with(|| {
+			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+			let process_at = System::block_number() + EthBridge::challenge_period();
+
+			// Submit Event 1
+			assert_ok!(EthBridge::submit_event(
+				Origin::signed(relayer.into()),
+				tx_hash_1.clone(),
+				event_data_1.clone(),
+			));
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_1),
+				Some(EventClaimStatus::Pending)
+			);
+
+			// Submit challenge 1
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+
+			// Check storage
+			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+			assert_eq!(
+				EthBridge::pending_claim_status(event_id_1),
+				Some(EventClaimStatus::Challenged)
+			);
+
+			let mut nay_count: usize = 0;
+			let notary_count: usize = mock_notary_keys.len();
+			// Submit invalid notarization for all 9 validators
+			// When the nay_count reaches over 100 - NotarizationThreshold (33%) the storage should
+			// be updated
+			for i in 0..9 {
+				if Percent::from_rational(nay_count, notary_count) >
+					(Percent::from_parts(
+						100_u8 -
+							<TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
+					)) {
+					// further notarizations should return InvalidClaim error
+					assert_noop!(
+						EthBridge::handle_event_notarization(
+							event_id_1,
+							EventClaimResult::TxStatusFailed,
+							&mock_notary_keys[i]
+						),
+						Error::<TestRuntime>::InvalidClaim
+					);
+				} else {
+					assert_ok!(EthBridge::handle_event_notarization(
+						event_id_1,
+						EventClaimResult::TxStatusFailed,
+						&mock_notary_keys[i]
+					));
+				}
+				nay_count += 1;
+
+				if Percent::from_rational(nay_count, notary_count) >
+					(Percent::from_parts(
+						100_u8 -
+							<TestRuntime as Config>::NotarizationThreshold::get().deconstruct(),
+					)) {
+					// Over threshold, storage should be removed
+					assert!(EthBridge::pending_claim_challenges().is_empty());
+					assert_eq!(EthBridge::pending_claim_status(event_id_1), None);
+				} else {
+					// Under threshold, storage not updated
+					assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+					assert_eq!(
+						EthBridge::pending_claim_status(event_id_1),
+						Some(EventClaimStatus::Challenged)
+					);
+				}
+			}
+
+			// Check claim removed from storage
+			assert!(EthBridge::pending_event_claims(event_id_1).is_none());
+			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1]);
+
+			// Check balances of relayer and challenger
+			// Relayer should have no funds and no bond
+			assert_eq!(AssetsExt::balance(XRP_ASSET_ID, &relayer.into()), 0);
+			assert_eq!(EthBridge::relayer_bond(AccountId::from(relayer)), 0);
+
+			// Challenger should have balance of relayer bond + challenger bond
+			assert_eq!(
+				AssetsExt::balance(XRP_ASSET_ID, &challenger.into()),
+				RelayerBond::get() + ChallengerBond::get()
+			);
+			assert!(EthBridge::challenger_account(event_id_1).is_none());
+		});
+}
+#[test]
+fn do_event_notarization_ocw_doesnt_change_storage() {
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	// Event data
+	let tx_hash_1 = EthHash::from_low_u64_be(33);
+	let (event_id_1, source_1, destination_1, message_1) =
+		(1_u64, H160::from_low_u64_be(555), H160::from_low_u64_be(555), &[1_u8, 2, 3, 4, 5]);
+	let event_data_1 = encode_event_message(event_id_1, source_1, destination_1, message_1);
+
+	ExtBuilder::default()
+		.relayer(relayer)
+		.with_endowed_account(challenger, ChallengerBond::get())
+		.with_keystore()
+		.build()
+		.execute_with(|| {
+			// Submit Event 1
+			assert_ok!(EthBridge::submit_event(
+				Origin::signed(relayer.into()),
+				tx_hash_1.clone(),
+				event_data_1.clone(),
+			));
+
+			// Submit challenge 1
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			// Check storage
+			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
+
+			// Generate public key using same authority id and seed as the mock
+			let keystore = KeyStore::new();
+			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
+			let public_key = SyncCryptoStore::ecdsa_public_keys(&keystore, AuthorityId::ID)
+				.get(0)
+				.unwrap()
+				.clone();
+
+			// Check no storage is changed
+			assert_storage_noop!(EthBridge::do_event_notarization_ocw(&public_key.into(), 0));
+		});
+}
+/*
+#[test]
+fn offchain_try_notarize_event() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let timestamp =
+			U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash = EthHash::from_low_u64_be(222);
+		let source = EthAddress::from_low_u64_be(333);
+		let destination = EthAddress::from_low_u64_be(444);
+		let message = vec![1_u8, 2, 3, 4, 5];
+		let event_id = 1;
+		let event_data = encode_event_message(event_id, source, destination, message.as_slice());
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, timestamp);
+		let _mock_block_2 = mock_block_response(block_number + 5, timestamp);
+		let mock_log = MockLogBuilder::new()
+			.address(EthBridge::contract_address())
+			.data(event_data.as_slice())
+			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
+			.transaction_hash(tx_hash)
+			.build();
+		let _mock_tx_receipt =
+			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
+
+		let event_claim = EventClaim { tx_hash, source, destination, data: message };
+		assert_eq!(
+			EthBridge::offchain_try_notarize_event(event_id, event_claim),
+			EventClaimResult::Valid
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_tx_receipt_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let event_claim = EventClaim {
+			tx_hash: H256::from_low_u64_be(222),
+			source: H160::from_low_u64_be(333),
+			..Default::default()
+		};
+		let event_id = 1;
+		assert_eq!(
+			EthBridge::offchain_try_notarize_event(event_id, event_claim),
+			EventClaimResult::NoTxReceipt
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_status_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let tx_hash = EthHash::from_low_u64_be(222);
+		let source = EthAddress::from_low_u64_be(333);
+		let mock_tx_receipt = MockReceiptBuilder::new()
+			.block_number(10)
+			.transaction_hash(tx_hash)
+			.status(0)
+			.build();
+
+		// Create mock info for transaction receipt
+		MockEthereumRpcClient::mock_transaction_receipt_for(tx_hash, mock_tx_receipt.clone());
+
+		let event_claim = EventClaim { tx_hash, source, ..Default::default() };
+		let event_id = 1;
+		assert_eq!(
+			EthBridge::offchain_try_notarize_event(event_id, event_claim),
+			EventClaimResult::TxStatusFailed
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_unexpected_source_address_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let block_number = 10;
+		let tx_hash = EthHash::from_low_u64_be(222);
+		let source = EthAddress::from_low_u64_be(333);
+
+		// Create mock info for transaction receipt
+		let mock_log = MockLogBuilder::new().address(source).build(); // `source` is not the `bridge_contract_address`
+		let _mock_tx_receipt =
+			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
+
+		// Create event claim where event is emitted by a different address to the tx_receipt 'to'
+		let event_claim =
+			EventClaim { tx_hash, source: H160::from_low_u64_be(444), ..Default::default() };
+		let event_id = 1;
+
+		assert_eq!(
+			EthBridge::offchain_try_notarize_event(event_id, event_claim),
+			EventClaimResult::UnexpectedSource
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_block_number_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock transaction receipt
+		let block_number = 10;
+		let tx_hash = EthHash::from_low_u64_be(222);
+		let source = EthAddress::from_low_u64_be(333);
+		let destination = EthAddress::from_low_u64_be(444);
+		let event_id = 1;
+
+		// Create mock info for transaction receipt
+		let event_data = encode_event_message(event_id, source, destination, Default::default());
+		let mock_log = MockLogBuilder::new()
+			.address(EthBridge::contract_address())
+			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
+			.data(event_data.as_slice())
+			.transaction_hash(tx_hash)
+			.build();
+		let _mock_tx_receipt =
+			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
+
+		let event_claim = EventClaim { tx_hash, source, destination, ..Default::default() };
+
+		assert_eq!(
+			EthBridge::offchain_try_notarize_event(event_id, event_claim),
+			EventClaimResult::DataProviderErr
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_confirmations_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let timestamp =
+			U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash = EthHash::from_low_u64_be(222);
+		let source = EthAddress::from_low_u64_be(333);
+		let destination = EthAddress::from_low_u64_be(444);
+		let event_id = 1;
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, timestamp);
+		let _mock_block_2 = mock_block_response(block_number, timestamp);
+		let event_data = encode_event_message(event_id, source, destination, Default::default());
+		let mock_log = MockLogBuilder::new()
+			.address(EthBridge::contract_address())
+			.topics(vec![SUBMIT_BRIDGE_EVENT_SELECTOR.into()])
+			.data(event_data.as_slice())
+			.transaction_hash(tx_hash)
+			.build();
+		let _mock_tx_receipt =
+			create_transaction_receipt_mock(block_number, tx_hash, source, vec![mock_log]);
+
+		let event_claim = EventClaim { tx_hash, source, destination, ..Default::default() };
+
+		assert_eq!(
+			EthBridge::offchain_try_notarize_event(event_id, event_claim),
+			EventClaimResult::NotEnoughConfirmations
+		);
+	});
+}
+
+#[test]
+fn offchain_try_notarize_event_no_observed_should_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Mock block response and transaction receipt
+		let block_number = 10;
+		let timestamp =
+			U256::from(<MockUnixTime as UnixTime>::now().as_secs().saturated_into::<u64>());
+		let tx_hash = EthHash::from_low_u64_be(222);
+		let source = EthAddress::from_low_u64_be(333);
+		let destination = EthAddress::from_low_u64_be(444);
+		let event_id = 1;
+
+		// Create block info for both the transaction block and a later block
+		let _mock_block_1 = mock_block_response(block_number, timestamp);
+		let event_data = encode_event_message(event_id, source, destination, Default::default());
+		let mock_log = MockLogBuilder::new()
+			.address(EthBridge::contract_address())
+			.data(event_data.as_slice())
+			.transaction_hash(tx_hash)
+			.build();
+		let _mock_tx_receipt =
+			create_transaction_receipt_mock(block_number + 1, tx_hash, source, vec![mock_log]);
+		let event_claim = EventClaim { tx_hash, source, destination, ..Default::default() };
+
+		// Set event confirmations to 0 so it doesn't fail early
+		let _ = EthBridge::set_event_block_confirmations(frame_system::RawOrigin::Root.into(), 0);
+		assert_eq!(
+			EthBridge::offchain_try_notarize_event(event_id, event_claim),
+			EventClaimResult::NoTxLogs
+		);
+	});
+}
+
+#[test]
+fn offchain_try_eth_call_cant_fetch_latest_block() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_eq!(
+			EthBridge::offchain_try_eth_call(&CheckedEthCallRequestBuilder::new().build()),
+			CheckedEthCallResult::DataProviderErr
+		);
+	});
+}
+
+#[test]
+fn offchain_try_eth_call_cant_check_call() {
+	ExtBuilder::default().build().execute_with(|| {
+		mock_block_response(123_u64, now().into());
+		assert_eq!(
+			EthBridge::offchain_try_eth_call(&CheckedEthCallRequestBuilder::new().build()),
+			CheckedEthCallResult::DataProviderErr,
+		);
+	});
+}
+
+#[test]
+fn offchain_try_eth_call_at_historic_block() {
+	// given a request where `try_block_number` is within `max_look_behind_blocks` from the latest
+	// ethereum block when the validator checks the request
+	// then the `eth_call` should be executed at `try_block_number`
+	ExtBuilder::default().build().execute_with(|| {
+		let latest_block_number = 123_u64;
+		let latest_block_timestamp = now();
+		mock_timestamp(now());
+		mock_block_response(latest_block_number, latest_block_timestamp.into());
+
+		let try_block_number = 121_u64;
+		let try_block_timestamp = latest_block_timestamp - 15 * 2; // ethereum block timestamp 3 blocks before latest
+		mock_block_response(try_block_number, try_block_timestamp.into());
+
+		let remote_contract = H160::from_low_u64_be(333);
+		let expected_return_data = [0x01_u8; 32];
+		MockEthereumRpcClient::mock_call_at(
+			try_block_number,
+			remote_contract,
+			&expected_return_data,
+		);
+
+		let request = CheckedEthCallRequestBuilder::new()
+			.try_block_number(try_block_number)
+			.max_block_look_behind(latest_block_number - try_block_number)
+			.target(remote_contract)
+			.build();
+
+		// When
+		let result = EthBridge::offchain_try_eth_call(&request);
+
+		// Then
+		assert_eq!(
+			result,
+			CheckedEthCallResult::Ok(expected_return_data, try_block_number, try_block_timestamp)
+		);
+	});
+}
+
+#[test]
+fn offchain_try_eth_call_at_latest_block() {
+	// given a request where `try_block_number` is outside `max_look_behind_blocks` from the latest
+	// ethereum block when the validator checks the request
+	// then the `eth_call` should be executed at `latest_block_number`
+	ExtBuilder::default().build().execute_with(|| {
+		let latest_block_number = 123_u64;
+		let latest_block_timestamp = now();
+		mock_timestamp(now());
+		mock_block_response(latest_block_number, latest_block_timestamp.into());
+
+		let remote_contract = H160::from_low_u64_be(333);
+		let expected_return_data = [0x01_u8; 32];
+		MockEthereumRpcClient::mock_call_at(
+			latest_block_number,
+			remote_contract,
+			&expected_return_data,
+		);
+
+		let request = CheckedEthCallRequestBuilder::new()
+			.check_timestamp(latest_block_timestamp)
+			.max_block_look_behind(2)
+			.try_block_number(latest_block_number - 3) // lookbehind is 2 => try block falls out of range
+			.target(remote_contract)
+			.build();
+
+		// When
+		let result = EthBridge::offchain_try_eth_call(&request);
+
+		// Then
+		assert_eq!(
+			result,
+			CheckedEthCallResult::Ok(
+				expected_return_data,
+				latest_block_number,
+				latest_block_timestamp
+			)
+		);
+	});
+}
+
+#[test]
+fn offchain_try_eth_call_reports_oversized_return_data() {
+	// given a request where returndata is > 32 bytes
+	// when the validator checks the request
+	// then it should be reported as oversized
+	ExtBuilder::default().build().execute_with(|| {
+		let latest_block_number = 123_u64;
+		mock_timestamp(now());
+		mock_block_response(latest_block_number, now().into());
+		let remote_contract = H160::from_low_u64_be(333);
+		MockEthereumRpcClient::mock_call_at(latest_block_number, remote_contract, &[0x02, 33]); // longer than 32 bytes
+
+		let request = CheckedEthCallRequestBuilder::new()
+			.target(remote_contract)
+			.try_block_number(5)
+			.build();
+
+		// When
+		let result = EthBridge::offchain_try_eth_call(&request);
+
+		// Then
+		assert_eq!(result, CheckedEthCallResult::ReturnDataExceedsLimit);
+	});
+}
+#[test]
+fn offchain_try_eth_call_at_historic_block_after_delay() {
+	// given a request where `try_block_number` is originally within `max_look_behind_blocks` but
+	// moves outside of this range due to a delay in the challenge
+	// when the validator checks the request
+	// then the `eth_call` should be executed at `try_block_number`, factoring in the delay
+	ExtBuilder::default().build().execute_with(|| {
+		let latest_block_number = 130_u64;
+		let latest_block_timestamp = now();
+		mock_timestamp(now());
+		mock_block_response(latest_block_number, latest_block_timestamp.into());
+
+		let try_block_number = 123_u64;
+		let try_block_timestamp = latest_block_timestamp - 15 * 7; // ethereum block timestamp 7 blocks before latest
+		mock_block_response(try_block_number, try_block_timestamp.into());
+
+		let remote_contract = H160::from_low_u64_be(333);
+		let expected_return_data = [0x01_u8; 32];
+		MockEthereumRpcClient::mock_call_at(
+			try_block_number,
+			remote_contract,
+			&expected_return_data,
+		);
+
+		// The max look behind blocks is 3 which is correct at the time of request
+		// (`check_timestamp`) however, a delay in challenge execution means another 4 blocks have
+		// passed (target block is now 7 behind latest) the additional 4 blocks lenience should be
+		// granted due to the `check_timestamp`
+		let request_timestamp = now() - 2 * 60; // 2 mins ago
+		let check_timestamp = request_timestamp + 60; // 1 min ago
+		let request = CheckedEthCallRequestBuilder::new()
+			.timestamp(request_timestamp)
+			.check_timestamp(check_timestamp)
+			.max_block_look_behind(3)
+			.try_block_number(try_block_number)
+			.target(remote_contract)
+			.build();
+
+		// When
+		let result = EthBridge::offchain_try_eth_call(&request);
+
+		// Then
+		assert_eq!(
+			result,
+			CheckedEthCallResult::Ok(expected_return_data, try_block_number, try_block_timestamp)
+		);
+
+		// same request as before but the check time set is set to _now_
+		// no delay is considered and so the checked call happens at the latest block (which is not
+		// mocked)
+		let request = CheckedEthCallRequestBuilder::new()
+			.timestamp(request_timestamp)
+			.check_timestamp(latest_block_timestamp)
+			.max_block_look_behind(3)
+			.try_block_number(try_block_number) // lookbehind is 2 => try block falls out of range
+			.target(remote_contract)
+			.build();
+		let result = EthBridge::offchain_try_eth_call(&request);
+		assert_eq!(result, CheckedEthCallResult::DataProviderErr);
+	});
+}
+*/
+
+#[test]
+fn test_prune_claim_ids() {
+	{
+		let mut test_vec = vec![1, 2, 3, 4, 6, 7];
+		EthBridge::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![4, 6, 7]);
+	}
+	{
+		let mut test_vec = vec![4, 5, 6, 7];
+		EthBridge::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![7]);
+	}
+	{
+		let mut test_vec: Vec<EventClaimId> = vec![];
+		EthBridge::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![] as Vec<EventClaimId>);
+	}
+	{
+		let mut test_vec = vec![5];
+		EthBridge::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![5]);
+	}
+	{
+		let mut test_vec = vec![0, 0, 0]; // event_id will be unique. Hence not applicable
+		EthBridge::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![0, 0, 0]);
+	}
+	{
+		let mut test_vec = vec![5, 2, 0, 1, 1]; // event_id will be unique. Hence not applicable
+		EthBridge::prune_claim_ids(&mut test_vec);
+		assert_eq!(test_vec, vec![1, 1, 2, 5]);
+	}
+}
+
+#[test]
+fn test_submit_event_replay_check() {
+	let relayer = H160::from_low_u64_be(123);
+	let tx_hash = EthHash::from_low_u64_be(33);
+	let mut event_data: Vec<Vec<u8>> = Default::default();
+	// prepare 4 events
+	for i in 0..4 {
+		let event_item_data = encode_event_message(
+			i as u64,
+			H160::from_low_u64_be(555),
+			H160::from_low_u64_be(555),
+			&[i as u8, 2, 3, 4, 5],
+		);
+		event_data.push(event_item_data);
+	}
+
+	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
+		// submit event 0, 1, 3 only
+		for i in 0..4 {
+			if i != 2 {
+				assert_ok!(EthBridge::submit_event(
+					Origin::signed(relayer.into()),
+					tx_hash.clone(),
+					event_data[i].clone(),
+				));
+			}
+		}
+		// Process the messages
+		let process_at = System::block_number() + EthBridge::challenge_period();
+		EthBridge::on_initialize(process_at);
+		// check the processed_message_ids has [1, 3]
+		assert_eq!(EthBridge::processed_message_ids(), vec![1, 3]);
+		// try to resubmit claim 0 again.
+		assert_noop!(
+			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data[0].clone()),
+			Error::<TestRuntime>::EventReplayProcessed
+		);
+
+		// submit claim 2 now
+		assert_ok!(EthBridge::submit_event(
+			Origin::signed(relayer.into()),
+			tx_hash.clone(),
+			event_data[2].clone(),
+		));
+		// Process the messages
+		let process_at2 = System::block_number() + EthBridge::challenge_period();
+		EthBridge::on_initialize(process_at2);
+
+		// check the processed_message_ids has [3]
+		assert_eq!(EthBridge::processed_message_ids(), vec![3]);
+	});
+}

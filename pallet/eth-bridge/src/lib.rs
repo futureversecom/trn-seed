@@ -15,7 +15,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod eth_rpc_client;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod tests;
 mod types;
+
 use crate::types::{
 	BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim, EventClaimResult,
 	EventClaimStatus, LatestOrNumber, NotarizationPayload,
@@ -394,10 +399,8 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 
 			// Ensure account is not the current relayer
-			if Self::relayer() == Some(origin.clone()) {
-				// spk - check this logic, can be simplified?
-				ensure!(Self::relayer() != Some(origin.clone()), Error::<T>::CantUnbondRelayer);
-			};
+			ensure!(Self::relayer() != Some(origin.clone()), Error::<T>::CantUnbondRelayer);
+			// relayer_bond should be > 0
 			let relayer_bond = Self::relayer_bond(&origin);
 			ensure!(relayer_bond > 0, Error::<T>::CantUnbondRelayer);
 
@@ -563,7 +566,9 @@ pub mod pallet {
 		pub fn submit_notarization(
 			origin: OriginFor<T>,
 			payload: NotarizationPayload,
-			_signature: <AuthorityId as RuntimeAppPublic>::Signature,
+			_signature: <AuthorityId as RuntimeAppPublic>::Signature, /* TODO(surangap): Add a
+			                                                           * signature verification
+			                                                           * to this */
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 
