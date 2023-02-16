@@ -19,6 +19,8 @@ use pallet_evm::{
 	Runner as RunnerT,
 };
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+
+
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
@@ -214,10 +216,10 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 			// Prevent asset `create` transactions from executing
 			Call::Assets(pallet_assets::Call::create { .. }) => false,
 			// Disable XRPLBridge challenge calls
-			Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
-			Call::XRPLBridge(pallet_xrpl_bridge::Call::offchain_challenge_verification {
-				..
-			}) => false,
+			// Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
+			// Call::XRPLBridge(pallet_xrpl_bridge::Call::offchain_challenge_verification {
+			// 	..
+			// }) => false,
 			_ => true,
 		}
 	}

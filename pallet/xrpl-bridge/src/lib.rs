@@ -70,7 +70,9 @@ pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
+	use crate::xrpl_rpc_client::is_valid_xrp_transaction;
+
+use super::*;
 	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
 	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
 	use seed_primitives::{ethy::EthyEcdsaToEthereum, xrpl::XrplTxTicketSequence, AccountId20};
@@ -168,7 +170,10 @@ pub mod pallet {
 		CantParseXrplBlockHash,
 		/// HTTP request deadline reached
 		DeadlineReached,
-		/// Received an HTTP when making an HTTP request
+		/// Invalid JSON received
+		InvalidJSON,
+		InvalidXrplTransaction,
+		/// Received an unexpected HTTP error when making an HTTP request
 		HttpError,
 		/// Http response took too long to return
 		HttpTimeout,
@@ -260,10 +265,26 @@ pub mod pallet {
 						return
 					}
 
-					if let Err(err) = xrpl_rpc_client::get_xrpl_tx_data::<T>(xrpl_block_hash) {
-						log::error!("Could not retrieve data from XRPL RPC {:?}", err);
-						return
-					};
+					// if let Err(err) = xrpl_rpc_client::get_xrpl_tx_data::<T>(xrpl_block_hash) {
+					// 	log::error!("Could not retrieve data from XRPL RPC {:?}", err);
+					// 	return
+					// };
+
+					let response_body = xrpl_rpc_client::get_xrpl_tx_data::<T>(xrpl_block_hash).unwrap();
+
+					let response_body_str = sp_std::str::from_utf8(&response_body).map_err(|_| {
+						log::warn!("No UTF8 body");
+						return;
+					});
+
+					log::info!("response body: \r\n {:?}", response_body_str);
+
+					// TODO: change the following signature to again return result
+					// if is_valid_xrp_transaction::<T>(response_body_str.unwrap()).is_err() {
+					// 	return;
+					// }
+
+					is_valid_xrp_transaction::<T>(response_body_str.unwrap());
 
 					// TODO: Get verification info from above XRPL tx parsed results
 					let challenge_verification_info = vec![];

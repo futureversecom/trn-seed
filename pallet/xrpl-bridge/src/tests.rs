@@ -7,7 +7,7 @@ use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use seed_primitives::{AccountId, Balance};
 use sp_core::{offchain::testing::PendingRequest, H160, H256, H512};
-use sp_runtime::{testing::TestXt, traits::BadOrigin};
+use sp_runtime::{testing::TestXt, traits::BadOrigin, ArithmeticError};
 
 type Extrinsic = TestXt<RuntimeCall, ()>;
 
@@ -146,7 +146,6 @@ fn process_transaction_challenge_works() {
 		assert_ok!(XRPLBridge::submit_challenge(
 			Origin::signed(challenger),
 			XrplTxHash::from_slice(transaction_hash),
-			ledger_index
 		));
 
 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
@@ -185,7 +184,7 @@ fn process_transaction_challenge_offchain_worker() {
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 
 		// Given: challenge exists
-		ChallengeXRPTransactionList::<Test>::insert((&transaction_hash, ledger_index), challenger);
+		ChallengeXRPTransactionList::<Test>::insert(&transaction_hash, challenger);
 
 		// When: the offchain worker is invoked during the period, and calls the XRPL RPC,
 		// retrieving accurate results
@@ -318,7 +317,7 @@ fn withdraw_request_works_with_door_fee() {
 		assert_eq!(xrp_balance, 0);
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(Origin::signed(account), 1, destination),
-			ArithmeticError::Underflow
+			ArithmeticError::Underflow	
 		);
 	})
 }
@@ -335,7 +334,7 @@ fn withdraw_request_burn_fails() {
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_noop!(
 			XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination),
-			ArithmeticError::Underflow
+			ArithmeticError::Underflow		
 		);
 	})
 }
@@ -378,19 +377,19 @@ fn clear_storages() {
 
 		let account: AccountId = [1_u8; 20].into();
 		<ProcessXRPTransactionDetails<Test>>::insert(
-			(tx_hash_1, ledger_index),
-			(XrpTransaction::default(), account),
+			tx_hash_1,
+			(ledger_index, XrpTransaction::default(), account),
 		);
 		<ProcessXRPTransactionDetails<Test>>::insert(
-			(tx_hash_2, ledger_index),
-			(XrpTransaction::default(), account),
+			tx_hash_2,
+			(ledger_index, XrpTransaction::default(), account),
 		);
 
 		XRPLBridge::on_initialize(process_block);
 
 		assert!(<SettledXRPTransactionDetails<Test>>::get(process_block).is_none());
-		assert!(<ProcessXRPTransactionDetails<Test>>::get((tx_hash_1, ledger_index)).is_none());
-		assert!(<ProcessXRPTransactionDetails<Test>>::get((tx_hash_2, ledger_index)).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
 	});
 }
 
