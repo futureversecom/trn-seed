@@ -12,7 +12,7 @@
 // * https://centrality.ai/licenses/gplv3.txt
 // * https://centrality.ai/licenses/lgplv3.txt
 // */
-//! NFT benchmarking.
+//! DEX benchmarking.
 
 use super::*;
 
