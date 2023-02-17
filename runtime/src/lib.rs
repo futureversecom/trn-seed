@@ -375,7 +375,7 @@ impl pallet_nft::Config for Runtime {
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 }
 
 parameter_types! {
