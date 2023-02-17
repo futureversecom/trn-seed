@@ -1,0 +1,96 @@
+// /* Copyright 2019-2021 Centrality Investments Limited
+// *
+// * Licensed under the LGPL, Version 3.0 (the "License");
+// * you may not use this file except in compliance with the License.
+// * Unless required by applicable law or agreed to in writing, software
+// * distributed under the License is distributed on an "AS IS" BASIS,
+// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// * See the License for the specific language governing permissions and
+// * limitations under the License.
+// * You may obtain a copy of the License at the root of this project source code,
+// * or at:
+// * https://centrality.ai/licenses/gplv3.txt
+// * https://centrality.ai/licenses/lgplv3.txt
+// */
+//! NFT benchmarking.
+
+use super::*;
+
+use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite, vec};
+use frame_support::assert_ok;
+use frame_system::RawOrigin;
+
+use crate::Pallet as Dex;
+
+/// This is a helper function to get an account.
+pub fn account<T: Config>(name: &'static str) -> T::AccountId {
+	bench_account(name, 0, 0)
+}
+
+pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
+	RawOrigin::Signed(acc.clone())
+}
+
+fn mint_asset<T: Config>() -> AssetId {
+	let alice = account::<T>("Alice");
+	let asset_id = T::MultiCurrency::create(&alice, None).unwrap();
+	let mint_amount = Balance::from(10_000_000u32);
+	assert_ok!(T::MultiCurrency::mint_into(asset_id, &alice, mint_amount));
+
+	asset_id
+}
+
+fn build_liquidity<T: Config>() -> (AssetId, AssetId) {
+	let alice = account::<T>("Alice");
+	let asset_id_1 = mint_asset::<T>();
+	let asset_id_2 = mint_asset::<T>();
+
+	assert_ok!(Dex::<T>::add_liquidity(
+		origin::<T>(&alice).into(),
+		asset_id_1,
+		asset_id_2,
+		Balance::from(100_000u32),
+		Balance::from(200_000u32),
+		Balance::from(1_000u32),
+		Balance::from(1_000u32),
+		Balance::from(100u32),
+	));
+
+	(asset_id_1, asset_id_2)
+}
+
+benchmarks! {
+	swap_with_exact_supply {
+		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
+	}: _(origin::<T>(&account::<T>("Alice")), Balance::from(100u32), Balance::from(10u32), vec![asset_id_1, asset_id_2])
+
+	swap_with_exact_target {
+		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
+	}: _(origin::<T>(&account::<T>("Alice")), Balance::from(100u32), Balance::from(120u32), vec![asset_id_1, asset_id_2])
+
+	add_liquidity {
+		let asset_id_1 = mint_asset::<T>();
+		let asset_id_2 = mint_asset::<T>();
+		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
+
+	}: _(origin::<T>(&account::<T>("Alice")), asset_id_1, asset_id_2, Balance::from(100000u32), Balance::from(200000u32), Balance::from(1000u32), Balance::from(1000u32), Balance::from(100u32))
+
+	remove_liquidity {
+		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
+	}: _(origin::<T>(&account::<T>("Alice")), asset_id_1, asset_id_2, Balance::from(100u32), Balance::from(10u32), Balance::from(10u32))
+
+
+	reenable_trading_pair {
+		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
+		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
+
+		assert_ok!(Dex::<T>::disable_trading_pair(RawOrigin::Root.into(), asset_id_1, asset_id_2));
+	}: _(RawOrigin::Root, asset_id_1, asset_id_2)
+
+	disable_trading_pair {
+		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
+		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
+	}: _(RawOrigin::Root, asset_id_1, asset_id_2)
+}
+
+impl_benchmark_test_suite!(Dex, crate::mock::new_test_ext(), crate::mock::Test,);
