@@ -41,12 +41,10 @@ fn mint_asset<T: Config>() -> AssetId {
 }
 
 fn build_liquidity<T: Config>() -> (AssetId, AssetId) {
-	let alice = account::<T>("Alice");
-	let asset_id_1 = mint_asset::<T>();
-	let asset_id_2 = mint_asset::<T>();
+	let (asset_id_1, asset_id_2) = (mint_asset::<T>(), mint_asset::<T>());
 
 	assert_ok!(Dex::<T>::add_liquidity(
-		origin::<T>(&alice).into(),
+		origin::<T>(&account::<T>("Alice")).into(),
 		asset_id_1,
 		asset_id_2,
 		Balance::from(100_000u32),
@@ -69,10 +67,7 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), Balance::from(100u32), Balance::from(120u32), vec![asset_id_1, asset_id_2])
 
 	add_liquidity {
-		let asset_id_1 = mint_asset::<T>();
-		let asset_id_2 = mint_asset::<T>();
-		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
-
+		let (asset_id_1, asset_id_2) = (mint_asset::<T>(), mint_asset::<T>());
 	}: _(origin::<T>(&account::<T>("Alice")), asset_id_1, asset_id_2, Balance::from(100000u32), Balance::from(200000u32), Balance::from(1000u32), Balance::from(1000u32), Balance::from(100u32))
 
 	remove_liquidity {
@@ -82,14 +77,11 @@ benchmarks! {
 
 	reenable_trading_pair {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
-		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
-
 		assert_ok!(Dex::<T>::disable_trading_pair(RawOrigin::Root.into(), asset_id_1, asset_id_2));
 	}: _(RawOrigin::Root, asset_id_1, asset_id_2)
 
 	disable_trading_pair {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
-		let trading_pair = TradingPair::new(asset_id_1, asset_id_2);
 	}: _(RawOrigin::Root, asset_id_1, asset_id_2)
 }
 
