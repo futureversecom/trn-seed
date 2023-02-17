@@ -3,10 +3,12 @@
   "id": "porcini",
   "chainType": "Live",
   "bootNodes": [
-    "/dns4/bootnode-0.cicd.rootnet.app/tcp/30333/p2p/12D3KooWApbepSHWhDzqz9GWFXzKWiWQmkhAVUdW9KBG5K8vNWxJ",
-    "/dns4/bootnode-1.cicd.rootnet.app/tcp/30333/p2p/12D3KooWPQV5rvHSVeiiVpqKP5ksaUoohQwvJhLuoeHmHkKgK3My",
-    "/dns4/bootnode-2.cicd.rootnet.app/tcp/30333/p2p/12D3KooWGinmSRcU2Y1vSynWHrphfxKosFJQeD7Rr1TCDX3gJMJF",
-    "/dns4/bootnode-3.cicd.rootnet.app/tcp/30333/p2p/12D3KooWBQYS4KDS6PRkLvMGpkPbkKnd3v2L8NPHo4GwhHJYe9SF"
+    "/dns4/bootnode-0.porcini.rootnet.app/tcp/30333/p2p/12D3KooWApbepSHWhDzqz9GWFXzKWiWQmkhAVUdW9KBG5K8vNWxJ",
+    "/dns4/bootnode-1.porcini.rootnet.app/tcp/30333/p2p/12D3KooWPQV5rvHSVeiiVpqKP5ksaUoohQwvJhLuoeHmHkKgK3My",
+    "/dns4/bootnode-2.porcini.rootnet.app/tcp/30333/p2p/12D3KooWNAFyQQp6BWeWz7Zydv47chjggjjTK1CJzQp2BvBYQtqN",
+    "/dns4/bootnode-3.porcini.rootnet.app/tcp/30333/p2p/12D3KooWSzz9wCDyCQTVRU7bubbTPaUcJRLX7bPNNrwrTrpz9uM7",
+    "/dns4/bootnode-4.porcini.rootnet.app/tcp/30333/p2p/12D3KooWPoWsXjSYE3ZZUDT32va7gD1rzx3REuZskFkVZs6aywJ3",
+    "/dns4/bootnode-5.porcini.rootnet.app/tcp/30333/p2p/12D3KooWEW9eWZzW1MnZGTBg7i81Jyz3eLNWAnr9bewDPA34xHd1"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
