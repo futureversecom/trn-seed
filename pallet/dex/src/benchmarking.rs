@@ -74,7 +74,6 @@ benchmarks! {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
 	}: _(origin::<T>(&account::<T>("Alice")), asset_id_1, asset_id_2, Balance::from(100u32), Balance::from(10u32), Balance::from(10u32))
 
-
 	reenable_trading_pair {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
 		assert_ok!(Dex::<T>::disable_trading_pair(RawOrigin::Root.into(), asset_id_1, asset_id_2));
