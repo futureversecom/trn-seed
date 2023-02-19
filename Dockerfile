@@ -1,5 +1,5 @@
 # Stage 1 - Build node
-FROM docker.io/library/rust:1.65.0-buster AS builder
+FROM docker.io/library/rust:1.67.0-bullseye AS builder
 
 # Copy local files to workdir
 ADD . ./workdir
@@ -13,7 +13,7 @@ RUN apt update -y && \
 RUN rustup show && cargo build --release --locked
 
 # Stage 2 - Run node
-FROM docker.io/library/rust:1.65.0-buster AS run
+FROM docker.io/library/debian:bullseye-slim AS run
 LABEL maintainer="support@centrality.ai"
 LABEL org.opencontainers.image.source=https://github.com/futureversecom/seed
 COPY --from=0 /workdir/target/release/seed /usr/bin/
