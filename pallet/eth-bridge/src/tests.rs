@@ -17,23 +17,19 @@
 use super::*;
 use crate::{
 	mock::{
-		AssetsExt, Balances, ChallengerBond, EpochDuration, EthBridge, EthBridgePalletId,
-		ExtBuilder, MockBlockBuilder, MockEthereumRpcClient, MockEthyAdapter, MockLog,
-		MockLogBuilder, MockReceiptBuilder, MockValidatorSet, MockValidatorSetAdapter, Origin,
-		RelayerBond, System, TestRuntime, XRP_ASSET_ID,
+		mock_timestamp, now, AssetsExt, ChallengerBond, CheckedEthCallRequestBuilder, EthBridge,
+		EthBridgePalletId, ExtBuilder, MockBlockBuilder, MockEthCallSubscriber,
+		MockEthereumRpcClient, MockLog, MockLogBuilder, MockReceiptBuilder, MockUnixTime,
+		MockValidatorSet, Origin, RelayerBond, System, TestRuntime, XRP_ASSET_ID,
 	},
 	types::{EthHash, TransactionReceipt},
 };
 use frame_support::{
-	assert_err, assert_noop, assert_ok, assert_storage_noop,
-	traits::{fungibles::Inspect, Hooks, OneSessionHandler, UnixTime},
-	weights::{constants::RocksDbWeight as DbWeight, Weight},
+	assert_noop, assert_ok, assert_storage_noop,
+	traits::{fungibles::Inspect, Hooks, UnixTime},
 };
-use seed_pallet_common::ethy::EthereumBridgeAdapter;
-use seed_primitives::{
-	ethy::crypto::AuthorityId, xrpl::XrplAccountId, AccountId, AccountId20, BlockNumber, Signature,
-};
-use sp_core::{ecdsa, ByteArray, Pair, Public, H160, H256, U256};
+use seed_primitives::{ethy::crypto::AuthorityId, AccountId, AccountId20};
+use sp_core::{ecdsa, ByteArray, Pair, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::DispatchError::BadOrigin;
 use std::default::Default;
@@ -107,6 +103,7 @@ fn deposit_relayer_bond_succees() {
 			);
 		});
 }
+
 #[test]
 fn deposit_relayer_bond_fail_without_funds() {
 	let relayer = H160::from_low_u64_be(1);
@@ -119,6 +116,7 @@ fn deposit_relayer_bond_fail_without_funds() {
 		assert_eq!(EthBridge::relayer_bond(AccountId20::from(relayer)), 0);
 	});
 }
+
 #[test]
 fn withdraw_relayer_bond_works() {
 	let relayer = H160::from_low_u64_be(1);
@@ -150,6 +148,7 @@ fn withdraw_relayer_bond_works() {
 			);
 		});
 }
+
 #[test]
 fn withdraw_active_relayer_bond_should_fail_for_active_relayer() {
 	let relayer = H160::from_low_u64_be(1);
@@ -173,6 +172,7 @@ fn withdraw_active_relayer_bond_should_fail_for_active_relayer() {
 			);
 		});
 }
+
 #[test]
 fn set_relayer_works() {
 	let relayer = H160::from_low_u64_be(1);
@@ -196,6 +196,7 @@ fn set_relayer_works() {
 			assert_eq!(EthBridge::relayer(), Some(relayer.into()));
 		})
 }
+
 #[test]
 fn set_relayer_no_bond_should_fail() {
 	let relayer = H160::from_low_u64_be(1);
@@ -206,6 +207,7 @@ fn set_relayer_no_bond_should_fail() {
 		);
 	});
 }
+
 #[test]
 fn set_event_block_confirmations_works() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -220,6 +222,7 @@ fn set_event_block_confirmations_works() {
 		);
 	});
 }
+
 #[test]
 fn set_challenge_period_works() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -232,6 +235,7 @@ fn set_challenge_period_works() {
 		System::assert_has_event(Event::<TestRuntime>::ChallengePeriodSet { blocks: 2 }.into());
 	});
 }
+
 #[test]
 fn set_contract_address_works() {
 	let contract_address = H160::from_low_u64_be(1);
@@ -247,6 +251,7 @@ fn set_contract_address_works() {
 		);
 	});
 }
+
 #[test]
 fn submit_event_success() {
 	let relayer = H160::from_low_u64_be(123);
@@ -278,6 +283,7 @@ fn submit_event_success() {
 		);
 	});
 }
+
 #[test]
 fn submit_event_non_relayer_fail() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -288,6 +294,7 @@ fn submit_event_non_relayer_fail() {
 		);
 	});
 }
+
 #[test]
 fn submit_event_bad_encoding_fail() {
 	let relayer = H160::from_low_u64_be(123);
@@ -301,6 +308,7 @@ fn submit_event_bad_encoding_fail() {
 		);
 	});
 }
+
 #[test]
 fn submit_event_replay_pending_fail() {
 	let relayer = H160::from_low_u64_be(123);
@@ -326,6 +334,7 @@ fn submit_event_replay_pending_fail() {
 		);
 	});
 }
+
 #[test]
 fn submit_event_replay_completed_fail() {
 	let relayer = H160::from_low_u64_be(123);
@@ -354,6 +363,7 @@ fn submit_event_replay_completed_fail() {
 		);
 	});
 }
+
 #[test]
 fn submit_challenge_works() {
 	let relayer = H160::from_low_u64_be(123);
@@ -407,6 +417,7 @@ fn submit_challenge_works() {
 			);
 		});
 }
+
 #[test]
 fn submit_challenge_not_enough_bond_should_fail() {
 	let relayer = H160::from_low_u64_be(123);
@@ -431,6 +442,7 @@ fn submit_challenge_not_enough_bond_should_fail() {
 		);
 	});
 }
+
 #[test]
 fn submit_notarization_failed_non_active_validator() {
 	// fake ecdsa public keys to represent the mocked validators
@@ -454,6 +466,7 @@ fn submit_notarization_failed_non_active_validator() {
 		);
 	});
 }
+
 #[test]
 fn handle_event_notarization_valid_claims() {
 	let relayer = H160::from_low_u64_be(123);
@@ -576,6 +589,7 @@ fn handle_event_notarization_valid_claims() {
 			assert_eq!(EthBridge::messages_valid_at(process_at), vec![event_id_1, event_id_2]);
 		});
 }
+
 #[test]
 /// Check whether an event that was challenged and proven to be valid is still processed
 fn process_valid_challenged_event() {
@@ -678,6 +692,7 @@ fn process_valid_challenged_event() {
 			assert_eq!(EthBridge::processed_message_ids(), vec![event_id_1]);
 		});
 }
+
 #[test]
 /// Check whether an event that was challenged and proven to be valid but reaches the process block
 /// before a consensus is reached is processed after extended by the challenge period
@@ -764,6 +779,7 @@ fn process_valid_challenged_event_delayed() {
 			assert_eq!(EthBridge::processed_message_ids(), vec![event_id_1]);
 		});
 }
+
 #[test]
 fn handle_event_notarization_invalid_claims() {
 	let relayer = H160::from_low_u64_be(123);
@@ -870,6 +886,7 @@ fn handle_event_notarization_invalid_claims() {
 			assert!(EthBridge::challenger_account(event_id_1).is_none());
 		});
 }
+
 #[test]
 fn do_event_notarization_ocw_doesnt_change_storage() {
 	let relayer = H160::from_low_u64_be(123);
@@ -910,7 +927,7 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 			assert_storage_noop!(EthBridge::do_event_notarization_ocw(&public_key.into(), 0));
 		});
 }
-/*
+
 #[test]
 fn offchain_try_notarize_event() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -1233,6 +1250,7 @@ fn offchain_try_eth_call_reports_oversized_return_data() {
 		assert_eq!(result, CheckedEthCallResult::ReturnDataExceedsLimit);
 	});
 }
+
 #[test]
 fn offchain_try_eth_call_at_historic_block_after_delay() {
 	// given a request where `try_block_number` is originally within `max_look_behind_blocks` but
@@ -1294,7 +1312,143 @@ fn offchain_try_eth_call_at_historic_block_after_delay() {
 		assert_eq!(result, CheckedEthCallResult::DataProviderErr);
 	});
 }
-*/
+
+#[test]
+fn handle_call_notarization_success() {
+	// given 9 validators and 6 agreeing notarizations (over required 2/3 threshold)
+	// when the notarizations are aggregated
+	// then it triggers the success callback
+
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<AuthorityId> =
+		(1_u8..=9_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
+	ExtBuilder::default().build().execute_with(|| {
+		let call_id = 1_u64;
+		EthCallRequestInfo::<TestRuntime>::insert(call_id, CheckedEthCallRequest::default());
+		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+
+		let block = 555_u64;
+		let timestamp = now();
+		let return_data = [0x3f_u8; 32];
+
+		// `notarizations[i]` is submitted by the i-th validator (`mock_notary_keys`)
+		let notarizations = vec![
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block - 1, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp + 5),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok([0x11_u8; 32], block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+		];
+		// expected aggregated count after the i-th notarization
+		let expected_aggregations = vec![
+			Some(1_u32),
+			Some(2),
+			Some(1), // block # differs, count separately
+			Some(3),
+			Some(1), // timestamp differs, count separately
+			Some(4),
+			Some(5),
+			Some(1), // return_data differs, count separately
+			None,    // success callback & storage is reset after 6th notarization (2/3 * 9 = 6)
+		];
+
+		// aggregate the notarizations
+		for ((notary_result, notary_pk), aggregation) in
+			notarizations.iter().zip(mock_notary_keys).zip(expected_aggregations)
+		{
+			assert_ok!(EthBridge::handle_call_notarization(call_id, *notary_result, &notary_pk));
+
+			// assert notarization progress
+			let aggregated_notarizations =
+				EthBridge::eth_call_notarizations_aggregated(call_id).unwrap_or_default();
+			println!("{:?}", aggregated_notarizations);
+			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
+		}
+
+		// callback triggered with correct value
+		assert_eq!(MockEthCallSubscriber::success_result(), Some((call_id, notarizations[0])),);
+	});
+}
+
+#[test]
+fn handle_call_notarization_aborts_no_consensus() {
+	// Given in-progress notarizations such that there cannot be consensus even from uncounted
+	// notarizations When aggregating the notarizations
+	// Then it triggers the failure callback
+
+	// fake ecdsa public keys to represent the mocked validators
+	let mock_notary_keys: Vec<AuthorityId> =
+		(1_u8..=6_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
+	ExtBuilder::default().build().execute_with(|| {
+		let call_id = 1_u64;
+		EthCallRequestInfo::<TestRuntime>::insert(call_id, CheckedEthCallRequest::default());
+		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+		let block = 555_u64;
+		let timestamp = now();
+		let return_data = [0x3f_u8; 32];
+
+		// `notarizations[i]` is submitted by the i-th validator (`mock_notary_keys`)
+		let notarizations = vec![
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::Ok(return_data, block, timestamp - 1),
+			CheckedEthCallResult::Ok(return_data, block, timestamp - 2),
+			CheckedEthCallResult::Ok(return_data, block, timestamp),
+			CheckedEthCallResult::DataProviderErr,
+			CheckedEthCallResult::DataProviderErr,
+		];
+		// expected aggregated count after the i-th notarization
+		let expected_aggregations = vec![
+			Some(1_u32),
+			Some(1),
+			Some(1),
+			Some(2),
+			None, /* after counting 4th notarization the system realizes consensus is impossible
+			       * and triggers failure callback, clearing storage */
+			None, /* this notarization is be (no longer tracked by the system after the previous
+			       * notarization) */
+		];
+
+		// aggregate the notarizations
+		for (idx, ((notary_result, notary_pk), aggregation)) in notarizations
+			.iter()
+			.zip(mock_notary_keys)
+			.zip(expected_aggregations)
+			.enumerate()
+		{
+			if idx == 5 {
+				// handling the (5th) notarization triggers failure as reaching consensus is no
+				// longer possible this (6th) notarization is effectively ignored
+				assert_noop!(
+					EthBridge::handle_call_notarization(call_id, *notary_result, &notary_pk),
+					Error::<TestRuntime>::InvalidClaim
+				);
+			} else {
+				// normal case the notarization is counted
+				assert_ok!(EthBridge::handle_call_notarization(
+					call_id,
+					*notary_result,
+					&notary_pk
+				));
+			}
+
+			// assert notarization progress
+			let aggregated_notarizations =
+				EthBridge::eth_call_notarizations_aggregated(call_id).unwrap_or_default();
+			println!("{:?}", aggregated_notarizations);
+			assert_eq!(aggregated_notarizations.get(&notary_result).map(|x| *x), aggregation);
+		}
+
+		// failure callback triggered with correct value
+		assert_eq!(
+			MockEthCallSubscriber::failed_result(),
+			Some((call_id, EthCallFailure::Internal)),
+		);
+	});
+}
 
 #[test]
 fn test_prune_claim_ids() {

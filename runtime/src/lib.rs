@@ -856,6 +856,8 @@ impl pallet_eth_bridge::Config for Runtime {
 	type AuthoritySet = Historical;
 	type EventRouter = EthereumEventRouter;
 	type RpcClient = pallet_eth_bridge::EthereumRpcClient;
+	type EthCallSubscribers = ();
+	type UnixTime = Timestamp;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {

@@ -15,8 +15,8 @@
 use crate::{
 	self as pallet_eth_bridge,
 	types::{
-		BridgeEthereumRpcApi, BridgeRpcError, EthBlock, EthHash, LatestOrNumber, Log,
-		TransactionReceipt,
+		BridgeEthereumRpcApi, BridgeRpcError, CheckedEthCallRequest, CheckedEthCallResult,
+		EthBlock, EthCallId, EthHash, LatestOrNumber, Log, TransactionReceipt,
 	},
 	Config,
 };
@@ -25,19 +25,18 @@ use ethereum_types::U64;
 use frame_support::{
 	parameter_types,
 	storage::{StorageDoubleMap, StorageValue},
-	traits::{GenesisBuild, UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{UnixTime, ValidatorSet as ValidatorSetT},
 	IterableStorageMap, PalletId,
 };
 use frame_system::EnsureRoot;
 use scale_info::TypeInfo;
 use seed_pallet_common::{
-	ethy::{BridgeAdapter, EthyAdapter, EthySigningRequest, State},
-	validator_set::{ValidatorSetAdapter, ValidatorSetChangeHandler, ValidatorSetChangeInfo},
-	EthereumEventRouter, EventRouterResult, FinalSessionTracker,
+	ethy::{EthyAdapter, EthySigningRequest, State},
+	validator_set::ValidatorSetAdapter,
+	EthCallFailure, EthCallOracleSubscriber, EthereumEventRouter, EventRouterResult,
 };
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId, ValidatorSetId},
-	xrpl::XrplAccountId,
 	AssetId, Balance, EthAddress, Signature,
 };
 use sp_api_hidden_includes_construct_runtime::hidden_include::StorageMap;
@@ -192,8 +191,10 @@ impl Config for TestRuntime {
 	type NotarizationThreshold = NotarizationThreshold;
 	type AuthoritySet = MockValidatorSet;
 	type EventRouter = MockEventRouter;
+	type EthCallSubscribers = MockEthCallSubscriber;
 	type RpcClient = MockEthereumRpcClient;
 	type Call = Call;
+	type UnixTime = MockUnixTime;
 }
 
 pub struct MockValidatorSetAdapter;
@@ -246,8 +247,8 @@ impl ValidatorSetAdapter<AuthorityId> for MockValidatorSetAdapter {
 pub struct MockEthyAdapter;
 impl EthyAdapter for MockEthyAdapter {
 	fn request_for_proof(
-		request: EthySigningRequest,
-		event_proof_id: Option<EventProofId>,
+		_request: EthySigningRequest,
+		_event_proof_id: Option<EventProofId>,
 	) -> Result<EventProofId, DispatchError> {
 		Ok(1)
 	}
@@ -294,6 +295,104 @@ pub struct MockEventRouter;
 impl EthereumEventRouter for MockEventRouter {
 	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
 		Ok(1000)
+	}
+}
+
+pub struct MockEthCallSubscriber;
+impl EthCallOracleSubscriber for MockEthCallSubscriber {
+	type CallId = EthCallId;
+	/// Stores the successful call info
+	/// Available via `Self::success_result_for()`
+	fn on_eth_call_complete(
+		call_id: Self::CallId,
+		return_data: &[u8; 32],
+		block_number: u64,
+		block_timestamp: u64,
+	) {
+		test_storage::LastCallResult::put((
+			call_id,
+			CheckedEthCallResult::Ok(*return_data, block_number, block_timestamp),
+		));
+	}
+	/// Stores the failed call info
+	/// Available via `Self::failed_call_for()`
+	fn on_eth_call_failed(call_id: Self::CallId, reason: EthCallFailure) {
+		test_storage::LastCallFailure::put((call_id, reason));
+	}
+}
+impl MockEthCallSubscriber {
+	/// Returns last known successful call, if any
+	pub fn success_result() -> Option<(EthCallId, CheckedEthCallResult)> {
+		test_storage::LastCallResult::get()
+	}
+	/// Returns last known failed call, if any
+	pub fn failed_result() -> Option<(EthCallId, EthCallFailure)> {
+		test_storage::LastCallFailure::get()
+	}
+}
+
+/// Returns a fake timestamp based on the current block number
+pub struct MockUnixTime;
+impl UnixTime for MockUnixTime {
+	fn now() -> core::time::Duration {
+		match test_storage::Timestamp::get() {
+			// Use configured value for tests requiring precise timestamps
+			Some(s) => core::time::Duration::new(s, 0),
+			// fallback, use block number to derive timestamp for tests that only care abut block
+			// progression
+			None => core::time::Duration::new(System::block_number() * 5, 0),
+		}
+	}
+}
+
+/// set the block timestamp
+pub fn mock_timestamp(now: u64) {
+	test_storage::Timestamp::put(now);
+}
+
+// get the system unix timestamp in seconds
+pub fn now() -> u64 {
+	SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("after unix epoch")
+		.as_secs()
+}
+
+/// Builder for `CheckedEthCallRequest`
+pub struct CheckedEthCallRequestBuilder(CheckedEthCallRequest);
+
+impl CheckedEthCallRequestBuilder {
+	pub fn new() -> Self {
+		Self(CheckedEthCallRequest {
+			max_block_look_behind: 3_u64,
+			target: EthAddress::from_low_u64_be(1),
+			timestamp: now(),
+			check_timestamp: now() + 3 * 5, // 3 blocks
+			..Default::default()
+		})
+	}
+	pub fn build(self) -> CheckedEthCallRequest {
+		self.0
+	}
+	pub fn target(mut self, target: EthAddress) -> Self {
+		self.0.target = target;
+		self
+	}
+	pub fn try_block_number(mut self, try_block_number: u64) -> Self {
+		self.0.try_block_number = try_block_number;
+		self
+	}
+	pub fn max_block_look_behind(mut self, max_block_look_behind: u64) -> Self {
+		self.0.max_block_look_behind = max_block_look_behind;
+		self
+	}
+	pub fn check_timestamp(mut self, check_timestamp: u64) -> Self {
+		self.0.check_timestamp = check_timestamp;
+		self
+	}
+	pub fn timestamp(mut self, timestamp: u64) -> Self {
+		self.0.timestamp = timestamp;
+		self
 	}
 }
 
@@ -583,10 +682,7 @@ where
 pub struct ExtBuilder {
 	relayer: Option<AccountId>,
 	with_keystore: bool,
-	next_session_final: bool,
-	active_session_final: bool,
 	endowed_account: Option<(AccountId, Balance)>,
-	xrp_door_signer: Option<[u8; 33]>,
 }
 
 impl ExtBuilder {
@@ -596,14 +692,6 @@ impl ExtBuilder {
 	}
 	pub fn with_keystore(&mut self) -> &mut Self {
 		self.with_keystore = true;
-		self
-	}
-	pub fn active_session_final(&mut self) -> &mut Self {
-		self.active_session_final = true;
-		self
-	}
-	pub fn next_session_final(&mut self) -> &mut Self {
-		self.next_session_final = true;
 		self
 	}
 	pub fn with_endowed_account(mut self, account: H160, balance: Balance) -> Self {
@@ -645,12 +733,6 @@ impl ExtBuilder {
 			let keystore = KeyStore::new();
 			SyncCryptoStore::ecdsa_generate_new(&keystore, AuthorityId::ID, None).unwrap();
 			ext.register_extension(KeystoreExt(Arc::new(keystore)));
-		}
-
-		if self.next_session_final {
-			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
-		} else if self.active_session_final {
-			ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(100));
 		}
 
 		ext

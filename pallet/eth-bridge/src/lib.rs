@@ -22,8 +22,8 @@ mod tests;
 mod types;
 
 use crate::types::{
-	BridgeEthereumRpcApi, CheckedEthCallResult, EthBlock, EthCallId, EventClaim, EventClaimResult,
-	EventClaimStatus, LatestOrNumber, NotarizationPayload,
+	BridgeEthereumRpcApi, CheckedEthCallRequest, CheckedEthCallResult, EthBlock, EthCallId,
+	EventClaim, EventClaimResult, EventClaimStatus, LatestOrNumber, NotarizationPayload,
 };
 use codec::Encode;
 pub use eth_rpc_client::EthereumRpcClient;
@@ -32,7 +32,7 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::*,
-	traits::{fungibles::Transfer, Get, ValidatorSet as ValidatorSetT},
+	traits::{fungibles::Transfer, Get, UnixTime, ValidatorSet as ValidatorSetT},
 	transactional,
 	weights::Weight,
 	PalletId,
@@ -43,13 +43,14 @@ use frame_system::{
 	pallet_prelude::*,
 };
 use hex_literal::hex;
-use log::{debug, error, info};
+use log::{debug, error, info, trace};
 pub use pallet::*;
 use seed_pallet_common::{
 	eth::EthereumEventInfo,
 	ethy::{BridgeAdapter, EthereumBridgeAdapter, EthyAdapter, EthySigningRequest, State::Paused},
 	validator_set::ValidatorSetAdapter,
-	EthereumBridge, EthereumEventRouter, EventRouterError, Hold,
+	EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge, EthereumEventRouter,
+	EventRouterError, Hold,
 };
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventClaimId, EventProofId},
@@ -59,12 +60,14 @@ use sp_core::{H160, H256};
 use sp_runtime::{
 	offchain as rt_offchain, traits::SaturatedConversion, DispatchError, Percent, RuntimeAppPublic,
 };
-use sp_std::vec::Vec;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
 /// The type to sign and send transactions.
 const UNSIGNED_TXS_PRIORITY: u64 = 100;
 /// Max notarization claims to attempt per block/OCW invocation
 const CLAIMS_PER_BLOCK: usize = 1;
+/// Max eth_call checks to attempt per block/OCW invocation
+const CALLS_PER_BLOCK: usize = 1;
 /// The logging target for this pallet
 pub(crate) const LOG_TARGET: &str = "eth-bridge";
 /// The solidity selector of bridge events
@@ -76,6 +79,9 @@ const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use crate::types::CheckedEthCallRequest;
+	use frame_support::traits::UnixTime;
+	use seed_pallet_common::EthCallOracleSubscriber;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -107,10 +113,14 @@ pub mod pallet {
 		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 		/// Handles routing received Ethereum events upon verification
 		type EventRouter: EthereumEventRouter;
+		/// Pallet subscribing to of notarized eth calls
+		type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
 		/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
 		type RpcClient: BridgeEthereumRpcApi;
 		/// The runtime call type.
 		type Call: From<Call<Self>>;
+		/// Returns the block timestamp
+		type UnixTime: UnixTime;
 	}
 
 	/// Map from relayer account to their paid bond amount
@@ -137,7 +147,7 @@ pub mod pallet {
 	/// The (optimistic) challenge period after which a submitted event is considered valid
 	#[pallet::type_value]
 	pub fn DefaultChallengePeriod<T: Config>() -> T::BlockNumber {
-		T::BlockNumber::from(150u32) // block time (4s) * 150 = 10 Minutes
+		T::BlockNumber::from(150_u32) // block time (4s) * 150 = 10 Minutes
 	}
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_period)]
@@ -197,6 +207,39 @@ pub mod pallet {
 		EventClaimResult,
 		OptionQuery,
 	>;
+
+	/// Subscription Id for EthCall requests
+	#[pallet::storage]
+	pub type NextEthCallId<T> = StorageValue<_, EthCallId, ValueQuery>;
+
+	/// Queue of pending EthCallOracle requests
+	#[pallet::storage]
+	#[pallet::getter(fn eth_call_requests)]
+	pub type EthCallRequests<T> = StorageValue<_, Vec<EthCallId>, ValueQuery>;
+
+	/// EthCallOracle notarizations keyed by (Id, Notary)
+	#[pallet::storage]
+	pub type EthCallNotarizations<T> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EthCallId,
+		Twox64Concat,
+		AuthorityId,
+		CheckedEthCallResult,
+		OptionQuery,
+	>;
+
+	/// map from EthCallOracle notarizations to an aggregated count
+	#[pallet::storage]
+	#[pallet::getter(fn eth_call_notarizations_aggregated)]
+	pub type EthCallNotarizationsAggregated<T> =
+		StorageMap<_, Twox64Concat, EthCallId, BTreeMap<CheckedEthCallResult, u32>, OptionQuery>;
+
+	/// EthCallOracle request info
+	#[pallet::storage]
+	#[pallet::getter(fn eth_call_request_info)]
+	pub type EthCallRequestInfo<T> =
+		StorageMap<_, Twox64Concat, EthCallId, CheckedEthCallRequest, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -346,8 +389,7 @@ pub mod pallet {
 			}
 			// do some notarizing
 			Self::do_event_notarization_ocw(&active_key, authority_index);
-			// TODO(surangap) - check if we need this, seems it's not being used
-			// Self::do_call_notarization_ocw(&active_key, authority_index);
+			Self::do_call_notarization_ocw(&active_key, authority_index);
 			debug!(target: LOG_TARGET, "Exiting off-chain worker");
 		}
 	}
@@ -637,10 +679,90 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	/// Handle a submitted call notarization
 	pub(crate) fn handle_call_notarization(
-		_call_id: EthCallId,
-		_result: CheckedEthCallResult,
-		_notary_id: &AuthorityId,
+		call_id: EthCallId,
+		result: CheckedEthCallResult,
+		notary_id: &AuthorityId,
 	) -> Result<(), DispatchError> {
+		if !EthCallRequestInfo::<T>::contains_key(call_id) {
+			// there's no claim active
+			return Err(Error::<T>::InvalidClaim.into())
+		}
+
+		// Record the notarization (ensures the validator won't resubmit it)
+		<EthCallNotarizations<T>>::insert::<EventClaimId, AuthorityId, CheckedEthCallResult>(
+			call_id,
+			notary_id.clone(),
+			result,
+		);
+
+		// notify subscribers of a notarized eth_call outcome and clean upstate
+		let do_callback_and_clean_up = |result: CheckedEthCallResult| {
+			match result {
+				CheckedEthCallResult::Ok(return_data, block, timestamp) =>
+					T::EthCallSubscribers::on_eth_call_complete(
+						call_id,
+						&return_data,
+						block,
+						timestamp,
+					),
+				CheckedEthCallResult::ReturnDataEmpty => T::EthCallSubscribers::on_eth_call_failed(
+					call_id,
+					EthCallFailure::ReturnDataEmpty,
+				),
+				CheckedEthCallResult::ReturnDataExceedsLimit =>
+					T::EthCallSubscribers::on_eth_call_failed(
+						call_id,
+						EthCallFailure::ReturnDataExceedsLimit,
+					),
+				_ => T::EthCallSubscribers::on_eth_call_failed(call_id, EthCallFailure::Internal),
+			}
+			if let Some(cursor) = <EthCallNotarizations<T>>::clear_prefix(
+				call_id,
+				T::ValidatorSet::get_validator_set().len() as u32,
+				None,
+			)
+			.maybe_cursor
+			{
+				error!(target: LOG_TARGET, "cleaning storage entries failed: {:?}", cursor);
+				return Err(Error::<T>::Internal.into())
+			};
+			EthCallNotarizationsAggregated::<T>::remove(call_id);
+			EthCallRequestInfo::<T>::remove(call_id);
+			EthCallRequests::<T>::mutate(|requests| {
+				requests.iter().position(|x| *x == call_id).map(|idx| requests.remove(idx));
+			});
+
+			Ok(())
+		};
+
+		let mut notarizations =
+			EthCallNotarizationsAggregated::<T>::get(call_id).unwrap_or_default();
+		// increment notarization count for this result
+		*notarizations.entry(result).or_insert(0) += 1;
+
+		let notary_count = T::AuthoritySet::validators().len() as u32;
+		let notarization_threshold = T::NotarizationThreshold::get();
+		let mut total_count = 0;
+		for (result, count) in notarizations.iter() {
+			// is there consensus on `result`?
+			if Percent::from_rational(*count, notary_count) >= notarization_threshold {
+				return do_callback_and_clean_up(*result)
+			}
+			total_count += count;
+		}
+
+		let outstanding_count = notary_count.saturating_sub(total_count);
+		let can_reach_consensus = notarizations.iter().any(|(_, count)| {
+			Percent::from_rational(count + outstanding_count, notary_count) >=
+				notarization_threshold
+		});
+		// cannot or will not reach consensus based on current notarizations
+		if total_count == notary_count || !can_reach_consensus {
+			return do_callback_and_clean_up(result)
+		}
+
+		// update counts
+		EthCallNotarizationsAggregated::<T>::insert(call_id, notarizations);
 		Ok(())
 	}
 
@@ -773,6 +895,147 @@ impl<T: Config> Pallet<T> {
 						"Sent notarization: '{:?}' for claim: {:?}", result, event_claim_id
 					);
 				});
+		}
+	}
+
+	/// Handle OCW eth call checking protocol for validators
+	/// Receives the node's local notary session key and index in the set
+	pub(crate) fn do_call_notarization_ocw(active_key: &AuthorityId, authority_index: u16) {
+		// we limit the total claims per invocation using `CALLS_PER_BLOCK` so we don't stall block
+		// production
+		for call_id in EthCallRequests::<T>::get().iter().take(CALLS_PER_BLOCK) {
+			// skip if we've notarized it previously
+			if EthCallNotarizations::<T>::contains_key::<EthCallId, AuthorityId>(
+				*call_id,
+				active_key.clone(),
+			) {
+				trace!(target: LOG_TARGET, "already notarized call: {:?}, ignoring...", call_id);
+				continue
+			}
+
+			if let Some(request) = Self::eth_call_request_info(call_id) {
+				let result = Self::offchain_try_eth_call(&request);
+				trace!(target: LOG_TARGET, "checked call status: {:?}", &result);
+				let payload =
+					NotarizationPayload::Call { call_id: *call_id, authority_index, result };
+				let _ = Self::offchain_send_notarization(active_key, payload)
+					.map_err(|err| {
+						error!(target: LOG_TARGET, "sending notarization failed 🙈, {:?}", err);
+					})
+					.map(|_| {
+						info!(
+							target: LOG_TARGET,
+							"sent notarization: '{:?}' for call: {:?}", result, call_id,
+						);
+					});
+			} else {
+				// should not happen
+				error!(target: LOG_TARGET, "empty call for: {:?}", call_id);
+			}
+		}
+	}
+
+	/// Performs an `eth_call` request to the bridged ethereum network
+	///
+	/// The call will be executed at `try_block_number` if it is within `max_block_look_behind`
+	/// blocks of the latest ethereum block, otherwise the call is executed at the latest ethereum
+	/// block.
+	///
+	/// `request` - details of the `eth_call` request to perform
+	/// `try_block_number` - a block number to try the call at `latest - max_block_look_behind <= t
+	/// < latest` `max_block_look_behind` - max ethereum blocks to look back from head
+	pub(crate) fn offchain_try_eth_call(request: &CheckedEthCallRequest) -> CheckedEthCallResult {
+		// OCW has 1 block to do all its stuff, so needs to be kept light
+		//
+		// basic flow of this function:
+		// 1) get latest ethereum block
+		// 2) check relayed block # and timestamp is within acceptable range (based on
+		// `max_block_look_behind`) 3a) within range: do an eth_call at the relayed block
+		// 3b) out of range: do an eth_call at block number latest
+		let latest_block: EthBlock = match T::RpcClient::get_block_by_number(LatestOrNumber::Latest)
+		{
+			Ok(None) => return CheckedEthCallResult::DataProviderErr,
+			Ok(Some(block)) => block,
+			Err(err) => {
+				error!(target: LOG_TARGET, "eth_getBlockByNumber latest failed: {:?}", err);
+				return CheckedEthCallResult::DataProviderErr
+			},
+		};
+		// some future proofing/protections if timestamps or block numbers are de-synced, stuck, or
+		// missing this protocol should vote to abort
+		let latest_eth_block_timestamp: u64 = latest_block.timestamp.saturated_into();
+		if latest_eth_block_timestamp == u64::max_value() {
+			return CheckedEthCallResult::InvalidTimestamp
+		}
+		// latest ethereum block timestamp should be after the request
+		if latest_eth_block_timestamp < request.timestamp {
+			return CheckedEthCallResult::InvalidTimestamp
+		}
+		let latest_eth_block_number = match latest_block.number {
+			Some(number) => {
+				if number.is_zero() || number.low_u64() == u64::max_value() {
+					return CheckedEthCallResult::InvalidEthBlock
+				}
+				number.low_u64()
+			},
+			None => return CheckedEthCallResult::InvalidEthBlock,
+		};
+
+		// check relayed block # and timestamp is within acceptable range
+		let mut target_block_number = latest_eth_block_number;
+		let mut target_block_timestamp = latest_eth_block_timestamp;
+
+		// there can be delay between challenge submission and execution
+		// this should be factored into the acceptable block window, in normal conditions is should
+		// be < 5s
+		let check_delay = T::UnixTime::now().as_secs().saturating_sub(request.check_timestamp);
+		let extra_look_behind = check_delay / 12_u64; // lenient here, any delay >= 12s gets an extra block
+
+		let oldest_acceptable_eth_block = latest_eth_block_number
+			.saturating_sub(request.max_block_look_behind)
+			.saturating_sub(extra_look_behind);
+
+		if request.try_block_number >= oldest_acceptable_eth_block &&
+			request.try_block_number < latest_eth_block_number
+		{
+			let target_block: EthBlock = match T::RpcClient::get_block_by_number(
+				LatestOrNumber::Number(request.try_block_number),
+			) {
+				Ok(None) => return CheckedEthCallResult::DataProviderErr,
+				Ok(Some(block)) => block,
+				Err(err) => {
+					error!(target: LOG_TARGET, "eth_getBlockByNumber latest failed: {:?}", err);
+					return CheckedEthCallResult::DataProviderErr
+				},
+			};
+			target_block_number = request.try_block_number;
+			target_block_timestamp = target_block.timestamp.saturated_into();
+		}
+
+		let return_data = match T::RpcClient::eth_call(
+			request.target,
+			&request.input,
+			LatestOrNumber::Number(target_block_number),
+		) {
+			Ok(data) =>
+				if data.is_empty() {
+					return CheckedEthCallResult::ReturnDataEmpty
+				} else {
+					data
+				},
+			Err(err) => {
+				error!(
+					target: LOG_TARGET,
+					"eth_call at: {:?}, failed: {:?}", target_block_number, err
+				);
+				return CheckedEthCallResult::DataProviderErr
+			},
+		};
+
+		// valid returndata is ethereum abi encoded and therefore always >= 32 bytes
+		match return_data.try_into() {
+			Ok(r) => CheckedEthCallResult::Ok(r, target_block_number, target_block_timestamp),
+			Err(_) => CheckedEthCallResult::ReturnDataExceedsLimit,
 		}
 	}
 
@@ -1061,5 +1324,41 @@ impl<T: Config> EthereumBridge for Pallet<T> {
 			Some(event_proof_id),
 		)?;
 		Ok(event_proof_id)
+	}
+}
+
+impl<T: Config> EthCallOracle for Pallet<T> {
+	type Address = EthAddress;
+	type CallId = EthCallId;
+	/// Request an eth_call on some `target` contract with `input` on the bridged ethereum network
+	/// Pre-checks are performed based on `max_block_look_behind` and `try_block_number`
+	/// `timestamp` - cennznet timestamp of the request
+	/// `try_block_number` - ethereum block number hint
+	///
+	/// Returns a call Id for subscribers
+	fn checked_eth_call(
+		target: &Self::Address,
+		input: &[u8],
+		timestamp: u64,
+		try_block_number: u64,
+		max_block_look_behind: u64,
+	) -> Self::CallId {
+		// store the job for validators to process async
+		let call_id = NextEthCallId::<T>::get();
+		EthCallRequestInfo::<T>::insert(
+			call_id,
+			CheckedEthCallRequest {
+				check_timestamp: T::UnixTime::now().as_secs(),
+				input: input.to_vec(),
+				target: *target,
+				timestamp,
+				try_block_number,
+				max_block_look_behind,
+			},
+		);
+		EthCallRequests::<T>::append(call_id);
+		NextEthCallId::<T>::put(call_id + 1);
+
+		call_id
 	}
 }
