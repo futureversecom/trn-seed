@@ -31,9 +31,12 @@ use seed_pallet_common::{
 	},
 	validator_set::{ValidatorSetAdapter, ValidatorSetChangeHandler, ValidatorSetChangeInfo},
 };
-use seed_primitives::{
-	ethy::{crypto::AuthorityId, EventProofId},
-	EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId,
+pub use seed_primitives::{
+	ethy::{
+		crypto::AuthorityId, ConsensusLog, EthyChainId, EventClaimId, EventProofId, ValidatorSet,
+		ETHY_ENGINE_ID,
+	},
+	BlockNumber, EthyEcdsaToEthereum, EthyEcdsaToXRPLAccountId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, Convert},
@@ -45,11 +48,9 @@ use sp_std::vec::Vec;
 mod mock;
 #[cfg(test)]
 mod tests;
-pub mod types;
-
-use types::*;
 
 pub(crate) const LOG_TARGET: &str = "ethy";
+pub const SCHEDULER_PRIORITY: u8 = 63;
 
 #[frame_support::pallet]
 pub mod pallet {
