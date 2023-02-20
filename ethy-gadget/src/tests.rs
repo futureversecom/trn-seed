@@ -19,6 +19,7 @@
 //! Tests and test helpers for ETHY.
 
 use crate::{notification::EthyEventProofStream, testing::Keyring as EthyKeyring};
+use pallet_validator_set_runtime_api::ValidatorSetApi;
 use parking_lot::Mutex;
 use sc_consensus::BoxJustificationImport;
 use sc_keystore::LocalKeystore;
@@ -27,7 +28,7 @@ use sc_network_test::{
 	TestNetFactory,
 };
 use seed_primitives::ethy::{
-	crypto::AuthorityId, ConsensusLog, ValidatorSet, ValidatorSetApi, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
+	crypto::AuthorityId, ConsensusLog, ValidatorSet, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
 };
 use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};

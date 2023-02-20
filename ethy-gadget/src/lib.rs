@@ -30,6 +30,7 @@ use std::sync::Arc;
 use log::debug;
 use prometheus::Registry;
 
+use pallet_validator_set_runtime_api::ValidatorSetApi;
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sp_api::ProvideRuntimeApi;
@@ -37,8 +38,6 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::Block;
-
-use seed_primitives::ethy::ValidatorSetApi;
 
 mod error;
 mod gossip;

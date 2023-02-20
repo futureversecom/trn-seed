@@ -219,18 +219,6 @@ pub enum VersionedEventProof {
 	V1(EventProof),
 }
 
-sp_api::decl_runtime_apis! {
-	/// Runtime API for validators.
-	pub trait ValidatorSetApi
-	{
-		/// Return the validator set responsible for Ethereum Bridge(i.e Secp256k1 public keys of the active validator set)
-		fn eth_validator_set() -> ValidatorSet<AuthorityId>;
-		/// Return the validator set responsible for Xrpl Bridge(i.e Secp256k1 public keys of the active validator set)
-		/// This is a subset of active validator set
-		fn xrpl_validator_set() -> ValidatorSet<AuthorityId>;
-	}
-}
-
 #[cfg(test)]
 mod test {
 	use super::*;

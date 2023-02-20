@@ -1658,6 +1658,7 @@ dependencies = [
  "hex-literal",
  "libsecp256k1 0.6.0",
  "log",
+ "pallet-validator-set-runtime-api",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "sc-block-builder",
@@ -1701,6 +1702,7 @@ dependencies = [
  "jsonrpsee",
  "libsecp256k1 0.6.0",
  "log",
+ "pallet-validator-set-runtime-api",
  "parity-scale-codec",
  "rustc-hex",
  "sc-client-api",
@@ -5591,6 +5593,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-validator-set-runtime-api"
+version = "0.0.1"
+dependencies = [
+ "seed-primitives",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-xrpl-bridge"
 version = "0.0.1"
 dependencies = [
@@ -7822,6 +7834,7 @@ dependencies = [
  "pallet-nft-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
+ "pallet-validator-set-runtime-api",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -7967,6 +7980,7 @@ dependencies = [
  "pallet-tx-fee-pot",
  "pallet-utility",
  "pallet-validator-set",
+ "pallet-validator-set-runtime-api",
  "pallet-xrpl-bridge",
  "parity-scale-codec",
  "precompile-utils",

@@ -84,6 +84,7 @@ pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
 pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-validator-set = { path = "../pallet/validator-set", default-features = false }
+pallet-validator-set-runtime-api = { path = "../pallet/validator-set/runtime-api", default-features = false }
 pallet-eth-bridge = { path = "../pallet/eth-bridge", default-features = false }
 
 
@@ -189,6 +190,7 @@ std = [
 	"evm/std",
 	"try-runtime-cli",
 	"pallet-validator-set/std",
+	"pallet-validator-set-runtime-api/std",
 	"pallet-eth-bridge/std",
 ]
 

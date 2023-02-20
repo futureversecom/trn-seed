@@ -30,10 +30,9 @@ use sp_runtime::traits::{Block, Convert};
 use std::{marker::PhantomData, ops::Deref, sync::Arc};
 
 use ethy_gadget::{notification::EthyEventProofStream, EthyEcdsaToEthereum};
+use pallet_validator_set_runtime_api::ValidatorSetApi;
 use seed_primitives::{
-	ethy::{
-		EthyChainId, EventProof, EventProofId, ValidatorSetApi, VersionedEventProof, ETHY_ENGINE_ID,
-	},
+	ethy::{EthyChainId, EventProof, EventProofId, VersionedEventProof, ETHY_ENGINE_ID},
 	AccountId20,
 };
 

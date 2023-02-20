@@ -31,7 +31,7 @@ use std::{sync::Arc, time::Duration};
 use seed_primitives::{
 	ethy::{
 		crypto::AuthorityId as Public, ConsensusLog, EventProof, EventProofId, ValidatorSet,
-		ValidatorSetApi, VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+		VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
 	},
 	EthyEcdsaToPublicKey,
 };
@@ -46,6 +46,8 @@ use crate::{
 	witness_record::WitnessRecord,
 	Client,
 };
+use pallet_validator_set_runtime_api::ValidatorSetApi;
+
 pub(crate) struct WorkerParams<B, BE, C, R, SO>
 where
 	B: Block,

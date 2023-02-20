@@ -1454,7 +1454,7 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl seed_primitives::ethy::ValidatorSetApi<Block> for Runtime {
+	impl pallet_validator_set_runtime_api::ValidatorSetApi<Block> for Runtime {
 		fn eth_validator_set() -> ValidatorSetS<EthyId> {
 			ValidatorSet::get_eth_validator_set()
 		}
