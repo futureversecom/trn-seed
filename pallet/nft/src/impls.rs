@@ -241,13 +241,10 @@ impl<T: Config> Pallet<T> {
 		cursor: SerialNumber,
 		limit: u16,
 	) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
-		log!(trace, "🃏 Entering owned_tokens function");
-
 		let collection_info = match Self::collection_info(collection_id) {
 			Some(info) => info,
 			None => return (Default::default(), Default::default(), Default::default()),
 		};
-		log!(trace, "🃏 Collection Info got");
 
 		// Collect all tokens owned by address
 		let mut owned_tokens: Vec<SerialNumber> = match collection_info
@@ -259,7 +256,6 @@ impl<T: Config> Pallet<T> {
 			Some(token_ownership) => token_ownership.owned_serials.clone().into_inner(),
 			None => vec![],
 		};
-		log!(trace, "🃏 Owned Tokens got");
 
 		// Sort the vec to ensure no tokens are missed
 		owned_tokens.sort();
@@ -275,7 +271,6 @@ impl<T: Config> Pallet<T> {
 			.filter(|serial_number| serial_number >= &cursor)
 			.take(sp_std::cmp::min(limit, MAX_OWNED_TOKENS_LIMIT).into())
 			.collect();
-		log!(trace, "🃏 Response got: {:?}", response);
 
 		let new_cursor: SerialNumber = match response.last().copied() {
 			Some(highest) => {
@@ -290,7 +285,6 @@ impl<T: Config> Pallet<T> {
 			},
 			None => 0,
 		};
-		log!(trace, "🃏 New cursor got: {:?}", new_cursor);
 
 		(new_cursor, total_owned, response)
 	}
