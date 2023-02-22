@@ -44,6 +44,7 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 
+mod migration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
@@ -62,6 +63,9 @@ pub mod pallet {
 		validator_set::ValidatorSetAdapter,
 	};
 	use seed_primitives::ethy::ValidatorSetId;
+
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -165,6 +169,11 @@ pub mod pallet {
 			}
 			weight += DbWeight::get().reads(1 as Weight);
 			weight
+		}
+
+		/// Perform runtime upgrade
+		fn on_runtime_upgrade() -> Weight {
+			migration::try_migrate::<T>()
 		}
 	}
 
