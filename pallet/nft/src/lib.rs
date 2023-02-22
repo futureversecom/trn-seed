@@ -31,13 +31,13 @@
 use frame_support::{
 	ensure,
 	traits::{tokens::fungibles::Mutate, Get},
-  transactional, PalletId,
+	transactional, PalletId,
 };
 use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
 use seed_primitives::{
-  AssetId, Balance, CollectionUuid, ParachainId, TokenCount, SerialNumber, TokenId
+	AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
