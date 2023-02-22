@@ -233,8 +233,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Find the tokens owned by an `address` in the given collection
 	/// limit return tokens that are larger than the cursor
-	/// Returns list of tokens and the new cursor for the next owned SerialNumber
-	/// not included in the returned list
+	/// Returns list of tokens, the sum of all tokens owned by the user
+	/// and the new cursor for the next owned SerialNumber not included in the returned list
 	pub fn owned_tokens(
 		collection_id: CollectionUuid,
 		who: &T::AccountId,
