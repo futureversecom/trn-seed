@@ -375,7 +375,7 @@ impl pallet_nft::Config for Runtime {
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -462,7 +462,7 @@ impl pallet_dex::Config for Runtime {
 	type LPTokenDecimals = LPTokenDecimals;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
-	type WeightInfo = pallet_dex::weights::PlugWeight<Runtime>;
+	type WeightInfo = weights::pallet_dex::WeightInfo<Runtime>;
 	type MultiCurrency = AssetsExt;
 }
 
@@ -1732,6 +1732,6 @@ mod benches {
 		[pallet_assets_ext, AssetsExt]
 		[pallet_evm_chain_id, EVMChainId]
 		[pallet_token_approvals, TokenApprovals]
-		// [pallet_dex, Dex]
+		[pallet_dex, Dex]
 	);
 }
