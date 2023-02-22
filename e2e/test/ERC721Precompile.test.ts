@@ -112,34 +112,38 @@ describe.skip("ERC721 Precompile", function () {
   });
 
   it("ownedTokens", async () => {
-    let cursor, limit, new_cursor, tokens;
+    let cursor, limit, new_cursor, tokens, total_owned;
 
     // First 5 tokens
     cursor = 0;
     limit = 5;
-    [new_cursor, tokens] = await nftContract.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await nftContract.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(5);
+    expect(total_owned).to.equal(initial_balance);
     expect(tokens).to.eql([0, 1, 2, 3, 4]);
 
     // Last 5 tokens, cursor should be 0 to indicate end of owned tokens
     cursor = 5;
     limit = 5;
-    [new_cursor, tokens] = await nftContract.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await nftContract.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initial_balance);
     expect(tokens).to.eql([5, 6, 7, 8, 9]);
 
     // Tokens over owned tokens should return empty
     cursor = 10;
     limit = 5;
-    [new_cursor, tokens] = await nftContract.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await nftContract.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initial_balance);
     expect(tokens).to.eql([]);
 
     // high limit should return ALL tokens owned by bob
     cursor = 0;
     limit = 500;
-    [new_cursor, tokens] = await nftContract.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await nftContract.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initial_balance);
     expect(tokens).to.eql([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 

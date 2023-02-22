@@ -30,7 +30,9 @@
 
 use frame_support::{ensure, traits::Get, transactional, PalletId};
 use seed_pallet_common::{Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt};
-use seed_primitives::{AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenId};
+use seed_primitives::{
+	AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenCount, TokenId,
+};
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
 	DispatchResult, PerThing, Permill,
@@ -46,7 +48,6 @@ mod weights;
 pub use weights::WeightInfo;
 
 mod impls;
-mod migration;
 pub mod traits;
 mod types;
 
@@ -59,7 +60,7 @@ pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 /// The maximum amount of listings to return
-pub const MAX_OWNED_TOKENS_LIMIT: u16 = 500;
+pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
@@ -379,10 +380,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Perform runtime upgrade
-		fn on_runtime_upgrade() -> Weight {
-			migration::try_migrate::<T>()
-		}
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly

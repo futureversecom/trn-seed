@@ -20,7 +20,7 @@ use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
-use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
+use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
 impl<T: Config> Pallet<T> {
@@ -240,12 +240,12 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		cursor: SerialNumber,
 		limit: u16,
-	) -> (SerialNumber, Vec<SerialNumber>) {
+	) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
 		log!(trace, "🃏 Entering owned_tokens function");
 
 		let collection_info = match Self::collection_info(collection_id) {
 			Some(info) => info,
-			None => return (Default::default(), Default::default()),
+			None => return (Default::default(), Default::default(), Default::default()),
 		};
 		log!(trace, "🃏 Collection Info got");
 
@@ -265,6 +265,8 @@ impl<T: Config> Pallet<T> {
 		owned_tokens.sort();
 		// Store the last owned token by this account
 		let last_id: SerialNumber = owned_tokens.last().copied().unwrap_or_default();
+		// Get the sum of all tokens owned by this account
+		let total_owned: TokenCount = owned_tokens.len().saturated_into();
 
 		// Shorten list to any tokens above the cursor and return the limit
 		// Note max limit is restricted by MAX_OWNED_TOKENS_LIMIT const
@@ -290,7 +292,7 @@ impl<T: Config> Pallet<T> {
 		};
 		log!(trace, "🃏 New cursor got: {:?}", new_cursor);
 
-		(new_cursor, response)
+		(new_cursor, total_owned, response)
 	}
 
 	/// Remove a single fixed price listing and all it's metadata
