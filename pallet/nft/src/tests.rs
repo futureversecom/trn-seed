@@ -2394,6 +2394,8 @@ fn make_simple_offer_on_fixed_price_listing() {
 			let sell_price = 100_000;
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			let listing_id = Nft::next_listing_id();
+
 			assert_ok!(Nft::sell(
 				Some(token_owner).into(),
 				collection_id,
@@ -2404,8 +2406,11 @@ fn make_simple_offer_on_fixed_price_listing() {
 				None,
 				None,
 			));
+			// Sanity check
+			assert!(Nft::listings(listing_id).is_some());
+			assert!(Nft::token_locks(token_id).is_some());
 
-			make_new_simple_offer(offer_amount, token_id, buyer, None);
+			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
 			// Check funds have been locked
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
@@ -2413,6 +2418,27 @@ fn make_simple_offer_on_fixed_price_listing() {
 			);
 			assert_eq!(
 				AssetsExt::hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get()),
+				offer_amount
+			);
+
+			assert_ok!(Nft::accept_offer(Some(token_owner).into(), offer_id,));
+
+			/// Check that fixed price listing and locks are now removed
+			assert!(Nft::listings(listing_id).is_none());
+			assert!(Nft::token_locks(token_id).is_none());
+			// Check offer storage has been removed
+			assert!(Nft::token_offers(token_id).is_none());
+			assert!(Nft::offers(offer_id).is_none());
+
+			// Check funds have been transferred
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+				initial_balance_buyer - offer_amount
+			);
+			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &buyer, &NativeAssetId::get())
+				.is_zero());
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				offer_amount
 			);
 		});

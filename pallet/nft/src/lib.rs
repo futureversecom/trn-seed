@@ -1029,6 +1029,15 @@ pub mod pallet {
 				OfferType::Simple(offer) => {
 					let (collection_id, serial_number) = offer.token_id;
 
+					// Check whether token is listed for fixed price sale
+					if let Some(TokenLockReason::Listed(listing_id)) =
+						Self::token_locks(offer.token_id)
+					{
+						// Remove lock and clear listing
+						<TokenLocks<T>>::remove(offer.token_id);
+						Self::remove_fixed_price_listing(listing_id);
+					}
+
 					let royalties_schedule =
 						Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
 					let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
