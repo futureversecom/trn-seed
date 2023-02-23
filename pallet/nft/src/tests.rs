@@ -2423,7 +2423,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 
 			assert_ok!(Nft::accept_offer(Some(token_owner).into(), offer_id,));
 
-			/// Check that fixed price listing and locks are now removed
+			// Check that fixed price listing and locks are now removed
 			assert!(Nft::listings(listing_id).is_none());
 			assert!(Nft::token_locks(token_id).is_none());
 			// Check offer storage has been removed

@@ -697,6 +697,8 @@ pub mod pallet {
 					ensure!(&who == buyer, Error::<T>::NotBuyer);
 				}
 
+				Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
+
 				let payouts = Self::calculate_royalty_payouts(
 					listing.seller.clone(),
 					listing.royalties_schedule,
@@ -705,11 +707,6 @@ pub mod pallet {
 				// Make split transfer
 				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
 
-				<OpenCollectionListings<T>>::remove(listing.collection_id, listing_id);
-
-				for serial_number in listing.serial_numbers.iter() {
-					<TokenLocks<T>>::remove((listing.collection_id, *serial_number));
-				}
 				// Transfer the tokens
 				let _ = Self::do_transfer(
 					listing.collection_id,
@@ -717,8 +714,6 @@ pub mod pallet {
 					&listing.seller,
 					&who,
 				)?;
-
-				Self::remove_fixed_price_listing(listing_id);
 
 				Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
 					collection_id: listing.collection_id,
@@ -1033,9 +1028,9 @@ pub mod pallet {
 					if let Some(TokenLockReason::Listed(listing_id)) =
 						Self::token_locks(offer.token_id)
 					{
-						// Remove lock and clear listing
-						<TokenLocks<T>>::remove(offer.token_id);
-						Self::remove_fixed_price_listing(listing_id);
+						if let Some(listing) = <Listings<T>>::get(listing_id) {
+							Self::remove_listing(listing, listing_id);
+						}
 					}
 
 					let royalties_schedule =
