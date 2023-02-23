@@ -164,7 +164,6 @@ pub mod pallet {
 
 	/// NFT sale/auction listings keyed by listing id
 	#[pallet::storage]
-	#[pallet::getter(fn listings)]
 	pub type Listings<T: Config> = StorageMap<_, Twox64Concat, ListingId, Listing<T>>;
 
 	/// The next available listing Id
@@ -691,7 +690,7 @@ pub mod pallet {
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			if let Some(Listing::FixedPrice(listing)) = Self::listings(listing_id) {
+			if let Some(Listing::FixedPrice(listing)) = Listings::<T>::get(listing_id) {
 				// if buyer is specified in the listing, then `who` must be buyer
 				if let Some(buyer) = &listing.buyer {
 					ensure!(&who == buyer, Error::<T>::NotBuyer);
@@ -799,7 +798,7 @@ pub mod pallet {
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let mut listing = match Self::listings(listing_id) {
+			let mut listing = match Listings::<T>::get(listing_id) {
 				Some(Listing::Auction(listing)) => listing,
 				_ => return Err(Error::<T>::NotForAuction.into()),
 			};
@@ -860,7 +859,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let listing = Self::listings(listing_id).ok_or(Error::<T>::TokenNotListed)?;
+			let listing = Listings::<T>::get(listing_id).ok_or(Error::<T>::TokenNotListed)?;
 
 			match listing {
 				Listing::<T>::FixedPrice(sale) => {
@@ -915,7 +914,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			match Self::listings(listing_id) {
+			match Listings::<T>::get(listing_id) {
 				Some(Listing::<T>::FixedPrice(mut sale)) => {
 					ensure!(sale.seller == who, Error::<T>::NotSeller);
 
@@ -958,7 +957,7 @@ pub mod pallet {
 
 			// ensure the token_id is not currently in an auction
 			if let Some(TokenLockReason::Listed(listing_id)) = Self::token_locks(token_id) {
-				match Self::listings(listing_id) {
+				match Listings::<T>::get(listing_id) {
 					Some(Listing::<T>::Auction(_)) => return Err(Error::<T>::TokenOnAuction.into()),
 					None | Some(Listing::<T>::FixedPrice(_)) => (),
 				}

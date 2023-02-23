@@ -778,7 +778,7 @@ fn sell_multiple() {
 			marketplace_id: None,
 		});
 
-		let listing = Nft::listings(listing_id).expect("token is listed");
+		let listing = Listings::<Test>::get(listing_id).expect("token is listed");
 		assert_eq!(listing, expected);
 
 		// current block is 1 + duration
@@ -888,7 +888,7 @@ fn cancel_sell() {
 		}));
 
 		// storage cleared up
-		assert!(Nft::listings(listing_id).is_none());
+		assert!(Listings::<Test>::get(listing_id).is_none());
 		assert!(Nft::listing_end_schedule(
 			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
@@ -930,7 +930,7 @@ fn sell_closes_on_schedule() {
 		Nft::on_initialize(System::block_number() + listing_duration);
 
 		// seller should have tokens
-		assert!(Nft::listings(listing_id).is_none());
+		assert!(Listings::<Test>::get(listing_id).is_none());
 		assert!(Nft::listing_end_schedule(System::block_number() + listing_duration, listing_id)
 			.is_none());
 
@@ -984,7 +984,7 @@ fn updates_fixed_price() {
 			marketplace_id: None,
 		});
 
-		let listing = Nft::listings(listing_id).expect("token is listed");
+		let listing = Listings::<Test>::get(listing_id).expect("token is listed");
 		assert_eq!(listing, expected);
 	});
 }
@@ -1226,7 +1226,7 @@ fn buy() {
 		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false), price);
 
 		// listing removed
-		assert!(Nft::listings(listing_id).is_none());
+		assert!(Listings::<Test>::get(listing_id).is_none());
 		assert!(Nft::listing_end_schedule(
 			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
@@ -1315,7 +1315,7 @@ fn buy_with_royalties() {
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 
 			// listing removed
-			assert!(Nft::listings(listing_id).is_none());
+			assert!(Listings::<Test>::get(listing_id).is_none());
 			assert!(Nft::listing_end_schedule(
 				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 				listing_id
@@ -1400,7 +1400,7 @@ fn sell_to_anybody() {
 		assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
 
 		// listing removed
-		assert!(Nft::listings(listing_id).is_none());
+		assert!(Listings::<Test>::get(listing_id).is_none());
 		assert!(Nft::listing_end_schedule(
 			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
 			listing_id
@@ -1484,7 +1484,7 @@ fn cancel_auction() {
 		}));
 
 		// storage cleared up
-		assert!(Nft::listings(listing_id).is_none());
+		assert!(Listings::<Test>::get(listing_id).is_none());
 		assert!(Nft::listing_end_schedule(System::block_number() + 1, listing_id).is_none());
 
 		// it should be free to operate on the token
@@ -1641,7 +1641,7 @@ fn auction() {
 			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &bidder_2, &NativeAssetId::get())
 				.is_zero());
 			// listing metadata removed
-			assert!(Nft::listings(listing_id).is_none());
+			assert!(Listings::<Test>::get(listing_id).is_none());
 			assert!(Nft::listing_end_schedule(System::block_number() + 1, listing_id).is_none());
 
 			// ownership changed
@@ -1690,7 +1690,7 @@ fn bid_auto_extends() {
 			// Place bid
 			assert_ok!(Nft::bid(Some(bidder_1).into(), listing_id, reserve_price,));
 
-			if let Some(Listing::Auction(listing)) = Nft::listings(listing_id) {
+			if let Some(Listing::Auction(listing)) = Listings::<Test>::get(listing_id) {
 				assert_eq!(listing.close, System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 			}
 			assert!(Nft::listing_end_schedule(
@@ -1850,7 +1850,7 @@ fn close_listings_at_removes_listing_data() {
 			.count()
 			.is_zero());
 		for listing_id in 0..listings.len() as ListingId {
-			assert!(Nft::listings(listing_id).is_none());
+			assert!(Listings::<Test>::get(listing_id).is_none());
 			assert!(Nft::listing_winning_bid(listing_id).is_none());
 			assert!(Nft::listing_end_schedule(System::block_number() + 1, listing_id).is_none());
 		}
@@ -2407,7 +2407,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 				None,
 			));
 			// Sanity check
-			assert!(Nft::listings(listing_id).is_some());
+			assert!(Listings::<Test>::get(listing_id).is_some());
 			assert!(Nft::token_locks(token_id).is_some());
 
 			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
@@ -2424,7 +2424,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 			assert_ok!(Nft::accept_offer(Some(token_owner).into(), offer_id,));
 
 			// Check that fixed price listing and locks are now removed
-			assert!(Nft::listings(listing_id).is_none());
+			assert!(Listings::<Test>::get(listing_id).is_none());
 			assert!(Nft::token_locks(token_id).is_none());
 			// Check offer storage has been removed
 			assert!(Nft::token_offers(token_id).is_none());

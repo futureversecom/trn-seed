@@ -293,7 +293,7 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn close_listings_at(now: T::BlockNumber) -> u32 {
 		let mut removed = 0_u32;
 		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
-			let Some(listing_outer) = Self::listings(listing_id) else {
+			let Some(listing_outer) = Listings::<T>::get(listing_id) else {
 				continue
 			};
 			match listing_outer.clone() {
@@ -317,7 +317,7 @@ impl<T: Config> Pallet<T> {
 		removed
 	}
 
-	/// Removes a listing and it's metadata from storage and releases locks on tokens
+	/// Removes a listing and its metadata from storage and releases locks on tokens
 	pub(crate) fn remove_listing(listing: Listing<T>, listing_id: ListingId) {
 		let (serial_numbers, collection_id) = match listing {
 			Listing::FixedPrice(listing) => {
