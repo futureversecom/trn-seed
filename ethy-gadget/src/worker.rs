@@ -585,8 +585,6 @@ pub(crate) mod test {
 	#[test]
 	fn handle_witness_works() {
 		let keys = &[Keyring::Alice, Keyring::Bob];
-		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
-		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
 		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], validators.clone());
@@ -600,20 +598,20 @@ pub(crate) mod test {
 		let digest = [1_u8; 32];
 
 		// Create witness for Alice
-		let witness_1 = create_witness(&alice_pair, event_id, chain_id, digest);
+		let witness_1 = create_witness(&keys[0], event_id, chain_id, digest);
 
 		// Manually enter event metadata
 		// TODO, find a way for the worker to do this, rather than injecting metadata manually
 		worker
 			.witness_record
-			.note_event_metadata(event_id, digest, [2_u8; 32], chain_id);
+			.note_event_metadata(event_id, digest.to_vec(), [2_u8; 32], chain_id);
 
 		// Handle the witness
 		worker.handle_witness(witness_1);
 		// Check we have 1 signature
 		assert_eq!(worker.witness_record.signatures_for(event_id).len(), 1);
 
-		let witness_2 = create_witness(&bob_pair, event_id, chain_id, digest);
+		let witness_2 = create_witness(&&keys[1], event_id, chain_id, digest);
 		worker.handle_witness(witness_2);
 
 		// Check we have 0 signatures. The event should have reached consensus and  witness
@@ -628,8 +626,6 @@ pub(crate) mod test {
 	#[test]
 	fn handle_witness_first_two_events() {
 		let keys = &[Keyring::Alice, Keyring::Bob];
-		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
-		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
 		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], validators.clone());
@@ -645,15 +641,18 @@ pub(crate) mod test {
 		let digest = [1_u8; 32];
 
 		// Create witness for Alice
-		let witness_1 = create_witness(&alice_pair, event_id_2, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id_2, digest, [2_u8; 32], chain_id);
+		let witness_1 = create_witness(&keys[0], event_id_2, chain_id, digest);
+		worker.witness_record.note_event_metadata(
+			event_id_2,
+			digest.to_vec(),
+			[2_u8; 32],
+			chain_id,
+		);
 		worker.handle_witness(witness_1);
 		assert_eq!(worker.witness_record.signatures_for(event_id_2).len(), 1);
 
 		// Create witness for Bob
-		let witness_2 = create_witness(&bob_pair, event_id_2, chain_id, digest);
+		let witness_2 = create_witness(&keys[1], event_id_2, chain_id, digest);
 		worker.handle_witness(witness_2);
 		assert_eq!(worker.witness_record.signatures_for(event_id_2).len(), 0);
 
@@ -663,15 +662,18 @@ pub(crate) mod test {
 		let digest = [2_u8; 32];
 
 		// Create witness for Alice
-		let witness_1 = create_witness(&alice_pair, event_id_1, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id_1, digest, [2_u8; 32], chain_id);
+		let witness_1 = create_witness(&keys[0], event_id_1, chain_id, digest);
+		worker.witness_record.note_event_metadata(
+			event_id_1,
+			digest.to_vec(),
+			[2_u8; 32],
+			chain_id,
+		);
 		worker.handle_witness(witness_1);
 		assert_eq!(worker.witness_record.signatures_for(event_id_1).len(), 1);
 
 		// Create witness for Bob
-		let witness_2 = create_witness(&bob_pair, event_id_1, chain_id, digest);
+		let witness_2 = create_witness(&keys[1], event_id_1, chain_id, digest);
 		worker.handle_witness(witness_2);
 
 		// Check we have 0 signatures. The event should have reached consensus and  witness
@@ -685,10 +687,13 @@ pub(crate) mod test {
 		let digest = [3_u8; 32];
 
 		// Create witness for Alice
-		let witness_1 = create_witness(&alice_pair, event_id_0, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id_0, digest, [2_u8; 32], chain_id);
+		let witness_1 = create_witness(&keys[0], event_id_0, chain_id, digest);
+		worker.witness_record.note_event_metadata(
+			event_id_0,
+			digest.to_vec(),
+			[2_u8; 32],
+			chain_id,
+		);
 		worker.handle_witness(witness_1);
 		assert_eq!(worker.witness_record.signatures_for(event_id_0).len(), 0);
 
