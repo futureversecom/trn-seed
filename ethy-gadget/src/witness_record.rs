@@ -14,15 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use log::{debug, trace, warn};
+use crate::keystore::EthyKeystore;
+use log::{debug, error, trace, warn};
 use seed_primitives::ethy::{
 	crypto::{AuthorityId, AuthoritySignature as Signature},
-	AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
+	AuthorityIndex, EthyChainId, EthyEcdsaToPublicKey, EventProofId, ValidatorSet, Witness,
 };
-use sp_runtime::traits::AppVerify;
+use sp_runtime::traits::Convert;
 use std::collections::HashMap;
 
-use crate::types::EventMetadata;
+use crate::types::{data_to_digest, EventMetadata};
 
 /// Status after processing a witness
 #[derive(PartialEq, Debug)]
@@ -41,6 +42,8 @@ pub enum WitnessError {
 	DuplicateWitness,
 	/// The digest of the witness/event_id did not match our local digest
 	MismatchedDigest,
+	/// Failed to create the digest
+	DigestCreationFailed,
 	/// The signature supplied with the witness could not be verified
 	SignatureVerificationFailed,
 	/// The witness is from an unknown authority, can't be accepted
@@ -152,13 +155,15 @@ impl WitnessRecord {
 	pub fn note_event_metadata(
 		&mut self,
 		event_id: EventProofId,
-		digest: [u8; 32],
+		digest_data: Vec<u8>,
 		block_hash: [u8; 32],
 		chain_id: EthyChainId,
 	) {
-		self.event_meta
-			.entry(event_id)
-			.or_insert(EventMetadata { block_hash, digest, chain_id });
+		self.event_meta.entry(event_id).or_insert(EventMetadata {
+			block_hash,
+			digest_data,
+			chain_id,
+		});
 	}
 	/// Note a witness if we haven't seen it before
 	/// Returns true if the witness was noted, i.e previously unseen
@@ -194,15 +199,22 @@ impl WitnessRecord {
 		// if so we can't fully verify `witness` is for the correct `digest` yet (i.e. validator
 		// didn't sign a different message) store `witness` as unconfirmed for verification later
 		if let Some(metadata) = self.event_metadata(witness.event_id) {
-			if !witness.signature.verify(witness.digest.as_slice(), &witness.authority_id) {
-				warn!(target: "ethy", "💎 witness digest signature verification failed: {:?} from {:?}", witness.event_id, witness.authority_id);
-				return Err(WitnessError::SignatureVerificationFailed)
-			}
-
-			// Witnesses for XRPL are special cases and have unique digests per authority
-			if metadata.digest != witness.digest && witness.chain_id != EthyChainId::Xrpl {
+			// verify the signature against locally found digest info from metadata
+			let Some(digest) = data_to_digest(metadata.chain_id, metadata.digest_data.clone(), EthyEcdsaToPublicKey::convert(witness.authority_id.clone())) else {
+				error!(target: "ethy", "💎 error creating digest");
+				return Err(WitnessError::DigestCreationFailed)
+			};
+			// check if digests match
+			if digest != witness.digest {
 				warn!(target: "ethy", "💎 witness has bad digest: {:?} from {:?}", witness.event_id, witness.authority_id);
+				debug!(target: "ethy", "💎 witness has bad digest: witness: {:?} local digest: {:?}", witness, digest);
 				return Err(WitnessError::MismatchedDigest)
+			}
+			// signature verify
+			if !EthyKeystore::verify_prehashed(&witness.authority_id, &witness.signature, &digest) {
+				warn!(target: "ethy", "💎 witness digest signature verification failed: {:?} from {:?}", witness.event_id, witness.authority_id);
+				debug!(target: "ethy", "💎 witness digest signature verification failed. witness: {:?}, local digest: {:?} ", witness, digest);
+				return Err(WitnessError::SignatureVerificationFailed)
 			}
 		} else {
 			// store witness for re-verification later
@@ -255,9 +267,11 @@ impl WitnessRecord {
 		Ok(WitnessStatus::Verified)
 	}
 
+	#[cfg(test)]
 	pub fn get_validator_set(&self) -> ValidatorSet<AuthorityId> {
 		self.validators.clone()
 	}
+	#[cfg(test)]
 	pub fn get_xrpl_validator_set(&self) -> ValidatorSet<AuthorityId> {
 		self.validators.clone()
 	}

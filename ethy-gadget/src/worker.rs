@@ -178,14 +178,7 @@ where
 			extract_proof_requests::<B>(&notification.header).into_iter()
 		{
 			trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
-			let digest = match data_to_digest(chain_id, data, [0_u8; 33]) {
-				Some(d) => d,
-				None => {
-					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue
-				},
-			};
-			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
+			self.witness_record.note_event_metadata(event_id, data, block, chain_id);
 			// with the event metadata available we may be able to make a proof (provided there's
 			// enough witnesses ready)
 			self.try_make_proof(event_id);
@@ -208,7 +201,7 @@ where
 			debug!(target: "ethy", "💎 got event proof request. chain_id: {:?}. event id: {:?}, data: {:?}", chain_id, event_id, hex::encode(&data));
 
 			// `data` must be transformed into a 32 byte digest before signing
-			let digest = match data_to_digest(chain_id, data, authority_public_key) {
+			let digest = match data_to_digest(chain_id, data.clone(), authority_public_key) {
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
@@ -239,7 +232,7 @@ where
 			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
-			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
+			self.witness_record.note_event_metadata(event_id, data, block, chain_id);
 			self.handle_witness(witness.clone());
 
 			// broadcast the witness
@@ -362,20 +355,25 @@ where
 
 		// process any unverified witnesses, received before event metadata was known
 		self.witness_record.process_unverified_witnesses(event_id);
-		let EventMetadata { chain_id, block_hash, digest } =
+		let EventMetadata { chain_id, block_hash, digest_data } =
 			self.witness_record.event_metadata(event_id).unwrap();
 
-		let signatures = self.witness_record.signatures_for(event_id);
-		let event_proof = EventProof {
-			digest: *digest,
-			event_id,
-			validator_set_id: self.validator_set.id,
-			block: *block_hash,
-			signatures: signatures.clone(),
-		};
-
 		if self.witness_record.has_consensus(event_id, *chain_id) {
+			let signatures = self.witness_record.signatures_for(event_id);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", event_id, signatures, self.validator_set.id);
+			// NOTE: XRPL digest is unique per pubkey. For Ethereum it's the same as digest_data.
+			// Anyway EventProof.digest is not used by any other part of the code
+			let Some(digest) = data_to_digest(*chain_id, digest_data.clone(), [0_u8; 33]) else {
+				error!(target: "ethy", "💎 error creating digest");
+				return
+			};
+			let event_proof = EventProof {
+				digest,
+				event_id,
+				validator_set_id: self.validator_set.id,
+				block: *block_hash,
+				signatures: signatures.clone(),
+			};
 
 			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
 
@@ -403,7 +401,7 @@ where
 			self.witness_record.mark_complete(event_id);
 			self.gossip_validator.mark_complete(event_id);
 		} else {
-			let debug_proof_key = make_proof_key(*chain_id, event_proof.event_id);
+			let debug_proof_key = make_proof_key(*chain_id, event_id);
 			trace!(target: "ethy", "💎 no consensus for event: {:?}, can't make proof yet. Likely did not store proof for key {:?}", event_id, debug_proof_key);
 		}
 	}
