@@ -248,7 +248,7 @@ impl WitnessRecord {
 				}
 			})
 			.or_insert_with(|| vec![(authority_index, witness.signature.clone())]);
-		trace!(target: "ethy", "💎 witness recorded: {:?}, {:?}", witness.event_id, witness.authority_id);
+		debug!(target: "ethy", "💎 witness recorded: {:?}, {:?}", witness.event_id, witness.authority_id);
 
 		// Mark authority as voted
 		match self.has_witnessed.get_mut(&witness.event_id) {

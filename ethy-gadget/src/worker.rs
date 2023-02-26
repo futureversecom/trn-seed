@@ -177,7 +177,7 @@ where
 		for ProofRequest { chain_id, event_id, data, block } in
 			extract_proof_requests::<B>(&notification.header).into_iter()
 		{
-			trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
+			debug!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
 			self.witness_record.note_event_metadata(event_id, data, block, chain_id);
 			// with the event metadata available we may be able to make a proof (provided there's
 			// enough witnesses ready)

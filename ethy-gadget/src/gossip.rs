@@ -15,7 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use codec::Decode;
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use sc_network::PeerId;
 use sc_network_gossip::{MessageIntent, ValidationResult, Validator, ValidatorContext};
@@ -103,7 +103,7 @@ where
 	pub fn set_active_validators(&self, new_active_validators: Vec<Public>) {
 		let mut active_validators = self.active_validators.write();
 		let _old = std::mem::replace(&mut *active_validators, new_active_validators);
-		trace!(target: "ethy", "💎 set gossip active validators: {:?}", active_validators);
+		info!(target: "ethy", "💎 set gossip active validators: {:?}", active_validators);
 	}
 }
 
