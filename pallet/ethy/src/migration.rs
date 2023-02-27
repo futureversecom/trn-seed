@@ -130,14 +130,19 @@ fn move_to_ethy_pallet<T: Config>() -> Weight {
 	// following has been moved to pallet-ethy and name changed
 	// DelayedEventProofsPerBlock -> DelayedProofRequestsPerBlock
 	{
-		let stored_data: Vec<(_, u8)> =
-			migration::storage_iter(b"EthBridge", b"DelayedEventProofsPerBlock").collect();
-
-		for (_, blocks) in stored_data.clone() {
-			migration::put_storage_value(b"Ethy", b"DelayedProofRequestsPerBlock", b"", blocks);
-		}
-		weight += DbWeight::get()
-			.reads_writes(stored_data.len() as Weight + 1, stored_data.len() as Weight + 1);
+		if let Some(stored_data) =
+			migration::get_storage_value::<u8>(b"EthBridge", b"DelayedEventProofsPerBlock", b"")
+		{
+			migration::put_storage_value(
+				b"Ethy",
+				b"DelayedProofRequestsPerBlock",
+				b"",
+				stored_data,
+			);
+			weight += DbWeight::get().reads_writes(1 as Weight, 1 as Weight);
+		} else {
+			warn!("Old Ethy migration - DelayedEventProofsPerBlock not found.");
+		};
 	}
 	// PendingEventProofs -> PendingProofRequests
 	{
@@ -161,15 +166,14 @@ fn move_to_ethy_pallet<T: Config>() -> Weight {
 	}
 	// BridgePaused -> EthyState
 	{
-		let stored_data: Vec<(_, bool)> =
-			migration::storage_iter(b"EthBridge", b"BridgePaused").collect();
-
-		for (_, paused) in stored_data.clone() {
-			let state = if paused { State::Paused } else { State::Active };
-			migration::put_storage_value(b"Ethy", b"EthyState", b"", state);
-		}
-		weight += DbWeight::get()
-			.reads_writes(stored_data.len() as Weight + 1, stored_data.len() as Weight + 1);
+		if let Some(stored_data) =
+			migration::get_storage_value::<bool>(b"EthBridge", b"BridgePaused", b"")
+		{
+			migration::put_storage_value(b"Ethy", b"EthyState", b"", stored_data);
+			weight += DbWeight::get().reads_writes(1 as Weight, 1 as Weight);
+		} else {
+			warn!("Old Ethy migration - BridgePaused not found.");
+		};
 	}
 	weight
 }
@@ -763,6 +767,126 @@ mod tests {
 			);
 			assert_eq!(
 				migration::get_storage_value::<u32>(b"EthBridge", b"NextAuthorityChange", b"",),
+				None
+			);
+		});
+	}
+
+	#[test]
+	fn migrate_v0_to_v1_moved_to_ethy() {
+		ExtBuilder::default().build().execute_with(|| {
+			assert_eq!(StorageVersion::get::<Pallet<TestRuntime>>(), 0);
+			// Add values to v0 storage(old EthBridge)
+			migration::put_storage_value(b"EthBridge", b"BridgePaused", b"", false);
+			let delayed_event_proofs_per_block = 5_u8;
+			migration::put_storage_value(
+				b"EthBridge",
+				b"DelayedEventProofsPerBlock",
+				b"",
+				delayed_event_proofs_per_block,
+			);
+			let next_event_proof_id: EventProofId = 1;
+			migration::put_storage_value(
+				b"EthBridge",
+				b"NextEventProofId",
+				b"",
+				next_event_proof_id,
+			);
+			let notary_set_proof_id: EventProofId = 1;
+			migration::put_storage_value(
+				b"EthBridge",
+				b"NotarySetProofId",
+				b"",
+				notary_set_proof_id,
+			);
+			let xrpl_notary_set_proof_id: EventProofId = 1;
+			migration::put_storage_value(
+				b"EthBridge",
+				b"XrplNotarySetProofId",
+				b"",
+				xrpl_notary_set_proof_id,
+			);
+			let pending_event_proof = EthySigningRequest::XrplTx(vec![1_u8; 50]);
+			migration::put_storage_value(
+				b"EthBridge",
+				b"PendingEventProofs",
+				&Twox64Concat::hash(&(1 as EventProofId).encode()),
+				pending_event_proof.clone(),
+			);
+
+			// Run upgrade
+			<Pallet<TestRuntime> as OnRuntimeUpgrade>::on_runtime_upgrade();
+			assert_eq!(StorageVersion::get::<Pallet<TestRuntime>>(), 1);
+
+			// moved items to pallet-ethy should still be available via "Ethy"
+			// BridgePaused -> EthyState
+			assert_eq!(
+				migration::get_storage_value::<State>(b"Ethy", b"EthyState", b"",),
+				Some(State::Active)
+			);
+			assert_eq!(
+				migration::get_storage_value::<bool>(b"EthBrige", b"BridgePaused", b"",),
+				None
+			);
+			// DelayedEventProofsPerBlock -> DelayedProofRequestsPerBlock
+			assert_eq!(
+				migration::get_storage_value::<u8>(b"Ethy", b"DelayedProofRequestsPerBlock", b"",),
+				Some(delayed_event_proofs_per_block)
+			);
+			assert_eq!(
+				migration::get_storage_value::<u8>(
+					b"EthBrige",
+					b"DelayedProofRequestsPerBlock",
+					b"",
+				),
+				None
+			);
+			// NextEventProofId
+			assert_eq!(
+				migration::get_storage_value::<EventProofId>(b"Ethy", b"NextEventProofId", b"",),
+				Some(next_event_proof_id)
+			);
+			assert_eq!(
+				migration::get_storage_value::<EventProofId>(b"EthBrige", b"NextEventProofId", b"",),
+				None
+			);
+			// NotarySetProofId
+			assert_eq!(
+				migration::get_storage_value::<EventProofId>(b"Ethy", b"NotarySetProofId", b"",),
+				Some(notary_set_proof_id)
+			);
+			assert_eq!(
+				migration::get_storage_value::<EventProofId>(b"EthBrige", b"NotarySetProofId", b"",),
+				None
+			);
+			// XrplNotarySetProofId
+			assert_eq!(
+				migration::get_storage_value::<EventProofId>(b"Ethy", b"XrplNotarySetProofId", b"",),
+				Some(xrpl_notary_set_proof_id)
+			);
+			assert_eq!(
+				migration::get_storage_value::<EventProofId>(
+					b"EthBrige",
+					b"XrplNotarySetProofId",
+					b"",
+				),
+				None
+			);
+			// PendingEventProofs ->PendingProofRequests
+			assert_eq!(
+				migration::get_storage_value::<EthySigningRequest>(
+					b"Ethy",
+					b"PendingProofRequests",
+					&Twox64Concat::hash(&(1 as EventProofId).encode()),
+				),
+				Some(pending_event_proof)
+			);
+			assert_eq!(
+				migration::get_storage_value::<EthySigningRequest>(
+					b"EthBrige",
+					b"PendingEventProofs",
+					b"",
+				),
 				None
 			);
 		});
