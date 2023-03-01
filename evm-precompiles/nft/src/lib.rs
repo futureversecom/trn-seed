@@ -79,12 +79,6 @@ where
 	Runtime::Call: From<pallet_nft::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 {
-	// fn enable_xls20_compatibility(
-	// 	handle: &mut impl PrecompileHandle,
-	// ) -> EvmResult<PrecompileOutput> {
-	// 	// Must have 0 tokens minted
-	// }
-
 	fn initialize_collection(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(7, 32)?;
 

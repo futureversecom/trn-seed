@@ -1171,7 +1171,6 @@ pub mod pallet {
 			let collection_info =
 				CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-			let mut serial_numbers: Vec<SerialNumber> = vec![];
 			for (serial_number, xls20_token_id) in token_mappings.iter() {
 				// Ensure token exists on TRN
 				ensure!(collection_info.token_exists(*serial_number), Error::<T>::NoToken);
@@ -1182,7 +1181,6 @@ pub mod pallet {
 				);
 				// Insert mapping into storage
 				Xls20TokenMap::<T>::insert(collection_id, serial_number, xls20_token_id);
-				serial_numbers.push(*serial_number);
 			}
 
 			Self::deposit_event(Event::<T>::Xls20MappingSet {

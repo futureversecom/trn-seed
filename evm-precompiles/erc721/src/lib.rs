@@ -14,7 +14,7 @@ use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
+use seed_primitives::{Balance, CollectionUuid, SerialNumber, TokenId};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -29,6 +29,14 @@ pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 /// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 	keccak256!("OwnershipTransferred(address,address)");
+
+/// Solidity selector of the Xls20CompatibilityEnabled log, which is the Keccak of the Log
+/// signature.
+pub const SELECTOR_LOG_XLS20_ENABLED: [u8; 32] = keccak256!("Xls20CompatibilityEnabled(uint256)");
+
+/// Solidity selector of the Xls20CompatibilityEnabled log, which is the Keccak of the Log
+/// signature.
+pub const SELECTOR_LOG_XLS20_RE_REQUESTED: [u8; 32] = keccak256!("Xls20MintReRequested(uint256)");
 
 /// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
@@ -60,11 +68,14 @@ pub enum Action {
 	OwnedTokens = "ownedTokens(address,uint16,uint32)",
 	// Selector used by SafeTransferFrom function
 	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
+	// XLS-20 extensions
+	EnableXls20Compatibility = "enableXls20Compatibility()",
+	ReRequestXls20Mint = "reRequestXls20Mint(uint32[],uint128)",
 }
 
 /// The following distribution has been decided for the precompiles
 /// 0-1023: Ethereum Mainnet Precompiles
-/// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither CENNZnet specific
+/// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither Root specific
 /// 2048-4095 Seed specific precompiles
 /// NFT precompile addresses can only fall between
 /// 	0xAAAAAAAA00000000000000000000000000000000 - 0xAAAAAAAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -146,6 +157,11 @@ where
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
 						Action::OwnedTokens => Self::owned_tokens(collection_id, handle),
+						// XLS-20 extensions
+						Action::EnableXls20Compatibility =>
+							Self::enable_xls20_compatibility(collection_id, handle),
+						Action::ReRequestXls20Mint =>
+							Self::re_request_xls20_mint(collection_id, handle),
 						_ => return Some(Err(revert("ERC721: Function not implemented").into())),
 					}
 				};
@@ -186,7 +202,7 @@ where
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
-	/// Returns the CENNZnet address which owns the given token
+	/// Returns the Root address which owns the given token
 	/// An error is returned if the token doesn't exist
 	fn owner_of(
 		collection_id: CollectionUuid,
@@ -796,6 +812,87 @@ where
 			EvmDataWriter::new().write(Address::from(new_owner)).build(),
 		)
 		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn enable_xls20_compatibility(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		let origin = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::enable_xls20_compatibility { collection_id },
+		)?;
+
+		log1(
+			handle.code_address(),
+			SELECTOR_LOG_XLS20_ENABLED,
+			EvmDataWriter::new().write(collection_id).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn re_request_xls20_mint(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { serial_numbers: Vec<U256>, additional_fee: U256 });
+		let origin = handle.context().caller;
+
+		if additional_fee > Balance::MAX.into() {
+			return Err(revert("XLS20: Expected additional_fee <= 2^128").into())
+		}
+		let additional_fee: Balance = additional_fee.saturated_into();
+
+		// Convert serial numbers from U256 -> u32
+		// Fails if overflow (Although should not happen)
+		let mut serial_numbers_unbounded: Vec<SerialNumber> = vec![];
+		for serial_number in serial_numbers {
+			if serial_number > u32::MAX.into() {
+				return Err(revert("XLS20: Expected serial_number <= 2^32").into())
+			}
+			serial_numbers_unbounded.push(serial_number.saturated_into())
+		}
+		let serial_numbers: BoundedVec<
+			SerialNumber,
+			<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+		> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::re_request_xls20_mint {
+				collection_id,
+				serial_numbers: serial_numbers.clone(),
+				additional_fee,
+			},
+		)?;
+
+		// Drop log for every serial number requested
+		for serial_number in serial_numbers.iter() {
+			let token_id: TokenId = (collection_id, *serial_number);
+			log1(
+				handle.code_address(),
+				SELECTOR_LOG_XLS20_RE_REQUESTED,
+				EvmDataWriter::new().write(token_id).build(),
+			)
+			.record(handle)?;
+		}
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
