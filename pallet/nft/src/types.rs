@@ -202,23 +202,19 @@ impl<T: Config> CollectionInformation<T> {
 pub enum MetadataScheme {
 	/// Collection metadata is hosted by an HTTPS server
 	/// Inner value is the URI without protocol prefix 'https://' or trailing '/'
-	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
+	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>`
 	/// Https(b"example.com/metadata")
 	Https(Vec<u8>),
 	/// Collection metadata is hosted by an unsecured HTTP server
 	/// Inner value is the URI without protocol prefix 'http://' or trailing '/'
-	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
+	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>`
 	/// Https(b"example.com/metadata")
 	Http(Vec<u8>),
 	/// Collection metadata is hosted by an IPFS directory
 	/// Inner value is the directory's IPFS CID
-	/// full metadata URI construction: `ipfs://<directory_CID>/<serial_number>.json`
-	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
-	IpfsDir(Vec<u8>),
-	/// Collection metadata is hosted by an IPFS directory
-	/// Inner value is the shared IPFS CID, each token in the collection shares the same CID
-	/// full metadata URI construction: `ipfs://<shared_file_CID>.json`
-	IpfsShared(Vec<u8>),
+	/// full metadata URI construction: `ipfs://<directory_CID>/<serial_number>`
+	/// Ipfs(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
+	Ipfs(Vec<u8>),
 	// Collection metadata is located on Ethereum in the relevant field on the source token
 	// ethereum://<contractaddress>/<originalid>
 	Ethereum(H160),
@@ -230,8 +226,7 @@ impl MetadataScheme {
 		match self {
 			MetadataScheme::Http(_path) => "http://",
 			MetadataScheme::Https(_path) => "https://",
-			MetadataScheme::IpfsDir(_path) => "ipfs://",
-			MetadataScheme::IpfsShared(_path) => "ipfs://",
+			MetadataScheme::Ipfs(_path) => "ipfs://",
 			MetadataScheme::Ethereum(_path) => "ethereum://",
 		}
 	}
@@ -256,8 +251,7 @@ impl MetadataScheme {
 		Ok(match self.clone() {
 			MetadataScheme::Http(path) => MetadataScheme::Http(santitize_(path)?),
 			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
-			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
-			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
+			MetadataScheme::Ipfs(path) => MetadataScheme::Ipfs(santitize_(path)?),
 			// Ethereum inner value is an H160 and does not need sanitizing
 			MetadataScheme::Ethereum(address) => MetadataScheme::Ethereum(address),
 		})
@@ -267,8 +261,7 @@ impl MetadataScheme {
 		match index {
 			0 => Ok(MetadataScheme::Https(metadata_path)),
 			1 => Ok(MetadataScheme::Http(metadata_path)),
-			2 => Ok(MetadataScheme::IpfsDir(metadata_path)),
-			3 => Ok(MetadataScheme::IpfsShared(metadata_path)),
+			2 => Ok(MetadataScheme::Ipfs(metadata_path)),
 			_ => return Err(()),
 		}
 	}
@@ -283,23 +276,15 @@ impl MetadataScheme {
 			},
 			MetadataScheme::Https(path) => {
 				let path = core::str::from_utf8(&path).unwrap_or("");
-				write!(&mut token_uri, "https://{}/{}.json", path, serial_number)
+				write!(&mut token_uri, "https://{}{}", path, serial_number)
 					.expect("Not written");
 			},
-			MetadataScheme::IpfsDir(dir_cid) => {
+			MetadataScheme::Ipfs(path) => {
 				write!(
 					&mut token_uri,
 					"ipfs://{}/{}.json",
 					core::str::from_utf8(&dir_cid).unwrap_or(""),
 					serial_number
-				)
-				.expect("Not written");
-			},
-			MetadataScheme::IpfsShared(shared_cid) => {
-				write!(
-					&mut token_uri,
-					"ipfs://{}.json",
-					core::str::from_utf8(&shared_cid).unwrap_or("")
 				)
 				.expect("Not written");
 			},

@@ -36,7 +36,7 @@ use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 fn setup_collection(owner: AccountId) -> CollectionUuid {
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = b"test-collection".to_vec();
-	let metadata_scheme = MetadataScheme::IpfsDir(b"<CID>".to_vec());
+	let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
 		collection_name,
@@ -68,7 +68,7 @@ fn setup_token_with_royalties(
 	let collection_owner = 1_u64;
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = b"test-collection".to_vec();
-	let metadata_scheme = MetadataScheme::IpfsDir(b"<CID>".to_vec());
+	let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
 	assert_ok!(Nft::create_collection(
 		Some(collection_owner).into(),
 		collection_name,
@@ -375,7 +375,7 @@ fn create_collection_invalid_name() {
 		// too long
 		let bad_collection_name =
 			b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
-		let metadata_scheme = MetadataScheme::IpfsDir(b"<CID>".to_vec());
+		let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
 		assert_noop!(
 			Nft::create_collection(
 				Some(1_u64).into(),
@@ -426,7 +426,7 @@ fn create_collection_royalties_invalid() {
 	TestExt::default().build().execute_with(|| {
 		let owner = 1_u64;
 		let name = b"test-collection".to_vec();
-		let metadata_scheme = MetadataScheme::IpfsDir(b"<CID>".to_vec());
+		let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
 
 		// Too big royalties should fail
 		assert_noop!(
@@ -476,7 +476,7 @@ fn transfer() {
 			1,
 			None,
 			Some(token_owner),
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			MetadataScheme::Ipfs(b"<CID>".to_vec()),
 			None,
 		));
 
@@ -529,7 +529,7 @@ fn transfer_fails_prechecks() {
 			1,
 			None,
 			Some(token_owner),
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			MetadataScheme::Ipfs(b"<CID>".to_vec()),
 			None,
 		));
 
@@ -2210,17 +2210,17 @@ fn token_uri_construction() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			MetadataScheme::Https(b"example.com/metadata/".to_vec()),
 			None,
 		));
 
 		assert_eq!(
 			Nft::token_uri((collection_id, 0)),
-			b"https://example.com/metadata/0.json".to_vec(),
+			b"https://example.com/metadata/0".to_vec(),
 		);
 		assert_eq!(
 			Nft::token_uri((collection_id, 1)),
-			b"https://example.com/metadata/1.json".to_vec(),
+			b"https://example.com/metadata/1".to_vec(),
 		);
 
 		collection_id = Nft::next_collection_uuid().unwrap();
@@ -2230,13 +2230,13 @@ fn token_uri_construction() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::Http(b"test.example.com/metadata".to_vec()),
+			MetadataScheme::Http(b"test.example.com/metadata/".to_vec()),
 			None,
 		));
 
 		assert_eq!(
 			Nft::token_uri((collection_id, 1)),
-			b"http://test.example.com/metadata/1.json".to_vec(),
+			b"http://test.example.com/metadata/1".to_vec(),
 		);
 
 		collection_id = Nft::next_collection_uuid().unwrap();
@@ -2246,14 +2246,14 @@ fn token_uri_construction() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::IpfsDir(
-				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()
+			MetadataScheme::Ipfs(
+				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".to_vec()
 			),
 			None,
 		));
 		assert_eq!(
 			Nft::token_uri((collection_id, 1)),
-			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1.json".to_vec(),
+			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1".to_vec(),
 		);
 
 		collection_id = Nft::next_collection_uuid().unwrap();
@@ -2263,14 +2263,14 @@ fn token_uri_construction() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::IpfsShared(
-				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()
+			MetadataScheme::Ipfs(
+				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".to_vec()
 			),
 			None,
 		));
 		assert_eq!(
 			Nft::token_uri((collection_id, 1)),
-			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi.json".to_vec(),
+			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1".to_vec(),
 		);
 
 		let collection_address = H160::from_low_u64_be(123);
@@ -2734,7 +2734,7 @@ fn transfer_changes_token_balance() {
 			initial_quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			MetadataScheme::Ipfs(b"<CID>".to_vec()),
 			None,
 		));
 
@@ -2797,7 +2797,7 @@ fn transfer_many_tokens_changes_token_balance() {
 			initial_quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			MetadataScheme::Ipfs(b"<CID>".to_vec()),
 			None,
 		));
 
@@ -2843,7 +2843,7 @@ fn transfer_many_tokens_at_once_changes_token_balance() {
 			initial_quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			MetadataScheme::Ipfs(b"<CID>".to_vec()),
 			None,
 		));
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
@@ -2917,7 +2917,7 @@ fn mints_multiple_specified_tokens_by_id() {
 			0,
 			None,
 			None,
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			MetadataScheme::Ipfs(b"<CID>".to_vec()),
 			None,
 			OriginChain::Ethereum,
 		));
@@ -2951,7 +2951,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 			0,
 			None,
 			None,
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			MetadataScheme::Ipfs(b"<CID>".to_vec()),
 			None,
 			OriginChain::Ethereum,
 		));
@@ -3007,7 +3007,7 @@ fn token_exists_works() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
+			MetadataScheme::Ipfs(b"<CID>".to_vec()),
 			None,
 			OriginChain::Root,
 		));
