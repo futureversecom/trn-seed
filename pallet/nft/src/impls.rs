@@ -681,7 +681,12 @@ impl<T: Config> Pallet<T> {
 				mint_fee,
 				false,
 			)?;
+			Self::deposit_event(Event::<T>::Xls20MintFeePaid {
+				collection_owner: who.clone(),
+				total_fee: mint_fee,
+			});
 		}
+
 		Ok(())
 	}
 

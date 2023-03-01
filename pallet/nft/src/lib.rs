@@ -358,6 +358,10 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			mappings: Vec<(SerialNumber, Xls20TokenId)>,
 		},
+		/// A collection has had XLS-20 compatibility enabled
+		Xls20CompatibilityEnabled { collection_id: CollectionUuid },
+		/// Additional mint fee for XLS-20 mint has been paid to relayer
+		Xls20MintFeePaid { collection_owner: T::AccountId, total_fee: Balance },
 	}
 
 	#[pallet::error]
@@ -1114,8 +1118,9 @@ pub mod pallet {
 			);
 
 			collection_info.cross_chain_compatibility.xrpl = true;
-
 			CollectionInfo::<T>::insert(collection_id, collection_info);
+
+			Self::deposit_event(Event::<T>::Xls20CompatibilityEnabled { collection_id });
 			Ok(())
 		}
 
