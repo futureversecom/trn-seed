@@ -30,7 +30,7 @@ use sp_runtime::DispatchError::BadOrigin;
 use std::default::Default;
 
 #[test]
-fn set_ethy_state() {
+fn ethy_state_controls_the_ethy_functionality() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Default ethy state is Active
 		assert_eq!(EthyState::<TestRuntime>::get(), State::Active);
@@ -55,6 +55,7 @@ fn set_ethy_state() {
 		assert_eq!(PendingProofRequests::<TestRuntime>::get(1).unwrap(), ethy_xrpl_request);
 	});
 }
+
 #[test]
 fn get_next_event_proof_id() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -64,6 +65,7 @@ fn get_next_event_proof_id() {
 		assert_eq!(NextEventProofId::<TestRuntime>::get(), next_event_proof_id.wrapping_add(1));
 	});
 }
+
 #[test]
 fn request_for_proof() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -77,21 +79,67 @@ fn request_for_proof() {
 				validator_set_id: 0,
 				event_proof_id: next_proof_id,
 			};
+			System::reset_events();
 			let proof_id = Ethy::request_for_proof(
-				EthySigningRequest::Ethereum(eth_event_info),
+				EthySigningRequest::Ethereum(eth_event_info.clone()),
 				Some(next_proof_id),
+			)
+			.unwrap();
+			assert_eq!(proof_id, next_proof_id);
+			System::assert_has_event(
+				Event::<TestRuntime>::EventSend {
+					event_proof_id: proof_id,
+					signing_request: EthySigningRequest::Ethereum(eth_event_info.clone()),
+				}
+				.into(),
 			);
-			assert_eq!(proof_id.unwrap(), next_proof_id);
+			assert_eq!(System::digest().logs.len(), 1_usize);
+			assert_eq!(
+				System::digest().logs[0],
+				DigestItem::Consensus(
+					ETHY_ENGINE_ID,
+					ConsensusLog::OpaqueSigningRequest::<AuthorityId> {
+						chain_id: EthyChainId::Ethereum,
+						event_proof_id: proof_id,
+						data: EthySigningRequest::Ethereum(eth_event_info).data(),
+					}
+					.encode(),
+				)
+			);
 		}
 		{
 			// request for proof xrpl
 			let next_proof_id = NextEventProofId::<TestRuntime>::get();
 			let xrpl_payload = Vec::<u8>::default();
-			let proof_id = Ethy::request_for_proof(EthySigningRequest::XrplTx(xrpl_payload), None);
-			assert_eq!(proof_id.unwrap(), next_proof_id);
+			System::reset_events();
+			let proof_id =
+				Ethy::request_for_proof(EthySigningRequest::XrplTx(xrpl_payload.clone()), None)
+					.unwrap();
+			assert_eq!(proof_id, next_proof_id);
+			System::assert_has_event(
+				Event::<TestRuntime>::EventSend {
+					event_proof_id: proof_id,
+					signing_request: EthySigningRequest::XrplTx(xrpl_payload.clone()),
+				}
+				.into(),
+			);
+			assert_eq!(System::digest().logs.len(), 2_usize); // 1 + 1 above eth
+			assert_eq!(
+				System::digest().logs[1],
+				DigestItem::Consensus(
+					ETHY_ENGINE_ID,
+					ConsensusLog::OpaqueSigningRequest::<AuthorityId> {
+						chain_id: EthyChainId::Xrpl,
+						event_proof_id: proof_id,
+						data: EthySigningRequest::XrplTx(xrpl_payload).data(),
+					}
+					.encode(),
+				)
+			);
 		}
 	});
 }
+
 fn get_validator_set_change_payload_ethereum(
 	info: &ValidatorSetChangeInfo<AuthorityId>,
 ) -> ethabi::Bytes {
@@ -112,6 +160,7 @@ fn get_validator_set_change_payload_xrpl(info: &ValidatorSetChangeInfo<Authority
 	MockXrplBridgeAdapter::get_signer_list_set_payload(Vec::<(XrplAccountId, u16)>::default())
 		.unwrap()
 }
+
 #[test]
 fn validator_set_change_in_progress() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -209,6 +258,7 @@ fn validator_set_change_in_progress() {
 		assert_eq!(EthyState::<TestRuntime>::get(), State::Paused);
 	});
 }
+
 #[test]
 fn validator_set_change_finalized() {
 	ExtBuilder::default().build().execute_with(|| {
