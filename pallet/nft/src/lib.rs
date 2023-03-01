@@ -1093,9 +1093,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Enables xls20 compatibility on a collection
-		/// Collection must not have any tokens minted
-		#[pallet::weight(DbWeight::get().writes(1))]
+		/// Enables XLS-20 compatibility on a collection
+		///  - Collection must not have any tokens minted
+		///  - Caller must be collection owner
+		#[pallet::weight(DbWeight::get().reads_writes(1, 1))]
 		pub fn enable_xls20_compatibility(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,

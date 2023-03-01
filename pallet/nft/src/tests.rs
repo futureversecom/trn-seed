@@ -27,6 +27,7 @@ use frame_support::{
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use frame_system::RawOrigin;
+use hex_literal::hex;
 use seed_primitives::TokenId;
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
@@ -44,7 +45,28 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 		None,
 		None,
 		metadata_scheme,
-		None
+		None,
+		CrossChainCompatibility::default(),
+	));
+	collection_id
+}
+
+// Create an NFT collection with xls-20 compatibility
+// Returns the created `collection_id`
+fn setup_xls20_collection(owner: AccountId) -> CollectionUuid {
+	let collection_id = Nft::next_collection_uuid().unwrap();
+	let collection_name = b"test-xls20-collection".to_vec();
+	let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
+	let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+	assert_ok!(Nft::create_collection(
+		Some(owner).into(),
+		collection_name,
+		0,
+		None,
+		None,
+		metadata_scheme,
+		None,
+		cross_chain_compatibility,
 	));
 	collection_id
 }
@@ -55,7 +77,7 @@ fn setup_token() -> (CollectionUuid, TokenId, AccountId) {
 	let collection_id = setup_collection(collection_owner);
 	let token_owner = 2_u64;
 	let token_id = (collection_id, 0);
-	assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner),));
+	assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner), None));
 
 	(collection_id, token_id, token_owner)
 }
@@ -77,6 +99,7 @@ fn setup_token_with_royalties(
 		None,
 		metadata_scheme,
 		Some(royalties_schedule),
+		CrossChainCompatibility::default(),
 	));
 
 	let token_owner = 2_u64;
@@ -86,6 +109,7 @@ fn setup_token_with_royalties(
 		collection_id,
 		quantity,
 		Some(token_owner),
+		None
 	));
 
 	(collection_id, token_id, token_owner)
@@ -185,6 +209,7 @@ fn owned_tokens_works() {
 			Some(token_owner),
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		// First 100
@@ -283,6 +308,7 @@ fn create_collection() {
 			Some(token_owner),
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			Some(royalties_schedule.clone()),
+			CrossChainCompatibility::default(),
 		));
 
 		let expected_tokens = create_owned_tokens(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
@@ -298,7 +324,8 @@ fn create_collection() {
 				origin_chain: OriginChain::Root,
 				next_serial_number: quantity,
 				collection_issuance: quantity,
-				owned_tokens: expected_tokens
+				owned_tokens: expected_tokens,
+				cross_chain_compatibility: CrossChainCompatibility::default(),
 			}
 		);
 
@@ -315,7 +342,8 @@ fn create_collection() {
 			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			name: b"test-collection".to_vec(),
 			royalties_schedule: Some(royalties_schedule.clone()),
-			origin_chain: OriginChain::Root
+			origin_chain: OriginChain::Root,
+			compatibility: CrossChainCompatibility::default(),
 		}));
 
 		// check token ownership
@@ -341,6 +369,7 @@ fn create_collection() {
 			collection_id,
 			additional_quantity,
 			Some(token_owner + 1), // new owner this time
+			None
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
@@ -384,7 +413,8 @@ fn create_collection_invalid_name() {
 				None,
 				None,
 				metadata_scheme.clone(),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::CollectionNameInvalid
 		);
@@ -398,7 +428,8 @@ fn create_collection_invalid_name() {
 				None,
 				None,
 				metadata_scheme.clone(),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::CollectionNameInvalid
 		);
@@ -414,7 +445,8 @@ fn create_collection_invalid_name() {
 				None,
 				None,
 				metadata_scheme,
-				None
+				None,
+				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::CollectionNameInvalid
 		);
@@ -443,6 +475,7 @@ fn create_collection_royalties_invalid() {
 						(4_u64, Permill::from_float(3.3))
 					]
 				}),
+				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::RoyaltiesInvalid
 		);
@@ -457,6 +490,7 @@ fn create_collection_royalties_invalid() {
 				None,
 				metadata_scheme,
 				Some(RoyaltiesSchedule::<AccountId> { entitlements: vec![] }),
+				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::RoyaltiesInvalid
 		);
@@ -478,6 +512,7 @@ fn transfer() {
 			Some(token_owner),
 			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		let new_owner = 3_u64;
@@ -531,6 +566,7 @@ fn transfer_fails_prechecks() {
 			Some(token_owner),
 			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		let not_the_owner = 3_u64;
@@ -579,6 +615,7 @@ fn burn() {
 			Some(token_owner),
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		// test
@@ -619,6 +656,7 @@ fn burn_fails_prechecks() {
 			Some(token_owner),
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		// Not owner
@@ -668,6 +706,7 @@ fn sell() {
 				None,
 				MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				None,
+				CrossChainCompatibility::default(),
 			));
 
 			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
@@ -708,7 +747,7 @@ fn sell_multiple_fails() {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
 		// mint some tokens
-		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None, None));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
 			start: 0,
@@ -1516,6 +1555,7 @@ fn auction_bundle() {
 			None,
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 		assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 5);
 
@@ -1559,7 +1599,7 @@ fn auction_bundle_fails() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
-		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None, None));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
 			start: 0,
@@ -2068,6 +2108,7 @@ fn mint_over_max_issuance_should_fail() {
 			Some(token_owner),
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 		assert_eq!(
 			Nft::collection_info(collection_id).unwrap().collection_issuance,
@@ -2075,7 +2116,13 @@ fn mint_over_max_issuance_should_fail() {
 		);
 
 		// Mint tokens 2-5
-		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 3, Some(token_owner)));
+		assert_ok!(Nft::mint(
+			Some(collection_owner).into(),
+			collection_id,
+			3,
+			Some(token_owner),
+			None
+		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
 			start: 2,
@@ -2089,14 +2136,14 @@ fn mint_over_max_issuance_should_fail() {
 
 		// No more can be minted as max issuance has been reached
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)),
+			Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner), None),
 			Error::<Test>::MaxIssuanceReached
 		);
 
 		// Even if tokens are burned, more can't be minted
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 0)));
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)),
+			Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner), None),
 			Error::<Test>::MaxIssuanceReached
 		);
 	});
@@ -2115,6 +2162,7 @@ fn invalid_max_issuance_should_fail() {
 				None,
 				MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				None,
+				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::InvalidMaxIssuance
 		);
@@ -2129,6 +2177,7 @@ fn invalid_max_issuance_should_fail() {
 				None,
 				MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				None,
+				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::InvalidMaxIssuance
 		);
@@ -2143,6 +2192,7 @@ fn invalid_max_issuance_should_fail() {
 				None,
 				MetadataScheme::Https(b"example.com/metadata".to_vec()),
 				None,
+				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::InvalidMaxIssuance
 		);
@@ -2164,23 +2214,24 @@ fn mint_fails() {
 			None,
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		// add 0 additional fails
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id, 0, None),
+			Nft::mint(Some(collection_owner).into(), collection_id, 0, None, None),
 			Error::<Test>::NoToken
 		);
 
 		// add to non-existing collection fails
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id + 1, 5, None),
+			Nft::mint(Some(collection_owner).into(), collection_id + 1, 5, None, None),
 			Error::<Test>::NoCollectionFound
 		);
 
 		// not collection owner
 		assert_noop!(
-			Nft::mint(Some(collection_owner + 1).into(), collection_id, 5, None),
+			Nft::mint(Some(collection_owner + 1).into(), collection_id, 5, None, None),
 			Error::<Test>::NotCollectionOwner
 		);
 
@@ -2190,6 +2241,7 @@ fn mint_fails() {
 				Some(collection_owner).into(),
 				collection_id,
 				mock::MaxTokensPerCollection::get(),
+				None,
 				None
 			),
 			Error::<Test>::TokenLimitExceeded
@@ -2212,6 +2264,7 @@ fn token_uri_construction() {
 			None,
 			MetadataScheme::Https(b"example.com/metadata".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		assert_eq!(
@@ -2232,6 +2285,7 @@ fn token_uri_construction() {
 			None,
 			MetadataScheme::Http(b"test.example.com/metadata".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		assert_eq!(
@@ -2250,6 +2304,7 @@ fn token_uri_construction() {
 				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()
 			),
 			None,
+			CrossChainCompatibility::default(),
 		));
 		assert_eq!(
 			Nft::token_uri((collection_id, 1)),
@@ -2267,6 +2322,7 @@ fn token_uri_construction() {
 				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec()
 			),
 			None,
+			CrossChainCompatibility::default(),
 		));
 		assert_eq!(
 			Nft::token_uri((collection_id, 1)),
@@ -2285,6 +2341,7 @@ fn token_uri_construction() {
 			None,
 			MetadataScheme::Ethereum(collection_address),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		assert_eq!(
@@ -2736,6 +2793,7 @@ fn transfer_changes_token_balance() {
 			Some(token_owner),
 			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
@@ -2748,6 +2806,7 @@ fn transfer_changes_token_balance() {
 			collection_id,
 			additional_quantity,
 			Some(token_owner),
+			None
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
@@ -2799,6 +2858,7 @@ fn transfer_many_tokens_changes_token_balance() {
 			Some(token_owner),
 			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
@@ -2845,6 +2905,7 @@ fn transfer_many_tokens_at_once_changes_token_balance() {
 			Some(token_owner),
 			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
+			CrossChainCompatibility::default(),
 		));
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
 		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 0);
@@ -2892,12 +2953,13 @@ fn cannot_mint_bridged_collections() {
 			None,
 			// "From ethereum"
 			OriginChain::Ethereum,
+			CrossChainCompatibility::default(),
 		)
 		.unwrap();
 
 		// Collection already exists on origin chain; not allowed to be minted here
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id, 420, Some(token_owner),),
+			Nft::mint(Some(collection_owner).into(), collection_id, 420, Some(token_owner), None),
 			Error::<Test>::AttemptedMintOnBridgedToken
 		);
 	});
@@ -2920,6 +2982,7 @@ fn mints_multiple_specified_tokens_by_id() {
 			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
 			OriginChain::Ethereum,
+			CrossChainCompatibility::default(),
 		));
 
 		// Do mint with Ethereum as origin chain
@@ -2954,6 +3017,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
 			OriginChain::Ethereum,
+			CrossChainCompatibility::default(),
 		));
 
 		// Do mint with Ethereum as origin chain
@@ -3010,6 +3074,7 @@ fn token_exists_works() {
 			MetadataScheme::IpfsDir(b"<CID>".to_vec()),
 			None,
 			OriginChain::Root,
+			CrossChainCompatibility::default(),
 		));
 
 		let collection_info = Nft::collection_info(collection_id).unwrap();
@@ -3041,7 +3106,8 @@ fn token_balance_of_works() {
 			Some(collection_owner).into(),
 			collection_id,
 			quantity,
-			Some(token_owner)
+			Some(token_owner),
+			None
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
@@ -3182,7 +3248,8 @@ mod claim_unowned_collection {
 				None,
 				None,
 				metadata,
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 			assert_ok!(Nft::claim_unowned_collection(
 				RawOrigin::Root.into(),
@@ -3215,7 +3282,8 @@ mod claim_unowned_collection {
 				None,
 				None,
 				metadata,
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 			let ok = Nft::claim_unowned_collection(
 				RawOrigin::Signed(new_owner.clone()).into(),
@@ -3256,7 +3324,8 @@ mod claim_unowned_collection {
 				None,
 				None,
 				metadata,
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 			let ok = Nft::claim_unowned_collection(
 				RawOrigin::Root.into(),
@@ -3264,6 +3333,822 @@ mod claim_unowned_collection {
 				new_owner.clone(),
 			);
 			assert_noop!(ok, Error::<Test>::CannotClaimNonClaimableCollections);
+		});
+	}
+}
+
+mod xls20_tests {
+	use super::*;
+	use crate::mock::Xls20PaymentAsset;
+
+	#[test]
+	fn set_relayer_works() {
+		TestExt::default().build().execute_with(|| {
+			// Not sudo should fail
+			assert_noop!(Nft::set_relayer(RawOrigin::Signed(ALICE).into(), ALICE), BadOrigin);
+			assert_eq!(Relayer::<Test>::get(), None);
+
+			// Set relayer to Alice
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), ALICE));
+			assert_eq!(Relayer::<Test>::get(), Some(ALICE));
+
+			// Set relayer to Bob
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), BOB));
+			assert_eq!(Relayer::<Test>::get(), Some(BOB));
+		});
+	}
+
+	#[test]
+	fn set_xls20_fee_works() {
+		TestExt::default().build().execute_with(|| {
+			let new_fee: Balance = 100;
+
+			// Not sudo should fail
+			assert_noop!(Nft::set_xls20_fee(RawOrigin::Signed(ALICE).into(), new_fee), BadOrigin);
+			assert_eq!(Xls20MintFee::<Test>::get(), 0);
+
+			// Set fee to 100
+			assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), new_fee));
+			assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
+
+			// Set fee to 200
+			let new_fee: Balance = 200;
+			assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), new_fee));
+			assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
+
+			// Set fee back to 0
+			let new_fee: Balance = 0;
+			assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), new_fee));
+			assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
+		});
+	}
+
+	#[test]
+	fn create_xls20_collection_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_name = b"test-xls20-collection".to_vec();
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
+			let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+			let initial_issuance: TokenCount = 0;
+
+			assert_ok!(Nft::create_collection(
+				Some(collection_owner).into(),
+				collection_name.clone(),
+				initial_issuance,
+				None,
+				None,
+				metadata_scheme.clone(),
+				None,
+				cross_chain_compatibility.clone(),
+			));
+			let expected_tokens = create_owned_tokens(vec![]);
+
+			assert!(has_event(Event::<Test>::CollectionCreate {
+				collection_uuid: collection_id,
+				initial_issuance,
+				max_issuance: None,
+				collection_owner,
+				metadata_scheme: metadata_scheme.clone(),
+				name: b"test-xls20-collection".to_vec(),
+				royalties_schedule: None,
+				origin_chain: OriginChain::Root,
+				compatibility: cross_chain_compatibility,
+			}));
+
+			// Check storage is correct
+			assert_eq!(
+				Nft::collection_info(collection_id).unwrap(),
+				CollectionInformation {
+					owner: collection_owner,
+					name: collection_name,
+					metadata_scheme,
+					royalties_schedule: None,
+					max_issuance: None,
+					origin_chain: OriginChain::Root,
+					next_serial_number: 0,
+					collection_issuance: 0,
+					owned_tokens: expected_tokens,
+					cross_chain_compatibility,
+				}
+			);
+		});
+	}
+
+	#[test]
+	fn create_xls20_collection_with_initial_issuance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_name = b"test-xls20-collection".to_vec();
+			let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
+			let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+			let initial_issuance: TokenCount = 1;
+
+			assert_noop!(
+				Nft::create_collection(
+					Some(collection_owner).into(),
+					collection_name,
+					initial_issuance,
+					None,
+					None,
+					metadata_scheme,
+					None,
+					cross_chain_compatibility,
+				),
+				Error::<Test>::InitialIssuanceNotZero
+			);
+		});
+	}
+
+	#[test]
+	fn xls20_mint_throws_event() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let quantity: TokenCount = 5;
+			let token_owner = BOB;
+
+			// Mint tokens
+			assert_ok!(Nft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				quantity,
+				Some(token_owner),
+				None
+			));
+
+			// Check event is thrown with all serial numbers and token_uris
+			let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3, 4];
+			let token_uris: Vec<Vec<u8>> = vec![
+				b"https://example.com/0.json".to_vec(),
+				b"https://example.com/1.json".to_vec(),
+				b"https://example.com/2.json".to_vec(),
+				b"https://example.com/3.json".to_vec(),
+				b"https://example.com/4.json".to_vec(),
+			];
+			assert!(has_event(Event::<Test>::Xls20MintRequest {
+				collection_id,
+				serial_numbers,
+				token_uris,
+			}));
+
+			// Mint 2 more tokens for sanity
+			let quantity: TokenCount = 2;
+			assert_ok!(Nft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				quantity,
+				Some(token_owner),
+				None
+			));
+
+			// Check event is thrown with all serial numbers and token_uris
+			let serial_numbers: Vec<SerialNumber> = vec![5, 6];
+			let token_uris: Vec<Vec<u8>> = vec![
+				b"https://example.com/5.json".to_vec(),
+				b"https://example.com/6.json".to_vec(),
+			];
+			assert!(has_event(Event::<Test>::Xls20MintRequest {
+				collection_id,
+				serial_numbers,
+				token_uris,
+			}));
+		});
+	}
+
+	#[test]
+	fn xls20_mint_with_fee() {
+		let collection_owner = ALICE;
+		let initial_balance = 10000;
+
+		TestExt::default()
+			.with_xrp_balances(&[(collection_owner, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_id = setup_xls20_collection(collection_owner);
+				let quantity: TokenCount = 5;
+				let relayer = BOB;
+				let new_fee: Balance = 100;
+
+				// Set fee to 100
+				assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), new_fee));
+				assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
+
+				// Set relayer to Bob
+				assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+				assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+				// Mint tokens with no fee fails
+				assert_noop!(
+					Nft::mint(
+						Some(collection_owner).into(),
+						collection_id,
+						quantity,
+						None,
+						None, // Needs to be Some(500)
+					),
+					Error::<Test>::Xls20MintFeeTooLow
+				);
+
+				// Mint tokens with too low fee fails
+				assert_noop!(
+					Nft::mint(
+						Some(collection_owner).into(),
+						collection_id,
+						quantity,
+						None,
+						Some(499), // Insufficient for 5 tokens
+					),
+					Error::<Test>::Xls20MintFeeTooLow
+				);
+
+				// Mint tokens with correct fee works
+				assert_ok!(Nft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					quantity,
+					None,
+					Some(500), // Fee is high enough!
+				));
+
+				// Check balances are correct after fees are paid.
+				let payment_amount = new_fee * quantity as u128; // 500
+				let balance_owner = AssetsExt::reducible_balance(
+					Xls20PaymentAsset::get(),
+					&collection_owner,
+					false,
+				);
+				assert_eq!(balance_owner, initial_balance - payment_amount);
+
+				let balance_relayer =
+					AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &relayer, false);
+				assert_eq!(balance_relayer, payment_amount);
+			});
+	}
+
+	#[test]
+	fn xls20_mint_with_fee_higher_than_minimum() {
+		let collection_owner = ALICE;
+		let initial_balance = 10000;
+
+		TestExt::default()
+			.with_xrp_balances(&[(collection_owner, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_id = setup_xls20_collection(collection_owner);
+				let quantity: TokenCount = 5;
+				let relayer = BOB;
+				let mint_fee: Balance = 100;
+				let specified_fee: Balance = 599; // The fee specified by the caller of mint
+
+				// Set fee to 100
+				assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), mint_fee));
+				assert_eq!(Xls20MintFee::<Test>::get(), mint_fee);
+
+				// Set relayer to Bob
+				assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+				assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+				// Mint tokens with correct fee works
+				assert_ok!(Nft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					quantity,
+					None,
+					Some(specified_fee), // Fee is too high
+				));
+
+				// Check balances are correct after fees are paid.
+				// Note the min fee will be paid, rather than the specified fee (599)
+				let balance_owner = AssetsExt::reducible_balance(
+					Xls20PaymentAsset::get(),
+					&collection_owner,
+					false,
+				);
+				assert_eq!(balance_owner, initial_balance - specified_fee);
+
+				let balance_relayer =
+					AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &relayer, false);
+				assert_eq!(balance_relayer, specified_fee);
+			});
+	}
+
+	#[test]
+	fn re_request_xls20_mint_works() {
+		let collection_owner = ALICE;
+		let initial_balance = 10000;
+
+		TestExt::default()
+			.with_xrp_balances(&[(collection_owner, initial_balance)])
+			.build()
+			.execute_with(|| {
+				let collection_id = setup_xls20_collection(collection_owner);
+				let relayer = BOB;
+				let mint_fee: Balance = 100;
+				let specified_fee: Balance = 400; // The fee specified by the caller of mint
+				let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+					BoundedVec::try_from(vec![0, 1, 2, 3]).unwrap();
+
+				// Set fee to 100
+				assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), mint_fee));
+				assert_eq!(Xls20MintFee::<Test>::get(), mint_fee);
+
+				// Set relayer to Bob
+				assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+				assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+				// Re request should pay fees and throw events
+				assert_ok!(Nft::re_request_xls20_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					serial_numbers,
+					specified_fee
+				));
+
+				// Check balances are correct after fees are paid.
+				// Note the min fee will be paid, rather than the specified fee (599)
+				let balance_owner = AssetsExt::reducible_balance(
+					Xls20PaymentAsset::get(),
+					&collection_owner,
+					false,
+				);
+				assert_eq!(balance_owner, initial_balance - specified_fee);
+
+				let balance_relayer =
+					AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &relayer, false);
+				assert_eq!(balance_relayer, specified_fee);
+
+				// Check event is thrown with all serial numbers and token_uris
+				let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3];
+				let token_uris: Vec<Vec<u8>> = vec![
+					b"https://example.com/0.json".to_vec(),
+					b"https://example.com/1.json".to_vec(),
+					b"https://example.com/2.json".to_vec(),
+					b"https://example.com/3.json".to_vec(),
+				];
+				assert!(has_event(Event::<Test>::Xls20MintRequest {
+					collection_id,
+					serial_numbers,
+					token_uris,
+				}));
+			});
+	}
+
+	#[test]
+	fn re_request_xls20_mint_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let specified_fee: Balance = 400; // The fee specified by the caller of mint
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![0]).unwrap();
+
+			// Re request should pay fees and throw events
+			assert_noop!(
+				Nft::re_request_xls20_mint(
+					RawOrigin::Signed(BOB).into(),
+					collection_id,
+					serial_numbers,
+					specified_fee
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+
+			// Check event is NOT thrown
+			let serial_numbers: Vec<SerialNumber> = vec![0];
+			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0.json".to_vec()];
+			assert!(!has_event(Event::<Test>::Xls20MintRequest {
+				collection_id,
+				serial_numbers,
+				token_uris,
+			}));
+		});
+	}
+
+	#[test]
+	fn re_request_xls20_mint_not_xls20_compatible_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_collection(collection_owner);
+			let specified_fee: Balance = 400; // The fee specified by the caller of mint
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![0, 1, 2, 3]).unwrap();
+
+			// Re request should pay fees and throw events
+			assert_noop!(
+				Nft::re_request_xls20_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					serial_numbers,
+					specified_fee
+				),
+				Error::<Test>::NotXLS20Compatible
+			);
+
+			// Check event is NOT thrown
+			let serial_numbers: Vec<SerialNumber> = vec![0];
+			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0.json".to_vec()];
+			assert!(!has_event(Event::<Test>::Xls20MintRequest {
+				collection_id,
+				serial_numbers,
+				token_uris,
+			}));
+		});
+	}
+
+	#[test]
+	fn re_request_xls20_mint_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_id = 1;
+
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![0]).unwrap();
+
+			// Collection doesn't exist so should fail
+			assert_noop!(
+				Nft::re_request_xls20_mint(
+					RawOrigin::Signed(ALICE).into(),
+					collection_id,
+					serial_numbers,
+					100
+				),
+				Error::<Test>::NoCollectionFound
+			);
+
+			// Check event is NOT thrown
+			let serial_numbers: Vec<SerialNumber> = vec![0];
+			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0.json".to_vec()];
+			assert!(!has_event(Event::<Test>::Xls20MintRequest {
+				collection_id,
+				serial_numbers,
+				token_uris,
+			}));
+		});
+	}
+
+	#[test]
+	fn re_request_xls20_mint_empty_serial_numbers_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_id = 1;
+
+			// Empty serial numbers should fail
+			assert_noop!(
+				Nft::re_request_xls20_mint(
+					RawOrigin::Signed(ALICE).into(),
+					collection_id,
+					Default::default(),
+					100
+				),
+				Error::<Test>::NoToken
+			);
+
+			// Check event is NOT thrown
+			let serial_numbers: Vec<SerialNumber> = vec![];
+			let token_uris: Vec<Vec<u8>> = vec![];
+			assert!(!has_event(Event::<Test>::Xls20MintRequest {
+				collection_id,
+				serial_numbers,
+				token_uris,
+			}));
+		});
+	}
+
+	#[test]
+	fn fulfill_xls20_mint_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let relayer = BOB;
+			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![
+					(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+					(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
+					(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
+					(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
+				])
+				.unwrap();
+
+			// Set relayer to Bob
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+			assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+			// Mint tokens
+			assert_ok!(Nft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				token_mappings.len() as u32,
+				None,
+				None, // No fee set
+			));
+
+			// call fulfill and add mappings to storage
+			assert_ok!(Nft::fulfill_xls20_mint(
+				RawOrigin::Signed(relayer).into(),
+				collection_id,
+				token_mappings.clone()
+			));
+
+			// Check all mappings have been stored
+			for (serial_number, xls20_token_id) in token_mappings.clone().iter() {
+				assert_eq!(
+					Xls20TokenMap::<Test>::get(collection_id, serial_number),
+					Some(*xls20_token_id)
+				);
+			}
+
+			// Check event is thrown with new mappings
+			assert!(has_event(Event::<Test>::Xls20MappingSet {
+				collection_id,
+				mappings: token_mappings.into_inner(),
+			}));
+		});
+	}
+
+	#[test]
+	fn fulfill_xls20_empty_token_map_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let relayer = BOB;
+			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![]).unwrap();
+
+			// Set relayer to Bob
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+			assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+			// call fulfill and add mappings to storage
+			assert_noop!(
+				Nft::fulfill_xls20_mint(
+					RawOrigin::Signed(relayer).into(),
+					collection_id,
+					token_mappings.clone()
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn fulfill_xls20_mint_not_relayer_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let relayer = BOB;
+			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![(
+					0,
+					hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+				)])
+				.unwrap();
+
+			// Set relayer to Bob
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+			assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+			// call fulfill and add mappings to storage
+			assert_noop!(
+				Nft::fulfill_xls20_mint(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					token_mappings.clone()
+				),
+				Error::<Test>::NotRelayer
+			);
+		});
+	}
+
+	#[test]
+	fn fulfill_xls20_mint_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_id = 1;
+			let relayer = BOB;
+			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![(
+					0,
+					hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+				)])
+				.unwrap();
+
+			// Set relayer to Bob
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+			assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+			// call fulfill and add mappings to storage
+			assert_noop!(
+				Nft::fulfill_xls20_mint(
+					RawOrigin::Signed(relayer).into(),
+					collection_id,
+					token_mappings.clone()
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn fulfill_xls20_mint_no_token_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let relayer = BOB;
+			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![
+					(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+					(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
+					(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
+					(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
+				])
+				.unwrap();
+
+			// Set relayer to Bob
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+			assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+			// Mint one less token than we submit mappings for
+			assert_ok!(Nft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				token_mappings.len() as u32 - 1_u32,
+				None,
+				None, // No fee set
+			));
+
+			// call fulfill should fail as we have specified a serial number that does not exist
+			assert_noop!(
+				Nft::fulfill_xls20_mint(
+					RawOrigin::Signed(relayer).into(),
+					collection_id,
+					token_mappings.clone()
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn fulfill_xls20_mint_duplicate_mapping_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let relayer = BOB;
+			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![
+					(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+					(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+				])
+				.unwrap();
+
+			// Set relayer to Bob
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+			assert_eq!(Relayer::<Test>::get(), Some(relayer));
+
+			// Mint tokens
+			assert_ok!(Nft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				token_mappings.len() as u32,
+				None,
+				None, // No fee set
+			));
+
+			// call fulfill should fail due to duplicate token ids in token_mappings
+			assert_noop!(
+				Nft::fulfill_xls20_mint(
+					RawOrigin::Signed(relayer).into(),
+					collection_id,
+					token_mappings.clone()
+				),
+				Error::<Test>::MappingAlreadyExists
+			);
+
+			// Submit successful token mappings to add to storage
+			let serial_number: SerialNumber = 0;
+			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![(
+					serial_number,
+					hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+				)])
+				.unwrap();
+
+			assert_ok!(Nft::fulfill_xls20_mint(
+				RawOrigin::Signed(relayer).into(),
+				collection_id,
+				token_mappings.clone()
+			));
+			// Check it's added to storage
+			assert_eq!(
+				Xls20TokenMap::<Test>::get(collection_id, serial_number),
+				Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"))
+			);
+
+			// Subsequent call should fail on same token id
+			assert_noop!(
+				Nft::fulfill_xls20_mint(
+					RawOrigin::Signed(relayer).into(),
+					collection_id,
+					token_mappings.clone()
+				),
+				Error::<Test>::MappingAlreadyExists
+			);
+
+			// Different serial should work fine
+			let serial_number: SerialNumber = 1;
+			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![(
+					serial_number,
+					hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
+				)])
+				.unwrap();
+
+			assert_ok!(Nft::fulfill_xls20_mint(
+				RawOrigin::Signed(relayer).into(),
+				collection_id,
+				token_mappings.clone()
+			));
+			// Again, check it's added to storage
+			assert_eq!(
+				Xls20TokenMap::<Test>::get(collection_id, serial_number),
+				Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"))
+			);
+		});
+	}
+
+	#[test]
+	fn enable_xls20_compatibility_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_collection(collection_owner);
+
+			// XLS-20 compatibility disabled
+			assert_eq!(
+				Nft::collection_info(collection_id).unwrap().cross_chain_compatibility,
+				CrossChainCompatibility { xrpl: false },
+			);
+
+			// Can successfully enable XLS-20 compatibility
+			assert_ok!(Nft::enable_xls20_compatibility(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+			));
+
+			// XLS-20 compatibility now enabled
+			assert_eq!(
+				Nft::collection_info(collection_id).unwrap().cross_chain_compatibility,
+				CrossChainCompatibility { xrpl: true },
+			);
+		});
+	}
+
+	#[test]
+	fn enable_xls20_compatibility_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = 1;
+
+			// Can not enable compatibility if collection doesn't exist
+			assert_noop!(
+				Nft::enable_xls20_compatibility(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn enable_xls20_compatibility_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_collection(collection_owner);
+
+			// Can not enable compatibility if not owner
+			assert_noop!(
+				Nft::enable_xls20_compatibility(RawOrigin::Signed(BOB).into(), collection_id,),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn enable_xls20_compatibility_non_zero_issuance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_collection(collection_owner);
+
+			// Mint 1 token
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None, None,));
+
+			// Can not enable compatibility if tokens are minted in collection
+			assert_noop!(
+				Nft::enable_xls20_compatibility(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+				),
+				Error::<Test>::CollectionIssuanceNotZero
+			);
 		});
 	}
 }

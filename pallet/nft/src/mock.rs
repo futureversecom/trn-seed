@@ -14,7 +14,12 @@
  */
 
 use crate as pallet_nft;
-use frame_support::{parameter_types, traits::FindAuthor, weights::Weight, PalletId};
+use frame_support::{
+	parameter_types,
+	traits::{FindAuthor, GenesisBuild},
+	weights::Weight,
+	PalletId,
+};
 use frame_system::{limits, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
 use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber};
@@ -34,6 +39,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 pub const ALICE: AccountId = 10;
 pub const BOB: AccountId = 11;
+pub const XRP_ASSET_ID: AssetId = 2;
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -228,6 +234,7 @@ parameter_types! {
 	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
+	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 }
 
 impl crate::Config for Test {
@@ -240,12 +247,14 @@ impl crate::Config for Test {
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
+	type Xls20PaymentAsset = Xls20PaymentAsset;
 	type WeightInfo = ();
 }
 
 #[derive(Default)]
 pub struct TestExt {
 	balances: Vec<(AccountId, Balance)>,
+	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
 }
 
 impl TestExt {
@@ -254,11 +263,29 @@ impl TestExt {
 		self.balances = balances.to_vec();
 		self
 	}
+	/// Configure some XRP asset balances
+	pub fn with_xrp_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
+		self.xrp_balances = balances
+			.to_vec()
+			.into_iter()
+			.map(|(who, balance)| (XRP_ASSET_ID, who, balance))
+			.collect();
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
 		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
 		if !self.balances.is_empty() {
 			pallet_balances::GenesisConfig::<Test> { balances: self.balances }
+				.assimilate_storage(&mut ext)
+				.unwrap();
+		}
+
+		if !self.xrp_balances.is_empty() {
+			let assets = vec![(XRP_ASSET_ID, ALICE, true, 1)];
+			let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6_u8)];
+			let accounts = self.xrp_balances;
+			pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts }
 				.assimilate_storage(&mut ext)
 				.unwrap();
 		}
