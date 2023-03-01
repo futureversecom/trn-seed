@@ -321,7 +321,7 @@ impl TryFrom<Vec<u8>> for MetadataScheme {
 				let contract_address = H160::from_slice(&hex::decode(contract_address).map_err(|_| "Invalid URI")?);
 				Ok(MetadataScheme::Ethereum(contract_address)) // sanitization not needed for address
 			},
-			_ => Err("Invalid URI"),
+			_ => Err("scheme not supported"),
 		}
 	}
 }
@@ -556,7 +556,7 @@ mod test {
 
 		// invalid protocol
 		let scheme: Result<MetadataScheme, &'static str> = b"tcp://notarealCIDblah".to_vec().try_into();
-		assert_eq!(scheme, Err("Invalid URI"));
+		assert_eq!(scheme, Err("scheme not supported"));
 
 		// missing protocol
 		let scheme: Result<MetadataScheme, &'static str> = b"notarealCIDblah".to_vec().try_into();
