@@ -382,6 +382,8 @@ pub mod pallet {
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
+		/// The max issuance has already been set and can't be changed
+		MaxIssuanceAlreadySet,
 		/// The collection max issuance has been reached and no more tokens can be minted
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
@@ -465,13 +467,11 @@ pub mod pallet {
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
-
-			match collection_info.max_issuance {
-				// cannot set - if already set
-				Some(_) => return Err(Error::<T>::InvalidMaxIssuance.into()),
-				// if not set, ensure that the max issuance is greater than the current issuance
-				None => ensure!(collection_info.collection_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance),
-			}
+			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
+			ensure!(
+				collection_info.collection_issuance <= max_issuance,
+				Error::<T>::InvalidMaxIssuance
+			);
 
 			collection_info.max_issuance = Some(max_issuance);
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
@@ -492,7 +492,8 @@ pub mod pallet {
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
 
-			collection_info.metadata_scheme = base_uri.clone().try_into().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+			collection_info.metadata_scheme =
+				base_uri.clone().try_into().map_err(|_| Error::<T>::InvalidMetadataPath)?;
 
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::BaseUriSet { collection_id, base_uri });
