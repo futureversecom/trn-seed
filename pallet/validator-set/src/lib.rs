@@ -38,7 +38,7 @@ use seed_pallet_common::{
 	validator_set::{ValidatorSetAdapter, ValidatorSetChangeHandler, ValidatorSetChangeInfo},
 	FinalSessionTracker as FinalSessionTrackerT,
 };
-use seed_primitives::ethy::{EventProofId, ValidatorSet as ValidatorSetS, ValidatorSetId};
+use seed_primitives::ethy::{ValidatorSet as ValidatorSetS, ValidatorSetId};
 use sp_runtime::{traits::Saturating, DispatchError, SaturatedConversion};
 use sp_std::{vec, vec::Vec};
 

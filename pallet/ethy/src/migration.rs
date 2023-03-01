@@ -260,10 +260,11 @@ fn clear_storage_prefixes() {
 	};
 }
 
+#[allow(dead_code)]
 mod storage_v0 {
 	use super::*;
 	use codec::{Decode, Encode};
-	use ethereum_types::{H256, U64};
+	use ethereum_types::H256;
 	use frame_support::pallet_prelude::TypeInfo;
 
 	/// Possible outcomes from attempting to verify an Ethereum event claim
@@ -289,8 +290,6 @@ mod storage_v0 {
 		UnexpectedSource,
 	}
 
-	/// The ethereum block number data type
-	pub type EthBlockNumber = U64;
 	/// The ethereum address data type
 	pub type EthAddress = seed_primitives::EthAddress;
 	/// The ethereum transaction hash type
