@@ -263,4 +263,5 @@ runtime-benchmarks = [
 	"pallet-erc20-peg/runtime-benchmarks",
 	"pallet-echo/runtime-benchmarks",
 	"pallet-assets-ext/runtime-benchmarks",
+	"pallet-ethy/runtime-benchmarks",
 ]

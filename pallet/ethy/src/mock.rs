@@ -121,6 +121,7 @@ impl Config for TestRuntime {
 	type EthereumBridgeAdapter = MockEthBridgeAdapter;
 	type ValidatorSetAdapter = MockValidatorSetAdapter;
 	type XrplBridgeAdapter = MockXrplBridgeAdapter;
+	type WeightInfo = ();
 }
 
 pub struct MockValidatorSetAdapter;

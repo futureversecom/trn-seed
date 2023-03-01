@@ -785,6 +785,7 @@ impl pallet_ethy::Config for Runtime {
 	type EthereumBridgeAdapter = EthBridge;
 	/// Validator adapter
 	type ValidatorSetAdapter = ValidatorSet;
+	type WeightInfo = weights::pallet_ethy::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1727,6 +1728,7 @@ mod benches {
 		[pallet_erc20_peg, Erc20Peg]
 		[pallet_echo, Echo]
 		[pallet_assets_ext, AssetsExt]
+		[pallet_ethy, Ethy]
 		// [pallet_dex, Dex]
 	);
 }

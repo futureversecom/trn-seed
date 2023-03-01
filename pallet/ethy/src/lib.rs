@@ -16,10 +16,7 @@
 
 use codec::Encode;
 use ethabi::Token;
-use frame_support::{
-	traits::Get,
-	weights::{constants::RocksDbWeight as DbWeight, Weight},
-};
+use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 use log::{debug, error, info, trace};
 pub use pallet::*;
 use seed_pallet_common::{
@@ -44,11 +41,15 @@ use sp_runtime::{
 };
 use sp_std::vec::Vec;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod migration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
+pub use weights::WeightInfo;
 
 pub(crate) const LOG_TARGET: &str = "ethy";
 pub const SCHEDULER_PRIORITY: u8 = 63;
@@ -82,6 +83,7 @@ pub mod pallet {
 		type ValidatorSetAdapter: ValidatorSetAdapter<AuthorityId>;
 		/// XRPL Bridge Adapter
 		type XrplBridgeAdapter: XRPLBridgeAdapter;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -179,11 +181,8 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
-	{
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+	impl<T: Config> Pallet<T> {
+		#[pallet::weight(T::WeightInfo::set_ethy_state())]
 		/// Pause or unpause ethy (requires governance)
 		pub fn set_ethy_state(origin: OriginFor<T>, state: State) -> DispatchResult {
 			ensure_root(origin)?;

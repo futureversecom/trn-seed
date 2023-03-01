@@ -5002,6 +5002,7 @@ version = "0.1.0"
 dependencies = [
  "ethabi",
  "ethereum-types",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
