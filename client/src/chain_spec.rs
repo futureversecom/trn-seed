@@ -53,7 +53,15 @@ pub fn authority_keys_from_seed(s: &str) -> AuthorityKeys {
 	)
 }
 
-pub fn development_config() -> Result<ChainSpec, String> {
+pub fn root_config() -> Result<ChainSpec, String> {
+	ChainSpec::from_json_bytes(&include_bytes!("../../chain-spec/root.json")[..])
+}
+
+pub fn porcini_config() -> Result<ChainSpec, String> {
+	ChainSpec::from_json_bytes(&include_bytes!("../../chain-spec/porcini.json")[..])
+}
+
+pub fn dev_config() -> Result<ChainSpec, String> {
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	let mut properties = sc_service::Properties::new();
@@ -98,130 +106,6 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		None,
 		None,
 		// Properties
-		Some(properties),
-		// Extensions
-		None,
-	))
-}
-
-pub fn local_testnet_config() -> Result<ChainSpec, String> {
-	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
-	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
-
-	Ok(ChainSpec::from_genesis(
-		// Name
-		"Seed Local",
-		// ID
-		"seed_local",
-		ChainType::Local,
-		move || {
-			testnet_genesis(
-				wasm_binary,
-				// Initial PoA authorities
-				vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
-				// Sudo account
-				get_account_id_from_seed::<ecdsa::Public>("Alice"),
-				// Pre-funded accounts
-				vec![
-					AccountId::from(hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac")), // Alith
-					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")), // Baltathar
-					AccountId::from(hex!("798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc")), // Charleth
-					AccountId::from(hex!("773539d4Ac0e786233D90A233654ccEE26a613D9")), // Dorothy
-					AccountId::from(hex!("Ff64d3F6efE2317EE2807d223a0Bdc4c0c49dfDB")), // Ethan
-					AccountId::from(hex!("C0F0f4ab324C46e55D02D0033343B4Be8A55532d")), // Faith
-					get_account_id_from_seed::<ecdsa::Public>("Alice"),
-					get_account_id_from_seed::<ecdsa::Public>("Bob"),
-					get_account_id_from_seed::<ecdsa::Public>("Charlie"),
-					get_account_id_from_seed::<ecdsa::Public>("Dave"),
-					get_account_id_from_seed::<ecdsa::Public>("Eve"),
-					get_account_id_from_seed::<ecdsa::Public>("Ferdie"),
-					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Charlie//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Dave//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
-				],
-				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
-				vec![authority_keys_from_seed("Alice").4, authority_keys_from_seed("Bob").4],
-				false,
-			)
-		},
-		// Bootnodes
-		vec![],
-		// Telemetry
-		None,
-		// Protocol ID
-		None,
-		// Properties
-		None,
-		Some(properties),
-		// Extensions
-		None,
-	))
-}
-
-pub fn porcini_testnet_config() -> Result<ChainSpec, String> {
-	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), ROOT_SYMBOL.into());
-	properties.insert("tokenDecimals".into(), ROOT_DECIMALS.into());
-
-	Ok(ChainSpec::from_genesis(
-		// Name
-		"Porcini",
-		// ID
-		"porcini",
-		ChainType::Live,
-		move || {
-			testnet_genesis(
-				wasm_binary,
-				// Initial PoA authorities
-				vec![
-					authority_keys_from_seed("Alice"),
-					authority_keys_from_seed("Bob"),
-					authority_keys_from_seed("Charlie"),
-					authority_keys_from_seed("Dave"),
-					authority_keys_from_seed("Eve"),
-				],
-				// Sudo account
-				get_account_id_from_seed::<ecdsa::Public>("Alice"),
-				// Pre-funded accounts
-				vec![
-					get_account_id_from_seed::<ecdsa::Public>("Alice"),
-					get_account_id_from_seed::<ecdsa::Public>("Bob"),
-					get_account_id_from_seed::<ecdsa::Public>("Charlie"),
-					get_account_id_from_seed::<ecdsa::Public>("Dave"),
-					get_account_id_from_seed::<ecdsa::Public>("Eve"),
-					get_account_id_from_seed::<ecdsa::Public>("Ferdie"),
-					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Charlie//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Dave//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
-					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
-				],
-				vec![AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0"))],
-				vec![
-					authority_keys_from_seed("Alice").4,
-					authority_keys_from_seed("Bob").4,
-					authority_keys_from_seed("Charlie").4,
-					authority_keys_from_seed("Dave").4,
-					authority_keys_from_seed("Eve").4,
-				],
-				false,
-			)
-		},
-		// Bootnodes
-		vec![],
-		// Telemetry
-		None,
-		// Protocol ID
-		None,
-		// Properties
-		None,
 		Some(properties),
 		// Extensions
 		None,

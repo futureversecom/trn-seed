@@ -106,6 +106,12 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// An ERC721 deposit was made
 		Erc721Deposit { destination: T::AccountId },
+		/// Bridged ERC721 tokens were minted
+		Erc721Mint {
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
+			owner: T::AccountId,
+		},
 		/// An ERC721 withdraw was made
 		Erc721Withdraw {
 			origin: T::AccountId,
@@ -303,6 +309,13 @@ where
 				collection_id,
 				current_token.token_ids.clone().into_inner(),
 			);
+
+			// Throw event, listing all bridged tokens minted
+			Self::deposit_event(Event::<T>::Erc721Mint {
+				collection_id,
+				serial_numbers: current_token.token_ids.clone(),
+				owner: destination.clone(),
+			});
 			weight =
 				weight.saturating_add(T::DbWeight::get().writes(2)).saturating_add(mint_weight);
 		}

@@ -13,11 +13,12 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 
-use crate::*;
+use crate::{traits::NFTExt, *};
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
+use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
-	log, utils::next_asset_uuid, GetTokenOwner, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
+	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
@@ -202,7 +203,7 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-				let _ = Self::do_mint(collection_id, collection_info, owner, serial_numbers);
+				let _ = Self::do_mint(collection_id, collection_info, owner, &serial_numbers);
 				T::DbWeight::get().reads_writes(1, 1)
 			},
 			_ => 0 as Weight,
@@ -214,7 +215,7 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		collection_info: CollectionInformation<T>,
 		token_owner: &T::AccountId,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
 		let mut new_collection_info = collection_info;
 		// Update collection issuance
@@ -227,13 +228,6 @@ impl<T: Config> Pallet<T> {
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
-
-		// Throw event, listing all tokens minted
-		Self::deposit_event(Event::<T>::Mint {
-			collection_id,
-			serial_numbers: serial_numbers.into_inner(),
-			owner: token_owner.clone(),
-		});
 		Ok(())
 	}
 
@@ -562,6 +556,7 @@ impl<T: Config> Pallet<T> {
 
 		Self::deposit_event(Event::<T>::CollectionCreate {
 			collection_uuid,
+			initial_issuance,
 			max_issuance,
 			collection_owner: owner,
 			metadata_scheme,
@@ -607,22 +602,46 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-// Interface for getting ownership of an NFT
-impl<T: Config> GetTokenOwner for Pallet<T> {
+impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
+	type MaxTokensPerCollection = T::MaxTokensPerCollection;
+	type T = T;
 
-	/// Returns the owner of a token_id
-	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		let Some(collection_info) = Self::collection_info(token_id.0) else {
+	fn do_mint(
+		origin: T::AccountId,
+		collection_id: CollectionUuid,
+		quantity: TokenCount,
+		token_owner: Option<T::AccountId>,
+	) -> DispatchResult {
+		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner)
+	}
+
+	fn do_create_collection(
+		owner: Self::AccountId,
+		name: CollectionNameType,
+		initial_issuance: TokenCount,
+		max_issuance: Option<TokenCount>,
+		token_owner: Option<Self::AccountId>,
+		metadata_scheme: MetadataScheme,
+		royalties_schedule: Option<RoyaltiesSchedule<Self::AccountId>>,
+		origin_chain: OriginChain,
+	) -> Result<CollectionUuid, DispatchError> {
+		Self::do_create_collection(
+			owner,
+			name,
+			initial_issuance,
+			max_issuance,
+			token_owner,
+			metadata_scheme,
+			royalties_schedule,
+			origin_chain,
+		)
+	}
+
+	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
+		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
 			return None
 		};
-		match collection_info
-			.owned_tokens
-			.into_iter()
-			.find(|token_ownership| token_ownership.contains_serial(&token_id.1))
-		{
-			Some(token_ownership) => Some(token_ownership.owner),
-			None => None,
-		}
+		collection.get_token_owner(token_id.1)
 	}
 }

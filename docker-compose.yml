@@ -1,32 +1,86 @@
-# two node local network (alice + bob validators)
-version: '3'
+version: "3"
 services:
-  validator-0:
-    image: ghcr.io/futureversecom/seed:latest
+  root-validator:
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
-    - ./data/validator-0:/mnt/data
-    - ./chain-spec:/mnt/chain-spec/:ro
+      - ./node-data:/node-data
     command:
-      - --alice
+      - --chain
+      - root
       - --validator
-      - --chain=dev
-      - --base-path=/mnt/data
-      - --name=validator-0
-      - --unsafe-ws-external
-      - --unsafe-rpc-external
-      - --rpc-cors=all
+      - -d
+      - /node-data
+      - --telemetry-url
+      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
+      - --name
+      - RootValidator
     ports:
       - "9933:9933"
       - "9944:9944"
       - "30333:30333"
-  validator-1:
-    image: ghcr.io/futureversecom/seed:latest
+  root-validator-archive:
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
-    - ./data/validator-1:/mnt/data
-    - ./chain-spec:/mnt/chain-spec/:ro
+      - ./node-data:/node-data
     command:
-      - --bob
+      - --chain
+      - root
       - --validator
-      - --chain=dev
-      - --base-path=/mnt/data
-      - --name=validator-1
+      - --pruning
+      - archive
+      - -d
+      - /node-data
+      - --telemetry-url
+      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
+      - --name
+      - RootValidator
+    ports:
+      - "9933:9933"
+      - "9944:9944"
+      - "30333:30333"
+  porcini-validator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./node-data:/node-data
+    command:
+      - --chain
+      - porcini
+      - --validator
+      - -d
+      - /node-data
+      - --telemetry-url
+      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
+      - --name
+      - PorciniValidator
+    ports:
+      - "9933:9933"
+      - "9944:9944"
+      - "30333:30333"
+  porcini-validator-archive:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./node-data:/node-data
+    command:
+      - --chain
+      - porcini
+      - --validator
+      - --pruning
+      - archive
+      - -d
+      - /node-data
+      - --telemetry-url
+      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
+      - --name
+      - PorciniValidator
+    ports:
+      - "9933:9933"
+      - "9944:9944"
+      - "30333:30333"

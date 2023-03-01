@@ -309,6 +309,7 @@ fn create_collection() {
 
 		assert!(has_event(Event::<Test>::CollectionCreate {
 			collection_uuid: collection_id,
+			initial_issuance: 5,
 			max_issuance: None,
 			collection_owner,
 			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
@@ -341,6 +342,12 @@ fn create_collection() {
 			additional_quantity,
 			Some(token_owner + 1), // new owner this time
 		));
+		assert!(has_event(Event::<Test>::Mint {
+			collection_id,
+			start: 5,
+			end: 7,
+			owner: token_owner + 1,
+		}));
 		assert_eq!(Nft::token_balance_of(&(token_owner + 1), collection_id), 3);
 		assert_eq!(
 			Nft::collection_info(collection_id).unwrap().next_serial_number,
@@ -702,6 +709,12 @@ fn sell_multiple_fails() {
 		let collection_id = setup_collection(collection_owner);
 		// mint some tokens
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
+		assert!(has_event(Event::<Test>::Mint {
+			collection_id,
+			start: 0,
+			end: 1,
+			owner: collection_owner,
+		}));
 
 		// empty tokens fails
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
@@ -1547,6 +1560,12 @@ fn auction_bundle_fails() {
 		let collection_owner = 1_u64;
 		let collection_id = setup_collection(collection_owner);
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
+		assert!(has_event(Event::<Test>::Mint {
+			collection_id,
+			start: 0,
+			end: 1,
+			owner: collection_owner,
+		}));
 
 		// empty tokens fails
 		assert_noop!(
@@ -2057,6 +2076,12 @@ fn mint_over_max_issuance_should_fail() {
 
 		// Mint tokens 2-5
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 3, Some(token_owner)));
+		assert!(has_event(Event::<Test>::Mint {
+			collection_id,
+			start: 2,
+			end: 4,
+			owner: token_owner,
+		}));
 		assert_eq!(
 			Nft::collection_info(collection_id).unwrap().collection_issuance,
 			initial_issuance + 3
@@ -2724,6 +2749,12 @@ fn transfer_changes_token_balance() {
 			additional_quantity,
 			Some(token_owner),
 		));
+		assert!(has_event(Event::<Test>::Mint {
+			collection_id,
+			start: 1,
+			end: 2,
+			owner: token_owner,
+		}));
 
 		assert_eq!(
 			Nft::token_balance_of(&token_owner, collection_id),
@@ -3012,6 +3043,12 @@ fn token_balance_of_works() {
 			quantity,
 			Some(token_owner)
 		));
+		assert!(has_event(Event::<Test>::Mint {
+			collection_id,
+			start: 0,
+			end: 99,
+			owner: token_owner,
+		}));
 
 		// Check that token_owner has 100 tokens
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), quantity);

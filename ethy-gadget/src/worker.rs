@@ -181,15 +181,8 @@ where
 		for ProofRequest { chain_id, event_id, data, block } in
 			extract_proof_requests::<B>(&notification.header).into_iter()
 		{
-			trace!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
-			let digest = match data_to_digest(chain_id, data, [0_u8; 33]) {
-				Some(d) => d,
-				None => {
-					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
-					continue
-				},
-			};
-			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
+			debug!(target: "ethy", "💎 noting event metadata: {:?}", event_id);
+			self.witness_record.note_event_metadata(event_id, data, block, chain_id);
 			// with the event metadata available we may be able to make a proof (provided there's
 			// enough witnesses ready)
 			self.try_make_proof(event_id);
@@ -212,7 +205,7 @@ where
 			debug!(target: "ethy", "💎 got event proof request. chain_id: {:?}. event id: {:?}, data: {:?}", chain_id, event_id, hex::encode(&data));
 
 			// `data` must be transformed into a 32 byte digest before signing
-			let digest = match data_to_digest(chain_id, data, authority_public_key) {
+			let digest = match data_to_digest(chain_id, data.clone(), authority_public_key) {
 				Some(d) => d,
 				None => {
 					error!(target: "ethy", "💎 error making digest: {:?}", event_id);
@@ -243,7 +236,7 @@ where
 			debug!(target: "ethy", "💎 Sent witness: {:?}", witness);
 
 			// process the witness
-			self.witness_record.note_event_metadata(event_id, digest, block, chain_id);
+			self.witness_record.note_event_metadata(event_id, data, block, chain_id);
 			self.handle_witness(witness.clone());
 
 			// broadcast the witness
@@ -366,20 +359,25 @@ where
 
 		// process any unverified witnesses, received before event metadata was known
 		self.witness_record.process_unverified_witnesses(event_id);
-		let EventMetadata { chain_id, block_hash, digest } =
+		let EventMetadata { chain_id, block_hash, digest_data } =
 			self.witness_record.event_metadata(event_id).unwrap();
 
-		let signatures = self.witness_record.signatures_for(event_id);
-		let event_proof = EventProof {
-			digest: *digest,
-			event_id,
-			validator_set_id: self.validator_set.id,
-			block: *block_hash,
-			signatures: signatures.clone(),
-		};
-
 		if self.witness_record.has_consensus(event_id, *chain_id) {
+			let signatures = self.witness_record.signatures_for(event_id);
 			info!(target: "ethy", "💎 generating proof for event: {:?}, signatures: {:?}, validator set: {:?}", event_id, signatures, self.validator_set.id);
+			// NOTE: XRPL digest is unique per pubkey. For Ethereum it's the same as digest_data.
+			// Anyway EventProof.digest is not used by any other part of the code
+			let Some(digest) = data_to_digest(*chain_id, digest_data.clone(), [0_u8; 33]) else {
+				error!(target: "ethy", "💎 error creating digest");
+				return
+			};
+			let event_proof = EventProof {
+				digest,
+				event_id,
+				validator_set_id: self.validator_set.id,
+				block: *block_hash,
+				signatures: signatures.clone(),
+			};
 
 			let versioned_event_proof = VersionedEventProof::V1(event_proof.clone());
 
@@ -407,7 +405,7 @@ where
 			self.witness_record.mark_complete(event_id);
 			self.gossip_validator.mark_complete(event_id);
 		} else {
-			let debug_proof_key = make_proof_key(*chain_id, event_proof.event_id);
+			let debug_proof_key = make_proof_key(*chain_id, event_id);
 			trace!(target: "ethy", "💎 no consensus for event: {:?}, can't make proof yet. Likely did not store proof for key {:?}", event_id, debug_proof_key);
 		}
 	}
@@ -591,8 +589,6 @@ pub(crate) mod test {
 	#[test]
 	fn handle_witness_works() {
 		let keys = &[Keyring::Alice, Keyring::Bob];
-		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
-		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
 		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], validators.clone());
@@ -606,20 +602,20 @@ pub(crate) mod test {
 		let digest = [1_u8; 32];
 
 		// Create witness for Alice
-		let witness_1 = create_witness(&alice_pair, event_id, chain_id, digest);
+		let witness_1 = create_witness(&keys[0], event_id, chain_id, digest);
 
 		// Manually enter event metadata
 		// TODO, find a way for the worker to do this, rather than injecting metadata manually
 		worker
 			.witness_record
-			.note_event_metadata(event_id, digest, [2_u8; 32], chain_id);
+			.note_event_metadata(event_id, digest.to_vec(), [2_u8; 32], chain_id);
 
 		// Handle the witness
 		worker.handle_witness(witness_1);
 		// Check we have 1 signature
 		assert_eq!(worker.witness_record.signatures_for(event_id).len(), 1);
 
-		let witness_2 = create_witness(&bob_pair, event_id, chain_id, digest);
+		let witness_2 = create_witness(&&keys[1], event_id, chain_id, digest);
 		worker.handle_witness(witness_2);
 
 		// Check we have 0 signatures. The event should have reached consensus and  witness
@@ -634,8 +630,6 @@ pub(crate) mod test {
 	#[test]
 	fn handle_witness_first_two_events() {
 		let keys = &[Keyring::Alice, Keyring::Bob];
-		let alice_pair = AuthorityPair::from_string("//Alice", None).unwrap();
-		let bob_pair = AuthorityPair::from_string("//Bob", None).unwrap();
 		let validators = make_ethy_ids(keys);
 		let mut net = EthyTestNet::new(1, 0);
 		let mut worker = create_ethy_worker(&net.peer(0), &keys[0], validators.clone());
@@ -651,15 +645,18 @@ pub(crate) mod test {
 		let digest = [1_u8; 32];
 
 		// Create witness for Alice
-		let witness_1 = create_witness(&alice_pair, event_id_2, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id_2, digest, [2_u8; 32], chain_id);
+		let witness_1 = create_witness(&keys[0], event_id_2, chain_id, digest);
+		worker.witness_record.note_event_metadata(
+			event_id_2,
+			digest.to_vec(),
+			[2_u8; 32],
+			chain_id,
+		);
 		worker.handle_witness(witness_1);
 		assert_eq!(worker.witness_record.signatures_for(event_id_2).len(), 1);
 
 		// Create witness for Bob
-		let witness_2 = create_witness(&bob_pair, event_id_2, chain_id, digest);
+		let witness_2 = create_witness(&keys[1], event_id_2, chain_id, digest);
 		worker.handle_witness(witness_2);
 		assert_eq!(worker.witness_record.signatures_for(event_id_2).len(), 0);
 
@@ -669,15 +666,18 @@ pub(crate) mod test {
 		let digest = [2_u8; 32];
 
 		// Create witness for Alice
-		let witness_1 = create_witness(&alice_pair, event_id_1, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id_1, digest, [2_u8; 32], chain_id);
+		let witness_1 = create_witness(&keys[0], event_id_1, chain_id, digest);
+		worker.witness_record.note_event_metadata(
+			event_id_1,
+			digest.to_vec(),
+			[2_u8; 32],
+			chain_id,
+		);
 		worker.handle_witness(witness_1);
 		assert_eq!(worker.witness_record.signatures_for(event_id_1).len(), 1);
 
 		// Create witness for Bob
-		let witness_2 = create_witness(&bob_pair, event_id_1, chain_id, digest);
+		let witness_2 = create_witness(&keys[1], event_id_1, chain_id, digest);
 		worker.handle_witness(witness_2);
 
 		// Check we have 0 signatures. The event should have reached consensus and  witness
@@ -691,10 +691,13 @@ pub(crate) mod test {
 		let digest = [3_u8; 32];
 
 		// Create witness for Alice
-		let witness_1 = create_witness(&alice_pair, event_id_0, chain_id, digest);
-		worker
-			.witness_record
-			.note_event_metadata(event_id_0, digest, [2_u8; 32], chain_id);
+		let witness_1 = create_witness(&keys[0], event_id_0, chain_id, digest);
+		worker.witness_record.note_event_metadata(
+			event_id_0,
+			digest.to_vec(),
+			[2_u8; 32],
+			chain_id,
+		);
 		worker.handle_witness(witness_1);
 		assert_eq!(worker.witness_record.signatures_for(event_id_0).len(), 0);
 

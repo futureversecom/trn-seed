@@ -16,8 +16,7 @@
 use crate as token_approvals;
 use frame_support::{parameter_types, PalletId};
 use frame_system::EnsureRoot;
-use seed_pallet_common::GetTokenOwner;
-use seed_primitives::{AssetId, Balance, TokenId};
+use seed_primitives::{AssetId, Balance};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -137,6 +136,7 @@ parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 }
+
 impl pallet_nft::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
@@ -150,21 +150,9 @@ impl pallet_nft::Config for Test {
 	type WeightInfo = ();
 }
 
-pub struct MockTokenOwner;
-impl GetTokenOwner for MockTokenOwner {
-	type AccountId = AccountId;
-
-	fn get_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		let test_account: Self::AccountId = 10;
-		if token_id == &(0u32, 0u32) {
-			return Some(test_account)
-		}
-		return None
-	}
-}
-
 impl crate::Config for Test {
-	type GetTokenOwner = MockTokenOwner;
+	type NFTExt = Nft;
+	type WeightInfo = ();
 }
 
 #[derive(Default)]
@@ -181,4 +169,13 @@ impl TestExt {
 
 		ext
 	}
+}
+
+#[allow(dead_code)]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }
