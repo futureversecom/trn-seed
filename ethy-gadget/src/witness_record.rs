@@ -312,9 +312,12 @@ pub(crate) mod test {
 		testing::{keystore, Keyring},
 		tests::create_ethy_keystore,
 	};
-	use seed_primitives::ethy::{
-		crypto::{AuthorityId, AuthorityPair},
-		AuthorityIndex, EthyChainId, EthyEcdsaToPublicKey, EventProofId, ValidatorSet, Witness,
+	use seed_primitives::{
+		ethy::{
+			crypto::{AuthorityId, AuthorityPair},
+			AuthorityIndex, EthyChainId, EventProofId, ValidatorSet, Witness,
+		},
+		EthyEcdsaToPublicKey,
 	};
 	use sp_application_crypto::Pair;
 	use sp_runtime::traits::{AppVerify, Convert};
