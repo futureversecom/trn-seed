@@ -16,7 +16,10 @@
 
 use codec::Encode;
 use ethabi::{ParamType, Token};
-use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
+use frame_support::{
+	ensure, fail, metadata::StorageEntryModifier::Default, traits::Get, weights::Weight,
+	BoundedVec, PalletId,
+};
 pub use pallet::*;
 use pallet_nft::OriginChain;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
@@ -290,6 +293,7 @@ where
 							metadata_scheme.clone(),
 							None,
 							OriginChain::Ethereum,
+							sp_std::default::Default::default(),
 						)?;
 
 						// Populate both mappings, building the relationship between the bridged

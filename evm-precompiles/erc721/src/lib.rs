@@ -670,6 +670,7 @@ where
 				collection_id,
 				quantity,
 				token_owner: Some(to.into()),
+				additional_fee: None,
 			},
 		)?;
 

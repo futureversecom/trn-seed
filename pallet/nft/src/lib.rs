@@ -31,7 +31,9 @@
 use frame_support::{
 	ensure,
 	traits::{tokens::fungibles::Mutate, Get},
-	transactional, PalletId,
+	transactional,
+	weights::constants::RocksDbWeight as DbWeight,
+	PalletId,
 };
 use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
@@ -53,7 +55,6 @@ mod weights;
 pub use weights::WeightInfo;
 
 mod impls;
-mod migration;
 pub mod traits;
 mod types;
 
@@ -73,7 +74,7 @@ pub(crate) const LOG_TARGET: &str = "nft";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer};
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
@@ -122,7 +123,8 @@ pub mod pallet {
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
 			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>;
+			+ CreateExt<AccountId = Self::AccountId>
+			+ Transfer<Self::AccountId, Balance = Balance>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -132,6 +134,8 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 		/// The parachain_id being used by this parachain
 		type ParachainId: Get<ParachainId>;
+		/// AssetId used to pay Xls20 Mint Fees
+		type Xls20PaymentAsset: Get<AssetId>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 	}
@@ -207,6 +211,19 @@ pub mod pallet {
 	#[pallet::getter(fn next_offer_id)]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
 
+	/// The permissioned relayer
+	#[pallet::storage]
+	pub type Relayer<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+	/// The extra cost of minting an XLS-20 compatible NFT
+	#[pallet::storage]
+	pub type Xls20MintFee<T> = StorageValue<_, Balance, ValueQuery>;
+
+	/// Maps from TRN native token_id to XLS-20 TokenId
+	#[pallet::storage]
+	pub type Xls20TokenMap<T> =
+		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, SerialNumber, Xls20TokenId>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -220,6 +237,7 @@ pub mod pallet {
 			name: CollectionNameType,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
+			compatibility: CrossChainCompatibility,
 		},
 		/// Token(s) were minted
 		Mint {
@@ -227,6 +245,12 @@ pub mod pallet {
 			start: SerialNumber,
 			end: SerialNumber,
 			owner: T::AccountId,
+		},
+		/// Request sent to XLS20 Relayer
+		Xls20MintRequest {
+			collection_id: CollectionUuid,
+			serial_numbers: Vec<SerialNumber>,
+			token_uris: Vec<Vec<u8>>,
 		},
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
@@ -325,6 +349,15 @@ pub mod pallet {
 		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
+		/// A new relayer has been set
+		RelayerSet { account: T::AccountId },
+		/// A new Xls20 Mint Fee has been set
+		Xls20MintFeeSet { new_fee: Balance },
+		/// A new XLS20 mapping has been set
+		Xls20MappingSet {
+			collection_id: CollectionUuid,
+			mappings: Vec<(SerialNumber, Xls20TokenId)>,
+		},
 	}
 
 	#[pallet::error]
@@ -384,14 +417,22 @@ pub mod pallet {
 		AttemptedMintOnBridgedToken,
 		/// Cannot claim already claimed collections
 		CannotClaimNonClaimableCollections,
+		/// The caller is not the relayer and does not have permission to perform this action
+		NotRelayer,
+		/// There is already a Root native -> XLS-20 mapping for this token
+		MappingAlreadyExists,
+		/// The supplied fee for minting XLS-20 tokens is too low
+		Xls20MintFeeTooLow,
+		/// The collection is not compatible with XLS-20
+		NotXLS20Compatible,
+		/// Initial issuance on XLS-20 compatible collections must be zero
+		InitialIssuanceNotZero,
+		/// Total issuance of collection must be zero to add xls20 compatibility
+		CollectionIssuanceNotZero,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Perform runtime upgrade
-		fn on_runtime_upgrade() -> Weight {
-			migration::try_migrate::<T>()
-		}
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
@@ -503,6 +544,7 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 			metadata_scheme: MetadataScheme,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+			cross_chain_compatibility: CrossChainCompatibility,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_create_collection(
@@ -514,6 +556,7 @@ pub mod pallet {
 				metadata_scheme,
 				royalties_schedule,
 				OriginChain::Root,
+				cross_chain_compatibility,
 			)?;
 			Ok(())
 		}
@@ -533,56 +576,29 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			quantity: TokenCount,
 			token_owner: Option<T::AccountId>,
+			additional_fee: Option<Balance>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-			// Caller must be collection_owner
-			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
+			// Perform pre mint checks
+			let serial_numbers = Self::pre_mint_checks(&who, quantity, &mut collection_info)?;
+			let owner = token_owner.unwrap_or(who.clone());
+			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
+			let metadata_scheme = collection_info.metadata_scheme.clone();
 
-			// Check we don't exceed the token limit
-			ensure!(
-				collection_info.collection_issuance.saturating_add(quantity) <
-					T::MaxTokensPerCollection::get(),
-				Error::<T>::TokenLimitExceeded
-			);
-
-			// Cannot mint for a token that was bridged from Ethereum
-			ensure!(
-				collection_info.origin_chain == OriginChain::Root,
-				Error::<T>::AttemptedMintOnBridgedToken
-			);
-
-			let next_serial_number = collection_info.next_serial_number;
-			// Increment next serial number
-			collection_info.next_serial_number =
-				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
-
-			// Check early that we won't exceed the BoundedVec limit
-			ensure!(
-				collection_info.next_serial_number <= T::MaxTokensPerCollection::get(),
-				Error::<T>::TokenLimitExceeded
-			);
-
-			// Can't mint more than specified max_issuance
-			if let Some(max_issuance) = collection_info.max_issuance {
-				ensure!(
-					max_issuance >= collection_info.next_serial_number,
-					Error::<T>::MaxIssuanceReached
-				);
-			}
-
-			let owner = token_owner.unwrap_or(who);
-			let serial_numbers_unbounded: Vec<SerialNumber> =
-				(next_serial_number..collection_info.next_serial_number).collect();
-			let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
-				BoundedVec::try_from(serial_numbers_unbounded)
-					.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+			// Perform the mint and update storage
 			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers)?;
+
+			// Check if this collection is XLS-20 compatible
+			if xls20_compatible {
+				// Pay the fee for XLS20
+				Self::pay_xls20_fee(&who, additional_fee, serial_numbers.len() as TokenCount)?;
+				// Deposit events for XLS20 mint requests
+				Self::send_xls20_requests(collection_id, serial_numbers.clone(), metadata_scheme);
+			}
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
 			Self::deposit_event(Event::<T>::Mint {
@@ -756,9 +772,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			if serial_numbers.is_empty() {
-				return Err(Error::<T>::NoToken.into())
-			}
+			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+
 			let royalties_schedule =
 				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 
@@ -1055,6 +1070,125 @@ pub mod pallet {
 					Ok(())
 				},
 			}
+		}
+
+		/// Set the relayer address
+		#[pallet::weight(DbWeight::get().writes(1))]
+		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
+			ensure_root(origin)?;
+			<Relayer<T>>::put(&relayer);
+			Self::deposit_event(Event::<T>::RelayerSet { account: relayer });
+			Ok(())
+		}
+
+		/// Set the xls20 mint fee which is paid per token by the collection owner
+		/// This covers the additional costs incurred by the relayer for the following:
+		///  - Minting the token on XRPL
+		///  - Calling fulfill_xls20_mint on The Root Network
+		#[pallet::weight(DbWeight::get().writes(1))]
+		pub fn set_xls20_fee(origin: OriginFor<T>, new_fee: Balance) -> DispatchResult {
+			ensure_root(origin)?;
+			<Xls20MintFee<T>>::put(new_fee);
+			Self::deposit_event(Event::<T>::Xls20MintFeeSet { new_fee });
+			Ok(())
+		}
+
+		/// Enables xls20 compatibility on a collection
+		/// Collection must not have any tokens minted
+		#[pallet::weight(DbWeight::get().writes(1))]
+		pub fn enable_xls20_compatibility(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			// Caller must be collection owner
+			ensure!(who.clone() == collection_info.owner, Error::<T>::NotCollectionOwner);
+			// Collection issuance must be 0 (i.e. no tokens minted)
+			ensure!(
+				collection_info.collection_issuance.is_zero(),
+				Error::<T>::CollectionIssuanceNotZero
+			);
+
+			collection_info.cross_chain_compatibility.xrpl = true;
+
+			CollectionInfo::<T>::insert(collection_id, collection_info);
+			Ok(())
+		}
+
+		// Collection owners can re-request XLS-20 mints on tokens that have failed
+		#[pallet::weight(DbWeight::get().reads_writes(2,1))]
+		#[transactional]
+		pub fn re_request_xls20_mint(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+			additional_fee: Balance,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			// serial_numbers can't be empty
+			ensure!(!serial_numbers.len().is_zero(), Error::<T>::NoToken);
+
+			let collection_info =
+				CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			// Caller must be collection owner
+			ensure!(who.clone() == collection_info.owner, Error::<T>::NotCollectionOwner);
+			// Must be an XLS-20 compatible collection
+			ensure!(collection_info.cross_chain_compatibility.xrpl, Error::<T>::NotXLS20Compatible);
+
+			Self::pay_xls20_fee(&who, Some(additional_fee), serial_numbers.len() as TokenCount)?;
+			Self::send_xls20_requests(
+				collection_id,
+				serial_numbers,
+				collection_info.metadata_scheme,
+			);
+
+			Ok(())
+		}
+
+		/// Submit XLS-20 token ids to The Root Network
+		/// Only callable by the trusted relayer account
+		/// Can apply multiple mappings from the same collection in one transaction
+		#[pallet::weight(DbWeight::get().reads_writes(2,1))]
+		#[transactional]
+		pub fn fulfill_xls20_mint(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerCollection>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			// Mappings can't be empty
+			ensure!(!token_mappings.is_empty(), Error::<T>::NoToken);
+			// Ensure only relayer can call extrinsic
+			ensure!(Some(who) == Relayer::<T>::get(), Error::<T>::NotRelayer);
+
+			let collection_info =
+				CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			let mut serial_numbers: Vec<SerialNumber> = vec![];
+			for (serial_number, xls20_token_id) in token_mappings.iter() {
+				// Ensure token exists on TRN
+				ensure!(collection_info.token_exists(*serial_number), Error::<T>::NoToken);
+				// Ensure mapping doesn't already exist
+				ensure!(
+					!Xls20TokenMap::<T>::contains_key(collection_id, serial_number),
+					Error::<T>::MappingAlreadyExists
+				);
+				// Insert mapping into storage
+				Xls20TokenMap::<T>::insert(collection_id, serial_number, xls20_token_id);
+				serial_numbers.push(*serial_number);
+			}
+
+			Self::deposit_event(Event::<T>::Xls20MappingSet {
+				collection_id,
+				mappings: token_mappings.into_inner(),
+			});
+			Ok(())
 		}
 	}
 }

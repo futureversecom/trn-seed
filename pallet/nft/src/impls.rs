@@ -14,7 +14,12 @@
  */
 
 use crate::{traits::NFTExt, *};
-use frame_support::{ensure, traits::Get, transactional, weights::Weight};
+use frame_support::{
+	ensure,
+	traits::{fungibles::Transfer, Get},
+	transactional,
+	weights::Weight,
+};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
@@ -208,6 +213,54 @@ impl<T: Config> Pallet<T> {
 			},
 			_ => 0 as Weight,
 		}
+	}
+
+	pub fn pre_mint_checks(
+		who: &T::AccountId,
+		quantity: TokenCount,
+		collection_info: &mut CollectionInformation<T>,
+	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
+		// Quantity must be some
+		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		// Caller must be collection_owner
+		ensure!(&collection_info.owner == who, Error::<T>::NotCollectionOwner);
+		// Check we don't exceed the token limit
+		ensure!(
+			collection_info.collection_issuance.saturating_add(quantity) <
+				T::MaxTokensPerCollection::get(),
+			Error::<T>::TokenLimitExceeded
+		);
+		// Cannot mint for a token that was bridged from Ethereum
+		ensure!(
+			collection_info.origin_chain == OriginChain::Root,
+			Error::<T>::AttemptedMintOnBridgedToken
+		);
+
+		let next_serial_number = collection_info.next_serial_number;
+		// Increment next serial number
+		collection_info.next_serial_number =
+			next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
+
+		// Check early that we won't exceed the BoundedVec limit
+		ensure!(
+			collection_info.next_serial_number <= T::MaxTokensPerCollection::get(),
+			Error::<T>::TokenLimitExceeded
+		);
+
+		// Can't mint more than specified max_issuance
+		if let Some(max_issuance) = collection_info.max_issuance {
+			ensure!(
+				max_issuance >= collection_info.next_serial_number,
+				Error::<T>::MaxIssuanceReached
+			);
+		}
+
+		let serial_numbers_unbounded: Vec<SerialNumber> =
+			(next_serial_number..collection_info.next_serial_number).collect();
+		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+			BoundedVec::try_from(serial_numbers_unbounded)
+				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		Ok(serial_numbers)
 	}
 
 	/// Perform the mint operation and update storage accordingly.
@@ -491,6 +544,7 @@ impl<T: Config> Pallet<T> {
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		origin_chain: OriginChain,
+		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<u32, DispatchError> {
 		// Check we can issue the new tokens
 		let collection_uuid = Self::next_collection_uuid()?;
@@ -520,6 +574,11 @@ impl<T: Config> Pallet<T> {
 		// Now mint the collection tokens
 		let mut owned_tokens = BoundedVec::default();
 		if initial_issuance > Zero::zero() {
+			// XLS-20 compatible collections cannot have an initial issuance
+			// This is to prevent the fees from being bypassed in the mint function.
+			// Instead the user should specify 0 initial_issuance and use the mint function to
+			// mint tokens
+			ensure!(!cross_chain_compatibility.xrpl, Error::<T>::InitialIssuanceNotZero);
 			// mint initial tokens to token_owner or owner
 			let token_owner = token_owner.unwrap_or(owner.clone());
 			let serial_numbers_unbounded: Vec<SerialNumber> = (0..initial_issuance).collect();
@@ -541,6 +600,7 @@ impl<T: Config> Pallet<T> {
 			origin_chain: origin_chain.clone(),
 			next_serial_number: initial_issuance,
 			collection_issuance: initial_issuance,
+			cross_chain_compatibility,
 			owned_tokens,
 		};
 		<CollectionInfo<T>>::insert(collection_uuid, collection_info);
@@ -563,6 +623,7 @@ impl<T: Config> Pallet<T> {
 			name,
 			royalties_schedule,
 			origin_chain,
+			compatibility: cross_chain_compatibility,
 		});
 		Ok(collection_uuid)
 	}
@@ -596,6 +657,57 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Pay additional fee to cover relayer costs for minting XLS-20 tokens
+	pub fn pay_xls20_fee(
+		who: &T::AccountId,
+		mint_fee: Option<Balance>,
+		token_count: TokenCount,
+	) -> DispatchResult {
+		let xls20_mint_fee = Xls20MintFee::<T>::get();
+		if xls20_mint_fee.is_zero() {
+			return Ok(())
+		}
+		if let Some(relayer) = Relayer::<T>::get() {
+			let mint_fee = mint_fee.ok_or(Error::<T>::Xls20MintFeeTooLow)?;
+			// Fee is per token minted
+			let nft_count: u32 = token_count.saturated_into();
+			let total_fee: Balance = nft_count.saturating_mul(xls20_mint_fee as u32).into();
+			ensure!(mint_fee >= total_fee, Error::<T>::Xls20MintFeeTooLow);
+			// Make the payment
+			T::MultiCurrency::transfer(
+				T::Xls20PaymentAsset::get(),
+				who,
+				&relayer,
+				mint_fee,
+				false,
+			)?;
+		}
+		Ok(())
+	}
+
+	/// For XLS-20 compatible mints, we need to throw an event that gets picked up by the relayer
+	/// The relayer can then mint these tokens on XRPL and notify The Root Network by calling
+	/// The fulfill_xls20_mint callback extrinsic
+	pub fn send_xls20_requests(
+		collection_id: CollectionUuid,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		metadata_scheme: MetadataScheme,
+	) {
+		// Gather token uris for each token being requested
+		let mut token_uris: Vec<Vec<u8>> = vec![];
+		for serial_number in serial_numbers.iter() {
+			let token_uri = metadata_scheme.construct_token_uri(*serial_number);
+			token_uris.push(token_uri);
+		}
+
+		// Deposit event containing all serial numbers and token_uris
+		Self::deposit_event(Event::<T>::Xls20MintRequest {
+			collection_id,
+			serial_numbers: serial_numbers.into_inner(),
+			token_uris,
+		});
+	}
+
 	/// The account ID of the auctions pot.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
@@ -613,7 +725,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		quantity: TokenCount,
 		token_owner: Option<T::AccountId>,
 	) -> DispatchResult {
-		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner)
+		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner, None)
 	}
 
 	fn do_create_collection(
@@ -635,6 +747,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 			metadata_scheme,
 			royalties_schedule,
 			origin_chain,
+			CrossChainCompatibility::default(),
 		)
 	}
 

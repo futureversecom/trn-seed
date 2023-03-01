@@ -5142,7 +5142,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex",
+ "hex-literal",
  "log",
  "pallet-assets",
  "pallet-assets-ext",

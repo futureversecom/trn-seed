@@ -36,6 +36,10 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 /// OfferId type used to distinguish different offers on NFTs
 pub type OfferId = u64;
 
+/// TokenId type for XLS-20 Token Ids
+/// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
+pub type Xls20TokenId = [u8; 32];
+
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub struct SimpleOffer<AccountId> {
@@ -92,6 +96,21 @@ impl<T: Config> TokenOwnership<T> {
 	}
 }
 
+/// Determines compatibility with external chains.
+/// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
+/// token on The Root Network
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy)]
+pub struct CrossChainCompatibility {
+	/// This collection is compatible with the XLS-20 standard on XRPL
+	pub xrpl: bool,
+}
+
+impl Default for CrossChainCompatibility {
+	fn default() -> Self {
+		Self { xrpl: false }
+	}
+}
+
 /// Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -112,6 +131,8 @@ pub struct CollectionInformation<T: Config> {
 	pub next_serial_number: SerialNumber,
 	/// the total count of tokens in this collection
 	pub collection_issuance: TokenCount,
+	/// This collections compatibility with other chains
+	pub cross_chain_compatibility: CrossChainCompatibility,
 	/// All serial numbers owned by an account in a collection
 	pub owned_tokens: BoundedVec<TokenOwnership<T>, <T as Config>::MaxTokensPerCollection>,
 }
