@@ -319,7 +319,7 @@ impl TryFrom<Vec<u8>> for MetadataScheme {
 					contract_address = &contract_address[..contract_address.len() - 1]
 				};
 				let contract_address = H160::from_slice(&hex::decode(contract_address).map_err(|_| "Invalid URI")?);
-				Ok(MetadataScheme::Ethereum(contract_address).sanitize()?)
+				Ok(MetadataScheme::Ethereum(contract_address)) // sanitization not needed for address
 			},
 			_ => Err("Invalid URI"),
 		}
