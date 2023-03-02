@@ -2214,14 +2214,8 @@ fn token_uri_construction() {
 			None,
 		));
 
-		assert_eq!(
-			Nft::token_uri((collection_id, 0)),
-			b"https://example.com/metadata/0".to_vec(),
-		);
-		assert_eq!(
-			Nft::token_uri((collection_id, 1)),
-			b"https://example.com/metadata/1".to_vec(),
-		);
+		assert_eq!(Nft::token_uri((collection_id, 0)), b"https://example.com/metadata/0".to_vec(),);
+		assert_eq!(Nft::token_uri((collection_id, 1)), b"https://example.com/metadata/1".to_vec(),);
 
 		collection_id = Nft::next_collection_uuid().unwrap();
 		assert_ok!(Nft::create_collection(
@@ -3264,6 +3258,476 @@ mod claim_unowned_collection {
 				new_owner.clone(),
 			);
 			assert_noop!(ok, Error::<Test>::CannotClaimNonClaimableCollections);
+		});
+	}
+}
+
+mod set_max_issuance {
+	use super::*;
+
+	#[test]
+	fn set_max_issuance_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			// Sanity check
+			assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().max_issuance, None);
+
+			let max_issuance: TokenCount = 100;
+			assert_ok!(Nft::set_max_issuance(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				max_issuance
+			));
+
+			// Storage updated
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().max_issuance,
+				Some(max_issuance)
+			);
+
+			// Event thrown
+			assert!(has_event(Event::<Test>::MaxIssuanceSet { collection_id, max_issuance }));
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_prevents_further_minting_when_reached() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let max_issuance: TokenCount = 100;
+
+			// Setup collection with no Max issuance and initial issuance of 100
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				max_issuance,
+				None,
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			assert_ok!(Nft::set_max_issuance(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				max_issuance
+			));
+
+			// Storage updated
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().max_issuance,
+				Some(max_issuance)
+			);
+
+			// Further NFTs can't be minted
+			assert_noop!(
+				Nft::mint(Some(collection_owner).into(), collection_id, 1, None),
+				Error::<Test>::MaxIssuanceReached
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_not_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let max_issuance: TokenCount = 100;
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			// Bob isn't collection owner, should fail
+			assert_noop!(
+				Nft::set_max_issuance(RawOrigin::Signed(BOB).into(), collection_id, max_issuance),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_zero_issuance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let max_issuance: TokenCount = 0;
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			// Max issuance set to 0 should fail
+			assert_noop!(
+				Nft::set_max_issuance(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					max_issuance
+				),
+				Error::<Test>::InvalidMaxIssuance
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = 1;
+			let max_issuance: TokenCount = 100;
+
+			// No collection exists, should fail
+			assert_noop!(
+				Nft::set_max_issuance(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					max_issuance
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_already_set_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let max_issuance: TokenCount = 100;
+
+			// Setup collection with some Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				0,
+				Some(max_issuance),
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			// Call should fail as it was set when collection created
+			assert_noop!(
+				Nft::set_max_issuance(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					max_issuance
+				),
+				Error::<Test>::MaxIssuanceAlreadySet
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_twice_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			// Call first time should work
+			let max_issuance: TokenCount = 100;
+			assert_ok!(Nft::set_max_issuance(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				max_issuance
+			));
+
+			// Storage updated
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().max_issuance,
+				Some(max_issuance)
+			);
+
+			// Second call should fail
+			assert_noop!(
+				Nft::set_max_issuance(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					max_issuance + 1
+				),
+				Error::<Test>::MaxIssuanceAlreadySet
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_too_low_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let initial_issuance = 10;
+
+			// Setup collection with no max issuance but initial issuance of 10
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				initial_issuance,
+				None,
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			// Call should fail as max_issuance is below initial issuance
+			let max_issuance: TokenCount = 1;
+			assert_noop!(
+				Nft::set_max_issuance(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					max_issuance
+				),
+				Error::<Test>::InvalidMaxIssuance
+			);
+
+			// Call should fail as max_issuance is below initial issuance
+			let max_issuance: TokenCount = 9;
+			assert_noop!(
+				Nft::set_max_issuance(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					max_issuance
+				),
+				Error::<Test>::InvalidMaxIssuance
+			);
+
+			// Call should work as max issuance = initial issuance
+			let max_issuance: TokenCount = 10;
+			assert_ok!(Nft::set_max_issuance(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				max_issuance
+			));
+
+			// Storage updated
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().max_issuance,
+				Some(max_issuance)
+			);
+		});
+	}
+}
+
+mod set_base_uri {
+	use super::*;
+
+	#[test]
+	fn set_base_uri_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let metadata_scheme = MetadataScheme::Https("google.com".into());
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				metadata_scheme.clone(),
+				None
+			));
+
+			// Sanity check
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
+				metadata_scheme
+			);
+
+			let new_metadata_scheme: Vec<u8> = "http://zeeshan.com".into();
+			assert_ok!(Nft::set_base_uri(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				new_metadata_scheme.clone()
+			));
+
+			// Storage updated
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
+				MetadataScheme::Http("zeeshan.com".into())
+			);
+
+			// Event thrown
+			assert!(has_event(Event::<Test>::BaseUriSet {
+				collection_id,
+				base_uri: new_metadata_scheme
+			}));
+		});
+	}
+
+	#[test]
+	fn set_base_uri_all_variants_work() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_collection(collection_owner);
+
+			// HTTP
+			assert_ok!(Nft::set_base_uri(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				"http://zeeshan.com".into()
+			));
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
+				MetadataScheme::Http("zeeshan.com".into())
+			);
+
+			// HTTPS
+			assert_ok!(Nft::set_base_uri(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				"https://zeeshan.com".into()
+			));
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
+				MetadataScheme::Https("zeeshan.com".into())
+			);
+
+			// IPFS
+			assert_ok!(Nft::set_base_uri(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				"ipfs://zeeshan.com".into()
+			));
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
+				MetadataScheme::Ipfs("zeeshan.com".into())
+			);
+
+			// Ethereum
+			assert_ok!(Nft::set_base_uri(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				"ethereum://E04CC55ebEE1cBCE552f250e85c57B70B2E2625b".into()
+			));
+			assert_eq!(
+				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
+				MetadataScheme::Ethereum(H160::from_slice(
+					&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
+				))
+			);
+		});
+	}
+
+	#[test]
+	fn set_base_uri_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = 1;
+			let new_metadata_scheme: Vec<u8> = "http://zeeshan.com".into();
+
+			// Call to unknown collection should fail
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					new_metadata_scheme.clone()
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_base_uri_not_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_collection(collection_owner);
+			let new_metadata_scheme: Vec<u8> = "http://zeeshan.com".into();
+
+			// Call from not owner should fail
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(BOB).into(),
+					collection_id,
+					new_metadata_scheme.clone()
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_base_uri_invalid_path_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_collection(collection_owner);
+
+			// Calls with invalid path should fail
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					"tcp://notarealCIDblah".into()
+				),
+				Error::<Test>::InvalidMetadataPath
+			);
+
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					"notarealCIDblah".into()
+				),
+				Error::<Test>::InvalidMetadataPath
+			);
+
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					"".into()
+				),
+				Error::<Test>::InvalidMetadataPath
+			);
+
+			assert_noop!(
+				Nft::set_base_uri(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					"https://".into()
+				),
+				Error::<Test>::InvalidMetadataPath
+			);
 		});
 	}
 }
