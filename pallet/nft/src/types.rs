@@ -239,7 +239,8 @@ impl MetadataScheme {
 			// some best effort attempts to sanitize `path`
 			let mut path = core::str::from_utf8(&path).map_err(|_| "not utf-8 encoded")?.trim();
 			let prefix = self.prefix();
-			if path.starts_with(prefix) { // remove prefix
+			if path.starts_with(prefix) {
+				// remove prefix
 				path = &path[prefix.len()..];
 			}
 			Ok(path.as_bytes().to_vec())
@@ -268,13 +269,11 @@ impl MetadataScheme {
 		match self {
 			MetadataScheme::Http(path) => {
 				let path = core::str::from_utf8(&path).unwrap_or("");
-				write!(&mut token_uri, "http://{}{}", path, serial_number)
-					.expect("Not written");
+				write!(&mut token_uri, "http://{}{}", path, serial_number).expect("Not written");
 			},
 			MetadataScheme::Https(path) => {
 				let path = core::str::from_utf8(&path).unwrap_or("");
-				write!(&mut token_uri, "https://{}{}", path, serial_number)
-					.expect("Not written");
+				write!(&mut token_uri, "https://{}{}", path, serial_number).expect("Not written");
 			},
 			MetadataScheme::Ipfs(path) => {
 				write!(
@@ -312,13 +311,16 @@ impl TryFrom<Vec<u8>> for MetadataScheme {
 			"ethereum" => {
 				let mut split = path_str.split("/");
 				let mut contract_address = split.next().ok_or("Invalid URI")?;
-				if contract_address.starts_with("0x") { // remove 0x prefix if it exists
+				if contract_address.starts_with("0x") {
+					// remove 0x prefix if it exists
 					contract_address = &contract_address[2..]
 				};
-				if contract_address.ends_with("/") { // remove trailing slash if it exists
+				if contract_address.ends_with("/") {
+					// remove trailing slash if it exists
 					contract_address = &contract_address[..contract_address.len() - 1]
 				};
-				let contract_address = H160::from_slice(&hex::decode(contract_address).map_err(|_| "Invalid URI")?);
+				let contract_address =
+					H160::from_slice(&hex::decode(contract_address).map_err(|_| "Invalid URI")?);
 				Ok(MetadataScheme::Ethereum(contract_address)) // sanitization not needed for address
 			},
 			_ => Err("scheme not supported"),
@@ -527,35 +529,46 @@ mod test {
 		assert_eq!(scheme, Ok(MetadataScheme::Https(b"test.com".to_vec())));
 
 		// nested path with trailing slash
-		let scheme: Result<MetadataScheme, &'static str> = b"https://test.com/defg/hijkl/".to_vec().try_into();
+		let scheme: Result<MetadataScheme, &'static str> =
+			b"https://test.com/defg/hijkl/".to_vec().try_into();
 		assert_eq!(scheme, Ok(MetadataScheme::Https(b"test.com/defg/hijkl/".to_vec())));
 
 		let scheme: Result<MetadataScheme, &'static str> = b"ipfs://test.com".to_vec().try_into();
 		assert_eq!(scheme, Ok(MetadataScheme::Ipfs(b"test.com".to_vec())));
 
 		// eth address without 0x prefix
-		let scheme: Result<MetadataScheme, &'static str> = b"ethereum://E04CC55ebEE1cBCE552f250e85c57B70B2E2625b".to_vec().try_into();
+		let scheme: Result<MetadataScheme, &'static str> =
+			b"ethereum://E04CC55ebEE1cBCE552f250e85c57B70B2E2625b".to_vec().try_into();
 		assert_eq!(
 			scheme,
-			Ok(MetadataScheme::Ethereum(H160::from_slice(&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap())))
+			Ok(MetadataScheme::Ethereum(H160::from_slice(
+				&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
+			)))
 		);
 
 		// eth address with 0x prefix
-		let scheme: Result<MetadataScheme, &'static str> = b"ethereum://0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b".to_vec().try_into();
+		let scheme: Result<MetadataScheme, &'static str> =
+			b"ethereum://0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b".to_vec().try_into();
 		assert_eq!(
 			scheme,
-			Ok(MetadataScheme::Ethereum(H160::from_slice(&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap())))
+			Ok(MetadataScheme::Ethereum(H160::from_slice(
+				&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
+			)))
 		);
 
 		// eth address with trailing slash
-		let scheme: Result<MetadataScheme, &'static str> = b"ethereum://0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b/".to_vec().try_into();
+		let scheme: Result<MetadataScheme, &'static str> =
+			b"ethereum://0xE04CC55ebEE1cBCE552f250e85c57B70B2E2625b/".to_vec().try_into();
 		assert_eq!(
 			scheme,
-			Ok(MetadataScheme::Ethereum(H160::from_slice(&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap())))
+			Ok(MetadataScheme::Ethereum(H160::from_slice(
+				&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
+			)))
 		);
 
 		// invalid protocol
-		let scheme: Result<MetadataScheme, &'static str> = b"tcp://notarealCIDblah".to_vec().try_into();
+		let scheme: Result<MetadataScheme, &'static str> =
+			b"tcp://notarealCIDblah".to_vec().try_into();
 		assert_eq!(scheme, Err("scheme not supported"));
 
 		// missing protocol
@@ -573,16 +586,18 @@ mod test {
 		let scheme: Result<MetadataScheme, &'static str> = b"https://a://".to_vec().try_into();
 		assert_eq!(scheme, Ok(MetadataScheme::Https(b"a".to_vec())));
 
-		let scheme: Result<MetadataScheme, &'static str> = b"https://a://-----all-ignored".to_vec().try_into();
+		let scheme: Result<MetadataScheme, &'static str> =
+			b"https://a://-----all-ignored".to_vec().try_into();
 		assert_eq!(scheme, Ok(MetadataScheme::Https(b"a".to_vec())));
 
 		// duplicate protocol - everything after 2nd `://` is stripped out
-		let scheme: Result<MetadataScheme, &'static str> = b"https://httpsa://everything-here-ignored".to_vec().try_into();
+		let scheme: Result<MetadataScheme, &'static str> =
+			b"https://httpsa://everything-here-ignored".to_vec().try_into();
 		assert_eq!(scheme, Ok(MetadataScheme::Https(b"httpsa".to_vec())));
 
-		let scheme: Result<MetadataScheme, &'static str> = b"https://https://https://httpsa://a".to_vec().try_into();
+		let scheme: Result<MetadataScheme, &'static str> =
+			b"https://https://https://httpsa://a".to_vec().try_into();
 		assert_eq!(scheme, Ok(MetadataScheme::Https(b"https".to_vec())));
-
 	}
 
 	#[test]
@@ -604,8 +619,11 @@ mod test {
 		);
 
 		assert_eq!(
-			MetadataScheme::Ethereum(H160::from_slice(&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap())).construct_token_uri(1),
-			b"ethereum://0xe04cc55ebee1cbce552f250e85c57b70b2e2625b/1".to_vec() // trailing slash always added for eth address
+			MetadataScheme::Ethereum(H160::from_slice(
+				&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
+			))
+			.construct_token_uri(1),
+			b"ethereum://0xe04cc55ebee1cbce552f250e85c57b70b2e2625b/1".to_vec() /* trailing slash always added for eth address */
 		);
 
 		// nested path with trailing slash

@@ -23,8 +23,7 @@ pub enum Action {
 	/// Create a new NFT collection
 	/// collection_owner, name, max_issuance, metadata_path, royalty_addresses,
 	/// royalty_entitlements
-	InitializeCollection =
-		"initializeCollection(address,bytes,uint32,bytes,address[],uint32[])",
+	InitializeCollection = "initializeCollection(address,bytes,uint32,bytes,address[],uint32[])",
 }
 
 /// Provides access to the NFT pallet
@@ -112,8 +111,10 @@ where
 		};
 
 		// Parse Metadata
-		let metadata_scheme: MetadataScheme = metadata_path.as_bytes().to_vec().try_into()
-			.map_err(|str_err| revert(alloc::format!("{}: {}", "NFT: Invalid metadata_path", str_err)))?;
+		let metadata_scheme: MetadataScheme =
+			metadata_path.as_bytes().to_vec().try_into().map_err(|str_err| {
+				revert(alloc::format!("{}: {}", "NFT: Invalid metadata_path", str_err))
+			})?;
 
 		// Parse royalties
 		if royalty_addresses.len() != royalty_entitlements.len() {

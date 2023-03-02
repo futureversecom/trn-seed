@@ -30,11 +30,9 @@ pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 	keccak256!("OwnershipTransferred(address,address)");
 
-pub const MAX_SUPPLY_UPDATED: [u8; 32] =
-	keccak256!("MaxpSupplyUpdated(uint256)");
+pub const MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxpSupplyUpdated(uint256)");
 
-pub const BASE_URI_UPDATED: [u8; 32] =
-	keccak256!("BaseURIUpdated(string)");
+pub const BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
 
 /// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
@@ -705,12 +703,7 @@ where
 		handle.record_log_costs_manual(1, 32)?;
 
 		// Parse input.
-		read_args!(
-			handle,
-			{
-				max_supply: U256
-			}
-		);
+		read_args!(handle, { max_supply: U256 });
 
 		// Parse max_supply
 		if max_supply > TokenCount::MAX.into() {
@@ -723,10 +716,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_nft::Call::<Runtime>::set_max_issuance {
-				collection_id,
-				max_issuance,
-			},
+			pallet_nft::Call::<Runtime>::set_max_issuance { collection_id, max_issuance },
 		)?;
 
 		// Emit event.
@@ -748,12 +738,7 @@ where
 		handle.record_log_costs_manual(1, 32)?;
 
 		// Parse input.
-		read_args!(
-			handle,
-			{
-				base_uri: Bytes
-			}
-		);
+		read_args!(handle, { base_uri: Bytes });
 
 		let origin = handle.context().caller;
 
@@ -768,12 +753,8 @@ where
 		)?;
 
 		// Emit event.
-		log1(
-			handle.code_address(),
-			BASE_URI_UPDATED,
-			EvmDataWriter::new().write(base_uri).build(),
-		)
-		.record(handle)?;
+		log1(handle.code_address(), BASE_URI_UPDATED, EvmDataWriter::new().write(base_uri).build())
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
