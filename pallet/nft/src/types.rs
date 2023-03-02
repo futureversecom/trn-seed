@@ -38,7 +38,7 @@ pub type OfferId = u64;
 
 /// TokenId type for XLS-20 Token Ids
 /// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
-pub type Xls20TokenId = [u8; 32];
+pub type Xls20TokenId = [u8; 64];
 
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
