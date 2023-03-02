@@ -232,6 +232,8 @@ pub mod pallet {
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
+		/// Base URI was set
+		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -474,6 +476,26 @@ pub mod pallet {
 			collection_info.max_issuance = Some(max_issuance);
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::MaxIssuanceSet { collection_id, max_issuance });
+			Ok(())
+		}
+
+		/// Set the base URI of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_owner())] // TODO - weights
+		pub fn set_base_uri(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			base_uri: Vec<u8>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
+
+			collection_info.metadata_scheme = base_uri.clone().try_into().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::BaseUriSet { collection_id, base_uri });
 			Ok(())
 		}
 
