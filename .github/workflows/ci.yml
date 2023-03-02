@@ -29,7 +29,7 @@ on:
 
 jobs:
   format-build-test:
-    runs-on: [self-hosted]
+    runs-on: [ubuntu-latest]
     steps:
       - name: Check out
         uses: actions/checkout@v3
@@ -51,7 +51,7 @@ jobs:
       #  run: cargo check --features=runtime-benchmarks
   
   e2e:
-    runs-on: [linux, self-hosted]
+    runs-on: [ubuntu-latest]
     defaults:
       run:
         working-directory: ./e2e
