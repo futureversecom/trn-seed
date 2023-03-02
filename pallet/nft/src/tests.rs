@@ -3344,6 +3344,15 @@ mod xls20_tests {
 		Xls20TokenId::try_from(input.as_bytes()).unwrap()
 	}
 
+	fn setup_token_mappings(
+		input: Vec<(SerialNumber, &str)>,
+	) -> BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> {
+		let input: Vec<(SerialNumber, Xls20TokenId)> =
+			input.into_iter().map(|(s, token)| (s, string_to_xls20_token(token))).collect();
+
+		BoundedVec::try_from(input).unwrap()
+	}
+
 	#[test]
 	fn set_relayer_works() {
 		TestExt::default().build().execute_with(|| {
@@ -3823,34 +3832,12 @@ mod xls20_tests {
 			let collection_owner = ALICE;
 			let collection_id = setup_xls20_collection(collection_owner);
 			let relayer = BOB;
-			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![
-					(
-						0,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-						),
-					),
-					(
-						1,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
-						),
-					),
-					(
-						2,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68",
-						),
-					),
-					(
-						3,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69",
-						),
-					),
-				])
-				.unwrap();
+			let token_mappings = setup_token_mappings(vec![
+				(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+				(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
+				(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
+				(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
+			]);
 
 			// Set relayer to Bob
 			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
@@ -3919,14 +3906,10 @@ mod xls20_tests {
 			let collection_owner = ALICE;
 			let collection_id = setup_xls20_collection(collection_owner);
 			let relayer = BOB;
-			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![(
-					0,
-					string_to_xls20_token(
-						"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-					),
-				)])
-				.unwrap();
+			let token_mappings = setup_token_mappings(vec![(
+				0,
+				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			)]);
 
 			// Set relayer to Bob
 			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
@@ -3949,14 +3932,10 @@ mod xls20_tests {
 		TestExt::default().build().execute_with(|| {
 			let collection_id = 1;
 			let relayer = BOB;
-			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![(
-					0,
-					string_to_xls20_token(
-						"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-					),
-				)])
-				.unwrap();
+			let token_mappings = setup_token_mappings(vec![(
+				0,
+				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			)]);
 
 			// Set relayer to Bob
 			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
@@ -3980,35 +3959,12 @@ mod xls20_tests {
 			let collection_owner = ALICE;
 			let collection_id = setup_xls20_collection(collection_owner);
 			let relayer = BOB;
-			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![
-					(
-						0,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-						),
-					),
-					(
-						1,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
-						),
-					),
-					(
-						2,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68",
-						),
-					),
-					(
-						3,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69",
-						),
-					),
-				])
-				.unwrap();
-
+			let token_mappings = setup_token_mappings(vec![
+				(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+				(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
+				(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
+				(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
+			]);
 			// Set relayer to Bob
 			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
 			assert_eq!(Relayer::<Test>::get(), Some(relayer));
@@ -4040,22 +3996,10 @@ mod xls20_tests {
 			let collection_owner = ALICE;
 			let collection_id = setup_xls20_collection(collection_owner);
 			let relayer = BOB;
-			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![
-					(
-						0,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-						),
-					),
-					(
-						0,
-						string_to_xls20_token(
-							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-						),
-					),
-				])
-				.unwrap();
+			let token_mappings = setup_token_mappings(vec![
+				(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+				(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+			]);
 
 			// Set relayer to Bob
 			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
@@ -4082,14 +4026,10 @@ mod xls20_tests {
 
 			// Submit successful token mappings to add to storage
 			let serial_number: SerialNumber = 0;
-			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![(
-					serial_number,
-					string_to_xls20_token(
-						"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-					),
-				)])
-				.unwrap();
+			let token_mappings = setup_token_mappings(vec![(
+				serial_number,
+				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			)]);
 
 			assert_ok!(Nft::fulfill_xls20_mint(
 				RawOrigin::Signed(relayer).into(),
@@ -4116,14 +4056,10 @@ mod xls20_tests {
 
 			// Different serial should work fine
 			let serial_number: SerialNumber = 1;
-			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![(
-					serial_number,
-					string_to_xls20_token(
-						"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
-					),
-				)])
-				.unwrap();
+			let token_mappings = setup_token_mappings(vec![(
+				serial_number,
+				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
+			)]);
 
 			assert_ok!(Nft::fulfill_xls20_mint(
 				RawOrigin::Signed(relayer).into(),
