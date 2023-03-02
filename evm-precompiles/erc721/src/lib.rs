@@ -32,7 +32,7 @@ pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 
 /// Solidity selector of the Xls20CompatibilityEnabled log, which is the Keccak of the Log
 /// signature.
-pub const SELECTOR_LOG_XLS20_ENABLED: [u8; 32] = keccak256!("Xls20CompatibilityEnabled(uint256)");
+pub const SELECTOR_LOG_XLS20_ENABLED: [u8; 32] = keccak256!("Xls20CompatibilityEnabled()");
 
 /// Solidity selector of the Xls20CompatibilityEnabled log, which is the Keccak of the Log
 /// signature.
@@ -832,12 +832,7 @@ where
 			pallet_nft::Call::<Runtime>::enable_xls20_compatibility { collection_id },
 		)?;
 
-		log1(
-			handle.code_address(),
-			SELECTOR_LOG_XLS20_ENABLED,
-			EvmDataWriter::new().write(collection_id).build(),
-		)
-		.record(handle)?;
+		log0(handle.code_address(), SELECTOR_LOG_XLS20_ENABLED).record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))

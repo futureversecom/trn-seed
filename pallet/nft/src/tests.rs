@@ -27,7 +27,6 @@ use frame_support::{
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use frame_system::RawOrigin;
-use hex_literal::hex;
 use seed_primitives::TokenId;
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
@@ -3341,6 +3340,10 @@ mod xls20_tests {
 	use super::*;
 	use crate::mock::Xls20PaymentAsset;
 
+	fn string_to_xls20_token(input: &str) -> Xls20TokenId {
+		Xls20TokenId::try_from(input.as_bytes()).unwrap()
+	}
+
 	#[test]
 	fn set_relayer_works() {
 		TestExt::default().build().execute_with(|| {
@@ -3822,10 +3825,30 @@ mod xls20_tests {
 			let relayer = BOB;
 			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
 				BoundedVec::try_from(vec![
-					(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
-					(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
-					(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
-					(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
+					(
+						0,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+						),
+					),
+					(
+						1,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
+						),
+					),
+					(
+						2,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68",
+						),
+					),
+					(
+						3,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69",
+						),
+					),
 				])
 				.unwrap();
 
@@ -3899,7 +3922,9 @@ mod xls20_tests {
 			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
 				BoundedVec::try_from(vec![(
 					0,
-					hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+					string_to_xls20_token(
+						"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+					),
 				)])
 				.unwrap();
 
@@ -3927,7 +3952,9 @@ mod xls20_tests {
 			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
 				BoundedVec::try_from(vec![(
 					0,
-					hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+					string_to_xls20_token(
+						"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+					),
 				)])
 				.unwrap();
 
@@ -3955,10 +3982,30 @@ mod xls20_tests {
 			let relayer = BOB;
 			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
 				BoundedVec::try_from(vec![
-					(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
-					(1, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67")),
-					(2, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68")),
-					(3, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69")),
+					(
+						0,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+						),
+					),
+					(
+						1,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
+						),
+					),
+					(
+						2,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68",
+						),
+					),
+					(
+						3,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69",
+						),
+					),
 				])
 				.unwrap();
 
@@ -3995,8 +4042,18 @@ mod xls20_tests {
 			let relayer = BOB;
 			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
 				BoundedVec::try_from(vec![
-					(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
-					(0, hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")),
+					(
+						0,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+						),
+					),
+					(
+						0,
+						string_to_xls20_token(
+							"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+						),
+					),
 				])
 				.unwrap();
 
@@ -4028,7 +4085,9 @@ mod xls20_tests {
 			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
 				BoundedVec::try_from(vec![(
 					serial_number,
-					hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
+					string_to_xls20_token(
+						"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+					),
 				)])
 				.unwrap();
 
@@ -4040,7 +4099,9 @@ mod xls20_tests {
 			// Check it's added to storage
 			assert_eq!(
 				Xls20TokenMap::<Test>::get(collection_id, serial_number),
-				Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"))
+				Some(string_to_xls20_token(
+					"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"
+				))
 			);
 
 			// Subsequent call should fail on same token id
@@ -4058,7 +4119,9 @@ mod xls20_tests {
 			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
 				BoundedVec::try_from(vec![(
 					serial_number,
-					hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
+					string_to_xls20_token(
+						"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
+					),
 				)])
 				.unwrap();
 
@@ -4070,7 +4133,9 @@ mod xls20_tests {
 			// Again, check it's added to storage
 			assert_eq!(
 				Xls20TokenMap::<Test>::get(collection_id, serial_number),
-				Some(hex!("000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"))
+				Some(string_to_xls20_token(
+					"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"
+				))
 			);
 		});
 	}

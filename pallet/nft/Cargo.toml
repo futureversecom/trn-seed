@@ -31,7 +31,6 @@ pallet-balances = { git = "https://github.com/futureversecom/substrate", branch 
 pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-hex-literal = { version = "0.3.4" }
 
 [features]
 default = ["std"]

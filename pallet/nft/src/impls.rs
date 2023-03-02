@@ -215,7 +215,9 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	pub fn pre_mint_checks(
+	/// Perform validity checks on collection_info
+	/// Return bounded vec of serial numbers to mint
+	pub fn pre_mint(
 		who: &T::AccountId,
 		quantity: TokenCount,
 		collection_info: &mut CollectionInformation<T>,

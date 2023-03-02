@@ -588,7 +588,7 @@ pub mod pallet {
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 			// Perform pre mint checks
-			let serial_numbers = Self::pre_mint_checks(&who, quantity, &mut collection_info)?;
+			let serial_numbers = Self::pre_mint(&who, quantity, &mut collection_info)?;
 			let owner = token_owner.unwrap_or(who.clone());
 			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
 			let metadata_scheme = collection_info.metadata_scheme.clone();
