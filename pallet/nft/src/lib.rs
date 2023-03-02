@@ -230,6 +230,8 @@ pub mod pallet {
 		},
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
+		/// Max issuance was set
+		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -446,6 +448,32 @@ pub mod pallet {
 			collection_info.owner = new_owner.clone();
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
+			Ok(())
+		}
+
+		/// Set the max issuance of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_owner())] // TODO - weights
+		pub fn set_max_issuance(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			max_issuance: TokenCount,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
+
+			match collection_info.max_issuance {
+				// cannot set - if already set
+				Some(_) => return Err(Error::<T>::InvalidMaxIssuance.into()),
+				// if not set, ensure that the max issuance is greater than the current issuance
+				None => ensure!(collection_info.collection_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance),
+			}
+
+			collection_info.max_issuance = Some(max_issuance);
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::MaxIssuanceSet { collection_id, max_issuance });
 			Ok(())
 		}
 
