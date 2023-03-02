@@ -89,7 +89,7 @@ pub mod v2 {
 		let mut weight = DbWeight::get().reads_writes(2, 0);
 
 		if onchain == 1 {
-			log::info!(target: "Nft", "Migrating from onchain version 0 to onchain version 2.");
+			log::info!(target: "Nft", "Migrating from onchain version 1 to onchain version 2.");
 			weight += migrate::<T>();
 
 			log::info!(target: "Nft", "Migration successfully finished.");
