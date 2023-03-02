@@ -64,7 +64,7 @@ pub enum Action {
 	// quantity, receiver
 	Mint = "mint(address,uint32)",
 	SetMaxSupply = "setMaxSupply(uint32)",
-	SetBaseURI = "setBaseURI(bytes,bytes)",
+	SetBaseURI = "setBaseURI(bytes)",
 	OwnedTokens = "ownedTokens(address,uint16,uint32)",
 	// Selector used by SafeTransferFrom function
 	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
