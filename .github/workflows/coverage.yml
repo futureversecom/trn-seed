@@ -13,7 +13,7 @@ on:
 
 jobs:
   coverage:
-    runs-on: self-hosted
+    runs-on: [ubuntu-latest]
     # Run on the PR branch that was commented, otherwise run on push to 'main'
     if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'check coverage') }} || ${{ github.event.push && github.ref == 'refs/heads/main' }}
     steps:
