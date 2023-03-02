@@ -466,6 +466,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
 			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
 			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
 			ensure!(

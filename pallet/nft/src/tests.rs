@@ -3342,12 +3342,69 @@ mod set_max_issuance {
 	}
 
 	#[test]
+	fn set_max_issuance_not_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let max_issuance: TokenCount = 100;
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			// Bob isn't collection owner, should fail
+			assert_noop!(
+				Nft::set_max_issuance(RawOrigin::Signed(BOB).into(), collection_id, max_issuance),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_zero_issuance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let max_issuance: TokenCount = 0;
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				"My Collection".into(),
+				0,
+				None,
+				None,
+				MetadataScheme::Https("google.com".into()),
+				None
+			));
+
+			// Max issuance set to 0 should fail
+			assert_noop!(
+				Nft::set_max_issuance(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					max_issuance
+				),
+				Error::<Test>::InvalidMaxIssuance
+			);
+		});
+	}
+
+	#[test]
 	fn set_max_issuance_no_collection_fails() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = ALICE;
 			let collection_id = 1;
-
 			let max_issuance: TokenCount = 100;
+
+			// No collection exists, should fail
 			assert_noop!(
 				Nft::set_max_issuance(
 					RawOrigin::Signed(collection_owner).into(),
@@ -3406,8 +3463,8 @@ mod set_max_issuance {
 				None
 			));
 
-			let max_issuance: TokenCount = 100;
 			// Call first time should work
+			let max_issuance: TokenCount = 100;
 			assert_ok!(Nft::set_max_issuance(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
