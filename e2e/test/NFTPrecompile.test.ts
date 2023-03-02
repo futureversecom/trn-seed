@@ -92,6 +92,6 @@ describe("NFT Precompile", function () {
         royaltyAddresses,
         royaltyEntitlements,
       )
-      .catch((err: any) => expect(err.message).contains("NFT: Invalid metadata_path: Invalid URI"));
+      .catch((err: any) => expect(err.message).contains("NFT: Invalid metadata_path: scheme not supported"));
   });
 });
