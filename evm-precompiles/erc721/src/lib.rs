@@ -33,6 +33,9 @@ pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 pub const MAX_SUPPLY_UPDATED: [u8; 32] =
 	keccak256!("MaxpSupplyUpdated(uint256)");
 
+pub const BASE_URI_UPDATED: [u8; 32] =
+	keccak256!("BaseURIUpdated(string)");
+
 /// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
 
@@ -61,6 +64,7 @@ pub enum Action {
 	// quantity, receiver
 	Mint = "mint(address,uint32)",
 	SetMaxSupply = "setMaxSupply(uint32)",
+	SetBaseURI = "setBaseURI(bytes,bytes)",
 	OwnedTokens = "ownedTokens(address,uint16,uint32)",
 	// Selector used by SafeTransferFrom function
 	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
@@ -150,6 +154,7 @@ where
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
 						Action::SetMaxSupply => Self::set_max_supply(collection_id, handle),
+						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
 						Action::OwnedTokens => Self::owned_tokens(collection_id, handle),
 						_ => return Some(Err(revert("ERC721: Function not implemented").into())),
 					}
@@ -729,6 +734,44 @@ where
 			handle.code_address(),
 			MAX_SUPPLY_UPDATED,
 			EvmDataWriter::new().write(max_supply).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn set_base_uri(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				base_uri: Bytes
+			}
+		);
+
+		let origin = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::set_base_uri {
+				collection_id,
+				base_uri: base_uri.0.to_vec(),
+			},
+		)?;
+
+		// Emit event.
+		log1(
+			handle.code_address(),
+			BASE_URI_UPDATED,
+			EvmDataWriter::new().write(base_uri).build(),
 		)
 		.record(handle)?;
 
