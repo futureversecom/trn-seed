@@ -14,7 +14,7 @@ pub mod v2 {
 	use scale_info::TypeInfo;
 	use seed_primitives::{CollectionUuid, SerialNumber};
 	use sp_core::H160;
-	use sp_std::{vec, vec::Vec};
+	use sp_std::vec::Vec;
 
 	/// Denotes the metadata URI referencing scheme used by a collection
 	/// Enable token metadata URI construction by clients
