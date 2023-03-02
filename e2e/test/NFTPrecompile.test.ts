@@ -53,6 +53,10 @@ describe("NFT Precompile", function () {
     const royaltyAddresses = [alithSigner.address];
     const royaltyEntitlements = [1000];
 
+    // Generate expected precompile address
+    const collectionId = await api.query.nft.nextCollectionId();
+    const expectedPrecompileAddress = getCollectionPrecompileAddress(+collectionId);
+
     const initializeTx = await nftProxy
       .connect(bobSigner)
       .initializeCollection(
@@ -64,10 +68,6 @@ describe("NFT Precompile", function () {
         royaltyEntitlements,
       );
     const receipt = await initializeTx.wait();
-
-    // Generate expected precompile address
-    const collectionId = await api.query.nft.nextCollectionId();
-    const expectedPrecompileAddress = getCollectionPrecompileAddress(+collectionId);
 
     expect((receipt?.events as any)[0].event).to.equal("InitializeCollection");
     expect((receipt?.events as any)[0].args.collectionOwner).to.equal(alithSigner.address);
