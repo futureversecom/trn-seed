@@ -34,7 +34,7 @@ fn prepare_test() -> TestData {
 	let alice = ALICE;
 	let coll_owner = alice.clone();
 	let collection_name = "Hello".into();
-	let metadata_scheme = MetadataScheme::IpfsDir(
+	let metadata_scheme = MetadataScheme::Ipfs(
 		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
 	);
 
