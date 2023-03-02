@@ -30,6 +30,10 @@ pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 	keccak256!("OwnershipTransferred(address,address)");
 
+pub const MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxpSupplyUpdated(uint256)");
+
+pub const BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
+
 /// Solidity selector of the onERC721Received(address,address,uint256,bytes) function
 pub const ON_ERC721_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0x15, 0x0b, 0x7a, 0x02];
 
@@ -57,6 +61,8 @@ pub enum Action {
 	// Mint an NFT in a collection
 	// quantity, receiver
 	Mint = "mint(address,uint32)",
+	SetMaxSupply = "setMaxSupply(uint32)",
+	SetBaseURI = "setBaseURI(bytes)",
 	OwnedTokens = "ownedTokens(address,uint16,uint32)",
 	// Selector used by SafeTransferFrom function
 	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
@@ -145,6 +151,8 @@ where
 							Self::transfer_ownership(collection_id, handle),
 						// The Root Network extensions
 						Action::Mint => Self::mint(collection_id, handle),
+						Action::SetMaxSupply => Self::set_max_supply(collection_id, handle),
+						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
 						Action::OwnedTokens => Self::owned_tokens(collection_id, handle),
 						_ => return Some(Err(revert("ERC721: Function not implemented").into())),
 					}
@@ -683,6 +691,70 @@ where
 			)
 			.record(handle)?;
 		}
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn set_max_supply(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		// Parse input.
+		read_args!(handle, { max_supply: U256 });
+
+		// Parse max_supply
+		if max_supply > TokenCount::MAX.into() {
+			return Err(revert("ERC721: Expected max_supply <= 2^32").into())
+		}
+		let max_issuance: TokenCount = max_supply.saturated_into();
+		let origin = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::set_max_issuance { collection_id, max_issuance },
+		)?;
+
+		// Emit event.
+		log1(
+			handle.code_address(),
+			MAX_SUPPLY_UPDATED,
+			EvmDataWriter::new().write(max_supply).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn set_base_uri(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		// Parse input.
+		read_args!(handle, { base_uri: Bytes });
+
+		let origin = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_nft::Call::<Runtime>::set_base_uri {
+				collection_id,
+				base_uri: base_uri.0.to_vec(),
+			},
+		)?;
+
+		// Emit event.
+		log1(handle.code_address(), BASE_URI_UPDATED, EvmDataWriter::new().write(base_uri).build())
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
