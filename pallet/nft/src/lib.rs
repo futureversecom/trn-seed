@@ -403,9 +403,7 @@ pub mod pallet {
 
 		/// Perform runtime upgrade
 		fn on_runtime_upgrade() -> Weight {
-			let mut weight = migration::try_migrate::<T>();
-			weight += migration::v2::migrate::<T>();
-			weight
+			migration::v2::migrate::<T>()
 		}
 
 		#[cfg(feature = "try-runtime")]
