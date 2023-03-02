@@ -77,7 +77,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -394,10 +394,27 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<(), &'static str> {
+			migration::v2::pre_upgrade::<T>()?;
+
+			Ok(())
+		}
+
 		/// Perform runtime upgrade
 		fn on_runtime_upgrade() -> Weight {
-			migration::try_migrate::<T>()
+			let mut weight = migration::try_migrate::<T>();
+			weight += migration::v2::migrate::<T>();
+			weight
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade() -> Result<(), &'static str> {
+			migration::v2::post_upgrade::<T>()?;
+
+			Ok(())
+		}
+
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
@@ -473,6 +490,16 @@ pub mod pallet {
 				collection_info.collection_issuance <= max_issuance,
 				Error::<T>::InvalidMaxIssuance
 			);
+
+			match collection_info.max_issuance {
+				// cannot set - if already set
+				Some(_) => return Err(Error::<T>::InvalidMaxIssuance.into()),
+				// if not set, ensure that the max issuance is greater than the current issuance
+				None => ensure!(
+					collection_info.collection_issuance <= max_issuance,
+					Error::<T>::InvalidMaxIssuance
+				),
+			}
 
 			collection_info.max_issuance = Some(max_issuance);
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
