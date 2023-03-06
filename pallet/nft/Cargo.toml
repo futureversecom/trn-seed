@@ -8,6 +8,7 @@ repository = "https://github.com/futureversecom/seed"
 description = "Root Network NFT pallet"
 
 [dependencies]
+hex = { version = "0.4.3", default-features = false }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.145", default-features = false, features = ["derive"], optional = true }
 sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
@@ -35,6 +36,7 @@ pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch
 [features]
 default = ["std"]
 std = [
+	"hex/std",
 	"seed-primitives/std",
 	"seed-pallet-common/std",
 	"codec/std",

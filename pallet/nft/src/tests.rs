@@ -4165,7 +4165,8 @@ mod set_max_issuance {
 				None,
 				None,
 				MetadataScheme::Https("google.com".into()),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 
 			// Sanity check
@@ -4204,7 +4205,8 @@ mod set_max_issuance {
 				None,
 				None,
 				MetadataScheme::Https("google.com".into()),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 
 			assert_ok!(Nft::set_max_issuance(
@@ -4221,7 +4223,7 @@ mod set_max_issuance {
 
 			// Further NFTs can't be minted
 			assert_noop!(
-				Nft::mint(Some(collection_owner).into(), collection_id, 1, None),
+				Nft::mint(Some(collection_owner).into(), collection_id, 1, None, None),
 				Error::<Test>::MaxIssuanceReached
 			);
 		});
@@ -4242,7 +4244,8 @@ mod set_max_issuance {
 				None,
 				None,
 				MetadataScheme::Https("google.com".into()),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 
 			// Bob isn't collection owner, should fail
@@ -4268,7 +4271,8 @@ mod set_max_issuance {
 				None,
 				None,
 				MetadataScheme::Https("google.com".into()),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 
 			// Max issuance set to 0 should fail
@@ -4317,7 +4321,8 @@ mod set_max_issuance {
 				Some(max_issuance),
 				None,
 				MetadataScheme::Https("google.com".into()),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 
 			// Call should fail as it was set when collection created
@@ -4346,7 +4351,8 @@ mod set_max_issuance {
 				None,
 				None,
 				MetadataScheme::Https("google.com".into()),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 
 			// Call first time should work
@@ -4390,7 +4396,8 @@ mod set_max_issuance {
 				None,
 				None,
 				MetadataScheme::Https("google.com".into()),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 
 			// Call should fail as max_issuance is below initial issuance
@@ -4450,7 +4457,8 @@ mod set_base_uri {
 				None,
 				None,
 				metadata_scheme.clone(),
-				None
+				None,
+				CrossChainCompatibility::default(),
 			));
 
 			// Sanity check

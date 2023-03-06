@@ -446,19 +446,19 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<(), &'static str> {
-			migration::v2::pre_upgrade::<T>()?;
+			migration::v3::pre_upgrade::<T>()?;
 
 			Ok(())
 		}
 
 		/// Perform runtime upgrade
 		fn on_runtime_upgrade() -> Weight {
-			migration::v2::on_runtime_upgrade::<T>()
+			migration::v3::on_runtime_upgrade::<T>()
 		}
 
 		#[cfg(feature = "try-runtime")]
 		fn post_upgrade() -> Result<(), &'static str> {
-			migration::v2::post_upgrade::<T>()?;
+			migration::v3::post_upgrade::<T>()?;
 
 			Ok(())
 		}
