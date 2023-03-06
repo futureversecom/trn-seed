@@ -38,6 +38,7 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	let id = Nft::<T>::next_collection_uuid().unwrap();
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
 	let metadata_scheme = MetadataScheme::Https("google.com".into());
+	let cross_chain_compatibility = CrossChainCompatibility::default();
 
 	assert_ok!(Nft::<T>::create_collection(
 		origin::<T>(&caller).into(),
@@ -47,9 +48,60 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 		None,
 		metadata_scheme,
 		None,
+		cross_chain_compatibility,
 	));
 
 	id
+}
+
+pub fn build_xls20_collection<T: Config>(
+	caller: Option<T::AccountId>,
+	relayer: Option<T::AccountId>,
+	initial_issuance: u32,
+) -> CollectionUuid {
+	let collection_id = Nft::<T>::next_collection_uuid().unwrap();
+	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
+	let relayer = relayer.unwrap_or_else(|| account::<T>("Bob"));
+	let metadata_scheme = MetadataScheme::Https("google.com".into());
+	let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+
+	assert_ok!(Nft::<T>::create_collection(
+		origin::<T>(&caller).into(),
+		"New Collection".into(),
+		0,
+		None,
+		None,
+		metadata_scheme,
+		None,
+		cross_chain_compatibility,
+	));
+
+	// Setup relayer
+	assert_ok!(Nft::<T>::set_relayer(RawOrigin::Root.into(), relayer,));
+
+	// Mint tokens
+	if !initial_issuance.is_zero() {
+		assert_ok!(Nft::<T>::mint(
+			origin::<T>(&caller).into(),
+			collection_id,
+			initial_issuance.into(),
+			None,
+			None,
+		));
+	}
+
+	collection_id
+}
+
+fn setup_token_mappings<T: Config>(
+	input: Vec<(SerialNumber, &str)>,
+) -> BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerCollection> {
+	let input: Vec<(SerialNumber, Xls20TokenId)> = input
+		.into_iter()
+		.map(|(s, token)| (s, Xls20TokenId::try_from(token.as_bytes()).unwrap()))
+		.collect();
+
+	BoundedVec::try_from(input).unwrap()
 }
 
 pub fn build_asset<T: Config>(owner: &T::AccountId) -> AssetId {
@@ -126,11 +178,12 @@ benchmarks! {
 
 	create_collection {
 		let metadata = MetadataScheme::Https("google.com".into());
-	}: _(origin::<T>(&account::<T>("Alice")), "Collection".into(), 0, None, None, metadata, None)
+		let ccc = CrossChainCompatibility { xrpl: false };
+	}: _(origin::<T>(&account::<T>("Alice")), "Collection".into(), 0, None, None, metadata, None, ccc)
 
 	mint {
 		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, None)
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, None, None)
 
 	transfer {
 		let collection_id = build_collection::<T>(None);
@@ -189,6 +242,30 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 		let offer_id = offer_builder::<T>(collection_id);
 	}: _(origin::<T>(&account::<T>("Alice")), offer_id)
+
+	set_relayer {
+	}: _(RawOrigin::Root, account::<T>("Bob"))
+
+	set_xls20_fee {
+	}: _(RawOrigin::Root, 100_u32.into())
+
+	enable_xls20_compatibility {
+		let caller = account::<T>("Alice");
+		let collection_id = build_xls20_collection::<T>(Some(caller.clone()), None, 0);
+	}: _(origin::<T>(&caller), collection_id)
+
+	re_request_xls20_mint {
+		let caller = account::<T>("Alice");
+		let collection_id = build_xls20_collection::<T>(Some(caller.clone()), None, 1);
+		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
+	}: _(origin::<T>(&caller), collection_id, serial_numbers, 100)
+
+	fulfill_xls20_mint {
+		let caller = account::<T>("Alice");
+		let relayer = account::<T>("Bob");
+		let collection_id = build_xls20_collection::<T>(Some(caller), Some(relayer.clone()), 1);
+		let serial_numbers = setup_token_mappings::<T>(vec![(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66")]);
+	}: _(origin::<T>(&relayer), collection_id, serial_numbers)
 }
 
 impl_benchmark_test_suite!(Nft, crate::mock::new_test_ext(), crate::mock::Test,);

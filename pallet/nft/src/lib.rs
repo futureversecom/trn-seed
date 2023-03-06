@@ -1228,6 +1228,15 @@ pub mod pallet {
 			// Must be an XLS-20 compatible collection
 			ensure!(collection_info.cross_chain_compatibility.xrpl, Error::<T>::NotXLS20Compatible);
 
+			// Check whether token exists but mapping does not exist
+			for serial_number in serial_numbers.iter() {
+				ensure!(collection_info.token_exists(*serial_number), Error::<T>::NoToken);
+				ensure!(
+					!Xls20TokenMap::<T>::contains_key(collection_id, serial_number),
+					Error::<T>::MappingAlreadyExists
+				);
+			}
+
 			Self::pay_xls20_fee(&who, Some(additional_fee), serial_numbers.len() as TokenCount)?;
 			Self::send_xls20_requests(
 				collection_id,

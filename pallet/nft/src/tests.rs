@@ -55,7 +55,7 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 fn setup_xls20_collection(owner: AccountId) -> CollectionUuid {
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = b"test-xls20-collection".to_vec();
-	let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
+	let metadata_scheme = MetadataScheme::Https(b"example.com/".to_vec());
 	let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
@@ -3487,11 +3487,11 @@ mod xls20_tests {
 			// Check event is thrown with all serial numbers and token_uris
 			let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3, 4];
 			let token_uris: Vec<Vec<u8>> = vec![
-				b"https://example.com/0.json".to_vec(),
-				b"https://example.com/1.json".to_vec(),
-				b"https://example.com/2.json".to_vec(),
-				b"https://example.com/3.json".to_vec(),
-				b"https://example.com/4.json".to_vec(),
+				b"https://example.com/0".to_vec(),
+				b"https://example.com/1".to_vec(),
+				b"https://example.com/2".to_vec(),
+				b"https://example.com/3".to_vec(),
+				b"https://example.com/4".to_vec(),
 			];
 			assert!(has_event(Event::<Test>::Xls20MintRequest {
 				collection_id,
@@ -3511,10 +3511,8 @@ mod xls20_tests {
 
 			// Check event is thrown with all serial numbers and token_uris
 			let serial_numbers: Vec<SerialNumber> = vec![5, 6];
-			let token_uris: Vec<Vec<u8>> = vec![
-				b"https://example.com/5.json".to_vec(),
-				b"https://example.com/6.json".to_vec(),
-			];
+			let token_uris: Vec<Vec<u8>> =
+				vec![b"https://example.com/5".to_vec(), b"https://example.com/6".to_vec()];
 			assert!(has_event(Event::<Test>::Xls20MintRequest {
 				collection_id,
 				serial_numbers,
@@ -3656,6 +3654,9 @@ mod xls20_tests {
 				let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 					BoundedVec::try_from(vec![0, 1, 2, 3]).unwrap();
 
+				// Mint tokens
+				assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 4, None, None));
+
 				// Set fee to 100
 				assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), mint_fee));
 				assert_eq!(Xls20MintFee::<Test>::get(), mint_fee);
@@ -3688,10 +3689,10 @@ mod xls20_tests {
 				// Check event is thrown with all serial numbers and token_uris
 				let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3];
 				let token_uris: Vec<Vec<u8>> = vec![
-					b"https://example.com/0.json".to_vec(),
-					b"https://example.com/1.json".to_vec(),
-					b"https://example.com/2.json".to_vec(),
-					b"https://example.com/3.json".to_vec(),
+					b"https://example.com/0".to_vec(),
+					b"https://example.com/1".to_vec(),
+					b"https://example.com/2".to_vec(),
+					b"https://example.com/3".to_vec(),
 				];
 				assert!(has_event(Event::<Test>::Xls20MintRequest {
 					collection_id,
@@ -3723,7 +3724,7 @@ mod xls20_tests {
 
 			// Check event is NOT thrown
 			let serial_numbers: Vec<SerialNumber> = vec![0];
-			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0.json".to_vec()];
+			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
 			assert!(!has_event(Event::<Test>::Xls20MintRequest {
 				collection_id,
 				serial_numbers,
@@ -3754,7 +3755,7 @@ mod xls20_tests {
 
 			// Check event is NOT thrown
 			let serial_numbers: Vec<SerialNumber> = vec![0];
-			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0.json".to_vec()];
+			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
 			assert!(!has_event(Event::<Test>::Xls20MintRequest {
 				collection_id,
 				serial_numbers,
@@ -3784,7 +3785,7 @@ mod xls20_tests {
 
 			// Check event is NOT thrown
 			let serial_numbers: Vec<SerialNumber> = vec![0];
-			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0.json".to_vec()];
+			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
 			assert!(!has_event(Event::<Test>::Xls20MintRequest {
 				collection_id,
 				serial_numbers,
@@ -3807,6 +3808,93 @@ mod xls20_tests {
 					100
 				),
 				Error::<Test>::NoToken
+			);
+
+			// Check event is NOT thrown
+			let serial_numbers: Vec<SerialNumber> = vec![];
+			let token_uris: Vec<Vec<u8>> = vec![];
+			assert!(!has_event(Event::<Test>::Xls20MintRequest {
+				collection_id,
+				serial_numbers,
+				token_uris,
+			}));
+		});
+	}
+
+	#[test]
+	fn re_request_xls20_mint_no_token_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![0]).unwrap();
+
+			// Token doesn't exist should fail
+			assert_noop!(
+				Nft::re_request_xls20_mint(
+					RawOrigin::Signed(ALICE).into(),
+					collection_id,
+					serial_numbers,
+					100
+				),
+				Error::<Test>::NoToken
+			);
+
+			// Check event is NOT thrown
+			let serial_numbers: Vec<SerialNumber> = vec![];
+			let token_uris: Vec<Vec<u8>> = vec![];
+			assert!(!has_event(Event::<Test>::Xls20MintRequest {
+				collection_id,
+				serial_numbers,
+				token_uris,
+			}));
+		});
+	}
+
+	#[test]
+	fn re_request_xls20_mint_duplicate_mapping_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = ALICE;
+			let relayer = BOB;
+			let collection_id = setup_xls20_collection(collection_owner);
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![0]).unwrap();
+			let quantity: TokenCount = 1;
+			let token_owner = BOB;
+
+			let token_mappings = setup_token_mappings(vec![(
+				0,
+				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
+			)]);
+
+			// Set relayer to Bob
+			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
+
+			// Mint tokens
+			assert_ok!(Nft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				quantity,
+				Some(token_owner),
+				None
+			));
+
+			// call fulfill and add mappings to storage
+			assert_ok!(Nft::fulfill_xls20_mint(
+				RawOrigin::Signed(relayer).into(),
+				collection_id,
+				token_mappings.clone()
+			));
+
+			// Mapping already exists should fail
+			assert_noop!(
+				Nft::re_request_xls20_mint(
+					RawOrigin::Signed(ALICE).into(),
+					collection_id,
+					serial_numbers,
+					100
+				),
+				Error::<Test>::MappingAlreadyExists
 			);
 
 			// Check event is NOT thrown
