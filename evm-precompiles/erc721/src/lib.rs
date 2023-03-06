@@ -30,13 +30,13 @@ pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 	keccak256!("OwnershipTransferred(address,address)");
 
-/// Solidity selector of the Xls20CompatibilityEnabled log, which is the Keccak of the Log
+/// Solidity selector of the XLS20CompatibilityEnabled log, which is the Keccak of the Log
 /// signature.
-pub const SELECTOR_LOG_XLS20_ENABLED: [u8; 32] = keccak256!("Xls20CompatibilityEnabled()");
+pub const SELECTOR_LOG_XLS20_ENABLED: [u8; 32] = keccak256!("XLS20CompatibilityEnabled()");
 
-/// Solidity selector of the Xls20CompatibilityEnabled log, which is the Keccak of the Log
+/// Solidity selector of the Xls20MintReRequested log, which is the Keccak of the Log
 /// signature.
-pub const SELECTOR_LOG_XLS20_RE_REQUESTED: [u8; 32] = keccak256!("Xls20MintReRequested(uint256)");
+pub const SELECTOR_LOG_XLS20_RE_REQUESTED: [u8; 32] = keccak256!("XLS20MintReRequested(uint256)");
 
 pub const MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxpSupplyUpdated(uint256)");
 
