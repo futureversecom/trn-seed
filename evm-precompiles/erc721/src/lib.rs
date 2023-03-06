@@ -38,7 +38,7 @@ pub const SELECTOR_LOG_XLS20_ENABLED: [u8; 32] = keccak256!("XLS20CompatibilityE
 /// signature.
 pub const SELECTOR_LOG_XLS20_RE_REQUESTED: [u8; 32] = keccak256!("XLS20MintReRequested(uint256)");
 
-pub const MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxpSupplyUpdated(uint256)");
+pub const MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxSupplyUpdated(uint32)");
 
 pub const BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
 
