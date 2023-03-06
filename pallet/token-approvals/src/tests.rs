@@ -47,12 +47,13 @@ fn prepare_test() -> TestData {
 		metadata_scheme,
 		None,
 		OriginChain::Root,
+		Default::default(),
 	)
 	.unwrap();
 
 	let origin = RawOrigin::Signed(alice.clone()).into();
 	let count = 10u32;
-	assert_ok!(Nft::mint(origin, coll_id, count + 1, Some(alice)));
+	assert_ok!(Nft::mint(origin, coll_id, count + 1, Some(alice), None));
 	let coll_tokens: Vec<TokenId> = vec![(coll_id, count)];
 
 	let token_id = coll_tokens[0].clone();

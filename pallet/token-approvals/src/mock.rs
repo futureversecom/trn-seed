@@ -135,6 +135,7 @@ parameter_types! {
 	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
+	pub const Xls20PaymentAsset: AssetId = 2;
 }
 
 impl pallet_nft::Config for Test {
@@ -147,6 +148,7 @@ impl pallet_nft::Config for Test {
 	type OnNewAssetSubscription = ();
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
+	type Xls20PaymentAsset = Xls20PaymentAsset;
 	type WeightInfo = ();
 }
 
