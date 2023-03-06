@@ -21,10 +21,9 @@ pub const SELECTOR_LOG_INITIALIZE_COLLECTION: [u8; 32] =
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	/// Create a new NFT collection
-	/// collection_owner, name, max_issuance, metadata_type, metadata_path, royalty_addresses,
+	/// collection_owner, name, max_issuance, metadata_path, royalty_addresses,
 	/// royalty_entitlements
-	InitializeCollection =
-		"initializeCollection(address,bytes,uint32,uint8,bytes,address[],uint32[])",
+	InitializeCollection = "initializeCollection(address,bytes,uint32,bytes,address[],uint32[])",
 }
 
 /// Provides access to the NFT pallet
@@ -89,7 +88,6 @@ where
 				collection_owner: Address,
 				name: Bytes,
 				max_issuance: U256,
-				metadata_type: U256,
 				metadata_path: Bytes,
 				royalty_addresses: Vec<Address>,
 				royalty_entitlements: Vec<U256>
@@ -113,13 +111,10 @@ where
 		};
 
 		// Parse Metadata
-		if metadata_type > u8::MAX.into() {
-			return Err(revert("NFT: Invalid metadata_type, expected u8").into())
-		}
-		let metadata_type: u8 = metadata_type.saturated_into();
-		let metadata_path: Vec<u8> = metadata_path.as_bytes().to_vec();
-		let metadata_scheme = MetadataScheme::from_index(metadata_type, metadata_path)
-			.map_err(|_| revert("NFT: Invalid metadata_type, expected u8 <= 3"))?;
+		let metadata_scheme: MetadataScheme =
+			metadata_path.as_bytes().to_vec().try_into().map_err(|str_err| {
+				revert(alloc::format!("{}: {}", "NFT: Invalid metadata_path", str_err))
+			})?;
 
 		// Parse royalties
 		if royalty_addresses.len() != royalty_entitlements.len() {

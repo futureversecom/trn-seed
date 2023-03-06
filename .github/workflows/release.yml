@@ -14,7 +14,7 @@ on:
 
 jobs:
   release-to-github:
-    runs-on: [self-hosted, linux]
+    runs-on: [ubuntu-latest]
     steps:
       - name: Check out
         uses: actions/checkout@v3

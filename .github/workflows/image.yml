@@ -31,7 +31,7 @@ jobs:
   build-image:
     if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'main') || contains(github.ref_name, 'release')
     # only run if release branch CI build passes or its a push to main
-    runs-on: [self-hosted]
+    runs-on: [ubuntu-latest]
     permissions:
       contents: read
       packages: write

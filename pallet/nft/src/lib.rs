@@ -55,6 +55,7 @@ mod weights;
 pub use weights::WeightInfo;
 
 mod impls;
+mod migration;
 pub mod traits;
 mod types;
 
@@ -78,7 +79,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -254,6 +255,10 @@ pub mod pallet {
 		},
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
+		/// Max issuance was set
+		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
+		/// Base URI was set
+		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -415,6 +420,8 @@ pub mod pallet {
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
+		/// The max issuance has already been set and can't be changed
+		MaxIssuanceAlreadySet,
 		/// The collection max issuance has been reached and no more tokens can be minted
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
@@ -437,6 +444,25 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<(), &'static str> {
+			migration::v2::pre_upgrade::<T>()?;
+
+			Ok(())
+		}
+
+		/// Perform runtime upgrade
+		fn on_runtime_upgrade() -> Weight {
+			migration::v2::on_runtime_upgrade::<T>()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade() -> Result<(), &'static str> {
+			migration::v2::post_upgrade::<T>()?;
+
+			Ok(())
+		}
+
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
@@ -491,6 +517,62 @@ pub mod pallet {
 			collection_info.owner = new_owner.clone();
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
+			Ok(())
+		}
+
+		/// Set the max issuance of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_owner())] // TODO - weights
+		pub fn set_max_issuance(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			max_issuance: TokenCount,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
+			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
+			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
+			ensure!(
+				collection_info.collection_issuance <= max_issuance,
+				Error::<T>::InvalidMaxIssuance
+			);
+
+			match collection_info.max_issuance {
+				// cannot set - if already set
+				Some(_) => return Err(Error::<T>::InvalidMaxIssuance.into()),
+				// if not set, ensure that the max issuance is greater than the current issuance
+				None => ensure!(
+					collection_info.collection_issuance <= max_issuance,
+					Error::<T>::InvalidMaxIssuance
+				),
+			}
+
+			collection_info.max_issuance = Some(max_issuance);
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::MaxIssuanceSet { collection_id, max_issuance });
+			Ok(())
+		}
+
+		/// Set the base URI of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_owner())] // TODO - weights
+		pub fn set_base_uri(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			base_uri: Vec<u8>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
+
+			collection_info.metadata_scheme =
+				base_uri.clone().try_into().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::BaseUriSet { collection_id, base_uri });
 			Ok(())
 		}
 
