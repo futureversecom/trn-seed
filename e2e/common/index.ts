@@ -36,6 +36,9 @@ export const EVM_PALLET_INDEX = "27";
 export const WITHDRAW_FAILED_ERROR_INDEX = "0x03000000";
 export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
+// Precompile address for nft precompile is 1721
+export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
+
 /** ABIs */
 
 export const FEE_PROXY_ABI = [
@@ -52,6 +55,49 @@ export const ERC20_ABI = [
   "function symbol() public view returns (string memory)",
   "function decimals() public view returns (uint8)",
   "function transfer(address who, uint256 amount)",
+];
+
+export const NFT_PRECOMPILE_ABI = [
+  "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
+  "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
+];
+
+export const ERC721_PRECOMPILE_ABI = [
+  // ERC721
+  "event Transfer(address indexed from, address indexed to, uint256 tokenId)",
+  "event Approval(address indexed owner, address indexed approved, uint256 tokenId)",
+  "event ApprovalForAll(address indexed owner, address indexed operator, bool approved)",
+
+  "function balanceOf(address who) public view returns (uint256)",
+  "function ownerOf(uint256 tokenId) public view returns (address)",
+  "function safeTransferFrom(address from, address to, uint256 tokenId)",
+  "function transferFrom(address from, address to, uint256 tokenId)",
+  "function approve(address to, uint256 tokenId)",
+  "function getApproved(uint256 tokenId) public view returns (address)",
+  "function setApprovalForAll(address operator, bool _approved)",
+  "function isApprovedForAll(address owner, address operator) public view returns (bool)",
+
+  // ERC721 Metadata
+  "function name() public view returns (string memory)",
+  "function symbol() public view returns (string memory)",
+  "function tokenURI(uint256 tokenId) public view returns (string memory)",
+
+  // Root specific precompiles
+  "event MaxSupplyUpdated(uint32 maxSupply)",
+  "event BaseURIUpdated(string baseURI)",
+
+  "function totalSupply() external view returns (uint256)",
+  "function mint(address owner, uint32 quantity)",
+  "function setMaxSupply(uint32 maxSupply)",
+  "function setBaseURI(bytes baseURI)",
+  "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32[] memory)",
+
+  // Ownable
+  "event OwnershipTransferred(address indexed oldOwner, address newOwner)",
+
+  "function owner() public view returns (address)",
+  "function renounceOwnership()",
+  "function transferOwnership(address owner)",
 ];
 
 /** Functions */
@@ -88,6 +134,11 @@ export const getNextAssetId = async (api: ApiPromise): Promise<number> => {
   return nextAssetUuid;
 };
 
+/**
+ *
+ * @param collectionId Converts collection id to precompile address (without parachain id)
+ * @returns
+ */
 export const getCollectionPrecompileAddress = (collectionId: number) => {
   const collectionIdBin = (+collectionId).toString(2).padStart(22, "0");
   const parachainIdBin = (100).toString(2).padStart(10, "0");
