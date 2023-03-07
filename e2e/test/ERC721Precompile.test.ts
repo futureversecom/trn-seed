@@ -112,7 +112,7 @@ describe("ERC721 Precompile", function () {
       .ownerOf(initialIssuance)
       .catch((err: any) => expect(err.message).contains("ERC721: Token does not exist"));
     expect(await erc721Precompile.ownerOf(initialIssuance - 1)).to.equal(bobSigner.address);
-    expect(await erc721Precompile.balanceOf(bobSigner.address)).to.equal(10);
+    expect(await erc721Precompile.balanceOf(bobSigner.address)).to.equal(initialIssuance);
     expect(await erc721Precompile.tokenURI(1)).to.equal("https://example.com/nft/metadata/1");
     expect(await erc721Precompile.totalSupply()).to.equal(initialIssuance);
   });
