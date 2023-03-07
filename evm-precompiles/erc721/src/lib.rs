@@ -662,7 +662,7 @@ where
 				.build(),
 		))
 	}
-	
+
 	fn total_supply(
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
