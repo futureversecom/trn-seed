@@ -78,7 +78,7 @@ jobs:
         run: "yarn format"
 
       - name: "Lint the code"
-        run: "yarn lint:ts"
+        run: "yarn lint"
 
       - name: "Create docker image"
         run: "docker build -t seed/pr -f Dockerfile ."
