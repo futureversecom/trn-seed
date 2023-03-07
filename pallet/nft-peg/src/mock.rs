@@ -161,6 +161,7 @@ parameter_types! {
 	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
+	pub const MaxNftsPerMint: u32 = 100;
 }
 
 impl pallet_nft::Config for Test {
@@ -168,6 +169,7 @@ impl pallet_nft::Config for Test {
 	type Event = Event;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
+	type MaxNftsPerMint = MaxNftsPerMint;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = ();

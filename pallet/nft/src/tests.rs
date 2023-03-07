@@ -2184,15 +2184,15 @@ fn mint_fails() {
 			Error::<Test>::NotCollectionOwner
 		);
 
-		// Mint over boundedvec limit fails
+		// Mint over mint limit fails
 		assert_noop!(
 			Nft::mint(
 				Some(collection_owner).into(),
 				collection_id,
-				mock::MaxTokensPerCollection::get(),
+				mock::MaxNftsPerMint::get() + 1,
 				None
 			),
-			Error::<Test>::TokenLimitExceeded
+			Error::<Test>::MintLimitExceeded
 		);
 	});
 }

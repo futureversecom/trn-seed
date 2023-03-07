@@ -363,6 +363,7 @@ parameter_types! {
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
+	pub const MaxNftsPerMint: u32 = 1_000;
 	pub const MaxOffers: u32 = 100;
 }
 impl pallet_nft::Config for Runtime {
@@ -370,6 +371,7 @@ impl pallet_nft::Config for Runtime {
 	type Event = Event;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
+	type MaxNftsPerMint = MaxNftsPerMint;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;

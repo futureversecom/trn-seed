@@ -520,6 +520,7 @@ impl<T: Config> Pallet<T> {
 		// Now mint the collection tokens
 		let mut owned_tokens = BoundedVec::default();
 		if initial_issuance > Zero::zero() {
+			ensure!(initial_issuance <= T::MaxNftsPerMint::get(), Error::<T>::MintLimitExceeded);
 			// mint initial tokens to token_owner or owner
 			let token_owner = token_owner.unwrap_or(owner.clone());
 			let serial_numbers_unbounded: Vec<SerialNumber> = (0..initial_issuance).collect();
