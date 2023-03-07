@@ -66,7 +66,7 @@ export function startNode(nodeOpts?: NodeOpts): Promise<NodeProcess> {
       httpPort: nodeOptions.httpPort.toString() ?? "9933",
       wsPort: wsPortStr,
       wait: async () => {
-        await ApiPromise.create({ provider: new WsProvider(`ws://localhost:${wsPortStr}`) });
+        await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${wsPortStr}`) });
       },
       stop: () => Promise.resolve(),
     });
@@ -178,7 +178,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
     httpPort,
     wsPort,
     wait: async () => {
-      await ApiPromise.create({ provider: new WsProvider(`ws://localhost:${wsPort}`) });
+      await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${wsPort}`) });
     },
     stop,
   };
