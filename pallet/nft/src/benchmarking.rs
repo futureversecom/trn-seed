@@ -173,6 +173,14 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, account::<T>("Bob"))
 
+	set_max_issuance {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 32)
+
+	set_base_uri {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, "https://example.com/tokens/".into())
+
 	register_marketplace {
 	}: _(origin::<T>(&account::<T>("Alice")), None, Permill::zero())
 

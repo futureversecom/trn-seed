@@ -522,7 +522,7 @@ pub mod pallet {
 
 		/// Set the max issuance of a collection
 		/// Caller must be the current collection owner
-		#[pallet::weight(T::WeightInfo::set_owner())] // TODO - weights
+		#[pallet::weight(T::WeightInfo::set_max_issuance())]
 		pub fn set_max_issuance(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -557,7 +557,7 @@ pub mod pallet {
 
 		/// Set the base URI of a collection
 		/// Caller must be the current collection owner
-		#[pallet::weight(T::WeightInfo::set_owner())] // TODO - weights
+		#[pallet::weight(T::WeightInfo::set_base_uri())]
 		pub fn set_base_uri(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -1159,7 +1159,7 @@ pub mod pallet {
 		}
 
 		/// Set the relayer address
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_relayer())]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			<Relayer<T>>::put(&relayer);
@@ -1171,7 +1171,7 @@ pub mod pallet {
 		/// This covers the additional costs incurred by the relayer for the following:
 		///  - Minting the token on XRPL
 		///  - Calling fulfill_xls20_mint on The Root Network
-		#[pallet::weight(DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_xls20_fee())]
 		pub fn set_xls20_fee(origin: OriginFor<T>, new_fee: Balance) -> DispatchResult {
 			ensure_root(origin)?;
 			<Xls20MintFee<T>>::put(new_fee);
@@ -1182,7 +1182,7 @@ pub mod pallet {
 		/// Enables XLS-20 compatibility on a collection
 		///  - Collection must not have any tokens minted
 		///  - Caller must be collection owner
-		#[pallet::weight(DbWeight::get().reads_writes(1, 1))]
+		#[pallet::weight(T::WeightInfo::enable_xls20_compatibility())]
 		pub fn enable_xls20_compatibility(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -1207,7 +1207,7 @@ pub mod pallet {
 		}
 
 		// Collection owners can re-request XLS-20 mints on tokens that have failed
-		#[pallet::weight(DbWeight::get().reads_writes(2,1))]
+		#[pallet::weight(T::WeightInfo::re_request_xls20_mint())]
 		#[transactional]
 		pub fn re_request_xls20_mint(
 			origin: OriginFor<T>,
@@ -1250,7 +1250,7 @@ pub mod pallet {
 		/// Submit XLS-20 token ids to The Root Network
 		/// Only callable by the trusted relayer account
 		/// Can apply multiple mappings from the same collection in one transaction
-		#[pallet::weight(DbWeight::get().reads_writes(2,1))]
+		#[pallet::weight(T::WeightInfo::fulfill_xls20_mint())]
 		#[transactional]
 		pub fn fulfill_xls20_mint(
 			origin: OriginFor<T>,
