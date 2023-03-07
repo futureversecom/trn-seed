@@ -9,7 +9,7 @@
     "format": "prettier --check --config ./.prettierrc.yml \"**/*.{js,json,ts}\"",
     "format:fix": "prettier --config ./.prettierrc.yml --write \"**/*.{js,json,ts}\"",
     "lint": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts .",
-    "test": "hardhat test",
+    "test": "hardhat test --network seed",
     "seed": "docker-compose up && docker-compose rm -fsv"
   },
   "devDependencies": {

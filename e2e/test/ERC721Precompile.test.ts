@@ -4,6 +4,7 @@ import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { BigNumber, Contract, Wallet, constants } from "ethers";
 import { ethers } from "hardhat";
+import Web3 from "web3";
 
 import {
   ALITH_PRIVATE_KEY,
@@ -18,14 +19,13 @@ import {
 
 // NFT Collection information
 const name = "test-collection";
-const _metadataPath = { Https: "example.com/nft/metadata" };
+const metadataPath = { Https: "example.com/nft/metadata/" };
 const initialIssuance = 10;
 const maxIssuance = 100;
 
 describe("ERC721 Precompile", function () {
   let node: NodeProcess;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let api: ApiPromise;
   let bobSigner: Wallet;
   let alithSigner: Wallet;
@@ -42,64 +42,45 @@ describe("ERC721 Precompile", function () {
     // Setup Root api instance and keyring
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     const keyring = new Keyring({ type: "ethereum" });
-    const _bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
+    const bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
 
     const provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
 
+    let erc721PrecompileAddress: string;
+
     // Create NFT collection using runtime, bob is collection owner
-    // await new Promise<void>((resolve, reject) => {
-    //   api.tx.nft
-    //     .createCollection(name, initial_balance, null, null, metadataPath, null)
-    //     .signAndSend(bob, async ({ status, events }) => {
-    //       if (status.isInBlock) {
-    //         events.forEach(({ event: { data, method } }) => {
-    //           if (method == "CollectionCreate") {
-    //             const collection_uuid = (data.toJSON() as any)[0];
-    //             console.log(`Collection UUID: ${collection_uuid}`);
+    await new Promise<void>((resolve, reject) => {
+      api.tx.nft
+        .createCollection(name, initialIssuance, maxIssuance, null, metadataPath, null)
+        .signAndSend(bob, async ({ status, events }) => {
+          if (status.isInBlock) {
+            events.forEach(({ event: { data, method } }) => {
+              if (method == "CollectionCreate") {
+                const collection_uuid = (data.toJSON() as any)[0];
+                console.log(`Collection UUID: ${collection_uuid}`);
 
-    //             const collection_id_hex = (+collection_uuid).toString(16).padStart(8, "0");
-    //             erc721PrecompileAddress = web3.utils.toChecksumAddress(
-    //               `0xAAAAAAAA${collection_id_hex}000000000000000000000000`,
-    //             );
-    //             console.log(`NFT Collection Address: ${erc721PrecompileAddress}`);
-
-    //             erc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
-    //             console.info(`NFT Collection Address: ${erc721PrecompileAddress}`);
-    //             resolve();
-    //           }
-    //         });
-    //       }
-    //     })
-    //     .catch((err) => reject(err));
-    // });
+                const collection_id_hex = (+collection_uuid).toString(16).padStart(8, "0");
+                erc721PrecompileAddress = Web3.utils.toChecksumAddress(
+                  `0xAAAAAAAA${collection_id_hex}000000000000000000000000`,
+                );
+                console.log(`NFT Collection Address: ${erc721PrecompileAddress}`);
+                erc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
+                resolve();
+              }
+            });
+          }
+        })
+        .catch((err) => reject(err));
+    });
 
     // Ethereum variables
     nftPrecompile = new Contract(NFT_PRECOMPILE_ADDRESS, NFT_PRECOMPILE_ABI, bobSigner);
-    let tx = await nftPrecompile
-      .connect(bobSigner)
-      .initializeCollection(
-        bobSigner.address,
-        ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
-        maxIssuance,
-        ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
-        [alithSigner.address],
-        [1000],
-      );
-    const receipt = await tx.wait();
-    const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
-    console.log(`NFT Collection Address: ${erc721PrecompileAddress}`);
-
-    erc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
-
-    // mint initial issuance to bob
-    tx = await erc721Precompile.connect(bobSigner).mint(bobSigner.address, initialIssuance);
-    await tx.wait();
 
     // Deploy PrecompileCaller contract
     const factory = await ethers.getContractFactory("ERC721PrecompileCaller");
-    precompileCaller = await factory.connect(bobSigner).deploy(erc721PrecompileAddress);
+    precompileCaller = await factory.connect(bobSigner).deploy(erc721PrecompileAddress!);
     await precompileCaller.deployed();
   });
 
