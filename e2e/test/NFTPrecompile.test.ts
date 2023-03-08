@@ -26,10 +26,9 @@ describe("NFT Precompile", function () {
   // Setup api instance
   before(async () => {
     node = await startNode();
-    await node.wait(); // wait for the node to be ready
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
