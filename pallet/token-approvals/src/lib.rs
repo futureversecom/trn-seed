@@ -31,7 +31,6 @@ use sp_runtime::{traits::Zero, DispatchResult};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-mod migration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]

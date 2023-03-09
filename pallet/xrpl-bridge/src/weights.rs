@@ -45,8 +45,6 @@ pub trait WeightInfo {
 	fn set_door_address() -> Weight;
 	fn set_ticket_sequence_next_allocation() -> Weight;
 	fn set_ticket_sequence_current_allocation() -> Weight;
-	fn on_runtime_upgrade() -> Weight;
-	fn on_runtime_upgrade_no_change() -> Weight;
 }
 
 // For backwards compatibility and tests
@@ -117,17 +115,5 @@ impl WeightInfo for () {
 		(12_425_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	// Storage: unknown [0xf359408206eb0939f15785224140c9c24e7b9012096b41c4eb3aaf947f6ea429] (r:1 w:1)
-	// Storage: unknown [0xf359408206eb0939f15785224140c9c26c27d5145ffa0e115a3c9f4c85d12554] (r:0 w:1)
-	fn on_runtime_upgrade() -> Weight {
-		(5_846_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	// Storage: unknown [0xf359408206eb0939f15785224140c9c24e7b9012096b41c4eb3aaf947f6ea429] (r:1 w:0)
-	fn on_runtime_upgrade_no_change() -> Weight {
-		(1_520_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 	}
 }

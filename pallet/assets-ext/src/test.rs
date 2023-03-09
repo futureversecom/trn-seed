@@ -15,66 +15,6 @@ use sp_runtime::traits::{AccountIdConversion, Zero};
 const TEST_PALLET_ID: PalletId = PalletId(*b"pal/test");
 
 #[test]
-fn migration_v0_to_v1() {
-	use frame_support::traits::OnRuntimeUpgrade;
-
-	test_ext().build().execute_with(|| {
-		// run upgrade
-		// Insert storage version
-		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 0);
-
-		// Mock some assets
-		<NextAssetId<Test>>::put(4);
-		let parachain_id: u32 = <Test as Config>::ParachainId::get().into();
-		let asset_id_1: AssetId = next_asset_uuid(1, parachain_id).unwrap();
-		let asset_id_2: AssetId = next_asset_uuid(2, parachain_id).unwrap();
-		let asset_id_3: AssetId = next_asset_uuid(3, parachain_id).unwrap();
-
-		// EVM pallet should NOT have account code for assets
-		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(asset_id_1 as u64).into()
-		));
-		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(asset_id_2 as u64).into()
-		));
-		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(asset_id_3 as u64).into()
-		));
-		// Hardcoded assets 1 and 2
-		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(1 as u64).into()
-		));
-		assert!(pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(2 as u64).into()
-		));
-
-		// Run upgrade
-		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
-
-		// Version should be updated
-		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
-
-		// EVM pallet should have account code for collections
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(asset_id_1 as u64).into()
-		));
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(asset_id_2 as u64).into()
-		));
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(asset_id_3 as u64).into()
-		));
-		// Hardcoded assets 1 and 2
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(1 as u64).into()
-		));
-		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
-			&H160::from_low_u64_be(2 as u64).into()
-		));
-	});
-}
-
-#[test]
 fn transfer() {
 	let alice = 1 as MockAccountId;
 	let bob = 2 as MockAccountId;
