@@ -1,8 +1,8 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	create_account, has_event, AssetsExt, MaxTokensPerXls20Mint, Nft, Test, TestExt, Xls20,
-	Xls20PaymentAsset,
+	create_account, has_event, AssetsExt, Event as MockEvent, MaxTokensPerXls20Mint, Nft, System,
+	Test, TestExt, Xls20, Xls20PaymentAsset,
 };
 use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
 use frame_system::RawOrigin;
@@ -57,6 +57,9 @@ fn set_relayer_works() {
 		assert_ok!(Xls20::set_relayer(RawOrigin::Root.into(), alice));
 		assert_eq!(Relayer::<Test>::get(), Some(alice));
 
+		// Check event
+		System::assert_last_event(MockEvent::Xls20(crate::Event::RelayerSet { account: alice }));
+
 		// Set relayer to Bob
 		assert_ok!(Xls20::set_relayer(RawOrigin::Root.into(), bob));
 		assert_eq!(Relayer::<Test>::get(), Some(bob));
@@ -76,6 +79,9 @@ fn set_xls20_fee_works() {
 		// Set fee to 100
 		assert_ok!(Xls20::set_xls20_fee(RawOrigin::Root.into(), new_fee));
 		assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
+
+		// Check event
+		System::assert_last_event(MockEvent::Xls20(crate::Event::Xls20MintFeeSet { new_fee }));
 
 		// Set fee to 200
 		let new_fee: Balance = 200;
@@ -730,6 +736,11 @@ fn enable_xls20_compatibility_works() {
 			RawOrigin::Signed(collection_owner).into(),
 			collection_id,
 		));
+
+		// Check event
+		System::assert_last_event(MockEvent::Xls20(crate::Event::Xls20CompatibilityEnabled {
+			collection_id,
+		}));
 
 		// XLS-20 compatibility now enabled
 		assert_eq!(
