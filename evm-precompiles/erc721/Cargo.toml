@@ -7,7 +7,7 @@ repository = "https://github.com/futureversecom/seed"
 
 [dependencies]
 pallet-nft = { path = "../../pallet/nft", default-features = false }
-pallet-xls-20 = { path = "../../pallet/xls-20", default-features = false }
+pallet-xls20 = { path = "../../pallet/xls20", default-features = false }
 pallet-token-approvals = { path = "../../pallet/token-approvals", default-features = false }
 seed-pallet-common = { path = "../../pallet/common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
@@ -34,7 +34,7 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"pallet-nft/std",
-	"pallet-xls-20/std",
+	"pallet-xls20/std",
 	"pallet-token-approvals/std",
 	"seed-pallet-common/std",
 	"fp-evm/std",

@@ -15,6 +15,7 @@
 
 use crate as pallet_nft;
 use frame_support::{
+	dispatch::DispatchResult,
 	parameter_types,
 	traits::{FindAuthor, GenesisBuild},
 	weights::Weight,
@@ -22,8 +23,10 @@ use frame_support::{
 };
 use frame_system::{limits, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
-use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber};
-use seed_primitives::{AssetId, Balance, TokenId};
+use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
+use seed_primitives::{
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
+};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	testing::Header,
@@ -32,14 +35,14 @@ use sp_runtime::{
 };
 use std::marker::PhantomData;
 
-pub type AccountId = u64;
-
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
-pub const ALICE: AccountId = 10;
-pub const BOB: AccountId = 11;
 pub const XRP_ASSET_ID: AssetId = 2;
+
+pub fn create_account(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -164,8 +167,8 @@ impl FindAuthor<H160> for FindAuthorTruncated {
 
 pub struct MockAddressMapping;
 impl AddressMapping<AccountId> for MockAddressMapping {
-	fn into_account_id(_address: H160) -> AccountId {
-		0_u64
+	fn into_account_id(address: H160) -> AccountId {
+		address.into()
 	}
 }
 
@@ -227,6 +230,21 @@ where
 	}
 }
 
+pub struct MockXls20MintRequest;
+
+impl Xls20MintRequest for MockXls20MintRequest {
+	type AccountId = AccountId;
+
+	fn request_xls20_mint(
+		_who: &Self::AccountId,
+		_collection_id: CollectionUuid,
+		_serial_numbers: Vec<SerialNumber>,
+		_metadata_scheme: MetadataScheme,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
+
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
@@ -247,8 +265,8 @@ impl crate::Config for Test {
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
-	type Xls20PaymentAsset = Xls20PaymentAsset;
 	type WeightInfo = ();
+	type Xls20MintRequest = MockXls20MintRequest;
 }
 
 #[derive(Default)]
@@ -282,7 +300,7 @@ impl TestExt {
 		}
 
 		if !self.xrp_balances.is_empty() {
-			let assets = vec![(XRP_ASSET_ID, ALICE, true, 1)];
+			let assets = vec![(XRP_ASSET_ID, create_account(10), true, 1)];
 			let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6_u8)];
 			let accounts = self.xrp_balances;
 			pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts }

@@ -1,5 +1,5 @@
 [package]
-name = "pallet-xls-20"
+name = "pallet-xls20"
 version = "1.0.0"
 authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
@@ -23,6 +23,10 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets-ext = { path = "../assets-ext" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 [features]
 default = ["std"]

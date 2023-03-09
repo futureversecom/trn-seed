@@ -220,7 +220,7 @@ impl<T: Config> Pallet<T> {
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
 		// Caller must be collection_owner
-		ensure!(&collection_info.owner == who, Error::<T>::NotCollectionOwner);
+		let _ = collection_info.is_collection_owner(&who)?;
 		// Check we don't exceed the token limit
 		ensure!(
 			collection_info.collection_issuance.saturating_add(quantity) <
@@ -663,7 +663,7 @@ impl<T: Config> Pallet<T> {
 			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 		// Caller must be collection owner
-		ensure!(who.clone() == collection_info.owner, Error::<T>::NotCollectionOwner);
+		let _ = collection_info.is_collection_owner(&who)?;
 		// Collection issuance must be 0 (i.e. no tokens minted)
 		ensure!(
 			collection_info.collection_issuance.is_zero(),

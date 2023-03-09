@@ -107,36 +107,6 @@ pub mod pallet {
 		ApprovalDoesntExist,
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> Weight {
-			use frame_support::{
-				weights::constants::RocksDbWeight as DbWeight, IterableStorageDoubleMap,
-			};
-			use migration::v1_storage;
-			use sp_std::vec::Vec;
-
-			if StorageVersion::get::<Self>() == 0 {
-				StorageVersion::new(1).put::<Self>();
-
-				// Get values from old storage
-				let old_approvals_for_all: Vec<(T::AccountId, CollectionUuid, T::AccountId)> =
-					v1_storage::ERC721ApprovalsForAll::<T>::iter().collect();
-				let weight = old_approvals_for_all.len() as Weight;
-
-				for (owner, collection_id, spender) in old_approvals_for_all {
-					// Insert values into new storage
-					ERC721ApprovalsForAll::<T>::insert(owner, (collection_id, spender), true);
-				}
-
-				return 6_000_000 as Weight +
-					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
-			} else {
-				Zero::zero()
-			}
-		}
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set approval for a single NFT

@@ -16,8 +16,8 @@
 use super::*;
 use crate::{
 	mock::{
-		has_event, AccountId, AssetsExt, Event as MockEvent, MaxTokensPerCollection, NativeAssetId,
-		Nft, NftPalletId, System, Test, TestExt, ALICE, BOB,
+		create_account, has_event, AssetsExt, Event as MockEvent, MaxTokensPerCollection,
+		NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 	},
 	Event as NftEvent,
 };
@@ -27,7 +27,7 @@ use frame_support::{
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use frame_system::RawOrigin;
-use seed_primitives::{MetadataScheme, TokenId};
+use seed_primitives::{AccountId, MetadataScheme, TokenId};
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
@@ -50,33 +50,13 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 	collection_id
 }
 
-// Create an NFT collection with xls-20 compatibility
-// Returns the created `collection_id`
-fn setup_xls20_collection(owner: AccountId) -> CollectionUuid {
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = b"test-xls20-collection".to_vec();
-	let metadata_scheme = MetadataScheme::Https(b"example.com/".to_vec());
-	let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
-	assert_ok!(Nft::create_collection(
-		Some(owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		None,
-		cross_chain_compatibility,
-	));
-	collection_id
-}
-
 /// Setup a token, return collection id, token id, token owner
 fn setup_token() -> (CollectionUuid, TokenId, AccountId) {
-	let collection_owner = 1_u64;
+	let collection_owner = create_account(1);
 	let collection_id = setup_collection(collection_owner);
-	let token_owner = 2_u64;
+	let token_owner = create_account(2);
 	let token_id = (collection_id, 0);
-	assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner), None));
+	assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)));
 
 	(collection_id, token_id, token_owner)
 }
@@ -86,7 +66,7 @@ fn setup_token_with_royalties(
 	royalties_schedule: RoyaltiesSchedule<AccountId>,
 	quantity: TokenCount,
 ) -> (CollectionUuid, TokenId, AccountId) {
-	let collection_owner = 1_u64;
+	let collection_owner = create_account(1);
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = b"test-collection".to_vec();
 	let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
@@ -101,14 +81,13 @@ fn setup_token_with_royalties(
 		CrossChainCompatibility::default(),
 	));
 
-	let token_owner = 2_u64;
+	let token_owner = create_account(2);
 	let token_id = (collection_id, 0);
 	assert_ok!(Nft::mint(
 		Some(collection_owner).into(),
 		collection_id,
 		quantity,
 		Some(token_owner),
-		None
 	));
 
 	(collection_id, token_id, token_owner)
@@ -177,15 +156,16 @@ fn next_collection_uuid_works() {
 		// 0b000000000000000000001_0001100100
 
 		// Test with first collection_id (0)
+		let account = create_account(1);
 		let expected_result = 0b000000000000000000000_0001100100 as u32;
-		assert_eq!(setup_collection(1_u64), expected_result);
+		assert_eq!(setup_collection(account), expected_result);
 
 		// Test with max available for 22 bits
 		let next_collection_id = (1 << 22) - 2;
 		assert_eq!(next_collection_id, 0b0000000000_1111111111111111111110 as u32);
 		<NextCollectionId<Test>>::put(next_collection_id);
 		let expected_result = 0b1111111111111111111110_0001100100 as u32;
-		assert_eq!(setup_collection(1_u64), expected_result);
+		assert_eq!(setup_collection(account), expected_result);
 
 		// Next collection_uuid should fail (Reaches 22 bits max)
 		assert_noop!(Nft::next_collection_uuid(), Error::<Test>::NoAvailableIds);
@@ -195,7 +175,7 @@ fn next_collection_uuid_works() {
 #[test]
 fn owned_tokens_works() {
 	TestExt::default().build().execute_with(|| {
-		let token_owner = 2_u64;
+		let token_owner = create_account(2);
 		let quantity = 5000;
 		let collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -272,9 +252,9 @@ fn owned_tokens_works() {
 fn set_owner() {
 	TestExt::default().build().execute_with(|| {
 		// setup token collection + one token
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = setup_collection(collection_owner);
-		let new_owner = 2_u64;
+		let new_owner = create_account(2);
 
 		assert_ok!(Nft::set_owner(Some(collection_owner).into(), collection_id, new_owner));
 		assert_noop!(
@@ -291,8 +271,8 @@ fn set_owner() {
 #[test]
 fn create_collection() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let token_owner = 2_u64;
+		let collection_owner = create_account(1);
+		let token_owner = create_account(2);
 		let quantity = 5;
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let royalties_schedule =
@@ -363,20 +343,20 @@ fn create_collection() {
 		// check we can mint some more
 		// mint token Ids 5-7
 		let additional_quantity = 3;
+		let new_owner = create_account(3);
 		assert_ok!(Nft::mint(
 			Some(collection_owner).into(),
 			collection_id,
 			additional_quantity,
-			Some(token_owner + 1), // new owner this time
-			None
+			Some(new_owner), // new owner this time
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
 			start: 5,
 			end: 7,
-			owner: token_owner + 1,
+			owner: new_owner,
 		}));
-		assert_eq!(Nft::token_balance_of(&(token_owner + 1), collection_id), 3);
+		assert_eq!(Nft::token_balance_of(&(new_owner), collection_id), 3);
 		assert_eq!(
 			Nft::collection_info(collection_id).unwrap().next_serial_number,
 			quantity + additional_quantity
@@ -386,10 +366,7 @@ fn create_collection() {
 			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
 			(0_u32, vec![0, 1, 2, 3, 4])
 		);
-		assert_eq!(
-			Nft::owned_tokens(collection_id, &(token_owner + 1), 0, 1000),
-			(0_u32, vec![5, 6, 7])
-		);
+		assert_eq!(Nft::owned_tokens(collection_id, &(new_owner), 0, 1000), (0_u32, vec![5, 6, 7]));
 		assert_eq!(
 			Nft::collection_info(collection_id).unwrap().collection_issuance,
 			quantity + additional_quantity
@@ -401,12 +378,13 @@ fn create_collection() {
 fn create_collection_invalid_name() {
 	TestExt::default().build().execute_with(|| {
 		// too long
+		let collection_owner = create_account(1);
 		let bad_collection_name =
 			b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
 		let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
 		assert_noop!(
 			Nft::create_collection(
-				Some(1_u64).into(),
+				Some(collection_owner).into(),
 				bad_collection_name,
 				1,
 				None,
@@ -421,7 +399,7 @@ fn create_collection_invalid_name() {
 		// empty name
 		assert_noop!(
 			Nft::create_collection(
-				Some(1_u64).into(),
+				Some(collection_owner).into(),
 				vec![],
 				1,
 				None,
@@ -438,7 +416,7 @@ fn create_collection_invalid_name() {
 		let bad_collection_name = vec![0xfe, 0xff];
 		assert_noop!(
 			Nft::create_collection(
-				Some(1_u64).into(),
+				Some(collection_owner).into(),
 				bad_collection_name,
 				1,
 				None,
@@ -455,11 +433,17 @@ fn create_collection_invalid_name() {
 #[test]
 fn create_collection_royalties_invalid() {
 	TestExt::default().build().execute_with(|| {
-		let owner = 1_u64;
+		let owner = create_account(1);
 		let name = b"test-collection".to_vec();
 		let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
 
 		// Too big royalties should fail
+		let royalty_schedule = RoyaltiesSchedule::<AccountId> {
+			entitlements: vec![
+				(create_account(3), Permill::from_float(1.2)),
+				(create_account(4), Permill::from_float(3.3)),
+			],
+		};
 		assert_noop!(
 			Nft::create_collection(
 				Some(owner).into(),
@@ -468,12 +452,7 @@ fn create_collection_royalties_invalid() {
 				None,
 				None,
 				metadata_scheme.clone(),
-				Some(RoyaltiesSchedule::<AccountId> {
-					entitlements: vec![
-						(3_u64, Permill::from_float(1.2)),
-						(4_u64, Permill::from_float(3.3))
-					]
-				}),
+				Some(royalty_schedule),
 				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::RoyaltiesInvalid
@@ -500,9 +479,9 @@ fn create_collection_royalties_invalid() {
 fn transfer() {
 	TestExt::default().build().execute_with(|| {
 		// setup token collection + one token
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let token_owner = 2_u64;
+		let token_owner = create_account(2);
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
 			b"test-collection".to_vec(),
@@ -514,7 +493,7 @@ fn transfer() {
 			CrossChainCompatibility::default(),
 		));
 
-		let new_owner = 3_u64;
+		let new_owner = create_account(3);
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![0]).unwrap();
 		assert_ok!(Nft::transfer(
@@ -540,9 +519,9 @@ fn transfer() {
 fn transfer_fails_prechecks() {
 	TestExt::default().build().execute_with(|| {
 		// setup token collection + one token
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let token_owner = 2_u64;
+		let token_owner = create_account(2);
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![0]).unwrap();
 
@@ -568,7 +547,7 @@ fn transfer_fails_prechecks() {
 			CrossChainCompatibility::default(),
 		));
 
-		let not_the_owner = 3_u64;
+		let not_the_owner = create_account(3);
 		assert_noop!(
 			Nft::transfer(
 				Some(not_the_owner).into(),
@@ -583,7 +562,7 @@ fn transfer_fails_prechecks() {
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers.clone(),
-			Some(5),
+			Some(create_account(5)),
 			NativeAssetId::get(),
 			1_000,
 			None,
@@ -602,9 +581,9 @@ fn transfer_fails_prechecks() {
 fn burn() {
 	TestExt::default().build().execute_with(|| {
 		// setup token collection + one token
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let token_owner = 2_u64;
+		let token_owner = create_account(2);
 
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
@@ -637,9 +616,9 @@ fn burn() {
 fn burn_fails_prechecks() {
 	TestExt::default().build().execute_with(|| {
 		// setup token collection + one token
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let token_owner = 2_u64;
+		let token_owner = create_account(2);
 
 		// token doesn't exist yet
 		assert_noop!(
@@ -660,7 +639,7 @@ fn burn_fails_prechecks() {
 
 		// Not owner
 		assert_noop!(
-			Nft::burn(Some(token_owner + 1).into(), (collection_id, 0)),
+			Nft::burn(Some(create_account(3)).into(), (collection_id, 0)),
 			Error::<Test>::NotTokenOwner,
 		);
 
@@ -686,14 +665,14 @@ fn burn_fails_prechecks() {
 
 #[test]
 fn sell() {
-	let buyer = 3;
+	let buyer = create_account(3);
 	let initial_balance = 1_000;
 
 	TestExt::default()
 		.with_balances(&[(buyer, initial_balance)])
 		.build()
 		.execute_with(|| {
-			let collection_owner = 1_u64;
+			let collection_owner = create_account(1);
 			let quantity = 5;
 			let collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -743,10 +722,10 @@ fn sell() {
 #[test]
 fn sell_multiple_fails() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = setup_collection(collection_owner);
 		// mint some tokens
-		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None, None));
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
 			start: 0,
@@ -781,11 +760,12 @@ fn sell_multiple() {
 
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		let buyer = create_account(5);
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers,
-			Some(5),
+			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
 			None,
@@ -808,7 +788,7 @@ fn sell_multiple() {
 			payment_asset: NativeAssetId::get(),
 			fixed_price: 1_000,
 			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-			buyer: Some(5),
+			buyer: Some(buyer),
 			collection_id,
 			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
 			seller: token_owner,
@@ -830,7 +810,12 @@ fn sell_multiple() {
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner + 1),
+			Nft::transfer(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				create_account(9)
+			),
 			Error::<Test>::TokenLocked
 		);
 	});
@@ -843,12 +828,14 @@ fn sell_fails() {
 		// Not token owner
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		let bob = create_account(9);
+		let buyer = create_account(5);
 		assert_noop!(
 			Nft::sell(
-				Some(token_owner + 1).into(),
+				Some(bob).into(),
 				collection_id,
 				serial_numbers,
-				Some(5),
+				Some(buyer),
 				NativeAssetId::get(),
 				1_000,
 				None,
@@ -864,7 +851,7 @@ fn sell_fails() {
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers.clone(),
-			Some(5),
+			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
 			None,
@@ -875,7 +862,7 @@ fn sell_fails() {
 				Some(token_owner).into(),
 				collection_id,
 				serial_numbers.clone(),
-				Some(5),
+				Some(buyer),
 				NativeAssetId::get(),
 				1_000,
 				None,
@@ -907,11 +894,12 @@ fn cancel_sell() {
 		let listing_id = Nft::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		let buyer = create_account(5);
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers,
-			Some(5),
+			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
 			None,
@@ -936,11 +924,12 @@ fn cancel_sell() {
 		// it should be free to operate on the token
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		let new_owner = create_account(6);
 		assert_ok!(Nft::transfer(
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers,
-			token_owner + 1,
+			new_owner,
 		));
 	});
 }
@@ -953,11 +942,12 @@ fn sell_closes_on_schedule() {
 		let listing_id = Nft::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		let buyer = create_account(5);
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers,
-			Some(5),
+			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
 			Some(listing_duration),
@@ -973,7 +963,7 @@ fn sell_closes_on_schedule() {
 			.is_none());
 
 		// should be free to transfer now
-		let new_owner = 8;
+		let new_owner = create_account(8);
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		assert_ok!(Nft::transfer(
@@ -992,11 +982,12 @@ fn updates_fixed_price() {
 		let listing_id = Nft::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		let buyer = create_account(5);
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers,
-			Some(5),
+			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
 			None,
@@ -1014,7 +1005,7 @@ fn updates_fixed_price() {
 			payment_asset: NativeAssetId::get(),
 			fixed_price: 1_500,
 			close: System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-			buyer: Some(5),
+			buyer: Some(buyer),
 			seller: token_owner,
 			collection_id,
 			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
@@ -1067,11 +1058,12 @@ fn update_fixed_price_fails_not_owner() {
 		let listing_id = Nft::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
+		let buyer = create_account(5);
 		assert_ok!(Nft::sell(
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers,
-			Some(5),
+			Some(buyer),
 			NativeAssetId::get(),
 			1_000,
 			None,
@@ -1079,7 +1071,7 @@ fn update_fixed_price_fails_not_owner() {
 		));
 
 		assert_noop!(
-			Nft::update_fixed_price(Some(token_owner + 1).into(), listing_id, 1_500),
+			Nft::update_fixed_price(Some(buyer).into(), listing_id, 1_500),
 			Error::<Test>::NotSeller
 		);
 	});
@@ -1088,7 +1080,7 @@ fn update_fixed_price_fails_not_owner() {
 #[test]
 fn register_marketplace() {
 	TestExt::default().build().execute_with(|| {
-		let account = 1;
+		let account = create_account(1);
 		let entitlement: Permill = Permill::from_float(0.1);
 		let marketplace_id = Nft::next_marketplace_id();
 		assert_ok!(Nft::register_marketplace(Some(account).into(), None, entitlement));
@@ -1104,8 +1096,8 @@ fn register_marketplace() {
 #[test]
 fn register_marketplace_separate_account() {
 	TestExt::default().build().execute_with(|| {
-		let account = 1;
-		let marketplace_account = 2;
+		let account = create_account(1);
+		let marketplace_account = create_account(2);
 		let marketplace_id = Nft::next_marketplace_id();
 		let entitlement: Permill = Permill::from_float(0.1);
 
@@ -1124,15 +1116,15 @@ fn register_marketplace_separate_account() {
 
 #[test]
 fn buy_with_marketplace_royalties() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let sale_price = 1_000_008;
 
 	TestExt::default()
 		.with_balances(&[(buyer, sale_price * 2)])
 		.build()
 		.execute_with(|| {
-			let collection_owner = 1;
-			let beneficiary_1 = 11;
+			let collection_owner = create_account(1);
+			let beneficiary_1 = create_account(11);
 			let royalties_schedule = RoyaltiesSchedule {
 				entitlements: vec![(beneficiary_1, Permill::from_float(0.1111))],
 			};
@@ -1141,7 +1133,7 @@ fn buy_with_marketplace_royalties() {
 
 			let token_id = (collection_id, 0);
 
-			let marketplace_account = 20;
+			let marketplace_account = create_account(20);
 			let initial_balance_marketplace =
 				AssetsExt::reducible_balance(NativeAssetId::get(), &marketplace_account, false);
 			let marketplace_entitlement: Permill = Permill::from_float(0.5);
@@ -1194,14 +1186,14 @@ fn buy_with_marketplace_royalties() {
 
 #[test]
 fn list_with_invalid_marketplace_royalties_should_fail() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let sale_price = 1_000_008;
 
 	TestExt::default()
 		.with_balances(&[(buyer, sale_price * 2)])
 		.build()
 		.execute_with(|| {
-			let beneficiary_1 = 11;
+			let beneficiary_1 = create_account(11);
 			let royalties_schedule = RoyaltiesSchedule {
 				entitlements: vec![(beneficiary_1, Permill::from_float(0.51))],
 			};
@@ -1210,7 +1202,7 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 
 			let token_id = (collection_id, 0);
 
-			let marketplace_account = 20;
+			let marketplace_account = create_account(20);
 			let marketplace_entitlement: Permill = Permill::from_float(0.5);
 			assert_ok!(Nft::register_marketplace(
 				Some(marketplace_account).into(),
@@ -1238,12 +1230,12 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 
 #[test]
 fn buy() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let price = 1_000;
 
 	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
-		let buyer = 5;
+		let buyer = create_account(5);
 
 		let listing_id = Nft::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
@@ -1280,16 +1272,16 @@ fn buy() {
 
 #[test]
 fn buy_with_royalties() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let sale_price = 1_000_008;
 
 	TestExt::default()
 		.with_balances(&[(buyer, sale_price * 2)])
 		.build()
 		.execute_with(|| {
-			let collection_owner = 1;
-			let beneficiary_1 = 11;
-			let beneficiary_2 = 12;
+			let collection_owner = create_account(1);
+			let beneficiary_1 = create_account(11);
+			let beneficiary_2 = create_account(12);
 			let royalties_schedule = RoyaltiesSchedule {
 				entitlements: vec![
 					(collection_owner, Permill::from_float(0.111)),
@@ -1370,14 +1362,14 @@ fn buy_with_royalties() {
 
 #[test]
 fn buy_fails_prechecks() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let price = 1_000;
 	TestExt::default()
 		.with_balances(&[(buyer, price - 1)])
 		.build()
 		.execute_with(|| {
 			let (collection_id, token_id, token_owner) = setup_token();
-			let buyer = 5;
+			let buyer = create_account(5);
 
 			let price = 1_000;
 			let listing_id = Nft::next_listing_id();
@@ -1401,7 +1393,8 @@ fn buy_fails_prechecks() {
 			));
 
 			// no permission
-			assert_noop!(Nft::buy(Some(buyer + 1).into(), listing_id), Error::<Test>::NotBuyer,);
+			let not_buyer = create_account(6);
+			assert_noop!(Nft::buy(Some(not_buyer).into(), listing_id), Error::<Test>::NotBuyer,);
 
 			assert_noop!(
 				Nft::buy(Some(buyer).into(), listing_id),
@@ -1412,7 +1405,7 @@ fn buy_fails_prechecks() {
 
 #[test]
 fn sell_to_anybody() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let price = 1_000;
 	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
@@ -1452,7 +1445,7 @@ fn sell_to_anybody() {
 
 #[test]
 fn buy_with_overcommitted_royalties() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let price = 1_000;
 	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
 		// royalties are > 100% total which could create funds out of nothing
@@ -1508,8 +1501,9 @@ fn cancel_auction() {
 			None,
 		));
 
+		let new_owner = create_account(6);
 		assert_noop!(
-			Nft::cancel_sale(Some(token_owner + 1).into(), listing_id),
+			Nft::cancel_sale(Some(new_owner).into(), listing_id),
 			Error::<Test>::NotSeller
 		);
 
@@ -1532,17 +1526,17 @@ fn cancel_auction() {
 			Some(token_owner).into(),
 			collection_id,
 			serial_numbers,
-			token_owner + 1,
+			new_owner,
 		));
 	});
 }
 
 #[test]
 fn auction_bundle() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let price = 1_000;
 	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let quantity = 5;
 
@@ -1596,9 +1590,9 @@ fn auction_bundle() {
 #[test]
 fn auction_bundle_fails() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = setup_collection(collection_owner);
-		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None, None));
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
 			start: 0,
@@ -1624,8 +1618,8 @@ fn auction_bundle_fails() {
 
 #[test]
 fn auction() {
-	let bidder_1 = 5;
-	let bidder_2 = 6;
+	let bidder_1 = create_account(5);
+	let bidder_2 = create_account(6);
 	let reserve_price = 100_000;
 	let winning_bid = reserve_price + 1;
 
@@ -1704,7 +1698,7 @@ fn auction() {
 
 #[test]
 fn bid_auto_extends() {
-	let bidder_1 = 5;
+	let bidder_1 = create_account(5);
 	let reserve_price = 100_000;
 
 	TestExt::default()
@@ -1742,16 +1736,16 @@ fn bid_auto_extends() {
 
 #[test]
 fn auction_royalty_payments() {
-	let bidder = 5;
+	let bidder = create_account(5);
 	let reserve_price = 100_004;
 
 	TestExt::default()
 		.with_balances(&[(bidder, reserve_price)])
 		.build()
 		.execute_with(|| {
-			let beneficiary_1 = 11;
-			let beneficiary_2 = 12;
-			let collection_owner = 1;
+			let beneficiary_1 = create_account(11);
+			let beneficiary_2 = create_account(12);
+			let collection_owner = create_account(1);
 			let royalties_schedule = RoyaltiesSchedule {
 				entitlements: vec![
 					(collection_owner, Permill::from_float(0.1111)),
@@ -1830,11 +1824,9 @@ fn auction_royalty_payments() {
 fn close_listings_at_removes_listing_data() {
 	TestExt::default().build().execute_with(|| {
 		let collection_id = Nft::next_collection_uuid().unwrap();
-
 		let price = 123_456;
-
 		let token_1 = (collection_id, 0);
-
+		let seller = create_account(1);
 		let listings = vec![
 			// an open sale which won't be bought before closing
 			Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
@@ -1842,7 +1834,7 @@ fn close_listings_at_removes_listing_data() {
 				fixed_price: price,
 				buyer: None,
 				close: System::block_number() + 1,
-				seller: 1,
+				seller: seller.clone(),
 				collection_id,
 				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
 				royalties_schedule: Default::default(),
@@ -1853,7 +1845,7 @@ fn close_listings_at_removes_listing_data() {
 				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
-				seller: 1,
+				seller: seller.clone(),
 				collection_id,
 				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
 				royalties_schedule: Default::default(),
@@ -1864,7 +1856,7 @@ fn close_listings_at_removes_listing_data() {
 				payment_asset: NativeAssetId::get(),
 				reserve_price: price,
 				close: System::block_number() + 1,
-				seller: 1,
+				seller: seller.clone(),
 				collection_id,
 				serial_numbers: BoundedVec::try_from(vec![token_1.1]).unwrap(),
 				royalties_schedule: Default::default(),
@@ -1879,7 +1871,7 @@ fn close_listings_at_removes_listing_data() {
 			ListingEndSchedule::<Test>::insert(System::block_number() + 1, listing_id, true);
 		}
 		// winning bidder has no funds, this should cause settlement failure
-		ListingWinningBid::<Test>::insert(2, (11u64, 100u128));
+		ListingWinningBid::<Test>::insert(2, (create_account(11), 100u128));
 
 		// Close the listings
 		Nft::close_listings_at(System::block_number() + 1);
@@ -1939,9 +1931,10 @@ fn auction_fails_prechecks() {
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![token_id.1]).unwrap();
 		// not owner
+		let bob = create_account(6);
 		assert_noop!(
 			Nft::auction(
-				Some(token_owner + 1).into(),
+				Some(bob).into(),
 				collection_id,
 				serial_numbers.clone(),
 				NativeAssetId::get(),
@@ -1995,7 +1988,7 @@ fn auction_fails_prechecks() {
 
 #[test]
 fn bid_fails_prechecks() {
-	let bidder = 5;
+	let bidder = create_account(5);
 	let reserve_price = 100_004;
 
 	TestExt::default()
@@ -2004,7 +1997,7 @@ fn bid_fails_prechecks() {
 		.execute_with(|| {
 			let missing_listing_id = 5;
 			assert_noop!(
-				Nft::bid(Some(1).into(), missing_listing_id, 100),
+				Nft::bid(Some(create_account(1)).into(), missing_listing_id, 100),
 				Error::<Test>::NotForAuction
 			);
 
@@ -2057,12 +2050,12 @@ fn bid_fails_prechecks() {
 
 #[test]
 fn bid_no_balance_should_fail() {
-	let bidder = 5;
+	let bidder = create_account(5);
 
 	TestExt::default().build().execute_with(|| {
 		let missing_listing_id = 5;
 		assert_noop!(
-			Nft::bid(Some(1).into(), missing_listing_id, 100),
+			Nft::bid(Some(create_account(1)).into(), missing_listing_id, 100),
 			Error::<Test>::NotForAuction
 		);
 
@@ -2092,8 +2085,8 @@ fn bid_no_balance_should_fail() {
 #[test]
 fn mint_over_max_issuance_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let token_owner = 2_u64;
+		let collection_owner = create_account(1);
+		let token_owner = create_account(2);
 		let initial_issuance = 2;
 		let max_issuance = 5;
 		let collection_id = Nft::next_collection_uuid().unwrap();
@@ -2115,13 +2108,7 @@ fn mint_over_max_issuance_should_fail() {
 		);
 
 		// Mint tokens 2-5
-		assert_ok!(Nft::mint(
-			Some(collection_owner).into(),
-			collection_id,
-			3,
-			Some(token_owner),
-			None
-		));
+		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 3, Some(token_owner),));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
 			start: 2,
@@ -2135,14 +2122,14 @@ fn mint_over_max_issuance_should_fail() {
 
 		// No more can be minted as max issuance has been reached
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner), None),
+			Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)),
 			Error::<Test>::MaxIssuanceReached
 		);
 
 		// Even if tokens are burned, more can't be minted
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 0)));
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner), None),
+			Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)),
 			Error::<Test>::MaxIssuanceReached
 		);
 	});
@@ -2154,7 +2141,7 @@ fn invalid_max_issuance_should_fail() {
 		// Max issuance of 0 should fail
 		assert_noop!(
 			Nft::create_collection(
-				Some(1_u64).into(),
+				Some(create_account(1)).into(),
 				b"test-collection".to_vec(),
 				0,
 				Some(0),
@@ -2169,7 +2156,7 @@ fn invalid_max_issuance_should_fail() {
 		// Max issuance lower than initial issuance should fail
 		assert_noop!(
 			Nft::create_collection(
-				Some(1_u64).into(),
+				Some(create_account(1)).into(),
 				b"test-collection".to_vec(),
 				5,
 				Some(2),
@@ -2184,7 +2171,7 @@ fn invalid_max_issuance_should_fail() {
 		// Max issuance higher than maxTokensPerCollection should fail
 		assert_noop!(
 			Nft::create_collection(
-				Some(1_u64).into(),
+				Some(create_account(1)).into(),
 				b"test-collection".to_vec(),
 				5,
 				Some(mock::MaxTokensPerCollection::get() + 1),
@@ -2201,7 +2188,7 @@ fn invalid_max_issuance_should_fail() {
 #[test]
 fn mint_fails() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
 
 		// mint token Ids 0-4
@@ -2218,19 +2205,19 @@ fn mint_fails() {
 
 		// add 0 additional fails
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id, 0, None, None),
+			Nft::mint(Some(collection_owner).into(), collection_id, 0, None),
 			Error::<Test>::NoToken
 		);
 
 		// add to non-existing collection fails
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id + 1, 5, None, None),
+			Nft::mint(Some(collection_owner).into(), collection_id + 1, 5, None),
 			Error::<Test>::NoCollectionFound
 		);
 
 		// not collection owner
 		assert_noop!(
-			Nft::mint(Some(collection_owner + 1).into(), collection_id, 5, None, None),
+			Nft::mint(Some(create_account(2)).into(), collection_id, 5, None),
 			Error::<Test>::NotCollectionOwner
 		);
 
@@ -2241,7 +2228,6 @@ fn mint_fails() {
 				collection_id,
 				mock::MaxTokensPerCollection::get(),
 				None,
-				None
 			),
 			Error::<Test>::TokenLimitExceeded
 		);
@@ -2251,7 +2237,7 @@ fn mint_fails() {
 #[test]
 fn token_uri_construction() {
 	TestExt::default().build().execute_with(|| {
-		let owner = 1_u64;
+		let owner = create_account(1);
 		let quantity = 5;
 		let mut collection_id = Nft::next_collection_uuid().unwrap();
 		// mint token Ids
@@ -2346,7 +2332,7 @@ fn token_uri_construction() {
 
 #[test]
 fn make_simple_offer() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
 	TestExt::default()
@@ -2373,7 +2359,7 @@ fn make_simple_offer() {
 fn make_simple_offer_insufficient_funds_should_fail() {
 	TestExt::default().build().execute_with(|| {
 		let (_, token_id, _) = setup_token();
-		let buyer: u64 = 3;
+		let buyer = create_account(3);
 		let offer_amount: Balance = 100;
 		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 0);
 
@@ -2394,7 +2380,7 @@ fn make_simple_offer_insufficient_funds_should_fail() {
 fn make_simple_offer_zero_amount_should_fail() {
 	TestExt::default().build().execute_with(|| {
 		let (_, token_id, _) = setup_token();
-		let buyer: u64 = 3;
+		let buyer = create_account(3);
 		let offer_amount: Balance = 0;
 		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 0);
 
@@ -2432,7 +2418,7 @@ fn make_simple_offer_token_owner_should_fail() {
 
 #[test]
 fn make_simple_offer_on_fixed_price_listing() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
 	TestExt::default()
@@ -2470,7 +2456,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 
 #[test]
 fn make_simple_offer_on_auction_should_fail() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
 	TestExt::default()
@@ -2507,7 +2493,7 @@ fn make_simple_offer_on_auction_should_fail() {
 
 #[test]
 fn cancel_offer() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
 	TestExt::default()
@@ -2537,8 +2523,8 @@ fn cancel_offer() {
 
 #[test]
 fn cancel_offer_multiple_offers() {
-	let buyer_1: u64 = 3;
-	let buyer_2: u64 = 4;
+	let buyer_1 = create_account(3);
+	let buyer_2 = create_account(4);
 	let initial_balance_buyer_1: Balance = 1000;
 	let initial_balance_buyer_2: Balance = 1000;
 
@@ -2591,7 +2577,7 @@ fn cancel_offer_multiple_offers() {
 
 #[test]
 fn cancel_offer_not_buyer_should_fail() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
 	TestExt::default()
@@ -2602,13 +2588,16 @@ fn cancel_offer_not_buyer_should_fail() {
 			let offer_amount: Balance = 100;
 			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
 
-			assert_noop!(Nft::cancel_offer(Some(4).into(), offer_id), Error::<Test>::NotBuyer);
+			assert_noop!(
+				Nft::cancel_offer(Some(create_account(4)).into(), offer_id),
+				Error::<Test>::NotBuyer
+			);
 		});
 }
 
 #[test]
 fn accept_offer() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
 	TestExt::default()
@@ -2645,8 +2634,8 @@ fn accept_offer() {
 
 #[test]
 fn accept_offer_multiple_offers() {
-	let buyer_1: u64 = 3;
-	let buyer_2: u64 = 4;
+	let buyer_1 = create_account(3);
+	let buyer_2 = create_account(4);
 	let initial_balance_buyer_1: Balance = 1000;
 	let initial_balance_buyer_2: Balance = 1000;
 
@@ -2707,7 +2696,7 @@ fn accept_offer_multiple_offers() {
 
 #[test]
 fn accept_offer_pays_marketplace_royalties() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
 	TestExt::default()
@@ -2717,7 +2706,7 @@ fn accept_offer_pays_marketplace_royalties() {
 			let (_, token_id, token_owner) = setup_token();
 			let offer_amount: Balance = 100;
 
-			let marketplace_account = 4;
+			let marketplace_account = create_account(4);
 			let entitlements: Permill = Permill::from_float(0.1);
 			let marketplace_id = Nft::next_marketplace_id();
 			assert_ok!(Nft::register_marketplace(
@@ -2753,7 +2742,7 @@ fn accept_offer_pays_marketplace_royalties() {
 
 #[test]
 fn accept_offer_not_token_owner_should_fail() {
-	let buyer = 5;
+	let buyer = create_account(5);
 	let initial_balance_buyer = 1000;
 
 	TestExt::default()
@@ -2764,17 +2753,20 @@ fn accept_offer_not_token_owner_should_fail() {
 			let offer_amount: Balance = 100;
 
 			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
-			assert_noop!(Nft::accept_offer(Some(4).into(), offer_id), Error::<Test>::NotTokenOwner);
+			assert_noop!(
+				Nft::accept_offer(Some(create_account(4)).into(), offer_id),
+				Error::<Test>::NotTokenOwner
+			);
 		});
 }
 
 #[test]
 fn transfer_changes_token_balance() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let token_owner = 2_u64;
-		let new_owner = 3_u64;
+		let token_owner = create_account(2);
+		let new_owner = create_account(3);
 		let initial_quantity: u32 = 1;
 
 		// Mint 1 token
@@ -2799,7 +2791,6 @@ fn transfer_changes_token_balance() {
 			collection_id,
 			additional_quantity,
 			Some(token_owner),
-			None
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
@@ -2836,10 +2827,10 @@ fn transfer_changes_token_balance() {
 #[test]
 fn transfer_many_tokens_changes_token_balance() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let token_owner = 2_u64;
-		let new_owner = 3_u64;
+		let token_owner = create_account(2);
+		let new_owner = create_account(3);
 		let initial_quantity: u32 = 100;
 
 		// Mint tokens
@@ -2882,10 +2873,10 @@ fn transfer_many_tokens_changes_token_balance() {
 #[test]
 fn transfer_many_tokens_at_once_changes_token_balance() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let token_owner = 2_u64;
-		let new_owner = 3_u64;
+		let token_owner = create_account(2);
+		let new_owner = create_account(3);
 		let initial_quantity: u32 = 100;
 		let transfer_quantity: u32 = 66;
 
@@ -2933,8 +2924,8 @@ fn transfer_many_tokens_at_once_changes_token_balance() {
 #[test]
 fn cannot_mint_bridged_collections() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let token_owner = 2_u64;
+		let collection_owner = create_account(1);
+		let token_owner = create_account(2);
 
 		let collection_id = Pallet::<Test>::do_create_collection(
 			collection_owner,
@@ -2952,7 +2943,7 @@ fn cannot_mint_bridged_collections() {
 
 		// Collection already exists on origin chain; not allowed to be minted here
 		assert_noop!(
-			Nft::mint(Some(collection_owner).into(), collection_id, 420, Some(token_owner), None),
+			Nft::mint(Some(collection_owner).into(), collection_id, 420, Some(token_owner)),
 			Error::<Test>::AttemptedMintOnBridgedToken
 		);
 	});
@@ -2961,8 +2952,8 @@ fn cannot_mint_bridged_collections() {
 #[test]
 fn mints_multiple_specified_tokens_by_id() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let token_owner = 2_u64;
+		let collection_owner = create_account(1);
+		let token_owner = create_account(2);
 		let token_ids: Vec<SerialNumber> = vec![0, 2, 5, 9, 1000];
 		let collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -2996,8 +2987,8 @@ fn mints_multiple_specified_tokens_by_id() {
 #[test]
 fn mint_duplicate_token_id_should_fail_silently() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let token_owner = 2_u64;
+		let collection_owner = create_account(1);
+		let token_owner = create_account(2);
 		let token_ids: Vec<SerialNumber> = vec![0, 2, 5, 9, 1000, 0, 2, 5, 9, 1000];
 		let collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -3018,7 +3009,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		// Minting to another account_id should still succeed, but the token balance of this account
 		// will be 0. This is because the tokens are already minted and each token will be silently
 		// skipped
-		let other_owner = 4_u64;
+		let other_owner = create_account(4);
 		Nft::mint_bridged_token(&other_owner, collection_id, token_ids.clone());
 
 		// Ownership checks
@@ -3054,7 +3045,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 #[test]
 fn token_exists_works() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
+		let collection_owner = create_account(1);
 		let quantity: TokenCount = 100;
 		let collection_id = Nft::next_collection_uuid().unwrap();
 
@@ -3087,8 +3078,8 @@ fn token_exists_works() {
 #[test]
 fn token_balance_of_works() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let token_owner = 2_u64;
+		let collection_owner = create_account(1);
+		let token_owner = create_account(2);
 		let quantity: TokenCount = 100;
 		let collection_id = setup_collection(collection_owner);
 
@@ -3100,7 +3091,6 @@ fn token_balance_of_works() {
 			collection_id,
 			quantity,
 			Some(token_owner),
-			None
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
@@ -3114,7 +3104,8 @@ fn token_balance_of_works() {
 		// Check that collection_owner has 0 tokens
 		assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 0);
 		// Check that random accounts have 0 tokens
-		for owner in token_owner + 1..1000 {
+		for i in 4..1000 {
+			let owner = create_account(i);
 			assert_eq!(Nft::token_balance_of(&owner, collection_id), 0);
 		}
 	});
@@ -3123,8 +3114,8 @@ fn token_balance_of_works() {
 #[test]
 fn add_user_tokens_works() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let token_owner = 2_u64;
+		let collection_owner = create_account(1);
+		let token_owner = create_account(2);
 		let tokens: Vec<SerialNumber> = vec![0, 1, 2, 3, 900, 1000, 101010101];
 		let collection_id = setup_collection(collection_owner);
 		let mut collection_info = Nft::collection_info(collection_id).unwrap();
@@ -3142,7 +3133,7 @@ fn add_user_tokens_works() {
 		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
 
 		// Add tokens to token_owner_2
-		let token_owner_2 = 3_u64;
+		let token_owner_2 = create_account(3);
 		let tokens_2: Vec<SerialNumber> = vec![6, 9, 4, 2, 0];
 		let tokens_2_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(tokens_2.clone()).unwrap();
@@ -3168,9 +3159,9 @@ fn add_user_tokens_works() {
 #[test]
 fn add_user_tokens_over_token_limit_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let collection_owner = 1_u64;
-		let token_owner = 2_u64;
-		let token_owner_2 = 3_u64;
+		let collection_owner = create_account(1);
+		let token_owner = create_account(2);
+		let token_owner_2 = create_account(3);
 		let collection_id = setup_collection(collection_owner);
 		let mut collection_info = Nft::collection_info(collection_id).unwrap();
 		let max = mock::MaxTokensPerCollection::get();
@@ -3203,7 +3194,8 @@ fn add_user_tokens_over_token_limit_should_fail() {
 #[test]
 fn add_user_tokens_over_user_limit_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let collection_id = setup_collection(1_u64);
+		let collection_owner = create_account(1);
+		let collection_id = setup_collection(collection_owner);
 		let mut collection_info = Nft::collection_info(collection_id).unwrap();
 		let max = mock::MaxTokensPerCollection::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
@@ -3211,12 +3203,13 @@ fn add_user_tokens_over_user_limit_should_fail() {
 
 		// Adding users up to max should work
 		for i in 0..max as u64 {
-			assert_ok!(collection_info.add_user_tokens(&i, serial_numbers.clone()));
+			let account = create_account(i);
+			assert_ok!(collection_info.add_user_tokens(&account, serial_numbers.clone()));
 		}
 
 		// adding another user should fail
 		assert_noop!(
-			collection_info.add_user_tokens(&(max as u64), serial_numbers),
+			collection_info.add_user_tokens(&create_account(max as u64), serial_numbers),
 			Error::<Test>::TokenLimitExceeded
 		);
 	});
@@ -3231,7 +3224,7 @@ mod claim_unowned_collection {
 			let metadata = MetadataScheme::Https("google.com".into());
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let pallet_account = Nft::account_id();
-			let new_owner = ALICE;
+			let new_owner = create_account(10);
 
 			assert_ne!(new_owner, pallet_account);
 			assert_ok!(Nft::create_collection(
@@ -3266,7 +3259,7 @@ mod claim_unowned_collection {
 			let metadata = MetadataScheme::Https("google.com".into());
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let pallet_account = Nft::account_id();
-			let new_owner = ALICE;
+			let new_owner = create_account(10);
 
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(pallet_account.clone()).into(),
@@ -3291,7 +3284,7 @@ mod claim_unowned_collection {
 	fn collection_needs_to_exist() {
 		TestExt::default().build().execute_with(|| {
 			let collection_id = Nft::next_collection_uuid().unwrap();
-			let new_owner = ALICE;
+			let new_owner = create_account(10);
 
 			let ok = Nft::claim_unowned_collection(
 				RawOrigin::Root.into(),
@@ -3307,8 +3300,8 @@ mod claim_unowned_collection {
 		TestExt::default().build().execute_with(|| {
 			let metadata = MetadataScheme::Https("google.com".into());
 			let collection_id = Nft::next_collection_uuid().unwrap();
-			let new_owner = ALICE;
-			let old_owner = BOB;
+			let new_owner = create_account(10);
+			let old_owner = create_account(10);
 
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(old_owner.clone()).into(),
@@ -3330,910 +3323,82 @@ mod claim_unowned_collection {
 	}
 }
 
-mod xls20_tests {
-	use super::*;
-	use crate::mock::Xls20PaymentAsset;
+#[test]
+fn create_xls20_collection_works() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = create_account(10);
+		let collection_name = b"test-xls20-collection".to_vec();
+		let collection_id = Nft::next_collection_uuid().unwrap();
+		let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
+		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+		let initial_issuance: TokenCount = 0;
 
-	fn string_to_xls20_token(input: &str) -> Xls20TokenId {
-		Xls20TokenId::try_from(input.as_bytes()).unwrap()
-	}
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			collection_name.clone(),
+			initial_issuance,
+			None,
+			None,
+			metadata_scheme.clone(),
+			None,
+			cross_chain_compatibility.clone(),
+		));
+		let expected_tokens = create_owned_tokens(vec![]);
 
-	fn setup_token_mappings(
-		input: Vec<(SerialNumber, &str)>,
-	) -> BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> {
-		let input: Vec<(SerialNumber, Xls20TokenId)> =
-			input.into_iter().map(|(s, token)| (s, string_to_xls20_token(token))).collect();
+		assert!(has_event(Event::<Test>::CollectionCreate {
+			collection_uuid: collection_id,
+			initial_issuance,
+			max_issuance: None,
+			collection_owner,
+			metadata_scheme: metadata_scheme.clone(),
+			name: b"test-xls20-collection".to_vec(),
+			royalties_schedule: None,
+			origin_chain: OriginChain::Root,
+			compatibility: cross_chain_compatibility,
+		}));
 
-		BoundedVec::try_from(input).unwrap()
-	}
-
-	#[test]
-	fn set_relayer_works() {
-		TestExt::default().build().execute_with(|| {
-			// Not sudo should fail
-			assert_noop!(Nft::set_relayer(RawOrigin::Signed(ALICE).into(), ALICE), BadOrigin);
-			assert_eq!(Relayer::<Test>::get(), None);
-
-			// Set relayer to Alice
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), ALICE));
-			assert_eq!(Relayer::<Test>::get(), Some(ALICE));
-
-			// Set relayer to Bob
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), BOB));
-			assert_eq!(Relayer::<Test>::get(), Some(BOB));
-		});
-	}
-
-	#[test]
-	fn set_xls20_fee_works() {
-		TestExt::default().build().execute_with(|| {
-			let new_fee: Balance = 100;
-
-			// Not sudo should fail
-			assert_noop!(Nft::set_xls20_fee(RawOrigin::Signed(ALICE).into(), new_fee), BadOrigin);
-			assert_eq!(Xls20MintFee::<Test>::get(), 0);
-
-			// Set fee to 100
-			assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), new_fee));
-			assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
-
-			// Set fee to 200
-			let new_fee: Balance = 200;
-			assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), new_fee));
-			assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
-
-			// Set fee back to 0
-			let new_fee: Balance = 0;
-			assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), new_fee));
-			assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
-		});
-	}
-
-	#[test]
-	fn create_xls20_collection_works() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_name = b"test-xls20-collection".to_vec();
-			let collection_id = Nft::next_collection_uuid().unwrap();
-			let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
-			let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
-			let initial_issuance: TokenCount = 0;
-
-			assert_ok!(Nft::create_collection(
-				Some(collection_owner).into(),
-				collection_name.clone(),
-				initial_issuance,
-				None,
-				None,
-				metadata_scheme.clone(),
-				None,
-				cross_chain_compatibility.clone(),
-			));
-			let expected_tokens = create_owned_tokens(vec![]);
-
-			assert!(has_event(Event::<Test>::CollectionCreate {
-				collection_uuid: collection_id,
-				initial_issuance,
-				max_issuance: None,
-				collection_owner,
-				metadata_scheme: metadata_scheme.clone(),
-				name: b"test-xls20-collection".to_vec(),
+		// Check storage is correct
+		assert_eq!(
+			Nft::collection_info(collection_id).unwrap(),
+			CollectionInformation {
+				owner: collection_owner,
+				name: collection_name,
+				metadata_scheme,
 				royalties_schedule: None,
+				max_issuance: None,
 				origin_chain: OriginChain::Root,
-				compatibility: cross_chain_compatibility,
-			}));
-
-			// Check storage is correct
-			assert_eq!(
-				Nft::collection_info(collection_id).unwrap(),
-				CollectionInformation {
-					owner: collection_owner,
-					name: collection_name,
-					metadata_scheme,
-					royalties_schedule: None,
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 0,
-					owned_tokens: expected_tokens,
-					cross_chain_compatibility,
-				}
-			);
-		});
-	}
-
-	#[test]
-	fn create_xls20_collection_with_initial_issuance_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_name = b"test-xls20-collection".to_vec();
-			let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
-			let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
-			let initial_issuance: TokenCount = 1;
-
-			assert_noop!(
-				Nft::create_collection(
-					Some(collection_owner).into(),
-					collection_name,
-					initial_issuance,
-					None,
-					None,
-					metadata_scheme,
-					None,
-					cross_chain_compatibility,
-				),
-				Error::<Test>::InitialIssuanceNotZero
-			);
-		});
-	}
-
-	#[test]
-	fn xls20_mint_throws_event() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let quantity: TokenCount = 5;
-			let token_owner = BOB;
-
-			// Mint tokens
-			assert_ok!(Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				None
-			));
-
-			// Check event is thrown with all serial numbers and token_uris
-			let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3, 4];
-			let token_uris: Vec<Vec<u8>> = vec![
-				b"https://example.com/0".to_vec(),
-				b"https://example.com/1".to_vec(),
-				b"https://example.com/2".to_vec(),
-				b"https://example.com/3".to_vec(),
-				b"https://example.com/4".to_vec(),
-			];
-			assert!(has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
-
-			// Mint 2 more tokens for sanity
-			let quantity: TokenCount = 2;
-			assert_ok!(Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				None
-			));
-
-			// Check event is thrown with all serial numbers and token_uris
-			let serial_numbers: Vec<SerialNumber> = vec![5, 6];
-			let token_uris: Vec<Vec<u8>> =
-				vec![b"https://example.com/5".to_vec(), b"https://example.com/6".to_vec()];
-			assert!(has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
-		});
-	}
-
-	#[test]
-	fn xls20_mint_with_fee() {
-		let collection_owner = ALICE;
-		let initial_balance = 10000;
-
-		TestExt::default()
-			.with_xrp_balances(&[(collection_owner, initial_balance)])
-			.build()
-			.execute_with(|| {
-				let collection_id = setup_xls20_collection(collection_owner);
-				let quantity: TokenCount = 5;
-				let relayer = BOB;
-				let new_fee: Balance = 100;
-
-				// Set fee to 100
-				assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), new_fee));
-				assert_eq!(Xls20MintFee::<Test>::get(), new_fee);
-
-				// Set relayer to Bob
-				assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-				assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-				// Mint tokens with no fee fails
-				assert_noop!(
-					Nft::mint(
-						Some(collection_owner).into(),
-						collection_id,
-						quantity,
-						None,
-						None, // Needs to be Some(500)
-					),
-					Error::<Test>::Xls20MintFeeTooLow
-				);
-
-				// Mint tokens with too low fee fails
-				assert_noop!(
-					Nft::mint(
-						Some(collection_owner).into(),
-						collection_id,
-						quantity,
-						None,
-						Some(499), // Insufficient for 5 tokens
-					),
-					Error::<Test>::Xls20MintFeeTooLow
-				);
-
-				// Mint tokens with correct fee works
-				assert_ok!(Nft::mint(
-					Some(collection_owner).into(),
-					collection_id,
-					quantity,
-					None,
-					Some(500), // Fee is high enough!
-				));
-
-				// Check balances are correct after fees are paid.
-				let payment_amount = new_fee * quantity as u128; // 500
-				let balance_owner = AssetsExt::reducible_balance(
-					Xls20PaymentAsset::get(),
-					&collection_owner,
-					false,
-				);
-				assert_eq!(balance_owner, initial_balance - payment_amount);
-
-				let balance_relayer =
-					AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &relayer, false);
-				assert_eq!(balance_relayer, payment_amount);
-			});
-	}
-
-	#[test]
-	fn xls20_mint_with_fee_higher_than_minimum() {
-		let collection_owner = ALICE;
-		let initial_balance = 10000;
-
-		TestExt::default()
-			.with_xrp_balances(&[(collection_owner, initial_balance)])
-			.build()
-			.execute_with(|| {
-				let collection_id = setup_xls20_collection(collection_owner);
-				let quantity: TokenCount = 5;
-				let relayer = BOB;
-				let mint_fee: Balance = 100;
-				let specified_fee: Balance = 599; // The fee specified by the caller of mint
-
-				// Set fee to 100
-				assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), mint_fee));
-				assert_eq!(Xls20MintFee::<Test>::get(), mint_fee);
-
-				// Set relayer to Bob
-				assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-				assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-				// Mint tokens with correct fee works
-				assert_ok!(Nft::mint(
-					Some(collection_owner).into(),
-					collection_id,
-					quantity,
-					None,
-					Some(specified_fee), // Fee is too high
-				));
-
-				// Check balances are correct after fees are paid.
-				// Note the min fee will be paid, rather than the specified fee (599)
-				let balance_owner = AssetsExt::reducible_balance(
-					Xls20PaymentAsset::get(),
-					&collection_owner,
-					false,
-				);
-				assert_eq!(balance_owner, initial_balance - specified_fee);
-
-				let balance_relayer =
-					AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &relayer, false);
-				assert_eq!(balance_relayer, specified_fee);
-			});
-	}
-
-	#[test]
-	fn re_request_xls20_mint_works() {
-		let collection_owner = ALICE;
-		let initial_balance = 10000;
-
-		TestExt::default()
-			.with_xrp_balances(&[(collection_owner, initial_balance)])
-			.build()
-			.execute_with(|| {
-				let collection_id = setup_xls20_collection(collection_owner);
-				let relayer = BOB;
-				let mint_fee: Balance = 100;
-				let specified_fee: Balance = 400; // The fee specified by the caller of mint
-				let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-					BoundedVec::try_from(vec![0, 1, 2, 3]).unwrap();
-
-				// Mint tokens
-				assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 4, None, None));
-
-				// Set fee to 100
-				assert_ok!(Nft::set_xls20_fee(RawOrigin::Root.into(), mint_fee));
-				assert_eq!(Xls20MintFee::<Test>::get(), mint_fee);
-
-				// Set relayer to Bob
-				assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-				assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-				// Re request should pay fees and throw events
-				assert_ok!(Nft::re_request_xls20_mint(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					serial_numbers,
-					specified_fee
-				));
-
-				// Check balances are correct after fees are paid.
-				// Note the min fee will be paid, rather than the specified fee (599)
-				let balance_owner = AssetsExt::reducible_balance(
-					Xls20PaymentAsset::get(),
-					&collection_owner,
-					false,
-				);
-				assert_eq!(balance_owner, initial_balance - specified_fee);
-
-				let balance_relayer =
-					AssetsExt::reducible_balance(Xls20PaymentAsset::get(), &relayer, false);
-				assert_eq!(balance_relayer, specified_fee);
-
-				// Check event is thrown with all serial numbers and token_uris
-				let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3];
-				let token_uris: Vec<Vec<u8>> = vec![
-					b"https://example.com/0".to_vec(),
-					b"https://example.com/1".to_vec(),
-					b"https://example.com/2".to_vec(),
-					b"https://example.com/3".to_vec(),
-				];
-				assert!(has_event(Event::<Test>::Xls20MintRequest {
-					collection_id,
-					serial_numbers,
-					token_uris,
-				}));
-			});
-	}
-
-	#[test]
-	fn re_request_xls20_mint_not_collection_owner_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let specified_fee: Balance = 400; // The fee specified by the caller of mint
-			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![0]).unwrap();
-
-			// Re request should pay fees and throw events
-			assert_noop!(
-				Nft::re_request_xls20_mint(
-					RawOrigin::Signed(BOB).into(),
-					collection_id,
-					serial_numbers,
-					specified_fee
-				),
-				Error::<Test>::NotCollectionOwner
-			);
-
-			// Check event is NOT thrown
-			let serial_numbers: Vec<SerialNumber> = vec![0];
-			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
-			assert!(!has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
-		});
-	}
-
-	#[test]
-	fn re_request_xls20_mint_not_xls20_compatible_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_collection(collection_owner);
-			let specified_fee: Balance = 400; // The fee specified by the caller of mint
-			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![0, 1, 2, 3]).unwrap();
-
-			// Re request should pay fees and throw events
-			assert_noop!(
-				Nft::re_request_xls20_mint(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					serial_numbers,
-					specified_fee
-				),
-				Error::<Test>::NotXLS20Compatible
-			);
-
-			// Check event is NOT thrown
-			let serial_numbers: Vec<SerialNumber> = vec![0];
-			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
-			assert!(!has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
-		});
-	}
-
-	#[test]
-	fn re_request_xls20_mint_no_collection_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_id = 1;
-
-			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![0]).unwrap();
-
-			// Collection doesn't exist so should fail
-			assert_noop!(
-				Nft::re_request_xls20_mint(
-					RawOrigin::Signed(ALICE).into(),
-					collection_id,
-					serial_numbers,
-					100
-				),
-				Error::<Test>::NoCollectionFound
-			);
-
-			// Check event is NOT thrown
-			let serial_numbers: Vec<SerialNumber> = vec![0];
-			let token_uris: Vec<Vec<u8>> = vec![b"https://example.com/0".to_vec()];
-			assert!(!has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
-		});
-	}
-
-	#[test]
-	fn re_request_xls20_mint_empty_serial_numbers_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_id = 1;
-
-			// Empty serial numbers should fail
-			assert_noop!(
-				Nft::re_request_xls20_mint(
-					RawOrigin::Signed(ALICE).into(),
-					collection_id,
-					Default::default(),
-					100
-				),
-				Error::<Test>::NoToken
-			);
-
-			// Check event is NOT thrown
-			let serial_numbers: Vec<SerialNumber> = vec![];
-			let token_uris: Vec<Vec<u8>> = vec![];
-			assert!(!has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
-		});
-	}
-
-	#[test]
-	fn re_request_xls20_mint_no_token_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![0]).unwrap();
-
-			// Token doesn't exist should fail
-			assert_noop!(
-				Nft::re_request_xls20_mint(
-					RawOrigin::Signed(ALICE).into(),
-					collection_id,
-					serial_numbers,
-					100
-				),
-				Error::<Test>::NoToken
-			);
-
-			// Check event is NOT thrown
-			let serial_numbers: Vec<SerialNumber> = vec![];
-			let token_uris: Vec<Vec<u8>> = vec![];
-			assert!(!has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
-		});
-	}
-
-	#[test]
-	fn re_request_xls20_mint_duplicate_mapping_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let relayer = BOB;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![0]).unwrap();
-			let quantity: TokenCount = 1;
-			let token_owner = BOB;
-
-			let token_mappings = setup_token_mappings(vec![(
-				0,
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-			)]);
-
-			// Set relayer to Bob
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-
-			// Mint tokens
-			assert_ok!(Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				quantity,
-				Some(token_owner),
-				None
-			));
-
-			// call fulfill and add mappings to storage
-			assert_ok!(Nft::fulfill_xls20_mint(
-				RawOrigin::Signed(relayer).into(),
-				collection_id,
-				token_mappings.clone()
-			));
-
-			// Mapping already exists should fail
-			assert_noop!(
-				Nft::re_request_xls20_mint(
-					RawOrigin::Signed(ALICE).into(),
-					collection_id,
-					serial_numbers,
-					100
-				),
-				Error::<Test>::MappingAlreadyExists
-			);
-
-			// Check event is NOT thrown
-			let serial_numbers: Vec<SerialNumber> = vec![];
-			let token_uris: Vec<Vec<u8>> = vec![];
-			assert!(!has_event(Event::<Test>::Xls20MintRequest {
-				collection_id,
-				serial_numbers,
-				token_uris,
-			}));
-		});
-	}
-
-	#[test]
-	fn fulfill_xls20_mint_works() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let relayer = BOB;
-			let token_mappings = setup_token_mappings(vec![
-				(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-				(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
-				(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
-				(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
-			]);
-
-			// Set relayer to Bob
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-			assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-			// Mint tokens
-			assert_ok!(Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				token_mappings.len() as u32,
-				None,
-				None, // No fee set
-			));
-
-			// call fulfill and add mappings to storage
-			assert_ok!(Nft::fulfill_xls20_mint(
-				RawOrigin::Signed(relayer).into(),
-				collection_id,
-				token_mappings.clone()
-			));
-
-			// Check all mappings have been stored
-			for (serial_number, xls20_token_id) in token_mappings.clone().iter() {
-				assert_eq!(
-					Xls20TokenMap::<Test>::get(collection_id, serial_number),
-					Some(*xls20_token_id)
-				);
+				next_serial_number: 0,
+				collection_issuance: 0,
+				owned_tokens: expected_tokens,
+				cross_chain_compatibility,
 			}
+		);
+	});
+}
 
-			// Check event is thrown with new mappings
-			assert!(has_event(Event::<Test>::Xls20MappingSet {
-				collection_id,
-				mappings: token_mappings.into_inner(),
-			}));
-		});
-	}
+#[test]
+fn create_xls20_collection_with_initial_issuance_fails() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = create_account(10);
+		let collection_name = b"test-xls20-collection".to_vec();
+		let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
+		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
+		let initial_issuance: TokenCount = 1;
 
-	#[test]
-	fn fulfill_xls20_empty_token_map_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let relayer = BOB;
-			let token_mappings: BoundedVec<(SerialNumber, Xls20TokenId), MaxTokensPerCollection> =
-				BoundedVec::try_from(vec![]).unwrap();
-
-			// Set relayer to Bob
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-			assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-			// call fulfill and add mappings to storage
-			assert_noop!(
-				Nft::fulfill_xls20_mint(
-					RawOrigin::Signed(relayer).into(),
-					collection_id,
-					token_mappings.clone()
-				),
-				Error::<Test>::NoToken
-			);
-		});
-	}
-
-	#[test]
-	fn fulfill_xls20_mint_not_relayer_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let relayer = BOB;
-			let token_mappings = setup_token_mappings(vec![(
-				0,
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-			)]);
-
-			// Set relayer to Bob
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-			assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-			// call fulfill and add mappings to storage
-			assert_noop!(
-				Nft::fulfill_xls20_mint(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					token_mappings.clone()
-				),
-				Error::<Test>::NotRelayer
-			);
-		});
-	}
-
-	#[test]
-	fn fulfill_xls20_mint_no_collection_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_id = 1;
-			let relayer = BOB;
-			let token_mappings = setup_token_mappings(vec![(
-				0,
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-			)]);
-
-			// Set relayer to Bob
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-			assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-			// call fulfill and add mappings to storage
-			assert_noop!(
-				Nft::fulfill_xls20_mint(
-					RawOrigin::Signed(relayer).into(),
-					collection_id,
-					token_mappings.clone()
-				),
-				Error::<Test>::NoCollectionFound
-			);
-		});
-	}
-
-	#[test]
-	fn fulfill_xls20_mint_no_token_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let relayer = BOB;
-			let token_mappings = setup_token_mappings(vec![
-				(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-				(1, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"),
-				(2, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d68"),
-				(3, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d69"),
-			]);
-			// Set relayer to Bob
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-			assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-			// Mint one less token than we submit mappings for
-			assert_ok!(Nft::mint(
+		assert_noop!(
+			Nft::create_collection(
 				Some(collection_owner).into(),
-				collection_id,
-				token_mappings.len() as u32 - 1_u32,
+				collection_name,
+				initial_issuance,
 				None,
-				None, // No fee set
-			));
-
-			// call fulfill should fail as we have specified a serial number that does not exist
-			assert_noop!(
-				Nft::fulfill_xls20_mint(
-					RawOrigin::Signed(relayer).into(),
-					collection_id,
-					token_mappings.clone()
-				),
-				Error::<Test>::NoToken
-			);
-		});
-	}
-
-	#[test]
-	fn fulfill_xls20_mint_duplicate_mapping_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_xls20_collection(collection_owner);
-			let relayer = BOB;
-			let token_mappings = setup_token_mappings(vec![
-				(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-				(0, "000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"),
-			]);
-
-			// Set relayer to Bob
-			assert_ok!(Nft::set_relayer(RawOrigin::Root.into(), relayer));
-			assert_eq!(Relayer::<Test>::get(), Some(relayer));
-
-			// Mint tokens
-			assert_ok!(Nft::mint(
-				Some(collection_owner).into(),
-				collection_id,
-				token_mappings.len() as u32,
 				None,
-				None, // No fee set
-			));
-
-			// call fulfill should fail due to duplicate token ids in token_mappings
-			assert_noop!(
-				Nft::fulfill_xls20_mint(
-					RawOrigin::Signed(relayer).into(),
-					collection_id,
-					token_mappings.clone()
-				),
-				Error::<Test>::MappingAlreadyExists
-			);
-
-			// Submit successful token mappings to add to storage
-			let serial_number: SerialNumber = 0;
-			let token_mappings = setup_token_mappings(vec![(
-				serial_number,
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66",
-			)]);
-
-			assert_ok!(Nft::fulfill_xls20_mint(
-				RawOrigin::Signed(relayer).into(),
-				collection_id,
-				token_mappings.clone()
-			));
-			// Check it's added to storage
-			assert_eq!(
-				Xls20TokenMap::<Test>::get(collection_id, serial_number),
-				Some(string_to_xls20_token(
-					"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d66"
-				))
-			);
-
-			// Subsequent call should fail on same token id
-			assert_noop!(
-				Nft::fulfill_xls20_mint(
-					RawOrigin::Signed(relayer).into(),
-					collection_id,
-					token_mappings.clone()
-				),
-				Error::<Test>::MappingAlreadyExists
-			);
-
-			// Different serial should work fine
-			let serial_number: SerialNumber = 1;
-			let token_mappings = setup_token_mappings(vec![(
-				serial_number,
-				"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67",
-			)]);
-
-			assert_ok!(Nft::fulfill_xls20_mint(
-				RawOrigin::Signed(relayer).into(),
-				collection_id,
-				token_mappings.clone()
-			));
-			// Again, check it's added to storage
-			assert_eq!(
-				Xls20TokenMap::<Test>::get(collection_id, serial_number),
-				Some(string_to_xls20_token(
-					"000b013a95f14b0e44f78a264e41713c64b5f89242540ee2bc8b858e00000d67"
-				))
-			);
-		});
-	}
-
-	#[test]
-	fn enable_xls20_compatibility_works() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_collection(collection_owner);
-
-			// XLS-20 compatibility disabled
-			assert_eq!(
-				Nft::collection_info(collection_id).unwrap().cross_chain_compatibility,
-				CrossChainCompatibility { xrpl: false },
-			);
-
-			// Can successfully enable XLS-20 compatibility
-			assert_ok!(Nft::enable_xls20_compatibility(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-			));
-
-			// XLS-20 compatibility now enabled
-			assert_eq!(
-				Nft::collection_info(collection_id).unwrap().cross_chain_compatibility,
-				CrossChainCompatibility { xrpl: true },
-			);
-		});
-	}
-
-	#[test]
-	fn enable_xls20_compatibility_no_collection_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = 1;
-
-			// Can not enable compatibility if collection doesn't exist
-			assert_noop!(
-				Nft::enable_xls20_compatibility(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-				),
-				Error::<Test>::NoCollectionFound
-			);
-		});
-	}
-
-	#[test]
-	fn enable_xls20_compatibility_not_collection_owner_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_collection(collection_owner);
-
-			// Can not enable compatibility if not owner
-			assert_noop!(
-				Nft::enable_xls20_compatibility(RawOrigin::Signed(BOB).into(), collection_id,),
-				Error::<Test>::NotCollectionOwner
-			);
-		});
-	}
-
-	#[test]
-	fn enable_xls20_compatibility_non_zero_issuance_fails() {
-		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
-			let collection_id = setup_collection(collection_owner);
-
-			// Mint 1 token
-			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, None, None,));
-
-			// Can not enable compatibility if tokens are minted in collection
-			assert_noop!(
-				Nft::enable_xls20_compatibility(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-				),
-				Error::<Test>::CollectionIssuanceNotZero
-			);
-		});
-	}
+				metadata_scheme,
+				None,
+				cross_chain_compatibility,
+			),
+			Error::<Test>::InitialIssuanceNotZero
+		);
+	});
 }
 
 mod set_max_issuance {
@@ -4242,7 +3407,7 @@ mod set_max_issuance {
 	#[test]
 	fn set_max_issuance_works() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
 
 			// Setup collection with no Max issuance
@@ -4281,7 +3446,7 @@ mod set_max_issuance {
 	#[test]
 	fn set_max_issuance_prevents_further_minting_when_reached() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let max_issuance: TokenCount = 100;
 
@@ -4311,7 +3476,7 @@ mod set_max_issuance {
 
 			// Further NFTs can't be minted
 			assert_noop!(
-				Nft::mint(Some(collection_owner).into(), collection_id, 1, None, None),
+				Nft::mint(Some(collection_owner).into(), collection_id, 1, None),
 				Error::<Test>::MaxIssuanceReached
 			);
 		});
@@ -4320,7 +3485,7 @@ mod set_max_issuance {
 	#[test]
 	fn set_max_issuance_not_owner_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let max_issuance: TokenCount = 100;
 
@@ -4337,8 +3502,9 @@ mod set_max_issuance {
 			));
 
 			// Bob isn't collection owner, should fail
+			let bob = create_account(11);
 			assert_noop!(
-				Nft::set_max_issuance(RawOrigin::Signed(BOB).into(), collection_id, max_issuance),
+				Nft::set_max_issuance(RawOrigin::Signed(bob).into(), collection_id, max_issuance),
 				Error::<Test>::NotCollectionOwner
 			);
 		});
@@ -4347,7 +3513,7 @@ mod set_max_issuance {
 	#[test]
 	fn set_max_issuance_zero_issuance_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let max_issuance: TokenCount = 0;
 
@@ -4378,7 +3544,7 @@ mod set_max_issuance {
 	#[test]
 	fn set_max_issuance_no_collection_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = 1;
 			let max_issuance: TokenCount = 100;
 
@@ -4397,7 +3563,7 @@ mod set_max_issuance {
 	#[test]
 	fn set_max_issuance_already_set_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let max_issuance: TokenCount = 100;
 
@@ -4428,7 +3594,7 @@ mod set_max_issuance {
 	#[test]
 	fn set_max_issuance_twice_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
 
 			// Setup collection with no Max issuance
@@ -4472,7 +3638,7 @@ mod set_max_issuance {
 	#[test]
 	fn set_max_issuance_too_low_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let initial_issuance = 10;
 
@@ -4533,7 +3699,7 @@ mod set_base_uri {
 	#[test]
 	fn set_base_uri_works() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let metadata_scheme = MetadataScheme::Https("google.com".into());
 
@@ -4579,7 +3745,7 @@ mod set_base_uri {
 	#[test]
 	fn set_base_uri_all_variants_work() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
 
 			// HTTP
@@ -4633,7 +3799,7 @@ mod set_base_uri {
 	#[test]
 	fn set_base_uri_no_collection_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = 1;
 			let new_metadata_scheme: Vec<u8> = "http://zeeshan.com".into();
 
@@ -4652,14 +3818,15 @@ mod set_base_uri {
 	#[test]
 	fn set_base_uri_not_owner_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
 			let new_metadata_scheme: Vec<u8> = "http://zeeshan.com".into();
 
 			// Call from not owner should fail
+			let bob = create_account(11);
 			assert_noop!(
 				Nft::set_base_uri(
-					RawOrigin::Signed(BOB).into(),
+					RawOrigin::Signed(bob).into(),
 					collection_id,
 					new_metadata_scheme.clone()
 				),
@@ -4671,7 +3838,7 @@ mod set_base_uri {
 	#[test]
 	fn set_base_uri_invalid_path_fails() {
 		TestExt::default().build().execute_with(|| {
-			let collection_owner = ALICE;
+			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
 
 			// Calls with invalid path should fail

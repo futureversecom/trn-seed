@@ -18,19 +18,19 @@ use seed_pallet_common::Xls20MintRequest;
 use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber};
 use sp_runtime::{traits::Zero, DispatchResult, SaturatedConversion};
 use sp_std::prelude::*;
-// #[cfg(feature = "runtime-benchmarks")]
 
-// pub use weights::WeightInfo;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 // mod weights;
+// pub use weights::WeightInfo;
 
 pub use pallet::*;
 
-// mod benchmarking;
-// #[cfg(test)]
-// mod mock;
-// #[cfg(test)]
-// mod test;
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod test;
 
 /// TokenId type for XLS-20 Token Ids
 /// See: https://github.com/XRPLF/XRPL-Standards/discussions/46
@@ -114,8 +114,6 @@ pub mod pallet {
 		NotXLS20Compatible,
 		/// The NFT does not exist
 		NoToken,
-		/// Origin is not the collection owner and is not permitted to perform the operation
-		NotCollectionOwner,
 	}
 
 	#[pallet::call]

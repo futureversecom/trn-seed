@@ -16,14 +16,15 @@
 use crate as token_approvals;
 use frame_support::{parameter_types, PalletId};
 use frame_system::EnsureRoot;
-use seed_primitives::{AssetId, Balance};
+use seed_pallet_common::Xls20MintRequest;
+use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
+	DispatchResult,
 };
 
-pub type AccountId = u64;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -128,6 +129,19 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 }
 
+pub struct MockXls20MintRequest;
+impl Xls20MintRequest for MockXls20MintRequest {
+	type AccountId = AccountId;
+	fn request_xls20_mint(
+		_who: &Self::AccountId,
+		_collection_id: CollectionUuid,
+		_serial_numbers: Vec<SerialNumber>,
+		_metadata_scheme: MetadataScheme,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
+
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
@@ -148,7 +162,7 @@ impl pallet_nft::Config for Test {
 	type OnNewAssetSubscription = ();
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
-	type Xls20PaymentAsset = Xls20PaymentAsset;
+	type Xls20MintRequest = MockXls20MintRequest;
 	type WeightInfo = ();
 }
 

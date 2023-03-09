@@ -12,7 +12,6 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::H160;
-use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, vec::Vec};
 
 use seed_primitives::{

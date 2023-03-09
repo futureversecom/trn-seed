@@ -108,16 +108,17 @@ pub mod v3 {
 		use sp_runtime::Permill;
 
 		use super::*;
-		use crate::mock::{Test, TestExt};
+		use crate::mock::{create_account, Test, TestExt};
 
 		#[test]
 		fn migration_test() {
 			TestExt::default().build().execute_with(|| {
 				StorageVersion::new(2).put::<Pallet<Test>>();
-				let user_1 = 5_u64;
+				let user_1 = create_account(5);
+				let owner = create_account(123);
 
 				let old_info = OldCollectionInformation::<Test> {
-					owner: 123_u64,
+					owner: owner.clone(),
 					name: b"test-collection-1".to_vec(),
 					royalties_schedule: Some(RoyaltiesSchedule {
 						entitlements: vec![(user_1, Permill::one())],
@@ -136,7 +137,7 @@ pub mod v3 {
 				on_runtime_upgrade::<Test>();
 
 				let expected_value = CollectionInformation::<Test> {
-					owner: 123_u64,
+					owner,
 					name: b"test-collection-1".to_vec(),
 					royalties_schedule: Some(RoyaltiesSchedule {
 						entitlements: vec![(user_1, Permill::one())],

@@ -18,7 +18,6 @@
 use crate::{Config, Error};
 
 use codec::{Decode, Encode};
-use core::fmt::Write;
 use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use seed_primitives::{

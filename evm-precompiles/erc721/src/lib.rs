@@ -106,10 +106,10 @@ where
 		+ pallet_evm::Config
 		+ frame_system::Config
 		+ pallet_token_approvals::Config
-		+ pallet_xls_20::Config,
+		+ pallet_xls20::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<pallet_nft::Call<Runtime>>
-		+ From<pallet_xls_20::Call<Runtime>>
+		+ From<pallet_xls20::Call<Runtime>>
 		+ From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
@@ -207,10 +207,10 @@ where
 		+ pallet_evm::Config
 		+ frame_system::Config
 		+ pallet_token_approvals::Config
-		+ pallet_xls_20::Config,
+		+ pallet_xls20::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<pallet_nft::Call<Runtime>>
-		+ From<pallet_xls_20::Call<Runtime>>
+		+ From<pallet_xls20::Call<Runtime>>
 		+ From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
@@ -906,7 +906,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_xls_20::Call::<Runtime>::enable_xls20_compatibility { collection_id },
+			pallet_xls20::Call::<Runtime>::enable_xls20_compatibility { collection_id },
 		)?;
 
 		log0(handle.code_address(), SELECTOR_LOG_XLS20_ENABLED).record(handle)?;
@@ -936,14 +936,14 @@ where
 		}
 		let serial_numbers: BoundedVec<
 			SerialNumber,
-			<Runtime as pallet_xls_20::Config>::MaxTokensPerXls20Mint,
+			<Runtime as pallet_xls20::Config>::MaxTokensPerXls20Mint,
 		> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_xls_20::Call::<Runtime>::re_request_xls20_mint {
+			pallet_xls20::Call::<Runtime>::re_request_xls20_mint {
 				collection_id,
 				serial_numbers: serial_numbers.clone(),
 			},
