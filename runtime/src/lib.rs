@@ -120,6 +120,7 @@ mod custom_migration {
 	pub struct Upgrade;
 	impl OnRuntimeUpgrade for Upgrade {
 		fn on_runtime_upgrade() -> Weight {
+			log::info!(target: "Xls20", "Xls20 Pallet set to onchain version 0");
 			StorageVersion::new(0).put::<Xls20>();
 			<Runtime as frame_system::Config>::DbWeight::get().writes(1)
 		}

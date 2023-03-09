@@ -7,7 +7,7 @@ pub mod v3 {
 	use codec::{Decode, Encode};
 	use frame_support::{
 		storage_alias,
-		traits::{GetStorageVersion, StorageVersion},
+		traits::{Get, GetStorageVersion, StorageVersion},
 		weights::{constants::RocksDbWeight as DbWeight, Weight},
 		BoundedVec, Twox64Concat,
 	};
@@ -47,7 +47,7 @@ pub mod v3 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade<T: Config>() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V3 Pre Upgrade.");
+		log::info!(target: "Nft", "Upgrade to V2 Pre Upgrade.");
 
 		let onchain = Pallet::<T>::on_chain_storage_version();
 		assert_eq!(onchain, 2);
@@ -83,9 +83,11 @@ pub mod v3 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade<T: Config>() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V4 Post Upgrade.");
+		log::info!(target: "Nft", "Upgrade to V3 Post Upgrade.");
 
+		let current = Pallet::<T>::current_storage_version();
 		let onchain = Pallet::<T>::on_chain_storage_version();
+		assert_eq!(current, 3);
 		assert_eq!(onchain, 3);
 
 		// Let's make sure that we don't have any corrupted data to begin with
@@ -97,6 +99,7 @@ pub mod v3 {
 	}
 
 	pub fn migrate<T: Config>() -> Weight {
+		log::info!(target: "Nft", "Translating CollectionInfo...");
 		crate::CollectionInfo::<T>::translate(|_, old: OldCollectionInformation<T>| {
 			let cross_chain_compatibility = CrossChainCompatibility { xrpl: false };
 
@@ -115,8 +118,10 @@ pub mod v3 {
 
 			Some(new)
 		});
+		log::info!(target: "Nft", "...Successfully translated CollectionInfo");
 
-		Weight::from(22u32)
+		let key_count = crate::CollectionInfo::<T>::iter().count();
+		<T as frame_system::Config>::DbWeight::get().writes(key_count as u64)
 	}
 
 	#[cfg(test)]
