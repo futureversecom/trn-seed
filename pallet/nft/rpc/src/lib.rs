@@ -63,7 +63,7 @@ impl<C, Block, T: Config> Nft<C, Block, T> {
 impl<C, Block, AccountId, T> NftApiServer<AccountId> for Nft<C, Block, T>
 where
 	Block: BlockT,
-	T: Config<AccountId = AccountId, BlockNumber = BlockNumber> + Send + Sync,
+	T: Config<BlockNumber = BlockNumber> + Send + Sync,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: NftRuntimeApi<Block, AccountId, T>,
 	AccountId: Codec,

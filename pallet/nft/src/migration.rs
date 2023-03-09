@@ -1,48 +1,21 @@
 #[allow(dead_code)]
-pub mod v2 {
+pub mod v3 {
 	use crate::{
-		CollectionInformation, CollectionNameType, Config, MetadataScheme, OriginChain, Pallet,
-		RoyaltiesSchedule, TokenCount, TokenOwnership,
+		CollectionInformation, CollectionNameType, Config, CrossChainCompatibility, OriginChain,
+		Pallet, RoyaltiesSchedule, TokenCount, TokenOwnership,
 	};
 	use codec::{Decode, Encode};
 	use frame_support::{
 		storage_alias,
-		traits::{GetStorageVersion, StorageVersion},
+		traits::{Get, GetStorageVersion, StorageVersion},
 		weights::{constants::RocksDbWeight as DbWeight, Weight},
 		BoundedVec, Twox64Concat,
 	};
 	use scale_info::TypeInfo;
-	use seed_primitives::{CollectionUuid, SerialNumber};
-	use sp_core::H160;
-	use sp_std::vec::Vec;
+	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
 
-	/// Denotes the metadata URI referencing scheme used by a collection
-	/// Enable token metadata URI construction by clients
-	#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-	pub enum OldMetadataScheme {
-		/// Collection metadata is hosted by an HTTPS server
-		/// Inner value is the URI without protocol prefix 'https://' or trailing '/'
-		/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
-		/// Https(b"example.com/metadata")
-		Https(Vec<u8>),
-		/// Collection metadata is hosted by an unsecured HTTP server
-		/// Inner value is the URI without protocol prefix 'http://' or trailing '/'
-		/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
-		/// Https(b"example.com/metadata")
-		Http(Vec<u8>),
-		/// Collection metadata is hosted by an IPFS directory
-		/// Inner value is the directory's IPFS CID
-		/// full metadata URI construction: `ipfs://<directory_CID>/<serial_number>.json`
-		/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
-		IpfsDir(Vec<u8>),
-		/// Collection metadata is hosted by an IPFS directory
-		/// Inner value is the shared IPFS CID, each token in the collection shares the same CID
-		/// full metadata URI construction: `ipfs://<shared_file_CID>.json`
-		IpfsShared(Vec<u8>),
-		// Collection metadata is located on Ethereum in the relevant field on the source token
-		// ethereum://<contractaddress>/<originalid>
-		Ethereum(H160),
-	}
+	#[cfg(feature = "try-runtime")]
+	use sp_std::vec::Vec;
 
 	/// Information related to a specific collection
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
@@ -53,7 +26,7 @@ pub mod v2 {
 		/// A human friendly name
 		pub name: CollectionNameType,
 		/// Collection metadata reference scheme
-		pub metadata_scheme: OldMetadataScheme,
+		pub metadata_scheme: MetadataScheme,
 		/// configured royalties schedule
 		pub royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		/// Maximum number of tokens allowed in a collection
@@ -75,9 +48,16 @@ pub mod v2 {
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade<T: Config>() -> Result<(), &'static str> {
 		log::info!(target: "Nft", "Upgrade to V2 Pre Upgrade.");
-		let onchain = Pallet::<T>::on_chain_storage_version();
 
-		assert_eq!(onchain, 1);
+		let onchain = Pallet::<T>::on_chain_storage_version();
+		assert_eq!(onchain, 2);
+
+		// Let's make sure that we don't have any corrupted data to begin with
+		let keys: Vec<u32> = CollectionInfo::<T>::iter_keys().collect();
+		for key in keys {
+			assert!(CollectionInfo::<T>::try_get(key).is_ok());
+		}
+
 		Ok(())
 	}
 
@@ -88,12 +68,12 @@ pub mod v2 {
 
 		let mut weight = DbWeight::get().reads_writes(2, 0);
 
-		if onchain == 1 {
-			log::info!(target: "Nft", "Migrating from onchain version 1 to onchain version 2.");
+		if onchain == 2 {
+			log::info!(target: "Nft", "Migrating from onchain version 2 to onchain version 3.");
 			weight += migrate::<T>();
 
 			log::info!(target: "Nft", "Migration successfully finished.");
-			StorageVersion::new(2).put::<Pallet<T>>();
+			StorageVersion::new(3).put::<Pallet<T>>();
 		} else {
 			log::info!(target: "Nft", "No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
 		}
@@ -103,47 +83,45 @@ pub mod v2 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade<T: Config>() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V2 Post Upgrade.");
-		let onchain = Pallet::<T>::on_chain_storage_version();
+		log::info!(target: "Nft", "Upgrade to V3 Post Upgrade.");
 
-		assert_eq!(onchain, 2);
+		let current = Pallet::<T>::current_storage_version();
+		let onchain = Pallet::<T>::on_chain_storage_version();
+		assert_eq!(current, 3);
+		assert_eq!(onchain, 3);
+
+		// Let's make sure that we don't have any corrupted data to begin with
+		let keys: Vec<u32> = crate::CollectionInfo::<T>::iter_keys().collect();
+		for key in keys {
+			assert!(crate::CollectionInfo::<T>::try_get(key).is_ok());
+		}
 		Ok(())
 	}
 
 	pub fn migrate<T: Config>() -> Weight {
+		log::info!(target: "Nft", "Translating CollectionInfo...");
 		crate::CollectionInfo::<T>::translate(|_, old: OldCollectionInformation<T>| {
-			let add_slash = |mut x: Vec<u8>| -> Vec<u8> {
-				if x.last() != Some(&b'/') {
-					x.push(b'/');
-				}
-
-				x
-			};
-
-			let metadata_scheme = match old.metadata_scheme {
-				OldMetadataScheme::Https(x) => MetadataScheme::Https(x),
-				OldMetadataScheme::Http(x) => MetadataScheme::Http(x),
-				OldMetadataScheme::IpfsDir(x) => MetadataScheme::Ipfs(add_slash(x)),
-				OldMetadataScheme::IpfsShared(x) => MetadataScheme::Ipfs(add_slash(x)),
-				OldMetadataScheme::Ethereum(x) => MetadataScheme::Ethereum(x),
-			};
+			let cross_chain_compatibility = CrossChainCompatibility { xrpl: false };
 
 			let new = CollectionInformation {
 				owner: old.owner,
 				name: old.name,
-				metadata_scheme,
+				metadata_scheme: old.metadata_scheme,
 				royalties_schedule: old.royalties_schedule,
 				max_issuance: old.max_issuance,
 				origin_chain: old.origin_chain,
 				next_serial_number: old.next_serial_number,
 				collection_issuance: old.collection_issuance,
 				owned_tokens: old.owned_tokens,
+				cross_chain_compatibility,
 			};
 
 			Some(new)
 		});
+		log::info!(target: "Nft", "...Successfully translated CollectionInfo");
 
-		Weight::from(22u32)
+		let key_count = crate::CollectionInfo::<T>::iter().count();
+		<T as frame_system::Config>::DbWeight::get().writes(key_count as u64)
 	}
 
 	#[cfg(test)]
@@ -151,57 +129,18 @@ pub mod v2 {
 		use sp_runtime::Permill;
 
 		use super::*;
-		use crate::mock::{Test, TestExt};
+		use crate::mock::{create_account, Test, TestExt};
+		use sp_std::vec::Vec;
 
 		#[test]
 		fn migration_test() {
 			TestExt::default().build().execute_with(|| {
-				StorageVersion::new(1).put::<Pallet<Test>>();
-				let user_1 = 5_u64;
+				StorageVersion::new(2).put::<Pallet<Test>>();
+				let user_1 = create_account(5);
+				let owner = create_account(123);
 
 				let old_info = OldCollectionInformation::<Test> {
-					owner: 123_u64,
-					name: b"test-collection-1".to_vec(),
-					royalties_schedule: Some(RoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
-					metadata_scheme: OldMetadataScheme::IpfsDir(b"Test1/".to_vec()),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					owned_tokens: BoundedVec::default(),
-				};
-
-				// Collection 1
-				let collection_id_1 = 678;
-				CollectionInfo::<Test>::insert(collection_id_1, old_info.clone());
-
-				let collection_id_2 = 679;
-				let info = OldCollectionInformation::<Test> {
-					metadata_scheme: OldMetadataScheme::IpfsShared(b"Test1/".to_vec()),
-					..old_info.clone()
-				};
-				CollectionInfo::<Test>::insert(collection_id_2, info);
-
-				let collection_id_3 = 680;
-				let info = OldCollectionInformation::<Test> {
-					metadata_scheme: OldMetadataScheme::IpfsDir(b"Test1".to_vec()),
-					..old_info.clone()
-				};
-				CollectionInfo::<Test>::insert(collection_id_3, info);
-
-				let collection_id_4 = 681;
-				let info = OldCollectionInformation::<Test> {
-					metadata_scheme: OldMetadataScheme::Https(b"Test1/".to_vec()),
-					..old_info.clone()
-				};
-				CollectionInfo::<Test>::insert(collection_id_4, info);
-
-				on_runtime_upgrade::<Test>();
-
-				let expected_value = CollectionInformation::<Test> {
-					owner: 123_u64,
+					owner: owner.clone(),
 					name: b"test-collection-1".to_vec(),
 					royalties_schedule: Some(RoyaltiesSchedule {
 						entitlements: vec![(user_1, Permill::one())],
@@ -214,26 +153,40 @@ pub mod v2 {
 					owned_tokens: BoundedVec::default(),
 				};
 
-				// This checks IpfsDir -> Ipfs
-				let actual_value = crate::CollectionInfo::<Test>::get(collection_id_1).unwrap();
+				let collection_id = 678;
+				CollectionInfo::<Test>::insert(collection_id, old_info.clone());
+
+				let keys: Vec<u32> = CollectionInfo::<Test>::iter_keys().collect();
+				for key in keys {
+					assert!(CollectionInfo::<Test>::try_get(key).is_ok());
+				}
+
+				on_runtime_upgrade::<Test>();
+
+				let expected_value = CollectionInformation::<Test> {
+					owner,
+					name: b"test-collection-1".to_vec(),
+					royalties_schedule: Some(RoyaltiesSchedule {
+						entitlements: vec![(user_1, Permill::one())],
+					}),
+					metadata_scheme: MetadataScheme::Ipfs(b"Test1/".to_vec()),
+					max_issuance: None,
+					origin_chain: OriginChain::Root,
+					next_serial_number: 0,
+					collection_issuance: 100,
+					owned_tokens: BoundedVec::default(),
+					cross_chain_compatibility: CrossChainCompatibility { xrpl: false },
+				};
+				let actual_value = crate::CollectionInfo::<Test>::get(collection_id).unwrap();
 				assert_eq!(expected_value, actual_value);
 
-				// This checks IpfsShared -> Ipfs
-				let actual_value = crate::CollectionInfo::<Test>::get(collection_id_2).unwrap();
-				assert_eq!(expected_value, actual_value);
+				let keys: Vec<u32> = crate::CollectionInfo::<Test>::iter_keys().collect();
+				for key in keys {
+					assert!(crate::CollectionInfo::<Test>::try_get(key).is_ok());
+				}
 
-				// This checks that a forward slash is added at the end
-				let actual_value = crate::CollectionInfo::<Test>::get(collection_id_3).unwrap();
-				assert_eq!(expected_value, actual_value);
-
-				// this checks that other enum variants are not messed with
-				let metadata = MetadataScheme::Https(b"Test1/".to_vec());
-				let expected_value =
-					CollectionInformation::<Test> { metadata_scheme: metadata, ..expected_value };
-				let actual_value = crate::CollectionInfo::<Test>::get(collection_id_4).unwrap();
-				assert_eq!(expected_value, actual_value);
-
-				assert_eq!(StorageVersion::get::<Pallet<Test>>(), 2);
+				let onchain = Pallet::<Test>::on_chain_storage_version();
+				assert_eq!(onchain, 3);
 			});
 		}
 	}

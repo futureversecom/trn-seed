@@ -1,8 +1,7 @@
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
 use hex_literal::hex;
-use pallet_nft::MetadataScheme;
-use seed_primitives::AccountId;
+use seed_primitives::{AccountId, MetadataScheme};
 
 struct TestVals {
 	source: H160,

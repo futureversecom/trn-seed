@@ -30,7 +30,15 @@ pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 	keccak256!("OwnershipTransferred(address,address)");
 
-pub const MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxpSupplyUpdated(uint256)");
+/// Solidity selector of the XLS20CompatibilityEnabled log, which is the Keccak of the Log
+/// signature.
+pub const SELECTOR_LOG_XLS20_ENABLED: [u8; 32] = keccak256!("XLS20CompatibilityEnabled()");
+
+/// Solidity selector of the Xls20MintReRequested log, which is the Keccak of the Log
+/// signature.
+pub const SELECTOR_LOG_XLS20_RE_REQUESTED: [u8; 32] = keccak256!("XLS20MintReRequested(uint256)");
+
+pub const MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxSupplyUpdated(uint32)");
 
 pub const BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
 
@@ -66,11 +74,14 @@ pub enum Action {
 	OwnedTokens = "ownedTokens(address,uint16,uint32)",
 	// Selector used by SafeTransferFrom function
 	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
+	// XLS-20 extensions
+	EnableXls20Compatibility = "enableXls20Compatibility()",
+	ReRequestXls20Mint = "reRequestXls20Mint(uint32[])",
 }
 
 /// The following distribution has been decided for the precompiles
 /// 0-1023: Ethereum Mainnet Precompiles
-/// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither CENNZnet specific
+/// 1024-2047 Precompiles that are not in Ethereum Mainnet but are neither Root specific
 /// 2048-4095 Seed specific precompiles
 /// NFT precompile addresses can only fall between
 /// 	0xAAAAAAAA00000000000000000000000000000000 - 0xAAAAAAAAFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -94,9 +105,12 @@ where
 	Runtime: pallet_nft::Config
 		+ pallet_evm::Config
 		+ frame_system::Config
-		+ pallet_token_approvals::Config,
+		+ pallet_token_approvals::Config
+		+ pallet_xls20::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>> + From<pallet_token_approvals::Call<Runtime>>,
+	Runtime::Call: From<pallet_nft::Call<Runtime>>
+		+ From<pallet_xls20::Call<Runtime>>
+		+ From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -154,6 +168,11 @@ where
 						Action::SetMaxSupply => Self::set_max_supply(collection_id, handle),
 						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
 						Action::OwnedTokens => Self::owned_tokens(collection_id, handle),
+						// XLS-20 extensions
+						Action::EnableXls20Compatibility =>
+							Self::enable_xls20_compatibility(collection_id, handle),
+						Action::ReRequestXls20Mint =>
+							Self::re_request_xls20_mint(collection_id, handle),
 						_ => return Some(Err(revert("ERC721: Function not implemented").into())),
 					}
 				};
@@ -187,14 +206,17 @@ where
 	Runtime: pallet_nft::Config
 		+ pallet_evm::Config
 		+ frame_system::Config
-		+ pallet_token_approvals::Config,
+		+ pallet_token_approvals::Config
+		+ pallet_xls20::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>> + From<pallet_token_approvals::Call<Runtime>>,
+	Runtime::Call: From<pallet_nft::Call<Runtime>>
+		+ From<pallet_xls20::Call<Runtime>>
+		+ From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
 {
-	/// Returns the CENNZnet address which owns the given token
+	/// Returns the Root address which owns the given token
 	/// An error is returned if the token doesn't exist
 	fn owner_of(
 		collection_id: CollectionUuid,
@@ -867,6 +889,76 @@ where
 			EvmDataWriter::new().write(Address::from(new_owner)).build(),
 		)
 		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn enable_xls20_compatibility(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		let origin = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_xls20::Call::<Runtime>::enable_xls20_compatibility { collection_id },
+		)?;
+
+		log0(handle.code_address(), SELECTOR_LOG_XLS20_ENABLED).record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn re_request_xls20_mint(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { serial_numbers: Vec<U256> });
+		let origin = handle.context().caller;
+
+		// Convert serial numbers from U256 -> u32
+		// Fails if overflow (Although should not happen)
+		let mut serial_numbers_unbounded: Vec<SerialNumber> = vec![];
+		for serial_number in serial_numbers {
+			if serial_number > u32::MAX.into() {
+				return Err(revert("XLS20: Expected serial_number <= 2^32").into())
+			}
+			serial_numbers_unbounded.push(serial_number.saturated_into())
+		}
+		let serial_numbers: BoundedVec<
+			SerialNumber,
+			<Runtime as pallet_xls20::Config>::MaxTokensPerXls20Mint,
+		> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_xls20::Call::<Runtime>::re_request_xls20_mint {
+				collection_id,
+				serial_numbers: serial_numbers.clone(),
+			},
+		)?;
+
+		// Drop log for every serial number requested
+		for serial_number in serial_numbers.iter() {
+			let token_id: TokenId = (collection_id, *serial_number);
+			log1(
+				handle.code_address(),
+				SELECTOR_LOG_XLS20_RE_REQUESTED,
+				EvmDataWriter::new().write(token_id).build(),
+			)
+			.record(handle)?;
+		}
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
