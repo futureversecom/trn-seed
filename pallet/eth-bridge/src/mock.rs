@@ -195,6 +195,7 @@ impl Config for TestRuntime {
 	type RpcClient = MockEthereumRpcClient;
 	type Call = Call;
 	type UnixTime = MockUnixTime;
+	type WeightInfo = ();
 }
 
 pub struct MockValidatorSetAdapter;

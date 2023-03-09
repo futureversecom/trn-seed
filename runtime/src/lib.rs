@@ -861,21 +861,22 @@ impl pallet_eth_bridge::Config for Runtime {
 	type Event = Event;
 	/// The validator set pallet address
 	type PalletId = EthBridgePalletId;
-	/// The runtime call type.
-	type Call = Call;
-	/// ethy adapter
-	type EthyAdapter = Ethy;
 	type RelayerBond = RelayerBond;
 	type NativeAssetId = XrpAssetId;
 	type MultiCurrency = AssetsExt;
 	type ChallengeBond = ChallengeBond;
 	type ValidatorSet = ValidatorSet;
+	/// ethy adapter
+	type EthyAdapter = Ethy;
 	type NotarizationThreshold = NotarizationThreshold;
 	type AuthoritySet = Historical;
 	type EventRouter = EthereumEventRouter;
-	type RpcClient = pallet_eth_bridge::EthereumRpcClient;
 	type EthCallSubscribers = ();
+	type RpcClient = pallet_eth_bridge::EthereumRpcClient;
+	/// The runtime call type.
+	type Call = Call;
 	type UnixTime = Timestamp;
+	type WeightInfo = weights::pallet_eth_bridge::WeightInfo<Runtime>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -1757,5 +1758,6 @@ mod benches {
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_dex, Dex]
 		[pallet_ethy, Ethy]
+		[pallet_eth_bridge, EthBridge]
 	);
 }

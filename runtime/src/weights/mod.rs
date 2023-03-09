@@ -7,6 +7,7 @@ pub mod pallet_dex;
 pub mod pallet_echo;
 pub mod pallet_election_provider_multi_phase;
 pub mod pallet_erc20_peg;
+pub mod pallet_eth_bridge;
 pub mod pallet_ethy;
 pub mod pallet_evm_chain_id;
 pub mod pallet_fee_control;

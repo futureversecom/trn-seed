@@ -268,4 +268,5 @@ runtime-benchmarks = [
 	"pallet-evm-chain-id/runtime-benchmarks",
 	"pallet-token-approvals/runtime-benchmarks",
 	"pallet-ethy/runtime-benchmarks",
+	"pallet-eth-bridge/runtime-benchmarks",
 ]

@@ -14,12 +14,16 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 mod eth_rpc_client;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 mod types;
+mod weights;
+pub use weights::WeightInfo;
 
 use crate::types::{
 	BridgeEthereumRpcApi, CheckedEthCallRequest, CheckedEthCallResult, EthBlock, EthCallId,
@@ -32,7 +36,10 @@ use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::*,
-	traits::{fungibles::Transfer, Get, UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{
+		fungibles::{Mutate, Transfer},
+		Get, UnixTime, ValidatorSet as ValidatorSetT,
+	},
 	transactional,
 	weights::Weight,
 	PalletId,
@@ -49,8 +56,8 @@ use seed_pallet_common::{
 	eth::EthereumEventInfo,
 	ethy::{BridgeAdapter, EthereumBridgeAdapter, EthyAdapter, EthySigningRequest, State::Paused},
 	validator_set::ValidatorSetAdapter,
-	EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge, EthereumEventRouter,
-	EventRouterError, Hold,
+	CreateExt, EthCallFailure, EthCallOracle, EthCallOracleSubscriber, EthereumBridge,
+	EthereumEventRouter, EventRouterError, Hold,
 };
 use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventClaimId, EventProofId},
@@ -79,9 +86,6 @@ const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::types::CheckedEthCallRequest;
-	use frame_support::traits::UnixTime;
-	use seed_pallet_common::EthCallOracleSubscriber;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -100,7 +104,10 @@ pub mod pallet {
 		/// The native token asset Id (managed by pallet-balances)
 		type NativeAssetId: Get<AssetId>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+		type MultiCurrency: Transfer<Self::AccountId>
+			+ Hold<AccountId = Self::AccountId>
+			+ CreateExt<AccountId = Self::AccountId>
+			+ Mutate<Self::AccountId, AssetId = AssetId>;
 		/// Bond required by challenger to make a challenge
 		type ChallengeBond: Get<Balance>;
 		/// Validator set Adapter
@@ -121,6 +128,7 @@ pub mod pallet {
 		type Call: From<Call<Self>>;
 		/// Returns the block timestamp
 		type UnixTime: UnixTime;
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Map from relayer account to their paid bond amount
@@ -400,7 +408,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
 		/// Set the relayer address
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_relayer())]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
 			// Ensure relayer has bonded more than relayer bond amount
@@ -412,7 +420,7 @@ pub mod pallet {
 		}
 
 		/// Submit bond for relayer account
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::deposit_relayer_bond())]
 		pub fn deposit_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -436,7 +444,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw relayer bond amount
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::withdraw_relayer_bond())]
 		pub fn withdraw_relayer_bond(origin: OriginFor<T>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 
@@ -464,7 +472,7 @@ pub mod pallet {
 
 		/// Set event confirmations (blocks). Required block confirmations for an Ethereum event to
 		/// be notarized by Seed
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_event_block_confirmations())]
 		pub fn set_event_block_confirmations(
 			origin: OriginFor<T>,
 			confirmations: u64,
@@ -479,7 +487,7 @@ pub mod pallet {
 
 		/// Set challenge period, this is the window in which an event can be challenged before
 		/// processing
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_challenge_period())]
 		pub fn set_challenge_period(
 			origin: OriginFor<T>,
 			blocks: T::BlockNumber,
@@ -491,7 +499,7 @@ pub mod pallet {
 		}
 
 		/// Set the bridge contract address on Ethereum (requires governance)
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_contract_address())]
 		pub fn set_contract_address(
 			origin: OriginFor<T>,
 			contract_address: EthAddress,
@@ -505,7 +513,7 @@ pub mod pallet {
 		/// Submit ABI encoded event data from the Ethereum bridge contract
 		/// - tx_hash The Ethereum transaction hash which triggered the event
 		/// - event ABI encoded bridge event
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::submit_event())]
 		pub fn submit_event(origin: OriginFor<T>, tx_hash: H256, event: Vec<u8>) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			ensure!(Some(origin) == Self::relayer(), Error::<T>::NoPermission);
@@ -560,7 +568,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::submit_challenge())]
 		/// Submit a challenge for an event
 		/// Challenged events won't be processed until verified by validators
 		/// An event can only be challenged once
@@ -608,9 +616,7 @@ pub mod pallet {
 		pub fn submit_notarization(
 			origin: OriginFor<T>,
 			payload: NotarizationPayload,
-			_signature: <AuthorityId as RuntimeAppPublic>::Signature, /* TODO(surangap): Add a
-			                                                           * signature verification
-			                                                           * to this */
+			_signature: <AuthorityId as RuntimeAppPublic>::Signature,
 		) -> DispatchResult {
 			let _ = ensure_none(origin)?;
 
