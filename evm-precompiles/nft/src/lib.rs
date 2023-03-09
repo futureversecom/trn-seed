@@ -4,7 +4,10 @@ extern crate alloc;
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{GasWeightMapping, Precompile};
-use pallet_nft::{CollectionNameType, OriginChain, RoyaltiesSchedule, TokenCount, WeightInfo};
+use pallet_nft::{
+	CollectionNameType, CrossChainCompatibility, OriginChain, RoyaltiesSchedule, TokenCount,
+	WeightInfo,
+};
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{CollectionUuid, MetadataScheme};
 use sp_core::{H160, U256};
@@ -151,7 +154,7 @@ where
 			metadata_scheme,
 			royalties_schedule,
 			OriginChain::Root,
-			sp_std::default::Default::default(),
+			CrossChainCompatibility::default(),
 		);
 
 		// Build output.
