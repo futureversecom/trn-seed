@@ -225,6 +225,7 @@ try-runtime = [
 	"pallet-ethy/try-runtime",
 	"pallet-erc20-peg/try-runtime",
 	"pallet-nft-peg/try-runtime",
+	"pallet-xls20/try-runtime",
 ]
 
 runtime-benchmarks = [
@@ -259,4 +260,5 @@ runtime-benchmarks = [
 	"pallet-assets-ext/runtime-benchmarks",
 	"pallet-evm-chain-id/runtime-benchmarks",
 	"pallet-token-approvals/runtime-benchmarks",
+	"pallet-xls20/runtime-benchmarks",
 ]
