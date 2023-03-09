@@ -120,8 +120,8 @@ mod custom_migration {
 	pub struct Upgrade;
 	impl OnRuntimeUpgrade for Upgrade {
 		fn on_runtime_upgrade() -> Weight {
-			StorageVersion::new(0).put::<EVMChainId>();
-			100
+			StorageVersion::new(0).put::<Xls20>();
+			<Runtime as frame_system::Config>::DbWeight::get().writes(1)
 		}
 	}
 }
