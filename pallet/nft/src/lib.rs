@@ -473,7 +473,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			let _ = collection_info.is_collection_owner(&who)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 			collection_info.owner = new_owner.clone();
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
@@ -492,7 +492,7 @@ pub mod pallet {
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
-			let _ = collection_info.is_collection_owner(&who)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
 			ensure!(
 				collection_info.collection_issuance <= max_issuance,
@@ -526,7 +526,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			let _ = collection_info.is_collection_owner(&who)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
 			collection_info.metadata_scheme =
 				base_uri.clone().try_into().map_err(|_| Error::<T>::InvalidMetadataPath)?;

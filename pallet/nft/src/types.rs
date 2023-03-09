@@ -142,12 +142,8 @@ impl<T: Config> CollectionInformation<T> {
 	}
 
 	/// Check whether who is the collection owner
-	pub fn is_collection_owner(&self, who: &T::AccountId) -> DispatchResult {
-		if &self.owner == who {
-			Ok(())
-		} else {
-			Err(Error::<T>::NotCollectionOwner.into())
-		}
+	pub fn is_collection_owner(&self, who: &T::AccountId) -> bool {
+		&self.owner == who
 	}
 
 	/// Check whether who owns the serial number in collection_info

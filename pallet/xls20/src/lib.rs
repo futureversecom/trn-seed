@@ -114,6 +114,8 @@ pub mod pallet {
 		NotXLS20Compatible,
 		/// The NFT does not exist
 		NoToken,
+		/// No the owner of the collection
+		NotCollectionOwner,
 	}
 
 	#[pallet::call]
@@ -169,7 +171,7 @@ pub mod pallet {
 			let collection_info = T::NFTExt::get_collection_info(collection_id)?;
 
 			// Caller must be collection owner
-			let _ = collection_info.is_collection_owner(&who)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
 			// Must be an XLS-20 compatible collection
 			ensure!(collection_info.cross_chain_compatibility.xrpl, Error::<T>::NotXLS20Compatible);

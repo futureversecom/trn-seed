@@ -289,7 +289,7 @@ fn re_request_xls20_mint_not_collection_owner_fails() {
 				collection_id,
 				serial_numbers,
 			),
-			pallet_nft::Error::<Test>::NotCollectionOwner
+			Error::<Test>::NotCollectionOwner
 		);
 
 		// Check event is NOT thrown

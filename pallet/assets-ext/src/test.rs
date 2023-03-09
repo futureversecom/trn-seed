@@ -1,10 +1,9 @@
 use crate::{
 	mock::{test_ext, AssetId, AssetsExt, AssetsExtPalletId, MockAccountId, NativeAssetId, Test},
-	Config, Error, Holds, NextAssetId, Pallet,
+	Config, Error, Holds, NextAssetId,
 };
 use frame_support::{
 	assert_err, assert_noop, assert_ok, assert_storage_noop,
-	pallet_prelude::*,
 	traits::fungibles::{Inspect, InspectMetadata, Transfer},
 	PalletId,
 };
