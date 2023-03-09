@@ -12,7 +12,7 @@ use frame_support::{
 	traits::{fungibles::Transfer, Get},
 	transactional,
 };
-use frame_system::{pallet_prelude::*, WeightInfo};
+use frame_system::pallet_prelude::*;
 use pallet_nft::{traits::NFTExt, TokenCount};
 use seed_pallet_common::Xls20MintRequest;
 use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber};
@@ -58,7 +58,7 @@ pub mod pallet {
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: Transfer<Self::AccountId, Balance = Balance, AssetId = AssetId>;
 		/// Interface to access weight values
-		// type WeightInfo: WeightInfo;
+		type WeightInfo: frame_system::WeightInfo;
 		/// NFT ownership interface
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 		/// AssetId used to pay Xls20 Mint Fees

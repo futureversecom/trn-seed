@@ -196,35 +196,4 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(9 as Weight))
 			.saturating_add(T::DbWeight::get().writes(9 as Weight))
 	}
-	// Storage: Nft Relayer (r:0 w:1)
-	fn set_relayer() -> Weight {
-		(16_148_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: Nft Xls20MintFee (r:0 w:1)
-	fn set_xls20_fee() -> Weight {
-		(15_837_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:1)
-	fn enable_xls20_compatibility() -> Weight {
-		(22_158_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Nft Xls20TokenMap (r:1 w:0)
-	// Storage: Nft Xls20MintFee (r:1 w:0)
-	fn re_request_xls20_mint() -> Weight {
-		(29_470_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-	}
-	// Storage: Nft Relayer (r:1 w:0)
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Nft Xls20TokenMap (r:1 w:1)
-	fn fulfill_xls20_mint() -> Weight {
-		(31_183_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
 }

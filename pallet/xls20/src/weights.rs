@@ -22,29 +22,17 @@
 // --output
 // ./output
 
-#![cfg_attr(rustfmt, rustfmt_skip)]
-#![allow(unused_parens)]
-#![allow(unused_imports)]
-
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
-use sp_std::marker::PhantomData;
-
-/// Weight functions needed for pallet_echo.
-pub trait WeightInfo {
-	fn ping() -> Weight;
-}
-
-// For backwards compatibility and tests
-impl WeightInfo for () {
-	// Storage: Echo NextSessionId (r:1 w:1)
-	// Storage: EthBridge NextEventProofId (r:1 w:1)
-	// Storage: EthBridge NotaryKeys (r:1 w:0)
-	// Storage: EthBridge NotarySetId (r:1 w:0)
-	// Storage: EthBridge BridgePaused (r:1 w:0)
-	// Storage: System Digest (r:1 w:1)
-	fn ping() -> Weight {
-		(22_370_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-}
+// #![cfg_attr(rustfmt, rustfmt_skip)]
+// #![allow(unused_parens)]
+// #![allow(unused_imports)]
+//
+// use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+// use sp_std::marker::PhantomData;
+//
+// /// Weight functions needed for pallet_echo.
+// pub trait WeightInfo {
+// }
+//
+// // For backwards compatibility and tests
+// impl WeightInfo for () {
+// }

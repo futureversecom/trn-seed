@@ -55,7 +55,7 @@ benchmarks! {
 		assert_ok!(NftPeg::do_deposit(token_info, alice.clone().into()));
 
 		// Sanity Check
-		let collection_info: CollectionInformation<T, T::AccountId> = CollectionInfo::<T>::get(coll_id).expect("Collection exists");
+		let collection_info: CollectionInformation<T> = CollectionInfo::<T>::get(coll_id).expect("Collection exists");
 		for serial_id in &token_ids {
 			assert!(collection_info.token_exists(*serial_id));
 		}

@@ -18,13 +18,11 @@
 
 use super::*;
 
+use crate::Pallet as Xls20;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use sp_runtime::Permill;
-
-use crate::Pallet as Xls20;
-use pallet_nft::{CrossChainCompatibility, Pallet as Nft};
+use pallet_nft::OriginChain;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -40,35 +38,29 @@ pub fn build_xls20_collection<T: Config>(
 	relayer: Option<T::AccountId>,
 	initial_issuance: u32,
 ) -> CollectionUuid {
-	let collection_id = Nft::<T>::next_collection_uuid().unwrap();
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
 	let relayer = relayer.unwrap_or_else(|| account::<T>("Bob"));
 	let metadata_scheme = MetadataScheme::Https("google.com".into());
-	let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
-
-	assert_ok!(Nft::<T>::create_collection(
-		origin::<T>(&caller).into(),
+	let collection_id = T::NFTExt::do_create_collection(
+		caller.clone(),
 		"New Collection".into(),
 		0,
 		None,
 		None,
 		metadata_scheme,
 		None,
-		cross_chain_compatibility,
-	));
+		OriginChain::Root,
+	)
+	.unwrap();
+
+	assert_ok!(Xls20::<T>::enable_xls20_compatibility(origin::<T>(&caller).into(), collection_id));
 
 	// Setup relayer
-	assert_ok!(Nft::<T>::set_relayer(RawOrigin::Root.into(), relayer,));
+	assert_ok!(Xls20::<T>::set_relayer(RawOrigin::Root.into(), relayer,));
 
 	// Mint tokens
 	if !initial_issuance.is_zero() {
-		assert_ok!(Nft::<T>::mint(
-			origin::<T>(&caller).into(),
-			collection_id,
-			initial_issuance.into(),
-			None,
-			None,
-		));
+		assert_ok!(T::NFTExt::do_mint(caller, collection_id, initial_issuance.into(), None,));
 	}
 
 	collection_id
@@ -76,7 +68,7 @@ pub fn build_xls20_collection<T: Config>(
 
 fn setup_token_mappings<T: Config>(
 	input: Vec<(SerialNumber, &str)>,
-) -> BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerCollection> {
+) -> BoundedVec<(SerialNumber, Xls20TokenId), T::MaxTokensPerXls20Mint> {
 	let input: Vec<(SerialNumber, Xls20TokenId)> = input
 		.into_iter()
 		.map(|(s, token)| (s, Xls20TokenId::try_from(token.as_bytes()).unwrap()))
@@ -101,7 +93,7 @@ benchmarks! {
 		let caller = account::<T>("Alice");
 		let collection_id = build_xls20_collection::<T>(Some(caller.clone()), None, 1);
 		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
-	}: _(origin::<T>(&caller), collection_id, serial_numbers, 100)
+	}: _(origin::<T>(&caller), collection_id, serial_numbers)
 
 	fulfill_xls20_mint {
 		let caller = account::<T>("Alice");
