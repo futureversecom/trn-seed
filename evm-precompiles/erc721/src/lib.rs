@@ -14,7 +14,7 @@ use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{Balance, CollectionUuid, SerialNumber, TokenId};
+use seed_primitives::{CollectionUuid, SerialNumber, TokenId};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -76,7 +76,7 @@ pub enum Action {
 	OnErc721Received = "onERC721Received(address,address,uint256,bytes)",
 	// XLS-20 extensions
 	EnableXls20Compatibility = "enableXls20Compatibility()",
-	ReRequestXls20Mint = "reRequestXls20Mint(uint32[],uint128)",
+	ReRequestXls20Mint = "reRequestXls20Mint(uint32[])",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -105,9 +105,12 @@ where
 	Runtime: pallet_nft::Config
 		+ pallet_evm::Config
 		+ frame_system::Config
-		+ pallet_token_approvals::Config,
+		+ pallet_token_approvals::Config
+		+ pallet_xls_20::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>> + From<pallet_token_approvals::Call<Runtime>>,
+	Runtime::Call: From<pallet_nft::Call<Runtime>>
+		+ From<pallet_xls_20::Call<Runtime>>
+		+ From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -203,9 +206,12 @@ where
 	Runtime: pallet_nft::Config
 		+ pallet_evm::Config
 		+ frame_system::Config
-		+ pallet_token_approvals::Config,
+		+ pallet_token_approvals::Config
+		+ pallet_xls_20::Config,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>> + From<pallet_token_approvals::Call<Runtime>>,
+	Runtime::Call: From<pallet_nft::Call<Runtime>>
+		+ From<pallet_xls_20::Call<Runtime>>
+		+ From<pallet_token_approvals::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
@@ -694,7 +700,6 @@ where
 				collection_id,
 				quantity,
 				token_owner: Some(to.into()),
-				additional_fee: None,
 			},
 		)?;
 
@@ -901,7 +906,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_nft::Call::<Runtime>::enable_xls20_compatibility { collection_id },
+			pallet_xls_20::Call::<Runtime>::enable_xls20_compatibility { collection_id },
 		)?;
 
 		log0(handle.code_address(), SELECTOR_LOG_XLS20_ENABLED).record(handle)?;
@@ -917,13 +922,8 @@ where
 		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
-		read_args!(handle, { serial_numbers: Vec<U256>, additional_fee: U256 });
+		read_args!(handle, { serial_numbers: Vec<U256> });
 		let origin = handle.context().caller;
-
-		if additional_fee > Balance::MAX.into() {
-			return Err(revert("XLS20: Expected additional_fee <= 2^128").into())
-		}
-		let additional_fee: Balance = additional_fee.saturated_into();
 
 		// Convert serial numbers from U256 -> u32
 		// Fails if overflow (Although should not happen)
@@ -936,17 +936,16 @@ where
 		}
 		let serial_numbers: BoundedVec<
 			SerialNumber,
-			<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
+			<Runtime as pallet_xls_20::Config>::MaxTokensPerXls20Mint,
 		> = BoundedVec::try_from(serial_numbers_unbounded).expect("Should not fail");
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(origin.into()).into(),
-			pallet_nft::Call::<Runtime>::re_request_xls20_mint {
+			pallet_xls_20::Call::<Runtime>::re_request_xls20_mint {
 				collection_id,
 				serial_numbers: serial_numbers.clone(),
-				additional_fee,
 			},
 		)?;
 

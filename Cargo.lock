@@ -5010,6 +5010,7 @@ dependencies = [
  "pallet-evm",
  "pallet-nft",
  "pallet-token-approvals",
+ "pallet-xls-20",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -5455,6 +5456,23 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-xls-20"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-nft",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
  "sp-io",
  "sp-runtime",
  "sp-std",
@@ -7818,6 +7836,7 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-tx-fee-pot",
  "pallet-utility",
+ "pallet-xls-20",
  "pallet-xrpl-bridge",
  "parity-scale-codec",
  "precompile-utils",

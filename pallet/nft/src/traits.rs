@@ -1,13 +1,12 @@
-use seed_primitives::{CollectionUuid, TokenId};
+use seed_primitives::{CollectionUuid, MetadataScheme, TokenId};
 use sp_runtime::{DispatchError, DispatchResult};
 
 use crate::{
-	CollectionNameType, Config, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount,
+	CollectionInformation, CollectionNameType, Config, OriginChain, RoyaltiesSchedule, TokenCount,
 };
 
 pub trait NFTExt {
 	type AccountId;
-	type MaxTokensPerCollection;
 	type T: Config;
 
 	fn do_mint(
@@ -29,4 +28,13 @@ pub trait NFTExt {
 	) -> Result<CollectionUuid, DispatchError>;
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId>;
+
+	fn get_collection_info(
+		collection_id: CollectionUuid,
+	) -> Result<CollectionInformation<Self::T>, DispatchError>;
+
+	fn enable_xls20_compatibility(
+		who: Self::AccountId,
+		collection_id: CollectionUuid,
+	) -> DispatchResult;
 }

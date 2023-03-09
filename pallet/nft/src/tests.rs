@@ -27,7 +27,7 @@ use frame_support::{
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use frame_system::RawOrigin;
-use seed_primitives::TokenId;
+use seed_primitives::{MetadataScheme, TokenId};
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 

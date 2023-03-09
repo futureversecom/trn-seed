@@ -375,8 +375,20 @@ impl pallet_nft::Config for Runtime {
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
-	type Xls20PaymentAsset = XrpAssetId;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
+	type Xls20MintRequest = Xls20;
+}
+
+parameter_types! {
+	pub const MaxTokensPerXls20Mint: u32 = 1000;
+}
+impl pallet_xls_20::Config for Runtime {
+	type Event = Event;
+	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	// type WeightInfo = weights::pallet_xls_20::WeightInfo<Runtime>;
+	type Xls20PaymentAsset = XrpAssetId;
 }
 
 parameter_types! {
@@ -1057,6 +1069,7 @@ construct_runtime! {
 
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
 		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
+		Xls20: pallet_xls_20::{Pallet, Call, Storage, Event<T>} = 42,
 	}
 }
 

@@ -14,18 +14,13 @@
  */
 
 use crate::{traits::NFTExt, *};
-use frame_support::{
-	ensure,
-	traits::{fungibles::Transfer, Get},
-	transactional,
-	weights::Weight,
-};
+use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
-use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
+use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId};
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
 impl<T: Config> Pallet<T> {
@@ -659,60 +654,25 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Pay additional fee to cover relayer costs for minting XLS-20 tokens
-	pub fn pay_xls20_fee(
-		who: &T::AccountId,
-		mint_fee: Option<Balance>,
-		token_count: TokenCount,
-	) -> DispatchResult {
-		let xls20_mint_fee = Xls20MintFee::<T>::get();
-		if xls20_mint_fee.is_zero() {
-			return Ok(())
-		}
-		if let Some(relayer) = Relayer::<T>::get() {
-			let mint_fee = mint_fee.ok_or(Error::<T>::Xls20MintFeeTooLow)?;
-			// Fee is per token minted
-			let nft_count: u32 = token_count.saturated_into();
-			let total_fee: Balance = nft_count.saturating_mul(xls20_mint_fee as u32).into();
-			ensure!(mint_fee >= total_fee, Error::<T>::Xls20MintFeeTooLow);
-			// Make the payment
-			T::MultiCurrency::transfer(
-				T::Xls20PaymentAsset::get(),
-				who,
-				&relayer,
-				mint_fee,
-				false,
-			)?;
-			Self::deposit_event(Event::<T>::Xls20MintFeePaid {
-				collection_owner: who.clone(),
-				total_fee: mint_fee,
-			});
-		}
-
-		Ok(())
-	}
-
-	/// For XLS-20 compatible mints, we need to throw an event that gets picked up by the relayer
-	/// The relayer can then mint these tokens on XRPL and notify The Root Network by calling
-	/// The fulfill_xls20_mint callback extrinsic
-	pub fn send_xls20_requests(
+	/// Enables XLS-20 compatibility for a collection with 0 issuance
+	pub fn enable_xls20_compatibility(
+		who: T::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-		metadata_scheme: MetadataScheme,
-	) {
-		// Gather token uris for each token being requested
-		let mut token_uris: Vec<Vec<u8>> = vec![];
-		for serial_number in serial_numbers.iter() {
-			let token_uri = metadata_scheme.construct_token_uri(*serial_number);
-			token_uris.push(token_uri);
-		}
+	) -> DispatchResult {
+		let mut collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-		// Deposit event containing all serial numbers and token_uris
-		Self::deposit_event(Event::<T>::Xls20MintRequest {
-			collection_id,
-			serial_numbers: serial_numbers.into_inner(),
-			token_uris,
-		});
+		// Caller must be collection owner
+		ensure!(who.clone() == collection_info.owner, Error::<T>::NotCollectionOwner);
+		// Collection issuance must be 0 (i.e. no tokens minted)
+		ensure!(
+			collection_info.collection_issuance.is_zero(),
+			Error::<T>::CollectionIssuanceNotZero
+		);
+
+		collection_info.cross_chain_compatibility.xrpl = true;
+		CollectionInfo::<T>::insert(collection_id, collection_info);
+		Ok(())
 	}
 
 	/// The account ID of the auctions pot.
@@ -723,7 +683,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
-	type MaxTokensPerCollection = T::MaxTokensPerCollection;
 	type T = T;
 
 	fn do_mint(
@@ -732,7 +691,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 		quantity: TokenCount,
 		token_owner: Option<T::AccountId>,
 	) -> DispatchResult {
-		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner, None)
+		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner)
 	}
 
 	fn do_create_collection(
@@ -759,9 +718,22 @@ impl<T: Config> NFTExt for Pallet<T> {
 	}
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
+		let Some(collection) = CollectionInfo::<Self::T>::get(token_id.0) else {
 			return None
 		};
 		collection.get_token_owner(token_id.1)
+	}
+
+	fn get_collection_info(
+		collection_id: CollectionUuid,
+	) -> Result<CollectionInformation<Self::T>, DispatchError> {
+		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
+	}
+
+	fn enable_xls20_compatibility(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+	) -> DispatchResult {
+		Self::enable_xls20_compatibility(who, collection_id)
 	}
 }

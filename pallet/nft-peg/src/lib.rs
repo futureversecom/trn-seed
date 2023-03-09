@@ -20,7 +20,7 @@ use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, Pall
 pub use pallet::*;
 use pallet_nft::OriginChain;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
-use seed_primitives::{CollectionUuid, SerialNumber};
+use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec, vec::Vec};
@@ -278,8 +278,7 @@ where
 				match Self::eth_to_root_nft(current_token.token_address) {
 					Some(collection_id) => collection_id,
 					None => {
-						let metadata_scheme =
-							pallet_nft::MetadataScheme::Ethereum(current_token.token_address);
+						let metadata_scheme = MetadataScheme::Ethereum(current_token.token_address);
 						// Collection doesn't exist, create a new collection
 						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 							collection_owner_account,
