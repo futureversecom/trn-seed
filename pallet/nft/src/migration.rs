@@ -14,6 +14,9 @@ pub mod v3 {
 	use scale_info::TypeInfo;
 	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
 
+	#[cfg(feature = "try-runtime")]
+	use sp_std::vec::Vec;
+
 	/// Information related to a specific collection
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 	#[scale_info(skip_type_params(T))]
@@ -122,6 +125,7 @@ pub mod v3 {
 
 		use super::*;
 		use crate::mock::{create_account, Test, TestExt};
+		use sp_std::vec::Vec;
 
 		#[test]
 		fn migration_test() {
@@ -147,6 +151,11 @@ pub mod v3 {
 				let collection_id = 678;
 				CollectionInfo::<Test>::insert(collection_id, old_info.clone());
 
+				let keys: Vec<u32> = CollectionInfo::<Test>::iter_keys().collect();
+				for key in keys {
+					assert!(CollectionInfo::<Test>::try_get(key).is_ok());
+				}
+
 				on_runtime_upgrade::<Test>();
 
 				let expected_value = CollectionInformation::<Test> {
@@ -166,7 +175,13 @@ pub mod v3 {
 				let actual_value = crate::CollectionInfo::<Test>::get(collection_id).unwrap();
 				assert_eq!(expected_value, actual_value);
 
-				assert_eq!(StorageVersion::get::<Pallet<Test>>(), 3);
+				let keys: Vec<u32> = crate::CollectionInfo::<Test>::iter_keys().collect();
+				for key in keys {
+					assert!(crate::CollectionInfo::<Test>::try_get(key).is_ok());
+				}
+
+				let onchain = Pallet::<Test>::on_chain_storage_version();
+				assert_eq!(onchain, 3);
 			});
 		}
 	}
