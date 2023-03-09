@@ -629,10 +629,15 @@ pub mod pallet {
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 			// Perform pre mint checks
-			let serial_numbers = Self::pre_mint(&who, quantity, &mut collection_info)?;
+			let serial_numbers = Self::pre_mint(&who, quantity, &collection_info)?;
 			let owner = token_owner.unwrap_or(who.clone());
 			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
 			let metadata_scheme = collection_info.metadata_scheme.clone();
+
+			// Increment next serial number
+			let next_serial_number = collection_info.next_serial_number;
+			collection_info.next_serial_number =
+				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
 
 			// Perform the mint and update storage
 			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers)?;

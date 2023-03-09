@@ -215,7 +215,7 @@ impl<T: Config> Pallet<T> {
 	pub fn pre_mint(
 		who: &T::AccountId,
 		quantity: TokenCount,
-		collection_info: &mut CollectionInformation<T>,
+		collection_info: &CollectionInformation<T>,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
@@ -233,27 +233,23 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::AttemptedMintOnBridgedToken
 		);
 
-		let next_serial_number = collection_info.next_serial_number;
-		// Increment next serial number
-		collection_info.next_serial_number =
-			next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
+		let previous_serial_number = collection_info.next_serial_number;
+		let next_serial_number =
+			previous_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
 
 		// Check early that we won't exceed the BoundedVec limit
 		ensure!(
-			collection_info.next_serial_number <= T::MaxTokensPerCollection::get(),
+			next_serial_number <= T::MaxTokensPerCollection::get(),
 			Error::<T>::TokenLimitExceeded
 		);
 
 		// Can't mint more than specified max_issuance
 		if let Some(max_issuance) = collection_info.max_issuance {
-			ensure!(
-				max_issuance >= collection_info.next_serial_number,
-				Error::<T>::MaxIssuanceReached
-			);
+			ensure!(max_issuance >= next_serial_number, Error::<T>::MaxIssuanceReached);
 		}
 
 		let serial_numbers_unbounded: Vec<SerialNumber> =
-			(next_serial_number..collection_info.next_serial_number).collect();
+			(previous_serial_number..next_serial_number).collect();
 		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers_unbounded)
 				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
