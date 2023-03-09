@@ -4,7 +4,14 @@ import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 
-import { ALITH_PRIVATE_KEY, BOB_PRIVATE_KEY, getCollectionPrecompileAddress, NodeProcess, startNode, typedefs } from "../common";
+import {
+  ALITH_PRIVATE_KEY,
+  BOB_PRIVATE_KEY,
+  NodeProcess,
+  getCollectionPrecompileAddress,
+  startNode,
+  typedefs,
+} from "../common";
 
 // Precompile address for nft precompile is 1721
 const nftPrecompileAddress = "0x00000000000000000000000000000000000006b9";
@@ -49,7 +56,7 @@ describe("NFT Precompile", function () {
     const owner = alithSigner.address;
     const name = ethers.utils.formatBytes32String("My Collection");
     const maxIssuance = 100;
-    const metadataPath = ethers.utils.hexlify(ethers.utils.toUtf8Bytes('https://example.com/nft/metadata'));
+    const metadataPath = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata"));
     const royaltyAddresses = [alithSigner.address];
     const royaltyEntitlements = [1000];
 
@@ -59,14 +66,7 @@ describe("NFT Precompile", function () {
 
     const initializeTx = await nftProxy
       .connect(bobSigner)
-      .initializeCollection(
-        owner,
-        name,
-        maxIssuance,
-        metadataPath,
-        royaltyAddresses,
-        royaltyEntitlements,
-      );
+      .initializeCollection(owner, name, maxIssuance, metadataPath, royaltyAddresses, royaltyEntitlements);
     const receipt = await initializeTx.wait();
 
     expect((receipt?.events as any)[0].event).to.equal("InitializeCollection");
@@ -78,20 +78,13 @@ describe("NFT Precompile", function () {
     const owner = alithSigner.address;
     const name = ethers.utils.formatBytes32String("My Collection");
     const maxIssuance = 100;
-    const metadataPath = ethers.utils.hexlify(ethers.utils.toUtf8Bytes('tcp://example.com/nft/metadata'));
+    const metadataPath = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("tcp://example.com/nft/metadata"));
     const royaltyAddresses = [alithSigner.address];
     const royaltyEntitlements = [1000];
 
     await nftProxy
       .connect(bobSigner)
-      .initializeCollection(
-        owner,
-        name,
-        maxIssuance,
-        metadataPath,
-        royaltyAddresses,
-        royaltyEntitlements,
-      )
+      .initializeCollection(owner, name, maxIssuance, metadataPath, royaltyAddresses, royaltyEntitlements)
       .catch((err: any) => expect(err.message).contains("NFT: Invalid metadata_path: scheme not supported"));
   });
 });
