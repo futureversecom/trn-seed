@@ -38,6 +38,7 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	let id = Nft::<T>::next_collection_uuid().unwrap();
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
 	let metadata_scheme = MetadataScheme::Https("google.com".into());
+	let cross_chain_compatibility = CrossChainCompatibility::default();
 
 	assert_ok!(Nft::<T>::create_collection(
 		origin::<T>(&caller).into(),
@@ -47,6 +48,7 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 		None,
 		metadata_scheme,
 		None,
+		cross_chain_compatibility,
 	));
 
 	id
@@ -121,12 +123,21 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, account::<T>("Bob"))
 
+	set_max_issuance {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 32)
+
+	set_base_uri {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, "https://example.com/tokens/".into())
+
 	register_marketplace {
 	}: _(origin::<T>(&account::<T>("Alice")), None, Permill::zero())
 
 	create_collection {
 		let metadata = MetadataScheme::Https("google.com".into());
-	}: _(origin::<T>(&account::<T>("Alice")), "Collection".into(), 0, None, None, metadata, None)
+		let ccc = CrossChainCompatibility { xrpl: false };
+	}: _(origin::<T>(&account::<T>("Alice")), "Collection".into(), 0, None, None, metadata, None, ccc)
 
 	mint {
 		let collection_id = build_collection::<T>(None);

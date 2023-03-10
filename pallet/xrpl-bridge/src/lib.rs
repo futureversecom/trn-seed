@@ -62,7 +62,6 @@ mod tests;
 #[cfg(test)]
 mod tests_relayer;
 
-mod migration;
 pub mod weights;
 
 type AccountOf<T> = <T as frame_system::Config>::AccountId;
@@ -74,6 +73,8 @@ pub mod pallet {
 	use super::*;
 	use seed_pallet_common::{ethy::EthyAdapter, validator_set::ValidatorSetAdapter};
 	use seed_primitives::xrpl::XrplTxTicketSequence;
+
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
@@ -168,16 +169,12 @@ pub mod pallet {
 			let weights = Self::process_xrp_tx(n);
 			weights + Self::clear_storages(n)
 		}
-
-		fn on_runtime_upgrade() -> Weight {
-			migration::try_migrate::<T>()
-		}
 	}
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::without_storage_info]
-	#[pallet::storage_version(migration::STORAGE_VERSION)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::storage]

@@ -13,7 +13,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use seed_primitives::{
 	ethy::{EventClaimId, EventProofId},
-	AssetId, Balance, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
 };
 use sp_core::H160;
 use sp_std::{fmt::Debug, vec::Vec};
@@ -304,4 +304,15 @@ impl EthCallOracleSubscriber for () {
 	}
 	/// Error callback failed for some internal reason `EthCallOracle::checked_eth_call`
 	fn on_eth_call_failed(_call_id: Self::CallId, _reason: EthCallFailure) {}
+}
+
+pub trait Xls20MintRequest {
+	type AccountId;
+
+	fn request_xls20_mint(
+		who: &Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+		metadata_scheme: MetadataScheme,
+	) -> DispatchResult;
 }

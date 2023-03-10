@@ -14,13 +14,16 @@
  */
 
 use super::*;
-use crate::mock::{AccountId, Nft, Test, TestExt, TokenApprovals};
+use crate::mock::{Nft, Test, TestExt, TokenApprovals};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use pallet_nft::{MetadataScheme, OriginChain};
-use seed_primitives::TokenId;
+use pallet_nft::OriginChain;
+use seed_primitives::{AccountId, MetadataScheme, TokenId};
+use sp_core::H160;
 
-const ALICE: AccountId = 10;
+pub fn create_account(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
 
 pub struct TestData {
 	pub coll_owner: AccountId,
@@ -31,10 +34,10 @@ pub struct TestData {
 }
 
 fn prepare_test() -> TestData {
-	let alice = ALICE;
+	let alice = create_account(10);
 	let coll_owner = alice.clone();
 	let collection_name = "Hello".into();
-	let metadata_scheme = MetadataScheme::IpfsDir(
+	let metadata_scheme = MetadataScheme::Ipfs(
 		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
 	);
 
@@ -47,6 +50,7 @@ fn prepare_test() -> TestData {
 		metadata_scheme,
 		None,
 		OriginChain::Root,
+		Default::default(),
 	)
 	.unwrap();
 
@@ -66,34 +70,10 @@ fn set_erc721_approval() {
 	TestExt::default().build().execute_with(|| {
 		let TestData { token_owner, token_id, .. } = prepare_test();
 		let caller = token_owner;
-		let operator = caller + 1;
+		let operator = create_account(12);
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
-	});
-}
-
-#[test]
-fn migration_v0_to_v1() {
-	use frame_support::{traits::OnRuntimeUpgrade, StorageDoubleMap};
-	use migration::v1_storage;
-
-	TestExt::default().build().execute_with(|| {
-		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 0);
-
-		// setup old values
-		v1_storage::ERC721ApprovalsForAll::<Test>::insert(1, 2, 3);
-		v1_storage::ERC721ApprovalsForAll::<Test>::insert(4, 5, 6);
-		v1_storage::ERC721ApprovalsForAll::<Test>::insert(7, 8, 9);
-
-		// Run upgrade
-		<Pallet<Test> as OnRuntimeUpgrade>::on_runtime_upgrade();
-
-		// Check storage after
-		assert_eq!(StorageVersion::get::<Pallet<Test>>(), 1);
-		assert!(ERC721ApprovalsForAll::<Test>::get(1, (2, 3)).unwrap());
-		assert!(ERC721ApprovalsForAll::<Test>::get(4, (5, 6)).unwrap());
-		assert!(ERC721ApprovalsForAll::<Test>::get(7, (8, 9)).unwrap());
 	});
 }
 
@@ -102,8 +82,8 @@ fn set_erc721_approval_approved_for_all() {
 	TestExt::default().build().execute_with(|| {
 		let TestData { token_owner, token_id, coll_id, .. } = prepare_test();
 
-		let caller = token_owner + 1;
-		let operator = caller + 1;
+		let caller = create_account(12);
+		let operator = create_account(13);
 
 		// Token owner approves caller for all
 		assert_ok!(TokenApprovals::erc721_approval_for_all(
@@ -124,8 +104,8 @@ fn set_erc721_approval_approved_for_all() {
 #[test]
 fn set_erc721_approval_not_token_owner_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
-		let operator: AccountId = 11;
+		let caller: AccountId = create_account(10);
+		let operator: AccountId = create_account(11);
 		let token_id: TokenId = (0, 1);
 
 		assert_noop!(
@@ -138,8 +118,8 @@ fn set_erc721_approval_not_token_owner_should_fail() {
 #[test]
 fn set_erc721_approval_caller_is_operator_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
-		let operator: AccountId = 10;
+		let caller: AccountId = create_account(10);
+		let operator: AccountId = create_account(10);
 		let token_id: TokenId = (0, 0);
 
 		assert_noop!(
@@ -154,7 +134,7 @@ fn erc721_approval_removed_on_transfer() {
 	TestExt::default().build().execute_with(|| {
 		let TestData { token_owner, token_id, .. } = prepare_test();
 		let caller = token_owner;
-		let operator = caller + 1;
+		let operator = create_account(11);
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 		assert_eq!(TokenApprovals::erc721_approvals(token_id).unwrap(), operator);
@@ -168,7 +148,7 @@ fn erc721_remove_approval() {
 	TestExt::default().build().execute_with(|| {
 		let TestData { token_owner, token_id, .. } = prepare_test();
 		let caller = token_owner;
-		let operator = caller + 1;
+		let operator = create_account(11);
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 
@@ -181,7 +161,7 @@ fn erc721_remove_approval() {
 #[test]
 fn erc721_remove_approval_no_approval_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
+		let caller: AccountId = create_account(10);
 		let token_id: TokenId = (0, 0);
 
 		// Try remove approval
@@ -198,7 +178,7 @@ fn erc721_remove_approval_not_owner_should_fail() {
 		let TestData { token_owner, token_id, .. } = prepare_test();
 
 		let caller = token_owner;
-		let operator = caller + 1;
+		let operator = create_account(11);
 
 		assert_ok!(TokenApprovals::erc721_approval(None.into(), caller, operator, token_id));
 
@@ -212,8 +192,8 @@ fn erc721_remove_approval_not_owner_should_fail() {
 #[test]
 fn set_erc20_approval() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 12;
-		let spender: AccountId = 11;
+		let caller: AccountId = create_account(12);
+		let spender: AccountId = create_account(11);
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;
 
@@ -225,8 +205,8 @@ fn set_erc20_approval() {
 #[test]
 fn set_erc20_approval_caller_is_operator_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 12;
-		let spender: AccountId = 12;
+		let caller: AccountId = create_account(11);
+		let spender: AccountId = create_account(11);
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;
 
@@ -240,8 +220,8 @@ fn set_erc20_approval_caller_is_operator_should_fail() {
 #[test]
 fn update_erc20_approval_full_amount() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 12;
-		let spender: AccountId = 11;
+		let caller: AccountId = create_account(12);
+		let spender: AccountId = create_account(11);
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;
 
@@ -263,8 +243,8 @@ fn update_erc20_approval_full_amount() {
 #[test]
 fn update_erc20_approval_some_amount() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 12;
-		let spender: AccountId = 11;
+		let caller: AccountId = create_account(12);
+		let spender: AccountId = create_account(11);
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;
 
@@ -290,8 +270,8 @@ fn update_erc20_approval_some_amount() {
 #[test]
 fn update_erc20_approval_amount_too_high_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 12;
-		let spender: AccountId = 11;
+		let caller: AccountId = create_account(12);
+		let spender: AccountId = create_account(11);
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;
 
@@ -316,15 +296,15 @@ fn update_erc20_approval_amount_too_high_should_fail() {
 #[test]
 fn update_erc20_approval_not_approved_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 12;
-		let spender: AccountId = 11;
+		let caller: AccountId = create_account(12);
+		let spender: AccountId = create_account(11);
 		let asset_id: AssetId = 0;
 		let amount: Balance = 10;
 
 		assert_ok!(TokenApprovals::erc20_approval(None.into(), caller, spender, asset_id, amount));
 		assert_eq!(TokenApprovals::erc20_approvals((caller, asset_id), spender).unwrap(), amount);
 
-		let malicious_spender = 13;
+		let malicious_spender = create_account(13);
 		// Attempt to remove approval
 		assert_noop!(
 			TokenApprovals::erc20_update_approval(
@@ -342,8 +322,8 @@ fn update_erc20_approval_not_approved_should_fail() {
 #[test]
 fn set_erc721_approval_for_all() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
-		let operator: AccountId = 11;
+		let caller: AccountId = create_account(10);
+		let operator: AccountId = create_account(11);
 		let collection_id: CollectionUuid = 1;
 
 		// Set approval to true
@@ -375,10 +355,10 @@ fn set_erc721_approval_for_all() {
 #[test]
 fn set_erc721_approval_for_all_multiple_approvals() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
-		let operator_1: AccountId = 11;
-		let operator_2: AccountId = 12;
-		let operator_3: AccountId = 13;
+		let caller: AccountId = create_account(10);
+		let operator_1: AccountId = create_account(11);
+		let operator_2: AccountId = create_account(12);
+		let operator_3: AccountId = create_account(13);
 		let collection_id: CollectionUuid = 1;
 
 		// Set approval to true for all three accounts
@@ -420,7 +400,7 @@ fn set_erc721_approval_for_all_multiple_approvals() {
 #[test]
 fn set_erc721_approval_for_all_caller_is_operator_should_fail() {
 	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = 10;
+		let caller: AccountId = create_account(10);
 		let collection_id: CollectionUuid = 1;
 
 		// Set approval to true
@@ -442,8 +422,8 @@ fn is_approved_or_owner_works() {
 	TestExt::default().build().execute_with(|| {
 		let TestData { token_owner, coll_id, token_id, .. } = prepare_test();
 
-		let approved_for_all_account: AccountId = 11;
-		let approved_account: AccountId = 12;
+		let approved_for_all_account: AccountId = create_account(11);
+		let approved_account: AccountId = create_account(12);
 
 		// Should return false for both as approvals have not been set up
 		assert!(!TokenApprovals::is_approved_or_owner(token_id, approved_for_all_account));

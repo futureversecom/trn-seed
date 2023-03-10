@@ -88,6 +88,14 @@ export const getNextAssetId = async (api: ApiPromise): Promise<number> => {
   return nextAssetUuid;
 };
 
+export const getCollectionPrecompileAddress = (collectionId: number) => {
+  const collectionIdBin = (+collectionId).toString(2).padStart(22, "0");
+  const parachainIdBin = (100).toString(2).padStart(10, "0");
+  const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
+  const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
+  return web3.utils.toChecksumAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
+};
+
 /**
  * createAssetUntil continously creates assets until asset with `assetId` exists
  * throws error if `assetId` is less than next asset id and does not already exist

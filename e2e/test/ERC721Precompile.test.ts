@@ -34,11 +34,6 @@ const erc721Abi = [
   "function transferOwnership(address owner)",
 ];
 
-const nftAbi = [
-  "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
-  "function initializeCollection(address owner, bytes name, uint32 maxIssuance, uint8 metadataType, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
-];
-
 // NFT Collection information
 const name = "test-collection";
 const metadataPath = { Https: "example.com/nft/metadata" };
@@ -408,43 +403,5 @@ describe.skip("ERC721 Precompile", function () {
 
     // Check ownership is now zero address
     expect(await nftContract.owner()).to.equal(constants.AddressZero);
-  });
-
-  it("initialize collection", async () => {
-    // Precompile address for nft precompile is 1721
-    const nftPrecompileAddress = "0x00000000000000000000000000000000000006b9";
-    const nftProxy = new Contract(nftPrecompileAddress, nftAbi, bobSigner);
-
-    const owner = alithSigner.address;
-    const name = ethers.utils.formatBytes32String("My Collection");
-    const maxIssuance = 100;
-    const metadataType = 1;
-    const metadataPath = ethers.utils.formatBytes32String("example.com");
-    const royaltyAddresses = [alithSigner.address];
-    const royaltyEntitlements = [1000];
-
-    // Generate expected precompile address
-    const collectionId = await api.query.nft.nextCollectionId();
-    const collectionIdBin = (+collectionId).toString(2).padStart(22, "0");
-    const parachainIdBin = (100).toString(2).padStart(10, "0");
-    const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
-    const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
-    const precompile_address = web3.utils.toChecksumAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
-
-    const initializeTx = await nftProxy
-      .connect(bobSigner)
-      .initializeCollection(
-        owner,
-        name,
-        maxIssuance,
-        metadataType,
-        metadataPath,
-        royaltyAddresses,
-        royaltyEntitlements,
-      );
-    const receipt = await initializeTx.wait();
-    expect((receipt?.events as any)[0].event).to.equal("InitializeCollection");
-    expect((receipt?.events as any)[0].args.collectionOwner).to.equal(alithSigner.address);
-    expect((receipt?.events as any)[0].args.precompileAddress).to.equal(precompile_address);
   });
 });
