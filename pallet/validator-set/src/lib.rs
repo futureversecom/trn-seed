@@ -13,16 +13,20 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 #![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+mod weights;
+pub use weights::WeightInfo;
 
 use core::default::Default;
 use frame_support::{
 	codec::MaxEncodedLen,
 	ensure,
-	pallet_prelude::DispatchResult,
+	pallet_prelude::{DispatchResult, *},
 	traits::{
 		schedule::{Anon, DispatchTime},
 		Get, OneSessionHandler,
@@ -30,16 +34,23 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
-use frame_system::{ensure_none, pallet_prelude::OriginFor};
+use frame_system::{
+	ensure_none,
+	offchain::CreateSignedTransaction,
+	pallet_prelude::{OriginFor, *},
+};
 use log::{debug, error, info};
 pub use pallet::*;
 use seed_pallet_common::{
-	ethy::EthereumBridgeAdapter,
+	ethy::{EthereumBridgeAdapter, XRPLBridgeAdapter},
 	validator_set::{ValidatorSetAdapter, ValidatorSetChangeHandler, ValidatorSetChangeInfo},
 	FinalSessionTracker as FinalSessionTrackerT,
 };
-use seed_primitives::ethy::{ValidatorSet as ValidatorSetS, ValidatorSetId};
-use sp_runtime::{traits::Saturating, DispatchError, SaturatedConversion};
+use seed_primitives::{
+	ethy::{ValidatorSet as ValidatorSetS, ValidatorSetId},
+	AccountId,
+};
+use sp_runtime::{traits::Saturating, DispatchError, RuntimeAppPublic, SaturatedConversion};
 use sp_std::{vec, vec::Vec};
 
 pub(crate) const LOG_TARGET: &str = "validator-set";
@@ -48,14 +59,6 @@ pub(crate) const SCHEDULER_PRIORITY: u8 = 63;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::{pallet_prelude::*, traits::schedule::Anon};
-	use frame_system::{offchain::CreateSignedTransaction, pallet_prelude::*};
-	use seed_pallet_common::{
-		ethy::{EthereumBridgeAdapter, XRPLBridgeAdapter},
-		validator_set::ValidatorSetChangeHandler,
-	};
-	use seed_primitives::AccountId;
-	use sp_runtime::RuntimeAppPublic;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -104,6 +107,7 @@ pub mod pallet {
 		type EthBridgeAdapter: EthereumBridgeAdapter;
 		/// Max amount of new signers that can be set an in extrinsic
 		type MaxNewSigners: Get<u8>; // TODO(surangap): Update this with #419
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -209,13 +213,10 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	where
-		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
-	{
+	impl<T: Config> Pallet<T> {
 		/// Finalises the validator set change
 		/// Called internally after force new era
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::finalise_validator_set_change())]
 		pub fn finalise_validator_set_change(
 			origin: OriginFor<T>,
 			next_notary_keys: Vec<T::EthyId>,
@@ -224,7 +225,7 @@ pub mod pallet {
 			Self::do_finalise_validator_set_change(next_notary_keys)
 		}
 
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1))]
+		#[pallet::weight(T::WeightInfo::set_xrpl_door_signers())]
 		/// Set new XRPL door signers
 		pub fn set_xrpl_door_signers(
 			origin: OriginFor<T>,

@@ -12,6 +12,7 @@ serde = { version = "1.0.145", optional = true, default-features = false }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 log = "0.4"
 ethabi = { version = "17.1.0", default-features = false}
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
 
 
 # Substrate
@@ -46,3 +47,4 @@ std = [
     "sp-core/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = [ "frame-benchmarking" ]

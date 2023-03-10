@@ -843,6 +843,7 @@ impl pallet_validator_set::Config for Runtime {
 	type XRPLBridgeAdapter = XRPLBridge;
 	/// Eth Bridge adapter
 	type EthBridgeAdapter = EthBridge;
+	type WeightInfo = weights::pallet_validator_set::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1759,5 +1760,6 @@ mod benches {
 		[pallet_dex, Dex]
 		[pallet_ethy, Ethy]
 		[pallet_eth_bridge, EthBridge]
+		[pallet_validator_set, ValidatorSet]
 	);
 }

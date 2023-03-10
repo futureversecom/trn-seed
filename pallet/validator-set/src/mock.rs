@@ -132,6 +132,7 @@ impl Config for TestRuntime {
 	type XRPLBridgeAdapter = MockXrplBridgeAdapter;
 	type EthBridgeAdapter = MockEthBridgeAdapter;
 	type MaxNewSigners = MaxNewSigners;
+	type WeightInfo = ();
 }
 
 pub struct MockEthyAdapter;

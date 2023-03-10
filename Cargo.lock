@@ -5593,6 +5593,7 @@ name = "pallet-validator-set"
 version = "0.1.0"
 dependencies = [
  "ethabi",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal",
