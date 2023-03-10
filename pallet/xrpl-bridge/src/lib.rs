@@ -54,13 +54,13 @@ mod helpers;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod xrpl_rpc_client;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_relayer;
-mod xrpl_rpc_client;
 
 pub mod weights;
 
@@ -72,7 +72,7 @@ pub use weights::WeightInfo;
 pub mod pallet {
 	use crate::xrpl_rpc_client::is_valid_xrp_transaction;
 
-use super::*;
+	use super::*;
 	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
 	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
 	use seed_primitives::{ethy::EthyEcdsaToEthereum, xrpl::XrplTxTicketSequence, AccountId20};
@@ -83,9 +83,7 @@ use super::*;
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::config]
-	pub trait Config:
-		CreateSignedTransaction<Call<Self>> + frame_system::Config<AccountId = AccountId>
-	{
+	pub trait Config: CreateSignedTransaction<Call<Self>> + frame_system::Config<AccountId = AccountId> + frame_system::Config<AccountId = AccountId> {
 		type AuthorityId: Member
 			+ Parameter
 			+ AsRef<[u8]>
@@ -127,10 +125,8 @@ use super::*;
 		type TicketSequenceThreshold: Get<Percent>;
 
 		type MaxChallenges: Get<u32>;
-
 		// Keystore with methods to return keys of validator by index
 		type ValidatorKeystore: ValidatorKeystore<Self::AuthorityId>;
-
 		type XrplNotaries: XrplValidators<crate::app_crypto::Public>;
 	}
 
@@ -142,7 +138,6 @@ use super::*;
 		CouldNotParsePublicKey,
 		/// Signature could not be created by validator's local keystore key
 		CouldNotSignFromKeystore,
-		/// Transaction was not sent by an active relayer
 		NotPermitted,
 		RelayerDoesNotExists,
 		/// Withdraw amount must be non-zero and <= u64
@@ -165,7 +160,7 @@ use super::*;
 		NextTicketSequenceParamsInvalid,
 		/// The TicketSequenceParams is invalid
 		TicketSequenceParamsInvalid,
-		// Offchain Errors
+		// Offchain errors
 		/// Could not parse a stored XRPL block hash as a string
 		CantParseXrplBlockHash,
 		/// HTTP request deadline reached
@@ -231,9 +226,6 @@ use super::*;
 			let weights = Self::process_xrp_tx(n);
 			weights + Self::clear_storages(n)
 		}
-<<<<<<< HEAD
-	}
-=======
 
 		fn offchain_worker(_block_number: T::BlockNumber) {
 			let (authority_id, _authority_index) =
@@ -265,10 +257,10 @@ use super::*;
 						return
 					}
 
-					// if let Err(err) = xrpl_rpc_client::get_xrpl_tx_data::<T>(xrpl_block_hash) {
-					// 	log::error!("Could not retrieve data from XRPL RPC {:?}", err);
-					// 	return
-					// };
+					if let Err(err) = xrpl_rpc_client::get_xrpl_tx_data::<T>(xrpl_block_hash) {
+						log::error!("Could not retrieve data from XRPL RPC {:?}", err);
+						return
+					};
 
 					let response_body = xrpl_rpc_client::get_xrpl_tx_data::<T>(xrpl_block_hash).unwrap();
 
@@ -276,13 +268,6 @@ use super::*;
 						log::warn!("No UTF8 body");
 						return;
 					});
-
-					log::info!("response body: \r\n {:?}", response_body_str);
-
-					// TODO: change the following signature to again return result
-					// if is_valid_xrp_transaction::<T>(response_body_str.unwrap()).is_err() {
-					// 	return;
-					// }
 
 					is_valid_xrp_transaction::<T>(response_body_str.unwrap());
 
@@ -315,11 +300,7 @@ use super::*;
 				}
 			}
 		}
->>>>>>> cd88513 (Make RPC request for XRPL block data)
 
-		fn on_runtime_upgrade() -> Weight {
-			migration::try_migrate::<T>()
-		}
 	}
 
 	#[pallet::pallet]
@@ -355,6 +336,7 @@ use super::*;
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
+	/// validates
 	pub type ChallengeXRPTransactionList<T: Config> =
 		CountedStorageMap<_, Identity, H512, T::AccountId, OptionQuery>;
 
@@ -362,6 +344,7 @@ use super::*;
 	pub fn DefaultDoorTicketSequence() -> u32 {
 		0_u32
 	}
+
 	#[pallet::storage]
 	#[pallet::getter(fn door_ticket_sequence)]
 	/// The current ticket sequence of the XRPL door account
@@ -458,8 +441,8 @@ use super::*;
 			let who = ensure_signed(origin)?;
 			ensure!(ChallengeXRPTransactionList::<T>::count() < 3, Error::<T>::TooManyChallenges);
 			ensure!(
-				ChallengeXRPTransactionList::<T>::get(&transaction_hash).is_none(),
-				Error::<T>::AlreadyChallenged
+			        ChallengeXRPTransactionList::<T>::get(&transaction_hash).is_none(),
+			        Error::<T>::AlreadyChallenged
 			);
 			ChallengeXRPTransactionList::<T>::insert(&transaction_hash, who);
 			Ok(())
@@ -481,6 +464,7 @@ use super::*;
 
 			Ok(())
 		}
+ 
 
 		/// Withdraw xrp transaction
 		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
@@ -729,7 +713,7 @@ impl<T: Config> Pallet<T> {
 	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResult {
 		let process_block_number =
 			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
-		ProcessXRPTransaction::<T>::append(&process_block_number, &transaction_hash);
+		ProcessXRPTransaction::<T>::append(&process_block_number, transaction_hash);
 		Ok(())
 	}
 
@@ -813,15 +797,11 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut next_sequence =
-		// current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 			current_sequence.checked_add(One::one()).ok_or(Error::<T>::XrplTicketSequenceTooHigh)?;
-
 		let last_sequence = ticket_params
 			.start_sequence
 			.checked_add(ticket_params.bucket_size)
-			// .ok_or(ArithmeticError::Overflow)?;
 			.ok_or(Error::<T>::XrplTicketSequenceTooHigh)?;
-
 		if current_sequence >= last_sequence {
 			// we ran out current bucket, check the next_start_sequence
 			let next_ticket_params = Self::door_ticket_sequence_params_next();
@@ -834,7 +814,6 @@ impl<T: Config> Pallet<T> {
 				DoorTicketSequenceParams::<T>::set(next_ticket_params.clone());
 				current_sequence = next_ticket_params.start_sequence;
 				next_sequence =
-					// current_sequence.checked_add(One::one()).ok_or(ArithmeticError::Overflow)?;
 					current_sequence.checked_add(One::one()).ok_or(Error::<T>::XrplTicketSequenceTooHigh)?;
 
 				DoorTicketSequenceParamsNext::<T>::kill();
