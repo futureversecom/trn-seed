@@ -52,7 +52,7 @@ pub use frame_support::{
 	ensure, parameter_types,
 	traits::{
 		fungibles::{Inspect, InspectMetadata},
-		ConstU32, CurrencyToVote, Everything, Get, IsInVec, KeyOwnerProofSystem, Randomness,
+		ConstU32, CurrencyToVote, Everything, IsInVec, KeyOwnerProofSystem, Randomness,
 	},
 	weights::{
 		constants::{ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
