@@ -1,9 +1,7 @@
 use seed_primitives::{CollectionUuid, MetadataScheme, TokenCount, TokenId};
 use sp_runtime::{DispatchError, DispatchResult};
 
-use crate::{
-	CollectionInformation, CollectionNameType, Config, OriginChain, RoyaltiesSchedule, TokenCount,
-};
+use crate::{CollectionInformation, CollectionNameType, Config, OriginChain, RoyaltiesSchedule};
 
 pub trait NFTExt {
 	type AccountId;

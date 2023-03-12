@@ -366,7 +366,10 @@ fn create_collection() {
 			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
 			(0_u32, 5, vec![0, 1, 2, 3, 4])
 		);
-		assert_eq!(Nft::owned_tokens(collection_id, &(new_owner), 0, 1000), (0_u32, 3, vec![5, 6, 7]));
+		assert_eq!(
+			Nft::owned_tokens(collection_id, &(new_owner), 0, 1000),
+			(0_u32, 3, vec![5, 6, 7])
+		);
 		assert_eq!(
 			Nft::collection_info(collection_id).unwrap().collection_issuance,
 			quantity + additional_quantity

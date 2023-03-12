@@ -37,7 +37,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenCount, TokenId,
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber,
+	TokenCount, TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -55,6 +56,7 @@ mod weights;
 pub use weights::WeightInfo;
 
 mod impls;
+mod migration;
 pub mod traits;
 mod types;
 

@@ -7,7 +7,7 @@ use frame_support::{
 	traits::fungibles::{Inspect, InspectMetadata, Transfer},
 	PalletId,
 };
-use seed_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
+use seed_pallet_common::{CreateExt, Hold, TransferExt};
 use seed_primitives::Balance;
 use sp_core::H160;
 use sp_runtime::traits::{AccountIdConversion, Zero};

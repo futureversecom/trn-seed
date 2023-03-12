@@ -21,7 +21,8 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
