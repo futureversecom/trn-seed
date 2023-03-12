@@ -172,42 +172,6 @@ pub mod pallet {
 		CreateAssetFailed,
 	}
 
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_runtime_upgrade() -> Weight {
-			use frame_support::weights::constants::RocksDbWeight as DbWeight;
-
-			if StorageVersion::get::<Self>() == 0 {
-				StorageVersion::new(1).put::<Self>();
-
-				// Add evm code root and XRP assets
-				// Hardcoded asset ids to avoid the need to pull in seed_runtime crate purely for
-				// runtime upgrade
-				T::OnNewAssetSubscription::on_asset_create(1, ERC20_PRECOMPILE_ADDRESS_PREFIX);
-				T::OnNewAssetSubscription::on_asset_create(2, ERC20_PRECOMPILE_ADDRESS_PREFIX);
-				let mut weight = 2 as Weight;
-
-				let highest_asset_id = <NextAssetId<T>>::get();
-				for asset_id in 1_u32..highest_asset_id {
-					if let Some(asset_uuid) =
-						next_asset_uuid(asset_id, T::ParachainId::get().into())
-					{
-						T::OnNewAssetSubscription::on_asset_create(
-							asset_uuid,
-							ERC20_PRECOMPILE_ADDRESS_PREFIX,
-						);
-						weight += 1;
-					}
-				}
-
-				return 6_000_000 as Weight +
-					DbWeight::get().reads_writes(weight as Weight + 1, weight as Weight + 1)
-			} else {
-				Zero::zero()
-			}
-		}
-	}
-
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new asset with unique ID according to the network asset id scheme.

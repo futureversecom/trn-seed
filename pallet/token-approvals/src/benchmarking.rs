@@ -21,7 +21,8 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use pallet_nft::{MetadataScheme, OriginChain};
+use pallet_nft::OriginChain;
+use seed_primitives::MetadataScheme;
 
 use crate::Pallet as TokeApprovals;
 
@@ -39,7 +40,7 @@ pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 fn build_collection<T: Config>() -> (T::AccountId, CollectionUuid, TokenId) {
 	let alice = account::<T>("Alice");
 	let collection_name = "Hello".into();
-	let metadata_scheme = MetadataScheme::IpfsDir(
+	let metadata_scheme = MetadataScheme::Ipfs(
 		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
 	);
 

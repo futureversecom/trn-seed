@@ -18,13 +18,11 @@
 use crate::{Config, Error};
 
 use codec::{Decode, Encode};
-use core::fmt::Write;
 use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	AssetId, Balance, BlockNumber, CollectionUuid, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, TokenId,
 };
-use sp_core::H160;
 use sp_runtime::{BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
 
@@ -94,6 +92,21 @@ impl<T: Config> TokenOwnership<T> {
 	}
 }
 
+/// Determines compatibility with external chains.
+/// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
+/// token on The Root Network
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy)]
+pub struct CrossChainCompatibility {
+	/// This collection is compatible with the XLS-20 standard on XRPL
+	pub xrpl: bool,
+}
+
+impl Default for CrossChainCompatibility {
+	fn default() -> Self {
+		Self { xrpl: false }
+	}
+}
+
 /// Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
@@ -114,6 +127,8 @@ pub struct CollectionInformation<T: Config> {
 	pub next_serial_number: SerialNumber,
 	/// the total count of tokens in this collection
 	pub collection_issuance: TokenCount,
+	/// This collections compatibility with other chains
+	pub cross_chain_compatibility: CrossChainCompatibility,
 	/// All serial numbers owned by an account in a collection
 	pub owned_tokens: BoundedVec<TokenOwnership<T>, <T as Config>::MaxTokensPerCollection>,
 }
@@ -124,6 +139,11 @@ impl<T: Config> CollectionInformation<T> {
 		self.owned_tokens
 			.iter()
 			.any(|token_ownership| token_ownership.contains_serial(&serial_number))
+	}
+
+	/// Check whether who is the collection owner
+	pub fn is_collection_owner(&self, who: &T::AccountId) -> bool {
+		&self.owner == who
 	}
 
 	/// Check whether who owns the serial number in collection_info
@@ -195,122 +215,6 @@ impl<T: Config> CollectionInformation<T> {
 			self.owned_tokens
 				.retain(|token_ownership| &token_ownership.owner != token_owner);
 		}
-	}
-}
-
-/// Denotes the metadata URI referencing scheme used by a collection
-/// Enable token metadata URI construction by clients
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-pub enum MetadataScheme {
-	/// Collection metadata is hosted by an HTTPS server
-	/// Inner value is the URI without protocol prefix 'https://' or trailing '/'
-	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
-	/// Https(b"example.com/metadata")
-	Https(Vec<u8>),
-	/// Collection metadata is hosted by an unsecured HTTP server
-	/// Inner value is the URI without protocol prefix 'http://' or trailing '/'
-	/// full metadata URI construction: `https://<domain>/<path+>/<serial_number>.json`
-	/// Https(b"example.com/metadata")
-	Http(Vec<u8>),
-	/// Collection metadata is hosted by an IPFS directory
-	/// Inner value is the directory's IPFS CID
-	/// full metadata URI construction: `ipfs://<directory_CID>/<serial_number>.json`
-	/// IpfsDir(b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi")
-	IpfsDir(Vec<u8>),
-	/// Collection metadata is hosted by an IPFS directory
-	/// Inner value is the shared IPFS CID, each token in the collection shares the same CID
-	/// full metadata URI construction: `ipfs://<shared_file_CID>.json`
-	IpfsShared(Vec<u8>),
-	// Collection metadata is located on Ethereum in the relevant field on the source token
-	// ethereum://<contractaddress>/<originalid>
-	Ethereum(H160),
-}
-
-impl MetadataScheme {
-	/// Returns the protocol prefix for this metadata URI type
-	pub fn prefix(&self) -> &'static str {
-		match self {
-			MetadataScheme::Http(_path) => "http://",
-			MetadataScheme::Https(_path) => "https://",
-			MetadataScheme::IpfsDir(_path) => "ipfs://",
-			MetadataScheme::IpfsShared(_path) => "ipfs://",
-			MetadataScheme::Ethereum(_path) => "ethereum://",
-		}
-	}
-	/// Returns a sanitized version of the metadata URI
-	pub fn sanitize(&self) -> Result<Self, ()> {
-		let prefix = self.prefix();
-		let santitize_ = |path: Vec<u8>| {
-			if path.is_empty() {
-				return Err(())
-			}
-			// some best effort attempts to sanitize `path`
-			let mut path = core::str::from_utf8(&path).map_err(|_| ())?.trim();
-			if path.ends_with("/") {
-				path = &path[..path.len() - 1];
-			}
-			if path.starts_with(prefix) {
-				path = &path[prefix.len()..];
-			}
-			Ok(path.as_bytes().to_vec())
-		};
-
-		Ok(match self.clone() {
-			MetadataScheme::Http(path) => MetadataScheme::Http(santitize_(path)?),
-			MetadataScheme::Https(path) => MetadataScheme::Https(santitize_(path)?),
-			MetadataScheme::IpfsDir(path) => MetadataScheme::IpfsDir(santitize_(path)?),
-			MetadataScheme::IpfsShared(path) => MetadataScheme::IpfsShared(santitize_(path)?),
-			// Ethereum inner value is an H160 and does not need sanitizing
-			MetadataScheme::Ethereum(address) => MetadataScheme::Ethereum(address),
-		})
-	}
-	/// Returns a MetadataScheme from an index and metadata_path
-	pub fn from_index(index: u8, metadata_path: Vec<u8>) -> Result<Self, ()> {
-		match index {
-			0 => Ok(MetadataScheme::Https(metadata_path)),
-			1 => Ok(MetadataScheme::Http(metadata_path)),
-			2 => Ok(MetadataScheme::IpfsDir(metadata_path)),
-			3 => Ok(MetadataScheme::IpfsShared(metadata_path)),
-			_ => return Err(()),
-		}
-	}
-	/// Returns the full token_uri for a token
-	pub fn construct_token_uri(&self, serial_number: SerialNumber) -> Vec<u8> {
-		let mut token_uri = sp_std::Writer::default();
-		match self {
-			MetadataScheme::Http(path) => {
-				let path = core::str::from_utf8(&path).unwrap_or("");
-				write!(&mut token_uri, "http://{}/{}.json", path, serial_number)
-					.expect("Not written");
-			},
-			MetadataScheme::Https(path) => {
-				let path = core::str::from_utf8(&path).unwrap_or("");
-				write!(&mut token_uri, "https://{}/{}.json", path, serial_number)
-					.expect("Not written");
-			},
-			MetadataScheme::IpfsDir(dir_cid) => {
-				write!(
-					&mut token_uri,
-					"ipfs://{}/{}.json",
-					core::str::from_utf8(&dir_cid).unwrap_or(""),
-					serial_number
-				)
-				.expect("Not written");
-			},
-			MetadataScheme::IpfsShared(shared_cid) => {
-				write!(
-					&mut token_uri,
-					"ipfs://{}.json",
-					core::str::from_utf8(&shared_cid).unwrap_or("")
-				)
-				.expect("Not written");
-			},
-			MetadataScheme::Ethereum(contract_address) => {
-				write!(&mut token_uri, "ethereum://{:?}/{}", contract_address, serial_number)
-					.expect("Not written");
-			},
-		}
-		token_uri.inner().clone()
 	}
 }
 
@@ -454,40 +358,8 @@ pub type ListingId = u128;
 
 #[cfg(test)]
 mod test {
-	use super::{MetadataScheme, RoyaltiesSchedule};
-	use sp_core::H160;
+	use super::RoyaltiesSchedule;
 	use sp_runtime::Permill;
-
-	#[test]
-	fn metadata_path_sanitize() {
-		// empty
-		assert_eq!(MetadataScheme::Http(b"".to_vec()).sanitize(), Err(()),);
-
-		// protocol strippred, trailling slash gone
-		assert_eq!(
-			MetadataScheme::Http(b" http://test.com/".to_vec()).sanitize(),
-			Ok(MetadataScheme::Http(b"test.com".to_vec()))
-		);
-		assert_eq!(
-			MetadataScheme::Https(b"https://test.com/ ".to_vec()).sanitize(),
-			Ok(MetadataScheme::Https(b"test.com".to_vec()))
-		);
-		assert_eq!(
-			MetadataScheme::IpfsDir(b"ipfs://notarealCIDblah/".to_vec()).sanitize(),
-			Ok(MetadataScheme::IpfsDir(b"notarealCIDblah".to_vec()))
-		);
-
-		// untouched
-		assert_eq!(
-			MetadataScheme::Http(b"test.com".to_vec()).sanitize(),
-			Ok(MetadataScheme::Http(b"test.com".to_vec()))
-		);
-
-		assert_eq!(
-			MetadataScheme::Ethereum(H160::from_low_u64_be(123)).sanitize(),
-			Ok(MetadataScheme::Ethereum(H160::from_low_u64_be(123)))
-		);
-	}
 
 	#[test]
 	fn valid_royalties_plan() {

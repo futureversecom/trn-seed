@@ -100,16 +100,4 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
-	// Storage: unknown [0xf359408206eb0939f15785224140c9c24e7b9012096b41c4eb3aaf947f6ea429] (r:1 w:1)
-	// Storage: unknown [0xf359408206eb0939f15785224140c9c26c27d5145ffa0e115a3c9f4c85d12554] (r:0 w:1)
-	fn on_runtime_upgrade() -> Weight {
-		(5_937_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	// Storage: unknown [0xf359408206eb0939f15785224140c9c24e7b9012096b41c4eb3aaf947f6ea429] (r:1 w:0)
-	fn on_runtime_upgrade_no_change() -> Weight {
-		(1_521_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-	}
 }

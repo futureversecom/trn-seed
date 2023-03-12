@@ -20,7 +20,7 @@ use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
-use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenCount, TokenId};
+use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, TokenId};
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
 impl<T: Config> Pallet<T> {
@@ -210,6 +210,52 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Perform validity checks on collection_info
+	/// Return bounded vec of serial numbers to mint
+	pub fn pre_mint(
+		who: &T::AccountId,
+		quantity: TokenCount,
+		collection_info: &CollectionInformation<T>,
+	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
+		// Quantity must be some
+		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
+		// Caller must be collection_owner
+		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		// Check we don't exceed the token limit
+		ensure!(
+			collection_info.collection_issuance.saturating_add(quantity) <
+				T::MaxTokensPerCollection::get(),
+			Error::<T>::TokenLimitExceeded
+		);
+		// Cannot mint for a token that was bridged from Ethereum
+		ensure!(
+			collection_info.origin_chain == OriginChain::Root,
+			Error::<T>::AttemptedMintOnBridgedToken
+		);
+
+		let previous_serial_number = collection_info.next_serial_number;
+		let next_serial_number =
+			previous_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
+
+		// Check early that we won't exceed the BoundedVec limit
+		ensure!(
+			next_serial_number <= T::MaxTokensPerCollection::get(),
+			Error::<T>::TokenLimitExceeded
+		);
+
+		// Can't mint more than specified max_issuance
+		if let Some(max_issuance) = collection_info.max_issuance {
+			ensure!(max_issuance >= next_serial_number, Error::<T>::MaxIssuanceReached);
+		}
+
+		let serial_numbers_unbounded: Vec<SerialNumber> =
+			(previous_serial_number..next_serial_number).collect();
+		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+			BoundedVec::try_from(serial_numbers_unbounded)
+				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		Ok(serial_numbers)
+	}
+
 	/// Perform the mint operation and update storage accordingly.
 	pub(crate) fn do_mint(
 		collection_id: CollectionUuid,
@@ -289,31 +335,18 @@ impl<T: Config> Pallet<T> {
 		(new_cursor, total_owned, response)
 	}
 
-	/// Remove a single fixed price listing and all it's metadata
-	pub(crate) fn remove_fixed_price_listing(listing_id: ListingId) {
-		let listing_type = Listings::<T>::take(listing_id);
-		ListingWinningBid::<T>::remove(listing_id);
-		if let Some(Listing::<T>::FixedPrice(listing)) = listing_type {
-			ListingEndSchedule::<T>::remove(listing.close, listing_id);
-		}
-	}
-
 	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships
 	/// changes are made for winning bids Metadata for listings will be removed from storage
 	/// Returns the number of listings removed
 	pub(crate) fn close_listings_at(now: T::BlockNumber) -> u32 {
 		let mut removed = 0_u32;
 		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
-			let Some(listing) = Listings::<T>::take(listing_id) else {
+			let Some(listing_outer) = Listings::<T>::get(listing_id) else {
 				continue
 			};
-			match listing {
+			match listing_outer.clone() {
 				Listing::FixedPrice(listing) => {
-					Self::remove_listing(
-						listing_id,
-						listing.collection_id,
-						&listing.serial_numbers,
-					);
+					Self::remove_listing(listing_outer, listing_id);
 					Self::deposit_event(Event::<T>::FixedPriceSaleClose {
 						collection_id: listing.collection_id,
 						serial_numbers: listing.serial_numbers.into_inner(),
@@ -323,11 +356,7 @@ impl<T: Config> Pallet<T> {
 					removed += 1;
 				},
 				Listing::Auction(listing) => {
-					Self::remove_listing(
-						listing_id,
-						listing.collection_id,
-						&listing.serial_numbers,
-					);
+					Self::remove_listing(listing_outer, listing_id);
 					Self::process_auction_closure(listing, listing_id);
 					removed += 1;
 				},
@@ -336,16 +365,24 @@ impl<T: Config> Pallet<T> {
 		removed
 	}
 
-	/// Removes a listing from storage and releases locks on tokens
-	fn remove_listing(
-		listing_id: ListingId,
-		collection_id: CollectionUuid,
-		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-	) {
-		for serial_number in serial_numbers.iter() {
-			TokenLocks::<T>::remove((collection_id, serial_number));
-		}
+	/// Removes a listing and its metadata from storage and releases locks on tokens
+	pub(crate) fn remove_listing(listing: Listing<T>, listing_id: ListingId) {
+		let (serial_numbers, collection_id) = match listing {
+			Listing::FixedPrice(listing) => {
+				ListingEndSchedule::<T>::remove(listing.close, listing_id);
+				(listing.serial_numbers, listing.collection_id)
+			},
+			Listing::Auction(listing) => {
+				ListingEndSchedule::<T>::remove(listing.close, listing_id);
+				(listing.serial_numbers, listing.collection_id)
+			},
+		};
+
 		OpenCollectionListings::<T>::remove(collection_id, listing_id);
+		for serial_number in serial_numbers.iter() {
+			TokenLocks::<T>::remove((collection_id, *serial_number));
+		}
+		<Listings<T>>::remove(listing_id);
 	}
 
 	/// Process an auction once complete. Releasing the hold to the winner
@@ -493,6 +530,7 @@ impl<T: Config> Pallet<T> {
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		origin_chain: OriginChain,
+		cross_chain_compatibility: CrossChainCompatibility,
 	) -> Result<u32, DispatchError> {
 		// Check we can issue the new tokens
 		let collection_uuid = Self::next_collection_uuid()?;
@@ -522,6 +560,11 @@ impl<T: Config> Pallet<T> {
 		// Now mint the collection tokens
 		let mut owned_tokens = BoundedVec::default();
 		if initial_issuance > Zero::zero() {
+			// XLS-20 compatible collections cannot have an initial issuance
+			// This is to prevent the fees from being bypassed in the mint function.
+			// Instead the user should specify 0 initial_issuance and use the mint function to
+			// mint tokens
+			ensure!(!cross_chain_compatibility.xrpl, Error::<T>::InitialIssuanceNotZero);
 			// mint initial tokens to token_owner or owner
 			let token_owner = token_owner.unwrap_or(owner.clone());
 			let serial_numbers_unbounded: Vec<SerialNumber> = (0..initial_issuance).collect();
@@ -543,6 +586,7 @@ impl<T: Config> Pallet<T> {
 			origin_chain: origin_chain.clone(),
 			next_serial_number: initial_issuance,
 			collection_issuance: initial_issuance,
+			cross_chain_compatibility,
 			owned_tokens,
 		};
 		<CollectionInfo<T>>::insert(collection_uuid, collection_info);
@@ -565,6 +609,7 @@ impl<T: Config> Pallet<T> {
 			name,
 			royalties_schedule,
 			origin_chain,
+			compatibility: cross_chain_compatibility,
 		});
 		Ok(collection_uuid)
 	}
@@ -598,6 +643,27 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
+	/// Enables XLS-20 compatibility for a collection with 0 issuance
+	pub fn enable_xls20_compatibility(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+	) -> DispatchResult {
+		let mut collection_info =
+			CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+		// Caller must be collection owner
+		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		// Collection issuance must be 0 (i.e. no tokens minted)
+		ensure!(
+			collection_info.collection_issuance.is_zero(),
+			Error::<T>::CollectionIssuanceNotZero
+		);
+
+		collection_info.cross_chain_compatibility.xrpl = true;
+		CollectionInfo::<T>::insert(collection_id, collection_info);
+		Ok(())
+	}
+
 	/// The account ID of the auctions pot.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
@@ -606,7 +672,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
-	type MaxTokensPerCollection = T::MaxTokensPerCollection;
 	type T = T;
 
 	fn do_mint(
@@ -637,13 +702,27 @@ impl<T: Config> NFTExt for Pallet<T> {
 			metadata_scheme,
 			royalties_schedule,
 			origin_chain,
+			CrossChainCompatibility::default(),
 		)
 	}
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
+		let Some(collection) = CollectionInfo::<Self::T>::get(token_id.0) else {
 			return None
 		};
 		collection.get_token_owner(token_id.1)
+	}
+
+	fn get_collection_info(
+		collection_id: CollectionUuid,
+	) -> Result<CollectionInformation<Self::T>, DispatchError> {
+		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
+	}
+
+	fn enable_xls20_compatibility(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+	) -> DispatchResult {
+		Self::enable_xls20_compatibility(who, collection_id)
 	}
 }

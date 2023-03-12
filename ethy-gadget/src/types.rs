@@ -5,8 +5,10 @@ use seed_primitives::ethy::{EthyChainId, EventProofId, ETHY_ENGINE_ID};
 pub struct EventMetadata {
 	/// The associated chain Id of the event
 	pub chain_id: EthyChainId,
-	/// The digest of the event
-	pub digest: [u8; 32],
+	/// The digest data of the event
+	// store the digest data rather than the digest, and calculate the digest when required since
+	// the xrpl digest is unique per public key
+	pub digest_data: Vec<u8>,
 	/// The (finalized) block hash where the event proof was made
 	pub block_hash: [u8; 32],
 }

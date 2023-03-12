@@ -34,10 +34,10 @@ use frame_support::{
 	transactional, PalletId,
 };
 use seed_pallet_common::{
-	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
+	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, ParachainId, SerialNumber, TokenCount, TokenId,
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -74,11 +74,11 @@ pub(crate) const LOG_TARGET: &str = "nft";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer};
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -109,7 +109,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
 		type DefaultListingDuration: Get<Self::BlockNumber>;
@@ -123,7 +123,8 @@ pub mod pallet {
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
 			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>;
+			+ CreateExt<AccountId = Self::AccountId>
+			+ Transfer<Self::AccountId, Balance = Balance>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -135,6 +136,8 @@ pub mod pallet {
 		type ParachainId: Get<ParachainId>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
+		/// Interface for sending XLS20 mint requests
+		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
 	}
 
 	/// Map from collection to its information
@@ -165,7 +168,6 @@ pub mod pallet {
 
 	/// NFT sale/auction listings keyed by listing id
 	#[pallet::storage]
-	#[pallet::getter(fn listings)]
 	pub type Listings<T: Config> = StorageMap<_, Twox64Concat, ListingId, Listing<T>>;
 
 	/// The next available listing Id
@@ -221,6 +223,7 @@ pub mod pallet {
 			name: CollectionNameType,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
+			compatibility: CrossChainCompatibility,
 		},
 		/// Token(s) were minted
 		Mint {
@@ -231,6 +234,10 @@ pub mod pallet {
 		},
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
+		/// Max issuance was set
+		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
+		/// Base URI was set
+		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -379,16 +386,41 @@ pub mod pallet {
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
+		/// The max issuance has already been set and can't be changed
+		MaxIssuanceAlreadySet,
 		/// The collection max issuance has been reached and no more tokens can be minted
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
 		/// Cannot claim already claimed collections
 		CannotClaimNonClaimableCollections,
+		/// Initial issuance on XLS-20 compatible collections must be zero
+		InitialIssuanceNotZero,
+		/// Total issuance of collection must be zero to add xls20 compatibility
+		CollectionIssuanceNotZero,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<(), &'static str> {
+			migration::v3::pre_upgrade::<T>()?;
+
+			Ok(())
+		}
+
+		/// Perform runtime upgrade
+		fn on_runtime_upgrade() -> Weight {
+			migration::v3::on_runtime_upgrade::<T>()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade() -> Result<(), &'static str> {
+			migration::v3::post_upgrade::<T>()?;
+
+			Ok(())
+		}
+
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
@@ -439,10 +471,66 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 			collection_info.owner = new_owner.clone();
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::OwnerSet { collection_id, new_owner });
+			Ok(())
+		}
+
+		/// Set the max issuance of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_max_issuance())]
+		pub fn set_max_issuance(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			max_issuance: TokenCount,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
+			ensure!(
+				collection_info.collection_issuance <= max_issuance,
+				Error::<T>::InvalidMaxIssuance
+			);
+
+			match collection_info.max_issuance {
+				// cannot set - if already set
+				Some(_) => return Err(Error::<T>::InvalidMaxIssuance.into()),
+				// if not set, ensure that the max issuance is greater than the current issuance
+				None => ensure!(
+					collection_info.collection_issuance <= max_issuance,
+					Error::<T>::InvalidMaxIssuance
+				),
+			}
+
+			collection_info.max_issuance = Some(max_issuance);
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::MaxIssuanceSet { collection_id, max_issuance });
+			Ok(())
+		}
+
+		/// Set the base URI of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_base_uri())]
+		pub fn set_base_uri(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			base_uri: Vec<u8>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			collection_info.metadata_scheme =
+				base_uri.clone().try_into().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::BaseUriSet { collection_id, base_uri });
 			Ok(())
 		}
 
@@ -500,6 +588,7 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 			metadata_scheme: MetadataScheme,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+			cross_chain_compatibility: CrossChainCompatibility,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_create_collection(
@@ -511,6 +600,7 @@ pub mod pallet {
 				metadata_scheme,
 				royalties_schedule,
 				OriginChain::Root,
+				cross_chain_compatibility,
 			)?;
 			Ok(())
 		}
@@ -533,53 +623,33 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
-
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
-			// Caller must be collection_owner
-			ensure!(collection_info.owner == who, Error::<T>::NotCollectionOwner);
+			// Perform pre mint checks
+			let serial_numbers = Self::pre_mint(&who, quantity, &collection_info)?;
+			let owner = token_owner.unwrap_or(who.clone());
+			let xls20_compatible = collection_info.cross_chain_compatibility.xrpl;
+			let metadata_scheme = collection_info.metadata_scheme.clone();
 
-			// Check we don't exceed the token limit
-			ensure!(
-				collection_info.collection_issuance.saturating_add(quantity) <
-					T::MaxTokensPerCollection::get(),
-				Error::<T>::TokenLimitExceeded
-			);
-
-			// Cannot mint for a token that was bridged from Ethereum
-			ensure!(
-				collection_info.origin_chain == OriginChain::Root,
-				Error::<T>::AttemptedMintOnBridgedToken
-			);
-
-			let next_serial_number = collection_info.next_serial_number;
 			// Increment next serial number
+			let next_serial_number = collection_info.next_serial_number;
 			collection_info.next_serial_number =
 				next_serial_number.checked_add(quantity).ok_or(Error::<T>::NoAvailableIds)?;
 
-			// Check early that we won't exceed the BoundedVec limit
-			ensure!(
-				collection_info.next_serial_number <= T::MaxTokensPerCollection::get(),
-				Error::<T>::TokenLimitExceeded
-			);
-
-			// Can't mint more than specified max_issuance
-			if let Some(max_issuance) = collection_info.max_issuance {
-				ensure!(
-					max_issuance >= collection_info.next_serial_number,
-					Error::<T>::MaxIssuanceReached
-				);
-			}
-
-			let owner = token_owner.unwrap_or(who);
-			let serial_numbers_unbounded: Vec<SerialNumber> =
-				(next_serial_number..collection_info.next_serial_number).collect();
-			let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
-				BoundedVec::try_from(serial_numbers_unbounded)
-					.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+			// Perform the mint and update storage
 			Self::do_mint(collection_id, collection_info, &owner, &serial_numbers)?;
+
+			// Check if this collection is XLS-20 compatible
+			if xls20_compatible {
+				// Pay XLS20 mint fee and send requests
+				let _ = T::Xls20MintRequest::request_xls20_mint(
+					&who,
+					collection_id,
+					serial_numbers.clone().into_inner(),
+					metadata_scheme,
+				)?;
+			}
 
 			// throw event, listing starting and endpoint token ids (sequential mint)
 			Self::deposit_event(Event::<T>::Mint {
@@ -688,11 +758,13 @@ pub mod pallet {
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			if let Some(Listing::FixedPrice(listing)) = Self::listings(listing_id) {
+			if let Some(Listing::FixedPrice(listing)) = Listings::<T>::get(listing_id) {
 				// if buyer is specified in the listing, then `who` must be buyer
 				if let Some(buyer) = &listing.buyer {
 					ensure!(&who == buyer, Error::<T>::NotBuyer);
 				}
+
+				Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
 
 				let payouts = Self::calculate_royalty_payouts(
 					listing.seller.clone(),
@@ -702,11 +774,6 @@ pub mod pallet {
 				// Make split transfer
 				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
 
-				<OpenCollectionListings<T>>::remove(listing.collection_id, listing_id);
-
-				for serial_number in listing.serial_numbers.iter() {
-					<TokenLocks<T>>::remove((listing.collection_id, *serial_number));
-				}
 				// Transfer the tokens
 				let _ = Self::do_transfer(
 					listing.collection_id,
@@ -714,8 +781,6 @@ pub mod pallet {
 					&listing.seller,
 					&who,
 				)?;
-
-				Self::remove_fixed_price_listing(listing_id);
 
 				Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
 					collection_id: listing.collection_id,
@@ -753,9 +818,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			if serial_numbers.is_empty() {
-				return Err(Error::<T>::NoToken.into())
-			}
+			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+
 			let royalties_schedule =
 				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 
@@ -801,7 +865,7 @@ pub mod pallet {
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let mut listing = match Self::listings(listing_id) {
+			let mut listing = match Listings::<T>::get(listing_id) {
 				Some(Listing::Auction(listing)) => listing,
 				_ => return Err(Error::<T>::NotForAuction.into()),
 			};
@@ -862,7 +926,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let listing = Self::listings(listing_id).ok_or(Error::<T>::TokenNotListed)?;
+			let listing = Listings::<T>::get(listing_id).ok_or(Error::<T>::TokenNotListed)?;
 
 			match listing {
 				Listing::<T>::FixedPrice(sale) => {
@@ -917,7 +981,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			match Self::listings(listing_id) {
+			match Listings::<T>::get(listing_id) {
 				Some(Listing::<T>::FixedPrice(mut sale)) => {
 					ensure!(sale.seller == who, Error::<T>::NotSeller);
 
@@ -960,7 +1024,7 @@ pub mod pallet {
 
 			// ensure the token_id is not currently in an auction
 			if let Some(TokenLockReason::Listed(listing_id)) = Self::token_locks(token_id) {
-				match Self::listings(listing_id) {
+				match Listings::<T>::get(listing_id) {
 					Some(Listing::<T>::Auction(_)) => return Err(Error::<T>::TokenOnAuction.into()),
 					None | Some(Listing::<T>::FixedPrice(_)) => (),
 				}
@@ -1025,6 +1089,15 @@ pub mod pallet {
 			match offer_type {
 				OfferType::Simple(offer) => {
 					let (collection_id, serial_number) = offer.token_id;
+
+					// Check whether token is listed for fixed price sale
+					if let Some(TokenLockReason::Listed(listing_id)) =
+						Self::token_locks(offer.token_id)
+					{
+						if let Some(listing) = <Listings<T>>::get(listing_id) {
+							Self::remove_listing(listing, listing_id);
+						}
+					}
 
 					let royalties_schedule =
 						Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;

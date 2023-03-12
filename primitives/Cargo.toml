@@ -17,6 +17,7 @@ scale-info = { version = "2.3.0", default-features = false, features = ["derive"
 serde = { version = "1.0.145", default-features = false, optional = true }
 ripemd = { version = "0.1", default-features = false }
 sha2 = { version = "0.10", default-features = false }
+hex = { version = "0.4.3", default-features = false }
 
 sp-api = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 sp-application-crypto = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
@@ -36,6 +37,7 @@ substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", 
 [features]
 default = ["std"]
 std = [
+    "hex/std",
     "codec/std",
     "impl-serde/std",
     "libsecp256k1/std",
