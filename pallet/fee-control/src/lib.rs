@@ -64,10 +64,10 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Origin that can control this pallet.
 		type CallOrigin: EnsureOrigin<Self::Origin>;
-
-		type Threshold: BaseFeeThreshold;
-		type DefaultElasticity: Get<Permill>;
-
+		/// TODO
+		type Threshold: Get<Permill>;
+		/// TODO
+		type Elasticity: Get<Permill>;
 		/// To get the value of one XRP.
 		#[pallet::constant]
 		type OneXRP: Get<Balance>;
@@ -116,14 +116,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SettingsAndMultipliers<T> =
 		StorageValue<_, FeeControlData, ValueQuery, DefaultWeightToFeeReduction<T>>;
-
-	#[pallet::type_value]
-	pub fn DefaultElasticity<T: Config>() -> Permill {
-		T::DefaultElasticity::get()
-	}
-
-	#[pallet::storage]
-	pub type EvmElasticity<T> = StorageValue<_, Permill, ValueQuery, DefaultElasticity<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -214,39 +206,39 @@ pub mod pallet {
 
 		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
 			SettingsAndMultipliers::<T>::mutate(|settings| {
-				let mut target_fee = settings.reference_evm_base_fee;
+				let Ok(reference_fee) = u128::try_from(settings.reference_evm_base_fee) else {
+					// TODO emit event
+					return;
+				};
 
-				let weight = <frame_system::Pallet<T>>::block_weight();
+				let Ok(mut adjusted_fee) = u128::try_from(settings.adjusted_evm_base_fee) else {
+					// TODO emit event
+					return;
+				};
+				let mut target_fee = reference_fee.clone();
+
+				let weight = <frame_system::Pallet<T>>::block_weight().total();
 				let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
 
-				let usage = Permill::from_rational(weight.total(), max_weight);
-				let threshold = Permill::from_percent(25);
+				let usage = Permill::from_rational(weight, max_weight);
+				let threshold = T::Threshold::get();
 				if usage > threshold {
-					let difference = usage.deconstruct() - threshold.deconstruct();
-					let max = Permill::one().deconstruct() - threshold.deconstruct();
-					let target_fee2 = u128::try_from(target_fee).unwrap();
-					let target_fee2 =
-						target_fee2 + Permill::from_rational(difference, max).mul(target_fee2);
-
-					target_fee = U256::from(target_fee2);
+					let scale = Permill::from_rational(
+						(usage - threshold).deconstruct(),
+						(Permill::one() - threshold).deconstruct(),
+					);
+					target_fee += scale.mul(target_fee);
 				}
 
-				let mut adjusted_fee = settings.adjusted_evm_base_fee;
-				let abc = u128::try_from(settings.reference_evm_base_fee).unwrap();
+				let elasticity = T::Elasticity::get();
 				if adjusted_fee > target_fee {
-					adjusted_fee = adjusted_fee - Permill::from_percent(1).mul(abc);
+					adjusted_fee -= elasticity.mul(reference_fee);
 				} else if adjusted_fee < target_fee {
-					adjusted_fee = adjusted_fee + Permill::from_percent(1).mul(abc);
-					if adjusted_fee > target_fee {
-						adjusted_fee = target_fee;
-					}
+					adjusted_fee = (adjusted_fee + elasticity.mul(reference_fee)).min(target_fee);
 				}
+				adjusted_fee = adjusted_fee.max(reference_fee);
 
-				if adjusted_fee < settings.reference_evm_base_fee {
-					adjusted_fee = settings.reference_evm_base_fee;
-				}
-
-				settings.adjusted_evm_base_fee = adjusted_fee;
+				settings.adjusted_evm_base_fee = U256::from(adjusted_fee);
 			});
 		}
 	}
@@ -333,38 +325,10 @@ pub mod pallet {
 				)
 				.map_err(|x| Error::<T>::from(x))?;
 
-				let old_ref_evm_fee = x.reference_evm_base_fee.clone();
-				let new_ref_evm_fee = reference_evm_base_fee.clone();
-
 				x.weight_multiplier = weight_multiplier;
 				x.length_multiplier = length_multiplier;
 				x.reference_evm_base_fee = reference_evm_base_fee;
-
-				if new_ref_evm_fee > old_ref_evm_fee {
-					let (integer, remainer) = new_ref_evm_fee.div_mod(old_ref_evm_fee);
-					let remainer = u128::try_from(remainer).expect("qed");
-					let old_ref_evm_fee = u128::try_from(old_ref_evm_fee).expect("qed");
-					let decimal = Perbill::from_rational(remainer, old_ref_evm_fee);
-					let adjusted_evm_base_fee =
-						u128::try_from(x.adjusted_evm_base_fee.clone()).expect("qed");
-
-					x.adjusted_evm_base_fee = x.adjusted_evm_base_fee * integer +
-						U256::from(decimal.mul(adjusted_evm_base_fee));
-				} else if new_ref_evm_fee < old_ref_evm_fee {
-					let old_ref_evm_fee = u128::try_from(old_ref_evm_fee).expect("qed");
-					let new_ref_evm_fee = u128::try_from(new_ref_evm_fee).expect("qed");
-
-					let decreased = Perbill::from_rational(new_ref_evm_fee, old_ref_evm_fee);
-					let adjusted_evm_base_fee =
-						u128::try_from(x.adjusted_evm_base_fee.clone()).expect("qed");
-
-					x.adjusted_evm_base_fee = U256::from(decreased.mul(adjusted_evm_base_fee));
-				}
-
-				// TODO Enable This!
-				/* 				if x.adjusted_evm_base_fee < x.reference_evm_base_fee {
-					x.adjusted_evm_base_fee = x.reference_evm_base_fee;
-				} */
+				x.adjusted_evm_base_fee = x.adjusted_evm_base_fee.max(reference_evm_base_fee);
 
 				Ok(())
 			})?;

@@ -1033,7 +1033,8 @@ parameter_types! {
 	/// 0.000015 XRP per gas, 15000 GWEI
 	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
 	pub const EvmXRPScaleFactor: Balance = XRP_UNIT_VALUE;
-	pub const FeeControlDefaultElasticity: Permill = Permill::from_parts(125000);
+	pub const FeeControlThreshold: Permill = Permill::from_parts(500000);
+	pub const FeeControlElasticity: Permill = Permill::from_parts(5000);
 }
 
 pub struct FeeControlInputTxWeight;
@@ -1054,19 +1055,6 @@ impl Get<U256> for FeeControlInputGasLimit {
 	}
 }
 
-pub struct FeeControlThreshold;
-impl pallet_fee_control::BaseFeeThreshold for FeeControlThreshold {
-	fn lower() -> Permill {
-		Permill::zero()
-	}
-	fn ideal() -> Permill {
-		Permill::zero()
-	}
-	fn upper() -> Permill {
-		Permill::one()
-	}
-}
-
 impl pallet_fee_control::Config for Runtime {
 	type Event = Event;
 	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
@@ -1081,7 +1069,7 @@ impl pallet_fee_control::Config for Runtime {
 	type InputGasLimit = FeeControlInputGasLimit;
 	type EvmXRPScaleFactor = EvmXRPScaleFactor;
 	type Threshold = FeeControlThreshold;
-	type DefaultElasticity = FeeControlDefaultElasticity;
+	type Elasticity = FeeControlElasticity;
 }
 
 construct_runtime! {
