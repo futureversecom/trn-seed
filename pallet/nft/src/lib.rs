@@ -121,7 +121,7 @@ pub mod pallet {
 		/// Max tokens that a collection can contain
 		type MaxTokensPerCollection: Get<u32>;
 		/// Max quantity of NFTs that can be minted in one transaction
-		type MaxNftsPerMint: Get<u32>;
+		type MintLimit: Get<u32>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
@@ -629,7 +629,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			ensure!(quantity <= T::MaxNftsPerMint::get(), Error::<T>::MintLimitExceeded);
+			ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
 
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
