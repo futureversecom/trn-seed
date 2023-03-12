@@ -5,8 +5,8 @@ use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, EVMChainId, Ethereum, FeeControl, FeeProxy, Origin, Runtime,
-	XrpCurrency, EVM,
+	Assets, AssetsExt, Dex, EVMChainId, Ethereum, FeeControl, FeeProxy, Origin, Runtime, TxFeePot,
+	Weight, XrpCurrency, EVM,
 };
 use ethabi::Token;
 use ethereum::EIP1559Transaction;
@@ -16,12 +16,17 @@ use frame_support::{
 	traits::{fungible::Inspect, fungibles::Inspect as Inspects, Get},
 };
 use pallet_ethereum::{Transaction, TransactionAction};
+use pallet_fee_control::types::{ConfigOp, DecimalBalance};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_client::chain_spec::get_account_id_from_seed;
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_core::{ecdsa, H160, H256, U256};
-use sp_runtime::{traits::SignedExtension, DispatchError::BadOrigin};
+use sp_runtime::{
+	traits::SignedExtension,
+	DispatchError::{self, BadOrigin},
+	Perbill,
+};
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
@@ -33,19 +38,9 @@ fn evm_base_equals_one_xrp() {
 		use pallet_fee_control::types::ConfigOp::Noop;
 
 		// Setup
-		let ok = FeeControl::set_fee_control_config(
-			RawOrigin::Root.into(),
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Balance::from(1_000_000u128).into(),
-			Noop,
-			false.into(),
-			false.into(),
-		);
+		let ok = FeeControlSettingsBuilder::default()
+			.output_tx_fee(Balance::from(1_000_000u128))
+			.execute();
 		assert_ok!(ok);
 
 		let xrp_price = Balance::from(1_000_000u32);
@@ -72,19 +67,9 @@ fn evm_base_equals_50_cents() {
 		use pallet_fee_control::types::ConfigOp::Noop;
 
 		// Setup
-		let ok = FeeControl::set_fee_control_config(
-			RawOrigin::Root.into(),
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Balance::from(1_000_000u128).into(),
-			Noop,
-			false.into(),
-			false.into(),
-		);
+		let ok = FeeControlSettingsBuilder::default()
+			.output_tx_fee(Balance::from(1_000_000u128))
+			.execute();
 		assert_ok!(ok);
 
 		let xrp_price = Balance::from(400_000u32);
@@ -111,19 +96,10 @@ fn evm_base_fee_with_realistic_values() {
 		use pallet_fee_control::types::ConfigOp::Noop;
 
 		// Setup
-		let ok = FeeControl::set_fee_control_config(
-			RawOrigin::Root.into(),
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Noop,
-			Balance::from(100_000u128).into(),
-			Noop,
-			false.into(),
-			false.into(),
-		);
+		let ok = FeeControlSettingsBuilder::default()
+			.output_tx_fee(Balance::from(100_000u128))
+			.execute();
+
 		assert_ok!(ok);
 
 		let xrp_price = Balance::from(350_000u32);
@@ -141,6 +117,88 @@ fn evm_base_fee_with_realistic_values() {
 		let new_balance = XrpCurrency::balance(&bob());
 		let expected_change = 285_715u128; // 285_714 would be correct but there are some rounding errors that we cannot avoid.
 		assert_eq!(old_balance - expected_change, new_balance);
+	})
+}
+
+#[test]
+fn changing_evm_adjusted_base_fee_changes_tx_costs() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Setup
+		let ok = FeeControlSettingsBuilder::default()
+			.output_tx_fee(Balance::from(1_000_000u128))
+			.execute();
+		assert_ok!(ok);
+
+		let xrp_price = Balance::from(1_000_000u32);
+		assert_ok!(FeeControl::set_xrp_price(RawOrigin::Root.into(), xrp_price));
+
+		let adjusted_evm_base_fee = U256::from(FeeControl::base_fee_per_gas() * 2);
+		let ok = FeeControlSettingsBuilder::default()
+			.adjusted_evm_base_fee(adjusted_evm_base_fee)
+			.execute();
+		assert_ok!(ok);
+
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let (origin, tx) = TransactionBuilder::default().origin(bob()).action(action).build();
+		let old_balance = XrpCurrency::balance(&bob());
+
+		// Call
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		// Double the base fee per gas means double the XRP fee
+		let new_balance = XrpCurrency::balance(&bob());
+		let expected_change = 1_000_000u128 * 2;
+		assert_eq!(new_balance, old_balance - expected_change);
+	})
+}
+
+#[test]
+fn zero_adjusted_base_fee_means_fee_transactions() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Setup
+		let ok = FeeControlSettingsBuilder::default()
+			.adjusted_evm_base_fee(U256::zero())
+			.execute();
+		assert_ok!(ok);
+
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let (origin, tx) = TransactionBuilder::default().origin(bob()).action(action).build();
+		let old_balance = XrpCurrency::balance(&bob());
+
+		// Call
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		// Double the base fee per gas means double the XRP fee
+		let new_balance = XrpCurrency::balance(&bob());
+		let expected_change = 0u128;
+		assert_eq!(new_balance, old_balance - expected_change);
+	})
+}
+
+#[test]
+fn transactions_cost_goes_to_tx_pot() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Setup
+		let ok = FeeControlSettingsBuilder::default()
+			.output_tx_fee(Balance::from(1_000_000u128))
+			.execute();
+		assert_ok!(ok);
+
+		let xrp_price = Balance::from(1_000_000u32);
+		assert_ok!(FeeControl::set_xrp_price(RawOrigin::Root.into(), xrp_price));
+		let old_pot = TxFeePot::era_tx_fees();
+
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let (origin, tx) = TransactionBuilder::default().origin(bob()).action(action).build();
+
+		// Call
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		let expected_change = 1_000_000u128;
+		assert_eq!(TxFeePot::era_tx_fees(), old_pot + expected_change);
 	})
 }
 
@@ -399,5 +457,56 @@ impl TransactionBuilder {
 	pub fn build(&self) -> (Origin, pallet_ethereum::Transaction) {
 		let tx = pallet_ethereum::Transaction::EIP1559(self.transaction.clone());
 		(self.origin.clone(), tx)
+	}
+}
+
+pub struct FeeControlSettingsBuilder {
+	weight_multiplier: ConfigOp<Perbill>,
+	length_multiplier: ConfigOp<DecimalBalance>,
+	reference_evm_base_fee: ConfigOp<U256>,
+	adjusted_evm_base_fee: ConfigOp<U256>,
+	input_tx_weight: ConfigOp<Weight>,
+	input_gas_limit: ConfigOp<U256>,
+	output_tx_fee: ConfigOp<Balance>,
+	output_len_fee: ConfigOp<Balance>,
+}
+impl FeeControlSettingsBuilder {
+	pub fn default() -> Self {
+		Self {
+			weight_multiplier: ConfigOp::Noop,
+			length_multiplier: ConfigOp::Noop,
+			reference_evm_base_fee: ConfigOp::Noop,
+			adjusted_evm_base_fee: ConfigOp::Noop,
+			input_tx_weight: ConfigOp::Noop,
+			input_gas_limit: ConfigOp::Noop,
+			output_tx_fee: ConfigOp::Noop,
+			output_len_fee: ConfigOp::Noop,
+		}
+	}
+
+	pub fn adjusted_evm_base_fee(&mut self, value: U256) -> &mut Self {
+		self.adjusted_evm_base_fee = value.into();
+		self
+	}
+
+	pub fn output_tx_fee(&mut self, value: Balance) -> &mut Self {
+		self.output_tx_fee = value.into();
+		self
+	}
+
+	pub fn execute(&self) -> Result<(), DispatchError> {
+		FeeControl::set_fee_control_config(
+			RawOrigin::Root.into(),
+			self.weight_multiplier.clone(),
+			self.length_multiplier.clone(),
+			self.reference_evm_base_fee.clone(),
+			self.adjusted_evm_base_fee.clone(),
+			self.input_tx_weight.clone(),
+			self.input_gas_limit.clone(),
+			self.output_tx_fee.clone(),
+			self.output_len_fee.clone(),
+			false.into(),
+			false.into(),
+		)
 	}
 }

@@ -217,7 +217,7 @@ parameter_types! {
 	pub const DefaultOutputLenPrice: Balance = 10;
 	/// Floor network base fee per gas
 	/// 0.000015 XRP per gas, 15000 GWEI
-	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
+	pub const DefaultEvmBaseFeePerGas: u128 = 15_000_000_000_000u128;
 	pub const EvmXRPScaleFactor: Balance = 1_000_000_000_000;
 	pub const FeeControlThreshold: Permill = Permill::from_parts(350000);
 	pub const FeeControlElasticity: Permill = Permill::from_parts(5000);

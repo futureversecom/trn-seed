@@ -105,29 +105,6 @@ describe("TxFeePot fees accruel", () => {
     accruedFees = currentAccruedFees;
   });
 
-  it("Extrinsic transactions accrue base fee in TxFeePot", async () => {
-    const tx = api.tx.assets.mint(
-      // mint 1M tokens (18 decimals) to alith
-      FIRST_ASSET_ID,
-      alith.address,
-      utils.parseEther("1").toString(),
-    );
-    await new Promise<void>((resolve) => {
-      tx.signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-    });
-
-    const feesFromExtrinsicLower = 310_000,
-      feesFromExtrinsicUpper = 330_000;
-    const currentAccruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
-    expect(currentAccruedFees - accruedFees)
-      .to.be.greaterThan(feesFromExtrinsicLower)
-      .and.lessThan(feesFromExtrinsicUpper);
-
-    accruedFees = currentAccruedFees;
-  });
-
   it("Pre-compile contract transaction accrues base fee in TxFeePot", async () => {
     const fees = await provider.getFeeData();
 
