@@ -18,10 +18,7 @@ pub use pallet::*;
 
 use seed_primitives::Balance;
 
-use frame_support::{
-	traits::{Get, OnRuntimeUpgrade},
-	weights::Weight,
-};
+use frame_support::{traits::Get, weights::Weight};
 use sp_core::U256;
 use sp_runtime::Perbill;
 use types::{CalculatorErrors, ConfigOp, DecimalBalance, FeeControlData, FeeMultiplierCalculator};
@@ -163,48 +160,7 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<(), &'static str> {
-			log::info!("Pre Upgrade.");
-			migrations::v2::MigrationV2::<T>::pre_upgrade()
-		}
-
-		fn on_runtime_upgrade() -> Weight {
-			let current = Pallet::<T>::current_storage_version();
-			let onchain = Pallet::<T>::on_chain_storage_version();
-
-			log::info!(
-				"Running migration with current storage version {current:?} / onchain {onchain:?}"
-			);
-
-			let mut weight = T::DbWeight::get().reads(1);
-			// If you are running Fork Porcini script, make sure that you set the current storage
-			// version to 0. The reason for this is because we started this pallet with storage
-			// version set to 1 but this was just in code and have actually never set it to
-			// that value in the db.
-			// Because of that Porcini and Root don't have a `StorageVersion` value in the db at all
-			// and when you query it you can the default value which is 0. If you scrap the remote
-			// chain you won't get the value 0 since it's not stored inside the db.
-			if onchain == 0 {
-				weight += migrations::v2::MigrationV2::<T>::on_runtime_upgrade();
-			} else {
-				log::info!("No migration was done");
-			}
-
-			weight
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade() -> Result<(), &'static str> {
-			log::info!("Post Upgrade.");
-			migrations::v2::MigrationV2::<T>::post_upgrade()
-		}
-
 		fn on_initialize(_: T::BlockNumber) -> Weight {
-			// Register the Weight used on_finalize.
-			// 	- One storage read to get the block_weight.
-			// 	- One storage read to get the Elasticity.
-			// 	- One write to BaseFeePerGas.
 			T::WeightInfo::on_finalize()
 		}
 
