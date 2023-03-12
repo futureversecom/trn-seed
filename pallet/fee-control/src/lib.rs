@@ -29,7 +29,6 @@ mod tests;
 
 mod weights;
 pub use weights::WeightInfo;
-mod migrations;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
