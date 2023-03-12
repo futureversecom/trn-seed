@@ -14,6 +14,7 @@
  */
 
 mod extrinsics;
+mod hooks;
 mod integration;
 
 pub mod mock;

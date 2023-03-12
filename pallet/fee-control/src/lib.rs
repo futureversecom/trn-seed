@@ -221,14 +221,14 @@ pub mod pallet {
 					Self::deposit_event(Event::<T>::FailedToConvertAdjustedEVMBaseFee);
 					return;
 				};
-				let mut target_fee = reference_fee.clone();
 
+				let mut target_fee = reference_fee.clone();
 				let weight = <frame_system::Pallet<T>>::block_weight().total();
 				let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
-
 				let max_usage = T::MaxBlockWeightThreshold::get().deconstruct();
 				let usage = Permill::from_rational(weight, max_weight).deconstruct().min(max_usage);
 				let threshold = T::Threshold::get().deconstruct().min(max_usage);
+
 				if usage > threshold {
 					let scale = Permill::from_rational(usage - threshold, max_usage - threshold);
 					target_fee += scale.mul(reference_fee);
@@ -331,8 +331,13 @@ pub mod pallet {
 
 				x.weight_multiplier = weight_multiplier;
 				x.length_multiplier = length_multiplier;
+				x.adjusted_evm_base_fee = if x.reference_evm_base_fee == x.adjusted_evm_base_fee {
+					reference_evm_base_fee
+				} else {
+					x.adjusted_evm_base_fee.max(reference_evm_base_fee)
+				};
+
 				x.reference_evm_base_fee = reference_evm_base_fee;
-				x.adjusted_evm_base_fee = x.adjusted_evm_base_fee.max(reference_evm_base_fee);
 
 				Ok(())
 			})?;

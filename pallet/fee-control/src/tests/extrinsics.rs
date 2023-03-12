@@ -40,7 +40,8 @@ mod set_settings {
 			let expected_settings = FeeControlData {
 				weight_multiplier: new_weight_multiplier,
 				length_multiplier: new_length_multiplier,
-				evm_base_fee: settings.evm_base_fee.add(1),
+				reference_evm_base_fee: settings.reference_evm_base_fee.add(1),
+				adjusted_evm_base_fee: settings.adjusted_evm_base_fee.add(1),
 				input_tx_weight: settings.input_tx_weight.add(1),
 				input_gas_limit: settings.input_gas_limit.add(1),
 				output_tx_fee: settings.output_tx_fee.add(1),
@@ -56,7 +57,8 @@ mod set_settings {
 				root(),
 				new.weight_multiplier.into(),
 				new.length_multiplier.into(),
-				new.evm_base_fee.into(),
+				new.reference_evm_base_fee.into(),
+				new.adjusted_evm_base_fee.into(),
 				new.input_tx_weight.into(),
 				new.input_gas_limit.into(),
 				new.output_tx_fee.into(),
@@ -95,6 +97,7 @@ mod set_settings {
 				Noop,
 				Noop,
 				Noop,
+				Noop,
 			);
 			assert_ok!(ok);
 
@@ -113,6 +116,7 @@ mod set_settings {
 			// Call
 			let ok = FeeControl::set_settings(
 				origin(0),
+				Noop,
 				Noop,
 				Noop,
 				Noop,
@@ -154,7 +158,8 @@ mod set_xrp_price {
 			// Storage Check
 			expected_storage.weight_multiplier = Perbill::one();
 			expected_storage.length_multiplier = DecimalBalance::new(one_xrp, Perbill::zero());
-			expected_storage.evm_base_fee = U256::from(10u32).pow(U256::from(15));
+			expected_storage.reference_evm_base_fee = U256::from(10u32).pow(U256::from(15));
+			expected_storage.adjusted_evm_base_fee = expected_storage.reference_evm_base_fee;
 
 			let actual_storage = SettingsAndMultipliers::<Test>::get();
 			assert_eq!(actual_storage, expected_storage);
@@ -186,7 +191,8 @@ mod set_xrp_price {
 			// Storage Check
 			expected_storage.weight_multiplier = Perbill::from_rational(1u32, 1250u32);
 			expected_storage.length_multiplier = DecimalBalance::new(4u128, Perbill::zero());
-			expected_storage.evm_base_fee = U256::from(20_000_000_000_000u128);
+			expected_storage.reference_evm_base_fee = U256::from(20_000_000_000_000u128);
+			expected_storage.adjusted_evm_base_fee = expected_storage.reference_evm_base_fee;
 
 			let actual_storage = SettingsAndMultipliers::<Test>::get();
 			assert_eq!(actual_storage, expected_storage);
@@ -214,10 +220,73 @@ mod set_xrp_price {
 			expected_storage.weight_multiplier = Perbill::from_rational(1u32, 51_250u32);
 			expected_storage.length_multiplier =
 				DecimalBalance::new(97u128, Perbill::from_rational(5_750_000u128, xrp_price));
-			expected_storage.evm_base_fee = U256::from(487_804_878_048u128);
+			expected_storage.reference_evm_base_fee = U256::from(487_804_878_048u128);
+			expected_storage.adjusted_evm_base_fee = expected_storage.reference_evm_base_fee;
 
 			let actual_storage = SettingsAndMultipliers::<Test>::get();
 			assert_eq!(actual_storage, expected_storage);
+		})
+	}
+
+	#[test]
+	fn increase_in_reference_base_fee_causes_increase_in_adjusted_fee() {
+		ExtBuilder::build().execute_with(|| {
+			let reference_fee = SettingsAndMultipliers::<Test>::get().reference_evm_base_fee;
+			let adjusted_fee = SettingsAndMultipliers::<Test>::get().adjusted_evm_base_fee;
+			let expected_reference_fee = U256::from(20_000_000_000_000u128);
+			let expected_adjusted_fee = expected_reference_fee;
+			assert!(expected_reference_fee > reference_fee);
+			assert!(expected_adjusted_fee > adjusted_fee);
+
+			// Setup
+			let ok = SettingsBuilder::new()
+				.tx_weight(Weight::from(500_000_000u32)) // 500 million weight
+				.gas_limit(U256::from(20_000u32)) // 20k gas limit
+				.tx_fee(Balance::from(100_000u32)) // This is 0.1€
+				.len_fee(Balance::from(1u32)) // This is 0.000001€
+				.done();
+			assert_ok!(ok);
+
+			// Call
+			let xrp_price = Balance::from(250_000u32); // This is 0.25€
+			assert_ok!(FeeControl::set_xrp_price(root(), xrp_price));
+
+			// Storage Check
+			let actual_reference_fee = SettingsAndMultipliers::<Test>::get().reference_evm_base_fee;
+			let actual_adjusted_fee = SettingsAndMultipliers::<Test>::get().adjusted_evm_base_fee;
+			assert_eq!(actual_reference_fee, expected_reference_fee);
+			assert_eq!(actual_adjusted_fee, expected_adjusted_fee);
+		})
+	}
+
+	#[test]
+	fn if_equal_decrease_in_reference_base_fee_causes_decrease_in_adjusted_fee() {
+		ExtBuilder::build().execute_with(|| {
+			let reference_fee = SettingsAndMultipliers::<Test>::get().reference_evm_base_fee;
+			let adjusted_fee = SettingsAndMultipliers::<Test>::get().adjusted_evm_base_fee;
+			let expected_reference_fee = U256::from(4_000_000_000_000u128);
+			let expected_adjusted_fee = expected_reference_fee;
+			assert!(expected_reference_fee < reference_fee);
+			assert!(expected_adjusted_fee < adjusted_fee);
+
+			// Setup
+			let ok = SettingsBuilder::new()
+				.tx_weight(Weight::from(500_000_000u32)) // 500 million weight
+				.gas_limit(U256::from(20_000u32)) // 20k gas limit
+				.tx_fee(Balance::from(100_000u32)) // This is 0.1€
+				.len_fee(Balance::from(1u32)) // This is 0.000001€
+				.done();
+			assert_ok!(ok);
+
+			// Call
+			let xrp_price = Balance::from(1_250_000u32); // This is 0.25€
+			assert_ok!(FeeControl::set_xrp_price(root(), xrp_price));
+
+			// Storage Check
+			let actual_reference_fee = SettingsAndMultipliers::<Test>::get().reference_evm_base_fee;
+			let actual_adjusted_fee = SettingsAndMultipliers::<Test>::get().adjusted_evm_base_fee;
+			assert_eq!(actual_reference_fee, expected_reference_fee);
+			assert_eq!(actual_adjusted_fee, expected_adjusted_fee);
 		})
 	}
 

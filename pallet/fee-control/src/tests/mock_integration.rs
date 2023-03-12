@@ -31,7 +31,7 @@ use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	Perbill,
+	Perbill, Permill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -218,6 +218,9 @@ parameter_types! {
 	/// 0.000015 XRP per gas, 15000 GWEI
 	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
 	pub const EvmXRPScaleFactor: Balance = 1_000_000_000_000;
+	pub const FeeControlThreshold: Permill = Permill::from_parts(350000);
+	pub const FeeControlElasticity: Permill = Permill::from_parts(5000);
+	pub const FeeControlMaxBlockWeightThreshold: Permill = Permill::from_parts(750000);
 }
 
 pub struct InputGasLimit;
@@ -258,6 +261,9 @@ impl Config for Test {
 	type InputTxWeight = InputTxWeight;
 	type InputGasLimit = InputGasLimit;
 	type EvmXRPScaleFactor = EvmXRPScaleFactor;
+	type Threshold = FeeControlThreshold;
+	type Elasticity = FeeControlElasticity;
+	type MaxBlockWeightThreshold = FeeControlMaxBlockWeightThreshold;
 }
 
 #[derive(Default)]
@@ -340,6 +346,7 @@ impl SettingsBuilder {
 			root(),
 			self.0.weight_multiplier.into(),
 			self.0.length_multiplier.into(),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 			self.0.input_tx_weight.into(),
 			self.0.input_gas_limit.into(),
