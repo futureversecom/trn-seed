@@ -23,7 +23,7 @@ use frame_system::RawOrigin;
 use crate::Pallet as FeeControl;
 
 benchmarks! {
-	set_settings {
+	set_fee_control_config {
 	}: _(RawOrigin::Root, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop)
 
 	set_xrp_price {

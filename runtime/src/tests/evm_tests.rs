@@ -33,7 +33,7 @@ fn evm_base_equals_one_xrp() {
 		use pallet_fee_control::types::ConfigOp::Noop;
 
 		// Setup
-		let ok = FeeControl::set_settings(
+		let ok = FeeControl::set_fee_control_config(
 			RawOrigin::Root.into(),
 			Noop,
 			Noop,
@@ -72,7 +72,7 @@ fn evm_base_equals_50_cents() {
 		use pallet_fee_control::types::ConfigOp::Noop;
 
 		// Setup
-		let ok = FeeControl::set_settings(
+		let ok = FeeControl::set_fee_control_config(
 			RawOrigin::Root.into(),
 			Noop,
 			Noop,
@@ -111,7 +111,7 @@ fn evm_base_fee_with_realistic_values() {
 		use pallet_fee_control::types::ConfigOp::Noop;
 
 		// Setup
-		let ok = FeeControl::set_settings(
+		let ok = FeeControl::set_fee_control_config(
 			RawOrigin::Root.into(),
 			Noop,
 			Noop,

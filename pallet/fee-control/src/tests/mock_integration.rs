@@ -343,7 +343,7 @@ impl SettingsBuilder {
 	}
 
 	pub fn done(self) -> Result<(), DispatchError> {
-		FeeControl::set_settings(
+		FeeControl::set_fee_control_config(
 			root(),
 			self.0.weight_multiplier.into(),
 			self.0.length_multiplier.into(),

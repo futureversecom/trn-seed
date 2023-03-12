@@ -31,7 +31,7 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_fee_control.
 pub trait WeightInfo {
-	fn set_settings() -> Weight;
+	fn set_fee_control_config() -> Weight;
 	fn set_xrp_price() -> Weight;
 	fn on_finalize() -> Weight;
 }
@@ -39,7 +39,7 @@ pub trait WeightInfo {
 // For backwards compatibility and tests
 impl WeightInfo for () {
 	// Storage: FeeControl SettingsAndMultipliers (r:1 w:1)
-	fn set_settings() -> Weight {
+	fn set_fee_control_config() -> Weight {
 		(9_520_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))

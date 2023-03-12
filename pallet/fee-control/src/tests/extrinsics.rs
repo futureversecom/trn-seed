@@ -24,11 +24,11 @@ use sp_core::U256;
 use sp_runtime::Perbill;
 use Event as RuntimeEvent;
 
-mod set_settings {
+mod set_fee_control_config {
 	use super::*;
 
 	#[test]
-	fn set_settings() {
+	fn set_fee_control_config() {
 		ExtBuilder::build().execute_with(|| {
 			// Setup
 			let settings = SettingsAndMultipliers::<Test>::get();
@@ -53,7 +53,7 @@ mod set_settings {
 			let new = expected_settings.clone();
 
 			// Call
-			let ok = FeeControl::set_settings(
+			let ok = FeeControl::set_fee_control_config(
 				root(),
 				new.weight_multiplier.into(),
 				new.length_multiplier.into(),
@@ -86,7 +86,7 @@ mod set_settings {
 			let expected_settings = SettingsAndMultipliers::<Test>::get();
 
 			// Call
-			let ok = FeeControl::set_settings(
+			let ok = FeeControl::set_fee_control_config(
 				root(),
 				Noop,
 				Noop,
@@ -106,7 +106,7 @@ mod set_settings {
 			assert_eq!(actual_settings, expected_settings);
 
 			// Event Check
-			// Omitted: Already checked in `set_settings` test.
+			// Omitted: Already checked in `set_fee_control_config` test.
 		})
 	}
 
@@ -114,7 +114,7 @@ mod set_settings {
 	fn only_authorized_accounts_can_call_this_extrinsic() {
 		ExtBuilder::build().execute_with(|| {
 			// Call
-			let ok = FeeControl::set_settings(
+			let ok = FeeControl::set_fee_control_config(
 				origin(0),
 				Noop,
 				Noop,

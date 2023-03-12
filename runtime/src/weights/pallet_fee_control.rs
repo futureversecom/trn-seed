@@ -32,7 +32,7 @@ use sp_std::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_fee_control::WeightInfo for WeightInfo<T> {
 	// Storage: FeeControl SettingsAndMultipliers (r:1 w:1)
-	fn set_settings() -> Weight {
+	fn set_fee_control_config() -> Weight {
 		(9_932_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))

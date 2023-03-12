@@ -173,7 +173,7 @@ pub struct FeeControlData {
 	pub reference_evm_base_fee: U256,
 	pub adjusted_evm_base_fee: U256,
 
-	// Semi-static data. This can change one every update call but mostly it doesn't.
+	// Semi-static data. This can change on every update call but mostly it doesn't.
 	pub input_tx_weight: Weight,
 	pub input_gas_limit: U256,
 

@@ -207,8 +207,8 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(T::WeightInfo::set_settings())]
-		pub fn set_settings(
+		#[pallet::weight(T::WeightInfo::set_fee_control_config())]
+		pub fn set_fee_control_config(
 			origin: OriginFor<T>,
 			weight_multiplier: ConfigOp<Perbill>,
 			length_multiplier: ConfigOp<DecimalBalance>,

@@ -174,7 +174,7 @@ impl SettingsBuilder {
 	}
 
 	pub fn done(self) -> Result<(), DispatchError> {
-		FeeControl::set_settings(
+		FeeControl::set_fee_control_config(
 			root(),
 			ConfigOp::Noop,
 			ConfigOp::Noop,
