@@ -205,8 +205,7 @@ pub mod pallet {
 			// 	- One storage read to get the block_weight.
 			// 	- One storage read to get the Elasticity.
 			// 	- One write to BaseFeePerGas.
-			let db_weight = <T as frame_system::Config>::DbWeight::get();
-			db_weight.reads_writes(2, 1)
+			T::WeightInfo::on_finalize()
 		}
 
 		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
