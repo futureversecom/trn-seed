@@ -16,12 +16,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
-use frame_support::pallet_prelude::*;
-use frame_system::pallet_prelude::*;
-
 use seed_primitives::Balance;
 
-use frame_support::traits::OnRuntimeUpgrade;
+use frame_support::{
+	traits::{Get, OnRuntimeUpgrade},
+	weights::Weight,
+};
 use sp_core::U256;
 use sp_runtime::Perbill;
 use types::{CalculatorErrors, ConfigOp, DecimalBalance, FeeControlData, FeeMultiplierCalculator};
@@ -40,9 +40,10 @@ pub mod types;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use sp_runtime::Permill;
-
 	use super::*;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+	use sp_runtime::Permill;
 
 	pub trait BaseFeeThreshold {
 		fn lower() -> Permill;
@@ -223,8 +224,8 @@ pub mod pallet {
 				};
 
 				let mut target_fee = reference_fee.clone();
-				let weight = <frame_system::Pallet<T>>::block_weight().total();
 				let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
+				let weight = <frame_system::Pallet<T>>::block_weight().total().min(max_weight);
 				let max_usage = T::MaxBlockWeightThreshold::get().deconstruct();
 				let usage = Permill::from_rational(weight, max_weight).deconstruct().min(max_usage);
 				let threshold = T::Threshold::get().deconstruct().min(max_usage);

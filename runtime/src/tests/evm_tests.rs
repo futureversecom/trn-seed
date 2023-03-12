@@ -40,6 +40,7 @@ fn evm_base_equals_one_xrp() {
 			Noop,
 			Noop,
 			Noop,
+			Noop,
 			Balance::from(1_000_000u128).into(),
 			Noop,
 			false.into(),
@@ -78,6 +79,7 @@ fn evm_base_equals_50_cents() {
 			Noop,
 			Noop,
 			Noop,
+			Noop,
 			Balance::from(1_000_000u128).into(),
 			Noop,
 			false.into(),
@@ -111,6 +113,7 @@ fn evm_base_fee_with_realistic_values() {
 		// Setup
 		let ok = FeeControl::set_settings(
 			RawOrigin::Root.into(),
+			Noop,
 			Noop,
 			Noop,
 			Noop,

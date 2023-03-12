@@ -15,20 +15,23 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{ConfigOp::Noop, *};
+use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
+use frame_support::traits::OnFinalize;
+use frame_system::RawOrigin;
 
 #[allow(unused_imports)]
 use crate::Pallet as FeeControl;
 
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
-use frame_system::RawOrigin;
-
 benchmarks! {
 	set_settings {
-	}: _(RawOrigin::Root, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop)
+	}: _(RawOrigin::Root, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop)
 
 
 	set_xrp_price {
 	}: _(RawOrigin::Root, Balance::from(1_000_000u32))
+
+	on_finalize {
+	}: { FeeControl::<T>::on_finalize(0u32.into()); }
 }
 
 impl_benchmark_test_suite!(

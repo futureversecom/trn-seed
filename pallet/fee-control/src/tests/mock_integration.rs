@@ -15,6 +15,7 @@
 
 use crate::{self as fee_control, types::DecimalBalance, *};
 
+use core::marker::PhantomData;
 use frame_system::{limits, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
 use pallet_transaction_payment::CurrencyAdapter;
@@ -23,7 +24,7 @@ pub use seed_primitives::types::Balance;
 use frame_support::{
 	parameter_types,
 	traits::{Currency, FindAuthor, Imbalance, OnUnbalanced},
-	weights::WeightToFee,
+	weights::{DispatchClass, WeightToFee},
 	ConsensusEngineId,
 };
 use frame_system::RawOrigin;
@@ -31,7 +32,7 @@ use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	Perbill, Permill,
+	DispatchError, Perbill, Permill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
