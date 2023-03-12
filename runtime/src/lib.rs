@@ -1035,6 +1035,7 @@ parameter_types! {
 	pub const EvmXRPScaleFactor: Balance = XRP_UNIT_VALUE;
 	pub const FeeControlThreshold: Permill = Permill::from_parts(350000);
 	pub const FeeControlElasticity: Permill = Permill::from_parts(5000);
+	pub const FeeControlMaxBlockWeightThreshold: Permill = Permill::from_parts(750000);
 }
 
 pub struct FeeControlInputTxWeight;
@@ -1070,6 +1071,7 @@ impl pallet_fee_control::Config for Runtime {
 	type EvmXRPScaleFactor = EvmXRPScaleFactor;
 	type Threshold = FeeControlThreshold;
 	type Elasticity = FeeControlElasticity;
+	type MaxBlockWeightThreshold = FeeControlMaxBlockWeightThreshold;
 }
 
 construct_runtime! {

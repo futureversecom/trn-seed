@@ -68,6 +68,8 @@ pub mod pallet {
 		type Threshold: Get<Permill>;
 		/// TODO
 		type Elasticity: Get<Permill>;
+		/// TODO
+		type MaxBlockWeightThreshold: Get<Permill>;
 		/// To get the value of one XRP.
 		#[pallet::constant]
 		type OneXRP: Get<Balance>;
@@ -120,12 +122,14 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T> {
-		/// Was not able to automatically set new EVM fee
-		EvmBaseFeeOverflow,
 		/// New settings and multipliers have been applied.
 		NewSettingsHaveBeenApplied,
 		/// New XRP Price has been set.
 		NewXRPPrice { value: Balance },
+		/// TODO
+		FailedToConvertReferenceEVMBaseFee,
+		/// TODO
+		FailedToConvertAdjustedEVMBaseFee,
 	}
 
 	#[pallet::error]
@@ -206,13 +210,15 @@ pub mod pallet {
 
 		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
 			SettingsAndMultipliers::<T>::mutate(|settings| {
+				// This should never return Err but we are checking just in case.
 				let Ok(reference_fee) = u128::try_from(settings.reference_evm_base_fee) else {
-					// TODO emit event
+					Self::deposit_event(Event::<T>::FailedToConvertReferenceEVMBaseFee);
 					return;
 				};
 
+				// This should never return Err but we are checking just in case.
 				let Ok(mut adjusted_fee) = u128::try_from(settings.adjusted_evm_base_fee) else {
-					// TODO emit event
+					Self::deposit_event(Event::<T>::FailedToConvertAdjustedEVMBaseFee);
 					return;
 				};
 				let mut target_fee = reference_fee.clone();
@@ -220,13 +226,11 @@ pub mod pallet {
 				let weight = <frame_system::Pallet<T>>::block_weight().total();
 				let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
 
-				let usage = Permill::from_rational(weight, max_weight);
-				let threshold = T::Threshold::get();
+				let max_usage = T::MaxBlockWeightThreshold::get().deconstruct();
+				let usage = Permill::from_rational(weight, max_weight).deconstruct().min(max_usage);
+				let threshold = T::Threshold::get().deconstruct().min(max_usage);
 				if usage > threshold {
-					let scale = Permill::from_rational(
-						(usage - threshold).deconstruct(),
-						(Permill::one() - threshold).deconstruct(),
-					);
+					let scale = Permill::from_rational(usage - threshold, max_usage - threshold);
 					target_fee += scale.mul(reference_fee);
 				}
 
