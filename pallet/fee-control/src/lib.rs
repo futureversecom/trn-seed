@@ -40,7 +40,15 @@ pub mod types;
 
 #[frame_support::pallet]
 pub mod pallet {
+	use sp_runtime::Permill;
+
 	use super::*;
+
+	pub trait BaseFeeThreshold {
+		fn lower() -> Permill;
+		fn ideal() -> Permill;
+		fn upper() -> Permill;
+	}
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 	#[pallet::pallet]
@@ -56,6 +64,10 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Origin that can control this pallet.
 		type CallOrigin: EnsureOrigin<Self::Origin>;
+
+		type Threshold: BaseFeeThreshold;
+		type DefaultBaseFeePerGas: Get<U256>;
+		type DefaultElasticity: Get<Permill>;
 
 		/// To get the value of one XRP.
 		#[pallet::constant]
@@ -105,9 +117,27 @@ pub mod pallet {
 	pub type SettingsAndMultipliers<T> =
 		StorageValue<_, FeeControlData, ValueQuery, DefaultWeightToFeeReduction<T>>;
 
+	#[pallet::type_value]
+	pub fn DefaultElasticity<T: Config>() -> Permill {
+		T::DefaultElasticity::get()
+	}
+
+	#[pallet::storage]
+	pub type EvmElasticity<T> = StorageValue<_, Permill, ValueQuery, DefaultElasticity<T>>;
+
+	#[pallet::type_value]
+	pub fn DefaultBaseFeePerGas<T: Config>() -> U256 {
+		T::DefaultBaseFeePerGas::get()
+	}
+
+	#[pallet::storage]
+	pub type BaseFeePerGas<T> = StorageValue<_, U256, ValueQuery, DefaultBaseFeePerGas<T>>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T> {
+		/// Was not able to automatically set new EVM fee
+		EvmBaseFeeOverflow,
 		/// New settings and multipliers have been applied.
 		NewSettingsHaveBeenApplied,
 		/// New XRP Price has been set.
@@ -179,6 +209,79 @@ pub mod pallet {
 		fn post_upgrade() -> Result<(), &'static str> {
 			log::info!("Post Upgrade.");
 			migrations::v2::MigrationV2::<T>::post_upgrade()
+		}
+
+		fn on_initialize(_: T::BlockNumber) -> Weight {
+			// Register the Weight used on_finalize.
+			// 	- One storage read to get the block_weight.
+			// 	- One storage read to get the Elasticity.
+			// 	- One write to BaseFeePerGas.
+			let db_weight = <T as frame_system::Config>::DbWeight::get();
+			db_weight.reads_writes(2, 1)
+		}
+
+		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
+			if <EvmElasticity<T>>::get().is_zero() {
+				// Zero elasticity means constant BaseFeePerGas.
+				return
+			}
+
+			let lower = T::Threshold::lower();
+			let upper = T::Threshold::upper();
+			// `target` is the ideal congestion of the network where the base fee should remain
+			// unchanged. Under normal circumstances the `target` should be 50%.
+			// If we go below the `target`, the base fee is linearly decreased by the Elasticity
+			// delta of lower~target. If we go above the `target`, the base fee is linearly
+			// increased by the Elasticity delta of upper~target. The base fee is fully increased
+			// (default 12.5%) if the block is upper full (default 100%). The base fee is fully
+			// decreased (default 12.5%) if the block is lower empty (default 0%).
+			let weight = <frame_system::Pallet<T>>::block_weight();
+			let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
+
+			// We convert `weight` into block fullness and ensure we are within the lower and upper
+			// bound.
+			let weight_used =
+				Permill::from_rational(weight.total(), max_weight).clamp(lower, upper);
+			// After clamp `weighted_used` is always between `lower` and `upper`.
+			// We scale the block fullness range to the lower/upper range, and the usage represents
+			// the actual percentage within this new scale.
+			let usage = (weight_used - lower) / (upper - lower);
+
+			// Target is our ideal block fullness.
+			let target = T::Threshold::ideal();
+			if usage > target {
+				// Above target, increase.
+				let coef = Permill::from_parts((usage.deconstruct() - target.deconstruct()) * 2u32);
+				// How much of the Elasticity is used to mutate base fee.
+				let coef = <EvmElasticity<T>>::get() * coef;
+				<BaseFeePerGas<T>>::mutate(|bf| {
+					if let Some(scaled_basefee) = bf.checked_mul(U256::from(coef.deconstruct())) {
+						// Normalize to GWEI.
+						let increase = scaled_basefee
+							.checked_div(U256::from(1_000_000))
+							.unwrap_or_else(U256::zero);
+						*bf = bf.saturating_add(increase);
+					} else {
+						Self::deposit_event(Event::EvmBaseFeeOverflow);
+					}
+				});
+			} else if usage < target {
+				// Below target, decrease.
+				let coef = Permill::from_parts((target.deconstruct() - usage.deconstruct()) * 2u32);
+				// How much of the Elasticity is used to mutate base fee.
+				let coef = <EvmElasticity<T>>::get() * coef;
+				<BaseFeePerGas<T>>::mutate(|bf| {
+					if let Some(scaled_basefee) = bf.checked_mul(U256::from(coef.deconstruct())) {
+						// Normalize to GWEI.
+						let decrease = scaled_basefee
+							.checked_div(U256::from(1_000_000))
+							.unwrap_or_else(U256::zero);
+						*bf = bf.saturating_sub(decrease);
+					} else {
+						Self::deposit_event(Event::EvmBaseFeeOverflow);
+					}
+				});
+			}
 		}
 	}
 
@@ -291,6 +394,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn base_fee_per_gas() -> U256 {
+		// TODO: Think of how to reconcile this custom base fee & and base fee which was calculated
+		// off of congestion
 		SettingsAndMultipliers::<T>::get().evm_base_fee
 	}
 }
