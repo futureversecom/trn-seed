@@ -19,13 +19,127 @@ use pallet_ethereum::{Transaction, TransactionAction};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_client::chain_spec::get_account_id_from_seed;
-use seed_primitives::{AssetId, Balance};
+use seed_primitives::{AccountId, AssetId, Balance};
 use sp_core::{ecdsa, H160, H256, U256};
 use sp_runtime::{traits::SignedExtension, DispatchError::BadOrigin};
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
 pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
+
+#[test]
+fn evm_base_equals_one_xrp() {
+	ExtBuilder::default().build().execute_with(|| {
+		use pallet_fee_control::types::ConfigOp::Noop;
+
+		// Setup
+		let ok = FeeControl::set_settings(
+			RawOrigin::Root.into(),
+			Noop,
+			Noop,
+			Noop,
+			Noop,
+			Noop,
+			Balance::from(1_000_000u128).into(),
+			Noop,
+			false.into(),
+			false.into(),
+		);
+		assert_ok!(ok);
+
+		let xrp_price = Balance::from(1_000_000u32);
+		assert_ok!(FeeControl::set_xrp_price(RawOrigin::Root.into(), xrp_price));
+
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let mut builder = TransactionBuilder::default();
+		let (origin, tx) = builder.origin(bob()).action(action).build();
+		let old_balance = XrpCurrency::balance(&bob());
+
+		// Call
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		let new_balance = XrpCurrency::balance(&bob());
+		let expected_change = 1_000_000u128;
+		assert_eq!(old_balance - expected_change, new_balance);
+	})
+}
+
+#[test]
+fn evm_base_equals_50_cents() {
+	ExtBuilder::default().build().execute_with(|| {
+		use pallet_fee_control::types::ConfigOp::Noop;
+
+		// Setup
+		let ok = FeeControl::set_settings(
+			RawOrigin::Root.into(),
+			Noop,
+			Noop,
+			Noop,
+			Noop,
+			Noop,
+			Balance::from(1_000_000u128).into(),
+			Noop,
+			false.into(),
+			false.into(),
+		);
+		assert_ok!(ok);
+
+		let xrp_price = Balance::from(400_000u32);
+		assert_ok!(FeeControl::set_xrp_price(RawOrigin::Root.into(), xrp_price));
+
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let mut builder = TransactionBuilder::default();
+		let (origin, tx) = builder.origin(bob()).action(action).build();
+		let old_balance = XrpCurrency::balance(&bob());
+
+		// Call
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		let new_balance = XrpCurrency::balance(&bob());
+		let expected_change = 2_500_000u128;
+		assert_eq!(old_balance - expected_change, new_balance);
+	})
+}
+
+#[test]
+fn evm_base_fee_with_realistic_values() {
+	ExtBuilder::default().build().execute_with(|| {
+		use pallet_fee_control::types::ConfigOp::Noop;
+
+		// Setup
+		let ok = FeeControl::set_settings(
+			RawOrigin::Root.into(),
+			Noop,
+			Noop,
+			Noop,
+			Noop,
+			Noop,
+			Balance::from(100_000u128).into(),
+			Noop,
+			false.into(),
+			false.into(),
+		);
+		assert_ok!(ok);
+
+		let xrp_price = Balance::from(350_000u32);
+		assert_ok!(FeeControl::set_xrp_price(RawOrigin::Root.into(), xrp_price));
+
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let mut builder = TransactionBuilder::default();
+		let (origin, tx) = builder.origin(bob()).action(action).build();
+		let old_balance = XrpCurrency::balance(&bob());
+
+		// Call
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		let new_balance = XrpCurrency::balance(&bob());
+		let expected_change = 285_715u128; // 285_714 would be correct but there are some rounding errors that we cannot avoid.
+		assert_eq!(old_balance - expected_change, new_balance);
+	})
+}
 
 #[test]
 fn evm_base_transaction_cost_uses_xrp() {
@@ -240,4 +354,47 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		// Check Bob has been transferred the correct amount
 		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), transfer_amount);
 	});
+}
+
+pub struct TransactionBuilder {
+	transaction: ethereum::EIP1559Transaction,
+	origin: Origin,
+}
+
+impl TransactionBuilder {
+	pub fn default() -> Self {
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let transaction = ethereum::EIP1559Transaction {
+			chain_id: 3_999u64,
+			nonce: U256::zero(),
+			max_priority_fee_per_gas: U256::zero(),
+			max_fee_per_gas: FeeControl::base_fee_per_gas(),
+			gas_limit: U256::from(BASE_TX_GAS_COST),
+			action,
+			value: U256::zero(),
+			input: vec![],
+			access_list: vec![],
+			odd_y_parity: false,
+			r: H256::zero(),
+			s: H256::zero(),
+		};
+		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
+
+		Self { transaction, origin }
+	}
+
+	pub fn action(&mut self, value: TransactionAction) -> &mut Self {
+		self.transaction.action = value;
+		self
+	}
+
+	pub fn origin(&mut self, value: AccountId) -> &mut Self {
+		self.origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(value.into()));
+		self
+	}
+
+	pub fn build(&self) -> (Origin, pallet_ethereum::Transaction) {
+		let tx = pallet_ethereum::Transaction::EIP1559(self.transaction.clone());
+		(self.origin.clone(), tx)
+	}
 }

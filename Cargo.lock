@@ -5041,16 +5041,19 @@ dependencies = [
 
 [[package]]
 name = "pallet-fee-control"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
+ "ethereum",
  "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-dex",
+ "pallet-ethereum",
  "pallet-evm",
  "pallet-fee-proxy",
  "pallet-timestamp",
