@@ -26,7 +26,6 @@ benchmarks! {
 	set_settings {
 	}: _(RawOrigin::Root, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop, Noop)
 
-
 	set_xrp_price {
 	}: _(RawOrigin::Root, Balance::from(1_000_000u32))
 
