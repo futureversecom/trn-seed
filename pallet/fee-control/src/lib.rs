@@ -227,7 +227,7 @@ pub mod pallet {
 						(usage - threshold).deconstruct(),
 						(Permill::one() - threshold).deconstruct(),
 					);
-					target_fee += scale.mul(target_fee);
+					target_fee += scale.mul(reference_fee);
 				}
 
 				let elasticity = T::Elasticity::get();

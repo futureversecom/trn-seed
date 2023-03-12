@@ -1033,7 +1033,7 @@ parameter_types! {
 	/// 0.000015 XRP per gas, 15000 GWEI
 	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
 	pub const EvmXRPScaleFactor: Balance = XRP_UNIT_VALUE;
-	pub const FeeControlThreshold: Permill = Permill::from_parts(500000);
+	pub const FeeControlThreshold: Permill = Permill::from_parts(350000);
 	pub const FeeControlElasticity: Permill = Permill::from_parts(5000);
 }
 
