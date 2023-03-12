@@ -17,7 +17,7 @@ use crate as pallet_nft_peg;
 
 use seed_pallet_common::{
 	EthereumBridge, EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber,
-	EventRouterError, EventRouterResult,
+	EventRouterError, EventRouterResult, Xls20MintRequest,
 };
 use seed_primitives::types::{AccountId, AssetId, Balance};
 
@@ -30,7 +30,7 @@ use sp_runtime::{
 };
 
 use seed_pallet_common::OnTransferSubscriber;
-use seed_primitives::TokenId;
+use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber, TokenId};
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -154,6 +154,19 @@ impl OnTransferSubscriber for MockTransferSubscriber {
 	fn on_nft_transfer(_token_id: &TokenId) {}
 }
 
+pub struct MockXls20MintRequest;
+impl Xls20MintRequest for MockXls20MintRequest {
+	type AccountId = AccountId;
+	fn request_xls20_mint(
+		_who: &Self::AccountId,
+		_collection_id: CollectionUuid,
+		_serial_numbers: Vec<SerialNumber>,
+		_metadata_scheme: MetadataScheme,
+	) -> DispatchResult {
+		Ok(())
+	}
+}
+
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
@@ -161,6 +174,7 @@ parameter_types! {
 	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
+	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const MaxNftsPerMint: u32 = 100;
 }
 
@@ -176,6 +190,7 @@ impl pallet_nft::Config for Test {
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type WeightInfo = ();
+	type Xls20MintRequest = MockXls20MintRequest;
 }
 
 parameter_types! {

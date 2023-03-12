@@ -13,20 +13,25 @@
  *     https://centrality.ai/licenses/lgplv3.txt
  */
 
-use crate as token_approvals;
-use frame_support::{parameter_types, PalletId};
-use frame_system::EnsureRoot;
-use seed_pallet_common::Xls20MintRequest;
-use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber};
-use sp_core::H256;
+use crate as pallet_xls20;
+use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
+use frame_system::{limits, EnsureRoot};
+use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber};
+use seed_primitives::{AccountId, AssetId, Balance, TokenId};
+use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	DispatchResult,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub const XRP_ASSET_ID: AssetId = 2;
+
+pub fn create_account(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -39,16 +44,19 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Event<T>},
-		TokenApprovals: token_approvals::{Pallet, Call, Storage},
+		Xls20: pallet_xls20::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
+	pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
+	pub const MaxReserves: u32 = 50;
 }
+
 impl frame_system::Config for Test {
 	type BlockWeights = ();
-	type BlockLength = ();
+	type BlockLength = BlockLength;
 	type BaseCallFilter = frame_support::traits::Everything;
 	type Origin = Origin;
 	type Index = u64;
@@ -101,17 +109,16 @@ impl pallet_assets::Config for Test {
 }
 
 parameter_types! {
-	pub const RootAssetId: AssetId = 1;
+	pub const NativeAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 	pub const MaxHolds: u32 = 16;
-	pub const MaxReserves: u32 = 50;
 }
 
 impl pallet_assets_ext::Config for Test {
 	type Event = Event;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
-	type NativeAssetId = RootAssetId;
+	type NativeAssetId = NativeAssetId;
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
 	type WeightInfo = ();
@@ -129,17 +136,18 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 }
 
-pub struct MockXls20MintRequest;
-impl Xls20MintRequest for MockXls20MintRequest {
-	type AccountId = AccountId;
-	fn request_xls20_mint(
-		_who: &Self::AccountId,
-		_collection_id: CollectionUuid,
-		_serial_numbers: Vec<SerialNumber>,
-		_metadata_scheme: MetadataScheme,
-	) -> DispatchResult {
-		Ok(())
-	}
+pub struct MockTransferSubscriber;
+impl OnTransferSubscriber for MockTransferSubscriber {
+	fn on_nft_transfer(_token_id: &TokenId) {}
+}
+
+pub struct MockNewAssetSubscription;
+
+impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for MockNewAssetSubscription
+where
+	RuntimeId: From<u32> + Into<u32>,
+{
+	fn on_asset_create(_runtime_id: RuntimeId, _precompile_address_prefix: &[u8; 4]) {}
 }
 
 parameter_types! {
@@ -149,8 +157,7 @@ parameter_types! {
 	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
-	pub const MaxNftsPerMint: u32 = 100;
-	pub const Xls20PaymentAsset: AssetId = 2;
+	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 }
 
 impl pallet_nft::Config for Test {
@@ -158,35 +165,71 @@ impl pallet_nft::Config for Test {
 	type Event = Event;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
-	type MaxNftsPerMint = MaxNftsPerMint;
 	type MultiCurrency = AssetsExt;
-	type OnTransferSubscription = TokenApprovals;
-	type OnNewAssetSubscription = ();
+	type OnTransferSubscription = MockTransferSubscriber;
+	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
-	type Xls20MintRequest = MockXls20MintRequest;
 	type WeightInfo = ();
+	type Xls20MintRequest = Xls20;
 }
 
+parameter_types! {
+	pub const MaxTokensPerXls20Mint: u32 = 1000;
+}
 impl crate::Config for Test {
+	type Event = Event;
+	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
+	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
 	type WeightInfo = ();
+	type Xls20PaymentAsset = Xls20PaymentAsset;
 }
 
 #[derive(Default)]
-pub struct TestExt;
+pub struct TestExt {
+	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
+}
 
 impl TestExt {
+	/// Configure some XRP asset balances
+	pub fn with_xrp_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
+		self.xrp_balances = balances
+			.to_vec()
+			.into_iter()
+			.map(|(who, balance)| (XRP_ASSET_ID, who, balance))
+			.collect();
+		self
+	}
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities =
-			frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into();
+		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
+		if !self.xrp_balances.is_empty() {
+			let assets = vec![(XRP_ASSET_ID, create_account(10), true, 1)];
+			let metadata = vec![(XRP_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6_u8)];
+			let accounts = self.xrp_balances;
+			pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts }
+				.assimilate_storage(&mut ext)
+				.unwrap();
+		}
+
+		let mut ext: sp_io::TestExternalities = ext.into();
 		ext.execute_with(|| {
 			System::initialize(&1, &[0u8; 32].into(), &Default::default());
 		});
 
 		ext
 	}
+}
+
+/// Check the system event record contains `event`
+pub(crate) fn has_event(event: crate::Event<Test>) -> bool {
+	System::events()
+		.into_iter()
+		.map(|r| r.event)
+		// .filter_map(|e| if let Event::Nft(inner) = e { Some(inner) } else { None })
+		.find(|e| *e == Event::Xls20(event.clone()))
+		.is_some()
 }
 
 #[allow(dead_code)]

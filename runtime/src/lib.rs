@@ -120,8 +120,9 @@ mod custom_migration {
 	pub struct Upgrade;
 	impl OnRuntimeUpgrade for Upgrade {
 		fn on_runtime_upgrade() -> Weight {
-			StorageVersion::new(0).put::<EVMChainId>();
-			100
+			log::info!(target: "Xls20", "Xls20 Pallet set to onchain version 0");
+			StorageVersion::new(0).put::<Xls20>();
+			<Runtime as frame_system::Config>::DbWeight::get().writes(1)
 		}
 	}
 }
@@ -141,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 30,
+	spec_version: 31,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -378,6 +379,19 @@ impl pallet_nft::Config for Runtime {
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
+	type Xls20MintRequest = Xls20;
+}
+
+parameter_types! {
+	pub const MaxTokensPerXls20Mint: u32 = 1000;
+}
+impl pallet_xls20::Config for Runtime {
+	type Event = Event;
+	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type WeightInfo = weights::pallet_xls20::WeightInfo<Runtime>;
+	type Xls20PaymentAsset = XrpAssetId;
 }
 
 parameter_types! {
@@ -1058,6 +1072,7 @@ construct_runtime! {
 
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
 		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
+		Xls20: pallet_xls20::{Pallet, Call, Storage, Event<T>} = 42,
 	}
 }
 
@@ -1734,6 +1749,6 @@ mod benches {
 		[pallet_assets_ext, AssetsExt]
 		[pallet_evm_chain_id, EVMChainId]
 		[pallet_token_approvals, TokenApprovals]
-		[pallet_dex, Dex]
+		[pallet_xls20, Xls20]
 	);
 }

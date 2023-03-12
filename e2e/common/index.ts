@@ -94,7 +94,7 @@ export const getCollectionPrecompileAddress = (collectionId: number) => {
   const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
   const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
   return web3.utils.toChecksumAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
-}
+};
 
 /**
  * createAssetUntil continously creates assets until asset with `assetId` exists

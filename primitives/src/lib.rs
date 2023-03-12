@@ -6,7 +6,9 @@ pub use signature::*;
 pub use types::*;
 
 pub mod ethy;
+pub mod nft;
 mod signature;
+pub use nft::*;
 
 // offchain storage config key for XRP HTTP URI
 pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
