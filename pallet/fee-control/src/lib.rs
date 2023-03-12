@@ -66,7 +66,6 @@ pub mod pallet {
 		type CallOrigin: EnsureOrigin<Self::Origin>;
 
 		type Threshold: BaseFeeThreshold;
-		type DefaultBaseFeePerGas: Get<U256>;
 		type DefaultElasticity: Get<Permill>;
 
 		/// To get the value of one XRP.
@@ -106,7 +105,8 @@ pub mod pallet {
 			output_len_fee: T::OutputLenPrice::get(),
 			output_tx_fee: T::OutputTxPrice::get(),
 			input_tx_weight: T::InputTxWeight::get(),
-			evm_base_fee: T::EvmBaseFeePerGas::get(),
+			reference_evm_base_fee: T::EvmBaseFeePerGas::get(),
+			adjusted_evm_base_fee: T::EvmBaseFeePerGas::get(),
 			input_gas_limit: T::InputGasLimit::get(),
 			is_locked: false,
 			refresh_data: true,
@@ -124,14 +124,6 @@ pub mod pallet {
 
 	#[pallet::storage]
 	pub type EvmElasticity<T> = StorageValue<_, Permill, ValueQuery, DefaultElasticity<T>>;
-
-	#[pallet::type_value]
-	pub fn DefaultBaseFeePerGas<T: Config>() -> U256 {
-		T::DefaultBaseFeePerGas::get()
-	}
-
-	#[pallet::storage]
-	pub type BaseFeePerGas<T> = StorageValue<_, U256, ValueQuery, DefaultBaseFeePerGas<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -221,67 +213,41 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_n: <T as frame_system::Config>::BlockNumber) {
-			if <EvmElasticity<T>>::get().is_zero() {
-				// Zero elasticity means constant BaseFeePerGas.
-				return
-			}
+			SettingsAndMultipliers::<T>::mutate(|settings| {
+				let mut target_fee = settings.reference_evm_base_fee;
 
-			let lower = T::Threshold::lower();
-			let upper = T::Threshold::upper();
-			// `target` is the ideal congestion of the network where the base fee should remain
-			// unchanged. Under normal circumstances the `target` should be 50%.
-			// If we go below the `target`, the base fee is linearly decreased by the Elasticity
-			// delta of lower~target. If we go above the `target`, the base fee is linearly
-			// increased by the Elasticity delta of upper~target. The base fee is fully increased
-			// (default 12.5%) if the block is upper full (default 100%). The base fee is fully
-			// decreased (default 12.5%) if the block is lower empty (default 0%).
-			let weight = <frame_system::Pallet<T>>::block_weight();
-			let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
+				let weight = <frame_system::Pallet<T>>::block_weight();
+				let max_weight = <<T as frame_system::Config>::BlockWeights>::get().max_block;
 
-			// We convert `weight` into block fullness and ensure we are within the lower and upper
-			// bound.
-			let weight_used =
-				Permill::from_rational(weight.total(), max_weight).clamp(lower, upper);
-			// After clamp `weighted_used` is always between `lower` and `upper`.
-			// We scale the block fullness range to the lower/upper range, and the usage represents
-			// the actual percentage within this new scale.
-			let usage = (weight_used - lower) / (upper - lower);
+				let usage = Permill::from_rational(weight.total(), max_weight);
+				let threshold = Permill::from_percent(25);
+				if usage > threshold {
+					let difference = usage.deconstruct() - threshold.deconstruct();
+					let max = Permill::one().deconstruct() - threshold.deconstruct();
+					let target_fee2 = u128::try_from(target_fee).unwrap();
+					let target_fee2 =
+						target_fee2 + Permill::from_rational(difference, max).mul(target_fee2);
 
-			// Target is our ideal block fullness.
-			let target = T::Threshold::ideal();
-			if usage > target {
-				// Above target, increase.
-				let coef = Permill::from_parts((usage.deconstruct() - target.deconstruct()) * 2u32);
-				// How much of the Elasticity is used to mutate base fee.
-				let coef = <EvmElasticity<T>>::get() * coef;
-				<BaseFeePerGas<T>>::mutate(|bf| {
-					if let Some(scaled_basefee) = bf.checked_mul(U256::from(coef.deconstruct())) {
-						// Normalize to GWEI.
-						let increase = scaled_basefee
-							.checked_div(U256::from(1_000_000))
-							.unwrap_or_else(U256::zero);
-						*bf = bf.saturating_add(increase);
-					} else {
-						Self::deposit_event(Event::EvmBaseFeeOverflow);
+					target_fee = U256::from(target_fee2);
+				}
+
+				let mut adjusted_fee = settings.adjusted_evm_base_fee;
+				let abc = u128::try_from(settings.reference_evm_base_fee).unwrap();
+				if adjusted_fee > target_fee {
+					adjusted_fee = adjusted_fee - Permill::from_percent(1).mul(abc);
+				} else if adjusted_fee < target_fee {
+					adjusted_fee = adjusted_fee + Permill::from_percent(1).mul(abc);
+					if adjusted_fee > target_fee {
+						adjusted_fee = target_fee;
 					}
-				});
-			} else if usage < target {
-				// Below target, decrease.
-				let coef = Permill::from_parts((target.deconstruct() - usage.deconstruct()) * 2u32);
-				// How much of the Elasticity is used to mutate base fee.
-				let coef = <EvmElasticity<T>>::get() * coef;
-				<BaseFeePerGas<T>>::mutate(|bf| {
-					if let Some(scaled_basefee) = bf.checked_mul(U256::from(coef.deconstruct())) {
-						// Normalize to GWEI.
-						let decrease = scaled_basefee
-							.checked_div(U256::from(1_000_000))
-							.unwrap_or_else(U256::zero);
-						*bf = bf.saturating_sub(decrease);
-					} else {
-						Self::deposit_event(Event::EvmBaseFeeOverflow);
-					}
-				});
-			}
+				}
+
+				if adjusted_fee < settings.reference_evm_base_fee {
+					adjusted_fee = settings.reference_evm_base_fee;
+				}
+
+				settings.adjusted_evm_base_fee = adjusted_fee;
+			});
 		}
 	}
 
@@ -292,7 +258,8 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			weight_multiplier: ConfigOp<Perbill>,
 			length_multiplier: ConfigOp<DecimalBalance>,
-			evm_base_fee: ConfigOp<U256>,
+			reference_evm_base_fee: ConfigOp<U256>,
+			adjusted_evm_base_fee: ConfigOp<U256>,
 			input_tx_weight: ConfigOp<Weight>,
 			input_gas_limit: ConfigOp<U256>,
 			output_tx_fee: ConfigOp<Balance>,
@@ -306,7 +273,10 @@ pub mod pallet {
 				x.weight_multiplier = weight_multiplier.new_or_existing(x.weight_multiplier);
 				x.length_multiplier =
 					length_multiplier.new_or_existing(x.length_multiplier.clone());
-				x.evm_base_fee = evm_base_fee.new_or_existing(x.evm_base_fee);
+				x.reference_evm_base_fee =
+					reference_evm_base_fee.new_or_existing(x.reference_evm_base_fee);
+				x.adjusted_evm_base_fee =
+					adjusted_evm_base_fee.new_or_existing(x.adjusted_evm_base_fee);
 				x.output_tx_fee = output_tx_fee.new_or_existing(x.output_tx_fee);
 				x.input_tx_weight = input_tx_weight.new_or_existing(x.input_tx_weight);
 				x.output_len_fee = output_len_fee.new_or_existing(x.output_len_fee);
@@ -354,7 +324,7 @@ pub mod pallet {
 				)
 				.map_err(|x| Error::<T>::from(x))?;
 
-				let evm_base_fee = FeeMultiplierCalculator::evm_base_fee(
+				let reference_evm_base_fee = FeeMultiplierCalculator::evm_base_fee(
 					one_xrp,
 					xrp_price,
 					evm_xrp_scale_factor,
@@ -363,9 +333,38 @@ pub mod pallet {
 				)
 				.map_err(|x| Error::<T>::from(x))?;
 
+				let old_ref_evm_fee = x.reference_evm_base_fee.clone();
+				let new_ref_evm_fee = reference_evm_base_fee.clone();
+
 				x.weight_multiplier = weight_multiplier;
 				x.length_multiplier = length_multiplier;
-				x.evm_base_fee = evm_base_fee;
+				x.reference_evm_base_fee = reference_evm_base_fee;
+
+				if new_ref_evm_fee > old_ref_evm_fee {
+					let (integer, remainer) = new_ref_evm_fee.div_mod(old_ref_evm_fee);
+					let remainer = u128::try_from(remainer).expect("qed");
+					let old_ref_evm_fee = u128::try_from(old_ref_evm_fee).expect("qed");
+					let decimal = Perbill::from_rational(remainer, old_ref_evm_fee);
+					let adjusted_evm_base_fee =
+						u128::try_from(x.adjusted_evm_base_fee.clone()).expect("qed");
+
+					x.adjusted_evm_base_fee = x.adjusted_evm_base_fee * integer +
+						U256::from(decimal.mul(adjusted_evm_base_fee));
+				} else if new_ref_evm_fee < old_ref_evm_fee {
+					let old_ref_evm_fee = u128::try_from(old_ref_evm_fee).expect("qed");
+					let new_ref_evm_fee = u128::try_from(new_ref_evm_fee).expect("qed");
+
+					let decreased = Perbill::from_rational(new_ref_evm_fee, old_ref_evm_fee);
+					let adjusted_evm_base_fee =
+						u128::try_from(x.adjusted_evm_base_fee.clone()).expect("qed");
+
+					x.adjusted_evm_base_fee = U256::from(decreased.mul(adjusted_evm_base_fee));
+				}
+
+				// TODO Enable This!
+				/* 				if x.adjusted_evm_base_fee < x.reference_evm_base_fee {
+					x.adjusted_evm_base_fee = x.reference_evm_base_fee;
+				} */
 
 				Ok(())
 			})?;
@@ -394,9 +393,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn base_fee_per_gas() -> U256 {
-		// TODO: Think of how to reconcile this custom base fee & and base fee which was calculated
-		// off of congestion
-		SettingsAndMultipliers::<T>::get().evm_base_fee
+		SettingsAndMultipliers::<T>::get().adjusted_evm_base_fee
 	}
 }
 
