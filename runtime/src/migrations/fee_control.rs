@@ -23,18 +23,16 @@ pub mod v2 {
 			let onchain = FeeControl::on_chain_storage_version();
 			let mut weight = Weight::from(0u32);
 
-			log::info!(
-				"Running migration with current storage version {current:?} / onchain {onchain:?}"
-			);
+			log::info!(target: "Fee Control", "Running migration with current storage version {current:?} / onchain {onchain:?}");
 
 			if onchain == 0 {
-				log::info!("Migrating from onchain version 0 to onchain version 2.");
+				log::info!(target: "Fee Control", "Migrating from onchain version 0 to onchain version 2.");
 				weight += migrate();
 
-				log::info!("Migration successfully finished.");
+				log::info!(target: "Fee Control", "Migration successfully finished.");
 				StorageVersion::new(2).put::<FeeControl>();
 			} else {
-				log::info!("No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time.");
+				log::info!(target: "Fee Control", "No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time.");
 			}
 
 			weight
@@ -59,16 +57,16 @@ pub mod v2 {
 
 		if removal_1.maybe_cursor.is_some() {
 			// Unexpected due to this being a single storage value removal
-			log::error!("EvmBaseFeePerGas storage item removal was not completed.");
+			log::error!(target: "Fee Control", "EvmBaseFeePerGas storage item removal was not completed.");
 		} else {
-			log::info!("EvmBaseFeePerGas storage item successfully removed from db.")
+			log::info!(target: "Fee Control", "EvmBaseFeePerGas storage item successfully removed from db.")
 		};
 
 		if removal_2.maybe_cursor.is_some() {
 			// Unexpected due to this being a single storage value removal
-			log::error!("ExtrinsicWeightToFee storage item removal was not completed.");
+			log::error!(target: "Fee Control", "ExtrinsicWeightToFee storage item removal was not completed.");
 		} else {
-			log::info!("ExtrinsicWeightToFee storage item successfully removed from db.")
+			log::info!(target: "Fee Control", "ExtrinsicWeightToFee storage item successfully removed from db.")
 		};
 
 		// TODO

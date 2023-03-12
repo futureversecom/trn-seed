@@ -61,11 +61,14 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 		/// Origin that can control this pallet.
 		type CallOrigin: EnsureOrigin<Self::Origin>;
-		/// TODO
+		/// Minimum block usage before evm base fee gets adjusted. If the block usage is below
+		/// threshold then the adjusted evm base fee is equal to the reference one.
 		type Threshold: Get<Permill>;
-		/// TODO
+		/// Rate of change for adjusted evm base fee. This number is multiplied with reference evm
+		/// base fee to get the change that needs to be applied.
 		type Elasticity: Get<Permill>;
-		/// TODO
+		/// Maximum block usage. If real block usage is at this level or if it exceeded then
+		/// adjustable evm base fee will slowly change to 2x of reference evm base fee.
 		type MaxBlockWeightThreshold: Get<Permill>;
 		/// To get the value of one XRP.
 		#[pallet::constant]
@@ -123,10 +126,10 @@ pub mod pallet {
 		NewSettingsHaveBeenApplied,
 		/// New XRP Price has been set.
 		NewXRPPrice { value: Balance },
-		/// TODO
-		FailedToConvertReferenceEVMBaseFee,
-		/// TODO
-		FailedToConvertAdjustedEVMBaseFee,
+		/// Failed to downcast Reference EVN Base Fee. Should never happen.
+		FailedToDowncastReferenceEVMBaseFee,
+		/// Failed to downcast Adjusted EVN Base Fee. Should never happen.
+		FailedToDowncastAdjustedEVMBaseFee,
 	}
 
 	#[pallet::error]
@@ -167,13 +170,13 @@ pub mod pallet {
 			SettingsAndMultipliers::<T>::mutate(|settings| {
 				// This should never return Err but we are checking just in case.
 				let Ok(reference_fee) = u128::try_from(settings.reference_evm_base_fee) else {
-					Self::deposit_event(Event::<T>::FailedToConvertReferenceEVMBaseFee);
+					Self::deposit_event(Event::<T>::FailedToDowncastReferenceEVMBaseFee);
 					return;
 				};
 
 				// This should never return Err but we are checking just in case.
 				let Ok(mut adjusted_fee) = u128::try_from(settings.adjusted_evm_base_fee) else {
-					Self::deposit_event(Event::<T>::FailedToConvertAdjustedEVMBaseFee);
+					Self::deposit_event(Event::<T>::FailedToDowncastAdjustedEVMBaseFee);
 					return;
 				};
 
