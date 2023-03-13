@@ -25,7 +25,7 @@ use ethereum_types::U64;
 use frame_support::{
 	parameter_types,
 	storage::{StorageDoubleMap, StorageValue},
-	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	traits::UnixTime,
 	IterableStorageMap, PalletId,
 };
 use frame_system::EnsureRoot;
@@ -56,7 +56,6 @@ use std::{
 };
 
 pub const XRP_ASSET_ID: AssetId = 1;
-
 type BlockNumber = u64;
 pub type SessionIndex = u32;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -189,7 +188,6 @@ impl Config for TestRuntime {
 	type ValidatorSet = MockValidatorSetAdapter;
 	type EthyAdapter = MockEthyAdapter;
 	type NotarizationThreshold = NotarizationThreshold;
-	type AuthoritySet = MockValidatorSet;
 	type EventRouter = MockEventRouter;
 	type EthCallSubscribers = MockEthCallSubscriber;
 	type RpcClient = MockEthereumRpcClient;
@@ -205,10 +203,7 @@ impl ValidatorSetAdapter<AuthorityId> for MockValidatorSetAdapter {
 	}
 
 	fn get_validator_set() -> Vec<AuthorityId> {
-		vec![
-			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
-			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
-		]
+		test_storage::Validators::get()
 	}
 
 	fn get_next_validator_set() -> Vec<AuthorityId> {
@@ -245,6 +240,19 @@ impl ValidatorSetAdapter<AuthorityId> for MockValidatorSetAdapter {
 	}
 }
 
+impl MockValidatorSetAdapter {
+	/// Mock n validator stashes
+	pub fn mock_n_validators(n: u8) {
+		let validators: Vec<AuthorityId> =
+			(1..=n as u8).map(|i| AuthorityId::from_slice(&[i; 33]).unwrap()).collect();
+		test_storage::Validators::put(validators);
+	}
+
+	pub fn add_to_validator_set(validator: &AuthorityId) {
+		test_storage::Validators::append(validator);
+	}
+}
+
 pub struct MockEthyAdapter;
 impl EthyAdapter for MockEthyAdapter {
 	fn request_for_proof(
@@ -267,28 +275,6 @@ pub struct NoopConverter<T>(sp_std::marker::PhantomData<T>);
 impl<T: Config> Convert<T::AccountId, Option<T::AccountId>> for NoopConverter<T> {
 	fn convert(address: T::AccountId) -> Option<T::AccountId> {
 		Some(address)
-	}
-}
-
-pub struct MockValidatorSet;
-impl ValidatorSetT<AccountId> for MockValidatorSet {
-	type ValidatorId = AccountId;
-	type ValidatorIdOf = NoopConverter<TestRuntime>;
-	/// Returns current session index.
-	fn session_index() -> SessionIndex {
-		1
-	}
-	/// Returns the active set of validators.
-	fn validators() -> Vec<Self::ValidatorId> {
-		test_storage::Validators::get()
-	}
-}
-impl MockValidatorSet {
-	/// Mock n validator stashes
-	pub fn mock_n_validators(n: u8) {
-		let validators: Vec<AccountId> =
-			(1..=n as u64).map(|i| H160::from_low_u64_be(i).into()).collect();
-		test_storage::Validators::put(validators);
 	}
 }
 
@@ -630,6 +616,7 @@ pub(crate) mod test_storage {
 	//! storage used by tests to store mock EthBlocks and TransactionReceipts
 	use frame_support::decl_storage;
 	use seed_pallet_common::EthCallFailure;
+	use seed_primitives::ethy::crypto::AuthorityId;
 
 	use crate::{
 		types::{CheckedEthCallResult, EthAddress, EthCallId, EthHash},
@@ -645,7 +632,7 @@ pub(crate) mod test_storage {
 			pub CallAt: double_map hasher(twox_64_concat) u64, hasher(twox_64_concat) EthAddress => Option<Vec<u8>>;
 			pub TransactionReceiptFor: map hasher(twox_64_concat) EthHash => Option<MockReceiptResponse>;
 			pub Timestamp: Option<u64>;
-			pub Validators: Vec<AccountId>;
+			pub Validators: Vec<AuthorityId>;
 			pub LastCallResult: Option<(EthCallId, CheckedEthCallResult)>;
 			pub LastCallFailure: Option<(EthCallId, EthCallFailure)>;
 		}

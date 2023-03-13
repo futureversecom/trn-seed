@@ -20,7 +20,7 @@ use crate::{
 		mock_timestamp, now, AssetsExt, ChallengerBond, CheckedEthCallRequestBuilder, EthBridge,
 		EthBridgePalletId, ExtBuilder, MockBlockBuilder, MockEthCallSubscriber,
 		MockEthereumRpcClient, MockLog, MockLogBuilder, MockReceiptBuilder, MockUnixTime,
-		MockValidatorSet, Origin, RelayerBond, System, TestRuntime, XRP_ASSET_ID,
+		MockValidatorSetAdapter, Origin, RelayerBond, System, TestRuntime, XRP_ASSET_ID,
 	},
 	types::{EthHash, TransactionReceipt},
 };
@@ -449,7 +449,7 @@ fn submit_notarization_failed_non_active_validator() {
 	let mock_notary_keys: Vec<AuthorityId> =
 		(1_u8..=9_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
 	ExtBuilder::default().build().execute_with(|| {
-		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8); // this wil set up from 1 to 8
+		MockValidatorSetAdapter::mock_n_validators(mock_notary_keys.len() as u8); // this wil set up from 1 to 8
 		let inactive_validator = ecdsa::Pair::from_string("//alice", None).unwrap();
 		let notarization_payload = NotarizationPayload::Event {
 			event_claim_id: 1,
@@ -465,6 +465,55 @@ fn submit_notarization_failed_non_active_validator() {
 			Error::<TestRuntime>::InvalidNotarization
 		);
 	});
+}
+
+#[test]
+fn submit_notarization_works() {
+	// fake ecdsa public keys to represent the mocked validators
+	// let mut mock_notary_keys: Vec<AuthorityId> =
+	// 	(1_u8..=9_u8).map(|k| AuthorityId::from_slice(&[k; 33]).unwrap()).collect();
+	let relayer = H160::from_low_u64_be(123);
+	let challenger = H160::from_low_u64_be(1234);
+	let alice = ecdsa::Pair::from_string("//alice", None).unwrap();
+	let bob = ecdsa::Pair::from_string("//bob", None).unwrap();
+
+	ExtBuilder::default()
+		.relayer(relayer)
+		.with_endowed_account(challenger, ChallengerBond::get() * 2)
+		.with_keystore()
+		.build()
+		.execute_with(|| {
+			MockValidatorSetAdapter::add_to_validator_set(&AuthorityId::from(alice.public()));
+			MockValidatorSetAdapter::add_to_validator_set(&AuthorityId::from(bob.public()));
+
+			let event_id = 1;
+			let event_claim = EventClaim {
+				tx_hash: H256::default(),
+				source: EthAddress::default(),
+				destination: EthAddress::default(),
+				data: Vec::<u8>::default(),
+			};
+
+			PendingEventClaims::<TestRuntime>::insert(event_id, &event_claim);
+			PendingClaimStatus::<TestRuntime>::insert(event_id, EventClaimStatus::Pending);
+			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id));
+			PendingClaimStatus::<TestRuntime>::insert(event_id, EventClaimStatus::Challenged);
+
+			let notarization_payload = NotarizationPayload::Event {
+				event_claim_id: event_id,
+				authority_index: 0,
+				result: EventClaimResult::Valid,
+			};
+			assert_ok!(EthBridge::submit_notarization(
+				Origin::none(),
+				notarization_payload,
+				alice.sign(b"blah").into()
+			),);
+			assert_eq!(
+				EthBridge::event_notarizations(event_id, AuthorityId::from(alice.public())),
+				Some(EventClaimResult::Valid)
+			);
+		});
 }
 
 #[test]
@@ -491,7 +540,7 @@ fn handle_event_notarization_valid_claims() {
 		.with_endowed_account(challenger, ChallengerBond::get() * 2)
 		.build()
 		.execute_with(|| {
-			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+			MockValidatorSetAdapter::mock_n_validators(mock_notary_keys.len() as u8);
 			let process_at = System::block_number() + EthBridge::challenge_period();
 
 			// Submit Event 1
@@ -609,7 +658,7 @@ fn process_valid_challenged_event() {
 		.with_endowed_account(challenger, ChallengerBond::get())
 		.build()
 		.execute_with(|| {
-			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+			MockValidatorSetAdapter::mock_n_validators(mock_notary_keys.len() as u8);
 			assert_eq!(AssetsExt::reducible_balance(XRP_ASSET_ID, &relayer.into(), false), 0);
 			assert_eq!(EthBridge::relayer_bond(AccountId::from(relayer)), RelayerBond::get());
 
@@ -713,7 +762,7 @@ fn process_valid_challenged_event_delayed() {
 		.with_endowed_account(challenger, ChallengerBond::get() * 2)
 		.build()
 		.execute_with(|| {
-			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+			MockValidatorSetAdapter::mock_n_validators(mock_notary_keys.len() as u8);
 			// The block it should be processed at
 			let process_at = System::block_number() + EthBridge::challenge_period();
 			// The actual block it will be processed at
@@ -798,7 +847,7 @@ fn handle_event_notarization_invalid_claims() {
 		.with_endowed_account(challenger, ChallengerBond::get())
 		.build()
 		.execute_with(|| {
-			MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+			MockValidatorSetAdapter::mock_n_validators(mock_notary_keys.len() as u8);
 			let process_at = System::block_number() + EthBridge::challenge_period();
 
 			// Submit Event 1
@@ -1325,7 +1374,7 @@ fn handle_call_notarization_success() {
 	ExtBuilder::default().build().execute_with(|| {
 		let call_id = 1_u64;
 		EthCallRequestInfo::<TestRuntime>::insert(call_id, CheckedEthCallRequest::default());
-		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+		MockValidatorSetAdapter::mock_n_validators(mock_notary_keys.len() as u8);
 
 		let block = 555_u64;
 		let timestamp = now();
@@ -1386,7 +1435,7 @@ fn handle_call_notarization_aborts_no_consensus() {
 	ExtBuilder::default().build().execute_with(|| {
 		let call_id = 1_u64;
 		EthCallRequestInfo::<TestRuntime>::insert(call_id, CheckedEthCallRequest::default());
-		MockValidatorSet::mock_n_validators(mock_notary_keys.len() as u8);
+		MockValidatorSetAdapter::mock_n_validators(mock_notary_keys.len() as u8);
 		let block = 555_u64;
 		let timestamp = now();
 		let return_data = [0x3f_u8; 32];

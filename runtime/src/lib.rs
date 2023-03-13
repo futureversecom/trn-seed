@@ -884,7 +884,6 @@ impl pallet_eth_bridge::Config for Runtime {
 	/// ethy adapter
 	type EthyAdapter = Ethy;
 	type NotarizationThreshold = NotarizationThreshold;
-	type AuthoritySet = Historical;
 	type EventRouter = EthereumEventRouter;
 	type EthCallSubscribers = ();
 	type RpcClient = pallet_eth_bridge::EthereumRpcClient;

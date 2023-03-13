@@ -38,7 +38,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungibles::{Mutate, Transfer},
-		Get, UnixTime, ValidatorSet as ValidatorSetT,
+		Get, UnixTime,
 	},
 	transactional,
 	weights::Weight,
@@ -116,8 +116,6 @@ pub mod pallet {
 		type EthyAdapter: EthyAdapter;
 		/// The threshold of notarizations required to approve an Ethereum event
 		type NotarizationThreshold: Get<Percent>;
-		/// Knows the active authority set (validator stash addresses)
-		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
 		/// Handles routing received Ethereum events upon verification
 		type EventRouter: EthereumEventRouter;
 		/// Pallet subscribing to of notarized eth calls
@@ -386,7 +384,8 @@ pub mod pallet {
 			let supports = validator_set.len();
 			let needed = T::NotarizationThreshold::get();
 			// TODO: check every session change not block
-			if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
+			if Percent::from_rational(supports, T::ValidatorSet::get_validator_set().len()) < needed
+			{
 				info!(
 					target: LOG_TARGET,
 					"Waiting for validator support to activate eth-bridge: {:?}/{:?}",
@@ -746,7 +745,7 @@ impl<T: Config> Pallet<T> {
 		// increment notarization count for this result
 		*notarizations.entry(result).or_insert(0) += 1;
 
-		let notary_count = T::AuthoritySet::validators().len() as u32;
+		let notary_count = T::ValidatorSet::get_validator_set().len() as u32;
 		let notarization_threshold = T::NotarizationThreshold::get();
 		let mut total_count = 0;
 		for (result, count) in notarizations.iter() {
@@ -791,7 +790,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		// Count notarization votes
-		let notary_count = T::AuthoritySet::validators().len() as u32;
+		let notary_count = T::ValidatorSet::get_validator_set().len() as u32;
 		let mut yay_count = 0u32;
 		let mut nay_count = 0u32;
 		// TODO: store the count
