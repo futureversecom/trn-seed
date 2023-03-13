@@ -14,7 +14,7 @@ log = "0.4"
 parking_lot = "0.12.1"
 thiserror = "1.0"
 codec = { version = "3.0.0", package = "parity-scale-codec", features = ["derive"] }
-libsecp256k1 = { version = "0.6.0" }
+libsecp256k1 = { version = "0.7.1" }
 prometheus = { package = "substrate-prometheus-endpoint", git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", version = "0.10.0-dev"}
 sc-chain-spec = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-client-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }

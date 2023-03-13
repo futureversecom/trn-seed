@@ -1618,7 +1618,7 @@ dependencies = [
  "futures-timer",
  "hex",
  "hex-literal",
- "libsecp256k1 0.6.0",
+ "libsecp256k1 0.7.1",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.1",
