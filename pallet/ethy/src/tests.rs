@@ -16,8 +16,8 @@
 
 use super::*;
 use crate::mock::{
-	EpochDuration, Ethy, ExtBuilder, MockEthBridgeAdapter, MockValidatorSetAdapter,
-	MockXrplBridgeAdapter, Origin, System, TestRuntime,
+	Ethy, ExtBuilder, MockEthBridgeAdapter, MockValidatorSetAdapter, MockXrplBridgeAdapter, Origin,
+	System, TestRuntime,
 };
 use frame_support::{
 	assert_noop, assert_ok,
@@ -26,7 +26,6 @@ use frame_support::{
 use seed_pallet_common::ethy::EthereumBridgeAdapter;
 use seed_primitives::{ethy::crypto::AuthorityId, xrpl::XrplAccountId, AccountId, BlockNumber};
 use sp_core::ByteArray;
-use sp_runtime::DispatchError::BadOrigin;
 use std::default::Default;
 
 #[test]
@@ -256,6 +255,41 @@ fn validator_set_change_in_progress() {
 
 		// Ethy state should be updated to Paused state
 		assert_eq!(EthyState::<TestRuntime>::get(), State::Paused);
+	});
+}
+
+#[test]
+fn proof_not_requested_if_notary_keys_remains_the_same() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let current_validator_set = vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+		];
+		let current_validator_set_id = 0;
+		let next_validator_set = vec![
+			AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
+			AuthorityId::from_slice(&[2_u8; 33]).unwrap(),
+		];
+		let next_validator_set_id = 1;
+		let change_info = ValidatorSetChangeInfo {
+			current_validator_set_id,
+			current_validator_set,
+			next_validator_set_id,
+			next_validator_set,
+		};
+		let proof_id = NextEventProofId::<TestRuntime>::get();
+		System::reset_events();
+		// trigger incoming from ValidatorSet pallet
+		Ethy::validator_set_change_in_progress(change_info.clone());
+
+		//check - neither eth nor xrpl proofs should be requested
+		assert_eq!(System::digest().logs.len(), 0_usize);
+		assert_eq!(NotarySetProofId::<TestRuntime>::get(), EventProofId::default());
+		// XRPL
+		assert_eq!(XrplNotarySetProofId::<TestRuntime>::get(), EventProofId::default());
+		// Ethy state should remains active
+		assert_eq!(EthyState::<TestRuntime>::get(), State::Active);
 	});
 }
 

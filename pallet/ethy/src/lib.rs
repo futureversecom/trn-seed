@@ -197,6 +197,19 @@ impl<T: Config> Pallet<T> {
 		info: ValidatorSetChangeInfo<AuthorityId>,
 	) -> Result<EventProofId, DispatchError> {
 		trace!(target: LOG_TARGET, "💎 request validator set change proof for ethereum");
+		let mut current_validator_set = info.current_validator_set.clone();
+		let mut next_validator_set = info.next_validator_set.clone();
+
+		current_validator_set.sort();
+		next_validator_set.sort();
+		if current_validator_set == next_validator_set {
+			info!(
+				target: LOG_TARGET,
+				"💎 notary keys unchanged. next validator set id: {:?}", info.next_validator_set_id
+			);
+			return Ok(EventProofId::MAX) // return EventProofId::MAX to indicate no proof was requested
+		}
+
 		let next_validator_addresses: Vec<Token> = info
 			.next_validator_set
 			.to_vec()
@@ -248,7 +261,7 @@ impl<T: Config> Pallet<T> {
 				"💎 notary xrpl keys unchanged. next validator set id: {:?}",
 				info.next_validator_set_id
 			);
-			return Ok(0) // return EventProofId = 0
+			return Ok(EventProofId::MAX) // return EventProofId::MAX to indicate no proof was requested
 		}
 
 		let signer_entries = next_notary_xrpl_keys
@@ -305,19 +318,24 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 	fn validator_set_change_in_progress(info: ValidatorSetChangeInfo<AuthorityId>) {
-		// request for proof ethereum
+		let mut do_pause = false; // if a proof is requested or any error occurs, pause the ethy
+						  // request for proof ethereum
 		match Self::request_for_proof_validator_set_change_ethereum(info.clone()) {
 			Ok(event_proof_id) => {
-				// Signal the event id that will be used for the proof of validator set change.
-				// Any observer can subscribe to this event and submit the resulting proof to keep
-				// the validator set on the Ethereum bridge contract updated.
-				Self::deposit_event(Event::<T>::AuthoritySetChangeInProgress {
-					event_proof_id,
-					new_validator_set_id: info.next_validator_set_id,
-				});
-				// store the notary set change event proof id
-				NotarySetProofId::<T>::put(event_proof_id);
-				info!(target: LOG_TARGET, "💎 authority set change proof request success. event proof If: {:?}, new validator set Id: {:?}", event_proof_id, info.next_validator_set_id);
+				// event_proof_id == EventProofId::MAX special case - notary keys remains the same
+				if event_proof_id != EventProofId::MAX {
+					// Signal the event id that will be used for the proof of validator set change.
+					// Any observer can subscribe to this event and submit the resulting proof to
+					// keep the validator set on the Ethereum bridge contract updated.
+					Self::deposit_event(Event::<T>::AuthoritySetChangeInProgress {
+						event_proof_id,
+						new_validator_set_id: info.next_validator_set_id,
+					});
+					// store the notary set change event proof id
+					NotarySetProofId::<T>::put(event_proof_id);
+					info!(target: LOG_TARGET, "💎 authority set change proof request success. event proof If: {:?}, new validator set Id: {:?}", event_proof_id, info.next_validator_set_id);
+					do_pause |= true;
+				}
 			},
 			Err(e) => {
 				Self::deposit_event(Event::<T>::AuthoritySetChangedFailed {
@@ -325,14 +343,16 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 					new_validator_set_id: info.next_validator_set_id,
 				});
 				error!(target: LOG_TARGET, "💎 authority set change proof request failed. next validator set Id: {:?}, error: {:?}", info.next_validator_set_id, Into::<&str>::into(e));
+				do_pause |= true;
 			},
 		}
 
 		// request for proof xrpl
 		match Self::request_for_proof_validator_set_change_xrpl(info.clone()) {
 			Ok(event_proof_id) => {
-				// event_proof_id == 0 special case - xrpl notary keys remains the same
-				if event_proof_id != 0 {
+				// event_proof_id == EventProofId::MAX special case - xrpl notary keys remains the
+				// same
+				if event_proof_id != EventProofId::MAX {
 					// Signal the event id that will be used for the proof of xrpl notary set
 					// change. Any observer can subscribe to this event and submit the resulting
 					// proof to keep the door account signer set on the xrpl updated.
@@ -343,6 +363,7 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 					// store the xrpl notary set change event proof id
 					XrplNotarySetProofId::<T>::put(event_proof_id);
 					info!(target: LOG_TARGET, "💎 xrpl notary set change proof request success. event proof If: {:?}, new validator set Id: {:?}", event_proof_id, info.next_validator_set_id);
+					do_pause |= true;
 				}
 			},
 			Err(e) => {
@@ -351,11 +372,14 @@ impl<T: Config> ValidatorSetChangeHandler<AuthorityId> for Pallet<T> {
 					new_validator_set_id: info.next_validator_set_id,
 				});
 				error!(target: LOG_TARGET, "💎 xrpl notary set change proof request failed. next validator set Id: {:?}, error: {:?}", info.next_validator_set_id, Into::<&str>::into(e));
+				do_pause |= true;
 			},
 		}
 
 		//pause the ethy to pause all bridge activities
-		EthyState::<T>::put(Paused);
+		if do_pause {
+			EthyState::<T>::put(Paused)
+		};
 	}
 
 	fn validator_set_change_finalized(info: ValidatorSetChangeInfo<AuthorityId>) {
