@@ -3,6 +3,8 @@ import * as dotenv from "dotenv";
 import { utils } from "ethers";
 import { HardhatUserConfig, task } from "hardhat/config";
 
+import { ALITH_PRIVATE_KEY, BOB_PRIVATE_KEY } from "./common";
+
 dotenv.config();
 
 // This is a sample Hardhat task. To learn how to create your own go to
@@ -27,15 +29,15 @@ const config: HardhatUserConfig = {
     },
     seed: {
       url: "http://localhost:9933",
-      accounts: [
-        `0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133`, // Alith
-        `0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcf`, // Bob
-      ],
+      accounts: [ALITH_PRIVATE_KEY, BOB_PRIVATE_KEY],
       chainId: 7672,
     },
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
+  },
+  mocha: {
+    timeout: 120_000, // global tests timeout
   },
 };
 
