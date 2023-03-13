@@ -53,7 +53,7 @@ describe("ERC721 Precompile", function () {
     // Create NFT collection using runtime, bob is collection owner
     await new Promise<void>((resolve, reject) => {
       api.tx.nft
-        .createCollection(name, initialIssuance, maxIssuance, null, metadataPath, null)
+        .createCollection(name, initialIssuance, maxIssuance, null, metadataPath, null, { xrpl: false })
         .signAndSend(bob, async ({ status, events }) => {
           if (status.isInBlock) {
             events.forEach(({ event: { data, method } }) => {
