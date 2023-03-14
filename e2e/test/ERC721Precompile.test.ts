@@ -335,8 +335,8 @@ describe("ERC721 Precompile", function () {
       expect(err.code).eq('CALL_EXCEPTION');
     });
 
-    // Verify balance of alith is 0
-    expect(await erc721Precompile.balanceOf(alithSigner.address)).to.equal(0);
+    // Verify balance of receiver is 0
+    expect(await erc721Precompile.balanceOf(receiverAddress)).to.equal(0);
   });
 
   it("setApprovalForAll, isApprovedForAll and safeTransferFrom", async () => {
