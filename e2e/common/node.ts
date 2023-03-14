@@ -79,6 +79,7 @@ export function startNode(nodeOpts?: NodeOpts): Promise<NodeProcess> {
   if (nodeOptions.type === "binary") {
     // TODO integrate startStandaloneNode; path param may be required
     // return startBinaryNode(httpPort, wsPort);
+    throw new Error(`Unsupported connection type: ${nodeOptions.type}`);
   }
 
   throw new Error(`Unknown connection type: ${nodeOptions.type}`);
@@ -96,14 +97,14 @@ interface DockerInspect {
 async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProcess> {
   const args = [
     "run",
-    "--platform",
-    "linux/amd64",
     "--rm",
     "-d", // '-it',
     "-p",
     nodeOpts.httpPort.toString(),
     "-p",
     nodeOpts.wsPort.toString(),
+    "--pull", // image built locally; no need to pull
+    "never",
     nodeOpts.dockerOpts.image,
     "--dev",
     "--unsafe-ws-external",
@@ -113,6 +114,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
 
   // pull the image
   if (nodeOpts.dockerOpts.pull) {
+    console.info("pulling image...", nodeOpts.dockerOpts.image);
     await new Promise((resolve, reject) => {
       console.info(`pulling image ${nodeOpts.dockerOpts.image}...`);
       child.exec(`docker pull ${nodeOpts.dockerOpts.image}`, (error, stdout, _) => {
@@ -126,6 +128,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
   }
 
   // docker run --platform linux/amd64 --rm -d -p 9933 -p 9944 ghcr.io/futureversecom/seed:latest --dev --tmp --unsafe-ws-external --unsafe-rpc-external --rpc-cors=all
+  console.info("starting docker node...\n", "docker", args.join(" "));
   const proc = child.spawn("docker", args);
 
   // get the docker id from the output

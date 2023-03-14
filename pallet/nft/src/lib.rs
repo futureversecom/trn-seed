@@ -171,7 +171,6 @@ pub mod pallet {
 
 	/// NFT sale/auction listings keyed by listing id
 	#[pallet::storage]
-	#[pallet::getter(fn listings)]
 	pub type Listings<T: Config> = StorageMap<_, Twox64Concat, ListingId, Listing<T>>;
 
 	/// The next available listing Id
@@ -766,11 +765,13 @@ pub mod pallet {
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			if let Some(Listing::FixedPrice(listing)) = Self::listings(listing_id) {
+			if let Some(Listing::FixedPrice(listing)) = Listings::<T>::get(listing_id) {
 				// if buyer is specified in the listing, then `who` must be buyer
 				if let Some(buyer) = &listing.buyer {
 					ensure!(&who == buyer, Error::<T>::NotBuyer);
 				}
+
+				Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
 
 				let payouts = Self::calculate_royalty_payouts(
 					listing.seller.clone(),
@@ -780,11 +781,6 @@ pub mod pallet {
 				// Make split transfer
 				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
 
-				<OpenCollectionListings<T>>::remove(listing.collection_id, listing_id);
-
-				for serial_number in listing.serial_numbers.iter() {
-					<TokenLocks<T>>::remove((listing.collection_id, *serial_number));
-				}
 				// Transfer the tokens
 				let _ = Self::do_transfer(
 					listing.collection_id,
@@ -792,8 +788,6 @@ pub mod pallet {
 					&listing.seller,
 					&who,
 				)?;
-
-				Self::remove_fixed_price_listing(listing_id);
 
 				Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
 					collection_id: listing.collection_id,
@@ -878,7 +872,7 @@ pub mod pallet {
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let mut listing = match Self::listings(listing_id) {
+			let mut listing = match Listings::<T>::get(listing_id) {
 				Some(Listing::Auction(listing)) => listing,
 				_ => return Err(Error::<T>::NotForAuction.into()),
 			};
@@ -939,7 +933,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let listing = Self::listings(listing_id).ok_or(Error::<T>::TokenNotListed)?;
+			let listing = Listings::<T>::get(listing_id).ok_or(Error::<T>::TokenNotListed)?;
 
 			match listing {
 				Listing::<T>::FixedPrice(sale) => {
@@ -994,7 +988,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			match Self::listings(listing_id) {
+			match Listings::<T>::get(listing_id) {
 				Some(Listing::<T>::FixedPrice(mut sale)) => {
 					ensure!(sale.seller == who, Error::<T>::NotSeller);
 
@@ -1037,7 +1031,7 @@ pub mod pallet {
 
 			// ensure the token_id is not currently in an auction
 			if let Some(TokenLockReason::Listed(listing_id)) = Self::token_locks(token_id) {
-				match Self::listings(listing_id) {
+				match Listings::<T>::get(listing_id) {
 					Some(Listing::<T>::Auction(_)) => return Err(Error::<T>::TokenOnAuction.into()),
 					None | Some(Listing::<T>::FixedPrice(_)) => (),
 				}
@@ -1102,6 +1096,15 @@ pub mod pallet {
 			match offer_type {
 				OfferType::Simple(offer) => {
 					let (collection_id, serial_number) = offer.token_id;
+
+					// Check whether token is listed for fixed price sale
+					if let Some(TokenLockReason::Listed(listing_id)) =
+						Self::token_locks(offer.token_id)
+					{
+						if let Some(listing) = <Listings<T>>::get(listing_id) {
+							Self::remove_listing(listing, listing_id);
+						}
+					}
 
 					let royalties_schedule =
 						Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;

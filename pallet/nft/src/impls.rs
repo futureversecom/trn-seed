@@ -333,31 +333,18 @@ impl<T: Config> Pallet<T> {
 		(new_cursor, response)
 	}
 
-	/// Remove a single fixed price listing and all it's metadata
-	pub(crate) fn remove_fixed_price_listing(listing_id: ListingId) {
-		let listing_type = Listings::<T>::take(listing_id);
-		ListingWinningBid::<T>::remove(listing_id);
-		if let Some(Listing::<T>::FixedPrice(listing)) = listing_type {
-			ListingEndSchedule::<T>::remove(listing.close, listing_id);
-		}
-	}
-
 	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships
 	/// changes are made for winning bids Metadata for listings will be removed from storage
 	/// Returns the number of listings removed
 	pub(crate) fn close_listings_at(now: T::BlockNumber) -> u32 {
 		let mut removed = 0_u32;
 		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
-			let Some(listing) = Listings::<T>::take(listing_id) else {
+			let Some(listing_outer) = Listings::<T>::get(listing_id) else {
 				continue
 			};
-			match listing {
+			match listing_outer.clone() {
 				Listing::FixedPrice(listing) => {
-					Self::remove_listing(
-						listing_id,
-						listing.collection_id,
-						&listing.serial_numbers,
-					);
+					Self::remove_listing(listing_outer, listing_id);
 					Self::deposit_event(Event::<T>::FixedPriceSaleClose {
 						collection_id: listing.collection_id,
 						serial_numbers: listing.serial_numbers.into_inner(),
@@ -367,11 +354,7 @@ impl<T: Config> Pallet<T> {
 					removed += 1;
 				},
 				Listing::Auction(listing) => {
-					Self::remove_listing(
-						listing_id,
-						listing.collection_id,
-						&listing.serial_numbers,
-					);
+					Self::remove_listing(listing_outer, listing_id);
 					Self::process_auction_closure(listing, listing_id);
 					removed += 1;
 				},
@@ -380,16 +363,24 @@ impl<T: Config> Pallet<T> {
 		removed
 	}
 
-	/// Removes a listing from storage and releases locks on tokens
-	fn remove_listing(
-		listing_id: ListingId,
-		collection_id: CollectionUuid,
-		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-	) {
-		for serial_number in serial_numbers.iter() {
-			TokenLocks::<T>::remove((collection_id, serial_number));
-		}
+	/// Removes a listing and its metadata from storage and releases locks on tokens
+	pub(crate) fn remove_listing(listing: Listing<T>, listing_id: ListingId) {
+		let (serial_numbers, collection_id) = match listing {
+			Listing::FixedPrice(listing) => {
+				ListingEndSchedule::<T>::remove(listing.close, listing_id);
+				(listing.serial_numbers, listing.collection_id)
+			},
+			Listing::Auction(listing) => {
+				ListingEndSchedule::<T>::remove(listing.close, listing_id);
+				(listing.serial_numbers, listing.collection_id)
+			},
+		};
+
 		OpenCollectionListings::<T>::remove(collection_id, listing_id);
+		for serial_number in serial_numbers.iter() {
+			TokenLocks::<T>::remove((collection_id, *serial_number));
+		}
+		<Listings<T>>::remove(listing_id);
 	}
 
 	/// Process an auction once complete. Releasing the hold to the winner
