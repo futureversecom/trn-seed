@@ -340,6 +340,7 @@ describe("ERC721 Precompile", function () {
   });
 
   it("setApprovalForAll, isApprovedForAll and safeTransferFrom", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
     const tokenId = 2;
 
     // Bob approves alith for tokenId
