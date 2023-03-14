@@ -36,7 +36,7 @@ xrpl-codec = { git = "https://github.com/futureversecom/xrpl-tx-codec", rev = "0
 
 [dev-dependencies]
 hex-literal = "*"
-serde = "1.0.136"
+serde = "1.0.156"
 strum = { version = "0.24", features = ["derive"] }
 tempfile = "3.1.0"
 tokio = "1.17.0"
