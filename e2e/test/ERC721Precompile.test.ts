@@ -332,7 +332,7 @@ describe("ERC721 Precompile", function () {
 
     const mint = await erc721Precompile.connect(alithSigner).mint(receiverAddress, quantity, { gasLimit: 50000 });
     await mint.wait().catch((err: any) => {
-      expect(err.code).eq('CALL_EXCEPTION');
+      expect(err.code).eq("CALL_EXCEPTION");
     });
 
     // Verify balance of receiver is 0
