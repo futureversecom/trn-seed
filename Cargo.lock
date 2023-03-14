@@ -1548,7 +1548,7 @@ version = "17.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4966fba78396ff92db3b817ee71143eccd98acf0f876b8d600e585a670c5d1b"
 dependencies = [
- "ethereum-types",
+ "ethereum-types 0.13.1",
  "hex",
  "once_cell",
  "regex",
@@ -1566,10 +1566,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11da94e443c60508eb62cf256243a64da87304c2802ac2528847f79d750007ef"
 dependencies = [
  "crunchy",
- "fixed-hash",
+ "fixed-hash 0.7.0",
  "impl-codec",
  "impl-rlp",
  "impl-serde 0.3.2",
+ "scale-info",
+ "tiny-keccak",
+]
+
+[[package]]
+name = "ethbloom"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c22d4b5885b6aa2fe5e8b9329fb8d232bf739e434e6b87347c63bdd00c120f60"
+dependencies = [
+ "crunchy",
+ "fixed-hash 0.8.0",
+ "impl-codec",
+ "impl-serde 0.4.0",
  "scale-info",
  "tiny-keccak",
 ]
@@ -1581,7 +1595,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23750149fe8834c0e24bb9adcbacbe06c45b9861f15df53e09f26cb7c4ab91ef"
 dependencies = [
  "bytes",
- "ethereum-types",
+ "ethereum-types 0.13.1",
  "hash-db",
  "hash256-std-hasher",
  "parity-scale-codec",
@@ -1599,12 +1613,27 @@ version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2827b94c556145446fcce834ca86b7abf0c39a805883fe20e72c5bfdb5a0dc6"
 dependencies = [
- "ethbloom",
- "fixed-hash",
+ "ethbloom 0.12.1",
+ "fixed-hash 0.7.0",
  "impl-codec",
  "impl-rlp",
  "impl-serde 0.3.2",
- "primitive-types",
+ "primitive-types 0.11.1",
+ "scale-info",
+ "uint",
+]
+
+[[package]]
+name = "ethereum-types"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02d215cbf040552efcbe99a38372fe80ab9d00268e20012b79fcd0f073edd8ee"
+dependencies = [
+ "ethbloom 0.13.0",
+ "fixed-hash 0.8.0",
+ "impl-codec",
+ "impl-serde 0.4.0",
+ "primitive-types 0.12.1",
  "scale-info",
  "uint",
 ]
@@ -1695,7 +1724,7 @@ dependencies = [
  "evm-runtime",
  "log",
  "parity-scale-codec",
- "primitive-types",
+ "primitive-types 0.11.1",
  "rlp",
  "scale-info",
  "serde",
@@ -1708,7 +1737,7 @@ version = "0.35.0"
 source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
 dependencies = [
  "parity-scale-codec",
- "primitive-types",
+ "primitive-types 0.11.1",
  "scale-info",
  "serde",
 ]
@@ -1721,7 +1750,7 @@ dependencies = [
  "environmental",
  "evm-core",
  "evm-runtime",
- "primitive-types",
+ "primitive-types 0.11.1",
 ]
 
 [[package]]
@@ -1732,7 +1761,7 @@ dependencies = [
  "auto_impl",
  "environmental",
  "evm-core",
- "primitive-types",
+ "primitive-types 0.11.1",
  "sha3 0.10.6",
 ]
 
@@ -1824,7 +1853,7 @@ version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN#b7183775ad8177f7ea8c597707b47b09c884a852"
 dependencies = [
  "ethereum",
- "ethereum-types",
+ "ethereum-types 0.13.1",
  "evm",
  "fc-db",
  "fc-rpc-core",
@@ -1864,7 +1893,7 @@ version = "1.1.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN#b7183775ad8177f7ea8c597707b47b09c884a852"
 dependencies = [
  "ethereum",
- "ethereum-types",
+ "ethereum-types 0.13.1",
  "jsonrpsee",
  "rlp",
  "rustc-hex",
@@ -1942,6 +1971,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fixed-hash"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "835c052cb0c08c1acf6ffd71c022172e18723949c8282f2b9f27efbc51e64534"
+dependencies = [
+ "byteorder",
+ "rand 0.8.5",
+ "rustc-hex",
+ "static_assertions",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1999,7 +2040,7 @@ version = "1.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN#b7183775ad8177f7ea8c597707b47b09c884a852"
 dependencies = [
  "ethereum",
- "ethereum-types",
+ "ethereum-types 0.13.1",
  "fp-evm",
  "frame-support",
  "parity-scale-codec",
@@ -2026,7 +2067,7 @@ version = "3.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN#b7183775ad8177f7ea8c597707b47b09c884a852"
 dependencies = [
  "ethereum",
- "ethereum-types",
+ "ethereum-types 0.13.1",
  "fp-evm",
  "parity-scale-codec",
  "scale-info",
@@ -4850,7 +4891,7 @@ version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN#b7183775ad8177f7ea8c597707b47b09c884a852"
 dependencies = [
  "ethereum",
- "ethereum-types",
+ "ethereum-types 0.13.1",
  "evm",
  "fp-consensus",
  "fp-ethereum",
@@ -4876,7 +4917,7 @@ name = "pallet-ethy"
 version = "1.0.1"
 dependencies = [
  "ethabi",
- "ethereum-types",
+ "ethereum-types 0.14.1",
  "frame-support",
  "frame-system",
  "hex",
@@ -4915,7 +4956,7 @@ dependencies = [
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
- "primitive-types",
+ "primitive-types 0.11.1",
  "rlp",
  "scale-info",
  "serde",
@@ -5566,13 +5607,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c32561d248d352148124f036cac253a644685a21dc9fea383eb4907d7bd35a8f"
 dependencies = [
  "cfg-if",
- "ethereum-types",
+ "ethereum-types 0.13.1",
  "hashbrown 0.12.3",
  "impl-trait-for-tuples",
  "lru",
  "parity-util-mem-derive",
  "parking_lot 0.12.1",
- "primitive-types",
+ "primitive-types 0.11.1",
  "smallvec",
  "winapi",
 ]
@@ -5881,10 +5922,23 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e28720988bff275df1f51b171e1b2a18c30d194c4d2b61defdacecd625a5d94a"
 dependencies = [
- "fixed-hash",
+ "fixed-hash 0.7.0",
  "impl-codec",
  "impl-rlp",
  "impl-serde 0.3.2",
+ "scale-info",
+ "uint",
+]
+
+[[package]]
+name = "primitive-types"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f3486ccba82358b11a77516035647c34ba167dfa53312630de83b12bd4f3d66"
+dependencies = [
+ "fixed-hash 0.8.0",
+ "impl-codec",
+ "impl-serde 0.4.0",
  "scale-info",
  "uint",
 ]
@@ -7844,7 +7898,7 @@ dependencies = [
  "pallet-xrpl-bridge",
  "parity-scale-codec",
  "precompile-utils",
- "primitive-types",
+ "primitive-types 0.11.1",
  "rustc-hex",
  "scale-info",
  "seed-client",
@@ -8381,7 +8435,7 @@ dependencies = [
  "parity-scale-codec",
  "parity-util-mem",
  "parking_lot 0.12.1",
- "primitive-types",
+ "primitive-types 0.11.1",
  "rand 0.7.3",
  "regex",
  "scale-info",
@@ -8625,7 +8679,7 @@ source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.2
 dependencies = [
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "primitive-types",
+ "primitive-types 0.11.1",
  "sp-externalities",
  "sp-runtime-interface-proc-macro",
  "sp-std",
