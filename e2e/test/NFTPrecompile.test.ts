@@ -7,25 +7,18 @@ import { ethers } from "hardhat";
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
+  NFT_PRECOMPILE_ABI,
+  NFT_PRECOMPILE_ADDRESS,
   NodeProcess,
   getCollectionPrecompileAddress,
   startNode,
   typedefs,
 } from "../common";
 
-// Precompile address for nft precompile is 1721
-const nftPrecompileAddress = "0x00000000000000000000000000000000000006b9";
-
-const nftAbi = [
-  "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
-  "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
-];
-
 describe("NFT Precompile", function () {
   let node: NodeProcess;
 
   let api: ApiPromise;
-  let provider: JsonRpcProvider;
   let alithSigner: Wallet;
   let bobSigner: Wallet;
   let nftProxy: Contract;
@@ -33,28 +26,27 @@ describe("NFT Precompile", function () {
   // Setup api instance
   before(async () => {
     node = await startNode();
-    await node.wait(); // wait for the node to be ready
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
     });
 
     // Ethereum variables
-    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    const provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
 
-    nftProxy = new Contract(nftPrecompileAddress, nftAbi, bobSigner);
+    nftProxy = new Contract(NFT_PRECOMPILE_ADDRESS, NFT_PRECOMPILE_ABI, bobSigner);
   });
 
   after(async () => await node.stop());
 
   it("initialize collection succeeds", async () => {
     const owner = alithSigner.address;
-    const name = ethers.utils.formatBytes32String("My Collection");
+    const name = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("My Collection"));
     const maxIssuance = 100;
     const metadataPath = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata"));
     const royaltyAddresses = [alithSigner.address];
@@ -76,7 +68,8 @@ describe("NFT Precompile", function () {
 
   it("initialize collection fails - invalid metadata URI", async () => {
     const owner = alithSigner.address;
-    const name = ethers.utils.formatBytes32String("My Collection");
+
+    const name = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("My Collection"));
     const maxIssuance = 100;
     const metadataPath = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("tcp://example.com/nft/metadata"));
     const royaltyAddresses = [alithSigner.address];

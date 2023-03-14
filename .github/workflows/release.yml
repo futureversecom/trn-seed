@@ -1,16 +1,10 @@
 name: Release
 
 on:
-  push:
-    branches:
-    - "release/*"
-  workflow_run:
-    workflows:
-      - CI
-    types:
-      - completed
-    branches:
-      - "release/*"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   release-to-github:
@@ -20,13 +14,18 @@ jobs:
         uses: actions/checkout@v3
       - name: Find release version
         id: find_client_version
+        # client version is `x.y.z` in `client/Cargo.toml`; only get `z` part
         run: |
-          echo ::set-output name=tag_name::$(grep '^version' client/Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo ::set-output name=client_version::$(grep '^version' client/Cargo.toml | sed 's/.*"\([0-9]*\.[0-9]*\.\)\([0-9]*\)".*/\2/')
       - name: Find spec version
         id: find_spec_version
         run: |
-          echo ::set-output name=spec::$(grep 'spec_version:.*,$' runtime/src/lib.rs | sed 's/[^0-9]*//g')
-      - name: Generate changelog
+          echo ::set-output name=spec_version::$(grep 'spec_version:.*,$' runtime/src/lib.rs | sed 's/[^0-9]*//g')
+      - name: Generate release tag name 🏷️  
+        id: generate_tag_name # v<client-version>.<spec-version>.0
+        run: |
+          echo ::set-output name=tag_name::v${{ steps.find_client_version.outputs.client_version }}.${{ steps.find_spec_version.outputs.spec_version }}.0
+      - name: Generate changelog 📜
         # generate changelog from commits since previous latest tag
         run: git log $(git tag --sort=committerdate | tail -1)..HEAD > CHANGELOG.md
       - name: Tag the release 🚀
@@ -35,11 +34,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.find_client_version.outputs.tag_name }}
-          release_name: ${{ steps.find_client_version.outputs.tag_name }}
+          tag_name: ${{ steps.generate_tag_name.outputs.tag_name }}
+          release_name: ${{ steps.generate_tag_name.outputs.tag_name }}
           # 'rc' is a pre-release
-          prerelease: ${{ contains(steps.find_client_version.outputs.tag_name, 'rc') }}
+          # prerelease: ${{ contains(steps.generate_tag_name.outputs.tag_name, 'rc') }}
           body_path: CHANGELOG.md
+
       ### build the wasm runtime for publishing
       - name: Install toolchain
         run: rustup show

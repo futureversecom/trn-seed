@@ -68,6 +68,7 @@ pub enum Action {
 	// The Root Network extensions
 	// Mint an NFT in a collection
 	// quantity, receiver
+	TotalSupply = "totalSupply()",
 	Mint = "mint(address,uint32)",
 	SetMaxSupply = "setMaxSupply(uint32)",
 	SetBaseURI = "setBaseURI(bytes)",
@@ -164,6 +165,7 @@ where
 						Action::TransferOwnership =>
 							Self::transfer_ownership(collection_id, handle),
 						// The Root Network extensions
+						Action::TotalSupply => Self::total_supply(collection_id, handle),
 						Action::Mint => Self::mint(collection_id, handle),
 						Action::SetMaxSupply => Self::set_max_supply(collection_id, handle),
 						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
@@ -659,6 +661,23 @@ where
 				)
 				.build(),
 		))
+	}
+
+	fn total_supply(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+			Some(collection_info) => Ok(succeed(
+				EvmDataWriter::new()
+					.write::<U256>(collection_info.collection_issuance.into())
+					.build(),
+			)),
+			None =>
+				Err(revert(alloc::format!("ERC721: Collection does not exist").as_bytes().to_vec())),
+		}
 	}
 
 	fn mint(
