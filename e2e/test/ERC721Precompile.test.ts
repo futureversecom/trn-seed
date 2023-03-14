@@ -441,7 +441,7 @@ describe("ERC721 Precompile", function () {
     // Approve receiverAddress
     const approve = await precompileCaller
       .connect(bobSigner)
-      .approveProxy(alithSigner.address, tokenId, {gasLimit: 50000});
+      .approveProxy(alithSigner.address, tokenId, { gasLimit: 50000 });
     await approve.wait();
 
     // Check approval through proxy
@@ -468,7 +468,7 @@ describe("ERC721 Precompile", function () {
     expect(await precompileCaller.isApprovedForAllProxy(precompileCaller.address, alithSigner.address)).to.equal(false);
     const approvalForAll = await precompileCaller
       .connect(bobSigner)
-      .setApprovalForAllProxy(alithSigner.address, true, {gasLimit: 50000});
+      .setApprovalForAllProxy(alithSigner.address, true, { gasLimit: 50000 });
     await approvalForAll.wait();
 
     // Check approval through proxy
