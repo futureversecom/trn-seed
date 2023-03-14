@@ -1,16 +1,10 @@
 name: Release
 
 on:
-  push:
-    branches:
-    - "release/*"
-  workflow_run:
-    workflows:
-      - CI
-    types:
-      - completed
-    branches:
-      - "release/*"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   release-to-github:
