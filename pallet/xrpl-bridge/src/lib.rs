@@ -70,8 +70,6 @@ pub use weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use crate::xrpl_rpc_client::is_valid_xrp_transaction;
-
 	use super::*;
 	use frame_system::offchain::{CreateSignedTransaction, SubmitTransaction};
 	use seed_pallet_common::{ValidatorKeystore, XrplValidators};
@@ -268,8 +266,6 @@ pub mod pallet {
 						log::warn!("No UTF8 body");
 						return;
 					});
-
-					is_valid_xrp_transaction::<T>(response_body_str.unwrap());
 
 					// TODO: Get verification info from above XRPL tx parsed results
 					let challenge_verification_info = vec![];

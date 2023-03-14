@@ -12,56 +12,29 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use crate::{Config, Error, helpers::{XrpTransaction, XrplTxData}};
+use crate::{
+	Config, Error,
+};
+use lite_json::JsonValue;
 use scale_info::prelude::{format, string::String};
-use seed_primitives::{xrpl::{LedgerIndex, XrplTxHash}, AccountId, Balance};
 use serde_json::{json, to_vec};
-use sp_core::{H512, H160};
+use sp_core::H512;
 use sp_runtime::offchain::{http, http::Request, Duration};
 use sp_std::{vec, vec::Vec};
-// use serde::{Serialize, Deserialize};
 
 const XRPL_ENDPOINT: &str = "https://s1.ripple.com:51234/";
-// const XRPL_ENDPOINT: &str = "https://webhook.site/22df0ca3-bc4c-4161-b7f2-976fc22536e6";
 
-
-
-#[derive(Debug, Clone)]
-pub struct TransactionEntryResponse {
-	pub result: Option<TransactionEntryResponseResult>,
-	pub status: String,
-	pub r#type: String,
-	pub error: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct TransactionEntryResponseResult {
-	pub ledger_hash: String,
-	pub ledger_index: u64,
-	pub tx_json: Payment,
-	pub validated: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct Payment {
-	pub account: String,
-	pub amount: String, // https://xrpl.org/basic-data-types.html#specifying-currency-amounts
-	pub hash: String,
-	pub memos: Option<Vec<Memo>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Memo {
-	pub memo_type: String,
-	pub memo_data: String,
-}
-
-pub fn get_xrpl_tx_data<T: Config>(xrpl_block_hash: H512) -> Result<Vec<u8>, Error<T>>  {
+pub fn get_xrpl_tx_data<T: Config>(xrpl_block_hash: H512) -> Result<Vec<u8>, Error<T>> {
 	let hash: String = String::from_utf8(xrpl_block_hash.as_bytes().to_vec())
 		.map_err(|_| Error::<T>::CantParseXrplBlockHash)?;
 
 	let body = rpc_body("tx", &hash);
-	make_rpc_call(XRPL_ENDPOINT, body)
+	let xrpl_response_data = make_rpc_call::<T>(XRPL_ENDPOINT, body);
+	let utf8_version = String::from_utf8(xrpl_response_data.unwrap()).unwrap();
+	let response = lite_json::parse_json(&utf8_version).unwrap();
+	let result_object = response.as_object().unwrap();
+
+	Ok(vec![])
 }
 
 // Build RPC body for XRPL `tx` RPC method
@@ -70,7 +43,8 @@ fn rpc_body(method: &str, tx_hash: &str) -> Vec<u8> {
 		"method": method,
 		"params": [
 			{
-				"transaction": format!("{}", "BE75DA0263A223FD629A9CFD83471AFD776E7A69E7D7972643A99976D8ABE0EF"),
+				"transaction": format!("{}", tx_hash),
+				// "transaction": format!("{}", "C53ECF838647FA5A4C780377025FEC7999AB4182590510CA461444B207AB74A9"),
 				"binary": false
 			}
 		]
@@ -103,33 +77,94 @@ fn make_rpc_call<T: Config>(url: &str, body: Vec<u8>) -> Result<Vec<u8>, Error<T
 	Ok(body)
 }
 
-pub fn is_valid_xrp_transaction<T: Config>(
-	msg: &str,
-	// xrp_transaction: XrpTransaction,
-	// ledger_index: LedgerIndex,
-// ) -> Result<XrplTxHash, Error<T>> {
-) {
-	let response = lite_json::parse_json(&msg).unwrap();
-	let result_object = response.as_object().unwrap();
+#[derive(Debug, Clone)]
+struct XrplResults {
+	Account: String,
+	SigningPubKey: String,
+	TransactionType: String,
+	TxnSignature: String,
+	hash: String,
+	Destination: String,
+	Sequence: u64,
+	Amount: String,
+	Fee: String,
+}
 
-	let account = result_object
-		.into_iter()
-		.find(|(k, val)| {
-			let parsed = val.as_object().unwrap();
-			// Pull values out of JSON fields
-			let (account_val, signing_pub_key_val, transaction_type_val, txn_signature_val, hash_val) = parsed.into_iter()
-    .fold((None, None, None, None, None), |(account_val, signing_pub_key_val, transaction_type_val, txn_signature_val, hash_val), (key, val)| {
-        match key.iter().collect::<String>().as_str() {
-            "Account" => (Some(account_val.unwrap_or(val.as_string().unwrap())), signing_pub_key_val, transaction_type_val, txn_signature_val, hash_val),
-            "SigningPubKey" => (account_val, Some(signing_pub_key_val.unwrap_or(val.as_string().unwrap())), transaction_type_val, txn_signature_val, hash_val),
-            "TransactionType" => (account_val, signing_pub_key_val, Some(transaction_type_val.unwrap_or(val.as_string().unwrap())), txn_signature_val, hash_val),
-            "TxnSignature" => (account_val, signing_pub_key_val, transaction_type_val, Some(txn_signature_val.unwrap_or(val.as_string().unwrap())), hash_val),
-            "hash" => (account_val, signing_pub_key_val, transaction_type_val, txn_signature_val, Some(hash_val.unwrap_or(val.as_string().unwrap()))),
-            _ => (account_val, signing_pub_key_val, transaction_type_val, txn_signature_val, hash_val)
-        }
-    });
+impl XrplResults {
+	fn default() -> Self {
+		XrplResults {
+			Account: String::from(""),
+			SigningPubKey: String::from(""),
+			TransactionType: String::from(""),
+			TxnSignature: String::from(""),
+			hash: String::from(""),
+			Destination: String::from(""),
+			Sequence: 0,
+			Amount: String::from(""),
+			Fee: String::from(""),
+		}
+	}
 
-	// Do things, verification
-	true
-	});
+	fn from_json(xrpl_json: &[(sp_application_crypto::Vec<char>, JsonValue)]) {
+		// Traverse first field: "result" because it always has what we want
+		let outer_json = xrpl_json.into_iter();
+
+		// Expect a top-level field "result"
+		let inner_json: &JsonValue = &outer_json
+			.filter_map(|i| {
+				let key_word: String = i.0.clone().iter().collect::<String>().into();
+				let expected_field = "result";
+
+				if matches!(key_word, expected_field) {
+					return Some(i.clone().1)
+				}
+				None
+			})
+			.collect::<Vec<JsonValue>>()[0];
+
+		let mut init = Self::default();
+
+		inner_json.as_object().into_iter().fold(init, |mut t, v| {
+			v.iter().for_each(|inner_json_key| {
+				let keystr: String = inner_json_key.0.clone().iter().collect();
+				let value: String = inner_json_key.1.clone().as_string().unwrap().iter().collect();
+
+				if &keystr == "Account" {
+					t.Account = value.clone();
+				}
+
+				if &keystr == "TxnSignature" {
+					t.TxnSignature = value.clone();
+				}
+
+				if &keystr == "SigningPubKey" {
+					t.SigningPubKey = value.clone();
+				}
+				if &keystr == "TransactionType" {
+					t.TransactionType = value.clone();
+				}
+				if &keystr == "TxnSignature" {
+					t.TxnSignature = value.clone();
+				}
+				if &keystr == "hash" {
+					t.hash = value.clone();
+				}
+				if &keystr == "Destination" {
+					t.Destination = value.clone();
+				}
+				if &keystr == "Sequence" {
+					let value: u64 = inner_json_key.1.clone().as_number().unwrap().integer;
+					t.Sequence = value.clone();
+				}
+				if &keystr == "Amount" {
+					t.Amount = value.clone();
+				}
+				if &keystr == "Fee" {
+					t.Fee = value.clone();
+				}
+			});
+
+			t
+		});
+	}
 }
