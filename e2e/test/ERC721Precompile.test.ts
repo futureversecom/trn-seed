@@ -181,6 +181,151 @@ describe("ERC721 Precompile", function () {
     const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
     const newErc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
 
+    tx = await newErc721Precompile.connect(bobSigner).mint(receiverAddress, quantity);
+    receipt = await tx.wait();
+
+    expect(await newErc721Precompile.balanceOf(receiverAddress)).to.equal(quantity);
+
+    expect(await newErc721Precompile.totalSupply()).to.equal(quantity);
+  });
+
+  it("mint - max quantity per mint request is over 10_000", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+
+    // new collection with unlimited mintable supply
+    let tx = await nftPrecompile.connect(bobSigner).initializeCollection(
+        bobSigner.address,
+        ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
+        BigNumber.from(0), // no max issuance
+        ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
+        [alithSigner.address],
+        [1000],
+    );
+    let receipt = await tx.wait();
+    const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
+    const newErc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
+
+    // // TODO: fails to mint if quantity per mint is too high
+    // await newErc721Precompile.connect(bobSigner).mint(receiverAddress, 10_001)
+    //     .catch((err: any) => expect(err.message).contains("MaxQuantityPerMintRequestExceeded"));
+
+    tx = await newErc721Precompile.connect(bobSigner).mint(receiverAddress, 10_000);
+    receipt = await tx.wait();
+
+    // verify balance
+    expect(await newErc721Precompile.balanceOf(receiverAddress)).to.equal(10_000);
+  });
+
+  it("setMaxSupply", async () => {
+    await erc721Precompile
+        .connect(bobSigner)
+        .setMaxSupply(100)
+        .catch((err: any) => expect(err.message).contains("MaxIssuanceAlreadySet"));
+
+    // new collection with unlimited mintable supply
+    let tx = await nftPrecompile.connect(bobSigner).initializeCollection(
+        bobSigner.address,
+        ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
+        BigNumber.from(0), // no max issuance
+        ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
+        [alithSigner.address],
+        [1000],
+    );
+    let receipt = await tx.wait();
+    const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
+    const newErc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
+
+    // setMaxSupply fails for new collection if not owner call
+    await newErc721Precompile
+        .connect(alithSigner)
+        .setMaxSupply(100)
+        .catch((err: any) => expect(err.message).contains("NotCollectionOwner"));
+
+    // setMaxSupply succeeds for new collection if owner call
+    tx = await newErc721Precompile.connect(bobSigner).setMaxSupply(100);
+    receipt = await tx.wait();
+
+    // validate event
+    expect((receipt?.events as any)[0].event).to.equal("MaxSupplyUpdated");
+    expect((receipt?.events as any)[0].args.maxSupply).to.equal(BigNumber.from(100));
+
+    // setMaxSupply fails for new collection since supply was already set
+    await newErc721Precompile
+        .connect(bobSigner)
+        .setMaxSupply(100)
+        .catch((err: any) => expect(err.message).contains("MaxIssuanceAlreadySet"));
+  });
+
+  it("setBaseURI", async () => {
+    // validate setBaseURI can only be set by owner
+    await erc721Precompile
+        .connect(alithSigner)
+        .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("")))
+        .catch((err: any) => expect(err.message).contains("NotCollectionOwner"));
+
+    // validate cannot set invalid baseURI
+    await erc721Precompile
+        .connect(bobSigner)
+        .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("abc")))
+        .catch((err: any) => expect(err.message).contains("InvalidMetadataPath"));
+
+    // validate setBaseURI can only be set by owner
+    const tx = await erc721Precompile
+        .connect(bobSigner)
+        .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")));
+    const receipt = await tx.wait();
+
+    // validate event
+    expect((receipt?.events as any)[0].event).to.equal("BaseURIUpdated");
+    expect((receipt?.events as any)[0].args.baseURI).to.equal("https://example.com/nft/metadata/");
+
+    // validate tokenURI returns correct URI
+    expect(await erc721Precompile.tokenURI(0)).to.equal("https://example.com/nft/metadata/0");
+  });
+
+  it("transferFrom owner", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const tokenId = 0;
+
+    // Transfer tokenId 0 to receiverAddress
+    const tx = await erc721Precompile.connect(bobSigner).transferFrom(bobSigner.address, receiverAddress, tokenId);
+    const receipt = await tx.wait();
+
+    expect(receipt).to.emit(erc721Precompile, "Transfer").withArgs(bobSigner.address, receiverAddress, tokenId);
+
+    // Receiver_address now owner of tokenId 1
+    expect(await erc721Precompile.ownerOf(tokenId)).to.equal(receiverAddress);
+  });
+
+  it("approve and transferFrom via transaction", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const tokenId = 1;
+
+    // getApproved should be zero address
+    expect(await erc721Precompile.getApproved(tokenId)).to.equal(constants.AddressZero);
+
+    // Bob approves alith for tokenId
+    const approval = await erc721Precompile.approve(alithSigner.address, tokenId);
+    expect(await approval.wait())
+        .to.emit(erc721Precompile, "Approval")
+        .withArgs(bobSigner.address, alithSigner.address, tokenId);
+
+    // getApproved should be alith
+    expect(await erc721Precompile.getApproved(tokenId)).to.equal(alithSigner.address);
+
+    // alith transfers tokenId (Owned by Bob)
+    const transfer = await erc721Precompile
+        .connect(alithSigner)
+        .transferFrom(bobSigner.address, receiverAddress, tokenId);
+
+    expect(await transfer.wait())
+        .to.emit(erc721Precompile, "Transfer")
+        .withArgs(bobSigner.address, receiverAddress, tokenId);
+
+    // Receiver_address now owner of tokenId
+    expect(await erc721Precompile.ownerOf(tokenId)).to.equal(receiverAddress);
+  });
+
   it("mint - over mintLimit fails", async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
     const quantity = 1001; // MintLimit set to 1000 so this should fail
@@ -192,6 +337,150 @@ describe("ERC721 Precompile", function () {
 
     // Verify balance of alith is 0
     expect(await erc721Precompile.balanceOf(alithSigner.address)).to.equal(0);
+  });
+
+  it("setApprovalForAll, isApprovedForAll and safeTransferFrom", async () => {
+    const tokenId = 2;
+
+    // Bob approves alith for tokenId
+    const approval = await erc721Precompile.setApprovalForAll(alithSigner.address, true);
+    let receipt = await approval.wait();
+    expect((receipt?.events as any)[0].event).to.equal("ApprovalForAll");
+    expect((receipt?.events as any)[0].args.owner).to.equal(bobSigner.address);
+    expect((receipt?.events as any)[0].args.operator).to.equal(alithSigner.address);
+    expect((receipt?.events as any)[0].args.approved).to.equal(true);
+
+    // isApprovedForAll should be true
+    expect(await erc721Precompile.isApprovedForAll(bobSigner.address, alithSigner.address)).to.be.true;
+
+    // alith transfers tokenId (Owned by Bob)
+    let transfer = await erc721Precompile
+        .connect(alithSigner)
+        .safeTransferFrom(bobSigner.address, receiverAddress, tokenId);
+    receipt = await transfer.wait();
+    expect((receipt?.events as any)[0].event).to.equal("Transfer");
+    expect((receipt?.events as any)[0].args.from).to.equal(bobSigner.address);
+    expect((receipt?.events as any)[0].args.to).to.equal(receiverAddress);
+    expect((receipt?.events as any)[0].args.tokenId).to.equal(tokenId);
+
+    // Receiver_address now owner of tokenId
+    expect(await erc721Precompile.ownerOf(tokenId)).to.equal(receiverAddress);
+
+    // Test sending to contracts implementing onErc721Received
+    // Should Fail
+    const factory = await ethers.getContractFactory("OnERC721ReceivedFails");
+    const contractFails = await factory.connect(bobSigner).deploy();
+    const tokenId_2 = 3;
+    await erc721Precompile
+        .connect(alithSigner)
+        .estimateGas.safeTransferFrom(bobSigner.address, contractFails.address, tokenId_2, { gasLimit: 50000 })
+        .catch((err) => expect(err.message).contains("ERC721: transfer to non ERC721Receiver implementer"));
+
+    // Should succeed
+    const factory2 = await ethers.getContractFactory("OnERC721ReceivedSucceeds");
+    const contractSucceeds = await factory2.connect(bobSigner).deploy();
+    transfer = await erc721Precompile
+        .connect(alithSigner)
+        .safeTransferFrom(bobSigner.address, contractSucceeds.address, tokenId_2, { gasLimit: 50000 });
+    receipt = await transfer.wait();
+    expect((receipt?.events as any)[0].event).to.equal("Transfer");
+    expect((receipt?.events as any)[0].args.from).to.equal(bobSigner.address);
+    expect((receipt?.events as any)[0].args.to).to.equal(contractSucceeds.address);
+    expect((receipt?.events as any)[0].args.tokenId).to.equal(tokenId_2);
+    expect(await erc721Precompile.ownerOf(tokenId_2)).to.equal(contractSucceeds.address);
+  });
+
+  it("name, symbol, ownerOf, tokenURI via EVM", async () => {
+    const tokenId = 4;
+    // Check state proxy calls
+    expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(bobSigner.address);
+    expect(await precompileCaller.nameProxy()).to.equal(name);
+    expect(await precompileCaller.symbolProxy()).to.equal(name);
+    expect(await precompileCaller.tokenURIProxy(tokenId)).to.equal(`https://example.com/nft/metadata/${tokenId}`);
+  });
+
+  it("approve and transferFrom via EVM", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const tokenId = 5;
+
+    // Bob approves contract for tokenId
+    const approval = await erc721Precompile.connect(bobSigner).approve(precompileCaller.address, tokenId);
+    expect(await approval.wait())
+        .to.emit(erc721Precompile, "Approval")
+        .withArgs(bobSigner.address, precompileCaller.address, tokenId);
+    // Approved should be correct
+    expect(await erc721Precompile.getApproved(tokenId)).to.equal(precompileCaller.address);
+
+    // Transfer tokenId to receiverAddress
+    const transfer = await precompileCaller
+        .connect(bobSigner)
+        .transferFromProxy(bobSigner.address, receiverAddress, tokenId, {
+          gasLimit: 50000,
+        });
+    expect(await transfer.wait())
+        .to.emit(erc721Precompile, "Transfer")
+        .withArgs(bobSigner.address, receiverAddress, tokenId);
+
+    // contract_address now owner of tokenId
+    expect(await precompileCaller.balanceOfProxy(receiverAddress)).to.equal(1);
+    expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(receiverAddress);
+  });
+
+  it("approve and setApprovalForAll via EVM", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    let tokenId = 6;
+
+    // Transfer NFT to contract so it can pass the approval
+    let transfer = await erc721Precompile
+        .connect(bobSigner)
+        .transferFrom(bobSigner.address, precompileCaller.address, tokenId);
+    await transfer.wait();
+    // Check transfer worked, events asserted in previous tests
+    expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(precompileCaller.address);
+
+    // Approve receiverAddress
+    const approve = await precompileCaller
+        .connect(bobSigner)
+        .approveProxy(alithSigner.address, tokenId, {gasLimit: 50000});
+    await approve.wait();
+
+    // Check approval through proxy
+    expect(await precompileCaller.getApprovedProxy(tokenId)).to.equal(alithSigner.address);
+
+    // alith should now be able to transfer as she was approved with the above call
+    transfer = await erc721Precompile
+        .connect(alithSigner)
+        .transferFrom(precompileCaller.address, receiverAddress, tokenId);
+    await transfer.wait();
+    // Check transfer worked
+    expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(receiverAddress);
+
+    tokenId = 7;
+    // Transfer NFT to contract so it can pass the approval and transfer
+    transfer = await erc721Precompile
+        .connect(bobSigner)
+        .transferFrom(bobSigner.address, precompileCaller.address, tokenId);
+    await transfer.wait();
+    // Check transfer worked
+    expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(precompileCaller.address);
+
+    // Approval before should be false
+    expect(await precompileCaller.isApprovedForAllProxy(precompileCaller.address, alithSigner.address)).to.equal(false);
+    const approvalForAll = await precompileCaller
+        .connect(bobSigner)
+        .setApprovalForAllProxy(alithSigner.address, true, {gasLimit: 50000});
+    await approvalForAll.wait();
+
+    // Check approval through proxy
+    expect(await precompileCaller.isApprovedForAllProxy(precompileCaller.address, alithSigner.address)).to.equal(true);
+
+    // alith should now be able to transfer as she was approved with the above call
+    transfer = await erc721Precompile
+        .connect(alithSigner)
+        .transferFrom(precompileCaller.address, receiverAddress, tokenId);
+    await transfer.wait();
+    // Check transfer worked
+    expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(receiverAddress);
   });
 
   it("approve and safeTransferFrom via EVM", async () => {
