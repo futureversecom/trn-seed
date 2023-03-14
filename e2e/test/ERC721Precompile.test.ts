@@ -467,6 +467,7 @@ describe("ERC721 Precompile", function () {
 
     // Approval before should be false
     expect(await precompileCaller.isApprovedForAllProxy(precompileCaller.address, alithSigner.address)).to.equal(false);
+
     const approvalForAll = await precompileCaller
       .connect(bobSigner)
       .setApprovalForAllProxy(alithSigner.address, true, { gasLimit: 50000 });
