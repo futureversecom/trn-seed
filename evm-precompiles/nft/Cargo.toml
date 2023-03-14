@@ -8,7 +8,7 @@ repository = "https://github.com/cennznet/cennznet"
 [dependencies]
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 precompile-utils = { path = "../utils", default-features = false }
-num_enum = { version = "0.5.3", default-features = false }
+num_enum = { version = "0.5.11", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 pallet-nft = { path = "../../pallet/nft", default-features = false }
 
