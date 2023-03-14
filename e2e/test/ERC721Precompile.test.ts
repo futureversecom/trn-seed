@@ -194,12 +194,12 @@ describe("ERC721 Precompile", function () {
 
     // new collection with unlimited mintable supply
     let tx = await nftPrecompile.connect(bobSigner).initializeCollection(
-        bobSigner.address,
-        ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
-        BigNumber.from(0), // no max issuance
-        ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
-        [alithSigner.address],
-        [1000],
+      bobSigner.address,
+      ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
+      BigNumber.from(0), // no max issuance
+      ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
+      [alithSigner.address],
+      [1000],
     );
     let receipt = await tx.wait();
     const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
@@ -218,18 +218,18 @@ describe("ERC721 Precompile", function () {
 
   it("setMaxSupply", async () => {
     await erc721Precompile
-        .connect(bobSigner)
-        .setMaxSupply(100)
-        .catch((err: any) => expect(err.message).contains("MaxIssuanceAlreadySet"));
+      .connect(bobSigner)
+      .setMaxSupply(100)
+      .catch((err: any) => expect(err.message).contains("MaxIssuanceAlreadySet"));
 
     // new collection with unlimited mintable supply
     let tx = await nftPrecompile.connect(bobSigner).initializeCollection(
-        bobSigner.address,
-        ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
-        BigNumber.from(0), // no max issuance
-        ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
-        [alithSigner.address],
-        [1000],
+      bobSigner.address,
+      ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
+      BigNumber.from(0), // no max issuance
+      ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
+      [alithSigner.address],
+      [1000],
     );
     let receipt = await tx.wait();
     const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
@@ -237,9 +237,9 @@ describe("ERC721 Precompile", function () {
 
     // setMaxSupply fails for new collection if not owner call
     await newErc721Precompile
-        .connect(alithSigner)
-        .setMaxSupply(100)
-        .catch((err: any) => expect(err.message).contains("NotCollectionOwner"));
+      .connect(alithSigner)
+      .setMaxSupply(100)
+      .catch((err: any) => expect(err.message).contains("NotCollectionOwner"));
 
     // setMaxSupply succeeds for new collection if owner call
     tx = await newErc721Precompile.connect(bobSigner).setMaxSupply(100);
@@ -251,28 +251,28 @@ describe("ERC721 Precompile", function () {
 
     // setMaxSupply fails for new collection since supply was already set
     await newErc721Precompile
-        .connect(bobSigner)
-        .setMaxSupply(100)
-        .catch((err: any) => expect(err.message).contains("MaxIssuanceAlreadySet"));
+      .connect(bobSigner)
+      .setMaxSupply(100)
+      .catch((err: any) => expect(err.message).contains("MaxIssuanceAlreadySet"));
   });
 
   it("setBaseURI", async () => {
     // validate setBaseURI can only be set by owner
     await erc721Precompile
-        .connect(alithSigner)
-        .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("")))
-        .catch((err: any) => expect(err.message).contains("NotCollectionOwner"));
+      .connect(alithSigner)
+      .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("")))
+      .catch((err: any) => expect(err.message).contains("NotCollectionOwner"));
 
     // validate cannot set invalid baseURI
     await erc721Precompile
-        .connect(bobSigner)
-        .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("abc")))
-        .catch((err: any) => expect(err.message).contains("InvalidMetadataPath"));
+      .connect(bobSigner)
+      .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("abc")))
+      .catch((err: any) => expect(err.message).contains("InvalidMetadataPath"));
 
     // validate setBaseURI can only be set by owner
     const tx = await erc721Precompile
-        .connect(bobSigner)
-        .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")));
+      .connect(bobSigner)
+      .setBaseURI(ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")));
     const receipt = await tx.wait();
 
     // validate event
@@ -307,20 +307,20 @@ describe("ERC721 Precompile", function () {
     // Bob approves alith for tokenId
     const approval = await erc721Precompile.approve(alithSigner.address, tokenId);
     expect(await approval.wait())
-        .to.emit(erc721Precompile, "Approval")
-        .withArgs(bobSigner.address, alithSigner.address, tokenId);
+      .to.emit(erc721Precompile, "Approval")
+      .withArgs(bobSigner.address, alithSigner.address, tokenId);
 
     // getApproved should be alith
     expect(await erc721Precompile.getApproved(tokenId)).to.equal(alithSigner.address);
 
     // alith transfers tokenId (Owned by Bob)
     const transfer = await erc721Precompile
-        .connect(alithSigner)
-        .transferFrom(bobSigner.address, receiverAddress, tokenId);
+      .connect(alithSigner)
+      .transferFrom(bobSigner.address, receiverAddress, tokenId);
 
     expect(await transfer.wait())
-        .to.emit(erc721Precompile, "Transfer")
-        .withArgs(bobSigner.address, receiverAddress, tokenId);
+      .to.emit(erc721Precompile, "Transfer")
+      .withArgs(bobSigner.address, receiverAddress, tokenId);
 
     // Receiver_address now owner of tokenId
     expect(await erc721Precompile.ownerOf(tokenId)).to.equal(receiverAddress);
@@ -355,8 +355,8 @@ describe("ERC721 Precompile", function () {
 
     // alith transfers tokenId (Owned by Bob)
     let transfer = await erc721Precompile
-        .connect(alithSigner)
-        .safeTransferFrom(bobSigner.address, receiverAddress, tokenId);
+      .connect(alithSigner)
+      .safeTransferFrom(bobSigner.address, receiverAddress, tokenId);
     receipt = await transfer.wait();
     expect((receipt?.events as any)[0].event).to.equal("Transfer");
     expect((receipt?.events as any)[0].args.from).to.equal(bobSigner.address);
@@ -372,16 +372,16 @@ describe("ERC721 Precompile", function () {
     const contractFails = await factory.connect(bobSigner).deploy();
     const tokenId_2 = 3;
     await erc721Precompile
-        .connect(alithSigner)
-        .estimateGas.safeTransferFrom(bobSigner.address, contractFails.address, tokenId_2, { gasLimit: 50000 })
-        .catch((err) => expect(err.message).contains("ERC721: transfer to non ERC721Receiver implementer"));
+      .connect(alithSigner)
+      .estimateGas.safeTransferFrom(bobSigner.address, contractFails.address, tokenId_2, { gasLimit: 50000 })
+      .catch((err) => expect(err.message).contains("ERC721: transfer to non ERC721Receiver implementer"));
 
     // Should succeed
     const factory2 = await ethers.getContractFactory("OnERC721ReceivedSucceeds");
     const contractSucceeds = await factory2.connect(bobSigner).deploy();
     transfer = await erc721Precompile
-        .connect(alithSigner)
-        .safeTransferFrom(bobSigner.address, contractSucceeds.address, tokenId_2, { gasLimit: 50000 });
+      .connect(alithSigner)
+      .safeTransferFrom(bobSigner.address, contractSucceeds.address, tokenId_2, { gasLimit: 50000 });
     receipt = await transfer.wait();
     expect((receipt?.events as any)[0].event).to.equal("Transfer");
     expect((receipt?.events as any)[0].args.from).to.equal(bobSigner.address);
@@ -406,20 +406,20 @@ describe("ERC721 Precompile", function () {
     // Bob approves contract for tokenId
     const approval = await erc721Precompile.connect(bobSigner).approve(precompileCaller.address, tokenId);
     expect(await approval.wait())
-        .to.emit(erc721Precompile, "Approval")
-        .withArgs(bobSigner.address, precompileCaller.address, tokenId);
+      .to.emit(erc721Precompile, "Approval")
+      .withArgs(bobSigner.address, precompileCaller.address, tokenId);
     // Approved should be correct
     expect(await erc721Precompile.getApproved(tokenId)).to.equal(precompileCaller.address);
 
     // Transfer tokenId to receiverAddress
     const transfer = await precompileCaller
-        .connect(bobSigner)
-        .transferFromProxy(bobSigner.address, receiverAddress, tokenId, {
-          gasLimit: 50000,
-        });
+      .connect(bobSigner)
+      .transferFromProxy(bobSigner.address, receiverAddress, tokenId, {
+        gasLimit: 50000,
+      });
     expect(await transfer.wait())
-        .to.emit(erc721Precompile, "Transfer")
-        .withArgs(bobSigner.address, receiverAddress, tokenId);
+      .to.emit(erc721Precompile, "Transfer")
+      .withArgs(bobSigner.address, receiverAddress, tokenId);
 
     // contract_address now owner of tokenId
     expect(await precompileCaller.balanceOfProxy(receiverAddress)).to.equal(1);
@@ -432,16 +432,16 @@ describe("ERC721 Precompile", function () {
 
     // Transfer NFT to contract so it can pass the approval
     let transfer = await erc721Precompile
-        .connect(bobSigner)
-        .transferFrom(bobSigner.address, precompileCaller.address, tokenId);
+      .connect(bobSigner)
+      .transferFrom(bobSigner.address, precompileCaller.address, tokenId);
     await transfer.wait();
     // Check transfer worked, events asserted in previous tests
     expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(precompileCaller.address);
 
     // Approve receiverAddress
     const approve = await precompileCaller
-        .connect(bobSigner)
-        .approveProxy(alithSigner.address, tokenId, {gasLimit: 50000});
+      .connect(bobSigner)
+      .approveProxy(alithSigner.address, tokenId, {gasLimit: 50000});
     await approve.wait();
 
     // Check approval through proxy
@@ -449,8 +449,8 @@ describe("ERC721 Precompile", function () {
 
     // alith should now be able to transfer as she was approved with the above call
     transfer = await erc721Precompile
-        .connect(alithSigner)
-        .transferFrom(precompileCaller.address, receiverAddress, tokenId);
+      .connect(alithSigner)
+      .transferFrom(precompileCaller.address, receiverAddress, tokenId);
     await transfer.wait();
     // Check transfer worked
     expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(receiverAddress);
@@ -458,8 +458,8 @@ describe("ERC721 Precompile", function () {
     tokenId = 7;
     // Transfer NFT to contract so it can pass the approval and transfer
     transfer = await erc721Precompile
-        .connect(bobSigner)
-        .transferFrom(bobSigner.address, precompileCaller.address, tokenId);
+      .connect(bobSigner)
+      .transferFrom(bobSigner.address, precompileCaller.address, tokenId);
     await transfer.wait();
     // Check transfer worked
     expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(precompileCaller.address);
@@ -467,8 +467,8 @@ describe("ERC721 Precompile", function () {
     // Approval before should be false
     expect(await precompileCaller.isApprovedForAllProxy(precompileCaller.address, alithSigner.address)).to.equal(false);
     const approvalForAll = await precompileCaller
-        .connect(bobSigner)
-        .setApprovalForAllProxy(alithSigner.address, true, {gasLimit: 50000});
+      .connect(bobSigner)
+      .setApprovalForAllProxy(alithSigner.address, true, {gasLimit: 50000});
     await approvalForAll.wait();
 
     // Check approval through proxy
@@ -476,8 +476,8 @@ describe("ERC721 Precompile", function () {
 
     // alith should now be able to transfer as she was approved with the above call
     transfer = await erc721Precompile
-        .connect(alithSigner)
-        .transferFrom(precompileCaller.address, receiverAddress, tokenId);
+      .connect(alithSigner)
+      .transferFrom(precompileCaller.address, receiverAddress, tokenId);
     await transfer.wait();
     // Check transfer worked
     expect(await precompileCaller.ownerOfProxy(tokenId)).to.equal(receiverAddress);
