@@ -407,7 +407,7 @@ mod v2 {
 				// Remove Map
 				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_1), true);
 				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_2), true);
-				_ = Map::unsafe_clear(different_module, new_map_name);
+				_ = Map::unsafe_clear_2(different_module, new_map_name);
 				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_1), false);
 				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_2), false);
 

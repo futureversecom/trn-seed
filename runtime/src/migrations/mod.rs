@@ -263,7 +263,21 @@ impl Map {
 	}
 
 	#[allow(dead_code)]
-	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> sp_io::MultiRemovalResults {
+	pub fn unsafe_clear<K, T, H>(module: &[u8], item: &[u8]) -> bool
+	where
+		K: Decode + Sized,
+		T: Decode + Sized,
+		H: ReversibleStorageHasher,
+	{
+		if !Self::unsafe_exists::<K, T, H>(module, item) {
+			return false
+		}
+
+		clear_storage_prefix(module, item, b"", None, None).maybe_cursor.is_none()
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_clear_2(module: &[u8], item: &[u8]) -> sp_io::MultiRemovalResults {
 		clear_storage_prefix(module, item, b"", None, None)
 	}
 
@@ -331,19 +345,19 @@ impl Map {
 	}
 
 	#[allow(dead_code)]
-	pub fn unsafe_get<T>(module: &[u8], item: &[u8], key: &[u8]) -> Option<T>
+	pub fn unsafe_get<T>(module: &[u8], item: &[u8], hash: &[u8]) -> Option<T>
 	where
 		T: Decode + Sized,
 	{
-		get_storage_value::<T>(module, item, key)
+		get_storage_value::<T>(module, item, hash)
 	}
 
 	#[allow(dead_code)]
-	pub fn unsafe_put<T>(module: &[u8], item: &[u8], key: &[u8], value: T)
+	pub fn unsafe_put<T>(module: &[u8], item: &[u8], hash: &[u8], value: T)
 	where
 		T: Encode,
 	{
-		put_storage_value::<T>(module, item, key, value)
+		put_storage_value::<T>(module, item, hash, value)
 	}
 }
 
@@ -529,4 +543,86 @@ mod value_tests {
 			assert_eq!(Value::unsafe_get(new_module, item), Some(value)); // Should exist here
 		});
 	}
+}
+
+#[cfg(test)]
+mod map_tests {
+	use frame_support::{Blake2_128Concat, Hashable, Twox64Concat};
+	use pallet_example::NewType;
+
+	use super::*;
+	use crate::migrations::tests::new_test_ext;
+
+	#[test]
+	fn unsafe_exists_works() {
+		new_test_ext().execute_with(|| {
+			let module = b"Module";
+			let item = b"Item";
+			let key = 100u32.twox_64_concat();
+			let value = 200u64;
+
+			// Calling exists on non-existing storage should return false
+			assert_eq!(Map::unsafe_exists::<(), (), Twox64Concat>(module, item), false);
+			assert_eq!(Map::unsafe_exists::<u32, (), Twox64Concat>(module, item), false);
+			assert_eq!(Map::unsafe_exists::<(), u64, Twox64Concat>(module, item), false);
+			assert_eq!(Map::unsafe_exists::<u32, u64, Twox64Concat>(module, item), false);
+
+			// Calling exists on existing storage should return true
+			assert_eq!(Map::unsafe_exists::<(), (), Twox64Concat>(module, item), false);
+			Map::unsafe_put(module, item, &key, value);
+			assert_eq!(Map::unsafe_exists::<(), (), Twox64Concat>(module, item), true); // Generic
+			assert_eq!(Map::unsafe_exists::<u32, u64, Twox64Concat>(module, item), true); // Correct Key and Value
+			assert_eq!(Map::unsafe_exists::<(), u64, Twox64Concat>(module, item), true); // Correct Value
+			assert_eq!(Map::unsafe_exists::<u32, (), Twox64Concat>(module, item), true); // Correct Key
+			assert_eq!(Map::unsafe_exists::<u128, (), Twox64Concat>(module, item), false); // InCorrect Key
+			assert_eq!(Map::unsafe_exists::<u128, u64, Twox64Concat>(module, item), false); // InCorrect Key
+			assert_eq!(Map::unsafe_exists::<(), u128, Twox64Concat>(module, item), false); // InCorrect Value
+			assert_eq!(Map::unsafe_exists::<u32, u128, Twox64Concat>(module, item), false); // InCorrect Value
+		});
+	}
+
+	#[test]
+	fn unsafe_put_works() {
+		new_test_ext().execute_with(|| {
+			let module = b"Module";
+			let item = b"Item";
+			let key = 100u32.twox_64_concat();
+
+			// Calling put on non-existing storage creates the storage
+			let value = 100u64;
+			assert!(Map::unsafe_get::<u64>(module, item, &key).is_none());
+			Map::unsafe_put(module, item, &key, value); // Add Data
+			assert_eq!(Map::unsafe_get(module, item, &key), Some(value)); // Should exist here
+
+			// Calling put on existing storage updates the storage
+			let value_2 = 200u64;
+			Map::unsafe_put(module, item, &key, value_2); // Replace Data
+			assert_eq!(Map::unsafe_get(module, item, &key), Some(value_2)); // Should be updated
+
+			// Calling put on existing storage with a different data size will change the storage
+			let value_3 = 1u8;
+			assert_eq!(Map::unsafe_get(module, item, &key), Some(value_2));
+			Map::unsafe_put(module, item, &key, value_3);
+			assert_eq!(Map::unsafe_get(module, item, &key), Some(value_3));
+		});
+	}
+
+	/* 	#[test]
+	fn unsafe_clear_works() {
+		new_test_ext().execute_with(|| {
+			let module = b"Module";
+			let item = b"Item";
+
+			// Clearing non-existing storage should have no effect and return false
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_clear(module, item), false); // Clear
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+
+			// Clearing existing storage should remove that storage and return true
+			Value::unsafe_put(module, item, 100u32); // Add Data
+			assert_eq!(Value::unsafe_exists(module, item), true); // Should exist here
+			assert_eq!(Value::unsafe_clear(module, item), true); // Clear
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+		});
+	} */
 }
