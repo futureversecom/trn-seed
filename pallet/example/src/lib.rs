@@ -35,8 +35,3 @@ pub mod pallet {
 pub struct NewType {
 	pub value: u32,
 }
-
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
-pub struct NewTemplateType<AccountId> {
-	address: AccountId,
-}

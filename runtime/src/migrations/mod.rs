@@ -30,6 +30,85 @@ impl OnRuntimeUpgrade for AllMigrations {
 }
 
 #[allow(dead_code)]
+fn value_exists<Storage, T>() -> bool
+where
+	T: FullCodec,
+	Storage: frame_support::storage::StorageValue<T>,
+{
+	Storage::exists()
+}
+
+#[allow(dead_code)]
+fn map_exists<Storage, K, V>() -> bool
+where
+	K: FullEncode,
+	V: FullCodec,
+	Storage:
+		frame_support::storage::StorageMap<K, V> + frame_support::storage::IterableStorageMap<K, V>,
+{
+	Storage::iter_keys().count() != 0
+}
+
+#[allow(dead_code)]
+fn value_valid<Storage, T>() -> Result<T, ()>
+where
+	T: FullCodec,
+	Storage: frame_support::storage::StorageValue<T>,
+{
+	Storage::try_get()
+}
+
+#[allow(dead_code)]
+fn map_valid<Storage, K, V>() -> Result<usize, K>
+where
+	K: FullEncode,
+	V: FullCodec,
+	Storage:
+		frame_support::storage::StorageMap<K, V> + frame_support::storage::IterableStorageMap<K, V>,
+{
+	let keys: Vec<K> = Storage::iter_keys().collect();
+	let keys_len: usize = keys.len();
+	for key in keys {
+		if let Err(_) = Storage::try_get(&key) {
+			return Err(key)
+		}
+	}
+
+	Ok(keys_len)
+}
+
+#[allow(dead_code)]
+fn value_exists_valid<Storage, T>() -> Result<T, ()>
+where
+	T: FullCodec,
+	Storage: frame_support::storage::StorageValue<T>,
+{
+	if !value_exists::<Storage, T>() {
+		return Err(())
+	}
+
+	value_valid::<Storage, T>()
+}
+
+#[allow(dead_code)]
+fn map_exists_valid<Storage, K, V>() -> Result<usize, Option<K>>
+where
+	K: FullEncode,
+	V: FullCodec,
+	Storage:
+		frame_support::storage::StorageMap<K, V> + frame_support::storage::IterableStorageMap<K, V>,
+{
+	if !map_exists::<Storage, K, V>() {
+		return Err(None)
+	}
+
+	match map_valid::<Storage, K, V>() {
+		Ok(len) => Ok(len),
+		Err(key) => Err(Some(key))
+	}
+}
+
+#[allow(dead_code)]
 fn remove_value<Storage, T>() -> Result<(), ()>
 where
 	T: FullCodec,

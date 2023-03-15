@@ -1,3 +1,5 @@
+// DO NOT FORGET TO REPLACE THE MOCK RUNTIME WITH THE REAL ONE!!!!!!
+// Uncomment this!!!  use crate::{Example, Runtime};
 use super::mock::{Example, Runtime};
 use crate::Weight;
 use frame_support::{
@@ -8,9 +10,12 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
+use frame_support::assert_ok;
 
-#[cfg(test)]
-use super::{remove_map, remove_value, translate_map, translate_value};
+#[allow(unused_imports)]
+use super::{
+	map_exists, map_exists_valid, map_valid, value_exists, value_exists_valid, value_valid, remove_map, remove_value, translate_map, translate_value
+};
 
 // Source:
 //	https://substrate.stackexchange.com/questions/6097/substrate-translate-function <- How to properly translate values
@@ -87,6 +92,13 @@ mod v2 {
 	pub type OldMyMap<T> = MyMap<T>;
 
 	pub fn migrate<T: pallet_example::Config>() -> Weight {
+		// Warning: Here we are using custom made translate and remove functions.
+		// You should use the template ones from mod.rs
+		// Check template_remove_example and template_translate_example tests
+		//
+		// In case the existing template ones are insufficient then you can
+		// modify the existing ones and use them
+
 		// Example on how to transform storage values
 		translate_storage_value::<T>();
 		translate_storage_map::<T>();
@@ -98,6 +110,7 @@ mod v2 {
 		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1)
 	}
 
+	// Use remove_value instead of this
 	pub fn remove_storage_value<T: pallet_example::Config>() {
 		if OldMyValue::<T>::exists() {
 			OldMyValue::<T>::kill();
@@ -107,6 +120,7 @@ mod v2 {
 		}
 	}
 
+	// Use remove_map instead of this
 	pub fn remove_storage_map<T: pallet_example::Config>() {
 		let res = OldMyMap::<T>::clear(u32::MAX, None);
 		if res.maybe_cursor.is_some() {
@@ -116,6 +130,7 @@ mod v2 {
 		};
 	}
 
+	// Use translate_value instead of this
 	pub fn translate_storage_value<T: pallet_example::Config>() {
 		let res = pallet_example::MyValue::<T>::translate::<OldType, _>(|old_data| {
 			if let Some(data) = old_data {
@@ -133,6 +148,7 @@ mod v2 {
 		}
 	}
 
+	// Use translate_map instead of this
 	pub fn translate_storage_map<T: pallet_example::Config>() {
 		let original_count = OldMyMap::<T>::iter_keys().count();
 		let keys_values: Vec<(u32, OldType)> = OldMyMap::<T>::iter_keys()
@@ -171,11 +187,9 @@ mod v2 {
 		let onchain = Example::on_chain_storage_version();
 		assert_eq!(onchain, 1);
 
-		// Let's make sure that we don't have any corrupted data to begin with
-		let keys: Vec<u32> = OldMyMap::<Runtime>::iter_keys().collect();
-		for key in keys {
-			assert!(OldMyMap::<Runtime>::try_get(key).is_ok());
-		}
+		// Check that we actually have some data and that it is not corrupted
+		assert_ok!(value_exists_valid::<OldMyValue::<Runtime>, _>());
+		assert_ok!(map_exists_valid::<OldMyMap::<Runtime>, _, _>());
 
 		Ok(())
 	}
@@ -187,11 +201,10 @@ mod v2 {
 		let onchain = Example::on_chain_storage_version();
 		assert_eq!(onchain, 2);
 
-		// Let's make sure that after upgrade we don't have corrupted data
-		let keys: Vec<u32> = pallet_example::MyMap::<Runtime>::iter_keys().collect();
-		for key in keys {
-			assert!(pallet_example::MyMap::<Runtime>::try_get(key).is_ok());
-		}
+		// Check that we actually have some data and that it is not corrupted
+		assert_ok!(value_exists_valid::<pallet_example::MyValue::<Runtime>, _>());
+		assert_ok!(map_exists_valid::<pallet_example::MyMap::<Runtime>, _, _>());
+
 		Ok(())
 	}
 
@@ -221,14 +234,13 @@ mod v2 {
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				assert_eq!(OldMyValue::<Runtime>::exists(), false);
-				assert_eq!(OldMyMap::<Runtime>::iter().count(), 0);
+				assert_eq!(value_exists::<OldMyValue::<Runtime>, _>(), false);
+				assert_eq!(map_exists::<OldMyMap::<Runtime>, _, _>(), false);
 
 				// Last check: We have updated the storage version of pallet
 				let onchain = Example::on_chain_storage_version();
-
 				assert_eq!(onchain, 2);
-				assert_eq!(StorageVersion::get::<Example>(), 2);
+				// or assert_eq!(StorageVersion::get::<Example>(), 2);
 			});
 		}
 
@@ -242,23 +254,26 @@ mod v2 {
 				OldMyMap::<Runtime>::insert(0, old_value);
 				OldMyMap::<Runtime>::insert(1, old_value_2);
 
+				// Map should be valid at this point
+				assert_eq!(map_valid::<OldMyMap::<Runtime>, _, _>(), Ok(2));
+
 				// Inserting Corrupted Data
 				let module = Example::name().as_bytes();
 				let key = 3u32.twox_64_concat();
 				put_storage_value(module, b"MyMap", &key, 123u8);
 
+				// Map should be corrupted at this point
+				assert_eq!(map_valid::<OldMyMap::<Runtime>, _, _>(), Err(3u32));
+
 				let keys: Vec<u32> = pallet_example::MyMap::<Runtime>::iter_keys().collect();
-				assert_eq!(keys.len(), 3);
+				let keys_len = keys.len();
+				assert_eq!(keys_len, 3);
 
 				// Action
 				translate_storage_map::<Runtime>();
 
-				// Check
-				let keys: Vec<u32> = pallet_example::MyMap::<Runtime>::iter_keys().collect();
-				assert_eq!(keys.len(), 2);
-				for key in keys {
-					assert!(pallet_example::MyMap::<Runtime>::try_get(key).is_ok());
-				}
+				// Check that we have removed the corrupted key and that we are left with just two keys
+				assert_eq!(map_valid::<pallet_example::MyMap::<Runtime>, _, _>(), Ok(keys_len - 1));
 			});
 		}
 
@@ -266,20 +281,24 @@ mod v2 {
 		fn template_remove_example() {
 			new_test_ext().execute_with(|| {
 				// Populating Storage
-				pallet_example::MyValue::<Runtime>::put(NewType { value: 100 });
-				pallet_example::MyMap::<Runtime>::insert(100u32, NewType { value: 100 });
+				let value = NewType { value: 100 };
+				pallet_example::MyValue::<Runtime>::put(value.clone());
+				pallet_example::MyMap::<Runtime>::insert(100u32, value.clone());
 
-				// Making sure that we have actually write values to the storage
-				assert!(pallet_example::MyValue::<Runtime>::exists());
-				assert!(pallet_example::MyMap::<Runtime>::iter().count() > 0);
+				// Making sure that we have actually write values to these storages
+				assert_eq!(value_exists_valid::<pallet_example::MyValue::<Runtime>, _>(), Ok(value));
+				assert_eq!(
+					map_exists_valid::<pallet_example::MyMap::<Runtime>, _, _>(),
+					Ok(1)
+				);
 
 				// Remove them
 				_ = remove_value::<pallet_example::MyValue<Runtime>, _>();
 				_ = remove_map::<pallet_example::MyMap<Runtime>, _, _>();
 
 				// Check that they are removed
-				assert!(!pallet_example::MyValue::<Runtime>::exists());
-				assert_eq!(pallet_example::MyMap::<Runtime>::iter().count(), 0);
+				assert_eq!(value_exists::<pallet_example::MyValue::<Runtime>, _>(), false);
+				assert_eq!(map_exists::<pallet_example::MyMap::<Runtime>, _, _>(), false);
 			});
 		}
 
@@ -309,9 +328,9 @@ mod v2 {
 				// Check that they are removed
 				let new_value = NewType { value: 100 };
 				assert!(pallet_example::MyValue::<Runtime>::exists());
-				assert_eq!(pallet_example::MyValue::<Runtime>::get(), new_value);
+				assert_eq!(pallet_example::MyValue::<Runtime>::try_get(), Ok(new_value.clone()));
 				assert_eq!(pallet_example::MyMap::<Runtime>::iter().count(), 1);
-				assert_eq!(pallet_example::MyMap::<Runtime>::get(key), new_value);
+				assert_eq!(pallet_example::MyMap::<Runtime>::try_get(key), Ok(new_value));
 			});
 		}
 

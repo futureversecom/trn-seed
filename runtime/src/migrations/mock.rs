@@ -10,8 +10,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-// You can ignore this. This is the necessary boilerplate to make the compiler not scream at me. In
-// you migrations you would import your runtime component like this: `use crate::FeeControl`
+// Do not add new runtime components in here!
 frame_support::construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
