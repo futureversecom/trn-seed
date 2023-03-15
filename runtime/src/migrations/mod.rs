@@ -107,8 +107,12 @@ impl Value {
 	}
 
 	#[allow(dead_code)]
-	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> sp_io::MultiRemovalResults {
-		clear_storage_prefix(module, item, b"", None, None)
+	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> bool {
+		if !Self::unsafe_exists(module, item) {
+			return false
+		}
+
+		clear_storage_prefix(module, item, b"", None, None).maybe_cursor.is_none()
 	}
 
 	#[allow(dead_code)]
@@ -146,8 +150,17 @@ impl Value {
 	}
 
 	#[allow(dead_code)]
-	pub fn unsafe_move(storage_name: &[u8], old_pallet_name: &[u8], new_pallet_name: &[u8]) {
+	pub fn unsafe_move(
+		storage_name: &[u8],
+		old_pallet_name: &[u8],
+		new_pallet_name: &[u8],
+	) -> bool {
+		if !Self::unsafe_exists(old_pallet_name, storage_name) {
+			return false
+		}
+
 		move_storage_from_pallet(storage_name, old_pallet_name, new_pallet_name);
+		true
 	}
 
 	#[allow(dead_code)]
@@ -354,6 +367,7 @@ mod value_tests {
 		new_test_ext().execute_with(|| {
 			let module = b"Module";
 			let item = b"Item";
+
 			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
 			Value::unsafe_put(module, item, 100u32); // Add Data
 			assert_eq!(Value::unsafe_exists(module, item), true); // Should exist here
@@ -365,20 +379,20 @@ mod value_tests {
 		new_test_ext().execute_with(|| {
 			let module = b"Module";
 			let item = b"Item";
-			let value = 100u32;
-			let value_2 = 200u32;
-			let value_3 = 300u128;
 
 			// Calling put on non-existing storage creates the storage
+			let value = 100u32;
 			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
 			Value::unsafe_put(module, item, value); // Add Data
 			assert_eq!(Value::unsafe_get(module, item), Some(value)); // Should exist here
 
 			// Calling put on existing storage updates the storage
+			let value_2 = 200u32;
 			Value::unsafe_put(module, item, value_2); // Replace Data
 			assert_eq!(Value::unsafe_get(module, item), Some(value_2)); // Should be updated
 
-			// Calling put on existing storage with a different data size will changed the storage
+			// Calling put on existing storage with a different data size will change the storage
+			let value_3 = 300u128;
 			Value::unsafe_put(module, item, value_3); // Replace Data with different storage size
 			assert_eq!(Value::unsafe_get(module, item), Some(value_3)); // Should be updated
 		});
@@ -391,7 +405,7 @@ mod value_tests {
 			let item = b"Item";
 			let value = 100u32;
 
-			// Calling get on non-existing storage return None
+			// Calling get on non-existing storage should have no effect return None
 			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
 			assert_eq!(Value::unsafe_get::<u32>(module, item), None); // Should return None
 
@@ -399,7 +413,7 @@ mod value_tests {
 			Value::unsafe_put(module, item, value); // Replace Data
 			assert_eq!(Value::unsafe_get(module, item), Some(value)); // Should return 100u32
 
-			// Calling get with wrong type returns None
+			// Calling get with wrong type should return None
 			assert_eq!(Value::unsafe_exists(module, item), true);
 			Value::unsafe_put(module, item, value); // Replace Data
 			assert_eq!(Value::unsafe_get::<u128>(module, item), None); // Should return None
@@ -412,16 +426,107 @@ mod value_tests {
 			let module = b"Module";
 			let item = b"Item";
 
-			// Clearing existing storage should remove that storage
-			Value::unsafe_put(module, item, 100u32); // Add Data
-			assert_eq!(Value::unsafe_exists(module, item), true); // Should exist here
-			_ = Value::unsafe_clear(module, item); // Clear
+			// Clearing non-existing storage should have no effect and return false
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_clear(module, item), false); // Clear
 			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
 
-			// Clearing non existing storage should not do anything
+			// Clearing existing storage should remove that storage and return true
+			Value::unsafe_put(module, item, 100u32); // Add Data
+			assert_eq!(Value::unsafe_exists(module, item), true); // Should exist here
+			assert_eq!(Value::unsafe_clear(module, item), true); // Clear
 			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
-			_ = Value::unsafe_clear(module, item); // Clear
-			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+		});
+	}
+
+	#[test]
+	fn unsafe_rename_works() {
+		new_test_ext().execute_with(|| {
+			let module = b"Module";
+			let old_item = b"Item";
+			let new_item = b"Item2";
+
+			// Renaming non-existing storage should have no effect and return false
+			assert_eq!(Value::unsafe_exists(module, old_item), false); // Should not exist here
+			assert_eq!(Value::unsafe_exists(module, new_item), false); // Should not exist here
+			assert_eq!(Value::unsafe_rename::<u32>(module, old_item, new_item), false); // Rename
+			assert_eq!(Value::unsafe_exists(module, old_item), false); // Should not exist here
+			assert_eq!(Value::unsafe_exists(module, new_item), false); // Should not exist here
+
+			// Renaming existing storage should rename it and return true
+			Value::unsafe_put(module, old_item, 100u32); // Add Data
+			assert_eq!(Value::unsafe_exists(module, old_item), true); // Should exist here
+			assert_eq!(Value::unsafe_exists(module, new_item), false); // Should not exist here
+			assert_eq!(Value::unsafe_rename::<u32>(module, old_item, new_item), true); // Rename
+			assert_eq!(Value::unsafe_exists(module, old_item), false); // Should not exist here
+			assert_eq!(Value::unsafe_exists(module, new_item), true); // Should exist here
+
+			// Reset data
+			Value::unsafe_put(module, old_item, 100u32);
+			Value::unsafe_clear(module, new_item);
+
+			// Renaming existing storage and passing the wrong type should return false
+			assert_eq!(Value::unsafe_exists(module, old_item), true); // Should exist here
+			assert_eq!(Value::unsafe_exists(module, new_item), false); // Should not exist here
+			assert_eq!(Value::unsafe_rename::<u64>(module, old_item, new_item), false); // Rename
+			assert_eq!(Value::unsafe_exists(module, old_item), true); // Should exist here
+			assert_eq!(Value::unsafe_exists(module, new_item), false); // Should not exist here
+
+			// Reset data
+			let value_u32 = 100u32;
+			let value_u128 = 200u128;
+			Value::unsafe_put(module, old_item, value_u32);
+			Value::unsafe_put(module, new_item, value_u128);
+
+			// Renaming existing storage to an already existing storage should overwrite it and
+			// return true
+			assert_eq!(Value::unsafe_exists(module, old_item), true); // Should exist here
+			assert_eq!(Value::unsafe_get(module, new_item), Some(value_u128)); // Should exist here
+			assert_eq!(Value::unsafe_rename::<u32>(module, old_item, new_item), true); // Rename
+			assert_eq!(Value::unsafe_exists(module, old_item), false); // Should not exist here
+			assert_eq!(Value::unsafe_get(module, new_item), Some(value_u32)); // Should exist here
+		});
+	}
+
+	#[test]
+	fn unsafe_move_works() {
+		new_test_ext().execute_with(|| {
+			let old_module = b"Module";
+			let new_module = b"Module2";
+			let item = b"Item";
+
+			// Moving non-existing storage should return have no effect and return false
+			assert_eq!(Value::unsafe_exists(old_module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_exists(new_module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_move(item, old_module, new_module), false); // No effect
+			assert_eq!(Value::unsafe_exists(old_module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_exists(new_module, item), false); // Should not exist here
+
+			// Reset data
+			let value = 100u32;
+			Value::unsafe_put(old_module, item, value);
+
+			// Moving existing storage should move it and return true
+			let value = 100u32;
+			Value::unsafe_put(old_module, item, value);
+			assert_eq!(Value::unsafe_get(old_module, item), Some(value)); // Should exist here
+			assert_eq!(Value::unsafe_exists(new_module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_move(item, old_module, new_module), true); // No effect
+			assert_eq!(Value::unsafe_exists(old_module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_get(new_module, item), Some(value)); // Should exist here
+
+			// Reset data
+			let value_2 = 200u32;
+			Value::unsafe_put(old_module, item, value);
+			Value::unsafe_put(new_module, item, value_2);
+
+			// Moving existing storage to a pallet with the same storage name should overwrite it
+			// and return true
+			assert_eq!(Value::unsafe_get(old_module, item), Some(value)); // Should exist here
+			assert_eq!(Value::unsafe_get(new_module, item), Some(value_2)); // Should exist here
+			assert_eq!(Value::unsafe_move(item, old_module, new_module), true); // No effect
+			assert_eq!(Value::unsafe_exists(old_module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_get(new_module, item), Some(value)); // Should exist here
 		});
 	}
 }
