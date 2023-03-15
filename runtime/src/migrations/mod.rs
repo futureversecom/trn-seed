@@ -38,6 +38,19 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 }
 
+#[cfg(test)]
+mod tests {
+	use crate::{Runtime, System};
+
+	pub fn new_test_ext() -> sp_io::TestExternalities {
+		let t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+
+		let mut ext = sp_io::TestExternalities::new(t);
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+}
+
 pub struct Value;
 impl Value {
 	// Checks explicitly if a storage exist. Use this to check if storage has been actually written.
@@ -329,14 +342,86 @@ impl Pallet {
 }
 
 #[cfg(test)]
-mod tests {
-	use crate::{Runtime, System};
+mod value_tests {
+	use frame_support::Hashable;
+	use pallet_example::NewType;
 
-	pub fn new_test_ext() -> sp_io::TestExternalities {
-		let t = frame_system::GenesisConfig::default().build_storage::<Runtime>().unwrap();
+	use super::*;
+	use crate::migrations::tests::new_test_ext;
 
-		let mut ext = sp_io::TestExternalities::new(t);
-		ext.execute_with(|| System::set_block_number(1));
-		ext
+	#[test]
+	fn unsafe_exists_works() {
+		new_test_ext().execute_with(|| {
+			let module = b"Module";
+			let item = b"Item";
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+			Value::unsafe_put(module, item, 100u32); // Add Data
+			assert_eq!(Value::unsafe_exists(module, item), true); // Should exist here
+		});
+	}
+
+	#[test]
+	fn unsafe_put_works() {
+		new_test_ext().execute_with(|| {
+			let module = b"Module";
+			let item = b"Item";
+			let value = 100u32;
+			let value_2 = 200u32;
+			let value_3 = 300u128;
+
+			// Calling put on non-existing storage creates the storage
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+			Value::unsafe_put(module, item, value); // Add Data
+			assert_eq!(Value::unsafe_get(module, item), Some(value)); // Should exist here
+
+			// Calling put on existing storage updates the storage
+			Value::unsafe_put(module, item, value_2); // Replace Data
+			assert_eq!(Value::unsafe_get(module, item), Some(value_2)); // Should be updated
+
+			// Calling put on existing storage with a different data size will changed the storage
+			Value::unsafe_put(module, item, value_3); // Replace Data with different storage size
+			assert_eq!(Value::unsafe_get(module, item), Some(value_3)); // Should be updated
+		});
+	}
+
+	#[test]
+	fn unsafe_get_works() {
+		new_test_ext().execute_with(|| {
+			let module = b"Module";
+			let item = b"Item";
+			let value = 100u32;
+
+			// Calling get on non-existing storage return None
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+			assert_eq!(Value::unsafe_get::<u32>(module, item), None); // Should return None
+
+			// Calling get on existing storage should return the value
+			Value::unsafe_put(module, item, value); // Replace Data
+			assert_eq!(Value::unsafe_get(module, item), Some(value)); // Should return 100u32
+
+			// Calling get with wrong type returns None
+			assert_eq!(Value::unsafe_exists(module, item), true);
+			Value::unsafe_put(module, item, value); // Replace Data
+			assert_eq!(Value::unsafe_get::<u128>(module, item), None); // Should return None
+		});
+	}
+
+	#[test]
+	fn unsafe_clear_works() {
+		new_test_ext().execute_with(|| {
+			let module = b"Module";
+			let item = b"Item";
+
+			// Clearing existing storage should remove that storage
+			Value::unsafe_put(module, item, 100u32); // Add Data
+			assert_eq!(Value::unsafe_exists(module, item), true); // Should exist here
+			_ = Value::unsafe_clear(module, item); // Clear
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+
+			// Clearing non existing storage should not do anything
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+			_ = Value::unsafe_clear(module, item); // Clear
+			assert_eq!(Value::unsafe_exists(module, item), false); // Should not exist here
+		});
 	}
 }

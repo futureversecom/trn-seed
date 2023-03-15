@@ -13,7 +13,7 @@ use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
 #[allow(unused_imports)]
-use super::{Map, Value, Pallet};
+use super::{Map, Pallet, Value};
 
 // Source:
 //	https://substrate.stackexchange.com/questions/6097/substrate-translate-function <- How to properly translate values
