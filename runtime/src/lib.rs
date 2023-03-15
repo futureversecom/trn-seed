@@ -104,6 +104,7 @@ use precompiles::FutureversePrecompiles;
 mod staking;
 use staking::OnChainAccuracy;
 
+mod migrations;
 mod weights;
 
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
@@ -1105,7 +1106,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	custom_migration::Upgrade,
+	migrations::AllMigrations,
 >;
 
 impl_runtime_apis! {

@@ -5040,6 +5040,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-example"
+version = "1.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-dex",
+ "pallet-evm",
+ "pallet-fee-proxy",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-fee-control"
 version = "1.0.0"
 dependencies = [
@@ -7820,6 +7847,7 @@ dependencies = [
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
  "pallet-evm-precompiles-nft",
+ "pallet-example",
  "pallet-fee-control",
  "pallet-fee-proxy",
  "pallet-grandpa",

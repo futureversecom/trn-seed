@@ -85,6 +85,7 @@ pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
 pallet-xls20 = { path = "../pallet/xls20", default-features = false }
+pallet-example = { path = "../pallet/example", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -166,6 +167,7 @@ std = [
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
 	"pallet-xls20/std",
+	"pallet-example/std",
 	"seed-primitives/std",
 	"primitive-types/std",
 	"fp-rpc/std",
