@@ -13,10 +13,7 @@ use scale_info::TypeInfo;
 use sp_std::prelude::*;
 
 #[allow(unused_imports)]
-use super::{
-	map_exists, map_exists_valid, map_valid, remove_map, remove_value, translate_map,
-	translate_value, value_exists, value_exists_valid, value_valid,
-};
+use super::{Map, Value, Pallet};
 
 // Source:
 //	https://substrate.stackexchange.com/questions/6097/substrate-translate-function <- How to properly translate values
@@ -189,8 +186,8 @@ mod v2 {
 		assert_eq!(onchain, 1);
 
 		// Check that we actually have some data and that it is not corrupted
-		assert_ok!(value_exists_valid::<OldMyValue::<Runtime>, _>());
-		assert_ok!(map_exists_valid::<OldMyMap::<Runtime>, _, _>());
+		assert_ok!(Value::exists_valid::<OldMyValue::<Runtime>, _>());
+		assert_ok!(Map::exists_valid::<OldMyMap::<Runtime>, _, _>());
 
 		Ok(())
 	}
@@ -203,8 +200,8 @@ mod v2 {
 		assert_eq!(onchain, 2);
 
 		// Check that we actually have some data and that it is not corrupted
-		assert_ok!(value_exists_valid::<pallet_example::MyValue::<Runtime>, _>());
-		assert_ok!(map_exists_valid::<pallet_example::MyMap::<Runtime>, _, _>());
+		assert_ok!(Value::exists_valid::<pallet_example::MyValue::<Runtime>, _>());
+		assert_ok!(Map::exists_valid::<pallet_example::MyMap::<Runtime>, _, _>());
 
 		Ok(())
 	}
@@ -235,8 +232,8 @@ mod v2 {
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				assert_eq!(value_exists::<OldMyValue::<Runtime>, _>(), false);
-				assert_eq!(map_exists::<OldMyMap::<Runtime>, _, _>(), false);
+				assert_eq!(Value::exists::<OldMyValue::<Runtime>, _>(), false);
+				assert_eq!(Map::exists::<OldMyMap::<Runtime>, _, _>(), false);
 
 				// Last check: We have updated the storage version of pallet
 				let onchain = Example::on_chain_storage_version();
@@ -256,7 +253,7 @@ mod v2 {
 				OldMyMap::<Runtime>::insert(1, old_value_2);
 
 				// Map should be valid at this point
-				assert_eq!(map_valid::<OldMyMap::<Runtime>, _, _>(), Ok(2));
+				assert_eq!(Map::valid::<OldMyMap::<Runtime>, _, _>(), Ok(2));
 
 				// Inserting Corrupted Data
 				let module = Example::name().as_bytes();
@@ -264,7 +261,7 @@ mod v2 {
 				put_storage_value(module, b"MyMap", &key, 123u8);
 
 				// Map should be corrupted at this point
-				assert_eq!(map_valid::<OldMyMap::<Runtime>, _, _>(), Err(3u32));
+				assert_eq!(Map::valid::<OldMyMap::<Runtime>, _, _>(), Err(3u32));
 
 				let keys: Vec<u32> = pallet_example::MyMap::<Runtime>::iter_keys().collect();
 				let keys_len = keys.len();
@@ -275,7 +272,10 @@ mod v2 {
 
 				// Check that we have removed the corrupted key and that we are left with just two
 				// keys
-				assert_eq!(map_valid::<pallet_example::MyMap::<Runtime>, _, _>(), Ok(keys_len - 1));
+				assert_eq!(
+					Map::valid::<pallet_example::MyMap::<Runtime>, _, _>(),
+					Ok(keys_len - 1)
+				);
 			});
 		}
 
@@ -289,18 +289,18 @@ mod v2 {
 
 				// Making sure that we have actually write values to these storages
 				assert_eq!(
-					value_exists_valid::<pallet_example::MyValue::<Runtime>, _>(),
+					Value::exists_valid::<pallet_example::MyValue::<Runtime>, _>(),
 					Ok(value)
 				);
-				assert_eq!(map_exists_valid::<pallet_example::MyMap::<Runtime>, _, _>(), Ok(1));
+				assert_eq!(Map::exists_valid::<pallet_example::MyMap::<Runtime>, _, _>(), Ok(1));
 
 				// Remove them
-				_ = remove_value::<pallet_example::MyValue<Runtime>, _>();
-				_ = remove_map::<pallet_example::MyMap<Runtime>, _, _>();
+				_ = Value::clear::<pallet_example::MyValue<Runtime>, _>();
+				_ = Map::clear::<pallet_example::MyMap<Runtime>, _, _>();
 
 				// Check that they are removed
-				assert_eq!(value_exists::<pallet_example::MyValue::<Runtime>, _>(), false);
-				assert_eq!(map_exists::<pallet_example::MyMap::<Runtime>, _, _>(), false);
+				assert_eq!(Value::exists::<pallet_example::MyValue::<Runtime>, _>(), false);
+				assert_eq!(Map::exists::<pallet_example::MyMap::<Runtime>, _, _>(), false);
 			});
 		}
 
@@ -319,11 +319,11 @@ mod v2 {
 				assert_eq!(OldMyMap::<Runtime>::iter().count(), 1);
 				assert_eq!(OldMyMap::<Runtime>::get(key), Some(old_value));
 
-				// Remove them
-				_ = translate_value::<pallet_example::MyValue<Runtime>, _, _>(|old: OldType| {
+				// Translate them
+				_ = Value::translate::<pallet_example::MyValue<Runtime>, _, _>(|old: OldType| {
 					NewType { value: old.value }
 				});
-				_ = translate_map::<OldMyMap<Runtime>, pallet_example::MyMap<Runtime>, _, _, _, _>(
+				_ = Map::translate::<OldMyMap<Runtime>, pallet_example::MyMap<Runtime>, _, _, _, _>(
 					|key: u32, old: OldType| (key, NewType { value: old.value }),
 				);
 
@@ -338,14 +338,6 @@ mod v2 {
 
 		#[test]
 		fn using_raw_migration_functions() {
-			use frame_support::{
-				migration::{
-					clear_storage_prefix, get_storage_value, have_storage_value, move_pallet,
-					move_prefix, move_storage_from_pallet, put_storage_value, take_storage_value,
-				},
-				storage::storage_prefix,
-			};
-
 			new_test_ext().execute_with(|| {
 				let module = Example::name().as_bytes();
 				let value_name = b"MyValue";
@@ -353,72 +345,71 @@ mod v2 {
 				let value = OldType { value: 100, removed: 200 };
 
 				// Adding Value
-				put_storage_value(module, value_name, b"", value.clone());
+				Value::unsafe_put(module, value_name, value.clone());
 
 				// Adding Map items
 				let (key_1, key_2) = (0u32.twox_64_concat(), 1u32.twox_64_concat());
-				put_storage_value(module, map_name, &key_1, value.clone());
-				put_storage_value(module, map_name, &key_2, value.clone());
+				Map::unsafe_put(module, map_name, &key_1, value.clone());
+				Map::unsafe_put(module, map_name, &key_2, value.clone());
 
 				// Checking Values
-				assert_eq!(get_storage_value(module, value_name, b""), Some(value.clone()));
+				assert_eq!(Value::unsafe_get(module, value_name), Some(value.clone()));
 				// Checking Map elements
-				assert_eq!(get_storage_value(module, map_name, &key_1), Some(value.clone()));
-				assert_eq!(get_storage_value(module, map_name, &key_2), Some(value.clone()));
+				assert_eq!(Map::unsafe_get(module, map_name, &key_1), Some(value.clone()));
+				assert_eq!(Map::unsafe_get(module, map_name, &key_2), Some(value.clone()));
 
 				// Moving Map Storage from one place to another within the same pallet.
 				// NOTE: The value at the key `from_prefix` is not moved !!!
-				// Doesn't with with storage value!
+				// Doesn't work with storage value!
 				let new_map_name = b"NewMyMap";
-				let from = storage_prefix(module, map_name);
-				let to = storage_prefix(module, new_map_name);
-
-				move_prefix(&from, &to);
+				Map::unsafe_rename(module, map_name, new_map_name);
 				// have_storage_value internally calls get_storage_value
-				assert_eq!(have_storage_value(module, map_name, &key_1), false);
-				assert_eq!(have_storage_value(module, map_name, &key_2), false);
-				assert_eq!(have_storage_value(module, new_map_name, &key_1), true);
-				assert_eq!(have_storage_value(module, new_map_name, &key_2), true);
+				assert_eq!(Map::unsafe_elem_exists(module, map_name, &key_1), false);
+				assert_eq!(Map::unsafe_elem_exists(module, map_name, &key_2), false);
+				assert_eq!(Map::unsafe_elem_exists(module, new_map_name, &key_1), true);
+				assert_eq!(Map::unsafe_elem_exists(module, new_map_name, &key_2), true);
 
 				// Moving Storage Value from one place to another within the same pallet.
 				let new_value_name = b"NewMyValue";
-				let value: OldType = take_storage_value(module, value_name, b"").unwrap();
-				put_storage_value(module, new_value_name, b"", value);
-				assert_eq!(have_storage_value(module, value_name, b""), false);
-				assert_eq!(have_storage_value(module, new_value_name, b""), true);
+				assert_eq!(
+					Value::unsafe_rename::<OldType>(module, value_name, new_value_name),
+					true
+				);
+				assert_eq!(Value::unsafe_exists(module, value_name), false);
+				assert_eq!(Value::unsafe_exists(module, new_value_name), true);
 
 				// Move storage from one pallet to another pallet
 				let new_module = b"newpallet";
-				move_storage_from_pallet(new_map_name, &module, new_module); // Map
-				move_storage_from_pallet(new_value_name, &module, new_module); // Value
-				assert_eq!(have_storage_value(module, new_map_name, &key_1), false);
-				assert_eq!(have_storage_value(module, new_map_name, &key_2), false);
-				assert_eq!(have_storage_value(new_module, new_map_name, &key_1), true);
-				assert_eq!(have_storage_value(new_module, new_map_name, &key_2), true);
-				assert_eq!(have_storage_value(module, new_value_name, b""), false);
-				assert_eq!(have_storage_value(new_module, new_value_name, b""), true);
+				Map::unsafe_move(new_map_name, &module, new_module); // Map
+				Value::unsafe_move(new_value_name, &module, new_module); // Value
+				assert_eq!(Map::unsafe_elem_exists(module, new_map_name, &key_1), false);
+				assert_eq!(Map::unsafe_elem_exists(module, new_map_name, &key_2), false);
+				assert_eq!(Map::unsafe_elem_exists(new_module, new_map_name, &key_1), true);
+				assert_eq!(Map::unsafe_elem_exists(new_module, new_map_name, &key_2), true);
+				assert_eq!(Value::unsafe_exists(module, new_value_name), false);
+				assert_eq!(Value::unsafe_exists(new_module, new_value_name), true);
 
 				// Rename pallet
 				let different_module = b"newnewpallet";
-				move_pallet(new_module, different_module);
-				assert_eq!(have_storage_value(new_module, new_map_name, &key_1), false);
-				assert_eq!(have_storage_value(new_module, new_map_name, &key_2), false);
-				assert_eq!(have_storage_value(different_module, new_map_name, &key_1), true);
-				assert_eq!(have_storage_value(different_module, new_map_name, &key_2), true);
-				assert_eq!(have_storage_value(new_module, new_value_name, b""), false);
-				assert_eq!(have_storage_value(different_module, new_value_name, b""), true);
+				Pallet::unsafe_move_pallet(new_module, different_module);
+				assert_eq!(Map::unsafe_elem_exists(new_module, new_map_name, &key_1), false);
+				assert_eq!(Map::unsafe_elem_exists(new_module, new_map_name, &key_2), false);
+				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_1), true);
+				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_2), true);
+				assert_eq!(Value::unsafe_exists(new_module, new_value_name), false);
+				assert_eq!(Value::unsafe_exists(different_module, new_value_name), true);
 
 				// Remove Value
-				assert_eq!(have_storage_value(different_module, new_value_name, b""), true);
-				_ = clear_storage_prefix(different_module, new_value_name, b"", None, None);
-				assert_eq!(have_storage_value(different_module, new_value_name, b""), false);
+				assert_eq!(Value::unsafe_exists(different_module, new_value_name), true);
+				_ = Value::unsafe_clear(different_module, new_value_name);
+				assert_eq!(Value::unsafe_exists(different_module, new_value_name), false);
 
 				// Remove Map
-				assert_eq!(have_storage_value(different_module, new_map_name, &key_1), true);
-				assert_eq!(have_storage_value(different_module, new_map_name, &key_2), true);
-				_ = clear_storage_prefix(different_module, new_map_name, b"", None, None);
-				assert_eq!(have_storage_value(different_module, new_map_name, &key_1), false);
-				assert_eq!(have_storage_value(different_module, new_map_name, &key_2), false);
+				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_1), true);
+				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_2), true);
+				_ = Map::unsafe_clear(different_module, new_map_name);
+				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_1), false);
+				assert_eq!(Map::unsafe_elem_exists(different_module, new_map_name, &key_2), false);
 
 				// Additional functionality to check out if necessary
 				// storage_key_iter
