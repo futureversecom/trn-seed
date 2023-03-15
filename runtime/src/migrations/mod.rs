@@ -40,7 +40,7 @@ where
 	Storage::exists()
 }
 
-// If no keys exist it means nothing is written in the stoage 
+// If no keys exist it means nothing is written in the stoage
 #[allow(dead_code)]
 fn map_exists<Storage, K, V>() -> bool
 where
