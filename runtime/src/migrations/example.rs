@@ -360,12 +360,9 @@ mod v2 {
 				put_storage_value(module, map_name, &key_1, value.clone());
 				put_storage_value(module, map_name, &key_2, value.clone());
 
-				// Checking and getting Values
-				assert_eq!(have_storage_value(module, value_name, b""), true);
+				// Checking Values
 				assert_eq!(get_storage_value(module, value_name, b""), Some(value.clone()));
-				// Checking and getting Map elements
-				assert_eq!(have_storage_value(module, map_name, &key_1), true);
-				assert_eq!(have_storage_value(module, map_name, &key_2), true);
+				// Checking Map elements
 				assert_eq!(get_storage_value(module, map_name, &key_1), Some(value.clone()));
 				assert_eq!(get_storage_value(module, map_name, &key_2), Some(value.clone()));
 
@@ -377,6 +374,7 @@ mod v2 {
 				let to = storage_prefix(module, new_map_name);
 
 				move_prefix(&from, &to);
+				// have_storage_value internally calls get_storage_value
 				assert_eq!(have_storage_value(module, map_name, &key_1), false);
 				assert_eq!(have_storage_value(module, map_name, &key_2), false);
 				assert_eq!(have_storage_value(module, new_map_name, &key_1), true);

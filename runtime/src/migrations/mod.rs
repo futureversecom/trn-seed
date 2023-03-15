@@ -29,6 +29,8 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 }
 
+// Checks explicitly if a storage exist. Use this to check if storage has been actually written.
+// Just calling Storage::try_get() might return the default value in case the storage doesn't exist.
 #[allow(dead_code)]
 fn value_exists<Storage, T>() -> bool
 where
@@ -38,6 +40,7 @@ where
 	Storage::exists()
 }
 
+// If no keys exist it means nothing is written in the stoage 
 #[allow(dead_code)]
 fn map_exists<Storage, K, V>() -> bool
 where
