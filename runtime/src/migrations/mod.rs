@@ -104,7 +104,7 @@ where
 
 	match map_valid::<Storage, K, V>() {
 		Ok(len) => Ok(len),
-		Err(key) => Err(Some(key))
+		Err(key) => Err(Some(key)),
 	}
 }
 

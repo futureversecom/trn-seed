@@ -3,6 +3,7 @@
 use super::mock::{Example, Runtime};
 use crate::Weight;
 use frame_support::{
+	assert_ok,
 	dispatch::GetStorageVersion,
 	pallet_prelude::*,
 	storage_alias,
@@ -10,11 +11,11 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_std::prelude::*;
-use frame_support::assert_ok;
 
 #[allow(unused_imports)]
 use super::{
-	map_exists, map_exists_valid, map_valid, value_exists, value_exists_valid, value_valid, remove_map, remove_value, translate_map, translate_value
+	map_exists, map_exists_valid, map_valid, remove_map, remove_value, translate_map,
+	translate_value, value_exists, value_exists_valid, value_valid,
 };
 
 // Source:
@@ -272,7 +273,8 @@ mod v2 {
 				// Action
 				translate_storage_map::<Runtime>();
 
-				// Check that we have removed the corrupted key and that we are left with just two keys
+				// Check that we have removed the corrupted key and that we are left with just two
+				// keys
 				assert_eq!(map_valid::<pallet_example::MyMap::<Runtime>, _, _>(), Ok(keys_len - 1));
 			});
 		}
@@ -286,11 +288,11 @@ mod v2 {
 				pallet_example::MyMap::<Runtime>::insert(100u32, value.clone());
 
 				// Making sure that we have actually write values to these storages
-				assert_eq!(value_exists_valid::<pallet_example::MyValue::<Runtime>, _>(), Ok(value));
 				assert_eq!(
-					map_exists_valid::<pallet_example::MyMap::<Runtime>, _, _>(),
-					Ok(1)
+					value_exists_valid::<pallet_example::MyValue::<Runtime>, _>(),
+					Ok(value)
 				);
+				assert_eq!(map_exists_valid::<pallet_example::MyMap::<Runtime>, _, _>(), Ok(1));
 
 				// Remove them
 				_ = remove_value::<pallet_example::MyValue<Runtime>, _>();
