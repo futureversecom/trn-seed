@@ -1,12 +1,12 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+#[cfg(test)]
+use crate::mock::MockValidatorSetAdapter;
 use crate::Pallet as EthBridge;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_noop, assert_ok, assert_storage_noop, traits::fungibles::Mutate};
 use frame_system::RawOrigin;
-use seed_pallet_common::CreateExt;
-use sp_core::crypto::ByteArray;
 use sp_std::prelude::*;
 
 /// This is a helper function to get an account.
@@ -147,33 +147,46 @@ benchmarks! {
 		assert_eq!(PendingClaimStatus::<T>::get(event_id), Some(EventClaimStatus::Challenged));
 	}
 
-	// submit_notarization {
-	// 	let event_id = 1;
-	// 	let notarization_payload = NotarizationPayload::Event {
-	// 		event_claim_id: event_id,
-	// 		authority_index: 0,
-	// 		result: EventClaimResult::Valid,
-	// 	};
-	// 	let active_validator = AuthorityId::from_slice(&[1_u8; 33]).unwrap();
-	// 	let signature = active_validator.sign(&notarization_payload.encode()).unwrap();
-	// 	let event_claim = EventClaim {
-	// 		tx_hash: H256::default(),
-	// 		source: EthAddress::default(),
-	// 		destination: EthAddress::default(),
-	// 		data: Vec::<u8>::default(),
-	// 	};
-	//
-	// 	PendingEventClaims::<T>::insert(event_id, &event_claim);
-	// 	PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
-	//
-	// }: _(RawOrigin::None, notarization_payload, signature)
-	// verify {
-	// 	assert_eq!(EventNotarizations::<T>::get(event_id, active_validator), Some(EventClaimResult::Valid));
-	// }
+	submit_notarization {
+		let relayer = H160::from_low_u64_be(1);
+		let challenger = H160::from_low_u64_be(2);
+		let validators = vec![AuthorityId::generate_pair(None), AuthorityId::generate_pair(None)];
+		let event_id = 1;
+		setup_relayer::<T>(relayer.into());
+		transfer_funds::<T>(&challenger.into(), T::ChallengeBond::get());
+		// set the validators to the mock db
+		#[cfg(test)]
+		{
+			MockValidatorSetAdapter::add_to_validator_set(&validators[0]);
+			MockValidatorSetAdapter::add_to_validator_set(&validators[0]);
+		}
+
+		let event_claim = EventClaim {
+			tx_hash: H256::default(),
+			source: EthAddress::default(),
+			destination: EthAddress::default(),
+			data: Vec::<u8>::default(),
+		};
+		PendingEventClaims::<T>::insert(event_id, &event_claim);
+		PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Pending);
+		assert_ok!(EthBridge::<T>::submit_challenge(RawOrigin::Signed(challenger.into()).into(), event_id));
+		PendingClaimStatus::<T>::insert(event_id, EventClaimStatus::Challenged);
+
+		let notarization_payload = NotarizationPayload::Event {
+			event_claim_id: event_id,
+			authority_index: 0, // signed by first validator
+			result: EventClaimResult::Valid,
+		};
+		let signature = validators[0].sign(&notarization_payload.encode()).ok_or("couldn't make signature")?;
+
+	}: _(RawOrigin::None, notarization_payload, signature)
+	verify {
+		assert_eq!(EventNotarizations::<T>::get(event_id, validators[0].clone()), Some(EventClaimResult::Valid));
+	}
 }
 
 impl_benchmark_test_suite!(
 	EthBridge,
-	crate::mock::ExtBuilder::default().build(),
+	crate::mock::ExtBuilder::default().with_keystore().build(),
 	crate::mock::TestRuntime
 );
