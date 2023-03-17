@@ -3,27 +3,15 @@
 
 use super::{TxBuilder, BASE_TX_GAS_COST, MINIMUM_XRP_TX_COST};
 use crate::{
-	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
-	tests::{alice, bob, charlie, ExtBuilder},
-	AccountId, Assets, AssetsExt, Dex, EVMChainId, Ethereum, FeeControl, FeeProxy, Origin, Runtime,
-	TxFeePot, XrpCurrency, EVM,
+	tests::{charlie, ExtBuilder},
+	Ethereum, FeeControl, XrpCurrency,
 };
-use ethabi::Token;
-use ethereum::EIP1559Transaction;
+
 use frame_support::{
 	assert_ok,
-	dispatch::{GetDispatchInfo, RawOrigin},
-	traits::{fungible::Inspect, fungibles::Inspect as Inspects, Get},
+	traits::{fungible::Inspect, fungibles::Inspect as Inspects},
 };
-use frame_system::RawOrigin::Root;
-use pallet_ethereum::TransactionAction;
-use pallet_transaction_payment::ChargeTransactionPayment;
-use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
-use seed_client::chain_spec::get_account_id_from_seed;
-use seed_primitives::{AssetId, Balance};
-use sp_core::{ecdsa, H160, H256, U256};
-use sp_runtime::{traits::SignedExtension, DispatchError::BadOrigin};
 
 #[test]
 fn abba() {

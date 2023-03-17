@@ -6,18 +6,18 @@ use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	AccountId, Assets, AssetsExt, Dex, EVMChainId, Ethereum, FeeControl, FeeProxy, Origin, Runtime,
-	TxFeePot, XrpCurrency, EVM,
+	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Origin, Runtime, TxFeePot, XrpCurrency,
+	EVM,
 };
 use ethabi::Token;
-use ethereum::EIP1559Transaction;
+
 use frame_support::{
 	assert_ok,
 	dispatch::{GetDispatchInfo, RawOrigin},
-	traits::{fungible::Inspect, fungibles::Inspect as Inspects, Get},
+	traits::{fungible::Inspect, fungibles::Inspect as Inspects},
 };
 use frame_system::RawOrigin::Root;
-use pallet_ethereum::TransactionAction;
+
 use pallet_transaction_payment::ChargeTransactionPayment;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_client::chain_spec::get_account_id_from_seed;
