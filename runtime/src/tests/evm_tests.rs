@@ -5,7 +5,7 @@ use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, EVMChainId, Ethereum, FeeControl, FeeProxy, Origin, Runtime,
+	AccountId, Assets, AssetsExt, Dex, EVMChainId, Ethereum, FeeControl, FeeProxy, Origin, Runtime,
 	XrpCurrency, EVM,
 };
 use ethabi::Token;
@@ -35,26 +35,9 @@ fn evm_base_transaction_cost_uses_xrp() {
 		let charlie_initial_balance = XrpCurrency::balance(&charlie());
 		assert_eq!(base_tx_gas_cost_scaled, MINIMUM_XRP_TX_COST); // ensure minimum tx price is 0.315 XRP
 
-		let transaction = Transaction::EIP1559(EIP1559Transaction {
-			nonce: U256::zero(),
-			max_priority_fee_per_gas: U256::from(1_u64),
-			max_fee_per_gas: FeeControl::base_fee_per_gas(),
-			gas_limit: U256::from(BASE_TX_GAS_COST),
-			action: TransactionAction::Call(bob().into()),
-			value: U256::zero(),
-			input: vec![],
-			access_list: vec![],
-			chain_id: EVMChainId::get(),
-			r: H256::default(),
-			s: H256::default(),
-			odd_y_parity: true,
-		});
-
+		let (origin, tx) = TxBuilder::default().origin(charlie()).build();
 		// gas only in xrp
-		assert_ok!(Ethereum::transact(
-			Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(charlie().into())),
-			transaction,
-		));
+		assert_ok!(Ethereum::transact(origin, tx));
 
 		let charlie_new_balance = XrpCurrency::balance(&charlie());
 		assert!(charlie_new_balance < charlie_initial_balance);
@@ -69,28 +52,12 @@ fn evm_transfer_transaction_uses_xrp() {
 		let charlie_initial_balance = XrpCurrency::balance(&charlie());
 
 		// transfer in xrp
-		let transaction = Transaction::EIP1559(EIP1559Transaction {
-			nonce: U256::one(),
-			max_priority_fee_per_gas: U256::from(1_u64),
-			max_fee_per_gas: FeeControl::base_fee_per_gas(),
-			gas_limit: U256::from(BASE_TX_GAS_COST),
-			action: TransactionAction::Call(bob().into()),
-			value: U256::from(5 * 10_u128.pow(18_u32)), // transfer value, 5 XRP
-			chain_id: EVMChainId::get(),
-			input: vec![],
-			access_list: vec![],
-			r: H256::default(),
-			s: H256::default(),
-			odd_y_parity: true,
-		});
-		assert_ok!(Ethereum::transact(
-			Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(charlie().into())),
-			transaction,
-		));
+		let value = 5 * 10_u128.pow(18_u32);
+		let (origin, tx) = TxBuilder::default().origin(charlie()).value(U256::from(value)).build();
+		assert_ok!(Ethereum::transact(origin, tx));
 
-		let expected_total_cost_of_tx = scale_wei_to_6dp(
-			BASE_TX_GAS_COST * FeeControl::base_fee_per_gas().as_u128() + 5 * 10_u128.pow(18_u32),
-		);
+		let expected_total_cost_of_tx =
+			scale_wei_to_6dp(BASE_TX_GAS_COST * FeeControl::base_fee_per_gas().as_u128() + value);
 		let charlie_balance_change = charlie_initial_balance - XrpCurrency::balance(&charlie());
 		assert_eq!(charlie_balance_change, expected_total_cost_of_tx);
 		assert_eq!(charlie_initial_balance + 5 * ONE_XRP, XrpCurrency::balance(&bob()),);
@@ -240,4 +207,53 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		// Check Bob has been transferred the correct amount
 		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), transfer_amount);
 	});
+}
+
+// Simple Transaction builder
+pub struct TxBuilder {
+	transaction: ethereum::EIP1559Transaction,
+	origin: Origin,
+}
+
+impl TxBuilder {
+	pub fn default() -> Self {
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let transaction = ethereum::EIP1559Transaction {
+			chain_id: EVMChainId::get(),
+			nonce: U256::zero(),
+			max_priority_fee_per_gas: U256::zero(),
+			max_fee_per_gas: FeeControl::base_fee_per_gas(),
+			gas_limit: U256::from(BASE_TX_GAS_COST),
+			action,
+			value: U256::zero(),
+			input: vec![],
+			access_list: vec![],
+			odd_y_parity: false,
+			r: H256::zero(),
+			s: H256::zero(),
+		};
+		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
+
+		Self { transaction, origin }
+	}
+
+	pub fn action(&mut self, value: TransactionAction) -> &mut Self {
+		self.transaction.action = value;
+		self
+	}
+
+	pub fn origin(&mut self, value: AccountId) -> &mut Self {
+		self.origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(value.into()));
+		self
+	}
+
+	pub fn value(&mut self, value: U256) -> &mut Self {
+		self.transaction.value = value;
+		self
+	}
+
+	pub fn build(&self) -> (Origin, pallet_ethereum::Transaction) {
+		let tx = pallet_ethereum::Transaction::EIP1559(self.transaction.clone());
+		(self.origin.clone(), tx)
+	}
 }
