@@ -16,7 +16,7 @@ use frame_support::{
 	traits::{fungible::Inspect, fungibles::Inspect as Inspects, Get},
 };
 use frame_system::RawOrigin::Root;
-use pallet_ethereum::{TransactionAction};
+use pallet_ethereum::TransactionAction;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_client::chain_spec::get_account_id_from_seed;
