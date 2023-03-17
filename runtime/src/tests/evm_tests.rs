@@ -6,7 +6,7 @@ use crate::{
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
 	AccountId, Assets, AssetsExt, Dex, EVMChainId, Ethereum, FeeControl, FeeProxy, Origin, Runtime,
-	XrpCurrency, EVM,
+	TxFeePot, XrpCurrency, EVM,
 };
 use ethabi::Token;
 use ethereum::EIP1559Transaction;
@@ -207,6 +207,21 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		// Check Bob has been transferred the correct amount
 		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), transfer_amount);
 	});
+}
+
+#[test]
+fn transactions_cost_goes_to_tx_pot() {
+	ExtBuilder::default().build().execute_with(|| {
+		let old_pot = TxFeePot::era_tx_fees();
+
+		// Call
+		let (origin, tx) = TxBuilder::default().build();
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		let expected_change = 315_000u128;
+		assert_eq!(TxFeePot::era_tx_fees(), old_pot + expected_change);
+	})
 }
 
 // Simple Transaction builder
