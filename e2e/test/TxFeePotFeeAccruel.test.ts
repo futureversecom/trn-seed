@@ -3,7 +3,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, Wallet } from "ethers";
+import { Contract, Wallet, utils } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
@@ -101,6 +101,30 @@ describe("TxFeePot fees accruel", () => {
     expect(currentAccruedFees - accruedFees)
       .to.be.greaterThanOrEqual(feesFromContractCall)
       .and.lessThanOrEqual(feesFromContractCall + 1); // account for rounding errors
+
+    accruedFees = currentAccruedFees;
+  });
+
+  // This should not exist here but the tests are failing without it :(
+  it("Extrinsic transactions accrue base fee in TxFeePot", async () => {
+    const tx = api.tx.assets.mint(
+      // mint 1M tokens (18 decimals) to alith
+      FIRST_ASSET_ID,
+      alith.address,
+      utils.parseEther("1").toString(),
+    );
+    await new Promise<void>((resolve) => {
+      tx.signAndSend(alith, ({ status }) => {
+        if (status.isInBlock) resolve();
+      });
+    });
+
+    const feesFromExtrinsicLower = 310_000,
+      feesFromExtrinsicUpper = 330_000;
+    const currentAccruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
+    expect(currentAccruedFees - accruedFees)
+      .to.be.greaterThan(feesFromExtrinsicLower)
+      .and.lessThan(feesFromExtrinsicUpper);
 
     accruedFees = currentAccruedFees;
   });
