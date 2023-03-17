@@ -3,7 +3,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, Wallet, utils } from "ethers";
+import { Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
