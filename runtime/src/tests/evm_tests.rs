@@ -15,7 +15,8 @@ use frame_support::{
 	dispatch::{GetDispatchInfo, RawOrigin},
 	traits::{fungible::Inspect, fungibles::Inspect as Inspects, Get},
 };
-use pallet_ethereum::{Transaction, TransactionAction};
+use frame_system::RawOrigin::Root;
+use pallet_ethereum::{TransactionAction};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_client::chain_spec::get_account_id_from_seed;
@@ -212,6 +213,7 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 #[test]
 fn transactions_cost_goes_to_tx_pot() {
 	ExtBuilder::default().build().execute_with(|| {
+		// Setup
 		let old_pot = TxFeePot::era_tx_fees();
 
 		// Call
@@ -221,6 +223,58 @@ fn transactions_cost_goes_to_tx_pot() {
 		// Check
 		let expected_change = 315_000u128;
 		assert_eq!(TxFeePot::era_tx_fees(), old_pot + expected_change);
+	})
+}
+
+#[test]
+fn zero_evm_base_fee_means_free_transactions() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Setup
+		assert_ok!(FeeControl::set_evm_base_fee(Root.into(), U256::from(0)));
+		let old_balance = XrpCurrency::balance(&bob());
+
+		// Call
+		let (origin, tx) = TxBuilder::default().origin(bob()).build();
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		let new_balance = XrpCurrency::balance(&bob());
+		let expected_change = 0u128;
+		assert_eq!(new_balance, old_balance - expected_change);
+	})
+}
+
+#[test]
+fn evm_base_fee_changes_transaction_fee() {
+	ExtBuilder::default().build().execute_with(|| {
+		// Test is quite simple:
+		// First we set base fee to 1X
+		// Then we set base fee to 2X
+		// At the end we test that the new balance is equal to old - 3X
+
+		// Setup
+		let base_fee = U256::from(10_000_000_000_000u128);
+		assert_ok!(FeeControl::set_evm_base_fee(Root.into(), base_fee));
+		let original_balance = XrpCurrency::balance(&bob());
+		let (origin, tx) = TxBuilder::default().origin(bob()).build();
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		let second_balance = XrpCurrency::balance(&bob());
+		let original_change = original_balance - second_balance;
+
+		// Call
+		assert_ok!(FeeControl::set_evm_base_fee(Root.into(), base_fee * 2));
+		let (origin, tx) = TxBuilder::default().origin(bob()).build();
+		assert_ok!(Ethereum::transact(origin, tx));
+
+		// Check
+		let third_balance = XrpCurrency::balance(&bob());
+		let new_change = original_change * 2;
+
+		assert_eq!(third_balance, second_balance - new_change);
+		assert_eq!(new_change, original_change * 2);
+		assert_eq!(third_balance, original_balance - original_change - new_change);
+		assert!(new_change > original_change);
 	})
 }
 
@@ -252,6 +306,7 @@ impl TxBuilder {
 		Self { transaction, origin }
 	}
 
+	#[allow(dead_code)]
 	pub fn action(&mut self, value: TransactionAction) -> &mut Self {
 		self.transaction.action = value;
 		self
