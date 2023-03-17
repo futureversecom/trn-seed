@@ -558,6 +558,7 @@ impl<T: Config> Pallet<T> {
 		// Now mint the collection tokens
 		let mut owned_tokens = BoundedVec::default();
 		if initial_issuance > Zero::zero() {
+			ensure!(initial_issuance <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
 			// XLS-20 compatible collections cannot have an initial issuance
 			// This is to prevent the fees from being bypassed in the mint function.
 			// Instead the user should specify 0 initial_issuance and use the mint function to
