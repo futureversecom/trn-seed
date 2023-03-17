@@ -1,6 +1,12 @@
 //! Integration runtime mock storage
 //! Defines mock genesis state for the real seed runtime config
 #![cfg(test)]
+
+mod evm_tests;
+mod gas_costs;
+mod multiplier;
+mod staker_payouts;
+
 use frame_support::traits::{fungibles::Inspect as _, GenesisBuild};
 use sp_core::{
 	ecdsa,
@@ -9,17 +15,18 @@ use sp_core::{
 };
 use sp_runtime::{generic::Era, Perbill};
 
+use crate::{
+	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
+	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
+	UncheckedExtrinsic, H256, U256,
+};
+use frame_support::traits::Get;
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
 
-mod evm_tests;
-mod multiplier;
-mod staker_payouts;
-
-use crate::{
-	constants::*, AssetsExt, Balances, CheckedExtrinsic, Runtime, SessionKeys, SignedExtra,
-	StakerStatus, System, Timestamp, UncheckedExtrinsic,
-};
+/// Base gas used for an EVM transaction
+pub const BASE_TX_GAS_COST: u128 = 21000;
+pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
 
 /// The genesis block timestamp
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -268,4 +275,54 @@ fn fund_authorities_and_accounts() {
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
 		);
 	});
+}
+
+// Simple Transaction builder
+pub struct TxBuilder {
+	transaction: ethereum::EIP1559Transaction,
+	origin: Origin,
+}
+
+impl TxBuilder {
+	pub fn default() -> Self {
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let transaction = ethereum::EIP1559Transaction {
+			chain_id: EVMChainId::get(),
+			nonce: U256::zero(),
+			max_priority_fee_per_gas: U256::zero(),
+			max_fee_per_gas: FeeControl::base_fee_per_gas(),
+			gas_limit: U256::from(BASE_TX_GAS_COST),
+			action,
+			value: U256::zero(),
+			input: vec![],
+			access_list: vec![],
+			odd_y_parity: false,
+			r: H256::zero(),
+			s: H256::zero(),
+		};
+		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
+
+		Self { transaction, origin }
+	}
+
+	#[allow(dead_code)]
+	pub fn action(&mut self, value: TransactionAction) -> &mut Self {
+		self.transaction.action = value;
+		self
+	}
+
+	pub fn origin(&mut self, value: AccountId) -> &mut Self {
+		self.origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(value.into()));
+		self
+	}
+
+	pub fn value(&mut self, value: U256) -> &mut Self {
+		self.transaction.value = value;
+		self
+	}
+
+	pub fn build(&self) -> (Origin, pallet_ethereum::Transaction) {
+		let tx = pallet_ethereum::Transaction::EIP1559(self.transaction.clone());
+		(self.origin.clone(), tx)
+	}
 }

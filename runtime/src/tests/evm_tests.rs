@@ -1,6 +1,7 @@
 //! Integration tests for evm config
 #![cfg(test)]
 
+use super::{TxBuilder, BASE_TX_GAS_COST, MINIMUM_XRP_TX_COST};
 use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
@@ -23,10 +24,6 @@ use seed_client::chain_spec::get_account_id_from_seed;
 use seed_primitives::{AssetId, Balance};
 use sp_core::{ecdsa, H160, H256, U256};
 use sp_runtime::{traits::SignedExtension, DispatchError::BadOrigin};
-
-/// Base gas used for an EVM transaction
-pub const BASE_TX_GAS_COST: u128 = 21000;
-pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
 
 #[test]
 fn evm_base_transaction_cost_uses_xrp() {
@@ -276,54 +273,4 @@ fn evm_base_fee_changes_transaction_fee() {
 		assert_eq!(third_balance, original_balance - original_change - new_change);
 		assert!(new_change > original_change);
 	})
-}
-
-// Simple Transaction builder
-pub struct TxBuilder {
-	transaction: ethereum::EIP1559Transaction,
-	origin: Origin,
-}
-
-impl TxBuilder {
-	pub fn default() -> Self {
-		let action = ethereum::TransactionAction::Call(bob().into());
-		let transaction = ethereum::EIP1559Transaction {
-			chain_id: EVMChainId::get(),
-			nonce: U256::zero(),
-			max_priority_fee_per_gas: U256::zero(),
-			max_fee_per_gas: FeeControl::base_fee_per_gas(),
-			gas_limit: U256::from(BASE_TX_GAS_COST),
-			action,
-			value: U256::zero(),
-			input: vec![],
-			access_list: vec![],
-			odd_y_parity: false,
-			r: H256::zero(),
-			s: H256::zero(),
-		};
-		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
-
-		Self { transaction, origin }
-	}
-
-	#[allow(dead_code)]
-	pub fn action(&mut self, value: TransactionAction) -> &mut Self {
-		self.transaction.action = value;
-		self
-	}
-
-	pub fn origin(&mut self, value: AccountId) -> &mut Self {
-		self.origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(value.into()));
-		self
-	}
-
-	pub fn value(&mut self, value: U256) -> &mut Self {
-		self.transaction.value = value;
-		self
-	}
-
-	pub fn build(&self) -> (Origin, pallet_ethereum::Transaction) {
-		let tx = pallet_ethereum::Transaction::EIP1559(self.transaction.clone());
-		(self.origin.clone(), tx)
-	}
 }
