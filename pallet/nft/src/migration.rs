@@ -5,12 +5,7 @@ pub mod v3 {
 		Pallet, RoyaltiesSchedule, TokenCount, TokenOwnership,
 	};
 	use codec::{Decode, Encode};
-	use frame_support::{
-		storage_alias,
-		traits::{Get, GetStorageVersion, StorageVersion},
-		weights::{constants::RocksDbWeight as DbWeight, Weight},
-		BoundedVec, Twox64Concat,
-	};
+	use frame_support::{storage_alias, traits::Get, weights::Weight, BoundedVec, Twox64Concat};
 	use scale_info::TypeInfo;
 	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
 
@@ -47,54 +42,15 @@ pub mod v3 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade<T: Config>() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V2 Pre Upgrade.");
-
-		let onchain = Pallet::<T>::on_chain_storage_version();
-		assert_eq!(onchain, 2);
-
-		// Let's make sure that we don't have any corrupted data to begin with
-		let keys: Vec<u32> = CollectionInfo::<T>::iter_keys().collect();
-		for key in keys {
-			assert!(CollectionInfo::<T>::try_get(key).is_ok());
-		}
-
 		Ok(())
 	}
 
 	pub fn on_runtime_upgrade<T: Config>() -> Weight {
-		let current = Pallet::<T>::current_storage_version();
-		let onchain = Pallet::<T>::on_chain_storage_version();
-		log::info!(target: "Nft", "Running migration with current storage version {current:?} / onchain {onchain:?}");
-
-		let mut weight = DbWeight::get().reads_writes(2, 0);
-
-		if onchain == 2 {
-			log::info!(target: "Nft", "Migrating from onchain version 2 to onchain version 3.");
-			weight += migrate::<T>();
-
-			log::info!(target: "Nft", "Migration successfully finished.");
-			StorageVersion::new(3).put::<Pallet<T>>();
-		} else {
-			log::info!(target: "Nft", "No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
-		}
-
-		weight
+		0
 	}
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade<T: Config>() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V3 Post Upgrade.");
-
-		let current = Pallet::<T>::current_storage_version();
-		let onchain = Pallet::<T>::on_chain_storage_version();
-		assert_eq!(current, 3);
-		assert_eq!(onchain, 3);
-
-		// Let's make sure that we don't have any corrupted data to begin with
-		let keys: Vec<u32> = crate::CollectionInfo::<T>::iter_keys().collect();
-		for key in keys {
-			assert!(crate::CollectionInfo::<T>::try_get(key).is_ok());
-		}
 		Ok(())
 	}
 
