@@ -34,3 +34,4 @@ std = [
 	"seed-primitives/std",
 	"sp-runtime/std"
 ]
+runtime-benchmarks = []

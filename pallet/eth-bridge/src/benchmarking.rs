@@ -1,8 +1,6 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-#[cfg(test)]
-use crate::mock::MockValidatorSetAdapter;
 use crate::Pallet as EthBridge;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_noop, assert_ok, assert_storage_noop, traits::fungibles::Mutate};
@@ -154,12 +152,8 @@ benchmarks! {
 		let event_id = 1;
 		setup_relayer::<T>(relayer.into());
 		transfer_funds::<T>(&challenger.into(), T::ChallengeBond::get());
-		// set the validators to the mock db
-		#[cfg(test)]
-		{
-			MockValidatorSetAdapter::add_to_validator_set(&validators[0]);
-			MockValidatorSetAdapter::add_to_validator_set(&validators[0]);
-		}
+		// set the validators to the db
+		T::ValidatorSet::set_validator_set(validators.clone());
 
 		let event_claim = EventClaim {
 			tx_hash: H256::default(),

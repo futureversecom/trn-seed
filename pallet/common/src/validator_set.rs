@@ -35,4 +35,7 @@ pub trait ValidatorSetAdapter<EthyId> {
 	fn get_xrpl_validator_set() -> Vec<EthyId>;
 	fn get_xrpl_door_signers() -> Vec<EthyId>;
 	fn get_xrpl_notary_keys(validator_list: &Vec<EthyId>) -> Vec<EthyId>;
+	/// benchmark only
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_validator_set(validator_set: Vec<EthyId>);
 }
