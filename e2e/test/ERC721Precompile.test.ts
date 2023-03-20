@@ -326,6 +326,19 @@ describe("ERC721 Precompile", function () {
     expect(await erc721Precompile.ownerOf(tokenId)).to.equal(receiverAddress);
   });
 
+  it("mint - over mintLimit fails", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const quantity = 1001; // MintLimit set to 1000 so this should fail
+
+    const mint = await erc721Precompile.connect(alithSigner).mint(receiverAddress, quantity, { gasLimit: 50000 });
+    await mint.wait().catch((err: any) => {
+      expect(err.code).eq("CALL_EXCEPTION");
+    });
+
+    // Verify balance of receiver is 0
+    expect(await erc721Precompile.balanceOf(receiverAddress)).to.equal(0);
+  });
+
   it("setApprovalForAll, isApprovedForAll and safeTransferFrom", async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
     const tokenId = 2;

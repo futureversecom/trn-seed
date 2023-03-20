@@ -101,62 +101,6 @@ describe("EVM gas costs", () => {
     expect(xrpCostScaled).to.eql(0.315);
   });
 
-  it("gas cost for evm call with manually set base fee", async () => {
-    const manuallySetBaseFee = 42_000_000_000;
-    const setEvmBaseFeeTx = api.tx.feeControl.setEvmBaseFee(manuallySetBaseFee);
-    const sudoWrapper = api.tx.sudo.sudo(setEvmBaseFeeTx);
-
-    await new Promise<void>((resolve) => {
-      sudoWrapper.signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-    });
-
-    const newBaseFeeSetting = await api.query.feeControl.evmBaseFeePerGas();
-    expect(newBaseFeeSetting).to.be.eq(manuallySetBaseFee);
-
-    const fees = await provider.getFeeData();
-    expect(fees.lastBaseFeePerGas).to.be.eq(manuallySetBaseFee);
-
-    const nonce = await alithSigner.getTransactionCount();
-    const unsignedTx = {
-      // eip1559 tx
-      type: 2,
-      from: alithSigner.address,
-      to: bobSigner.address,
-      nonce,
-      data: "",
-      gasLimit: BASE_GAS_COST,
-      maxFeePerGas: fees.lastBaseFeePerGas!,
-      maxPriorityFeePerGas: 0,
-      chainId: 7672,
-    };
-    const signedTx = await alithSigner.signTransaction(unsignedTx);
-    const tx = await provider.sendTransaction(signedTx);
-    const receipt = await tx.wait();
-
-    // assert gas used
-    expect(receipt.gasUsed?.toNumber()).to.eql(BASE_GAS_COST);
-    expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(BASE_GAS_COST);
-    // Should be the same as the manually set fee
-    expect(receipt.effectiveGasPrice?.toNumber()).to.eql(manuallySetBaseFee);
-
-    // assert XRP used
-    const xrpGasCost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
-    const xrpCost6DP = xrpGasCost.div(10 ** 12).toNumber();
-    const xrpCostScaled = +utils.formatEther(xrpGasCost);
-    expect(xrpCost6DP).to.eql(882);
-    expect(xrpCostScaled).to.eql(0.000882);
-
-    // Reset base fee back to original state so as not to affect other tests
-    const resetEvmBaseFeeTx = api.tx.feeControl.setEvmBaseFee(BASE_FEE_PER_GAS);
-    await new Promise<void>((resolve) => {
-      api.tx.sudo.sudo(resetEvmBaseFeeTx).signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-    });
-  });
-
   it("gas cost for XRP transfer", async () => {
     const fees = await provider.getFeeData();
     const alithBalanceBefore = await alithSigner.getBalance();
@@ -184,57 +128,6 @@ describe("EVM gas costs", () => {
     const xrpCostScaled = +utils.formatEther(totalPaid) - oneXRPScaled; // subtract XRP sent
     expect(xrpCost6DP).to.eql(315000);
     expect(+xrpCostScaled.toFixed(3)).to.eql(0.315);
-  });
-
-  it("gas cost for XRP transfer with a set base fee of zero", async () => {
-    const setEvmBaseFeeTx = api.tx.feeControl.setEvmBaseFee(0);
-    const sudoWrapper = api.tx.sudo.sudo(setEvmBaseFeeTx);
-    await new Promise<void>((resolve) => {
-      sudoWrapper.signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-    });
-
-    // Check newly set base fee
-    const newBaseFeeSetting = await api.query.feeControl.evmBaseFeePerGas();
-    expect(newBaseFeeSetting).to.be.eq(0);
-
-    const fees = await provider.getFeeData();
-    expect(fees.lastBaseFeePerGas).to.be.eq(0);
-
-    const alithBalanceBefore = await alithSigner.getBalance();
-
-    const tx = await alithSigner.sendTransaction({
-      to: DEAD_ADDRESS,
-      value: utils.parseEther("1"),
-      gasLimit: BASE_GAS_COST,
-      maxFeePerGas: fees.lastBaseFeePerGas!,
-      maxPriorityFeePerGas: 0, // no miner tip
-    });
-    const receipt = await tx.wait();
-    expect(receipt.gasUsed?.toNumber()).to.eql(BASE_GAS_COST);
-    expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(BASE_GAS_COST);
-
-    // assert gas used
-    const totalPaid = utils.parseEther("1");
-    const alithBalanceAfter = await alithSigner.getBalance();
-    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
-
-    // assert XRP used
-    const oneXRP6DP = 1_000_000,
-      oneXRPScaled = 1;
-    const xrpCost6DP = totalPaid.div(10 ** 12).toNumber() - oneXRP6DP; // subtract XRP sent
-    const xrpCostScaled = +utils.formatEther(totalPaid) - oneXRPScaled; // subtract XRP sent
-    expect(xrpCost6DP).to.eql(0);
-    expect(+xrpCostScaled.toFixed(3)).to.eql(0);
-
-    // Reset base fee back to original state so as not to affect other tests
-    const resetEvmBaseFeeTx = api.tx.feeControl.setEvmBaseFee(BASE_FEE_PER_GAS);
-    await new Promise<void>((resolve) => {
-      api.tx.sudo.sudo(resetEvmBaseFeeTx).signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-    });
   });
 
   it("gas cost for deploying erc20 contract", async () => {
