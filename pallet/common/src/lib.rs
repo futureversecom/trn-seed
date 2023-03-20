@@ -22,7 +22,6 @@ pub mod eth;
 pub mod ethy;
 pub mod utils;
 pub mod validator_set;
-pub mod xrpl;
 
 /// syntactic sugar for logging.
 /// the caller must define a variable `LOG_TARGET = "<my-target>"`
