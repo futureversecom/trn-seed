@@ -169,6 +169,10 @@ impl ValidatorSetAdapter<AuthorityId> for MockValidatorSetAdapter {
 			.take(8)
 			.collect()
 	}
+
+	fn set_validator_set(validator_set: Vec<AuthorityId>) {
+		todo!()
+	}
 }
 
 pub struct MockXrplBridgeAdapter;

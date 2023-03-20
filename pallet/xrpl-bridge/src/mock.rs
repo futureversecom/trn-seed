@@ -247,6 +247,10 @@ impl ValidatorSetAdapter<AuthorityId> for MockValidatorSet {
 			.take(Self::default().max_xrpl_keys.into())
 			.collect()
 	}
+
+	fn set_validator_set(validator_set: Vec<AuthorityId>) {
+		todo!()
+	}
 }
 
 // Build genesis storage according to the mock runtime.

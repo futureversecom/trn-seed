@@ -467,8 +467,7 @@ impl<T: Config> ValidatorSetAdapter<T::EthyId> for Pallet<T> {
 		Self::get_xrpl_notary_keys(validator_list)
 	}
 
-	/// benchmark only
-	#[cfg(feature = "runtime-benchmarks")]
+	/// benchmark & test only
 	fn set_validator_set(validator_set: Vec<T::EthyId>) {
 		NotaryKeys::<T>::put(validator_set);
 	}

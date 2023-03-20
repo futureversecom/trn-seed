@@ -55,7 +55,4 @@ std = [
     "rustc-hex/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
-runtime-benchmarks = [
-    "frame-benchmarking",
-    "seed-pallet-common/runtime-benchmarks",
-]
+runtime-benchmarks = ["frame-benchmarking"]

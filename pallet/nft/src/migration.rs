@@ -5,7 +5,12 @@ pub mod v3 {
 		Pallet, RoyaltiesSchedule, TokenCount, TokenOwnership,
 	};
 	use codec::{Decode, Encode};
-	use frame_support::{storage_alias, traits::Get, weights::Weight, BoundedVec, Twox64Concat};
+	use frame_support::{
+		storage_alias,
+		traits::{Get, GetStorageVersion, StorageVersion},
+		weights::{constants::RocksDbWeight as DbWeight, Weight},
+		BoundedVec, Twox64Concat,
+	};
 	use scale_info::TypeInfo;
 	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
 
@@ -46,7 +51,23 @@ pub mod v3 {
 	}
 
 	pub fn on_runtime_upgrade<T: Config>() -> Weight {
-		0
+		let current = Pallet::<T>::current_storage_version();
+		let onchain = Pallet::<T>::on_chain_storage_version();
+		log::info!(target: "Nft", "Running migration with current storage version {current:?} / onchain {onchain:?}");
+
+		let mut weight = DbWeight::get().reads_writes(2, 0);
+
+		if onchain == 2 {
+			log::info!(target: "Nft", "Migrating from onchain version 2 to onchain version 3.");
+			weight += migrate::<T>();
+
+			log::info!(target: "Nft", "Migration successfully finished.");
+			StorageVersion::new(3).put::<Pallet<T>>();
+		} else {
+			log::info!(target: "Nft", "No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
+		}
+
+		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
