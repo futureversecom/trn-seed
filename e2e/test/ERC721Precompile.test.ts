@@ -205,8 +205,10 @@ describe("ERC721 Precompile", function () {
     const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
     const newErc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
 
-    await newErc721Precompile.connect(bobSigner).mint(receiverAddress, 1_001)
-        .catch((err: any) => expect(err.message).contains("MintLimitExceeded"));
+    await newErc721Precompile
+      .connect(bobSigner)
+      .mint(receiverAddress, 1_001)
+      .catch((err: any) => expect(err.message).contains("MintLimitExceeded"));
   });
 
   it("setMaxSupply", async () => {
