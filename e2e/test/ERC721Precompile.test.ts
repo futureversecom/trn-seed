@@ -189,7 +189,7 @@ describe("ERC721 Precompile", function () {
     expect(await newErc721Precompile.totalSupply()).to.equal(quantity);
   });
 
-  it("mint - max quantity per mint request is over 10_000", async () => {
+  it("mint fails over max quantity per mint 1_000", async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
 
     // new collection with unlimited mintable supply
@@ -205,15 +205,8 @@ describe("ERC721 Precompile", function () {
     const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
     const newErc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
 
-    // // TODO: fails to mint if quantity per mint is too high
-    // await newErc721Precompile.connect(bobSigner).mint(receiverAddress, 10_001)
-    //     .catch((err: any) => expect(err.message).contains("MaxQuantityPerMintRequestExceeded"));
-
-    tx = await newErc721Precompile.connect(bobSigner).mint(receiverAddress, 10_000);
-    receipt = await tx.wait();
-
-    // verify balance
-    expect(await newErc721Precompile.balanceOf(receiverAddress)).to.equal(10_000);
+    await newErc721Precompile.connect(bobSigner).mint(receiverAddress, 1_001)
+        .catch((err: any) => expect(err.message).contains("MintLimitExceeded"));
   });
 
   it("setMaxSupply", async () => {
