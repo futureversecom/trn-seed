@@ -15,12 +15,13 @@ use core::ops::Mul;
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
-	dispatch::RawOrigin,
+	dispatch::{RawOrigin, EncodeLike},
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, OnUnbalanced, SignedImbalance, WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, OnUnbalanced, SignedImbalance,
+		WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
@@ -444,6 +445,141 @@ where
 			RawOrigin::Signed(who) if &who.into() == address => Ok(who),
 			r => Err(OuterOrigin::from(r)),
 		})
+	}
+}
+
+pub struct ProxyPalletProvider;
+
+impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
+
+	fn generate_keyless_account(proxy: &AccountId) -> AccountId {
+		pallet_proxy::Pallet::<Runtime>::anonymous_account(proxy, &ProxyType::Any, 0, None)
+	}
+
+	fn exists(account: &AccountId, proxy: &AccountId) -> bool {
+		pallet_proxy::Pallet::<Runtime>::find_proxy(account, proxy, None)
+			.map(|_| true)
+			.unwrap_or(false)
+	}
+
+	fn proxies(account: &AccountId) -> Vec<AccountId> {
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(account);
+		proxy_definitions.into_iter().map(|proxy_def| proxy_def.delegate).collect()
+	}
+
+	fn add_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult {
+		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which executes proxy creation)
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(account);
+		// get proxy_definitions length + 1 (cost of upcoming insertion)
+		let creation_cost = pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
+		<pallet_balances::Pallet::<Runtime> as Currency<_>>::transfer(
+			&proxy,
+			account,
+			creation_cost,
+			ExistenceRequirement::KeepAlive,
+		)?;
+
+		let proxy_type = ProxyType::Any;
+		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(account, proxy, proxy_type, 0)
+	}
+
+	fn remove_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult {
+		// pay cost for proxy removal; transfer funds/deposit from delegator to FP account (which executes proxy creation)
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(account);
+		// get proxy_definitions length - 1 (cost of upcoming removal)
+		let removal_cost = pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 - 1);
+		<pallet_balances::Pallet::<Runtime> as Currency<_>>::transfer(
+			&proxy,
+			account,
+			removal_cost,
+			ExistenceRequirement::KeepAlive,
+		)?;
+
+		let proxy_type = ProxyType::Any;
+		pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(account, proxy, proxy_type, 0)
+	}
+}
+
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub enum ProxyType {
+	Any,
+	NonTransfer,
+	Governance,
+	Staking,
+	// Multicurrency,
+	// CancelProxy,
+}
+
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
+
+impl InstanceFilter<Call> for ProxyType {
+	fn filter(&self, c: &Call) -> bool {
+		match self {
+			ProxyType::Any => true,
+			ProxyType::NonTransfer => true, // TODO
+			ProxyType::Governance => true,  // TODO
+			ProxyType::Staking => true,     /* TODO
+			                                  * ProxyType::NonTransfer => {
+			                                  * 	matches!(
+			                                  * 		c,
+			                                  * 		Call::System(..)
+			                                  * 			| Call::ParachainSystem(..)
+			                                  * 			| Call::Timestamp(..)
+			                                  * 			| Call::ParachainStaking(..)
+			                                  * 			| Call::Democracy(..)
+			                                  * 			| Call::Preimage(..)
+			                                  * 			| Call::CouncilCollective(..)
+			                                  * 			| Call::TreasuryCouncilCollective(..)
+			                                  * 			| Call::TechCommitteeCollective(..)
+			                                  * 			| Call::Identity(..)
+			                                  * 			| Call::Utility(..)
+			                                  * 			| Call::Proxy(..) | Call::AuthorMapping(..)
+			                                  * 			| Call::CrowdloanRewards(
+			                                  * 				pallet_crowdloan_rewards::Call::claim { .. }
+			                                  * 			)
+			                                  * 	)
+			                                  * }
+			                                  * ProxyType::Governance => matches!(
+			                                  * 	c,
+			                                  * 	Call::Democracy(..)
+			                                  * 		| Call::Preimage(..)
+			                                  * 		| Call::CouncilCollective(..)
+			                                  * 		| Call::TreasuryCouncilCollective(..)
+			                                  * 		| Call::TechCommitteeCollective(..)
+			                                  * 		| Call::Utility(..)
+			                                  * ),
+			                                  * ProxyType::Staking => matches!(c,
+			                                  * Call::Staking(..)),
+			                                  * ProxyType::CancelProxy => matches!(
+			                                  * 	c,
+			                                  * 	Call::Proxy(pallet_proxy::Call::reject_announcement { .. })
+			                                  * ), */
+		}
+	}
+
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			_ => false,
+		}
 	}
 }
 

@@ -62,7 +62,8 @@ pub use frame_support::{
 	ensure, parameter_types,
 	traits::{
 		fungibles::{Inspect, InspectMetadata},
-		ConstU32, CurrencyToVote, Everything, Get, IsInVec, KeyOwnerProofSystem, Randomness,
+		ConstU128, ConstU32, CurrencyToVote, Everything, Get, IsInVec, KeyOwnerProofSystem,
+		Randomness,
 	},
 	weights::{
 		constants::{ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -98,8 +99,8 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT,
-	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	deposit, RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES,
+	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -1056,6 +1057,82 @@ impl pallet_fee_control::Config for Runtime {
 	type DefaultValues = FeeControlDefaultValues;
 }
 
+parameter_types! {
+	// One storage item; key size 32, value size 8
+	pub ProxyDepositBase: Balance = deposit(1, 8);
+	// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
+	pub ProxyDepositFactor: Balance = deposit(0, 21);
+	pub AnnouncementDepositBase: Balance = deposit(1, 8);
+	// Additional storage item size of 56 bytes:
+	// - 20 bytes AccountId
+	// - 32 bytes Hasher (Blake2256)
+	// - 4 bytes BlockNumber (u32)
+	pub AnnouncementDepositFactor: Balance = deposit(0, 56);
+}
+
+impl pallet_proxy::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+
+	type ProxyType = impls::ProxyType;
+	type ProxyDepositBase = ProxyDepositBase;
+	type ProxyDepositFactor = ProxyDepositFactor;
+	type MaxProxies = ConstU32<32>;
+	type MaxPending = ConstU32<32>;
+	type CallHasher = BlakeTwo256;
+	type AnnouncementDepositBase = AnnouncementDepositBase;
+	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>; // TODO - generate/use our weights
+}
+
+parameter_types! {
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = deposit(1, 88);
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = deposit(0, 32);
+	pub const MaxSignatories: u16 = 100;
+}
+
+impl pallet_multisig::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = MaxSignatories;
+	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>; // TODO - generate/use our weights
+}
+
+parameter_types! {
+	pub const ConfigDepositBase: u64 = 10;
+	pub const FriendDepositFactor: u64 = 1;
+	pub const MaxFriends: u32 = 3;
+	pub const RecoveryDeposit: u64 = 10;
+}
+
+impl pallet_recovery::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+	type ConfigDepositBase = ConfigDepositBase;
+	type FriendDepositFactor = FriendDepositFactor;
+	type MaxFriends = MaxFriends;
+	type RecoveryDeposit = RecoveryDeposit;
+	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>; // TODO - generate/use our weights
+}
+
+parameter_types! {
+	pub const FuturepassChainId: u64 = 7672;
+}
+impl pallet_futurepass::Config for Runtime {
+	type Event = Event;
+	type Proxy = impls::ProxyPalletProvider;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type DefaultChainId = FuturepassChainId;
+	type WeightInfo = ();
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -1108,6 +1185,12 @@ construct_runtime! {
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
 		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
 		Xls20: pallet_xls20::{Pallet, Call, Storage, Event<T>} = 42,
+
+		// FuturePass Account
+		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
+		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
+		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 34,
+		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 35,
 	}
 }
 
@@ -1785,5 +1868,6 @@ mod benches {
 		[pallet_evm_chain_id, EVMChainId]
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
+		[pallet_futurepass, Futurepass]
 	);
 }
