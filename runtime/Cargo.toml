@@ -24,8 +24,11 @@ pallet-bags-list = { git = "https://github.com/futureversecom/substrate", branch
 pallet-election-provider-multi-phase = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-grandpa = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-im-online = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-multisig = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-nomination-pools = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-offences = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-proxy = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-recovery = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-scheduler = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-session = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-staking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
@@ -131,8 +134,10 @@ std = [
 	"pallet-election-provider-multi-phase/std",
 	"pallet-grandpa/std",
 	"pallet-im-online/std",
+	"pallet-multisig/std",
 	"pallet-nomination-pools/std",
 	"pallet-offences/std",
+	"pallet-proxy/std",
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-sudo/std",
@@ -197,6 +202,9 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-multisig/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-recovery/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-balances/try-runtime",
@@ -239,6 +247,9 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-recovery/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
