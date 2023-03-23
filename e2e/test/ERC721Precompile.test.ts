@@ -214,9 +214,9 @@ describe("ERC721 Precompile", function () {
 
     // verify balance
     await newErc721Precompile
-    .connect(bobSigner)
-    .mint(receiverAddress, 1_001)
-    .catch((err: any) => expect(err.message).contains("MintLimitExceeded"));
+      .connect(bobSigner)
+      .mint(receiverAddress, 1_001)
+      .catch((err: any) => expect(err.message).contains("MintLimitExceeded"));
   });
 
   it("setMaxSupply", async () => {
