@@ -15,7 +15,7 @@ serde = { version = "1.0.145", features = ["derive"], optional = true }
 
 # Parity
 codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.4.0", default-features = false, features = ["derive"] }
 
 # Substrate FRAME
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }

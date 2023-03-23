@@ -6,7 +6,7 @@ edition = "2021"
 repository = "https://github.com/cennznet/cennznet"
 
 [dependencies]
-scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.4.0", default-features = false, features = ["derive"] }
 precompile-utils = { path = "../utils", default-features = false }
 num_enum = { version = "0.5.3", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
