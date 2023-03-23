@@ -38,11 +38,12 @@ mod tests;
 mod weights;
 
 use frame_support::{
-	ensure,
 	dispatch::Dispatchable,
+	ensure,
+	pallet_prelude::DispatchResult,
 	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
 	weights::GetDispatchInfo,
-	RuntimeDebug, pallet_prelude::DispatchResult,
+	RuntimeDebug,
 };
 use sp_std::vec::Vec;
 pub use weights::WeightInfo;
@@ -137,9 +138,9 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Futurepass creation
-		FuturepassCreated{ futurepass: T::AccountId, delegate: T::AccountId },
+		FuturepassCreated { futurepass: T::AccountId, delegate: T::AccountId },
 		/// Futurepass registration
-		FuturepassRegistered{ futurepass: T::AccountId, delegate: T::AccountId },
+		FuturepassRegistered { futurepass: T::AccountId, delegate: T::AccountId },
 		/// Futurepass delegate unregister
 		FuturepassUnregistered { futurepass: T::AccountId, delegate: T::AccountId },
 		/// Futurepass transfer
@@ -164,21 +165,18 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-
-		/// Create a futurepass account for the delegator that is able to make calls on behalf of futurepass.
-		/// 
+		/// Create a futurepass account for the delegator that is able to make calls on behalf of
+		/// futurepass.
+		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// Parameters:
 		/// - `account`: The delegated account for the futurepass.
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
-		pub fn create(
-			origin: OriginFor<T>,
-			account: T::AccountId,
-		) -> DispatchResult {
+		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
 			ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
-			
+
 			let futurepass = T::Proxy::generate_keyless_account(&account);
 
 			Holders::<T>::set(&account, Some(futurepass.clone()));
@@ -188,7 +186,7 @@ pub mod pallet {
 		}
 
 		/// Register a delegator to an existing futurepass account.
-		/// 
+		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// Parameters:
@@ -203,10 +201,15 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 
 			// caller must be futurepass holder
-			// TODO: or they can have any permission (sufficient permissions) to add other delegators
-			ensure!(Holders::<T>::get(&owner) == Some(futurepass.clone()), Error::<T>::NotFuturepassOwner);
+			// TODO: or they can have any permission (sufficient permissions) to add other
+			// delegators
+			ensure!(
+				Holders::<T>::get(&owner) == Some(futurepass.clone()),
+				Error::<T>::NotFuturepassOwner
+			);
 
-			// maybe we can check here if caller/owner has sufficient permissions to add the other delegate?
+			// maybe we can check here if caller/owner has sufficient permissions to add the other
+			// delegate?
 			ensure!(T::Proxy::exists(&futurepass, &owner), Error::<T>::DelegateNotRegistered);
 
 			T::Proxy::add_proxy(&futurepass, delegate.clone())?;
@@ -215,13 +218,15 @@ pub mod pallet {
 		}
 
 		/// Unregister a delegate from a futurepass account.
-		/// 
+		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// Parameters:
 		/// - `futurepass`: futurepass account to unregister the delegate from.
-		/// - `delegate`: The delegated account for the futurepass. Note: if caller is futurepass holder onwer,
-		/// they can remove any delegate (including themselves); otherwise the caller must be the delegate (can only remove themself).
+		/// - `delegate`: The delegated account for the futurepass. Note: if caller is futurepass
+		///   holder onwer,
+		/// they can remove any delegate (including themselves); otherwise the caller must be the
+		/// delegate (can only remove themself).
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
 		pub fn unregister(
 			origin: OriginFor<T>,

@@ -20,7 +20,7 @@ use core::ops::Mul;
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
-	dispatch::{RawOrigin, EncodeLike},
+	dispatch::{EncodeLike, RawOrigin},
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
@@ -456,7 +456,6 @@ where
 pub struct ProxyPalletProvider;
 
 impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
-
 	fn generate_keyless_account(proxy: &AccountId) -> AccountId {
 		pallet_proxy::Pallet::<Runtime>::anonymous_account(proxy, &ProxyType::Any, 0, None)
 	}
@@ -473,11 +472,13 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 	}
 
 	fn add_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult {
-		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which executes proxy creation)
+		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
+		// executes proxy creation)
 		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(account);
 		// get proxy_definitions length + 1 (cost of upcoming insertion)
-		let creation_cost = pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
-		<pallet_balances::Pallet::<Runtime> as Currency<_>>::transfer(
+		let creation_cost =
+			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
+		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
 			&proxy,
 			account,
 			creation_cost,
@@ -489,11 +490,13 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 	}
 
 	fn remove_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult {
-		// pay cost for proxy removal; transfer funds/deposit from delegator to FP account (which executes proxy creation)
+		// pay cost for proxy removal; transfer funds/deposit from delegator to FP account (which
+		// executes proxy creation)
 		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(account);
 		// get proxy_definitions length - 1 (cost of upcoming removal)
-		let removal_cost = pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 - 1);
-		<pallet_balances::Pallet::<Runtime> as Currency<_>>::transfer(
+		let removal_cost =
+			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 - 1);
+		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
 			&proxy,
 			account,
 			removal_cost,
