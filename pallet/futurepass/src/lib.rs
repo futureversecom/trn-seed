@@ -203,10 +203,6 @@ pub mod pallet {
 			// maybe we can check here if caller/owner has sufficient permissions to add the other delegate?
 			ensure!(T::Proxy::exists(&futurepass, &owner), Error::<T>::DelegateNotRegistered);
 
-			// delegate must not already exist in proxy mapping
-			// TODO: validate if this is needed, `add_proxy` -> `add_proxy_delegate` may already perform this check
-			ensure!(T::Proxy::exists(&futurepass, &delegate), Error::<T>::DelegateNotRegistered);
-
 			T::Proxy::add_proxy(&futurepass, delegate.clone())?;
 			Self::deposit_event(Event::<T>::FuturepassRegistered { futurepass, delegate });
 			Ok(())
