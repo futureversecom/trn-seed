@@ -224,16 +224,23 @@ pub mod pallet {
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
-			if Holders::<T>::get(&caller) != Some(futurepass.clone()) {
-				// if caller is not futurepass owner, they can only unregister themselves
-				ensure!(caller == delegate, Error::<T>::PermissionDenied);
-			}
+			// Check if the caller is the owner of the futurepass
+			let is_owner = Holders::<T>::get(&caller) == Some(futurepass.clone());
 
-			// TODO: validate futurepass exists? is it sufficient to check if proxy exists?
+			// Check if the caller is the delegate or the owner of the futurepass
+			ensure!(is_owner || caller == delegate, Error::<T>::PermissionDenied);
 
+			// Check if the delegate is registered with the futurepass
 			ensure!(T::Proxy::exists(&futurepass, &delegate), Error::<T>::DelegateNotRegistered);
 
+			// Remove the delegate from the futurepass
 			T::Proxy::remove_proxy(&futurepass, delegate.clone())?;
+
+			// If the caller is the owner of the futurepass, remove the ownership
+			if is_owner {
+				Holders::<T>::remove(&caller);
+			}
+
 			Self::deposit_event(Event::<T>::FuturepassUnregistered { futurepass, delegate });
 			Ok(())
 		}
