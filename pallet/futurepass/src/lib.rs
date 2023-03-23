@@ -141,7 +141,13 @@ pub mod pallet {
 		/// Futurepass registration
 		FuturepassRegistered{ futurepass: T::AccountId, delegate: T::AccountId },
 		/// Futurepass delegate unregister
-		FuturepassUnregistered{ futurepass: T::AccountId, delegate: T::AccountId },
+		FuturepassUnregistered { futurepass: T::AccountId, delegate: T::AccountId },
+		/// Futurepass transfer
+		FuturepassTransferred {
+			old_owner: T::AccountId,
+			new_owner: T::AccountId,
+			futurepass: T::AccountId,
+		},
 	}
 
 	#[pallet::error]
@@ -245,16 +251,47 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// #[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
-		// pub fn transfer_futurepass(
-		// 	origin: OriginFor<T>,
-		// 	futurepass: T::AccountId,
-		// ) -> DispatchResult {
-		// 	let owner = ensure_signed(origin)?;
-		// 	ensure!(T::Proxy::exists(&futurepass, &owner), Error::<T>::DelegateNotRegistered);
-		// 	T::Proxy::remove_proxy(&futurepass, owner)?;
-		// 	Ok(())
-		// }
+		/// Transfer ownership of a futurepass to a new account.
+		/// The new owner must not already own a futurepass.
+		/// This removes all delegates from the futurepass.
+		/// The new owner will be the only delegate; they can add more delegates.
+		///
+		/// The dispatch origin for this call must be _Signed_ and must be the current owner of the
+		/// futurepass.
+		///
+		/// Parameters:
+		/// - `new_owner`: The new account that will become the owner of the futurepass.
+		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		pub fn transfer_futurepass(
+			origin: OriginFor<T>,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			let owner = ensure_signed(origin)?;
 
+			// Get the current futurepass owner from the `Holders` storage mapping
+			let futurepass = Holders::<T>::take(&owner).ok_or(Error::<T>::NotFuturepassOwner)?;
+
+			// Ensure that the new owner does not already own a futurepass
+			ensure!(!Holders::<T>::contains_key(&new_owner), Error::<T>::AccountAlreadyRegistered);
+
+			// Remove all proxy delegates from the current futurepass
+			let proxies = T::Proxy::proxies(&futurepass);
+			for proxy in proxies.iter() {
+				T::Proxy::remove_proxy(&futurepass, proxy.clone())?;
+			}
+
+			// Add the current owner as a proxy delegate
+			T::Proxy::add_proxy(&futurepass, new_owner.clone())?;
+
+			// Set the new owner as the owner of the futurepass
+			Holders::<T>::insert(&new_owner, futurepass.clone());
+
+			Self::deposit_event(Event::<T>::FuturepassTransferred {
+				old_owner: owner,
+				new_owner,
+				futurepass,
+			});
+			Ok(())
+		}
 	}
 }
