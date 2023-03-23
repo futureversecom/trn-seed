@@ -192,6 +192,15 @@ describe("ERC721 Precompile", function () {
   it("mint - max quantity per mint request is over 10_000", async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
 
+    const gasEstimate = await nftPrecompile.estimateGas.initializeCollection(
+      bobSigner.address,
+      ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
+      BigNumber.from(0), // no max issuance
+      ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
+      [alithSigner.address],
+      [1000],
+    );
+
     // new collection with unlimited mintable supply
     let tx = await nftPrecompile.connect(bobSigner).initializeCollection(
       bobSigner.address,
@@ -200,7 +209,9 @@ describe("ERC721 Precompile", function () {
       ethers.utils.hexlify(ethers.utils.toUtf8Bytes("https://example.com/nft/metadata/")),
       [alithSigner.address],
       [1000],
+      { gasLimit: gasEstimate },
     );
+
     let receipt = await tx.wait();
     const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
     const newErc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
