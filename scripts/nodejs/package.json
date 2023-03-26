@@ -1,0 +1,16 @@
+{
+  "name": "bunch-of-nodejs-tools",
+  "version": "1.0.0",
+  "description": "This script scraps the chain data from an external source and saves it as a new chain specification.",
+  "main": "./fetch-chain-spec.js",
+  "scripts": {
+    "fetch-chain-spec": "node fetch-chain-spec.js",
+    "runtime-upgrade": "node runtime-upgrade.js"
+  },
+  "dependencies": {
+    "@polkadot/api": "9.10.1",
+    "chalk": "4.1.2",
+    "cli-progress": "3.11.2",
+    "dotenv": "16.0.3"
+  }
+}

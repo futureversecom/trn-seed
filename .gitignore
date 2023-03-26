@@ -4,3 +4,5 @@ target/
 .idea/
 node_modules/
 data
+output/
+trn-subalfred/

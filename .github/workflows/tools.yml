@@ -1,0 +1,77 @@
+name: "Tools"
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        type: choice
+        description: Select target network
+        required: true
+        default: 'porcini'
+        options:
+        - porcini
+        - root
+      task:
+        type: choice
+        description: Select what task should be executed
+        required: true
+        options:
+        - 'Check storage changes'
+        - 'Fetch remote chain specification'
+        - 'Run a full runtime check'
+        - 'Execute Try Runtime'
+        - 'Execute Runtime Upgrade'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-storage-changes:
+    runs-on: [ubuntu-latest]
+    name: Check storage changes
+    if:  (github.event.inputs.task == 'Check storage changes')
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/run-tools
+      with:
+        task-selection: "storage check --ci --${{github.event.inputs.network}}"
+
+  fetch-remote-chain-specification:
+    runs-on: [ubuntu-latest]
+    name: Fetch remote chain specification
+    if:  (github.event.inputs.task == 'Fetch remote chain specification')
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/run-tools
+      with:
+        task-selection: "storage fetch --ci --${{github.event.inputs.network}}"
+
+  run-full-runtime-check:
+    runs-on: [ubuntu-latest]
+    name: Run a full runtime check
+    if:  (github.event.inputs.task == 'Run a full runtime check')
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/run-tools
+      with:
+        task-selection: "full-test --ci --no-wait --${{github.event.inputs.network}}"
+
+  execute-try-runtime:
+    runs-on: [ubuntu-latest]
+    name: Execute Try Runtime
+    if:  (github.event.inputs.task == 'Execute Try Runtime')
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/run-tools
+      with:
+        task-selection: "runtime try --ci --${{github.event.inputs.network}}"
+
+  execute-runtime-upgrade:
+    runs-on: [ubuntu-latest]
+    name: Execute Try Runtime
+    if:  (github.event.inputs.task == 'Execute Runtime Upgrade')
+    steps:
+    - uses: actions/checkout@v3
+    - uses: ./.github/actions/run-tools
+      with:
+        task-selection: "runtime upgrade --ci --porcini --sudo-key $SUDO_KEY"

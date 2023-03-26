@@ -1,0 +1,57 @@
+services:
+    fork-porcini:
+        build:
+            context: ./../.
+            dockerfile: scripts/Dockerfile
+        volumes:
+            - ./../output:/output
+        command:
+            - ./scripts/tools.sh
+            - storage
+            - fetch
+            - --ci
+    fork-porcini-and-run-it:
+        build:
+            context: ./../.
+            dockerfile: scripts/Dockerfile
+        volumes:
+            - ./../output:/output
+        ports:
+            - 9933:9933
+            - 9944:9944
+            - 30333:30333
+        command:
+            - ./scripts/tools.sh
+            - storage
+            - fetch
+            - --run
+            - --ci
+    full-test:
+        build:
+            context: ./../.
+            dockerfile: scripts/Dockerfile
+        volumes:
+            - ./../output:/output
+        ports:
+            - 9933:9933
+            - 9944:9944
+            - 30333:30333
+        command:
+            - ./scripts/tools.sh
+            - full-test
+            - --ci
+    full-test-no-wait:
+        build:
+            context: ./../.
+            dockerfile: scripts/Dockerfile
+        volumes:
+            - ./../output:/output
+        ports:
+            - 9933:9933
+            - 9944:9944
+            - 30333:30333
+        command:
+            - ./scripts/tools.sh
+            - full-test
+            - --ci
+            - --no-wait

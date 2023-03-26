@@ -1,0 +1,29 @@
+name: 'Install Podman and build rust dockerfile'
+inputs:
+  task-selection:
+    description: Pass arguments to tools
+    required: true
+    type: string
+runs:
+  using: "composite"
+  steps:
+    - name: Install podman
+      shell: bash
+      run: sudo apt install podman -y
+
+    - name: Create output folder
+      shell: bash
+      run: mkdir -p output
+
+    - name: Build Rust image
+      shell: bash
+      run: podman build -t tchain -f ./scripts/Dockerfile .
+
+    - name: Run command
+      shell: bash
+      run: podman run --rm -v ./output:/output -t tchain /bin/bash ./scripts/tools.sh ${{inputs.task-selection}}
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: assets-for-download
+        path: output
