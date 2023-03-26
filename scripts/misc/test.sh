@@ -66,7 +66,7 @@ echo "Scraping local storage #2/8"
 ./scripts/tools.sh storage fetch "$CI_FLAG $ROOT_FLAG"
 
 echo "Running a node in the background #3/8"
-./target/release/seed --chain ./output/fork.json --alice --force-authoring --tmp --rpc-cors=all --unsafe-rpc-external --unsafe-ws-external --rpc-methods unsafe &
+./target/release/seed --chain ./output/fork.json --alice --force-authoring --tmp --rpc-cors=all --unsafe-rpc-external --unsafe-ws-external --rpc-methods unsafe --rpc-max-response-size 1000 &
 
 # Change spec verion to 100 to trigger the runtime upgrade
 sed 's/.*spec_version.*/    spec_version: 100,/' ./runtime/src/lib.rs -i

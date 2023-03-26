@@ -67,5 +67,5 @@ if [ "$CI" = "0" ]; then
 fi
 
 if [ "$RUN_NODE" = "0" ]; then
-    ./target/release/seed --chain ./output/fork.json --alice --force-authoring --tmp --rpc-cors=all
+    ./target/release/seed --chain ./output/fork.json --alice --force-authoring --tmp --rpc-cors=all --rpc-max-response-size 1000
 fi

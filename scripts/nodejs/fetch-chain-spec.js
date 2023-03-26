@@ -51,7 +51,7 @@ const sleep = (time) => new Promise(resolve => setTimeout(resolve, time));
 const startNode = async () => {
   console.log("Starting node...");
 
-  child = spawn('./data/binary', ["--chain", chain_path, "--tmp", "--sync", "warp"]);
+  child = spawn('./data/binary', ["--chain", chain_path, "--tmp", "--sync", "warp", "--rpc-max-response-size", "1000", "--rpc-max-request-size", "1000"]);
 
   child.stdout.on('data', data => {
     console.log(`stdout:\n${data}`);
