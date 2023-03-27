@@ -1079,7 +1079,7 @@ construct_runtime! {
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
-		Identity: pallet_identity = 42,
+		Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 43,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
