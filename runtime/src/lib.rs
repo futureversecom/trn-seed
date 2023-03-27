@@ -1021,6 +1021,30 @@ impl pallet_fee_control::Config for Runtime {
 	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub const BasicDeposit: Balance = 1 * ONE_XRP;			// 258 bytes on-chain TODO
+	pub const FieldDeposit: Balance = 1 * ONE_XRP;			// 66 bytes on-chain  TODO
+	pub const SubAccountDeposit: Balance = 1 * ONE_XRP;		// 53 bytes on-chain  TODO
+	pub const MaxSubAccounts: u32 = 100;
+	pub const MaxAdditionalFields: u32 = 100;
+	pub const MaxRegistrars: u32 = 20;
+}
+
+impl pallet_identity::Config for Runtime {
+	type Event = Event;
+	type Currency = Balances;
+	type BasicDeposit = BasicDeposit;
+	type FieldDeposit = FieldDeposit;
+	type SubAccountDeposit = SubAccountDeposit;
+	type MaxSubAccounts = MaxSubAccounts;
+	type MaxAdditionalFields = MaxAdditionalFields;
+	type MaxRegistrars = MaxRegistrars;
+	type Slashed = (); // TODO
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type RegistrarOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -1055,6 +1079,7 @@ construct_runtime! {
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
+		Identity: pallet_identity = 42,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
@@ -1750,5 +1775,6 @@ mod benches {
 		[pallet_evm_chain_id, EVMChainId]
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
+		[pallet_identity, Identity]
 	);
 }
