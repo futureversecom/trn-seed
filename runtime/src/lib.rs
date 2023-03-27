@@ -1039,7 +1039,7 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = MaxSubAccounts;
 	type MaxAdditionalFields = MaxAdditionalFields;
 	type MaxRegistrars = MaxRegistrars;
-	type Slashed = (); // TODO
+	type Slashed = TxFeePot;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type RegistrarOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::pallet_identity::WeightInfo<Runtime>;
