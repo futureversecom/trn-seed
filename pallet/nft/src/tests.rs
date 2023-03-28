@@ -2229,16 +2229,58 @@ fn mint_fails() {
 			Nft::mint(Some(create_account(2)).into(), collection_id, 5, None),
 			Error::<Test>::NotCollectionOwner
 		);
+	});
+}
 
-		// Mint over boundedvec limit fails
+#[test]
+fn mint_over_mint_limit_fails() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+		let collection_id = Nft::next_collection_uuid().unwrap();
+
+		// mint token Ids 0-4
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			b"test-collection".to_vec(),
+			5,
+			None,
+			None,
+			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			None,
+			CrossChainCompatibility::default(),
+		));
+
+		// Should fail attempting to mint MintLimit + 1
 		assert_noop!(
 			Nft::mint(
 				Some(collection_owner).into(),
 				collection_id,
-				mock::MaxTokensPerCollection::get(),
-				None,
+				<Test as Config>::MintLimit::get() + 1,
+				None
 			),
-			Error::<Test>::TokenLimitExceeded
+			Error::<Test>::MintLimitExceeded
+		);
+	});
+}
+
+#[test]
+fn create_collection_over_mint_limit_fails() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+
+		// Initial issuance over mint limit should fail
+		assert_noop!(
+			Nft::create_collection(
+				Some(collection_owner).into(),
+				b"test-collection".to_vec(),
+				<Test as Config>::MintLimit::get() + 1,
+				None,
+				None,
+				MetadataScheme::Https(b"example.com/metadata".to_vec()),
+				None,
+				CrossChainCompatibility::default(),
+			),
+			Error::<Test>::MintLimitExceeded
 		);
 	});
 }
