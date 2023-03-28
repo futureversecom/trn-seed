@@ -5,11 +5,10 @@ use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{GasWeightMapping, Precompile};
 use pallet_nft::{
-	CollectionNameType, CrossChainCompatibility, OriginChain, RoyaltiesSchedule, TokenCount,
-	WeightInfo,
+	CollectionNameType, CrossChainCompatibility, OriginChain, RoyaltiesSchedule, WeightInfo,
 };
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{CollectionUuid, MetadataScheme};
+use seed_primitives::{CollectionUuid, MetadataScheme, TokenCount};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};

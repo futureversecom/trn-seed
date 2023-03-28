@@ -79,7 +79,7 @@ pub mod keys {
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
-	SerialNumber, Signature, TokenId,
+	SerialNumber, Signature, TokenCount, TokenId,
 };
 
 mod bag_thresholds;
@@ -1293,7 +1293,7 @@ impl_runtime_apis! {
 		AccountId,
 		Runtime,
 	> for Runtime {
-		fn owned_tokens(collection_id: CollectionUuid, who: AccountId, cursor: SerialNumber, limit: u16) -> (SerialNumber, Vec<SerialNumber>) {
+		fn owned_tokens(collection_id: CollectionUuid, who: AccountId, cursor: SerialNumber, limit: u16) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
 			Nft::owned_tokens(collection_id, &who, cursor, limit)
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {

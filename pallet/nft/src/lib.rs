@@ -37,7 +37,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenId,
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber,
+	TokenCount, TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -68,7 +69,7 @@ pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 /// The maximum amount of listings to return
-pub const MAX_OWNED_TOKENS_LIMIT: u16 = 500;
+pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 

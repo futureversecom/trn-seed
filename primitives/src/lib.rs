@@ -64,6 +64,9 @@ pub mod types {
 	/// Global unique token identifier
 	pub type TokenId = (CollectionUuid, SerialNumber);
 
+	/// Denotes a quantitiy of tokens
+	pub type TokenCount = SerialNumber;
+
 	/// Parachain Identifier
 	pub type ParachainId = u32;
 

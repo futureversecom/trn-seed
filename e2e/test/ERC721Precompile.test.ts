@@ -99,34 +99,38 @@ describe("ERC721 Precompile", function () {
   });
 
   it("ownedTokens", async () => {
-    let cursor, limit, new_cursor, tokens;
+    let cursor, limit, new_cursor, tokens, total_owned;
 
     // First 5 tokens
     cursor = 0;
     limit = 5;
-    [new_cursor, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(5);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([0, 1, 2, 3, 4]);
 
     // Last 5 tokens, cursor should be 0 to indicate end of owned tokens
     cursor = 5;
     limit = 5;
-    [new_cursor, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([5, 6, 7, 8, 9]);
 
     // Tokens over owned tokens should return empty
     cursor = 10;
     limit = 5;
-    [new_cursor, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([]);
 
     // high limit should return ALL tokens owned by bob
     cursor = 0;
     limit = 500;
-    [new_cursor, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
@@ -210,7 +214,7 @@ describe("ERC721 Precompile", function () {
       .mint(receiverAddress, 1_001)
       .catch((err: any) => expect(err.message).contains("MintLimitExceeded"));
   });
-  
+
   it("setMaxSupply", async () => {
     await erc721Precompile
       .connect(bobSigner)

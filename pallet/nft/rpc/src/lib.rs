@@ -24,7 +24,7 @@ use jsonrpsee::{
 	proc_macros::rpc,
 };
 use pallet_nft::Config;
-use seed_primitives::types::{BlockNumber, CollectionUuid, SerialNumber, TokenId};
+use seed_primitives::types::{BlockNumber, CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
@@ -41,7 +41,7 @@ pub trait NftApi<AccountId> {
 		who: AccountId,
 		cursor: SerialNumber,
 		limit: u16,
-	) -> RpcResult<(SerialNumber, Vec<SerialNumber>)>;
+	) -> RpcResult<(SerialNumber, TokenCount, Vec<SerialNumber>)>;
 
 	#[method(name = "tokenUri")]
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>>;
@@ -74,7 +74,7 @@ where
 		who: AccountId,
 		cursor: SerialNumber,
 		limit: u16,
-	) -> RpcResult<(SerialNumber, Vec<SerialNumber>)> {
+	) -> RpcResult<(SerialNumber, TokenCount, Vec<SerialNumber>)> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
 		let at = BlockId::hash(best);

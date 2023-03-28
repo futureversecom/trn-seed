@@ -21,7 +21,8 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
+	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
@@ -355,9 +356,6 @@ pub type MarketplaceId = u32;
 
 /// Unique Id for a listing
 pub type ListingId = u128;
-
-/// Denotes a quantitiy of tokens
-pub type TokenCount = SerialNumber;
 
 #[cfg(test)]
 mod test {

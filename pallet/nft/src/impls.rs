@@ -20,7 +20,9 @@ use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{
 	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
-use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId};
+use seed_primitives::{
+	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, TokenId,
+};
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
 impl<T: Config> Pallet<T> {
@@ -279,17 +281,17 @@ impl<T: Config> Pallet<T> {
 
 	/// Find the tokens owned by an `address` in the given collection
 	/// limit return tokens that are larger than the cursor
-	/// Returns list of tokens and the new cursor for the next owned SerialNumber
-	/// not included in the returned list
+	/// Returns list of tokens, the sum of all tokens owned by the user
+	/// and the new cursor for the next owned SerialNumber not included in the returned list
 	pub fn owned_tokens(
 		collection_id: CollectionUuid,
 		who: &T::AccountId,
 		cursor: SerialNumber,
 		limit: u16,
-	) -> (SerialNumber, Vec<SerialNumber>) {
+	) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
 		let collection_info = match Self::collection_info(collection_id) {
 			Some(info) => info,
-			None => return (Default::default(), Default::default()),
+			None => return (Default::default(), Default::default(), Default::default()),
 		};
 
 		// Collect all tokens owned by address
@@ -307,6 +309,8 @@ impl<T: Config> Pallet<T> {
 		owned_tokens.sort();
 		// Store the last owned token by this account
 		let last_id: SerialNumber = owned_tokens.last().copied().unwrap_or_default();
+		// Get the sum of all tokens owned by this account
+		let total_owned: TokenCount = owned_tokens.len().saturated_into();
 
 		// Shorten list to any tokens above the cursor and return the limit
 		// Note max limit is restricted by MAX_OWNED_TOKENS_LIMIT const
@@ -330,7 +334,7 @@ impl<T: Config> Pallet<T> {
 			None => 0,
 		};
 
-		(new_cursor, response)
+		(new_cursor, total_owned, response)
 	}
 
 	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships

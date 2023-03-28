@@ -27,7 +27,7 @@ use frame_support::{
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use frame_system::RawOrigin;
-use seed_primitives::{AccountId, MetadataScheme, TokenId};
+use seed_primitives::{AccountId, MetadataScheme, TokenCount, TokenId};
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
@@ -197,7 +197,7 @@ fn owned_tokens_works() {
 		let expected_tokens: Vec<SerialNumber> = (cursor..100).collect();
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
-			(100_u32, expected_tokens)
+			(100_u32, quantity, expected_tokens)
 		);
 
 		// 100 - 300
@@ -206,7 +206,7 @@ fn owned_tokens_works() {
 		let expected_tokens: Vec<SerialNumber> = (cursor..300).collect();
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
-			(300_u32, expected_tokens)
+			(300_u32, quantity, expected_tokens)
 		);
 
 		// Limit higher than MAX_OWNED_TOKENS_LIMIT gets reduced
@@ -216,7 +216,7 @@ fn owned_tokens_works() {
 			(cursor..cursor + MAX_OWNED_TOKENS_LIMIT as u32).collect();
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
-			(cursor + MAX_OWNED_TOKENS_LIMIT as u32, expected_tokens)
+			(cursor + MAX_OWNED_TOKENS_LIMIT as u32, quantity, expected_tokens)
 		);
 
 		// should return empty vec in unknown collection
@@ -225,7 +225,7 @@ fn owned_tokens_works() {
 		let expected_tokens: Vec<SerialNumber> = vec![];
 		assert_eq!(
 			Nft::owned_tokens(collection_id + 1, &token_owner, cursor, limit),
-			(0_u32, expected_tokens)
+			(0_u32, 0, expected_tokens)
 		);
 
 		// should return empty vec if cursor is set too high
@@ -234,7 +234,7 @@ fn owned_tokens_works() {
 		let expected_tokens: Vec<SerialNumber> = vec![];
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
-			(0_u32, expected_tokens)
+			(0_u32, quantity, expected_tokens)
 		);
 
 		// Last 100 should return cursor of 0
@@ -243,7 +243,7 @@ fn owned_tokens_works() {
 		let expected_tokens: Vec<SerialNumber> = (cursor..5000).collect();
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, cursor, limit),
-			(0, expected_tokens)
+			(0, quantity, expected_tokens)
 		);
 	});
 }
@@ -336,7 +336,7 @@ fn create_collection() {
 		assert_eq!(Nft::next_collection_uuid().unwrap(), collection_id + (1 << 10));
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
-			(0_u32, vec![0, 1, 2, 3, 4])
+			(0_u32, quantity, vec![0, 1, 2, 3, 4])
 		);
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 5);
 
@@ -364,9 +364,12 @@ fn create_collection() {
 
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
-			(0_u32, vec![0, 1, 2, 3, 4])
+			(0_u32, 5, vec![0, 1, 2, 3, 4])
 		);
-		assert_eq!(Nft::owned_tokens(collection_id, &(new_owner), 0, 1000), (0_u32, vec![5, 6, 7]));
+		assert_eq!(
+			Nft::owned_tokens(collection_id, &(new_owner), 0, 1000),
+			(0_u32, 3, vec![5, 6, 7])
+		);
 		assert_eq!(
 			Nft::collection_info(collection_id).unwrap().collection_issuance,
 			quantity + additional_quantity
@@ -607,7 +610,10 @@ fn burn() {
 		assert!(has_event(Event::<Test>::Burn { collection_id, serial_number: 2 }));
 
 		assert_eq!(Nft::collection_info(collection_id).unwrap().collection_issuance, 0);
-		assert_eq!(Nft::owned_tokens(collection_id, &token_owner, 0, 1000), (0_u32, vec![].into()));
+		assert_eq!(
+			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
+			(0_u32, 0_u32, vec![].into())
+		);
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 	});
 }
@@ -710,7 +716,10 @@ fn sell() {
 			}
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
-			assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, vec![1, 3, 4]));
+			assert_eq!(
+				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
+				(0_u32, 3, vec![1, 3, 4])
+			);
 			assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 2);
 			assert_eq!(
 				Nft::token_balance_of(&buyer, collection_id),
@@ -1266,7 +1275,7 @@ fn buy() {
 		// ownership changed
 		assert!(Nft::token_locks(&token_id).is_none());
 		assert!(Nft::open_collection_listings(collection_id, listing_id).is_none());
-		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, vec![token_id.1]));
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, 1, vec![token_id.1]));
 	});
 }
 
@@ -1355,7 +1364,7 @@ fn buy_with_royalties() {
 			// ownership changed
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
-				(0_u32, vec![token_id.1])
+				(0_u32, 1, vec![token_id.1])
 			);
 		});
 }
@@ -1439,7 +1448,7 @@ fn sell_to_anybody() {
 		.is_none());
 
 		// ownership changed
-		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, vec![token_id.1]));
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, 1, vec![token_id.1]));
 	});
 }
 
@@ -1578,7 +1587,7 @@ fn auction_bundle() {
 		// end auction
 		let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
-		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, vec![1, 3, 4]));
+		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, 3, vec![1, 3, 4]));
 		assert_eq!(Nft::token_balance_of(&collection_owner, collection_id), 2);
 		assert_eq!(
 			Nft::token_balance_of(&buyer, collection_id),
@@ -1681,7 +1690,7 @@ fn auction() {
 			assert!(Nft::token_locks(&token_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
-				(0_u32, vec![token_id.1])
+				(0_u32, 1, vec![token_id.1])
 			);
 			assert!(Nft::open_collection_listings(collection_id, listing_id).is_none());
 
@@ -1815,7 +1824,7 @@ fn auction_royalty_payments() {
 			// ownership changed
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder, 0, 1000),
-				(0_u32, vec![token_id.1])
+				(0_u32, 1, vec![token_id.1])
 			);
 		});
 }
