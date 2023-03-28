@@ -190,6 +190,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
+
+			// TODO: ensure account is not a futurepass (must be EOA)
+
 			ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
 
 			let futurepass = T::Proxy::generate_keyless_account(&account);
