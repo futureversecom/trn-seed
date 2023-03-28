@@ -1044,9 +1044,9 @@ impl pallet_fee_control::Config for Runtime {
 
 parameter_types! {
 	// One storage item; key size 32, value size 8
-	pub ProxyDepositBase: Balance = deposit(1, 8);
+	pub ProxyDepositBase: Balance = deposit(1, 8); // TODO - set 0 for futurepass
 	// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
-	pub ProxyDepositFactor: Balance = deposit(0, 21);
+	pub ProxyDepositFactor: Balance = deposit(0, 21); // TODO - set 0 for futurepass
 	pub AnnouncementDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 56 bytes:
 	// - 20 bytes AccountId
@@ -1197,6 +1197,8 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+
+	impls::CheckProxy::<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
