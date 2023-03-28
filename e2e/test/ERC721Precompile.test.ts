@@ -106,7 +106,7 @@ describe("ERC721 Precompile", function () {
     limit = 5;
     [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(5);
-    expect(total_owned).to.equal(initial_balance);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([0, 1, 2, 3, 4]);
 
     // Last 5 tokens, cursor should be 0 to indicate end of owned tokens
@@ -114,7 +114,7 @@ describe("ERC721 Precompile", function () {
     limit = 5;
     [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
-    expect(total_owned).to.equal(initial_balance);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([5, 6, 7, 8, 9]);
 
     // Tokens over owned tokens should return empty
@@ -122,7 +122,7 @@ describe("ERC721 Precompile", function () {
     limit = 5;
     [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
-    expect(total_owned).to.equal(initial_balance);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([]);
 
     // high limit should return ALL tokens owned by bob
@@ -130,7 +130,7 @@ describe("ERC721 Precompile", function () {
     limit = 500;
     [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
-    expect(total_owned).to.equal(initial_balance);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 

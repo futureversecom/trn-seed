@@ -90,7 +90,7 @@ export const ERC721_PRECOMPILE_ABI = [
   "function mint(address owner, uint32 quantity)",
   "function setMaxSupply(uint32 maxSupply)",
   "function setBaseURI(bytes baseURI)",
-  "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32[] memory)",
+  "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
 
   // Ownable
   "event OwnershipTransferred(address indexed oldOwner, address newOwner)",
