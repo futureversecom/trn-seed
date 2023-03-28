@@ -214,7 +214,7 @@ describe("ERC721 Precompile", function () {
       .mint(receiverAddress, 1_001)
       .catch((err: any) => expect(err.message).contains("MintLimitExceeded"));
   });
-  
+
   it("setMaxSupply", async () => {
     await erc721Precompile
       .connect(bobSigner)
