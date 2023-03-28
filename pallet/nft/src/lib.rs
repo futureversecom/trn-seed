@@ -67,7 +67,7 @@ pub use types::*;
 pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
-/// The maximum amount of listings to return
+/// The maximum amount of owned tokens to be returned by the RPC
 pub const MAX_OWNED_TOKENS_LIMIT: u16 = 500;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
