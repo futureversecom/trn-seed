@@ -29,7 +29,7 @@ on:
 
 jobs:
   format-build-test:
-    runs-on: [ubuntu-latest]
+    runs-on: [seed-builder]
     steps:
       - name: Check out
         uses: actions/checkout@v3
@@ -51,7 +51,7 @@ jobs:
       #  run: cargo check --features=runtime-benchmarks
   
   e2e:
-    runs-on: [ubuntu-latest]
+    runs-on: [seed-builder]
     defaults:
       run:
         working-directory: ./e2e
