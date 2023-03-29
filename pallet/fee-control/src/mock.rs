@@ -134,7 +134,7 @@ pub struct LengthToFeeZero;
 impl WeightToFee for LengthToFeeZero {
 	type Balance = Balance;
 
-	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+	fn weight_to_fee(_weight: &Weight) -> Self::Balance {
 		0
 	}
 }

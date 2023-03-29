@@ -71,14 +71,17 @@ impl Default for ExtBuilder {
 
 impl ExtBuilder {
 	// set invulnerables off (it's on by default)
+	#[allow(dead_code)]
 	pub fn invulnerables_off(mut self) -> Self {
 		self.invulnerable = false;
 		self
 	}
+	#[allow(dead_code)]
 	pub fn initial_authorities(mut self, initial_authorities: &[AuthorityKeys]) -> Self {
 		self.initial_authorities = initial_authorities.to_vec();
 		self
 	}
+	#[allow(dead_code)]
 	pub fn accounts_to_fund(mut self, accounts: &[AccountId]) -> Self {
 		self.accounts_to_fund = accounts.to_vec();
 		self

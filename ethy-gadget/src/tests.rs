@@ -26,16 +26,12 @@ use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient,
 	TestNetFactory,
 };
-use seed_primitives::ethy::{
-	crypto::AuthorityId, ConsensusLog, EthyApi, ValidatorSet, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
-};
+use seed_primitives::ethy::{crypto::AuthorityId, EthyApi, ValidatorSet, ETHY_KEY_TYPE};
 use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use sp_consensus::BlockOrigin;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-use sp_runtime::{codec::Encode, traits::Header as HeaderT, BuildStorage, DigestItem, Storage};
+use sp_runtime::{BuildStorage, Storage};
 use std::sync::Arc;
-use substrate_test_runtime_client::runtime::Header;
 
 pub(crate) const ETHY_PROTOCOL_NAME: &'static str = "/ethy/1";
 
@@ -55,12 +51,12 @@ impl BuildStorage for Genesis {
 
 #[derive(Clone)]
 pub(crate) struct EthyLinkHalf {
-	pub event_proof_stream: EthyEventProofStream,
+	pub _event_proof_stream: EthyEventProofStream,
 }
 
 #[derive(Default)]
 pub(crate) struct PeerData {
-	pub(crate) beefy_link_half: Mutex<Option<EthyLinkHalf>>,
+	pub(crate) _beefy_link_half: Mutex<Option<EthyLinkHalf>>,
 }
 
 #[derive(Default)]
@@ -88,7 +84,7 @@ impl EthyTestNet {
 		})
 	}
 
-	pub(crate) fn generate_blocks_and_sync(
+	/* 	pub(crate) fn generate_blocks_and_sync(
 		&mut self,
 		count: usize,
 		session_length: u64,
@@ -104,7 +100,7 @@ impl EthyTestNet {
 			block
 		});
 		self.block_until_sync();
-	}
+	} */
 }
 
 impl TestNetFactory for EthyTestNet {
@@ -186,12 +182,12 @@ macro_rules! create_test_api {
 
 create_test_api!(two_validators, EthyKeyring::Alice, EthyKeyring::Bob);
 
-fn add_auth_change_digest(header: &mut Header, new_auth_set: EthyValidatorSet) {
+/* fn add_auth_change_digest(header: &mut Header, new_auth_set: EthyValidatorSet) {
 	header.digest_mut().push(DigestItem::Consensus(
 		ETHY_ENGINE_ID,
 		ConsensusLog::<AuthorityId>::AuthoritiesChange(new_auth_set).encode(),
 	));
-}
+} */
 
 pub(crate) fn make_ethy_ids(keys: &[EthyKeyring]) -> Vec<AuthorityId> {
 	keys.iter().map(|key| key.clone().public().into()).collect()

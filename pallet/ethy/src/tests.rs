@@ -24,7 +24,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use hex_literal::hex;
-use sp_core::{ByteArray, Public, H160, H256, U256};
+use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::{
 	generic::DigestItem,
@@ -892,7 +892,7 @@ fn pre_last_session_change() {
 			.unwrap(),
 		];
 		let event_proof_id = EthBridge::next_event_proof_id();
-		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+		_ = EthBridge::notary_set_id() + 1;
 		// Manually insert next keys
 		NextNotaryKeys::<TestRuntime>::put(next_keys.clone());
 
