@@ -40,7 +40,7 @@ mod weights;
 use frame_support::{
 	dispatch::Dispatchable,
 	ensure,
-	pallet_prelude::DispatchResult,
+	pallet_prelude::{DispatchResult, DispatchError},
 	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
 	weights::GetDispatchInfo,
 	RuntimeDebug,
@@ -190,16 +190,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			let _who = ensure_signed(origin)?;
-
-			// TODO: ensure account is not a futurepass (must be EOA)
-
-			ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
-
-			let futurepass = T::Proxy::generate_keyless_account(&account);
-
-			Holders::<T>::set(&account, Some(futurepass.clone()));
-			T::Proxy::add_proxy(&futurepass, account.clone())?;
-			Self::deposit_event(Event::<T>::FuturepassCreated { futurepass, delegate: account });
+			Self::do_create_futurepass(account)?;
 			Ok(())
 		}
 
@@ -345,6 +336,18 @@ pub mod pallet {
 		// 	Self::deposit_event(Event::<T>::DefaultProxySet { delegate, futurepass });
 		// 	Ok(())
 		// }
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	pub fn do_create_futurepass(account: T::AccountId) -> Result<T::AccountId, DispatchError> {
+		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
+		let futurepass = T::Proxy::generate_keyless_account(&account);
+		Holders::<T>::set(&account, Some(futurepass.clone()));
+		T::Proxy::add_proxy(&futurepass, account.clone())?;
+
+		Self::deposit_event(Event::<T>::FuturepassCreated { futurepass: futurepass.clone(), delegate: account });
+		Ok(futurepass)
 	}
 }
 

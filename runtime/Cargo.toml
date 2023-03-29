@@ -71,6 +71,7 @@ precompile-utils = { path = "../evm-precompiles/utils", default-features = false
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 pallet-evm-precompiles-nft = { path = "../evm-precompiles/nft", default-features = false }
+pallet-evm-precompiles-futurepass = { path = "../evm-precompiles/futurepass", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
@@ -188,6 +189,7 @@ std = [
 	"pallet-evm-precompiles-erc721/std",
 	"pallet-evm-precompiles-erc20/std",
 	"pallet-evm-precompiles-nft/std",
+	"pallet-evm-precompiles-futurepass/std",
 	"pallet-fee-control/std",
 	"precompile-utils/std",
 	"rustc-hex/std",

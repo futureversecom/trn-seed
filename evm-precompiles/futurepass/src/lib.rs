@@ -4,19 +4,14 @@ extern crate alloc;
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{GasWeightMapping, Precompile};
-// use pallet_nft::{
-// 	CollectionNameType, CrossChainCompatibility, OriginChain, RoyaltiesSchedule, TokenCount,
-// 	WeightInfo,
-// };
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{CollectionUuid, MetadataScheme};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
 
-// /// Solidity selector of the InitializeCollection log, which is the Keccak of the Log signature.
-// pub const SELECTOR_LOG_INITIALIZE_COLLECTION: [u8; 32] =
-// 	keccak256!("InitializeCollection(address,address)"); // collection_owner, collection_address
+/// Solidity selector of the FuturepassCreated log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_FUTUREPASS_CREATED: [u8; 32] = keccak256!("FuturepassCreated(address,address)"); // futurepass, owner
 
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -84,32 +79,39 @@ where
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 {
 	fn create_futurepass(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		//TODO(surangap): update this correct
-		handle.record_log_costs_manual(1, 32)?;
-
+		handle.record_log_costs_manual(2, 32)?;
 		// Parse input.
 		read_args!( handle, { owner: Address});
+		let owner: H160 = owner.into();
 
 		//TODO(surangap):
 		// Manually record gas
 		// handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
 		// 	<Runtime as pallet_futurepass::Config>::WeightInfo::create(),
 		// ))?;
-		let owner: H160 = owner.into();
-		let origin = handle.context().caller;
+		let futurepass =  pallet_futurepass::Pallet::<Runtime>::do_create_futurepass(owner.into());
 
-		// Dispatch call
-		RuntimeHelper::<Runtime>::try_dispatch(
-			handle,
-			Some(origin.into()).into(),
-			pallet_futurepass::Call::<Runtime>::create {
-				account: owner.into()
+		match futurepass {
+			Ok(futurepass_id) => {
+				let futurepass_id : H160 = futurepass_id.into();
+
+				log2(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_CREATED,
+					futurepass_id,
+					EvmDataWriter::new().write(Address::from(owner)).build(),
+				)
+				.record(handle)?;
+
+				// Build output.
+				Ok(succeed([]))
 			},
-		)?;
-
-		//TODO(surangap): add a log with futurepass account id
-		// Build output.
-		Ok(succeed([]))
+			Err(err) => Err(revert(
+				alloc::format!("Futurepass: Futurepass creation failed {:?}", err.stripped())
+					.as_bytes()
+					.to_vec(),
+			)),
+		}
 	}
 
 	fn register_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> { todo!() }

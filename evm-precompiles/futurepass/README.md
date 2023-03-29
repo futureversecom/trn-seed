@@ -2,8 +2,7 @@
 
 ```solidity
 interface TRNFuturePass {
-    event InitializeCollection(address indexed collectionOwner, address precompileAddress);
-    function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32);
+    event FuturepassCreated(address indexed futurepass, address indexed owner);
     /// Defines the proxy permission types.
     enum ProxyType {
         Any,
@@ -17,7 +16,7 @@ interface TRNFuturePass {
     }
     
     /// 
-    function create(address owner) external returns address;
+    function create(address owner) external returns (address);
     function register(address futurepass, address delegate) external;
     function unregister(address futurepass, address delegate) external;
     function proxy(address real, address callTo, bytes memory callData) external payable;
