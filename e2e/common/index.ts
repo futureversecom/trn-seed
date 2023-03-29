@@ -38,6 +38,9 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
+// Precompile address for futurepass precompile is 1722
+export const FUTUREPASS_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006ba";
+
 
 /** ABIs */
 
@@ -98,6 +101,13 @@ export const ERC721_PRECOMPILE_ABI = [
   "function owner() public view returns (address)",
   "function renounceOwnership()",
   "function transferOwnership(address owner)",
+];
+
+export const FUTUREPASS_PRECOMPILE_ABI = [
+  "function create(address owner) external returns (address)",
+  "function register(address futurepass, address delegate) external",
+  "function unregister(address futurepass, address delegate) external",
+  "function proxy(address real, address callTo, bytes memory callData) external payable",
 ];
 
 /** Functions */
