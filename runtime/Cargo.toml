@@ -74,7 +74,6 @@ pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
 pallet-dex = { path = "../pallet/dex", default-features = false }
 pallet-dex-rpc-runtime-api = { path = "../pallet/dex/rpc/runtime-api", default-features = false }
 pallet-echo = { path = "../pallet/echo", default-features = false }
-pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-fee-proxy = { path = "../pallet/fee-proxy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
@@ -85,6 +84,12 @@ pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
 pallet-xls20 = { path = "../pallet/xls20", default-features = false }
+pallet-ethy = { path = "../pallet/ethy", default-features = false }
+pallet-validator-set = { path = "../pallet/validator-set", default-features = false }
+pallet-validator-set-runtime-api = { path = "../pallet/validator-set/runtime-api", default-features = false }
+pallet-eth-bridge = { path = "../pallet/eth-bridge", default-features = false }
+
+
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -187,7 +192,10 @@ std = [
 	"pallet-erc20-peg/std",
 	"pallet-nft-peg/std",
 	"evm/std",
-	"try-runtime-cli"
+	"try-runtime-cli",
+	"pallet-validator-set/std",
+	"pallet-validator-set-runtime-api/std",
+	"pallet-eth-bridge/std",
 ]
 
 try-runtime = [
@@ -226,6 +234,8 @@ try-runtime = [
 	"pallet-erc20-peg/try-runtime",
 	"pallet-nft-peg/try-runtime",
 	"pallet-xls20/try-runtime",
+	"pallet-validator-set/try-runtime",
+	"pallet-eth-bridge/try-runtime",
 ]
 
 runtime-benchmarks = [
@@ -261,4 +271,7 @@ runtime-benchmarks = [
 	"pallet-evm-chain-id/runtime-benchmarks",
 	"pallet-token-approvals/runtime-benchmarks",
 	"pallet-xls20/runtime-benchmarks",
+	"pallet-ethy/runtime-benchmarks",
+	"pallet-eth-bridge/runtime-benchmarks",
+	"pallet-validator-set/runtime-benchmarks",
 ]

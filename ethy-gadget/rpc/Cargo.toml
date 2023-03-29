@@ -24,3 +24,4 @@ sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "po
 
 ethy-gadget = { path = "../." }
 seed-primitives = { path = "../../primitives" }
+pallet-validator-set-runtime-api = { path = "../../pallet/validator-set/runtime-api" }

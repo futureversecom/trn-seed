@@ -85,6 +85,7 @@ seed-primitives = { path = "../primitives" }
 seed-runtime = { path = "../runtime" }
 pallet-dex-rpc = { path = "../pallet/dex/rpc" }
 pallet-nft-rpc = { path = "../pallet/nft/rpc" }
+pallet-validator-set-runtime-api = { path = "../pallet/validator-set/runtime-api" }
 
 # Diagnostics
 log = "0.4.0"

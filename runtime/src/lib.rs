@@ -74,10 +74,10 @@ pub use sp_runtime::BuildStorage;
 #[cfg(feature = "std")]
 pub use pallet_staking::{Forcing, StakerStatus};
 pub mod keys {
-	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
+	pub use super::{BabeId, EthyId, GrandpaId, ImOnlineId};
 }
 pub use seed_primitives::{
-	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
+	ethy::{crypto::AuthorityId as EthyId, ValidatorSet as ValidatorSetS},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
 	SerialNumber, Signature, TokenCount, TokenId,
 };
@@ -167,7 +167,7 @@ impl_opaque_keys! {
 		pub babe: Babe,
 		pub im_online: ImOnline,
 		pub grandpa: Grandpa,
-		pub ethy: EthBridge,
+		pub ethy: ValidatorSet,
 	}
 }
 
@@ -445,11 +445,12 @@ parameter_types! {
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	/// % threshold to emit event TicketSequenceThresholdReached
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
+	pub const XrplBridgePalletId: PalletId = PalletId(*b"xrplbrdg");
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
 	type Event = Event;
-	type EthyAdapter = EthBridge;
+	type EthyAdapter = Ethy;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
@@ -458,6 +459,8 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
+	type PalletId = XrplBridgePalletId;
+	type ValidatorSet = ValidatorSet;
 }
 
 parameter_types! {
@@ -806,66 +809,90 @@ impl pallet_tx_fee_pot::Config for Runtime {
 	type TxFeePotId = TxFeePotId;
 }
 
+impl pallet_ethy::Config for Runtime {
+	/// The runtime event type.
+	type Event = Event;
+	/// Xrpl-bridge adapter
+	type XrplBridgeAdapter = XRPLBridge;
+	/// Ethereum bridge adapter
+	type EthereumBridgeAdapter = EthBridge;
+	/// Validator adapter
+	type ValidatorSetAdapter = ValidatorSet;
+	type WeightInfo = weights::pallet_ethy::WeightInfo<Runtime>;
+}
+
 parameter_types! {
-	/// The bridge pallet address
-	pub const BridgePalletId: PalletId = PalletId(*b"ethybrdg");
-	/// Bond amount for a challenger
-	pub const ChallengeBond: Balance = 100 * ONE_XRP;
-	/// % threshold of notarizations required to verify or prove bridge events
-	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
-	/// Bond amount for a relayer
-	pub const RelayerBond: Balance = 100 * ONE_XRP;
+	/// The validator set pallet address
+	pub const ValidatorSetPalletId: PalletId = PalletId(*b"valdtrst");
 	/// Max Xrpl notary (validator) public keys
 	pub const MaxXrplKeys: u8 = 8;
 	pub const MaxNewSigners: u8 = 20;
 	/// 75 blocks is 5 minutes before the end of the era
-	pub const AuthorityChangeDelay: BlockNumber = 75_u32;
+	pub const ValidatorChangeDelay: BlockNumber = 75_u32;
 }
 
-impl pallet_ethy::Config for Runtime {
-	/// Length of time the bridge will be paused while the authority set changes
-	type AuthorityChangeDelay = AuthorityChangeDelay;
-	/// Reports the current validator / notary set
-	type AuthoritySet = Historical;
-	/// The pallet bridge address (destination for incoming messages, source for outgoing)
-	type BridgePalletId = BridgePalletId;
-	/// The runtime call type.
-	type Call = Call;
-	/// The bond required to make a challenge
-	type ChallengeBond = ChallengeBond;
-	// The duration in blocks of one epoch
-	type EpochDuration = EpochDuration;
+impl pallet_validator_set::Config for Runtime {
 	/// The runtime event type.
 	type Event = Event;
-	/// Subscribers to completed 'eth_call' jobs
-	type EthCallSubscribers = ();
-	/// Subscribers to completed event
-	type EventRouter = EthereumEventRouter;
-	/// Provides Ethereum JSON-RPC client to the pallet (OCW friendly)
-	type EthereumRpcClient = pallet_ethy::EthereumRpcClient;
+	/// The validator set pallet address
+	type PalletId = ValidatorSetPalletId;
 	/// The identifier type for Ethy notaries
-	type EthyId = EthBridgeId;
+	type EthyId = EthyId;
+	/// The duration in blocks of one epoch
+	type EpochDuration = EpochDuration;
+	/// Length of time the ethy will be paused while the validator set changes
+	type ValidatorChangeDelay = ValidatorChangeDelay;
 	/// Reports final session status of an era
 	type FinalSessionTracker = StakingSessionTracker;
-	type MaxNewSigners = MaxNewSigners;
-	/// Handles multi-currency fungible asset system
-	type MultiCurrency = AssetsExt;
-	/// The native asset id used for challenger and relayer bonds
-	type NativeAssetId = XrpAssetId;
-	/// The threshold of positive notarizations to approve an event claim
-	type NotarizationThreshold = NotarizationThreshold;
-	/// The bond required to become a relayer
-	type RelayerBond = RelayerBond;
 	/// The pallet handling scheduled Runtime calls
 	type Scheduler = Scheduler;
-	/// Timestamp provider
-	type UnixTime = Timestamp;
+	/// The runtime call type.
+	type Call = Call;
 	/// Pallets origin type
 	type PalletsOrigin = OriginCaller;
 	/// Max Xrpl notary (validator) public keys
 	type MaxXrplKeys = MaxXrplKeys;
-	/// Xrpl-bridge adapter
-	type XrplBridgeAdapter = XRPLBridge;
+	type MaxNewSigners = MaxNewSigners;
+	/// ethy adapter
+	type EthyAdapter = Ethy;
+	/// XRPL Bridge adapter
+	type XRPLBridgeAdapter = XRPLBridge;
+	/// Eth Bridge adapter
+	type EthBridgeAdapter = EthBridge;
+	type WeightInfo = weights::pallet_validator_set::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	/// Bond amount for a relayer
+	pub const RelayerBond: Balance = 100 * ONE_XRP;
+	/// Bond amount for a challenger
+	pub const ChallengeBond: Balance = 100 * ONE_XRP;
+	/// % threshold of notarizations required to verify or prove bridge events
+	pub const NotarizationThreshold: Percent = Percent::from_percent(66_u8);
+	/// Eth Bridge pallet Id
+	pub const EthBridgePalletId: PalletId = PalletId(*b"eth-brdg");
+}
+
+impl pallet_eth_bridge::Config for Runtime {
+	/// The runtime event type.
+	type Event = Event;
+	/// The validator set pallet address
+	type PalletId = EthBridgePalletId;
+	type RelayerBond = RelayerBond;
+	type NativeAssetId = XrpAssetId;
+	type MultiCurrency = AssetsExt;
+	type ChallengeBond = ChallengeBond;
+	type ValidatorSet = ValidatorSet;
+	/// ethy adapter
+	type EthyAdapter = Ethy;
+	type NotarizationThreshold = NotarizationThreshold;
+	type EventRouter = EthereumEventRouter;
+	type EthCallSubscribers = ();
+	type RpcClient = pallet_eth_bridge::EthereumRpcClient;
+	/// The runtime call type.
+	type Call = Call;
+	type UnixTime = Timestamp;
+	type WeightInfo = weights::pallet_eth_bridge::WeightInfo<Runtime>;
 }
 
 impl frame_system::offchain::SigningTypes for Runtime {
@@ -1045,6 +1072,7 @@ construct_runtime! {
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
 		Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event, ValidateUnsigned} = 12,
 		ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 13,
+		ValidatorSet: pallet_validator_set::{Pallet, Call, Storage, Event<T>, Config<T>} = 44,
 
 		// World
 		Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>} = 14,
@@ -1061,7 +1089,7 @@ construct_runtime! {
 		VoterList: pallet_bags_list::{Pallet, Call, Storage, Event<T>} = 23,
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage} = 24,
 
-		EthBridge: pallet_ethy::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 25,
+		Ethy: pallet_ethy::{Pallet, Call, Storage, Event<T>} = 32,
 
 		// EVM
 		Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 26,
@@ -1069,6 +1097,7 @@ construct_runtime! {
 		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>} = 41,
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
+		EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 25,
 
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
 		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
@@ -1469,17 +1498,12 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl seed_primitives::ethy::EthyApi<Block> for Runtime {
-		fn validator_set() -> ValidatorSet<EthBridgeId> {
-			EthBridge::validator_set()
+	impl pallet_validator_set_runtime_api::ValidatorSetApi<Block> for Runtime {
+		fn eth_validator_set() -> ValidatorSetS<EthyId> {
+			ValidatorSet::get_eth_validator_set()
 		}
-		fn xrpl_signers() -> ValidatorSet<EthBridgeId> {
-			let door_signers = EthBridge::notary_xrpl_keys();
-			ValidatorSet {
-				proof_threshold: door_signers.len().saturating_sub(1) as u32, // tolerate 1 missing witness
-				validators: door_signers,
-				id: EthBridge::notary_set_id(), // the set Id is the same as the overall Ethy set Id
-			}
+		fn xrpl_validator_set() -> ValidatorSetS<EthyId> {
+			ValidatorSet::get_xrpl_validator_set()
 		}
 	}
 
@@ -1749,6 +1773,10 @@ mod benches {
 		[pallet_assets_ext, AssetsExt]
 		[pallet_evm_chain_id, EVMChainId]
 		[pallet_token_approvals, TokenApprovals]
+		[pallet_dex, Dex]
+		[pallet_ethy, Ethy]
+		[pallet_eth_bridge, EthBridge]
+		[pallet_validator_set, ValidatorSet]
 		[pallet_xls20, Xls20]
 	);
 }

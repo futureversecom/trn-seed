@@ -30,6 +30,7 @@ use std::sync::Arc;
 use log::debug;
 use prometheus::Registry;
 
+use pallet_validator_set_runtime_api::ValidatorSetApi;
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use sp_api::ProvideRuntimeApi;
@@ -37,8 +38,6 @@ use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::Block;
-
-use seed_primitives::ethy::EthyApi;
 
 mod error;
 mod gossip;
@@ -55,7 +54,7 @@ pub mod notification;
 mod tests;
 
 pub use ethy_protocol_name::standard_name as protocol_standard_name;
-pub use keystore::EthyEcdsaToEthereum;
+pub use seed_primitives::EthyEcdsaToEthereum;
 
 pub(crate) mod ethy_protocol_name {
 	use sc_chain_spec::ChainSpec;
@@ -120,7 +119,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Send + 'static,
 {
 	/// ETHY client
@@ -151,7 +150,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	N: GossipNetwork<B> + Clone + SyncOracle + Sync + Send + 'static,
 {
 	let EthyParams {

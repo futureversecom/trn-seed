@@ -1620,6 +1620,7 @@ dependencies = [
  "hex-literal",
  "libsecp256k1 0.6.0",
  "log",
+ "pallet-validator-set-runtime-api",
  "parity-scale-codec",
  "parking_lot 0.12.1",
  "sc-block-builder",
@@ -1663,6 +1664,7 @@ dependencies = [
  "jsonrpsee",
  "libsecp256k1 0.6.0",
  "log",
+ "pallet-validator-set-runtime-api",
  "parity-scale-codec",
  "rustc-hex",
  "sc-client-api",
@@ -4845,6 +4847,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-eth-bridge"
+version = "0.1.0"
+dependencies = [
+ "ethabi",
+ "ethereum-types",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "rustc-hex",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN#b7183775ad8177f7ea8c597707b47b09c884a852"
@@ -4873,14 +4905,16 @@ dependencies = [
 
 [[package]]
 name = "pallet-ethy"
-version = "1.0.1"
+version = "0.1.0"
 dependencies = [
  "ethabi",
  "ethereum-types",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
  "hex-literal",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -5457,6 +5491,40 @@ dependencies = [
  "scale-info",
  "sp-core",
  "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-validator-set"
+version = "0.1.0"
+dependencies = [
+ "ethabi",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex-literal",
+ "log",
+ "pallet-balances",
+ "pallet-scheduler",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-validator-set-runtime-api"
+version = "0.0.1"
+dependencies = [
+ "seed-primitives",
+ "sp-api",
  "sp-runtime",
  "sp-std",
 ]
@@ -7697,6 +7765,7 @@ dependencies = [
  "pallet-nft-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
+ "pallet-validator-set-runtime-api",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -7742,6 +7811,7 @@ dependencies = [
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
+ "ethabi",
  "frame-support",
  "impl-trait-for-tuples",
  "parity-scale-codec",
@@ -7809,6 +7879,7 @@ dependencies = [
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
  "pallet-erc20-peg",
+ "pallet-eth-bridge",
  "pallet-ethereum",
  "pallet-ethy",
  "pallet-evm",
@@ -7840,6 +7911,8 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-tx-fee-pot",
  "pallet-utility",
+ "pallet-validator-set",
+ "pallet-validator-set-runtime-api",
  "pallet-xls20",
  "pallet-xrpl-bridge",
  "parity-scale-codec",

@@ -1,0 +1,58 @@
+[package]
+name = "pallet-eth-bridge"
+version = "0.1.0"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2021"
+repository = "https://github.com/futureversecom/seed"
+description = "ethereum bridge module"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.145", default-features = false, features = ["derive"] }
+serde_json = { version = "1.0.87", default-features = false, features = ["alloc"] }
+log = "0.4"
+ethabi = { version = "17.1.0", default-features = false}
+ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
+hex = { version = "0.4.3", default-features = false }
+hex-literal = { version = "0.3.4", default-features = false }
+rustc-hex = { version = "2.1.0", default-features = false }
+
+# Substrate
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
+
+seed-primitives = { path = "../../primitives", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
+
+[dev-dependencies]
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+parking_lot = "0.12.1"
+sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets-ext = { path = "../assets-ext" }
+
+[features]
+default = ["std"]
+std = [
+    "seed-primitives/std",
+    "seed-pallet-common/std",
+    "codec/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "frame-support/std",
+    "frame-system/std",
+    "scale-info/std",
+    "serde_json/std",
+    "sp-core/std",
+    "ethereum-types/std",
+    "rustc-hex/std",
+]
+try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = ["frame-benchmarking"]

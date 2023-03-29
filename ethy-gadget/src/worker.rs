@@ -28,10 +28,12 @@ use sp_runtime::{
 };
 use std::{sync::Arc, time::Duration};
 
-use seed_primitives::ethy::{
-	crypto::AuthorityId as Public, ConsensusLog, EthyApi, EthyEcdsaToPublicKey, EventProof,
-	EventProofId, ValidatorSet, VersionedEventProof, Witness, ETHY_ENGINE_ID,
-	GENESIS_AUTHORITY_SET_ID,
+use seed_primitives::{
+	ethy::{
+		crypto::AuthorityId as Public, ConsensusLog, EventProof, EventProofId, ValidatorSet,
+		VersionedEventProof, Witness, ETHY_ENGINE_ID, GENESIS_AUTHORITY_SET_ID,
+	},
+	EthyEcdsaToPublicKey,
 };
 
 use crate::{
@@ -44,6 +46,8 @@ use crate::{
 	witness_record::WitnessRecord,
 	Client,
 };
+use pallet_validator_set_runtime_api::ValidatorSetApi;
+
 pub(crate) struct WorkerParams<B, BE, C, R, SO>
 where
 	B: Block,
@@ -65,7 +69,7 @@ where
 	B: Block,
 	BE: Backend<B>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	C: Client<B, BE>,
 {
 	client: Arc<C>,
@@ -92,7 +96,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Return a new ETHY worker instance.
@@ -141,7 +145,7 @@ where
 	BE: Backend<B>,
 	C: Client<B, BE>,
 	R: ProvideRuntimeApi<B>,
-	R::Api: EthyApi<B>,
+	R::Api: ValidatorSetApi<B>,
 	SO: SyncOracle + Send + Sync + Clone + 'static,
 {
 	/// Query the runtime state for validator set
@@ -152,7 +156,7 @@ where
 	fn validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		// queries the Ethy pallet to get the active validator set public keys
 		let at = BlockId::hash(header.hash());
-		let validator_set = self.runtime.runtime_api().validator_set(&at).ok();
+		let validator_set = self.runtime.runtime_api().eth_validator_set(&at).ok();
 
 		info!(target: "ethy", "💎 active validator set: {:?}", validator_set);
 		validator_set
@@ -166,7 +170,7 @@ where
 	/// Always query the chain state incase the authorized list changed
 	fn xrpl_validator_set(&self, header: &B::Header) -> Option<ValidatorSet<Public>> {
 		let at = BlockId::hash(header.hash());
-		let xrpl_signers = self.runtime.runtime_api().xrpl_signers(&at).ok();
+		let xrpl_signers = self.runtime.runtime_api().xrpl_validator_set(&at).ok();
 		info!(target: "ethy", "💎 xrpl validator set: {:?}", xrpl_signers);
 
 		xrpl_signers

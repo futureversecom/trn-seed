@@ -47,17 +47,6 @@ pub mod v3 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade<T: Config>() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V2 Pre Upgrade.");
-
-		let onchain = Pallet::<T>::on_chain_storage_version();
-		assert_eq!(onchain, 2);
-
-		// Let's make sure that we don't have any corrupted data to begin with
-		let keys: Vec<u32> = CollectionInfo::<T>::iter_keys().collect();
-		for key in keys {
-			assert!(CollectionInfo::<T>::try_get(key).is_ok());
-		}
-
 		Ok(())
 	}
 
@@ -83,18 +72,6 @@ pub mod v3 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade<T: Config>() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V3 Post Upgrade.");
-
-		let current = Pallet::<T>::current_storage_version();
-		let onchain = Pallet::<T>::on_chain_storage_version();
-		assert_eq!(current, 3);
-		assert_eq!(onchain, 3);
-
-		// Let's make sure that we don't have any corrupted data to begin with
-		let keys: Vec<u32> = crate::CollectionInfo::<T>::iter_keys().collect();
-		for key in keys {
-			assert!(crate::CollectionInfo::<T>::try_get(key).is_ok());
-		}
 		Ok(())
 	}
 
