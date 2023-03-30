@@ -541,6 +541,72 @@ impl Default for ProxyType {
 	}
 }
 
+// proxy call filter from ethereum side.
+// TODO(surangap): check if the granualarity can be improved to the call level
+impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
+	fn is_evm_proxy_call_allowed(
+		&self,
+		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
+		recipient_has_code: bool,
+	) -> bool {
+		use pallet_evm::PrecompileSet as _;
+		match self {
+			ProxyType::Any => true,
+			ProxyType::NonTransfer => true,
+			ProxyType::Governance => true,
+			ProxyType::Staking => true,
+			// TODO(surangap): implement the filter
+			// ProxyType::Any => true,
+			// ProxyType::NonTransfer => {
+			// 	call.value == U256::zero()
+			// 		&& match PrecompileName::from_address(call.to.0) {
+			// 		Some(
+			// 			PrecompileName::AuthorMappingPrecompile
+			// 			| PrecompileName::ParachainStakingPrecompile,
+			// 		) => true,
+			// 		Some(ref precompile) if is_governance_precompile(precompile) => true,
+			// 		_ => false,
+			// 	}
+			// }
+			// ProxyType::Governance => {
+			// 	call.value == U256::zero()
+			// 		&& matches!(
+			// 			PrecompileName::from_address(call.to.0),
+			// 			Some(ref precompile) if is_governance_precompile(precompile)
+			// 		)
+			// }
+			// ProxyType::Staking => {
+			// 	call.value == U256::zero()
+			// 		&& matches!(
+			// 			PrecompileName::from_address(call.to.0),
+			// 			Some(
+			// 				PrecompileName::AuthorMappingPrecompile
+			// 					| PrecompileName::ParachainStakingPrecompile
+			// 			)
+			// 		)
+			// }
+			// // The proxy precompile does not contain method cancel_proxy
+			// ProxyType::CancelProxy => false,
+			// ProxyType::Balances => {
+			// 	// Allow only "simple" accounts as recipient (no code nor precompile).
+			// 	// Note: Checking the presence of the code is not enough because some precompiles
+			// 	// have no code.
+			// 	!recipient_has_code && !PrecompilesValue::get().is_precompile(call.to.0)
+			// }
+			// ProxyType::AuthorMapping => {
+			// 	call.value == U256::zero()
+			// 		&& matches!(
+			// 			PrecompileName::from_address(call.to.0),
+			// 			Some(PrecompileName::AuthorMappingPrecompile)
+			// 		)
+			// }
+			// // There is no identity precompile
+			// ProxyType::IdentityJudgement => false,
+		}
+	}
+}
+
+// substrate side proxy filter
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		match self {

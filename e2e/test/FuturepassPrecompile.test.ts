@@ -7,12 +7,11 @@ import { ethers } from "hardhat";
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
-  NFT_PRECOMPILE_ABI,
+  FUTUREPASS_PRECOMPILE_ABI,
   FUTUREPASS_PRECOMPILE_ADDRESS,
   NodeProcess,
-  getCollectionPrecompileAddress,
   startNode,
-  typedefs, FUTUREPASS_PRECOMPILE_ABI,
+  typedefs,
 } from "../common";
 
 describe("Futurepass Precompile", function () {
@@ -53,8 +52,7 @@ describe("Futurepass Precompile", function () {
 
     console.log(JSON.stringify(receipt))
 
-    // expect((receipt?.events as any)[0].event).to.equal("InitializeCollection");
-    // expect((receipt?.events as any)[0].args.collectionOwner).to.equal(alithSigner.address);
-    // expect((receipt?.events as any)[0].args.precompileAddress).to.equal(expectedPrecompileAddress);
+    expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
+    expect((receipt?.events as any)[0].args.owner).to.equal(alithSigner.address);
   });
 });

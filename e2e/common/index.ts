@@ -104,6 +104,9 @@ export const ERC721_PRECOMPILE_ABI = [
 ];
 
 export const FUTUREPASS_PRECOMPILE_ABI = [
+  "event FuturepassCreated(address indexed futurepass, address owner)",
+  "event FuturepassDelegateRegistered(address indexed futurepass, address delegate)",
+  "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
   "function create(address owner) external returns (address)",
   "function register(address futurepass, address delegate) external",
   "function unregister(address futurepass, address delegate) external",

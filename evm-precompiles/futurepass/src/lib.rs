@@ -1,17 +1,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
+use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
-use pallet_evm::{GasWeightMapping, Precompile};
+use frame_system::Origin;
+use pallet_evm::{AddressMapping, ExitReason, GasWeightMapping, Precompile, PrecompileFailure};
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{CollectionUuid, MetadataScheme};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, Permill};
+use sp_runtime::codec::Decode;
+use sp_runtime::traits::ConstU32;
 use sp_std::{marker::PhantomData, vec::Vec};
+use sp_runtime::traits::Zero;
 
-/// Solidity selector of the FuturepassCreated log, which is the Keccak of the Log signature.
+/// Solidity selector of the Futurepass logs, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_FUTUREPASS_CREATED: [u8; 32] = keccak256!("FuturepassCreated(address,address)"); // futurepass, owner
+pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] = keccak256!("FuturepassDelegateRegistered(address,address)"); // futurepass, delegate
+pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] = keccak256!("FuturepassDelegateUnregistered(address,address)"); // futurepass, delegate
+
 
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -20,6 +27,26 @@ pub enum Action {
 	Register = "register(address, address)",
 	UnRegister = "unregister(address, address)",
 	Proxy = "proxy(address, address, bytes)",
+}
+
+pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
+
+type GetCallDataLimit = ConstU32<CALL_DATA_LIMIT>;
+
+pub struct EvmSubCall {
+	pub to: Address,
+	pub value: U256,
+	pub call_data: BoundedBytes<ConstU32<CALL_DATA_LIMIT>>,
+}
+
+/// A trait to filter if an evm subcall is allowed to be executed by a proxy account.
+/// This trait should be implemented by the `ProxyType` type configured in pallet proxy.
+pub trait EvmProxyCallFilter: Sized + Send + Sync {
+	/// If returns `false`, then the subcall will not be executed and the evm transaction will
+	/// revert with error message "CallFiltered".
+	fn is_evm_proxy_call_allowed(&self, _call: &EvmSubCall, _recipient_has_code: bool) -> bool {
+		false
+	}
 }
 
 /// Provides access to the NFT pallet
@@ -34,11 +61,12 @@ impl<T> Default for FuturePassPrecompile<T> {
 impl<Runtime> Precompile for FuturePassPrecompile<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
-	Runtime: frame_system::Config + pallet_futurepass::Config + pallet_evm::Config,
+	Runtime: frame_system::Config + pallet_futurepass::Config + pallet_evm::Config + pallet_proxy::Config,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_futurepass::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	<Runtime as pallet_proxy::Config>::ProxyType: Decode + EvmProxyCallFilter,
+	<Runtime as frame_system::Config>::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
+	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
 		let result = {
@@ -72,11 +100,12 @@ impl<Runtime> FuturePassPrecompile<Runtime> {
 impl<Runtime> FuturePassPrecompile<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
-	Runtime: frame_system::Config + pallet_futurepass::Config + pallet_evm::Config,
+	Runtime: frame_system::Config + pallet_futurepass::Config + pallet_evm::Config + pallet_proxy::Config,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_futurepass::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	<Runtime as pallet_proxy::Config>::ProxyType: Decode + EvmProxyCallFilter,
+	<Runtime as frame_system::Config>::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
+	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 {
 	fn create_futurepass(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(2, 32)?;
@@ -114,7 +143,159 @@ where
 		}
 	}
 
-	fn register_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> { todo!() }
-	fn unregister_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> { todo!() }
-	fn proxy(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> { todo!() }
+	fn register_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+		// Parse input.
+		read_args!( handle, { futurepass: Address, delegate: Address}); // TODO(surangap): add access controlling once pallet has it
+		let futurepass: H160 = futurepass.into();
+		let delegate: H160 = delegate.into();
+		let caller  = handle.context().caller;
+
+		//TODO(surangap):
+		// Manually record gas
+		// handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+		// 	<Runtime as pallet_futurepass::Config>::WeightInfo::register(),
+		// ))?;
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(caller.into()).into(),
+			pallet_futurepass::Call::<Runtime>::register{
+				futurepass: futurepass.into(),
+				delegate: delegate.into()
+			}
+		)?;
+
+		//log
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED,
+			futurepass,
+			EvmDataWriter::new().write(Address::from(delegate)).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn unregister_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+		// Parse input.
+		read_args!( handle, { futurepass: Address, delegate: Address}); // TODO(surangap): add access controlling once pallet has it
+		let futurepass: H160 = futurepass.into();
+		let delegate: H160 = delegate.into();
+		let caller  = handle.context().caller;
+
+		//TODO(surangap):
+		// Manually record gas
+		// handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+		// 	<Runtime as pallet_futurepass::Config>::WeightInfo::unregister(),
+		// ))?;
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(caller.into()).into(),
+			pallet_futurepass::Call::<Runtime>::unregister{
+				futurepass: futurepass.into(),
+				delegate: delegate.into()
+			}
+		)?;
+
+		//log
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED,
+			futurepass,
+			EvmDataWriter::new().write(Address::from(delegate)).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn proxy(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		read_args!(handle, {
+			real: Address,
+			callTo: Address,
+			callData: BoundedBytes<GetCallDataLimit>
+		});
+
+		let evm_subcall = EvmSubCall {
+			to : callTo,
+			call_data: callData,
+			value: handle.context().apparent_value
+		};
+
+		Self::do_proxy(handle, real, evm_subcall)
+	}
+
+	fn do_proxy(
+		handle: &mut impl PrecompileHandle,
+		real: Address,
+		evm_subcall: EvmSubCall,
+	) -> EvmResult<PrecompileOutput> {
+		// Read proxy
+		let real_account_id = Runtime::AddressMapping::into_account_id(real.clone().into());
+		let who = Runtime::AddressMapping::into_account_id(handle.context().caller);
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let def =
+			pallet_proxy::Pallet::<Runtime>::find_proxy(&real_account_id, &who, None)
+				.map_err(|_| RevertReason::custom("Not proxy"))?;
+		frame_support::ensure!(def.delay.is_zero(), revert("Unannounced"));
+
+		// Read subcall recipient code
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let recipient_has_code =
+			pallet_evm::AccountCodes::<Runtime>::decode_len(evm_subcall.to.0).unwrap_or(0) > 0;
+
+		// Apply proxy type filter
+		frame_support::ensure!(
+			def.proxy_type
+				.is_evm_proxy_call_allowed(&evm_subcall, recipient_has_code),
+			revert("CallFiltered")
+		);
+
+		let EvmSubCall {
+			to,
+			value,
+			call_data,
+		} = evm_subcall;
+		let address = to.0;
+
+		let sub_context = Context {
+			caller: real.0, // switch caller to real
+			address: address.clone(),
+			apparent_value: value,
+		};
+
+		let transfer = if value.is_zero() {
+			None
+		} else {
+			Some(Transfer {
+				source: handle.context().caller,
+				target: address.clone(),
+				value,
+			})
+		};
+
+		let (reason, output) = handle.call(
+			address,
+			transfer,
+			call_data.into_vec(),
+			Some(handle.remaining_gas()),
+			false,
+			&sub_context,
+		);
+
+		// Return subcall result
+		match reason {
+			ExitReason::Fatal(exit_status) => Err(PrecompileFailure::Fatal { exit_status }),
+			ExitReason::Revert(exit_status) => Err(PrecompileFailure::Revert {
+				exit_status,
+				output,
+			}),
+			ExitReason::Error(exit_status) => Err(PrecompileFailure::Error { exit_status }),
+			ExitReason::Succeed(_) => Ok(succeed([])),
+		}
+	}
 }
