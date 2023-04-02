@@ -26,38 +26,8 @@ use seed_primitives::{
 use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
 
-//pub type SftBalance = u128;
-
-/// Struct that represents the owned serial numbers within a collection of an individual account
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct ERC1155Ownership<T: Config> {
-	pub owner: T::AccountId,
-	// Owned serials maps to the number of each semi fungible token owned
-	pub owned_serials:
-		BoundedVec<(SerialNumber, TokenCount), <T as Config>::MaxTokensPerSftCollection>,
-}
-
-impl<T: Config> ERC1155Ownership<T> {
-	/// Creates a new ERC721Ownership with the given owner and serial numbers
-	pub fn new(
-		owner: T::AccountId,
-		serial_numbers: BoundedVec<(SerialNumber, TokenCount), T::MaxTokensPerSftCollection>,
-	) -> Self {
-		let mut owned_serials = serial_numbers.clone();
-		owned_serials.sort();
-		Self { owner, owned_serials }
-	}
-
-	/// Returns true if the serial number is containerd within owned_serials
-	pub fn contains_serial(&self, serial_number: &SerialNumber) -> bool {
-		// self.owned_serials
-		// 	.iter()
-		// 	.map(|(serial, quantity)| serial)
-		// 	.contains(serial_number)
-		false
-	}
-}
+// TODO
+// pub type CollectionNameType = BoundedVec<u8>;
 
 /// Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
@@ -77,12 +47,17 @@ pub struct SftCollectionInformation<T: Config> {
 	pub next_serial_number: SerialNumber,
 }
 
+pub trait TokenInformation<T: Config> {
+	/// Check whether who is the collection owner
+	fn is_collection_owner(&self, who: &T::AccountId) -> bool;
+}
+
 // TODO Add a common trait for both SFT and NFT that shares a lot of the functionality
 // that is implemented on each struct. i.e. is_collection_owner()
 
-impl<T: Config> SftCollectionInformation<T> {
+impl<T: Config> TokenInformation<T> for SftCollectionInformation<T> {
 	/// Check whether who is the collection owner
-	pub fn is_collection_owner(&self, who: &T::AccountId) -> bool {
+	fn is_collection_owner(&self, who: &T::AccountId) -> bool {
 		&self.collection_owner == who
 	}
 }

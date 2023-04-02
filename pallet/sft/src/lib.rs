@@ -252,19 +252,27 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// Ensure who == owner
+			// Ensure who == collection_owner
+			// Ensure max issuance > initial issuance
+			// Creates new serialnumber (based off next_serial_number)
+
+			// CollectionId
+			// - serialNumber1
+			// - - Account1: Balance
+			// - - Account2: Balance
+			// - serialNumber2
+			// - - Account1: Balance
+			// - - Account3: Balance
+
+			// If initial issuance > 0, mint it to the token_owner
+			// If token owner is not set then we mint it to the origin
+
+			// create SftTokenInformation object and store under TokenId
 
 			Ok(())
 		}
 
-		/// Mint tokens for an existing collection
-		///
-		/// `collection_id` - the collection to mint tokens in
-		/// `quantity` - how many tokens to mint
-		/// `token_owner` - the token owner, defaults to the caller if unspecified
-		/// Caller must be the collection owner
-		/// -----------
-		/// Weight is O(N) where N is `quantity`
+		/// Mint balance into serialNumber
 		#[pallet::weight(100000)]
 		#[transactional]
 		pub fn mint(
