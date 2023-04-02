@@ -29,30 +29,28 @@
 //! number)
 
 use frame_support::{
-	ensure,
-	traits::{tokens::fungibles::Mutate, Get},
+	traits::tokens::fungibles::{Mutate, Transfer},
 	transactional, PalletId,
 };
 use seed_pallet_common::{
-	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
+	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenId,
+	AccountId, AssetId, Balance, CollectionNameType, CollectionUuid, MetadataScheme, OriginChain,
+	ParachainId, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
 };
-use sp_runtime::{
-	traits::{AccountIdConversion, One, Saturating, Zero},
-	DispatchResult, PerThing, Permill,
-};
+use sp_runtime::{BoundedVec, DispatchResult};
 use sp_std::prelude::*;
 
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
 mod tests;
-pub use weights::WeightInfo;
+
+// TODO Weights
+pub use frame_system::WeightInfo;
 
 mod impls;
-mod migration;
 mod types;
 
 pub use impls::*;
@@ -64,12 +62,12 @@ pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 /// The logging target for this module
-pub(crate) const LOG_TARGET: &str = "nft";
+pub(crate) const LOG_TARGET: &str = "sft";
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
@@ -78,22 +76,13 @@ pub mod pallet {
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
-
-	#[pallet::genesis_config]
-	pub struct GenesisConfig<T: Config> {
-		_phantom: sp_std::marker::PhantomData<T>,
-	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
-		/// Default auction / sale length in blocks
-		#[pallet::constant]
-		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		/// Max tokens that a collection can contain
-		type MaxTokensPerCollection: Get<u32>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
@@ -111,22 +100,28 @@ pub mod pallet {
 		type ParachainId: Get<ParachainId>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
+		/// Max tokens that a collection can contain
+		#[pallet::constant]
+		type MaxTokensPerSftCollection: Get<u32>;
+		/// Max tokens that can be minted in one transaction
+		#[pallet::constant]
+		type MaxSerialsPerMint: Get<u32>;
+		/// Max unique owners that can own an SFT token
+		#[pallet::constant]
+		type MaxOwnersPerSftToken: Get<u32>;
 	}
 
 	/// Map from collection to its information
 	#[pallet::storage]
-	#[pallet::getter(fn collection_info)]
-	pub type CollectionInfo<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionUuid, CollectionInformation<T>>;
+	pub type SftCollectionInfo<T: Config> =
+		StorageMap<_, Twox64Concat, CollectionUuid, SftCollectionInformation<T>>;
+
+	#[pallet::storage]
+	pub type TokenInfo<T: Config> = StorageMap<_, Twox64Concat, TokenId, SftTokenInformation<T>>;
 
 	/// TODO Use NFT pallet NextCollectionID
 	//#[pallet::storage]
 	//pub type NextCollectionId<T> = StorageValue<_, u32, ValueQuery>;
-
-	/// Map from a token to lock status if any
-	#[pallet::storage]
-	#[pallet::getter(fn token_locks)]
-	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
 
 	// TODO Remove Events not being used
 	#[pallet::event]
@@ -142,7 +137,6 @@ pub mod pallet {
 			name: CollectionNameType,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
-			compatibility: CrossChainCompatibility,
 		},
 		/// Token(s) were minted
 		Mint {
@@ -220,54 +214,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(100000)]
-		/// TODO Use claim_unowned_collection from NFT pallet
-		pub fn claim_unowned_collection(
-			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			new_owner: T::AccountId,
-		) -> DispatchResult {
-			let _who = ensure_root(origin)?;
-
-			Ok(())
-		}
-
-		/// TODO Use set_owner from NFT pallet
-		#[pallet::weight(100000)]
-		pub fn set_owner(
-			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			new_owner: T::AccountId,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			Ok(())
-		}
-
-		/// TODO Can't use NFT implementation because issuance is set per token
-		#[pallet::weight(100000)]
-		pub fn set_max_issuance(
-			origin: OriginFor<T>,
-			token_id: TokenId,
-			max_issuance: TokenCount,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			Ok(())
-		}
-
-		/// TODO Use base_uri from NFT pallet
-		#[pallet::weight(100000)]
-		pub fn set_base_uri(
-			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			base_uri: Vec<u8>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			Ok(())
-		}
-
 		/// Create a new collection
 		/// Additional tokens can be minted via `mint_additional`
 		///
@@ -286,7 +232,6 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 			metadata_scheme: MetadataScheme,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
-			cross_chain_compatibility: CrossChainCompatibility,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -330,7 +275,7 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
+			// ensure!(serial_numbers.length() == quantities.length(), Error::<T>::InvalidMint);
 			Ok(())
 		}
 
@@ -360,6 +305,54 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
 			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			Ok(())
+		}
+
+		#[pallet::weight(100000)]
+		/// TODO Use claim_unowned_collection from NFT pallet
+		pub fn claim_unowned_collection(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			let _who = ensure_root(origin)?;
+
+			Ok(())
+		}
+
+		/// TODO Can use set_owner from NFT pallet, but may be simpler to re-write here
+		#[pallet::weight(100000)]
+		pub fn set_owner(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			Ok(())
+		}
+
+		/// TODO Can't use NFT implementation because issuance is set per token
+		#[pallet::weight(100000)]
+		pub fn set_max_issuance(
+			origin: OriginFor<T>,
+			token_id: TokenId,
+			max_issuance: TokenCount,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			Ok(())
+		}
+
+		/// TODO Use base_uri from NFT pallet
+		#[pallet::weight(100000)]
+		pub fn set_base_uri(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			base_uri: Vec<u8>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 

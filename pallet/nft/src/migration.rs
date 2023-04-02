@@ -2,7 +2,7 @@
 pub mod v3 {
 	use crate::{
 		CollectionInformation, CollectionNameType, Config, CrossChainCompatibility, OriginChain,
-		Pallet, RoyaltiesSchedule, TokenCount, TokenOwnership,
+		Pallet, RoyaltiesSchedule, TokenOwnership,
 	};
 	use codec::{Decode, Encode};
 	use frame_support::{
@@ -12,7 +12,7 @@ pub mod v3 {
 		BoundedVec, Twox64Concat,
 	};
 	use scale_info::TypeInfo;
-	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
+	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
 
 	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;

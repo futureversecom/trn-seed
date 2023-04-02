@@ -381,6 +381,25 @@ impl pallet_nft::Config for Runtime {
 }
 
 parameter_types! {
+	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
+	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
+	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
+	pub const MaxSerialsPerMint: u32 = 1_000;
+}
+impl pallet_sft::Config for Runtime {
+	type Event = Event;
+	type MultiCurrency = AssetsExt;
+	type OnTransferSubscription = TokenApprovals;
+	type OnNewAssetSubscription = OnNewAssetSubscription;
+	type PalletId = SftPalletId;
+	type ParachainId = WorldId;
+	type WeightInfo = ();
+	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
+	type MaxSerialsPerMint = MaxSerialsPerMint;
+	type MaxOwnersPerSftToken = MaxOwnersPerSftCollection;
+}
+
+parameter_types! {
 	pub const MaxTokensPerXls20Mint: u32 = 1000;
 }
 impl pallet_xls20::Config for Runtime {
@@ -1049,6 +1068,7 @@ construct_runtime! {
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 15,
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>} = 16,
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>} = 17,
+		Sft: pallet_sft::{Pallet, Call, Storage, Event<T>} = 43,
 		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
