@@ -331,3 +331,7 @@ pub trait Xls20MintRequest {
 		metadata_scheme: MetadataScheme,
 	) -> DispatchResult;
 }
+
+pub trait AccountProxy<AccountId> {
+	fn primary_proxy(who: &AccountId) -> Option<AccountId>;
+}

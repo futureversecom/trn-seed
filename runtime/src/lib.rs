@@ -930,12 +930,12 @@ impl pallet_evm::Config for Runtime {
 	type AddressMapping = AddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<XrpCurrency>;
 	type Event = Event;
-	type Runner = FeePreferencesRunner<Self, Self>;
+	type Runner = FeePreferencesRunner<Self, Self, Futurepass>;
 	type PrecompilesType = FutureversePrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
-	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>;
+	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>; // @note debug proxy fee payment maybe here
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	// internal EVM config
 	fn config() -> &'static EvmConfig {
@@ -1177,8 +1177,6 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-
-	impls::CheckProxy::<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -1670,7 +1668,7 @@ fn transaction_asset_check(
 		};
 
 		let (payment_asset_id, max_payment, _target, _input) =
-			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
+			FeePreferencesRunner::<Runtime, Runtime, Futurepass>::decode_input(input)?;
 		// ensure user owns max payment amount
 		let user_asset_balance = <pallet_assets_ext::Pallet<Runtime> as Inspect<
 			<Runtime as frame_system::Config>::AccountId,
@@ -1684,7 +1682,7 @@ fn transaction_asset_check(
 			TransactionValidityError::Invalid(InvalidTransaction::Payment)
 		);
 		let FeePreferencesData { path, total_fee_scaled } =
-			get_fee_preferences_data::<Runtime, Runtime>(
+			get_fee_preferences_data::<Runtime, Runtime, Futurepass>(
 				gas_limit.as_u64(),
 				max_fee_per_gas,
 				payment_asset_id,
