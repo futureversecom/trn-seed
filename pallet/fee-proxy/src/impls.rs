@@ -24,7 +24,8 @@ where
 		+ pallet_transaction_payment::Config
 		+ pallet_dex::Config
 		+ pallet_evm::Config
-		+ pallet_assets_ext::Config,
+		+ pallet_assets_ext::Config
+		+ pallet_futurepass::Config,
 	<T as frame_system::Config>::Call: IsSubType<crate::Call<T>>,
 	<T as Config>::Call: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
@@ -59,7 +60,7 @@ where
 				call.is_sub_type()
 			{
 				if let Some(fee_preferences_data) =
-					get_fee_preferences_data::<T, <T as Config>::ErcIdConversion>(
+					get_fee_preferences_data::<T, <T as Config>::ErcIdConversion, pallet_futurepass::Pallet<T>>(
 						*gas_limit,
 						Some(*max_fee_per_gas),
 						*payment_asset,
