@@ -512,12 +512,8 @@ pub(crate) mod test {
 	use sc_network::NetworkService;
 	use sc_network_test::{PeersFullClient, TestNetFactory};
 	use sc_utils::notification::NotificationStream;
-	use seed_primitives::ethy::{
-		crypto::{AuthorityId, AuthorityPair},
-		EthyChainId, ValidatorSet,
-	};
+	use seed_primitives::ethy::{crypto::AuthorityId, EthyChainId, ValidatorSet};
 	use sp_api::HeaderT;
-	use sp_core::Pair;
 	use substrate_test_runtime_client::{
 		runtime::{Block, Digest, DigestItem, Header, H256},
 		Backend,

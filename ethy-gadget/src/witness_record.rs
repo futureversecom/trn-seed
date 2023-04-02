@@ -304,17 +304,11 @@ pub(crate) mod test {
 	use crate::types::data_to_digest;
 
 	use super::{compact_sequence, Signature, WitnessError, WitnessRecord, WitnessStatus};
-	use crate::{
-		keystore::EthyKeystore,
-		testing::{keystore, Keyring},
-		tests::create_ethy_keystore,
-	};
+	use crate::{keystore::EthyKeystore, testing::Keyring, tests::create_ethy_keystore};
 	use seed_primitives::ethy::{
-		crypto::{AuthorityId, AuthorityPair},
 		AuthorityIndex, EthyChainId, EthyEcdsaToPublicKey, EventProofId, ValidatorSet, Witness,
 	};
-	use sp_application_crypto::Pair;
-	use sp_runtime::traits::{AppVerify, Convert};
+	use sp_runtime::traits::Convert;
 
 	fn dev_signers() -> Vec<Keyring> {
 		// we return Alice, Bob, Charlie
