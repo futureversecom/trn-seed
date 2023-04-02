@@ -206,9 +206,14 @@ pub struct AddressMapping<AccountId>(PhantomData<AccountId>);
 
 impl<AccountId> AddressMappingT<AccountId> for AddressMapping<AccountId>
 where
-	AccountId: From<H160>,
+	AccountId: From<H160> + From<seed_primitives::AccountId> + EncodeLike<seed_primitives::AccountId>,
 {
 	fn into_account_id(address: H160) -> AccountId {
+		// metamask -> getBalance RPC -> account_basic -> EVM::account_basic -> T::AddressMapping::into_account_id
+		// checked_extrinsic (apply) -> pre_dispatch_self_contained -> validate_transaction_in_block -> EVM::account_basic
+		if let Some(futurepass) = pallet_futurepass::DefaultProxy::<Runtime>::get::<AccountId>(address.into()) {
+			return futurepass.into();
+		}
 		address.into()
 	}
 }
@@ -308,7 +313,6 @@ where
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
 			pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
-			CheckProxy::<Runtime>::new(),
 		);
 		let raw_payload = SignedPayload::new(call, extra)
 			.map_err(|e| {
@@ -585,81 +589,6 @@ impl InstanceFilter<Call> for ProxyType {
 			_ => false,
 		}
 	}
-}
-
-#[derive(
-	Copy,
-	Debug,
-	Clone,
-	Eq,
-	PartialEq,
-	Ord,
-	PartialOrd,
-	Encode,
-	Decode,
-	// RuntimeDebug,
-	MaxEncodedLen,
-	TypeInfo,
-)]
-pub struct CheckProxy<T>(sp_std::marker::PhantomData<T>);
-
-impl <T> CheckProxy<T> {
-	pub fn new() -> Self {
-		Self(sp_std::marker::PhantomData)
-	}
-}
-
-use frame_system::Config;
-impl<T> sp_runtime::traits::SignedExtension for CheckProxy<T> where 
-	T: Config + core::marker::Sync + core::marker::Send + core::fmt::Debug + scale_info::TypeInfo,
-	{
-    const IDENTIFIER: &'static str = "CheckProxy";
-    type AccountId = AccountId;
-    type Call = Call;
-    type AdditionalSigned = ();
-    type Pre = ();
-
-    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-        Ok(())
-    }
-
-		fn pre_dispatch(
-			self,
-			who: &Self::AccountId,
-			call: &Self::Call,
-			info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-			len: usize,
-		) -> Result<Self::Pre, TransactionValidityError> {
-			self.validate(who, call, info, len).map(|_| ())
-		}
-
-    fn validate(
-        &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-				_info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-        _len: usize,
-    ) -> TransactionValidity {
-        if let Some(proxy) = pallet_futurepass::DefaultProxy::<Runtime>::get(who) {
-						let proxy_call = pallet_proxy::Pallet::<Runtime>::proxy(
-							frame_system::RawOrigin::Signed(*who).into(),
-							proxy,
-							Some(ProxyType::Any),
-							Box::new(call.clone()),
-						).map_err(|_e| {
-							// TODO: log this?
-							TransactionValidityError::Invalid(InvalidTransaction::Call)
-						})?;
-            return Ok(ValidTransaction {
-                priority: 0,
-                requires: vec![],
-                provides: vec![],
-                longevity: 0,
-                propagate: true,
-            });
-        }
-        Ok(Default::default())
-    }
 }
 
 #[cfg(test)]

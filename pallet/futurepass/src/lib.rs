@@ -347,3 +347,9 @@ pub mod pallet {
 		}
 	}
 }
+
+impl<T: Config> seed_pallet_common::AccountProxy<T::AccountId> for Pallet<T> {
+	fn primary_proxy(who: &T::AccountId) -> Option<T::AccountId> {
+		<DefaultProxy<T>>::get(who)
+	}
+}
