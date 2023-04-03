@@ -251,17 +251,14 @@ pub mod pallet {
 				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
 			}
 
-			// Creates new serialnumber (based off next_serial_number)
-			let next_serial = existing_collection.next_serial_number;
+			let next_serial_number = existing_collection.next_serial_number;
 
 			existing_collection.next_serial_number =
-				next_serial.checked_add(1).ok_or(Error::<T>::OverFlow)?;
+				next_serial_number.checked_add(1).ok_or(Error::<T>::OverFlow)?;
 
-			let token_owner = if initial_issuance > 0 && token_owner.is_some() {
-				// Checked
-				token_owner.unwrap()
-			} else {
-				who
+			let token_owner = match token_owner {
+				Some(token_owner) if initial_issuance > 0 => token_owner,
+				_ => who,
 			};
 
 			let initial_balance = SftTokenBalance::new(initial_issuance, 0);
@@ -274,10 +271,8 @@ pub mod pallet {
 				owned_tokens: BoundedVec::truncate_from(vec![(token_owner, initial_balance)]),
 			};
 
-			// Check: this may be the wrong type of id
-			TokenInfo::<T>::insert((collection_id, next_serial), new_sft);
+			TokenInfo::<T>::insert((collection_id, next_serial_number), new_sft);
 			SftCollectionInfo::<T>::insert(collection_id, existing_collection);
-
 			Ok(())
 		}
 
