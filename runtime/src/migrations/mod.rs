@@ -44,15 +44,25 @@ pub struct Value;
 impl Value {
 	/// Checks if a value explicitly exist in storage.
 	///
-	/// This is helpful since calling get() or try_get() might return the default value which gives
-	/// no indication if an actual storage is allocated or not.
+	/// This function is helpful for determining whether a storage value has been explicitly set, as
+	/// calling `get()` or `try_get()` might return the default value, giving no indication whether
+	/// the storage value is actually allocated or not.
 	///
-	/// Additional info:
-	/// 	To see if the data is corrupted or not you can call storage_get.
+	/// # Additional info
 	///
-	/// Usage:
-	/// 	assert_eq!(Value::exists::<MyStorage::<Runtime>, _>(), false);
-	/// 	assert_eq!(Value::exists::<my_pallet::MyStorage::<Runtime>, _>(), true);
+	/// To check if the data is corrupted or not, you can call `storage_get()`.
+	///
+	/// # Type Parameters
+	///
+	/// - `Storage`: The storage item to check for existence.
+	/// - `T`: The type of the value stored in `Storage`. Should be set to `_`
+	///
+	/// # Usage
+	///
+	/// ```rust
+	/// assert_eq!(Value::exists::<MyStorage::<Runtime>, _>(), false);
+	/// assert_eq!(Value::exists::<my_pallet::MyStorage::<Runtime>, _>(), true);
+	/// ```
 	#[allow(dead_code)]
 	pub fn exists<Storage, T>() -> bool
 	where
