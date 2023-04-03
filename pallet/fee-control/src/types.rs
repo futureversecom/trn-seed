@@ -27,7 +27,7 @@ impl DefaultValues for () {
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub struct PalletData {
+pub struct FeeConfig {
 	pub evm_base_fee_per_gas: U256,
 	pub weight_multiplier: Perbill,
 	pub length_multiplier: Balance,

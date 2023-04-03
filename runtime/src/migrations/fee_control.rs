@@ -67,7 +67,7 @@ mod v2 {
 		let evm = EvmBaseFeePerGas::<T>::take();
 		let weight = ExtrinsicWeightToFee::<T>::take();
 
-		let value = pallet_fee_control::PalletData {
+		let value = pallet_fee_control::FeeConfig {
 			evm_base_fee_per_gas: evm.unwrap_or_else(|| T::DefaultValues::evm_base_fee_per_gas()),
 			weight_multiplier: weight.unwrap_or_else(|| T::DefaultValues::weight_multiplier()),
 			length_multiplier: T::DefaultValues::length_multiplier(),
@@ -152,7 +152,7 @@ mod v2 {
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				let expected_value = pallet_fee_control::PalletData {
+				let expected_value = pallet_fee_control::FeeConfig {
 					evm_base_fee_per_gas:
 						<Runtime as pallet_fee_control::Config>::DefaultValues::evm_base_fee_per_gas(
 						),
@@ -182,7 +182,7 @@ mod v2 {
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				let expected_value = pallet_fee_control::PalletData {
+				let expected_value = pallet_fee_control::FeeConfig {
 					evm_base_fee_per_gas,
 					weight_multiplier,
 					length_multiplier:

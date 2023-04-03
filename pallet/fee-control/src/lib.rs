@@ -43,8 +43,8 @@ pub mod pallet {
 	}
 
 	#[pallet::type_value]
-	pub fn DefaultPalletData<T: Config>() -> PalletData {
-		PalletData {
+	pub fn DefaultFeeConfig<T: Config>() -> FeeConfig {
+		FeeConfig {
 			evm_base_fee_per_gas: T::DefaultValues::evm_base_fee_per_gas(),
 			weight_multiplier: T::DefaultValues::weight_multiplier(),
 			length_multiplier: T::DefaultValues::length_multiplier(),
@@ -52,7 +52,7 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type Data<T> = StorageValue<_, PalletData, ValueQuery, DefaultPalletData<T>>;
+	pub type Data<T> = StorageValue<_, FeeConfig, ValueQuery, DefaultFeeConfig<T>>;
 
 	#[pallet::event]
 	pub enum Event<T> {}
