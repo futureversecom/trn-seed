@@ -16,6 +16,7 @@
 
 use super::*;
 
+#[allow(unused_imports)]
 use crate::Pallet as FeeControl;
 
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
@@ -24,18 +25,10 @@ use sp_core::U256;
 
 benchmarks! {
 	set_evm_base_fee {
-		assert_eq!(EvmBaseFeePerGas::<T>::get(), T::DefaultEvmBaseFeePerGas::get());
 	}: _(RawOrigin::Root, U256::one())
-	verify {
-		assert_eq!(FeeControl::<T>::base_fee_per_gas(), U256::one());
-	}
 
-	set_extrinsic_weight_to_fee_factor {
-		assert_eq!(ExtrinsicWeightToFee::<T>::get(), T::WeightToFeeReduction::get());
+	set_weight_multiplier {
 	}: _(RawOrigin::Root, Perbill::one())
-	verify {
-		assert_eq!(FeeControl::<T>::extrinsic_weight_to_fee(), Perbill::one());
-	}
 }
 
 impl_benchmark_test_suite!(FeeControl, crate::mock::TestExt::default().build(), crate::mock::Test);

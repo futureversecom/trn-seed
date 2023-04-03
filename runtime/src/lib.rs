@@ -104,28 +104,12 @@ use precompiles::FutureversePrecompiles;
 mod staking;
 use staking::OnChainAccuracy;
 
+mod migrations;
 mod weights;
 
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
-
-mod custom_migration {
-	use super::*;
-	use frame_support::{
-		traits::{OnRuntimeUpgrade, StorageVersion},
-		weights::Weight,
-	};
-
-	pub struct Upgrade;
-	impl OnRuntimeUpgrade for Upgrade {
-		fn on_runtime_upgrade() -> Weight {
-			log::info!(target: "Xls20", "Xls20 Pallet set to onchain version 0");
-			StorageVersion::new(0).put::<Xls20>();
-			<Runtime as frame_system::Config>::DbWeight::get().writes(1)
-		}
-	}
-}
 
 #[cfg(test)]
 mod tests;
@@ -283,15 +267,32 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
+}
+
+pub struct FeeControlWeightToFee;
+impl frame_support::weights::WeightToFee for FeeControlWeightToFee {
+	type Balance = Balance;
+
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		FeeControl::weight_to_fee(weight)
+	}
+}
+
+pub struct FeeControlLengthToFee;
+impl frame_support::weights::WeightToFee for FeeControlLengthToFee {
+	type Balance = Balance;
+
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		FeeControl::length_to_fee(weight)
+	}
 }
 
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
-	type WeightToFee = FeeControl;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type WeightToFee = FeeControlWeightToFee;
+	type LengthToFee = FeeControlLengthToFee;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Runtime>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
@@ -1007,18 +1008,26 @@ impl pallet_nft_peg::Config for Runtime {
 	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
 }
 
-parameter_types! {
-	/// Floor network base fee per gas
-	/// 0.000015 XRP per gas, 15000 GWEI
-	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
-	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
+pub struct FeeControlDefaultValues;
+impl pallet_fee_control::DefaultValues for FeeControlDefaultValues {
+	fn evm_base_fee_per_gas() -> U256 {
+		// Floor network base fee per gas
+		// 0.000015 XRP per gas, 15000 GWEI
+		U256::from(15_000_000_000_000u128)
+	}
+	fn weight_multiplier() -> Perbill {
+		Perbill::from_parts(125)
+	}
+
+	fn length_multiplier() -> Balance {
+		Balance::from(2_500u32)
+	}
 }
 
 impl pallet_fee_control::Config for Runtime {
 	type Event = Event;
-	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
-	type WeightToFeeReduction = WeightToFeeReduction;
 	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
+	type DefaultValues = FeeControlDefaultValues;
 }
 
 construct_runtime! {
@@ -1107,7 +1116,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	custom_migration::Upgrade,
+	migrations::AllMigrations,
 >;
 
 impl_runtime_apis! {

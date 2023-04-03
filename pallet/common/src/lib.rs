@@ -19,6 +19,7 @@ use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
 };
 
+pub mod mock;
 pub mod utils;
 
 /// syntactic sugar for logging.

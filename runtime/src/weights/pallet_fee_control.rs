@@ -44,7 +44,7 @@ impl<T: frame_system::Config> pallet_fee_control::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: FeeControl ExtrinsicWeightToFee (r:0 w:1)
-	fn set_extrinsic_weight_to_fee_factor() -> Weight {
+	fn set_weight_multiplier() -> Weight {
 		(2_490_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}

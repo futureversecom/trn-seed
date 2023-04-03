@@ -39,7 +39,7 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_fee_control.
 pub trait WeightInfo {
 	fn set_evm_base_fee() -> Weight;
-	fn set_extrinsic_weight_to_fee_factor() -> Weight;
+	fn set_weight_multiplier() -> Weight;
 }
 
 // For backwards compatibility and tests
@@ -50,7 +50,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: FeeControl ExtrinsicWeightToFee (r:0 w:1)
-	fn set_extrinsic_weight_to_fee_factor() -> Weight {
+	fn set_weight_multiplier() -> Weight {
 		(2_634_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
