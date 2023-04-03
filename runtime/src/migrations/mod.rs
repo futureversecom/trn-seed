@@ -3,12 +3,15 @@ mod fee_control;
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
 	migration::{
-		clear_storage_prefix, get_storage_value, have_storage_value, move_storage_from_pallet,
-		put_storage_value, take_storage_value,
+		clear_storage_prefix, get_storage_value, have_storage_value, move_prefix,
+		move_storage_from_pallet, put_storage_value, storage_key_iter, take_storage_value,
 	},
+	storage::storage_prefix,
 	traits::OnRuntimeUpgrade,
 	weights::Weight,
+	ReversibleStorageHasher,
 };
+use sp_std::vec::Vec;
 
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
@@ -200,12 +203,13 @@ impl Value {
 	///
 	///	let (module, item, new_item) = (b"MyPallet", b"MyStorageName", b"NewStorage");
 	/// Value::unsafe_storage_put(module, item, 100u128);
-	/// assert_eq!(Value::unsafe_rename::<u128>(module, item, new_item), true);
+	/// assert_eq!(Value::unsafe_storage_rename::<u128>(module, item, new_item), true);
 	///
 	/// // Renaming a non-existing storage will return false
-	/// assert_eq!(Value::unsafe_rename::<u128>(module, b"ThisDoesNotExist", new_item), false);
+	/// assert_eq!(Value::unsafe_storage_rename::<u128>(module, b"ThisDoesNotExist", new_item),
+	/// false);
 	#[allow(dead_code)]
-	pub fn unsafe_rename<T>(module: &[u8], old_item: &[u8], new_item: &[u8]) -> bool
+	pub fn unsafe_storage_rename<T>(module: &[u8], old_item: &[u8], new_item: &[u8]) -> bool
 	where
 		T: Decode + Sized + Encode,
 	{
@@ -227,12 +231,12 @@ impl Value {
 	///
 	///	let (storage, pallet, new_pallet) = (b"MyStorageName", b"MyPallet", b"MyNewPallet");
 	/// Value::unsafe_storage_put(pallet, storage, 100u128);
-	/// assert_eq!(Value::unsafe_move(storage, pallet, new_pallet), true);
+	/// assert_eq!(Value::unsafe_storage_move(storage, pallet, new_pallet), true);
 	///
 	/// // moving a non-existing storage will return false
-	/// assert_eq!(Value::unsafe_move(b"RandomStorage", pallet, new_pallet), false)
+	/// assert_eq!(Value::unsafe_storage_move(b"RandomStorage", pallet, new_pallet), false)
 	#[allow(dead_code)]
-	pub fn unsafe_move(
+	pub fn unsafe_storage_move(
 		storage_name: &[u8],
 		old_pallet_name: &[u8],
 		new_pallet_name: &[u8],
@@ -268,6 +272,135 @@ impl Value {
 
 		clear_storage_prefix(module, item, b"", None, None).maybe_cursor.is_none()
 	}
+}
+
+pub struct Map;
+impl Map {
+	#[allow(dead_code)]
+	pub fn unsafe_exists<K, T, H>(module: &[u8], item: &[u8]) -> bool
+	where
+		K: Decode + Sized,
+		T: Decode + Sized,
+		H: ReversibleStorageHasher,
+	{
+		storage_key_iter::<K, T, H>(module, item).count() > 0
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_elem_exists(module: &[u8], item: &[u8], hash: &[u8]) -> bool {
+		have_storage_value(module, item, hash)
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> bool {
+		clear_storage_prefix(module, item, b"", None, None).maybe_cursor.is_none()
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_storage_rename<K, T, H>(module: &[u8], old_item: &[u8], new_item: &[u8]) -> bool
+	where
+		K: Decode + Sized,
+		T: Decode + Sized,
+		H: ReversibleStorageHasher,
+	{
+		if !Self::unsafe_exists::<K, T, H>(module, old_item) {
+			return false
+		}
+
+		let from = storage_prefix(module, old_item);
+		let to = storage_prefix(module, new_item);
+
+		move_prefix(&from, &to);
+		true
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_storage_move<K, T, H>(
+		storage_name: &[u8],
+		old_pallet_name: &[u8],
+		new_pallet_name: &[u8],
+	) -> bool
+	where
+		K: Decode + Sized,
+		T: Decode + Sized,
+		H: ReversibleStorageHasher,
+	{
+		if !Self::unsafe_exists::<K, T, H>(old_pallet_name, storage_name) {
+			return false
+		}
+
+		move_storage_from_pallet(storage_name, old_pallet_name, new_pallet_name);
+		true
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_storage_get<T>(module: &[u8], item: &[u8], hash: &[u8]) -> Option<T>
+	where
+		T: Decode + Sized,
+	{
+		get_storage_value::<T>(module, item, hash)
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_storage_take<T>(module: &[u8], item: &[u8], hash: &[u8]) -> Option<T>
+	where
+		T: Decode + Sized,
+	{
+		take_storage_value::<T>(module, item, hash)
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_keys_get<K, T, H>(module: &[u8], item: &[u8]) -> Vec<K>
+	where
+		K: Decode + Sized,
+		T: Decode + Sized,
+		H: ReversibleStorageHasher,
+	{
+		storage_key_iter::<K, T, H>(module, item).map(|key_value| key_value.0).collect()
+	}
+
+	#[allow(dead_code)]
+	pub fn unsafe_storage_put<T>(module: &[u8], item: &[u8], hash: &[u8], value: T)
+	where
+		T: Encode,
+	{
+		put_storage_value::<T>(module, item, hash, value)
+	}
+}
+
+#[cfg(test)]
+mod map_tests {
+/* 	use super::{tests::new_test_ext, *};
+	use crate::Runtime;
+	use frame_support::{
+		storage::generator::StorageValue as StorageValuePrefix, storage_alias, Hashable,
+		Twox64Concat,
+	}; */
+
+	// TODO Tests to be added in the next PR
+/* 	#[storage_alias]
+	pub type MyStorage<T: pallet_fee_control::Config> =
+		StorageValue<pallet_fee_control::Pallet<T>, u32>;
+
+	#[test]
+	fn abba() {
+		new_test_ext().execute_with(|| {
+			let (module, item, key) = (b"Module", b"Item", 1u32.twox_64_concat());
+
+			assert_eq!(Map::unsafe_exists::<u32, u32, Twox64Concat>(module, item), false);
+			assert_eq!(Map::unsafe_storage_get::<u32>(module, item, &key), None);
+			Map::unsafe_storage_put(module, item, &key, 100u32);
+			assert_eq!(Map::unsafe_exists::<u32, u32, Twox64Concat>(module, item), true);
+			assert_eq!(Map::unsafe_storage_get::<u32>(module, item, &key), Some(100u32));
+			assert_eq!(Map::unsafe_storage_get::<u128>(module, item, &key), None);
+
+			assert_eq!(Map::unsafe_keys_get::<u32, u32, Twox64Concat>(module, item), vec![1u32]);
+
+			let key_2 = 2u32.twox_64_concat();
+			Map::unsafe_storage_put(module, item, &key_2, 2u8);
+			assert_eq!(Map::unsafe_keys_get::<u32, u32, Twox64Concat>(module, item), vec![1u32]);
+		});
+	} */
 }
 
 #[cfg(test)]
@@ -375,40 +508,40 @@ mod value_tests {
 	}
 
 	#[test]
-	fn unsafe_rename() {
+	fn unsafe_storage_rename() {
 		new_test_ext().execute_with(|| {
 			let (module, item, new_item) = (b"Module", b"Item", b"NewItem");
 
 			// Calling rename on non-existing storage should have no effect and return false.
-			assert_eq!(Value::unsafe_rename::<u32>(module, item, new_item), false);
+			assert_eq!(Value::unsafe_storage_rename::<u32>(module, item, new_item), false);
 
 			// Calling rename on existing storage should rename the storage.
 			let value = 200u32;
 			Value::unsafe_storage_put(module, item, value);
-			assert_eq!(Value::unsafe_rename::<u32>(module, item, new_item), true);
+			assert_eq!(Value::unsafe_storage_rename::<u32>(module, item, new_item), true);
 			assert_eq!(Value::unsafe_exists(module, item), false);
 			assert_eq!(Value::unsafe_storage_get::<u32>(module, new_item), Some(value));
 
 			// Calling rename on existing storage with a different data size might return false.
 			assert_eq!(Value::unsafe_clear(module, new_item), true);
 			Value::unsafe_storage_put(module, item, value);
-			assert_eq!(Value::unsafe_rename::<u128>(module, item, new_item), false);
+			assert_eq!(Value::unsafe_storage_rename::<u128>(module, item, new_item), false);
 			assert_eq!(Value::unsafe_exists(module, item), true);
 		});
 	}
 
 	#[test]
-	fn unsafe_move() {
+	fn unsafe_storage_move() {
 		new_test_ext().execute_with(|| {
 			let (storage, pallet, new_pallet) = (b"Item", b"Pallet", b"NewPallet");
 
 			// Calling move on non-existing storage should have no effect and return false.
-			assert_eq!(Value::unsafe_move(storage, pallet, new_pallet), false);
+			assert_eq!(Value::unsafe_storage_move(storage, pallet, new_pallet), false);
 
 			// Calling move on existing storage should rename the storage.
 			let value = 200u32;
 			Value::unsafe_storage_put(pallet, storage, value);
-			assert_eq!(Value::unsafe_move(storage, pallet, new_pallet), true);
+			assert_eq!(Value::unsafe_storage_move(storage, pallet, new_pallet), true);
 			assert_eq!(Value::unsafe_exists(pallet, storage), false);
 			assert_eq!(Value::unsafe_storage_get::<u32>(new_pallet, storage), Some(value));
 		});
