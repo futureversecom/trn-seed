@@ -164,10 +164,8 @@ mod v2 {
 						<Runtime as pallet_fee_control::Config>::DefaultValues::length_multiplier(),
 				};
 
-				assert_eq!(
-					Value::storage_get::<pallet_fee_control::Data::<Runtime>, _>(),
-					Ok(expected_value)
-				);
+				let actual_value = Value::storage_get::<pallet_fee_control::Data<Runtime>, _>();
+				assert_eq!(actual_value, Ok(expected_value));
 			});
 		}
 
@@ -193,10 +191,8 @@ mod v2 {
 						<Runtime as pallet_fee_control::Config>::DefaultValues::length_multiplier(),
 				};
 
-				assert_eq!(
-					Value::storage_get::<pallet_fee_control::Data::<Runtime>, _>(),
-					Ok(expected_value)
-				);
+				let actual_value = Value::storage_get::<pallet_fee_control::Data<Runtime>, _>();
+				assert_eq!(actual_value, Ok(expected_value));
 			});
 		}
 	}
