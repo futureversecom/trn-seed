@@ -58,7 +58,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 		assert_eq!(fee_token_balance, starting_fee_token_asset_balance);
 		assert_ok!(MockPallet::mock_charge_fee(RawOrigin::Signed(account).into()));
 
-		assert_ok!(FeeControl::set_extrinsic_weight_to_fee_factor(
+		assert_ok!(FeeControl::set_weight_multiplier(
 			RawOrigin::Root.into(),
 			Perbill::from_percent(42)
 		));

@@ -27,7 +27,7 @@ benchmarks! {
 	set_evm_base_fee {
 	}: _(RawOrigin::Root, U256::one())
 
-	set_extrinsic_weight_to_fee_factor {
+	set_weight_multiplier {
 	}: _(RawOrigin::Root, Perbill::one())
 }
 

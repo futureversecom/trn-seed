@@ -69,11 +69,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(T::WeightInfo::set_extrinsic_weight_to_fee_factor())]
-		pub fn set_extrinsic_weight_to_fee_factor(
-			origin: OriginFor<T>,
-			value: Perbill,
-		) -> DispatchResult {
+		#[pallet::weight(T::WeightInfo::set_weight_multiplier())]
+		pub fn set_weight_multiplier(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
 			Data::<T>::mutate(|x| {
 				x.weight_multiplier = value;
@@ -100,6 +97,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> fp_evm::FeeCalculator for Pallet<T> {
 	fn min_gas_price() -> (U256, Weight) {
-		(Data::<T>::get().evm_base_fee_per_gas, T::DbWeight::get().reads(1))
+		(Self::base_fee_per_gas(), T::DbWeight::get().reads(1))
 	}
 }

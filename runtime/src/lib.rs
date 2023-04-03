@@ -104,28 +104,12 @@ use precompiles::FutureversePrecompiles;
 mod staking;
 use staking::OnChainAccuracy;
 
+mod migrations;
 mod weights;
 
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
-
-mod custom_migration {
-	use super::*;
-	use frame_support::{
-		traits::{OnRuntimeUpgrade, StorageVersion},
-		weights::Weight,
-	};
-
-	pub struct Upgrade;
-	impl OnRuntimeUpgrade for Upgrade {
-		fn on_runtime_upgrade() -> Weight {
-			log::info!(target: "Xls20", "Xls20 Pallet set to onchain version 0");
-			StorageVersion::new(0).put::<Xls20>();
-			<Runtime as frame_system::Config>::DbWeight::get().writes(1)
-		}
-	}
-}
 
 #[cfg(test)]
 mod tests;
@@ -1132,7 +1116,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	custom_migration::Upgrade,
+	migrations::AllMigrations,
 >;
 
 impl_runtime_apis! {
