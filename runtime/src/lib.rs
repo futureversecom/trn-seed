@@ -360,6 +360,7 @@ impl pallet_assets_ext::Config for Runtime {
 
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
+	pub const CollectionNameStringLimit: u32 = 50;
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const WorldId: seed_primitives::ParachainId = 100;
@@ -376,6 +377,7 @@ impl pallet_nft::Config for Runtime {
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
+	type StringLimit = CollectionNameStringLimit;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 }
@@ -389,10 +391,12 @@ parameter_types! {
 impl pallet_sft::Config for Runtime {
 	type Event = Event;
 	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = SftPalletId;
 	type ParachainId = WorldId;
+	type StringLimit = CollectionNameStringLimit;
 	type WeightInfo = ();
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;
