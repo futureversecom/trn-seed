@@ -7,7 +7,7 @@ use frame_support::{
 use pallet_fee_control::DefaultValues;
 
 #[allow(unused_imports)]
-use super::Value;
+use super::Value as V;
 #[allow(unused_imports)]
 use frame_support::assert_ok;
 
@@ -94,17 +94,15 @@ mod v2 {
 		let onchain = FeeControl::on_chain_storage_version();
 		assert_eq!(onchain, 2);
 
-		assert_eq!(Value::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
-		assert_eq!(Value::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
-		assert_ok!(Value::storage_get::<pallet_fee_control::Data::<Runtime>, _>());
+		assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
+		assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
+		assert_ok!(V::storage_get::<pallet_fee_control::Data::<Runtime>, _>());
 
 		Ok(())
 	}
 
 	#[cfg(test)]
 	mod tests {
-		use frame_support::Hashable;
-
 		use super::*;
 		use crate::migrations::tests::new_test_ext;
 
@@ -130,15 +128,15 @@ mod v2 {
 				// Insert storage
 				EvmBaseFeePerGas::<Runtime>::put(U256::from(10u128));
 				ExtrinsicWeightToFee::<Runtime>::put(Perbill::from_parts(100));
-				assert_eq!(Value::exists::<EvmBaseFeePerGas::<Runtime>, _>(), true);
-				assert_eq!(Value::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), true);
+				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), true);
+				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), true);
 
 				// Action
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				assert_eq!(Value::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
-				assert_eq!(Value::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
+				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
+				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
 			});
 		}
 
@@ -147,8 +145,8 @@ mod v2 {
 			new_test_ext().execute_with(|| {
 				// Preparation
 				StorageVersion::new(1).put::<FeeControl>();
-				assert_eq!(EvmBaseFeePerGas::<Runtime>::exists(), false);
-				assert_eq!(ExtrinsicWeightToFee::<Runtime>::exists(), false);
+				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
+				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
 
 				// Action
 				Upgrade::on_runtime_upgrade();
@@ -164,7 +162,7 @@ mod v2 {
 						<Runtime as pallet_fee_control::Config>::DefaultValues::length_multiplier(),
 				};
 
-				let actual_value = Value::storage_get::<pallet_fee_control::Data<Runtime>, _>();
+				let actual_value = V::storage_get::<pallet_fee_control::Data<Runtime>, _>();
 				assert_eq!(actual_value, Ok(expected_value));
 			});
 		}
@@ -191,7 +189,7 @@ mod v2 {
 						<Runtime as pallet_fee_control::Config>::DefaultValues::length_multiplier(),
 				};
 
-				let actual_value = Value::storage_get::<pallet_fee_control::Data<Runtime>, _>();
+				let actual_value = V::storage_get::<pallet_fee_control::Data<Runtime>, _>();
 				assert_eq!(actual_value, Ok(expected_value));
 			});
 		}

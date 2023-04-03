@@ -94,9 +94,9 @@ impl Value {
 	/// assert_eq!(Value::storage_get::<my_pallet::MyStorage::<Runtime>, _>(), Ok(expected_value));
 	///
 	/// // To verify that the storage is not corrupted without checking the exact value, use
-	/// // assert_ok or assert_err.
+	/// // assert_ok or assert.
 	//	assert_ok!(Value::storage_get::<my_pallet::MyStorage::<Runtime>,_>());
-	/// assert_err!(Value::storage_get::<MyStorage::<Runtime>, _>());
+	/// assert!(Value::storage_get::<MyStorage::<Runtime>, _>().is_err());
 	#[allow(dead_code)]
 	pub fn storage_get<Storage, T>() -> Result<T, ()>
 	where
@@ -187,9 +187,29 @@ impl Value {
 #[cfg(test)]
 mod value_tests {
 	use super::{tests::new_test_ext, *};
+	use crate::Runtime;
+	use frame_support::{
+		storage::generator::StorageValue as StorageValuePrefix, storage_alias, StorageValue,
+	};
+
+	#[storage_alias]
+	pub type MyStorage<T: pallet_fee_control::Config> =
+		StorageValue<pallet_fee_control::Pallet<T>, u32>;
 
 	#[test]
-	fn unsafe_exists_works() {
+	fn exists() {
+		new_test_ext().execute_with(|| {
+			// Calling exists on non-existing storage should have no effect and return false.
+			assert_eq!(Value::exists::<MyStorage::<Runtime>, _>(), false);
+
+			// Calling exists on existing storage should return true.
+			MyStorage::<Runtime>::put(100u32);
+			assert_eq!(Value::exists::<MyStorage::<Runtime>, _>(), true);
+		});
+	}
+
+	#[test]
+	fn unsafe_exists() {
 		new_test_ext().execute_with(|| {
 			let (module, item) = (b"Module", b"Item");
 
@@ -199,6 +219,31 @@ mod value_tests {
 			// Calling exists on existing storage should return true.
 			Value::unsafe_storage_put(module, item, 100u32);
 			assert_eq!(Value::unsafe_exists(module, item), true);
+		});
+	}
+
+	#[test]
+	fn storage_get() {
+		new_test_ext().execute_with(|| {
+			let (module, item, value) = (
+				MyStorage::<Runtime>::module_prefix(),
+				MyStorage::<Runtime>::storage_prefix(),
+				100u32,
+			);
+
+			// Calling get on non-existing storage should have no effect and return None.
+			assert_eq!(Value::exists::<MyStorage::<Runtime>, _>(), false);
+			assert!(Value::storage_get::<MyStorage::<Runtime>, _>().is_err());
+
+			// Calling get on existing storage should return the value.
+			MyStorage::<Runtime>::put(100u32);
+			assert_eq!(Value::storage_get::<MyStorage::<Runtime>, _>(), Ok(value));
+
+			// Calling get on existing storage with wrong type should return None.
+			// Here we will intentionally corrupt the data!
+			Value::unsafe_storage_put(module, item, true);
+			assert_eq!(Value::exists::<MyStorage::<Runtime>, _>(), true);
+			assert!(Value::storage_get::<MyStorage::<Runtime>, _>().is_err());
 		});
 	}
 
@@ -217,13 +262,12 @@ mod value_tests {
 
 			// Calling get on existing storage with wrong type should return None.
 			assert_eq!(Value::unsafe_exists(module, item), true);
-			Value::unsafe_storage_put(module, item, value);
 			assert_eq!(Value::unsafe_storage_get::<u128>(module, item), None);
 		});
 	}
 
 	#[test]
-	fn unsafe_put_works() {
+	fn unsafe_storage_put() {
 		new_test_ext().execute_with(|| {
 			let (module, item) = (b"Module", b"Item");
 
