@@ -2,7 +2,10 @@ mod fee_control;
 
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
-	migration::{get_storage_value, have_storage_value, put_storage_value},
+	migration::{
+		clear_storage_prefix, get_storage_value, have_storage_value, move_storage_from_pallet,
+		put_storage_value, take_storage_value,
+	},
 	traits::OnRuntimeUpgrade,
 	weights::Weight,
 };
@@ -142,7 +145,7 @@ impl Value {
 	///
 	/// # Type Parameters
 	///
-	/// - `T`: The type of the value stored in `Storage`. Should be set to to the correct type
+	/// - `T`: The type of the value stored in storage. Should be set to to the correct type
 	///   otherwise None will be returned.
 	///
 	/// # Usage
@@ -164,17 +167,12 @@ impl Value {
 	///
 	/// # Type Parameters
 	///
-	/// - `T`: The type of the value stored in `Storage`.
+	/// - `T`: The type of the value stored in storage.
 	///
 	/// # Usage
 	///
-	///	// To check for a exact value we can use assert_eq.
-	/// assert_eq!(Value::storage_get::<my_pallet::MyStorage::<Runtime>, _>(), Ok(expected_value));
-	///
-	///	// To verify that the storage is not corrupted without checking the exact value, use
-	/// // assert
-	/// assert!(Value::storage_get::<my_pallet::MyStorage::<Runtime>, _>().is_some());
-	/// assert!(Value::storage_get::<MyStorage::<Runtime>, _>().is_none());
+	/// let (module, item) = (b"MyPallet", b"MyStorageName");
+	/// Value::unsafe_storage_put(module, item, 100u128);
 	#[allow(dead_code)]
 	pub fn unsafe_storage_put<T>(module: &[u8], item: &[u8], value: T)
 	where
@@ -182,15 +180,101 @@ impl Value {
 	{
 		put_storage_value::<T>(module, item, b"", value)
 	}
+
+	/// Changes the name of an existing storage value.
+	///
+	/// This function is unsafe since the caller is responsible for passing the right module and
+	/// item name.
+	///
+	/// The function return false in two situations:
+	/// - If a value is not explicitly stored in the storage.
+	/// - If a value is stored in the storage, but it is corrupted (different type/size).
+	///
+	///
+	/// # Type Parameters
+	///
+	/// - `T`: The type of the value stored in storage. Should be set to to the correct type
+	///   otherwise corruption can occur.
+	///
+	/// # Usage
+	///
+	///	let (module, item, new_item) = (b"MyPallet", b"MyStorageName", b"NewStorage");
+	/// Value::unsafe_storage_put(module, item, 100u128);
+	/// assert_eq!(Value::unsafe_rename::<u128>(module, item, new_item), true);
+	///
+	/// // Renaming a non-existing storage will return false
+	/// assert_eq!(Value::unsafe_rename::<u128>(module, b"ThisDoesNotExist", new_item), false);
+	#[allow(dead_code)]
+	pub fn unsafe_rename<T>(module: &[u8], old_item: &[u8], new_item: &[u8]) -> bool
+	where
+		T: Decode + Sized + Encode,
+	{
+		let Some(value) = take_storage_value::<T>(module, old_item, b"") else {
+			return false;
+		};
+		put_storage_value(module, new_item, b"", value);
+		true
+	}
+
+	/// Moves a storage value from one pallet to another one.
+	///
+	/// This function is unsafe since the caller is responsible for passing the right pallet and
+	/// storage name.
+	///
+	/// The function return false If the value is not explicitly stored in the storage.
+	///
+	/// # Usage
+	///
+	///	let (storage, pallet, new_pallet) = (b"MyStorageName", b"MyPallet", b"MyNewPallet");
+	/// Value::unsafe_storage_put(pallet, storage, 100u128);
+	/// assert_eq!(Value::unsafe_move(storage, pallet, new_pallet), true);
+	///
+	/// // moving a non-existing storage will return false
+	/// assert_eq!(Value::unsafe_move(b"RandomStorage", pallet, new_pallet), false)
+	#[allow(dead_code)]
+	pub fn unsafe_move(
+		storage_name: &[u8],
+		old_pallet_name: &[u8],
+		new_pallet_name: &[u8],
+	) -> bool {
+		if !Self::unsafe_exists(old_pallet_name, storage_name) {
+			return false
+		}
+
+		move_storage_from_pallet(storage_name, old_pallet_name, new_pallet_name);
+		true
+	}
+
+	/// Kills the storage value
+	///
+	/// This function is unsafe since the caller is responsible for passing the right module and
+	/// item name.
+	///
+	/// The function return false If no value is not explicitly stored in the storage.
+	///
+	/// # Usage
+	///
+	///	/// let (module, item) = (b"MyPallet", b"MyStorageName");
+	/// Value::unsafe_storage_put(module, item, 100u128);
+	/// assert_eq!(Value::unsafe_clear(module, item), true);
+	///
+	/// // killing a non-existing storage will return false
+	/// assert_eq!(Value::unsafe_clear(module, b"DoesNotExist"), false);
+	#[allow(dead_code)]
+	pub fn unsafe_clear(module: &[u8], item: &[u8]) -> bool {
+		if !Self::unsafe_exists(module, item) {
+			return false
+		}
+
+		clear_storage_prefix(module, item, b"", None, None).maybe_cursor.is_none()
+	}
 }
 
 #[cfg(test)]
 mod value_tests {
 	use super::{tests::new_test_ext, *};
 	use crate::Runtime;
-	use frame_support::{
-		storage::generator::StorageValue as StorageValuePrefix, storage_alias, StorageValue,
-	};
+	use frame_support::{storage::generator::StorageValue as StorageValuePrefix, storage_alias};
 
 	#[storage_alias]
 	pub type MyStorage<T: pallet_fee_control::Config> =
@@ -239,7 +323,7 @@ mod value_tests {
 			MyStorage::<Runtime>::put(100u32);
 			assert_eq!(Value::storage_get::<MyStorage::<Runtime>, _>(), Ok(value));
 
-			// Calling get on existing storage with wrong type should return None.
+			// Calling get on existing storage with wrong type might return None.
 			// Here we will intentionally corrupt the data!
 			Value::unsafe_storage_put(module, item, true);
 			assert_eq!(Value::exists::<MyStorage::<Runtime>, _>(), true);
@@ -260,7 +344,7 @@ mod value_tests {
 			Value::unsafe_storage_put(module, item, value);
 			assert_eq!(Value::unsafe_storage_get(module, item), Some(value));
 
-			// Calling get on existing storage with wrong type should return None.
+			// Calling get on existing storage with wrong type might return None.
 			assert_eq!(Value::unsafe_exists(module, item), true);
 			assert_eq!(Value::unsafe_storage_get::<u128>(module, item), None);
 		});
@@ -287,6 +371,62 @@ mod value_tests {
 			let value_3 = 300u128;
 			Value::unsafe_storage_put(module, item, value_3);
 			assert_eq!(Value::unsafe_storage_get(module, item), Some(value_3));
+		});
+	}
+
+	#[test]
+	fn unsafe_rename() {
+		new_test_ext().execute_with(|| {
+			let (module, item, new_item) = (b"Module", b"Item", b"NewItem");
+
+			// Calling rename on non-existing storage should have no effect and return false.
+			assert_eq!(Value::unsafe_rename::<u32>(module, item, new_item), false);
+
+			// Calling rename on existing storage should rename the storage.
+			let value = 200u32;
+			Value::unsafe_storage_put(module, item, value);
+			assert_eq!(Value::unsafe_rename::<u32>(module, item, new_item), true);
+			assert_eq!(Value::unsafe_exists(module, item), false);
+			assert_eq!(Value::unsafe_storage_get::<u32>(module, new_item), Some(value));
+
+			// Calling rename on existing storage with a different data size might return false.
+			assert_eq!(Value::unsafe_clear(module, new_item), true);
+			Value::unsafe_storage_put(module, item, value);
+			assert_eq!(Value::unsafe_rename::<u128>(module, item, new_item), false);
+			assert_eq!(Value::unsafe_exists(module, item), true);
+		});
+	}
+
+	#[test]
+	fn unsafe_move() {
+		new_test_ext().execute_with(|| {
+			let (storage, pallet, new_pallet) = (b"Item", b"Pallet", b"NewPallet");
+
+			// Calling move on non-existing storage should have no effect and return false.
+			assert_eq!(Value::unsafe_move(storage, pallet, new_pallet), false);
+
+			// Calling move on existing storage should rename the storage.
+			let value = 200u32;
+			Value::unsafe_storage_put(pallet, storage, value);
+			assert_eq!(Value::unsafe_move(storage, pallet, new_pallet), true);
+			assert_eq!(Value::unsafe_exists(pallet, storage), false);
+			assert_eq!(Value::unsafe_storage_get::<u32>(new_pallet, storage), Some(value));
+		});
+	}
+
+	#[test]
+	fn unsafe_clear() {
+		new_test_ext().execute_with(|| {
+			let (module, item) = (b"Module", b"Item");
+
+			// Calling clear on non-existing storage should have no effect and return false.
+			assert_eq!(Value::unsafe_clear(module, item), false);
+
+			// Calling clear on existing storage should kill the storage.
+			Value::unsafe_storage_put(module, item, 200u32);
+			assert_eq!(Value::unsafe_exists(module, item), true);
+			assert_eq!(Value::unsafe_clear(module, item), true);
+			assert_eq!(Value::unsafe_exists(module, item), false);
 		});
 	}
 }
