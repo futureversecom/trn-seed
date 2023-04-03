@@ -172,6 +172,8 @@ pub mod pallet {
 		AccountAlreadyRegistered,
 		/// Account is not futurepass delegate
 		DelegateNotRegistered,
+		/// Account already exists as a delegate
+		DelegateAlreadyExists,
 		/// Account is not futurepass owner
 		NotFuturepassOwner,
 		/// Account does not have permission to call this function
@@ -220,6 +222,11 @@ pub mod pallet {
 			// maybe we can check here if caller/owner has sufficient permissions to add the other
 			// delegate?
 			ensure!(T::Proxy::exists(&futurepass, &owner), Error::<T>::DelegateNotRegistered);
+
+			// delegate must not already exist in proxy mapping
+			// TODO: validate if this is needed, `add_proxy` -> `add_proxy_delegate` may already
+			// perform this check
+			ensure!(!T::Proxy::exists(&futurepass, &delegate), Error::<T>::DelegateAlreadyExists);
 
 			T::Proxy::add_proxy(&futurepass, delegate.clone())?;
 			Self::deposit_event(Event::<T>::FuturepassRegistered { futurepass, delegate });
@@ -346,7 +353,10 @@ impl<T: Config> Pallet<T> {
 		Holders::<T>::set(&account, Some(futurepass.clone()));
 		T::Proxy::add_proxy(&futurepass, account.clone())?;
 
-		Self::deposit_event(Event::<T>::FuturepassCreated { futurepass: futurepass.clone(), delegate: account });
+		Self::deposit_event(Event::<T>::FuturepassCreated {
+			futurepass: futurepass.clone(),
+			delegate: account,
+		});
 		Ok(futurepass)
 	}
 }
