@@ -1,5 +1,3 @@
-use codec::{Decode, Encode, MaxEncodedLen};
-use scale_info::TypeInfo;
 use seed_primitives::Balance;
 use sp_core::U256;
 use sp_runtime::Perbill;
