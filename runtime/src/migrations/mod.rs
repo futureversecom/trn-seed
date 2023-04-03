@@ -370,7 +370,7 @@ impl Map {
 
 #[cfg(test)]
 mod map_tests {
-/* 	use super::{tests::new_test_ext, *};
+	/* 	use super::{tests::new_test_ext, *};
 	use crate::Runtime;
 	use frame_support::{
 		storage::generator::StorageValue as StorageValuePrefix, storage_alias, Hashable,
@@ -378,7 +378,7 @@ mod map_tests {
 	}; */
 
 	// TODO Tests to be added in the next PR
-/* 	#[storage_alias]
+	/* 	#[storage_alias]
 	pub type MyStorage<T: pallet_fee_control::Config> =
 		StorageValue<pallet_fee_control::Pallet<T>, u32>;
 
