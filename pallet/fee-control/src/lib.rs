@@ -21,6 +21,13 @@ pub use weights::WeightInfo;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+pub struct FeeConfig {
+	pub evm_base_fee_per_gas: U256,
+	pub weight_multiplier: Perbill,
+	pub length_multiplier: Balance,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
