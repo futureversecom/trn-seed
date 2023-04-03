@@ -31,7 +31,7 @@ fp-evm = { default-features = false, git = "https://github.com/futureversecom/fr
 pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 
 [dev-dependencies]
-hex-literal = "0.3.4"
+hex-literal = "0.4.0"
 
 [features]
 default = [ "std" ]

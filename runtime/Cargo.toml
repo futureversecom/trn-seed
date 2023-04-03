@@ -55,7 +55,7 @@ fp-self-contained = { default-features = false, git = "https://github.com/future
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 evm = { git = "https://github.com/futureversecom/evm", rev = "01bcbd2205a212c34451d3b4fabc962793b057d3", default-features = false, features = ["with-codec"] }
 
-hex-literal = { version = "0.3.4", default-features = false }
+hex-literal = { version = "0.4.0", default-features = false }
 pallet-base-fee = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 pallet-ethereum = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }

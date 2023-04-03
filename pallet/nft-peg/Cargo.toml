@@ -26,7 +26,7 @@ sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polka
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-hex-literal = { version = "0.3.4" }
+hex-literal = { version = "0.4.0" }
 pallet-assets-ext = { path = "../assets-ext" }
 pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
