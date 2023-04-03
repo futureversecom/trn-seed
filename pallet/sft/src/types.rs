@@ -108,6 +108,9 @@ pub enum TokenBalanceError {
 }
 
 impl<T: Config> SftTokenBalance<T> {
+	pub fn new(free_balance: u128, reserved_balance: u128) -> Self {
+		SftTokenBalance { _phantom: Default::default(), free_balance, reserved_balance }
+	}
 	/// Returns the total balance
 	pub fn total_balance(&self) -> Balance {
 		self.free_balance + self.reserved_balance

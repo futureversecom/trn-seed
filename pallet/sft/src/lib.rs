@@ -14,19 +14,7 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-//! # NFT Module
-//!
-//! Provides the basic creation and management of dynamic NFTs (created at runtime).
-//!
-//! Intended to be used "as is" by dapps and provide basic NFT feature set for smart contracts
-//! to extend.
-//!
-//! *Collection*:
-//! Collection are a grouping of tokens- equivalent to an ERC721 contract
-//!
-//! *Tokens*:
-//!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
-//! number)
+//! # SFT Module
 
 use frame_support::{
 	traits::tokens::fungibles::{Mutate, Transfer},
@@ -181,6 +169,7 @@ pub mod pallet {
 		NotForAuction,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
+		OverFlow,
 		/// The token is not listed for sale
 		TokenNotListed,
 		/// The maximum number of offers on this token has been reached
@@ -252,22 +241,45 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// Ensure who == collection_owner
-			// Ensure max issuance > initial issuance
+
+			let existing_collection =
+				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(who == existing_collection.collection_owner, Error::<T>::NotCollectionOwner);
+
+			// Max issuance is optional, but if we have one, initial issuance must obey it
+			if let Some(max_issuance) = max_issuance {
+				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+			}
+
 			// Creates new serialnumber (based off next_serial_number)
+			let next_serial = existing_collection.next_serial_number;
 
-			// CollectionId
-			// - serialNumber1
-			// - - Account1: Balance
-			// - - Account2: Balance
-			// - serialNumber2
-			// - - Account1: Balance
-			// - - Account3: Balance
+			existing_collection.next_serial_number =
+				next_serial.checked_add(1).ok_or(|_| Error::<T>::OverFlow)?;
 
-			// If initial issuance > 0, mint it to the token_owner
-			// If token owner is not set then we mint it to the origin
+			let token_owner = if initial_issuance > 0 && token_owner.is_some() {
+				// Checked
+				token_owner.unwrap()
+			} else {
+				who
+			};
 
-			// create SftTokenInformation object and store under TokenId
+			// let initial_balance =
+			// 	SftTokenBalance { free_balance: initial_issuance, reserved_balance: 0 };
+
+			let initial_balance = SftTokenBalance::new(initial_issuance, 0);
+
+			let new_sft = SftTokenInformation {
+				token_owner,
+				name: token_name,
+				max_issuance,
+				token_issuance: initial_issuance,
+				owned_tokens: BoundedVec::truncate_from(vec![(token_owner, initial_balance)]),
+			};
+
+			// Check: this may be the wrong type of id
+			TokenInfo::<T>::insert((collection_id, next_serial), new_sft);
+			SftCollectionInfo::<T>::insert(collection_id, existing_collection);
 
 			Ok(())
 		}
