@@ -13,7 +13,7 @@ mod mock;
 #[cfg(test)]
 mod test;
 pub mod types;
-use types::*;
+pub use types::*;
 
 mod weights;
 pub use weights::WeightInfo;
@@ -46,7 +46,8 @@ pub mod pallet {
 	pub fn DefaultPalletData<T: Config>() -> PalletData {
 		PalletData {
 			evm_base_fee_per_gas: T::DefaultValues::evm_base_fee_per_gas(),
-			weight_to_fee_reduction: T::DefaultValues::weight_to_fee_reduction(),
+			weight_multiplier: T::DefaultValues::weight_multiplier(),
+			length_multiplier: T::DefaultValues::length_multiplier(),
 		}
 	}
 
@@ -75,7 +76,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 			Data::<T>::mutate(|x| {
-				x.weight_to_fee_reduction = value;
+				x.weight_multiplier = value;
 			});
 
 			Ok(())
@@ -85,12 +86,11 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	pub fn weight_to_fee(weight: &Weight) -> Balance {
-		Data::<T>::get().weight_to_fee_reduction.mul(*weight as Balance)
+		Data::<T>::get().weight_multiplier.mul(*weight as Balance)
 	}
 
-	// Not used right now
-	pub fn length_to_fee(_weight: &Weight) -> Balance {
-		Balance::from(0u32)
+	pub fn length_to_fee(weight: &Weight) -> Balance {
+		Data::<T>::get().length_multiplier.mul(*weight as Balance)
 	}
 
 	pub fn base_fee_per_gas() -> U256 {

@@ -1,9 +1,6 @@
 use crate::mock::*;
 use frame_support::{
-	assert_ok,
-	dispatch::GetDispatchInfo,
-	traits::fungibles::Mutate,
-	weights::{DispatchClass, WeightToFee},
+	assert_ok, dispatch::GetDispatchInfo, traits::fungibles::Mutate, weights::DispatchClass,
 };
 use frame_system::{limits::BlockWeights, RawOrigin};
 use pallet_transaction_payment::ChargeTransactionPayment;
