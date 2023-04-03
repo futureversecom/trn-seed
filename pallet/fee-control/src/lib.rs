@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
-use frame_support::{pallet_prelude::*, weights::WeightToFee};
+use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
 use seed_primitives::Balance;
 use sp_core::U256;
@@ -36,10 +36,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		/// Default values
-		type DefaultValues: DefaultValues;
 		/// Weight Info
 		type WeightInfo: WeightInfo;
+		/// Default values
+		type DefaultValues: DefaultValues;
 	}
 
 	#[pallet::type_value]
@@ -86,6 +86,11 @@ pub mod pallet {
 impl<T: Config> Pallet<T> {
 	pub fn weight_to_fee(weight: &Weight) -> Balance {
 		Data::<T>::get().weight_to_fee_reduction.mul(*weight as Balance)
+	}
+
+	// Not used right now
+	pub fn length_to_fee(_weight: &Weight) -> Balance {
+		Balance::from(0u32)
 	}
 
 	pub fn base_fee_per_gas() -> U256 {

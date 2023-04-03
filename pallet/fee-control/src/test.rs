@@ -35,7 +35,7 @@ fn charges_default_extrinsic_amount() {
 			1,
 		));
 
-		let base_fee = <FeeControl as WeightToFee>::weight_to_fee(
+		let base_fee = FeeControl::weight_to_fee(
 			&BlockWeights::default().get(DispatchClass::Normal).base_extrinsic,
 		);
 		let extrinsic_fee = dispatch_info.weight;
@@ -77,7 +77,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 			1,
 		));
 
-		let base_fee = <FeeControl as WeightToFee>::weight_to_fee(
+		let base_fee = FeeControl::weight_to_fee(
 			&BlockWeights::default().get(DispatchClass::Normal).base_extrinsic,
 		);
 		let extrinsic_fee = dispatch_info.weight;

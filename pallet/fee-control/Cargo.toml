@@ -41,6 +41,7 @@ pallet-transaction-payment = { git = "https://github.com/futureversecom/substrat
 pallet-fee-proxy = { path = "../fee-proxy" }
 pallet-dex = { path = "../dex" }
 pallet-assets-ext = { path = "../assets-ext" }
+seed-pallet-common= { path = "../common" }
 
 [features]
 default = ["std"]

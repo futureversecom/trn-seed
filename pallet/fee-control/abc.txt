@@ -1,0 +1,3427 @@
+#![feature(prelude_import)]
+#[prelude_import]
+use std::prelude::rust_2021::*;
+#[macro_use]
+extern crate std;
+pub use pallet::*;
+use frame_support::pallet_prelude::*;
+use frame_system::pallet_prelude::*;
+use seed_primitives::Balance;
+use sp_core::U256;
+use sp_runtime::Perbill;
+use core::ops::Mul;
+#[cfg(test)]
+mod mock {
+    use crate::{self as fee_control, *};
+    use frame_system::EnsureRoot;
+    use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
+    pub use seed_primitives::types::{AccountId, Balance};
+    use seed_primitives::AssetId;
+    use frame_support::{
+        parameter_types, traits::FindAuthor, weights::WeightToFee, PalletId,
+    };
+    use precompile_utils::{Address, ErcIdConversion};
+    use seed_pallet_common::*;
+    use sp_core::{H160, H256};
+    use sp_runtime::{
+        testing::Header, traits::{BlakeTwo256, IdentityLookup},
+        ConsensusEngineId,
+    };
+    pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
+    type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Self>;
+    type Block = frame_system::mocking::MockBlock<Self>;
+    type NodeBlock = frame_system::mocking::MockBlock<Self>;
+    pub struct BlockHashCount;
+    impl BlockHashCount {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u64 {
+            250
+        }
+    }
+    impl<I: From<u64>> ::frame_support::traits::Get<I> for BlockHashCount {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for BlockHashCount {
+        type Type = u64;
+        fn get() -> u64 {
+            Self::get()
+        }
+    }
+    type BlockNumber = u64;
+    impl frame_system::Config for TestRuntime {
+        type BlockWeights = ();
+        type BlockLength = ();
+        type BaseCallFilter = frame_support::traits::Everything;
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = BlockNumber;
+        type Call = Call;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = AccountId;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type BlockHashCount = BlockHashCount;
+        type Event = Event;
+        type DbWeight = ();
+        type Version = ();
+        type PalletInfo = PalletInfo;
+        type AccountData = pallet_balances::AccountData<Balance>;
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
+        type SystemWeightInfo = ();
+        type SS58Prefix = ();
+        type OnSetCode = ();
+        type MaxConsumers = frame_support::traits::ConstU32<16>;
+    }
+    pub struct MaxReserves;
+    impl MaxReserves {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u32 {
+            50
+        }
+    }
+    impl<I: From<u32>> ::frame_support::traits::Get<I> for MaxReserves {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for MaxReserves {
+        type Type = u32;
+        fn get() -> u32 {
+            Self::get()
+        }
+    }
+    impl pallet_balances::Config for TestRuntime {
+        type Balance = Balance;
+        type Event = Event;
+        type DustRemoval = ();
+        type ExistentialDeposit = ();
+        type AccountStore = System;
+        type MaxLocks = ();
+        type WeightInfo = ();
+        type MaxReserves = MaxReserves;
+        type ReserveIdentifier = [u8; 8];
+    }
+    pub struct MinimumPeriod;
+    impl MinimumPeriod {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u64 {
+            5
+        }
+    }
+    impl<I: From<u64>> ::frame_support::traits::Get<I> for MinimumPeriod {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for MinimumPeriod {
+        type Type = u64;
+        fn get() -> u64 {
+            Self::get()
+        }
+    }
+    impl pallet_timestamp::Config for TestRuntime {
+        type Moment = u64;
+        type OnTimestampSet = ();
+        type MinimumPeriod = MinimumPeriod;
+        type WeightInfo = ();
+    }
+    pub struct AssetDeposit;
+    impl AssetDeposit {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> Balance {
+            1_000_000
+        }
+    }
+    impl<I: From<Balance>> ::frame_support::traits::Get<I> for AssetDeposit {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for AssetDeposit {
+        type Type = Balance;
+        fn get() -> Balance {
+            Self::get()
+        }
+    }
+    pub struct AssetAccountDeposit;
+    impl AssetAccountDeposit {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> Balance {
+            16
+        }
+    }
+    impl<I: From<Balance>> ::frame_support::traits::Get<I> for AssetAccountDeposit {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for AssetAccountDeposit {
+        type Type = Balance;
+        fn get() -> Balance {
+            Self::get()
+        }
+    }
+    pub struct ApprovalDeposit;
+    impl ApprovalDeposit {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> Balance {
+            1
+        }
+    }
+    impl<I: From<Balance>> ::frame_support::traits::Get<I> for ApprovalDeposit {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for ApprovalDeposit {
+        type Type = Balance;
+        fn get() -> Balance {
+            Self::get()
+        }
+    }
+    pub struct AssetsStringLimit;
+    impl AssetsStringLimit {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u32 {
+            50
+        }
+    }
+    impl<I: From<u32>> ::frame_support::traits::Get<I> for AssetsStringLimit {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for AssetsStringLimit {
+        type Type = u32;
+        fn get() -> u32 {
+            Self::get()
+        }
+    }
+    pub struct MetadataDepositBase;
+    impl MetadataDepositBase {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> Balance {
+            1 * 68
+        }
+    }
+    impl<I: From<Balance>> ::frame_support::traits::Get<I> for MetadataDepositBase {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for MetadataDepositBase {
+        type Type = Balance;
+        fn get() -> Balance {
+            Self::get()
+        }
+    }
+    pub struct MetadataDepositPerByte;
+    impl MetadataDepositPerByte {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> Balance {
+            1
+        }
+    }
+    impl<I: From<Balance>> ::frame_support::traits::Get<I> for MetadataDepositPerByte {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for MetadataDepositPerByte {
+        type Type = Balance;
+        fn get() -> Balance {
+            Self::get()
+        }
+    }
+    impl pallet_assets::Config for TestRuntime {
+        type Event = Event;
+        type Balance = Balance;
+        type AssetId = AssetId;
+        type Currency = Balances;
+        type ForceOrigin = EnsureRoot<AccountId>;
+        type AssetDeposit = AssetDeposit;
+        type MetadataDepositBase = MetadataDepositBase;
+        type MetadataDepositPerByte = MetadataDepositPerByte;
+        type ApprovalDeposit = ApprovalDeposit;
+        type StringLimit = AssetsStringLimit;
+        type Freezer = ();
+        type Extra = ();
+        type WeightInfo = ();
+        type AssetAccountDeposit = AssetAccountDeposit;
+    }
+    pub struct NativeAssetId;
+    impl NativeAssetId {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> AssetId {
+            1
+        }
+    }
+    impl<I: From<AssetId>> ::frame_support::traits::Get<I> for NativeAssetId {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for NativeAssetId {
+        type Type = AssetId;
+        fn get() -> AssetId {
+            Self::get()
+        }
+    }
+    pub struct AssetsExtPalletId;
+    impl AssetsExtPalletId {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> PalletId {
+            PalletId(*b"assetext")
+        }
+    }
+    impl<I: From<PalletId>> ::frame_support::traits::Get<I> for AssetsExtPalletId {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for AssetsExtPalletId {
+        type Type = PalletId;
+        fn get() -> PalletId {
+            Self::get()
+        }
+    }
+    pub struct MaxHolds;
+    impl MaxHolds {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u32 {
+            16
+        }
+    }
+    impl<I: From<u32>> ::frame_support::traits::Get<I> for MaxHolds {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for MaxHolds {
+        type Type = u32;
+        fn get() -> u32 {
+            Self::get()
+        }
+    }
+    pub struct TestParachainId;
+    impl TestParachainId {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u32 {
+            100
+        }
+    }
+    impl<I: From<u32>> ::frame_support::traits::Get<I> for TestParachainId {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for TestParachainId {
+        type Type = u32;
+        fn get() -> u32 {
+            Self::get()
+        }
+    }
+    impl pallet_assets_ext::Config for TestRuntime {
+        type Event = Event;
+        type ParachainId = TestParachainId;
+        type MaxHolds = MaxHolds;
+        type NativeAssetId = NativeAssetId;
+        type OnNewAssetSubscription = ();
+        type PalletId = AssetsExtPalletId;
+        type WeightInfo = ();
+    }
+    pub struct FindAuthorTruncated;
+    impl FindAuthor<H160> for FindAuthorTruncated {
+        fn find_author<'a, I>(_digests: I) -> Option<H160>
+        where
+            I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+        {
+            None
+        }
+    }
+    pub struct MockAddressMapping;
+    impl AddressMapping<AccountId> for MockAddressMapping {
+        fn into_account_id(address: H160) -> AccountId {
+            address.into()
+        }
+    }
+    pub struct MockBlockHashMapping<TestRuntime>(PhantomData<TestRuntime>);
+    impl<TestRuntime> BlockHashMapping for MockBlockHashMapping<TestRuntime> {
+        fn block_hash(_number: u32) -> H256 {
+            H256::default()
+        }
+    }
+    impl pallet_evm::Config for TestRuntime {
+        type FeeCalculator = FeeControl;
+        type GasWeightMapping = ();
+        type BlockHashMapping = MockBlockHashMapping<TestRuntime>;
+        type CallOrigin = EnsureAddressNever<AccountId>;
+        type WithdrawOrigin = EnsureAddressNever<AccountId>;
+        type AddressMapping = MockAddressMapping;
+        type Currency = Balances;
+        type Event = Event;
+        type Runner = pallet_evm::runner::stack::Runner<Self>;
+        type PrecompilesType = ();
+        type PrecompilesValue = ();
+        type ChainId = ();
+        type BlockGasLimit = ();
+        type OnChargeTransaction = ();
+        type FindAuthor = FindAuthorTruncated;
+        type HandleTxValidation = ();
+    }
+    pub struct GetExchangeFee;
+    impl GetExchangeFee {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> (u32, u32) {
+            (3, 1000)
+        }
+    }
+    impl<I: From<(u32, u32)>> ::frame_support::traits::Get<I> for GetExchangeFee {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for GetExchangeFee {
+        type Type = (u32, u32);
+        fn get() -> (u32, u32) {
+            Self::get()
+        }
+    }
+    pub struct TradingPathLimit;
+    impl TradingPathLimit {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u32 {
+            3
+        }
+    }
+    impl<I: From<u32>> ::frame_support::traits::Get<I> for TradingPathLimit {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for TradingPathLimit {
+        type Type = u32;
+        fn get() -> u32 {
+            Self::get()
+        }
+    }
+    pub struct DEXPalletId;
+    impl DEXPalletId {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> PalletId {
+            PalletId(*b"mock/dex")
+        }
+    }
+    impl<I: From<PalletId>> ::frame_support::traits::Get<I> for DEXPalletId {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for DEXPalletId {
+        type Type = PalletId;
+        fn get() -> PalletId {
+            Self::get()
+        }
+    }
+    pub struct DEXBurnPalletId;
+    impl DEXBurnPalletId {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> PalletId {
+            PalletId(*b"burnaddr")
+        }
+    }
+    impl<I: From<PalletId>> ::frame_support::traits::Get<I> for DEXBurnPalletId {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for DEXBurnPalletId {
+        type Type = PalletId;
+        fn get() -> PalletId {
+            Self::get()
+        }
+    }
+    pub struct LPTokenName;
+    impl LPTokenName {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> [u8; 10] {
+            *b"Uniswap V2"
+        }
+    }
+    impl<I: From<[u8; 10]>> ::frame_support::traits::Get<I> for LPTokenName {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for LPTokenName {
+        type Type = [u8; 10];
+        fn get() -> [u8; 10] {
+            Self::get()
+        }
+    }
+    pub struct LPTokenSymbol;
+    impl LPTokenSymbol {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> [u8; 6] {
+            *b"UNI-V2"
+        }
+    }
+    impl<I: From<[u8; 6]>> ::frame_support::traits::Get<I> for LPTokenSymbol {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for LPTokenSymbol {
+        type Type = [u8; 6];
+        fn get() -> [u8; 6] {
+            Self::get()
+        }
+    }
+    pub struct LPTokenDecimals;
+    impl LPTokenDecimals {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u8 {
+            6
+        }
+    }
+    impl<I: From<u8>> ::frame_support::traits::Get<I> for LPTokenDecimals {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for LPTokenDecimals {
+        type Type = u8;
+        fn get() -> u8 {
+            Self::get()
+        }
+    }
+    impl pallet_dex::Config for TestRuntime {
+        type Event = Event;
+        type GetExchangeFee = GetExchangeFee;
+        type TradingPathLimit = TradingPathLimit;
+        type DEXPalletId = DEXPalletId;
+        type DEXBurnPalletId = DEXBurnPalletId;
+        type LPTokenName = LPTokenName;
+        type LPTokenSymbol = LPTokenSymbol;
+        type LPTokenDecimals = LPTokenDecimals;
+        type WeightInfo = ();
+        type MultiCurrency = AssetsExt;
+    }
+    pub struct XrpAssetId;
+    impl XrpAssetId {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> AssetId {
+            MOCK_PAYMENT_ASSET_ID
+        }
+    }
+    impl<I: From<AssetId>> ::frame_support::traits::Get<I> for XrpAssetId {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for XrpAssetId {
+        type Type = AssetId;
+        fn get() -> AssetId {
+            Self::get()
+        }
+    }
+    pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Test, XrpAssetId>;
+    impl pallet_fee_proxy::Config for TestRuntime {
+        type Call = Call;
+        type Event = Event;
+        type PalletsOrigin = OriginCaller;
+        type FeeAssetId = XrpAssetId;
+        type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<
+            XrpCurrency,
+            (),
+        >;
+        type ErcIdConversion = Self;
+    }
+    pub struct FeeControlWeightToFee;
+    impl WeightToFee for FeeControlWeightToFee {
+        type Balance = Balance;
+        fn weight_to_fee(weight: &Weight) -> Self::Balance {
+            FeeControl::weight_to_fee(weight)
+        }
+    }
+    pub struct FeeControlLengthToFee;
+    impl WeightToFee for FeeControlLengthToFee {
+        type Balance = Balance;
+        fn weight_to_fee(weight: &Weight) -> Self::Balance {
+            FeeControl::length_to_fee(weight)
+        }
+    }
+    pub struct OperationalFeeMultiplier;
+    impl OperationalFeeMultiplier {
+        /// Returns the value of this parameter type.
+        pub const fn get() -> u8 {
+            1
+        }
+    }
+    impl<I: From<u8>> ::frame_support::traits::Get<I> for OperationalFeeMultiplier {
+        fn get() -> I {
+            I::from(Self::get())
+        }
+    }
+    impl ::frame_support::traits::TypedGet for OperationalFeeMultiplier {
+        type Type = u8;
+        fn get() -> u8 {
+            Self::get()
+        }
+    }
+    impl pallet_transaction_payment::Config for TestRuntime {
+        type OnChargeTransaction = FeeProxy;
+        type Event = Event;
+        type WeightToFee = FeeControlWeightToFee;
+        type LengthToFee = FeeControlLengthToFee;
+        type FeeMultiplierUpdate = ();
+        type OperationalFeeMultiplier = OperationalFeeMultiplier;
+    }
+    impl mock_pallet::pallet::Config for TestRuntime {}
+    impl<RuntimeId> ErcIdConversion<RuntimeId> for TestRuntime
+    where
+        RuntimeId: From<u32> + Into<u32>,
+    {
+        type EvmId = Address;
+        fn evm_id_to_runtime_id(
+            evm_id: Self::EvmId,
+            _precompile_address_prefix: &[u8; 4],
+        ) -> Option<RuntimeId> {
+            if H160::from(evm_id) == H160::from_low_u64_be(16000) {
+                return Some(RuntimeId::from(16000));
+            }
+            None
+        }
+        fn runtime_id_to_evm_id(
+            runtime_id: RuntimeId,
+            _precompile_address_prefix: &[u8; 4],
+        ) -> Self::EvmId {
+            let id: u32 = runtime_id.into();
+            Self::EvmId::from(H160::from_low_u64_be(id as u64))
+        }
+    }
+    impl crate::Config for TestRuntime {
+        type Event = Event;
+        type WeightInfo = ();
+        type DefaultValues = ();
+    }
+    pub mod mock_pallet {
+        /**
+			The module that hosts all the
+			[FRAME](https://docs.substrate.io/v3/runtime/frame)
+			types needed to add this pallet to a
+			runtime.
+			*/
+        pub mod pallet {
+            use frame_support::pallet_prelude::*;
+            use frame_system::pallet_prelude::*;
+            /**
+			The [pallet](https://docs.substrate.io/v3/runtime/frame#pallets) implementing
+			the on-chain logic.
+			*/
+            pub struct Pallet<T>(frame_support::sp_std::marker::PhantomData<(T)>);
+            const _: () = {
+                impl<T> core::clone::Clone for Pallet<T> {
+                    fn clone(&self) -> Self {
+                        Self(core::clone::Clone::clone(&self.0))
+                    }
+                }
+            };
+            const _: () = {
+                impl<T> core::cmp::Eq for Pallet<T> {}
+            };
+            const _: () = {
+                impl<T> core::cmp::PartialEq for Pallet<T> {
+                    fn eq(&self, other: &Self) -> bool {
+                        true && self.0 == other.0
+                    }
+                }
+            };
+            const _: () = {
+                impl<T> core::fmt::Debug for Pallet<T> {
+                    fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+                        fmt.debug_tuple("Pallet").field(&self.0).finish()
+                    }
+                }
+            };
+            /**
+			Configuration trait of this pallet.
+
+			Implement this type for a runtime in order to customize this pallet.
+			*/
+            pub trait Config: frame_system::Config {}
+            /**
+					Can be used to configure the
+					[genesis state](https://docs.substrate.io/v3/runtime/chain-specs#the-genesis-state)
+					of this pallet.
+					*/
+            #[cfg(feature = "std")]
+            #[serde(rename_all = "camelCase")]
+            #[serde(deny_unknown_fields)]
+            #[serde(bound(serialize = ""))]
+            #[serde(bound(deserialize = ""))]
+            #[serde(crate = "frame_support::serde")]
+            pub struct GenesisConfig<T: Config> {
+                _marker: PhantomData<T>,
+            }
+            #[doc(hidden)]
+            #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+            const _: () = {
+                use frame_support::serde as _serde;
+                #[automatically_derived]
+                impl<T: Config> frame_support::serde::Serialize for GenesisConfig<T> {
+                    fn serialize<__S>(
+                        &self,
+                        __serializer: __S,
+                    ) -> frame_support::serde::__private::Result<__S::Ok, __S::Error>
+                    where
+                        __S: frame_support::serde::Serializer,
+                    {
+                        let mut __serde_state = match _serde::Serializer::serialize_struct(
+                            __serializer,
+                            "GenesisConfig",
+                            false as usize + 1,
+                        ) {
+                            _serde::__private::Ok(__val) => __val,
+                            _serde::__private::Err(__err) => {
+                                return _serde::__private::Err(__err);
+                            }
+                        };
+                        match _serde::ser::SerializeStruct::serialize_field(
+                            &mut __serde_state,
+                            "marker",
+                            &self._marker,
+                        ) {
+                            _serde::__private::Ok(__val) => __val,
+                            _serde::__private::Err(__err) => {
+                                return _serde::__private::Err(__err);
+                            }
+                        };
+                        _serde::ser::SerializeStruct::end(__serde_state)
+                    }
+                }
+            };
+            #[doc(hidden)]
+            #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+            const _: () = {
+                use frame_support::serde as _serde;
+                #[automatically_derived]
+                impl<'de, T: Config> frame_support::serde::Deserialize<'de>
+                for GenesisConfig<T> {
+                    fn deserialize<__D>(
+                        __deserializer: __D,
+                    ) -> frame_support::serde::__private::Result<Self, __D::Error>
+                    where
+                        __D: frame_support::serde::Deserializer<'de>,
+                    {
+                        #[allow(non_camel_case_types)]
+                        enum __Field {
+                            __field0,
+                        }
+                        struct __FieldVisitor;
+                        impl<'de> _serde::de::Visitor<'de> for __FieldVisitor {
+                            type Value = __Field;
+                            fn expecting(
+                                &self,
+                                __formatter: &mut _serde::__private::Formatter,
+                            ) -> _serde::__private::fmt::Result {
+                                _serde::__private::Formatter::write_str(
+                                    __formatter,
+                                    "field identifier",
+                                )
+                            }
+                            fn visit_u64<__E>(
+                                self,
+                                __value: u64,
+                            ) -> _serde::__private::Result<Self::Value, __E>
+                            where
+                                __E: _serde::de::Error,
+                            {
+                                match __value {
+                                    0u64 => _serde::__private::Ok(__Field::__field0),
+                                    _ => {
+                                        _serde::__private::Err(
+                                            _serde::de::Error::invalid_value(
+                                                _serde::de::Unexpected::Unsigned(__value),
+                                                &"field index 0 <= i < 1",
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                            fn visit_str<__E>(
+                                self,
+                                __value: &str,
+                            ) -> _serde::__private::Result<Self::Value, __E>
+                            where
+                                __E: _serde::de::Error,
+                            {
+                                match __value {
+                                    "marker" => _serde::__private::Ok(__Field::__field0),
+                                    _ => {
+                                        _serde::__private::Err(
+                                            _serde::de::Error::unknown_field(__value, FIELDS),
+                                        )
+                                    }
+                                }
+                            }
+                            fn visit_bytes<__E>(
+                                self,
+                                __value: &[u8],
+                            ) -> _serde::__private::Result<Self::Value, __E>
+                            where
+                                __E: _serde::de::Error,
+                            {
+                                match __value {
+                                    b"marker" => _serde::__private::Ok(__Field::__field0),
+                                    _ => {
+                                        let __value = &_serde::__private::from_utf8_lossy(__value);
+                                        _serde::__private::Err(
+                                            _serde::de::Error::unknown_field(__value, FIELDS),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        impl<'de> _serde::Deserialize<'de> for __Field {
+                            #[inline]
+                            fn deserialize<__D>(
+                                __deserializer: __D,
+                            ) -> _serde::__private::Result<Self, __D::Error>
+                            where
+                                __D: _serde::Deserializer<'de>,
+                            {
+                                _serde::Deserializer::deserialize_identifier(
+                                    __deserializer,
+                                    __FieldVisitor,
+                                )
+                            }
+                        }
+                        struct __Visitor<'de, T: Config> {
+                            marker: _serde::__private::PhantomData<GenesisConfig<T>>,
+                            lifetime: _serde::__private::PhantomData<&'de ()>,
+                        }
+                        impl<'de, T: Config> _serde::de::Visitor<'de>
+                        for __Visitor<'de, T> {
+                            type Value = GenesisConfig<T>;
+                            fn expecting(
+                                &self,
+                                __formatter: &mut _serde::__private::Formatter,
+                            ) -> _serde::__private::fmt::Result {
+                                _serde::__private::Formatter::write_str(
+                                    __formatter,
+                                    "struct GenesisConfig",
+                                )
+                            }
+                            #[inline]
+                            fn visit_seq<__A>(
+                                self,
+                                mut __seq: __A,
+                            ) -> _serde::__private::Result<Self::Value, __A::Error>
+                            where
+                                __A: _serde::de::SeqAccess<'de>,
+                            {
+                                let __field0 = match match _serde::de::SeqAccess::next_element::<
+                                    PhantomData<T>,
+                                >(&mut __seq) {
+                                    _serde::__private::Ok(__val) => __val,
+                                    _serde::__private::Err(__err) => {
+                                        return _serde::__private::Err(__err);
+                                    }
+                                } {
+                                    _serde::__private::Some(__value) => __value,
+                                    _serde::__private::None => {
+                                        return _serde::__private::Err(
+                                            _serde::de::Error::invalid_length(
+                                                0usize,
+                                                &"struct GenesisConfig with 1 element",
+                                            ),
+                                        );
+                                    }
+                                };
+                                _serde::__private::Ok(GenesisConfig { _marker: __field0 })
+                            }
+                            #[inline]
+                            fn visit_map<__A>(
+                                self,
+                                mut __map: __A,
+                            ) -> _serde::__private::Result<Self::Value, __A::Error>
+                            where
+                                __A: _serde::de::MapAccess<'de>,
+                            {
+                                let mut __field0: _serde::__private::Option<
+                                    PhantomData<T>,
+                                > = _serde::__private::None;
+                                while let _serde::__private::Some(__key)
+                                    = match _serde::de::MapAccess::next_key::<
+                                        __Field,
+                                    >(&mut __map) {
+                                        _serde::__private::Ok(__val) => __val,
+                                        _serde::__private::Err(__err) => {
+                                            return _serde::__private::Err(__err);
+                                        }
+                                    } {
+                                    match __key {
+                                        __Field::__field0 => {
+                                            if _serde::__private::Option::is_some(&__field0) {
+                                                return _serde::__private::Err(
+                                                    <__A::Error as _serde::de::Error>::duplicate_field("marker"),
+                                                );
+                                            }
+                                            __field0 = _serde::__private::Some(
+                                                match _serde::de::MapAccess::next_value::<
+                                                    PhantomData<T>,
+                                                >(&mut __map) {
+                                                    _serde::__private::Ok(__val) => __val,
+                                                    _serde::__private::Err(__err) => {
+                                                        return _serde::__private::Err(__err);
+                                                    }
+                                                },
+                                            );
+                                        }
+                                    }
+                                }
+                                let __field0 = match __field0 {
+                                    _serde::__private::Some(__field0) => __field0,
+                                    _serde::__private::None => {
+                                        match _serde::__private::de::missing_field("marker") {
+                                            _serde::__private::Ok(__val) => __val,
+                                            _serde::__private::Err(__err) => {
+                                                return _serde::__private::Err(__err);
+                                            }
+                                        }
+                                    }
+                                };
+                                _serde::__private::Ok(GenesisConfig { _marker: __field0 })
+                            }
+                        }
+                        const FIELDS: &'static [&'static str] = &["marker"];
+                        _serde::Deserializer::deserialize_struct(
+                            __deserializer,
+                            "GenesisConfig",
+                            FIELDS,
+                            __Visitor {
+                                marker: _serde::__private::PhantomData::<GenesisConfig<T>>,
+                                lifetime: _serde::__private::PhantomData,
+                            },
+                        )
+                    }
+                }
+            };
+            #[cfg(feature = "std")]
+            impl<T: Config> Default for GenesisConfig<T> {
+                fn default() -> Self {
+                    GenesisConfig {
+                        _marker: Default::default(),
+                    }
+                }
+            }
+            #[cfg(feature = "std")]
+            impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+                fn build(&self) {
+                    ::core::panicking::panic("not implemented")
+                }
+            }
+            pub const WEIGHT: Weight = 0;
+            impl<T: Config> Pallet<T> {
+                pub fn mock_charge_fee(_origin: OriginFor<T>) -> DispatchResult {
+                    Ok(())
+                }
+            }
+            impl<T: Config> Pallet<T> {
+                #[doc(hidden)]
+                pub fn pallet_constants_metadata() -> frame_support::sp_std::vec::Vec<
+                    frame_support::metadata::PalletConstantMetadata,
+                > {
+                    ::alloc::vec::Vec::new()
+                }
+            }
+            impl<T: Config> Pallet<T> {
+                #[doc(hidden)]
+                pub fn error_metadata() -> Option<
+                    frame_support::metadata::PalletErrorMetadata,
+                > {
+                    None
+                }
+            }
+            /// Type alias to `Pallet`, to be used by `construct_runtime`.
+            ///
+            /// Generated by `pallet` attribute macro.
+            #[deprecated(note = "use `Pallet` instead")]
+            #[allow(dead_code)]
+            pub type Module<T> = Pallet<T>;
+            impl<T: Config> frame_support::traits::GetStorageVersion for Pallet<T> {
+                fn current_storage_version() -> frame_support::traits::StorageVersion {
+                    frame_support::traits::StorageVersion::default()
+                }
+                fn on_chain_storage_version() -> frame_support::traits::StorageVersion {
+                    frame_support::traits::StorageVersion::get::<Self>()
+                }
+            }
+            impl<T: Config> frame_support::traits::OnGenesis for Pallet<T> {
+                fn on_genesis() {
+                    let storage_version = frame_support::traits::StorageVersion::default();
+                    storage_version.put::<Self>();
+                }
+            }
+            impl<T: Config> frame_support::traits::PalletInfoAccess for Pallet<T> {
+                fn index() -> usize {
+                    <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::index::<
+                        Self,
+                    >()
+                        .expect(
+                            "Pallet is part of the runtime because pallet `Config` trait is \
+						implemented by the runtime",
+                        )
+                }
+                fn name() -> &'static str {
+                    <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::name::<
+                        Self,
+                    >()
+                        .expect(
+                            "Pallet is part of the runtime because pallet `Config` trait is \
+						implemented by the runtime",
+                        )
+                }
+                fn module_name() -> &'static str {
+                    <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::module_name::<
+                        Self,
+                    >()
+                        .expect(
+                            "Pallet is part of the runtime because pallet `Config` trait is \
+						implemented by the runtime",
+                        )
+                }
+                fn crate_version() -> frame_support::traits::CrateVersion {
+                    frame_support::traits::CrateVersion {
+                        major: 1u16,
+                        minor: 0u8,
+                        patch: 0u8,
+                    }
+                }
+            }
+            impl<T: Config> frame_support::traits::PalletsInfoAccess for Pallet<T> {
+                fn count() -> usize {
+                    1
+                }
+                fn accumulate(
+                    acc: &mut frame_support::sp_std::vec::Vec<
+                        frame_support::traits::PalletInfoData,
+                    >,
+                ) {
+                    use frame_support::traits::PalletInfoAccess;
+                    let item = frame_support::traits::PalletInfoData {
+                        index: Self::index(),
+                        name: Self::name(),
+                        module_name: Self::module_name(),
+                        crate_version: Self::crate_version(),
+                    };
+                    acc.push(item);
+                }
+            }
+            impl<T: Config> frame_support::traits::StorageInfoTrait for Pallet<T> {
+                fn storage_info() -> frame_support::sp_std::vec::Vec<
+                    frame_support::traits::StorageInfo,
+                > {
+                    #[allow(unused_mut)]
+                    let mut res = ::alloc::vec::Vec::new();
+                    res
+                }
+            }
+            #[doc(hidden)]
+            pub mod __substrate_call_check {
+                #[doc(hidden)]
+                pub use __is_call_part_defined_0 as is_call_part_defined;
+            }
+            ///Contains one variant per dispatchable that can be called by an extrinsic.
+            #[codec(encode_bound())]
+            #[codec(decode_bound())]
+            #[scale_info(skip_type_params(T), capture_docs = "always")]
+            #[allow(non_camel_case_types)]
+            pub enum Call<T: Config> {
+                #[doc(hidden)]
+                #[codec(skip)]
+                __Ignore(
+                    frame_support::sp_std::marker::PhantomData<(T,)>,
+                    frame_support::Never,
+                ),
+                #[codec(index = 0u8)]
+                mock_charge_fee {},
+            }
+            const _: () = {
+                impl<T: Config> core::fmt::Debug for Call<T> {
+                    fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+                        match *self {
+                            Self::__Ignore(ref _0, ref _1) => {
+                                fmt
+                                    .debug_tuple("Call::__Ignore")
+                                    .field(&_0)
+                                    .field(&_1)
+                                    .finish()
+                            }
+                            Self::mock_charge_fee {} => {
+                                fmt.debug_struct("Call::mock_charge_fee").finish()
+                            }
+                        }
+                    }
+                }
+            };
+            const _: () = {
+                impl<T: Config> core::clone::Clone for Call<T> {
+                    fn clone(&self) -> Self {
+                        match self {
+                            Self::__Ignore(ref _0, ref _1) => {
+                                Self::__Ignore(
+                                    core::clone::Clone::clone(_0),
+                                    core::clone::Clone::clone(_1),
+                                )
+                            }
+                            Self::mock_charge_fee {} => Self::mock_charge_fee {},
+                        }
+                    }
+                }
+            };
+            const _: () = {
+                impl<T: Config> core::cmp::Eq for Call<T> {}
+            };
+            const _: () = {
+                impl<T: Config> core::cmp::PartialEq for Call<T> {
+                    fn eq(&self, other: &Self) -> bool {
+                        match (self, other) {
+                            (
+                                Self::__Ignore(_0, _1),
+                                Self::__Ignore(_0_other, _1_other),
+                            ) => true && _0 == _0_other && _1 == _1_other,
+                            (Self::mock_charge_fee {}, Self::mock_charge_fee {}) => true,
+                            (Self::__Ignore { .. }, Self::mock_charge_fee { .. }) => {
+                                false
+                            }
+                            (Self::mock_charge_fee { .. }, Self::__Ignore { .. }) => {
+                                false
+                            }
+                        }
+                    }
+                }
+            };
+            #[allow(deprecated)]
+            const _: () = {
+                #[allow(non_camel_case_types)]
+                #[automatically_derived]
+                impl<T: Config> ::codec::Encode for Call<T> {
+                    fn encode_to<
+                        __CodecOutputEdqy: ::codec::Output + ?::core::marker::Sized,
+                    >(&self, __codec_dest_edqy: &mut __CodecOutputEdqy) {
+                        match *self {
+                            Call::mock_charge_fee {} => {
+                                __codec_dest_edqy.push_byte(0u8 as ::core::primitive::u8);
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                #[automatically_derived]
+                impl<T: Config> ::codec::EncodeLike for Call<T> {}
+            };
+            #[allow(deprecated)]
+            const _: () = {
+                #[allow(non_camel_case_types)]
+                #[automatically_derived]
+                impl<T: Config> ::codec::Decode for Call<T> {
+                    fn decode<__CodecInputEdqy: ::codec::Input>(
+                        __codec_input_edqy: &mut __CodecInputEdqy,
+                    ) -> ::core::result::Result<Self, ::codec::Error> {
+                        match __codec_input_edqy
+                            .read_byte()
+                            .map_err(|e| {
+                                e
+                                    .chain(
+                                        "Could not decode `Call`, failed to read variant byte",
+                                    )
+                            })?
+                        {
+                            __codec_x_edqy if __codec_x_edqy
+                                == 0u8 as ::core::primitive::u8 => {
+                                ::core::result::Result::Ok(Call::<T>::mock_charge_fee {})
+                            }
+                            _ => {
+                                ::core::result::Result::Err(
+                                    <_ as ::core::convert::Into<
+                                        _,
+                                    >>::into("Could not decode `Call`, variant doesn't exist"),
+                                )
+                            }
+                        }
+                    }
+                }
+            };
+            #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+            const _: () = {
+                impl<T: Config> ::scale_info::TypeInfo for Call<T>
+                where
+                    frame_support::sp_std::marker::PhantomData<
+                        (T,),
+                    >: ::scale_info::TypeInfo + 'static,
+                    T: Config + 'static,
+                {
+                    type Identity = Self;
+                    fn type_info() -> ::scale_info::Type {
+                        ::scale_info::Type::builder()
+                            .path(
+                                ::scale_info::Path::new(
+                                    "Call",
+                                    "pallet_fee_control::mock::mock_pallet::pallet",
+                                ),
+                            )
+                            .type_params(
+                                <[_]>::into_vec(
+                                    #[rustc_box]
+                                    ::alloc::boxed::Box::new([
+                                        ::scale_info::TypeParameter::new(
+                                            "T",
+                                            ::core::option::Option::None,
+                                        ),
+                                    ]),
+                                ),
+                            )
+                            .docs_always(
+                                &[
+                                    "Contains one variant per dispatchable that can be called by an extrinsic.",
+                                ],
+                            )
+                            .variant(
+                                ::scale_info::build::Variants::new()
+                                    .variant(
+                                        "mock_charge_fee",
+                                        |v| {
+                                            v
+                                                .index(0u8 as ::core::primitive::u8)
+                                                .fields(::scale_info::build::Fields::named())
+                                        },
+                                    ),
+                            )
+                    }
+                }
+            };
+            impl<T: Config> Call<T> {
+                ///Create a call with the variant `mock_charge_fee`.
+                pub fn new_call_variant_mock_charge_fee() -> Self {
+                    Self::mock_charge_fee {}
+                }
+            }
+            impl<T: Config> frame_support::dispatch::GetDispatchInfo for Call<T> {
+                fn get_dispatch_info(&self) -> frame_support::dispatch::DispatchInfo {
+                    match *self {
+                        Self::mock_charge_fee {} => {
+                            let __pallet_base_weight = WEIGHT;
+                            let __pallet_weight = <dyn frame_support::dispatch::WeighData<
+                                (),
+                            >>::weigh_data(&__pallet_base_weight, ());
+                            let __pallet_class = <dyn frame_support::dispatch::ClassifyDispatch<
+                                (),
+                            >>::classify_dispatch(&__pallet_base_weight, ());
+                            let __pallet_pays_fee = <dyn frame_support::dispatch::PaysFee<
+                                (),
+                            >>::pays_fee(&__pallet_base_weight, ());
+                            frame_support::dispatch::DispatchInfo {
+                                weight: __pallet_weight,
+                                class: __pallet_class,
+                                pays_fee: __pallet_pays_fee,
+                            }
+                        }
+                        Self::__Ignore(_, _) => {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1(
+                                    &["internal error: entered unreachable code: "],
+                                    &[
+                                        ::core::fmt::ArgumentV1::new_display(
+                                            &::core::fmt::Arguments::new_v1(
+                                                &["__Ignore cannot be used"],
+                                                &[],
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+            impl<T: Config> frame_support::dispatch::GetCallName for Call<T> {
+                fn get_call_name(&self) -> &'static str {
+                    match *self {
+                        Self::mock_charge_fee { .. } => "mock_charge_fee",
+                        Self::__Ignore(_, _) => {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1(
+                                    &["internal error: entered unreachable code: "],
+                                    &[
+                                        ::core::fmt::ArgumentV1::new_display(
+                                            &::core::fmt::Arguments::new_v1(
+                                                &["__PhantomItem cannot be used."],
+                                                &[],
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                            )
+                        }
+                    }
+                }
+                fn get_call_names() -> &'static [&'static str] {
+                    &["mock_charge_fee"]
+                }
+            }
+            impl<T: Config> frame_support::traits::UnfilteredDispatchable for Call<T> {
+                type Origin = frame_system::pallet_prelude::OriginFor<T>;
+                fn dispatch_bypass_filter(
+                    self,
+                    origin: Self::Origin,
+                ) -> frame_support::dispatch::DispatchResultWithPostInfo {
+                    match self {
+                        Self::mock_charge_fee {} => {
+                            let __within_span__ = {
+                                use ::tracing::__macro_support::Callsite as _;
+                                static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                                    static META: ::tracing::Metadata<'static> = {
+                                        ::tracing_core::metadata::Metadata::new(
+                                            "mock_charge_fee",
+                                            "pallet_fee_control::mock::mock_pallet::pallet",
+                                            ::tracing::Level::TRACE,
+                                            Some("pallet/fee-control/src/mock.rs"),
+                                            Some(109u32),
+                                            Some("pallet_fee_control::mock::mock_pallet::pallet"),
+                                            ::tracing_core::field::FieldSet::new(
+                                                &[],
+                                                ::tracing_core::callsite::Identifier(&CALLSITE),
+                                            ),
+                                            ::tracing::metadata::Kind::SPAN,
+                                        )
+                                    };
+                                    ::tracing::callsite::DefaultCallsite::new(&META)
+                                };
+                                let mut interest = ::tracing::subscriber::Interest::never();
+                                if ::tracing::Level::TRACE
+                                    <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                                    && ::tracing::Level::TRACE
+                                        <= ::tracing::level_filters::LevelFilter::current()
+                                    && {
+                                        interest = CALLSITE.interest();
+                                        !interest.is_never()
+                                    }
+                                    && ::tracing::__macro_support::__is_enabled(
+                                        CALLSITE.metadata(),
+                                        interest,
+                                    )
+                                {
+                                    let meta = CALLSITE.metadata();
+                                    ::tracing::Span::new(
+                                        meta,
+                                        &{ meta.fields().value_set(&[]) },
+                                    )
+                                } else {
+                                    let span = ::tracing::__macro_support::__disabled_span(
+                                        CALLSITE.metadata(),
+                                    );
+                                    {};
+                                    span
+                                }
+                            };
+                            let __tracing_guard__ = __within_span__.enter();
+                            frame_support::storage::in_storage_layer(|| {
+                                <Pallet<T>>::mock_charge_fee(origin)
+                                    .map(Into::into)
+                                    .map_err(Into::into)
+                            })
+                        }
+                        Self::__Ignore(_, _) => {
+                            let _ = origin;
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1(
+                                    &["internal error: entered unreachable code: "],
+                                    &[
+                                        ::core::fmt::ArgumentV1::new_display(
+                                            &::core::fmt::Arguments::new_v1(
+                                                &["__PhantomItem cannot be used."],
+                                                &[],
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+            impl<T: Config> frame_support::dispatch::Callable<T> for Pallet<T> {
+                type Call = Call<T>;
+            }
+            impl<T: Config> Pallet<T> {
+                #[doc(hidden)]
+                pub fn call_functions() -> frame_support::metadata::PalletCallMetadata {
+                    frame_support::scale_info::meta_type::<Call<T>>().into()
+                }
+            }
+            pub use __tt_error_token_1 as tt_error_token;
+            #[doc(hidden)]
+            pub mod __substrate_event_check {
+                #[doc(hidden)]
+                pub use __is_event_part_defined_2 as is_event_part_defined;
+            }
+            impl<T: Config> Pallet<T> {
+                #[doc(hidden)]
+                pub fn storage_metadata() -> frame_support::metadata::PalletStorageMetadata {
+                    frame_support::metadata::PalletStorageMetadata {
+                        prefix: <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::name::<
+                            Pallet<T>,
+                        >()
+                            .expect(
+                                "Every active pallet has a name in the runtime; qed",
+                            ),
+                        entries: {
+                            #[allow(unused_mut)]
+                            let mut entries = ::alloc::vec::Vec::new();
+                            entries
+                        },
+                    }
+                }
+            }
+            #[doc(hidden)]
+            pub mod __substrate_inherent_check {
+                #[doc(hidden)]
+                pub use __is_inherent_part_defined_3 as is_inherent_part_defined;
+            }
+            /// Hidden instance generated to be internally used when module is used without
+            /// instance.
+            #[doc(hidden)]
+            pub type __InherentHiddenInstance = ();
+            pub(super) trait Store {}
+            impl<T: Config> Store for Pallet<T> {}
+            impl<
+                T: Config,
+            > frame_support::traits::Hooks<<T as frame_system::Config>::BlockNumber>
+            for Pallet<T> {}
+            impl<
+                T: Config,
+            > frame_support::traits::OnFinalize<<T as frame_system::Config>::BlockNumber>
+            for Pallet<T> {
+                fn on_finalize(n: <T as frame_system::Config>::BlockNumber) {
+                    let __within_span__ = {
+                        use ::tracing::__macro_support::Callsite as _;
+                        static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                            static META: ::tracing::Metadata<'static> = {
+                                ::tracing_core::metadata::Metadata::new(
+                                    "on_finalize",
+                                    "pallet_fee_control::mock::mock_pallet::pallet",
+                                    ::tracing::Level::TRACE,
+                                    Some("pallet/fee-control/src/mock.rs"),
+                                    Some(109u32),
+                                    Some("pallet_fee_control::mock::mock_pallet::pallet"),
+                                    ::tracing_core::field::FieldSet::new(
+                                        &[],
+                                        ::tracing_core::callsite::Identifier(&CALLSITE),
+                                    ),
+                                    ::tracing::metadata::Kind::SPAN,
+                                )
+                            };
+                            ::tracing::callsite::DefaultCallsite::new(&META)
+                        };
+                        let mut interest = ::tracing::subscriber::Interest::never();
+                        if ::tracing::Level::TRACE
+                            <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                            && ::tracing::Level::TRACE
+                                <= ::tracing::level_filters::LevelFilter::current()
+                            && {
+                                interest = CALLSITE.interest();
+                                !interest.is_never()
+                            }
+                            && ::tracing::__macro_support::__is_enabled(
+                                CALLSITE.metadata(),
+                                interest,
+                            )
+                        {
+                            let meta = CALLSITE.metadata();
+                            ::tracing::Span::new(meta, &{ meta.fields().value_set(&[]) })
+                        } else {
+                            let span = ::tracing::__macro_support::__disabled_span(
+                                CALLSITE.metadata(),
+                            );
+                            {};
+                            span
+                        }
+                    };
+                    let __tracing_guard__ = __within_span__.enter();
+                    <Self as frame_support::traits::Hooks<
+                        <T as frame_system::Config>::BlockNumber,
+                    >>::on_finalize(n)
+                }
+            }
+            impl<
+                T: Config,
+            > frame_support::traits::OnIdle<<T as frame_system::Config>::BlockNumber>
+            for Pallet<T> {
+                fn on_idle(
+                    n: <T as frame_system::Config>::BlockNumber,
+                    remaining_weight: frame_support::weights::Weight,
+                ) -> frame_support::weights::Weight {
+                    <Self as frame_support::traits::Hooks<
+                        <T as frame_system::Config>::BlockNumber,
+                    >>::on_idle(n, remaining_weight)
+                }
+            }
+            impl<
+                T: Config,
+            > frame_support::traits::OnInitialize<
+                <T as frame_system::Config>::BlockNumber,
+            > for Pallet<T> {
+                fn on_initialize(
+                    n: <T as frame_system::Config>::BlockNumber,
+                ) -> frame_support::weights::Weight {
+                    let __within_span__ = {
+                        use ::tracing::__macro_support::Callsite as _;
+                        static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                            static META: ::tracing::Metadata<'static> = {
+                                ::tracing_core::metadata::Metadata::new(
+                                    "on_initialize",
+                                    "pallet_fee_control::mock::mock_pallet::pallet",
+                                    ::tracing::Level::TRACE,
+                                    Some("pallet/fee-control/src/mock.rs"),
+                                    Some(109u32),
+                                    Some("pallet_fee_control::mock::mock_pallet::pallet"),
+                                    ::tracing_core::field::FieldSet::new(
+                                        &[],
+                                        ::tracing_core::callsite::Identifier(&CALLSITE),
+                                    ),
+                                    ::tracing::metadata::Kind::SPAN,
+                                )
+                            };
+                            ::tracing::callsite::DefaultCallsite::new(&META)
+                        };
+                        let mut interest = ::tracing::subscriber::Interest::never();
+                        if ::tracing::Level::TRACE
+                            <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                            && ::tracing::Level::TRACE
+                                <= ::tracing::level_filters::LevelFilter::current()
+                            && {
+                                interest = CALLSITE.interest();
+                                !interest.is_never()
+                            }
+                            && ::tracing::__macro_support::__is_enabled(
+                                CALLSITE.metadata(),
+                                interest,
+                            )
+                        {
+                            let meta = CALLSITE.metadata();
+                            ::tracing::Span::new(meta, &{ meta.fields().value_set(&[]) })
+                        } else {
+                            let span = ::tracing::__macro_support::__disabled_span(
+                                CALLSITE.metadata(),
+                            );
+                            {};
+                            span
+                        }
+                    };
+                    let __tracing_guard__ = __within_span__.enter();
+                    <Self as frame_support::traits::Hooks<
+                        <T as frame_system::Config>::BlockNumber,
+                    >>::on_initialize(n)
+                }
+            }
+            impl<T: Config> frame_support::traits::OnRuntimeUpgrade for Pallet<T> {
+                fn on_runtime_upgrade() -> frame_support::weights::Weight {
+                    let __within_span__ = {
+                        use ::tracing::__macro_support::Callsite as _;
+                        static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                            static META: ::tracing::Metadata<'static> = {
+                                ::tracing_core::metadata::Metadata::new(
+                                    "on_runtime_update",
+                                    "pallet_fee_control::mock::mock_pallet::pallet",
+                                    ::tracing::Level::TRACE,
+                                    Some("pallet/fee-control/src/mock.rs"),
+                                    Some(109u32),
+                                    Some("pallet_fee_control::mock::mock_pallet::pallet"),
+                                    ::tracing_core::field::FieldSet::new(
+                                        &[],
+                                        ::tracing_core::callsite::Identifier(&CALLSITE),
+                                    ),
+                                    ::tracing::metadata::Kind::SPAN,
+                                )
+                            };
+                            ::tracing::callsite::DefaultCallsite::new(&META)
+                        };
+                        let mut interest = ::tracing::subscriber::Interest::never();
+                        if ::tracing::Level::TRACE
+                            <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                            && ::tracing::Level::TRACE
+                                <= ::tracing::level_filters::LevelFilter::current()
+                            && {
+                                interest = CALLSITE.interest();
+                                !interest.is_never()
+                            }
+                            && ::tracing::__macro_support::__is_enabled(
+                                CALLSITE.metadata(),
+                                interest,
+                            )
+                        {
+                            let meta = CALLSITE.metadata();
+                            ::tracing::Span::new(meta, &{ meta.fields().value_set(&[]) })
+                        } else {
+                            let span = ::tracing::__macro_support::__disabled_span(
+                                CALLSITE.metadata(),
+                            );
+                            {};
+                            span
+                        }
+                    };
+                    let __tracing_guard__ = __within_span__.enter();
+                    let pallet_name = <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::name::<
+                        Self,
+                    >()
+                        .unwrap_or("<unknown pallet name>");
+                    {
+                        let lvl = ::log::Level::Info;
+                        if lvl <= ::log::STATIC_MAX_LEVEL && lvl <= ::log::max_level() {
+                            ::log::__private_api_log(
+                                ::core::fmt::Arguments::new_v1(
+                                    &["\u{2705} no migration for "],
+                                    &[::core::fmt::ArgumentV1::new_display(&pallet_name)],
+                                ),
+                                lvl,
+                                &(
+                                    frame_support::LOG_TARGET,
+                                    "pallet_fee_control::mock::mock_pallet::pallet",
+                                    "pallet/fee-control/src/mock.rs",
+                                    109u32,
+                                ),
+                                ::log::__private_api::Option::None,
+                            );
+                        }
+                    };
+                    <Self as frame_support::traits::Hooks<
+                        <T as frame_system::Config>::BlockNumber,
+                    >>::on_runtime_upgrade()
+                }
+            }
+            impl<
+                T: Config,
+            > frame_support::traits::OffchainWorker<
+                <T as frame_system::Config>::BlockNumber,
+            > for Pallet<T> {
+                fn offchain_worker(n: <T as frame_system::Config>::BlockNumber) {
+                    <Self as frame_support::traits::Hooks<
+                        <T as frame_system::Config>::BlockNumber,
+                    >>::offchain_worker(n)
+                }
+            }
+            impl<T: Config> frame_support::traits::IntegrityTest for Pallet<T> {
+                fn integrity_test() {
+                    <Self as frame_support::traits::Hooks<
+                        <T as frame_system::Config>::BlockNumber,
+                    >>::integrity_test()
+                }
+            }
+            #[cfg(feature = "std")]
+            impl<T: Config> frame_support::sp_runtime::BuildModuleGenesisStorage<T, ()>
+            for GenesisConfig<T> {
+                fn build_module_genesis_storage(
+                    &self,
+                    storage: &mut frame_support::sp_runtime::Storage,
+                ) -> std::result::Result<(), std::string::String> {
+                    frame_support::BasicExternalities::execute_with_storage(
+                        storage,
+                        || {
+                            <Self as frame_support::traits::GenesisBuild<
+                                T,
+                            >>::build(self);
+                            Ok(())
+                        },
+                    )
+                }
+            }
+            #[doc(hidden)]
+            pub mod __substrate_genesis_config_check {
+                #[doc(hidden)]
+                pub use __is_genesis_config_defined_4 as is_genesis_config_defined;
+                #[doc(hidden)]
+                pub use __is_std_macro_defined_for_genesis_4 as is_std_enabled_for_genesis;
+            }
+            #[doc(hidden)]
+            pub mod __substrate_origin_check {
+                #[doc(hidden)]
+                pub use __is_origin_part_defined_5 as is_origin_part_defined;
+            }
+            #[doc(hidden)]
+            pub mod __substrate_validate_unsigned_check {
+                #[doc(hidden)]
+                pub use __is_validate_unsigned_part_defined_6 as is_validate_unsigned_part_defined;
+            }
+            pub use __tt_default_parts_7 as tt_default_parts;
+        }
+    }
+    pub struct TestExt;
+    #[automatically_derived]
+    impl ::core::default::Default for TestExt {
+        #[inline]
+        fn default() -> TestExt {
+            TestExt {}
+        }
+    }
+    impl TestExt {
+        pub fn build(self) -> sp_io::TestExternalities {
+            let storage = frame_system::GenesisConfig::default()
+                .build_storage::<TestRuntime>()
+                .unwrap();
+            let mut ext: sp_io::TestExternalities = storage.into();
+            ext.execute_with(|| System::initialize(
+                &1,
+                &[0u8; 32].into(),
+                &Default::default(),
+            ));
+            ext
+        }
+    }
+}
+#[cfg(test)]
+mod test {
+    use crate::mock::*;
+    use frame_support::{
+        assert_ok, dispatch::GetDispatchInfo, traits::fungibles::Mutate,
+        weights::{DispatchClass, WeightToFee},
+    };
+    use frame_system::{limits::BlockWeights, RawOrigin};
+    use pallet_transaction_payment::ChargeTransactionPayment;
+    use seed_pallet_common::CreateExt;
+    use sp_runtime::{traits::SignedExtension, Perbill};
+    extern crate test;
+    #[cfg(test)]
+    #[rustc_test_marker = "test::charges_default_extrinsic_amount"]
+    pub const charges_default_extrinsic_amount: test::TestDescAndFn = test::TestDescAndFn {
+        desc: test::TestDesc {
+            name: test::StaticTestName("test::charges_default_extrinsic_amount"),
+            ignore: false,
+            ignore_message: ::core::option::Option::None,
+            compile_fail: false,
+            no_run: false,
+            should_panic: test::ShouldPanic::No,
+            test_type: test::TestType::UnitTest,
+        },
+        testfn: test::StaticTestFn(|| test::assert_test_result(
+            charges_default_extrinsic_amount(),
+        )),
+    };
+    fn charges_default_extrinsic_amount() {
+        TestExt::default()
+            .build()
+            .execute_with(|| {
+                let account = AccountId::default();
+                let is = AssetsExt::create(&account.into(), None);
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let starting_fee_token_asset_balance = 4200000069;
+                let is = AssetsExt::mint_into(
+                    100,
+                    &account,
+                    starting_fee_token_asset_balance,
+                );
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let fee_token_balance = Assets::balance(100, account);
+                match (&fee_token_balance, &starting_fee_token_asset_balance) {
+                    (left_val, right_val) => {
+                        if !(*left_val == *right_val) {
+                            let kind = ::core::panicking::AssertKind::Eq;
+                            ::core::panicking::assert_failed(
+                                kind,
+                                &*left_val,
+                                &*right_val,
+                                ::core::option::Option::None,
+                            );
+                        }
+                    }
+                };
+                let is = MockPallet::mock_charge_fee(RawOrigin::Signed(account).into());
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let call = mock_pallet::pallet::Call::mock_charge_fee {
+                };
+                let dispatch_info = call.get_dispatch_info();
+                let is = <ChargeTransactionPayment<
+                    TestRuntime,
+                > as SignedExtension>::pre_dispatch(
+                    ChargeTransactionPayment::from(0),
+                    &account,
+                    &call.into(),
+                    &dispatch_info,
+                    1,
+                );
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let base_fee = <FeeControl as WeightToFee>::weight_to_fee(
+                    &BlockWeights::default().get(DispatchClass::Normal).base_extrinsic,
+                );
+                let extrinsic_fee = dispatch_info.weight;
+                match (
+                    &Assets::balance(100, account),
+                    &(starting_fee_token_asset_balance - base_fee
+                        - extrinsic_fee as u128),
+                ) {
+                    (left_val, right_val) => {
+                        if !(*left_val == *right_val) {
+                            let kind = ::core::panicking::AssertKind::Eq;
+                            ::core::panicking::assert_failed(
+                                kind,
+                                &*left_val,
+                                &*right_val,
+                                ::core::option::Option::None,
+                            );
+                        }
+                    }
+                };
+            });
+    }
+    extern crate test;
+    #[cfg(test)]
+    #[rustc_test_marker = "test::charges_extrinsic_fee_based_on_setting"]
+    pub const charges_extrinsic_fee_based_on_setting: test::TestDescAndFn = test::TestDescAndFn {
+        desc: test::TestDesc {
+            name: test::StaticTestName("test::charges_extrinsic_fee_based_on_setting"),
+            ignore: false,
+            ignore_message: ::core::option::Option::None,
+            compile_fail: false,
+            no_run: false,
+            should_panic: test::ShouldPanic::No,
+            test_type: test::TestType::UnitTest,
+        },
+        testfn: test::StaticTestFn(|| test::assert_test_result(
+            charges_extrinsic_fee_based_on_setting(),
+        )),
+    };
+    fn charges_extrinsic_fee_based_on_setting() {
+        TestExt::default()
+            .build()
+            .execute_with(|| {
+                let account = AccountId::default();
+                let is = AssetsExt::create(&account.into(), None);
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let starting_fee_token_asset_balance = 4200000069;
+                let is = AssetsExt::mint_into(
+                    100,
+                    &account,
+                    starting_fee_token_asset_balance,
+                );
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let fee_token_balance = Assets::balance(100, account);
+                match (&fee_token_balance, &starting_fee_token_asset_balance) {
+                    (left_val, right_val) => {
+                        if !(*left_val == *right_val) {
+                            let kind = ::core::panicking::AssertKind::Eq;
+                            ::core::panicking::assert_failed(
+                                kind,
+                                &*left_val,
+                                &*right_val,
+                                ::core::option::Option::None,
+                            );
+                        }
+                    }
+                };
+                let is = MockPallet::mock_charge_fee(RawOrigin::Signed(account).into());
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let is = FeeControl::set_extrinsic_weight_to_fee_factor(
+                    RawOrigin::Root.into(),
+                    Perbill::from_percent(42),
+                );
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let call = mock_pallet::pallet::Call::mock_charge_fee {
+                };
+                let dispatch_info = call.get_dispatch_info();
+                let is = <ChargeTransactionPayment<
+                    TestRuntime,
+                > as SignedExtension>::pre_dispatch(
+                    ChargeTransactionPayment::from(0),
+                    &account,
+                    &call.into(),
+                    &dispatch_info,
+                    1,
+                );
+                match is {
+                    Ok(_) => {}
+                    _ => {
+                        if !false {
+                            ::core::panicking::panic_fmt(
+                                ::core::fmt::Arguments::new_v1_formatted(
+                                    &["Expected Ok(_). Got "],
+                                    &[::core::fmt::ArgumentV1::new_debug(&is)],
+                                    &[
+                                        ::core::fmt::rt::v1::Argument {
+                                            position: 0usize,
+                                            format: ::core::fmt::rt::v1::FormatSpec {
+                                                fill: ' ',
+                                                align: ::core::fmt::rt::v1::Alignment::Unknown,
+                                                flags: 4u32,
+                                                precision: ::core::fmt::rt::v1::Count::Implied,
+                                                width: ::core::fmt::rt::v1::Count::Implied,
+                                            },
+                                        },
+                                    ],
+                                    unsafe { ::core::fmt::UnsafeArg::new() },
+                                ),
+                            )
+                        }
+                    }
+                };
+                let base_fee = <FeeControl as WeightToFee>::weight_to_fee(
+                    &BlockWeights::default().get(DispatchClass::Normal).base_extrinsic,
+                );
+                let extrinsic_fee = dispatch_info.weight;
+                match (
+                    &Assets::balance(100, account),
+                    &(starting_fee_token_asset_balance - base_fee
+                        - extrinsic_fee as u128),
+                ) {
+                    (left_val, right_val) => {
+                        if !(*left_val == *right_val) {
+                            let kind = ::core::panicking::AssertKind::Eq;
+                            ::core::panicking::assert_failed(
+                                kind,
+                                &*left_val,
+                                &*right_val,
+                                ::core::option::Option::None,
+                            );
+                        }
+                    }
+                };
+            });
+    }
+}
+pub mod types {
+    use codec::{Decode, Encode, MaxEncodedLen};
+    use scale_info::TypeInfo;
+    use sp_core::U256;
+    use sp_runtime::Perbill;
+    pub trait DefaultValues {
+        fn evm_base_fee_per_gas() -> U256;
+        fn weight_to_fee_reduction() -> Perbill;
+    }
+    impl DefaultValues for () {
+        fn evm_base_fee_per_gas() -> U256 {
+            U256::from(15_000_000_000_000u128)
+        }
+        fn weight_to_fee_reduction() -> Perbill {
+            Perbill::from_parts(125)
+        }
+    }
+    pub struct PalletData {
+        pub evm_base_fee_per_gas: U256,
+        pub weight_to_fee_reduction: Perbill,
+    }
+    #[allow(deprecated)]
+    const _: () = {
+        #[automatically_derived]
+        impl ::codec::Encode for PalletData {
+            fn encode_to<__CodecOutputEdqy: ::codec::Output + ?::core::marker::Sized>(
+                &self,
+                __codec_dest_edqy: &mut __CodecOutputEdqy,
+            ) {
+                ::codec::Encode::encode_to(
+                    &self.evm_base_fee_per_gas,
+                    __codec_dest_edqy,
+                );
+                ::codec::Encode::encode_to(
+                    &self.weight_to_fee_reduction,
+                    __codec_dest_edqy,
+                );
+            }
+        }
+        #[automatically_derived]
+        impl ::codec::EncodeLike for PalletData {}
+    };
+    #[allow(deprecated)]
+    const _: () = {
+        #[automatically_derived]
+        impl ::codec::Decode for PalletData {
+            fn decode<__CodecInputEdqy: ::codec::Input>(
+                __codec_input_edqy: &mut __CodecInputEdqy,
+            ) -> ::core::result::Result<Self, ::codec::Error> {
+                ::core::result::Result::Ok(PalletData {
+                    evm_base_fee_per_gas: {
+                        let __codec_res_edqy = <U256 as ::codec::Decode>::decode(
+                            __codec_input_edqy,
+                        );
+                        match __codec_res_edqy {
+                            ::core::result::Result::Err(e) => {
+                                return ::core::result::Result::Err(
+                                    e
+                                        .chain(
+                                            "Could not decode `PalletData::evm_base_fee_per_gas`",
+                                        ),
+                                );
+                            }
+                            ::core::result::Result::Ok(__codec_res_edqy) => {
+                                __codec_res_edqy
+                            }
+                        }
+                    },
+                    weight_to_fee_reduction: {
+                        let __codec_res_edqy = <Perbill as ::codec::Decode>::decode(
+                            __codec_input_edqy,
+                        );
+                        match __codec_res_edqy {
+                            ::core::result::Result::Err(e) => {
+                                return ::core::result::Result::Err(
+                                    e
+                                        .chain(
+                                            "Could not decode `PalletData::weight_to_fee_reduction`",
+                                        ),
+                                );
+                            }
+                            ::core::result::Result::Ok(__codec_res_edqy) => {
+                                __codec_res_edqy
+                            }
+                        }
+                    },
+                })
+            }
+        }
+    };
+    #[automatically_derived]
+    impl ::core::fmt::Debug for PalletData {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+            ::core::fmt::Formatter::debug_struct_field2_finish(
+                f,
+                "PalletData",
+                "evm_base_fee_per_gas",
+                &&self.evm_base_fee_per_gas,
+                "weight_to_fee_reduction",
+                &&self.weight_to_fee_reduction,
+            )
+        }
+    }
+    #[automatically_derived]
+    impl ::core::clone::Clone for PalletData {
+        #[inline]
+        fn clone(&self) -> PalletData {
+            PalletData {
+                evm_base_fee_per_gas: ::core::clone::Clone::clone(
+                    &self.evm_base_fee_per_gas,
+                ),
+                weight_to_fee_reduction: ::core::clone::Clone::clone(
+                    &self.weight_to_fee_reduction,
+                ),
+            }
+        }
+    }
+    #[automatically_derived]
+    impl ::core::marker::StructuralPartialEq for PalletData {}
+    #[automatically_derived]
+    impl ::core::cmp::PartialEq for PalletData {
+        #[inline]
+        fn eq(&self, other: &PalletData) -> bool {
+            self.evm_base_fee_per_gas == other.evm_base_fee_per_gas
+                && self.weight_to_fee_reduction == other.weight_to_fee_reduction
+        }
+    }
+    #[automatically_derived]
+    impl ::core::marker::StructuralEq for PalletData {}
+    #[automatically_derived]
+    impl ::core::cmp::Eq for PalletData {
+        #[inline]
+        #[doc(hidden)]
+        #[no_coverage]
+        fn assert_receiver_is_total_eq(&self) -> () {
+            let _: ::core::cmp::AssertParamIsEq<U256>;
+            let _: ::core::cmp::AssertParamIsEq<Perbill>;
+        }
+    }
+    #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+    const _: () = {
+        impl ::scale_info::TypeInfo for PalletData {
+            type Identity = Self;
+            fn type_info() -> ::scale_info::Type {
+                ::scale_info::Type::builder()
+                    .path(
+                        ::scale_info::Path::new(
+                            "PalletData",
+                            "pallet_fee_control::types",
+                        ),
+                    )
+                    .type_params(::alloc::vec::Vec::new())
+                    .composite(
+                        ::scale_info::build::Fields::named()
+                            .field(|f| {
+                                f
+                                    .ty::<U256>()
+                                    .name("evm_base_fee_per_gas")
+                                    .type_name("U256")
+                            })
+                            .field(|f| {
+                                f
+                                    .ty::<Perbill>()
+                                    .name("weight_to_fee_reduction")
+                                    .type_name("Perbill")
+                            }),
+                    )
+            }
+        }
+    };
+    const _: () = {
+        impl ::codec::MaxEncodedLen for PalletData {
+            fn max_encoded_len() -> ::core::primitive::usize {
+                0_usize
+                    .saturating_add(<U256>::max_encoded_len())
+                    .saturating_add(<Perbill>::max_encoded_len())
+            }
+        }
+    };
+}
+use types::*;
+mod weights {
+    //! Autogenerated weights for pallet_fee_control
+    //!
+    //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
+    //! DATE: 2022-12-14, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
+    //! HOSTNAME: `justin-System-Product-Name`, CPU: `12th Gen Intel(R) Core(TM) i9-12900K`
+    //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
+    #![allow(unused_parens)]
+    #![allow(unused_imports)]
+    use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+    use sp_std::marker::PhantomData;
+    /// Weight functions needed for pallet_fee_control.
+    pub trait WeightInfo {
+        fn set_evm_base_fee() -> Weight;
+        fn set_extrinsic_weight_to_fee_factor() -> Weight;
+    }
+    impl WeightInfo for () {
+        fn set_evm_base_fee() -> Weight {
+            (2_696_000 as Weight)
+                .saturating_add(RocksDbWeight::get().writes(1 as Weight))
+        }
+        fn set_extrinsic_weight_to_fee_factor() -> Weight {
+            (2_634_000 as Weight)
+                .saturating_add(RocksDbWeight::get().writes(1 as Weight))
+        }
+    }
+}
+pub use weights::WeightInfo;
+/**
+			The module that hosts all the
+			[FRAME](https://docs.substrate.io/v3/runtime/frame)
+			types needed to add this pallet to a
+			runtime.
+			*/
+pub mod pallet {
+    use super::*;
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+    /**
+			The [pallet](https://docs.substrate.io/v3/runtime/frame#pallets) implementing
+			the on-chain logic.
+			*/
+    pub struct Pallet<T>(frame_support::sp_std::marker::PhantomData<(T)>);
+    const _: () = {
+        impl<T> core::clone::Clone for Pallet<T> {
+            fn clone(&self) -> Self {
+                Self(core::clone::Clone::clone(&self.0))
+            }
+        }
+    };
+    const _: () = {
+        impl<T> core::cmp::Eq for Pallet<T> {}
+    };
+    const _: () = {
+        impl<T> core::cmp::PartialEq for Pallet<T> {
+            fn eq(&self, other: &Self) -> bool {
+                true && self.0 == other.0
+            }
+        }
+    };
+    const _: () = {
+        impl<T> core::fmt::Debug for Pallet<T> {
+            fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+                fmt.debug_tuple("Pallet").field(&self.0).finish()
+            }
+        }
+    };
+    /**
+			Configuration trait of this pallet.
+
+			Implement this type for a runtime in order to customize this pallet.
+			*/
+    pub trait Config: frame_system::Config {
+        /// The overarching event type
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        /// Weight Info
+        type WeightInfo: WeightInfo;
+        /// Default values
+        type DefaultValues: DefaultValues;
+    }
+    pub fn __type_value_for_default_pallet_data<T: Config>() -> PalletData {
+        PalletData {
+            evm_base_fee_per_gas: T::DefaultValues::evm_base_fee_per_gas(),
+            weight_to_fee_reduction: T::DefaultValues::weight_to_fee_reduction(),
+        }
+    }
+    #[allow(type_alias_bounds)]
+    pub type Data<T> = StorageValue<
+        _GeneratedPrefixForStorageData<T>,
+        PalletData,
+        ValueQuery,
+        DefaultPalletData<T>,
+    >;
+    /**
+			The [event](https://docs.substrate.io/v3/runtime/events-and-errors) emitted
+			by this pallet.
+			*/
+    #[scale_info(skip_type_params(T), capture_docs = "always")]
+    pub enum Event<T> {
+        #[doc(hidden)]
+        #[codec(skip)]
+        __Ignore(frame_support::sp_std::marker::PhantomData<(T)>, frame_support::Never),
+    }
+    const _: () = {
+        impl<T> core::clone::Clone for Event<T> {
+            fn clone(&self) -> Self {
+                match self {
+                    Self::__Ignore(ref _0, ref _1) => {
+                        Self::__Ignore(
+                            core::clone::Clone::clone(_0),
+                            core::clone::Clone::clone(_1),
+                        )
+                    }
+                }
+            }
+        }
+    };
+    const _: () = {
+        impl<T> core::cmp::Eq for Event<T> {}
+    };
+    const _: () = {
+        impl<T> core::cmp::PartialEq for Event<T> {
+            fn eq(&self, other: &Self) -> bool {
+                match (self, other) {
+                    (Self::__Ignore(_0, _1), Self::__Ignore(_0_other, _1_other)) => {
+                        true && _0 == _0_other && _1 == _1_other
+                    }
+                }
+            }
+        }
+    };
+    const _: () = {
+        impl<T> core::fmt::Debug for Event<T> {
+            fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+                match *self {
+                    Self::__Ignore(ref _0, ref _1) => {
+                        fmt.debug_tuple("Event::__Ignore").field(&_0).field(&_1).finish()
+                    }
+                }
+            }
+        }
+    };
+    #[allow(deprecated)]
+    const _: () = {
+        #[automatically_derived]
+        impl<T> ::codec::Encode for Event<T> {}
+        #[automatically_derived]
+        impl<T> ::codec::EncodeLike for Event<T> {}
+    };
+    #[allow(deprecated)]
+    const _: () = {
+        #[automatically_derived]
+        impl<T> ::codec::Decode for Event<T> {
+            fn decode<__CodecInputEdqy: ::codec::Input>(
+                __codec_input_edqy: &mut __CodecInputEdqy,
+            ) -> ::core::result::Result<Self, ::codec::Error> {
+                match __codec_input_edqy
+                    .read_byte()
+                    .map_err(|e| {
+                        e.chain("Could not decode `Event`, failed to read variant byte")
+                    })?
+                {
+                    _ => {
+                        ::core::result::Result::Err(
+                            <_ as ::core::convert::Into<
+                                _,
+                            >>::into("Could not decode `Event`, variant doesn't exist"),
+                        )
+                    }
+                }
+            }
+        }
+    };
+    #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+    const _: () = {
+        impl<T> ::scale_info::TypeInfo for Event<T>
+        where
+            frame_support::sp_std::marker::PhantomData<
+                (T),
+            >: ::scale_info::TypeInfo + 'static,
+            T: 'static,
+        {
+            type Identity = Self;
+            fn type_info() -> ::scale_info::Type {
+                ::scale_info::Type::builder()
+                    .path(::scale_info::Path::new("Event", "pallet_fee_control::pallet"))
+                    .type_params(
+                        <[_]>::into_vec(
+                            #[rustc_box]
+                            ::alloc::boxed::Box::new([
+                                ::scale_info::TypeParameter::new(
+                                    "T",
+                                    ::core::option::Option::None,
+                                ),
+                            ]),
+                        ),
+                    )
+                    .docs_always(
+                        &[
+                            "\n\t\t\tThe [event](https://docs.substrate.io/v3/runtime/events-and-errors) emitted\n\t\t\tby this pallet.\n\t\t\t",
+                        ],
+                    )
+                    .variant(::scale_info::build::Variants::new())
+            }
+        }
+    };
+    impl<T: Config> Pallet<T> {
+        pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
+            ensure_root(origin)?;
+            Data::<
+                T,
+            >::mutate(|x| {
+                x.evm_base_fee_per_gas = value;
+            });
+            Ok(())
+        }
+        pub fn set_extrinsic_weight_to_fee_factor(
+            origin: OriginFor<T>,
+            value: Perbill,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            Data::<
+                T,
+            >::mutate(|x| {
+                x.weight_to_fee_reduction = value;
+            });
+            Ok(())
+        }
+    }
+    impl<T: Config> Pallet<T> {
+        #[doc(hidden)]
+        pub fn pallet_constants_metadata() -> frame_support::sp_std::vec::Vec<
+            frame_support::metadata::PalletConstantMetadata,
+        > {
+            ::alloc::vec::Vec::new()
+        }
+    }
+    impl<T: Config> Pallet<T> {
+        #[doc(hidden)]
+        pub fn error_metadata() -> Option<frame_support::metadata::PalletErrorMetadata> {
+            None
+        }
+    }
+    /// Type alias to `Pallet`, to be used by `construct_runtime`.
+    ///
+    /// Generated by `pallet` attribute macro.
+    #[deprecated(note = "use `Pallet` instead")]
+    #[allow(dead_code)]
+    pub type Module<T> = Pallet<T>;
+    impl<T: Config> frame_support::traits::GetStorageVersion for Pallet<T> {
+        fn current_storage_version() -> frame_support::traits::StorageVersion {
+            STORAGE_VERSION
+        }
+        fn on_chain_storage_version() -> frame_support::traits::StorageVersion {
+            frame_support::traits::StorageVersion::get::<Self>()
+        }
+    }
+    impl<T: Config> frame_support::traits::OnGenesis for Pallet<T> {
+        fn on_genesis() {
+            let storage_version = STORAGE_VERSION;
+            storage_version.put::<Self>();
+        }
+    }
+    impl<T: Config> frame_support::traits::PalletInfoAccess for Pallet<T> {
+        fn index() -> usize {
+            <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::index::<
+                Self,
+            >()
+                .expect(
+                    "Pallet is part of the runtime because pallet `Config` trait is \
+						implemented by the runtime",
+                )
+        }
+        fn name() -> &'static str {
+            <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::name::<
+                Self,
+            >()
+                .expect(
+                    "Pallet is part of the runtime because pallet `Config` trait is \
+						implemented by the runtime",
+                )
+        }
+        fn module_name() -> &'static str {
+            <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::module_name::<
+                Self,
+            >()
+                .expect(
+                    "Pallet is part of the runtime because pallet `Config` trait is \
+						implemented by the runtime",
+                )
+        }
+        fn crate_version() -> frame_support::traits::CrateVersion {
+            frame_support::traits::CrateVersion {
+                major: 1u16,
+                minor: 0u8,
+                patch: 0u8,
+            }
+        }
+    }
+    impl<T: Config> frame_support::traits::PalletsInfoAccess for Pallet<T> {
+        fn count() -> usize {
+            1
+        }
+        fn accumulate(
+            acc: &mut frame_support::sp_std::vec::Vec<
+                frame_support::traits::PalletInfoData,
+            >,
+        ) {
+            use frame_support::traits::PalletInfoAccess;
+            let item = frame_support::traits::PalletInfoData {
+                index: Self::index(),
+                name: Self::name(),
+                module_name: Self::module_name(),
+                crate_version: Self::crate_version(),
+            };
+            acc.push(item);
+        }
+    }
+    impl<T: Config> frame_support::traits::StorageInfoTrait for Pallet<T> {
+        fn storage_info() -> frame_support::sp_std::vec::Vec<
+            frame_support::traits::StorageInfo,
+        > {
+            #[allow(unused_mut)]
+            let mut res = ::alloc::vec::Vec::new();
+            {
+                let mut storage_info = <Data<
+                    T,
+                > as frame_support::traits::StorageInfoTrait>::storage_info();
+                res.append(&mut storage_info);
+            }
+            res
+        }
+    }
+    #[doc(hidden)]
+    pub mod __substrate_call_check {
+        #[doc(hidden)]
+        pub use __is_call_part_defined_8 as is_call_part_defined;
+    }
+    ///Contains one variant per dispatchable that can be called by an extrinsic.
+    #[codec(encode_bound())]
+    #[codec(decode_bound())]
+    #[scale_info(skip_type_params(T), capture_docs = "always")]
+    #[allow(non_camel_case_types)]
+    pub enum Call<T: Config> {
+        #[doc(hidden)]
+        #[codec(skip)]
+        __Ignore(frame_support::sp_std::marker::PhantomData<(T,)>, frame_support::Never),
+        #[codec(index = 0u8)]
+        set_evm_base_fee { #[allow(missing_docs)] value: U256 },
+        #[codec(index = 1u8)]
+        set_extrinsic_weight_to_fee_factor { #[allow(missing_docs)] value: Perbill },
+    }
+    const _: () = {
+        impl<T: Config> core::fmt::Debug for Call<T> {
+            fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
+                match *self {
+                    Self::__Ignore(ref _0, ref _1) => {
+                        fmt.debug_tuple("Call::__Ignore").field(&_0).field(&_1).finish()
+                    }
+                    Self::set_evm_base_fee { ref value } => {
+                        fmt
+                            .debug_struct("Call::set_evm_base_fee")
+                            .field("value", &value)
+                            .finish()
+                    }
+                    Self::set_extrinsic_weight_to_fee_factor { ref value } => {
+                        fmt
+                            .debug_struct("Call::set_extrinsic_weight_to_fee_factor")
+                            .field("value", &value)
+                            .finish()
+                    }
+                }
+            }
+        }
+    };
+    const _: () = {
+        impl<T: Config> core::clone::Clone for Call<T> {
+            fn clone(&self) -> Self {
+                match self {
+                    Self::__Ignore(ref _0, ref _1) => {
+                        Self::__Ignore(
+                            core::clone::Clone::clone(_0),
+                            core::clone::Clone::clone(_1),
+                        )
+                    }
+                    Self::set_evm_base_fee { ref value } => {
+                        Self::set_evm_base_fee {
+                            value: core::clone::Clone::clone(value),
+                        }
+                    }
+                    Self::set_extrinsic_weight_to_fee_factor { ref value } => {
+                        Self::set_extrinsic_weight_to_fee_factor {
+                            value: core::clone::Clone::clone(value),
+                        }
+                    }
+                }
+            }
+        }
+    };
+    const _: () = {
+        impl<T: Config> core::cmp::Eq for Call<T> {}
+    };
+    const _: () = {
+        impl<T: Config> core::cmp::PartialEq for Call<T> {
+            fn eq(&self, other: &Self) -> bool {
+                match (self, other) {
+                    (Self::__Ignore(_0, _1), Self::__Ignore(_0_other, _1_other)) => {
+                        true && _0 == _0_other && _1 == _1_other
+                    }
+                    (
+                        Self::set_evm_base_fee { value },
+                        Self::set_evm_base_fee { value: _0 },
+                    ) => true && value == _0,
+                    (
+                        Self::set_extrinsic_weight_to_fee_factor { value },
+                        Self::set_extrinsic_weight_to_fee_factor { value: _0 },
+                    ) => true && value == _0,
+                    (Self::__Ignore { .. }, Self::set_evm_base_fee { .. }) => false,
+                    (
+                        Self::__Ignore { .. },
+                        Self::set_extrinsic_weight_to_fee_factor { .. },
+                    ) => false,
+                    (Self::set_evm_base_fee { .. }, Self::__Ignore { .. }) => false,
+                    (
+                        Self::set_evm_base_fee { .. },
+                        Self::set_extrinsic_weight_to_fee_factor { .. },
+                    ) => false,
+                    (
+                        Self::set_extrinsic_weight_to_fee_factor { .. },
+                        Self::__Ignore { .. },
+                    ) => false,
+                    (
+                        Self::set_extrinsic_weight_to_fee_factor { .. },
+                        Self::set_evm_base_fee { .. },
+                    ) => false,
+                }
+            }
+        }
+    };
+    #[allow(deprecated)]
+    const _: () = {
+        #[allow(non_camel_case_types)]
+        #[automatically_derived]
+        impl<T: Config> ::codec::Encode for Call<T> {
+            fn encode_to<__CodecOutputEdqy: ::codec::Output + ?::core::marker::Sized>(
+                &self,
+                __codec_dest_edqy: &mut __CodecOutputEdqy,
+            ) {
+                match *self {
+                    Call::set_evm_base_fee { ref value } => {
+                        __codec_dest_edqy.push_byte(0u8 as ::core::primitive::u8);
+                        ::codec::Encode::encode_to(value, __codec_dest_edqy);
+                    }
+                    Call::set_extrinsic_weight_to_fee_factor { ref value } => {
+                        __codec_dest_edqy.push_byte(1u8 as ::core::primitive::u8);
+                        ::codec::Encode::encode_to(value, __codec_dest_edqy);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        #[automatically_derived]
+        impl<T: Config> ::codec::EncodeLike for Call<T> {}
+    };
+    #[allow(deprecated)]
+    const _: () = {
+        #[allow(non_camel_case_types)]
+        #[automatically_derived]
+        impl<T: Config> ::codec::Decode for Call<T> {
+            fn decode<__CodecInputEdqy: ::codec::Input>(
+                __codec_input_edqy: &mut __CodecInputEdqy,
+            ) -> ::core::result::Result<Self, ::codec::Error> {
+                match __codec_input_edqy
+                    .read_byte()
+                    .map_err(|e| {
+                        e.chain("Could not decode `Call`, failed to read variant byte")
+                    })?
+                {
+                    __codec_x_edqy if __codec_x_edqy == 0u8 as ::core::primitive::u8 => {
+                        ::core::result::Result::Ok(Call::<T>::set_evm_base_fee {
+                            value: {
+                                let __codec_res_edqy = <U256 as ::codec::Decode>::decode(
+                                    __codec_input_edqy,
+                                );
+                                match __codec_res_edqy {
+                                    ::core::result::Result::Err(e) => {
+                                        return ::core::result::Result::Err(
+                                            e.chain("Could not decode `Call::set_evm_base_fee::value`"),
+                                        );
+                                    }
+                                    ::core::result::Result::Ok(__codec_res_edqy) => {
+                                        __codec_res_edqy
+                                    }
+                                }
+                            },
+                        })
+                    }
+                    __codec_x_edqy if __codec_x_edqy == 1u8 as ::core::primitive::u8 => {
+                        ::core::result::Result::Ok(Call::<
+                            T,
+                        >::set_extrinsic_weight_to_fee_factor {
+                            value: {
+                                let __codec_res_edqy = <Perbill as ::codec::Decode>::decode(
+                                    __codec_input_edqy,
+                                );
+                                match __codec_res_edqy {
+                                    ::core::result::Result::Err(e) => {
+                                        return ::core::result::Result::Err(
+                                            e
+                                                .chain(
+                                                    "Could not decode `Call::set_extrinsic_weight_to_fee_factor::value`",
+                                                ),
+                                        );
+                                    }
+                                    ::core::result::Result::Ok(__codec_res_edqy) => {
+                                        __codec_res_edqy
+                                    }
+                                }
+                            },
+                        })
+                    }
+                    _ => {
+                        ::core::result::Result::Err(
+                            <_ as ::core::convert::Into<
+                                _,
+                            >>::into("Could not decode `Call`, variant doesn't exist"),
+                        )
+                    }
+                }
+            }
+        }
+    };
+    #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+    const _: () = {
+        impl<T: Config> ::scale_info::TypeInfo for Call<T>
+        where
+            frame_support::sp_std::marker::PhantomData<
+                (T,),
+            >: ::scale_info::TypeInfo + 'static,
+            T: Config + 'static,
+        {
+            type Identity = Self;
+            fn type_info() -> ::scale_info::Type {
+                ::scale_info::Type::builder()
+                    .path(::scale_info::Path::new("Call", "pallet_fee_control::pallet"))
+                    .type_params(
+                        <[_]>::into_vec(
+                            #[rustc_box]
+                            ::alloc::boxed::Box::new([
+                                ::scale_info::TypeParameter::new(
+                                    "T",
+                                    ::core::option::Option::None,
+                                ),
+                            ]),
+                        ),
+                    )
+                    .docs_always(
+                        &[
+                            "Contains one variant per dispatchable that can be called by an extrinsic.",
+                        ],
+                    )
+                    .variant(
+                        ::scale_info::build::Variants::new()
+                            .variant(
+                                "set_evm_base_fee",
+                                |v| {
+                                    v
+                                        .index(0u8 as ::core::primitive::u8)
+                                        .fields(
+                                            ::scale_info::build::Fields::named()
+                                                .field(|f| f.ty::<U256>().name("value").type_name("U256")),
+                                        )
+                                },
+                            )
+                            .variant(
+                                "set_extrinsic_weight_to_fee_factor",
+                                |v| {
+                                    v
+                                        .index(1u8 as ::core::primitive::u8)
+                                        .fields(
+                                            ::scale_info::build::Fields::named()
+                                                .field(|f| {
+                                                    f.ty::<Perbill>().name("value").type_name("Perbill")
+                                                }),
+                                        )
+                                },
+                            ),
+                    )
+            }
+        }
+    };
+    impl<T: Config> Call<T> {
+        ///Create a call with the variant `set_evm_base_fee`.
+        pub fn new_call_variant_set_evm_base_fee(value: U256) -> Self {
+            Self::set_evm_base_fee { value }
+        }
+        ///Create a call with the variant `set_extrinsic_weight_to_fee_factor`.
+        pub fn new_call_variant_set_extrinsic_weight_to_fee_factor(
+            value: Perbill,
+        ) -> Self {
+            Self::set_extrinsic_weight_to_fee_factor {
+                value,
+            }
+        }
+    }
+    impl<T: Config> frame_support::dispatch::GetDispatchInfo for Call<T> {
+        fn get_dispatch_info(&self) -> frame_support::dispatch::DispatchInfo {
+            match *self {
+                Self::set_evm_base_fee { ref value } => {
+                    let __pallet_base_weight = T::WeightInfo::set_evm_base_fee();
+                    let __pallet_weight = <dyn frame_support::dispatch::WeighData<
+                        (&U256,),
+                    >>::weigh_data(&__pallet_base_weight, (value,));
+                    let __pallet_class = <dyn frame_support::dispatch::ClassifyDispatch<
+                        (&U256,),
+                    >>::classify_dispatch(&__pallet_base_weight, (value,));
+                    let __pallet_pays_fee = <dyn frame_support::dispatch::PaysFee<
+                        (&U256,),
+                    >>::pays_fee(&__pallet_base_weight, (value,));
+                    frame_support::dispatch::DispatchInfo {
+                        weight: __pallet_weight,
+                        class: __pallet_class,
+                        pays_fee: __pallet_pays_fee,
+                    }
+                }
+                Self::set_extrinsic_weight_to_fee_factor { ref value } => {
+                    let __pallet_base_weight = T::WeightInfo::set_extrinsic_weight_to_fee_factor();
+                    let __pallet_weight = <dyn frame_support::dispatch::WeighData<
+                        (&Perbill,),
+                    >>::weigh_data(&__pallet_base_weight, (value,));
+                    let __pallet_class = <dyn frame_support::dispatch::ClassifyDispatch<
+                        (&Perbill,),
+                    >>::classify_dispatch(&__pallet_base_weight, (value,));
+                    let __pallet_pays_fee = <dyn frame_support::dispatch::PaysFee<
+                        (&Perbill,),
+                    >>::pays_fee(&__pallet_base_weight, (value,));
+                    frame_support::dispatch::DispatchInfo {
+                        weight: __pallet_weight,
+                        class: __pallet_class,
+                        pays_fee: __pallet_pays_fee,
+                    }
+                }
+                Self::__Ignore(_, _) => {
+                    ::core::panicking::panic_fmt(
+                        ::core::fmt::Arguments::new_v1(
+                            &["internal error: entered unreachable code: "],
+                            &[
+                                ::core::fmt::ArgumentV1::new_display(
+                                    &::core::fmt::Arguments::new_v1(
+                                        &["__Ignore cannot be used"],
+                                        &[],
+                                    ),
+                                ),
+                            ],
+                        ),
+                    )
+                }
+            }
+        }
+    }
+    impl<T: Config> frame_support::dispatch::GetCallName for Call<T> {
+        fn get_call_name(&self) -> &'static str {
+            match *self {
+                Self::set_evm_base_fee { .. } => "set_evm_base_fee",
+                Self::set_extrinsic_weight_to_fee_factor { .. } => {
+                    "set_extrinsic_weight_to_fee_factor"
+                }
+                Self::__Ignore(_, _) => {
+                    ::core::panicking::panic_fmt(
+                        ::core::fmt::Arguments::new_v1(
+                            &["internal error: entered unreachable code: "],
+                            &[
+                                ::core::fmt::ArgumentV1::new_display(
+                                    &::core::fmt::Arguments::new_v1(
+                                        &["__PhantomItem cannot be used."],
+                                        &[],
+                                    ),
+                                ),
+                            ],
+                        ),
+                    )
+                }
+            }
+        }
+        fn get_call_names() -> &'static [&'static str] {
+            &["set_evm_base_fee", "set_extrinsic_weight_to_fee_factor"]
+        }
+    }
+    impl<T: Config> frame_support::traits::UnfilteredDispatchable for Call<T> {
+        type Origin = frame_system::pallet_prelude::OriginFor<T>;
+        fn dispatch_bypass_filter(
+            self,
+            origin: Self::Origin,
+        ) -> frame_support::dispatch::DispatchResultWithPostInfo {
+            match self {
+                Self::set_evm_base_fee { value } => {
+                    let __within_span__ = {
+                        use ::tracing::__macro_support::Callsite as _;
+                        static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                            static META: ::tracing::Metadata<'static> = {
+                                ::tracing_core::metadata::Metadata::new(
+                                    "set_evm_base_fee",
+                                    "pallet_fee_control::pallet",
+                                    ::tracing::Level::TRACE,
+                                    Some("pallet/fee-control/src/lib.rs"),
+                                    Some(24u32),
+                                    Some("pallet_fee_control::pallet"),
+                                    ::tracing_core::field::FieldSet::new(
+                                        &[],
+                                        ::tracing_core::callsite::Identifier(&CALLSITE),
+                                    ),
+                                    ::tracing::metadata::Kind::SPAN,
+                                )
+                            };
+                            ::tracing::callsite::DefaultCallsite::new(&META)
+                        };
+                        let mut interest = ::tracing::subscriber::Interest::never();
+                        if ::tracing::Level::TRACE
+                            <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                            && ::tracing::Level::TRACE
+                                <= ::tracing::level_filters::LevelFilter::current()
+                            && {
+                                interest = CALLSITE.interest();
+                                !interest.is_never()
+                            }
+                            && ::tracing::__macro_support::__is_enabled(
+                                CALLSITE.metadata(),
+                                interest,
+                            )
+                        {
+                            let meta = CALLSITE.metadata();
+                            ::tracing::Span::new(meta, &{ meta.fields().value_set(&[]) })
+                        } else {
+                            let span = ::tracing::__macro_support::__disabled_span(
+                                CALLSITE.metadata(),
+                            );
+                            {};
+                            span
+                        }
+                    };
+                    let __tracing_guard__ = __within_span__.enter();
+                    frame_support::storage::in_storage_layer(|| {
+                        <Pallet<T>>::set_evm_base_fee(origin, value)
+                            .map(Into::into)
+                            .map_err(Into::into)
+                    })
+                }
+                Self::set_extrinsic_weight_to_fee_factor { value } => {
+                    let __within_span__ = {
+                        use ::tracing::__macro_support::Callsite as _;
+                        static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                            static META: ::tracing::Metadata<'static> = {
+                                ::tracing_core::metadata::Metadata::new(
+                                    "set_extrinsic_weight_to_fee_factor",
+                                    "pallet_fee_control::pallet",
+                                    ::tracing::Level::TRACE,
+                                    Some("pallet/fee-control/src/lib.rs"),
+                                    Some(24u32),
+                                    Some("pallet_fee_control::pallet"),
+                                    ::tracing_core::field::FieldSet::new(
+                                        &[],
+                                        ::tracing_core::callsite::Identifier(&CALLSITE),
+                                    ),
+                                    ::tracing::metadata::Kind::SPAN,
+                                )
+                            };
+                            ::tracing::callsite::DefaultCallsite::new(&META)
+                        };
+                        let mut interest = ::tracing::subscriber::Interest::never();
+                        if ::tracing::Level::TRACE
+                            <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                            && ::tracing::Level::TRACE
+                                <= ::tracing::level_filters::LevelFilter::current()
+                            && {
+                                interest = CALLSITE.interest();
+                                !interest.is_never()
+                            }
+                            && ::tracing::__macro_support::__is_enabled(
+                                CALLSITE.metadata(),
+                                interest,
+                            )
+                        {
+                            let meta = CALLSITE.metadata();
+                            ::tracing::Span::new(meta, &{ meta.fields().value_set(&[]) })
+                        } else {
+                            let span = ::tracing::__macro_support::__disabled_span(
+                                CALLSITE.metadata(),
+                            );
+                            {};
+                            span
+                        }
+                    };
+                    let __tracing_guard__ = __within_span__.enter();
+                    frame_support::storage::in_storage_layer(|| {
+                        <Pallet<T>>::set_extrinsic_weight_to_fee_factor(origin, value)
+                            .map(Into::into)
+                            .map_err(Into::into)
+                    })
+                }
+                Self::__Ignore(_, _) => {
+                    let _ = origin;
+                    ::core::panicking::panic_fmt(
+                        ::core::fmt::Arguments::new_v1(
+                            &["internal error: entered unreachable code: "],
+                            &[
+                                ::core::fmt::ArgumentV1::new_display(
+                                    &::core::fmt::Arguments::new_v1(
+                                        &["__PhantomItem cannot be used."],
+                                        &[],
+                                    ),
+                                ),
+                            ],
+                        ),
+                    );
+                }
+            }
+        }
+    }
+    impl<T: Config> frame_support::dispatch::Callable<T> for Pallet<T> {
+        type Call = Call<T>;
+    }
+    impl<T: Config> Pallet<T> {
+        #[doc(hidden)]
+        pub fn call_functions() -> frame_support::metadata::PalletCallMetadata {
+            frame_support::scale_info::meta_type::<Call<T>>().into()
+        }
+    }
+    pub use __tt_error_token_9 as tt_error_token;
+    #[doc(hidden)]
+    pub mod __substrate_event_check {
+        #[doc(hidden)]
+        pub use __is_event_part_defined_10 as is_event_part_defined;
+    }
+    impl<T: Config> From<Event<T>> for () {
+        fn from(_: Event<T>) {}
+    }
+    impl<T: Config> Pallet<T> {
+        #[doc(hidden)]
+        pub fn storage_metadata() -> frame_support::metadata::PalletStorageMetadata {
+            frame_support::metadata::PalletStorageMetadata {
+                prefix: <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::name::<
+                    Pallet<T>,
+                >()
+                    .expect("Every active pallet has a name in the runtime; qed"),
+                entries: {
+                    #[allow(unused_mut)]
+                    let mut entries = ::alloc::vec::Vec::new();
+                    {
+                        <Data<
+                            T,
+                        > as frame_support::storage::StorageEntryMetadataBuilder>::build_metadata(
+                            ::alloc::vec::Vec::new(),
+                            &mut entries,
+                        );
+                    }
+                    entries
+                },
+            }
+        }
+    }
+    #[doc(hidden)]
+    pub struct _GeneratedPrefixForStorageData<T>(core::marker::PhantomData<(T,)>);
+    impl<T: Config> frame_support::traits::StorageInstance
+    for _GeneratedPrefixForStorageData<T> {
+        fn pallet_prefix() -> &'static str {
+            <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::name::<
+                Pallet<T>,
+            >()
+                .expect("Every active pallet has a name in the runtime; qed")
+        }
+        const STORAGE_PREFIX: &'static str = "Data";
+    }
+    #[doc(hidden)]
+    pub mod __substrate_inherent_check {
+        #[doc(hidden)]
+        pub use __is_inherent_part_defined_11 as is_inherent_part_defined;
+    }
+    /// Hidden instance generated to be internally used when module is used without
+    /// instance.
+    #[doc(hidden)]
+    pub type __InherentHiddenInstance = ();
+    pub(super) trait Store {
+        type Data;
+    }
+    impl<T: Config> Store for Pallet<T> {
+        type Data = Data<T>;
+    }
+    impl<
+        T: Config,
+    > frame_support::traits::Hooks<<T as frame_system::Config>::BlockNumber>
+    for Pallet<T> {}
+    impl<
+        T: Config,
+    > frame_support::traits::OnFinalize<<T as frame_system::Config>::BlockNumber>
+    for Pallet<T> {
+        fn on_finalize(n: <T as frame_system::Config>::BlockNumber) {
+            let __within_span__ = {
+                use ::tracing::__macro_support::Callsite as _;
+                static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                    static META: ::tracing::Metadata<'static> = {
+                        ::tracing_core::metadata::Metadata::new(
+                            "on_finalize",
+                            "pallet_fee_control::pallet",
+                            ::tracing::Level::TRACE,
+                            Some("pallet/fee-control/src/lib.rs"),
+                            Some(24u32),
+                            Some("pallet_fee_control::pallet"),
+                            ::tracing_core::field::FieldSet::new(
+                                &[],
+                                ::tracing_core::callsite::Identifier(&CALLSITE),
+                            ),
+                            ::tracing::metadata::Kind::SPAN,
+                        )
+                    };
+                    ::tracing::callsite::DefaultCallsite::new(&META)
+                };
+                let mut interest = ::tracing::subscriber::Interest::never();
+                if ::tracing::Level::TRACE <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                    && ::tracing::Level::TRACE
+                        <= ::tracing::level_filters::LevelFilter::current()
+                    && {
+                        interest = CALLSITE.interest();
+                        !interest.is_never()
+                    }
+                    && ::tracing::__macro_support::__is_enabled(
+                        CALLSITE.metadata(),
+                        interest,
+                    )
+                {
+                    let meta = CALLSITE.metadata();
+                    ::tracing::Span::new(meta, &{ meta.fields().value_set(&[]) })
+                } else {
+                    let span = ::tracing::__macro_support::__disabled_span(
+                        CALLSITE.metadata(),
+                    );
+                    {};
+                    span
+                }
+            };
+            let __tracing_guard__ = __within_span__.enter();
+            <Self as frame_support::traits::Hooks<
+                <T as frame_system::Config>::BlockNumber,
+            >>::on_finalize(n)
+        }
+    }
+    impl<
+        T: Config,
+    > frame_support::traits::OnIdle<<T as frame_system::Config>::BlockNumber>
+    for Pallet<T> {
+        fn on_idle(
+            n: <T as frame_system::Config>::BlockNumber,
+            remaining_weight: frame_support::weights::Weight,
+        ) -> frame_support::weights::Weight {
+            <Self as frame_support::traits::Hooks<
+                <T as frame_system::Config>::BlockNumber,
+            >>::on_idle(n, remaining_weight)
+        }
+    }
+    impl<
+        T: Config,
+    > frame_support::traits::OnInitialize<<T as frame_system::Config>::BlockNumber>
+    for Pallet<T> {
+        fn on_initialize(
+            n: <T as frame_system::Config>::BlockNumber,
+        ) -> frame_support::weights::Weight {
+            let __within_span__ = {
+                use ::tracing::__macro_support::Callsite as _;
+                static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                    static META: ::tracing::Metadata<'static> = {
+                        ::tracing_core::metadata::Metadata::new(
+                            "on_initialize",
+                            "pallet_fee_control::pallet",
+                            ::tracing::Level::TRACE,
+                            Some("pallet/fee-control/src/lib.rs"),
+                            Some(24u32),
+                            Some("pallet_fee_control::pallet"),
+                            ::tracing_core::field::FieldSet::new(
+                                &[],
+                                ::tracing_core::callsite::Identifier(&CALLSITE),
+                            ),
+                            ::tracing::metadata::Kind::SPAN,
+                        )
+                    };
+                    ::tracing::callsite::DefaultCallsite::new(&META)
+                };
+                let mut interest = ::tracing::subscriber::Interest::never();
+                if ::tracing::Level::TRACE <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                    && ::tracing::Level::TRACE
+                        <= ::tracing::level_filters::LevelFilter::current()
+                    && {
+                        interest = CALLSITE.interest();
+                        !interest.is_never()
+                    }
+                    && ::tracing::__macro_support::__is_enabled(
+                        CALLSITE.metadata(),
+                        interest,
+                    )
+                {
+                    let meta = CALLSITE.metadata();
+                    ::tracing::Span::new(meta, &{ meta.fields().value_set(&[]) })
+                } else {
+                    let span = ::tracing::__macro_support::__disabled_span(
+                        CALLSITE.metadata(),
+                    );
+                    {};
+                    span
+                }
+            };
+            let __tracing_guard__ = __within_span__.enter();
+            <Self as frame_support::traits::Hooks<
+                <T as frame_system::Config>::BlockNumber,
+            >>::on_initialize(n)
+        }
+    }
+    impl<T: Config> frame_support::traits::OnRuntimeUpgrade for Pallet<T> {
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            let __within_span__ = {
+                use ::tracing::__macro_support::Callsite as _;
+                static CALLSITE: ::tracing::callsite::DefaultCallsite = {
+                    static META: ::tracing::Metadata<'static> = {
+                        ::tracing_core::metadata::Metadata::new(
+                            "on_runtime_update",
+                            "pallet_fee_control::pallet",
+                            ::tracing::Level::TRACE,
+                            Some("pallet/fee-control/src/lib.rs"),
+                            Some(24u32),
+                            Some("pallet_fee_control::pallet"),
+                            ::tracing_core::field::FieldSet::new(
+                                &[],
+                                ::tracing_core::callsite::Identifier(&CALLSITE),
+                            ),
+                            ::tracing::metadata::Kind::SPAN,
+                        )
+                    };
+                    ::tracing::callsite::DefaultCallsite::new(&META)
+                };
+                let mut interest = ::tracing::subscriber::Interest::never();
+                if ::tracing::Level::TRACE <= ::tracing::level_filters::STATIC_MAX_LEVEL
+                    && ::tracing::Level::TRACE
+                        <= ::tracing::level_filters::LevelFilter::current()
+                    && {
+                        interest = CALLSITE.interest();
+                        !interest.is_never()
+                    }
+                    && ::tracing::__macro_support::__is_enabled(
+                        CALLSITE.metadata(),
+                        interest,
+                    )
+                {
+                    let meta = CALLSITE.metadata();
+                    ::tracing::Span::new(meta, &{ meta.fields().value_set(&[]) })
+                } else {
+                    let span = ::tracing::__macro_support::__disabled_span(
+                        CALLSITE.metadata(),
+                    );
+                    {};
+                    span
+                }
+            };
+            let __tracing_guard__ = __within_span__.enter();
+            let pallet_name = <<T as frame_system::Config>::PalletInfo as frame_support::traits::PalletInfo>::name::<
+                Self,
+            >()
+                .unwrap_or("<unknown pallet name>");
+            {
+                let lvl = ::log::Level::Info;
+                if lvl <= ::log::STATIC_MAX_LEVEL && lvl <= ::log::max_level() {
+                    ::log::__private_api_log(
+                        ::core::fmt::Arguments::new_v1(
+                            &["\u{2705} no migration for "],
+                            &[::core::fmt::ArgumentV1::new_display(&pallet_name)],
+                        ),
+                        lvl,
+                        &(
+                            frame_support::LOG_TARGET,
+                            "pallet_fee_control::pallet",
+                            "pallet/fee-control/src/lib.rs",
+                            24u32,
+                        ),
+                        ::log::__private_api::Option::None,
+                    );
+                }
+            };
+            <Self as frame_support::traits::Hooks<
+                <T as frame_system::Config>::BlockNumber,
+            >>::on_runtime_upgrade()
+        }
+    }
+    impl<
+        T: Config,
+    > frame_support::traits::OffchainWorker<<T as frame_system::Config>::BlockNumber>
+    for Pallet<T> {
+        fn offchain_worker(n: <T as frame_system::Config>::BlockNumber) {
+            <Self as frame_support::traits::Hooks<
+                <T as frame_system::Config>::BlockNumber,
+            >>::offchain_worker(n)
+        }
+    }
+    impl<T: Config> frame_support::traits::IntegrityTest for Pallet<T> {
+        fn integrity_test() {
+            <Self as frame_support::traits::Hooks<
+                <T as frame_system::Config>::BlockNumber,
+            >>::integrity_test()
+        }
+    }
+    #[doc(hidden)]
+    pub mod __substrate_genesis_config_check {
+        #[doc(hidden)]
+        pub use __is_genesis_config_defined_12 as is_genesis_config_defined;
+        #[doc(hidden)]
+        pub use __is_std_enabled_for_genesis_12 as is_std_enabled_for_genesis;
+    }
+    pub struct DefaultPalletData<T>(core::marker::PhantomData<((), T)>);
+    impl<T: Config> frame_support::traits::Get<PalletData> for DefaultPalletData<T> {
+        fn get() -> PalletData {
+            __type_value_for_default_pallet_data::<T>()
+        }
+    }
+    #[doc(hidden)]
+    pub mod __substrate_origin_check {
+        #[doc(hidden)]
+        pub use __is_origin_part_defined_13 as is_origin_part_defined;
+    }
+    #[doc(hidden)]
+    pub mod __substrate_validate_unsigned_check {
+        #[doc(hidden)]
+        pub use __is_validate_unsigned_part_defined_14 as is_validate_unsigned_part_defined;
+    }
+    pub use __tt_default_parts_15 as tt_default_parts;
+}
+impl<T: Config> Pallet<T> {
+    pub fn weight_to_fee(weight: &Weight) -> Balance {
+        Data::<T>::get().weight_to_fee_reduction.mul(*weight as Balance)
+    }
+    pub fn length_to_fee(_weight: &Weight) -> Balance {
+        Balance::from(0u32)
+    }
+    pub fn base_fee_per_gas() -> U256 {
+        Data::<T>::get().evm_base_fee_per_gas
+    }
+}
+impl<T: Config> fp_evm::FeeCalculator for Pallet<T> {
+    fn min_gas_price() -> (U256, Weight) {
+        (Data::<T>::get().evm_base_fee_per_gas, T::DbWeight::get().reads(1))
+    }
+}
+#[rustc_main]
+pub fn main() -> () {
+    extern crate test;
+    test::test_main_static(
+        &[&charges_default_extrinsic_amount, &charges_extrinsic_fee_based_on_setting],
+    )
+}
