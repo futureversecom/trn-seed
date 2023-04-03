@@ -11,6 +11,7 @@ pub trait DefaultValues {
 }
 
 // This is for tests
+#[cfg(test)]
 impl DefaultValues for () {
 	fn evm_base_fee_per_gas() -> U256 {
 		U256::from(15_000_000_000_000u128)
