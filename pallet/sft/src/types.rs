@@ -70,9 +70,9 @@ pub struct SftTokenInformation<T: Config> {
 	/// A human friendly name
 	pub name: CollectionNameType,
 	/// Maximum number of this token allowed
-	pub max_issuance: Option<TokenCount>,
+	pub max_issuance: Option<u128>,
 	/// the total count of tokens in this collection
-	pub token_issuance: TokenCount,
+	pub token_issuance: u128,
 	/// Map from account to tokens owned by that account
 	pub owned_tokens:
 		BoundedVec<(T::AccountId, SftTokenBalance<T>), <T as Config>::MaxOwnersPerSftToken>,

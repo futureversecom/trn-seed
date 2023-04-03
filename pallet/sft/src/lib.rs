@@ -242,7 +242,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
-			let existing_collection =
+			let mut existing_collection =
 				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(who == existing_collection.collection_owner, Error::<T>::NotCollectionOwner);
 
@@ -255,7 +255,7 @@ pub mod pallet {
 			let next_serial = existing_collection.next_serial_number;
 
 			existing_collection.next_serial_number =
-				next_serial.checked_add(1).ok_or(|_| Error::<T>::OverFlow)?;
+				next_serial.checked_add(1).ok_or(Error::<T>::OverFlow)?;
 
 			let token_owner = if initial_issuance > 0 && token_owner.is_some() {
 				// Checked
@@ -263,9 +263,6 @@ pub mod pallet {
 			} else {
 				who
 			};
-
-			// let initial_balance =
-			// 	SftTokenBalance { free_balance: initial_issuance, reserved_balance: 0 };
 
 			let initial_balance = SftTokenBalance::new(initial_issuance, 0);
 
