@@ -64,11 +64,11 @@ where
 				call.is_sub_type()
 			{
 				if let Some(fee_preferences_data) =
-					get_fee_preferences_data::<T, <T as Config>::ErcIdConversion, pallet_futurepass::Pallet<T>>(
-						*gas_limit,
-						Some(*max_fee_per_gas),
-						*payment_asset,
-					)
+					get_fee_preferences_data::<
+						T,
+						<T as Config>::ErcIdConversion,
+						pallet_futurepass::Pallet<T>,
+					>(*gas_limit, Some(*max_fee_per_gas), *payment_asset)
 					.ok()
 				{
 					total_fee = total_fee.saturating_add(fee_preferences_data.total_fee_scaled);

@@ -40,7 +40,7 @@ mod weights;
 use frame_support::{
 	dispatch::Dispatchable,
 	ensure,
-	pallet_prelude::{DispatchResult, DispatchError},
+	pallet_prelude::{DispatchError, DispatchResult},
 	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
 	weights::GetDispatchInfo,
 	RuntimeDebug,
@@ -315,8 +315,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// /// Set the default proxy for a delegate, which can be used to proxy all delegate requests
-		// /// to a futurepass account.
+		// /// Set the default proxy for a delegate, which can be used to proxy all delegate
+		// requests /// to a futurepass account.
 		// ///
 		// /// The dispatch origin for this call must be _Signed_ and must be the delegate that the
 		// /// default proxy is being set for.
@@ -325,11 +325,11 @@ pub mod pallet {
 		// /// - `futurepass`: An optional parameter that specifies the futurepass account that the
 		// ///   delegate requests should be proxied to.
 		// /// If `Some(futurepass)`, all delegate requests will be proxied through the designated
-		// /// futurepass account. If `None`, no delegate requests will be proxied through a futurepass
-		// /// account (default behaviour).
+		// /// futurepass account. If `None`, no delegate requests will be proxied through a
+		// futurepass /// account (default behaviour).
 		// #[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
-		// pub fn proxy_all(origin: OriginFor<T>, futurepass: Option<T::AccountId>) -> DispatchResult {
-		// 	let delegate = ensure_signed(origin)?;
+		// pub fn proxy_all(origin: OriginFor<T>, futurepass: Option<T::AccountId>) ->
+		// DispatchResult { 	let delegate = ensure_signed(origin)?;
 
 		// 	if let Some(futurepass) = &futurepass {
 		// 		ensure!(

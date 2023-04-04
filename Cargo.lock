@@ -5174,21 +5174,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-multisig"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-nft"
 version = "2.0.1"
 dependencies = [
@@ -7908,7 +7893,6 @@ dependencies = [
  "pallet-futurepass",
  "pallet-grandpa",
  "pallet-im-online",
- "pallet-multisig",
  "pallet-nft",
  "pallet-nft-peg",
  "pallet-nft-rpc-runtime-api",

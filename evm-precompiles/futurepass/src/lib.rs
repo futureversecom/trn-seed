@@ -2,9 +2,7 @@
 extern crate alloc;
 
 use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
-use frame_support::{
-	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
-};
+use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use frame_system::Origin;
 use pallet_evm::{AddressMapping, ExitReason, GasWeightMapping, Precompile, PrecompileFailure};
 use precompile_utils::prelude::*;

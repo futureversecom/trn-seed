@@ -211,13 +211,17 @@ pub struct AddressMapping<AccountId>(PhantomData<AccountId>);
 
 impl<AccountId> AddressMappingT<AccountId> for AddressMapping<AccountId>
 where
-	AccountId: From<H160> + From<seed_primitives::AccountId> + EncodeLike<seed_primitives::AccountId>,
+	AccountId:
+		From<H160> + From<seed_primitives::AccountId> + EncodeLike<seed_primitives::AccountId>,
 {
 	fn into_account_id(address: H160) -> AccountId {
-		// metamask -> getBalance RPC -> account_basic -> EVM::account_basic -> T::AddressMapping::into_account_id
-		// checked_extrinsic (apply) -> pre_dispatch_self_contained -> validate_transaction_in_block -> EVM::account_basic
-		if let Some(futurepass) = pallet_futurepass::DefaultProxy::<Runtime>::get::<AccountId>(address.into()) {
-			return futurepass.into();
+		// metamask -> getBalance RPC -> account_basic -> EVM::account_basic ->
+		// T::AddressMapping::into_account_id checked_extrinsic (apply) ->
+		// pre_dispatch_self_contained -> validate_transaction_in_block -> EVM::account_basic
+		if let Some(futurepass) =
+			pallet_futurepass::DefaultProxy::<Runtime>::get::<AccountId>(address.into())
+		{
+			return futurepass.into()
 		}
 		address.into()
 	}
@@ -527,7 +531,8 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 	TypeInfo,
 )]
 pub enum ProxyType {
-	Any, // TODO: ensure no calls are made to futurepass pallet (all extrinsics must be EOA origin)
+	Any, /* TODO: ensure no calls are made to futurepass pallet (all extrinsics must be EOA
+	      * origin) */
 	NonTransfer,
 	Governance,
 	Staking,
