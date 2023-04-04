@@ -16,8 +16,6 @@
 use crate::*;
 use frame_support::ensure;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
-use seed_primitives::CollectionUuid;
-use sp_runtime::DispatchError;
 
 impl<T: Config> Pallet<T> {
 	pub fn do_create_collection(

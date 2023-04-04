@@ -175,6 +175,7 @@ parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
+	pub const StringLimit: u32 = 50;
 }
 
 impl pallet_nft::Config for Test {
@@ -187,6 +188,7 @@ impl pallet_nft::Config for Test {
 	type OnNewAssetSubscription = ();
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
+	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }

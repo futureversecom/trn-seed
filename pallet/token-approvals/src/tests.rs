@@ -17,8 +17,7 @@ use super::*;
 use crate::mock::{Nft, Test, TestExt, TokenApprovals};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use pallet_nft::OriginChain;
-use seed_primitives::{AccountId, MetadataScheme, TokenId};
+use seed_primitives::{AccountId, MetadataScheme, OriginChain, TokenId};
 use sp_core::H160;
 
 pub fn create_account(seed: u64) -> AccountId {
@@ -36,7 +35,7 @@ pub struct TestData {
 fn prepare_test() -> TestData {
 	let alice = create_account(10);
 	let coll_owner = alice.clone();
-	let collection_name = "Hello".into();
+	let collection_name = BoundedVec::truncate_from("Hello".into());
 	let metadata_scheme = MetadataScheme::Ipfs(
 		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
 	);

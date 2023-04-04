@@ -168,7 +168,7 @@ pub mod v3 {
 
 				let expected_value = CollectionInformation::<Test> {
 					owner,
-					name: b"test-collection-1".to_vec(),
+					name: BoundedVec::truncate_from(b"test-collection-1".to_vec()),
 					royalties_schedule: Some(RoyaltiesSchedule {
 						entitlements: vec![(user_1, Permill::one())],
 					}),
