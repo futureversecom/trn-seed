@@ -6,6 +6,9 @@ import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
 import web3 from "web3";
 
+import MockERC20Data from "../artifacts/contracts/MockERC20.sol/MockERC20.json";
+import MockERC721Data from "../artifacts/contracts/MockERC721.sol/MockERC721.json";
+import MockERC1155Data from "../artifacts/contracts/MockERC1155.sol/MockERC1155.json";
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
@@ -16,6 +19,7 @@ import {
   startNode,
   typedefs,
 } from "../common";
+import type { MockERC20, MockERC721, MockERC1155 } from "../typechain-types";
 
 describe("Futurepass Precompile", function () {
   let node: NodeProcess;
@@ -25,7 +29,7 @@ describe("Futurepass Precompile", function () {
   let alithSigner: Wallet;
   let bobSigner: Wallet;
   let futurpassProxy: Contract;
-  // Setup api instance
+
   beforeEach(async () => {
     node = await startNode();
 
