@@ -1069,15 +1069,11 @@ impl pallet_recovery::Config for Runtime {
 	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>; // TODO - generate/use our weights
 }
 
-parameter_types! {
-	pub const FuturepassChainId: u64 = 7672;
-}
 impl pallet_futurepass::Config for Runtime {
 	type Event = Event;
 	type Proxy = impls::ProxyPalletProvider;
 	type ApproveOrigin = EnsureRoot<AccountId>;
-	type DefaultChainId = FuturepassChainId;
-	type WeightInfo = ();
+	type WeightInfo = (); // TODO - generate/use our weights
 }
 
 construct_runtime! {

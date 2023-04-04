@@ -38,27 +38,18 @@ mod tests;
 mod weights;
 
 use frame_support::{
-	dispatch::Dispatchable,
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult},
-	traits::{Currency, Get, InstanceFilter, IsSubType, IsType, OriginTrait, ReservableCurrency},
-	weights::GetDispatchInfo,
-	RuntimeDebug,
+	traits::{Get, IsType},
 };
 use sp_std::vec::Vec;
 pub use weights::WeightInfo;
 
 /// The logging target for this pallet
+#[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
 pub trait ProxyProvider<AccountId> {
-	// type ProxyType: Parameter
-	// 	+ Member
-	// 	+ Ord
-	// 	+ PartialOrd
-	// 	+ InstanceFilter<<Self as ProxyProvider<AccountId>>::Call>
-	// 	+ Default;
-
 	fn generate_keyless_account(proxy: &AccountId) -> AccountId;
 	fn exists(account: &AccountId, proxy: &AccountId) -> bool;
 	fn proxies(account: &AccountId) -> Vec<AccountId>;
@@ -82,52 +73,17 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
 		// type Proxy: ProxyProvider<Self::AccountId, Self::ProxyType>;
 		type Proxy: ProxyProvider<Self::AccountId>;
-
-		/// The overarching call type.
-		// type Call: Parameter
-		// 	+ Dispatchable<Origin = Self::Origin>
-		// 	+ GetDispatchInfo
-		// 	+ From<frame_system::Call<Self>>
-		// 	+ IsSubType<Call<Self>>
-		// 	+ IsType<<Self as frame_system::Config>::Call>;
-
-		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` fitler.
-		/// The instance filter determines whether a given call may be proxied under this type.
-		///
-		/// IMPORTANT: `Default` must be provided and MUST BE the the *most permissive* value.
-		// type ProxyType: Parameter
-		// 	+ Member
-		// 	+ Ord
-		// 	+ PartialOrd
-		// 	+ InstanceFilter<<Self as Config>::Call>
-		// 	+ Default
-		// 	+ MaxEncodedLen;
-
-		// /// The overarching call type.
-		// type Call: Parameter
-		// + Dispatchable<Origin = Self::Origin>
-		// + GetDispatchInfo
-		// + From<frame_system::Call<Self>>
-		// + IsSubType<Call<Self>>
-		// + IsType<<Self as frame_system::Config>::Call>;
 
 		// /// Multicurrency support
 		// type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// Allowed origins to ease transition to council governance
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
-		/// The default chain ID to use if not set in the chain spec
-		type DefaultChainId: Get<u64>;
+
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
-	}
-
-	#[pallet::type_value]
-	pub fn DefaultChainId<T: Config>() -> u64 {
-		T::DefaultChainId::get()
 	}
 
 	#[pallet::storage]

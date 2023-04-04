@@ -124,7 +124,7 @@ where
 // pub struct FeePreferencesRunner<T, U>(PhantomData<(T, U)>);
 
 pub struct FeePreferencesRunner<T, U, P: AccountProxy<AccountId>> {
-	proxy: P,
+	_proxy: P,
 	_phantom: PhantomData<(T, U)>,
 }
 
