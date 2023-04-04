@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
 			collection_uuid,
 			collection_owner: owner,
 			metadata_scheme,
-			name: collection_name.into_inner(),
+			name: collection_name,
 			royalties_schedule,
 			origin_chain,
 		});

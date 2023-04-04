@@ -138,7 +138,7 @@ pub mod pallet {
 			collection_uuid: CollectionUuid,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
-			name: Vec<u8>,
+			name: BoundedVec<u8, T::StringLimit>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
 		},
