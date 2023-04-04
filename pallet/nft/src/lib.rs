@@ -37,8 +37,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionNameType, CollectionUuid, MetadataScheme, OriginChain,
-	ParachainId, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId,
+	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -136,6 +136,9 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 		/// The parachain_id being used by this parachain
 		type ParachainId: Get<ParachainId>;
+		/// The maximum length of a collection name, stored on-chain
+		#[pallet::constant]
+		type StringLimit: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 		/// Interface for sending XLS20 mint requests
@@ -222,7 +225,7 @@ pub mod pallet {
 			max_issuance: Option<TokenCount>,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
-			name: CollectionNameType,
+			name: Vec<u8>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
 			compatibility: CrossChainCompatibility,
@@ -584,7 +587,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
-			name: CollectionNameType,
+			name: BoundedVec<u8, T::StringLimit>,
 			initial_issuance: TokenCount,
 			max_issuance: Option<TokenCount>,
 			token_owner: Option<T::AccountId>,

@@ -265,7 +265,7 @@ where
 		let mut weight: Weight = 0;
 
 		let destination: T::AccountId = destination.into();
-		let name = "".encode();
+		let name = BoundedVec::truncate_from("bridged-collection".encode());
 
 		for current_token in token_info.tokens.iter() {
 			// Assign collection owner to pallet. User can claim it later

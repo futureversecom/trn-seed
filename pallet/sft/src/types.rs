@@ -20,14 +20,10 @@ use crate::Config;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use seed_primitives::{
-	Balance, CollectionNameType, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount,
+	Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
 };
 use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
-
-// TODO
-// pub type CollectionNameType = BoundedVec<u8>;
 
 /// Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
@@ -36,7 +32,7 @@ pub struct SftCollectionInformation<T: Config> {
 	/// The owner of the collection
 	pub collection_owner: T::AccountId,
 	/// A human friendly name
-	//pub name: CollectionNameType,
+	pub name: BoundedVec<u8, T::StringLimit>,
 	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
 	/// configured royalties schedule
@@ -68,11 +64,13 @@ pub struct SftTokenInformation<T: Config> {
 	/// The owner of the token
 	pub token_owner: T::AccountId,
 	/// A human friendly name
-	pub name: CollectionNameType,
+	pub name: BoundedVec<u8, T::StringLimit>,
 	/// Maximum number of this token allowed
 	pub max_issuance: Option<TokenCount>,
 	/// the total count of tokens in this collection
 	pub token_issuance: TokenCount,
+	/// The chain that this collection was originally created
+	pub origin_chain: OriginChain,
 	/// Map from account to tokens owned by that account
 	pub owned_tokens:
 		BoundedVec<(T::AccountId, SftTokenBalance<T>), <T as Config>::MaxOwnersPerSftToken>,

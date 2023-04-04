@@ -14,15 +14,65 @@
  */
 
 use crate::*;
+use frame_support::ensure;
+use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_primitives::CollectionUuid;
 use sp_runtime::DispatchError;
 
 impl<T: Config> Pallet<T> {
-	/// Returns the CollectionUuid unique across parachains
-	pub fn next_collection_uuid() -> Result<CollectionUuid, DispatchError> {
-		// TODO get next_collection_uuid from NFT pallet
-		// Ensure it is incremented
+	pub fn do_create_collection(
+		origin: T::AccountId,
+		collection_name: BoundedVec<u8, T::StringLimit>,
+		collection_owner: Option<T::AccountId>,
+		metadata_scheme: MetadataScheme,
+		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+		origin_chain: OriginChain,
+	) -> DispatchResult {
+		let collection_uuid = <T as Config>::NFTExt::next_collection_uuid()?;
 
-		Ok(12) // Obviously this is a placeholder
+		// Validate collection_name
+		ensure!(!collection_name.is_empty(), Error::<T>::CollectionNameInvalid);
+		ensure!(core::str::from_utf8(&collection_name).is_ok(), Error::<T>::CollectionNameInvalid);
+
+		// Validate MetadataScheme
+		let metadata_scheme =
+			metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+
+		// Validate RoyaltiesSchedule
+		if let Some(royalties_schedule) = royalties_schedule.clone() {
+			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
+		}
+		let owner = collection_owner.unwrap_or(origin);
+
+		let sft_collection_info = SftCollectionInformation {
+			collection_owner: owner,
+			name: collection_name.clone(),
+			metadata_scheme: metadata_scheme.clone(),
+			royalties_schedule: royalties_schedule.clone(),
+			origin_chain: origin_chain.clone(),
+			next_serial_number: 0,
+		};
+
+		<SftCollectionInfo<T>>::insert(collection_uuid, sft_collection_info);
+
+		// Increment NextCollectionId in NFT pallet
+		<T as Config>::NFTExt::increment_collection_id()?;
+
+		// Add some code to the EVM
+		T::OnNewAssetSubscription::on_asset_create(
+			collection_uuid,
+			ERC1155_PRECOMPILE_ADDRESS_PREFIX,
+		);
+
+		Self::deposit_event(Event::<T>::CollectionCreate {
+			collection_uuid,
+			collection_owner: owner,
+			metadata_scheme,
+			name: collection_name,
+			royalties_schedule,
+			origin_chain,
+		});
+
+		Ok(())
 	}
 }

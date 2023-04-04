@@ -28,8 +28,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use seed_primitives::{
-	AccountId, CollectionNameType, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount,
-	TokenId,
+	AccountId, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, TokenId,
 };
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};

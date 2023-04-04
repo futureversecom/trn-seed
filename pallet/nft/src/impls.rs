@@ -21,8 +21,8 @@ use seed_pallet_common::{
 	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionNameType, CollectionUuid, MetadataScheme, OriginChain,
-	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount, TokenId,
 };
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
@@ -524,7 +524,7 @@ impl<T: Config> Pallet<T> {
 	/// Create the collection
 	pub fn do_create_collection(
 		owner: T::AccountId,
-		name: CollectionNameType,
+		name: BoundedVec<u8, T::StringLimit>,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<T::AccountId>,
@@ -547,10 +547,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Validate collection attributes
-		ensure!(
-			!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
-			Error::<T>::CollectionNameInvalid
-		);
+		ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
 		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
 		let metadata_scheme =
 			metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
@@ -607,7 +604,7 @@ impl<T: Config> Pallet<T> {
 			max_issuance,
 			collection_owner: owner,
 			metadata_scheme,
-			name,
+			name: name.into_inner(),
 			royalties_schedule,
 			origin_chain,
 			compatibility: cross_chain_compatibility,
@@ -686,7 +683,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn do_create_collection(
 		owner: Self::AccountId,
-		name: CollectionNameType,
+		name: BoundedVec<u8, <Self::T as Config>::StringLimit>,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<Self::AccountId>,
@@ -725,5 +722,15 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection_id: CollectionUuid,
 	) -> DispatchResult {
 		Self::enable_xls20_compatibility(who, collection_id)
+	}
+
+	fn next_collection_uuid() -> Result<CollectionUuid, DispatchError> {
+		Self::next_collection_uuid()
+	}
+
+	fn increment_collection_id() -> DispatchResult {
+		ensure!(<NextCollectionId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
+		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
+		Ok(())
 	}
 }
