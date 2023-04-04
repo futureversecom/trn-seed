@@ -1052,24 +1052,6 @@ impl pallet_proxy::Config for Runtime {
 }
 
 parameter_types! {
-	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-	pub const DepositBase: Balance = deposit(1, 88);
-	// Additional storage item size of 32 bytes.
-	pub const DepositFactor: Balance = deposit(0, 32);
-	pub const MaxSignatories: u16 = 100;
-}
-
-impl pallet_multisig::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
-	type Currency = Balances;
-	type DepositBase = DepositBase;
-	type DepositFactor = DepositFactor;
-	type MaxSignatories = MaxSignatories;
-	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>; // TODO - generate/use our weights
-}
-
-parameter_types! {
 	pub const ConfigDepositBase: u64 = 10;
 	pub const FriendDepositFactor: u64 = 1;
 	pub const MaxFriends: u32 = 3;
@@ -1154,8 +1136,7 @@ construct_runtime! {
 		// FuturePass Account
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
 		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
-		Multisig: pallet_multisig::{Pallet, Call, Storage, Event<T>} = 34,
-		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 35,
+		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
 	}
 }
 

@@ -32,4 +32,5 @@ yarn test
 
 ## CI pipeline
 
-Integration tests are run against the latest seed node/image built by the [Dockerfile](../Dockerfile) upon pull requests to the `main` branch - in the Github actions CI pipeline.
+Integration tests are run against the latest seed node/image built by the [Dockerfile](../Dockerfile) upon pull requests
+to the `main` branch - in the Github actions CI pipeline.

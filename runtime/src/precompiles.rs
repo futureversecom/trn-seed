@@ -5,10 +5,12 @@ use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
 use pallet_evm_precompiles_erc20::Erc20PrecompileSet;
 use pallet_evm_precompiles_erc721::Erc721PrecompileSet;
+use pallet_evm_precompiles_futurepass::FuturePassPrecompile;
 use pallet_evm_precompiles_nft::NftPrecompile;
 use precompile_utils::{
 	constants::{
-		ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX, NFT_PRECOMPILE,
+		ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_PRECOMPILE,
+		NFT_PRECOMPILE,
 	},
 	precompile_set::*,
 };
@@ -44,6 +46,12 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 				PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
 				// Futureverse specific precompiles:
 				PrecompileAt<AddressU64<NFT_PRECOMPILE>, NftPrecompile<R>>,
+				PrecompileAt<
+					AddressU64<FUTUREPASS_PRECOMPILE>,
+					FuturePassPrecompile<R>,
+					ForbidRecursion,
+					AllowDelegateCall,
+				>,
 			),
 		>,
 		// Prefixed precompile sets (XC20)
