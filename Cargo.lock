@@ -5025,6 +5025,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-precompiles-futurepass"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "pallet-futurepass",
+ "pallet-proxy",
+ "precompile-utils",
+ "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
 dependencies = [
@@ -5173,21 +5192,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-multisig"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "sp-runtime",
  "sp-std",
 ]
 
@@ -7905,6 +7909,7 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
+ "pallet-evm-precompiles-futurepass",
  "pallet-evm-precompiles-nft",
  "pallet-evm-precompiles-peg",
  "pallet-fee-control",
@@ -7912,7 +7917,6 @@ dependencies = [
  "pallet-futurepass",
  "pallet-grandpa",
  "pallet-im-online",
- "pallet-multisig",
  "pallet-nft",
  "pallet-nft-peg",
  "pallet-nft-rpc-runtime-api",
