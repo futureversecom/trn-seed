@@ -1,7 +1,7 @@
-# TRN FutturePass Precompile supported interfaces
+# TRN FuturePass Precompile supported interfaces
 
 ```solidity
-interface TRNFuturePass {
+interface FuturePass {
     event FuturepassCreated(address indexed futurepass, address owner);
     event FuturepassDelegateRegistered(address indexed futurepass, address delegate);
     event FuturepassDelegateUnregistered(address indexed futurepass, address delegate);
