@@ -4726,6 +4726,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "jsonrpsee",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -4758,6 +4759,7 @@ dependencies = [
 name = "pallet-dex-rpc-runtime-api"
 version = "0.0.1"
 dependencies = [
+ "jsonrpsee",
  "pallet-dex",
  "seed-primitives",
  "sp-api",

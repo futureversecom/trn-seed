@@ -26,7 +26,7 @@ use pallet_dex::Config;
 use seed_primitives::types::{AssetId, Balance, BlockNumber};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 
 pub use pallet_dex_rpc_runtime_api::{self as runtime_api, DexApi as DexRuntimeApi};
 
@@ -39,21 +39,21 @@ pub trait DexApi {
 		amount_a: u128,
 		reserve_a: u128,
 		reserve_b: u128,
-	) -> RpcResult<Result<u128, DispatchError>>;
+	) -> RpcResult<u128>;
 
 	#[method(name = "getAmountsOut")]
 	fn get_amounts_out(
 		&self,
 		amount_in: Balance,
 		path: Vec<AssetId>,
-	) -> RpcResult<Result<Vec<Balance>, DispatchError>>;
+	) -> RpcResult<Vec<Balance>>;
 
 	#[method(name = "getAmountsIn")]
 	fn get_amounts_in(
 		&self,
 		amount_out: Balance,
 		path: Vec<AssetId>,
-	) -> RpcResult<Result<Vec<Balance>, DispatchError>>;
+	) -> RpcResult<Vec<Balance>>;
 }
 
 /// An implementation of Dex specific RPC methods.
@@ -81,7 +81,7 @@ where
 		amount_a: u128,
 		reserve_a: u128,
 		reserve_b: u128,
-	) -> RpcResult<Result<u128, DispatchError>> {
+	) -> RpcResult<u128> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(self.client.info().best_hash);
 		api.quote(&at, amount_a, reserve_a, reserve_b)
@@ -92,7 +92,7 @@ where
 		&self,
 		amount_in: Balance,
 		path: Vec<AssetId>,
-	) -> RpcResult<Result<Vec<Balance>, DispatchError>> {
+	) -> RpcResult<Vec<Balance>> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(self.client.info().best_hash);
 		api.get_amounts_out(&at, amount_in, path)
@@ -103,7 +103,7 @@ where
 		&self,
 		amount_out: Balance,
 		path: Vec<AssetId>,
-	) -> RpcResult<Result<Vec<Balance>, DispatchError>> {
+	) -> RpcResult<Vec<Balance>> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(self.client.info().best_hash);
 		api.get_amounts_in(&at, amount_out, path)

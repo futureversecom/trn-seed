@@ -36,6 +36,10 @@ pub type Price = FixedU128;
 pub type ExchangeRate = FixedU128;
 pub type Ratio = FixedU128;
 pub type Rate = FixedU128;
+use jsonrpsee::{
+	core::{Error as RpcError, RpcResult},
+	proc_macros::rpc,
+};
 
 /// Status for TradingPair
 #[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
@@ -420,13 +424,13 @@ impl<T: Config> Pallet<T> {
 		amount_a: U256,
 		reserve_a: u128,
 		reserve_b: u128,
-	) -> sp_std::result::Result<U256, DispatchError> {
+	) -> RpcResult<U256> {
 		// require(amountA > 0, "UniswapV2Library: INSUFFICIENT_AMOUNT");
 		// require(reserveA > 0 && reserveB > 0, "UniswapV2Library: INSUFFICIENT_LIQUIDITY");
 		// amountB = amountA.mul(reserveB) / reserveA;
 		ensure!(amount_a.gt(&U256::zero()), Error::<T>::InsufficientAmount);
 		ensure!(reserve_a > 0_u128 && reserve_b > 0_u128, Error::<T>::InsufficientLiquidity);
-		let amount_b = amount_a.mul(U256::from(reserve_b))?.div(U256::from(reserve_a))?;
+		let amount_b = amount_a.mul(U256::from(resergve_b))?.div(U256::from(reserve_a))?;
 		Ok(amount_b)
 	}
 
@@ -671,7 +675,7 @@ impl<T: Config> Pallet<T> {
 		amount_in: Balance,
 		reserve_in: Balance,
 		reserve_out: Balance,
-	) -> sp_std::result::Result<Balance, DispatchError> {
+	) -> RpcResult<Balance> {
 		ensure!(amount_in > 0, Error::<T>::InsufficientInputAmount);
 		ensure!(reserve_in > 0 && reserve_out > 0, Error::<T>::InsufficientLiquidity);
 
@@ -699,7 +703,7 @@ impl<T: Config> Pallet<T> {
 		amount_out: Balance,
 		reserve_in: Balance,
 		reserve_out: Balance,
-	) -> sp_std::result::Result<Balance, DispatchError> {
+	) -> RpcResult<Balance> {
 		ensure!(amount_out > 0, Error::<T>::InsufficientOutputAmount);
 		ensure!(reserve_in > 0 && reserve_out > 0, Error::<T>::InsufficientLiquidity);
 
@@ -722,7 +726,7 @@ impl<T: Config> Pallet<T> {
 	pub fn get_amounts_out(
 		amount_in: Balance,
 		path: &[AssetId],
-	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
+	) -> RpcResult<Vec<Balance>> {
 		let path_length = path.len();
 		ensure!(
 			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
@@ -759,11 +763,11 @@ impl<T: Config> Pallet<T> {
 
 		Ok(amounts)
 	}
-
+//RpcError::to_call_error(e)
 	pub fn get_amounts_in(
 		amount_out: Balance,
 		path: &[AssetId],
-	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
+	) -> RpcResult<Vec<Balance>> {
 		let path_length = path.len();
 		ensure!(
 			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
