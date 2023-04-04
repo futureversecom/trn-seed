@@ -26,4 +26,6 @@ mod precompile_addresses {
 	/// Function selector for call_with_fee_preferences
 	/// bytes4(keccak256(bytes("callWithFeePreferences(address,uint128,address,bytes)")));
 	pub const FEE_FUNCTION_SELECTOR: [u8; 4] = [0x25, 0x5a, 0x34, 0x32];
+	/// Precompile address for futurepass
+	pub const FUTUREPASS_PRECOMPILE: u64 = 1722;
 }
