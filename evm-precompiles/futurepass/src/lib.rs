@@ -86,11 +86,6 @@ where
 				Err(e) => return Err(e.into()),
 			};
 
-			// TODO(surangap): enable modifier check
-			// if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
-			// 	return Err(err.into())
-			// }
-
 			match selector {
 				Action::Create => Self::create_futurepass(handle),
 				Action::RegisterDelegate => Self::register_delegate(handle),
