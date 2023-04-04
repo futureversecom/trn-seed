@@ -3,17 +3,15 @@ extern crate alloc;
 
 use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
-use frame_system::Origin;
 use pallet_evm::{AddressMapping, ExitReason, GasWeightMapping, Precompile, PrecompileFailure};
 use precompile_utils::prelude::*;
-use seed_primitives::{CollectionUuid, MetadataScheme};
+use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
 use sp_runtime::{
 	codec::Decode,
-	traits::{ConstU32, SaturatedConversion, Zero},
-	Permill,
+	traits::{ConstU32, Zero},
 };
-use sp_std::{marker::PhantomData, vec::Vec};
+use sp_std::marker::PhantomData;
 
 /// Solidity selector of the Futurepass logs, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_FUTUREPASS_CREATED: [u8; 32] =
