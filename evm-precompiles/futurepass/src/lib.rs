@@ -165,7 +165,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(caller.into()).into(),
-			pallet_futurepass::Call::<Runtime>::register {
+			pallet_futurepass::Call::<Runtime>::register_delegate {
 				futurepass: futurepass.into(),
 				delegate: delegate.into(),
 			},
@@ -198,7 +198,7 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(caller.into()).into(),
-			pallet_futurepass::Call::<Runtime>::unregister {
+			pallet_futurepass::Call::<Runtime>::unregister_delegate {
 				futurepass: futurepass.into(),
 				delegate: delegate.into(),
 			},
