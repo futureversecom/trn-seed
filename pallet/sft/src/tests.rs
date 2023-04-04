@@ -95,7 +95,7 @@ mod create_sft_collection {
 				collection_uuid,
 				collection_owner,
 				metadata_scheme,
-				name: collection_name.into_inner(),
+				name: collection_name,
 				royalties_schedule: Some(royalties_schedule),
 				origin_chain: OriginChain::Root,
 			}));
