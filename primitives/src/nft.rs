@@ -10,10 +10,6 @@ use sp_std::prelude::*;
 /// just a sensible upper bound
 pub const MAX_ENTITLEMENTS: usize = 8;
 
-/// NFT collection moniker
-/// TODO Remove from primitives, have boundedVec per pallet
-pub type CollectionNameType = Vec<u8>;
-
 /// Describes the chain that the bridged resource originated from
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub enum OriginChain {

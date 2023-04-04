@@ -1,8 +1,8 @@
 #[allow(dead_code)]
 pub mod v3 {
 	use crate::{
-		CollectionInformation, CollectionNameType, Config, CrossChainCompatibility, OriginChain,
-		Pallet, RoyaltiesSchedule, TokenOwnership,
+		CollectionInformation, Config, CrossChainCompatibility, OriginChain, Pallet,
+		RoyaltiesSchedule, TokenOwnership,
 	};
 	use codec::{Decode, Encode};
 	use frame_support::{
@@ -14,8 +14,10 @@ pub mod v3 {
 	use scale_info::TypeInfo;
 	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
 
-	#[cfg(feature = "try-runtime")]
 	use sp_std::vec::Vec;
+
+	/// NFT collection moniker
+	pub type CollectionNameType = Vec<u8>;
 
 	/// Information related to a specific collection
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
@@ -105,7 +107,8 @@ pub mod v3 {
 
 			let new = CollectionInformation {
 				owner: old.owner,
-				name: old.name,
+				name: BoundedVec::try_from(old.name).unwrap(), /* TODO Fix this whole migration
+				                                                * script */
 				metadata_scheme: old.metadata_scheme,
 				royalties_schedule: old.royalties_schedule,
 				max_issuance: old.max_issuance,

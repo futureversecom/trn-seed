@@ -6,9 +6,7 @@ use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{GasWeightMapping, Precompile};
 use pallet_nft::{CrossChainCompatibility, WeightInfo};
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{
-	CollectionNameType, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount,
-};
+use seed_primitives::{CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
@@ -97,7 +95,11 @@ where
 		// Parse owner
 		let collection_owner: H160 = collection_owner.into();
 		// Parse name
-		let name: CollectionNameType = name.as_bytes().to_vec();
+		let name: sp_runtime::BoundedVec<u8, <Runtime as pallet_nft::Config>::StringLimit> = name
+			.as_bytes()
+			.to_vec()
+			.try_into()
+			.map_err(|_| revert("NFT: Collection name exceeds the maximum length"))?;
 
 		// Parse max issuance
 		// If max issuance is 0, we assume no max issuance is set

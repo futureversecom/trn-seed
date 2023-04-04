@@ -21,8 +21,8 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	AssetId, Balance, BlockNumber, CollectionNameType, CollectionUuid, MetadataScheme, OriginChain,
-	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
@@ -111,7 +111,7 @@ pub struct CollectionInformation<T: Config> {
 	/// The owner of the collection
 	pub owner: T::AccountId,
 	/// A human friendly name
-	pub name: CollectionNameType,
+	pub name: BoundedVec<u8, T::StringLimit>,
 	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
 	/// configured royalties schedule
