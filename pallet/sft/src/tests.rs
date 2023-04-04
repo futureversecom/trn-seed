@@ -12,3 +12,28 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
+
+use crate::mock::*;
+use frame_support::{assert_noop, assert_ok, pallet_prelude::*};
+use seed_primitives::{MetadataScheme, RoyaltiesSchedule};
+use sp_runtime::Permill;
+
+#[test]
+fn create_collection_works() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = alice();
+		let collection_name = b"test".to_vec();
+		let token_owner = bob();
+		let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+		let royalties_schedule =
+			RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
+
+		assert_ok!(Sft::create_collection(
+			Some(collection_owner).into(),
+			collection_name,
+			Some(token_owner),
+			metadata_scheme,
+			Some(royalties_schedule)
+		));
+	});
+}
