@@ -204,7 +204,7 @@ pub mod pallet {
 		/// - `futurepass`: futurepass account to register the account as delegate.
 		/// - `delegate`: The delegated account for the futurepass.
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
-		pub fn register(
+		pub fn register_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
@@ -244,7 +244,7 @@ pub mod pallet {
 		/// they can remove any delegate (including themselves); otherwise the caller must be the
 		/// delegate (can only remove themself).
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
-		pub fn unregister(
+		pub fn unregister_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
