@@ -7,6 +7,8 @@ mod precompile_addresses {
 	/// Calls to contracts starting with this prefix will be shim'd to the Seed AssetsExt module
 	/// via an ERC20 compliant interface (`Erc20PrecompileSet`)
 	pub const ERC20_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xCC; 4];
+	/// Calls to contracts starting with this prefix will be shim'd to the Futurepass wallet module
+	pub const FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xFF; 4];
 	/// Precompile address for NFT
 	pub const NFT_PRECOMPILE: u64 = 1721;
 	/// The decoded location for the fee proxy function selector

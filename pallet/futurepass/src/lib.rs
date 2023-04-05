@@ -26,6 +26,7 @@
 
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
 pub use pallet::*;
 
@@ -42,6 +43,8 @@ use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResult},
 	traits::{Get, IsType},
 };
+use hex::{encode, FromHex};
+use sp_core::H160;
 use sp_std::vec::Vec;
 pub use weights::WeightInfo;
 
@@ -50,7 +53,6 @@ pub use weights::WeightInfo;
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
 pub trait ProxyProvider<AccountId> {
-	fn generate_keyless_account(proxy: &AccountId) -> AccountId;
 	fn exists(account: &AccountId, proxy: &AccountId) -> bool;
 	fn proxies(account: &AccountId) -> Vec<AccountId>;
 	fn add_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult;
@@ -73,6 +75,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+		#[pallet::constant]
+		type FuturepassPrefix: Get<[u8; 4]>;
+
 		// type Proxy: ProxyProvider<Self::AccountId, Self::ProxyType>;
 		type Proxy: ProxyProvider<Self::AccountId>;
 
@@ -86,11 +92,23 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 	}
 
-	#[pallet::storage]
-	pub type Holders<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>; // account -> futurepass
+	#[pallet::type_value]
+	pub fn DefaultValue() -> u128 {
+		1
+	}
 
+	/// The next available incrementing futurepass id
 	#[pallet::storage]
-	pub type DefaultProxy<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>; // delegate -> futurepass
+	pub type NextFuturepassId<T> = StorageValue<_, u128, ValueQuery, DefaultValue>;
+
+	/// Futurepass holders (account -> futurepass)
+	#[pallet::storage]
+	pub type Holders<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
+
+	/// Accounts which have set futurepass as default proxied on-chain account (delegate ->
+	/// futurepass)
+	#[pallet::storage]
+	pub type DefaultProxy<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -137,7 +155,10 @@ pub mod pallet {
 	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		T::AccountId: From<H160>,
+	{
 		/// Create a futurepass account for the delegator that is able to make calls on behalf of
 		/// futurepass.
 		///
@@ -303,9 +324,49 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn do_create_futurepass(account: T::AccountId) -> Result<T::AccountId, DispatchError> {
+	/// Generate the next Ethereum address (H160) with a custom prefix.
+	///
+	/// The Ethereum address will have a prefix of "FFFFFFFF" (8 hex digits) followed by the current
+	/// value of `NextFuturepassId` (32 hex digits) in hexadecimal representation, resulting in a
+	/// 40-hex-digit Ethereum address.
+	///
+	/// `NextFuturepassId` is a 128-bit unsigned integer - which converts to 32 digit hexadecimal
+	/// (16 bytes) ensuring sufficient address space for unique addresses.
+	///
+	/// This function also increments the `NextFuturepassId` storage value for future use.
+	///
+	/// # Returns
+	/// - `T::AccountId`: A generated Ethereum address (H160) with the desired custom prefix.
+	fn generate_futurepass_account() -> T::AccountId
+	where
+		T::AccountId: From<H160>,
+	{
+		// Convert the futurepass_id to a byte array and increment the value
+		let futurepass_id_bytes = NextFuturepassId::<T>::mutate(|futurepass_id| {
+			let bytes = futurepass_id.to_be_bytes();
+			*futurepass_id += 1;
+			bytes
+		});
+
+		let prefix = T::FuturepassPrefix::get();
+
+		// Create a new byte array with the combined length of the prefix and the futurepass_id
+		// (bytes)
+		let mut address_bytes = [0u8; 20];
+		address_bytes[..4].copy_from_slice(&prefix);
+		address_bytes[4..].copy_from_slice(&futurepass_id_bytes);
+
+		let address = H160::from_slice(&address_bytes);
+
+		T::AccountId::from(address)
+	}
+
+	pub fn do_create_futurepass(account: T::AccountId) -> Result<T::AccountId, DispatchError>
+	where
+		T::AccountId: From<sp_core::H160>,
+	{
 		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
-		let futurepass = T::Proxy::generate_keyless_account(&account);
+		let futurepass = Self::generate_futurepass_account();
 		Holders::<T>::set(&account, Some(futurepass.clone()));
 		T::Proxy::add_proxy(&futurepass, account.clone())?;
 
