@@ -147,7 +147,7 @@ describe("ERC721 Precompile", function () {
 
       // Check event thrown
       expect((receipt?.events as any)[i].event).to.equal("Transfer");
-      expect((receipt?.events as any)[i].args.from).to.equal(bobSigner.address);
+      expect((receipt?.events as any)[i].args.from).to.equal(EthAddress::zero());
       expect((receipt?.events as any)[i].args.to).to.equal(receiverAddress);
       expect((receipt?.events as any)[i].args.tokenId).to.equal(initialIssuance + i);
     }
