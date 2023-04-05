@@ -1,14 +1,14 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import { Vec } from "@polkadot/types";
 import { hexToU8a } from "@polkadot/util";
-import { defaults } from "axios";
+import { KeyringPair } from "@polkadot/keyring/types";
 import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
-import { ethers } from "hardhat";
-import { address } from "hardhat/internal/core/config/config-validation";
 import web3 from "web3";
 
+import MockERC20Data from "../artifacts/contracts/MockERC20.sol/MockERC20.json";
+import MockERC721Data from "../artifacts/contracts/MockERC721.sol/MockERC721.json";
+import MockERC1155Data from "../artifacts/contracts/MockERC1155.sol/MockERC1155.json";
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
@@ -19,19 +19,17 @@ import {
   startNode,
   typedefs,
 } from "../common";
+import type { MockERC20, MockERC721, MockERC1155 } from "../typechain-types";
 
-// NOTE(surangap): Each test(it) is independent from each other. If you run the tests against docker, it will spawn new
-// container before each test. If you are running against a local service, make sure to reset/restart the service before
-// each test
 describe("Futurepass Precompile", function () {
   let node: NodeProcess;
 
   let api: ApiPromise;
+  let alithKeyring: KeyringPair;
   let alithSigner: Wallet;
   let bobSigner: Wallet;
-  let otherSigner: Wallet;
   let futurpassProxy: Contract;
-  // Setup api instance
+
   beforeEach(async () => {
     node = await startNode();
 
@@ -42,36 +40,51 @@ describe("Futurepass Precompile", function () {
       types: typedefs,
     });
 
+    const keyring = new Keyring({ type: "ethereum" });
+    alithKeyring = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+
     // Ethereum variables
     const provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
-    alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
+    alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
-    otherSigner = new Wallet("0x79c3b7fc0b7697b9414cb87adcb37317d1cab32818ae18c0e97ad76395d1fdcd").connect(provider);
 
     futurpassProxy = new Contract(FUTUREPASS_PRECOMPILE_ADDRESS, FUTUREPASS_PRECOMPILE_ABI, bobSigner);
   });
 
   afterEach(async () => await node.stop());
 
-  it("create futurepass success", async () => {
-    const owner = alithSigner.address;
-    const createTx = await futurpassProxy.connect(bobSigner).create(owner);
-    const receipt = await createTx.wait();
+  // TODO: migrate to unit test
+  it("create futurepass succeeds for account with balance", async () => {
+    const owner = await Wallet.createRandom().getAddress();
+    await new Promise<void>((resolve) => {
+      api.tx.balances.transfer(owner, 10_000_000).signAndSend(alithKeyring, ({ status }) => { // 10 XRP
+        if (status.isInBlock) resolve();
+      });
+    });
+    const tx = await futurpassProxy.connect(bobSigner).create(owner);
+    const receipt = await tx.wait();
 
     expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
-    expect((receipt?.events as any)[0].args.owner).to.equal(alithSigner.address);
+    expect((receipt?.events as any)[0].args.owner).to.equal(owner);
   });
 
-  it("create futurepass fail - already existing account", async () => {
-    const owner = bobSigner.address;
-    {
-      const createTx = await futurpassProxy.connect(bobSigner).create(owner);
-      const receipt = await createTx.wait();
+  // TODO: migrate to unit test
+  // TODO: fix
+  it("create futurepass succeeds for account with no balance", async () => {
+    const owner = await Wallet.createRandom().getAddress();
+    const tx = await futurpassProxy.connect(bobSigner).create(owner);
+    const receipt = await tx.wait();
 
-      expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
-      expect((receipt?.events as any)[0].args.owner).to.equal(bobSigner.address);
-    }
-    //try to create an FP for bob again
+    expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
+    expect((receipt?.events as any)[0].args.owner).to.equal(owner);
+  });
+
+  it("create futurepass fails - already existing account", async () => {
+    const owner = await Wallet.createRandom().getAddress();
+    const tx = await futurpassProxy.connect(bobSigner).create(owner);
+    await tx.wait();
+
+    // should fail upon creation of FP for same owner again
     await futurpassProxy
       .connect(bobSigner)
       .create(owner)
@@ -173,7 +186,7 @@ describe("Futurepass Precompile", function () {
       expect(await api.rpc.eth.getBalance(futurepass)).to.equal(1000000n * 1000000000000n);
     }
     {
-      const recipientAddress = otherSigner.address;
+      const recipientAddress = await Wallet.createRandom().getAddress();
       // alith is bob's FP's. Hence should be able to transfer the balance out from the futurepass.
       // send 500000 back to recipientAddress(8B9f1582D367dDBB5b2E736671db253F0b602DDa)
       const callData =
@@ -184,10 +197,5 @@ describe("Futurepass Precompile", function () {
       expect(await api.rpc.eth.getBalance(futurepass)).to.equal(500000n * 1000000000000n);
       expect(await api.rpc.eth.getBalance(recipientAddress)).to.equal(500000n * 1000000000000n);
     }
-  });
-
-  it("test call", async () => {
-    const recipient = otherSigner.address;
-    console.log(recipient);
   });
 });
