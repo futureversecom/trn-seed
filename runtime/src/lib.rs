@@ -413,6 +413,7 @@ impl pallet_fee_proxy::Config for Runtime {
 	type FeeAssetId = XrpAssetId;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type ErcIdConversion = Self;
+	type FuturepassAdapter = impls::ProxyPalletProvider;
 }
 
 parameter_types! {

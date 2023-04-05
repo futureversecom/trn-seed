@@ -26,6 +26,7 @@ frame-system = { git = "https://github.com/futureversecom/substrate", branch = "
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-proxy = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 
@@ -54,7 +55,8 @@ std = [
     "sp-runtime/std",
     "frame-benchmarking/std",
     "frame-support/std",
-    "frame-system/std"
+    "frame-system/std",
+    "pallet-proxy/std"
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]
