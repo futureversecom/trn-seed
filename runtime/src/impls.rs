@@ -460,10 +460,6 @@ where
 pub struct ProxyPalletProvider;
 
 impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
-	fn generate_keyless_account(proxy: &AccountId) -> AccountId {
-		pallet_proxy::Pallet::<Runtime>::anonymous_account(proxy, &ProxyType::Any, 0, None)
-	}
-
 	fn exists(account: &AccountId, proxy: &AccountId) -> bool {
 		pallet_proxy::Pallet::<Runtime>::find_proxy(account, proxy, None)
 			.map(|_| true)
