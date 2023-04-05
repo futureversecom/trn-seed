@@ -109,7 +109,7 @@ mod weights;
 
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
-use precompile_utils::constants::FEE_PROXY_ADDRESS;
+use precompile_utils::constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX};
 
 mod custom_migration {
 	use super::*;
@@ -935,7 +935,7 @@ impl pallet_evm::Config for Runtime {
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
-	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>; // @note debug proxy fee payment maybe here
+	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	// internal EVM config
 	fn config() -> &'static EvmConfig {
@@ -1069,8 +1069,14 @@ impl pallet_recovery::Config for Runtime {
 	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>; // TODO - generate/use our weights
 }
 
+parameter_types! {
+	/// 4 byte futurepass account prefix
+	pub const FuturepassPrefix: [u8; 4] = *FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
+}
+
 impl pallet_futurepass::Config for Runtime {
 	type Event = Event;
+	type FuturepassPrefix = FuturepassPrefix;
 	type Proxy = impls::ProxyPalletProvider;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = (); // TODO - generate/use our weights
