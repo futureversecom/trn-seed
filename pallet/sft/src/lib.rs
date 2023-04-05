@@ -57,6 +57,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::Zero;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
@@ -134,11 +135,25 @@ pub mod pallet {
 			owner: T::AccountId,
 		},
 		/// A new owner was set
-		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
+		OwnerSet {
+			collection_id: CollectionUuid,
+			new_owner: T::AccountId,
+		},
 		/// Max issuance was set
-		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
+		MaxIssuanceSet {
+			collection_id: CollectionUuid,
+			max_issuance: TokenCount,
+		},
 		/// Base URI was set
-		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
+		BaseUriSet {
+			collection_id: CollectionUuid,
+			base_uri: Vec<u8>,
+		},
+		TokenCreated {
+			collection_id: CollectionUuid,
+			token_id: SerialNumber,
+			owner: T::AccountId,
+		},
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -147,9 +162,15 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
-		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
+		Burn {
+			collection_id: CollectionUuid,
+			serial_number: SerialNumber,
+		},
 		/// Collection has been claimed
-		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
+		CollectionClaimed {
+			account: T::AccountId,
+			collection_id: CollectionUuid,
+		},
 	}
 
 	// TODO Remove Errors not being used
@@ -246,9 +267,13 @@ pub mod pallet {
 				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(who == existing_collection.collection_owner, Error::<T>::NotCollectionOwner);
 
-			// Max issuance is optional, but if we have one, initial issuance must obey it
 			if let Some(max_issuance) = max_issuance {
+				ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
 				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+				ensure!(
+					max_issuance <= T::MaxTokensPerSftCollection::get().into(),
+					Error::<T>::InvalidMaxIssuance
+				);
 			}
 
 			let next_serial_number = existing_collection.next_serial_number;
@@ -256,10 +281,7 @@ pub mod pallet {
 			existing_collection.next_serial_number =
 				next_serial_number.checked_add(1).ok_or(Error::<T>::OverFlow)?;
 
-			let token_owner = match token_owner {
-				Some(token_owner) if initial_issuance > 0 => token_owner,
-				_ => who,
-			};
+			let token_owner = token_owner.unwrap_or(who);
 
 			let initial_balance = SftTokenBalance::new(initial_issuance, 0);
 
@@ -273,6 +295,13 @@ pub mod pallet {
 
 			TokenInfo::<T>::insert((collection_id, next_serial_number), new_sft);
 			SftCollectionInfo::<T>::insert(collection_id, existing_collection);
+
+			Self::deposit_event(Event::<T>::TokenCreated {
+				collection_id,
+				token_id: next_serial_number,
+				owner: token_owner,
+			});
+
 			Ok(())
 		}
 
