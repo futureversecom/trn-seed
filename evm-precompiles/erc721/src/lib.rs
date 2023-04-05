@@ -14,7 +14,7 @@ use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{CollectionUuid, SerialNumber, TokenCount, TokenId};
+use seed_primitives::{CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -726,7 +726,7 @@ where
 			log3(
 				handle.code_address(),
 				SELECTOR_LOG_TRANSFER,
-				origin,
+				EthAddress::zero(),
 				to,
 				EvmDataWriter::new().write(token_id).build(),
 			)
