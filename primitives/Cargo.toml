@@ -1,7 +1,7 @@
 [package]
 name = "seed-primitives"
 version = "1.0.0"
-authors = ["Centrality Developers <support@centrality.ai>"]
+authors = ["The Root Network Team"]
 edition = "2021"
 description = "Types shared across parachain pallets, runtime, and client"
 
