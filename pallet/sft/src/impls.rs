@@ -17,9 +17,10 @@ use crate::*;
 use frame_support::ensure;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_primitives::CollectionUuid;
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 impl<T: Config> Pallet<T> {
+	/// Perform the create collection operation and insert SftCollectionInfo into storage
 	pub fn do_create_collection(
 		origin: T::AccountId,
 		collection_name: BoundedVec<u8, T::StringLimit>,
@@ -72,6 +73,58 @@ impl<T: Config> Pallet<T> {
 			royalties_schedule,
 			origin_chain,
 		});
+
+		Ok(())
+	}
+
+	/// Perform the mint operation and increase the quantity of the user
+	pub fn do_mint(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+		quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		token_owner: Option<T::AccountId>,
+	) -> DispatchResult {
+		// Validate serial_numbers and quantities length
+		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::InvalidMintInput);
+		// Must be some serial numbers to mint
+		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+
+		let sft_collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+		// Caller must be collection_owner
+		ensure!(sft_collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+		let owner = token_owner.unwrap_or(who);
+
+		for (serial_number, quantity) in serial_numbers
+			.iter()
+			.zip(quantities.iter())
+			.collect::<Vec<(&SerialNumber, &Balance)>>()
+		{
+			// Validate quantity
+			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
+
+			let token_id: TokenId = (collection_id, *serial_number);
+			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+			// Check for overflow
+			ensure!(
+				token_info.token_issuance.checked_add(*quantity).is_some(),
+				Error::<T>::Overflow
+			);
+			// Check that the max issuance will not be reached
+			// Can't mint more than specified max_issuance
+			if let Some(max_issuance) = token_info.max_issuance {
+				ensure!(
+					token_info.token_issuance + quantity <= max_issuance,
+					Error::<T>::MaxIssuanceReached
+				);
+			}
+
+			// Mint the balance
+			token_info.mint_balance(&owner, *quantity)?;
+		}
 
 		Ok(())
 	}

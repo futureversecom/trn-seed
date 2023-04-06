@@ -15,14 +15,15 @@
 
 //! SFT module types
 
-use crate::Config;
+use crate::{Config, Error};
 
 use codec::{Decode, Encode};
+use frame_support::ensure;
 use scale_info::TypeInfo;
 use seed_primitives::{
 	Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
 };
-use sp_runtime::BoundedVec;
+use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 use sp_std::prelude::*;
 
 /// Information related to a specific collection
@@ -66,9 +67,9 @@ pub struct SftTokenInformation<T: Config> {
 	/// A human friendly name
 	pub name: BoundedVec<u8, T::StringLimit>,
 	/// Maximum number of this token allowed
-	pub max_issuance: Option<TokenCount>,
+	pub max_issuance: Option<Balance>,
 	/// the total count of tokens in this collection
-	pub token_issuance: TokenCount,
+	pub token_issuance: Balance,
 	/// The chain that this collection was originally created
 	pub origin_chain: OriginChain,
 	/// Map from account to tokens owned by that account
@@ -84,6 +85,23 @@ impl<T: Config> SftTokenInformation<T> {
 			.find(|(account, _)| account == who)
 			.map(|(_, balance)| balance.free_balance)
 			.unwrap_or_default()
+	}
+
+	pub fn mint_balance(&mut self, who: &T::AccountId, amount: Balance) -> DispatchResult {
+		let mut existing_owner = self.owned_tokens.iter_mut().find(|(account, _)| account == who);
+
+		match existing_owner {
+			Some((_, balance)) => {
+				balance.add_balance(amount).map_err(|err| Error::<T>::from(err))?;
+			},
+			None => {
+				let new_token_balance = SftTokenBalance::new(amount, 0);
+				self.owned_tokens
+					.try_push((*who, new_token_balance))
+					.map_err(|_| Error::<T>::MaxOwnersReached)?;
+			},
+		}
+		Ok(())
 	}
 }
 
@@ -105,7 +123,26 @@ pub enum TokenBalanceError {
 	Overflow,
 }
 
+impl<T: Config> From<TokenBalanceError> for Error<T> {
+	fn from(error: TokenBalanceError) -> Self {
+		match error {
+			TokenBalanceError::InsufficientBalance => Error::<T>::InsufficientBalance.into(),
+			TokenBalanceError::Overflow => Error::<T>::Overflow.into(),
+		}
+	}
+}
+
+impl<T: Config> Default for SftTokenBalance<T> {
+	fn default() -> Self {
+		SftTokenBalance { _phantom: Default::default(), free_balance: 0, reserved_balance: 0 }
+	}
+}
+
 impl<T: Config> SftTokenBalance<T> {
+	/// Creates a news instance of SftTokenBalance
+	pub fn new(free_balance: u128, reserved_balance: u128) -> Self {
+		SftTokenBalance { _phantom: Default::default(), free_balance, reserved_balance }
+	}
 	/// Returns the total balance
 	pub fn total_balance(&self) -> Balance {
 		self.free_balance + self.reserved_balance

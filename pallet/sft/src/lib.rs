@@ -195,8 +195,14 @@ pub mod pallet {
 		RoyaltiesInvalid,
 		/// The collection does not exist
 		NoCollectionFound,
+		/// The user does not own enough of this token to perform the operation
+		InsufficientBalance,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
+		/// The serial numbers and quantities are not the same length
+		InvalidMintInput,
+		/// The specified quantity must be greater than 0
+		InvalidQuantity,
 		/// The caller owns the token and can't make an offer
 		IsTokenOwner,
 		/// Max issuance needs to be greater than 0 and initial_issuance
@@ -206,6 +212,8 @@ pub mod pallet {
 		MaxIssuanceAlreadySet,
 		/// The collection max issuance has been reached and no more tokens can be minted
 		MaxIssuanceReached,
+		/// The max amount of owners per token has been reached
+		MaxOwnersReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
 		/// Cannot claim already claimed collections
@@ -214,6 +222,8 @@ pub mod pallet {
 		InitialIssuanceNotZero,
 		/// Total issuance of collection must be zero to add xls20 compatibility
 		CollectionIssuanceNotZero,
+		/// The operation would cause a numeric overflow
+		Overflow,
 	}
 
 	#[pallet::call]
@@ -229,7 +239,6 @@ pub mod pallet {
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
 		#[pallet::weight(100000)]
-		#[transactional]
 		pub fn create_sft_collection(
 			origin: OriginFor<T>,
 			collection_name: BoundedVec<u8, T::StringLimit>,
@@ -246,7 +255,6 @@ pub mod pallet {
 				royalties_schedule,
 				OriginChain::Root,
 			)?;
-
 			Ok(())
 		}
 
@@ -284,9 +292,16 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Mint balance into serialNumber
+		/// Mints some balances into some serial numbers for an account
+		/// This acts as a batch mint function and allows for multiple serial numbers and quantities
+		/// to be passed in simultaneously.
+		/// Must be called by the collection owner // TODO Discuss this, could be token_owner too?
+		///
+		/// `collection_id` - the SFT collection to mint into
+		/// `serial_numbers` - A list of serial numbers to mint into
+		/// `quantities` - A list of quantities to mint into each serial number
+		/// `token_owner` - The owner of the tokens, defaults to the caller
 		#[pallet::weight(100000)]
-		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -295,7 +310,7 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// ensure!(serial_numbers.length() == quantities.length(), Error::<T>::InvalidMint);
+			Self::do_mint(who, collection_id, serial_numbers, quantities, token_owner)?;
 			Ok(())
 		}
 
