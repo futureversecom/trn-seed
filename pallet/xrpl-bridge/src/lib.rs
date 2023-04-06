@@ -36,7 +36,7 @@ use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAda
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash},
-	AccountId, AssetId, Balance, Timestamp,
+	AssetId, Balance, Timestamp,
 };
 
 use crate::helpers::{
@@ -71,7 +71,7 @@ pub mod pallet {
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
@@ -162,7 +162,10 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	{
 		fn on_initialize(n: T::BlockNumber) -> Weight {
 			let weights = Self::process_xrp_tx(n);
 			weights + Self::clear_storages(n)
@@ -325,7 +328,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			Self::initialize_relayer(&vec![relayer]);
+			Self::initialize_relayer(&vec![relayer.clone()]);
 			Self::deposit_event(Event::<T>::RelayerAdded(relayer));
 			Ok(())
 		}
@@ -335,8 +338,8 @@ pub mod pallet {
 		#[transactional]
 		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			if <Relayer<T>>::contains_key(relayer) {
-				<Relayer<T>>::remove(relayer);
+			if <Relayer<T>>::contains_key(relayer.clone()) {
+				<Relayer<T>>::remove(relayer.clone());
 				Self::deposit_event(Event::<T>::RelayerRemoved(relayer));
 				Ok(())
 			} else {
@@ -438,7 +441,10 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
+	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	{
 		let tx_items: Vec<XrplTxHash> = match <ProcessXRPTransaction<T>>::take(n) {
 			None => return DbWeight::get().reads(2 as Weight),
 			Some(v) => v,
