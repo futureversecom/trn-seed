@@ -21,7 +21,7 @@ use pallet_dex::Config;
 use seed_primitives::types::{AssetId, Balance, BlockNumber};
 use serde::{Deserialize, Deserializer, Serialize};
 use sp_api::ProvideRuntimeApi;
-use sp_arithmetic::traits::{SaturatedConversion};
+use sp_arithmetic::traits::SaturatedConversion;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
 
@@ -77,8 +77,8 @@ struct WrappedBalanceHelper {
 }
 impl Serialize for WrappedBalance {
 	fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-		where
-			S: serde::Serializer,
+	where
+		S: serde::Serializer,
 	{
 		WrappedBalanceHelper { value: self.0 }.serialize(serializer)
 	}
@@ -86,8 +86,8 @@ impl Serialize for WrappedBalance {
 
 impl<'de> Deserialize<'de> for WrappedBalance {
 	fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
-		where
-			D: Deserializer<'de>,
+	where
+		D: Deserializer<'de>,
 	{
 		deserializer
 			.deserialize_any(WrappedBalanceVisitor)
@@ -105,19 +105,19 @@ impl<'de> serde::de::Visitor<'de> for WrappedBalanceVisitor {
 	}
 
 	fn visit_u64<E>(self, v: u64) -> std::result::Result<Self::Value, E>
-		where
-			E: serde::de::Error,
+	where
+		E: serde::de::Error,
 	{
 		Ok(WrappedBalance(v.saturated_into()))
 	}
 
 	fn visit_str<E>(self, s: &str) -> std::result::Result<Self::Value, E>
-		where
-			E: serde::de::Error,
+	where
+		E: serde::de::Error,
 	{
 		//remove the first two chars as we are expecting a string prefixed with '0x'
-		let decoded_string =
-			hex::decode(&s[2..]).map_err(|_| serde::de::Error::custom("expected hex encoded string"))?;
+		let decoded_string = hex::decode(&s[2..])
+			.map_err(|_| serde::de::Error::custom("expected hex encoded string"))?;
 		let fixed_16_bytes: [u8; 16] = decoded_string
 			.try_into()
 			.map_err(|_| serde::de::Error::custom("parse big int as u128 failed"))?;
