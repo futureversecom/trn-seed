@@ -14,8 +14,9 @@
  */
 
 use crate::*;
+use frame_support::{ensure, traits::Get};
 use seed_primitives::CollectionUuid;
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
@@ -24,5 +25,57 @@ impl<T: Config> Pallet<T> {
 		// Ensure it is incremented
 
 		Ok(12) // Obviously this is a placeholder
+	}
+
+	pub fn do_create_token(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		token_name: CollectionNameType,
+		initial_issuance: Balance,
+		max_issuance: Option<Balance>,
+		token_owner: Option<T::AccountId>,
+	) -> DispatchResult {
+		let mut existing_collection =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		ensure!(who == existing_collection.collection_owner, Error::<T>::NotCollectionOwner);
+
+		if let Some(max_issuance) = max_issuance {
+			ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
+			ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+			ensure!(
+				max_issuance <= T::MaxTokensPerSftCollection::get().into(),
+				Error::<T>::InvalidMaxIssuance
+			);
+		}
+
+		let next_serial_number = existing_collection.next_serial_number;
+
+		existing_collection.next_serial_number =
+			next_serial_number.checked_add(1).ok_or(Error::<T>::OverFlow)?;
+
+		let token_owner = token_owner.unwrap_or(who);
+
+		let initial_balance = SftTokenBalance::new(initial_issuance, 0);
+
+		let new_sft = SftTokenInformation {
+			name: token_name.clone(),
+			max_issuance,
+			token_issuance: initial_issuance,
+			owned_tokens: BoundedVec::truncate_from(vec![(token_owner, initial_balance)]),
+		};
+
+		TokenInfo::<T>::insert((collection_id, next_serial_number), new_sft);
+		SftCollectionInfo::<T>::insert(collection_id, existing_collection);
+
+		Self::deposit_event(Event::<T>::TokenCreated {
+			collection_id,
+			serial_number: next_serial_number,
+			initial_issuance,
+			max_issuance,
+			owner: token_owner,
+			token_name,
+		});
+
+		Ok(())
 	}
 }

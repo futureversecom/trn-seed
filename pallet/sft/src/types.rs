@@ -65,8 +65,6 @@ impl<T: Config> TokenInformation<T> for SftCollectionInformation<T> {
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct SftTokenInformation<T: Config> {
-	/// The owner of the token
-	pub token_owner: T::AccountId,
 	/// A human friendly name
 	pub name: CollectionNameType,
 	/// Maximum number of this token allowed

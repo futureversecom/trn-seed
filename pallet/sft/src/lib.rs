@@ -135,23 +135,17 @@ pub mod pallet {
 			owner: T::AccountId,
 		},
 		/// A new owner was set
-		OwnerSet {
-			collection_id: CollectionUuid,
-			new_owner: T::AccountId,
-		},
+		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
-		MaxIssuanceSet {
-			collection_id: CollectionUuid,
-			max_issuance: TokenCount,
-		},
+		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
 		/// Base URI was set
-		BaseUriSet {
-			collection_id: CollectionUuid,
-			base_uri: Vec<u8>,
-		},
+		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		TokenCreated {
 			collection_id: CollectionUuid,
-			token_id: SerialNumber,
+			serial_number: SerialNumber,
+			initial_issuance: Balance,
+			max_issuance: Option<Balance>,
+			token_name: CollectionNameType,
 			owner: T::AccountId,
 		},
 		/// A token was transferred
@@ -162,15 +156,9 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
-		Burn {
-			collection_id: CollectionUuid,
-			serial_number: SerialNumber,
-		},
+		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
 		/// Collection has been claimed
-		CollectionClaimed {
-			account: T::AccountId,
-			collection_id: CollectionUuid,
-		},
+		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
 
 	// TODO Remove Errors not being used
@@ -262,47 +250,14 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			let mut existing_collection =
-				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(who == existing_collection.collection_owner, Error::<T>::NotCollectionOwner);
-
-			if let Some(max_issuance) = max_issuance {
-				ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
-				ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
-				ensure!(
-					max_issuance <= T::MaxTokensPerSftCollection::get().into(),
-					Error::<T>::InvalidMaxIssuance
-				);
-			}
-
-			let next_serial_number = existing_collection.next_serial_number;
-
-			existing_collection.next_serial_number =
-				next_serial_number.checked_add(1).ok_or(Error::<T>::OverFlow)?;
-
-			let token_owner = token_owner.unwrap_or(who);
-
-			let initial_balance = SftTokenBalance::new(initial_issuance, 0);
-
-			let new_sft = SftTokenInformation {
-				token_owner,
-				name: token_name,
-				max_issuance,
-				token_issuance: initial_issuance,
-				owned_tokens: BoundedVec::truncate_from(vec![(token_owner, initial_balance)]),
-			};
-
-			TokenInfo::<T>::insert((collection_id, next_serial_number), new_sft);
-			SftCollectionInfo::<T>::insert(collection_id, existing_collection);
-
-			Self::deposit_event(Event::<T>::TokenCreated {
+			Self::do_create_token(
+				who,
 				collection_id,
-				token_id: next_serial_number,
-				owner: token_owner,
-			});
-
-			Ok(())
+				token_name,
+				initial_issuance,
+				max_issuance,
+				token_owner,
+			)
 		}
 
 		/// Mint balance into serialNumber
