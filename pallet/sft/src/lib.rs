@@ -149,7 +149,7 @@ pub mod pallet {
 			serial_number: SerialNumber,
 			initial_issuance: Balance,
 			max_issuance: Option<Balance>,
-			token_name: CollectionNameType,
+			token_name: BoundedVec<u8, T::StringLimit>,
 			owner: T::AccountId,
 		},
 		/// A token was transferred
@@ -168,8 +168,8 @@ pub mod pallet {
 	// TODO Remove Errors not being used
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Given collection name is invalid (invalid utf-8, too long, empty)
-		CollectionNameInvalid,
+		/// Given collection or token name is invalid (invalid utf-8, empty)
+		NameInvalid,
 		/// No more Ids are available, they've been exhausted
 		NoAvailableIds,
 		/// Origin does not own the NFT
@@ -245,9 +245,7 @@ pub mod pallet {
 				metadata_scheme,
 				royalties_schedule,
 				OriginChain::Root,
-			)?;
-
-			Ok(())
+			)
 		}
 
 		/// Create additional tokens for an existing collection

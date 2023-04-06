@@ -31,8 +31,8 @@ impl<T: Config> Pallet<T> {
 		let collection_uuid = <T as Config>::NFTExt::next_collection_uuid()?;
 
 		// Validate collection_name
-		ensure!(!collection_name.is_empty(), Error::<T>::CollectionNameInvalid);
-		ensure!(core::str::from_utf8(&collection_name).is_ok(), Error::<T>::CollectionNameInvalid);
+		ensure!(!collection_name.is_empty(), Error::<T>::NameInvalid);
+		ensure!(core::str::from_utf8(&collection_name).is_ok(), Error::<T>::NameInvalid);
 
 		// Validate MetadataScheme
 		let metadata_scheme =
@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_create_token(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
-		token_name: CollectionNameType,
+		token_name: BoundedVec<u8, T::StringLimit>,
 		initial_issuance: Balance,
 		max_issuance: Option<Balance>,
 		token_owner: Option<T::AccountId>,
@@ -87,6 +87,8 @@ impl<T: Config> Pallet<T> {
 		let mut existing_collection =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		ensure!(who == existing_collection.collection_owner, Error::<T>::NotCollectionOwner);
+		ensure!(!token_name.is_empty(), Error::<T>::NameInvalid);
+		ensure!(core::str::from_utf8(&token_name).is_ok(), Error::<T>::NameInvalid);
 
 		if let Some(max_issuance) = max_issuance {
 			ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
