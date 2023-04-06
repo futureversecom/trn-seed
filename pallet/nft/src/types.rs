@@ -24,7 +24,7 @@ use seed_primitives::{
 	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
 	SerialNumber, TokenCount, TokenId,
 };
-use sp_runtime::{BoundedVec, PerThing, Permill};
+use sp_runtime::{BoundedVec, Permill};
 use sp_std::prelude::*;
 
 // Time before auction ends that auction is extended if a bid is placed

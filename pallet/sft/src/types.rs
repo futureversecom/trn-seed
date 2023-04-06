@@ -62,16 +62,12 @@ impl<T: Config> TokenInformation<T> for SftCollectionInformation<T> {
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct SftTokenInformation<T: Config> {
-	/// The owner of the token
-	pub token_owner: T::AccountId,
 	/// A human friendly name
 	pub name: BoundedVec<u8, T::StringLimit>,
 	/// Maximum number of this token allowed
 	pub max_issuance: Option<Balance>,
 	/// the total count of tokens in this collection
 	pub token_issuance: Balance,
-	/// The chain that this collection was originally created
-	pub origin_chain: OriginChain,
 	/// Map from account to tokens owned by that account
 	pub owned_tokens:
 		BoundedVec<(T::AccountId, SftTokenBalance<T>), <T as Config>::MaxOwnersPerSftToken>,
