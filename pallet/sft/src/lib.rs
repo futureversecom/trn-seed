@@ -221,13 +221,15 @@ pub mod pallet {
 		/// Create a new collection to group multiple semi-fungible tokens
 		/// Tokens can be created within the collection by calling create_token
 		///
-		/// `name` - the name of the collection
-		/// `initial_issuance` - number of tokens to mint now
-		/// `max_issuance` - maximum number of tokens allowed in collection
-		/// `token_owner` - the token owner, defaults to the caller
+		/// `collection_name` - the name of the collection
+		/// `collection_owner` - the collection owner, defaults to the caller
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
+		///
+		/// The collectionUuid used to store the SFT CollectionInfo is retrieved from the NFT
+		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
+		/// of if they are SFT or NFT collections.
 		#[pallet::weight(100000)]
 		#[transactional]
 		pub fn create_sft_collection(
