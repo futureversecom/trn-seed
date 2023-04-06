@@ -40,9 +40,8 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 
 use precompile_utils::{
-	constants::{ FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE },
+	constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE},
 	Address, ErcIdConversion,
-	precompile_set::AddressU64,
 };
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
@@ -553,9 +552,8 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		_recipient_has_code: bool,
 	) -> bool {
 		use pallet_evm::PrecompileSet as _;
-		let FUTUREPASS_PRECOMPILE_ADDRESS = H160::from_low_u64_be(FUTUREPASS_PRECOMPILE);
-		if matches!(call.to.0, FUTUREPASS_PRECOMPILE_ADDRESS) {
-			return false;
+		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
+			return false
 		}
 		match self {
 			ProxyType::Any => true,
@@ -570,8 +568,8 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		// NOTE - any call for Proxy, Futurepass pallets can not be proxied. this may seems extra
-		// restrictive than Proxy pallet. But if a delegate has permission to proxy a call of the proxy pallet,
-		// they should be able to call it directly in the pallet.
+		// restrictive than Proxy pallet. But if a delegate has permission to proxy a call of the
+		// proxy pallet, they should be able to call it directly in the pallet.
 		// This keeps the logic simple and avoids unnecessary loops
 		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
 			return false
