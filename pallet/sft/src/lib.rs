@@ -14,19 +14,7 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
-//! # NFT Module
-//!
-//! Provides the basic creation and management of dynamic NFTs (created at runtime).
-//!
-//! Intended to be used "as is" by dapps and provide basic NFT feature set for smart contracts
-//! to extend.
-//!
-//! *Collection*:
-//! Collection are a grouping of tokens- equivalent to an ERC721 contract
-//!
-//! *Tokens*:
-//!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
-//! number)
+//! # SFT Module
 
 use frame_support::{
 	traits::tokens::fungibles::{Mutate, Transfer},
@@ -70,6 +58,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::Zero;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
@@ -155,6 +144,14 @@ pub mod pallet {
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
+		TokenCreated {
+			collection_id: CollectionUuid,
+			serial_number: SerialNumber,
+			initial_issuance: Balance,
+			max_issuance: Option<Balance>,
+			token_name: BoundedVec<u8, T::StringLimit>,
+			owner: T::AccountId,
+		},
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -171,8 +168,8 @@ pub mod pallet {
 	// TODO Remove Errors not being used
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Given collection name is invalid (invalid utf-8, too long, empty)
-		CollectionNameInvalid,
+		/// Given collection or token name is invalid (invalid utf-8, empty)
+		NameInvalid,
 		/// No more Ids are available, they've been exhausted
 		NoAvailableIds,
 		/// Origin does not own the NFT
@@ -185,6 +182,7 @@ pub mod pallet {
 		NotForAuction,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
+		OverFlow,
 		/// The token is not listed for sale
 		TokenNotListed,
 		/// The maximum number of offers on this token has been reached
@@ -247,9 +245,7 @@ pub mod pallet {
 				metadata_scheme,
 				royalties_schedule,
 				OriginChain::Root,
-			)?;
-
-			Ok(())
+			)
 		}
 
 		/// Create additional tokens for an existing collection
@@ -266,24 +262,14 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// Ensure who == collection_owner
-			// Ensure max issuance > initial issuance
-			// Creates new serialnumber (based off next_serial_number)
-
-			// CollectionId
-			// - serialNumber1
-			// - - Account1: Balance
-			// - - Account2: Balance
-			// - serialNumber2
-			// - - Account1: Balance
-			// - - Account3: Balance
-
-			// If initial issuance > 0, mint it to the token_owner
-			// If token owner is not set then we mint it to the origin
-
-			// create SftTokenInformation object and store under TokenId
-
-			Ok(())
+			Self::do_create_token(
+				who,
+				collection_id,
+				token_name,
+				initial_issuance,
+				max_issuance,
+				token_owner,
+			)
 		}
 
 		/// Mint balance into serialNumber

@@ -14,10 +14,10 @@
  */
 
 use crate::*;
-use frame_support::ensure;
+use frame_support::{ensure, traits::Get};
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_primitives::CollectionUuid;
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::Zero, DispatchError};
 
 impl<T: Config> Pallet<T> {
 	pub fn do_create_collection(
@@ -31,8 +31,8 @@ impl<T: Config> Pallet<T> {
 		let collection_uuid = <T as Config>::NFTExt::next_collection_uuid()?;
 
 		// Validate collection_name
-		ensure!(!collection_name.is_empty(), Error::<T>::CollectionNameInvalid);
-		ensure!(core::str::from_utf8(&collection_name).is_ok(), Error::<T>::CollectionNameInvalid);
+		ensure!(!collection_name.is_empty(), Error::<T>::NameInvalid);
+		ensure!(core::str::from_utf8(&collection_name).is_ok(), Error::<T>::NameInvalid);
 
 		// Validate MetadataScheme
 		let metadata_scheme =
@@ -71,6 +71,60 @@ impl<T: Config> Pallet<T> {
 			name: collection_name,
 			royalties_schedule,
 			origin_chain,
+		});
+
+		Ok(())
+	}
+
+	pub fn do_create_token(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		token_name: BoundedVec<u8, T::StringLimit>,
+		initial_issuance: Balance,
+		max_issuance: Option<Balance>,
+		token_owner: Option<T::AccountId>,
+	) -> DispatchResult {
+		let mut existing_collection =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		ensure!(who == existing_collection.collection_owner, Error::<T>::NotCollectionOwner);
+		ensure!(!token_name.is_empty(), Error::<T>::NameInvalid);
+		ensure!(core::str::from_utf8(&token_name).is_ok(), Error::<T>::NameInvalid);
+
+		if let Some(max_issuance) = max_issuance {
+			ensure!(max_issuance > Zero::zero(), Error::<T>::InvalidMaxIssuance);
+			ensure!(initial_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+			ensure!(
+				max_issuance <= T::MaxTokensPerSftCollection::get().into(),
+				Error::<T>::InvalidMaxIssuance
+			);
+		}
+
+		let next_serial_number = existing_collection.next_serial_number;
+
+		existing_collection.next_serial_number =
+			next_serial_number.checked_add(1).ok_or(Error::<T>::OverFlow)?;
+
+		let token_owner = token_owner.unwrap_or(who);
+
+		let initial_balance = SftTokenBalance::new(initial_issuance, 0);
+
+		let new_sft = SftTokenInformation {
+			name: token_name.clone(),
+			max_issuance,
+			token_issuance: initial_issuance,
+			owned_tokens: BoundedVec::truncate_from(vec![(token_owner, initial_balance)]),
+		};
+
+		TokenInfo::<T>::insert((collection_id, next_serial_number), new_sft);
+		SftCollectionInfo::<T>::insert(collection_id, existing_collection);
+
+		Self::deposit_event(Event::<T>::TokenCreated {
+			collection_id,
+			serial_number: next_serial_number,
+			initial_issuance,
+			max_issuance,
+			owner: token_owner,
+			token_name,
 		});
 
 		Ok(())

@@ -61,16 +61,12 @@ impl<T: Config> TokenInformation<T> for SftCollectionInformation<T> {
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct SftTokenInformation<T: Config> {
-	/// The owner of the token
-	pub token_owner: T::AccountId,
 	/// A human friendly name
 	pub name: BoundedVec<u8, T::StringLimit>,
 	/// Maximum number of this token allowed
-	pub max_issuance: Option<TokenCount>,
+	pub max_issuance: Option<Balance>,
 	/// the total count of tokens in this collection
-	pub token_issuance: TokenCount,
-	/// The chain that this collection was originally created
-	pub origin_chain: OriginChain,
+	pub token_issuance: Balance,
 	/// Map from account to tokens owned by that account
 	pub owned_tokens:
 		BoundedVec<(T::AccountId, SftTokenBalance<T>), <T as Config>::MaxOwnersPerSftToken>,
@@ -106,6 +102,9 @@ pub enum TokenBalanceError {
 }
 
 impl<T: Config> SftTokenBalance<T> {
+	pub fn new(free_balance: u128, reserved_balance: u128) -> Self {
+		SftTokenBalance { _phantom: Default::default(), free_balance, reserved_balance }
+	}
 	/// Returns the total balance
 	pub fn total_balance(&self) -> Balance {
 		self.free_balance + self.reserved_balance
