@@ -25,8 +25,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId,
-	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{traits::Zero, BoundedVec, DispatchResult};
 use sp_std::prelude::*;
@@ -55,7 +55,7 @@ pub(crate) const LOG_TARGET: &str = "sft";
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
+	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
@@ -69,7 +69,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config {
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Handles a multi-currency fungible asset system
@@ -123,7 +123,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A new collection of tokens was created
 		CollectionCreate {
-			collection_uuid: CollectionUuid,
+			collection_id: CollectionUuid,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
 			name: BoundedVec<u8, T::StringLimit>,
@@ -133,8 +133,8 @@ pub mod pallet {
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
-			start: SerialNumber,
-			end: SerialNumber,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			owner: T::AccountId,
 		},
 		/// A new owner was set
@@ -150,7 +150,7 @@ pub mod pallet {
 			initial_issuance: Balance,
 			max_issuance: Option<Balance>,
 			token_name: BoundedVec<u8, T::StringLimit>,
-			owner: T::AccountId,
+			token_owner: T::AccountId,
 		},
 		/// A token was transferred
 		Transfer {

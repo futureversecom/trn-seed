@@ -33,7 +33,7 @@ pub struct SftCollectionInformation<T: Config> {
 	/// The owner of the collection
 	pub collection_owner: T::AccountId,
 	/// A human friendly name
-	pub name: BoundedVec<u8, T::StringLimit>,
+	pub collection_name: BoundedVec<u8, T::StringLimit>,
 	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
 	/// configured royalties schedule
@@ -63,14 +63,14 @@ impl<T: Config> TokenInformation<T> for SftCollectionInformation<T> {
 #[scale_info(skip_type_params(T))]
 pub struct SftTokenInformation<T: Config> {
 	/// A human friendly name
-	pub name: BoundedVec<u8, T::StringLimit>,
+	pub token_name: BoundedVec<u8, T::StringLimit>,
 	/// Maximum number of this token allowed
 	pub max_issuance: Option<Balance>,
 	/// the total count of tokens in this collection
 	pub token_issuance: Balance,
 	/// Map from account to tokens owned by that account
 	pub owned_tokens:
-		BoundedVec<(T::AccountId, SftTokenBalance<T>), <T as Config>::MaxOwnersPerSftToken>,
+		BoundedVec<(T::AccountId, SftTokenBalance), <T as Config>::MaxOwnersPerSftToken>,
 }
 
 impl<T: Config> SftTokenInformation<T> {
@@ -84,7 +84,7 @@ impl<T: Config> SftTokenInformation<T> {
 	}
 
 	pub fn mint_balance(&mut self, who: &T::AccountId, amount: Balance) -> DispatchResult {
-		let mut existing_owner = self.owned_tokens.iter_mut().find(|(account, _)| account == who);
+		let existing_owner = self.owned_tokens.iter_mut().find(|(account, _)| account == who);
 
 		match existing_owner {
 			Some((_, balance)) => {
@@ -93,7 +93,7 @@ impl<T: Config> SftTokenInformation<T> {
 			None => {
 				let new_token_balance = SftTokenBalance::new(amount, 0);
 				self.owned_tokens
-					.try_push((*who, new_token_balance))
+					.try_push((who.clone(), new_token_balance))
 					.map_err(|_| Error::<T>::MaxOwnersReached)?;
 			},
 		}
@@ -104,9 +104,7 @@ impl<T: Config> SftTokenInformation<T> {
 /// Holds information about a users balance of a specific token
 /// An amount of SFT balance can be reserved when listed for sale
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct SftTokenBalance<T: Config> {
-	_phantom: sp_std::marker::PhantomData<T>,
+pub struct SftTokenBalance {
 	// The balance currently available
 	pub free_balance: Balance,
 	// The reserved balance, not transferable unless unlocked
@@ -128,16 +126,16 @@ impl<T: Config> From<TokenBalanceError> for Error<T> {
 	}
 }
 
-impl<T: Config> Default for SftTokenBalance<T> {
+impl Default for SftTokenBalance {
 	fn default() -> Self {
-		SftTokenBalance { _phantom: Default::default(), free_balance: 0, reserved_balance: 0 }
+		SftTokenBalance { free_balance: 0, reserved_balance: 0 }
 	}
 }
 
-impl<T: Config> SftTokenBalance<T> {
+impl SftTokenBalance {
 	/// Creates a news instance of SftTokenBalance
-	pub fn new(free_balance: u128, reserved_balance: u128) -> Self {
-		SftTokenBalance { _phantom: Default::default(), free_balance, reserved_balance }
+	pub fn new(free_balance: Balance, reserved_balance: Balance) -> Self {
+		SftTokenBalance { free_balance, reserved_balance }
 	}
 	/// Returns the total balance
 	pub fn total_balance(&self) -> Balance {

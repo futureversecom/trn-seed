@@ -386,7 +386,7 @@ parameter_types! {
 	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
 	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
 	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
-	pub const MaxSerialsPerMint: u32 = 1_000;
+	pub const MaxSerialsPerMint: u32 = 100; // Higher values can be storage heavy
 }
 impl pallet_sft::Config for Runtime {
 	type Event = Event;
