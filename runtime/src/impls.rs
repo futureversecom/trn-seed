@@ -465,51 +465,59 @@ where
 pub struct ProxyPalletProvider;
 
 impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
-	fn exists(account: &AccountId, proxy: &AccountId) -> bool {
-		pallet_proxy::Pallet::<Runtime>::find_proxy(account, proxy, None)
+	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool {
+		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, None)
 			.map(|_| true)
 			.unwrap_or(false)
 	}
 
-	fn proxies(account: &AccountId) -> Vec<AccountId> {
-		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(account);
+	fn delegates(futurepass: &AccountId) -> Vec<AccountId> {
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 		proxy_definitions.into_iter().map(|proxy_def| proxy_def.delegate).collect()
 	}
 
-	fn add_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult {
+	fn add_delegate(
+		funder: &AccountId,
+		futurepass: &AccountId,
+		delegate: &AccountId,
+	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
-		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(account);
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 		// get proxy_definitions length + 1 (cost of upcoming insertion)
 		let creation_cost =
 			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
 		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
-			&proxy,
-			account,
+			funder,
+			futurepass,
 			creation_cost,
 			ExistenceRequirement::KeepAlive,
 		)?;
 
 		let proxy_type = ProxyType::Any;
-		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(account, proxy, proxy_type, 0)
+		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)
 	}
 
-	fn remove_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult {
+	fn remove_delegate(
+		funder: &AccountId,
+		futurepass: &AccountId,
+		delegate: &AccountId,
+	) -> DispatchResult {
 		// pay cost for proxy removal; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
-		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(account);
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 		// get proxy_definitions length - 1 (cost of upcoming removal)
 		let removal_cost =
 			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 - 1);
 		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
-			&proxy,
-			account,
+			funder,
+			futurepass,
 			removal_cost,
 			ExistenceRequirement::KeepAlive,
 		)?;
 
 		let proxy_type = ProxyType::Any;
-		pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(account, proxy, proxy_type, 0)
+		pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(futurepass, *delegate, proxy_type, 0)
 	}
 }
 
