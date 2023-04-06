@@ -253,6 +253,8 @@ parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
+	#[derive(PartialEq, Debug)]
+	pub const StringLimit: u32 = 50;
 }
 
 impl crate::Config for Test {
@@ -265,6 +267,7 @@ impl crate::Config for Test {
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
+	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }

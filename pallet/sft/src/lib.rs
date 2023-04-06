@@ -20,12 +20,13 @@ use frame_support::{
 	traits::tokens::fungibles::{Mutate, Transfer},
 	transactional, PalletId,
 };
+use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionNameType, CollectionUuid, MetadataScheme, OriginChain,
-	ParachainId, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId,
+	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{BoundedVec, DispatchResult};
 use sp_std::prelude::*;
@@ -78,6 +79,8 @@ pub mod pallet {
 			+ Mutate<Self::AccountId, AssetId = AssetId>
 			+ CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>;
+		/// NFT Extension, used to retrieve nextCollectionUuid
+		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 		/// Handler for when an SFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an SFT collection has been created
@@ -87,6 +90,9 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 		/// The parachain_id being used by this parachain
 		type ParachainId: Get<ParachainId>;
+		/// The maximum length of a collection or token name, stored on-chain
+		#[pallet::constant]
+		type StringLimit: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 		/// Max tokens that a collection can contain
@@ -119,11 +125,9 @@ pub mod pallet {
 		/// A new collection of tokens was created
 		CollectionCreate {
 			collection_uuid: CollectionUuid,
-			initial_issuance: TokenCount,
-			max_issuance: Option<TokenCount>,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
-			name: CollectionNameType,
+			name: BoundedVec<u8, T::StringLimit>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
 		},
@@ -212,26 +216,36 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Create a new collection
-		/// Additional tokens can be minted via `mint_additional`
+		/// Create a new collection to group multiple semi-fungible tokens
+		/// Tokens can be created within the collection by calling create_token
 		///
-		/// `name` - the name of the collection
-		/// `initial_issuance` - number of tokens to mint now
-		/// `max_issuance` - maximum number of tokens allowed in collection
-		/// `token_owner` - the token owner, defaults to the caller
+		/// `collection_name` - the name of the collection
+		/// `collection_owner` - the collection owner, defaults to the caller
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
+		///
+		/// The collectionUuid used to store the SFT CollectionInfo is retrieved from the NFT
+		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
+		/// of if they are SFT or NFT collections.
 		#[pallet::weight(100000)]
 		#[transactional]
-		pub fn create_collection(
+		pub fn create_sft_collection(
 			origin: OriginFor<T>,
-			collection_name: CollectionNameType,
-			token_owner: Option<T::AccountId>,
+			collection_name: BoundedVec<u8, T::StringLimit>,
+			collection_owner: Option<T::AccountId>,
 			metadata_scheme: MetadataScheme,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			Self::do_create_collection(
+				who,
+				collection_name,
+				collection_owner,
+				metadata_scheme,
+				royalties_schedule,
+				OriginChain::Root,
+			)?;
 
 			Ok(())
 		}
@@ -244,7 +258,7 @@ pub mod pallet {
 		pub fn create_token(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			token_name: CollectionNameType,
+			token_name: BoundedVec<u8, T::StringLimit>,
 			initial_issuance: Balance,
 			max_issuance: Option<Balance>,
 			token_owner: Option<T::AccountId>,

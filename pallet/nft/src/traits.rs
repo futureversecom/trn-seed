@@ -1,7 +1,7 @@
 use seed_primitives::{CollectionUuid, MetadataScheme, TokenCount, TokenId};
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 
-use crate::{CollectionInformation, CollectionNameType, Config, OriginChain, RoyaltiesSchedule};
+use crate::{CollectionInformation, Config, OriginChain, RoyaltiesSchedule};
 
 pub trait NFTExt {
 	type AccountId;
@@ -16,7 +16,7 @@ pub trait NFTExt {
 
 	fn do_create_collection(
 		owner: Self::AccountId,
-		name: CollectionNameType,
+		name: BoundedVec<u8, <Self::T as Config>::StringLimit>,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<Self::AccountId>,
@@ -35,4 +35,8 @@ pub trait NFTExt {
 		who: Self::AccountId,
 		collection_id: CollectionUuid,
 	) -> DispatchResult;
+
+	fn next_collection_uuid() -> Result<CollectionUuid, DispatchError>;
+
+	fn increment_collection_id() -> DispatchResult;
 }
