@@ -36,16 +36,16 @@ impl OnRuntimeUpgrade for Upgrade {
 		let onchain = FeeControl::on_chain_storage_version();
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 0);
 
-		log::info!(target: "FeeControl", "Running migration with current storage version {current:?} / onchain {onchain:?}");
+		log::info!("FeeControl: Running migration with current storage version {current:?} / onchain {onchain:?}");
 
-		if onchain == 1 {
-			log::info!(target: "FeeControl", "Migrating from onchain version 1 to onchain version 2.");
+		if onchain == 0 || onchain == 1 {
+			log::info!("FeeControl: Migrating from onchain version 1 to onchain version 2.");
 			weight += v2::migrate::<Runtime>();
 
-			log::info!(target: "FeeControl", "Migration successfully finished.");
+			log::info!("FeeControl: Migration successfully finished.");
 			StorageVersion::new(2).put::<FeeControl>();
 		} else {
-			log::info!(target: "FeeControl", "No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
+			log::info!("FeeControl: No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
 		}
 
 		weight
@@ -84,6 +84,9 @@ mod v2 {
 			length_multiplier: T::DefaultValues::length_multiplier(),
 		};
 		pallet_fee_control::Data::<T>::put(value);
+
+		log::info!("FeeControl: Removed [EvmBaseFeePerGas, ExtrinsicWeightToFee]");
+		log::info!("FeeControl: Added Data");
 
 		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 3)
 	}

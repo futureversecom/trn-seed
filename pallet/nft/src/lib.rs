@@ -53,7 +53,6 @@ mod weights;
 pub use weights::WeightInfo;
 
 mod impls;
-mod migration;
 pub mod traits;
 mod types;
 
@@ -405,25 +404,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<(), &'static str> {
-			migration::v3::pre_upgrade::<T>()?;
-
-			Ok(())
-		}
-
-		/// Perform runtime upgrade
-		fn on_runtime_upgrade() -> Weight {
-			migration::v3::on_runtime_upgrade::<T>()
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade() -> Result<(), &'static str> {
-			migration::v3::post_upgrade::<T>()?;
-
-			Ok(())
-		}
-
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
