@@ -43,7 +43,6 @@ pub mod pallet {
 	use super::*;
 	use pallet_transaction_payment::OnChargeTransaction;
 	use precompile_utils::{Address, ErcIdConversion};
-	use seed_primitives::AccountId;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -54,9 +53,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config<AccountId = AccountId> + pallet_transaction_payment::Config
-	{
+	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
 		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
