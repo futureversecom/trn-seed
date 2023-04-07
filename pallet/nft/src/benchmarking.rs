@@ -34,7 +34,7 @@ pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUuid {
 	let id = Nft::<T>::next_collection_uuid().unwrap();
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
-	let metadata_scheme = MetadataScheme::Https("google.com".into());
+	let metadata_scheme = MetadataScheme::try_from(b"google.com".to_vec()).unwrap();
 	let cross_chain_compatibility = CrossChainCompatibility::default();
 
 	assert_ok!(Nft::<T>::create_collection(
@@ -132,7 +132,7 @@ benchmarks! {
 	}: _(origin::<T>(&account::<T>("Alice")), None, Permill::zero())
 
 	create_collection {
-		let metadata = MetadataScheme::Https("google.com".into());
+		let metadata = MetadataScheme::try_from(b"google.com".to_vec()).unwrap();
 		let ccc = CrossChainCompatibility { xrpl: false };
 	}: _(origin::<T>(&account::<T>("Alice")), "Collection".into(), 0, None, None, metadata, None, ccc)
 

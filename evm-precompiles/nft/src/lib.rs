@@ -124,7 +124,7 @@ where
 		// Parse Metadata
 		let metadata_scheme: MetadataScheme =
 			metadata_path.as_bytes().to_vec().try_into().map_err(|str_err| {
-				revert(alloc::format!("{}: {}", "NFT: Invalid metadata_path", str_err))
+				revert(alloc::format!("{}: {:?}", "NFT: Invalid metadata_path", str_err))
 			})?;
 
 		// Parse royalties
