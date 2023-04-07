@@ -293,7 +293,8 @@ fn create_collection() {
 			CollectionInformation {
 				owner: collection_owner,
 				name: b"test-collection".to_vec(),
-				metadata_scheme: MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+				metadata_scheme: MetadataScheme::try_from(b"example.com/metadata".to_vec())
+					.unwrap(),
 				royalties_schedule: Some(royalties_schedule.clone()),
 				max_issuance: None,
 				origin_chain: OriginChain::Root,
@@ -2328,7 +2329,8 @@ fn token_uri_construction() {
 			None,
 			MetadataScheme::try_from(
 				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".to_vec()
-			).unwrap(),
+			)
+			.unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2346,7 +2348,8 @@ fn token_uri_construction() {
 			None,
 			MetadataScheme::try_from(
 				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".to_vec()
-			).unwrap(),
+			)
+			.unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -3862,9 +3865,14 @@ mod set_base_uri {
 			));
 			assert_eq!(
 				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::try_from(H160::from_slice(
-					&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
-				).as_bytes().to_vec()).unwrap()
+				MetadataScheme::try_from(
+					H160::from_slice(
+						&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
+					)
+					.as_bytes()
+					.to_vec()
+				)
+				.unwrap()
 			);
 		});
 	}

@@ -277,7 +277,10 @@ where
 				match Self::eth_to_root_nft(current_token.token_address) {
 					Some(collection_id) => collection_id,
 					None => {
-						let metadata_scheme = MetadataScheme::try_from(current_token.token_address.as_bytes().to_vec()).map_err(|_| Error::<T>::ExceedsMaxVecLength)?;
+						let metadata_scheme = MetadataScheme::try_from(
+							current_token.token_address.as_bytes().to_vec(),
+						)
+						.map_err(|_| Error::<T>::ExceedsMaxVecLength)?;
 						// Collection doesn't exist, create a new collection
 						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 							collection_owner_account,

@@ -11,15 +11,15 @@
 
 use crate::*;
 use codec::{Decode, Encode};
-use sp_runtime::{BoundedVec, traits::ConstU32};
-use core::{fmt::Write };
+use core::fmt::Write;
 use scale_info::TypeInfo;
+use sp_runtime::{traits::ConstU32, BoundedVec};
 use sp_std::prelude::*;
 
 /// Denotes the metadata URI referencing scheme used by a collection
 /// Enable token metadata URI construction by clients
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-pub struct MetadataScheme (BoundedVec<u8, ConstU32<1_000>>);
+pub struct MetadataScheme(BoundedVec<u8, ConstU32<1_000>>);
 
 // {
 // 	/// Collection metadata is hosted by an HTTPS server
@@ -42,28 +42,26 @@ pub struct MetadataScheme (BoundedVec<u8, ConstU32<1_000>>);
 // 	Ethereum(H160),
 // }
 
- impl MetadataScheme {
-
- 	/// Returns the full token_uri for a token
- 	pub fn construct_token_uri(&self, serial_number: SerialNumber) -> Vec<u8> {
- 		let mut token_uri = sp_std::Writer::default();
+impl MetadataScheme {
+	/// Returns the full token_uri for a token
+	pub fn construct_token_uri(&self, serial_number: SerialNumber) -> Vec<u8> {
+		let mut token_uri = sp_std::Writer::default();
 		write!(&mut token_uri, "{}{}", core::str::from_utf8(&self.0).unwrap_or(""), serial_number)
 			.expect("Not written");
- 		token_uri.inner().clone()
- 	}
- }
+		token_uri.inner().clone()
+	}
+}
 
- impl TryFrom<Vec<u8>> for MetadataScheme {
- 	type Error = &'static str;
+impl TryFrom<Vec<u8>> for MetadataScheme {
+	type Error = &'static str;
 
- 	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-
-		let b: BoundedVec<u8, ConstU32<1_000>> = BoundedVec::try_from(value).map_err(|_| "Invalid string")?;
+	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+		let b: BoundedVec<u8, ConstU32<1_000>> =
+			BoundedVec::try_from(value).map_err(|_| "Invalid string")?;
 
 		Ok(MetadataScheme(b))
-		
- 	}
- }
+	}
+}
 
 // #[cfg(test)]
 // mod test {
@@ -218,8 +216,8 @@ pub struct MetadataScheme (BoundedVec<u8, ConstU32<1_000>>);
 // 				&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
 // 			))
 // 			.construct_token_uri(1),
-// 			b"ethereum://0xe04cc55ebee1cbce552f250e85c57b70b2e2625b/1".to_vec() /* trailing slash always added for eth address */
-// 		);
+// 			b"ethereum://0xe04cc55ebee1cbce552f250e85c57b70b2e2625b/1".to_vec() /* trailing slash always
+// added for eth address */ 		);
 
 // 		// nested path with trailing slash
 // 		assert_eq!(
