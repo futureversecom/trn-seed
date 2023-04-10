@@ -126,13 +126,13 @@ pub mod pallet {
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
 		},
-		/// Futurepass registration
-		FuturepassRegistered {
+		/// Delegate registration to Futurepass account
+		DelegateRegistered {
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
 		},
-		/// Futurepass delegate unregister
-		FuturepassUnregistered {
+		/// Delegate unregistration from Futurepass account
+		DelegateUnregistered {
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
 		},
@@ -158,6 +158,8 @@ pub mod pallet {
 		DelegateAlreadyExists,
 		/// Account is not futurepass owner
 		NotFuturepassOwner,
+		/// Futurepass owner cannot remove themselves
+		OwnerCannotUnregister,
 		/// Account does not have permission to call this function
 		PermissionDenied,
 	}
@@ -214,7 +216,7 @@ pub mod pallet {
 			ensure!(!T::Proxy::exists(&futurepass, &delegate), Error::<T>::DelegateAlreadyExists);
 
 			T::Proxy::add_delegate(&owner, &futurepass, &delegate)?;
-			Self::deposit_event(Event::<T>::FuturepassRegistered { futurepass, delegate });
+			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });
 			Ok(())
 		}
 
@@ -257,7 +259,7 @@ pub mod pallet {
 			// functionality 	Holders::<T>::remove(&caller);
 			// }
 
-			Self::deposit_event(Event::<T>::FuturepassUnregistered { futurepass, delegate });
+			Self::deposit_event(Event::<T>::DelegateUnregistered { futurepass, delegate });
 			Ok(())
 		}
 
