@@ -182,7 +182,7 @@ fn owned_tokens_works() {
 			quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -281,7 +281,7 @@ fn create_collection() {
 			quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 			Some(royalties_schedule.clone()),
 			CrossChainCompatibility::default(),
 		));
@@ -293,7 +293,7 @@ fn create_collection() {
 			CollectionInformation {
 				owner: collection_owner,
 				name: b"test-collection".to_vec(),
-				metadata_scheme: MetadataScheme::try_from(b"example.com/metadata".to_vec())
+				metadata_scheme: MetadataScheme::try_from(b"https://example.com/metadata".to_vec())
 					.unwrap(),
 				royalties_schedule: Some(royalties_schedule.clone()),
 				max_issuance: None,
@@ -315,7 +315,8 @@ fn create_collection() {
 			initial_issuance: 5,
 			max_issuance: None,
 			collection_owner,
-			metadata_scheme: MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			metadata_scheme: MetadataScheme::try_from(b"https://example.com/metadata".to_vec())
+				.unwrap(),
 			name: b"test-collection".to_vec(),
 			royalties_schedule: Some(royalties_schedule.clone()),
 			origin_chain: OriginChain::Root,
@@ -591,7 +592,7 @@ fn burn() {
 			3,
 			None,
 			Some(token_owner),
-			MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -635,7 +636,7 @@ fn burn_fails_prechecks() {
 			100,
 			None,
 			Some(token_owner),
-			MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -685,7 +686,7 @@ fn sell() {
 				quantity,
 				None,
 				None,
-				MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -1552,7 +1553,7 @@ fn auction_bundle() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2104,7 +2105,7 @@ fn mint_over_max_issuance_should_fail() {
 			initial_issuance,
 			Some(max_issuance),
 			Some(token_owner),
-			MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2152,7 +2153,7 @@ fn invalid_max_issuance_should_fail() {
 				0,
 				Some(0),
 				None,
-				MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			),
@@ -2167,7 +2168,7 @@ fn invalid_max_issuance_should_fail() {
 				5,
 				Some(2),
 				None,
-				MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			),
@@ -2182,7 +2183,7 @@ fn invalid_max_issuance_should_fail() {
 				5,
 				Some(mock::MaxTokensPerCollection::get() + 1),
 				None,
-				MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			),
@@ -2204,7 +2205,7 @@ fn mint_fails() {
 			5,
 			None,
 			None,
-			MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2242,7 +2243,7 @@ fn mint_over_mint_limit_fails() {
 			5,
 			None,
 			None,
-			MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2273,7 +2274,7 @@ fn create_collection_over_mint_limit_fails() {
 				<Test as Config>::MintLimit::get() + 1,
 				None,
 				None,
-				MetadataScheme::try_from(b"example.com/metadata".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://example.com/metadata".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			),
@@ -3222,7 +3223,7 @@ mod claim_unowned_collection {
 	#[test]
 	fn can_claim_ownership() {
 		TestExt::default().build().execute_with(|| {
-			let metadata = MetadataScheme::try_from(b"google.com".to_vec()).unwrap();
+			let metadata = MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap();
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let pallet_account = Nft::account_id();
 			let new_owner = create_account(10);
@@ -3257,7 +3258,7 @@ mod claim_unowned_collection {
 	#[test]
 	fn origin_needs_to_be_root() {
 		TestExt::default().build().execute_with(|| {
-			let metadata = MetadataScheme::try_from(b"google.com".to_vec()).unwrap();
+			let metadata = MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap();
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let pallet_account = Nft::account_id();
 			let new_owner = create_account(10);
@@ -3299,7 +3300,7 @@ mod claim_unowned_collection {
 	#[test]
 	fn collection_needs_to_be_owned_by_pallet() {
 		TestExt::default().build().execute_with(|| {
-			let metadata = MetadataScheme::try_from(b"google.com".to_vec()).unwrap();
+			let metadata = MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap();
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let new_owner = create_account(10);
 			let old_owner = create_account(10);
@@ -3330,7 +3331,7 @@ fn create_xls20_collection_works() {
 		let collection_owner = create_account(10);
 		let collection_name = b"test-xls20-collection".to_vec();
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let metadata_scheme = MetadataScheme::try_from(b"example.com".to_vec()).unwrap();
+		let metadata_scheme = MetadataScheme::try_from(b"https://example.com".to_vec()).unwrap();
 		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
 		let initial_issuance: TokenCount = 0;
 
@@ -3382,7 +3383,7 @@ fn create_xls20_collection_with_initial_issuance_fails() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_name = b"test-xls20-collection".to_vec();
-		let metadata_scheme = MetadataScheme::try_from(b"example.com".to_vec()).unwrap();
+		let metadata_scheme = MetadataScheme::try_from(b"https://example.com".to_vec()).unwrap();
 		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
 		let initial_issuance: TokenCount = 1;
 
@@ -3418,7 +3419,7 @@ mod set_max_issuance {
 				0,
 				None,
 				None,
-				MetadataScheme::try_from(b"google.com".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3458,7 +3459,7 @@ mod set_max_issuance {
 				max_issuance,
 				None,
 				None,
-				MetadataScheme::try_from(b"google.com".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3497,7 +3498,7 @@ mod set_max_issuance {
 				0,
 				None,
 				None,
-				MetadataScheme::try_from(b"google.com".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3525,7 +3526,7 @@ mod set_max_issuance {
 				0,
 				None,
 				None,
-				MetadataScheme::try_from(b"google.com".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3575,7 +3576,7 @@ mod set_max_issuance {
 				0,
 				Some(max_issuance),
 				None,
-				MetadataScheme::try_from(b"google.com".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3605,7 +3606,7 @@ mod set_max_issuance {
 				0,
 				None,
 				None,
-				MetadataScheme::try_from(b"google.com".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3650,7 +3651,7 @@ mod set_max_issuance {
 				initial_issuance,
 				None,
 				None,
-				MetadataScheme::try_from(b"google.com".to_vec()).unwrap(),
+				MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3702,7 +3703,8 @@ mod set_base_uri {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
-			let metadata_scheme = MetadataScheme::try_from(b"google.com".to_vec()).unwrap();
+			let metadata_scheme =
+				MetadataScheme::try_from(b"https://google.com/".to_vec()).unwrap();
 
 			// Setup collection with no Max issuance
 			assert_ok!(Nft::create_collection(
