@@ -26,7 +26,7 @@ use sp_runtime::{BoundedVec, DispatchError::BadOrigin};
 fn setup_xls20_collection(owner: AccountId, xls_compatible: bool) -> CollectionUuid {
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = b"test-xls20-collection".to_vec();
-	let metadata_scheme = MetadataScheme::try_from(b"example.com/".to_vec()).unwrap();
+	let metadata_scheme = MetadataScheme::try_from(b"https://example.com/".to_vec()).unwrap();
 	let cross_chain_compatibility = CrossChainCompatibility { xrpl: xls_compatible };
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),

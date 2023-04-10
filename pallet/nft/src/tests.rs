@@ -2287,7 +2287,7 @@ fn token_uri_construction() {
 	TestExt::default().build().execute_with(|| {
 		let owner = create_account(1);
 		let quantity = 5;
-		let mut collection_id = Nft::next_collection_uuid().unwrap();
+		let collection_id = Nft::next_collection_uuid().unwrap();
 		// mint token Ids
 		assert_ok!(Nft::create_collection(
 			Some(owner).into(),
@@ -2295,88 +2295,13 @@ fn token_uri_construction() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::try_from(b"example.com/metadata/".to_vec()).unwrap(),
+			MetadataScheme::try_from(b"https://example.com/metadata/".to_vec()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
 
 		assert_eq!(Nft::token_uri((collection_id, 0)), b"https://example.com/metadata/0".to_vec(),);
 		assert_eq!(Nft::token_uri((collection_id, 1)), b"https://example.com/metadata/1".to_vec(),);
-
-		collection_id = Nft::next_collection_uuid().unwrap();
-		assert_ok!(Nft::create_collection(
-			Some(owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			None,
-			MetadataScheme::try_from(b"test.example.com/metadata/".to_vec()).unwrap(),
-			None,
-			CrossChainCompatibility::default(),
-		));
-
-		assert_eq!(
-			Nft::token_uri((collection_id, 1)),
-			b"http://test.example.com/metadata/1".to_vec(),
-		);
-
-		collection_id = Nft::next_collection_uuid().unwrap();
-		assert_ok!(Nft::create_collection(
-			Some(owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			None,
-			MetadataScheme::try_from(
-				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".to_vec()
-			)
-			.unwrap(),
-			None,
-			CrossChainCompatibility::default(),
-		));
-		assert_eq!(
-			Nft::token_uri((collection_id, 1)),
-			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1".to_vec(),
-		);
-
-		collection_id = Nft::next_collection_uuid().unwrap();
-		assert_ok!(Nft::create_collection(
-			Some(owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			None,
-			MetadataScheme::try_from(
-				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".to_vec()
-			)
-			.unwrap(),
-			None,
-			CrossChainCompatibility::default(),
-		));
-		assert_eq!(
-			Nft::token_uri((collection_id, 1)),
-			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1".to_vec(),
-		);
-
-		let collection_address = H160::from_low_u64_be(123);
-		let token_id = 1;
-
-		collection_id = Nft::next_collection_uuid().unwrap();
-		assert_ok!(Nft::create_collection(
-			Some(owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			None,
-			MetadataScheme::try_from(collection_address.as_bytes().to_vec()).unwrap(),
-			None,
-			CrossChainCompatibility::default(),
-		));
-
-		assert_eq!(
-			Nft::token_uri((collection_id, token_id)),
-			b"ethereum://0x000000000000000000000000000000000000007b/1".to_vec()
-		);
 	});
 }
 
@@ -3807,7 +3732,7 @@ mod set_base_uri {
 			// Storage updated
 			assert_eq!(
 				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::try_from(b"zeeshan.com".to_vec()).unwrap()
+				MetadataScheme::try_from(b"http://zeeshan.com".to_vec()).unwrap()
 			);
 
 			// Event thrown
@@ -3824,18 +3749,6 @@ mod set_base_uri {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
 
-			// HTTP
-			assert_ok!(Nft::set_base_uri(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				"http://zeeshan.com".into()
-			));
-			assert_eq!(
-				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::try_from(b"zeeshan.com".to_vec()).unwrap()
-			);
-
-			// HTTPS
 			assert_ok!(Nft::set_base_uri(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
@@ -3843,36 +3756,7 @@ mod set_base_uri {
 			));
 			assert_eq!(
 				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::try_from(b"zeeshan.com".to_vec()).unwrap()
-			);
-
-			// IPFS
-			assert_ok!(Nft::set_base_uri(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				"ipfs://zeeshan.com".into()
-			));
-			assert_eq!(
-				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::try_from(b"zeeshan.com".to_vec()).unwrap()
-			);
-
-			// Ethereum
-			assert_ok!(Nft::set_base_uri(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				"ethereum://E04CC55ebEE1cBCE552f250e85c57B70B2E2625b".into()
-			));
-			assert_eq!(
-				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::try_from(
-					H160::from_slice(
-						&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
-					)
-					.as_bytes()
-					.to_vec()
-				)
-				.unwrap()
+				MetadataScheme::try_from(b"https://zeeshan.com".to_vec()).unwrap()
 			);
 		});
 	}
@@ -3927,34 +3811,7 @@ mod set_base_uri {
 				Nft::set_base_uri(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
-					"tcp://notarealCIDblah".into()
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-
-			assert_noop!(
-				Nft::set_base_uri(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					"notarealCIDblah".into()
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-
-			assert_noop!(
-				Nft::set_base_uri(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					"".into()
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-
-			assert_noop!(
-				Nft::set_base_uri(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					"https://".into()
+					vec![0; 2000]
 				),
 				Error::<Test>::InvalidMetadataPath
 			);
