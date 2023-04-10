@@ -239,7 +239,11 @@ pub mod pallet {
 			// Check if the caller is the owner of the futurepass
 			let is_owner = Holders::<T>::get(&caller) == Some(futurepass.clone());
 
-			// Check if the caller is the delegate or the owner of the futurepass
+			// If provided delegate is the owner themselves, do not allow this action
+			ensure!(!(is_owner && caller == delegate), Error::<T>::OwnerCannotUnregister);
+
+			// Check if caller is owner (can remove anyone) or delegate (can remove themsleves) from
+			// futurepass
 			ensure!(is_owner || caller == delegate, Error::<T>::PermissionDenied);
 
 			// Check if the delegate is registered with the futurepass
@@ -249,9 +253,9 @@ pub mod pallet {
 			T::Proxy::remove_delegate(&caller, &futurepass, &delegate)?;
 
 			// If the caller is the owner of the futurepass, remove the ownership
-			if is_owner {
-				Holders::<T>::remove(&caller);
-			}
+			// if is_owner && caller == delegate { // TODO: validate whether we cant this
+			// functionality 	Holders::<T>::remove(&caller);
+			// }
 
 			Self::deposit_event(Event::<T>::FuturepassUnregistered { futurepass, delegate });
 			Ok(())
