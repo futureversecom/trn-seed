@@ -479,7 +479,7 @@ parameter_types! {
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
 	pub const LPTokenName: [u8; 10] = *b"Uniswap V2";
 	pub const LPTokenSymbol: [u8; 6] = *b"UNI-V2";
-	pub const LPTokenDecimals: u8 = 6; // same as native token decimals
+	pub const LPTokenDecimals: u8 = 18;
 }
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
