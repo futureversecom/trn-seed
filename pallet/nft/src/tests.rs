@@ -348,8 +348,7 @@ fn create_collection() {
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			start: 5,
-			end: 7,
+			serial_numbers: BoundedVec::truncate_from(vec![5, 6, 7]),
 			owner: new_owner,
 		}));
 		assert_eq!(Nft::token_balance_of(&(new_owner), collection_id), 3);
@@ -733,8 +732,7 @@ fn sell_multiple_fails() {
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			start: 0,
-			end: 1,
+			serial_numbers: BoundedVec::truncate_from(vec![0, 1]),
 			owner: collection_owner,
 		}));
 
@@ -1600,8 +1598,7 @@ fn auction_bundle_fails() {
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			start: 0,
-			end: 1,
+			serial_numbers: BoundedVec::truncate_from(vec![0, 1]),
 			owner: collection_owner,
 		}));
 
@@ -2112,12 +2109,11 @@ fn mint_over_max_issuance_should_fail() {
 			initial_issuance
 		);
 
-		// Mint tokens 2-5
+		// Mint tokens 2-4
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 3, Some(token_owner),));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			start: 2,
-			end: 4,
+			serial_numbers: BoundedVec::truncate_from(vec![2, 3, 4]),
 			owner: token_owner,
 		}));
 		assert_eq!(
@@ -2867,8 +2863,7 @@ fn transfer_changes_token_balance() {
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			start: 1,
-			end: 2,
+			serial_numbers: BoundedVec::truncate_from(vec![1, 2]),
 			owner: token_owner,
 		}));
 
@@ -3045,6 +3040,13 @@ fn mints_multiple_specified_tokens_by_id() {
 		// Do mint with Ethereum as origin chain
 		Nft::mint_bridged_token(&token_owner, collection_id, token_ids.clone());
 
+		// Event is thrown
+		assert!(has_event(Event::<Test>::Mint {
+			collection_id,
+			serial_numbers: BoundedVec::truncate_from(token_ids.clone()),
+			owner: token_owner,
+		}));
+
 		// Ownership checks
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), token_ids.len() as u32);
 		let collection_info = Nft::collection_info(collection_id).unwrap();
@@ -3153,7 +3155,7 @@ fn token_balance_of_works() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
 		let token_owner = create_account(2);
-		let quantity: TokenCount = 100;
+		let quantity: SerialNumber = 100;
 		let collection_id = setup_collection(collection_owner);
 
 		// Check that token_owner has 0 tokens initially
@@ -3167,8 +3169,7 @@ fn token_balance_of_works() {
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			start: 0,
-			end: 99,
+			serial_numbers: BoundedVec::truncate_from((0..quantity).collect()),
 			owner: token_owner,
 		}));
 

@@ -204,7 +204,7 @@ impl<T: Config> Pallet<T> {
 				let _ = Self::do_mint(collection_id, collection_info, owner, &serial_numbers);
 				T::DbWeight::get().reads_writes(1, 1)
 			},
-			_ => 0 as Weight,
+			_ => T::DbWeight::get().reads(1),
 		}
 	}
 
@@ -268,10 +268,17 @@ impl<T: Config> Pallet<T> {
 			.checked_add(serial_numbers.len().saturated_into())
 			.ok_or(Error::<T>::TokenLimitExceeded)?;
 
-		new_collection_info.add_user_tokens(token_owner, serial_numbers.clone())?;
+		new_collection_info.add_user_tokens(&token_owner.clone(), serial_numbers.clone())?;
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
+
+		// throw event, listing starting and endpoint token ids (sequential mint)
+		Self::deposit_event(Event::<T>::Mint {
+			collection_id,
+			serial_numbers: serial_numbers.clone(),
+			owner: *token_owner,
+		});
 		Ok(())
 	}
 

@@ -228,8 +228,7 @@ pub mod pallet {
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
-			start: SerialNumber,
-			end: SerialNumber,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			owner: T::AccountId,
 		},
 		/// A new owner was set
@@ -636,13 +635,6 @@ pub mod pallet {
 				)?;
 			}
 
-			// throw event, listing starting and endpoint token ids (sequential mint)
-			Self::deposit_event(Event::<T>::Mint {
-				collection_id,
-				start: *serial_numbers.first().ok_or(Error::<T>::NoToken)?,
-				end: *serial_numbers.last().ok_or(Error::<T>::NoToken)?,
-				owner,
-			});
 			Ok(())
 		}
 
