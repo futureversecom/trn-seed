@@ -24,6 +24,7 @@ pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
+	FuturepassOf = "futurepassOf(address)",
 	Create = "create(address)",
 	RegisterDelegate = "registerDelegate(address,address)",
 	UnRegisterDelegate = "unregisterDelegate(address,address)",
@@ -83,11 +84,12 @@ where
 			};
 
 			match selector {
+				Action::FuturepassOf => Self::futurepass_of(handle),
+				Action::IsDelegate => Self::is_delegate(handle),
 				Action::Create => Self::create_futurepass(handle),
 				Action::RegisterDelegate => Self::register_delegate(handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
 				Action::ProxyCall => Self::proxy_call(handle),
-				Action::IsDelegate => Self::is_delegate(handle),
 			}
 		};
 		return result
@@ -115,6 +117,37 @@ where
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
 		From<Option<Runtime::AccountId>>,
 {
+	fn futurepass_of(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		read_args!(handle, { owner: Address });
+		let owner = Runtime::AddressMapping::into_account_id(owner.into());
+
+		// Manually record gas
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let futurepass = pallet_futurepass::Holders::<Runtime>::get(owner)
+			.map(|fp| fp.into())
+			.unwrap_or_default();
+
+		Ok(succeed(EvmDataWriter::new().write::<Address>(futurepass.into()).build()))
+	}
+
+	fn is_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		read_args!(handle, {
+			futurepass: Address,
+			delegate: Address
+		});
+		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
+		let futurepass = Runtime::AddressMapping::into_account_id(futurepass.into());
+
+		// Manually record gas
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let is_proxy = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
+			.0
+			.iter()
+			.any(|pd| pd.delegate == delegate);
+
+		Ok(succeed(EvmDataWriter::new().write::<bool>(is_proxy).build()))
+	}
+
 	fn create_futurepass(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(2, 32)?;
 		read_args!(handle, { owner: Address });
@@ -229,24 +262,6 @@ where
 			EvmSubCall { to: callTo, call_data: callData, value: handle.context().apparent_value };
 
 		Self::do_proxy(handle, real, evm_subcall)
-	}
-
-	fn is_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		read_args!(handle, {
-			futurepass: Address,
-			delegate: Address
-		});
-		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
-		let futurepass = Runtime::AddressMapping::into_account_id(futurepass.into());
-
-		// Manually record gas
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let is_proxy = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
-			.0
-			.iter()
-			.any(|pd| pd.delegate == delegate);
-
-		Ok(succeed(EvmDataWriter::new().write::<bool>(is_proxy).build()))
 	}
 
 	fn do_proxy(
