@@ -184,6 +184,7 @@ pub mod pallet {
 		}
 
 		/// Register a delegator to an existing futurepass account.
+		/// Note: Only futurepass owner account can add more delegates.
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
@@ -199,21 +200,14 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 
 			// caller must be futurepass holder
-			// TODO: or they can have any permission (sufficient permissions) to add other
-			// delegators
 			ensure!(
 				Holders::<T>::get(&owner.clone()) == Some(futurepass.clone()),
 				Error::<T>::NotFuturepassOwner
 			);
 
-			// maybe we can check here if caller/owner has sufficient permissions to add the other
+			// maybe we can check here if caller has sufficient permissions to add the other
 			// delegate?
 			ensure!(T::Proxy::exists(&futurepass, &owner), Error::<T>::DelegateNotRegistered);
-
-			// delegate must not already exist in proxy mapping
-			// TODO: validate if this is needed, `add_delegate` -> `add_delegate_delegate` may
-			// already perform this check
-			ensure!(!T::Proxy::exists(&futurepass, &delegate), Error::<T>::DelegateAlreadyExists);
 
 			T::Proxy::add_delegate(&owner, &futurepass, &delegate)?;
 			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });
