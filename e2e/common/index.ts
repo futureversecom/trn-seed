@@ -38,8 +38,8 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
-// Precompile address for futurepass precompile is 1722
-export const FUTUREPASS_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006ba";
+// Precompile address for futurepass precompile is 65535
+export const FUTUREPASS_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
 
 /** ABIs */
 

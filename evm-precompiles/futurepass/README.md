@@ -1,6 +1,6 @@
 # TRN FuturePass Precompile supported interfaces
 
-Precompile address: `0x00000000000000000000000000000000000006BA`
+Precompile address: `0x000000000000000000000000000000000000FFFF`
 
 ```solidity
 interface FuturePass {
