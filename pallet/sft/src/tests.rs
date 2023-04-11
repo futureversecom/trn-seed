@@ -608,4 +608,298 @@ mod mint {
 			}));
 		});
 	}
+
+	#[test]
+	fn mint_over_multiple_tokens_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_owner = bob();
+			let collection_id = create_test_collection(collection_owner);
+			let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3, 4, 5, 6];
+			let quantities: Vec<Balance> = vec![1000, 2000, 3000, 4000, 5000, 6000, 7000];
+
+			// Create each token with initial_issuance = 0
+			for _ in serial_numbers.iter() {
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					0,
+					None,
+					None,
+				));
+			}
+
+			// Mint the quantities to the token_owner for each serial
+			assert_ok!(Sft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_serials(serial_numbers.clone()),
+				bounded_quantities(quantities.clone()),
+				Some(token_owner.clone()),
+			));
+
+			// Check each token has the correct free balance and token issuance
+			for (serial_number, quantity) in serial_numbers.iter().zip(quantities.iter()) {
+				let token_id = (collection_id, *serial_number);
+				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+				assert_eq!(token_info.free_balance_of(&token_owner), *quantity);
+				assert_eq!(token_info.token_issuance, *quantity);
+			}
+
+			// Event emitted
+			System::assert_last_event(Event::Sft(crate::Event::Mint {
+				collection_id,
+				serial_numbers: bounded_serials(serial_numbers),
+				quantities: bounded_quantities(quantities),
+				owner: token_owner,
+			}));
+		});
+	}
+
+	#[test]
+	fn mint_different_input_lengths_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+			let (collection_id, serial_number) = token_id;
+			let quantity = 1000;
+
+			// Serial Numbers longer than quantity
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, serial_number]),
+					bounded_quantities(vec![quantity]),
+					None,
+				),
+				Error::<Test>::InvalidMintInput
+			);
+
+			// Quantity longer than serial Numbers
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![quantity, quantity]),
+					None,
+				),
+				Error::<Test>::InvalidMintInput
+			);
+
+			// Empty serial numbers
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![]),
+					bounded_quantities(vec![]),
+					None,
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn mint_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let collection_id = 0;
+			let serial_number = 0;
+
+			// Collection doesn't exist
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![100]),
+					None,
+				),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn mint_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+			let (collection_id, serial_number) = token_id;
+
+			// bob is not collection owner
+			assert_noop!(
+				Sft::mint(
+					Some(bob()).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![100]),
+					None,
+				),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn mint_invalid_quantity_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+			let (collection_id, serial_number) = token_id;
+
+			// mint into serial number twice, second one with 0
+			// This ensures the storage isn't changed if the second serial fails
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, serial_number]),
+					bounded_quantities(vec![100, 0]),
+					None,
+				),
+				Error::<Test>::InvalidQuantity
+			);
+		});
+	}
+
+	#[test]
+	fn mint_invalid_serial_number_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+			let (collection_id, serial_number) = token_id;
+
+			// Second serial number does not exist so should fail
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, 12]),
+					bounded_quantities(vec![100, 10]),
+					None,
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn mint_over_u128_max_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let collection_id = create_test_collection(collection_owner);
+			let initial_issuance = u128::MAX;
+
+			// mint u128::MAX tokens
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance,
+				None,
+				None,
+			));
+			let serial_number = 0;
+
+			// Check balance is correct
+			let token_info = TokenInfo::<Test>::get((collection_id, serial_number)).unwrap();
+			assert_eq!(token_info.free_balance_of(&collection_owner), initial_issuance);
+
+			// Mint any more should fail
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![1]),
+					None,
+				),
+				Error::<Test>::Overflow
+			);
+		});
+	}
+
+	#[test]
+	fn mint_over_max_issuance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let collection_id = create_test_collection(collection_owner);
+			let max_issuance = 100;
+
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				0,
+				Some(max_issuance),
+				None,
+			));
+			let serial_number = 0;
+
+			// Mint up to max issuance should pass
+			assert_ok!(Sft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_serials(vec![serial_number]),
+				bounded_quantities(vec![max_issuance]),
+				None,
+			));
+
+			// Check balance is correct
+			let token_info = TokenInfo::<Test>::get((collection_id, serial_number)).unwrap();
+			assert_eq!(token_info.free_balance_of(&collection_owner), max_issuance);
+
+			// Mint any more should fail
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![1]),
+					None,
+				),
+				Error::<Test>::MaxIssuanceReached
+			);
+		});
+	}
+
+	#[test]
+	fn mint_over_max_owners_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_owner = bob();
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+			let (collection_id, serial_number) = token_id;
+			let max_owners = <Test as crate::Config>::MaxOwnersPerSftToken::get();
+
+			// Mint some tokens up to max owners per token
+			for i in 0..max_owners {
+				let owner = create_account((i + 10) as u64);
+				assert_ok!(Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![1]),
+					Some(owner.clone()),
+				));
+			}
+
+			// Minting to a new owner will now fail
+			assert_noop!(
+				Sft::mint(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![1]),
+					Some(token_owner.clone()),
+				),
+				Error::<Test>::MaxOwnersReached
+			);
+		});
+	}
 }

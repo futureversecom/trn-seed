@@ -218,7 +218,7 @@ pub struct TestExt {}
 
 impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
 		let mut ext: sp_io::TestExternalities = ext.into();
 		ext.execute_with(|| {
