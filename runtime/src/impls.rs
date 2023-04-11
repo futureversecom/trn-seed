@@ -691,6 +691,8 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		let mut who = who;
+		// if the call is pallet_proxy::Call::proxy(), and the caller is a delegate of the FP(real),
+		// we switch the gas payer to the FP
 		if let Some(pallet_proxy::Call::proxy { real, .. }) = call.is_sub_type() {
 			if ProxyPalletProvider::exists(real, who) {
 				who = real;
