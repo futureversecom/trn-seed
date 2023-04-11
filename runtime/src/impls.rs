@@ -476,6 +476,9 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 		proxy_definitions.into_iter().map(|proxy_def| proxy_def.delegate).collect()
 	}
 
+	/// Adding a delegate requires funding the futurepass account (from funder) with the cost of the
+	/// proxy creation.
+	/// The futurepass cannot pay for itself as it may not have any funds.
 	fn add_delegate(
 		funder: &AccountId,
 		futurepass: &AccountId,
@@ -484,7 +487,7 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
 		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
-		// get proxy_definitions length + 1 (cost of upcoming insertion)
+		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
 		let creation_cost =
 			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
 		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
@@ -498,26 +501,34 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)
 	}
 
+	/// Removing a delegate requires refunding the potential funder (who may have funded the creation of
+	/// futurepass or added the delegates) with the cost of the proxy creation.
+	/// The futurepass accrues deposits (as reserved balance) by the funder(s) when delegates are added
+	/// to the futurepass account.
+	/// Removing delegates unreserves the deposits (funds) from the futurepass account - which should be paid
+	/// back out to potential receiver(s).
 	fn remove_delegate(
 		funder: &AccountId,
 		futurepass: &AccountId,
 		delegate: &AccountId,
 	) -> DispatchResult {
-		// pay cost for proxy removal; transfer funds/deposit from delegator to FP account (which
-		// executes proxy creation)
-		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
-		// get proxy_definitions length - 1 (cost of upcoming removal)
-		let removal_cost =
-			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 - 1);
-		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
-			funder,
-			futurepass,
-			removal_cost,
-			ExistenceRequirement::KeepAlive,
-		)?;
-
 		let proxy_type = ProxyType::Any;
-		pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(futurepass, *delegate, proxy_type, 0)
+
+		// get deposits before proxy removal (value gets mutated in removal)
+		let (_, pre_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
+
+		let result = pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(futurepass, *delegate, proxy_type, 0);
+		if result.is_ok() {
+			let (_, post_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
+			let removal_refund = pre_removal_deposit - post_removal_deposit;
+			<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
+				futurepass,
+				funder,
+				removal_refund,
+				ExistenceRequirement::KeepAlive,
+			)?;
+		}
+		result
 	}
 }
 
