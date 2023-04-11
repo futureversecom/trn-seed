@@ -93,7 +93,7 @@ type StakeNegativeImbalanceOf<T> = pallet_balances::NegativeImbalance<T>;
 /// On era reward payouts, offset minted tokens from the tx fee pot to maintain total issuance
 /// staking pallet calls this to notify it minted `total_rewarded`
 impl<T: Config> OnUnbalanced<FeePositiveImbalanceOf<T>> for Pallet<T> {
-	fn on_nonzero_unbalanced(total_rewarded: FeePositiveImbalanceOf<T>) {
+	fn on_unbalanced(total_rewarded: FeePositiveImbalanceOf<T>) {
 		// burn `amount` from TxFeePot, reducing total issuance immediately
 		// later `total_rewarded` will be dropped keeping total issuance constant
 		if let Err(_err) = T::FeeCurrency::withdraw(
