@@ -1,11 +1,14 @@
 # TRN FuturePass Precompile supported interfaces
 
+Precompile address: `0x00000000000000000000000000000000000006BA`
+
 ```solidity
 interface FuturePass {
     event FuturepassCreated(address indexed futurepass, address owner);
     event FuturepassDelegateRegistered(address indexed futurepass, address delegate);
     event FuturepassDelegateUnregistered(address indexed futurepass, address delegate);
     
+    function futurepassOf(address owner) external view returns (address);
     function create(address owner) external returns (address);
     function registerDelegate(address futurepass, address delegate) external;
     function unregisterDelegate(address futurepass, address delegate) external;
