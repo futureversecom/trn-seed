@@ -75,7 +75,6 @@ where
 				}
 			}
 
-
 			let path: &[AssetId] = &[*payment_asset, native_asset];
 			pallet_dex::Pallet::<T>::do_swap_with_exact_target(who, total_fee, *max_payment, path)
 				.map_err(|_| InvalidTransaction::Payment)?;

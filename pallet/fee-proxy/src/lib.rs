@@ -16,7 +16,6 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use seed_primitives::{AssetId, Balance};
 use sp_std::prelude::*;
-use pallet_futurepass::ProxyProvider;
 
 mod impls;
 #[cfg(test)]
