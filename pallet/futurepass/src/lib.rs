@@ -53,10 +53,18 @@ pub use weights::WeightInfo;
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
 pub trait ProxyProvider<AccountId> {
-	fn exists(account: &AccountId, proxy: &AccountId) -> bool;
-	fn proxies(account: &AccountId) -> Vec<AccountId>;
-	fn add_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult;
-	fn remove_proxy(account: &AccountId, proxy: AccountId) -> DispatchResult;
+	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool;
+	fn delegates(futurepass: &AccountId) -> Vec<AccountId>;
+	fn add_delegate(
+		funder: &AccountId,
+		futurepass: &AccountId,
+		delegate: &AccountId,
+	) -> DispatchResult;
+	fn remove_delegate(
+		receiver: &AccountId,
+		futurepass: &AccountId,
+		delegate: &AccountId,
+	) -> DispatchResult;
 }
 
 #[frame_support::pallet]
@@ -118,13 +126,13 @@ pub mod pallet {
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
 		},
-		/// Futurepass registration
-		FuturepassRegistered {
+		/// Delegate registration to Futurepass account
+		DelegateRegistered {
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
 		},
-		/// Futurepass delegate unregister
-		FuturepassUnregistered {
+		/// Delegate unregistration from Futurepass account
+		DelegateUnregistered {
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
 		},
@@ -134,7 +142,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 			futurepass: T::AccountId,
 		},
-		DefaultProxySet {
+		DefaultFuturepassSet {
 			delegate: T::AccountId,
 			futurepass: Option<T::AccountId>,
 		},
@@ -150,6 +158,8 @@ pub mod pallet {
 		DelegateAlreadyExists,
 		/// Account is not futurepass owner
 		NotFuturepassOwner,
+		/// Futurepass owner cannot remove themselves
+		OwnerCannotUnregister,
 		/// Account does not have permission to call this function
 		PermissionDenied,
 	}
@@ -168,12 +178,13 @@ pub mod pallet {
 		/// - `account`: The delegated account for the futurepass.
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-			Self::do_create_futurepass(account)?;
+			let who = ensure_signed(origin)?;
+			Self::do_create_futurepass(who, account)?;
 			Ok(())
 		}
 
 		/// Register a delegator to an existing futurepass account.
+		/// Note: Only futurepass owner account can add more delegates.
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
@@ -189,24 +200,17 @@ pub mod pallet {
 			let owner = ensure_signed(origin)?;
 
 			// caller must be futurepass holder
-			// TODO: or they can have any permission (sufficient permissions) to add other
-			// delegators
 			ensure!(
-				Holders::<T>::get(&owner) == Some(futurepass.clone()),
+				Holders::<T>::get(&owner.clone()) == Some(futurepass.clone()),
 				Error::<T>::NotFuturepassOwner
 			);
 
-			// maybe we can check here if caller/owner has sufficient permissions to add the other
+			// maybe we can check here if caller has sufficient permissions to add the other
 			// delegate?
 			ensure!(T::Proxy::exists(&futurepass, &owner), Error::<T>::DelegateNotRegistered);
 
-			// delegate must not already exist in proxy mapping
-			// TODO: validate if this is needed, `add_proxy` -> `add_proxy_delegate` may already
-			// perform this check
-			ensure!(!T::Proxy::exists(&futurepass, &delegate), Error::<T>::DelegateAlreadyExists);
-
-			T::Proxy::add_proxy(&futurepass, delegate.clone())?;
-			Self::deposit_event(Event::<T>::FuturepassRegistered { futurepass, delegate });
+			T::Proxy::add_delegate(&owner, &futurepass, &delegate)?;
+			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });
 			Ok(())
 		}
 
@@ -231,21 +235,25 @@ pub mod pallet {
 			// Check if the caller is the owner of the futurepass
 			let is_owner = Holders::<T>::get(&caller) == Some(futurepass.clone());
 
-			// Check if the caller is the delegate or the owner of the futurepass
+			// If provided delegate is the owner themselves, do not allow this action
+			ensure!(!(is_owner && caller == delegate), Error::<T>::OwnerCannotUnregister);
+
+			// Check if caller is owner (can remove anyone) or delegate (can remove themsleves) from
+			// futurepass
 			ensure!(is_owner || caller == delegate, Error::<T>::PermissionDenied);
 
 			// Check if the delegate is registered with the futurepass
 			ensure!(T::Proxy::exists(&futurepass, &delegate), Error::<T>::DelegateNotRegistered);
 
 			// Remove the delegate from the futurepass
-			T::Proxy::remove_proxy(&futurepass, delegate.clone())?;
+			T::Proxy::remove_delegate(&caller, &futurepass, &delegate)?;
 
 			// If the caller is the owner of the futurepass, remove the ownership
-			if is_owner {
-				Holders::<T>::remove(&caller);
-			}
+			// if is_owner && caller == delegate { // TODO: validate whether we cant this
+			// functionality 	Holders::<T>::remove(&caller);
+			// }
 
-			Self::deposit_event(Event::<T>::FuturepassUnregistered { futurepass, delegate });
+			Self::deposit_event(Event::<T>::DelegateUnregistered { futurepass, delegate });
 			Ok(())
 		}
 
@@ -273,13 +281,13 @@ pub mod pallet {
 			ensure!(!Holders::<T>::contains_key(&new_owner), Error::<T>::AccountAlreadyRegistered);
 
 			// Remove all proxy delegates from the current futurepass
-			let proxies = T::Proxy::proxies(&futurepass);
-			for proxy in proxies.iter() {
-				T::Proxy::remove_proxy(&futurepass, proxy.clone())?;
+			let delegates = T::Proxy::delegates(&futurepass);
+			for delegate in delegates.iter() {
+				T::Proxy::remove_delegate(&owner, &futurepass, &delegate)?;
 			}
 
 			// Add the current owner as a proxy delegate
-			T::Proxy::add_proxy(&futurepass, new_owner.clone())?;
+			T::Proxy::add_delegate(&owner, &futurepass, &new_owner)?;
 
 			// Set the new owner as the owner of the futurepass
 			Holders::<T>::insert(&new_owner, futurepass.clone());
@@ -361,14 +369,17 @@ impl<T: Config> Pallet<T> {
 		T::AccountId::from(address)
 	}
 
-	pub fn do_create_futurepass(account: T::AccountId) -> Result<T::AccountId, DispatchError>
+	pub fn do_create_futurepass(
+		funder: T::AccountId,
+		account: T::AccountId,
+	) -> Result<T::AccountId, DispatchError>
 	where
 		T::AccountId: From<sp_core::H160>,
 	{
 		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
 		let futurepass = Self::generate_futurepass_account();
 		Holders::<T>::set(&account, Some(futurepass.clone()));
-		T::Proxy::add_proxy(&futurepass, account.clone())?;
+		T::Proxy::add_delegate(&funder, &futurepass, &account)?;
 
 		Self::deposit_event(Event::<T>::FuturepassCreated {
 			futurepass: futurepass.clone(),
