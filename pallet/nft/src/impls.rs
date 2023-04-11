@@ -549,8 +549,6 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::CollectionNameInvalid
 		);
 		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
-		//let metadata_scheme =
-		//	metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
 		if let Some(royalties_schedule) = royalties_schedule.clone() {
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 		}

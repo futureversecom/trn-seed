@@ -16,11 +16,16 @@ use scale_info::TypeInfo;
 use sp_runtime::{traits::ConstU32, BoundedVec};
 use sp_std::prelude::*;
 
+/// Defines the length limit of the type MetadataScheme.
+/// To avoid overly complex primitives, local const is used here instead of a runtime configurable
+/// constant
+const METADATA_SCHEME_LIMIT: u32 = 100;
+
 /// Denotes the metadata URI referencing scheme used by a collection
 /// MetadataScheme guarantees the data length not exceed the given limit, and the content won't be
 /// checked and needs to be taken care by callers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-pub struct MetadataScheme(BoundedVec<u8, ConstU32<1_000>>);
+pub struct MetadataScheme(BoundedVec<u8, ConstU32<METADATA_SCHEME_LIMIT>>);
 
 impl MetadataScheme {
 	/// This function simply concatenates the stored data with the given serial_number
@@ -33,12 +38,12 @@ impl MetadataScheme {
 	}
 }
 
-impl TryFrom<Vec<u8>> for MetadataScheme {
+impl TryFrom<&[u8]> for MetadataScheme {
 	type Error = &'static str;
 
-	fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-		let bounded_vec: BoundedVec<u8, ConstU32<1_000>> =
-			BoundedVec::try_from(value).map_err(|_| "Too large input vec")?;
+	fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+		let bounded_vec: BoundedVec<u8, ConstU32<METADATA_SCHEME_LIMIT>> =
+			BoundedVec::try_from(value.to_vec()).map_err(|_| "Too large input vec")?;
 
 		Ok(MetadataScheme(bounded_vec))
 	}
@@ -51,7 +56,7 @@ mod test {
 	#[test]
 	fn test_construct_token_uri() {
 		assert_eq!(
-			MetadataScheme::try_from(b"http://test.com/defg/hijkl/".to_vec())
+			MetadataScheme::try_from(b"http://test.com/defg/hijkl/".as_slice())
 				.unwrap()
 				.construct_token_uri(1),
 			b"http://test.com/defg/hijkl/1".to_vec()
@@ -61,7 +66,7 @@ mod test {
 	#[test]
 	fn test_try_from_succeeds() {
 		assert_eq!(
-			MetadataScheme::try_from(b"http://test.com/defg/hijkl/".to_vec())
+			MetadataScheme::try_from(b"http://test.com/defg/hijkl/".as_slice())
 				.unwrap()
 				.0
 				.to_vec(),
@@ -71,6 +76,6 @@ mod test {
 
 	#[test]
 	fn test_try_from_fails() {
-		assert!(MetadataScheme::try_from(vec![0; 1001]).is_err())
+		assert!(MetadataScheme::try_from(vec![0; 1001].as_slice()).is_err())
 	}
 }

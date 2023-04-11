@@ -143,7 +143,10 @@ fn do_deposit_creates_tokens_and_collection() {
 		let collection_info = Nft::collection_info(expected_collection_id).unwrap();
 		assert_eq!(
 			collection_info.metadata_scheme,
-			MetadataScheme::try_from(test_vals.token_address.as_bytes().to_vec()).unwrap()
+			MetadataScheme::try_from(
+				[b"ethereum://", test_vals.token_address.as_bytes(), b"/"].concat().as_slice()
+			)
+			.unwrap()
 		);
 
 		// Token balance should be 1 as one token was deposited

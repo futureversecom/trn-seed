@@ -509,8 +509,11 @@ pub mod pallet {
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
-			collection_info.metadata_scheme =
-				base_uri.clone().try_into().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+			collection_info.metadata_scheme = base_uri
+				.clone()
+				.as_slice()
+				.try_into()
+				.map_err(|_| Error::<T>::InvalidMetadataPath)?;
 
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::BaseUriSet { collection_id, base_uri });

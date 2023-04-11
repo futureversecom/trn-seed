@@ -38,7 +38,7 @@ fn build_collection<T: Config>() -> (T::AccountId, CollectionUuid, TokenId) {
 	let alice = account::<T>("Alice");
 	let collection_name = "Hello".into();
 	let metadata_scheme = MetadataScheme::try_from(
-		b"ethereum://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
+		b"ethereum://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".as_slice(),
 	)
 	.unwrap();
 

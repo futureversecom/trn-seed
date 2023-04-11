@@ -278,7 +278,9 @@ where
 					Some(collection_id) => collection_id,
 					None => {
 						let metadata_scheme = MetadataScheme::try_from(
-							current_token.token_address.as_bytes().to_vec(),
+							[b"ethereum://", current_token.token_address.as_bytes(), b"/"]
+								.concat()
+								.as_slice(),
 						)
 						.map_err(|_| Error::<T>::ExceedsMaxVecLength)?;
 						// Collection doesn't exist, create a new collection
