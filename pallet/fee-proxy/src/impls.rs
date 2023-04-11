@@ -29,10 +29,8 @@ where
 		+ pallet_dex::Config
 		+ pallet_evm::Config
 		+ pallet_assets_ext::Config
-		+ pallet_futurepass::Config
-		+ pallet_proxy::Config,
+		+ pallet_futurepass::Config,
 	<T as frame_system::Config>::Call: IsSubType<crate::Call<T>>,
-	<T as frame_system::Config>::Call: IsSubType<pallet_proxy::Call<T>>,
 	<T as Config>::Call: IsSubType<pallet_evm::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
@@ -51,14 +49,6 @@ where
 		fee: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-		let mut who = who;
-		if let Some(pallet_proxy::Call::proxy { real, .. }) = call.is_sub_type()
-		{
-			if T::FuturepassAdapter::exists(real, who) {
-				who = real;
-			}
-		}
-
 		// Check whether this call has specified fee preferences
 		if let Some(call_with_fee_preferences { payment_asset, max_payment, call }) =
 			call.is_sub_type()

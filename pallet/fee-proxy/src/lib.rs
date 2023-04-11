@@ -66,7 +66,6 @@ pub mod pallet {
 		type OnChargeTransaction: OnChargeTransaction<Self>;
 		/// Convert EVM addresses into Runtime Id identifiers and vice versa
 		type ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>;
-		type FuturepassAdapter: ProxyProvider<AccountId>;
 	}
 
 	#[pallet::event]
