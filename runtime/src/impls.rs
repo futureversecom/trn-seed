@@ -501,14 +501,14 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)
 	}
 
-	/// Removing a delegate requires refunding the potential funder (who may have funded the creation of
-	/// futurepass or added the delegates) with the cost of the proxy creation.
-	/// The futurepass accrues deposits (as reserved balance) by the funder(s) when delegates are added
-	/// to the futurepass account.
-	/// Removing delegates unreserves the deposits (funds) from the futurepass account - which should be paid
-	/// back out to potential receiver(s).
+	/// Removing a delegate requires refunding the potential funder (who may have funded the
+	/// creation of futurepass or added the delegates) with the cost of the proxy creation.
+	/// The futurepass accrues deposits (as reserved balance) by the funder(s) when delegates are
+	/// added to the futurepass account.
+	/// Removing delegates unreserves the deposits (funds) from the futurepass account - which
+	/// should be paid back out to potential receiver(s).
 	fn remove_delegate(
-		funder: &AccountId,
+		receiver: &AccountId,
 		futurepass: &AccountId,
 		delegate: &AccountId,
 	) -> DispatchResult {
@@ -517,13 +517,15 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 		// get deposits before proxy removal (value gets mutated in removal)
 		let (_, pre_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 
-		let result = pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(futurepass, *delegate, proxy_type, 0);
+		let result = pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(
+			futurepass, *delegate, proxy_type, 0,
+		);
 		if result.is_ok() {
 			let (_, post_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 			let removal_refund = pre_removal_deposit - post_removal_deposit;
 			<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
 				futurepass,
-				funder,
+				receiver,
 				removal_refund,
 				ExistenceRequirement::KeepAlive,
 			)?;

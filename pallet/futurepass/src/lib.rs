@@ -61,7 +61,7 @@ pub trait ProxyProvider<AccountId> {
 		delegate: &AccountId,
 	) -> DispatchResult;
 	fn remove_delegate(
-		funder: &AccountId,
+		receiver: &AccountId,
 		futurepass: &AccountId,
 		delegate: &AccountId,
 	) -> DispatchResult;
