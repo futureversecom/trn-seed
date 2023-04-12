@@ -83,8 +83,8 @@ impl<T: Config> SftTokenInformation<T> {
 			.unwrap_or_default()
 	}
 
-	/// Mints some balance into an account
-	pub fn mint_balance(&mut self, who: &T::AccountId, amount: Balance) -> DispatchResult {
+	/// Adds some balance into an account
+	pub fn add_balance(&mut self, who: &T::AccountId, amount: Balance) -> DispatchResult {
 		let existing_owner = self.owned_tokens.iter_mut().find(|(account, _)| account == who);
 
 		if let Some((_, balance)) = existing_owner {

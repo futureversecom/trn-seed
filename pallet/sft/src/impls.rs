@@ -179,8 +179,8 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 
-			// Mint the balance
-			token_info.mint_balance(&owner, *quantity)?;
+			// Add the balance
+			token_info.add_balance(&owner, *quantity)?;
 			token_info.token_issuance += quantity;
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
