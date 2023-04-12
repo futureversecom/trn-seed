@@ -310,7 +310,7 @@ impl frame_support::weights::WeightToFee for FeeControlLengthToFee {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = FeeProxy;
+	type OnChargeTransaction = impls::FuturepassTransactionFee;
 	type Event = Event;
 	type WeightToFee = FeeControlWeightToFee;
 	type LengthToFee = FeeControlLengthToFee;
