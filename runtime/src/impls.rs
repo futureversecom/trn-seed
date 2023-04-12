@@ -44,7 +44,10 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-use precompile_utils::{constants::FEE_PROXY_ADDRESS, Address, ErcIdConversion};
+use precompile_utils::{
+	constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE},
+	Address, ErcIdConversion,
+};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
@@ -553,13 +556,10 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 	TypeInfo,
 )]
 pub enum ProxyType {
-	Any, /* TODO: ensure no calls are made to futurepass pallet (all extrinsics must be EOA
-	      * origin) */
+	Any,
 	NonTransfer,
 	Governance,
 	Staking,
-	// Multicurrency,
-	// CancelProxy,
 }
 
 impl Default for ProxyType {
@@ -568,67 +568,25 @@ impl Default for ProxyType {
 	}
 }
 
-// proxy call filter from ethereum side.
-// TODO(surangap): check if the granualarity can be improved to the call level
+// Precompile side proxy filter.
+// NOTE - Precompile and Substrate side filters should be in sync
+// TODO(surangap): check if the granualarity can be improved to the call level (V2)
 impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 	fn is_evm_proxy_call_allowed(
 		&self,
 		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
-		recipient_has_code: bool,
+		_recipient_has_code: bool,
 	) -> bool {
 		use pallet_evm::PrecompileSet as _;
+		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
+			return false
+		}
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => true,
-			ProxyType::Governance => true,
-			ProxyType::Staking => true,
-			// TODO(surangap): implement the filter
-			// ProxyType::Any => true,
-			// ProxyType::NonTransfer => {
-			// 	call.value == U256::zero()
-			// 		&& match PrecompileName::from_address(call.to.0) {
-			// 		Some(
-			// 			PrecompileName::AuthorMappingPrecompile
-			// 			| PrecompileName::ParachainStakingPrecompile,
-			// 		) => true,
-			// 		Some(ref precompile) if is_governance_precompile(precompile) => true,
-			// 		_ => false,
-			// 	}
-			// }
-			// ProxyType::Governance => {
-			// 	call.value == U256::zero()
-			// 		&& matches!(
-			// 			PrecompileName::from_address(call.to.0),
-			// 			Some(ref precompile) if is_governance_precompile(precompile)
-			// 		)
-			// }
-			// ProxyType::Staking => {
-			// 	call.value == U256::zero()
-			// 		&& matches!(
-			// 			PrecompileName::from_address(call.to.0),
-			// 			Some(
-			// 				PrecompileName::AuthorMappingPrecompile
-			// 					| PrecompileName::ParachainStakingPrecompile
-			// 			)
-			// 		)
-			// }
-			// // The proxy precompile does not contain method cancel_proxy
-			// ProxyType::CancelProxy => false,
-			// ProxyType::Balances => {
-			// 	// Allow only "simple" accounts as recipient (no code nor precompile).
-			// 	// Note: Checking the presence of the code is not enough because some precompiles
-			// 	// have no code.
-			// 	!recipient_has_code && !PrecompilesValue::get().is_precompile(call.to.0)
-			// }
-			// ProxyType::AuthorMapping => {
-			// 	call.value == U256::zero()
-			// 		&& matches!(
-			// 			PrecompileName::from_address(call.to.0),
-			// 			Some(PrecompileName::AuthorMappingPrecompile)
-			// 		)
-			// }
-			// // There is no identity precompile
-			// ProxyType::IdentityJudgement => false,
+			ProxyType::NonTransfer => call.value == U256::zero(), /* ProxyType::NonTransfer can
+			                                                        * not have value */
+			ProxyType::Governance => false,
+			ProxyType::Staking => false,
 		}
 	}
 }
@@ -636,46 +594,20 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 // substrate side proxy filter
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
+		// NOTE - any call for Proxy, Futurepass pallets can not be proxied. this may seems extra
+		// restrictive than Proxy pallet. But if a delegate has permission to proxy a call of the
+		// proxy pallet, they should be able to call it directly in the pallet.
+		// This keeps the logic simple and avoids unnecessary loops
+		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
+			return false
+		}
 		match self {
+			// only ProxyType::Any is used in V1
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => true, // TODO
-			ProxyType::Governance => true,  // TODO
-			ProxyType::Staking => true,     /* TODO
-			                                  * ProxyType::NonTransfer => {
-			                                  * 	matches!(
-			                                  * 		c,
-			                                  * 		Call::System(..)
-			                                  * 			| Call::ParachainSystem(..)
-			                                  * 			| Call::Timestamp(..)
-			                                  * 			| Call::ParachainStaking(..)
-			                                  * 			| Call::Democracy(..)
-			                                  * 			| Call::Preimage(..)
-			                                  * 			| Call::CouncilCollective(..)
-			                                  * 			| Call::TreasuryCouncilCollective(..)
-			                                  * 			| Call::TechCommitteeCollective(..)
-			                                  * 			| Call::Identity(..)
-			                                  * 			| Call::Utility(..)
-			                                  * 			| Call::Proxy(..) | Call::AuthorMapping(..)
-			                                  * 			| Call::CrowdloanRewards(
-			                                  * 				pallet_crowdloan_rewards::Call::claim { .. }
-			                                  * 			)
-			                                  * 	)
-			                                  * }
-			                                  * ProxyType::Governance => matches!(
-			                                  * 	c,
-			                                  * 	Call::Democracy(..)
-			                                  * 		| Call::Preimage(..)
-			                                  * 		| Call::CouncilCollective(..)
-			                                  * 		| Call::TreasuryCouncilCollective(..)
-			                                  * 		| Call::TechCommitteeCollective(..)
-			                                  * 		| Call::Utility(..)
-			                                  * ),
-			                                  * ProxyType::Staking => matches!(c,
-			                                  * Call::Staking(..)),
-			                                  * ProxyType::CancelProxy => matches!(
-			                                  * 	c,
-			                                  * 	Call::Proxy(pallet_proxy::Call::reject_announcement { .. })
-			                                  * ), */
+			ProxyType::NonTransfer => true, /* TODO - need to add allowed calls under this
+			                                  * category in v2. allowing all for now. */
+			ProxyType::Governance => false,
+			ProxyType::Staking => false,
 		}
 	}
 
