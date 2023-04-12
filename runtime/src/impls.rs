@@ -712,6 +712,10 @@ where
 		tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
+		// NOTE - ideally we should check and switch the account to FP here also, But we don't have
+		// the call information within this function. What this means, if any extra fee was charged,
+		// that fee wont return to FP but the caller. Ideally we could pass the required info via
+		// pre, But this requires a new signed extension and some research.
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction>::correct_and_deposit_fee(
 			who,
 			dispatch_info,
