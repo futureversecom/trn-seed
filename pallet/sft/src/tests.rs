@@ -1114,6 +1114,64 @@ mod transfer {
 	}
 
 	#[test]
+	fn transfer_insufficient_balance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let new_owner = bob();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+
+			// Perform transfer
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner.clone()).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![initial_issuance + 1]),
+					new_owner.clone(),
+				),
+				Error::<Test>::InsufficientBalance
+			);
+		});
+	}
+
+	#[test]
+	fn transfer_multiple_insufficient_balance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let new_owner = bob();
+			let initial_issuance = 1000;
+			let initial_issuance_2 = 2000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+
+			// Create another token
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance_2,
+				None,
+				None,
+			));
+			let serial_number_2 = 1;
+
+			// Perform transfer but second serial has insufficient balance
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner.clone()).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, serial_number_2]),
+					bounded_quantities(vec![1, initial_issuance_2 + 1]),
+					new_owner.clone(),
+				),
+				Error::<Test>::InsufficientBalance
+			);
+		});
+	}
+
+	#[test]
 	fn transfer_different_input_lengths_fails() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = alice();
