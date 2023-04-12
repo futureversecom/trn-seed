@@ -58,7 +58,7 @@ use seed_pallet_common::{
 	log, EthCallOracleSubscriber, EthereumEventRouter, EthyToXrplBridgeAdapter, EventRouterError,
 	FinalSessionTracker as FinalSessionTrackerT, Hold,
 };
-use seed_primitives::{AccountId, AssetId, Balance};
+use seed_primitives::{AssetId, Balance};
 
 mod ethereum_http_cli;
 pub use ethereum_http_cli::EthereumRpcClient;
@@ -88,9 +88,7 @@ const SUBMIT_BRIDGE_EVENT_SELECTOR: [u8; 32] =
 	hex!("0f8885c9654c5901d61d2eae1fa5d11a67f9b8fca77146d5109bc7be00f4472a");
 
 /// This is the pallet's configuration trait
-pub trait Config:
-	frame_system::Config<AccountId = AccountId> + CreateSignedTransaction<Call<Self>>
-{
+pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Length of time the bridge will be paused while the authority set changes
 	type AuthorityChangeDelay: Get<Self::BlockNumber>;
 	/// Knows the active authority set (validator stash addresses)
@@ -406,8 +404,8 @@ decl_module! {
 		pub fn set_relayer(origin, relayer: T::AccountId) {
 			ensure_root(origin)?;
 			// Ensure relayer has bonded more than relayer bond amount
-			ensure!(Self::relayer_paid_bond(relayer) >= T::RelayerBond::get(), Error::<T>::NoBondPaid);
-			<Relayer<T>>::put(relayer);
+			ensure!(Self::relayer_paid_bond(relayer.clone()) >= T::RelayerBond::get(), Error::<T>::NoBondPaid);
+			<Relayer<T>>::put(relayer.clone());
 			Self::deposit_event(Event::<T>::RelayerSet(Some(relayer)));
 		}
 
@@ -417,7 +415,7 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			// Ensure relayer doesn't already have a bond set
-			ensure!(Self::relayer_paid_bond(origin) == 0, Error::<T>::CantBondRelayer);
+			ensure!(Self::relayer_paid_bond(origin.clone()) == 0, Error::<T>::CantBondRelayer);
 
 			let relayer_bond = T::RelayerBond::get();
 			// Attempt to place a hold from the relayer account
@@ -427,7 +425,7 @@ decl_module! {
 				T::NativeAssetId::get(),
 				relayer_bond,
 			)?;
-			<RelayerPaidBond<T>>::insert(origin, relayer_bond);
+			<RelayerPaidBond<T>>::insert(origin.clone(), relayer_bond);
 			Self::deposit_event(Event::<T>::RelayerBondDeposit(origin, relayer_bond));
 			Ok(())
 		}
@@ -438,10 +436,10 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 
 			// Ensure account is not the current relayer
-			if Self::relayer() == Some(origin) {
-				ensure!(Self::relayer() != Some(origin), Error::<T>::CantUnbondRelayer);
+			if Self::relayer() == Some(origin.clone()) {
+				ensure!(Self::relayer() != Some(origin.clone()), Error::<T>::CantUnbondRelayer);
 			};
-			let relayer_paid_bond = Self::relayer_paid_bond(origin);
+			let relayer_paid_bond = Self::relayer_paid_bond(origin.clone());
 			ensure!(relayer_paid_bond > 0, Error::<T>::CantUnbondRelayer);
 
 			// Attempt to release the relayers hold
@@ -451,7 +449,7 @@ decl_module! {
 				T::NativeAssetId::get(),
 				relayer_paid_bond,
 			)?;
-			<RelayerPaidBond<T>>::remove(origin);
+			<RelayerPaidBond<T>>::remove(origin.clone());
 
 			Self::deposit_event(Event::<T>::RelayerBondWithdraw(origin, relayer_paid_bond));
 			Ok(())
@@ -571,7 +569,7 @@ decl_module! {
 			// Not sorted so we can check using FIFO
 			// Include challenger account for releasing funds in case claim is invalid
 			PendingClaimChallenges::append(event_claim_id);
-			<ChallengerAccount<T>>::insert(event_claim_id, (origin, challenger_bond));
+			<ChallengerAccount<T>>::insert(event_claim_id, (origin.clone(), challenger_bond));
 			PendingClaimStatus::insert(event_claim_id, EventClaimStatus::Challenged);
 
 			Self::deposit_event(Event::<T>::Challenged(event_claim_id, origin));
