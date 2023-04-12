@@ -83,19 +83,19 @@ impl<T: Config> SftTokenInformation<T> {
 			.unwrap_or_default()
 	}
 
+	/// Mints some balance into an account
 	pub fn mint_balance(&mut self, who: &T::AccountId, amount: Balance) -> DispatchResult {
 		let existing_owner = self.owned_tokens.iter_mut().find(|(account, _)| account == who);
 
-		match existing_owner {
-			Some((_, balance)) => {
-				balance.add_balance(amount).map_err(|err| Error::<T>::from(err))?;
-			},
-			None => {
-				let new_token_balance = SftTokenBalance::new(amount, 0);
-				self.owned_tokens
-					.try_push((who.clone(), new_token_balance))
-					.map_err(|_| Error::<T>::MaxOwnersReached)?;
-			},
+		if let Some((_, balance)) = existing_owner {
+			// Owner already exists, add to their balance
+			balance.add_balance(amount).map_err(|err| Error::<T>::from(err))?;
+		} else {
+			// The owner doesn't exist for this SerialNumber, add them
+			let new_token_balance = SftTokenBalance::new(amount, 0);
+			self.owned_tokens
+				.try_push((who.clone(), new_token_balance))
+				.map_err(|_| Error::<T>::MaxOwnersReached)?;
 		}
 		Ok(())
 	}
@@ -144,8 +144,8 @@ impl SftTokenBalance {
 
 	/// Adds some balance to the free balance
 	pub fn add_balance(&mut self, amount: Balance) -> Result<(), TokenBalanceError> {
-		// self.free_balance =
-		// 	self.free_balance.checked_add(amount).ok_or(Err(TokenBalanceError::Overflow))?;
+		self.free_balance =
+			self.free_balance.checked_add(amount).ok_or(TokenBalanceError::Overflow)?;
 		Ok(())
 	}
 

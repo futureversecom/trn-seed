@@ -606,6 +606,32 @@ mod mint {
 				quantities: bounded_quantities(vec![quantity]),
 				owner: token_owner,
 			}));
+
+			// Mint some more to make sure the balance is added correctly to an existing owner
+			let quantity2 = 1337;
+			assert_ok!(Sft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_serials(vec![serial_number]),
+				bounded_quantities(vec![quantity2]),
+				Some(token_owner.clone()),
+			));
+
+			// Get updated token_info and check storage
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(token_info.free_balance_of(&token_owner), quantity + quantity2);
+			let expected_owned_tokens =
+				create_owned_tokens(vec![(token_owner.clone(), quantity + quantity2)]);
+			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
+			assert_eq!(token_info.token_issuance, quantity + quantity2);
+
+			// Event emitted
+			System::assert_last_event(Event::Sft(crate::Event::Mint {
+				collection_id,
+				serial_numbers: bounded_serials(vec![serial_number]),
+				quantities: bounded_quantities(vec![quantity2]),
+				owner: token_owner,
+			}));
 		});
 	}
 
@@ -646,6 +672,41 @@ mod mint {
 				assert_eq!(token_info.free_balance_of(&token_owner), *quantity);
 				assert_eq!(token_info.token_issuance, *quantity);
 			}
+
+			// Event emitted
+			System::assert_last_event(Event::Sft(crate::Event::Mint {
+				collection_id,
+				serial_numbers: bounded_serials(serial_numbers),
+				quantities: bounded_quantities(quantities),
+				owner: token_owner,
+			}));
+		});
+	}
+
+	#[test]
+	fn mint_with_duplicate_serial_numbers_work() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_owner = bob();
+			let (collection_id, serial_number) =
+				create_test_token(collection_owner, collection_owner, 0);
+			let serial_numbers: Vec<SerialNumber> =
+				vec![serial_number, serial_number, serial_number, serial_number];
+			let quantities: Vec<Balance> = vec![1, 50, 3000, 10000];
+			let sum = quantities.iter().sum::<u128>();
+
+			// Mint the quantities to the token_owner for each serial
+			assert_ok!(Sft::mint(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_serials(serial_numbers.clone()),
+				bounded_quantities(quantities.clone()),
+				Some(token_owner.clone()),
+			));
+
+			let token_info = TokenInfo::<Test>::get((collection_id, serial_number)).unwrap();
+			assert_eq!(token_info.free_balance_of(&token_owner), sum);
+			assert_eq!(token_info.token_issuance, sum);
 
 			// Event emitted
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
