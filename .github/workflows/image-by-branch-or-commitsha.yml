@@ -72,11 +72,11 @@ jobs:
               docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$GIT_REF"
               docker push "$REGISTRY/$IMAGE_NAME:$GIT_REF"
             fi
+
+            # clean up images
+            docker image prune --filter label=stage=build -f
           else
             # If the argument is not a valid branch or commit hash, print an error message
             echo "$INPUT is not a valid branch name or commit hash."
             exit 1
           fi
-
-          # clean up images
-          docker image prune --filter label=stage=build -f
