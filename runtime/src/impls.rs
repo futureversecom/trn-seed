@@ -557,7 +557,8 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		}
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => false,
+			ProxyType::NonTransfer => call.value == U256::zero(), /* ProxyType::NonTransfer can
+			                                                        * not have value */
 			ProxyType::Governance => false,
 			ProxyType::Staking => false,
 		}
@@ -575,11 +576,12 @@ impl InstanceFilter<Call> for ProxyType {
 			return false
 		}
 		match self {
-			// only ProxyType::Any in V1
+			// only ProxyType::Any is used in V1
 			ProxyType::Any => true,
+			ProxyType::NonTransfer => true, /* TODO - need to add allowed calls under this
+			                                  * category in v2. allowing all for now. */
 			ProxyType::Governance => false,
 			ProxyType::Staking => false,
-			ProxyType::NonTransfer => false,
 		}
 	}
 
