@@ -669,9 +669,9 @@ impl InstanceFilter<Call> for ProxyType {
 }
 
 /// Switch gas payer to Futurepass if proxy called with a Futurepass account
-pub struct FuturepassGasSwitcher;
+pub struct FuturepassTransactionFee;
 
-impl<T> OnChargeTransaction<T> for FuturepassGasSwitcher
+impl<T> OnChargeTransaction<T> for FuturepassTransactionFee
 where
 	T: frame_system::Config<AccountId = AccountId>
 		+ pallet_transaction_payment::Config
