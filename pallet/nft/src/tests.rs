@@ -348,7 +348,8 @@ fn create_collection() {
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			serial_numbers: BoundedVec::truncate_from(vec![5, 6, 7]),
+			start: 5,
+			end: 7,
 			owner: new_owner,
 		}));
 		assert_eq!(Nft::token_balance_of(&(new_owner), collection_id), 3);
@@ -732,7 +733,8 @@ fn sell_multiple_fails() {
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			serial_numbers: BoundedVec::truncate_from(vec![0, 1]),
+			start: 0,
+			end: 1,
 			owner: collection_owner,
 		}));
 
@@ -1598,7 +1600,8 @@ fn auction_bundle_fails() {
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 2, None));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			serial_numbers: BoundedVec::truncate_from(vec![0, 1]),
+			start: 0,
+			end: 1,
 			owner: collection_owner,
 		}));
 
@@ -2113,7 +2116,8 @@ fn mint_over_max_issuance_should_fail() {
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 3, Some(token_owner),));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			serial_numbers: BoundedVec::truncate_from(vec![2, 3, 4]),
+			start: 2,
+			end: 4,
 			owner: token_owner,
 		}));
 		assert_eq!(
@@ -2863,7 +2867,8 @@ fn transfer_changes_token_balance() {
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			serial_numbers: BoundedVec::truncate_from(vec![1, 2]),
+			start: 1,
+			end: 2,
 			owner: token_owner,
 		}));
 
@@ -3041,7 +3046,7 @@ fn mints_multiple_specified_tokens_by_id() {
 		Nft::mint_bridged_token(&token_owner, collection_id, token_ids.clone());
 
 		// Event is thrown
-		assert!(has_event(Event::<Test>::Mint {
+		assert!(has_event(Event::<Test>::BridgedMint {
 			collection_id,
 			serial_numbers: BoundedVec::truncate_from(token_ids.clone()),
 			owner: token_owner,
@@ -3155,7 +3160,7 @@ fn token_balance_of_works() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
 		let token_owner = create_account(2);
-		let quantity: SerialNumber = 100;
+		let quantity: TokenCount = 100;
 		let collection_id = setup_collection(collection_owner);
 
 		// Check that token_owner has 0 tokens initially
@@ -3169,7 +3174,8 @@ fn token_balance_of_works() {
 		));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
-			serial_numbers: BoundedVec::truncate_from((0..quantity).collect()),
+			start: 0,
+			end: 99,
 			owner: token_owner,
 		}));
 
