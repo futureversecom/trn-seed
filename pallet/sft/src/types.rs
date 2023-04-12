@@ -89,7 +89,7 @@ impl<T: Config> SftTokenInformation<T> {
 
 		if let Some((_, balance)) = existing_owner {
 			// Owner already exists, add to their balance
-			balance.add_balance(amount).map_err(|err| Error::<T>::from(err))?;
+			balance.add_free_balance(amount).map_err(|err| Error::<T>::from(err))?;
 		} else {
 			// The owner doesn't exist for this SerialNumber, add them
 			let new_token_balance = SftTokenBalance::new(amount, 0);
@@ -97,6 +97,36 @@ impl<T: Config> SftTokenInformation<T> {
 				.try_push((who.clone(), new_token_balance))
 				.map_err(|_| Error::<T>::MaxOwnersReached)?;
 		}
+		Ok(())
+	}
+
+	/// Removes some balance from an account
+	pub fn remove_balance(&mut self, who: &T::AccountId, amount: Balance) -> DispatchResult {
+		let Some((_, existing_balance)) = self.owned_tokens.iter_mut().find(|(account, _)| account == who) else {
+			return Err(Error::<T>::InsufficientBalance.into());
+		};
+
+		existing_balance
+			.remove_free_balance(amount)
+			.map_err(|err| Error::<T>::from(err))?;
+
+		if existing_balance.total_balance() == 0 {
+			// Remove the owner if they have no balance
+			self.owned_tokens.retain(|(account, _)| account != who);
+		}
+
+		Ok(())
+	}
+
+	/// Transfers some balance from one account to another
+	pub fn transfer_balance(
+		&mut self,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: Balance,
+	) -> DispatchResult {
+		self.remove_balance(from, amount)?;
+		self.add_balance(to, amount)?;
 		Ok(())
 	}
 }
@@ -143,14 +173,14 @@ impl SftTokenBalance {
 	}
 
 	/// Adds some balance to the free balance
-	pub fn add_balance(&mut self, amount: Balance) -> Result<(), TokenBalanceError> {
+	pub fn add_free_balance(&mut self, amount: Balance) -> Result<(), TokenBalanceError> {
 		self.free_balance =
 			self.free_balance.checked_add(amount).ok_or(TokenBalanceError::Overflow)?;
 		Ok(())
 	}
 
 	/// Removes some balance from the free balance
-	pub fn remove_balance(&mut self, amount: Balance) -> Result<(), TokenBalanceError> {
+	pub fn remove_free_balance(&mut self, amount: Balance) -> Result<(), TokenBalanceError> {
 		if self.free_balance < amount {
 			return Err(TokenBalanceError::InsufficientBalance)
 		}

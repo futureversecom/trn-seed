@@ -79,6 +79,11 @@ pub fn bob() -> <Test as frame_system::Config>::AccountId {
 	create_account(2)
 }
 
+/// Common account Charlie
+pub fn charlie() -> <Test as frame_system::Config>::AccountId {
+	create_account(3)
+}
+
 /// Helper function for creating the collection name type
 pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
@@ -735,7 +740,7 @@ mod mint {
 					bounded_quantities(vec![quantity]),
 					None,
 				),
-				Error::<Test>::InvalidMintInput
+				Error::<Test>::MismatchedInputLength
 			);
 
 			// Quantity longer than serial Numbers
@@ -747,7 +752,7 @@ mod mint {
 					bounded_quantities(vec![quantity, quantity]),
 					None,
 				),
-				Error::<Test>::InvalidMintInput
+				Error::<Test>::MismatchedInputLength
 			);
 
 			// Empty serial numbers
@@ -960,6 +965,242 @@ mod mint {
 					Some(token_owner.clone()),
 				),
 				Error::<Test>::MaxOwnersReached
+			);
+		});
+	}
+}
+
+mod transfer {
+	use super::*;
+
+	#[test]
+	fn transfer_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_owner = bob();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, token_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+			let quantity = 460;
+			let new_owner = charlie();
+
+			// Sanity check of initial balances
+			assert_eq!(
+				TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&token_owner),
+				initial_issuance
+			);
+			assert_eq!(TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&new_owner), 0);
+
+			// Perform transfer
+			assert_ok!(Sft::transfer(
+				Some(token_owner.clone()).into(),
+				collection_id,
+				bounded_serials(vec![serial_number]),
+				bounded_quantities(vec![quantity]),
+				new_owner.clone(),
+			));
+
+			// Get updated token_info
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+
+			// free balance of original owner and new owner should be updated
+			assert_eq!(token_info.free_balance_of(&token_owner), initial_issuance - quantity);
+			assert_eq!(token_info.free_balance_of(&new_owner), quantity);
+
+			// Owned tokens is correct
+			let expected_owned_tokens = create_owned_tokens(vec![
+				(token_owner.clone(), initial_issuance - quantity),
+				(new_owner.clone(), quantity),
+			]);
+			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
+
+			// token_issuance still the same
+			assert_eq!(token_info.token_issuance, initial_issuance);
+
+			// Event emitted
+			System::assert_last_event(Event::Sft(crate::Event::Transfer {
+				previous_owner: token_owner,
+				collection_id,
+				serial_numbers: bounded_serials(vec![serial_number]),
+				quantities: bounded_quantities(vec![quantity]),
+				new_owner,
+			}));
+		});
+	}
+
+	#[test]
+	fn transfer_multiple_tokens_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_owner = bob();
+			let collection_id = create_test_collection(collection_owner);
+			let serial_numbers: Vec<SerialNumber> = vec![0, 1, 2, 3, 4, 5, 6];
+			let quantities: Vec<Balance> = vec![1000, 2000, 3000, 4000, 5000, 6000, 7000];
+			let initial_issuance = 10_000;
+
+			// Create each token with initial_issuance = 10,000
+			for _ in serial_numbers.iter() {
+				assert_ok!(Sft::create_token(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_string("my-token"),
+					initial_issuance,
+					None,
+					None,
+				));
+			}
+
+			// Transfer the quantities to the token_owner for each serial
+			assert_ok!(Sft::transfer(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_serials(serial_numbers.clone()),
+				bounded_quantities(quantities.clone()),
+				token_owner.clone()
+			));
+
+			// Check each token has the correct free balance for both accounts
+			for (serial_number, quantity) in serial_numbers.iter().zip(quantities.iter()) {
+				let token_id = (collection_id, *serial_number);
+				let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+				assert_eq!(token_info.free_balance_of(&token_owner), *quantity);
+				assert_eq!(
+					token_info.free_balance_of(&collection_owner),
+					initial_issuance - *quantity
+				);
+			}
+
+			// Event emitted
+			System::assert_last_event(Event::Sft(crate::Event::Transfer {
+				previous_owner: collection_owner,
+				collection_id,
+				serial_numbers: bounded_serials(serial_numbers),
+				quantities: bounded_quantities(quantities),
+				new_owner: token_owner,
+			}));
+		});
+	}
+
+	#[test]
+	fn transfer_entire_balance_clears_storage() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+			let new_owner = bob();
+
+			// Perform transfer
+			assert_ok!(Sft::transfer(
+				Some(collection_owner.clone()).into(),
+				collection_id,
+				bounded_serials(vec![serial_number]),
+				bounded_quantities(vec![initial_issuance]),
+				new_owner.clone(),
+			));
+
+			// Get updated token_info
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+
+			// free balance of original owner and new owner should be updated
+			assert_eq!(token_info.free_balance_of(&collection_owner), 0);
+			assert_eq!(token_info.free_balance_of(&new_owner), initial_issuance);
+
+			// Owned tokens is correct, the collection_owner should be fully removed
+			let expected_owned_tokens =
+				create_owned_tokens(vec![(new_owner.clone(), initial_issuance)]);
+			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
+		});
+	}
+
+	#[test]
+	fn transfer_different_input_lengths_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 0);
+			let (collection_id, serial_number) = token_id;
+			let quantity = 1000;
+			let new_owner = bob();
+
+			// Serial Numbers longer than quantity
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, serial_number]),
+					bounded_quantities(vec![quantity]),
+					new_owner,
+				),
+				Error::<Test>::MismatchedInputLength
+			);
+
+			// Quantity longer than serial Numbers
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![quantity, quantity]),
+					new_owner,
+				),
+				Error::<Test>::MismatchedInputLength
+			);
+
+			// Empty serial numbers
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![]),
+					bounded_quantities(vec![]),
+					new_owner,
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn transfer_invalid_quantity_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let new_owner = bob();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let (collection_id, serial_number) = token_id;
+
+			// transfer into serial number twice, second one with 0
+			// This ensures the storage isn't changed if the second serial fails
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, serial_number]),
+					bounded_quantities(vec![100, 0]),
+					new_owner,
+				),
+				Error::<Test>::InvalidQuantity
+			);
+		});
+	}
+
+	#[test]
+	fn transfer_invalid_serial_number_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let new_owner = bob();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let (collection_id, serial_number) = token_id;
+
+			// Second serial number does not exist so should fail
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, 12]),
+					bounded_quantities(vec![100, 10]),
+					new_owner,
+				),
+				Error::<Test>::NoToken
 			);
 		});
 	}

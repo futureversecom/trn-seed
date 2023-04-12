@@ -156,7 +156,8 @@ pub mod pallet {
 		Transfer {
 			previous_owner: T::AccountId,
 			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
@@ -197,7 +198,7 @@ pub mod pallet {
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
 		/// The serial numbers and quantities are not the same length
-		InvalidMintInput,
+		MismatchedInputLength,
 		/// The specified quantity must be greater than 0
 		InvalidQuantity,
 		/// The caller owns the token and can't make an offer
@@ -313,8 +314,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			Ok(())
+			Self::do_transfer(who, collection_id, serial_numbers, quantities, new_owner)
 		}
 
 		/// Burn a token 🔥
