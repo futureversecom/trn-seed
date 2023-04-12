@@ -289,7 +289,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = FeeProxy;
+	type OnChargeTransaction = impls::FuturepassTransactionFee;
 	type Event = Event;
 	type WeightToFee = FeeControl;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;

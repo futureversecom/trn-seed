@@ -25,16 +25,21 @@ use frame_support::{
 	traits::{
 		fungible::Inspect,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, OnUnbalanced, SignedImbalance,
-		WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, IsSubType, OnUnbalanced,
+		SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin};
+use pallet_futurepass::ProxyProvider;
+use pallet_transaction_payment::OnChargeTransaction;
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
+	traits::{
+		AccountIdConversion, DispatchInfoOf, Extrinsic, PostDispatchInfoOf, SaturatedConversion,
+		Verify, Zero,
+	},
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
@@ -681,6 +686,65 @@ impl InstanceFilter<Call> for ProxyType {
 			(_, ProxyType::Any) => false,
 			_ => false,
 		}
+	}
+}
+
+/// Switch gas payer to Futurepass if proxy called with a Futurepass account
+pub struct FuturepassTransactionFee;
+
+impl<T> OnChargeTransaction<T> for FuturepassTransactionFee
+where
+	T: frame_system::Config<AccountId = AccountId>
+		+ pallet_transaction_payment::Config
+		+ pallet_proxy::Config
+		+ pallet_fee_proxy::Config,
+	<T as frame_system::Config>::Call: IsSubType<pallet_proxy::Call<T>>,
+{
+	type Balance =
+		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+	type LiquidityInfo = <<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo;
+
+	fn withdraw_fee(
+		who: &T::AccountId,
+		call: &<T as frame_system::Config>::Call,
+		info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
+		fee: Self::Balance,
+		tip: Self::Balance,
+	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+		let mut who = who;
+		// if the call is pallet_proxy::Call::proxy(), and the caller is a delegate of the FP(real),
+		// we switch the gas payer to the FP
+		if let Some(pallet_proxy::Call::proxy { real, .. }) = call.is_sub_type() {
+			if ProxyPalletProvider::exists(real, who) {
+				who = real;
+			}
+		}
+
+		<<T as pallet_fee_proxy::Config>::OnChargeTransaction>::withdraw_fee(
+			who, call, info, fee, tip,
+		)
+	}
+
+	fn correct_and_deposit_fee(
+		who: &T::AccountId,
+		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
+		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::Call>,
+		corrected_fee: Self::Balance,
+		tip: Self::Balance,
+		already_withdrawn: Self::LiquidityInfo,
+	) -> Result<(), TransactionValidityError> {
+		// NOTE - ideally we should check and switch the account to FP here also, But we don't have
+		// the call information within this function. What this means, if any extra fee was charged,
+		// that fee wont return to FP but the caller. Ideally we could pass the required info via
+		// pre, But this requires a new signed extension and some research.
+		<<T as pallet_fee_proxy::Config>::OnChargeTransaction>::correct_and_deposit_fee(
+			who,
+			dispatch_info,
+			post_info,
+			corrected_fee,
+			tip,
+			already_withdrawn,
+		)
 	}
 }
 
