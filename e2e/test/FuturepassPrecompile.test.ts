@@ -66,6 +66,8 @@ describe("Futurepass Precompile", function () {
 
     expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
     expect((receipt?.events as any)[0].args.owner).to.equal(owner);
+
+    expect(await futurpassProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
   });
 
   // TODO: migrate to unit test
@@ -77,6 +79,8 @@ describe("Futurepass Precompile", function () {
 
     expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
     expect((receipt?.events as any)[0].args.owner).to.equal(owner);
+
+    expect(await futurpassProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
   });
 
   it("create futurepass fails - already existing account", async () => {
@@ -156,46 +160,33 @@ describe("Futurepass Precompile", function () {
   });
 
   it("proxy call works", async () => {
-    const owner = bobSigner.address;
-    const delegate = alithSigner.address;
-    let futurepass;
-    {
-      // create FP for bob
-      const createTx = await futurpassProxy.connect(bobSigner).create(owner);
-      const receipt = await createTx.wait();
-      expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
-      expect((receipt?.events as any)[0].args.owner).to.equal(bobSigner.address);
-      futurepass = (receipt?.events as any)[0].args.futurepass;
-    }
-    {
-      // make alice bob's FP's delegate
-      const delegateTx = await futurpassProxy.connect(bobSigner).registerDelegate(futurepass, delegate);
-      const receipt = await delegateTx.wait();
-      expect(await futurpassProxy.isDelegate(futurepass, delegate)).to.equal(true);
-      expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
-      expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
-      expect((receipt?.events as any)[0].args.delegate).to.equal(delegate);
-    }
-    {
-      // transfer some funds to futurepass from bob
-      expect(await api.rpc.eth.getBalance(futurepass)).to.equal(0);
-      const xrpTokenAddress = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
-      const xrpToken = new Contract(xrpTokenAddress, ERC20_ABI, bobSigner);
-      const tfrTx = await xrpToken.transfer(futurepass, 1000000);
-      const receipt = await tfrTx.wait();
-      expect(await api.rpc.eth.getBalance(futurepass)).to.equal(1000000n * 1000000000000n);
-    }
-    {
-      const recipientAddress = await Wallet.createRandom().getAddress();
-      // alith is bob's FP's. Hence should be able to transfer the balance out from the futurepass.
-      // send 500000 back to recipientAddress(8B9f1582D367dDBB5b2E736671db253F0b602DDa)
-      const callData =
-        "0xa9059cbb0000000000000000000000008B9f1582D367dDBB5b2E736671db253F0b602DDa000000000000000000000000000000000000000000000000000000000007a120";
-      const xrpTokenAddress = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
-      const tfrTx = await futurpassProxy.connect(alithSigner).proxyCall(futurepass, xrpTokenAddress, callData);
-      const receipt = await tfrTx.wait();
-      expect(await api.rpc.eth.getBalance(futurepass)).to.equal(500000n * 1000000000000n);
-      expect(await api.rpc.eth.getBalance(recipientAddress)).to.equal(500000n * 1000000000000n);
-    }
+    const owner = await Wallet.createRandom().getAddress();
+    const delegate = await Wallet.createRandom().getAddress();
+
+    // create FP for owner
+    let tx = await futurpassProxy.connect(bobSigner).create(owner);
+    let receipt = await tx.wait();
+    const futurepass = (receipt?.events as any)[0].args.futurepass;
+
+    // add delegate for owners futurepass
+    tx = await futurpassProxy.connect(owner).registerDelegate(futurepass, delegate);
+    await tx.wait();
+      
+    // transfer some funds to futurepass from bob
+    expect(await api.rpc.eth.getBalance(futurepass)).to.equal(0);
+    const xrpTokenAddress = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
+    const xrpToken = new Contract(xrpTokenAddress, ERC20_ABI, bobSigner);
+    tx = await xrpToken.transfer(futurepass, 1_000_000);
+    await tx.wait();
+    expect(await api.rpc.eth.getBalance(futurepass)).to.equal(1000000n * 1000000000000n);
+
+    const recipientAddress = await Wallet.createRandom().getAddress();
+    // transfer funds from futurepass to recipient - call initiated via delegate
+    const callData =
+      "0xa9059cbb0000000000000000000000008B9f1582D367dDBB5b2E736671db253F0b602DDa000000000000000000000000000000000000000000000000000000000007a120";
+    tx = await futurpassProxy.connect(delegate).proxyCall(futurepass, xrpTokenAddress, callData);
+    await tx.wait();
+    expect(await api.rpc.eth.getBalance(futurepass)).to.equal(500000n * 1000000000000n);
+    expect(await api.rpc.eth.getBalance(recipientAddress)).to.equal(500000n * 1000000000000n);
   });
 });

@@ -38,8 +38,8 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
-// Precompile address for futurepass precompile is 1722
-export const FUTUREPASS_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006ba";
+// Precompile address for futurepass precompile is 65535
+export const FUTUREPASS_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
 
 /** ABIs */
 
@@ -106,6 +106,8 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
   "event FuturepassCreated(address indexed futurepass, address owner)",
   "event FuturepassDelegateRegistered(address indexed futurepass, address delegate)",
   "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
+
+  "function futurepassOf(address owner) external view returns (address)",
   "function create(address owner) external returns (address)",
   "function registerDelegate(address futurepass, address delegate) external",
   "function unregisterDelegate(address futurepass, address delegate) external",

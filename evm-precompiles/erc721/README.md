@@ -1,5 +1,7 @@
 # TRN ERC721 Precompile supported interfaces
 
+Precompile address spec: `0xAAAAAAAA[4-byte-collection-id]000000000000000000000000`
+
 ```solidity
 interface IERC721 is IERC165 {
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
