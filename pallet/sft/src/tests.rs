@@ -61,6 +61,12 @@ pub fn create_test_token(
 		Some(token_owner),
 	));
 
+	// Sanity check
+	assert_eq!(
+		TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&token_owner),
+		initial_issuance
+	);
+
 	(collection_id, 0)
 }
 
@@ -580,9 +586,6 @@ mod mint {
 			let (collection_id, serial_number) = token_id;
 			let quantity = 1000;
 
-			// Sanity check, initial balance should be 0
-			assert_eq!(TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&token_owner), 0);
-
 			assert_ok!(Sft::mint(
 				Some(collection_owner).into(),
 				collection_id,
@@ -984,13 +987,6 @@ mod transfer {
 			let quantity = 460;
 			let new_owner = charlie();
 
-			// Sanity check of initial balances
-			assert_eq!(
-				TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&token_owner),
-				initial_issuance
-			);
-			assert_eq!(TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&new_owner), 0);
-
 			// Perform transfer
 			assert_ok!(Sft::transfer(
 				Some(token_owner.clone()).into(),
@@ -1275,10 +1271,6 @@ mod burn {
 			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
 			let (collection_id, serial_number) = token_id;
 
-			// Sanity check
-			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
-			assert_eq!(token_info.free_balance_of(&collection_owner), initial_issuance);
-
 			// Burn 100 tokens
 			let burn_amount = 100;
 			assert_ok!(Sft::burn(
@@ -1475,6 +1467,194 @@ mod burn {
 					bounded_quantities(vec![0]),
 				),
 				Error::<Test>::InvalidQuantity
+			);
+		});
+	}
+}
+
+mod set_owner {
+	use crate::{
+		mock::{Sft, Test, TestExt},
+		tests::{alice, bob, create_test_collection},
+		Error, SftCollectionInfo,
+	};
+
+	use frame_support::{assert_noop, assert_ok};
+
+	#[test]
+	fn transfers_ownership() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let new_owner = bob();
+			let collection_id = create_test_collection(collection_owner);
+
+			assert_ok!(Sft::set_owner(Some(collection_owner).into(), collection_id, new_owner));
+
+			let collection = SftCollectionInfo::<Test>::get(collection_id).unwrap();
+
+			assert_eq!(collection.collection_owner, new_owner)
+		});
+	}
+
+	#[test]
+	fn cannot_transfer_ownership_if_not_owner() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let not_owner = bob();
+			let collection_id = create_test_collection(collection_owner);
+
+			assert_noop!(
+				Sft::set_owner(Some(not_owner).into(), collection_id, collection_owner),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn errors_if_no_collection() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let other_account = bob();
+
+			assert_noop!(
+				Sft::set_owner(Some(collection_owner).into(), 1, other_account),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+}
+
+mod set_max_issuance {
+	use super::*;
+
+	#[test]
+	fn set_max_issuance_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let new_max_issuance = 2000;
+
+			// Set max issuance
+			assert_ok!(Sft::set_max_issuance(
+				Some(collection_owner).into(),
+				token_id,
+				new_max_issuance
+			));
+
+			// Max issuance is correct
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(token_info.max_issuance.unwrap(), new_max_issuance);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let new_max_issuance = 2000;
+
+			// Set max issuance
+			assert_noop!(
+				Sft::set_max_issuance(Some(bob()).into(), token_id, new_max_issuance),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_invalid_token_id_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let new_max_issuance = 2000;
+
+			// Set max issuance
+			assert_noop!(
+				Sft::set_max_issuance(
+					Some(collection_owner).into(),
+					(token_id.0, 1),
+					new_max_issuance
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn set_max_issuance_less_than_token_issuance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let new_max_issuance = 999;
+
+			// Set max issuance but it is less than the current issuance
+			assert_noop!(
+				Sft::set_max_issuance(Some(collection_owner).into(), token_id, new_max_issuance),
+				Error::<Test>::InvalidMaxIssuance
+			);
+		});
+	}
+
+	// Max issuance already set fails
+	#[test]
+	fn set_max_issuance_already_set_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let new_max_issuance = 2000;
+
+			// Set max issuance
+			assert_ok!(Sft::set_max_issuance(
+				Some(collection_owner).into(),
+				token_id,
+				new_max_issuance
+			));
+
+			// Set max issuance again
+			assert_noop!(
+				Sft::set_max_issuance(Some(collection_owner).into(), token_id, new_max_issuance),
+				Error::<Test>::MaxIssuanceAlreadySet
+			);
+		});
+	}
+}
+
+mod set_base_uri {
+	use super::*;
+
+	#[test]
+	fn set_base_uri_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+
+			let metadata_scheme = MetadataScheme::Https(b"cool.new.scheme.com/metadata".to_vec());
+
+			// Set base uri
+			assert_ok!(Sft::set_base_uri(
+				Some(collection_owner).into(),
+				token_id.0,
+				metadata_scheme.clone()
+			));
+
+			// Base uri is correct
+			let collection_info = SftCollectionInfo::<Test>::get(token_id.0).unwrap();
+			assert_eq!(collection_info.metadata_scheme, metadata_scheme);
+		});
+	}
+
+	#[test]
+	fn set_base_uri_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let metadata_scheme = MetadataScheme::Https(b"cool.new.scheme.com/metadata".to_vec());
+
+			// Set base uri fails because not collection owner
+			assert_noop!(
+				Sft::set_base_uri(Some(bob()).into(), token_id.0, metadata_scheme.clone()),
+				Error::<Test>::NotCollectionOwner
 			);
 		});
 	}
