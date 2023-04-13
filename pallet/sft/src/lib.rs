@@ -244,9 +244,9 @@ pub mod pallet {
 		/// The collectionUuid used to store the SFT CollectionInfo is retrieved from the NFT
 		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
 		/// of if they are SFT or NFT collections.
-		#[pallet::weight(T::WeightInfo::create_collection())]
+		#[pallet::weight(100000)]
 		#[transactional]
-		pub fn create_collection(
+		pub fn create_sft_collection(
 			origin: OriginFor<T>,
 			collection_name: BoundedVec<u8, T::StringLimit>,
 			collection_owner: Option<T::AccountId>,
