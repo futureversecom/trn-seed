@@ -333,18 +333,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(100000)]
-		/// TODO Use claim_unowned_collection from NFT pallet
-		pub fn claim_unowned_collection(
-			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			new_owner: T::AccountId,
-		) -> DispatchResult {
-			let _who = ensure_root(origin)?;
-
-			Ok(())
-		}
-
 		/// TODO Can use set_owner from NFT pallet, but may be simpler to re-write here
 		#[pallet::weight(100000)]
 		pub fn set_owner(
