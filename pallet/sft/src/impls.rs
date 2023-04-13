@@ -137,12 +137,9 @@ impl<T: Config> Pallet<T> {
 	pub fn do_mint(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-		quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 		token_owner: Option<T::AccountId>,
 	) -> DispatchResult {
-		// Validate serial_numbers and quantities length
-		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
 		// Must be some serial numbers to mint
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
@@ -154,11 +151,7 @@ impl<T: Config> Pallet<T> {
 
 		let owner = token_owner.unwrap_or(who);
 
-		for (serial_number, quantity) in serial_numbers
-			.iter()
-			.zip(quantities.iter())
-			.collect::<Vec<(&SerialNumber, &Balance)>>()
-		{
+		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
 
@@ -184,6 +177,7 @@ impl<T: Config> Pallet<T> {
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
+		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, quantities, owner });
 
 		Ok(())
@@ -194,20 +188,13 @@ impl<T: Config> Pallet<T> {
 	pub fn do_transfer(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-		quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 		new_owner: T::AccountId,
 	) -> DispatchResult {
-		// Validate serial_numbers and quantities length
-		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
 		// Must be some serial numbers to transfer
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
-		for (serial_number, quantity) in serial_numbers
-			.iter()
-			.zip(quantities.iter())
-			.collect::<Vec<(&SerialNumber, &Balance)>>()
-		{
+		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
 
@@ -219,6 +206,7 @@ impl<T: Config> Pallet<T> {
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
+		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Transfer {
 			previous_owner: who,
 			collection_id,
@@ -236,19 +224,12 @@ impl<T: Config> Pallet<T> {
 	pub fn do_burn(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-		quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 	) -> DispatchResult {
-		// Validate serial_numbers and quantities length
-		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
 		// Must be some serial numbers to burn
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
-		for (serial_number, quantity) in serial_numbers
-			.iter()
-			.zip(quantities.iter())
-			.collect::<Vec<(&SerialNumber, &Balance)>>()
-		{
+		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
 
@@ -261,6 +242,7 @@ impl<T: Config> Pallet<T> {
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
+		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Burn {
 			collection_id,
 			serial_numbers,
@@ -333,5 +315,15 @@ impl<T: Config> Pallet<T> {
 
 		Self::deposit_event(Event::<T>::BaseUriSet { collection_id, metadata_scheme });
 		Ok(())
+	}
+
+	/// Unzips the bounded vec of tuples (SerialNumber, Balance)
+	/// into two bounded vecs of SerialNumber and Balance
+	fn unzip_serial_numbers(
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+	) -> (BoundedVec<SerialNumber, T::MaxSerialsPerMint>, BoundedVec<Balance, T::MaxSerialsPerMint>)
+	{
+		let (serial_numbers, quantities) = serial_numbers.into_iter().unzip();
+		(BoundedVec::truncate_from(serial_numbers), BoundedVec::truncate_from(quantities))
 	}
 }
