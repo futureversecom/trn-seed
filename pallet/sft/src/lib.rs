@@ -357,7 +357,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// TODO Can't use NFT implementation because issuance is set per token
+		/// Set the max issuance of a collection
+		/// Caller must be the current collection owner
 		#[pallet::weight(100000)]
 		pub fn set_max_issuance(
 			origin: OriginFor<T>,
@@ -368,7 +369,8 @@ pub mod pallet {
 			Self::do_set_max_issuance(who, token_id, max_issuance)
 		}
 
-		/// TODO Use base_uri from NFT pallet
+		/// Set the base URI of a collection (MetadataScheme)
+		/// Caller must be the current collection owner
 		#[pallet::weight(100000)]
 		pub fn set_base_uri(
 			origin: OriginFor<T>,
