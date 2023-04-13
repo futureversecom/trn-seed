@@ -202,7 +202,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// Validate serial_numbers and quantities length
 		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
-		// Must be some serial numbers to mint
+		// Must be some serial numbers to transfer
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
 		for (serial_number, quantity) in serial_numbers
