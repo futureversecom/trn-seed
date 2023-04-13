@@ -1307,7 +1307,6 @@ mod transfer_ownership {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let other_account = bob();
-			// let collection_id = create_test_collection(collection_owner);
 
 			assert_noop!(
 				Sft::set_owner(Some(collection_owner).into(), 1, other_account),
