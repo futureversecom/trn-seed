@@ -21,7 +21,6 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use sp_runtime::Permill;
 
 use crate::Pallet as Sft;
 

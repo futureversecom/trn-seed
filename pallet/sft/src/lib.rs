@@ -26,9 +26,9 @@ use seed_pallet_common::{
 };
 use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId,
+	SerialNumber, TokenId,
 };
-use sp_runtime::{traits::Zero, BoundedVec, DispatchResult};
+use sp_runtime::{BoundedVec, DispatchResult};
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -39,11 +39,10 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-// TODO Weights
-pub use frame_system::WeightInfo;
-
 mod impls;
 mod types;
+mod weights;
+pub use weights::WeightInfo;
 
 pub use impls::*;
 pub use pallet::*;
@@ -53,8 +52,6 @@ pub use types::*;
 pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
-/// The logging target for this module
-pub(crate) const LOG_TARGET: &str = "sft";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -244,7 +241,7 @@ pub mod pallet {
 		/// The collectionUuid used to store the SFT CollectionInfo is retrieved from the NFT
 		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
 		/// of if they are SFT or NFT collections.
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::create_collection())]
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
@@ -267,7 +264,7 @@ pub mod pallet {
 		/// Create additional tokens for an existing collection
 		/// These tokens act similar to tokens within an ERC1155 contract
 		/// Each token has individual issuance, max_issuance,
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::create_token())]
 		#[transactional]
 		pub fn create_token(
 			origin: OriginFor<T>,
@@ -297,7 +294,7 @@ pub mod pallet {
 		/// `serial_numbers` - A list of serial numbers to mint into
 		/// `quantities` - A list of quantities to mint into each serial number
 		/// `token_owner` - The owner of the tokens, defaults to the caller
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::mint())]
 		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
@@ -311,7 +308,7 @@ pub mod pallet {
 
 		/// Transfer ownership of an SFT
 		/// Caller must be the token owner
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::transfer())]
 		#[transactional]
 		pub fn transfer(
 			origin: OriginFor<T>,
@@ -326,7 +323,7 @@ pub mod pallet {
 		/// Burn a token 🔥
 		///
 		/// Caller must be the token owner
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::burn())]
 		#[transactional]
 		pub fn burn(
 			origin: OriginFor<T>,
@@ -337,8 +334,9 @@ pub mod pallet {
 			Self::do_burn(who, collection_id, serial_numbers)
 		}
 
-		/// TODO Can use set_owner from NFT pallet, but may be simpler to re-write here
-		#[pallet::weight(100000)]
+		/// Set the owner of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_owner())]
 		#[transactional]
 		pub fn set_owner(
 			origin: OriginFor<T>,
@@ -351,7 +349,7 @@ pub mod pallet {
 
 		/// Set the max issuance of a collection
 		/// Caller must be the current collection owner
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::set_max_issuance())]
 		pub fn set_max_issuance(
 			origin: OriginFor<T>,
 			token_id: TokenId,
@@ -363,7 +361,7 @@ pub mod pallet {
 
 		/// Set the base URI of a collection (MetadataScheme)
 		/// Caller must be the current collection owner
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::set_base_uri())]
 		pub fn set_base_uri(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,

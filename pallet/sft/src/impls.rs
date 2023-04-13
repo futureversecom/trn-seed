@@ -14,10 +14,10 @@
  */
 
 use crate::*;
-use frame_support::{ensure, traits::Get};
+use frame_support::ensure;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_primitives::CollectionUuid;
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::traits::Zero;
 
 impl<T: Config> Pallet<T> {
 	/// Perform the create collection operation and insert SftCollectionInfo into storage
