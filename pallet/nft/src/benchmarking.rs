@@ -18,12 +18,12 @@
 
 use super::*;
 
+use crate::Pallet as Nft;
+use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
 use sp_runtime::Permill;
-
-use crate::Pallet as Nft;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -42,7 +42,7 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 
 	assert_ok!(Nft::<T>::create_collection(
 		origin::<T>(&caller).into(),
-		"New Collection".into(),
+		BoundedVec::truncate_from("New Collection".encode()),
 		1,
 		None,
 		None,
@@ -137,7 +137,7 @@ benchmarks! {
 	create_collection {
 		let metadata = MetadataScheme::Https("google.com".into());
 		let ccc = CrossChainCompatibility { xrpl: false };
-	}: _(origin::<T>(&account::<T>("Alice")), "Collection".into(), 0, None, None, metadata, None, ccc)
+	}: _(origin::<T>(&account::<T>("Alice")), BoundedVec::truncate_from("Collection".encode()), 0, None, None, metadata, None, ccc)
 
 	mint {
 		let collection_id = build_collection::<T>(None);

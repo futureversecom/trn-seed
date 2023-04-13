@@ -36,6 +36,9 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 // TODO Weights
 pub use frame_system::WeightInfo;
 
