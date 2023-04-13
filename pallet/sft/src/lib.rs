@@ -241,6 +241,7 @@ pub mod pallet {
 		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
 		/// of if they are SFT or NFT collections.
 		#[pallet::weight(100000)]
+		#[transactional]
 		pub fn create_sft_collection(
 			origin: OriginFor<T>,
 			collection_name: BoundedVec<u8, T::StringLimit>,
@@ -293,6 +294,7 @@ pub mod pallet {
 		/// `quantities` - A list of quantities to mint into each serial number
 		/// `token_owner` - The owner of the tokens, defaults to the caller
 		#[pallet::weight(100000)]
+		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -337,6 +339,7 @@ pub mod pallet {
 
 		/// TODO Can use set_owner from NFT pallet, but may be simpler to re-write here
 		#[pallet::weight(100000)]
+		#[transactional]
 		pub fn set_owner(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,

@@ -134,7 +134,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Perform the mint operation and increase the quantity of the user
 	/// Note there is one storage read and write per serial number minted
-	#[transactional]
 	pub fn do_mint(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
@@ -192,7 +191,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Perform the transfer operation and move quantities from one user to another
 	/// Note there is one storage read and write per serial number transferred
-	#[transactional]
 	pub fn do_transfer(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
