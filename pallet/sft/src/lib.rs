@@ -25,10 +25,10 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId,
-	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId,
 };
-use sp_runtime::{BoundedVec, DispatchResult};
+use sp_runtime::{traits::Zero, BoundedVec, DispatchResult};
 use sp_std::prelude::*;
 
 #[cfg(test)]
@@ -58,7 +58,6 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::Zero;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
@@ -70,7 +69,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config {
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Handles a multi-currency fungible asset system
@@ -124,7 +123,7 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// A new collection of tokens was created
 		CollectionCreate {
-			collection_uuid: CollectionUuid,
+			collection_id: CollectionUuid,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
 			name: BoundedVec<u8, T::StringLimit>,
@@ -134,8 +133,8 @@ pub mod pallet {
 		/// Token(s) were minted
 		Mint {
 			collection_id: CollectionUuid,
-			start: SerialNumber,
-			end: SerialNumber,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			owner: T::AccountId,
 		},
 		/// A new owner was set
@@ -144,13 +143,14 @@ pub mod pallet {
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
+		/// A new token was created within a collection
 		TokenCreated {
 			collection_id: CollectionUuid,
 			serial_number: SerialNumber,
 			initial_issuance: Balance,
 			max_issuance: Option<Balance>,
 			token_name: BoundedVec<u8, T::StringLimit>,
-			owner: T::AccountId,
+			token_owner: T::AccountId,
 		},
 		/// A token was transferred
 		Transfer {
@@ -182,7 +182,6 @@ pub mod pallet {
 		NotForAuction,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
-		OverFlow,
 		/// The token is not listed for sale
 		TokenNotListed,
 		/// The maximum number of offers on this token has been reached
@@ -193,8 +192,14 @@ pub mod pallet {
 		RoyaltiesInvalid,
 		/// The collection does not exist
 		NoCollectionFound,
+		/// The user does not own enough of this token to perform the operation
+		InsufficientBalance,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
+		/// The serial numbers and quantities are not the same length
+		InvalidMintInput,
+		/// The specified quantity must be greater than 0
+		InvalidQuantity,
 		/// The caller owns the token and can't make an offer
 		IsTokenOwner,
 		/// Max issuance needs to be greater than 0 and initial_issuance
@@ -204,6 +209,8 @@ pub mod pallet {
 		MaxIssuanceAlreadySet,
 		/// The collection max issuance has been reached and no more tokens can be minted
 		MaxIssuanceReached,
+		/// The max amount of owners per token has been reached
+		MaxOwnersReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
 		/// Cannot claim already claimed collections
@@ -212,6 +219,8 @@ pub mod pallet {
 		InitialIssuanceNotZero,
 		/// Total issuance of collection must be zero to add xls20 compatibility
 		CollectionIssuanceNotZero,
+		/// The operation would cause a numeric overflow
+		Overflow,
 	}
 
 	#[pallet::call]
@@ -229,7 +238,6 @@ pub mod pallet {
 		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
 		/// of if they are SFT or NFT collections.
 		#[pallet::weight(100000)]
-		#[transactional]
 		pub fn create_sft_collection(
 			origin: OriginFor<T>,
 			collection_name: BoundedVec<u8, T::StringLimit>,
@@ -272,9 +280,16 @@ pub mod pallet {
 			)
 		}
 
-		/// Mint balance into serialNumber
+		/// Mints some balances into some serial numbers for an account
+		/// This acts as a batch mint function and allows for multiple serial numbers and quantities
+		/// to be passed in simultaneously.
+		/// Must be called by the collection owner
+		///
+		/// `collection_id` - the SFT collection to mint into
+		/// `serial_numbers` - A list of serial numbers to mint into
+		/// `quantities` - A list of quantities to mint into each serial number
+		/// `token_owner` - The owner of the tokens, defaults to the caller
 		#[pallet::weight(100000)]
-		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -283,8 +298,7 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// ensure!(serial_numbers.length() == quantities.length(), Error::<T>::InvalidMint);
-			Ok(())
+			Self::do_mint(who, collection_id, serial_numbers, quantities, token_owner)
 		}
 
 		/// Transfer ownership of an NFT

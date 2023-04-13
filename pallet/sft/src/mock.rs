@@ -194,7 +194,7 @@ parameter_types! {
 	#[derive(PartialEq, Debug)]
 	pub const StringLimit: u32 = 50;
 	pub const MaxTokensPerSftCollection: u32 = 10_000;
-	pub const MaxSerialsPerMint: u32 = 100;
+	pub const MaxSerialsPerMint: u32 = 10;
 	pub const MaxOwnersPerSftToken: u32 = 100;
 }
 
@@ -218,7 +218,7 @@ pub struct TestExt {}
 
 impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let ext = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
 		let mut ext: sp_io::TestExternalities = ext.into();
 		ext.execute_with(|| {
