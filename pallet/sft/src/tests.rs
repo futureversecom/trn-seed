@@ -1260,6 +1260,58 @@ mod transfer {
 	}
 }
 
+mod set_owner {
+	use crate::{
+		mock::{Sft, Test, TestExt},
+		tests::{alice, bob, create_test_collection},
+		Error, SftCollectionInfo,
+	};
+
+	use frame_support::{assert_noop, assert_ok};
+
+	#[test]
+	fn transfers_ownership() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let new_owner = bob();
+			let collection_id = create_test_collection(collection_owner);
+
+			assert_ok!(Sft::set_owner(Some(collection_owner).into(), collection_id, new_owner));
+
+			let collection = SftCollectionInfo::<Test>::get(collection_id).unwrap();
+
+			assert_eq!(collection.collection_owner, new_owner)
+		});
+	}
+
+	#[test]
+	fn cannot_transfer_ownership_if_not_owner() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let not_owner = bob();
+			let collection_id = create_test_collection(collection_owner);
+
+			assert_noop!(
+				Sft::set_owner(Some(not_owner).into(), collection_id, collection_owner),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn errors_if_no_collection() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let other_account = bob();
+
+			assert_noop!(
+				Sft::set_owner(Some(collection_owner).into(), 1, other_account),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+}
+
 mod set_max_issuance {
 	use super::*;
 
