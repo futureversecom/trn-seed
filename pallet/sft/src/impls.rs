@@ -143,7 +143,7 @@ impl<T: Config> Pallet<T> {
 		token_owner: Option<T::AccountId>,
 	) -> DispatchResult {
 		// Validate serial_numbers and quantities length
-		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::InvalidMintInput);
+		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
 		// Must be some serial numbers to mint
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
@@ -186,6 +186,48 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, quantities, owner });
+
+		Ok(())
+	}
+
+	/// Perform the transfer operation and move quantities from one user to another
+	/// Note there is one storage read and write per serial number transferred
+	#[transactional]
+	pub fn do_transfer(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+		quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		new_owner: T::AccountId,
+	) -> DispatchResult {
+		// Validate serial_numbers and quantities length
+		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
+		// Must be some serial numbers to transfer
+		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+
+		for (serial_number, quantity) in serial_numbers
+			.iter()
+			.zip(quantities.iter())
+			.collect::<Vec<(&SerialNumber, &Balance)>>()
+		{
+			// Validate quantity
+			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
+
+			let token_id: TokenId = (collection_id, *serial_number);
+			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+
+			// Transfer the balance
+			token_info.transfer_balance(&who, &new_owner, *quantity)?;
+			TokenInfo::<T>::insert(token_id, token_info);
+		}
+
+		Self::deposit_event(Event::<T>::Transfer {
+			previous_owner: who,
+			collection_id,
+			serial_numbers,
+			quantities,
+			new_owner,
+		});
 
 		Ok(())
 	}
