@@ -143,9 +143,9 @@ pub mod pallet {
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
-		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
+		MaxIssuanceSet { token_id: TokenId, max_issuance: Balance },
 		/// Base URI was set
-		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
+		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
 		/// A new token was created within a collection
 		TokenCreated {
 			collection_id: CollectionUuid,
@@ -164,7 +164,12 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
-		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
+		Burn {
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			owner: T::AccountId,
+		},
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
@@ -200,8 +205,6 @@ pub mod pallet {
 		InsufficientBalance,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
-		/// The serial numbers and quantities are not the same length
-		MismatchedInputLength,
 		/// The specified quantity must be greater than 0
 		InvalidQuantity,
 		/// The caller owns the token and can't make an offer
@@ -242,6 +245,7 @@ pub mod pallet {
 		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
 		/// of if they are SFT or NFT collections.
 		#[pallet::weight(100000)]
+		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
 			collection_name: BoundedVec<u8, T::StringLimit>,
@@ -294,30 +298,29 @@ pub mod pallet {
 		/// `quantities` - A list of quantities to mint into each serial number
 		/// `token_owner` - The owner of the tokens, defaults to the caller
 		#[pallet::weight(100000)]
+		#[transactional]
 		pub fn mint(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_mint(who, collection_id, serial_numbers, quantities, token_owner)
+			Self::do_mint(who, collection_id, serial_numbers, token_owner)
 		}
 
-		/// Transfer ownership of an NFT
+		/// Transfer ownership of an SFT
 		/// Caller must be the token owner
 		#[pallet::weight(100000)]
 		#[transactional]
 		pub fn transfer(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_transfer(who, collection_id, serial_numbers, quantities, new_owner)
+			Self::do_transfer(who, collection_id, serial_numbers, new_owner)
 		}
 
 		/// Burn a token 🔥
@@ -328,60 +331,46 @@ pub mod pallet {
 		pub fn burn(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			Ok(())
-		}
-
-		#[pallet::weight(100000)]
-		/// TODO Use claim_unowned_collection from NFT pallet
-		pub fn claim_unowned_collection(
-			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			new_owner: T::AccountId,
-		) -> DispatchResult {
-			let _who = ensure_root(origin)?;
-
-			Ok(())
+			Self::do_burn(who, collection_id, serial_numbers)
 		}
 
 		/// TODO Can use set_owner from NFT pallet, but may be simpler to re-write here
 		#[pallet::weight(100000)]
+		#[transactional]
 		pub fn set_owner(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			Ok(())
+			Self::do_set_owner(who, collection_id, new_owner)
 		}
 
-		/// TODO Can't use NFT implementation because issuance is set per token
+		/// Set the max issuance of a collection
+		/// Caller must be the current collection owner
 		#[pallet::weight(100000)]
 		pub fn set_max_issuance(
 			origin: OriginFor<T>,
 			token_id: TokenId,
-			max_issuance: TokenCount,
+			max_issuance: Balance,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			Ok(())
+			Self::do_set_max_issuance(who, token_id, max_issuance)
 		}
 
-		/// TODO Use base_uri from NFT pallet
+		/// Set the base URI of a collection (MetadataScheme)
+		/// Caller must be the current collection owner
 		#[pallet::weight(100000)]
 		pub fn set_base_uri(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			base_uri: Vec<u8>,
+			metadata_scheme: MetadataScheme,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			Ok(())
+			Self::do_set_base_uri(who, collection_id, metadata_scheme)
 		}
 	}
 }

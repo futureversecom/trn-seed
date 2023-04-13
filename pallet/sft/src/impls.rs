@@ -134,16 +134,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Perform the mint operation and increase the quantity of the user
 	/// Note there is one storage read and write per serial number minted
-	#[transactional]
 	pub fn do_mint(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-		quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 		token_owner: Option<T::AccountId>,
 	) -> DispatchResult {
-		// Validate serial_numbers and quantities length
-		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
 		// Must be some serial numbers to mint
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
@@ -155,11 +151,7 @@ impl<T: Config> Pallet<T> {
 
 		let owner = token_owner.unwrap_or(who);
 
-		for (serial_number, quantity) in serial_numbers
-			.iter()
-			.zip(quantities.iter())
-			.collect::<Vec<(&SerialNumber, &Balance)>>()
-		{
+		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
 
@@ -185,6 +177,7 @@ impl<T: Config> Pallet<T> {
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
+		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, quantities, owner });
 
 		Ok(())
@@ -192,24 +185,16 @@ impl<T: Config> Pallet<T> {
 
 	/// Perform the transfer operation and move quantities from one user to another
 	/// Note there is one storage read and write per serial number transferred
-	#[transactional]
 	pub fn do_transfer(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-		quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 		new_owner: T::AccountId,
 	) -> DispatchResult {
-		// Validate serial_numbers and quantities length
-		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
 		// Must be some serial numbers to transfer
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 
-		for (serial_number, quantity) in serial_numbers
-			.iter()
-			.zip(quantities.iter())
-			.collect::<Vec<(&SerialNumber, &Balance)>>()
-		{
+		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
 			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
 
@@ -221,6 +206,7 @@ impl<T: Config> Pallet<T> {
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
+		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Transfer {
 			previous_owner: who,
 			collection_id,
@@ -230,5 +216,114 @@ impl<T: Config> Pallet<T> {
 		});
 
 		Ok(())
+	}
+
+	/// Perform the burn operation and decrease the quantity of the user
+	/// Note there is one storage read and write per serial number burned
+	#[transactional]
+	pub fn do_burn(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+	) -> DispatchResult {
+		// Must be some serial numbers to burn
+		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+
+		for (serial_number, quantity) in &serial_numbers {
+			// Validate quantity
+			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
+
+			let token_id: TokenId = (collection_id, *serial_number);
+			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+
+			// Burn the balance
+			token_info.remove_balance(&who, *quantity)?;
+			token_info.token_issuance = token_info.token_issuance.saturating_sub(*quantity);
+			TokenInfo::<T>::insert(token_id, token_info);
+		}
+
+		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
+		Self::deposit_event(Event::<T>::Burn {
+			collection_id,
+			serial_numbers,
+			quantities,
+			owner: who,
+		});
+
+		Ok(())
+	}
+
+	pub fn do_set_owner(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		new_owner: T::AccountId,
+	) -> DispatchResult {
+		let mut collection =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		ensure!(collection.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+		collection.collection_owner = new_owner.clone();
+		SftCollectionInfo::<T>::insert(collection_id, collection);
+		Self::deposit_event(Event::<T>::OwnerSet { new_owner, collection_id });
+
+		Ok(())
+	}
+
+	/// Perfrom the set max issuance operation
+	/// Caller must be the collection owner
+	/// Max issuance can only be set once
+	pub fn do_set_max_issuance(
+		who: T::AccountId,
+		token_id: TokenId,
+		max_issuance: Balance,
+	) -> DispatchResult {
+		ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
+
+		let collection_info =
+			SftCollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+		// Caller must be collection_owner
+		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+		// Max issuance can only be set once
+		ensure!(token_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
+		// Max issuance cannot exceed token issuance
+		ensure!(token_info.token_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+
+		token_info.max_issuance = Some(max_issuance);
+		TokenInfo::<T>::insert(token_id, token_info);
+
+		Self::deposit_event(Event::<T>::MaxIssuanceSet { token_id, max_issuance });
+
+		Ok(())
+	}
+
+	/// Perform the set base uri operation
+	/// Caller must be collection owner
+	pub fn do_set_base_uri(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		metadata_scheme: MetadataScheme,
+	) -> DispatchResult {
+		let mut collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		// Caller must be collection_owner
+		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+		collection_info.metadata_scheme = metadata_scheme.clone();
+		SftCollectionInfo::<T>::insert(collection_id, collection_info);
+
+		Self::deposit_event(Event::<T>::BaseUriSet { collection_id, metadata_scheme });
+		Ok(())
+	}
+
+	/// Unzips the bounded vec of tuples (SerialNumber, Balance)
+	/// into two bounded vecs of SerialNumber and Balance
+	fn unzip_serial_numbers(
+		serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
+	) -> (BoundedVec<SerialNumber, T::MaxSerialsPerMint>, BoundedVec<Balance, T::MaxSerialsPerMint>)
+	{
+		let (serial_numbers, quantities) = serial_numbers.into_iter().unzip();
+		(BoundedVec::truncate_from(serial_numbers), BoundedVec::truncate_from(quantities))
 	}
 }
