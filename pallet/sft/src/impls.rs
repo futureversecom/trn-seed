@@ -229,4 +229,20 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+	pub fn do_set_owner(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		new_owner: T::AccountId,
+	) -> DispatchResult {
+		let mut collection =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		ensure!(collection.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+		collection.collection_owner = new_owner.clone();
+		SftCollectionInfo::<T>::insert(collection_id, collection);
+		Self::deposit_event(Event::<T>::OwnerSet { new_owner, collection_id });
+
+		Ok(())
+	}
 }

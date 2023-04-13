@@ -1264,11 +1264,11 @@ mod transfer {
 	}
 }
 
-mod transfer_ownership {
+mod set_owner {
 	use crate::{
 		mock::{Sft, Test, TestExt},
-		tests::{alice, bob, create_test_collection, create_test_token},
-		Error, SftCollectionInfo, TokenInformation,
+		tests::{alice, bob, create_test_collection},
+		Error, SftCollectionInfo,
 	};
 
 	use frame_support::{assert_noop, assert_ok};
