@@ -17,7 +17,7 @@ env:
 
 jobs:
   build-image-by-branch-or-commitsha:
-    runs-on: ubuntu-latest
+    runs-on: [ seed-builder, ubuntu-latest ]
     permissions:
       contents: read
       packages: write
@@ -69,8 +69,8 @@ jobs:
               echo "branch name: $GIT_REF"
 
               # tag the image with the branch name
-              docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$GIT_REF"
-              docker push "$REGISTRY/$IMAGE_NAME:$GIT_REF"
+              docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH-$GIT_REF"
+              docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH-$GIT_REF"
             fi
 
             # clean up images
