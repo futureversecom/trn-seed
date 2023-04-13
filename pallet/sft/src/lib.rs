@@ -242,7 +242,7 @@ pub mod pallet {
 		/// pallet. This is so that CollectionUuids are unique across all collections, regardless
 		/// of if they are SFT or NFT collections.
 		#[pallet::weight(100000)]
-		pub fn create_sft_collection(
+		pub fn create_collection(
 			origin: OriginFor<T>,
 			collection_name: BoundedVec<u8, T::StringLimit>,
 			collection_owner: Option<T::AccountId>,
