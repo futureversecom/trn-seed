@@ -164,6 +164,8 @@ pub mod pallet {
 		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
+		/// New owner set for collection
+		CollectionNewOwner { account: T::AccountId, collection_id: CollectionUuid },
 	}
 
 	// TODO Remove Errors not being used
@@ -341,6 +343,18 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			let mut collection =
+				SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+
+			ensure!(collection.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+			collection.collection_owner = new_owner.clone();
+
+			Self::deposit_event(Event::<T>::CollectionNewOwner {
+				account: new_owner,
+				collection_id,
+			});
 
 			Ok(())
 		}
