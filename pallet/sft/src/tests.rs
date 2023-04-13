@@ -1263,3 +1263,219 @@ mod transfer {
 		});
 	}
 }
+
+mod burn {
+	use super::*;
+
+	#[test]
+	fn burn_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+
+			// Sanity check
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(token_info.free_balance_of(&collection_owner), initial_issuance);
+
+			// Burn 100 tokens
+			let burn_amount = 100;
+			assert_ok!(Sft::burn(
+				Some(collection_owner.clone()).into(),
+				collection_id,
+				bounded_serials(vec![serial_number]),
+				bounded_quantities(vec![burn_amount]),
+			));
+
+			// Check token info
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(
+				token_info.free_balance_of(&collection_owner),
+				initial_issuance - burn_amount
+			);
+			// Total issuance is correct
+			assert_eq!(token_info.token_issuance, initial_issuance - burn_amount);
+
+			// Owned tokens is correct, the collection_owner should be fully removed
+			let expected_owned_tokens = create_owned_tokens(vec![(
+				collection_owner.clone(),
+				initial_issuance - burn_amount,
+			)]);
+			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
+
+			// Event emitted
+			System::assert_last_event(Event::Sft(crate::Event::Burn {
+				collection_id,
+				serial_numbers: bounded_serials(vec![serial_number]),
+				quantities: bounded_quantities(vec![burn_amount]),
+				owner: collection_owner,
+			}));
+		});
+	}
+
+	#[test]
+	fn burn_multiple_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let initial_issuance = 1000;
+			let initial_issuance_2 = 3000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+
+			// Create another token
+			assert_ok!(Sft::create_token(
+				Some(collection_owner).into(),
+				collection_id,
+				bounded_string("my-token"),
+				initial_issuance_2,
+				None,
+				None,
+			));
+			let serial_number_2 = 1;
+
+			// Burn 100 tokens
+			let burn_amount = 100;
+			assert_ok!(Sft::burn(
+				Some(collection_owner.clone()).into(),
+				collection_id,
+				bounded_serials(vec![serial_number, serial_number_2]),
+				bounded_quantities(vec![burn_amount, burn_amount]),
+			));
+
+			// Check token info
+			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
+			assert_eq!(
+				token_info.free_balance_of(&collection_owner),
+				initial_issuance - burn_amount
+			);
+
+			// Check token info for second token
+			let token_info = TokenInfo::<Test>::get((collection_id, serial_number_2)).unwrap();
+			assert_eq!(
+				token_info.free_balance_of(&collection_owner),
+				initial_issuance_2 - burn_amount
+			);
+		});
+	}
+
+	#[test]
+	fn burn_insufficient_balance_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+
+			// Burn initial issuance + 1 tokens
+			assert_noop!(
+				Sft::burn(
+					Some(collection_owner.clone()).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, serial_number]),
+					bounded_quantities(vec![initial_issuance, 1]),
+				),
+				Error::<Test>::InsufficientBalance
+			);
+
+			// Bob can't burn anything
+			assert_noop!(
+				Sft::burn(
+					Some(bob()).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![1]),
+				),
+				Error::<Test>::InsufficientBalance
+			);
+		});
+	}
+
+	#[test]
+	fn burn_different_input_lengths_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+			let burn_amount = 1;
+
+			// Serial Numbers longer than quantity
+			assert_noop!(
+				Sft::burn(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, serial_number]),
+					bounded_quantities(vec![burn_amount]),
+				),
+				Error::<Test>::MismatchedInputLength
+			);
+
+			// Quantity longer than serial Numbers
+			assert_noop!(
+				Sft::burn(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![burn_amount, burn_amount]),
+				),
+				Error::<Test>::MismatchedInputLength
+			);
+
+			// Empty serial numbers
+			assert_noop!(
+				Sft::burn(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_serials(vec![]),
+					bounded_quantities(vec![]),
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn burn_invalid_serial_number_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+
+			// Burn 100 tokens from serial 12 which doesn't exist
+			let burn_amount = 100;
+			assert_noop!(
+				Sft::burn(
+					Some(collection_owner.clone()).into(),
+					collection_id,
+					bounded_serials(vec![serial_number, 12]),
+					bounded_quantities(vec![burn_amount, burn_amount]),
+				),
+				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn burn_invalid_quantity_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let initial_issuance = 1000;
+			let token_id = create_test_token(collection_owner, collection_owner, initial_issuance);
+			let (collection_id, serial_number) = token_id;
+
+			// Burn 100 tokens
+			let burn_amount = 100;
+			assert_noop!(
+				Sft::burn(
+					Some(collection_owner.clone()).into(),
+					collection_id,
+					bounded_serials(vec![serial_number]),
+					bounded_quantities(vec![0]),
+				),
+				Error::<Test>::InvalidQuantity
+			);
+		});
+	}
+}

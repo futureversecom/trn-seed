@@ -161,7 +161,12 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
-		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
+		Burn {
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			owner: T::AccountId,
+		},
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
@@ -302,7 +307,7 @@ pub mod pallet {
 			Self::do_mint(who, collection_id, serial_numbers, quantities, token_owner)
 		}
 
-		/// Transfer ownership of an NFT
+		/// Transfer ownership of an SFT
 		/// Caller must be the token owner
 		#[pallet::weight(100000)]
 		#[transactional]
@@ -329,20 +334,7 @@ pub mod pallet {
 			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			Ok(())
-		}
-
-		#[pallet::weight(100000)]
-		/// TODO Use claim_unowned_collection from NFT pallet
-		pub fn claim_unowned_collection(
-			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			new_owner: T::AccountId,
-		) -> DispatchResult {
-			let _who = ensure_root(origin)?;
-
-			Ok(())
+			Self::do_burn(who, collection_id, serial_numbers, quantities)
 		}
 
 		/// TODO Can use set_owner from NFT pallet, but may be simpler to re-write here

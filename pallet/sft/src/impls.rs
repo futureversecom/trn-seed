@@ -231,4 +231,45 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+	/// Perform the burn operation and decrease the quantity of the user
+	/// Note there is one storage read and write per serial number burned
+	#[transactional]
+	pub fn do_burn(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+		quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+	) -> DispatchResult {
+		// Validate serial_numbers and quantities length
+		ensure!(serial_numbers.len() == quantities.len(), Error::<T>::MismatchedInputLength);
+		// Must be some serial numbers to burn
+		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+
+		for (serial_number, quantity) in serial_numbers
+			.iter()
+			.zip(quantities.iter())
+			.collect::<Vec<(&SerialNumber, &Balance)>>()
+		{
+			// Validate quantity
+			ensure!(!quantity.is_zero(), Error::<T>::InvalidQuantity);
+
+			let token_id: TokenId = (collection_id, *serial_number);
+			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+
+			// Burn the balance
+			token_info.remove_balance(&who, *quantity)?;
+			token_info.token_issuance = token_info.token_issuance.saturating_sub(*quantity);
+			TokenInfo::<T>::insert(token_id, token_info);
+		}
+
+		Self::deposit_event(Event::<T>::Burn {
+			collection_id,
+			serial_numbers,
+			quantities,
+			owner: who,
+		});
+
+		Ok(())
+	}
 }
