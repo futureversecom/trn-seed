@@ -350,7 +350,7 @@ pub mod pallet {
 			ensure!(collection.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 			collection.collection_owner = new_owner.clone();
-
+			SftCollectionInfo::<T>::insert(collection_id, collection);
 			Self::deposit_event(Event::<T>::CollectionNewOwner {
 				account: new_owner,
 				collection_id,
