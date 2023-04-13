@@ -121,6 +121,13 @@ benchmarks! {
 		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), u128::MAX);
 		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers, account::<T>("Bob"))
+	verify {
+		let token = TokenInfo::<T>::get((1124, 0));
+		assert!(token.is_some());
+		let token = token.unwrap();
+		assert_eq!(token.free_balance_of(&account::<T>("Alice")), 0);
+		assert_eq!(token.free_balance_of(&account::<T>("Bob")), u128::MAX);
+	}
 
 	burn {
 		let owner = account::<T>("Alice");
@@ -128,16 +135,34 @@ benchmarks! {
 		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), initial_issuance);
 		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![initial_issuance]);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers)
+	verify {
+		let token = TokenInfo::<T>::get((1124, 0));
+		assert!(token.is_some());
+		let token = token.unwrap();
+		assert_eq!(token.token_issuance, 0);
+	}
 
 	set_owner {
 		let owner = account::<T>("Alice");
 		let collection_id = build_collection::<T>(Some(owner.clone()));
 	}: _(origin::<T>(&owner), collection_id, account::<T>("Bob"))
+	verify {
+		let collection = SftCollectionInfo::<T>::get(1124);
+		assert!(collection.is_some());
+		let collection = collection.unwrap();
+		assert_eq!(collection.collection_owner, account::<T>("Bob"));
+	}
 
 	set_max_issuance {
 		let owner = account::<T>("Alice");
 		let token_id = build_token::<T>(Some(owner.clone()), 0);
 	}: _(origin::<T>(&owner), token_id, 32)
+	verify {
+		let token = TokenInfo::<T>::get((1124, 0));
+		assert!(token.is_some());
+		let token = token.unwrap();
+		assert_eq!(token.max_issuance, Some(32));
+	}
 
 	set_base_uri {
 		let owner = account::<T>("Alice");
