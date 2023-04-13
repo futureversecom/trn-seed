@@ -161,7 +161,12 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
-		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
+		Burn {
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
+			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			owner: T::AccountId,
+		},
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
@@ -197,8 +202,6 @@ pub mod pallet {
 		InsufficientBalance,
 		/// The metadata path is invalid (non-utf8 or empty)
 		InvalidMetadataPath,
-		/// The serial numbers and quantities are not the same length
-		MismatchedInputLength,
 		/// The specified quantity must be greater than 0
 		InvalidQuantity,
 		/// The caller owns the token and can't make an offer
@@ -296,27 +299,25 @@ pub mod pallet {
 		pub fn mint(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_mint(who, collection_id, serial_numbers, quantities, token_owner)
+			Self::do_mint(who, collection_id, serial_numbers, token_owner)
 		}
 
-		/// Transfer ownership of an NFT
+		/// Transfer ownership of an SFT
 		/// Caller must be the token owner
 		#[pallet::weight(100000)]
 		#[transactional]
 		pub fn transfer(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_transfer(who, collection_id, serial_numbers, quantities, new_owner)
+			Self::do_transfer(who, collection_id, serial_numbers, new_owner)
 		}
 
 		/// Burn a token 🔥
@@ -327,12 +328,10 @@ pub mod pallet {
 		pub fn burn(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			serial_numbers: BoundedVec<(SerialNumber, Balance), T::MaxSerialsPerMint>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			Ok(())
+			Self::do_burn(who, collection_id, serial_numbers)
 		}
 
 		/// TODO Can use set_owner from NFT pallet, but may be simpler to re-write here
@@ -344,8 +343,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_set_owner(who, collection_id, new_owner)?;
-			Ok(())
+			Self::do_set_owner(who, collection_id, new_owner)
 		}
 
 		/// Set the max issuance of a collection
