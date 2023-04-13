@@ -38,10 +38,10 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	let id = T::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
 	let metadata_scheme = MetadataScheme::Https(b"example.com/metadata/".to_vec());
-	let collection_name = BoundedVec::truncate_from("Collection".as_bytes().to_vec());
+	let collection_name = bounded_string::<T>("Collection");
 
-	assert_ok!(Sft::create_collection(
-		Some(caller).into(),
+	assert_ok!(Sft::<T>::create_collection(
+		origin::<T>(&caller).into(),
 		collection_name.clone(),
 		None,
 		metadata_scheme.clone(),
@@ -51,8 +51,27 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	id
 }
 
+/// Helper function to create a token
+/// Returns the TokenId (CollectionId, SerialNumber)
+pub fn build_token<T: Config>(caller: Option<T::AccountId>, initial_issuance: Balance) -> TokenId {
+	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
+	let collection_id = build_collection::<T>(Some(caller.clone()));
+	let token_name = bounded_string::<T>("test-token");
+
+	assert_ok!(Sft::<T>::create_token(
+		origin::<T>(&caller).into(),
+		collection_id,
+		token_name,
+		initial_issuance,
+		None,
+		None,
+	));
+
+	(collection_id, 0)
+}
+
 /// Helper function for creating the bounded (SerialNumbers, Balance) type
-pub fn bounded_combined(
+pub fn bounded_combined<T: Config>(
 	serial_numbers: Vec<SerialNumber>,
 	quantities: Vec<Balance>,
 ) -> BoundedVec<(SerialNumber, Balance), <T as Config>::MaxSerialsPerMint> {
@@ -62,44 +81,54 @@ pub fn bounded_combined(
 }
 
 /// Helper function for creating the collection name type
-pub fn bounded_string(name: &str) -> BoundedVec<u8, <T as Config>::StringLimit> {
+pub fn bounded_string<T: Config>(name: &str) -> BoundedVec<u8, <T as Config>::StringLimit> {
 	BoundedVec::truncate_from(name.as_bytes().to_vec())
 }
 
 benchmarks! {
 	create_collection {
 		let metadata = MetadataScheme::Https("google.com".into());
-	}: _(origin::<T>(&account::<T>("Alice")), bounded_string("Collection"), None, metadata, None)
+	}: _(origin::<T>(&account::<T>("Alice")), bounded_string::<T>("Collection"), None, metadata, None)
 
 	create_token {
 		let id = build_collection::<T>(None);
 		let initial_issuance = u128::MAX;
-	}: _(origin::<T>(&account::<T>("Alice")), id, bounded_string("Token"), initial_issuance, None, None)
+	}: _(origin::<T>(&account::<T>("Alice")), id, bounded_string::<T>("Token"), initial_issuance, None, None)
 
 	mint {
-		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 1, None)
+		let owner = account::<T>("Alice");
+		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), 0);
+		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
+	}: _(origin::<T>(&owner), collection_id, serial_numbers, None)
 
 	transfer {
-		let collection_id = build_collection::<T>(None);
-		let serial_numbers = BoundedVec::try_from(vec![0]).unwrap();
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, serial_numbers, account::<T>("Bob"))
+		let owner = account::<T>("Alice");
+		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), u128::MAX);
+		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
+	}: _(origin::<T>(&owner), collection_id, serial_numbers, account::<T>("Bob"))
 
 	burn {
-		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), TokenId::from((collection_id, 0)))
+		let owner = account::<T>("Alice");
+		let initial_issuance = 1000;
+		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), initial_issuance);
+		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![initial_issuance]);
+	}: _(origin::<T>(&owner), collection_id, serial_numbers)
 
 	set_owner {
-
-	}: _(RawOrigin::Root, collection_id, account::<T>("Alice"))
+		let owner = account::<T>("Alice");
+		let collection_id = build_collection::<T>(Some(owner.clone()));
+	}: _(origin::<T>(&owner), collection_id, account::<T>("Bob"))
 
 	set_max_issuance {
-		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, 32)
+		let owner = account::<T>("Alice");
+		let token_id = build_token::<T>(Some(owner.clone()), 0);
+	}: _(origin::<T>(&owner), token_id, 32)
 
 	set_base_uri {
-		let collection_id = build_collection::<T>(None);
-	}: _(origin::<T>(&account::<T>("Alice")), collection_id, "https://example.com/tokens/".into())
+		let owner = account::<T>("Alice");
+		let id = build_collection::<T>(Some(owner.clone()));
+		let metadata_scheme = MetadataScheme::Https(b"example.com/changed".to_vec());
+	}: _(origin::<T>(&owner), id, metadata_scheme)
 }
 
 impl_benchmark_test_suite!(Sft, crate::mock::new_test_ext(), crate::mock::Test,);
