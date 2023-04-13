@@ -129,5 +129,6 @@ benchmarks! {
 		let id = build_collection::<T>(Some(owner.clone()));
 		let metadata_scheme = MetadataScheme::Https(b"example.com/changed".to_vec());
 	}: _(origin::<T>(&owner), id, metadata_scheme)
+}
 
 impl_benchmark_test_suite!(Sft, crate::mock::new_test_ext(), crate::mock::Test,);
