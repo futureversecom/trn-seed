@@ -18,6 +18,7 @@
 
 use super::*;
 
+use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
@@ -89,17 +90,24 @@ benchmarks! {
 	create_collection {
 		let metadata = MetadataScheme::Https("google.com".into());
 	}: _(origin::<T>(&account::<T>("Alice")), bounded_string::<T>("Collection"), None, metadata, None)
+	verify {
+		let collection: Option<SftCollectionInformation<T> >= SftCollectionInfo::<T>::get(1124);
+		assert!(collection.is_some());
+	}
 
 	create_token {
 		let id = build_collection::<T>(None);
 		let initial_issuance = u128::MAX;
 	}: _(origin::<T>(&account::<T>("Alice")), id, bounded_string::<T>("Token"), initial_issuance, None, None)
 
+
 	mint {
 		let owner = account::<T>("Alice");
 		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), 0);
 		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers, None)
+
+
 
 	transfer {
 		let owner = account::<T>("Alice");
