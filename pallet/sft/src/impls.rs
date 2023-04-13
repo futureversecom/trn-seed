@@ -134,7 +134,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Perform the mint operation and increase the quantity of the user
 	/// Note there is one storage read and write per serial number minted
-	#[transactional]
 	pub fn do_mint(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
@@ -192,7 +191,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Perform the transfer operation and move quantities from one user to another
 	/// Note there is one storage read and write per serial number transferred
-	#[transactional]
 	pub fn do_transfer(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
@@ -228,6 +226,22 @@ impl<T: Config> Pallet<T> {
 			quantities,
 			new_owner,
 		});
+
+		Ok(())
+	}
+
+	pub fn do_set_owner(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		new_owner: T::AccountId,
+	) -> DispatchResult {
+		let mut collection =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		ensure!(collection.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+		collection.collection_owner = new_owner.clone();
+		SftCollectionInfo::<T>::insert(collection_id, collection);
+		Self::deposit_event(Event::<T>::OwnerSet { new_owner, collection_id });
 
 		Ok(())
 	}
