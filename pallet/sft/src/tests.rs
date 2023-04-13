@@ -61,6 +61,12 @@ pub fn create_test_token(
 		Some(token_owner),
 	));
 
+	// Sanity check
+	assert_eq!(
+		TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&token_owner),
+		initial_issuance
+	);
+
 	(collection_id, 0)
 }
 
@@ -580,9 +586,6 @@ mod mint {
 			let (collection_id, serial_number) = token_id;
 			let quantity = 1000;
 
-			// Sanity check, initial balance should be 0
-			assert_eq!(TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&token_owner), 0);
-
 			assert_ok!(Sft::mint(
 				Some(collection_owner).into(),
 				collection_id,
@@ -984,13 +987,6 @@ mod transfer {
 			let quantity = 460;
 			let new_owner = charlie();
 
-			// Sanity check of initial balances
-			assert_eq!(
-				TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&token_owner),
-				initial_issuance
-			);
-			assert_eq!(TokenInfo::<Test>::get(token_id).unwrap().free_balance_of(&new_owner), 0);
-
 			// Perform transfer
 			assert_ok!(Sft::transfer(
 				Some(token_owner.clone()).into(),
@@ -1273,10 +1269,6 @@ mod set_max_issuance {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let new_max_issuance = 2000;
-
-			// Sanity check
-			let token_info = TokenInfo::<Test>::get(token_id).unwrap();
-			assert_eq!(token_info.max_issuance, None);
 
 			// Set max issuance
 			assert_ok!(Sft::set_max_issuance(
