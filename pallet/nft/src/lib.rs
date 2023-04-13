@@ -502,16 +502,6 @@ pub mod pallet {
 				Error::<T>::InvalidMaxIssuance
 			);
 
-			match collection_info.max_issuance {
-				// cannot set - if already set
-				Some(_) => return Err(Error::<T>::InvalidMaxIssuance.into()),
-				// if not set, ensure that the max issuance is greater than the current issuance
-				None => ensure!(
-					collection_info.collection_issuance <= max_issuance,
-					Error::<T>::InvalidMaxIssuance
-				),
-			}
-
 			collection_info.max_issuance = Some(max_issuance);
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::MaxIssuanceSet { collection_id, max_issuance });

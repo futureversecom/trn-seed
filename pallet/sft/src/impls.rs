@@ -231,4 +231,52 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+
+	/// Perfrom the set max issuance operation
+	/// Caller must be the collection owner
+	/// Max issuance can only be set once
+	pub fn do_set_max_issuance(
+		who: T::AccountId,
+		token_id: TokenId,
+		max_issuance: Balance,
+	) -> DispatchResult {
+		ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
+
+		let collection_info =
+			SftCollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+		// Caller must be collection_owner
+		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
+		// Max issuance can only be set once
+		ensure!(token_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
+		// Max issuance cannot exceed token issuance
+		ensure!(token_info.token_issuance <= max_issuance, Error::<T>::InvalidMaxIssuance);
+
+		token_info.max_issuance = Some(max_issuance);
+		TokenInfo::<T>::insert(token_id, token_info);
+
+		Self::deposit_event(Event::<T>::MaxIssuanceSet { token_id, max_issuance });
+
+		Ok(())
+	}
+
+	/// Perform the set base uri operation
+	/// Caller must be collection owner
+	pub fn do_set_base_uri(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		metadata_scheme: MetadataScheme,
+	) -> DispatchResult {
+		let mut collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		// Caller must be collection_owner
+		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+		collection_info.metadata_scheme = metadata_scheme.clone();
+		SftCollectionInfo::<T>::insert(collection_id, collection_info);
+
+		Self::deposit_event(Event::<T>::BaseUriSet { collection_id, metadata_scheme });
+		Ok(())
+	}
 }
