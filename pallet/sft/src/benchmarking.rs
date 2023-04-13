@@ -99,15 +99,22 @@ benchmarks! {
 		let id = build_collection::<T>(None);
 		let initial_issuance = u128::MAX;
 	}: _(origin::<T>(&account::<T>("Alice")), id, bounded_string::<T>("Token"), initial_issuance, None, None)
-
+	verify {
+		let token = TokenInfo::<T>::get((1124, 0));
+		assert!(token.is_some());
+	}
 
 	mint {
 		let owner = account::<T>("Alice");
 		let (collection_id, serial_number) = build_token::<T>(Some(owner.clone()), 0);
 		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers, None)
-
-
+	verify {
+		let token = TokenInfo::<T>::get((1124, 0));
+		assert!(token.is_some());
+		let token = token.unwrap();
+		assert_eq!(token.token_issuance, u128::MAX);
+	}
 
 	transfer {
 		let owner = account::<T>("Alice");
