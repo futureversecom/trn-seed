@@ -1773,6 +1773,5 @@ mod benches {
 		[pallet_evm_chain_id, EVMChainId]
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
-		[pallet_sft, Sft]
 	);
 }
