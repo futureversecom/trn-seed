@@ -91,8 +91,7 @@ benchmarks! {
 		let metadata = MetadataScheme::Https("google.com".into());
 	}: _(origin::<T>(&account::<T>("Alice")), bounded_string::<T>("Collection"), None, metadata, None)
 	verify {
-		let collection: Option<SftCollectionInformation<T> >= SftCollectionInfo::<T>::get(1124);
-		assert!(collection.is_some());
+		assert!( SftCollectionInfo::<T>::get(1124).is_some());
 	}
 
 	create_token {
