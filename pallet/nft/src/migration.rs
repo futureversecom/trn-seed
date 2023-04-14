@@ -5,6 +5,7 @@ pub mod v4 {
 		OriginChain, Pallet, RoyaltiesSchedule, TokenCount, TokenOwnership,
 	};
 	use codec::{Decode, Encode};
+	use core::fmt::Write;
 	use frame_support::{
 		storage_alias,
 		traits::{Get, GetStorageVersion, StorageVersion},
@@ -15,7 +16,6 @@ pub mod v4 {
 	use seed_primitives::{CollectionUuid, SerialNumber};
 	use sp_core::H160;
 	use sp_std::vec::Vec;
-	use std::fmt::Write;
 
 	/// Denotes the metadata URI referencing scheme used by a collection
 	/// Enable token metadata URI construction by clients
