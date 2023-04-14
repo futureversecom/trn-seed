@@ -45,6 +45,7 @@ use frame_support::{
 };
 use hex::{encode, FromHex};
 use sp_core::H160;
+use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
 pub use weights::WeightInfo;
 
@@ -80,7 +81,7 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The overarching event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -88,10 +89,17 @@ pub mod pallet {
 		type FuturepassPrefix: Get<[u8; 4]>;
 
 		// type Proxy: ProxyProvider<Self::AccountId, Self::ProxyType>;
-		type Proxy: ProxyProvider<Self::AccountId>;
+		type Proxy: ProxyProvider<Self>;
 
 		// /// Multicurrency support
 		// type Currency: ReservableCurrency<Self::AccountId>;
+
+		/// overarching Call type
+		type Call: Parameter
+			+ Dispatchable<Origin = Self::Origin>
+			+ From<frame_system::Call<Self>>
+			+ IsSubType<Call<Self>>
+			+ IsType<<Self as frame_system::Config>::Call>;
 
 		/// Allowed origins to ease transition to council governance
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
