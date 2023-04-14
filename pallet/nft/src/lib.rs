@@ -56,6 +56,8 @@ mod impls;
 pub mod traits;
 mod types;
 
+mod migration;
+
 pub use impls::*;
 pub use pallet::*;
 pub use types::*;
@@ -76,7 +78,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -404,6 +406,22 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<(), &'static str> {
+			migration::v4::pre_upgrade::<T>()?;
+
+			Ok(())
+		}
+		/// Perform runtime upgrade
+		fn on_runtime_upgrade() -> Weight {
+			migration::v4::on_runtime_upgrade::<T>()
+		}
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade() -> Result<(), &'static str> {
+			migration::v4::post_upgrade::<T>()?;
+
+			Ok(())
+		}
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
