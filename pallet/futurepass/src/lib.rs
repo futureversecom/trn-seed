@@ -314,6 +314,22 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Dispatch the given call through Futurepass account
+		/// The dispatch origin for this call must be _Signed_
+		///
+		/// Parameters:
+		/// - `futurepass`: The Futurepass account though which the call is dispatched
+		/// - `call`: The Call that needs to be dispatched through the Futurepass account
+		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		pub fn proxy_extrinsic(
+			origin: OriginFor<T>,
+			futurepass: T::AccountId,
+			call: Box<<T as Config>::Call>,
+		) -> DispatchResult {
+			ensure_signed(origin.clone())?;
+			T::Proxy::proxy_call(origin, futurepass, *call)
+		}
+
 		// /// Set the default proxy for a delegate, which can be used to proxy all delegate
 		// requests /// to a futurepass account.
 		// ///
