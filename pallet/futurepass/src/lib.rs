@@ -38,12 +38,15 @@ mod mock;
 mod tests;
 mod weights;
 
+use alloc::boxed::Box;
 use frame_support::{
 	ensure,
-	pallet_prelude::{DispatchError, DispatchResult},
-	traits::{Get, IsType},
+	pallet_prelude::{DispatchError, DispatchResult, *},
+	traits::{Get, IsSubType, IsType},
 };
+use frame_system::pallet_prelude::*;
 use hex::{encode, FromHex};
+use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
@@ -53,26 +56,29 @@ pub use weights::WeightInfo;
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
-pub trait ProxyProvider<AccountId> {
-	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool;
-	fn delegates(futurepass: &AccountId) -> Vec<AccountId>;
+pub trait ProxyProvider<T: Config> {
+	fn exists(futurepass: &T::AccountId, delegate: &T::AccountId) -> bool;
+	fn delegates(futurepass: &T::AccountId) -> Vec<T::AccountId>;
 	fn add_delegate(
-		funder: &AccountId,
-		futurepass: &AccountId,
-		delegate: &AccountId,
+		funder: &T::AccountId,
+		futurepass: &T::AccountId,
+		delegate: &T::AccountId,
 	) -> DispatchResult;
 	fn remove_delegate(
-		receiver: &AccountId,
-		futurepass: &AccountId,
-		delegate: &AccountId,
+		receiver: &T::AccountId,
+		futurepass: &T::AccountId,
+		delegate: &T::AccountId,
+	) -> DispatchResult;
+	fn proxy_call(
+		caller: OriginFor<T>,
+		futurepass: T::AccountId,
+		call: <T as Config>::Call,
 	) -> DispatchResult;
 }
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 

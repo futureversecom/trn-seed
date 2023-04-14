@@ -58,6 +58,7 @@ use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic,
 };
+use sp_runtime::traits::Dispatchable;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -472,7 +473,7 @@ where
 
 pub struct ProxyPalletProvider;
 
-impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
+impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool {
 		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, None)
 			.map(|_| true)
@@ -539,6 +540,22 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 			)?;
 		}
 		result
+	}
+
+	fn proxy_call(
+		caller: <Runtime as frame_system::Config>::Origin,
+		futurepass: AccountId,
+		call: Call,
+	) -> DispatchResult {
+		let proxy_type = ProxyType::Any;
+		let call = pallet_proxy::Call::<Runtime>::proxy {
+			real: futurepass.into(),
+			force_proxy_type: Some(proxy_type),
+			call: call.into(),
+		};
+
+		let _ = <Call as Dispatchable>::dispatch(call.into(), caller);
+		Ok(())
 	}
 }
 
