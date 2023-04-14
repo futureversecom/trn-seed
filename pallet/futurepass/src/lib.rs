@@ -160,6 +160,10 @@ pub mod pallet {
 			delegate: T::AccountId,
 			futurepass: Option<T::AccountId>,
 		},
+		/// A proxy call was executed correctly, with the given call
+		ProxyExecuted {
+			result: DispatchResult,
+		},
 	}
 
 	#[pallet::error]
@@ -314,8 +318,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Dispatch the given call through Futurepass account
-		/// The dispatch origin for this call must be _Signed_
+		/// Dispatch the given call through Futurepass account. Transaction fees will be paid by the
+		/// Futurepass The dispatch origin for this call must be _Signed_
 		///
 		/// Parameters:
 		/// - `futurepass`: The Futurepass account though which the call is dispatched
@@ -327,7 +331,9 @@ pub mod pallet {
 			call: Box<<T as Config>::Call>,
 		) -> DispatchResult {
 			ensure_signed(origin.clone())?;
-			T::Proxy::proxy_call(origin, futurepass, *call)
+			let result = T::Proxy::proxy_call(origin, futurepass, *call);
+			Self::deposit_event(Event::ProxyExecuted { result: result.map(|_| ()).map_err(|e| e) });
+			Ok(())
 		}
 
 		// /// Set the default proxy for a delegate, which can be used to proxy all delegate

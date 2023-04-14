@@ -554,8 +554,9 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 			call: call.into(),
 		};
 
-		let _ = <Call as Dispatchable>::dispatch(call.into(), caller);
-		Ok(())
+		<Call as Dispatchable>::dispatch(call.into(), caller)
+			.map(|_| ())
+			.map_err(|e| e.error)
 	}
 }
 
@@ -594,7 +595,6 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
 		_recipient_has_code: bool,
 	) -> bool {
-		use pallet_evm::PrecompileSet as _;
 		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
 			return false
 		}
