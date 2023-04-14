@@ -243,7 +243,7 @@ pub mod pallet {
 		/// of if they are SFT or NFT collections.
 		#[pallet::weight(T::WeightInfo::create_collection())]
 		#[transactional]
-		pub fn create_sft_collection(
+		pub fn create_collection(
 			origin: OriginFor<T>,
 			collection_name: BoundedVec<u8, T::StringLimit>,
 			collection_owner: Option<T::AccountId>,

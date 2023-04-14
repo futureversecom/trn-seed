@@ -18,11 +18,9 @@
 
 use super::*;
 
-use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use sp_runtime::Permill;
 
 use crate::Pallet as Sft;
 
@@ -41,7 +39,7 @@ pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUu
 	let metadata_scheme = MetadataScheme::Https(b"example.com/metadata/".to_vec());
 	let collection_name = bounded_string::<T>("Collection");
 
-	assert_ok!(Sft::<T>::create_sft_collection(
+	assert_ok!(Sft::<T>::create_collection(
 		origin::<T>(&caller).into(),
 		collection_name.clone(),
 		None,
@@ -87,7 +85,7 @@ pub fn bounded_string<T: Config>(name: &str) -> BoundedVec<u8, <T as Config>::St
 }
 
 benchmarks! {
-	create_sft_collection {
+	create_collection {
 		let metadata = MetadataScheme::Https("google.com".into());
 	}: _(origin::<T>(&account::<T>("Alice")), bounded_string::<T>("Collection"), None, metadata, None)
 	verify {
