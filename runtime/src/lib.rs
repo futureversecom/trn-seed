@@ -397,7 +397,7 @@ impl pallet_sft::Config for Runtime {
 	type PalletId = SftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_sft::WeightInfo<Runtime>;
 	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
 	type MaxSerialsPerMint = MaxSerialsPerMint;
 	type MaxOwnersPerSftToken = MaxOwnersPerSftCollection;
@@ -1763,6 +1763,7 @@ mod benches {
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		// Local
 		[pallet_nft, Nft]
+		[pallet_sft, Sft]
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]
 		[pallet_xrpl_bridge, XRPLBridge]

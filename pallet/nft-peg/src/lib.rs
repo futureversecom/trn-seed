@@ -14,7 +14,6 @@
  */
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;

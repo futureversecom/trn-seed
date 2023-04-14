@@ -18,12 +18,9 @@
 use crate::{Config, Error};
 
 use codec::{Decode, Encode};
-use frame_support::ensure;
 use scale_info::TypeInfo;
-use seed_primitives::{
-	Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
-};
-use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
+use seed_primitives::{Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber};
+use sp_runtime::{BoundedVec, DispatchResult};
 use sp_std::prelude::*;
 
 /// Information related to a specific collection

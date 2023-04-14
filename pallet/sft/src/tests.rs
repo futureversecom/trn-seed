@@ -31,7 +31,7 @@ pub fn create_test_collection(owner: <Test as frame_system::Config>::AccountId) 
 	let collection_name = bounded_string("test-collection");
 	let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
 
-	assert_ok!(Sft::create_sft_collection(
+	assert_ok!(Sft::create_collection(
 		Some(owner).into(),
 		collection_name.clone(),
 		None,
@@ -138,11 +138,11 @@ pub fn next_collection_uuid() -> CollectionUuid {
 	<Test as Config>::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid")
 }
 
-mod create_sft_collection {
+mod create_collection {
 	use super::*;
 
 	#[test]
-	fn create_sft_collection_works() {
+	fn create_collection_works() {
 		TestExt::default().build().execute_with(|| {
 			// CollectionId stored in the NFT pallet, get here to check it is incremented
 			// properly after we create a collection
@@ -157,7 +157,7 @@ mod create_sft_collection {
 				RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
 
 			// Call works
-			assert_ok!(Sft::create_sft_collection(
+			assert_ok!(Sft::create_collection(
 				Some(caller).into(),
 				collection_name.clone(),
 				Some(collection_owner),
@@ -195,7 +195,7 @@ mod create_sft_collection {
 	}
 
 	#[test]
-	fn create_sft_collection_no_specified_owner() {
+	fn create_collection_no_specified_owner() {
 		TestExt::default().build().execute_with(|| {
 			let collection_uuid = next_collection_uuid();
 			let caller = alice();
@@ -203,7 +203,7 @@ mod create_sft_collection {
 			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
 
 			// Call works
-			assert_ok!(Sft::create_sft_collection(
+			assert_ok!(Sft::create_collection(
 				Some(caller).into(),
 				collection_name.clone(),
 				None,
@@ -220,14 +220,14 @@ mod create_sft_collection {
 	}
 
 	#[test]
-	fn create_sft_collection_invalid_collection_name_fails() {
+	fn create_collection_invalid_collection_name_fails() {
 		TestExt::default().build().execute_with(|| {
 			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
 
 			// Empty Collection Name
 			let empty_collection_name = bounded_string("");
 			assert_noop!(
-				Sft::create_sft_collection(
+				Sft::create_collection(
 					Some(alice()).into(),
 					empty_collection_name,
 					None,
@@ -240,7 +240,7 @@ mod create_sft_collection {
 			// Non utf-8 Collection Name
 			let non_utf8_collection_name = BoundedVec::truncate_from(vec![0xfe, 0xff]);
 			assert_noop!(
-				Sft::create_sft_collection(
+				Sft::create_collection(
 					Some(alice()).into(),
 					non_utf8_collection_name,
 					None,
@@ -253,12 +253,12 @@ mod create_sft_collection {
 	}
 
 	#[test]
-	fn create_sft_collection_invalid_metadata_scheme_fails() {
+	fn create_collection_invalid_metadata_scheme_fails() {
 		TestExt::default().build().execute_with(|| {
 			// Empty MetadataScheme
 			let empty_metadata_scheme = MetadataScheme::Https(b"".to_vec());
 			assert_noop!(
-				Sft::create_sft_collection(
+				Sft::create_collection(
 					Some(alice()).into(),
 					bounded_string("test-collection"),
 					None,
@@ -271,7 +271,7 @@ mod create_sft_collection {
 			// Non utf-8 MetadataScheme
 			let non_utf8_metadata_scheme = MetadataScheme::Https(vec![0xfe, 0xff]);
 			assert_noop!(
-				Sft::create_sft_collection(
+				Sft::create_collection(
 					Some(alice()).into(),
 					bounded_string("test-collection"),
 					None,
@@ -284,14 +284,14 @@ mod create_sft_collection {
 	}
 
 	#[test]
-	fn create_sft_collection_invalid_royalties_schedule_fails() {
+	fn create_collection_invalid_royalties_schedule_fails() {
 		TestExt::default().build().execute_with(|| {
 			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
 
 			// Empty RoyaltiesSchedule
 			let empty_royalties_schedule = RoyaltiesSchedule { entitlements: vec![] };
 			assert_noop!(
-				Sft::create_sft_collection(
+				Sft::create_collection(
 					Some(alice()).into(),
 					bounded_string("test-collection"),
 					None,
@@ -317,7 +317,7 @@ mod create_sft_collection {
 				],
 			};
 			assert_noop!(
-				Sft::create_sft_collection(
+				Sft::create_collection(
 					Some(alice()).into(),
 					bounded_string("test-collection"),
 					None,
@@ -336,7 +336,7 @@ mod create_sft_collection {
 				],
 			};
 			assert_noop!(
-				Sft::create_sft_collection(
+				Sft::create_collection(
 					Some(alice()).into(),
 					bounded_string("test-collection"),
 					None,
