@@ -645,9 +645,9 @@ impl<T> OnChargeTransaction<T> for FuturepassTransactionFee
 where
 	T: frame_system::Config<AccountId = AccountId>
 		+ pallet_transaction_payment::Config
-		+ pallet_proxy::Config
+		+ pallet_futurepass::Config
 		+ pallet_fee_proxy::Config,
-	<T as frame_system::Config>::Call: IsSubType<pallet_proxy::Call<T>>,
+	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 {
 	type Balance =
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -661,11 +661,13 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		let mut who = who;
-		// if the call is pallet_proxy::Call::proxy(), and the caller is a delegate of the FP(real),
-		// we switch the gas payer to the FP
-		if let Some(pallet_proxy::Call::proxy { real, .. }) = call.is_sub_type() {
-			if ProxyPalletProvider::exists(real, who) {
-				who = real;
+		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
+		// of the FP(futurepass), we switch the gas payer to the FP
+		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
+			call.is_sub_type()
+		{
+			if ProxyPalletProvider::exists(futurepass, who) {
+				who = futurepass;
 			}
 		}
 
