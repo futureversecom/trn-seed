@@ -34,14 +34,14 @@ enum CallType {
 impl TryFrom<u8> for CallType {
 	type Error = &'static str;
 	fn try_from(value: u8) -> Result<Self, Self::Error> {
-			match value {
-					0 => Ok(CallType::StaticCall),
-					1 => Ok(CallType::Call),
-					2 => Ok(CallType::DelegateCall),
-					3 => Ok(CallType::Create),
-					4 => Ok(CallType::Create2),
-					_ => Err("Invalid value for CallType"),
-			}
+		match value {
+			0 => Ok(CallType::StaticCall),
+			1 => Ok(CallType::Call),
+			2 => Ok(CallType::DelegateCall),
+			3 => Ok(CallType::Create),
+			4 => Ok(CallType::Create2),
+			_ => Err("Invalid value for CallType"),
+		}
 	}
 }
 
@@ -297,7 +297,8 @@ where
 		evm_subcall: EvmSubCall,
 	) -> EvmResult<PrecompileOutput> {
 		// Read proxy
-		let futurepass_account_id = Runtime::AddressMapping::into_account_id(futurepass.clone().into());
+		let futurepass_account_id =
+			Runtime::AddressMapping::into_account_id(futurepass.clone().into());
 		let who = Runtime::AddressMapping::into_account_id(handle.context().caller);
 		// find proxy
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -345,7 +346,8 @@ where
 				false,
 				&sub_context,
 			),
-			CallType::DelegateCall | CallType::Create | CallType::Create2 => Err(RevertReason::custom("call type not supported"))?
+			CallType::DelegateCall | CallType::Create | CallType::Create2 =>
+				Err(RevertReason::custom("call type not supported"))?,
 		};
 
 		// Return subcall result
