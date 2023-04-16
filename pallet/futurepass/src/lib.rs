@@ -38,13 +38,17 @@ mod mock;
 mod tests;
 mod weights;
 
+use alloc::boxed::Box;
 use frame_support::{
 	ensure,
-	pallet_prelude::{DispatchError, DispatchResult},
-	traits::{Get, IsType},
+	pallet_prelude::{DispatchError, DispatchResult, *},
+	traits::{Get, IsSubType, IsType},
 };
+use frame_system::pallet_prelude::*;
 use hex::{encode, FromHex};
+use seed_primitives::AccountId;
 use sp_core::H160;
+use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
 pub use weights::WeightInfo;
 
@@ -52,26 +56,29 @@ pub use weights::WeightInfo;
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
-pub trait ProxyProvider<AccountId> {
-	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool;
-	fn delegates(futurepass: &AccountId) -> Vec<AccountId>;
+pub trait ProxyProvider<T: Config> {
+	fn exists(futurepass: &T::AccountId, delegate: &T::AccountId) -> bool;
+	fn delegates(futurepass: &T::AccountId) -> Vec<T::AccountId>;
 	fn add_delegate(
-		funder: &AccountId,
-		futurepass: &AccountId,
-		delegate: &AccountId,
+		funder: &T::AccountId,
+		futurepass: &T::AccountId,
+		delegate: &T::AccountId,
 	) -> DispatchResult;
 	fn remove_delegate(
-		receiver: &AccountId,
-		futurepass: &AccountId,
-		delegate: &AccountId,
+		receiver: &T::AccountId,
+		futurepass: &T::AccountId,
+		delegate: &T::AccountId,
+	) -> DispatchResult;
+	fn proxy_call(
+		caller: OriginFor<T>,
+		futurepass: T::AccountId,
+		call: <T as Config>::Call,
 	) -> DispatchResult;
 }
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -80,7 +87,7 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The overarching event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -88,10 +95,17 @@ pub mod pallet {
 		type FuturepassPrefix: Get<[u8; 4]>;
 
 		// type Proxy: ProxyProvider<Self::AccountId, Self::ProxyType>;
-		type Proxy: ProxyProvider<Self::AccountId>;
+		type Proxy: ProxyProvider<Self>;
 
 		// /// Multicurrency support
 		// type Currency: ReservableCurrency<Self::AccountId>;
+
+		/// overarching Call type
+		type Call: Parameter
+			+ Dispatchable<Origin = Self::Origin>
+			+ From<frame_system::Call<Self>>
+			+ IsSubType<Call<Self>>
+			+ IsType<<Self as frame_system::Config>::Call>;
 
 		/// Allowed origins to ease transition to council governance
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
@@ -145,6 +159,10 @@ pub mod pallet {
 		DefaultFuturepassSet {
 			delegate: T::AccountId,
 			futurepass: Option<T::AccountId>,
+		},
+		/// A proxy call was executed correctly, with the given call
+		ProxyExecuted {
+			result: DispatchResult,
 		},
 	}
 
@@ -297,6 +315,24 @@ pub mod pallet {
 				new_owner,
 				futurepass,
 			});
+			Ok(())
+		}
+
+		/// Dispatch the given call through Futurepass account. Transaction fees will be paid by the
+		/// Futurepass The dispatch origin for this call must be _Signed_
+		///
+		/// Parameters:
+		/// - `futurepass`: The Futurepass account though which the call is dispatched
+		/// - `call`: The Call that needs to be dispatched through the Futurepass account
+		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		pub fn proxy_extrinsic(
+			origin: OriginFor<T>,
+			futurepass: T::AccountId,
+			call: Box<<T as Config>::Call>,
+		) -> DispatchResult {
+			ensure_signed(origin.clone())?;
+			let result = T::Proxy::proxy_call(origin, futurepass, *call);
+			Self::deposit_event(Event::ProxyExecuted { result: result.map(|_| ()).map_err(|e| e) });
 			Ok(())
 		}
 
