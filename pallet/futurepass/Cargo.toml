@@ -22,6 +22,7 @@ frame-support = { git = "https://github.com/futureversecom/substrate", branch = 
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 # Benchmarking
 frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
@@ -29,10 +30,10 @@ frame-benchmarking = { git = "https://github.com/futureversecom/substrate", bran
 # Custom
 hex = { version = "0.4.3", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 [features]
 default = ["std"]
@@ -46,9 +47,11 @@ std = [
 	"frame-system/std",
 	"sp-core/std",
 	"sp-std/std",
+	"sp-runtime/std",
 	# Custom
 	"hex/std",
 	"seed-pallet-common/std",
+	"seed-primitives/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking"]

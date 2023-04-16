@@ -58,6 +58,7 @@ use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic,
 };
+use sp_runtime::traits::Dispatchable;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -472,7 +473,7 @@ where
 
 pub struct ProxyPalletProvider;
 
-impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
+impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool {
 		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, None)
 			.map(|_| true)
@@ -540,6 +541,23 @@ impl pallet_futurepass::ProxyProvider<AccountId> for ProxyPalletProvider {
 		}
 		result
 	}
+
+	fn proxy_call(
+		caller: <Runtime as frame_system::Config>::Origin,
+		futurepass: AccountId,
+		call: Call,
+	) -> DispatchResult {
+		let proxy_type = ProxyType::Any;
+		let call = pallet_proxy::Call::<Runtime>::proxy {
+			real: futurepass.into(),
+			force_proxy_type: Some(proxy_type),
+			call: call.into(),
+		};
+
+		<Call as Dispatchable>::dispatch(call.into(), caller)
+			.map(|_| ())
+			.map_err(|e| e.error)
+	}
 }
 
 #[derive(
@@ -577,14 +595,13 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
 		_recipient_has_code: bool,
 	) -> bool {
-		use pallet_evm::PrecompileSet as _;
 		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
 			return false
 		}
 		match self {
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => call.value == U256::zero(), /* ProxyType::NonTransfer can
-			                                                        * not have value */
+			// ProxyType::NonTransfer can not have value
+			ProxyType::NonTransfer => call.value == U256::zero(),
 			ProxyType::Governance => false,
 			ProxyType::Staking => false,
 		}
@@ -604,8 +621,8 @@ impl InstanceFilter<Call> for ProxyType {
 		match self {
 			// only ProxyType::Any is used in V1
 			ProxyType::Any => true,
-			ProxyType::NonTransfer => true, /* TODO - need to add allowed calls under this
-			                                  * category in v2. allowing all for now. */
+			// TODO - need to add allowed calls under this category in v2. allowing all for now.
+			ProxyType::NonTransfer => true,
 			ProxyType::Governance => false,
 			ProxyType::Staking => false,
 		}
@@ -628,9 +645,9 @@ impl<T> OnChargeTransaction<T> for FuturepassTransactionFee
 where
 	T: frame_system::Config<AccountId = AccountId>
 		+ pallet_transaction_payment::Config
-		+ pallet_proxy::Config
+		+ pallet_futurepass::Config
 		+ pallet_fee_proxy::Config,
-	<T as frame_system::Config>::Call: IsSubType<pallet_proxy::Call<T>>,
+	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 {
 	type Balance =
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -644,11 +661,13 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		let mut who = who;
-		// if the call is pallet_proxy::Call::proxy(), and the caller is a delegate of the FP(real),
-		// we switch the gas payer to the FP
-		if let Some(pallet_proxy::Call::proxy { real, .. }) = call.is_sub_type() {
-			if ProxyPalletProvider::exists(real, who) {
-				who = real;
+		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
+		// of the FP(futurepass), we switch the gas payer to the FP
+		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
+			call.is_sub_type()
+		{
+			if ProxyPalletProvider::exists(futurepass, who) {
+				who = futurepass;
 			}
 		}
 

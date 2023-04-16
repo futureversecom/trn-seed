@@ -123,7 +123,7 @@ where
 
 		// Manually record gas
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let futurepass = pallet_futurepass::Holders::<Runtime>::get(owner)
+		let futurepass: H160 = pallet_futurepass::Holders::<Runtime>::get(owner)
 			.map(|fp| fp.into())
 			.unwrap_or_default();
 
