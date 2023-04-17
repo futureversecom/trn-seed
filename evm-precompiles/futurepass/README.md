@@ -12,7 +12,7 @@ interface FuturePass {
     function create(address owner) external returns (address);
     function registerDelegate(address futurepass, address delegate) external;
     function unregisterDelegate(address futurepass, address delegate) external;
-    function proxyCall(address real, address callTo, bytes memory callData) external payable;
+    function proxyCall(address futurepass, address callTo, uint8 callType, bytes memory callData) external payable;
     function isDelegate(address futurepass, address delegate) external returns (bool);
 }
 ```
