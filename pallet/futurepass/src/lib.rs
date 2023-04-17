@@ -78,6 +78,7 @@ pub trait ProxyProvider<T: Config> {
 
 #[frame_support::pallet]
 pub mod pallet {
+	use frame_support::traits::InstanceFilter;
 	use super::*;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -94,11 +95,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type FuturepassPrefix: Get<[u8; 4]>;
 
-		// type Proxy: ProxyProvider<Self::AccountId, Self::ProxyType>;
 		type Proxy: ProxyProvider<Self>;
-
-		// /// Multicurrency support
-		// type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// overarching Call type
 		type Call: Parameter
@@ -109,6 +106,18 @@ pub mod pallet {
 
 		/// Allowed origins to ease transition to council governance
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+
+		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` fitler.
+		/// The instance filter determines whether a given call may be proxied under this type.
+		///
+		/// IMPORTANT: `Default` must be provided and MUST BE the the *most permissive* value.
+		type ProxyType: Parameter
+		+ Member
+		+ Ord
+		+ PartialOrd
+		+ InstanceFilter<<Self as Config>::Call>
+		+ Default
+		+ MaxEncodedLen;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
