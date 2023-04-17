@@ -210,6 +210,14 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 			Call::Assets(pallet_assets::Call::create { .. }) => false,
 			// Disable XRPLBridge `submit_challenge` call
 			Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
+			// Calls to direct rewards to be re-staked are not allowed, as it does not make sense in
+			// a dual-currency with pallet-staking context
+			Call::Staking(pallet_staking::Call::bond { payee, .. }) => {
+				if let RewardDestination::Staked = payee {
+					return false
+				}
+				true
+			},
 			_ => true,
 		}
 	}
