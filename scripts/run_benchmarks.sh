@@ -1,229 +1,122 @@
 #!/bin/bash
 
-# This is a simple bash script that allows us to do two things:
-#   1) Display pallets that can be benchmarked
-#   2) Benchmark pallets
-#
-# If 2) option is selected then we need to choose what pallets we want to bench (all or specific ones)
-# and the speed of running those benchmarks. The speeds are:
-# I)    Normal      (50s,   20r)
-# II)   Fast        (25s,   5r)
-# III)  Lightspeed  (2s,    1r)
-#
-# The default behavior is to start with a menu but this can be override if at least one flag
-# is supplied. Supported flags:
-# -f -> Fast execution mode
-# -q -> Lightspeed execution mode
-# -l -> Display pallets that can be benchmarked
-# -p "pallet_balance pallet_assets" -> Selects which pallets to benchmark
+. ./scripts/getoptions.sh
 
-set -e
+VERSION=0.1
+inputs_arguments() {
+    setup   REST help:usage -- "Usage: ./scripts/run_benchmark.sh [options]... [arguments]..." ''
+    msg -- 'Options:'
+    param   TEMPLATE_PATH           --template      init:="./scripts/pallet_template.hbs"   -- "Specifes template location"
+    param   OUTPUT_FOLDER       -o  --output        init:="./output"                        -- "Folder where all the weight files will be stored"
+    param   PALLETS             -p  --pallets       init:="*"                               -- "List of pallets that need to be bechmarked. Deafult is all. Example: -p \"pallet_nft pallet_echo\""
+    param   STEPS               -s  --steps         init:=50                                -- "How many steps to do. Default is 50"
+    param   REPEAT              -r  --repeat        init:=20                                -- "How many repeats to do. Default is 20"
+    flag    USE_TEMPLATE        -t                                                          -- "If set then the template will be used to generate the weight files"
+    flag    CUSTOM_PALLETS      -c                                                          -- "Benchmarks just our own custom pallets"
+    param   BINARY_LOCATION     -b                  init:="./target/release/seed"           -- "Path where the binary is located"
+    flag    LIST_PALLET         -l                                                          -- "List all pallets that can be benchmarked"
+    disp    :usage  -h --help
+    disp    VERSION    --version
+}
 
-# Default vaules
-STEPS=50
-REPEAT=20
-OUTPUT_FOLDER="./output"
-PALLET="*"
-MODE="release"
-CHAIN="dev"
-
-EXECUTION_MODE="Normal"
-LIST_PALLETS=false
-USE_TEMPLATE=false
-TEMPLATE_LOCATION="./scripts/pallet_template.hbs"
-TEMPLATE_ARG=""
-
-if [ $# -eq 0 ]; then
-    echo "Select modus operandi: "
-    select opt in List-Pallets Benchmark-Pallets; do
-        case $opt in
-            List-Pallets)
-                LIST_PALLETS=true
-                break
-            ;;
-            Benchmark-Pallets)
-                LIST_PALLETS=false
-                break
-            ;;
-            *)
-                echo "Invalid option $REPLY"
-            ;;
-        esac
-    done
+run_benchmark() {
+    echo "Pallets: ${PALLETS[@]}"
+    echo "Steps: $STEPS, Repeat: $REPEAT"
     
-    if ! "$LIST_PALLETS"; then
-        echo "Exeuction speed:"
-        select opt in Normal Fast Lightspeed; do
-            case $opt in
-                Normal)
-                    EXECUTION_MODE="Normal"
-                    break
-                ;;
-                Fast)
-                    EXECUTION_MODE="Fast"
-                    break
-                ;;
-                Lightspeed)
-                    EXECUTION_MODE="Lightspeed"
-                    break
-                ;;
-                *)
-                    echo "Invalid option $REPLY"
-                ;;
-            esac
-        done
-        
-        echo "Benchmark all pallets?"
-        select opt in Yes No; do
-            case $opt in
-                Yes)
-                    PALLET="*"
-                    break
-                ;;
-                No)
-                    read -r -p "Pallet names: " PALLET
-                    break
-                ;;
-                *)
-                    echo "Invalid option $REPLY"
-                ;;
-            esac
-        done
-        
-        echo "Do you want to generate weights for runtime or generate weightinfo for pallet?"
-        select opt in Runtime-Weights Pallet-WeightInfo; do
-            case $opt in
-                Runtime-Weights)
-                    USE_TEMPLATE=false
-                    break
-                ;;
-                Pallet-WeightInfo)
-                    USE_TEMPLATE=true
-                    break
-                ;;
-                *)
-                    echo "Invalid option $REPLY"
-                ;;
-            esac
-        done
+    if [ "$LIST_PALLET" = 1 ]; then
+        exit 0
     fi
-fi
-
-
-# Read flags
-while getopts dqfblp:t flag
-do
-    case "${flag}" in
-        f) EXECUTION_MODE="Fast";;
-        q) EXECUTION_MODE="Lightspeed";;
-        p) PALLET=${OPTARG};;
-        l) LIST_PALLETS=true;;
-        t) USE_TEMPLATE=true;;
-    esac
-done
-
-
-if [ "$EXECUTION_MODE" = "Fast" ]; then
-    STEPS=25
-    REPEAT=5
-fi
-
-if [ "$EXECUTION_MODE" = "Lightspeed" ]; then
-    STEPS=2
-    REPEAT=1
-fi
-
-if "$USE_TEMPLATE"; then
-    TEMPLATE_ARG="--template $TEMPLATE_LOCATION"
-fi
-
-START_TIMER_1=$(date +%s)
-
-echo "Chain: $CHAIN"
-echo "Output folder: $OUTPUT_FOLDER"
-echo "Steps: $STEPS"
-echo "Repeat: $REPEAT"
-echo "Pallet: $PALLET"
-
-START_TIMER_2=$(date +%s)
-echo "Building the Seed client in Release mode"
-cargo build --release  --locked --features=runtime-benchmarks # This is acctualy supposed to be production and not release
-END_TIMER_2=$(date +%s)
-
-
-# Manually exclude some pallets.
-EXCLUDED_PALLETS=(
-    # Helper pallets
-    "pallet_election_provider_support_benchmarking"
-    # Pallets without automatic benchmarking
-    "pallet_babe"
-    "pallet_grandpa"
-    "pallet_mmr"
-    "pallet_offences"
-)
-
-if [ "$PALLET" = "*" ]; then
-    PALLETS=($(./target/$MODE/seed benchmark pallet --list --chain $CHAIN | tail -n+2 | cut -d',' -f1 | sort | uniq ))
-else
-    PALLETS=($PALLET)
-fi
-
-if [ "$OUTPUT_FOLDER" = "./output" ]; then
-    mkdir -p output
-fi
-
-if "$LIST_PALLETS"; then
+    
+    rm -f $ERR_FILE
+    mkdir -p "$OUTPUT_FOLDER"
+    
     for PALLET in "${PALLETS[@]}"; do
-        NOT_SKIP=true
-        for EXCLUDED_PALLET in "${EXCLUDED_PALLETS[@]}"; do
-            if [ "$EXCLUDED_PALLET" == "$PALLET" ]; then
-                NOT_SKIP=false
-                break
-            fi
-        done
-        if $NOT_SKIP; then
-            echo "$PALLET";
+        if is_pallet_excluded; then
+            echo "[ ] Skipping pallet $PALLET";
+            continue
         fi
-    done
-    exit 0;
-fi
-
-ERR_FILE="$OUTPUT_FOLDER/benchmarking_errors.txt"
-# Delete the error file before each run.
-rm -f $ERR_FILE
-
-START_TIMER_3=$(date +%s)
-# Benchmark each pallet.
-for PALLET in "${PALLETS[@]}"; do
-    SKIP=false
-    for EXCLUDED_PALLET in "${EXCLUDED_PALLETS[@]}"; do
-        if [ "$EXCLUDED_PALLET" == "$PALLET" ]; then
-            SKIP=true
-            break
+        
+        FILE_NAME="$PALLET.rs"
+        TEMPLATE_NAME="${PALLET}_weights.rs"
+        
+        if [ "$USE_TEMPLATE" = "1" ]; then
+            FILE_NAME="$TEMPLATE_NAME"
+            TEMPLATE_ARG="--template $TEMPLATE_PATH";
         fi
+        
+        benchmark "$TEMPLATE_ARG" "$FILE_NAME"
+        
+        if is_custom_pallet && [ ! "$USE_TEMPLATE" = "1" ]; then
+            benchmark "--template $TEMPLATE_PATH" "$TEMPLATE_NAME"
+        fi
+        
     done
-    
-    if $SKIP; then
-        echo "[ ] Skipping pallet $PALLET";
-        continue
-    fi
-    
+}
+
+benchmark() {
     echo "[+] Benchmarking $PALLET";
     
-    OUTPUT=$(./target/$MODE/seed benchmark pallet --chain=$CHAIN --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 $TEMPLATE_ARG --output $OUTPUT_FOLDER 2>&1 )
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$2" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
         echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
     fi
-done
-END_TIMER_3=$(date +%s)
-END_TIMER_1=$(date +%s)
+}
 
+is_pallet_excluded() {
+    for EXCLUDED_PALLET in "${EXCLUDED_PALLETS[@]}"; do
+        if [ "$EXCLUDED_PALLET" == "$PALLET" ]; then
+            return 0
+        fi
+    done
+    
+    return 1
+}
 
+is_custom_pallet() {
+    for CUSTOM_PALLETS in "${CUSTOM_PALLETS[@]}"; do
+        if [ "$CUSTOM_PALLETS" == "$PALLET" ]; then
+            return 0
+        fi
+    done
+    
+    return 1
+}
 
-secs=$(($END_TIMER_1-$START_TIMER_1))
-printf 'Total Elapsed Time: %02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))
-secs=$(($END_TIMER_2-$START_TIMER_2))
-printf 'Binary Build Elapsed Time: %02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))
-secs=$(($END_TIMER_3-$START_TIMER_3))
-printf 'Benchmark Exeuction Elapsed Time: %02dh:%02dm:%02ds\n' $((secs/3600)) $((secs%3600/60)) $((secs%60))
+populate_pallet_list() {
+    # Manually exclude some pallets.
+    EXCLUDED_PALLETS=(
+        # Helper pallets
+        "pallet_election_provider_support_benchmarking"
+        # Pallets without automatic benchmarking
+        "pallet_babe"   "pallet_grandpa"
+        "pallet_mmr"    "pallet_offences"
+    )
+    
+    CUSTOM_PALLETS=(
+        "pallet_nft"            "pallet_fee_control"    "pallet_nft_peg"
+        "pallet_xrpl_bridge"    "pallet_erc20_peg"      "pallet_echo"
+        "pallet_assets_ext"     "pallet_evm_chain_id"   "pallet_token_approvals"
+        "pallet_xls20"
+    )
+    
+    if ! [ "$PALLETS" = "*" ]; then
+        PALLETS=($PALLETS)
+    fi
+    if [ "$LIST_PALLET" = "1" ] || [ "$PALLETS" = "*" ]; then
+        PALLETS=($($BINARY_LOCATION benchmark pallet --list --chain=dev | tail -n+2 | cut -d',' -f1 | sort | uniq ))
+    fi
+    if [ "$ALL_CUSTOM_PALLETS" = "1" ]; then
+        PALLETS=("${CUSTOM_PALLETS[@]}")
+    fi
+}
+
+eval "$(getoptions inputs_arguments - "$0") exit 1"
+
+ERR_FILE="$OUTPUT_FOLDER/benchmarking_errors.txt"
+
+echo "Building the Seed client in Release mode"
+cargo build --release --locked --features=runtime-benchmarks
+
+populate_pallet_list
+run_benchmark
