@@ -2,8 +2,11 @@ from substrateinterface import SubstrateInterface
 import json
 import sys
 
-substrate = SubstrateInterface(url="ws://127.0.0.1:9944")
+output_file = sys.argv[1]
+url = "ws://127.0.0.1:9944" if len(sys.argv) <= 2 else sys.argv[2]
+
+substrate = SubstrateInterface(url=url)
 module_list = substrate.get_metadata_modules()
 
-with open(sys.argv[1], 'w') as outfile:
+with open(output_file, 'w') as outfile:
     json.dump(module_list, outfile, indent=2)

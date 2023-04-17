@@ -122,6 +122,8 @@ rm -rf "$TEMP_FOLDER"
 mkdir -p "$OUTPUT_FOLDER" "$TEMP_FOLDER"
 
 # Install dependenices
+python -m venv ./scripts/penv
+source ./scripts/penv/bin/activate
 echo "Installing Python dependencies"
 pip install -r ./scripts/requirements.txt > /dev/null 2>&1
 
