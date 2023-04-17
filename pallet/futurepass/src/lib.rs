@@ -57,21 +57,24 @@ pub use weights::WeightInfo;
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
 pub trait ProxyProvider<T: Config> {
-	fn exists(futurepass: &T::AccountId, delegate: &T::AccountId) -> bool;
-	fn delegates(futurepass: &T::AccountId) -> Vec<T::AccountId>;
+	fn exists(futurepass: &T::AccountId, delegate: &T::AccountId, proxy_type: Option<T::ProxyType>) -> bool;
+	fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)>;
 	fn add_delegate(
 		funder: &T::AccountId,
 		futurepass: &T::AccountId,
+		proxy_type: &T::ProxyType,
 		delegate: &T::AccountId,
 	) -> DispatchResult;
 	fn remove_delegate(
 		receiver: &T::AccountId,
 		futurepass: &T::AccountId,
+		proxy_type: &T::ProxyType,
 		delegate: &T::AccountId,
 	) -> DispatchResult;
 	fn proxy_call(
 		caller: OriginFor<T>,
-		futurepass: T::AccountId,
+		futurepass: &T::AccountId,
+		proxy_type: &T::ProxyType,
 		call: <T as Config>::Call,
 	) -> DispatchResult;
 }

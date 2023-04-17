@@ -469,15 +469,15 @@ where
 pub struct ProxyPalletProvider;
 
 impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
-	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool {
-		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, None)
+	fn exists(futurepass: &AccountId, delegate: &AccountId, proxy_type: Option<ProxyType>) -> bool {
+		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, proxy_type)
 			.map(|_| true)
 			.unwrap_or(false)
 	}
 
-	fn delegates(futurepass: &AccountId) -> Vec<AccountId> {
+	fn delegates(futurepass: &AccountId) -> Vec<(AccountId, ProxyType)> {
 		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
-		proxy_definitions.into_iter().map(|proxy_def| proxy_def.delegate).collect()
+		proxy_definitions.into_iter().map(|proxy_def| (proxy_def.delegate, proxy_def.proxy_type)).collect()
 	}
 
 	/// Adding a delegate requires funding the futurepass account (from funder) with the cost of the
@@ -486,6 +486,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	fn add_delegate(
 		funder: &AccountId,
 		futurepass: &AccountId,
+		proxy_type: &ProxyType,
 		delegate: &AccountId,
 	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
@@ -501,8 +502,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 			ExistenceRequirement::KeepAlive,
 		)?;
 
-		let proxy_type = ProxyType::Any;
-		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)
+		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, *proxy_type, 0)
 	}
 
 	/// Removing a delegate requires refunding the potential funder (who may have funded the
@@ -514,15 +514,15 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	fn remove_delegate(
 		receiver: &AccountId,
 		futurepass: &AccountId,
+		proxy_type: &ProxyType,
 		delegate: &AccountId,
 	) -> DispatchResult {
-		let proxy_type = ProxyType::Any;
 
 		// get deposits before proxy removal (value gets mutated in removal)
 		let (_, pre_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 
 		let result = pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(
-			futurepass, *delegate, proxy_type, 0,
+			futurepass, *delegate, *proxy_type, 0,
 		);
 		if result.is_ok() {
 			let (_, post_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
@@ -539,7 +539,8 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 
 	fn proxy_call(
 		caller: <Runtime as frame_system::Config>::Origin,
-		futurepass: AccountId,
+		futurepass: &AccountId,
+		proxy_type: &ProxyType,
 		call: Call,
 	) -> DispatchResult {
 		let proxy_type = ProxyType::Any;
