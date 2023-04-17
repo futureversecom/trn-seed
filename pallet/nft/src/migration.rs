@@ -108,8 +108,7 @@ pub mod v3 {
 			let new_name = BoundedVec::truncate_from(old.name);
 			let new = CollectionInformation {
 				owner: old.owner,
-				name: new_name, /* TODO Fix this whole migration
-				                 * script */
+				name: new_name,
 				metadata_scheme: old.metadata_scheme,
 				royalties_schedule: old.royalties_schedule,
 				max_issuance: old.max_issuance,
