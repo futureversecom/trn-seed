@@ -21,7 +21,6 @@ use crate::{
 	},
 	Event as NftEvent,
 };
-use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{fungibles::Inspect, OnInitialize},
