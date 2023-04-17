@@ -95,8 +95,8 @@ populate_pallet_list() {
     
     CUSTOM_PALLETS=()
     for f in ./pallet/*/Cargo.toml; do
-        res=$(awk -F' = ' '$1 == "name" {print $2}' $f | tr -d '"' | tr '-' '_')
-        CUSTOM_PALLETS+=($res)
+        pallet_name=$(awk -F' = ' '$1 == "name" {print $2}' $f | tr -d '"' | tr '-' '_')
+        CUSTOM_PALLETS+=($pallet_name)
     done;
     
     if ! [ "$PALLETS" = "*" ]; then
