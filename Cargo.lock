@@ -4750,6 +4750,7 @@ dependencies = [
  "pallet-dex",
  "pallet-dex-rpc-runtime-api",
  "seed-primitives",
+ "serde_json",
  "sp-api",
  "sp-blockchain",
  "sp-runtime",
