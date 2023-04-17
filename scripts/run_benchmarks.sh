@@ -12,7 +12,7 @@ inputs_arguments() {
     param   STEPS               -s  --steps         init:=50                                -- "How many steps to do. Default is 50"
     param   REPEAT              -r  --repeat        init:=20                                -- "How many repeats to do. Default is 20"
     flag    USE_TEMPLATE        -t                                                          -- "If set then the template will be used to generate the weight files"
-    flag    CUSTOM_PALLETS      -c                                                          -- "Benchmarks just our own custom pallets"
+    flag    JUST_CUSTOM_PALLETS -c                                                          -- "Benchmarks just our own custom pallets"
     param   BINARY_LOCATION     -b                  init:="./target/release/seed"           -- "Path where the binary is located"
     flag    LIST_PALLET         -l                                                          -- "List all pallets that can be benchmarked"
     disp    :usage  -h --help
@@ -93,12 +93,11 @@ populate_pallet_list() {
         "pallet_mmr"    "pallet_offences"
     )
     
-    CUSTOM_PALLETS=(
-        "pallet_nft"            "pallet_fee_control"    "pallet_nft_peg"
-        "pallet_xrpl_bridge"    "pallet_erc20_peg"      "pallet_echo"
-        "pallet_assets_ext"     "pallet_evm_chain_id"   "pallet_token_approvals"
-        "pallet_xls20"
-    )
+    CUSTOM_PALLETS=()
+    for f in ./pallet/*/Cargo.toml; do
+        res=$(awk -F' = ' '$1 == "name" {print $2}' $f | tr -d '"' | tr '-' '_')
+        CUSTOM_PALLETS+=($res)
+    done;
     
     if ! [ "$PALLETS" = "*" ]; then
         PALLETS=($PALLETS)
@@ -106,7 +105,7 @@ populate_pallet_list() {
     if [ "$LIST_PALLET" = "1" ] || [ "$PALLETS" = "*" ]; then
         PALLETS=($($BINARY_LOCATION benchmark pallet --list --chain=dev | tail -n+2 | cut -d',' -f1 | sort | uniq ))
     fi
-    if [ "$ALL_CUSTOM_PALLETS" = "1" ]; then
+    if [ "$JUST_CUSTOM_PALLETS" = "1" ]; then
         PALLETS=("${CUSTOM_PALLETS[@]}")
     fi
 }
