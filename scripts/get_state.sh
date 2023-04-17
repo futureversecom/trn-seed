@@ -7,6 +7,7 @@ TrapQuit() {
     # Clean
     kill $PID > /dev/null 2>&1
     rm -rf "$TEMP_FOLDER"
+    rm -rf "./scripts/penv"
     
     if [ "$IGNORE_TAG" = "0" ]; then
         git checkout "$CURRENT_BRANCH" > /dev/null 2> /dev/null
