@@ -1,7 +1,7 @@
 // Adapted  from webb-tools - https://github.com/webb-tools/dkg-substrate/blob/0d86b54f57a38881ef0e555ec757b5324e5c8ca7/dkg-test-suite/tests/utils/setup.ts#L138
-import * as dotenv from "dotenv";
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import child from "child_process";
+import * as dotenv from "dotenv";
 
 dotenv.config();
 
@@ -44,10 +44,10 @@ export interface NodeProcess {
  * Start a node given connection type
  */
 export function startNode(
-  type: ConnectionType = process.env.CONNECTION_TYPE as ConnectionType ?? "docker",
+  type: ConnectionType = (process.env.CONNECTION_TYPE as ConnectionType) ?? "docker",
   nodeOpts?: NodeOpts,
 ): Promise<NodeProcess> {
-  console.info(`Starting node with connection type: ${type}`)
+  console.info(`Starting node with connection type: ${type}`);
 
   const nodeOptions = nodeOpts ?? defaultOpts;
 

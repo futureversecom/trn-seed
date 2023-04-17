@@ -21,6 +21,30 @@ pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateUnregistered(address,address)"); // futurepass, delegate
 
+// evm proxy call type
+#[derive(Debug, PartialEq)]
+enum CallType {
+	StaticCall,
+	Call,
+	DelegateCall,
+	Create,
+	Create2,
+}
+
+impl TryFrom<u8> for CallType {
+	type Error = &'static str;
+	fn try_from(value: u8) -> Result<Self, Self::Error> {
+		match value {
+			0 => Ok(CallType::StaticCall),
+			1 => Ok(CallType::Call),
+			2 => Ok(CallType::DelegateCall),
+			3 => Ok(CallType::Create),
+			4 => Ok(CallType::Create2),
+			_ => Err("Invalid value for CallType"),
+		}
+	}
+}
+
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
@@ -28,7 +52,7 @@ pub enum Action {
 	Create = "create(address)",
 	RegisterDelegate = "registerDelegate(address,address)",
 	UnRegisterDelegate = "unregisterDelegate(address,address)",
-	ProxyCall = "proxyCall(address,address,bytes)",
+	ProxyCall = "proxyCall(address,address,uint8,bytes)",
 	IsDelegate = "isDelegate(address,address)",
 }
 
@@ -254,27 +278,31 @@ where
 
 	fn proxy_call(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, {
-			real: Address,
+			futurepass: Address,
 			callTo: Address,
+			callType: u8,
 			callData: BoundedBytes<GetCallDataLimit>
 		});
+		let call_type: CallType = callType.try_into().map_err(|err| RevertReason::custom(err))?;
 		let evm_subcall =
 			EvmSubCall { to: callTo, call_data: callData, value: handle.context().apparent_value };
 
-		Self::do_proxy(handle, real, evm_subcall)
+		Self::do_proxy(handle, futurepass, call_type, evm_subcall)
 	}
 
 	fn do_proxy(
 		handle: &mut impl PrecompileHandle,
-		real: Address,
+		futurepass: Address,
+		call_type: CallType,
 		evm_subcall: EvmSubCall,
 	) -> EvmResult<PrecompileOutput> {
 		// Read proxy
-		let real_account_id = Runtime::AddressMapping::into_account_id(real.clone().into());
+		let futurepass_account_id =
+			Runtime::AddressMapping::into_account_id(futurepass.clone().into());
 		let who = Runtime::AddressMapping::into_account_id(handle.context().caller);
 		// find proxy
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let def = pallet_proxy::Pallet::<Runtime>::find_proxy(&real_account_id, &who, None)
+		let def = pallet_proxy::Pallet::<Runtime>::find_proxy(&futurepass_account_id, &who, None)
 			.map_err(|_| RevertReason::custom("Not proxy"))?;
 		frame_support::ensure!(def.delay.is_zero(), revert("Unannounced")); // no delay for futurepass
 
@@ -293,7 +321,7 @@ where
 		let address = to.0;
 		// build the sub context. here we switch the caller and address
 		let sub_context =
-			Context { caller: real.0, address: address.clone(), apparent_value: value };
+			Context { caller: futurepass.0, address: address.clone(), apparent_value: value };
 
 		let transfer = if value.is_zero() {
 			None
@@ -301,14 +329,26 @@ where
 			Some(Transfer { source: handle.context().caller, target: address.clone(), value })
 		};
 
-		let (reason, output) = handle.call(
-			address,
-			transfer,
-			call_data.into_vec(),
-			Some(handle.remaining_gas()),
-			false,
-			&sub_context,
-		);
+		let (reason, output) = match call_type {
+			CallType::StaticCall => handle.call(
+				address,
+				transfer,
+				call_data.into_vec(),
+				Some(handle.remaining_gas()),
+				true,
+				&sub_context,
+			),
+			CallType::Call => handle.call(
+				address,
+				transfer,
+				call_data.into_vec(),
+				Some(handle.remaining_gas()),
+				false,
+				&sub_context,
+			),
+			CallType::DelegateCall | CallType::Create | CallType::Create2 =>
+				Err(RevertReason::custom("call type not supported"))?,
+		};
 
 		// Return subcall result
 		match reason {
