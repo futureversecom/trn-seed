@@ -224,7 +224,6 @@ describe("Futurepass Precompile", function () {
     const owner = Wallet.createRandom().connect(provider);
 
     // fund owner
-    // await fundEOA(alithSigner, owner.address);
     await fundEOA(alithSigner, owner.address);
 
     // create FP for owner
