@@ -368,6 +368,7 @@ impl pallet_assets_ext::Config for Runtime {
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = AssetsExtPalletId;
 	type WeightInfo = weights::pallet_assets_ext::WeightInfo<Runtime>;
+	type FeePotId = TxFeePotId;
 }
 
 parameter_types! {
@@ -700,6 +701,7 @@ parameter_types! {
 	/// Holds XRP transaction fees for distribution to validators according to stake & undistributed reward remainders
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
 }
+
 type SlashCancelOrigin = EnsureRoot<AccountId>;
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;

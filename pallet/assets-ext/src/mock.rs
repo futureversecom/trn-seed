@@ -203,6 +203,7 @@ parameter_types! {
 	pub const NativeAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 	pub const MaxHolds: u32 = 16;
+	pub const PotId: PalletId = PalletId(*b"potid   ");
 }
 impl crate::Config for Test {
 	type Event = Event;
@@ -212,6 +213,7 @@ impl crate::Config for Test {
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = AssetsExtPalletId;
 	type WeightInfo = ();
+	type FeePotId = PotId;
 }
 
 #[derive(Default)]

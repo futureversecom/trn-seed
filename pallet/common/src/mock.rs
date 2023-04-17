@@ -143,6 +143,7 @@ macro_rules! impl_pallet_assets_ext_config {
 			pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 			pub const MaxHolds: u32 = 16;
 			pub const TestParachainId: u32 = 100;
+			pub const PotId: PalletId = PalletId(*b"potid   ");
 		}
 
 		impl pallet_assets_ext::Config for $test {
@@ -153,6 +154,7 @@ macro_rules! impl_pallet_assets_ext_config {
 			type OnNewAssetSubscription = ();
 			type PalletId = AssetsExtPalletId;
 			type WeightInfo = ();
+			type FeePotId = PotId;
 		}
 	};
 }

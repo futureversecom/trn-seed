@@ -17,7 +17,10 @@ use frame_support::{
 		SignedImbalance, WithdrawReasons,
 	},
 };
-use sp_runtime::{traits::Zero, DispatchError};
+use sp_runtime::{
+	traits::{AccountIdConversion, Zero},
+	DispatchError,
+};
 use sp_std::marker::PhantomData;
 
 use frame_support::traits::{
@@ -294,10 +297,23 @@ where
 		who: &T::AccountId,
 		value: Self::Balance,
 	) -> Result<Self::PositiveImbalance, DispatchError> {
-		R::deposit_into_existing(who, value)
+		let tx_fee_pot_Account = &T::FeePotId::get().into_account_truncating();
+
+		if R::free_balance(tx_fee_pot_Account) > value.into() {
+			R::transfer(tx_fee_pot_Account, who, value, ExistenceRequirement::AllowDeath);
+			Ok(PositiveImbalance::default())
+		} else {
+			R::deposit_into_existing(who, value)
+		}
 	}
 	fn deposit_creating(who: &T::AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-		Self::deposit_into_existing(who, value).unwrap_or_default()
+		let tx_fee_pot_Account = &T::FeePotId::get().into_account_truncating();
+		if R::free_balance(tx_fee_pot_Account) > value {
+			R::transfer(tx_fee_pot_Account, who, value, ExistenceRequirement::AllowDeath);
+			PositiveImbalance::default()
+		} else {
+			Self::deposit_into_existing(who, value).unwrap_or_default()
+		}
 	}
 	fn make_free_balance_be(
 		who: &T::AccountId,

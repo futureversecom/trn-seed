@@ -66,13 +66,13 @@ mod constants {
 
 	/// Aka blocks per session
 	#[cfg(not(test))]
-	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = 4 * HOURS;
+	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = 4;
 	#[cfg(test)]
 	pub const EPOCH_DURATION_IN_SLOTS: BlockNumber = MINUTES / 3; // 5 blocks per session in tests
 
 	/// 24 hour eras `EPOCH_DURATION_IN_SLOTS * SESSIONS_PER_ERA`
 	#[cfg(not(test))]
-	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 24 * HOURS / EPOCH_DURATION_IN_SLOTS;
+	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 8;
 	#[cfg(test)]
 	pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 1 * MINUTES / EPOCH_DURATION_IN_SLOTS;
 

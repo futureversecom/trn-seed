@@ -113,6 +113,7 @@ parameter_types! {
 	pub const MaxHolds: u32 = 16;
 	pub const NativeAssetId: AssetId = 1;
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
+	pub const PotId: PalletId = PalletId(*b"potid   ");
 }
 
 impl pallet_assets_ext::Config for Test {
@@ -123,6 +124,7 @@ impl pallet_assets_ext::Config for Test {
 	type OnNewAssetSubscription = ();
 	type PalletId = AssetsExtPalletId;
 	type WeightInfo = ();
+	type FeePotId = PotId;
 }
 
 parameter_types! {
