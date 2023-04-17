@@ -6,9 +6,9 @@ VERSION=0.1
 inputs_arguments() {
     setup   REST help:usage -- "Usage: ./scripts/run_benchmark.sh [options]... [arguments]..." ''
     msg -- 'Options:'
-    param   TEMPLATE_PATH           --template      init:="./scripts/pallet_template.hbs"   -- "Specifes template location"
+    param   TEMPLATE_PATH           --template      init:="./scripts/pallet_template.hbs"   -- "Specifies template location"
     param   OUTPUT_FOLDER       -o  --output        init:="./output"                        -- "Folder where all the weight files will be stored"
-    param   PALLETS             -p  --pallets       init:="*"                               -- "List of pallets that need to be bechmarked. Deafult is all. Example: -p \"pallet_nft pallet_echo\""
+    param   PALLETS             -p  --pallets       init:="*"                               -- "List of pallets that need to be bechmarked. Default is all. Example: -p \"pallet_nft pallet_echo\""
     param   STEPS               -s  --steps         init:=50                                -- "How many steps to do. Default is 50"
     param   REPEAT              -r  --repeat        init:=20                                -- "How many repeats to do. Default is 20"
     flag    USE_TEMPLATE        -t                                                          -- "If set then the template will be used to generate the weight files"
