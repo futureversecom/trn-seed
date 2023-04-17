@@ -202,9 +202,20 @@ impl<T: Config> Pallet<T> {
 		match serial_numbers {
 			Ok(serial_numbers) => {
 				let _ = Self::do_mint(collection_id, collection_info, owner, &serial_numbers);
+
+				// throw event, listing all serial numbers minted from bridging
+				// SerialNumbers will never exceed the limit denoted by nft_peg::MaxTokensPerMint
+				// Which is set to 50 in the runtime, so this event is safe to list all bridged
+				// serial_numbers
+				Self::deposit_event(Event::<T>::BridgedMint {
+					collection_id,
+					serial_numbers: serial_numbers.clone(),
+					owner: *owner,
+				});
+
 				T::DbWeight::get().reads_writes(1, 1)
 			},
-			_ => 0 as Weight,
+			_ => T::DbWeight::get().reads(1),
 		}
 	}
 
@@ -268,7 +279,7 @@ impl<T: Config> Pallet<T> {
 			.checked_add(serial_numbers.len().saturated_into())
 			.ok_or(Error::<T>::TokenLimitExceeded)?;
 
-		new_collection_info.add_user_tokens(token_owner, serial_numbers.clone())?;
+		new_collection_info.add_user_tokens(&token_owner, serial_numbers.clone())?;
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
