@@ -68,7 +68,7 @@ pub mod pallet {
 	use super::*;
 	use seed_primitives::xrpl::XrplTxTicketSequence;
 
-	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
