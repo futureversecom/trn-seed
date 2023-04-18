@@ -107,6 +107,36 @@ fn add_transaction_works() {
 }
 
 #[test]
+fn adding_more_transactions_than_the_limit_returns_error() {
+	new_test_ext().execute_with(|| {
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let tx_address = b"6490B68F1116BFE87DDD";
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		XRPLBridge::initialize_relayer(&vec![relayer]);
+		for i in 0..<Test as crate::Config>::XRPTransactionLimit::get() {
+			let i = i as u64;
+			let mut transaction_hash = transaction_hash.clone();
+			transaction_hash[0] = i as u8;
+			submit_transaction(relayer, i * 1_000_000, &transaction_hash, tx_address, i);
+		}
+
+		let transaction = XrplTxData::Payment {
+			amount: (1 * 1000u64) as Balance,
+			address: H160::from_slice(tx_address),
+		};
+
+		let err = XRPLBridge::submit_transaction(
+			Origin::signed(relayer),
+			100,
+			XrplTxHash::from_slice(transaction_hash),
+			transaction,
+			1234,
+		);
+		assert_noop!(err, Error::<Test>::CannotProcessMoreTransactionsAtThatBlock);
+	})
+}
+
+#[test]
 fn process_transaction_works() {
 	new_test_ext().execute_with(|| {
 		let account_address = b"6490B68F1116BFE87DDC";
