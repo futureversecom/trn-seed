@@ -240,6 +240,11 @@ pub mod pallet {
 			);
 
 			ensure!(T::Proxy::exists(&futurepass, &owner, None), Error::<T>::DelegateNotRegistered);
+			// for V1, only T::ProxyType::default() is allowed.
+			ensure!(proxy_type == T::ProxyType::default(), Error::<T>::PermissionDenied);
+			// delegate should not be an existing proxy of any T::ProxyType
+			// This is required here coz pallet_proxy's duplicate check is only for the specific proxy_type
+			ensure!(!T::Proxy::exists(&futurepass, &delegate, None), Error::<T>::DelegateAlreadyExists);
 
 			T::Proxy::add_delegate(&owner, &futurepass, &delegate, &proxy_type)?;
 			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });

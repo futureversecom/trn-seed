@@ -128,6 +128,12 @@ describe("Futurepass Precompile", function () {
     // ensure delegate doesnt exist for FP
     expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
 
+    // registering with proxytype other than PROXY_TYPE.Any fails
+    await futurepassProxy
+        .connect(owner)
+        .registerDelegate(futurepass, delegate.address, PROXY_TYPE.NonTransfer)
+        .catch((err: any) => expect(err.message).contains("PermissionDenied"));
+
     tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
@@ -135,11 +141,11 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
     expect(await futurepassProxy.isDelegateWithType(futurepass, delegate.address, PROXY_TYPE.Any)).to.equal(true);
 
-    // registering the same delegate fails
+    // registering the same delegate with the same PROXY_TYPE fails
     await futurepassProxy
       .connect(owner)
       .registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any)
-      .catch((err: any) => expect(err.message).contains("Duplicate"));
+      .catch((err: any) => expect(err.message).contains("DelegateAlreadyExists"));
   });
 
   // TODO: validate whether we want this functionality
