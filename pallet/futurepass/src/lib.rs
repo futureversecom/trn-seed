@@ -235,18 +235,13 @@ pub mod pallet {
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 
-			// caller must be futurepass holder
+			// For V1 - caller must be futurepass holder
 			ensure!(
 				Holders::<T>::get(&owner.clone()) == Some(futurepass.clone()),
 				Error::<T>::NotFuturepassOwner
 			);
 
-			// maybe we can check here if caller has sufficient permissions to add the other
-			// delegate?
-			ensure!(
-				T::Proxy::exists(&futurepass, &owner, Some(proxy_type.clone())),
-				Error::<T>::DelegateNotRegistered
-			);
+			ensure!(T::Proxy::exists(&futurepass, &owner, None), Error::<T>::DelegateNotRegistered);
 
 			T::Proxy::add_delegate(&owner, &futurepass, &delegate, &proxy_type)?;
 			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });
