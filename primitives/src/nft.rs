@@ -19,7 +19,7 @@ use sp_std::prelude::*;
 /// Defines the length limit of the type MetadataScheme.
 /// To avoid overly complex primitives, local const is used here instead of a runtime configurable
 /// constant
-const METADATA_SCHEME_LIMIT: u32 = 100;
+const METADATA_SCHEME_LIMIT: u32 = 200;
 
 /// Denotes the metadata URI referencing scheme used by a collection
 /// MetadataScheme guarantees the data length not exceed the given limit, and the content won't be
