@@ -490,7 +490,7 @@ impl<T: Config> Pallet<T> {
 			<SettledXRPTransactionDetails<T>>::try_append(
 				&clear_block_number,
 				transaction_hash.clone(),
-			).expect("Should now happen since both ProcessXRPTransaction and SettledXRPTransactionDetails have the same limit");
+			).expect("Should not happen since both ProcessXRPTransaction and SettledXRPTransactionDetails have the same limit");
 			writes += 2;
 			reads += 2;
 			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));

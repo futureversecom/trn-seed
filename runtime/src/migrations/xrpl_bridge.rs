@@ -226,9 +226,9 @@ mod v2 {
 					(100u32, vec![H512::from_low_u64_ne(1u64), H512::from_low_u64_ne(2u64)]);
 				let (key_2, value_2) =
 					(101u32, vec![H512::from_low_u64_ne(10u64), H512::from_low_u64_ne(20u64)]);
+
 				ProcessXRPTransaction::<Runtime>::insert(key_1.clone(), value_1.clone());
 				SettledXRPTransactionDetails::<Runtime>::insert(key_2.clone(), value_2.clone());
-
 				assert_eq!(ProcessXRPTransaction::<Runtime>::iter().count(), 1);
 				assert_eq!(SettledXRPTransactionDetails::<Runtime>::iter().count(), 1);
 
