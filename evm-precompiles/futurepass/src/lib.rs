@@ -53,7 +53,8 @@ pub enum Action {
 	RegisterDelegate = "registerDelegate(address,address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address,address,uint8)",
 	ProxyCall = "proxyCall(address,address,uint8,bytes)",
-	IsDelegate = "isDelegate(address,address,uint8)",
+	IsDelegate = "isDelegate(address,address)",
+	IsDelegateWithType = "isDelegateWithType(address,address,uint8)",
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
@@ -110,6 +111,7 @@ where
 			match selector {
 				Action::FuturepassOf => Self::futurepass_of(handle),
 				Action::IsDelegate => Self::is_delegate(handle),
+				Action::IsDelegateWithType => Self::is_delegate_with_type(handle),
 				Action::Create => Self::create_futurepass(handle),
 				Action::RegisterDelegate => Self::register_delegate(handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
@@ -157,6 +159,24 @@ where
 	fn is_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, {
 			futurepass: Address,
+			delegate: Address
+		});
+		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
+		let futurepass = Runtime::AddressMapping::into_account_id(futurepass.into());
+
+		// Manually record gas
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let is_proxy = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
+			.0
+			.iter()
+			.any(|pd| pd.delegate == delegate);
+
+		Ok(succeed(EvmDataWriter::new().write::<bool>(is_proxy).build()))
+	}
+
+	fn is_delegate_with_type(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		read_args!(handle, {
+			futurepass: Address,
 			delegate: Address,
 			proxy_type: u8
 		});
@@ -165,9 +185,9 @@ where
 		let proxy_type = <Runtime as pallet_proxy::Config>::ProxyType::decode(
 			&mut proxy_type.to_le_bytes().as_slice(),
 		)
-		.map_err(|_| {
-			RevertReason::custom("Failed decoding value to ProxyType").in_field("proxyType")
-		})?;
+			.map_err(|_| {
+				RevertReason::custom("Failed decoding value to ProxyType").in_field("proxyType")
+			})?;
 
 		// Manually record gas
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
