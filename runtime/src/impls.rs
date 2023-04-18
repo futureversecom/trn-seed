@@ -486,8 +486,8 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	fn add_delegate(
 		funder: &AccountId,
 		futurepass: &AccountId,
-		proxy_type: &ProxyType,
 		delegate: &AccountId,
+		proxy_type: &ProxyType,
 	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
@@ -514,8 +514,8 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	fn remove_delegate(
 		receiver: &AccountId,
 		futurepass: &AccountId,
-		proxy_type: &ProxyType,
 		delegate: &AccountId,
+		proxy_type: &ProxyType,
 	) -> DispatchResult {
 
 		// get deposits before proxy removal (value gets mutated in removal)
@@ -539,9 +539,9 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 
 	fn proxy_call(
 		caller: <Runtime as frame_system::Config>::Origin,
-		futurepass: &AccountId,
-		proxy_type: &ProxyType,
+		futurepass: AccountId,
 		call: Call,
+		proxy_type: ProxyType,
 	) -> DispatchResult {
 		let proxy_type = ProxyType::Any;
 		let call = pallet_proxy::Call::<Runtime>::proxy {

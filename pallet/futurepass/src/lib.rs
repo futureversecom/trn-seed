@@ -62,20 +62,20 @@ pub trait ProxyProvider<T: Config> {
 	fn add_delegate(
 		funder: &T::AccountId,
 		futurepass: &T::AccountId,
-		proxy_type: &T::ProxyType,
 		delegate: &T::AccountId,
+		proxy_type: &T::ProxyType,
 	) -> DispatchResult;
 	fn remove_delegate(
 		receiver: &T::AccountId,
 		futurepass: &T::AccountId,
-		proxy_type: &T::ProxyType,
 		delegate: &T::AccountId,
+		proxy_type: &T::ProxyType,
 	) -> DispatchResult;
 	fn proxy_call(
 		caller: OriginFor<T>,
-		futurepass: &T::AccountId,
-		proxy_type: &T::ProxyType,
+		futurepass: T::AccountId,
 		call: <T as Config>::Call,
+		proxy_type: T::ProxyType,
 	) -> DispatchResult;
 }
 
@@ -226,8 +226,8 @@ pub mod pallet {
 		pub fn register_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
-			proxy_type: T::ProxyType,
 			delegate: T::AccountId,
+			proxy_type: T::ProxyType,
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 
@@ -241,7 +241,7 @@ pub mod pallet {
 			// delegate?
 			ensure!(T::Proxy::exists(&futurepass, &owner, Some(proxy_type.clone())), Error::<T>::DelegateNotRegistered);
 
-			T::Proxy::add_delegate(&owner, &futurepass, &proxy_type, &delegate)?;
+			T::Proxy::add_delegate(&owner, &futurepass, &delegate, &proxy_type)?;
 			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });
 			Ok(())
 		}
@@ -261,8 +261,8 @@ pub mod pallet {
 		pub fn unregister_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
-			proxy_type: T::ProxyType,
 			delegate: T::AccountId,
+			proxy_type: T::ProxyType,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -280,7 +280,7 @@ pub mod pallet {
 			ensure!(T::Proxy::exists(&futurepass, &delegate, Some(proxy_type.clone())), Error::<T>::DelegateNotRegistered);
 
 			// Remove the delegate from the futurepass
-			T::Proxy::remove_delegate(&caller, &futurepass, &proxy_type, &delegate)?;
+			T::Proxy::remove_delegate(&caller, &futurepass, &delegate, &proxy_type)?;
 
 			// If the caller is the owner of the futurepass, remove the ownership
 			// if is_owner && caller == delegate { // TODO: validate whether we cant this
@@ -317,11 +317,11 @@ pub mod pallet {
 			// Remove all proxy delegates from the current futurepass
 			let delegates = T::Proxy::delegates(&futurepass);
 			for delegate in delegates.iter() {
-				T::Proxy::remove_delegate(&owner, &futurepass, &delegate.1, &delegate.0)?;
+				T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0, &delegate.1)?;
 			}
 
 			// Add the current owner as a proxy delegate with most permissive type. i.e T::ProxyType::default()
-			T::Proxy::add_delegate(&owner, &futurepass, &T::ProxyType::default(), &new_owner)?;
+			T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
 
 			// Set the new owner as the owner of the futurepass
 			Holders::<T>::insert(&new_owner, futurepass.clone());
@@ -345,11 +345,11 @@ pub mod pallet {
 		pub fn proxy_extrinsic(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
-			proxy_type: T::ProxyType,
 			call: Box<<T as Config>::Call>,
+			proxy_type: T::ProxyType,
 		) -> DispatchResult {
 			ensure_signed(origin.clone())?;
-			let result = T::Proxy::proxy_call(origin, &futurepass, &proxy_type,  *call);
+			let result = T::Proxy::proxy_call(origin, futurepass, *call, proxy_type);
 			Self::deposit_event(Event::ProxyExecuted { result: result.map(|_| ()).map_err(|e| e) });
 			Ok(())
 		}
@@ -433,7 +433,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
 		let futurepass = Self::generate_futurepass_account();
 		Holders::<T>::set(&account, Some(futurepass.clone()));
-		T::Proxy::add_delegate(&funder, &futurepass, &T::ProxyType::default(), &account)?;
+		T::Proxy::add_delegate(&funder, &futurepass, &account, &T::ProxyType::default())?;
 
 		Self::deposit_event(Event::<T>::FuturepassCreated {
 			futurepass: futurepass.clone(),
