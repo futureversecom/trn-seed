@@ -243,7 +243,9 @@ describe("Futurepass Precompile", function () {
     // proxy transfer of value from futurepass to recipient
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, recipient.address, PROXY_TYPE.Any, CALL_TYPE.Call, "0x", { value: ethers.utils.parseEther("15") });
+      .proxyCall(futurepass, recipient.address, PROXY_TYPE.Any, CALL_TYPE.Call, "0x", {
+        value: ethers.utils.parseEther("15"),
+      });
     await tx.wait();
 
     // validate proxy based value transfer to recipient
@@ -284,7 +286,9 @@ describe("Futurepass Precompile", function () {
     // note: this is possible since contract has `receive() external payable` function
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, futurepassTester.address, PROXY_TYPE.Any, CALL_TYPE.Call, "0x", { value: ethers.utils.parseEther("15") });
+      .proxyCall(futurepass, futurepassTester.address, PROXY_TYPE.Any, CALL_TYPE.Call, "0x", {
+        value: ethers.utils.parseEther("15"),
+      });
     await tx.wait();
 
     // validate proxy based value transfer to contract payable receive function
