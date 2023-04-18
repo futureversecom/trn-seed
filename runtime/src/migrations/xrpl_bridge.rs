@@ -71,6 +71,8 @@ mod v2 {
 	use super::*;
 	use frame_support::weights::Weight;
 	use seed_primitives::xrpl::XrplTxHash;
+	use sp_core::H512;
+
 	type BlockNumber<T> = <T as frame_system::Config>::BlockNumber;
 
 	#[storage_alias]
@@ -189,92 +191,100 @@ mod v2 {
 		use super::*;
 		use crate::migrations::tests::new_test_ext;
 
-		/* 		#[test]
+		fn check_if_storage_is_empty() {
+			assert_eq!(ProcessXRPTransaction::<Runtime>::iter_keys().count(), 0);
+			assert_eq!(SettledXRPTransactionDetails::<Runtime>::iter_keys().count(), 0);
+			assert_eq!(pallet::ProcessXRPTransaction::<Runtime>::iter_keys().count(), 0);
+			assert_eq!(pallet::SettledXRPTransactionDetails::<Runtime>::iter_keys().count(), 0);
+		}
+
+		#[test]
 		fn storage_version_is_incremented() {
 			new_test_ext().execute_with(|| {
 				// Preparation
-				StorageVersion::new(1).put::<FeeControl>();
+				StorageVersion::new(1).put::<XRPLBridge>();
 
 				// Action
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				assert_eq!(FeeControl::on_chain_storage_version(), 2);
+				assert_eq!(XRPLBridge::on_chain_storage_version(), 2);
 			});
 		}
 
 		#[test]
-		fn storage_is_removed() {
+		fn storage_is_updated() {
 			new_test_ext().execute_with(|| {
 				// Preparation
-				StorageVersion::new(1).put::<FeeControl>();
+				StorageVersion::new(1).put::<XRPLBridge>();
+
+				// Empty state
+				check_if_storage_is_empty();
+
 				// Insert storage
-				EvmBaseFeePerGas::<Runtime>::put(U256::from(10u128));
-				ExtrinsicWeightToFee::<Runtime>::put(Perbill::from_parts(100));
-				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), true);
-				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), true);
+				let (key_1, value_1) =
+					(100u32, vec![H512::from_low_u64_ne(1u64), H512::from_low_u64_ne(2u64)]);
+				let (key_2, value_2) =
+					(101u32, vec![H512::from_low_u64_ne(10u64), H512::from_low_u64_ne(20u64)]);
+				ProcessXRPTransaction::<Runtime>::insert(key_1.clone(), value_1.clone());
+				SettledXRPTransactionDetails::<Runtime>::insert(key_2.clone(), value_2.clone());
+
+				assert_eq!(ProcessXRPTransaction::<Runtime>::iter().count(), 1);
+				assert_eq!(SettledXRPTransactionDetails::<Runtime>::iter().count(), 1);
 
 				// Action
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
-				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
+				let expected_value_1 = BoundedVec::try_from(value_1).unwrap();
+				let expected_value_2 = BoundedVec::try_from(value_2).unwrap();
+
+				assert_eq!(pallet::ProcessXRPTransaction::<Runtime>::iter().count(), 1);
+				assert_eq!(pallet::SettledXRPTransactionDetails::<Runtime>::iter().count(), 1);
+
+				assert_eq!(
+					pallet::ProcessXRPTransaction::<Runtime>::get(key_1),
+					Some(expected_value_1)
+				);
+				assert_eq!(
+					pallet::SettledXRPTransactionDetails::<Runtime>::get(key_2),
+					Some(expected_value_2)
+				);
 			});
 		}
 
 		#[test]
-		fn new_storage_is_created_with_defaults() {
+		fn too_long_data_is_ignored() {
 			new_test_ext().execute_with(|| {
 				// Preparation
-				StorageVersion::new(1).put::<FeeControl>();
-				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
-				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
+				StorageVersion::new(1).put::<XRPLBridge>();
 
-				// Action
-				Upgrade::on_runtime_upgrade();
+				// Empty state
+				check_if_storage_is_empty();
 
-				// Check
-				let expected_value = pallet_fee_control::FeeConfig {
-					evm_base_fee_per_gas:
-						<Runtime as pallet_fee_control::Config>::DefaultValues::evm_base_fee_per_gas(
-						),
-					weight_multiplier:
-						<Runtime as pallet_fee_control::Config>::DefaultValues::weight_multiplier(),
-					length_multiplier:
-						<Runtime as pallet_fee_control::Config>::DefaultValues::length_multiplier(),
-				};
+				let (key_1, key_2) = (100u32, 200u32);
+				let (mut value_1, mut value_2) = (vec![], vec![]);
 
-				let actual_value = V::storage_get::<pallet_fee_control::Data<Runtime>, _>();
-				assert_eq!(actual_value, Ok(expected_value));
-			});
-		}
+				for i in 0..(<Runtime as pallet::Config>::XRPTransactionLimit::get() + 1) {
+					value_1.push(H512::from_low_u64_ne(i as u64));
+					value_2.push(H512::from_low_u64_ne(i as u64));
+				}
 
-		#[test]
-		fn new_storage_is_created_with_actual_storage() {
-			new_test_ext().execute_with(|| {
-				// Preparation
-				StorageVersion::new(1).put::<FeeControl>();
 				// Insert storage
-				let evm_base_fee_per_gas = U256::from(321u128);
-				let weight_multiplier = Perbill::from_parts(555);
-				EvmBaseFeePerGas::<Runtime>::put(evm_base_fee_per_gas);
-				ExtrinsicWeightToFee::<Runtime>::put(weight_multiplier);
+				ProcessXRPTransaction::<Runtime>::insert(key_1, value_1);
+				SettledXRPTransactionDetails::<Runtime>::insert(key_2, value_2);
+				assert_eq!(ProcessXRPTransaction::<Runtime>::iter().count(), 1);
+				assert_eq!(SettledXRPTransactionDetails::<Runtime>::iter().count(), 1);
 
 				// Action
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				let expected_value = pallet_fee_control::FeeConfig {
-					evm_base_fee_per_gas,
-					weight_multiplier,
-					length_multiplier:
-						<Runtime as pallet_fee_control::Config>::DefaultValues::length_multiplier(),
-				};
-
-				let actual_value = V::storage_get::<pallet_fee_control::Data<Runtime>, _>();
-				assert_eq!(actual_value, Ok(expected_value));
+				assert_eq!(ProcessXRPTransaction::<Runtime>::iter_keys().count(), 0);
+				assert_eq!(SettledXRPTransactionDetails::<Runtime>::iter_keys().count(), 0);
+				assert_eq!(pallet::ProcessXRPTransaction::<Runtime>::iter_keys().count(), 0);
+				assert_eq!(pallet::SettledXRPTransactionDetails::<Runtime>::iter_keys().count(), 0);
 			});
-		} */
+		}
 	}
 }
