@@ -3,7 +3,7 @@ extern crate alloc;
 
 use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
-use pallet_evm::{AddressMapping, ExitReason, GasWeightMapping, Precompile, PrecompileFailure};
+use pallet_evm::{AddressMapping, ExitReason, Precompile, PrecompileFailure};
 use precompile_utils::prelude::*;
 use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
@@ -279,13 +279,13 @@ where
 	fn proxy_call(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, {
 			futurepass: Address,
-			callTo: Address,
-			callType: u8,
-			callData: BoundedBytes<GetCallDataLimit>
+			call_to: Address,
+			call_type: u8,
+			call_data: BoundedBytes<GetCallDataLimit>
 		});
-		let call_type: CallType = callType.try_into().map_err(|err| RevertReason::custom(err))?;
+		let call_type: CallType = call_type.try_into().map_err(|err| RevertReason::custom(err))?;
 		let evm_subcall =
-			EvmSubCall { to: callTo, call_data: callData, value: handle.context().apparent_value };
+			EvmSubCall { to: call_to, call_data, value: handle.context().apparent_value };
 
 		Self::do_proxy(handle, futurepass, call_type, evm_subcall)
 	}
