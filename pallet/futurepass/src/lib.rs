@@ -57,7 +57,11 @@ pub use weights::WeightInfo;
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
 pub trait ProxyProvider<T: Config> {
-	fn exists(futurepass: &T::AccountId, delegate: &T::AccountId, proxy_type: Option<T::ProxyType>) -> bool;
+	fn exists(
+		futurepass: &T::AccountId,
+		delegate: &T::AccountId,
+		proxy_type: Option<T::ProxyType>,
+	) -> bool;
 	fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)>;
 	fn add_delegate(
 		funder: &T::AccountId,
@@ -81,8 +85,8 @@ pub trait ProxyProvider<T: Config> {
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::traits::InstanceFilter;
 	use super::*;
+	use frame_support::traits::InstanceFilter;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
@@ -115,12 +119,12 @@ pub mod pallet {
 		///
 		/// IMPORTANT: `Default` must be provided and MUST BE the the *most permissive* value.
 		type ProxyType: Parameter
-		+ Member
-		+ Ord
-		+ PartialOrd
-		+ InstanceFilter<<Self as Config>::Call>
-		+ Default
-		+ MaxEncodedLen;
+			+ Member
+			+ Ord
+			+ PartialOrd
+			+ InstanceFilter<<Self as Config>::Call>
+			+ Default
+			+ MaxEncodedLen;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
@@ -239,7 +243,10 @@ pub mod pallet {
 
 			// maybe we can check here if caller has sufficient permissions to add the other
 			// delegate?
-			ensure!(T::Proxy::exists(&futurepass, &owner, Some(proxy_type.clone())), Error::<T>::DelegateNotRegistered);
+			ensure!(
+				T::Proxy::exists(&futurepass, &owner, Some(proxy_type.clone())),
+				Error::<T>::DelegateNotRegistered
+			);
 
 			T::Proxy::add_delegate(&owner, &futurepass, &delegate, &proxy_type)?;
 			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });
@@ -277,7 +284,10 @@ pub mod pallet {
 			ensure!(is_owner || caller == delegate, Error::<T>::PermissionDenied);
 
 			// Check if the delegate is registered with the futurepass
-			ensure!(T::Proxy::exists(&futurepass, &delegate, Some(proxy_type.clone())), Error::<T>::DelegateNotRegistered);
+			ensure!(
+				T::Proxy::exists(&futurepass, &delegate, Some(proxy_type.clone())),
+				Error::<T>::DelegateNotRegistered
+			);
 
 			// Remove the delegate from the futurepass
 			T::Proxy::remove_delegate(&caller, &futurepass, &delegate, &proxy_type)?;
@@ -320,7 +330,8 @@ pub mod pallet {
 				T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0, &delegate.1)?;
 			}
 
-			// Add the current owner as a proxy delegate with most permissive type. i.e T::ProxyType::default()
+			// Add the current owner as a proxy delegate with most permissive type. i.e
+			// T::ProxyType::default()
 			T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
 
 			// Set the new owner as the owner of the futurepass
