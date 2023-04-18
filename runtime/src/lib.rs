@@ -457,8 +457,7 @@ parameter_types! {
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	/// % threshold to emit event TicketSequenceThresholdReached
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
-	pub const ProcessXRPTransactionLimit: u32 = 1_000_000;
-	pub const SettledXRPTransactionDetailsLimit: u32 = 1_000_000;
+	pub const XRPTransactionLimit: u32 = 1_000_000;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -472,8 +471,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
-	type ProcessXRPTransactionLimit = ProcessXRPTransactionLimit;
-	type SettledXRPTransactionDetailsLimit = SettledXRPTransactionDetailsLimit;
+	type XRPTransactionLimit = XRPTransactionLimit;
 }
 
 parameter_types! {

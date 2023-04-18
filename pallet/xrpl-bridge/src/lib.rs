@@ -105,10 +105,10 @@ pub mod pallet {
 		/// Threshold to emit event TicketSequenceThresholdReached
 		type TicketSequenceThreshold: Get<Percent>;
 
-		/// TODO
-		type ProcessXRPTransactionLimit: Get<u32>;
-		/// TODO
-		type SettledXRPTransactionDetailsLimit: Get<u32>;
+		/// Represents the maximum number of XRPL transactions that can be stored and processed in a
+		/// single block in the temporary storage and the maximum number of XRPL transactions that
+		/// can be stored in the settled transaction details storage for each block.
+		type XRPTransactionLimit: Get<u32>;
 	}
 
 	#[pallet::error]
@@ -131,6 +131,8 @@ pub mod pallet {
 		NextTicketSequenceParamsInvalid,
 		/// The TicketSequenceParams is invalid
 		TicketSequenceParamsInvalid,
+		/// Cannot process more transactions at that block
+		CannotProcessMoreTransactionsAtThatBlock,
 	}
 
 	#[pallet::event]
@@ -190,12 +192,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
-	pub type ProcessXRPTransaction<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::BlockNumber,
-		BoundedVec<XrplTxHash, T::ProcessXRPTransactionLimit>,
-	>;
+	pub type ProcessXRPTransaction<T: Config> =
+		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
@@ -207,12 +205,8 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
 	/// Settled xrp transactions stored as history for a specific period
-	pub type SettledXRPTransactionDetails<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::BlockNumber,
-		BoundedVec<XrplTxHash, T::SettledXRPTransactionDetailsLimit>,
-	>;
+	pub type SettledXRPTransactionDetails<T: Config> =
+		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -493,12 +487,10 @@ impl<T: Config> Pallet<T> {
 
 			let clear_block_number =
 				<frame_system::Pallet<T>>::block_number() + T::ClearTxPeriod::get().into();
-			/// TODO
 			<SettledXRPTransactionDetails<T>>::try_append(
 				&clear_block_number,
 				transaction_hash.clone(),
-			)
-			.unwrap();
+			).expect("Should now happen since both ProcessXRPTransaction and SettledXRPTransactionDetails have the same limit");
 			writes += 2;
 			reads += 2;
 			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
@@ -542,8 +534,9 @@ impl<T: Config> Pallet<T> {
 	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResult {
 		let process_block_number =
 			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
-		/// TODO
-		ProcessXRPTransaction::<T>::try_append(&process_block_number, transaction_hash).unwrap();
+		ProcessXRPTransaction::<T>::try_append(&process_block_number, transaction_hash)
+			.map_err(|_| Error::<T>::CannotProcessMoreTransactionsAtThatBlock)?;
+
 		Ok(())
 	}
 
