@@ -108,11 +108,11 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
   "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
 
   "function futurepassOf(address owner) external view returns (address)",
-  "function isDelegate(address futurepass, address delegate) public view returns (bool)",
+  "function isDelegate(address futurepass, address delegate, uint8 proxyType) public view returns (bool)",
   "function create(address owner) external returns (address)",
-  "function registerDelegate(address futurepass, address delegate) external",
-  "function unregisterDelegate(address futurepass, address delegate) external",
-  "function proxyCall(address futurepass, address callTo, uint8 callType, bytes memory callData) external payable",
+  "function registerDelegate(address futurepass, address delegate, uint8 proxyType) external",
+  "function unregisterDelegate(address futurepass, address delegate, uint8 proxyType) external",
+  "function proxyCall(address futurepass, address callTo, uint8 callType, bytes memory callData, uint8 proxyType) external payable",
 ];
 
 /** Functions */
