@@ -49,12 +49,12 @@ impl TryFrom<u8> for CallType {
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	FuturepassOf = "futurepassOf(address)",
+	IsDelegate = "isDelegate(address,address)",
+	IsDelegateWithType = "isDelegateWithType(address,address,uint8)",
 	Create = "create(address)",
 	RegisterDelegate = "registerDelegate(address,address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address,address)",
 	ProxyCall = "proxyCall(address,address,uint8,bytes)",
-	IsDelegate = "isDelegate(address,address)",
-	IsDelegateWithType = "isDelegateWithType(address,address,uint8)",
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
