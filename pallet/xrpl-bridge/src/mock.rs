@@ -162,6 +162,8 @@ parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
+	pub const ProcessXRPTransactionLimit: u32 = 1_000;
+	pub const SettledXRPTransactionDetailsLimit: u32 = 1_000;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
@@ -175,6 +177,8 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = TimestampPallet;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
+	type ProcessXRPTransactionLimit = ProcessXRPTransactionLimit;
+	type SettledXRPTransactionDetailsLimit = SettledXRPTransactionDetailsLimit;
 }
 
 pub struct MockEthyAdapter;

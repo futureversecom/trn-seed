@@ -302,8 +302,8 @@ fn clear_storages() {
 
 		// <ProcessXRPTransaction<Test>>::append(process_block,tx_hash_1);
 		// <ProcessXRPTransaction<Test>>::append(process_block,tx_hash_2);
-		<SettledXRPTransactionDetails<Test>>::append(process_block, tx_hash_1);
-		<SettledXRPTransactionDetails<Test>>::append(process_block, tx_hash_2);
+		<SettledXRPTransactionDetails<Test>>::try_append(process_block, tx_hash_1).unwrap();
+		<SettledXRPTransactionDetails<Test>>::try_append(process_block, tx_hash_2).unwrap();
 
 		let account: AccountId = [1_u8; 20].into();
 		<ProcessXRPTransactionDetails<Test>>::insert(
