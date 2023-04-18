@@ -73,7 +73,6 @@ pub trait ProxyProvider<T: Config> {
 		receiver: &T::AccountId,
 		futurepass: &T::AccountId,
 		delegate: &T::AccountId,
-		proxy_type: &T::ProxyType,
 	) -> DispatchResult;
 	fn proxy_call(
 		caller: OriginFor<T>,
@@ -253,7 +252,6 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `futurepass`: Futurepass account to unregister the delegate from.
-		/// - `proxy_type`: Delegate permission level
 		/// - `delegate`: The delegated account for the futurepass. Note: if caller is futurepass
 		///   holder onwer,
 		/// they can remove any delegate (including themselves); otherwise the caller must be the
@@ -263,7 +261,6 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
-			proxy_type: T::ProxyType,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 
@@ -279,12 +276,12 @@ pub mod pallet {
 
 			// Check if the delegate is registered with the futurepass
 			ensure!(
-				T::Proxy::exists(&futurepass, &delegate, Some(proxy_type.clone())),
+				T::Proxy::exists(&futurepass, &delegate, None),
 				Error::<T>::DelegateNotRegistered
 			);
 
 			// Remove the delegate from the futurepass
-			T::Proxy::remove_delegate(&caller, &futurepass, &delegate, &proxy_type)?;
+			T::Proxy::remove_delegate(&caller, &futurepass, &delegate)?;
 
 			// If the caller is the owner of the futurepass, remove the ownership
 			// if is_owner && caller == delegate { // TODO: validate whether we cant this
@@ -321,7 +318,7 @@ pub mod pallet {
 			// Remove all proxy delegates from the current futurepass
 			let delegates = T::Proxy::delegates(&futurepass);
 			for delegate in delegates.iter() {
-				T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0, &delegate.1)?;
+				T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
 			}
 
 			// Add the current owner as a proxy delegate with most permissive type. i.e

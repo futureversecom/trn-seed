@@ -518,15 +518,15 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		receiver: &AccountId,
 		futurepass: &AccountId,
 		delegate: &AccountId,
-		proxy_type: &ProxyType,
 	) -> DispatchResult {
+		let proxy_def = pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, None)?;
 		// get deposits before proxy removal (value gets mutated in removal)
 		let (_, pre_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 
 		let result = pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(
 			futurepass,
 			*delegate,
-			*proxy_type,
+			proxy_def.proxy_type,
 			0,
 		);
 		if result.is_ok() {

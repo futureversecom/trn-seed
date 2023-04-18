@@ -51,7 +51,7 @@ pub enum Action {
 	FuturepassOf = "futurepassOf(address)",
 	Create = "create(address)",
 	RegisterDelegate = "registerDelegate(address,address,uint8)",
-	UnRegisterDelegate = "unregisterDelegate(address,address,uint8)",
+	UnRegisterDelegate = "unregisterDelegate(address,address)",
 	ProxyCall = "proxyCall(address,address,uint8,bytes)",
 	IsDelegate = "isDelegate(address,address)",
 	IsDelegateWithType = "isDelegateWithType(address,address,uint8)",
@@ -279,15 +279,9 @@ where
 
 	fn unregister_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(2, 32)?;
-		read_args!( handle, { futurepass: Address, delegate: Address, proxy_type: u8});
+		read_args!( handle, { futurepass: Address, delegate: Address });
 		let futurepass: H160 = futurepass.into();
 		let delegate: H160 = delegate.into();
-		let proxy_type = <Runtime as pallet_futurepass::Config>::ProxyType::decode(
-			&mut proxy_type.to_le_bytes().as_slice(),
-		)
-		.map_err(|_| {
-			RevertReason::custom("Failed decoding value to ProxyType").in_field("proxyType")
-		})?;
 		let caller = handle.context().caller;
 
 		//TODO(surangap):
@@ -301,7 +295,6 @@ where
 			pallet_futurepass::Call::<Runtime>::unregister_delegate {
 				futurepass: futurepass.into(),
 				delegate: delegate.into(),
-				proxy_type,
 			},
 		)?;
 

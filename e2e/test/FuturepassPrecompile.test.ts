@@ -188,7 +188,7 @@ describe("Futurepass Precompile", function () {
     await tx.wait();
 
     // unregister delegate as owner
-    tx = await futurepassProxy.connect(owner).unregisterDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
+    tx = await futurepassProxy.connect(owner).unregisterDelegate(futurepass, delegate.address);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateUnregistered");
     expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
@@ -217,7 +217,7 @@ describe("Futurepass Precompile", function () {
     await fundEOA(alithSigner, delegate.address);
 
     // unregister delegate as delegate
-    tx = await futurepassProxy.connect(delegate).unregisterDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
+    tx = await futurepassProxy.connect(delegate).unregisterDelegate(futurepass, delegate.address);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateUnregistered");
     expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
