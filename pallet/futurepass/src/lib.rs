@@ -79,7 +79,6 @@ pub trait ProxyProvider<T: Config> {
 		caller: OriginFor<T>,
 		futurepass: T::AccountId,
 		call: <T as Config>::Call,
-		proxy_type: T::ProxyType,
 	) -> DispatchResult;
 }
 
@@ -345,17 +344,15 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `futurepass`: The Futurepass account though which the call is dispatched
-		/// - `proxy_type`: Delegate permission level
 		/// - `call`: The Call that needs to be dispatched through the Futurepass account
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
 		pub fn proxy_extrinsic(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
 			call: Box<<T as Config>::Call>,
-			proxy_type: T::ProxyType,
 		) -> DispatchResult {
 			ensure_signed(origin.clone())?;
-			let result = T::Proxy::proxy_call(origin, futurepass, *call, proxy_type);
+			let result = T::Proxy::proxy_call(origin, futurepass, *call);
 			Self::deposit_event(Event::ProxyExecuted { result: result.map(|_| ()).map_err(|e| e) });
 			Ok(())
 		}

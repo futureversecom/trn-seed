@@ -52,7 +52,7 @@ pub enum Action {
 	Create = "create(address)",
 	RegisterDelegate = "registerDelegate(address,address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address,address,uint8)",
-	ProxyCall = "proxyCall(address,address,uint8,uint8,bytes)",
+	ProxyCall = "proxyCall(address,address,uint8,bytes)",
 	IsDelegate = "isDelegate(address,address,uint8)",
 }
 
@@ -301,7 +301,6 @@ where
 		read_args!(handle, {
 			futurepass: Address,
 			callTo: Address,
-			proxy_type: u8,
 			callType: u8,
 			callData: BoundedBytes<GetCallDataLimit>
 		});
@@ -309,23 +308,15 @@ where
 		let evm_subcall =
 			EvmSubCall { to: callTo, call_data: callData, value: handle.context().apparent_value };
 
-		Self::do_proxy(handle, futurepass, proxy_type, call_type, evm_subcall)
+		Self::do_proxy(handle, futurepass, call_type, evm_subcall)
 	}
 
 	fn do_proxy(
 		handle: &mut impl PrecompileHandle,
 		futurepass: Address,
-		proxy_type: u8,
 		call_type: CallType,
 		evm_subcall: EvmSubCall,
 	) -> EvmResult<PrecompileOutput> {
-		let proxy_type = <Runtime as pallet_proxy::Config>::ProxyType::decode(
-			&mut proxy_type.to_le_bytes().as_slice(),
-		)
-		.map_err(|_| {
-			RevertReason::custom("Failed decoding value to ProxyType").in_field("proxyType")
-		})?;
-
 		// Read proxy
 		let futurepass_account_id =
 			Runtime::AddressMapping::into_account_id(futurepass.clone().into());
@@ -335,7 +326,7 @@ where
 		let def = pallet_proxy::Pallet::<Runtime>::find_proxy(
 			&futurepass_account_id,
 			&who,
-			Some(proxy_type),
+			None,
 		)
 		.map_err(|_| RevertReason::custom("Not proxy"))?;
 		frame_support::ensure!(def.delay.is_zero(), revert("Unannounced")); // no delay for futurepass

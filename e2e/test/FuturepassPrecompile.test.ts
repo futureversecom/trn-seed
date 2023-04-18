@@ -243,7 +243,7 @@ describe("Futurepass Precompile", function () {
     // proxy transfer of value from futurepass to recipient
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, recipient.address, PROXY_TYPE.Any, CALL_TYPE.Call, "0x", {
+      .proxyCall(futurepass, recipient.address, CALL_TYPE.Call, "0x", {
         value: ethers.utils.parseEther("15"),
       });
     await tx.wait();
@@ -277,7 +277,7 @@ describe("Futurepass Precompile", function () {
     // note: this is possible since contract has `receive() external payable` function
     await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, futurepassTester.address, PROXY_TYPE.Any, CALL_TYPE.StaticCall, "0x", {
+      .proxyCall(futurepass, futurepassTester.address, CALL_TYPE.StaticCall, "0x", {
         value: ethers.utils.parseEther("15"),
       })
       .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
@@ -286,7 +286,7 @@ describe("Futurepass Precompile", function () {
     // note: this is possible since contract has `receive() external payable` function
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, futurepassTester.address, PROXY_TYPE.Any, CALL_TYPE.Call, "0x", {
+      .proxyCall(futurepass, futurepassTester.address, CALL_TYPE.Call, "0x", {
         value: ethers.utils.parseEther("15"),
       });
     await tx.wait();
@@ -301,7 +301,7 @@ describe("Futurepass Precompile", function () {
     const fnCallData = futurepassTester.interface.encodeFunctionData("deposit");
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, futurepassTester.address, PROXY_TYPE.Any, CALL_TYPE.Call, fnCallData, {
+      .proxyCall(futurepass, futurepassTester.address, CALL_TYPE.Call, fnCallData, {
         value: ethers.utils.parseEther("5"),
       });
     await tx.wait();
@@ -343,7 +343,7 @@ describe("Futurepass Precompile", function () {
     const transferCallData = xrpERC20Precompile.interface.encodeFunctionData("transfer", [recipient.address, 500_000]);
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, xrpERC20Precompile.address, PROXY_TYPE.Any, CALL_TYPE.Call, transferCallData);
+      .proxyCall(futurepass, xrpERC20Precompile.address, CALL_TYPE.Call, transferCallData);
     await tx.wait();
 
     // validate proxy based funds transfer
@@ -393,13 +393,13 @@ describe("Futurepass Precompile", function () {
     // proxy transfer of token from futurepass to contract fails since this is staticcall
     await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, erc721.address, PROXY_TYPE.Any, CALL_TYPE.StaticCall, transferFromCallData)
+      .proxyCall(futurepass, erc721.address, CALL_TYPE.StaticCall, transferFromCallData)
       .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
 
     // proxy transfer of value from futurepass to contract succeeds since this is call
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, erc721.address, PROXY_TYPE.Any, CALL_TYPE.Call, transferFromCallData);
+      .proxyCall(futurepass, erc721.address, CALL_TYPE.Call, transferFromCallData);
     await tx.wait();
 
     // validate proxy based ERC721 token transfers
@@ -458,7 +458,7 @@ describe("Futurepass Precompile", function () {
     ]);
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, erc1155.address, PROXY_TYPE.Any, CALL_TYPE.Call, safeTransferFromCallData);
+      .proxyCall(futurepass, erc1155.address, CALL_TYPE.Call, safeTransferFromCallData);
     await tx.wait();
 
     // validate proxy based ERC1155 token transfers
@@ -488,7 +488,7 @@ describe("Futurepass Precompile", function () {
     // call the proxyCall function with the futurepass address and the encoded CREATE call data
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, ethers.constants.AddressZero, PROXY_TYPE.Any, CALL_TYPE.Create, erc20Bytecode);
+      .proxyCall(futurepass, ethers.constants.AddressZero, CALL_TYPE.Create, erc20Bytecode);
     const receipt = await tx.wait();
 
     console.warn(receipt);
@@ -532,7 +532,7 @@ describe("Futurepass Precompile", function () {
     // Call the proxyCall function with the futurepass address and the encoded CREATE2 call data
     tx = await futurepassProxy
       .connect(owner)
-      .proxyCall(futurepass, ethers.constants.AddressZero, PROXY_TYPE.Any, CALL_TYPE.Create2, deployCallData);
+      .proxyCall(futurepass, ethers.constants.AddressZero, CALL_TYPE.Create2, deployCallData);
     await tx.wait();
 
     // // Verify that the created contract has the same bytecode as the template contract

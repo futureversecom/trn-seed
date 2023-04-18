@@ -112,7 +112,7 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
   "function create(address owner) external returns (address)",
   "function registerDelegate(address futurepass, address delegate, uint8 proxyType) external",
   "function unregisterDelegate(address futurepass, address delegate, uint8 proxyType) external",
-  "function proxyCall(address futurepass, address callTo, uint8 proxyType, uint8 callType, bytes memory callData) external payable",
+  "function proxyCall(address futurepass, address callTo, uint8 callType, bytes memory callData) external payable",
 ];
 
 /** Functions */
