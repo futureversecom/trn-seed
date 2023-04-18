@@ -394,6 +394,11 @@ impl pallet_nft::Config for Runtime {
 	type Xls20MintRequest = Xls20;
 }
 
+impl pallet_marketplace::Config for Runtime {
+	type Call = Call;
+	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
+}
+
 parameter_types! {
 	pub const MaxTokensPerXls20Mint: u32 = 1000;
 }
@@ -1075,6 +1080,7 @@ construct_runtime! {
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
+		Marketplace: pallet_marketplace::{Pallet, Call} = 44,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
