@@ -71,7 +71,6 @@ mod v2 {
 	use super::*;
 	use frame_support::weights::Weight;
 	use seed_primitives::xrpl::XrplTxHash;
-	use sp_core::H512;
 
 	type BlockNumber<T> = <T as frame_system::Config>::BlockNumber;
 
@@ -190,6 +189,7 @@ mod v2 {
 	mod tests {
 		use super::*;
 		use crate::migrations::tests::new_test_ext;
+		use sp_core::H512;
 
 		fn check_if_storage_is_empty() {
 			assert_eq!(ProcessXRPTransaction::<Runtime>::iter_keys().count(), 0);
