@@ -547,7 +547,6 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		futurepass: AccountId,
 		call: Call,
 	) -> DispatchResult {
-		let proxy_type = ProxyType::Any;
 		let call = pallet_proxy::Call::<Runtime>::proxy {
 			real: futurepass.into(),
 			force_proxy_type: None,

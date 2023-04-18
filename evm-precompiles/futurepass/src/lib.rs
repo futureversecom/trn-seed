@@ -185,9 +185,9 @@ where
 		let proxy_type = <Runtime as pallet_proxy::Config>::ProxyType::decode(
 			&mut proxy_type.to_le_bytes().as_slice(),
 		)
-			.map_err(|_| {
-				RevertReason::custom("Failed decoding value to ProxyType").in_field("proxyType")
-			})?;
+		.map_err(|_| {
+			RevertReason::custom("Failed decoding value to ProxyType").in_field("proxyType")
+		})?;
 
 		// Manually record gas
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -336,12 +336,8 @@ where
 		let who = Runtime::AddressMapping::into_account_id(handle.context().caller);
 		// find proxy
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let def = pallet_proxy::Pallet::<Runtime>::find_proxy(
-			&futurepass_account_id,
-			&who,
-			None,
-		)
-		.map_err(|_| RevertReason::custom("Not proxy"))?;
+		let def = pallet_proxy::Pallet::<Runtime>::find_proxy(&futurepass_account_id, &who, None)
+			.map_err(|_| RevertReason::custom("Not proxy"))?;
 		frame_support::ensure!(def.delay.is_zero(), revert("Unannounced")); // no delay for futurepass
 
 		// Read subcall recipient code

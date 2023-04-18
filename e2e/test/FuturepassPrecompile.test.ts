@@ -130,9 +130,9 @@ describe("Futurepass Precompile", function () {
 
     // registering with proxytype other than PROXY_TYPE.Any fails
     await futurepassProxy
-        .connect(owner)
-        .registerDelegate(futurepass, delegate.address, PROXY_TYPE.NonTransfer)
-        .catch((err: any) => expect(err.message).contains("PermissionDenied"));
+      .connect(owner)
+      .registerDelegate(futurepass, delegate.address, PROXY_TYPE.NonTransfer)
+      .catch((err: any) => expect(err.message).contains("PermissionDenied"));
 
     tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
     const receipt = await tx.wait();
@@ -247,11 +247,9 @@ describe("Futurepass Precompile", function () {
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(0);
 
     // proxy transfer of value from futurepass to recipient
-    tx = await futurepassProxy
-      .connect(owner)
-      .proxyCall(futurepass, recipient.address, CALL_TYPE.Call, "0x", {
-        value: ethers.utils.parseEther("15"),
-      });
+    tx = await futurepassProxy.connect(owner).proxyCall(futurepass, recipient.address, CALL_TYPE.Call, "0x", {
+      value: ethers.utils.parseEther("15"),
+    });
     await tx.wait();
 
     // validate proxy based value transfer to recipient
@@ -290,11 +288,9 @@ describe("Futurepass Precompile", function () {
 
     // proxy transfer of value from futurepass to contract succeeds if call
     // note: this is possible since contract has `receive() external payable` function
-    tx = await futurepassProxy
-      .connect(owner)
-      .proxyCall(futurepass, futurepassTester.address, CALL_TYPE.Call, "0x", {
-        value: ethers.utils.parseEther("15"),
-      });
+    tx = await futurepassProxy.connect(owner).proxyCall(futurepass, futurepassTester.address, CALL_TYPE.Call, "0x", {
+      value: ethers.utils.parseEther("15"),
+    });
     await tx.wait();
 
     // validate proxy based value transfer to contract payable receive function
