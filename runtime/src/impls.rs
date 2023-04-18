@@ -644,6 +644,7 @@ where
 		+ pallet_futurepass::Config
 		+ pallet_fee_proxy::Config,
 	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
+	ProxyType: From<<T as pallet_futurepass::Config>::ProxyType>
 {
 	type Balance =
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -659,10 +660,10 @@ where
 		let mut who = who;
 		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
 		// of the FP(futurepass), we switch the gas payer to the FP
-		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
+		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, call, proxy_type }) =
 			call.is_sub_type()
 		{
-			if ProxyPalletProvider::exists(futurepass, who) {
+			if ProxyPalletProvider::exists(futurepass, who, Some(proxy_type.clone().into())) {
 				who = futurepass;
 			}
 		}
