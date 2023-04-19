@@ -57,7 +57,7 @@ pub enum OriginChain {
 
 #[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
 pub enum TokenOwnershipError {
-	MaximumTokensLimitExceeded,
+	TokenLimitExceeded,
 }
 
 /// Struct that represents the owned serial numbers within a collection of an individual account
@@ -92,7 +92,7 @@ where
 	pub fn add(&mut self, serial_number: SerialNumber) -> Result<(), TokenOwnershipError> {
 		self.owned_serials
 			.try_push(serial_number)
-			.map_err(|_| TokenOwnershipError::MaximumTokensLimitExceeded)?;
+			.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
 		self.owned_serials.sort();
 		Ok(())
 	}
@@ -211,7 +211,7 @@ where
 			let new_token_ownership = TokenOwnership::new(token_owner.clone(), serial_numbers);
 			self.owned_tokens
 				.try_push(new_token_ownership)
-				.map_err(|_| TokenOwnershipError::MaximumTokensLimitExceeded)?;
+				.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
 		}
 		Ok(())
 	}
