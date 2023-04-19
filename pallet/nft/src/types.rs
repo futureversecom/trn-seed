@@ -14,14 +14,14 @@
 use crate::Config;
 
 use codec::{Decode, Encode};
-use frame_support::traits::Get;
+use frame_support::{traits::Get, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{
 	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, SerialNumber, TokenCount,
 	TokenId,
 };
 use sp_runtime::{BoundedVec, PerThing, Permill};
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 
 /// The max. number of entitlements any royalties schedule can have
 /// just a sensible upper bound
@@ -56,11 +56,12 @@ pub enum OriginChain {
 }
 
 /// Struct that represents the owned serial numbers within a collection of an individual account
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, Clone, TypeInfo)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
 pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
 where
-	AccountId: PartialEq + Clone,
+	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
 {
 	pub owner: AccountId,
@@ -69,7 +70,7 @@ where
 
 impl<AccountId, MaxTokensPerCollection> TokenOwnership<AccountId, MaxTokensPerCollection>
 where
-	AccountId: PartialEq + Clone,
+	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
 {
 	/// Creates a new TokenOwnership with the given owner and serial numbers
@@ -111,11 +112,12 @@ impl Default for CrossChainCompatibility {
 }
 
 /// Information related to a specific collection
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, Clone, Encode, Decode, TypeInfo)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
 pub struct CollectionInformation<AccountId, MaxTokensPerCollection>
 where
-	AccountId: PartialEq + Clone,
+	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
 {
 	/// The owner of the collection
@@ -143,7 +145,7 @@ where
 
 impl<AccountId, MaxTokensPerCollection> CollectionInformation<AccountId, MaxTokensPerCollection>
 where
-	AccountId: PartialEq + Clone,
+	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
 {
 	/// Check whether a token has been minted in a collection
