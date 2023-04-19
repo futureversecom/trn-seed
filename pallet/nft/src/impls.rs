@@ -9,8 +9,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use core::f32::consts::E;
-
 use crate::{traits::NFTExt, *};
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use frame_system::RawOrigin;
@@ -205,7 +203,7 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-				let _ = Self::do_mint(collection_id, collection_info, owner, &serial_numbers);
+				let _ = Self::do_mint(collection_id, collection_info, &owner, &serial_numbers);
 
 				// throw event, listing all serial numbers minted from bridging
 				// SerialNumbers will never exceed the limit denoted by nft_peg::MaxTokensPerMint
@@ -214,7 +212,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::BridgedMint {
 					collection_id,
 					serial_numbers: serial_numbers.clone(),
-					owner: *owner,
+					owner: owner.clone(),
 				});
 
 				T::DbWeight::get().reads_writes(1, 1)
