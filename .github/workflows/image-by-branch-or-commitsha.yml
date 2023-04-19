@@ -17,7 +17,7 @@ env:
 
 jobs:
   build-image-by-branch-or-commitsha:
-    runs-on: [ seed-builder, ubuntu-latest ]
+    runs-on: [seed-builder]
     permissions:
       contents: read
       packages: write
