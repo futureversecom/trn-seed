@@ -20,6 +20,7 @@ use frame_support::{
 use frame_system::{limits, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
 use precompile_utils::{Address, ErcIdConversion};
+use seed_pallet_common::*;
 use seed_primitives::{AccountId, AssetId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
@@ -49,8 +50,11 @@ frame_support::construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Futurepass: pallet_futurepass,
 	}
 );
+
+impl_futurepass_config!(Test);
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
@@ -295,7 +299,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 /// type alias for runtime configured FeePreferencesRunner
-pub type Runner = FeePreferencesRunner<Test, Test>;
+pub type Runner = FeePreferencesRunner<Test, Test, Futurepass>;
 
 #[derive(Default)]
 pub struct TestExt;
