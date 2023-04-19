@@ -163,7 +163,82 @@ pub mod v4 {
 		Ok(())
 	}
 
+	impl<T: pallet_nft::Config> OldCollectionInformation<T> {
+		pub fn transform(&self) -> Option<CollectionInformation<T>> {
+			let Ok(metadata_scheme) = self.transform_metadata() else {
+				return None
+			};
+
+			Some(CollectionInformation {
+				owner: self.owner.clone(),
+				name: self.name.clone(),
+				metadata_scheme,
+				royalties_schedule: self.royalties_schedule.clone(),
+				max_issuance: self.max_issuance.clone(),
+				origin_chain: self.origin_chain.clone(),
+				next_serial_number: self.next_serial_number.clone(),
+				collection_issuance: self.collection_issuance.clone(),
+				cross_chain_compatibility: self.cross_chain_compatibility.clone(),
+				owned_tokens: self.owned_tokens.clone(),
+			})
+		}
+
+		fn transform_metadata(&self) -> Result<MetadataScheme, ()> {
+			use OldMetadataScheme::*;
+			let prefix_sufix = |x: &Vec<u8>, mut prefix: Vec<u8>| -> Vec<u8> {
+				prefix.extend(x);
+				if prefix.last() != Some(&b'/') {
+					prefix.push(b'/');
+				}
+				prefix
+			};
+
+			let metadata_scheme_res = match &self.metadata_scheme {
+				Https(x) => MetadataScheme::try_from(prefix_sufix(x, "https://".into()).as_slice()),
+				Http(x) => MetadataScheme::try_from(prefix_sufix(x, "http://".into()).as_slice()),
+				Ipfs(x) => MetadataScheme::try_from(prefix_sufix(x, "ipfs://".into()).as_slice()),
+				Ethereum(x) => {
+					let mut h160_addr = sp_std::Writer::default();
+					if write!(&mut h160_addr, "{:?}", x).is_err() {
+						return Err(())
+					}
+					MetadataScheme::try_from(
+						prefix_sufix(h160_addr.inner(), "ethereum://".into()).as_slice(),
+					)
+				},
+			};
+
+			metadata_scheme_res.map_err(|_| ())
+		}
+	}
+
 	pub fn migrate<T: pallet_nft::Config>() -> Weight {
+		log::info!(target: "Nft", "Translating CollectionInfo...");
+
+		// Get all values and keys
+		let key_values: Vec<(u32, OldCollectionInformation<T>)> =
+			CollectionInfo::<T>::iter().collect();
+		let key_count = key_values.len();
+
+		// Kill Storage
+		_ = CollectionInfo::<T>::clear(u32::MAX, None);
+
+		// Transform values
+		let new_key_values = key_values.iter().filter_map(|(key, old)| {
+			let Some(new_value) = old.transform() else {
+				return None
+			};
+			Some((key, new_value))
+		});
+
+		// Add translated values
+		for (key, value) in new_key_values {
+			pallet_nft::CollectionInfo::<T>::insert(key, value);
+		}
+		log::info!(target: "Nft", "...Successfully translated CollectionInfo");
+
+		<Runtime as frame_system::Config>::DbWeight::get().writes(key_count as u64)
+	}
 		log::info!(target: "Migration", "Nft: Translating CollectionInfo...");
 
 		// Iterate all key-value pairs and change them accordingly
