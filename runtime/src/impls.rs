@@ -47,7 +47,7 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, Balance, Index, Signature};
+use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
@@ -641,8 +641,18 @@ where
 	T: frame_system::Config<AccountId = AccountId>
 		+ pallet_transaction_payment::Config
 		+ pallet_futurepass::Config
-		+ pallet_fee_proxy::Config,
+		+ pallet_fee_proxy::Config
+		+ pallet_dex::Config
+		+ pallet_evm::Config
+		+ pallet_assets_ext::Config,
 	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
+	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
+	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
+	<T as pallet_fee_proxy::Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
+	Balance: From<
+		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance,
+	>,
 {
 	type Balance =
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -665,8 +675,7 @@ where
 				who = futurepass;
 			}
 		}
-
-		<<T as pallet_fee_proxy::Config>::OnChargeTransaction>::withdraw_fee(
+		<pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
 			who, call, info, fee, tip,
 		)
 	}
