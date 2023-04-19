@@ -54,9 +54,10 @@ pub mod pallet {
 		type MaxAddresses: Get<u32>;
 		type MaxTokensPerMint: Get<u32>;
 		type EthBridge: EthereumBridge;
-
 		// Defines the weight info trait.
 		type NftPegWeightInfo: WeightInfo;
+		type MaxCollectionsPerWithdraw: Get<u32>;
+		type MaxSerialsPerWithdraw: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -112,8 +113,11 @@ pub mod pallet {
 		/// An ERC721 withdraw was made
 		Erc721Withdraw {
 			origin: T::AccountId,
-			collection_ids: Vec<CollectionUuid>,
-			token_ids: Vec<Vec<SerialNumber>>,
+			collection_ids: BoundedVec<CollectionUuid, T::MaxCollectionsPerWithdraw>,
+			serial_numbers: BoundedVec<
+				BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
+				T::MaxCollectionsPerWithdraw,
+			>,
 			destination: H160,
 		},
 		/// The NFT-peg contract address was set
@@ -137,12 +141,15 @@ pub mod pallet {
 		#[transactional]
 		pub fn withdraw(
 			origin: OriginFor<T>,
-			collection_ids: Vec<CollectionUuid>,
-			token_ids: Vec<Vec<SerialNumber>>,
+			collection_ids: BoundedVec<CollectionUuid, T::MaxCollectionsPerWithdraw>,
+			serial_numbers: BoundedVec<
+				BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
+				T::MaxCollectionsPerWithdraw,
+			>,
 			destination: H160,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_withdrawal(who, collection_ids, token_ids, destination)?;
+			Self::do_withdrawal(who, collection_ids, serial_numbers, destination)?;
 			Ok(())
 		}
 	}
@@ -318,15 +325,18 @@ where
 	// Accepts one or more Ethereum originated ERC721 tokens to be sent back over the bridge
 	pub fn do_withdrawal(
 		who: T::AccountId,
-		collection_ids: Vec<CollectionUuid>,
-		token_ids: Vec<Vec<SerialNumber>>,
+		collection_ids: BoundedVec<CollectionUuid, T::MaxCollectionsPerWithdraw>,
+		serial_numbers: BoundedVec<
+			BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
+			T::MaxCollectionsPerWithdraw,
+		>,
 		// Ethereum address to deposit the tokens into
 		destination: H160,
 	) -> Result<u64, DispatchError> {
-		ensure!(collection_ids.len() == token_ids.len(), Error::<T>::TokenListLengthMismatch);
+		ensure!(collection_ids.len() == serial_numbers.len(), Error::<T>::TokenListLengthMismatch);
 
 		let mut source_collection_ids = vec![];
-		let mut source_token_ids = vec![];
+		let mut source_serial_numbers = vec![];
 
 		for (idx, collection_id) in (&collection_ids).into_iter().enumerate() {
 			if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
@@ -340,13 +350,13 @@ where
 			}
 
 			// Allocate space
-			source_token_ids.push(vec![]);
+			source_serial_numbers.push(vec![]);
 
 			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
 			// somewhat bounded as well, but there should be a way to reduce this complexity
-			for token_id in &token_ids[idx] {
-				pallet_nft::Pallet::<T>::do_burn(&who, collection_id.clone(), *token_id)?;
-				source_token_ids[idx].push(Token::Uint(U256::from(token_id.clone())))
+			for serial_number in &serial_numbers[idx] {
+				pallet_nft::Pallet::<T>::do_burn(&who, collection_id.clone(), *serial_number)?;
+				source_serial_numbers[idx].push(Token::Uint(U256::from(serial_number.clone())))
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
@@ -356,11 +366,12 @@ where
 		}
 
 		let source = <T as pallet::Config>::PalletId::get().into_account_truncating();
-		let source_token_ids = source_token_ids.into_iter().map(|k| Token::Array(k)).collect();
+		let source_serial_numbers =
+			source_serial_numbers.into_iter().map(|k| Token::Array(k)).collect();
 
 		let message = ethabi::encode(&[
 			Token::Array(source_collection_ids),
-			Token::Array(source_token_ids),
+			Token::Array(source_serial_numbers),
 			Token::Address(destination),
 		]);
 
@@ -370,7 +381,7 @@ where
 		Self::deposit_event(Event::<T>::Erc721Withdraw {
 			origin: who,
 			collection_ids,
-			token_ids,
+			serial_numbers,
 			destination,
 		});
 		Ok(event_proof_id)

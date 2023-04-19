@@ -22,7 +22,7 @@ use precompile_utils::{
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber};
 use sp_core::{H160, U256};
-use sp_runtime::traits::SaturatedConversion;
+use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the Erc20Withdrawal log, which is the Keccak of the Log signature.
@@ -184,7 +184,7 @@ where
 		let beneficiary: H160 = beneficiary.into();
 
 		// Parse collection_ids
-		let collection_ids = collection_addresses
+		let collection_ids_unbounded = collection_addresses
 			.clone()
 			.into_iter()
 			.map(|address| {
@@ -198,22 +198,27 @@ where
 			})
 			.collect::<Result<Vec<CollectionUuid>, PrecompileFailure>>()?;
 
+		// Bound collection_ids
+		let collection_ids: BoundedVec<CollectionUuid, Runtime::MaxCollectionsPerWithdraw> =
+			BoundedVec::try_from(collection_ids_unbounded)
+				.or_else(|_| Err(revert("PEG: Too many collections")))?;
+
 		// Parse serial_numbers
-		let serial_numbers: Vec<Vec<SerialNumber>> = serial_numbers
-			.into_iter()
-			.map(|serial_number| {
-				serial_number
-					.into_iter()
-					.map(|serial_number| {
-						if serial_number > SerialNumber::MAX.into() {
-							return Err(revert("PEG: Expected serial_number <= 2^128").into())
-						}
-						let serial_number: SerialNumber = serial_number.saturated_into();
-						Ok(serial_number)
-					})
-					.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()
-			})
-			.collect::<Result<Vec<Vec<SerialNumber>>, PrecompileFailure>>()?;
+		let serials_unbounded: Vec<BoundedVec<SerialNumber, Runtime::MaxSerialsPerWithdraw>> =
+			serial_numbers
+				.into_iter()
+				.map(|serial_numbers| Self::bound_serial_numbers(serial_numbers))
+				.collect::<Result<
+					Vec<BoundedVec<SerialNumber, Runtime::MaxSerialsPerWithdraw>>,
+					PrecompileFailure,
+				>>()?;
+
+		// Bound outer serial vec
+		let serial_numbers: BoundedVec<
+			BoundedVec<SerialNumber, Runtime::MaxSerialsPerWithdraw>,
+			Runtime::MaxCollectionsPerWithdraw,
+		> = BoundedVec::try_from(serials_unbounded)
+			.or_else(|_| Err(revert("PEG: Too many collections")))?;
 
 		// Get caller
 		let caller = Runtime::AccountId::from(handle.context().caller);
@@ -249,12 +254,31 @@ where
 				SELECTOR_LOG_ERC721_WITHDRAWAL,
 				beneficiary,
 				H160::from(collection_address),
-				EvmDataWriter::new().write(serial_numbers).build(),
+				EvmDataWriter::new().write(serial_numbers.into_inner()).build(),
 			)
 			.record(handle)?;
 		}
 
 		let event_proof_id = maybe_event_proof_id.unwrap();
 		Ok(succeed(EvmDataWriter::new().write(U256::from(event_proof_id)).build()))
+	}
+
+	// Convert a vector of U256 serial numbers into a bounded vector of serial numbers
+	fn bound_serial_numbers(
+		serial_numbers: Vec<U256>,
+	) -> Result<BoundedVec<SerialNumber, Runtime::MaxSerialsPerWithdraw>, PrecompileFailure> {
+		let serials_unbounded = serial_numbers
+			.into_iter()
+			.map(|serial_number| {
+				if serial_number > SerialNumber::MAX.into() {
+					return Err(revert("PEG: Expected serial_number <= 2^128").into())
+				}
+				let serial_number: SerialNumber = serial_number.saturated_into();
+				Ok(serial_number)
+			})
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+
+		BoundedVec::try_from(serials_unbounded)
+			.or_else(|_| Err(revert("PEG: Too many serial numbers").into()))
 	}
 }
