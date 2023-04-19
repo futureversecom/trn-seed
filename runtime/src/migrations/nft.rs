@@ -264,7 +264,7 @@ pub mod v4 {
 				let user_1 = create_account(5);
 				let owner = create_account(123);
 
-				let old_info_ipfs = OldCollectionInformation::<Runtime> {
+				let old_info = OldCollectionInformation::<Runtime> {
 					owner: owner.clone(),
 					name: b"test-collection-1".to_vec(),
 					royalties_schedule: Some(RoyaltiesSchedule {
@@ -279,57 +279,36 @@ pub mod v4 {
 					owned_tokens: BoundedVec::default(),
 				};
 
+				let old_info_ipfs = OldCollectionInformation::<Runtime> {
+					name: b"test-collection-1".to_vec(),
+					metadata_scheme: OldMetadataScheme::Ipfs(b"Test1/".to_vec()),
+					..old_info.clone()
+				};
+
 				CollectionInfo::<Runtime>::insert(1, old_info_ipfs);
 
 				let old_info_https = OldCollectionInformation::<Runtime> {
-					owner: owner.clone(),
 					name: b"test-collection-2".to_vec(),
-					royalties_schedule: Some(RoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
 					metadata_scheme: OldMetadataScheme::Https(b"google.com".to_vec()),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
+					..old_info.clone()
 				};
 
 				CollectionInfo::<Runtime>::insert(2, old_info_https);
 
 				let old_info_http = OldCollectionInformation::<Runtime> {
-					owner: owner.clone(),
 					name: b"test-collection-3".to_vec(),
-					royalties_schedule: Some(RoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
 					metadata_scheme: OldMetadataScheme::Http(b"google.com".to_vec()),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
+					..old_info.clone()
 				};
 
 				CollectionInfo::<Runtime>::insert(3, old_info_http);
 
 				let old_info_ethereum = OldCollectionInformation::<Runtime> {
-					owner: owner.clone(),
 					name: b"test-collection-4".to_vec(),
-					royalties_schedule: Some(RoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
 					metadata_scheme: OldMetadataScheme::Ethereum(H160::from_slice(
 						&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap(),
 					)),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
+					..old_info.clone()
 				};
 
 				CollectionInfo::<Runtime>::insert(4, old_info_ethereum);
@@ -337,18 +316,9 @@ pub mod v4 {
 				// Test if old data length exceeds the limit of BoundedVec in the new MetadataScheme
 				// definition
 				let old_info_with_too_large_data = OldCollectionInformation::<Runtime> {
-					owner: owner.clone(),
 					name: b"test-collection-5".to_vec(),
-					royalties_schedule: Some(RoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
 					metadata_scheme: OldMetadataScheme::Https(vec![0; 200]),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
+					..old_info.clone()
 				};
 
 				CollectionInfo::<Runtime>::insert(5, old_info_with_too_large_data);
@@ -360,7 +330,7 @@ pub mod v4 {
 
 				Upgrade::on_runtime_upgrade();
 
-				let expected_value = CollectionInformation::<Runtime> {
+				let new_info = CollectionInformation::<Runtime> {
 					owner,
 					name: b"test-collection-1".to_vec(),
 					royalties_schedule: Some(RoyaltiesSchedule {
@@ -374,61 +344,40 @@ pub mod v4 {
 					cross_chain_compatibility: CrossChainCompatibility::default(),
 					owned_tokens: BoundedVec::default(),
 				};
+
+				let expected_value = CollectionInformation::<Runtime> {
+					name: b"test-collection-1".to_vec(),
+					metadata_scheme: MetadataScheme::try_from(b"ipfs://Test1/".as_slice()).unwrap(),
+					..new_info.clone()
+				};
 				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(1).unwrap();
 				assert_eq!(expected_value, actual_value);
 
 				let expected_value = CollectionInformation::<Runtime> {
-					owner,
 					name: b"test-collection-2".to_vec(),
-					royalties_schedule: Some(RoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
 					metadata_scheme: MetadataScheme::try_from(b"https://google.com/".as_slice())
 						.unwrap(),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
+					..new_info.clone()
 				};
 				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(2).unwrap();
 				assert_eq!(expected_value, actual_value);
 
 				let expected_value = CollectionInformation::<Runtime> {
-					owner,
 					name: b"test-collection-3".to_vec(),
-					royalties_schedule: Some(RoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
 					metadata_scheme: MetadataScheme::try_from(b"http://google.com/".as_slice())
 						.unwrap(),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
+					..new_info.clone()
 				};
 				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(3).unwrap();
 				assert_eq!(expected_value, actual_value);
 
 				let expected_value = CollectionInformation::<Runtime> {
-					owner,
 					name: b"test-collection-4".to_vec(),
-					royalties_schedule: Some(RoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
 					metadata_scheme: MetadataScheme::try_from(
 						b"ethereum://0xe04cc55ebee1cbce552f250e85c57b70b2e2625b/".as_slice(),
 					)
 					.unwrap(),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
+					..new_info.clone()
 				};
 				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(4).unwrap();
 				assert_eq!(expected_value, actual_value);
