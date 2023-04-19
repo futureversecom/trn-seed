@@ -8,15 +8,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
-
+use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use hex;
 use scale_info::TypeInfo;
 use seed_primitives::AssetId;
 use sp_arithmetic::traits::SaturatedConversion;
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_runtime::{ArithmeticError, DispatchError, RuntimeDebug};
-
+use sp_std::{marker::PhantomData, prelude::*};
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(
@@ -35,6 +35,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct TradingPair(pub AssetId, pub AssetId);
 
+/// A DEX exchange address generator implementation
+pub struct ExchangeAddressGenerator<T>(PhantomData<T>);
+
 impl From<(AssetId, AssetId)> for TradingPair {
 	fn from(asset_ids: (AssetId, AssetId)) -> Self {
 		if asset_ids.0 > asset_ids.1 {
@@ -42,6 +45,37 @@ impl From<(AssetId, AssetId)> for TradingPair {
 		} else {
 			TradingPair(asset_ids.0, asset_ids.1)
 		}
+	}
+}
+
+/// A function that generates an `AccountId` for a DEX exchange / (asset_0, asset_1) pair
+pub trait ExchangeAddressFor {
+	/// The Account Id type
+	type AccountId;
+	/// The Asset Id type
+	type AssetId;
+	/// Create and exchange address given `asset_id`
+	fn exchange_address_for(asset_id: AssetId, asset_id: AssetId) -> Self::AccountId;
+}
+
+
+impl<T: Config> ExchangeAddressFor for ExchangeAddressGenerator<T>
+where
+	T::AccountId: From<H160>,
+	T::AssetId: Into<u64>,
+{
+	type AccountId = T::AccountId;
+	type AssetId = T::AssetId;
+
+	/// Generates a unique, deterministic exchange address for the given `asset_id_0`, `asset_id_1`
+	/// pair
+	fn exchange_address_for(asset_id_0: AssetId, asset_id_1: AssetId) -> T::AccountId {
+		let mut buf = Vec::<u8>::with_capacity(160);
+		buf.extend_from_slice(b"dex::address");
+		buf.extend_from_slice(&asset_id_0.to_le_bytes());
+		buf.extend_from_slice(&asset_id_1.to_le_bytes());
+		let data: H160 = H160::from_slice(buf.as_slice());
+		T::AccountId::from(data)
 	}
 }
 
