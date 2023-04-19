@@ -10,7 +10,7 @@ interface FuturePass {
     
     function futurepassOf(address owner) external view returns (address);
     function isDelegate(address futurepass, address delegate) external returns (bool);
-    function isDelegateWithType(address futurepass, address delegate, uint8 proxyType) external returns (bool);
+    function delegateType(address futurepass, address delegate) external returns (uint8);
     function create(address owner) external returns (address);
     function registerDelegate(address futurepass, address delegate, uint8 proxyType) external;
     function unregisterDelegate(address futurepass, address delegate) external;

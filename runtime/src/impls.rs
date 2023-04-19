@@ -573,15 +573,40 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	TypeInfo,
 )]
 pub enum ProxyType {
-	Any,
-	NonTransfer,
-	Governance,
-	Staking,
+	Any = 0,
+	NonTransfer = 1,
+	Governance = 2,
+	Staking = 3,
 }
 
 impl Default for ProxyType {
 	fn default() -> Self {
 		Self::Any
+	}
+}
+
+impl TryFrom<u8> for ProxyType {
+	type Error = &'static str;
+	fn try_from(value: u8) -> Result<Self, Self::Error> {
+		match value {
+			0 => Ok(ProxyType::Any),
+			1 => Ok(ProxyType::NonTransfer),
+			2 => Ok(ProxyType::Governance),
+			3 => Ok(ProxyType::Staking),
+			_ => Err("Invalid value for ProxyType"),
+		}
+	}
+}
+
+impl TryInto<u8> for ProxyType {
+	type Error = &'static str;
+	fn try_into(self) -> Result<u8, Self::Error> {
+		match self {
+			ProxyType::Any => Ok(1),
+			ProxyType::NonTransfer => Ok(2),
+			ProxyType::Governance => Ok(3),
+			ProxyType::Staking => Ok(4),
+		}
 	}
 }
 

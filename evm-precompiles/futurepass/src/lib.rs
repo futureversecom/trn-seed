@@ -50,7 +50,7 @@ impl TryFrom<u8> for CallType {
 pub enum Action {
 	FuturepassOf = "futurepassOf(address)",
 	IsDelegate = "isDelegate(address,address)",
-	IsDelegateWithType = "isDelegateWithType(address,address,uint8)",
+	DelegateType = "delegateType(address,address)",
 	Create = "create(address)",
 	RegisterDelegate = "registerDelegate(address,address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address,address)",
@@ -100,6 +100,8 @@ where
 	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
 		From<Option<Runtime::AccountId>>,
+	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
+	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
 		let result = {
@@ -111,7 +113,7 @@ where
 			match selector {
 				Action::FuturepassOf => Self::futurepass_of(handle),
 				Action::IsDelegate => Self::is_delegate(handle),
-				Action::IsDelegateWithType => Self::is_delegate_with_type(handle),
+				Action::DelegateType => Self::delegate_type(handle),
 				Action::Create => Self::create_futurepass(handle),
 				Action::RegisterDelegate => Self::register_delegate(handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
@@ -142,6 +144,8 @@ where
 	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
 		From<Option<Runtime::AccountId>>,
+	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
+	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
 {
 	fn futurepass_of(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, { owner: Address });
@@ -174,29 +178,26 @@ where
 		Ok(succeed(EvmDataWriter::new().write::<bool>(is_proxy).build()))
 	}
 
-	fn is_delegate_with_type(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn delegate_type(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, {
 			futurepass: Address,
-			delegate: Address,
-			proxy_type: u8
+			delegate: Address
 		});
 		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
 		let futurepass = Runtime::AddressMapping::into_account_id(futurepass.into());
-		let proxy_type = <Runtime as pallet_proxy::Config>::ProxyType::decode(
-			&mut proxy_type.to_le_bytes().as_slice(),
-		)
-		.map_err(|_| {
-			RevertReason::custom("Failed decoding value to ProxyType").in_field("proxyType")
-		})?;
 
 		// Manually record gas
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let is_proxy = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
+		let proxy_type = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
 			.0
 			.iter()
-			.any(|pd| pd.delegate == delegate && pd.proxy_type == proxy_type);
+			.find(|pd| pd.delegate == delegate)
+			.map(|pd| pd.proxy_type.clone())
+			.unwrap_or_default();
 
-		Ok(succeed(EvmDataWriter::new().write::<bool>(is_proxy).build()))
+		let proxy_type: u8  = proxy_type.try_into().map_err(|e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
+
+		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
 	}
 
 	fn create_futurepass(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
@@ -242,12 +243,8 @@ where
 		read_args!( handle, { futurepass: Address, delegate: Address, proxy_type: u8});
 		let futurepass: H160 = futurepass.into();
 		let delegate: H160 = delegate.into();
-		let proxy_type = <Runtime as pallet_futurepass::Config>::ProxyType::decode(
-			&mut proxy_type.to_le_bytes().as_slice(),
-		)
-		.map_err(|_| {
-			RevertReason::custom("Failed decoding value to ProxyType").in_field("proxyType")
-		})?;
+		let proxy_type: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type.try_into().map_err(|e| RevertReason::custom("ProxyType conversion failure"))?;  // TODO - check why e can not be passed
+
 		let caller = handle.context().caller;
 
 		//TODO(surangap):
