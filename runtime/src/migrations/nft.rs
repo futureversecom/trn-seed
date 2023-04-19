@@ -196,11 +196,14 @@ pub mod v4 {
 							if write!(&mut h160_addr, "{:?}", x).is_err() {
 								Err("Cannot write the H160 address")
 							} else {
-							MetadataScheme::try_from(
-								add_prefix_and_suffix(h160_addr.inner().clone(), b"ethereum://")
+								MetadataScheme::try_from(
+									add_prefix_and_suffix(
+										h160_addr.inner().clone(),
+										b"ethereum://",
+									)
 									.as_slice(),
-							)
-							} 
+								)
+							}
 						},
 					};
 
