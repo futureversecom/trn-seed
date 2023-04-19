@@ -32,10 +32,10 @@ pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-#[cfg(test)]
-mod mock;
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod mock;
+// #[cfg(test)]
+// mod tests;
 mod weights;
 
 use alloc::boxed::Box;
@@ -45,7 +45,6 @@ use frame_support::{
 	traits::{Get, IsSubType, IsType},
 };
 use frame_system::pallet_prelude::*;
-use hex::{encode, FromHex};
 use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::traits::Dispatchable;

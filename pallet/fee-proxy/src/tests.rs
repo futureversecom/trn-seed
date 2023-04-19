@@ -240,7 +240,7 @@ mod get_fee_preferences_data {
 				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false).unwrap();
 			let expected_fee_scaled: Balance = scale_wei_to_correct_decimals(expected_fee, 0);
 			assert_eq!(
-				get_fee_preferences_data::<Test, Test>(
+				get_fee_preferences_data::<Test, Test, crate::mock::Futurepass>(
 					gas_limit,
 					Some(max_fee_per_gas),
 					payment_asset_id
