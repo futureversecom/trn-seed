@@ -196,7 +196,9 @@ where
 			.unwrap_or_default();
 
 		// let proxy_type =  proxy_type as u8; // Note - check why this won't work
-		let proxy_type: u8  = proxy_type.try_into().map_err(|e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
+		let proxy_type: u8 = proxy_type
+			.try_into()
+			.map_err(|e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
 
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
 	}
@@ -244,7 +246,10 @@ where
 		read_args!( handle, { futurepass: Address, delegate: Address, proxy_type: u8});
 		let futurepass: H160 = futurepass.into();
 		let delegate: H160 = delegate.into();
-		let proxy_type: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type.try_into().map_err(|e| RevertReason::custom("ProxyType conversion failure"))?;  // TODO - check why e can not be passed
+		let proxy_type: <Runtime as pallet_futurepass::Config>::ProxyType =
+			proxy_type
+				.try_into()
+				.map_err(|e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
 
 		let caller = handle.context().caller;
 
