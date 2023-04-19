@@ -2116,7 +2116,7 @@ fn mint_over_max_issuance_should_fail() {
 			initial_issuance
 		);
 
-		// Mint tokens 2-5
+		// Mint tokens 2-4
 		assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 3, Some(token_owner),));
 		assert!(has_event(Event::<Test>::Mint {
 			collection_id,
@@ -2975,6 +2975,13 @@ fn mints_multiple_specified_tokens_by_id() {
 
 		// Do mint with Ethereum as origin chain
 		Nft::mint_bridged_token(&token_owner, collection_id, token_ids.clone());
+
+		// Event is thrown
+		assert!(has_event(Event::<Test>::BridgedMint {
+			collection_id,
+			serial_numbers: BoundedVec::truncate_from(token_ids.clone()),
+			owner: token_owner,
+		}));
 
 		// Ownership checks
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), token_ids.len() as u32);

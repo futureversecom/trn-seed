@@ -1,0 +1,82 @@
+name: "Build Image from a Branch or Commit SHA"
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+    inputs:
+      branchOrCommitSHA:
+        type: string
+        required: true
+        description: "Input a branch name or a valid commit SHA (40 chars string)"
+
+env:
+  REGISTRY: "ghcr.io"
+  IMAGE_NAME: "futureversecom/seed"
+
+jobs:
+  build-image-by-branch-or-commitsha:
+    runs-on: [seed-builder]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check if input variable is empty
+        id: input-check
+        shell: bash
+        run: |
+          BRANCH_OR_COMMITSHA="${{ github.event.inputs.branchOrCommitSHA }}"
+          # remove any whitespaces to the input var
+          INPUT="$(echo -e $BRANCH_OR_COMMITSHA | xargs)"
+          if [ "$INPUT" == '' ]; then
+            echo "Please provide a valid branch name or commit hash in the branchOrCommitSHA input."
+            exit 1
+          fi
+          echo "branchOrCommitSHA=$INPUT" >> $GITHUB_OUTPUT;
+
+      - name: Checkout branch or commitSHA
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.input-check.outputs.branchOrCommitSHA }}
+
+      - name: ghcr.io login
+        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # build and tag an image with branch name
+      - name: Build 🛠 & Publish 🐳
+        run: |
+          INPUT="${{ steps.input-check.outputs.branchOrCommitSHA }}"
+
+          # Check if the INPUT is a valid branch or commit hash
+          if git rev-parse --verify "$INPUT" >/dev/null 2>&1; then
+            COMMIT_HASH=$(git rev-parse --short HEAD)
+            echo "commit hash: $COMMIT_HASH"
+
+            docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -f ./Dockerfile .
+            docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
+
+            if [ ! -z "$(git branch --list "$INPUT")" ]; then
+              # INPUT is a branch name
+
+              # manually get the branch name since github.ref_name can also be the tag
+              # and replace invalid chars with dash char
+              GIT_REF=$(git rev-parse --abbrev-ref HEAD | sed 's/[^a-zA-Z0-9]/-/g')
+              echo "branch name: $GIT_REF"
+
+              # tag the image with the branch name
+              docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH-$GIT_REF"
+              docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH-$GIT_REF"
+            fi
+
+            # clean up images
+            docker image prune --filter label=stage=build -f
+          else
+            # If the argument is not a valid branch or commit hash, print an error message
+            echo "$INPUT is not a valid branch name or commit hash."
+            exit 1
+          fi

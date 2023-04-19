@@ -66,7 +66,7 @@ benchmarks! {
 		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
 		assert_ok!(T::MultiCurrency::mint_into(
 			asset_id,
-			&alice.into(),
+			&alice.clone().into(),
 			alice_balance,
 		));
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
@@ -82,10 +82,10 @@ benchmarks! {
 		let relayer = account::<T>("Alice");
 
 		// Sanity check
-		let is_relayer = Relayer::<T>::get(relayer);
+		let is_relayer = Relayer::<T>::get(relayer.clone());
 		assert_eq!(is_relayer, None);
 
-	}: _(RawOrigin::Root, relayer)
+	}: _(RawOrigin::Root, relayer.clone())
 	verify {
 		let is_relayer = Relayer::<T>::get(relayer);
 		assert_eq!(is_relayer, Some(true));
@@ -95,7 +95,7 @@ benchmarks! {
 		let relayer = account::<T>("Alice");
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), relayer.clone()));
-	}: _(RawOrigin::Root, relayer)
+	}: _(RawOrigin::Root, relayer.clone())
 	verify {
 		let is_relayer = Relayer::<T>::get(relayer);
 		assert_eq!(is_relayer, None);

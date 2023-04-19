@@ -516,7 +516,7 @@ impl<T: Config> Module<T> {
 
 				if let Some(relayer) = Self::relayer() {
 					// Relayer bond goes to challenger
-					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer);
+					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer.clone());
 					T::MultiCurrency::spend_hold(
 						T::BridgePalletId::get(),
 						&relayer,

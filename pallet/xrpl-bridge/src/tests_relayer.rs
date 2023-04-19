@@ -12,6 +12,7 @@
 use super::*;
 use frame_support::{assert_noop, assert_ok};
 use mock::*;
+use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::traits::BadOrigin;
 

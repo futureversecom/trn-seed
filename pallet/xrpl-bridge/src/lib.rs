@@ -36,7 +36,7 @@ use seed_pallet_common::{CreateExt, EthyToXrplBridgeAdapter, XrplBridgeToEthyAda
 use seed_primitives::{
 	ethy::crypto::AuthorityId,
 	xrpl::{LedgerIndex, XrplAccountId, XrplTxHash},
-	AccountId, AssetId, Balance, Timestamp,
+	AssetId, Balance, Timestamp,
 };
 
 use crate::helpers::{
@@ -68,10 +68,10 @@ pub mod pallet {
 	use super::*;
 	use seed_primitives::xrpl::XrplTxTicketSequence;
 
-	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
@@ -104,6 +104,11 @@ pub mod pallet {
 
 		/// Threshold to emit event TicketSequenceThresholdReached
 		type TicketSequenceThreshold: Get<Percent>;
+
+		/// Represents the maximum number of XRPL transactions that can be stored and processed in a
+		/// single block in the temporary storage and the maximum number of XRPL transactions that
+		/// can be stored in the settled transaction details storage for each block.
+		type XRPTransactionLimit: Get<u32>;
 	}
 
 	#[pallet::error]
@@ -126,6 +131,8 @@ pub mod pallet {
 		NextTicketSequenceParamsInvalid,
 		/// The TicketSequenceParams is invalid
 		TicketSequenceParamsInvalid,
+		/// Cannot process more transactions at that block
+		CannotProcessMoreTransactionsAtThatBlock,
 	}
 
 	#[pallet::event]
@@ -162,7 +169,10 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	{
 		fn on_initialize(n: T::BlockNumber) -> Weight {
 			let weights = Self::process_xrp_tx(n);
 			weights + Self::clear_storages(n)
@@ -171,7 +181,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
-	#[pallet::without_storage_info]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
@@ -184,7 +193,7 @@ pub mod pallet {
 	#[pallet::getter(fn process_xrp_transaction)]
 	/// Temporary storage to set the transactions ready to be processed at specified block number
 	pub type ProcessXRPTransaction<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<XrplTxHash>>;
+		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
@@ -197,7 +206,7 @@ pub mod pallet {
 	#[pallet::getter(fn settled_xrp_transaction_details)]
 	/// Settled xrp transactions stored as history for a specific period
 	pub type SettledXRPTransactionDetails<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, Vec<XrplTxHash>>;
+		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -325,7 +334,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			Self::initialize_relayer(&vec![relayer]);
+			Self::initialize_relayer(&vec![relayer.clone()]);
 			Self::deposit_event(Event::<T>::RelayerAdded(relayer));
 			Ok(())
 		}
@@ -335,8 +344,8 @@ pub mod pallet {
 		#[transactional]
 		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
-			if <Relayer<T>>::contains_key(relayer) {
-				<Relayer<T>>::remove(relayer);
+			if <Relayer<T>>::contains_key(relayer.clone()) {
+				<Relayer<T>>::remove(relayer.clone());
 				Self::deposit_event(Event::<T>::RelayerRemoved(relayer));
 				Ok(())
 			} else {
@@ -438,8 +447,11 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight {
-		let tx_items: Vec<XrplTxHash> = match <ProcessXRPTransaction<T>>::take(n) {
+	pub fn process_xrp_tx(n: T::BlockNumber) -> Weight
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	{
+		let tx_items = match <ProcessXRPTransaction<T>>::take(n) {
 			None => return DbWeight::get().reads(2 as Weight),
 			Some(v) => v,
 		};
@@ -475,10 +487,10 @@ impl<T: Config> Pallet<T> {
 
 			let clear_block_number =
 				<frame_system::Pallet<T>>::block_number() + T::ClearTxPeriod::get().into();
-			<SettledXRPTransactionDetails<T>>::append(
+			<SettledXRPTransactionDetails<T>>::try_append(
 				&clear_block_number,
 				transaction_hash.clone(),
-			);
+			).expect("Should not happen since both ProcessXRPTransaction and SettledXRPTransactionDetails have the same limit");
 			writes += 2;
 			reads += 2;
 			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
@@ -522,7 +534,9 @@ impl<T: Config> Pallet<T> {
 	pub fn add_to_xrp_process(transaction_hash: XrplTxHash) -> DispatchResult {
 		let process_block_number =
 			<frame_system::Pallet<T>>::block_number() + T::ChallengePeriod::get().into();
-		ProcessXRPTransaction::<T>::append(&process_block_number, transaction_hash);
+		ProcessXRPTransaction::<T>::try_append(&process_block_number, transaction_hash)
+			.map_err(|_| Error::<T>::CannotProcessMoreTransactionsAtThatBlock)?;
+
 		Ok(())
 	}
 

@@ -232,6 +232,12 @@ pub mod pallet {
 			end: SerialNumber,
 			owner: T::AccountId,
 		},
+		/// Token(s) were bridged
+		BridgedMint {
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+			owner: T::AccountId,
+		},
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
