@@ -5241,7 +5241,6 @@ dependencies = [
  "frame-system",
  "hex",
  "parity-scale-codec",
- "precompile-utils",
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
