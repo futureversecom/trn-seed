@@ -109,7 +109,7 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
 
   "function futurepassOf(address owner) external view returns (address)",
   "function isDelegate(address futurepass, address delegate) public view returns (bool)",
-  "function isDelegateWithType(address futurepass, address delegate, uint8 proxyType) public view returns (bool)",
+  "function delegateType(address futurepass, address delegate) public view returns (uint8)",
   "function create(address owner) external returns (address)",
   "function registerDelegate(address futurepass, address delegate, uint8 proxyType) external",
   "function unregisterDelegate(address futurepass, address delegate) external",

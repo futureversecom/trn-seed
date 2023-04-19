@@ -602,10 +602,10 @@ impl TryInto<u8> for ProxyType {
 	type Error = &'static str;
 	fn try_into(self) -> Result<u8, Self::Error> {
 		match self {
-			ProxyType::Any => Ok(1),
-			ProxyType::NonTransfer => Ok(2),
-			ProxyType::Governance => Ok(3),
-			ProxyType::Staking => Ok(4),
+			ProxyType::Any => Ok(0),
+			ProxyType::NonTransfer => Ok(1),
+			ProxyType::Governance => Ok(2),
+			ProxyType::Staking => Ok(3),
 		}
 	}
 }

@@ -195,6 +195,7 @@ where
 			.map(|pd| pd.proxy_type.clone())
 			.unwrap_or_default();
 
+		// let proxy_type =  proxy_type as u8; // Note - check why this won't work
 		let proxy_type: u8  = proxy_type.try_into().map_err(|e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
 
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))

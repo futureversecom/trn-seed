@@ -112,6 +112,38 @@ describe("Futurepass Precompile", function () {
       });
   });
 
+  it("isDelegate, delegateType works", async () => {
+    const owner = Wallet.createRandom().connect(provider);
+    const delegate = Wallet.createRandom().connect(provider);
+
+    // fund owner so it can create FP
+    // await fundEOA(alithSigner, owner.address);
+    await fundAccount(api, alithKeyring, owner.address); // TODO <- why is this required?
+
+    // create FP for owner
+    let tx = await futurepassProxy.connect(owner).create(owner.address);
+    await tx.wait();
+    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+
+    // isDelegate should return false.
+    expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
+    // checkDelegate should return error
+    expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
+    // await futurepassProxy.isDelegate(futurepass, delegate.address)
+    //     .catch((err: any) => expect(err.message).contains("DelegateAlreadyExists"));
+
+    tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
+    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
+    expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
+
+    // isDelegate should return false.
+    expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(true);
+    // checkDelegate should return PROXY_TYPE.Any
+    expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
+  });
+
   it("register delegate works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
@@ -139,7 +171,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
     expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
-    expect(await futurepassProxy.isDelegateWithType(futurepass, delegate.address, PROXY_TYPE.Any)).to.equal(true);
+    expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
 
     // registering the same delegate with the same PROXY_TYPE fails
     await futurepassProxy
@@ -173,7 +205,7 @@ describe("Futurepass Precompile", function () {
     const delegate2 = Wallet.createRandom();
     tx = await futurepassProxy.connect(delegate).registerDelegate(futurepass, delegate2.address, PROXY_TYPE.Any);
     await tx.wait();
-    expect(await futurepassProxy.isDelegateWithType(futurepass, delegate2.address, PROXY_TYPE.Any)).to.equal(true);
+    expect(await futurepassProxy.delegateType(futurepass, delegate2.address)).to.equal(PROXY_TYPE.Any);
   });
 
   it("unregister delegate from owner", async () => {
