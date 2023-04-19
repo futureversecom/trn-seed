@@ -9,6 +9,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+use core::f32::consts::E;
+
 use crate::{traits::NFTExt, *};
 use frame_support::{ensure, traits::Get, transactional, weights::Weight};
 use frame_system::RawOrigin;
@@ -140,7 +142,7 @@ impl<T: Config> Pallet<T> {
 
 			collection_info
 				.add_user_tokens(new_owner, serial_numbers.clone())
-				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+				.map_err(|e| Error::<T>::from(e))?;
 			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
 
 			for serial_number in serial_numbers.clone().iter() {
@@ -283,7 +285,7 @@ impl<T: Config> Pallet<T> {
 
 		new_collection_info
 			.add_user_tokens(&token_owner, serial_numbers.clone())
-			.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+			.map_err(|e| Error::<T>::from(e))?;
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);

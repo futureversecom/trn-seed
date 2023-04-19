@@ -1123,3 +1123,11 @@ pub mod pallet {
 		}
 	}
 }
+
+impl<T: Config> From<TokenOwnershipError> for Error<T> {
+	fn from(val: TokenOwnershipError) -> Error<T> {
+		match val {
+			TokenOwnershipError::MaximumTokensLimitExceeded => Error::<T>::TokenLimitExceeded,
+		}
+	}
+}
