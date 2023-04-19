@@ -165,27 +165,26 @@ pub mod v4 {
 
 	impl<T: pallet_nft::Config> OldCollectionInformation<T> {
 		pub fn transform(&self) -> Option<CollectionInformation<T>> {
-			let Ok(metadata_scheme) = self.transform_metadata() else {
-				return None
-			};
-
-			Some(CollectionInformation {
-				owner: self.owner.clone(),
-				name: self.name.clone(),
-				metadata_scheme,
-				royalties_schedule: self.royalties_schedule.clone(),
-				max_issuance: self.max_issuance.clone(),
-				origin_chain: self.origin_chain.clone(),
-				next_serial_number: self.next_serial_number.clone(),
-				collection_issuance: self.collection_issuance.clone(),
-				cross_chain_compatibility: self.cross_chain_compatibility.clone(),
-				owned_tokens: self.owned_tokens.clone(),
-			})
+			match self.transform_metadata() {
+				Ok(metadata_scheme) => Some(CollectionInformation {
+					owner: self.owner.clone(),
+					name: self.name.clone(),
+					metadata_scheme,
+					royalties_schedule: self.royalties_schedule.clone(),
+					max_issuance: self.max_issuance.clone(),
+					origin_chain: self.origin_chain.clone(),
+					next_serial_number: self.next_serial_number.clone(),
+					collection_issuance: self.collection_issuance.clone(),
+					cross_chain_compatibility: self.cross_chain_compatibility.clone(),
+					owned_tokens: self.owned_tokens.clone(),
+				}),
+				Err(_) => None,
+			}
 		}
 
-		fn transform_metadata(&self) -> Result<MetadataScheme, ()> {
+		fn transform_metadata(&self) -> Result<MetadataScheme, &str> {
 			use OldMetadataScheme::*;
-			let prefix_sufix = |x: &Vec<u8>, mut prefix: Vec<u8>| -> Vec<u8> {
+			let add_prefix_suffix = |x: &Vec<u8>, mut prefix: Vec<u8>| -> Vec<u8> {
 				prefix.extend(x);
 				if prefix.last() != Some(&b'/') {
 					prefix.push(b'/');
@@ -194,26 +193,30 @@ pub mod v4 {
 			};
 
 			let metadata_scheme_res = match &self.metadata_scheme {
-				Https(x) => MetadataScheme::try_from(prefix_sufix(x, "https://".into()).as_slice()),
-				Http(x) => MetadataScheme::try_from(prefix_sufix(x, "http://".into()).as_slice()),
-				Ipfs(x) => MetadataScheme::try_from(prefix_sufix(x, "ipfs://".into()).as_slice()),
+				Https(x) =>
+					MetadataScheme::try_from(add_prefix_suffix(x, "https://".into()).as_slice()),
+				Http(x) =>
+					MetadataScheme::try_from(add_prefix_suffix(x, "http://".into()).as_slice()),
+				Ipfs(x) =>
+					MetadataScheme::try_from(add_prefix_suffix(x, "ipfs://".into()).as_slice()),
 				Ethereum(x) => {
 					let mut h160_addr = sp_std::Writer::default();
 					if write!(&mut h160_addr, "{:?}", x).is_err() {
-						return Err(())
+						Err("Cannot write the H160 address")
+					} else {
+						MetadataScheme::try_from(
+							add_prefix_suffix(h160_addr.inner(), "ethereum://".into()).as_slice(),
+						)
 					}
-					MetadataScheme::try_from(
-						prefix_sufix(h160_addr.inner(), "ethereum://".into()).as_slice(),
-					)
 				},
 			};
 
-			metadata_scheme_res.map_err(|_| ())
+			metadata_scheme_res
 		}
 	}
 
 	pub fn migrate<T: pallet_nft::Config>() -> Weight {
-		log::info!(target: "Nft", "Translating CollectionInfo...");
+		log::info!(target: "Migration", "Nft: Translating CollectionInfo...");
 
 		// Get all values and keys
 		let key_values: Vec<(u32, OldCollectionInformation<T>)> =
@@ -235,82 +238,9 @@ pub mod v4 {
 		for (key, value) in new_key_values {
 			pallet_nft::CollectionInfo::<T>::insert(key, value);
 		}
-		log::info!(target: "Nft", "...Successfully translated CollectionInfo");
 
-		<Runtime as frame_system::Config>::DbWeight::get().writes(key_count as u64)
-	}
-		log::info!(target: "Migration", "Nft: Translating CollectionInfo...");
-
-		// Iterate all key-value pairs and change them accordingly
-		let keys: Vec<u32> = CollectionInfo::<T>::iter_keys().collect();
-		for key in keys {
-			let old_op = CollectionInfo::<T>::take(key);
-
-			match old_op {
-				Some(old) => {
-					let add_prefix_and_suffix = |x: Vec<u8>, prefix: &[u8]| -> Vec<u8> {
-						let mut res: Vec<u8> = prefix.to_vec();
-						res.extend(x);
-						if res.last() != Some(&b'/') {
-							res.push(b'/');
-						}
-						res
-					};
-					let metadata_scheme_res = match old.metadata_scheme {
-						OldMetadataScheme::Https(x) => MetadataScheme::try_from(
-							add_prefix_and_suffix(x, b"https://").as_slice(),
-						),
-						OldMetadataScheme::Http(x) => MetadataScheme::try_from(
-							add_prefix_and_suffix(x, b"http://").as_slice(),
-						),
-						OldMetadataScheme::Ipfs(x) => MetadataScheme::try_from(
-							add_prefix_and_suffix(x, b"ipfs://").as_slice(),
-						),
-						OldMetadataScheme::Ethereum(x) => {
-							let mut h160_addr = sp_std::Writer::default();
-							if write!(&mut h160_addr, "{:?}", x).is_err() {
-								Err("Cannot write the H160 address")
-							} else {
-								MetadataScheme::try_from(
-									add_prefix_and_suffix(
-										h160_addr.inner().clone(),
-										b"ethereum://",
-									)
-									.as_slice(),
-								)
-							}
-						},
-					};
-
-					match metadata_scheme_res {
-						Ok(metadata_scheme) => {
-							let new = CollectionInformation {
-								owner: old.owner,
-								name: old.name,
-								metadata_scheme,
-								royalties_schedule: old.royalties_schedule,
-								max_issuance: old.max_issuance,
-								origin_chain: old.origin_chain,
-								next_serial_number: old.next_serial_number,
-								collection_issuance: old.collection_issuance,
-								cross_chain_compatibility: old.cross_chain_compatibility,
-								owned_tokens: old.owned_tokens,
-							};
-							// Insert the newly constructed collection
-							pallet_nft::CollectionInfo::<T>::insert(key, new);
-						},
-						// Old data too large. Delete the old dat and skip inserting new collection
-						// data
-						Err(_) => continue,
-					}
-				},
-				// Old value is none. Delete the old data and skip inserting new collection data
-				None => continue,
-			}
-		}
 		log::info!(target: "Migration", "Nft: ...Successfully translated CollectionInfo");
 
-		let key_count = CollectionInfo::<T>::iter().count();
 		<Runtime as frame_system::Config>::DbWeight::get().writes(key_count as u64)
 	}
 
