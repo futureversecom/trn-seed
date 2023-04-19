@@ -28,18 +28,18 @@ impl OnRuntimeUpgrade for Upgrade {
 	fn on_runtime_upgrade() -> Weight {
 		let current = Nft::current_storage_version();
 		let onchain = Nft::on_chain_storage_version();
-		log::info!(target: "Nft", "Running migration with current storage version {current:?} / onchain {onchain:?}");
+		log::info!(target: "Migration", "Nft: Running migration with current storage version {current:?} / onchain {onchain:?}");
 
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 0);
 
 		if onchain == 3 {
-			log::info!(target: "Nft", "Migrating from onchain version 3 to onchain version 4.");
+			log::info!(target: "Migration", "Nft: Migrating from onchain version 3 to onchain version 4.");
 			weight += v4::migrate::<Runtime>();
 
-			log::info!(target: "Nft", "Migration successfully finished.");
+			log::info!(target: "Migration", "Nft: Migration successfully finished.");
 			StorageVersion::new(4).put::<Nft>();
 		} else {
-			log::info!(target: "Nft", "No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
+			log::info!(target: "Migration", "Nft: No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
 		}
 
 		weight
@@ -129,7 +129,7 @@ pub mod v4 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V4 Pre Upgrade.");
+		log::info!(target: "Migration", "Nft: Upgrade to V4 Pre Upgrade.");
 		let onchain = Nft::on_chain_storage_version();
 		// Return OK(()) if upgrade has already been done
 		if onchain == 4 {
@@ -148,7 +148,7 @@ pub mod v4 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V4 Post Upgrade.");
+		log::info!(target: "Migration", "Nft: Upgrade to V4 Post Upgrade.");
 
 		let current = Nft::current_storage_version();
 		let onchain = Nft::on_chain_storage_version();
@@ -164,7 +164,7 @@ pub mod v4 {
 	}
 
 	pub fn migrate<T: pallet_nft::Config>() -> Weight {
-		log::info!(target: "Nft", "Translating CollectionInfo...");
+		log::info!(target: "Migration", "Nft: Translating CollectionInfo...");
 
 		// Iterate all key-value pairs and change them accordingly
 		let keys: Vec<u32> = CollectionInfo::<T>::iter_keys().collect();
@@ -193,11 +193,14 @@ pub mod v4 {
 						),
 						OldMetadataScheme::Ethereum(x) => {
 							let mut h160_addr = sp_std::Writer::default();
-							write!(&mut h160_addr, "{:?}", x).expect("Not written");
+							if write!(&mut h160_addr, "{:?}", x).is_err() {
+								Err("Cannot write the H160 address")
+							} else {
 							MetadataScheme::try_from(
 								add_prefix_and_suffix(h160_addr.inner().clone(), b"ethereum://")
 									.as_slice(),
 							)
+							} 
 						},
 					};
 
@@ -227,7 +230,7 @@ pub mod v4 {
 				None => continue,
 			}
 		}
-		log::info!(target: "Nft", "...Successfully translated CollectionInfo");
+		log::info!(target: "Migration", "Nft: ...Successfully translated CollectionInfo");
 
 		let key_count = CollectionInfo::<T>::iter().count();
 		<Runtime as frame_system::Config>::DbWeight::get().writes(key_count as u64)

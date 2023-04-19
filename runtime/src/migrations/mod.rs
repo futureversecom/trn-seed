@@ -10,6 +10,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 mod nft;
+mod fee_control;
 
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
@@ -28,6 +29,7 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
+		fee_control::Upgrade::pre_upgrade()?;
 		nft::Upgrade::pre_upgrade()?;
 
 		Ok(())
@@ -35,6 +37,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
+		weight += fee_control::Upgrade::on_runtime_upgrade();
 		weight += nft::Upgrade::on_runtime_upgrade();
 
 		weight
@@ -42,6 +45,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
+		fee_control::Upgrade::post_upgrade()?;
 		nft::Upgrade::post_upgrade()?;
 
 		Ok(())
