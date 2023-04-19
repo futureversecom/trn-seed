@@ -9,8 +9,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod nft;
 mod fee_control;
+mod nft;
 
 use codec::{Decode, Encode, FullCodec};
 use frame_support::{
