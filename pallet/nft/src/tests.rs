@@ -3257,7 +3257,10 @@ fn add_user_tokens_over_token_limit_should_fail() {
 		// Adding one more token to token_owner should fail
 		let serial_numbers_max: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![max]).unwrap();
-		assert_noop!(collection_info.add_user_tokens(&token_owner, serial_numbers_max.clone()), ());
+		assert_noop!(
+			collection_info.add_user_tokens(&token_owner, serial_numbers_max.clone()),
+			TokenOwnershipError::MaximumTokensLimitExceeded
+		);
 		// Adding tokens to different user still works
 		assert_ok!(collection_info.add_user_tokens(&token_owner_2, serial_numbers_max.clone()));
 
@@ -3289,7 +3292,7 @@ fn add_user_tokens_over_user_limit_should_fail() {
 		// adding another user should fail
 		assert_noop!(
 			collection_info.add_user_tokens(&create_account(max as u64), serial_numbers),
-			()
+			TokenOwnershipError::MaximumTokensLimitExceeded
 		);
 	});
 }

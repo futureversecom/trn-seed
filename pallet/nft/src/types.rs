@@ -55,6 +55,11 @@ pub enum OriginChain {
 	Root,
 }
 
+#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
+pub enum TokenOwnershipError {
+	MaximumTokensLimitExceeded,
+}
+
 /// Struct that represents the owned serial numbers within a collection of an individual account
 #[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, Clone, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
@@ -84,8 +89,10 @@ where
 	}
 
 	/// Adds a serial to owned_serials and sorts the vec
-	pub fn add(&mut self, serial_number: SerialNumber) -> Result<(), ()> {
-		self.owned_serials.try_push(serial_number).map_err(|_| ())?;
+	pub fn add(&mut self, serial_number: SerialNumber) -> Result<(), TokenOwnershipError> {
+		self.owned_serials
+			.try_push(serial_number)
+			.map_err(|_| TokenOwnershipError::MaximumTokensLimitExceeded)?;
 		self.owned_serials.sort();
 		Ok(())
 	}
@@ -184,7 +191,7 @@ where
 		&mut self,
 		token_owner: &AccountId,
 		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
-	) -> Result<(), ()> {
+	) -> Result<(), TokenOwnershipError> {
 		if self
 			.owned_tokens
 			.iter()
@@ -202,7 +209,9 @@ where
 		} else {
 			// If token owner doesn't exist, create new entry
 			let new_token_ownership = TokenOwnership::new(token_owner.clone(), serial_numbers);
-			self.owned_tokens.try_push(new_token_ownership)?
+			self.owned_tokens
+				.try_push(new_token_ownership)
+				.map_err(|_| TokenOwnershipError::MaximumTokensLimitExceeded)?;
 		}
 		Ok(())
 	}
