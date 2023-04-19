@@ -42,6 +42,7 @@ pallet-fee-proxy = { path = "../fee-proxy" }
 pallet-dex = { path = "../dex" }
 pallet-assets-ext = { path = "../assets-ext" }
 seed-pallet-common= { path = "../common" }
+pallet-futurepass = { path = "../futurepass" }
 
 [features]
 default = ["std"]
@@ -59,7 +60,7 @@ std = [
 	"precompile-utils/std",
 	"sp-core/std",
 	"fp-evm/std",
-	"frame-benchmarking/std"
+	"frame-benchmarking/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking"]

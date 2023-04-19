@@ -47,6 +47,7 @@ frame_support::construct_runtime!(
 		Dex: pallet_dex,
 		AssetsExt: pallet_assets_ext,
 		Evm: pallet_evm,
+		Futurepass: pallet_futurepass,
 	}
 );
 
@@ -58,6 +59,7 @@ impl_pallet_assets_ext_config!(Test);
 impl_pallet_evm_config!(Test);
 impl_pallet_dex_config!(Test);
 impl_pallet_fee_proxy_config!(Test);
+impl_futurepass_config!(Test);
 
 pub struct FeeControlWeightToFee;
 impl WeightToFee for FeeControlWeightToFee {

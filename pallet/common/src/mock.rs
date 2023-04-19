@@ -252,3 +252,56 @@ macro_rules! impl_pallet_fee_proxy_config {
 		}
 	};
 }
+
+#[macro_export]
+macro_rules! impl_futurepass_config {
+	($test:ident) => {
+		pub struct MockProxyProvider;
+
+		impl<T: pallet_futurepass::Config> pallet_futurepass::ProxyProvider<T>
+			for MockProxyProvider
+		{
+			fn exists(futurepass: &T::AccountId, delegate: &T::AccountId) -> bool {
+				false
+			}
+			fn delegates(futurepass: &T::AccountId) -> Vec<T::AccountId> {
+				vec![]
+			}
+			fn add_delegate(
+				_: &T::AccountId,
+				futurepass: &T::AccountId,
+				delegate: &T::AccountId,
+			) -> DispatchResult {
+				Ok(())
+			}
+			fn remove_delegate(
+				_: &T::AccountId,
+				futurepass: &T::AccountId,
+				delegate: &T::AccountId,
+			) -> DispatchResult {
+				Ok(())
+			}
+			fn proxy_call(
+				caller: T::Origin,
+				futurepass: T::AccountId,
+				call: <T as pallet_futurepass::Config>::Call,
+			) -> DispatchResult {
+				Ok(())
+			}
+		}
+
+		parameter_types! {
+			/// 4 byte futurepass account prefix
+			pub const FuturepassPrefix: [u8; 4] = [0xFF; 4];
+		}
+
+		impl pallet_futurepass::Config for $test {
+			type Event = Event;
+			type FuturepassPrefix = FuturepassPrefix;
+			type Proxy = MockProxyProvider;
+			type Call = Call;
+			type ApproveOrigin = EnsureRoot<AccountId>;
+			type WeightInfo = ();
+		}
+	};
+}
