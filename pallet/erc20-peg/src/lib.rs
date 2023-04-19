@@ -270,14 +270,17 @@ impl<T: Config> Module<T> {
 		amount: Balance,
 		beneficiary: EthAddress,
 		call_origin: WithdrawCallOrigin,
-	) -> DispatchResult {
-		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
+	) -> Result<u64, DispatchError> {
+		// TODO CHANGE THIS
+		//ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
 
 		// there should be a known ERC20 address mapped for this asset
 		// otherwise there may be no liquidity on the Ethereum side of the peg
-		let token_address = Self::asset_to_erc20(asset_id);
-		ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
-		let token_address = token_address.unwrap();
+		// let token_address = Self::asset_to_erc20(asset_id);
+		// ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
+		// let token_address = token_address.unwrap();
+		// TODO CHANGE THIS SILLY HACK
+		let token_address = EthAddress::from_low_u64_be(asset_id as u64);
 
 		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
@@ -290,7 +293,7 @@ impl<T: Config> Module<T> {
 						// Delay the payment
 						let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
 						Self::delay_payment(delay, PendingPayment::Withdrawal(message));
-						Ok(())
+						Ok(0)
 					},
 					WithdrawCallOrigin::Evm => {
 						// EVM payment delays are not supported
@@ -302,15 +305,14 @@ impl<T: Config> Module<T> {
 
 		// Process transfer or withdrawal of payment asset
 		let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
-		Self::process_withdrawal(message, asset_id)?;
-		Ok(())
+		Self::process_withdrawal(message, asset_id)
 	}
 
 	/// Process withdrawal and send
 	fn process_withdrawal(
 		withdrawal_message: WithdrawMessage,
 		asset_id: AssetId,
-	) -> DispatchResult {
+	) -> Result<u64, DispatchError> {
 		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
 		let message = ethabi::encode(&[
 			Token::Address(withdrawal_message.token_address),
@@ -319,13 +321,14 @@ impl<T: Config> Module<T> {
 		]);
 
 		// Call whatever handler loosely coupled from ethy
-		T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?;
+		let event_proof_id =
+			T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?;
 		Self::deposit_event(Event::<T>::Erc20Withdraw(
 			asset_id,
 			withdrawal_message.amount.saturated_into(),
 			withdrawal_message.beneficiary,
 		));
-		Ok(())
+		Ok(event_proof_id)
 	}
 
 	/// Process payments at a block after a delay

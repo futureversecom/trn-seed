@@ -130,7 +130,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			ContractAddress::<T>::put(contract);
 			Self::deposit_event(Event::<T>::ContractAddressSet { contract });
-			Ok(().into())
+			Ok(())
 		}
 
 		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
@@ -142,14 +142,8 @@ pub mod pallet {
 			destination: H160,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_withdraw(&who, &collection_ids, &token_ids, destination)?;
-			Self::deposit_event(Event::<T>::Erc721Withdraw {
-				origin: who,
-				collection_ids,
-				token_ids,
-				destination,
-			});
-			Ok(().into())
+			Self::do_withdrawal(who, collection_ids, token_ids, destination)?;
+			Ok(())
 		}
 	}
 }
@@ -322,19 +316,19 @@ where
 	}
 
 	// Accepts one or more Ethereum originated ERC721 tokens to be sent back over the bridge
-	pub fn do_withdraw(
-		who: &T::AccountId,
-		collection_ids: &Vec<CollectionUuid>,
-		token_ids: &Vec<Vec<SerialNumber>>,
+	pub fn do_withdrawal(
+		who: T::AccountId,
+		collection_ids: Vec<CollectionUuid>,
+		token_ids: Vec<Vec<SerialNumber>>,
 		// Ethereum address to deposit the tokens into
 		destination: H160,
-	) -> Result<(), DispatchError> {
+	) -> Result<u64, DispatchError> {
 		ensure!(collection_ids.len() == token_ids.len(), Error::<T>::TokenListLengthMismatch);
 
 		let mut source_collection_ids = vec![];
 		let mut source_token_ids = vec![];
 
-		for (idx, collection_id) in collection_ids.into_iter().enumerate() {
+		for (idx, collection_id) in (&collection_ids).into_iter().enumerate() {
 			if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
 				// At the time of writing, only Ethereum-originated NFTs can be bridged back.
 				ensure!(
@@ -351,7 +345,7 @@ where
 			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
 			// somewhat bounded as well, but there should be a way to reduce this complexity
 			for token_id in &token_ids[idx] {
-				pallet_nft::Pallet::<T>::do_burn(who, collection_id.clone(), *token_id)?;
+				pallet_nft::Pallet::<T>::do_burn(&who, collection_id.clone(), *token_id)?;
 				source_token_ids[idx].push(Token::Uint(U256::from(token_id.clone())))
 			}
 
@@ -370,9 +364,16 @@ where
 			Token::Address(destination),
 		]);
 
-		T::EthBridge::send_event(&source, &Pallet::<T>::contract_address(), &message)?;
+		let event_proof_id =
+			T::EthBridge::send_event(&source, &Pallet::<T>::contract_address(), &message)?;
 
-		Ok(())
+		Self::deposit_event(Event::<T>::Erc721Withdraw {
+			origin: who,
+			collection_ids,
+			token_ids,
+			destination,
+		});
+		Ok(event_proof_id)
 	}
 }
 

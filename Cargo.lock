@@ -5040,6 +5040,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-precompiles-peg"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-erc20-peg",
+ "pallet-evm",
+ "pallet-nft-peg",
+ "precompile-utils",
+ "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-fee-control"
 version = "1.0.0"
 dependencies = [
@@ -7820,6 +7839,7 @@ dependencies = [
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
  "pallet-evm-precompiles-nft",
+ "pallet-evm-precompiles-peg",
  "pallet-fee-control",
  "pallet-fee-proxy",
  "pallet-grandpa",
