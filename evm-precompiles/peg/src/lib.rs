@@ -188,7 +188,6 @@ where
 			.clone()
 			.into_iter()
 			.map(|address| {
-				//let collection_address: H160 = address.into();
 				let collection_id: CollectionUuid =
 					<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
 						address,

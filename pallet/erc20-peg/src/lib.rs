@@ -50,15 +50,12 @@ pub trait Config: frame_system::Config<AccountId = AccountId> {
 	/// Submits event messages to Ethereum
 	type EthBridge: EthereumBridge;
 	/// Currency functions
-	// type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId
-	// = AssetId>;
 	type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 		+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
 		+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
 		+ fungibles::Mutate<Self::AccountId>;
 	/// The overarching event type.
 	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
 	/// Interface to generate weights
 	type WeightInfo: WeightInfo;
 }
@@ -271,16 +268,13 @@ impl<T: Config> Module<T> {
 		beneficiary: EthAddress,
 		call_origin: WithdrawCallOrigin,
 	) -> Result<u64, DispatchError> {
-		// TODO CHANGE THIS
-		//ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
+		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
 
 		// there should be a known ERC20 address mapped for this asset
 		// otherwise there may be no liquidity on the Ethereum side of the peg
-		// let token_address = Self::asset_to_erc20(asset_id);
-		// ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
-		// let token_address = token_address.unwrap();
-		// TODO CHANGE THIS SILLY HACK
-		let token_address = EthAddress::from_low_u64_be(asset_id as u64);
+		let token_address = Self::asset_to_erc20(asset_id);
+		ensure!(token_address.is_some(), Error::<T>::UnsupportedAsset);
+		let token_address = token_address.unwrap();
 
 		let message = WithdrawMessage { token_address, amount: amount.into(), beneficiary };
 
