@@ -158,7 +158,7 @@ pub mod v4 {
 		// Let's make sure that we don't have any corrupted data to begin with
 		let keys: Vec<u32> = pallet_nft::CollectionInfo::<Runtime>::iter_keys().collect();
 		for key in keys {
-			assert!(CollectionInfo::<Runtime>::try_get(key).is_ok());
+			assert!(pallet_nft::CollectionInfo::<Runtime>::try_get(key).is_ok());
 		}
 		Ok(())
 	}
