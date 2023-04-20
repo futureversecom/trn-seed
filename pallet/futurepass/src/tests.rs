@@ -1,26 +1,38 @@
 #![cfg(test)]
-use crate::mock::{EVMChainId, Event, Origin, System, TestExt, ALICE};
+use crate::*;
+use crate::mock::*;
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 
 #[test]
-fn default_chain_id() {
+fn create_futurepass() {
 	TestExt::default().build().execute_with(|| {
-		let chain_id = EVMChainId::chain_id();
-		assert_eq!(chain_id, 7672);
-	});
-}
+		let owner = create_account(10);
+		let delegate = create_account(20);
 
-#[test]
-fn update_chain_id() {
-	TestExt::default().build().execute_with(|| {
-		// normal user cannot update chain id
-		assert_noop!(EVMChainId::set_chain_id(Origin::signed(ALICE), 1234), BadOrigin);
-		assert_eq!(EVMChainId::chain_id(), 7672); // chain id is not updated
+		// assert the futurepass is not created yet for the delegate account
+		assert_eq!(Holders::<Test>::contains_key(&delegate), false);
 
-		// root user can update chain id
-		assert_ok!(EVMChainId::set_chain_id(Origin::root().into(), 1234));
-		assert_eq!(EVMChainId::chain_id(), 1234); // chain id is updated
+		// creation fails if not balance
+		// assert_noop!(
+		// 	Futurepass::create(Origin::signed(owner.clone()), delegate.clone()),
+		// 	pallet_balances::Error::<Test>::InsufficientBalance
+		// );
 
-		System::assert_last_event(Event::EVMChainId(crate::Event::ChainIdSet(1234)));
+		// TODO fund account (origin)
+
+		// create futurepass account
+		// assert_ok!(Futurepass::create(Origin::signed(owner.clone()), delegate.clone()));
+
+		// TODO assert last event (account creation)
+
+		// // Check if the futurepass account is created and associated with the delegate account
+		// let futurepass = Holders::<Test>::get(&delegate).unwrap();
+		// assert!(pallet_futurepass::ProxyProvider::<Test>::exists(&futurepass, &delegate));
+
+		// // Test for error scenario when the account is already registered
+		// assert_noop!(
+		// 		Futurepass::create(Origin::signed(owner), delegate.clone()),
+		// 		Error::<Test>::AccountAlreadyRegistered
+		// );
 	});
 }

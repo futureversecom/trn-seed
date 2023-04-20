@@ -54,7 +54,7 @@ frame_support::construct_runtime!(
 	}
 );
 
-impl_futurepass_config!(Test);
+impl_pallet_futurepass_config!(Test);
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;

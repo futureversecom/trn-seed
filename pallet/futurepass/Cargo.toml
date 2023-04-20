@@ -34,6 +34,22 @@ seed-primitives = { path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+seed-runtime = { path = "../../runtime" }
+
+seed-pallet-common= { path = "../common" }
+precompile-utils = { path = "../../evm-precompiles/utils" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-proxy = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets-ext = { path = "../assets-ext" }
+pallet-fee-control = { path = "../fee-control" }
+pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-fee-proxy = { path = "../fee-proxy" }
+pallet-dex = { path = "../dex" }
+pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+
 
 [features]
 default = ["std"]
@@ -52,6 +68,11 @@ std = [
 	"hex/std",
 	"seed-pallet-common/std",
 	"seed-primitives/std",
+
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"precompile-utils/std",
+	"fp-evm/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
 runtime-benchmarks = ["frame-benchmarking"]
