@@ -21,35 +21,6 @@ export const typedefs = {
   },
   ExtrinsicSignature: "EthereumSignature",
   SessionKeys: "([u8; 32], [u8; 32])",
-  SerialNumber: "u32",
-  TokenCount: "u32",
-  CrossChainCompatibility: {
-    _enum: {
-      xrpl: "bool"
-    }
-  },
-  RoyaltiesSchedule: {
-    entitlements: "Vec<(AccountId, Permill)>"
-  },
-  TokenOwnership: {
-    owner: "AccountId",
-    ownedSerials: "Vec<SerialNumber>"
-  },
-  OriginChain: {
-    _enum: {
-      ethereum: null,
-      root: null
-    }
-  },
-  MetadataScheme: {
-    _enum: {
-      https: "Vec<u8>",
-      http: "Vec<u8>",
-      ipfs: "Vec<u8>",
-      ethereum: "H160"
-    }
-  },
-  CollectionNameType: "Vec<u8>",
   CollectionInformation: {
     owner: "AccountId",
     name: "Vec<u8>",
@@ -107,8 +78,8 @@ export const NFT_PRECOMPILE_ABI = [
 ];
 
 export const PEG_PRECOMPILE_ABI = [
-  "event Erc20Withdrawal(address indexed beneficiary, uint64 eventProofId, address tokenAddress, uint128 balance)",
-  "event Erc721Withdrawal(address indexed beneficiary, uint64 eventProofId, address[] tokenAddresses, uint32[][] serialNumbers)",
+  "event Erc20Withdrawal(address indexed beneficiary, uint64 indexed eventProofId, address indexed tokenAddress, uint128 balance)",
+  "event Erc721Withdrawal(address indexed beneficiary, uint64 indexed eventProofId, address indexed tokenAddress, uint32[] serialNumbers)",
   "function erc20Withdraw(address beneficiary, address asset, uint128 balance) returns (uint64)",
   "function erc721Withdraw(address beneficiary, address[] tokenAddresses, uint32[][] serialNumbers) returns (uint64)",
 ];
