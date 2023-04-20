@@ -183,8 +183,8 @@ where
 			futurepass: Address,
 			delegate: Address
 		});
-		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
 		let futurepass = Runtime::AddressMapping::into_account_id(futurepass.into());
+		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
 
 		// Manually record gas
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
