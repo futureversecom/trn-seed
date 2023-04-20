@@ -521,7 +521,6 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		// let module_account_id = Self::account_id();
 		let module_account_id = T::ExchangeAddressFor::exchange_address_for(asset_id_a, asset_id_b);
 		T::MultiCurrency::transfer(
 			asset_id_a,
@@ -613,7 +612,6 @@ impl<T: Config> Pallet<T> {
 
 		// transfer lp tokens to dex
 		let module_account_id = T::ExchangeAddressFor::exchange_address_for(asset_id_a, asset_id_b);
-		// let module_account_id = Self::account_id();
 		T::MultiCurrency::transfer(
 			lp_share_asset_id,
 			&who,
@@ -838,7 +836,6 @@ impl<T: Config> Pallet<T> {
 			let (amount_0_out, amount_1_out) =
 				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
 
-			// let module_account_id = Self::account_id();
 			let module_account_id = T::ExchangeAddressFor::exchange_address_for(trading_pair.0, trading_pair.1);
 
 			let to = if i < path.len() - 2 { &module_account_id } else { to };
@@ -956,7 +953,6 @@ impl<T: Config> Pallet<T> {
 
 		// transfer tokens to module account (uniswapv2 trading pair)
 		let module_account_id = T::ExchangeAddressFor::exchange_address_for(path[0], path[1]);
-		// let module_account_id = Self::account_id();
 		T::MultiCurrency::transfer(path[0], who, &module_account_id, amounts[0], false)?;
 
 		Self::_swap(&amounts, &path, who)?;
@@ -982,7 +978,6 @@ impl<T: Config> Pallet<T> {
 		// EXCESSIVE_INPUT_AMOUNT
 		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
 
-		// let module_account_id = Self::account_id();
 		let module_account_id = T::ExchangeAddressFor::exchange_address_for(path[0], path[1]);
 		T::MultiCurrency::transfer(path[0], who, &module_account_id, amounts[0], false)?;
 
