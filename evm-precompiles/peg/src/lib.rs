@@ -21,29 +21,29 @@ use precompile_utils::{
 	prelude::*,
 };
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber};
-use sp_core::{H160, U256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the Erc20Withdrawal log, which is the Keccak of the Log signature.
-/// beneficiary, asset_id, amount
+/// beneficiary, event_proof_id, asset_id, amount
 pub const SELECTOR_LOG_ERC20_WITHDRAWAL: [u8; 32] =
-	keccak256!("Erc20Withdrawal(address,address,uint128)");
+	keccak256!("Erc20Withdrawal(address,uint64,address,uint128)");
 
 /// Solidity selector of the Erc721Withdrawal log, which is the Keccak of the Log signature.
-/// beneficiary, collection_address, serial_numbers
+/// beneficiary, event_proof_id, collection_address, serial_numbers
 pub const SELECTOR_LOG_ERC721_WITHDRAWAL: [u8; 32] =
-	keccak256!("Erc721Withdrawal(address,address,uint32[])");
+	keccak256!("Erc721Withdrawal(address,uint64,address,uint32[])");
 
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	/// Withdraw an ERC20 token
 	/// (beneficiary, asset, amount)
-	Erc20Withdraw = "Erc20Withdraw(address,address,uint128)",
+	Erc20Withdraw = "erc20Withdraw(address,address,uint128)",
 	/// Withdraw an ERC721 token
 	/// (beneficiary, token_addresses+, serial_numbers)
-	Erc721Withdraw = "Erc721Withdraw(address,address[],uint32[][])",
+	Erc721Withdraw = "erc721Withdraw(address,address[],uint32[][])",
 }
 
 /// Provides access to the peg pallets
@@ -148,10 +148,11 @@ where
 		match maybe_event_proof_id {
 			Ok(event_proof_id) => {
 				// Throw EVM log
-				log3(
+				log4(
 					handle.code_address(),
 					SELECTOR_LOG_ERC20_WITHDRAWAL,
 					beneficiary,
+					H256::from_low_u64_be(event_proof_id),
 					H160::from(asset_address),
 					EvmDataWriter::new().write(amount).build(),
 				)
@@ -244,22 +245,23 @@ where
 					.to_vec(),
 			))
 		};
+		let event_proof_id = maybe_event_proof_id.unwrap();
 
 		// throw individual log for every collection withdrawn
 		for (collection_address, serial_numbers) in
 			collection_addresses.into_iter().zip(serial_numbers)
 		{
-			log3(
+			log4(
 				handle.code_address(),
 				SELECTOR_LOG_ERC721_WITHDRAWAL,
 				beneficiary,
+				H256::from_low_u64_be(event_proof_id),
 				H160::from(collection_address),
 				EvmDataWriter::new().write(serial_numbers.into_inner()).build(),
 			)
 			.record(handle)?;
 		}
 
-		let event_proof_id = maybe_event_proof_id.unwrap();
 		Ok(succeed(EvmDataWriter::new().write(U256::from(event_proof_id)).build()))
 	}
 

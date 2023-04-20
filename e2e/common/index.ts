@@ -21,6 +21,47 @@ export const typedefs = {
   },
   ExtrinsicSignature: "EthereumSignature",
   SessionKeys: "([u8; 32], [u8; 32])",
+  SerialNumber: "u32",
+  TokenCount: "u32",
+  CrossChainCompatibility: {
+    _enum: {
+      xrpl: "bool"
+    }
+  },
+  RoyaltiesSchedule: {
+    entitlements: "Vec<(AccountId, Permill)>"
+  },
+  TokenOwnership: {
+    owner: "AccountId",
+    ownedSerials: "Vec<SerialNumber>"
+  },
+  OriginChain: {
+    _enum: {
+      ethereum: null,
+      root: null
+    }
+  },
+  MetadataScheme: {
+    _enum: {
+      https: "Vec<u8>",
+      http: "Vec<u8>",
+      ipfs: "Vec<u8>",
+      ethereum: "H160"
+    }
+  },
+  CollectionNameType: "Vec<u8>",
+  CollectionInformation: {
+    owner: "AccountId",
+    name: "Vec<u8>",
+    metadataScheme: "MetadataScheme",
+    royaltiesSchedule: "Option<RoyaltiesSchedule>",
+    maxIssuance: "Option<TokenCount>",
+    originChain: "OriginChain",
+    nextSerialNumber: "SerialNumber",
+    collectionIssuance: "TokenCount",
+    crossChainCompatibility: "CrossChainCompatibility",
+    ownedTokens: "Vec<TokenOwnership>"
+  }
 };
 
 /** CONSTANTS */
@@ -38,6 +79,9 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
+
+// Precompile address for peg precompile is 1939
+export const PEG_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000000793";
 
 /** ABIs */
 
@@ -60,6 +104,13 @@ export const ERC20_ABI = [
 export const NFT_PRECOMPILE_ABI = [
   "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
   "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
+];
+
+export const PEG_PRECOMPILE_ABI = [
+  "event Erc20Withdrawal(address indexed beneficiary, uint64 eventProofId, address tokenAddress, uint128 balance)",
+  "event Erc721Withdrawal(address indexed beneficiary, uint64 eventProofId, address[] tokenAddresses, uint32[][] serialNumbers)",
+  "function erc20Withdraw(address beneficiary, address asset, uint128 balance) returns (uint64)",
+  "function erc721Withdraw(address beneficiary, address[] tokenAddresses, uint32[][] serialNumbers) returns (uint64)",
 ];
 
 export const ERC721_PRECOMPILE_ABI = [
