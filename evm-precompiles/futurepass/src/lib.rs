@@ -188,17 +188,21 @@ where
 
 		// Manually record gas
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let proxy_type = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
+
+		let mut proxy_type: u8 = 0; // ProxyType.NoPermission
+		if let Some(proxy_def) = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
 			.0
 			.iter()
 			.find(|pd| pd.delegate == delegate)
-			.map(|pd| pd.proxy_type.clone())
-			.unwrap_or_default();
-
-		// let proxy_type =  proxy_type as u8; // Note - check why this won't work
-		let proxy_type: u8 = proxy_type
-			.try_into()
-			.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
+		{
+			// let proxy_type =  proxy_type as u8; // Note - check why this won't work
+			proxy_type = proxy_def
+				.proxy_type
+				.clone()
+				.try_into()
+				.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not
+			                                                          // be passed
+		}
 
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
 	}

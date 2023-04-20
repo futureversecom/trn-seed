@@ -42,7 +42,7 @@ use alloc::boxed::Box;
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult, *},
-	traits::{Get, IsSubType, IsType},
+	traits::{Get, InstanceFilter, IsSubType, IsType},
 };
 use frame_system::pallet_prelude::*;
 use hex::{encode, FromHex};
@@ -84,7 +84,6 @@ pub trait ProxyProvider<T: Config> {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::traits::InstanceFilter;
 
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 

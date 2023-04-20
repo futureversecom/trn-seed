@@ -573,10 +573,11 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	TypeInfo,
 )]
 pub enum ProxyType {
-	Any = 0,
-	NonTransfer = 1,
-	Governance = 2,
-	Staking = 3,
+	NoPermission = 0,
+	Any = 1,
+	NonTransfer = 2,
+	Governance = 3,
+	Staking = 4,
 }
 
 impl Default for ProxyType {
@@ -589,10 +590,11 @@ impl TryFrom<u8> for ProxyType {
 	type Error = &'static str;
 	fn try_from(value: u8) -> Result<Self, Self::Error> {
 		match value {
-			0 => Ok(ProxyType::Any),
-			1 => Ok(ProxyType::NonTransfer),
-			2 => Ok(ProxyType::Governance),
-			3 => Ok(ProxyType::Staking),
+			0 => Ok(ProxyType::NoPermission),
+			1 => Ok(ProxyType::Any),
+			2 => Ok(ProxyType::NonTransfer),
+			3 => Ok(ProxyType::Governance),
+			4 => Ok(ProxyType::Staking),
 			_ => Err("Invalid value for ProxyType"),
 		}
 	}
@@ -602,10 +604,11 @@ impl TryInto<u8> for ProxyType {
 	type Error = &'static str;
 	fn try_into(self) -> Result<u8, Self::Error> {
 		match self {
-			ProxyType::Any => Ok(0),
-			ProxyType::NonTransfer => Ok(1),
-			ProxyType::Governance => Ok(2),
-			ProxyType::Staking => Ok(3),
+			ProxyType::NoPermission => Ok(0),
+			ProxyType::Any => Ok(1),
+			ProxyType::NonTransfer => Ok(2),
+			ProxyType::Governance => Ok(3),
+			ProxyType::Staking => Ok(4),
 		}
 	}
 }
@@ -628,6 +631,7 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 			ProxyType::NonTransfer => call.value == U256::zero(),
 			ProxyType::Governance => false,
 			ProxyType::Staking => false,
+			ProxyType::NoPermission => false,
 		}
 	}
 }
@@ -649,6 +653,7 @@ impl InstanceFilter<Call> for ProxyType {
 			ProxyType::NonTransfer => true,
 			ProxyType::Governance => false,
 			ProxyType::Staking => false,
+			ProxyType::NoPermission => false,
 		}
 	}
 

@@ -33,8 +33,9 @@ const CALL_TYPE = {
 };
 
 const PROXY_TYPE = {
-  Any: 0,
-  NonTransfer: 1,
+  NoPermission: 0,
+  Any: 1,
+  NonTransfer: 2,
 };
 
 describe("Futurepass Precompile", function () {
@@ -126,8 +127,8 @@ describe("Futurepass Precompile", function () {
 
     // isDelegate should return false.
     expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
-    // checkDelegate should return default value
-    expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
+    // checkDelegate should return 0 value(ProxyType.NoPermission)
+    expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.NoPermission);
 
     tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
     const receipt = await tx.wait();
