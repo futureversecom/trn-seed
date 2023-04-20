@@ -27,6 +27,14 @@ use seed_primitives::{AccountId, MetadataScheme, TokenCount, TokenId};
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
+type OwnedTokens = BoundedVec<
+	TokenOwnership<
+		<Test as frame_system::Config>::AccountId,
+		<Test as Config>::MaxTokensPerCollection,
+	>,
+	<Test as Config>::MaxTokensPerCollection,
+>;
+
 // Create an NFT collection
 // Returns the created `collection_id`
 fn setup_collection(owner: AccountId) -> CollectionUuid {
@@ -128,11 +136,8 @@ fn make_new_simple_offer(
 }
 
 /// Helper function to create bounded vec of TokenOwnership
-pub fn create_owned_tokens(
-	owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>,
-) -> BoundedVec<TokenOwnership<Test>, MaxTokensPerCollection> {
-	let mut token_ownership: BoundedVec<TokenOwnership<Test>, MaxTokensPerCollection> =
-		BoundedVec::default();
+pub fn create_owned_tokens(owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>) -> OwnedTokens {
+	let mut token_ownership: OwnedTokens = BoundedVec::default();
 	for (owner, serial_numbers) in owned_tokens {
 		let serial_numbers_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers).unwrap();
@@ -287,7 +292,20 @@ fn create_collection() {
 		));
 
 		let expected_tokens = create_owned_tokens(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
+		let expected_info = CollectionInformation {
+			owner: collection_owner,
+			name: b"test-collection".to_vec(),
+			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			royalties_schedule: Some(royalties_schedule.clone()),
+			max_issuance: None,
+			origin_chain: OriginChain::Root,
+			next_serial_number: quantity,
+			collection_issuance: quantity,
+			owned_tokens: expected_tokens,
+			cross_chain_compatibility: CrossChainCompatibility::default(),
+		};
 
+<<<<<<< HEAD
 		assert_eq!(
 			Nft::collection_info(collection_id).unwrap(),
 			CollectionInformation {
@@ -306,6 +324,9 @@ fn create_collection() {
 				cross_chain_compatibility: CrossChainCompatibility::default(),
 			}
 		);
+=======
+		assert_eq!(Nft::collection_info(collection_id).unwrap(), expected_info);
+>>>>>>> main
 
 		// EVM pallet should have account code for collection
 		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
@@ -3130,8 +3151,7 @@ fn add_user_tokens_works() {
 		let tokens: Vec<SerialNumber> = vec![0, 1, 2, 3, 900, 1000, 101010101];
 		let collection_id = setup_collection(collection_owner);
 		let mut collection_info = Nft::collection_info(collection_id).unwrap();
-		let expected_owned_tokens: BoundedVec<TokenOwnership<Test>, MaxTokensPerCollection> =
-			BoundedVec::default();
+		let expected_owned_tokens: OwnedTokens = BoundedVec::default();
 		// Initially, owned tokens should be empty
 		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
 
@@ -3188,7 +3208,7 @@ fn add_user_tokens_over_token_limit_should_fail() {
 			BoundedVec::try_from(vec![max]).unwrap();
 		assert_noop!(
 			collection_info.add_user_tokens(&token_owner, serial_numbers_max.clone()),
-			Error::<Test>::TokenLimitExceeded
+			TokenOwnershipError::TokenLimitExceeded
 		);
 		// Adding tokens to different user still works
 		assert_ok!(collection_info.add_user_tokens(&token_owner_2, serial_numbers_max.clone()));
@@ -3221,7 +3241,7 @@ fn add_user_tokens_over_user_limit_should_fail() {
 		// adding another user should fail
 		assert_noop!(
 			collection_info.add_user_tokens(&create_account(max as u64), serial_numbers),
-			Error::<Test>::TokenLimitExceeded
+			TokenOwnershipError::TokenLimitExceeded
 		);
 	});
 }

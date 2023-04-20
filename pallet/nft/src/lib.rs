@@ -34,8 +34,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber,
-	TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -107,7 +107,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config {
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
 		type DefaultListingDuration: Get<Self::BlockNumber>;
@@ -143,8 +143,12 @@ pub mod pallet {
 	/// Map from collection to its information
 	#[pallet::storage]
 	#[pallet::getter(fn collection_info)]
-	pub type CollectionInfo<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionUuid, CollectionInformation<T>>;
+	pub type CollectionInfo<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		CollectionUuid,
+		CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+	>;
 
 	/// The next available incrementing collection id
 	#[pallet::storage]
@@ -1119,6 +1123,14 @@ pub mod pallet {
 					Ok(())
 				},
 			}
+		}
+	}
+}
+
+impl<T: Config> From<TokenOwnershipError> for Error<T> {
+	fn from(val: TokenOwnershipError) -> Error<T> {
+		match val {
+			TokenOwnershipError::TokenLimitExceeded => Error::<T>::TokenLimitExceeded,
 		}
 	}
 }
