@@ -12,79 +12,213 @@
  *     https://centrality.ai/licenses/gplv3.txt
  *     https://centrality.ai/licenses/lgplv3.txt
  */
-use crate::{self as pallet_evm_chain_id, Config};
-use frame_support::parameter_types;
-use frame_system::EnsureRoot;
-use sp_core::H256;
+use crate::{self as pallet_futurepass, *};
+use frame_support::{
+	parameter_types,
+	traits::{Currency, ExistenceRequirement, FindAuthor, InstanceFilter},
+	weights::WeightToFee,
+	PalletId,
+};
+use frame_system::{limits, EnsureRoot};
+use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
+use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, Address, ErcIdConversion};
+use seed_pallet_common::*;
+use seed_primitives::types::{AccountId, AssetId, Balance};
+use seed_runtime::{
+	constants::currency::deposit,
+	impls::{ProxyPalletProvider, ProxyType},
+	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
+};
+use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
+	ConsensusEngineId,
 };
 
-pub type AccountId = u64;
-pub const ALICE: AccountId = 10;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-pub type BlockNumber = u64;
-pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
-pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
+pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
 
 frame_support::construct_runtime!(
-	pub enum TestRuntime where
+	pub enum Test where
 		Block = Block,
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		EVMChainId: pallet_evm_chain_id::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Assets: pallet_assets,
+		AssetsExt: pallet_assets_ext,
+		FeeControl: pallet_fee_control,
+		// TransactionPayment: pallet_transaction_payment,
+		// FeeProxy: pallet_fee_proxy,
+		Dex: pallet_dex,
+		// Evm: pallet_evm,
+		Proxy: pallet_proxy,
+		Futurepass: pallet_futurepass,
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-}
-impl frame_system::Config for TestRuntime {
-	type BlockWeights = ();
-	type BlockLength = ();
-	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
-	type Index = u64;
-	type BlockNumber = BlockNumber;
-	type Call = Call;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type Event = Event;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = ();
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+impl_frame_system_config!(Test);
+impl_pallet_balance_config!(Test);
+impl_pallet_assets_config!(Test);
+impl_pallet_assets_ext_config!(Test);
+impl_pallet_fee_control_config!(Test);
+// impl_pallet_transaction_payment_config!(Test);
+// impl_pallet_fee_proxy_config!(Test);
+impl_pallet_dex_config!(Test);
+// impl_pallet_timestamp_config!(Test); // required for pallet-evm
+// impl_pallet_evm_config!(Test);
+
+impl InstanceFilter<Call> for ProxyType {
+	fn filter(&self, c: &Call) -> bool {
+		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
+			return false
+		}
+		match self {
+			_ => true,
+		}
+	}
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			_ => false,
+		}
+	}
 }
 
-parameter_types! {
-	pub const DefaultChainId: u64 = 7672;
-}
-impl Config for TestRuntime {
+impl pallet_proxy::Config for Test {
 	type Event = Event;
-	type ApproveOrigin = EnsureRoot<Self::AccountId>;
-	type DefaultChainId = DefaultChainId;
+	type Call = Call;
+	type Currency = Balances;
+
+	type ProxyType = ProxyType;
+	type ProxyDepositBase = ProxyDepositBase;
+	type ProxyDepositFactor = ProxyDepositFactor;
+	type MaxProxies = ConstU32<32>;
+	type MaxPending = ConstU32<32>;
+	type CallHasher = BlakeTwo256;
+	type AnnouncementDepositBase = AnnouncementDepositBase;
+	type AnnouncementDepositFactor = AnnouncementDepositFactor;
 	type WeightInfo = ();
 }
 
-#[derive(Clone, Copy, Default)]
+impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
+	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool {
+		pallet_proxy::Pallet::<Test>::find_proxy(futurepass, delegate, None)
+			.map(|_| true)
+			.unwrap_or(false)
+	}
+
+	fn delegates(futurepass: &AccountId) -> Vec<AccountId> {
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Test>::get(futurepass);
+		proxy_definitions.into_iter().map(|proxy_def| proxy_def.delegate).collect()
+	}
+
+	/// Adding a delegate requires funding the futurepass account (from funder) with the cost of the
+	/// proxy creation.
+	/// The futurepass cannot pay for itself as it may not have any funds.
+	fn add_delegate(
+		funder: &AccountId,
+		futurepass: &AccountId,
+		delegate: &AccountId,
+	) -> DispatchResult {
+		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
+		// executes proxy creation)
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Test>::get(futurepass);
+		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
+		let creation_cost =
+			pallet_proxy::Pallet::<Test>::deposit(proxy_definitions.len() as u32 + 1);
+		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
+			funder,
+			futurepass,
+			creation_cost,
+			ExistenceRequirement::KeepAlive,
+		)?;
+
+		let proxy_type = ProxyType::Any;
+		pallet_proxy::Pallet::<Test>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)
+	}
+
+	/// Removing a delegate requires refunding the potential funder (who may have funded the
+	/// creation of futurepass or added the delegates) with the cost of the proxy creation.
+	/// The futurepass accrues deposits (as reserved balance) by the funder(s) when delegates are
+	/// added to the futurepass account.
+	/// Removing delegates unreserves the deposits (funds) from the futurepass account - which
+	/// should be paid back out to potential receiver(s).
+	fn remove_delegate(
+		receiver: &AccountId,
+		futurepass: &AccountId,
+		delegate: &AccountId,
+	) -> DispatchResult {
+		let proxy_type = ProxyType::Any;
+
+		// get deposits before proxy removal (value gets mutated in removal)
+		let (_, pre_removal_deposit) = pallet_proxy::Proxies::<Test>::get(futurepass);
+
+		let result = pallet_proxy::Pallet::<Test>::remove_proxy_delegate(
+			futurepass, *delegate, proxy_type, 0,
+		);
+		if result.is_ok() {
+			let (_, post_removal_deposit) = pallet_proxy::Proxies::<Test>::get(futurepass);
+			let removal_refund = pre_removal_deposit - post_removal_deposit;
+			<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
+				futurepass,
+				receiver,
+				removal_refund,
+				ExistenceRequirement::KeepAlive,
+			)?;
+		}
+		result
+	}
+
+	fn proxy_call(
+		caller: <Test as frame_system::Config>::Origin,
+		futurepass: AccountId,
+		call: Call,
+	) -> DispatchResult {
+		let proxy_type = ProxyType::Any;
+		let call = pallet_proxy::Call::<Test>::proxy {
+			real: futurepass.into(),
+			force_proxy_type: Some(proxy_type),
+			call: call.into(),
+		};
+
+		<Call as Dispatchable>::dispatch(call.into(), caller)
+			.map(|_| ())
+			.map_err(|e| e.error)
+	}
+}
+
+parameter_types! {
+	/// 4 byte futurepass account prefix
+	pub const FuturepassPrefix: [u8; 4] = [0xFF; 4];
+}
+
+impl crate::Config for Test {
+	type Event = Event;
+	type FuturepassPrefix = FuturepassPrefix;
+	type Proxy = ProxyPalletProvider;
+	type Call = Call;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
+}
+
+pub fn create_account(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
+
+#[derive(Default)]
+// #[derive(Clone, Copy, Default)]
 pub struct TestExt;
+
 impl TestExt {
 	pub fn build(self) -> sp_io::TestExternalities {
-		let storage =
-			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
 		ext
