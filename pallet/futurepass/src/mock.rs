@@ -208,6 +208,10 @@ impl crate::Config for Test {
 	type WeightInfo = ();
 }
 
+pub fn create_account(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
+
 #[derive(Default)]
 // #[derive(Clone, Copy, Default)]
 pub struct TestExt;
