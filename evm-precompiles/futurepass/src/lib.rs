@@ -17,7 +17,7 @@ use sp_std::marker::PhantomData;
 pub const SELECTOR_LOG_FUTUREPASS_CREATED: [u8; 32] =
 	keccak256!("FuturepassCreated(address,address)"); // futurepass, owner
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
-	keccak256!("FuturepassDelegateRegistered(address,address)"); // futurepass, delegate
+	keccak256!("FuturepassDelegateRegistered(address,address,uint8)"); // futurepass, delegate, proxyType
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateUnregistered(address,address)"); // futurepass, delegate
 
@@ -49,11 +49,12 @@ impl TryFrom<u8> for CallType {
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	FuturepassOf = "futurepassOf(address)",
+	IsDelegate = "isDelegate(address,address)",
+	DelegateType = "delegateType(address,address)",
 	Create = "create(address)",
-	RegisterDelegate = "registerDelegate(address,address)",
+	RegisterDelegate = "registerDelegate(address,address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address,address)",
 	ProxyCall = "proxyCall(address,address,uint8,bytes)",
-	IsDelegate = "isDelegate(address,address)",
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
@@ -99,6 +100,8 @@ where
 	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
 		From<Option<Runtime::AccountId>>,
+	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
+	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
 		let result = {
@@ -110,6 +113,7 @@ where
 			match selector {
 				Action::FuturepassOf => Self::futurepass_of(handle),
 				Action::IsDelegate => Self::is_delegate(handle),
+				Action::DelegateType => Self::delegate_type(handle),
 				Action::Create => Self::create_futurepass(handle),
 				Action::RegisterDelegate => Self::register_delegate(handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
@@ -140,6 +144,8 @@ where
 	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
 		From<Option<Runtime::AccountId>>,
+	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
+	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
 {
 	fn futurepass_of(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, { owner: Address });
@@ -170,6 +176,35 @@ where
 			.any(|pd| pd.delegate == delegate);
 
 		Ok(succeed(EvmDataWriter::new().write::<bool>(is_proxy).build()))
+	}
+
+	fn delegate_type(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		read_args!(handle, {
+			futurepass: Address,
+			delegate: Address
+		});
+		let futurepass = Runtime::AddressMapping::into_account_id(futurepass.into());
+		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
+
+		// Manually record gas
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		let mut proxy_type: u8 = 0; // ProxyType.NoPermission
+		if let Some(proxy_def) = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
+			.0
+			.iter()
+			.find(|pd| pd.delegate == delegate)
+		{
+			// let proxy_type =  proxy_type as u8; // Note - check why this won't work
+			proxy_type = proxy_def
+				.proxy_type
+				.clone()
+				.try_into()
+				.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not
+			                                                          // be passed
+		}
+
+		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
 	}
 
 	fn create_futurepass(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
@@ -212,9 +247,13 @@ where
 
 	fn register_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(2, 32)?;
-		read_args!( handle, { futurepass: Address, delegate: Address}); // TODO(surangap): add access controlling once pallet has it
+		read_args!( handle, { futurepass: Address, delegate: Address, proxy_type: u8});
 		let futurepass: H160 = futurepass.into();
 		let delegate: H160 = delegate.into();
+		let proxy_type_enum: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type
+			.try_into()
+			.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
+
 		let caller = handle.context().caller;
 
 		//TODO(surangap):
@@ -228,14 +267,16 @@ where
 			pallet_futurepass::Call::<Runtime>::register_delegate {
 				futurepass: futurepass.into(),
 				delegate: delegate.into(),
+				proxy_type: proxy_type_enum,
 			},
 		)?;
 
-		log2(
+		log3(
 			handle.code_address(),
 			SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED,
 			futurepass,
-			EvmDataWriter::new().write(Address::from(delegate)).build(),
+			delegate,
+			EvmDataWriter::new().write(proxy_type).build(),
 		)
 		.record(handle)?;
 
@@ -245,7 +286,7 @@ where
 
 	fn unregister_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(2, 32)?;
-		read_args!( handle, { futurepass: Address, delegate: Address}); // TODO(surangap): add access controlling once pallet has it
+		read_args!( handle, { futurepass: Address, delegate: Address });
 		let futurepass: H160 = futurepass.into();
 		let delegate: H160 = delegate.into();
 		let caller = handle.context().caller;
