@@ -13,11 +13,11 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use hex;
 use scale_info::TypeInfo;
 use seed_primitives::AssetId;
+use serde::{Deserialize, Deserializer, Serialize};
 use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::{H160, U256};
 use sp_runtime::{ArithmeticError, DispatchError, RuntimeDebug};
 use sp_std::{marker::PhantomData, prelude::*};
-use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(
 	Encode,
@@ -57,7 +57,6 @@ pub trait ExchangeAddressFor {
 	/// Create and exchange address given `asset_id`
 	fn exchange_address_for(asset_id: AssetId, asset_id: AssetId) -> Self::AccountId;
 }
-
 
 impl<T: Config> ExchangeAddressFor for ExchangeAddressGenerator<T>
 where

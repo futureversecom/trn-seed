@@ -14,13 +14,13 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::collapsible_if)]
-pub use pallet::*;
 use frame_support::{
 	pallet_prelude::*,
 	traits::fungibles::{self, Inspect, Mutate, Transfer},
 	transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
+pub use pallet::*;
 use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{AssetId, Balance};
@@ -38,8 +38,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 pub mod types;
-use types::SafeMath;
 use crate::types::ExchangeAddressFor;
+use types::SafeMath;
 pub use types::TradingPair;
 pub mod weights;
 pub use weights::WeightInfo;
@@ -90,7 +90,10 @@ pub mod pallet {
 		type DEXPalletId: Get<PalletId>;
 
 		/// Something which can generate addresses for exchange pools
-		type ExchangeAddressFor: ExchangeAddressFor<AccountId = Self::AccountId, AssetId = Self::AssetId>;
+		type ExchangeAddressFor: ExchangeAddressFor<
+			AccountId = Self::AccountId,
+			AssetId = Self::AssetId,
+		>;
 
 		/// The DEX's burn id, to provide for a redundant, unredeemable minter/burner address.
 		#[pallet::constant]
@@ -119,7 +122,6 @@ pub mod pallet {
 
 		/// Type for identifying assets
 		type AssetId: Parameter + Member + Default + Copy + Into<u64>;
-
 	}
 
 	#[pallet::error]
@@ -297,7 +299,8 @@ pub mod pallet {
 
 			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 
-			let module_account_id = T::ExchangeAddressFor::exchange_address_for(asset_id_a, asset_id_b);
+			let module_account_id =
+				T::ExchangeAddressFor::exchange_address_for(asset_id_a, asset_id_b);
 			// create trading pair if non-existent
 			if Self::lp_token_id(&trading_pair).is_none() {
 				// create a new token and return the asset id
@@ -609,7 +612,6 @@ impl<T: Config> Pallet<T> {
 
 		ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
 
-
 		// transfer lp tokens to dex
 		let module_account_id = T::ExchangeAddressFor::exchange_address_for(asset_id_a, asset_id_b);
 		T::MultiCurrency::transfer(
@@ -836,7 +838,8 @@ impl<T: Config> Pallet<T> {
 			let (amount_0_out, amount_1_out) =
 				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
 
-			let module_account_id = T::ExchangeAddressFor::exchange_address_for(trading_pair.0, trading_pair.1);
+			let module_account_id =
+				T::ExchangeAddressFor::exchange_address_for(trading_pair.0, trading_pair.1);
 
 			let to = if i < path.len() - 2 { &module_account_id } else { to };
 
