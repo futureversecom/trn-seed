@@ -14,20 +14,21 @@
 use frame_support::{
 	assert_ok,
 	dispatch::RawOrigin,
-	traits::{fungible::Inspect, Get, OffchainWorker, OnFinalize, OnInitialize},
+	traits::{fungible::Inspect, Currency, Get, OffchainWorker, OnFinalize, OnInitialize},
 };
+use pallet_assets_ext::AssetCurrency;
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, SessionIndex};
 
 use seed_client::chain_spec::authority_keys_from_seed;
 use seed_pallet_common::FinalSessionTracker;
-use seed_primitives::{Balance, BlockNumber};
+use seed_primitives::{AccountId, Balance, BlockNumber};
 
 use crate::{
-	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
-	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, System,
-	Timestamp, TxFeePot, XrpCurrency,
+	constants::{XrpAssetId, MILLISECS_PER_BLOCK, ONE_XRP},
+	Balances, Call, CheckedExtrinsic, DualStakingCurrency, ElectionProviderMultiPhase,
+	EpochDuration, EthBridge, Executive, Runtime, Scheduler, Session, SessionKeys, SessionsPerEra,
+	Staking, System, Timestamp, TxFeePot, XrpCurrency,
 };
 
 use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
@@ -105,7 +106,8 @@ fn start_active_era(era_index: EraIndex) {
 fn era_payout_redistributes_era_tx_fees() {
 	ExtBuilder::default().build().execute_with(|| {
 		let genesis_root_issuance = Balances::total_issuance();
-		let genesis_xrp_issuance = XrpCurrency::total_issuance();
+		let genesis_xrp_issuance =
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance();
 		// send some transactions to accrue fees
 		let xt = sign_xt(CheckedExtrinsic {
 			signed: fp_self_contained::CheckedSignature::Signed(
@@ -129,7 +131,10 @@ fn era_payout_redistributes_era_tx_fees() {
 					charlie_initial_balance
 		);
 		// after tx fee paid, issuance ok
-		assert_eq!(genesis_xrp_issuance, XrpCurrency::total_issuance());
+		assert_eq!(
+			genesis_xrp_issuance,
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance()
+		);
 		assert_eq!(genesis_root_issuance, Balances::total_issuance());
 
 		// allocate 50/50 block authoring points to alice & bob in era 0
@@ -154,7 +159,10 @@ fn era_payout_redistributes_era_tx_fees() {
 		assert!(TxFeePot::total_pot_balance().is_zero());
 
 		// after payout, issuance ok
-		assert_eq!(genesis_xrp_issuance, XrpCurrency::total_issuance());
+		assert_eq!(
+			genesis_xrp_issuance,
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance()
+		);
 		assert_eq!(genesis_root_issuance, Balances::total_issuance());
 	});
 }
@@ -163,7 +171,8 @@ fn era_payout_redistributes_era_tx_fees() {
 fn era_payout_does_not_carry_over() {
 	ExtBuilder::default().build().execute_with(|| {
 		let genesis_root_issuance = Balances::total_issuance();
-		let genesis_xrp_issuance = XrpCurrency::total_issuance();
+		let genesis_xrp_issuance =
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance();
 
 		// run through eras 0, 1, 2, create a tx and accrue fees
 		let mut era_payouts = Vec::<Balance>::default();
@@ -202,7 +211,108 @@ fn era_payout_does_not_carry_over() {
 
 		// after payout, issuance ok
 		assert_eq!(genesis_root_issuance, Balances::total_issuance());
-		assert_eq!(genesis_xrp_issuance, XrpCurrency::total_issuance());
+		assert_eq!(
+			genesis_xrp_issuance,
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance()
+		);
+	});
+}
+
+#[test]
+fn dual_currency_deposit_into_does_not_mint_if_fee_pot_is_sufficient() {
+	ExtBuilder::default().build().execute_with(|| {
+		let initial_amount = 1000000000000000;
+		XrpCurrency::make_free_balance_be(&TxFeePot::account_id(), initial_amount);
+		let issuance_amount = 1003000000000000;
+		assert_eq!(
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance(),
+			issuance_amount,
+		);
+
+		let transfer_amount = 50000;
+		assert_ok!(pallet_assets_ext::DualStakingCurrency::<Runtime, XrpCurrency, Balances>::deposit_into_existing(&alice(), 50000));
+		// Nothing was minted.
+		assert_eq!(
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance(),
+			issuance_amount,
+		);
+		// Tx fee pot was reduced instead of mint
+		assert_eq!(XrpCurrency::free_balance(&TxFeePot::account_id()), initial_amount - transfer_amount);
+	});
+}
+
+#[test]
+fn dual_currency_deposit_into_mints_if_fee_pot_is_not_sufficient() {
+	ExtBuilder::default().build().execute_with(|| {
+		XrpCurrency::make_free_balance_be(&TxFeePot::account_id(), 0);
+		let issuance_throughout: u128 = 3000000000000;
+		assert_eq!(
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance(),
+			3000000000000
+		);
+
+		let additional_issance = 50000;
+		// TODO: Check odd behavior aroud nwhy asserting okay on this this succeeds in test, but causes mint to not occur
+		pallet_assets_ext::DualStakingCurrency::<Runtime, XrpCurrency, Balances>::deposit_into_existing(&alice(), additional_issance);
+		assert_eq!(
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance(),
+			3000000000000 + additional_issance,
+		);
+		assert_eq!(XrpCurrency::free_balance(&TxFeePot::account_id()), 0);
+	});
+}
+
+#[test]
+fn dual_currency_deposit_creating_mints_if_fee_pot_is_not_sufficient() {
+	ExtBuilder::default().build().execute_with(|| {
+		XrpCurrency::make_free_balance_be(&TxFeePot::account_id(), 0);
+		let issuance_throughout: u128 = 3000000000000;
+		assert_eq!(
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance(),
+			3000000000000
+		);
+
+		let additional_issance = 50000;
+		// TODO: Check odd behavior aroud nwhy asserting okay on this this succeeds in test, but
+		// causes mint to not occur
+		pallet_assets_ext::DualStakingCurrency::<Runtime, XrpCurrency, Balances>::deposit_creating(
+			&alice(),
+			additional_issance,
+		);
+		assert_eq!(
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance(),
+			3000000000000 + additional_issance,
+		);
+		assert_eq!(XrpCurrency::free_balance(&TxFeePot::account_id()), 0);
+	});
+}
+
+#[test]
+fn dual_currency_deposit_creating_does_not_mint_if_fee_pot_is_sufficient() {
+	ExtBuilder::default().build().execute_with(|| {
+		let initial_amount = 1000000000000000;
+		XrpCurrency::make_free_balance_be(&TxFeePot::account_id(), initial_amount);
+		let issuance_amount = 1003000000000000;
+		assert_eq!(
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance(),
+			issuance_amount,
+		);
+
+		let transfer_amount = 50000;
+		pallet_assets_ext::DualStakingCurrency::<Runtime, XrpCurrency, Balances>::deposit_creating(
+			&alice(),
+			50000,
+		);
+		// Nothing was minted.
+		assert_eq!(
+			<AssetCurrency<Runtime, XrpAssetId> as Currency<AccountId>>::total_issuance(),
+			issuance_amount,
+		);
+		// Tx fee pot was reduced instead of mint
+		assert_eq!(
+			XrpCurrency::free_balance(&TxFeePot::account_id()),
+			initial_amount - transfer_amount
+		);
 	});
 }
 

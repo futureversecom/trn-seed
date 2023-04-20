@@ -298,7 +298,6 @@ where
 		value: Self::Balance,
 	) -> Result<Self::PositiveImbalance, DispatchError> {
 		let tx_fee_pot_Account = &T::FeePotId::get().into_account_truncating();
-
 		if R::free_balance(tx_fee_pot_Account) > value.into() {
 			R::transfer(tx_fee_pot_Account, who, value, ExistenceRequirement::AllowDeath);
 			Ok(PositiveImbalance::default())
@@ -307,9 +306,9 @@ where
 		}
 	}
 	fn deposit_creating(who: &T::AccountId, value: Self::Balance) -> Self::PositiveImbalance {
-		let tx_fee_pot_Account = &T::FeePotId::get().into_account_truncating();
-		if R::free_balance(tx_fee_pot_Account) > value {
-			R::transfer(tx_fee_pot_Account, who, value, ExistenceRequirement::AllowDeath);
+		let tx_fee_pot_account = &T::FeePotId::get().into_account_truncating();
+		if R::free_balance(tx_fee_pot_account) > value {
+			R::transfer(tx_fee_pot_account, who, value, ExistenceRequirement::AllowDeath);
 			PositiveImbalance::default()
 		} else {
 			Self::deposit_into_existing(who, value).unwrap_or_default()
