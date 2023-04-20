@@ -469,15 +469,18 @@ where
 pub struct ProxyPalletProvider;
 
 impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
-	fn exists(futurepass: &AccountId, delegate: &AccountId) -> bool {
-		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, None)
+	fn exists(futurepass: &AccountId, delegate: &AccountId, proxy_type: Option<ProxyType>) -> bool {
+		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, proxy_type)
 			.map(|_| true)
 			.unwrap_or(false)
 	}
 
-	fn delegates(futurepass: &AccountId) -> Vec<AccountId> {
+	fn delegates(futurepass: &AccountId) -> Vec<(AccountId, ProxyType)> {
 		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
-		proxy_definitions.into_iter().map(|proxy_def| proxy_def.delegate).collect()
+		proxy_definitions
+			.into_iter()
+			.map(|proxy_def| (proxy_def.delegate, proxy_def.proxy_type))
+			.collect()
 	}
 
 	/// Adding a delegate requires funding the futurepass account (from funder) with the cost of the
@@ -487,6 +490,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		funder: &AccountId,
 		futurepass: &AccountId,
 		delegate: &AccountId,
+		proxy_type: &ProxyType,
 	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
@@ -501,8 +505,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 			ExistenceRequirement::KeepAlive,
 		)?;
 
-		let proxy_type = ProxyType::Any;
-		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)
+		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, *proxy_type, 0)
 	}
 
 	/// Removing a delegate requires refunding the potential funder (who may have funded the
@@ -516,13 +519,15 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		futurepass: &AccountId,
 		delegate: &AccountId,
 	) -> DispatchResult {
-		let proxy_type = ProxyType::Any;
-
+		let proxy_def = pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, None)?;
 		// get deposits before proxy removal (value gets mutated in removal)
 		let (_, pre_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 
 		let result = pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(
-			futurepass, *delegate, proxy_type, 0,
+			futurepass,
+			*delegate,
+			proxy_def.proxy_type,
+			0,
 		);
 		if result.is_ok() {
 			let (_, post_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
@@ -542,10 +547,9 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		futurepass: AccountId,
 		call: Call,
 	) -> DispatchResult {
-		let proxy_type = ProxyType::Any;
 		let call = pallet_proxy::Call::<Runtime>::proxy {
 			real: futurepass.into(),
-			force_proxy_type: Some(proxy_type),
+			force_proxy_type: None,
 			call: call.into(),
 		};
 
@@ -569,15 +573,43 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	TypeInfo,
 )]
 pub enum ProxyType {
-	Any,
-	NonTransfer,
-	Governance,
-	Staking,
+	NoPermission = 0,
+	Any = 1,
+	NonTransfer = 2,
+	Governance = 3,
+	Staking = 4,
 }
 
 impl Default for ProxyType {
 	fn default() -> Self {
 		Self::Any
+	}
+}
+
+impl TryFrom<u8> for ProxyType {
+	type Error = &'static str;
+	fn try_from(value: u8) -> Result<Self, Self::Error> {
+		match value {
+			0 => Ok(ProxyType::NoPermission),
+			1 => Ok(ProxyType::Any),
+			2 => Ok(ProxyType::NonTransfer),
+			3 => Ok(ProxyType::Governance),
+			4 => Ok(ProxyType::Staking),
+			_ => Err("Invalid value for ProxyType"),
+		}
+	}
+}
+
+impl TryInto<u8> for ProxyType {
+	type Error = &'static str;
+	fn try_into(self) -> Result<u8, Self::Error> {
+		match self {
+			ProxyType::NoPermission => Ok(0),
+			ProxyType::Any => Ok(1),
+			ProxyType::NonTransfer => Ok(2),
+			ProxyType::Governance => Ok(3),
+			ProxyType::Staking => Ok(4),
+		}
 	}
 }
 
@@ -599,6 +631,7 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 			ProxyType::NonTransfer => call.value == U256::zero(),
 			ProxyType::Governance => false,
 			ProxyType::Staking => false,
+			ProxyType::NoPermission => false,
 		}
 	}
 }
@@ -620,6 +653,7 @@ impl InstanceFilter<Call> for ProxyType {
 			ProxyType::NonTransfer => true,
 			ProxyType::Governance => false,
 			ProxyType::Staking => false,
+			ProxyType::NoPermission => false,
 		}
 	}
 
@@ -671,7 +705,7 @@ where
 		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
 			call.is_sub_type()
 		{
-			if ProxyPalletProvider::exists(futurepass, who) {
+			if ProxyPalletProvider::exists(futurepass, who, None) {
 				who = futurepass;
 			}
 		}

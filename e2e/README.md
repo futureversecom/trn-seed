@@ -31,7 +31,8 @@ cp .env.example .env
 cargo run -- --dev --unsafe-ws-external --unsafe-rpc-external --rpc-cors=all
 ```
 
-- Note: You need to run specific test files, since the suite will not handle startup and shutdown of local node (state is persisted across runs; manual node restarts required)
+- Note: You need to run specific test files, since the suite will not handle startup and shutdown of local node (state
+  is persisted across runs; manual node restarts required)
 
 ```sh
 yarn hardhat test test/TestCallGasEstimates.test.ts
@@ -39,8 +40,10 @@ yarn hardhat test test/TestCallGasEstimates.test.ts
 
 #### TODO
 
-- [ ] Add support for support `ConnectionType` of `binary` in [node.ts](./node.ts) to handle startup and shutdown of local node
-- [ ] Multi-process startup and graceful shutdown (each test suite should spin up its own node and be able to be run in parallel - like the docker approach below)
+- [ ] Add support for support `ConnectionType` of `binary` in [node.ts](./node.ts) to handle startup and shutdown of
+      local node
+- [ ] Multi-process startup and graceful shutdown (each test suite should spin up its own node and be able to be run in
+      parallel - like the docker approach below)
 
 ### Docker
 

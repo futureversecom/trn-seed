@@ -42,7 +42,7 @@ use alloc::boxed::Box;
 use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult, *},
-	traits::{Get, IsSubType, IsType},
+	traits::{Get, InstanceFilter, IsSubType, IsType},
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::AccountId;
@@ -56,12 +56,17 @@ pub use weights::WeightInfo;
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
 pub trait ProxyProvider<T: Config> {
-	fn exists(futurepass: &T::AccountId, delegate: &T::AccountId) -> bool;
-	fn delegates(futurepass: &T::AccountId) -> Vec<T::AccountId>;
+	fn exists(
+		futurepass: &T::AccountId,
+		delegate: &T::AccountId,
+		proxy_type: Option<T::ProxyType>,
+	) -> bool;
+	fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)>;
 	fn add_delegate(
 		funder: &T::AccountId,
 		futurepass: &T::AccountId,
 		delegate: &T::AccountId,
+		proxy_type: &T::ProxyType,
 	) -> DispatchResult;
 	fn remove_delegate(
 		receiver: &T::AccountId,
@@ -93,11 +98,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type FuturepassPrefix: Get<[u8; 4]>;
 
-		// type Proxy: ProxyProvider<Self::AccountId, Self::ProxyType>;
 		type Proxy: ProxyProvider<Self>;
-
-		// /// Multicurrency support
-		// type Currency: ReservableCurrency<Self::AccountId>;
 
 		/// overarching Call type
 		type Call: Parameter
@@ -108,6 +109,18 @@ pub mod pallet {
 
 		/// Allowed origins to ease transition to council governance
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+
+		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` fitler.
+		/// The instance filter determines whether a given call may be proxied under this type.
+		///
+		/// IMPORTANT: `Default` must be provided and MUST BE the the *most permissive* value.
+		type ProxyType: Parameter
+			+ Member
+			+ Ord
+			+ PartialOrd
+			+ InstanceFilter<<Self as Config>::Call>
+			+ Default
+			+ MaxEncodedLen;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
@@ -143,6 +156,7 @@ pub mod pallet {
 		DelegateRegistered {
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
+			proxy_type: T::ProxyType,
 		},
 		/// Delegate unregistration from Futurepass account
 		DelegateUnregistered {
@@ -206,28 +220,42 @@ pub mod pallet {
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// Parameters:
-		/// - `futurepass`: futurepass account to register the account as delegate.
+		/// - `futurepass`: Futurepass account to register the account as delegate.
+		/// - `proxy_type`: Delegate permission level
 		/// - `delegate`: The delegated account for the futurepass.
 		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
 		pub fn register_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
+			proxy_type: T::ProxyType,
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 
-			// caller must be futurepass holder
+			// For V1 - caller must be futurepass holder
 			ensure!(
 				Holders::<T>::get(&owner.clone()) == Some(futurepass.clone()),
 				Error::<T>::NotFuturepassOwner
 			);
 
-			// maybe we can check here if caller has sufficient permissions to add the other
-			// delegate?
-			ensure!(T::Proxy::exists(&futurepass, &owner), Error::<T>::DelegateNotRegistered);
+			ensure!(T::Proxy::exists(&futurepass, &owner, None), Error::<T>::DelegateNotRegistered);
+			// for V1, only T::ProxyType::default() is allowed.
+			// TODO - update the restriction in V2 as required.
+			ensure!(proxy_type == T::ProxyType::default(), Error::<T>::PermissionDenied);
+			// delegate should not be an existing proxy of any T::ProxyType
+			// This is required here coz pallet_proxy's duplicate check is only for the specific
+			// proxy_type
+			ensure!(
+				!T::Proxy::exists(&futurepass, &delegate, None),
+				Error::<T>::DelegateAlreadyExists
+			);
 
-			T::Proxy::add_delegate(&owner, &futurepass, &delegate)?;
-			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });
+			T::Proxy::add_delegate(&owner, &futurepass, &delegate, &proxy_type)?;
+			Self::deposit_event(Event::<T>::DelegateRegistered {
+				futurepass,
+				delegate,
+				proxy_type,
+			});
 			Ok(())
 		}
 
@@ -236,7 +264,7 @@ pub mod pallet {
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// Parameters:
-		/// - `futurepass`: futurepass account to unregister the delegate from.
+		/// - `futurepass`: Futurepass account to unregister the delegate from.
 		/// - `delegate`: The delegated account for the futurepass. Note: if caller is futurepass
 		///   holder onwer,
 		/// they can remove any delegate (including themselves); otherwise the caller must be the
@@ -260,7 +288,10 @@ pub mod pallet {
 			ensure!(is_owner || caller == delegate, Error::<T>::PermissionDenied);
 
 			// Check if the delegate is registered with the futurepass
-			ensure!(T::Proxy::exists(&futurepass, &delegate), Error::<T>::DelegateNotRegistered);
+			ensure!(
+				T::Proxy::exists(&futurepass, &delegate, None),
+				Error::<T>::DelegateNotRegistered
+			);
 
 			// Remove the delegate from the futurepass
 			T::Proxy::remove_delegate(&caller, &futurepass, &delegate)?;
@@ -300,11 +331,12 @@ pub mod pallet {
 			// Remove all proxy delegates from the current futurepass
 			let delegates = T::Proxy::delegates(&futurepass);
 			for delegate in delegates.iter() {
-				T::Proxy::remove_delegate(&owner, &futurepass, &delegate)?;
+				T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
 			}
 
-			// Add the current owner as a proxy delegate
-			T::Proxy::add_delegate(&owner, &futurepass, &new_owner)?;
+			// Add the current owner as a proxy delegate with most permissive type. i.e
+			// T::ProxyType::default()
+			T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
 
 			// Set the new owner as the owner of the futurepass
 			Holders::<T>::insert(&new_owner, futurepass.clone());
@@ -414,7 +446,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
 		let futurepass = Self::generate_futurepass_account();
 		Holders::<T>::set(&account, Some(futurepass.clone()));
-		T::Proxy::add_delegate(&funder, &futurepass, &account)?;
+		T::Proxy::add_delegate(&funder, &futurepass, &account, &T::ProxyType::default())?;
 
 		Self::deposit_event(Event::<T>::FuturepassCreated {
 			futurepass: futurepass.clone(),

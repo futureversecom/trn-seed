@@ -1115,6 +1115,7 @@ impl pallet_futurepass::Config for Runtime {
 	type Proxy = impls::ProxyPalletProvider;
 	type Call = Call;
 	type ApproveOrigin = EnsureRoot<AccountId>;
+	type ProxyType = impls::ProxyType;
 	type WeightInfo = (); // TODO - generate/use our weights
 }
 
