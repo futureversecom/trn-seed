@@ -401,7 +401,7 @@ macro_rules! impl_pallet_proxy_config {
 			type Event = Event;
 			type Call = Call;
 			type Currency = Balances;
-		
+
 			type ProxyType = ProxyType;
 			type ProxyDepositBase = ProxyDepositBase;
 			type ProxyDepositFactor = ProxyDepositFactor;
