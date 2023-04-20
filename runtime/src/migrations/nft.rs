@@ -156,7 +156,7 @@ pub mod v4 {
 		assert_eq!(onchain, 4);
 
 		// Let's make sure that we don't have any corrupted data to begin with
-		let keys: Vec<u32> = CollectionInfo::<Runtime>::iter_keys().collect();
+		let keys: Vec<u32> = pallet_nft::CollectionInfo::<Runtime>::iter_keys().collect();
 		for key in keys {
 			assert!(CollectionInfo::<Runtime>::try_get(key).is_ok());
 		}
