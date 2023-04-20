@@ -30,6 +30,7 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
+use pallet_dex::types::ExchangeAddressGenerator;
 
 frame_support::construct_runtime!(
 	pub enum Test where

@@ -22,6 +22,7 @@ use sp_runtime::{
 };
 
 pub(crate) use seed_primitives::{AssetId, Balance, Index};
+use crate::types::ExchangeAddressGenerator;
 
 pub type MockAccountId = u64;
 
@@ -132,6 +133,8 @@ parameter_types! {
 }
 impl Config for Test {
 	type Event = Event;
+	type AssetId = AssetId;
+	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type DEXPalletId = DEXPalletId;

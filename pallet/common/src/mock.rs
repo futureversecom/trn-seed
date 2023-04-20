@@ -220,6 +220,8 @@ macro_rules! impl_pallet_dex_config {
 
 		impl pallet_dex::Config for $test {
 			type Event = Event;
+			type AssetId = AssetId;
+			type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
 			type GetExchangeFee = GetExchangeFee;
 			type TradingPathLimit = TradingPathLimit;
 			type DEXPalletId = DEXPalletId;

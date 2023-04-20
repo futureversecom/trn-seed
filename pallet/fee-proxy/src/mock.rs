@@ -28,6 +28,7 @@ use sp_runtime::{
 	ConsensusEngineId, Permill,
 };
 use std::ops::Mul;
+use pallet_dex::types::ExchangeAddressGenerator;
 
 pub const XRP_ASSET_ID: AssetId = 1;
 
@@ -137,6 +138,8 @@ parameter_types! {
 }
 impl pallet_dex::Config for Test {
 	type Event = Event;
+	type AssetId = AssetId;
+	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type DEXPalletId = DEXPalletId;
