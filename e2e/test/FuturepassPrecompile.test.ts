@@ -79,7 +79,6 @@ describe("Futurepass Precompile", function () {
 
     const tx = await futurepassProxy.connect(alithSigner).create(owner);
     const receipt = await tx.wait();
-
     expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
     expect((receipt?.events as any)[0].args.owner).to.equal(owner);
 
@@ -127,16 +126,15 @@ describe("Futurepass Precompile", function () {
 
     // isDelegate should return false.
     expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
-    // checkDelegate should return error
+    // checkDelegate should return default value
     expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
-    // await futurepassProxy.isDelegate(futurepass, delegate.address)
-    //     .catch((err: any) => expect(err.message).contains("DelegateAlreadyExists"));
 
     tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
     expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
+    expect((receipt?.events as any)[0].args.proxyType).to.equal(PROXY_TYPE.Any);
 
     // isDelegate should return false.
     expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(true);
@@ -171,6 +169,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
     expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
+    expect((receipt?.events as any)[0].args.proxyType).to.equal(PROXY_TYPE.Any);
     expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
 
     // registering the same delegate with the same PROXY_TYPE fails

@@ -17,7 +17,7 @@ use sp_std::marker::PhantomData;
 pub const SELECTOR_LOG_FUTUREPASS_CREATED: [u8; 32] =
 	keccak256!("FuturepassCreated(address,address)"); // futurepass, owner
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
-	keccak256!("FuturepassDelegateRegistered(address,address)"); // futurepass, delegate
+	keccak256!("FuturepassDelegateRegistered(address,address,uint8)"); // futurepass, delegate, proxyType
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateUnregistered(address,address)"); // futurepass, delegate
 
@@ -198,7 +198,7 @@ where
 		// let proxy_type =  proxy_type as u8; // Note - check why this won't work
 		let proxy_type: u8 = proxy_type
 			.try_into()
-			.map_err(|e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
+			.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
 
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
 	}
@@ -246,10 +246,9 @@ where
 		read_args!( handle, { futurepass: Address, delegate: Address, proxy_type: u8});
 		let futurepass: H160 = futurepass.into();
 		let delegate: H160 = delegate.into();
-		let proxy_type: <Runtime as pallet_futurepass::Config>::ProxyType =
-			proxy_type
-				.try_into()
-				.map_err(|e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
+		let proxy_type_enum: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type
+			.try_into()
+			.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
 
 		let caller = handle.context().caller;
 
@@ -264,15 +263,16 @@ where
 			pallet_futurepass::Call::<Runtime>::register_delegate {
 				futurepass: futurepass.into(),
 				delegate: delegate.into(),
-				proxy_type,
+				proxy_type: proxy_type_enum,
 			},
 		)?;
 
-		log2(
+		log3(
 			handle.code_address(),
 			SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED,
 			futurepass,
-			EvmDataWriter::new().write(Address::from(delegate)).build(),
+			delegate,
+			EvmDataWriter::new().write(proxy_type).build(),
 		)
 		.record(handle)?;
 

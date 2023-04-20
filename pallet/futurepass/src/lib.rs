@@ -158,6 +158,7 @@ pub mod pallet {
 		DelegateRegistered {
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
+			proxy_type: T::ProxyType,
 		},
 		/// Delegate unregistration from Futurepass account
 		DelegateUnregistered {
@@ -241,6 +242,7 @@ pub mod pallet {
 
 			ensure!(T::Proxy::exists(&futurepass, &owner, None), Error::<T>::DelegateNotRegistered);
 			// for V1, only T::ProxyType::default() is allowed.
+			// TODO - update the restriction in V2 as required.
 			ensure!(proxy_type == T::ProxyType::default(), Error::<T>::PermissionDenied);
 			// delegate should not be an existing proxy of any T::ProxyType
 			// This is required here coz pallet_proxy's duplicate check is only for the specific
@@ -251,7 +253,11 @@ pub mod pallet {
 			);
 
 			T::Proxy::add_delegate(&owner, &futurepass, &delegate, &proxy_type)?;
-			Self::deposit_event(Event::<T>::DelegateRegistered { futurepass, delegate });
+			Self::deposit_event(Event::<T>::DelegateRegistered {
+				futurepass,
+				delegate,
+				proxy_type,
+			});
 			Ok(())
 		}
 

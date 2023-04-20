@@ -5,7 +5,7 @@ Precompile address: `0x000000000000000000000000000000000000FFFF`
 ```solidity
 interface FuturePass {
     event FuturepassCreated(address indexed futurepass, address owner);
-    event FuturepassDelegateRegistered(address indexed futurepass, address delegate);
+    event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType);
     event FuturepassDelegateUnregistered(address indexed futurepass, address delegate);
     
     function futurepassOf(address owner) external view returns (address);
