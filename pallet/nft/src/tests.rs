@@ -295,7 +295,7 @@ fn create_collection() {
 		let expected_info = CollectionInformation {
 			owner: collection_owner,
 			name: b"test-collection".to_vec(),
-			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			metadata_scheme: MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap(),
 			royalties_schedule: Some(royalties_schedule.clone()),
 			max_issuance: None,
 			origin_chain: OriginChain::Root,
@@ -305,28 +305,7 @@ fn create_collection() {
 			cross_chain_compatibility: CrossChainCompatibility::default(),
 		};
 
-<<<<<<< HEAD
-		assert_eq!(
-			Nft::collection_info(collection_id).unwrap(),
-			CollectionInformation {
-				owner: collection_owner,
-				name: b"test-collection".to_vec(),
-				metadata_scheme: MetadataScheme::try_from(
-					b"https://example.com/metadata".as_slice()
-				)
-				.unwrap(),
-				royalties_schedule: Some(royalties_schedule.clone()),
-				max_issuance: None,
-				origin_chain: OriginChain::Root,
-				next_serial_number: quantity,
-				collection_issuance: quantity,
-				owned_tokens: expected_tokens,
-				cross_chain_compatibility: CrossChainCompatibility::default(),
-			}
-		);
-=======
 		assert_eq!(Nft::collection_info(collection_id).unwrap(), expected_info);
->>>>>>> main
 
 		// EVM pallet should have account code for collection
 		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(

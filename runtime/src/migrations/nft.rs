@@ -115,8 +115,10 @@ pub mod v4 {
 		/// This collections compatibility with other chains
 		pub cross_chain_compatibility: CrossChainCompatibility,
 		/// All serial numbers owned by an account in a collection
-		pub owned_tokens:
-			BoundedVec<TokenOwnership<T>, <T as pallet_nft::Config>::MaxTokensPerCollection>,
+		pub owned_tokens: BoundedVec<
+			TokenOwnership<T::AccountId, <T as pallet_nft::Config>::MaxTokensPerCollection>,
+			<T as pallet_nft::Config>::MaxTokensPerCollection,
+		>,
 	}
 
 	#[storage_alias]
@@ -164,7 +166,9 @@ pub mod v4 {
 	}
 
 	impl<T: pallet_nft::Config> OldCollectionInformation<T> {
-		pub fn transform(&self) -> Option<CollectionInformation<T>> {
+		pub fn transform(
+			&self,
+		) -> Option<CollectionInformation<T::AccountId, T::MaxTokensPerCollection>> {
 			match self.transform_metadata() {
 				Ok(metadata_scheme) => Some(CollectionInformation {
 					owner: self.owner.clone(),
