@@ -44,6 +44,7 @@ use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
 	weights::GetDispatchInfo,
+	transactional,
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::AccountId;
@@ -218,6 +219,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `account`: The delegated account for the futurepass.
 		#[pallet::weight(T::WeightInfo::create())]
+		#[transactional]
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_create_futurepass(who, account)?;
@@ -340,6 +342,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `new_owner`: The new account that will become the owner of the futurepass.
 		#[pallet::weight(T::WeightInfo::transfer_futurepass())]
+		#[transactional]
 		pub fn transfer_futurepass(
 			origin: OriginFor<T>,
 			new_owner: T::AccountId,
