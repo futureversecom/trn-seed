@@ -29,6 +29,7 @@ use pallet_evm::{
 	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
 	Runner as RunnerT,
 };
+use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
@@ -210,6 +211,14 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 			Call::Assets(pallet_assets::Call::create { .. }) => false,
 			// Disable XRPLBridge `submit_challenge` call
 			Call::XRPLBridge(pallet_xrpl_bridge::Call::submit_challenge { .. }) => false,
+			// Calls to direct rewards to be re-staked are not allowed, as it does not make sense in
+			// a dual-currency with pallet-staking context
+			Call::Staking(pallet_staking::Call::bond { payee, .. }) => {
+				if let RewardDestination::Staked = payee {
+					return false
+				}
+				true
+			},
 			_ => true,
 		}
 	}
@@ -457,6 +466,7 @@ parameter_types! {
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	/// % threshold to emit event TicketSequenceThresholdReached
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
+	pub const XRPTransactionLimit: u32 = 1_000_000;
 }
 
 impl pallet_xrpl_bridge::Config for Runtime {
@@ -470,6 +480,7 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
+	type XRPTransactionLimit = XRPTransactionLimit;
 }
 
 parameter_types! {
