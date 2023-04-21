@@ -26,14 +26,14 @@ use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the Erc20Withdrawal log, which is the Keccak of the Log signature.
-/// beneficiary, event_proof_id, asset_id, amount
+/// event_proof_id, beneficiary, asset_id, amount
 pub const SELECTOR_LOG_ERC20_WITHDRAWAL: [u8; 32] =
-	keccak256!("Erc20Withdrawal(address,uint64,address,uint128)");
+	keccak256!("Erc20Withdrawal(uint64,address,address,uint128)");
 
 /// Solidity selector of the Erc721Withdrawal log, which is the Keccak of the Log signature.
-/// beneficiary, event_proof_id, collection_address, serial_numbers
+/// event_proof_id, beneficiary, collection_address, serial_numbers
 pub const SELECTOR_LOG_ERC721_WITHDRAWAL: [u8; 32] =
-	keccak256!("Erc721Withdrawal(address,uint64,address,uint32[])");
+	keccak256!("Erc721Withdrawal(uint64,address,address,uint32[])");
 
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -147,12 +147,16 @@ where
 		// Build output.
 		match maybe_event_proof_id {
 			Ok(event_proof_id) => {
+				// This should always be Some(id), but let's check for safety
+				let event_proof_id = event_proof_id
+					.ok_or(revert("PEG: Erc20Withdraw failed: no event proof id returned"))?;
+
 				// Throw EVM log
 				log4(
 					handle.code_address(),
 					SELECTOR_LOG_ERC20_WITHDRAWAL,
-					beneficiary,
 					H256::from_low_u64_be(event_proof_id),
+					beneficiary,
 					H160::from(asset_address),
 					EvmDataWriter::new().write(amount).build(),
 				)
@@ -254,8 +258,8 @@ where
 			log4(
 				handle.code_address(),
 				SELECTOR_LOG_ERC721_WITHDRAWAL,
-				beneficiary,
 				H256::from_low_u64_be(event_proof_id),
+				beneficiary,
 				H160::from(collection_address),
 				EvmDataWriter::new().write(serial_numbers.into_inner()).build(),
 			)

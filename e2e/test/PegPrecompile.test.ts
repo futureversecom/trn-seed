@@ -14,8 +14,8 @@ import {
     NFT_PRECOMPILE_ABI,
     NFT_PRECOMPILE_ADDRESS,
     ERC721_PRECOMPILE_ABI,
-    NodeProcess,
-    startNode,
+    //NodeProcess,
+    //startNode,
     typedefs,
     getCollectionPrecompileAddress,
     getNextAssetId,
@@ -23,7 +23,7 @@ import {
 } from "../common";
 
 describe("Peg Precompile", function () {
-    let node: NodeProcess;
+    //let node: NodeProcess;
     let api: ApiPromise;
     let alithSigner: Wallet;
     let bobSigner: Wallet;
@@ -37,10 +37,10 @@ describe("Peg Precompile", function () {
 
     // Setup api instance
     before(async () => {
-        node = await startNode();
+        //node = await startNode();
 
         // Substrate variables
-        const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+        const wsProvider = new WsProvider(`ws://localhost:9944`);
         api = await ApiPromise.create({
             provider: wsProvider,
             types: typedefs,
@@ -48,7 +48,7 @@ describe("Peg Precompile", function () {
         const keyring = new Keyring({ type: "ethereum" });
 
         // Ethereum variables
-        const provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+        const provider = new JsonRpcProvider(`http://127.0.0.1:9933`);
         alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
         bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
         alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
@@ -56,7 +56,7 @@ describe("Peg Precompile", function () {
         nftProxy = new Contract(NFT_PRECOMPILE_ADDRESS, NFT_PRECOMPILE_ABI, bobSigner);
     });
 
-    after(async () => await node.stop());
+    //after(async () => await node.stop());
 
     it("erc721withdraw works", async () => {
         // Create an NFT collection
@@ -120,11 +120,13 @@ describe("Peg Precompile", function () {
         const receipt = await withdrawTx.wait();
 
         // Verify event
-        expect((receipt?.events as any)[0].event).to.equal("Erc721Withdrawal");
-        expect((receipt?.events as any)[0].args.beneficiary).to.equal(receiverAddress);
-        expect((receipt?.events as any)[0].args.eventProofId).to.equal(eventProofId);
-        expect((receipt?.events as any)[0].args.tokenAddress).to.equal(precompileAddress);
-        expect((receipt?.events as any)[0].args.serialNumbers).to.eql(serialNumbersInner);
+        const event = (receipt?.events as any)[0].event;
+        const args = (receipt?.events as any)[0].args;
+        expect(event).to.equal("Erc721Withdrawal");
+        expect(args.eventProofId).to.equal(eventProofId);
+        expect(args.beneficiary).to.equal(receiverAddress);
+        expect(args.tokenAddress).to.equal(precompileAddress);
+        expect(args.serialNumbers).to.eql(serialNumbersInner);
     });
 
     it("erc20withdraw works", async () => {
@@ -161,10 +163,12 @@ describe("Peg Precompile", function () {
         const receipt = await withdrawTx.wait();
 
         // Verify event
-        expect((receipt?.events as any)[0].event).to.equal("Erc20Withdrawal");
-        expect((receipt?.events as any)[0].args.beneficiary).to.equal(receiverAddress);
-        expect((receipt?.events as any)[0].args.eventProofId).to.equal(eventProofId);
-        expect((receipt?.events as any)[0].args.tokenAddress).to.equal(assetAddress);
-        expect((receipt?.events as any)[0].args.balance).to.equal(balance);
+        const event = (receipt?.events as any)[0].event;
+        const args = (receipt?.events as any)[0].args;
+        expect(event).to.equal("Erc20Withdrawal");
+        expect(args.eventProofId).to.equal(eventProofId);
+        expect(args.beneficiary).to.equal(receiverAddress);
+        expect(args.tokenAddress).to.equal(assetAddress);
+        expect(args.balance).to.equal(balance);
     });
 });

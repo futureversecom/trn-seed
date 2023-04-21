@@ -267,7 +267,7 @@ impl<T: Config> Module<T> {
 		amount: Balance,
 		beneficiary: EthAddress,
 		call_origin: WithdrawCallOrigin,
-	) -> Result<u64, DispatchError> {
+	) -> Result<Option<u64>, DispatchError> {
 		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
 
 		// there should be a known ERC20 address mapped for this asset
@@ -287,7 +287,7 @@ impl<T: Config> Module<T> {
 						// Delay the payment
 						let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
 						Self::delay_payment(delay, PendingPayment::Withdrawal(message));
-						Ok(0)
+						Ok(None)
 					},
 					WithdrawCallOrigin::Evm => {
 						// EVM payment delays are not supported
@@ -306,7 +306,7 @@ impl<T: Config> Module<T> {
 	fn process_withdrawal(
 		withdrawal_message: WithdrawMessage,
 		asset_id: AssetId,
-	) -> Result<u64, DispatchError> {
+	) -> Result<Option<u64>, DispatchError> {
 		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
 		let message = ethabi::encode(&[
 			Token::Address(withdrawal_message.token_address),
@@ -322,7 +322,7 @@ impl<T: Config> Module<T> {
 			withdrawal_message.amount.saturated_into(),
 			withdrawal_message.beneficiary,
 		));
-		Ok(event_proof_id)
+		Ok(Some(event_proof_id))
 	}
 
 	/// Process payments at a block after a delay

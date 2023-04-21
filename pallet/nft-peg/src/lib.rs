@@ -13,14 +13,14 @@
 
 use codec::Encode;
 use ethabi::{ParamType, Token};
-use frame_support::{ensure, fail, traits::Get, weights::Weight, BoundedVec, PalletId};
+use frame_support::{ensure, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;
 use pallet_nft::OriginChain;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
 use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
-use sp_std::{boxed::Box, vec, vec::Vec};
+use sp_std::{boxed::Box, vec::Vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -334,40 +334,34 @@ where
 		destination: H160,
 	) -> Result<u64, DispatchError> {
 		ensure!(collection_ids.len() == serial_numbers.len(), Error::<T>::TokenListLengthMismatch);
-
-		let mut source_collection_ids = vec![];
-		let mut source_serial_numbers = vec![];
+		let mut source_collection_ids = Vec::with_capacity(collection_ids.len());
+		let mut source_serial_numbers = Vec::with_capacity(collection_ids.len());
 
 		for (idx, collection_id) in (&collection_ids).into_iter().enumerate() {
-			if let Some(collection_info) = pallet_nft::Pallet::<T>::collection_info(collection_id) {
-				// At the time of writing, only Ethereum-originated NFTs can be bridged back.
-				ensure!(
-					collection_info.origin_chain == OriginChain::Ethereum,
-					Error::<T>::NoPermissionToBridge
-				);
-			} else {
-				fail!(Error::<T>::NoCollectionFound);
-			}
+			let collection_info = pallet_nft::Pallet::<T>::collection_info(collection_id)
+				.ok_or(Error::<T>::NoCollectionFound)?;
 
-			// Allocate space
-			source_serial_numbers.push(vec![]);
+			// At the time of writing, only Ethereum-originated NFTs can be bridged back.
+			ensure!(
+				collection_info.origin_chain == OriginChain::Ethereum,
+				Error::<T>::NoPermissionToBridge
+			);
 
-			// Tokens stored here, as well as the outer loop should be bounded, so iterations are
-			// somewhat bounded as well, but there should be a way to reduce this complexity
+			let mut current_serial_numbers = Vec::with_capacity(serial_numbers[idx].len());
+
 			for serial_number in &serial_numbers[idx] {
 				pallet_nft::Pallet::<T>::do_burn(&who, collection_id.clone(), *serial_number)?;
-				source_serial_numbers[idx].push(Token::Uint(U256::from(serial_number.clone())))
+				current_serial_numbers.push(Token::Uint(U256::from(serial_number.clone())));
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
 			let token_address = Pallet::<T>::root_to_eth_nft(collection_id)
 				.ok_or(Error::<T>::NoMappedTokenExists)?;
 			source_collection_ids.push(Token::Address(token_address));
+			source_serial_numbers.push(Token::Array(current_serial_numbers));
 		}
 
 		let source = <T as pallet::Config>::PalletId::get().into_account_truncating();
-		let source_serial_numbers =
-			source_serial_numbers.into_iter().map(|k| Token::Array(k)).collect();
 
 		let message = ethabi::encode(&[
 			Token::Array(source_collection_ids),
