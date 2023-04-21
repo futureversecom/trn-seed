@@ -18,6 +18,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{limits, EnsureRoot};
+use pallet_dex::types::ExchangeAddressGenerator;
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_primitives::{AccountId, AssetId};
@@ -28,7 +29,6 @@ use sp_runtime::{
 	ConsensusEngineId, Permill,
 };
 use std::ops::Mul;
-use pallet_dex::types::ExchangeAddressGenerator;
 
 pub const XRP_ASSET_ID: AssetId = 1;
 

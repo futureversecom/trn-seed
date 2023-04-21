@@ -22,12 +22,26 @@ use sp_runtime::{
 };
 
 pub(crate) use seed_primitives::{AssetId, Balance, Index};
-use crate::types::ExchangeAddressGenerator;
-
 pub type MockAccountId = u64;
 
 pub const ALICE: MockAccountId = 1;
 pub const BOB: MockAccountId = 2;
+
+pub struct MockExchangeAddressGenerator<Test>(PhantomData<Test>);
+impl<T: Config> ExchangeAddressFor for MockExchangeAddressGenerator<T>
+where
+	T::AccountId: From<u32>,
+	T::AssetId: Into<u64>,
+{
+	type AccountId = T::AccountId;
+	type AssetId = T::AssetId;
+
+	/// Generates a unique, deterministic exchange address for the given `asset_id_0`, `asset_id_1`
+	/// pair
+	fn exchange_address_for(asset_id_0: AssetId, asset_id_1: AssetId) -> T::AccountId {
+		(asset_id_0 + asset_id_1).into()
+	}
+}
 
 mod dex {
 	pub use super::super::*;
@@ -134,7 +148,7 @@ parameter_types! {
 impl Config for Test {
 	type Event = Event;
 	type AssetId = AssetId;
-	type ExchangeAddressFor = ExchangeAddressGenerator<Self>;
+	type ExchangeAddressFor = MockExchangeAddressGenerator<Self>;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type DEXPalletId = DEXPalletId;
