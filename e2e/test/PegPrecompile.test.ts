@@ -1,7 +1,6 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { AddressOrPair } from "@polkadot/api/types";
-import { AnyJson } from "@polkadot/types/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
@@ -31,10 +30,6 @@ describe("Peg Precompile", function () {
   let nftProxy: Contract;
   let pegProxy: Contract;
   let alith: AddressOrPair;
-
-  interface CollectionInfoJson {
-    [key: string]: null | undefined | AnyJson;
-  }
 
   // Setup api instance
   before(async () => {
@@ -89,7 +84,7 @@ describe("Peg Precompile", function () {
     const parachainIdBin = (100).toString(2).padStart(10, "0");
     const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
     const collectionInfo = await api.query.nft.collectionInfo(collectionUuid);
-    const collectionInfoJson: CollectionInfoJson = collectionInfo.toJSON() as CollectionInfoJson;
+    const collectionInfoJson = collectionInfo.toJSON() as any;
     collectionInfoJson["originChain"] = "Ethereum";
 
     const collectionInfoHex = api.createType("PalletNftCollectionInformation", collectionInfoJson).toHex();
