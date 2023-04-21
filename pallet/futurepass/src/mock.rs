@@ -219,11 +219,44 @@ pub fn create_account(seed: u64) -> AccountId {
 
 #[derive(Default)]
 // #[derive(Clone, Copy, Default)]
-pub struct TestExt;
+pub struct TestExt {
+	balances: Vec<(AccountId, Balance)>,
+	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
+}
 
 impl TestExt {
+	/// Configure some native token balances
+	pub fn with_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
+		self.balances = balances.to_vec();
+		self
+	}
+	/// Configure some XRP asset balances
+	pub fn with_xrp_balances(mut self, balances: &[(AccountId, Balance)]) -> Self {
+		self.xrp_balances = balances
+			.to_vec()
+			.into_iter()
+			.map(|(who, balance)| (MOCK_PAYMENT_ASSET_ID, who, balance))
+			.collect();
+		self
+	}
+
 	pub fn build(self) -> sp_io::TestExternalities {
-		let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+		let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+		if !self.balances.is_empty() {
+			pallet_balances::GenesisConfig::<Test> { balances: self.balances }
+				.assimilate_storage(&mut storage)
+				.unwrap();
+		}
+		if !self.xrp_balances.is_empty() {
+			let assets = vec![(MOCK_PAYMENT_ASSET_ID, create_account(10), true, 1)];
+			let metadata = vec![(MOCK_PAYMENT_ASSET_ID, b"XRP".to_vec(), b"XRP".to_vec(), 6_u8)];
+			let accounts = self.xrp_balances;
+			pallet_assets::GenesisConfig::<Test> { assets, metadata, accounts }
+				.assimilate_storage(&mut storage)
+				.unwrap();
+		}
+
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
 		ext
