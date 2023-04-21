@@ -1018,6 +1018,8 @@ parameter_types! {
 	pub const DelayLength: BlockNumber = 5;
 	pub const MaxAddresses: u32 = 10;
 	pub const MaxIdsPerMultipleMint: u32 = 50;
+	pub const MaxCollectionsPerWithdraw: u32 = 10;
+	pub const MaxSerialsPerWithdraw: u32 = 50;
 }
 
 impl pallet_nft_peg::Config for Runtime {
@@ -1028,6 +1030,8 @@ impl pallet_nft_peg::Config for Runtime {
 	type MaxTokensPerMint = MaxIdsPerMultipleMint;
 	type EthBridge = EthBridge;
 	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
+	type MaxCollectionsPerWithdraw = MaxCollectionsPerWithdraw;
+	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
 }
 
 pub struct FeeControlDefaultValues;
