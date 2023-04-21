@@ -31,8 +31,8 @@ export const typedefs = {
     nextSerialNumber: "SerialNumber",
     collectionIssuance: "TokenCount",
     crossChainCompatibility: "CrossChainCompatibility",
-    ownedTokens: "Vec<TokenOwnership>"
-  }
+    ownedTokens: "Vec<TokenOwnership>",
+  },
 };
 
 /** CONSTANTS */
