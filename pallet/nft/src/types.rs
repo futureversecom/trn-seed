@@ -14,7 +14,7 @@
 use crate::Config;
 
 use codec::{Decode, Encode};
-use frame_support::{traits::Get, PartialEqNoBound, RuntimeDebugNoBound};
+use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{
 	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, SerialNumber, TokenCount,
@@ -61,7 +61,7 @@ pub enum TokenOwnershipError {
 }
 
 /// Struct that represents the owned serial numbers within a collection of an individual account
-#[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, Clone, TypeInfo)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
 pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
@@ -119,7 +119,7 @@ impl Default for CrossChainCompatibility {
 }
 
 /// Information related to a specific collection
-#[derive(PartialEqNoBound, RuntimeDebugNoBound, Clone, Encode, Decode, TypeInfo)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
 pub struct CollectionInformation<AccountId, MaxTokensPerCollection>

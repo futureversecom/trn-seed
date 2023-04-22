@@ -279,23 +279,12 @@ fn create_collection() {
 		let royalties_schedule =
 			RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
 
-		// mint token Ids 0-4
-		assert_ok!(Nft::create_collection(
-			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			Some(token_owner),
-			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
-			Some(royalties_schedule.clone()),
-			CrossChainCompatibility::default(),
-		));
-
 		let expected_tokens = create_owned_tokens(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
 		let expected_info = CollectionInformation {
 			owner: collection_owner,
 			name: b"test-collection".to_vec(),
-			metadata_scheme: MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap(),
+			metadata_scheme: MetadataScheme::try_from(b"https://example.com/metadata".as_slice())
+				.unwrap(),
 			royalties_schedule: Some(royalties_schedule.clone()),
 			max_issuance: None,
 			origin_chain: OriginChain::Root,
@@ -304,6 +293,18 @@ fn create_collection() {
 			owned_tokens: expected_tokens,
 			cross_chain_compatibility: CrossChainCompatibility::default(),
 		};
+
+		// mint token Ids 0-4
+		assert_ok!(Nft::create_collection(
+			Some(expected_info.owner).into(),
+			expected_info.name.clone(),
+			expected_info.next_serial_number.clone(),
+			None,
+			Some(token_owner),
+			expected_info.metadata_scheme.clone(),
+			expected_info.royalties_schedule.clone(),
+			expected_info.cross_chain_compatibility.clone(),
+		));
 
 		assert_eq!(Nft::collection_info(collection_id).unwrap(), expected_info);
 
