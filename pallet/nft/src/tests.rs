@@ -295,7 +295,8 @@ fn create_collection() {
 		let expected_info = CollectionInformation {
 			owner: collection_owner,
 			name: b"test-collection".to_vec(),
-			metadata_scheme: MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap(),
+			metadata_scheme: MetadataScheme::try_from(b"https://example.com/metadata".as_slice())
+				.unwrap(),
 			royalties_schedule: Some(royalties_schedule.clone()),
 			max_issuance: None,
 			origin_chain: OriginChain::Root,

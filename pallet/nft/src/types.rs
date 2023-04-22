@@ -61,7 +61,7 @@ pub enum TokenOwnershipError {
 }
 
 /// Struct that represents the owned serial numbers within a collection of an individual account
-#[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, Clone, TypeInfo)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
 pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
@@ -71,6 +71,16 @@ where
 {
 	pub owner: AccountId,
 	pub owned_serials: BoundedVec<SerialNumber, MaxTokensPerCollection>,
+}
+
+impl<AccountId, MaxTokensPerCollection> Clone for TokenOwnership<AccountId, MaxTokensPerCollection>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxTokensPerCollection: Get<u32>,
+{
+	fn clone(&self) -> Self {
+		TokenOwnership { owner: self.owner.clone(), owned_serials: self.owned_serials.clone() }
+	}
 }
 
 impl<AccountId, MaxTokensPerCollection> TokenOwnership<AccountId, MaxTokensPerCollection>
@@ -119,7 +129,7 @@ impl Default for CrossChainCompatibility {
 }
 
 /// Information related to a specific collection
-#[derive(PartialEqNoBound, RuntimeDebugNoBound, Clone, Encode, Decode, TypeInfo)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, Encode, Decode, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
 pub struct CollectionInformation<AccountId, MaxTokensPerCollection>
@@ -148,6 +158,28 @@ where
 	/// All serial numbers owned by an account in a collection
 	pub owned_tokens:
 		BoundedVec<TokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
+}
+
+impl<AccountId, MaxTokensPerCollection> Clone
+	for CollectionInformation<AccountId, MaxTokensPerCollection>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxTokensPerCollection: Get<u32>,
+{
+	fn clone(&self) -> Self {
+		CollectionInformation {
+			owner: self.owner.clone(),
+			name: self.name.clone(),
+			metadata_scheme: self.metadata_scheme.clone(),
+			royalties_schedule: self.royalties_schedule.clone(),
+			max_issuance: self.max_issuance.clone(),
+			origin_chain: self.origin_chain.clone(),
+			next_serial_number: self.next_serial_number.clone(),
+			collection_issuance: self.collection_issuance.clone(),
+			cross_chain_compatibility: self.cross_chain_compatibility.clone(),
+			owned_tokens: self.owned_tokens.clone(),
+		}
+	}
 }
 
 impl<AccountId, MaxTokensPerCollection> CollectionInformation<AccountId, MaxTokensPerCollection>
