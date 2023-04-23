@@ -40,6 +40,7 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
+pub const MOCK_NATIVE_ASSET_ID: AssetId = 1;
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -133,14 +134,14 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
-		let (proxy_definitions, _) = pallet_proxy::Proxies::<Test>::get(futurepass);
+		let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Test>::get(futurepass);
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
-		let creation_cost =
-			pallet_proxy::Pallet::<Test>::deposit(proxy_definitions.len() as u32 + 1);
+		let new_reserve = pallet_proxy::Pallet::<Test>::deposit(proxy_definitions.len() as u32 + 1);
+		let extra_reserve_required = new_reserve - reserve_amount;
 		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
 			funder,
 			futurepass,
-			creation_cost,
+			extra_reserve_required,
 			ExistenceRequirement::KeepAlive,
 		)?;
 
@@ -215,6 +216,9 @@ impl crate::Config for Test {
 
 pub fn create_account(seed: u64) -> AccountId {
 	AccountId::from(H160::from_low_u64_be(seed))
+}
+pub fn create_random() -> AccountId {
+	AccountId::from(H160::random())
 }
 
 #[derive(Default)]
