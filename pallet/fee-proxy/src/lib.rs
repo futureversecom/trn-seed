@@ -69,6 +69,8 @@ pub mod pallet {
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type FeeAssetId: Get<AssetId>;
+		#[pallet::constant]
+		type MaxWhiteListedAssets: Get<u32>;
 		/// The OnChargeTransaction to route to after intercept
 		type OnChargeTransaction: OnChargeTransaction<Self>;
 		/// Convert EVM addresses into Runtime Id identifiers and vice versa
@@ -84,11 +86,16 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// All fee tokens must be in the map of known fee tokens
+		FeeTokenNotWhitelisted,
 		/// The inner call is a fee preference call
 		NestedFeePreferenceCall,
 		/// The selected fee token is equal to the native gas token
 		FeeTokenIsGasToken,
 	}
+
+	#[pallet::storage]
+	pub type AssetWhitelist<T: Config> = StorageMap<_, Twox64Concat, AssetId, bool, ValueQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -110,6 +117,7 @@ pub mod pallet {
 			let who = ensure_signed(origin.clone())?;
 
 			ensure!(payment_asset != T::FeeAssetId::get(), Error::<T>::FeeTokenIsGasToken);
+			ensure!(AssetWhitelist::<T>::get(payment_asset), Error::<T>::FeeTokenNotWhitelisted);
 			ensure!(
 				!matches!(call.is_sub_type(), Some(Call::call_with_fee_preferences { .. })),
 				Error::<T>::NestedFeePreferenceCall

@@ -93,7 +93,6 @@ where
 		tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
-		// <T as OnChargeTransaction<T>>::correct_and_deposit_fee(
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::correct_and_deposit_fee(
 			who,
 			dispatch_info,

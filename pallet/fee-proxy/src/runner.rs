@@ -9,9 +9,9 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::Config;
+use crate::{AssetWhitelist, Config};
 use ethabi::{ParamType, Token};
-use frame_support::{ensure, traits::fungibles::InspectMetadata};
+use frame_support::{ensure, fail, traits::fungibles::InspectMetadata};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -142,7 +142,15 @@ where
 				(*payment_asset_address).into(),
 				ERC20_PRECOMPILE_ADDRESS_PREFIX,
 			);
-			ensure!(payment_asset.is_some(), FeePreferencesError::InvalidPaymentAsset);
+
+			if let Some(payment_asset) = payment_asset {
+				ensure!(
+					AssetWhitelist::<T>::get(payment_asset),
+					FeePreferencesError::InvalidPaymentAsset
+				);
+			} else {
+				fail!(FeePreferencesError::InvalidPaymentAsset);
+			}
 
 			Ok((
 				payment_asset.unwrap(),
