@@ -13,7 +13,7 @@ mod fee_control;
 mod nft;
 mod xrpl_bridge;
 
-use codec::{Decode, Encode, FullCodec};
+use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
 		clear_storage_prefix, get_storage_value, have_storage_value, move_prefix,
@@ -384,6 +384,20 @@ impl Map {
 		T: Encode,
 	{
 		put_storage_value::<T>(module, item, hash, value)
+	}
+
+	#[allow(dead_code)]
+	pub fn iter<Storage, K, V>() -> Vec<(K, V)>
+	where
+		Storage: frame_support::storage::StorageMap<K, V>
+			+ frame_support::storage::IterableStorageMap<K, V>,
+		K: FullEncode + Clone,
+		V: FullCodec,
+	{
+		let keys: Vec<K> = Storage::iter_keys().collect();
+		keys.iter()
+			.filter_map(|key| Storage::try_get(key).and_then(|v| Ok((key.clone(), v))).ok())
+			.collect()
 	}
 }
 

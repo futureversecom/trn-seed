@@ -69,6 +69,7 @@ impl OnRuntimeUpgrade for Upgrade {
 
 mod v2 {
 	use super::*;
+	use crate::migrations::Map;
 	use frame_support::weights::Weight;
 	use seed_primitives::xrpl::XrplTxHash;
 
@@ -83,10 +84,8 @@ mod v2 {
 		StorageMap<pallet::Pallet<T>, Twox64Concat, BlockNumber<T>, Vec<XrplTxHash>>;
 
 	pub fn migrate<T: pallet::Config>() -> Weight {
-		let xrp_transaction_old: Vec<(BlockNumber<T>, Vec<XrplTxHash>)> =
-			ProcessXRPTransaction::<T>::iter().collect();
-		let xrp_transaction_details_old: Vec<(BlockNumber<T>, Vec<XrplTxHash>)> =
-			SettledXRPTransactionDetails::<T>::iter().collect();
+		let xrp_transaction_old = Map::iter::<ProcessXRPTransaction<T>, _, _>();
+		let xrp_transaction_details_old = Map::iter::<SettledXRPTransactionDetails<T>, _, _>();
 
 		_ = ProcessXRPTransaction::<T>::clear(u32::max_value(), None);
 		_ = SettledXRPTransactionDetails::<T>::clear(u32::max_value(), None);
