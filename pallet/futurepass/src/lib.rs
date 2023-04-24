@@ -43,12 +43,14 @@ use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
+	weights::GetDispatchInfo,
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
+
 pub use weights::WeightInfo;
 
 /// The logging target for this pallet
@@ -100,9 +102,10 @@ pub mod pallet {
 
 		type Proxy: ProxyProvider<Self>;
 
-		/// overarching Call type
+		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin>
+			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
 			+ IsType<<Self as frame_system::Config>::Call>;
@@ -127,8 +130,10 @@ pub mod pallet {
 
 		#[cfg(feature = "runtime-benchmarks")]
 		/// Handles a multi-currency fungible asset system for benchmarking.
-		type MultiCurrency: frame_support::traits::fungibles::Inspect<Self::AccountId, AssetId = seed_primitives::AssetId>
-			+ frame_support::traits::fungibles::Mutate<Self::AccountId>;
+		type MultiCurrency: frame_support::traits::fungibles::Inspect<
+				Self::AccountId,
+				AssetId = seed_primitives::AssetId,
+			> + frame_support::traits::fungibles::Mutate<Self::AccountId>;
 	}
 
 	#[pallet::type_value]
@@ -361,7 +366,19 @@ pub mod pallet {
 		/// Parameters:
 		/// - `futurepass`: The Futurepass account though which the call is dispatched
 		/// - `call`: The Call that needs to be dispatched through the Futurepass account
-		#[pallet::weight(T::WeightInfo::proxy_extrinsic())] // TODO
+		///
+		/// # <weight>
+		/// Weight is a function of the number of proxies the user has.
+		/// # </weight>
+		#[pallet::weight({
+			let di = call.get_dispatch_info();
+			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			(T::WeightInfo::proxy_extrinsic(delegate_count)
+				.saturating_add(di.weight)
+				 // AccountData for inner call origin accountdata.
+				.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
+			di.class)
+		})]
 		pub fn proxy_extrinsic(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,

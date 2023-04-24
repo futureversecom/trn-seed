@@ -65,8 +65,10 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
 	// Storage: Proxy Proxies (r:1 w:0)
-	fn proxy_extrinsic() -> Weight {
+	fn proxy_extrinsic(p: u32, ) -> Weight {
 		(29_000_000 as Weight)
+			// Standard Error: 2_000
+			.saturating_add((76_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 	}
 }
