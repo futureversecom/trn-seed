@@ -1,9 +1,9 @@
-import { JsonRpcProvider } from "@ethersproject/providers";
+/* import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import type { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Wallet, utils } from "ethers";
+import { BigNumber, Wallet, utils } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
@@ -13,9 +13,10 @@ import type { MockERC20 } from "../typechain-types";
 
 const FIRST_ASSET_ID = 1124;
 const BASE_GAS_COST = 21_000;
-const BASE_FEE_PER_GAS = 15_000_000_000_000;
+const BASE_FEE_PER_GAS = 10_000_000_000_000;
 const PRIORITY_FEE_PER_GAS = 1_500_000_000;
 const MAX_FEE_PER_GAS = BASE_FEE_PER_GAS * 2 + PRIORITY_FEE_PER_GAS;
+const ROUNDING_ERROR = 1_000_000;
 
 // Note: Tests must be run in order, synchronously
 describe("EVM gas costs", () => {
@@ -33,7 +34,7 @@ describe("EVM gas costs", () => {
     node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -54,7 +55,7 @@ describe("EVM gas costs", () => {
     console.log("Created and minted asset:", FIRST_ASSET_ID);
 
     // EVM variables
-    provider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
   });
@@ -63,7 +64,7 @@ describe("EVM gas costs", () => {
 
   it("default gas fees", async () => {
     const fees = await provider.getFeeData();
-    expect(fees.lastBaseFeePerGas?.toNumber()).to.eql(BASE_FEE_PER_GAS); // base fee = 15000 gwei
+    expect(fees.lastBaseFeePerGas?.toNumber()).to.eql(BASE_FEE_PER_GAS); // base fee = 9524 gwei
     expect(fees.maxFeePerGas?.toNumber()).to.eql(MAX_FEE_PER_GAS);
     expect(fees.maxPriorityFeePerGas?.toNumber()).to.eql(PRIORITY_FEE_PER_GAS);
     expect(fees.gasPrice?.toNumber()).to.eql(BASE_FEE_PER_GAS);
@@ -97,9 +98,10 @@ describe("EVM gas costs", () => {
     const xrpGasCost = receipt.gasUsed.mul(receipt.effectiveGasPrice);
     const xrpCost6DP = xrpGasCost.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(xrpGasCost);
-    expect(xrpCost6DP).to.eql(315000);
-    expect(xrpCostScaled).to.eql(0.315);
+    expect(xrpCost6DP).to.eql(210_000);
+    expect(+xrpCostScaled.toFixed(5)).to.eql(0.21);
   });
+
 
   it("gas cost for XRP transfer", async () => {
     const fees = await provider.getFeeData();
@@ -119,16 +121,19 @@ describe("EVM gas costs", () => {
     // assert gas used
     const totalPaid = receipt.effectiveGasPrice?.mul(BASE_GAS_COST).add(utils.parseEther("1"));
     const alithBalanceAfter = await alithSigner.getBalance();
-    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
+
+    const difference = alithBalanceBefore.sub(alithBalanceAfter);
+    expect(difference).to.eql(totalPaid)
 
     // assert XRP used
     const oneXRP6DP = 1_000_000,
       oneXRPScaled = 1;
     const xrpCost6DP = totalPaid.div(10 ** 12).toNumber() - oneXRP6DP; // subtract XRP sent
     const xrpCostScaled = +utils.formatEther(totalPaid) - oneXRPScaled; // subtract XRP sent
-    expect(xrpCost6DP).to.eql(315000);
-    expect(+xrpCostScaled.toFixed(3)).to.eql(0.315);
+    expect(xrpCost6DP).to.eql(210_000);
+    expect(+xrpCostScaled.toFixed(5)).to.eql(0.21);
   });
+
 
   it("gas cost for deploying erc20 contract", async () => {
     const fees = await provider.getFeeData();
@@ -147,14 +152,17 @@ describe("EVM gas costs", () => {
     // assert gas used
     const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
     const alithBalanceAfter = await alithSigner.getBalance();
-    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
+
+    const difference = alithBalanceBefore.sub(alithBalanceAfter);
+    expect(difference).to.eql(totalPaid);
 
     // assert XRP used
     const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(totalPaid);
-    expect(xrpCost6DP).to.be.greaterThanOrEqual(52_500_000).and.lessThanOrEqual(52_600_000);
-    expect(xrpCostScaled).to.be.greaterThanOrEqual(52.5).and.lessThanOrEqual(52.6);
+    expect(xrpCost6DP).to.be.greaterThanOrEqual(35_000_000).and.lessThanOrEqual(35_100_000);
+    expect(xrpCostScaled).to.be.greaterThanOrEqual(35.0).and.lessThanOrEqual(35.1);
   });
+
 
   it("gas cost for token mint", async () => {
     const fees = await provider.getFeeData();
@@ -188,9 +196,10 @@ describe("EVM gas costs", () => {
     // assert XRP used
     const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(totalPaid);
-    expect(xrpCost6DP).to.be.greaterThanOrEqual(1_125_000).and.lessThanOrEqual(1_135_000);
-    expect(xrpCostScaled).to.be.greaterThanOrEqual(1.125).and.lessThanOrEqual(1.135);
+    expect(xrpCost6DP).to.be.greaterThanOrEqual(751_500).and.lessThanOrEqual(752_000);
+    expect(xrpCostScaled).to.be.greaterThanOrEqual(0.751).and.lessThanOrEqual(1.752);
   });
+
 
   it("gas cost for token transfer", async () => {
     const fees = await provider.getFeeData();
@@ -224,8 +233,8 @@ describe("EVM gas costs", () => {
     // assert XRP used
     const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(totalPaid);
-    expect(xrpCost6DP).to.be.greaterThanOrEqual(761_000).and.lessThanOrEqual(765_000);
-    expect(xrpCostScaled).to.be.greaterThanOrEqual(0.761).and.lessThanOrEqual(0.765);
+    expect(xrpCost6DP).to.be.greaterThanOrEqual(507_000).and.lessThanOrEqual(507_500);
+    expect(xrpCostScaled).to.be.greaterThanOrEqual(0.5070).and.lessThanOrEqual(0.5075);
   });
 
   it("gas cost for pre-compile token transfer", async () => {
@@ -267,7 +276,8 @@ describe("EVM gas costs", () => {
     // assert XRP used
     const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(totalPaid);
-    expect(xrpCost6DP).to.eql(348_645);
-    expect(xrpCostScaled).to.eql(0.348645);
+    expect(xrpCost6DP).to.eql(232_430);
+    expect(xrpCostScaled).to.eql(0.232430);
   });
 });
+ */

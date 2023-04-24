@@ -26,6 +26,12 @@ benchmarks! {
 
 	set_weight_multiplier {
 	}: _(RawOrigin::Root, Perbill::one())
+
+	set_length_multiplier {
+	}: _(RawOrigin::Root, LengthMultiplier::default())
+
+	set_xrp_price {
+	}: _(RawOrigin::Root, Balance::from(1_000_000u128))
 }
 
-impl_benchmark_test_suite!(FeeControl, crate::mock::TestExt::default().build(), crate::mock::Test);
+impl_benchmark_test_suite!(FeeControl, crate::mock::new_test_ext(), crate::mock::Test);

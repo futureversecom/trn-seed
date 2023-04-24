@@ -38,7 +38,7 @@ use seed_primitives::{AccountId, AccountId20, Balance, Index};
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
-pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
+pub const MINIMUM_XRP_TX_COST: u128 = 200_000;
 
 /// The genesis block timestamp
 pub const INIT_TIMESTAMP: u64 = 30_000;

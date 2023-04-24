@@ -1034,19 +1034,45 @@ impl pallet_nft_peg::Config for Runtime {
 	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
 }
 
+/// At the time of writing the XRP was worth 0.49$
+/// I rounded it up to 0.5$ and have done the calculations
 pub struct FeeControlDefaultValues;
 impl pallet_fee_control::DefaultValues for FeeControlDefaultValues {
 	fn evm_base_fee_per_gas() -> U256 {
 		// Floor network base fee per gas
-		// 0.000015 XRP per gas, 15000 GWEI
-		U256::from(15_000_000_000_000u128)
+		// 0.000010 XRP per gas, 10000 GWEI
+		// The correct value is 9_523_809_523_809 but I have rounded it up
+		U256::from(10_000_000_000_000u128)
 	}
 	fn weight_multiplier() -> Perbill {
-		Perbill::from_parts(125)
+		Perbill::from_rational(200000u64, 293853000u64)
 	}
 
-	fn length_multiplier() -> Balance {
-		Balance::from(2_500u32)
+	fn length_multiplier() -> pallet_fee_control::LengthMultiplier {
+		pallet_fee_control::LengthMultiplier { multiplier: 2000u128, scaling_factor: 1000u32 }
+	}
+
+	fn transaction_weight() -> Weight {
+		let tx_weight = <weights::pallet_balances::WeightInfo<Runtime> as pallet_balances::WeightInfo>::transfer_keep_alive();
+		let base_weight = RuntimeBlockWeights::get().get(DispatchClass::Normal).base_extrinsic;
+
+		return tx_weight + base_weight
+	}
+
+	fn gas_limit() -> U256 {
+		U256::from(21_000u128)
+	}
+
+	fn desired_transaction_fee() -> Balance {
+		Balance::from(100_000u128)
+	}
+
+	fn desired_length_fee() -> Balance {
+		Balance::from(1u128)
+	}
+
+	fn evm_xrp_scale_factor() -> Balance {
+		crate::impls::XRP_UNIT_VALUE
 	}
 }
 

@@ -36,7 +36,7 @@ describe("Fee Preferences", function () {
     node = await startNode();
 
     // Setup PolkadotJS rpc provider
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     const api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     const keyring = new Keyring({ type: "ethereum" });
     const alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
@@ -73,7 +73,7 @@ describe("Fee Preferences", function () {
     });
 
     // Setup JSON RPC provider
-    provider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     emptyAccountSigner = new Wallet(EMPTY_ACCT_PRIVATE_KEY).connect(provider); // 'development' seed
     xrpToken = new Contract(assetIdToERC20ContractAddress(NATIVE_TOKEN_ID), ERC20_ABI, emptyAccountSigner);
     feeToken = new Contract(assetIdToERC20ContractAddress(feeTokenAssetId), ERC20_ABI, emptyAccountSigner);
@@ -148,7 +148,7 @@ describe("Fee Preferences", function () {
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
     const nonce = await emptyAccountSigner.getTransactionCount();
     const gasLimit = 23316; // '0x5b14' = 23316;
-    const gasPrice = 15_000_000_000_000;
+    const gasPrice = 9_524_000_000_000;
 
     const unsignedTx = {
       // legacy tx
@@ -319,7 +319,7 @@ describe("Fee Preferences", function () {
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
     const nonce = await emptyAccountSigner.getTransactionCount();
     const gasLimit = 0;
-    const gasPrice = 15_000_000_000_000;
+    const gasPrice = 9_524_000_000_000;
 
     const unsignedTx = {
       // legacy tx

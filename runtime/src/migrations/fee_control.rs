@@ -15,7 +15,8 @@ use frame_support::{
 	storage_alias,
 	traits::{OnRuntimeUpgrade, StorageVersion},
 };
-use pallet_fee_control::DefaultValues;
+use pallet::DefaultValues;
+use pallet_fee_control as pallet;
 
 #[allow(unused_imports)]
 use super::Value as V;
@@ -26,7 +27,7 @@ pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		v2::pre_upgrade()?;
+		v3::pre_upgrade()?;
 
 		Ok(())
 	}
@@ -38,12 +39,12 @@ impl OnRuntimeUpgrade for Upgrade {
 
 		log::info!("FeeControl: Running migration with current storage version {current:?} / onchain {onchain:?}");
 
-		if onchain == 0 || onchain == 1 {
-			log::info!("FeeControl: Migrating from onchain version 1 to onchain version 2.");
-			weight += v2::migrate::<Runtime>();
+		if onchain == 2 {
+			log::info!("FeeControl: Migrating from onchain version 2 to onchain version 3.");
+			weight += v3::migrate::<Runtime>();
 
 			log::info!("FeeControl: Migration successfully finished.");
-			StorageVersion::new(2).put::<FeeControl>();
+			StorageVersion::new(3).put::<FeeControl>();
 		} else {
 			log::info!("FeeControl: No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
 		}
@@ -53,63 +54,68 @@ impl OnRuntimeUpgrade for Upgrade {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
-		v2::post_upgrade()?;
+		v3::post_upgrade()?;
 
 		Ok(())
 	}
 }
 
-mod v2 {
+mod v3 {
 	use super::*;
+	use codec::{Decode, Encode, MaxEncodedLen};
 	use frame_support::weights::Weight;
+	use scale_info::TypeInfo;
+	use seed_primitives::Balance;
 	use sp_core::U256;
 	use sp_runtime::Perbill;
 
-	#[storage_alias]
-	pub type EvmBaseFeePerGas<T: pallet_fee_control::Config> =
-		StorageValue<pallet_fee_control::Pallet<T>, U256>;
+	#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+	pub struct OldFeeConfig {
+		pub evm_base_fee_per_gas: U256,
+		pub weight_multiplier: Perbill,
+		pub length_multiplier: Balance,
+	}
 
 	#[storage_alias]
-	pub type ExtrinsicWeightToFee<T: pallet_fee_control::Config> =
-		StorageValue<pallet_fee_control::Pallet<T>, Perbill>;
+	pub type Data<T: pallet::Config> = StorageValue<pallet::Pallet<T>, OldFeeConfig>;
 
-	pub fn migrate<T: pallet_fee_control::Config>() -> Weight {
-		// We don't care about EvmBaseFeePerGas and ExtrinsicWeightToFee defaults
-		let evm = EvmBaseFeePerGas::<T>::take();
-		let weight = ExtrinsicWeightToFee::<T>::take();
+	pub fn migrate<T: pallet::Config>() -> Weight {
+		// Kill old storage
+		Data::<T>::kill();
 
-		let value = pallet_fee_control::FeeConfig {
-			evm_base_fee_per_gas: evm.unwrap_or_else(|| T::DefaultValues::evm_base_fee_per_gas()),
-			weight_multiplier: weight.unwrap_or_else(|| T::DefaultValues::weight_multiplier()),
+		// Transform
+		let new_value = pallet::FeeConfig {
+			evm_base_fee_per_gas: T::DefaultValues::evm_base_fee_per_gas(),
+			weight_multiplier: T::DefaultValues::weight_multiplier(),
 			length_multiplier: T::DefaultValues::length_multiplier(),
 		};
-		pallet_fee_control::Data::<T>::put(value);
+		pallet::Data::<T>::put(new_value);
 
-		log::info!("FeeControl: Removed [EvmBaseFeePerGas, ExtrinsicWeightToFee]");
+		log::info!("FeeControl: Removed Data");
 		log::info!("FeeControl: Added Data");
 
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 3)
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 2)
 	}
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
-		log::info!(target: "FeeControl", "FeeControl Upgrade to V2 Pre Upgrade.");
-		// Storage Version Check
 		let onchain = FeeControl::on_chain_storage_version();
-		assert_eq!(onchain, 1);
+		if onchain == 3 {
+			log::info!("Skipping FeeControl Upgrade to V3 Pre Upgrade checks.");
+			return Ok(())
+		}
 
+		log::info!("FeeControl Upgrade to V3 Pre Upgrade.");
+		assert_eq!(onchain, 2);
 		Ok(())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade() -> Result<(), &'static str> {
-		log::info!(target: "FeeControl", "FeeControl Upgrade to V2 Post Upgrade.");
-		// Storage Version Check
+		log::info!("FeeControl Upgrade to V3 Post Upgrade.");
 		let onchain = FeeControl::on_chain_storage_version();
-		assert_eq!(onchain, 2);
 
-		assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
-		assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
+		assert_eq!(onchain, 3);
 		assert_ok!(V::storage_get::<pallet_fee_control::Data::<Runtime>, _>());
 
 		Ok(())
@@ -124,43 +130,29 @@ mod v2 {
 		fn storage_version_is_incremented() {
 			new_test_ext().execute_with(|| {
 				// Preparation
-				StorageVersion::new(1).put::<FeeControl>();
+				StorageVersion::new(2).put::<FeeControl>();
 
 				// Action
 				Upgrade::on_runtime_upgrade();
 
 				// Check
-				assert_eq!(FeeControl::on_chain_storage_version(), 2);
+				assert_eq!(FeeControl::on_chain_storage_version(), 3);
 			});
 		}
 
 		#[test]
-		fn storage_is_removed() {
+		fn storage_is_updated() {
 			new_test_ext().execute_with(|| {
 				// Preparation
-				StorageVersion::new(1).put::<FeeControl>();
+				StorageVersion::new(2).put::<FeeControl>();
+
 				// Insert storage
-				EvmBaseFeePerGas::<Runtime>::put(U256::from(10u128));
-				ExtrinsicWeightToFee::<Runtime>::put(Perbill::from_parts(100));
-				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), true);
-				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), true);
-
-				// Action
-				Upgrade::on_runtime_upgrade();
-
-				// Check
-				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
-				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
-			});
-		}
-
-		#[test]
-		fn new_storage_is_created_with_defaults() {
-			new_test_ext().execute_with(|| {
-				// Preparation
-				StorageVersion::new(1).put::<FeeControl>();
-				assert_eq!(V::exists::<EvmBaseFeePerGas::<Runtime>, _>(), false);
-				assert_eq!(V::exists::<ExtrinsicWeightToFee::<Runtime>, _>(), false);
+				let value = OldFeeConfig {
+					evm_base_fee_per_gas: U256::from(100u32),
+					weight_multiplier: Perbill::one(),
+					length_multiplier: Balance::from(123u128),
+				};
+				Data::<Runtime>::put(value.clone());
 
 				// Action
 				Upgrade::on_runtime_upgrade();
@@ -168,42 +160,14 @@ mod v2 {
 				// Check
 				let expected_value = pallet_fee_control::FeeConfig {
 					evm_base_fee_per_gas:
-						<Runtime as pallet_fee_control::Config>::DefaultValues::evm_base_fee_per_gas(
-						),
+						<Runtime as pallet::Config>::DefaultValues::evm_base_fee_per_gas(),
 					weight_multiplier:
-						<Runtime as pallet_fee_control::Config>::DefaultValues::weight_multiplier(),
+						<Runtime as pallet::Config>::DefaultValues::weight_multiplier(),
 					length_multiplier:
-						<Runtime as pallet_fee_control::Config>::DefaultValues::length_multiplier(),
+						<Runtime as pallet::Config>::DefaultValues::length_multiplier(),
 				};
 
-				let actual_value = V::storage_get::<pallet_fee_control::Data<Runtime>, _>();
-				assert_eq!(actual_value, Ok(expected_value));
-			});
-		}
-
-		#[test]
-		fn new_storage_is_created_with_actual_storage() {
-			new_test_ext().execute_with(|| {
-				// Preparation
-				StorageVersion::new(1).put::<FeeControl>();
-				// Insert storage
-				let evm_base_fee_per_gas = U256::from(321u128);
-				let weight_multiplier = Perbill::from_parts(555);
-				EvmBaseFeePerGas::<Runtime>::put(evm_base_fee_per_gas);
-				ExtrinsicWeightToFee::<Runtime>::put(weight_multiplier);
-
-				// Action
-				Upgrade::on_runtime_upgrade();
-
-				// Check
-				let expected_value = pallet_fee_control::FeeConfig {
-					evm_base_fee_per_gas,
-					weight_multiplier,
-					length_multiplier:
-						<Runtime as pallet_fee_control::Config>::DefaultValues::length_multiplier(),
-				};
-
-				let actual_value = V::storage_get::<pallet_fee_control::Data<Runtime>, _>();
+				let actual_value = V::storage_get::<pallet::Data<Runtime>, _>();
 				assert_eq!(actual_value, Ok(expected_value));
 			});
 		}
