@@ -1059,9 +1059,9 @@ impl pallet_fee_control::Config for Runtime {
 
 parameter_types! {
 	// One storage item; key size 32, value size 8
-	pub ProxyDepositBase: Balance = deposit(1, 8); // TODO - set 0 for futurepass
+	pub ProxyDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
-	pub ProxyDepositFactor: Balance = deposit(0, 21); // TODO - set 0 for futurepass
+	pub ProxyDepositFactor: Balance = deposit(0, 21);
 	pub AnnouncementDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 56 bytes:
 	// - 20 bytes AccountId
@@ -1116,7 +1116,10 @@ impl pallet_futurepass::Config for Runtime {
 	type Call = Call;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
-	type WeightInfo = (); // TODO - generate/use our weights
+	type WeightInfo = weights::pallet_futurepass::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = AssetsExt;
 }
 
 construct_runtime! {
