@@ -331,7 +331,11 @@ macro_rules! impl_pallet_futurepass_config {
 		impl<T: pallet_futurepass::Config> pallet_futurepass::ProxyProvider<T>
 			for MockProxyProvider
 		{
-			fn exists(futurepass: &T::AccountId, delegate: &T::AccountId, proxy_type: Option<T::ProxyType>) -> bool {
+			fn exists(
+				futurepass: &T::AccountId,
+				delegate: &T::AccountId,
+				proxy_type: Option<T::ProxyType>,
+			) -> bool {
 				false
 			}
 			fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)> {
