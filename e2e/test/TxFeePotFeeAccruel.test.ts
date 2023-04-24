@@ -105,6 +105,7 @@ describe("TxFeePot fees accruel", () => {
     accruedFees = currentAccruedFees;
   });
 
+  // This should not exist here but the tests are failing without it :(
   it("Extrinsic transactions accrue base fee in TxFeePot", async () => {
     const tx = api.tx.assets.mint(
       // mint 1M tokens (18 decimals) to alith

@@ -1,3 +1,14 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 //! Root runtime config
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
@@ -79,7 +90,7 @@ pub mod keys {
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
-	SerialNumber, Signature, TokenId,
+	SerialNumber, Signature, TokenCount, TokenId,
 };
 
 mod bag_thresholds;
@@ -104,28 +115,12 @@ use precompiles::FutureversePrecompiles;
 mod staking;
 use staking::OnChainAccuracy;
 
+mod migrations;
 mod weights;
 
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
-
-mod custom_migration {
-	use super::*;
-	use frame_support::{
-		traits::{OnRuntimeUpgrade, StorageVersion},
-		weights::Weight,
-	};
-
-	pub struct Upgrade;
-	impl OnRuntimeUpgrade for Upgrade {
-		fn on_runtime_upgrade() -> Weight {
-			log::info!(target: "Xls20", "Xls20 Pallet set to onchain version 0");
-			StorageVersion::new(0).put::<Xls20>();
-			<Runtime as frame_system::Config>::DbWeight::get().writes(1)
-		}
-	}
-}
 
 #[cfg(test)]
 mod tests;
@@ -142,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 31,
+	spec_version: 32,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -283,15 +278,32 @@ impl frame_system::Config for Runtime {
 }
 
 parameter_types! {
-	pub const TransactionByteFee: Balance = 2_500;
 	pub const OperationalFeeMultiplier: u8 = 5;
+}
+
+pub struct FeeControlWeightToFee;
+impl frame_support::weights::WeightToFee for FeeControlWeightToFee {
+	type Balance = Balance;
+
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		FeeControl::weight_to_fee(weight)
+	}
+}
+
+pub struct FeeControlLengthToFee;
+impl frame_support::weights::WeightToFee for FeeControlLengthToFee {
+	type Balance = Balance;
+
+	fn weight_to_fee(weight: &Weight) -> Self::Balance {
+		FeeControl::length_to_fee(weight)
+	}
 }
 
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = FeeProxy;
 	type Event = Event;
-	type WeightToFee = FeeControl;
-	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
+	type WeightToFee = FeeControlWeightToFee;
+	type LengthToFee = FeeControlLengthToFee;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Runtime>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
@@ -365,6 +377,7 @@ parameter_types! {
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
+	pub const MintLimit: u32 = 1_000;
 	pub const MaxOffers: u32 = 100;
 }
 impl pallet_nft::Config for Runtime {
@@ -372,6 +385,7 @@ impl pallet_nft::Config for Runtime {
 	type Event = Event;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
+	type MintLimit = MintLimit;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
@@ -380,6 +394,11 @@ impl pallet_nft::Config for Runtime {
 	type StringLimit = CollectionNameStringLimit;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
+}
+
+impl pallet_marketplace::Config for Runtime {
+	type Call = Call;
+	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -488,7 +507,7 @@ parameter_types! {
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
 	pub const LPTokenName: [u8; 10] = *b"Uniswap V2";
 	pub const LPTokenSymbol: [u8; 6] = *b"UNI-V2";
-	pub const LPTokenDecimals: u8 = 6; // same as native token decimals
+	pub const LPTokenDecimals: u8 = 18;
 }
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
@@ -1028,18 +1047,26 @@ impl pallet_nft_peg::Config for Runtime {
 	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
 }
 
-parameter_types! {
-	/// Floor network base fee per gas
-	/// 0.000015 XRP per gas, 15000 GWEI
-	pub const DefaultEvmBaseFeePerGas: u64 = 15_000_000_000_000;
-	pub const WeightToFeeReduction: Perbill = Perbill::from_parts(125);
+pub struct FeeControlDefaultValues;
+impl pallet_fee_control::DefaultValues for FeeControlDefaultValues {
+	fn evm_base_fee_per_gas() -> U256 {
+		// Floor network base fee per gas
+		// 0.000015 XRP per gas, 15000 GWEI
+		U256::from(15_000_000_000_000u128)
+	}
+	fn weight_multiplier() -> Perbill {
+		Perbill::from_parts(125)
+	}
+
+	fn length_multiplier() -> Balance {
+		Balance::from(2_500u32)
+	}
 }
 
 impl pallet_fee_control::Config for Runtime {
 	type Event = Event;
-	type DefaultEvmBaseFeePerGas = DefaultEvmBaseFeePerGas;
-	type WeightToFeeReduction = WeightToFeeReduction;
 	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
+	type DefaultValues = FeeControlDefaultValues;
 }
 
 construct_runtime! {
@@ -1077,6 +1104,7 @@ construct_runtime! {
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
+		Marketplace: pallet_marketplace::{Pallet, Call} = 44,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
@@ -1129,7 +1157,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
-	custom_migration::Upgrade,
+	migrations::AllMigrations,
 >;
 
 impl_runtime_apis! {
@@ -1315,7 +1343,7 @@ impl_runtime_apis! {
 		AccountId,
 		Runtime,
 	> for Runtime {
-		fn owned_tokens(collection_id: CollectionUuid, who: AccountId, cursor: SerialNumber, limit: u16) -> (SerialNumber, Vec<SerialNumber>) {
+		fn owned_tokens(collection_id: CollectionUuid, who: AccountId, cursor: SerialNumber, limit: u16) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
 			Nft::owned_tokens(collection_id, &who, cursor, limit)
 		}
 		fn token_uri(token_id: TokenId) -> Vec<u8> {

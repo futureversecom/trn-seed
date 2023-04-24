@@ -5137,8 +5137,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-marketplace"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-evm",
+ "pallet-nft",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-nft"
-version = "2.0.1"
+version = "2.2.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5190,7 +5216,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-rpc"
-version = "2.1.1"
+version = "2.2.0"
 dependencies = [
  "jsonrpsee",
  "pallet-nft",
@@ -5209,7 +5235,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-rpc-runtime-api"
-version = "2.1.1"
+version = "2.2.0"
 dependencies = [
  "pallet-nft",
  "parity-scale-codec",
@@ -7699,7 +7725,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.36"
+version = "0.0.1"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -7851,6 +7877,7 @@ dependencies = [
  "pallet-fee-proxy",
  "pallet-grandpa",
  "pallet-im-online",
+ "pallet-marketplace",
  "pallet-nft",
  "pallet-nft-peg",
  "pallet-nft-rpc-runtime-api",

@@ -1,17 +1,14 @@
-/* Copyright 2019-2021 Centrality Investments Limited
- *
- * Licensed under the LGPL, Version 3.0 (the "License");
- * you may not use this file except in compliance with the License.
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * You may obtain a copy of the License at the root of this project source code,
- * or at:
- *     https://centrality.ai/licenses/gplv3.txt
- *     https://centrality.ai/licenses/lgplv3.txt
- */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 //! # NFT Module
@@ -52,11 +49,10 @@ mod benchmarking;
 pub mod mock;
 #[cfg(test)]
 mod tests;
-mod weights;
+pub mod weights;
 pub use weights::WeightInfo;
 
 mod impls;
-mod migration;
 pub mod traits;
 mod types;
 
@@ -69,7 +65,7 @@ pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
 /// The maximum amount of owned tokens to be returned by the RPC
-pub const MAX_OWNED_TOKENS_LIMIT: u16 = 500;
+pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
@@ -121,6 +117,8 @@ pub mod pallet {
 		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
 		type MaxTokensPerCollection: Get<u32>;
+		/// Max quantity of NFTs that can be minted in one transaction
+		type MintLimit: Get<u32>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
@@ -235,6 +233,12 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			start: SerialNumber,
 			end: SerialNumber,
+			owner: T::AccountId,
+		},
+		/// Token(s) were bridged
+		BridgedMint {
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			owner: T::AccountId,
 		},
 		/// A new owner was set
@@ -386,6 +390,8 @@ pub mod pallet {
 		ZeroOffer,
 		/// The number of tokens have exceeded the max tokens allowed
 		TokenLimitExceeded,
+		/// The quantity exceeds the max tokens per mint limit
+		MintLimitExceeded,
 		/// Cannot make an offer on a token up for auction
 		TokenOnAuction,
 		/// Max issuance needs to be greater than 0 and initial_issuance
@@ -407,25 +413,6 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<(), &'static str> {
-			migration::v3::pre_upgrade::<T>()?;
-
-			Ok(())
-		}
-
-		/// Perform runtime upgrade
-		fn on_runtime_upgrade() -> Weight {
-			migration::v3::on_runtime_upgrade::<T>()
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade() -> Result<(), &'static str> {
-			migration::v3::post_upgrade::<T>()?;
-
-			Ok(())
-		}
-
 		/// Check and close all expired listings
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: this is unbounded and could become costly
@@ -617,6 +604,8 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+
+			ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
 
 			let mut collection_info =
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;

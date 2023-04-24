@@ -1,7 +1,7 @@
 [package]
 name = "seed-runtime"
 version = "0.1.0"
-authors = ["Centrality Developers <support@centrality.ai>"]
+authors = ["The Root Network Team"]
 edition = "2021"
 
 [dependencies]
@@ -86,6 +86,7 @@ pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
 pallet-xls20 = { path = "../pallet/xls20", default-features = false }
+pallet-marketplace = { path = "../pallet/marketplace", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -168,6 +169,7 @@ std = [
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
 	"pallet-xls20/std",
+	"pallet-marketplace/std",
 	"seed-primitives/std",
 	"primitive-types/std",
 	"fp-rpc/std",
@@ -229,6 +231,7 @@ try-runtime = [
 	"pallet-erc20-peg/try-runtime",
 	"pallet-nft-peg/try-runtime",
 	"pallet-xls20/try-runtime",
+	"pallet-marketplace/try-runtime",
 ]
 
 runtime-benchmarks = [
@@ -265,4 +268,5 @@ runtime-benchmarks = [
 	"pallet-evm-chain-id/runtime-benchmarks",
 	"pallet-token-approvals/runtime-benchmarks",
 	"pallet-xls20/runtime-benchmarks",
+	"pallet-marketplace/runtime-benchmarks",
 ]

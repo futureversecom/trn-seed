@@ -1,7 +1,7 @@
 [package]
 name = "seed-runtime-constants"
 version = "0.9.28"
-authors = ["Centrality Developers <support@centrality.ai>"]
+authors = ["The Root Network Team"]
 edition = "2021"
 
 [dependencies]

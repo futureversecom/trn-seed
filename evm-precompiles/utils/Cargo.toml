@@ -1,6 +1,6 @@
 [package]
 name = "precompile-utils"
-authors = [ "PureStake" ]
+authors = ["The Root Network Team"]
 description = "Utils to write EVM precompiles."
 edition = "2021"
 version = "0.1.0"

@@ -1,17 +1,14 @@
-/* Copyright 2019-2022 Centrality Investments Limited
- *
- * Licensed under the LGPL, Version 3.0 (the "License");
- * you may not use this file except in compliance with the License.
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * You may obtain a copy of the License at the root of this project source code,
- * or at:
- *     https://centrality.ai/licenses/gplv3.txt
- *     https://centrality.ai/licenses/lgplv3.txt
- */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 #![cfg(test)]
 
 use codec::Encode;
@@ -24,7 +21,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 };
 use hex_literal::hex;
-use sp_core::{ByteArray, Public, H160, H256, U256};
+use sp_core::{ByteArray, H160, H256, U256};
 use sp_keystore::{testing::KeyStore, SyncCryptoStore};
 use sp_runtime::{
 	generic::DigestItem,
@@ -892,7 +889,7 @@ fn pre_last_session_change() {
 			.unwrap(),
 		];
 		let event_proof_id = EthBridge::next_event_proof_id();
-		let next_validator_set_id = EthBridge::notary_set_id() + 1;
+		_ = EthBridge::notary_set_id() + 1;
 		// Manually insert next keys
 		NextNotaryKeys::<TestRuntime>::put(next_keys.clone());
 

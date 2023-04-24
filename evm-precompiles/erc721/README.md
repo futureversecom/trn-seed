@@ -35,7 +35,7 @@ interface TRN721 is IERC165 {
     function mint(address owner, uint32 quantity) external;
     function setMaxSupply(uint32 maxSupply) external;
     function setBaseURI(bytes baseURI) external;
-    function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32[] memory);
+    function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory);
 }
 ```
 

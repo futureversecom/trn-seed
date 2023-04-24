@@ -18,7 +18,6 @@ on:
   push:
     branches:
       - trunk/*
-      - release/*
       - main
     paths:
       - "**.rs"
@@ -29,7 +28,7 @@ on:
 
 jobs:
   format-build-test:
-    runs-on: [ubuntu-latest]
+    runs-on: [seed-builder]
     steps:
       - name: Check out
         uses: actions/checkout@v3
@@ -51,7 +50,7 @@ jobs:
       #  run: cargo check --features=runtime-benchmarks
   
   e2e:
-    runs-on: [ubuntu-latest]
+    runs-on: [seed-builder]
     defaults:
       run:
         working-directory: ./e2e
@@ -89,6 +88,9 @@ jobs:
 
       - name: "Test the contracts"
         run: "yarn test"
+
+      - name: "Clean up docker images"
+        run: "yes | docker image prune"
 
       # - name: "Test the contracts and generate the coverage report"
       #   run: "yarn coverage"

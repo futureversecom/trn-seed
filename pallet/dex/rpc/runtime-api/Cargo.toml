@@ -1,7 +1,7 @@
 [package]
 name = "pallet-dex-rpc-runtime-api"
 version = "0.0.1"
-authors = ["Centrality Developers <developers@centrality.ai>"]
+authors = ["The Root Network Team"]
 edition = "2021"
 license = "GPL-3.0"
 

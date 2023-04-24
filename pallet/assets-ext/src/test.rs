@@ -1,3 +1,14 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 use crate::{
 	mock::{test_ext, AssetId, AssetsExt, AssetsExtPalletId, MockAccountId, NativeAssetId, Test},
 	Config, Error, Holds, NextAssetId,
@@ -7,7 +18,7 @@ use frame_support::{
 	traits::fungibles::{Inspect, InspectMetadata, Transfer},
 	PalletId,
 };
-use seed_pallet_common::{utils::next_asset_uuid, CreateExt, Hold, TransferExt};
+use seed_pallet_common::{CreateExt, Hold, TransferExt};
 use seed_primitives::Balance;
 use sp_core::H160;
 use sp_runtime::traits::{AccountIdConversion, Zero};

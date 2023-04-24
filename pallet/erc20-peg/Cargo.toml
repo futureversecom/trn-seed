@@ -1,7 +1,7 @@
 [package]
 name = "pallet-erc20-peg"
 version = "2.0.1"
-authors = ["Centrality Developers <support@centrality.ai>"]
+authors = ["The Root Network Team"]
 edition = "2021"
 repository = "https://github.com/futureversecom/seed"
 description = "Seed Token Approvals module"
