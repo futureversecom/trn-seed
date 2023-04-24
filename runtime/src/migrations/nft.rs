@@ -15,7 +15,8 @@ use frame_support::{
 	storage_alias,
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
 };
-use sp_std::{fmt::Debug, prelude::*};
+use sp_runtime::traits::Get;
+use sp_std::fmt::Debug;
 
 pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
@@ -59,7 +60,9 @@ pub mod v4 {
 	use super::*;
 	use codec::{Decode, Encode};
 	use core::fmt::Write;
-	use frame_support::{BoundedVec, Twox64Concat};
+	use frame_support::{
+		BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, Twox64Concat,
+	};
 	use pallet_nft::{
 		CollectionInformation, CollectionNameType, CrossChainCompatibility, OriginChain,
 		RoyaltiesSchedule, TokenOwnership,
@@ -94,8 +97,9 @@ pub mod v4 {
 	}
 
 	/// Information related to a specific collection
-	#[derive(Debug, Encode, Decode, PartialEq, TypeInfo)]
-	#[scale_info(skip_type_params(AccountId, MaxTokensPerCollection))]
+	#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
+	#[codec(mel_bound(AccountId: MaxEncodedLen))]
+	#[scale_info(skip_type_params(MaxTokensPerCollection))]
 	pub struct OldCollectionInformation<AccountId, MaxTokensPerCollection>
 	where
 		AccountId: Debug + PartialEq + Clone,
@@ -122,28 +126,6 @@ pub mod v4 {
 		/// All serial numbers owned by an account in a collection
 		pub owned_tokens:
 			BoundedVec<TokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
-	}
-
-	impl<AccountId, MaxTokensPerCollection> Clone
-		for OldCollectionInformation<AccountId, MaxTokensPerCollection>
-	where
-		AccountId: Debug + PartialEq + Clone,
-		MaxTokensPerCollection: Get<u32>,
-	{
-		fn clone(&self) -> Self {
-			OldCollectionInformation {
-				owner: self.owner.clone(),
-				name: self.name.clone(),
-				metadata_scheme: self.metadata_scheme.clone(),
-				royalties_schedule: self.royalties_schedule.clone(),
-				max_issuance: self.max_issuance.clone(),
-				origin_chain: self.origin_chain.clone(),
-				next_serial_number: self.next_serial_number.clone(),
-				collection_issuance: self.collection_issuance.clone(),
-				cross_chain_compatibility: self.cross_chain_compatibility.clone(),
-				owned_tokens: self.owned_tokens.clone(),
-			}
-		}
 	}
 
 	#[storage_alias]
@@ -302,10 +284,7 @@ pub mod v4 {
 				let user_1 = create_account(5);
 				let owner = create_account(123);
 
-				let old_info = OldCollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let old_info = OldCollectionInformation {
 					owner: owner.clone(),
 					name: b"test-collection-1".to_vec(),
 					royalties_schedule: Some(RoyaltiesSchedule {
@@ -320,10 +299,7 @@ pub mod v4 {
 					owned_tokens: BoundedVec::default(),
 				};
 
-				let old_info_ipfs = OldCollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let old_info_ipfs = OldCollectionInformation {
 					name: b"test-collection-1".to_vec(),
 					metadata_scheme: OldMetadataScheme::Ipfs(b"Test1/".to_vec()),
 					..old_info.clone()
@@ -331,10 +307,7 @@ pub mod v4 {
 
 				CollectionInfo::<Runtime>::insert(1, old_info_ipfs);
 
-				let old_info_https = OldCollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let old_info_https = OldCollectionInformation {
 					name: b"test-collection-2".to_vec(),
 					metadata_scheme: OldMetadataScheme::Https(b"google.com".to_vec()),
 					..old_info.clone()
@@ -342,10 +315,7 @@ pub mod v4 {
 
 				CollectionInfo::<Runtime>::insert(2, old_info_https);
 
-				let old_info_http = OldCollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let old_info_http = OldCollectionInformation {
 					name: b"test-collection-3".to_vec(),
 					metadata_scheme: OldMetadataScheme::Http(b"google.com".to_vec()),
 					..old_info.clone()
@@ -353,10 +323,7 @@ pub mod v4 {
 
 				CollectionInfo::<Runtime>::insert(3, old_info_http);
 
-				let old_info_ethereum = OldCollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let old_info_ethereum = OldCollectionInformation {
 					name: b"test-collection-4".to_vec(),
 					metadata_scheme: OldMetadataScheme::Ethereum(H160::from_slice(
 						&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap(),
@@ -368,10 +335,7 @@ pub mod v4 {
 
 				// Test if old data length exceeds the limit of BoundedVec in the new MetadataScheme
 				// definition
-				let old_info_with_too_large_data = OldCollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let old_info_with_too_large_data = OldCollectionInformation {
 					name: b"test-collection-5".to_vec(),
 					metadata_scheme: OldMetadataScheme::Https(vec![0; 200]),
 					..old_info.clone()
@@ -386,10 +350,7 @@ pub mod v4 {
 
 				Upgrade::on_runtime_upgrade();
 
-				let new_info = CollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let new_info = CollectionInformation {
 					owner,
 					name: b"test-collection-1".to_vec(),
 					royalties_schedule: Some(RoyaltiesSchedule {
@@ -404,10 +365,7 @@ pub mod v4 {
 					owned_tokens: BoundedVec::default(),
 				};
 
-				let expected_value = CollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let expected_value = CollectionInformation {
 					name: b"test-collection-1".to_vec(),
 					metadata_scheme: MetadataScheme::try_from(b"ipfs://Test1/".as_slice()).unwrap(),
 					..new_info.clone()
@@ -415,10 +373,7 @@ pub mod v4 {
 				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(1).unwrap();
 				assert_eq!(expected_value, actual_value);
 
-				let expected_value = CollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let expected_value = CollectionInformation {
 					name: b"test-collection-2".to_vec(),
 					metadata_scheme: MetadataScheme::try_from(b"https://google.com/".as_slice())
 						.unwrap(),
@@ -427,10 +382,7 @@ pub mod v4 {
 				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(2).unwrap();
 				assert_eq!(expected_value, actual_value);
 
-				let expected_value = CollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let expected_value = CollectionInformation {
 					name: b"test-collection-3".to_vec(),
 					metadata_scheme: MetadataScheme::try_from(b"http://google.com/".as_slice())
 						.unwrap(),
@@ -439,10 +391,7 @@ pub mod v4 {
 				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(3).unwrap();
 				assert_eq!(expected_value, actual_value);
 
-				let expected_value = CollectionInformation::<
-					<Runtime as frame_system::Config>::AccountId,
-					<Runtime as pallet_nft::Config>::MaxTokensPerCollection,
-				> {
+				let expected_value = CollectionInformation {
 					name: b"test-collection-4".to_vec(),
 					metadata_scheme: MetadataScheme::try_from(
 						b"ethereum://0xe04cc55ebee1cbce552f250e85c57b70b2e2625b/".as_slice(),
