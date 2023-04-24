@@ -7869,6 +7869,7 @@ dependencies = [
  "parity-scale-codec",
  "precompile-utils",
  "primitive-types",
+ "remote-externalities",
  "rustc-hex",
  "scale-info",
  "seed-client",
@@ -7891,6 +7892,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
+ "tokio",
  "try-runtime-cli",
 ]
 

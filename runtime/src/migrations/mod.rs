@@ -596,3 +596,26 @@ mod value_tests {
 		});
 	}
 }
+
+#[cfg(all(test, feature = "try-runtime"))]
+mod remote_tests {
+	use super::*;
+	use crate::{migrations::AllMigrations, Block};
+	use remote_externalities::{Builder, Mode, OfflineConfig};
+	use std::env::var;
+
+	#[tokio::test]
+	async fn run_migrations() {
+		//std::env::set_var("SNAP", "/full/path/to/snap.top");
+		let Some(state_snapshot) = var("SNAP").map(|s| s.into()).ok() else {
+			return;
+		};
+		let mode = Mode::Offline(OfflineConfig { state_snapshot });
+		let mut ext = Builder::<Block>::default().mode(mode).build().await.unwrap();
+		ext.execute_with(|| {
+			AllMigrations::pre_upgrade().unwrap();
+			AllMigrations::on_runtime_upgrade();
+			AllMigrations::post_upgrade().unwrap();
+		});
+	}
+}

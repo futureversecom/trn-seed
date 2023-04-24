@@ -94,8 +94,11 @@ mod v2 {
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
 		log::info!(target: "FeeControl", "FeeControl Upgrade to V2 Pre Upgrade.");
-		// Storage Version Check
 		let onchain = FeeControl::on_chain_storage_version();
+		if onchain == 2 {
+			return Ok(())
+		}
+
 		assert_eq!(onchain, 1);
 
 		Ok(())
