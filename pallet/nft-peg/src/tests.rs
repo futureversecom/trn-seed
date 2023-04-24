@@ -141,9 +141,11 @@ fn do_deposit_creates_tokens_and_collection() {
 		assert_eq!(Nft::collection_exists(expected_collection_id), true);
 
 		let collection_info = Nft::collection_info(expected_collection_id).unwrap();
+		let mut h160_addr = sp_std::Writer::default();
+		write!(&mut h160_addr, "ethereum://{:?}/", test_vals.token_address).expect("Not written");
 		assert_eq!(
 			collection_info.metadata_scheme,
-			MetadataScheme::Ethereum(test_vals.token_address)
+			MetadataScheme::try_from(h160_addr.inner().clone().as_slice()).unwrap()
 		);
 
 		// Token balance should be 1 as one token was deposited

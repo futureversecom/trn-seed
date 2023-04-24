@@ -12,6 +12,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Encode;
+use core::fmt::Write;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;
@@ -97,6 +98,8 @@ pub mod pallet {
 		StateSyncDisabled,
 		/// Multiple tokens were passed from contract, but amounts were unqeual per each array
 		TokenListLengthMismatch,
+		/// The length of the given vec exceeds the maximal allowed length limit
+		ExceedsMaxVecLength,
 	}
 
 	#[pallet::event]
@@ -276,7 +279,12 @@ where
 				match Self::eth_to_root_nft(current_token.token_address) {
 					Some(collection_id) => collection_id,
 					None => {
-						let metadata_scheme = MetadataScheme::Ethereum(current_token.token_address);
+						let mut h160_addr = sp_std::Writer::default();
+						write!(&mut h160_addr, "ethereum://{:?}/", current_token.token_address)
+							.expect("Not written");
+						let metadata_scheme =
+							MetadataScheme::try_from(h160_addr.inner().clone().as_slice())
+								.map_err(|_| Error::<T>::ExceedsMaxVecLength)?;
 						// Collection doesn't exist, create a new collection
 						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 							collection_owner_account,
