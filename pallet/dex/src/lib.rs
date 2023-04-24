@@ -287,9 +287,7 @@ pub mod pallet {
 			ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
 			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
 
-			// Add trading pairs in both orders
-			let trading_pair = TradingPair(asset_id_a, asset_id_b);
-			let trading_pair_reverse = TradingPair(asset_id_b, asset_id_a);
+			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 
 			// create trading pair if non-existent
 			if Self::lp_token_id(&trading_pair).is_none() {
@@ -302,9 +300,7 @@ pub mod pallet {
 					None,
 				)?;
 				TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
-				TradingPairLPToken::<T>::insert(trading_pair_reverse, Some(lp_asset_id));
 				TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
-				TradingPairStatuses::<T>::insert(trading_pair_reverse, TradingPairStatus::Enabled);
 			}
 
 			Self::do_add_liquidity(
@@ -367,8 +363,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			let trading_pair = TradingPair(asset_id_a, asset_id_b);
-			let trading_pair_reverse = TradingPair(asset_id_b, asset_id_a);
+			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 
 			ensure!(
 				Self::lp_token_id(&trading_pair).is_some(),
@@ -380,10 +375,6 @@ pub mod pallet {
 				// will enabled Disabled trading_pair
 				TradingPairStatus::NotEnabled => {
 					TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
-					TradingPairStatuses::<T>::insert(
-						trading_pair_reverse,
-						TradingPairStatus::Enabled,
-					);
 					Self::deposit_event(Event::EnableTradingPair(trading_pair));
 				},
 			};
@@ -405,8 +396,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			let trading_pair = TradingPair(asset_id_a, asset_id_b);
-			let trading_pair_reverse = TradingPair(asset_id_b, asset_id_a);
+			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 
 			ensure!(
 				Self::lp_token_id(&trading_pair).is_some(),
@@ -417,10 +407,6 @@ pub mod pallet {
 				// will disable Enabled trading_pair
 				TradingPairStatus::Enabled => {
 					TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::NotEnabled);
-					TradingPairStatuses::<T>::insert(
-						trading_pair_reverse,
-						TradingPairStatus::NotEnabled,
-					);
 					Self::deposit_event(Event::DisableTradingPair(trading_pair));
 				},
 				TradingPairStatus::NotEnabled => return Err(Error::<T>::MustBeEnabled.into()),
@@ -467,8 +453,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
 
-		let trading_pair = TradingPair(asset_id_a, asset_id_b);
-		let trading_pair_reverse = TradingPair(asset_id_b, asset_id_a);
+		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 		let lp_share_asset_id =
 			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
 
@@ -477,14 +462,35 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::MustBeEnabled,
 		);
 
-		let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
+		// match trading-pair to inputs - to match reserves in liquidity pool
+		let (
+			asset_id_a,
+			asset_id_b,
+			amount_a_desired,
+			amount_b_desired,
+			amount_a_min,
+			amount_b_min,
+		) = if asset_id_a == trading_pair.0 {
+			(
+				asset_id_a,
+				asset_id_b,
+				U256::from(amount_a_desired),
+				U256::from(amount_b_desired),
+				U256::from(amount_a_min),
+				U256::from(amount_b_min),
+			)
+		} else {
+			(
+				asset_id_b,
+				asset_id_a,
+				U256::from(amount_b_desired),
+				U256::from(amount_a_desired),
+				U256::from(amount_b_min),
+				U256::from(amount_a_min),
+			)
+		};
 
-		let (amount_a_desired, amount_b_desired, amount_a_min, amount_b_min) = (
-			U256::from(amount_a_desired),
-			U256::from(amount_b_desired),
-			U256::from(amount_a_min),
-			U256::from(amount_b_min),
-		);
+		let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
 
 		// _addLiquidity func in uniswap-v2-router
 		let (amount_a, amount_b) = if reserve_a.is_zero() && reserve_b.is_zero() {
@@ -558,32 +564,25 @@ impl<T: Config> Pallet<T> {
 		// mint lp tokens to user
 		T::MultiCurrency::mint_into(lp_share_asset_id, who, liquidity)?;
 
-		LiquidityPool::<T>::try_mutate(trading_pair, |(reserve_a, reserve_b)| -> DispatchResult {
-			// update reserves
-			*reserve_a = balance_0;
-			*reserve_b = balance_1;
-
-			Ok(())
-		})?;
-		LiquidityPool::<T>::try_mutate(
-			trading_pair_reverse,
+		let result = LiquidityPool::<T>::try_mutate(
+			trading_pair,
 			|(reserve_a, reserve_b)| -> DispatchResult {
 				// update reserves
-				*reserve_a = balance_1;
-				*reserve_b = balance_0;
+				*reserve_a = balance_0;
+				*reserve_b = balance_1;
 
+				Self::deposit_event(Event::AddLiquidity(
+					who.clone(),
+					trading_pair.0,
+					amount_0,
+					trading_pair.1,
+					amount_1,
+					liquidity,
+				));
 				Ok(())
 			},
-		)?;
-		Self::deposit_event(Event::AddLiquidity(
-			who.clone(),
-			trading_pair.0,
-			amount_0,
-			trading_pair.1,
-			amount_1,
-			liquidity,
-		));
-		Ok(())
+		);
+		result
 	}
 
 	#[transactional]
@@ -595,8 +594,7 @@ impl<T: Config> Pallet<T> {
 		min_withdrawn_a: Balance,
 		min_withdrawn_b: Balance,
 	) -> DispatchResult {
-		let trading_pair = TradingPair(asset_id_a, asset_id_b);
-		let trading_pair_reverse = TradingPair(asset_id_b, asset_id_a);
+		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 		let lp_share_asset_id =
 			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
 
@@ -611,6 +609,14 @@ impl<T: Config> Pallet<T> {
 			remove_liquidity,
 			false,
 		)?;
+
+		// match trading-pair to inputs - to match reserves in liquidity pool
+		let (asset_id_a, asset_id_b, min_withdrawn_a, min_withdrawn_b) =
+			if asset_id_a == trading_pair.0 {
+				(asset_id_a, asset_id_b, min_withdrawn_a, min_withdrawn_b)
+			} else {
+				(asset_id_b, asset_id_a, min_withdrawn_b, min_withdrawn_a)
+			};
 
 		let mut balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
 		let mut balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
@@ -640,35 +646,34 @@ impl<T: Config> Pallet<T> {
 		balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
 		balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
 
-		LiquidityPool::<T>::try_mutate(trading_pair, |(reserve_0, reserve_1)| -> DispatchResult {
-			*reserve_0 = balance_0;
-			*reserve_1 = balance_1;
-
-			Ok(())
-		})?;
-
-		LiquidityPool::<T>::try_mutate(
-			trading_pair_reverse,
+		let result = LiquidityPool::<T>::try_mutate(
+			trading_pair,
 			|(reserve_0, reserve_1)| -> DispatchResult {
-				*reserve_0 = balance_1;
-				*reserve_1 = balance_0;
+				*reserve_0 = balance_0;
+				*reserve_1 = balance_1;
 
+				Self::deposit_event(Event::RemoveLiquidity(
+					who.clone(),
+					trading_pair.0,
+					amount_0,
+					trading_pair.1,
+					amount_1,
+					remove_liquidity,
+				));
 				Ok(())
 			},
-		)?;
-		Self::deposit_event(Event::RemoveLiquidity(
-			who.clone(),
-			trading_pair.0,
-			amount_0,
-			trading_pair.1,
-			amount_1,
-			remove_liquidity,
-		));
-		Ok(())
+		);
+		result
 	}
 
 	fn get_liquidity(asset_id_a: AssetId, asset_id_b: AssetId) -> (Balance, Balance) {
-		Self::liquidity_pool(TradingPair(asset_id_a, asset_id_b))
+		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+		let (reserve_0, reserve_1) = Self::liquidity_pool(trading_pair);
+		if asset_id_a == trading_pair.0 {
+			(reserve_0, reserve_1)
+		} else {
+			(reserve_1, reserve_0)
+		}
 	}
 
 	/// Given an input amount of an asset and pair reserves, returns the maximum output amount of
@@ -817,9 +822,7 @@ impl<T: Config> Pallet<T> {
 
 			ensure!(input != output, Error::<T>::IdenticalTokenAddress);
 
-			let trading_pair = TradingPair(input, output);
-			let trading_pair_reverse = TradingPair(output, input);
-
+			let trading_pair = TradingPair::new(input, output);
 			let (amount_0_out, amount_1_out) =
 				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
 
@@ -916,14 +919,6 @@ impl<T: Config> Pallet<T> {
 				|(reserve_0, reserve_1)| -> DispatchResult {
 					*reserve_0 = balance_0;
 					*reserve_1 = balance_1;
-					Ok(())
-				},
-			);
-			let _ = LiquidityPool::<T>::try_mutate(
-				trading_pair_reverse,
-				|(reserve_0, reserve_1)| -> DispatchResult {
-					*reserve_0 = balance_1;
-					*reserve_1 = balance_0;
 					Ok(())
 				},
 			);
