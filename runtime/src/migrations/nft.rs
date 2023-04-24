@@ -15,7 +15,6 @@ use frame_support::{
 	storage_alias,
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
 };
-use sp_runtime::traits::Get;
 use sp_std::fmt::Debug;
 
 pub struct Upgrade;
