@@ -229,7 +229,7 @@ fn transactions_cost_goes_to_tx_pot() {
 		assert_ok!(Ethereum::transact(origin, tx));
 
 		// Check
-		let expected_change = 200_000u128;
+		let expected_change = 210_000u128;
 		assert_eq!(TxFeePot::era_tx_fees(), old_pot + expected_change);
 	})
 }

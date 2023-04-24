@@ -121,7 +121,7 @@ describe("EVM gas costs", () => {
     const alithBalanceAfter = await alithSigner.getBalance();
 
     const difference = alithBalanceBefore.sub(alithBalanceAfter);
-    expect(difference).to.eql(totalPaid)
+    expect(difference).to.eql(totalPaid);
 
     // assert XRP used
     const oneXRP6DP = 1_000_000,
@@ -229,7 +229,7 @@ describe("EVM gas costs", () => {
     const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(totalPaid);
     expect(xrpCost6DP).to.be.greaterThanOrEqual(507_000).and.lessThanOrEqual(507_500);
-    expect(xrpCostScaled).to.be.greaterThanOrEqual(0.5070).and.lessThanOrEqual(0.5075);
+    expect(xrpCostScaled).to.be.greaterThanOrEqual(0.507).and.lessThanOrEqual(0.5075);
   });
 
   it("gas cost for pre-compile token transfer", async () => {
@@ -272,6 +272,6 @@ describe("EVM gas costs", () => {
     const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(totalPaid);
     expect(xrpCost6DP).to.eql(232_430);
-    expect(xrpCostScaled).to.eql(0.232430);
+    expect(xrpCostScaled).to.eql(0.23243);
   });
 });
