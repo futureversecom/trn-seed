@@ -13,7 +13,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use pallet_dex::Config;
+use pallet_dex::{Config, TradingPairStatus};
 use seed_primitives::types::{AssetId, Balance};
 use sp_runtime::DispatchError;
 use sp_std::prelude::*;
@@ -41,5 +41,23 @@ sp_api::decl_runtime_apis! {
 			amount_out: Balance,
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, DispatchError>;
+
+		/// Returns the LP token ID from the given trading pair
+		fn get_lp_token_id(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> Result<AssetId, DispatchError>;
+
+		/// Returns the liquidity balances of the given trading pair
+		fn get_liquidity(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> (Balance, Balance);
+
+		/// Returns the status of the given trading pairs
+		fn get_trading_pair_status(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> TradingPairStatus;
 	}
 }

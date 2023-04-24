@@ -21,6 +21,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use pallet_dex::TradingPairStatus;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
 	TransactionAction,
@@ -1320,6 +1321,27 @@ impl_runtime_apis! {
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
 			Dex::get_amounts_in(amount_out, &path)
+		}
+
+		fn get_lp_token_id(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> Result<AssetId, sp_runtime::DispatchError> {
+			Dex::get_lp_token_id(asset_id_a, asset_id_b)
+		}
+
+		fn get_liquidity(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> (Balance, Balance){
+			Dex::get_liquidity(asset_id_a, asset_id_b)
+		}
+
+		fn get_trading_pair_status(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> TradingPairStatus{
+			Dex::get_trading_pair_status(asset_id_a, asset_id_b)
 		}
 	}
 
