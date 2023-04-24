@@ -139,6 +139,7 @@ std = [
 	"pallet-nomination-pools/std",
 	"pallet-offences/std",
 	"pallet-proxy/std",
+	"pallet-recovery/std",
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-sudo/std",
