@@ -103,7 +103,7 @@ impl EthereumRpcClient {
 	fn query_eth_client<R: serde::Serialize>(request_body: R) -> Result<Vec<u8>, BridgeRpcError> {
 		// Load eth http URI from offchain storage
 		// this should have been configured on start up by passing e.g. `--eth-http`
-		// e.g. `--eth-http=http://127.0.0.1:8545`
+		// e.g. `--eth-http=http://localhost:8545`
 		let eth_http_uri = if let Some(value) =
 			sp_io::offchain::local_storage_get(StorageKind::PERSISTENT, &ETH_HTTP_URI)
 		{

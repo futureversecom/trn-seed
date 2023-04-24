@@ -1,4 +1,4 @@
-/* import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { hexToU8a } from "@polkadot/util";
 import axios from "axios";
 import { expect } from "chai";
@@ -66,7 +66,7 @@ describe("DexRPC", () => {
   before(async () => {
     node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -109,7 +109,7 @@ describe("DexRPC", () => {
   after(async () => node.stop());
 
   it("quote rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://127.0.0.1:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_quote",
@@ -128,7 +128,7 @@ describe("DexRPC", () => {
   });
 
   it("getAmountsOut rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://127.0.0.1:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getAmountsOut",
@@ -147,7 +147,7 @@ describe("DexRPC", () => {
   });
 
   it("getAmountsIn rpc works [http - axios]", async () => {
-    const httpResult = await axios.post(`http://127.0.0.1:${node.httpPort}`, {
+    const httpResult = await axios.post(`http://localhost:${node.httpPort}`, {
       id: 1,
       jsonrpc: "2.0",
       method: "dex_getAmountsIn",
@@ -165,4 +165,3 @@ describe("DexRPC", () => {
     expect(result.Ok).to.eqls([401203771314007, 100]);
   });
 });
- */

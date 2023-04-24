@@ -1,4 +1,4 @@
-/* import { JsonRpcProvider } from "@ethersproject/providers";
+import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, WsProvider } from "@polkadot/api";
 import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
@@ -28,7 +28,7 @@ describe("NFT Precompile", function () {
     node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -80,4 +80,4 @@ describe("NFT Precompile", function () {
       .initializeCollection(owner, name, maxIssuance, metadataPath, royaltyAddresses, royaltyEntitlements)
       .catch((err: any) => expect(err.message).contains("NFT: Invalid metadata_path: scheme not supported"));
   });
-}); */
+});

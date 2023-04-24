@@ -28,7 +28,7 @@ const config: HardhatUserConfig = {
       gasPrice: utils.parseUnits("100", "gwei").toNumber(),
     },
     seed: {
-      url: "http://127.0.0.1:9933",
+      url: "http://localhost:9933",
       accounts: [ALITH_PRIVATE_KEY, BOB_PRIVATE_KEY],
       chainId: 7672,
     },

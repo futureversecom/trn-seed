@@ -1,4 +1,4 @@
-/* import { JsonRpcProvider } from "@ethersproject/providers";
+import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
@@ -33,7 +33,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
     node = await startNode();
 
     // Setup PolkadotJS rpc provider
-    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
     const api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
 
     const keyring = new Keyring({ type: "ethereum" });
@@ -57,7 +57,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
     });
 
     // Setup JSON RPC provider
-    const jsonProvider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    const jsonProvider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
     emptyAccountSigner = new Wallet(EMPTY_ACCT_PRIVATE_KEY).connect(jsonProvider);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(jsonProvider);
     feeToken = new Contract(assetIdToERC20ContractAddress(feeTokenAssetId), ERC20_ABI, alithSigner);
@@ -102,4 +102,3 @@ describe("Fee Preferences under low token pair liquidity", function () {
     expect(error.reason).to.be.eq("insufficient funds for intrinsic transaction cost");
   });
 });
- */
