@@ -386,7 +386,6 @@ impl Map {
 		put_storage_value::<T>(module, item, hash, value)
 	}
 
-	// If no keys exist it means nothing is written in the storage
 	#[allow(dead_code)]
 	pub fn iter<Storage, K, V>() -> Vec<(K, V)>
 	where
