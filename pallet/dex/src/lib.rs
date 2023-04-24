@@ -668,13 +668,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	fn get_liquidity(asset_id_a: AssetId, asset_id_b: AssetId) -> (Balance, Balance) {
-		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
-		let (reserve_0, reserve_1) = Self::liquidity_pool(trading_pair);
-		if asset_id_a == trading_pair.0 {
-			(reserve_0, reserve_1)
-		} else {
-			(reserve_1, reserve_0)
-		}
+		Self::liquidity_pool(TradingPair(asset_id_a, asset_id_b))
 	}
 
 	/// Given an input amount of an asset and pair reserves, returns the maximum output amount of
@@ -922,6 +916,14 @@ impl<T: Config> Pallet<T> {
 				|(reserve_0, reserve_1)| -> DispatchResult {
 					*reserve_0 = balance_0;
 					*reserve_1 = balance_1;
+					Ok(())
+				},
+			);
+			let _ = LiquidityPool::<T>::try_mutate(
+				trading_pair_reverse,
+				|(reserve_0, reserve_1)| -> DispatchResult {
+					*reserve_0 = balance_1;
+					*reserve_1 = balance_0;
 					Ok(())
 				},
 			);
