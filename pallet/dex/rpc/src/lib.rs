@@ -48,7 +48,7 @@ pub trait DexApi {
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>>;
 
-	#[method(name = "getLPTokenId")]
+	#[method(name = "getLPTokenID")]
 	fn get_lp_token_id(
 		&self,
 		asset_id_a: AssetId,
