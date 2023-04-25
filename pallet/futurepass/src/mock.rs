@@ -76,7 +76,15 @@ impl_pallet_dex_config!(Test);
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
-			return false
+			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
+			// pallet_futurepass::Call::unregister_delegate
+			if !matches!(
+				c,
+				Call::Futurepass(pallet_futurepass::Call::register_delegate { .. }) |
+					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+			) {
+				return false
+			}
 		}
 		match self {
 			_ => true,

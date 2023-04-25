@@ -5,7 +5,6 @@ use frame_support::{
 	assert_err, assert_noop, assert_ok, error::BadOrigin, traits::tokens::fungibles::Transfer,
 };
 use hex_literal::hex;
-
 use seed_primitives::{AssetId, Balance};
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
@@ -868,7 +867,6 @@ fn proxy_extrinsic_failures() {
 				dest: other,
 				value: futurpass_balance + 1,
 			}));
-
 			// call proxy_extrinsic by owner
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
@@ -880,6 +878,124 @@ fn proxy_extrinsic_failures() {
 					result: Err(pallet_balances::Error::<Test>::InsufficientBalance.into()),
 				}
 				.into(),
+			);
+
+			// pallet_futurepass calls other than the whitelist can not be called via
+			// proxy_extrinsic
+			let inner_call =
+				Box::new(MockCall::Futurepass(Call::create { account: create_random() }));
+			// call proxy_extrinsic by owner
+			System::reset_events();
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call));
+			// assert event ProxyExecuted
+			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			// assert event pallet_proxy::ProxyExecuted with the error
+			System::assert_has_event(
+				pallet_proxy::Event::<Test>::ProxyExecuted {
+					result: Err(frame_system::Error::<Test>::CallFiltered.into()),
+				}
+				.into(),
+			);
+
+			// pallet_proxy calls other than the whitelist can not be called via proxy_extrinsic
+			let inner_call = Box::new(MockCall::Proxy(pallet_proxy::Call::add_proxy {
+				delegate: create_random(),
+				proxy_type: ProxyType::Any,
+				delay: 0,
+			}));
+			// call proxy_extrinsic by owner
+			System::reset_events();
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call));
+			// assert event ProxyExecuted
+			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			// assert event pallet_proxy::ProxyExecuted with the error
+			System::assert_has_event(
+				pallet_proxy::Event::<Test>::ProxyExecuted {
+					result: Err(frame_system::Error::<Test>::CallFiltered.into()),
+				}
+				.into(),
+			);
+		});
+}
+
+#[test]
+fn whitelist_works() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+			let other = create_account(4);
+
+			// fund owner
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE,
+				false
+			));
+			// create FP for owner
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+
+			// fund futurepass with some tokens
+			let fund_amount: Balance = 1000;
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass,
+				fund_amount,
+				false
+			));
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				fund_amount
+			);
+
+			// pallet_futurepass::Call::register_delegate works via proxy_extrinsic
+			let inner_call = Box::new(MockCall::Futurepass(Call::register_delegate {
+				futurepass,
+				delegate,
+				proxy_type: ProxyType::Any,
+			}));
+			System::reset_events();
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
+			// assert event ProxyExecuted
+			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			System::assert_has_event(
+				Event::<Test>::DelegateRegistered {
+					futurepass,
+					delegate,
+					proxy_type: ProxyType::Any,
+				}
+				.into(),
+			);
+			// check delegate is a delegate
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				true
+			);
+
+			// pallet_futurepass::Call::unregister_delegate works via proxy_extrinsic
+			let inner_call =
+				Box::new(MockCall::Futurepass(Call::unregister_delegate { futurepass, delegate }));
+			System::reset_events();
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
+			// assert event ProxyExecuted
+			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			System::assert_has_event(
+				Event::<Test>::DelegateUnregistered { futurepass, delegate }.into(),
+			);
+			// check delegate is not a delegate
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				false
 			);
 		});
 }
