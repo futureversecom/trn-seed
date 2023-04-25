@@ -1058,10 +1058,28 @@ impl pallet_fee_control::Config for Runtime {
 }
 
 parameter_types! {
+	pub const ConfigDepositBase: u64 = 10;
+	pub const FriendDepositFactor: u64 = 1;
+	pub const MaxFriends: u32 = 3;
+	pub const RecoveryDeposit: u64 = 10;
+}
+
+impl pallet_recovery::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+	type ConfigDepositBase = ConfigDepositBase;
+	type FriendDepositFactor = FriendDepositFactor;
+	type MaxFriends = MaxFriends;
+	type RecoveryDeposit = RecoveryDeposit;
+	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
 	// One storage item; key size 32, value size 8
-	pub ProxyDepositBase: Balance = deposit(1, 8); // TODO - set 0 for futurepass
+	pub ProxyDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
-	pub ProxyDepositFactor: Balance = deposit(0, 21); // TODO - set 0 for futurepass
+	pub ProxyDepositFactor: Balance = deposit(0, 21);
 	pub AnnouncementDepositBase: Balance = deposit(1, 8);
 	// Additional storage item size of 56 bytes:
 	// - 20 bytes AccountId
@@ -1083,25 +1101,7 @@ impl pallet_proxy::Config for Runtime {
 	type CallHasher = BlakeTwo256;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
-	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>; // TODO - generate/use our weights
-}
-
-parameter_types! {
-	pub const ConfigDepositBase: u64 = 10;
-	pub const FriendDepositFactor: u64 = 1;
-	pub const MaxFriends: u32 = 3;
-	pub const RecoveryDeposit: u64 = 10;
-}
-
-impl pallet_recovery::Config for Runtime {
-	type Event = Event;
-	type Call = Call;
-	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
-	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>; // TODO - generate/use our weights
+	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1116,7 +1116,10 @@ impl pallet_futurepass::Config for Runtime {
 	type Call = Call;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
-	type WeightInfo = (); // TODO - generate/use our weights
+	type WeightInfo = weights::pallet_futurepass::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = AssetsExt;
 }
 
 construct_runtime! {
@@ -1138,6 +1141,7 @@ construct_runtime! {
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 8,
 		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
 		Offences: pallet_offences::{Pallet, Storage, Event} = 10,
+		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Validators
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
@@ -1174,7 +1178,6 @@ construct_runtime! {
 
 		// FuturePass Account
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
-		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
 		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
 	}
 }
@@ -1842,6 +1845,8 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
+		[pallet_recovery, Recovery]
+		[pallet_proxy, Proxy]
 		// Local
 		[pallet_nft, Nft]
 		[pallet_fee_control, FeeControl]

@@ -331,16 +331,21 @@ macro_rules! impl_pallet_futurepass_config {
 		impl<T: pallet_futurepass::Config> pallet_futurepass::ProxyProvider<T>
 			for MockProxyProvider
 		{
-			fn exists(futurepass: &T::AccountId, delegate: &T::AccountId) -> bool {
+			fn exists(
+				futurepass: &T::AccountId,
+				delegate: &T::AccountId,
+				proxy_type: Option<T::ProxyType>,
+			) -> bool {
 				false
 			}
-			fn delegates(futurepass: &T::AccountId) -> Vec<T::AccountId> {
+			fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)> {
 				vec![]
 			}
 			fn add_delegate(
 				_: &T::AccountId,
 				futurepass: &T::AccountId,
 				delegate: &T::AccountId,
+				proxy_type: &T::ProxyType,
 			) -> DispatchResult {
 				Ok(())
 			}
@@ -371,6 +376,7 @@ macro_rules! impl_pallet_futurepass_config {
 			type Proxy = MockProxyProvider;
 			type Call = Call;
 			type ApproveOrigin = EnsureRoot<AccountId>;
+			type ProxyType = ProxyType;
 			type WeightInfo = ();
 		}
 	};
