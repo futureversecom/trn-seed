@@ -1,14 +1,18 @@
 #![cfg(test)]
-use crate::{mock::*, *};
+use super::*;
+use crate::mock::*;
 use frame_support::{
-	assert_noop, assert_ok, error::BadOrigin, traits::tokens::fungibles::Transfer,
+	assert_err, assert_noop, assert_ok, error::BadOrigin, traits::tokens::fungibles::Transfer,
 };
 use hex_literal::hex;
-use seed_primitives::Balance;
+
+use seed_primitives::{AssetId, Balance};
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
 	Inspect,
 };
+
+type MockCall = crate::mock::Call;
 
 const FP_CREATION_RESERVE: Balance = 148 + 126 * 1;
 const FP_DELIGATE_RESERVE: Balance = 126 * 1;
@@ -28,17 +32,14 @@ fn create_futurepass_by_owner() {
 			// assert the futurepass is not created yet for the owner account
 			assert_eq!(Holders::<Test>::contains_key(&owner), false);
 
-			// creation fails if not balance
-			// assert_eq!(Assets::balance(MOCK_PAYMENT_ASSET_ID, &owner), 0);
+			// creation fails if not has sufficient balance
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
 			assert_noop!(
 				Futurepass::create(Origin::signed(owner), owner),
 				pallet_balances::Error::<Test>::InsufficientBalance
 			);
 
-			// fund account (origin)
-			// assert_ok!(Assets::transfer(Origin::signed(funder), MOCK_PAYMENT_ASSET_ID, owner,
-			// FP_CREATION_RESERVE));
+			// fund owner
 			assert_ok!(AssetsExt::transfer(
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
@@ -46,7 +47,6 @@ fn create_futurepass_by_owner() {
 				FP_CREATION_RESERVE,
 				false
 			));
-			// assert_eq!(Assets::balance(MOCK_PAYMENT_ASSET_ID, &owner), FP_CREATION_RESERVE);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_CREATION_RESERVE);
 			// create futurepass account
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -474,6 +474,393 @@ fn unregister_delegate_failures() {
 			assert_noop!(
 				Futurepass::unregister_delegate(Origin::signed(owner), futurepass, owner),
 				Error::<Test>::OwnerCannotUnregister
+			);
+		});
+}
+
+#[test]
+fn transfer_futurepass_works() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+			let other = create_account(4);
+
+			// fund owner
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				false
+			));
+			// create FP
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+			// register delegate
+			assert_ok!(Futurepass::register_delegate(
+				Origin::signed(owner),
+				futurepass,
+				delegate,
+				ProxyType::Any
+			));
+			// check delegate is a proxy of futurepass
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
+
+			// transfer the ownership to other
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
+			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), other));
+			// assert event
+			System::assert_has_event(
+				Event::<Test>::FuturepassTransferred {
+					old_owner: owner,
+					new_owner: other,
+					futurepass,
+				}
+				.into(),
+			);
+			// owner should be other now
+			assert_eq!(Holders::<Test>::get(&other), Some(futurepass));
+			assert_eq!(Holders::<Test>::get(&owner), None);
+			// only the new owner(i.e other) should be a delegate
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &other, Some(ProxyType::Any)));
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Any)),
+				false
+			);
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				false
+			);
+			// caller(the owner) should receive the reserved balance diff
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELIGATE_RESERVE);
+		});
+}
+
+#[test]
+fn transfer_futurepass_failures() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+			let owner2 = create_account(4);
+
+			// fund owner
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				false
+			));
+			// create FP for owner
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+			// register delegate
+			assert_ok!(Futurepass::register_delegate(
+				Origin::signed(owner),
+				futurepass,
+				delegate,
+				ProxyType::Any
+			));
+			// check delegate is a proxy of futurepass
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
+
+			// fund owner2
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner2,
+				FP_CREATION_RESERVE,
+				false
+			));
+			// create FP for owner2
+			assert_ok!(Futurepass::create(Origin::signed(owner2), owner2));
+			let futurepass2 = Holders::<Test>::get(&owner2).unwrap();
+
+			// call transfer_futurepass by other than owner should fail
+			assert_noop!(
+				Futurepass::transfer_futurepass(Origin::signed(create_random()), create_random()),
+				Error::<Test>::NotFuturepassOwner
+			);
+			// call transfer_futurepass for another futurepass owner should fail
+			assert_noop!(
+				Futurepass::transfer_futurepass(Origin::signed(owner), owner2),
+				Error::<Test>::AccountAlreadyRegistered
+			);
+		});
+}
+
+#[test]
+fn proxy_extrinsic_simple_transfer_works() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+			let other = create_account(4);
+
+			// fund owner
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				false
+			));
+			// create FP for owner
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+			// register delegate
+			assert_ok!(Futurepass::register_delegate(
+				Origin::signed(owner),
+				futurepass,
+				delegate,
+				ProxyType::Any
+			));
+
+			// fund futurepass with some tokens
+			let fund_amount: Balance = 1000;
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass,
+				fund_amount,
+				false
+			));
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				fund_amount
+			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
+
+			// transfer other via proxy_extrinsic
+			let transfer_amount: Balance = 100;
+			let inner_call = Box::new(MockCall::Balances(pallet_balances::Call::transfer {
+				dest: other,
+				value: transfer_amount,
+			}));
+			// call proxy_extrinsic by owner
+			assert_ok!(Futurepass::proxy_extrinsic(
+				Origin::signed(owner),
+				futurepass,
+				inner_call.clone(),
+			));
+			// assert event ProxyExecuted
+			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			//check balances
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				fund_amount - transfer_amount
+			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), transfer_amount);
+
+			// call proxy_extrinsic by delegate
+			assert_ok!(Futurepass::proxy_extrinsic(
+				Origin::signed(delegate),
+				futurepass,
+				inner_call,
+			));
+			//check balances
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				fund_amount - 2 * transfer_amount
+			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 2 * transfer_amount);
+		});
+}
+
+#[test]
+fn proxy_extrinsic_non_transfer_call_works() {
+	let funder = create_account(1);
+	let endowed = [(funder, 2_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+			let other = create_account(4);
+
+			// fund owner
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				false
+			));
+			// create FP for owner
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+			// register delegate
+			assert_ok!(Futurepass::register_delegate(
+				Origin::signed(owner),
+				futurepass,
+				delegate,
+				ProxyType::Any
+			));
+
+			// fund futurepass with some tokens
+			let fund_amount: Balance = 1_500_000;
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass,
+				fund_amount,
+				false
+			));
+
+			let asset_id = 5;
+			let inner_call = Box::new(MockCall::Assets(pallet_assets::Call::create {
+				id: asset_id,
+				admin: futurepass,
+				min_balance: 1,
+			}));
+			// call proxy_extrinsic
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
+			// assert event (asset creation)
+			System::assert_has_event(
+				pallet_assets::Event::<Test>::Created {
+					asset_id,
+					creator: futurepass,
+					owner: futurepass,
+				}
+				.into(),
+			);
+		});
+}
+
+#[test]
+fn proxy_extrinsic_failures() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+			let other = create_account(4);
+
+			// fund owner
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				false
+			));
+			// create FP for owner
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+			// register delegate
+			assert_ok!(Futurepass::register_delegate(
+				Origin::signed(owner),
+				futurepass,
+				delegate,
+				ProxyType::Any
+			));
+
+			// fund futurepass with some tokens
+			let fund_amount: Balance = 1000;
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass,
+				fund_amount,
+				false
+			));
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				fund_amount
+			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
+
+			let transfer_amount: Balance = 100;
+			let inner_call = Box::new(MockCall::Balances(pallet_balances::Call::transfer {
+				dest: other,
+				value: transfer_amount,
+			}));
+
+			// call proxy_extrinsic by non (owner | delegate) fails
+			System::reset_events();
+			assert_err!(
+				Futurepass::proxy_extrinsic(Origin::signed(other), futurepass, inner_call.clone()),
+				pallet_proxy::Error::<Test>::NotProxy
+			);
+			// assert event (ProxyExecuted with error)
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted {
+					result: Err(pallet_proxy::Error::<Test>::NotProxy.into()),
+				}
+				.into(),
+			);
+
+			//check balances
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				fund_amount
+			);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
+
+			// call proxy_extrinsic for a non futurepass account fails
+			assert_err!(
+				Futurepass::proxy_extrinsic(
+					Origin::signed(other),
+					create_random(),
+					inner_call.clone()
+				),
+				pallet_proxy::Error::<Test>::NotProxy
+			);
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted {
+					result: Err(pallet_proxy::Error::<Test>::NotProxy.into()),
+				}
+				.into(),
+			);
+
+			// proxy_extrinsic does not care about wrapped internal call failure. It's task is to
+			// only dispatch the internal call
+			let futurpass_balance: Balance =
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false);
+			let inner_call = Box::new(MockCall::Balances(pallet_balances::Call::transfer {
+				dest: other,
+				value: futurpass_balance + 1,
+			}));
+
+			// call proxy_extrinsic by owner
+			System::reset_events();
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
+			// assert event ProxyExecuted
+			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			// assert event pallet_proxy::ProxyExecuted with the error
+			System::assert_has_event(
+				pallet_proxy::Event::<Test>::ProxyExecuted {
+					result: Err(pallet_balances::Error::<Test>::InsufficientBalance.into()),
+				}
+				.into(),
 			);
 		});
 }
