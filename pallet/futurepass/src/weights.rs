@@ -32,8 +32,8 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_futurepass.
 pub trait WeightInfo {
 	fn create() -> Weight;
-	fn register_delegate() -> Weight;
-	fn unregister_delegate() -> Weight;
+	fn register_delegate(p: u32) -> Weight;
+	fn unregister_delegate(p: u32) -> Weight;
 	fn transfer_futurepass() -> Weight;
 	fn proxy_extrinsic(p: u32) -> Weight;
 }
@@ -52,16 +52,18 @@ impl WeightInfo for () {
 	// Storage: Futurepass Holders (r:1 w:0)
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
-	fn register_delegate() -> Weight {
+	fn register_delegate(p: u32, ) -> Weight {
 		(70_000_000 as Weight)
+			.saturating_add((76_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
 	}
 	// Storage: Futurepass Holders (r:1 w:0)
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
-	fn unregister_delegate() -> Weight {
+	fn unregister_delegate(p: u32, ) -> Weight {
 		(69_000_000 as Weight)
+			.saturating_add((76_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
 	}

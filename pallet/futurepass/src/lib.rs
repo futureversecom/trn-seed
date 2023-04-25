@@ -233,7 +233,14 @@ pub mod pallet {
 		/// - `futurepass`: Futurepass account to register the account as delegate.
 		/// - `proxy_type`: Delegate permission level
 		/// - `delegate`: The delegated account for the futurepass.
-		#[pallet::weight(T::WeightInfo::register_delegate())]
+		///
+		/// # <weight>
+		/// Weight is a function of the number of proxies the user has.
+		/// # </weight>
+		#[pallet::weight({
+			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			T::WeightInfo::register_delegate(delegate_count)
+		})]
 		pub fn register_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
@@ -279,7 +286,14 @@ pub mod pallet {
 		///   holder onwer,
 		/// they can remove any delegate (including themselves); otherwise the caller must be the
 		/// delegate (can only remove themself).
-		#[pallet::weight(T::WeightInfo::unregister_delegate())]
+		///
+		/// # <weight>
+		/// Weight is a function of the number of proxies the user has.
+		/// # </weight>
+		#[pallet::weight({
+			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			T::WeightInfo::unregister_delegate(delegate_count)
+		})]
 		pub fn unregister_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
