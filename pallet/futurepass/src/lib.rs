@@ -243,6 +243,7 @@ pub mod pallet {
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::register_delegate(delegate_count)
 		})]
+		#[transactional]
 		pub fn register_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
@@ -296,6 +297,7 @@ pub mod pallet {
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::unregister_delegate(delegate_count)
 		})]
+		#[transactional]
 		pub fn unregister_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,

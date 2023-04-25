@@ -514,7 +514,16 @@ fn transfer_futurepass_works() {
 			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
 
 			// transfer the ownership to other
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
+			// fund owner since it requires FP_DELIGATE_RESERVE to add new owner
+			// the owner will get back the old reserve amount
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_DELIGATE_RESERVE,
+				false
+			));
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELIGATE_RESERVE);
 			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), other));
 			// assert event
 			System::assert_has_event(
@@ -539,7 +548,7 @@ fn transfer_futurepass_works() {
 				false
 			);
 			// caller(the owner) should receive the reserved balance diff
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELIGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2* FP_DELIGATE_RESERVE);
 		});
 }
 
