@@ -43,12 +43,14 @@ use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
+	weights::GetDispatchInfo,
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
+
 pub use weights::WeightInfo;
 
 /// The logging target for this pallet
@@ -100,9 +102,10 @@ pub mod pallet {
 
 		type Proxy: ProxyProvider<Self>;
 
-		/// overarching Call type
+		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin>
+			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
 			+ IsType<<Self as frame_system::Config>::Call>;
@@ -124,6 +127,13 @@ pub mod pallet {
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		/// Handles a multi-currency fungible asset system for benchmarking.
+		type MultiCurrency: frame_support::traits::fungibles::Inspect<
+				Self::AccountId,
+				AssetId = seed_primitives::AssetId,
+			> + frame_support::traits::fungibles::Mutate<Self::AccountId>;
 	}
 
 	#[pallet::type_value]
@@ -207,7 +217,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `account`: The delegated account for the futurepass.
-		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		#[pallet::weight(T::WeightInfo::create())]
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_create_futurepass(who, account)?;
@@ -223,7 +233,14 @@ pub mod pallet {
 		/// - `futurepass`: Futurepass account to register the account as delegate.
 		/// - `proxy_type`: Delegate permission level
 		/// - `delegate`: The delegated account for the futurepass.
-		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		///
+		/// # <weight>
+		/// Weight is a function of the number of proxies the user has.
+		/// # </weight>
+		#[pallet::weight({
+			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			T::WeightInfo::register_delegate(delegate_count)
+		})]
 		pub fn register_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
@@ -269,7 +286,14 @@ pub mod pallet {
 		///   holder onwer,
 		/// they can remove any delegate (including themselves); otherwise the caller must be the
 		/// delegate (can only remove themself).
-		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		///
+		/// # <weight>
+		/// Weight is a function of the number of proxies the user has.
+		/// # </weight>
+		#[pallet::weight({
+			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			T::WeightInfo::unregister_delegate(delegate_count)
+		})]
 		pub fn unregister_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
@@ -315,7 +339,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `new_owner`: The new account that will become the owner of the futurepass.
-		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		#[pallet::weight(T::WeightInfo::transfer_futurepass())]
 		pub fn transfer_futurepass(
 			origin: OriginFor<T>,
 			new_owner: T::AccountId,
@@ -328,15 +352,16 @@ pub mod pallet {
 			// Ensure that the new owner does not already own a futurepass
 			ensure!(!Holders::<T>::contains_key(&new_owner), Error::<T>::AccountAlreadyRegistered);
 
-			// Remove all proxy delegates from the current futurepass
+			// Add the new owner as a proxy delegate with the most permissive type, i.e.,
+			T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
+
+			// Iterate through the list of delegates and remove them, except for the new_owner
 			let delegates = T::Proxy::delegates(&futurepass);
 			for delegate in delegates.iter() {
-				T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
+				if delegate.0 != new_owner {
+					T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
+				}
 			}
-
-			// Add the current owner as a proxy delegate with most permissive type. i.e
-			// T::ProxyType::default()
-			T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
 
 			// Set the new owner as the owner of the futurepass
 			Holders::<T>::insert(&new_owner, futurepass.clone());
@@ -355,7 +380,19 @@ pub mod pallet {
 		/// Parameters:
 		/// - `futurepass`: The Futurepass account though which the call is dispatched
 		/// - `call`: The Call that needs to be dispatched through the Futurepass account
-		#[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		///
+		/// # <weight>
+		/// Weight is a function of the number of proxies the user has.
+		/// # </weight>
+		#[pallet::weight({
+			let di = call.get_dispatch_info();
+			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			(T::WeightInfo::proxy_extrinsic(delegate_count)
+				.saturating_add(di.weight)
+				 // AccountData for inner call origin accountdata.
+				.saturating_add(T::DbWeight::get().reads_writes(1, 1)),
+			di.class)
+		})]
 		pub fn proxy_extrinsic(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
@@ -379,7 +416,7 @@ pub mod pallet {
 		// /// If `Some(futurepass)`, all delegate requests will be proxied through the designated
 		// /// futurepass account. If `None`, no delegate requests will be proxied through a
 		// futurepass /// account (default behaviour).
-		// #[pallet::weight(T::WeightInfo::set_chain_id())] // TODO
+		// #[pallet::weight(T::WeightInfo::proxy_all())] // TODO
 		// pub fn proxy_all(origin: OriginFor<T>, futurepass: Option<T::AccountId>) ->
 		// DispatchResult { 	let delegate = ensure_signed(origin)?;
 

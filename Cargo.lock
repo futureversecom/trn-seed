@@ -5263,6 +5263,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "log",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
