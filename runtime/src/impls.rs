@@ -41,7 +41,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 
 use precompile_utils::{
 	constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE},
-	Address, ErcIdConversion,
+	keccak256, Address, ErcIdConversion,
 };
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
@@ -622,6 +622,16 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		_recipient_has_code: bool,
 	) -> bool {
 		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
+			// Whitelist for precompile side
+			// TODO - call.call_data is not clonable coz of ConstU32. i.e we use
+			// BoundedBytes<ConstU32<65536>> and when call.call_data.into_vec(), it moves out the
+			// call data which we need later in the function we should either change the type of
+			// call.call_data or fix it by other mean but for V1, this code is not functionally
+			// relevant. let sub_call_selector = &call.call_data.clone().into_vec()[..4];
+			// if sub_call_selector == &keccak256!("registerDelegate(address,address,uint8)")[..4]
+			// 	|| sub_call_selector == &keccak256!("unregisterDelegate(address,address)")[..4] {
+			// 	return true;
+			// }
 			return false
 		}
 		match self {
@@ -638,12 +648,21 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 // substrate side proxy filter
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
-		// NOTE - any call for Proxy, Futurepass pallets can not be proxied. this may seems extra
-		// restrictive than Proxy pallet. But if a delegate has permission to proxy a call of the
-		// proxy pallet, they should be able to call it directly in the pallet.
+		// NOTE - any call for Proxy, Futurepass pallets can not be proxied except the Whitelist.
+		// this may seems extra restrictive than Proxy pallet. But if a delegate has permission to
+		// proxy a call of the proxy pallet, they should be able to call it directly in the pallet.
 		// This keeps the logic simple and avoids unnecessary loops
+		// TODO - implement the whitelist as a list that can be configured in the runtime.
 		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
-			return false
+			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
+			// pallet_futurepass::Call::unregister_delegate
+			if !matches!(
+				c,
+				Call::Futurepass(pallet_futurepass::Call::register_delegate { .. }) |
+					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+			) {
+				return false
+			}
 		}
 		match self {
 			// only ProxyType::Any is used in V1

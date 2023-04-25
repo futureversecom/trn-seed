@@ -43,8 +43,8 @@ use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
-	weights::GetDispatchInfo,
 	transactional,
+	weights::GetDispatchInfo,
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::AccountId;
@@ -250,15 +250,19 @@ pub mod pallet {
 			delegate: T::AccountId,
 			proxy_type: T::ProxyType,
 		) -> DispatchResult {
-			let owner = ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
+			let is_futurepass = caller == futurepass;
 
-			// For V1 - caller must be futurepass holder
+			// For V1 - caller must be futurepass holder or the futurepass
 			ensure!(
-				Holders::<T>::get(&owner.clone()) == Some(futurepass.clone()),
+				is_futurepass || Holders::<T>::get(&caller.clone()) == Some(futurepass.clone()),
 				Error::<T>::NotFuturepassOwner
 			);
 
-			ensure!(T::Proxy::exists(&futurepass, &owner, None), Error::<T>::DelegateNotRegistered);
+			ensure!(
+				is_futurepass || T::Proxy::exists(&futurepass, &caller, None),
+				Error::<T>::DelegateNotRegistered
+			);
 			// for V1, only T::ProxyType::default() is allowed.
 			// TODO - update the restriction in V2 as required.
 			ensure!(proxy_type == T::ProxyType::default(), Error::<T>::PermissionDenied);
@@ -270,7 +274,7 @@ pub mod pallet {
 				Error::<T>::DelegateAlreadyExists
 			);
 
-			T::Proxy::add_delegate(&owner, &futurepass, &delegate, &proxy_type)?;
+			T::Proxy::add_delegate(&caller, &futurepass, &delegate, &proxy_type)?;
 			Self::deposit_event(Event::<T>::DelegateRegistered {
 				futurepass,
 				delegate,
@@ -306,14 +310,18 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 
 			// Check if the caller is the owner of the futurepass
-			let is_owner = Holders::<T>::get(&caller) == Some(futurepass.clone());
+			let is_owner = Holders::<T>::get(&caller) == Some(futurepass);
+			let unreg_owner = Holders::<T>::get(&delegate) == Some(futurepass);
 
-			// If provided delegate is the owner themselves, do not allow this action
-			ensure!(!(is_owner && caller == delegate), Error::<T>::OwnerCannotUnregister);
+			// The owner can not be unregistered
+			ensure!(!unreg_owner, Error::<T>::OwnerCannotUnregister);
 
-			// Check if caller is owner (can remove anyone) or delegate (can remove themsleves) from
-			// futurepass
-			ensure!(is_owner || caller == delegate, Error::<T>::PermissionDenied);
+			// Check if the caller is the owner (can remove anyone) or the futurepass (can remove
+			// anyone) or the delegate (can remove themsleves) from the futurepass
+			ensure!(
+				is_owner || caller == futurepass || caller == delegate,
+				Error::<T>::PermissionDenied
+			);
 
 			// Check if the delegate is registered with the futurepass
 			ensure!(
