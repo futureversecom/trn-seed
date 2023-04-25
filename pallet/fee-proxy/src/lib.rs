@@ -80,8 +80,16 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
+		AssetWhitelistSet {
+			asset_id: AssetId,
+			is_allowed: bool,
+		},
 		/// A call was made with specified payment asset
-		CallWithFeePreferences { who: T::AccountId, payment_asset: AssetId, max_payment: Balance },
+		CallWithFeePreferences {
+			who: T::AccountId,
+			payment_asset: AssetId,
+			max_payment: Balance,
+		},
 	}
 
 	#[pallet::error]
@@ -117,6 +125,7 @@ pub mod pallet {
 			let who = ensure_signed(origin.clone())?;
 
 			ensure!(payment_asset != T::FeeAssetId::get(), Error::<T>::FeeTokenIsGasToken);
+			// Token must be one of the known whitelisted ones in order to be used for fee proxy
 			ensure!(AssetWhitelist::<T>::get(payment_asset), Error::<T>::FeeTokenNotWhitelisted);
 			ensure!(
 				!matches!(call.is_sub_type(), Some(Call::call_with_fee_preferences { .. })),
@@ -126,6 +135,24 @@ pub mod pallet {
 
 			// Deposit runtime event
 			Self::deposit_event(Event::CallWithFeePreferences { who, payment_asset, max_payment });
+
+			Ok(())
+		}
+
+		#[pallet::weight(20_000_000)]
+		pub fn set_fee_token(
+			origin: OriginFor<T>,
+			new_asset_setting: AssetId,
+			is_allowed: bool,
+		) -> DispatchResult {
+			let who = ensure_signed(origin.clone())?;
+
+			AssetWhitelist::<T>::insert(new_asset_setting, is_allowed);
+
+			Self::deposit_event(Event::<T>::AssetWhitelistSet {
+				asset_id: new_asset_setting,
+				is_allowed,
+			});
 
 			Ok(())
 		}
