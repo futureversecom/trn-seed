@@ -494,14 +494,15 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
-		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
+		let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
 		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
-		let creation_cost =
+		let new_reserve =
 			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
+		let extra_reserve_required = new_reserve - reserve_amount;
 		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
 			funder,
 			futurepass,
-			creation_cost,
+			extra_reserve_required,
 			ExistenceRequirement::KeepAlive,
 		)?;
 
@@ -553,9 +554,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 			call: call.into(),
 		};
 
-		<Call as Dispatchable>::dispatch(call.into(), caller)
-			.map(|_| ())
-			.map_err(|e| e.error)
+		Call::dispatch(call.into(), caller).map(|_| ()).map_err(|e| e.error)
 	}
 }
 
