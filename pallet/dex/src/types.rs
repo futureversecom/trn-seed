@@ -13,25 +13,12 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use hex;
 use scale_info::TypeInfo;
 use seed_primitives::AssetId;
+use serde::{Deserialize, Deserializer, Serialize};
 use sp_arithmetic::traits::SaturatedConversion;
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_runtime::{ArithmeticError, DispatchError, RuntimeDebug};
 
-use serde::{Deserialize, Deserializer, Serialize};
-
-#[derive(
-	Encode,
-	Decode,
-	Eq,
-	PartialEq,
-	Copy,
-	Clone,
-	RuntimeDebug,
-	PartialOrd,
-	Ord,
-	TypeInfo,
-	MaxEncodedLen,
-)]
+#[derive(Encode, Decode, PartialEq, Copy, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct TradingPair(pub AssetId, pub AssetId);
 
@@ -48,6 +35,21 @@ impl From<(AssetId, AssetId)> for TradingPair {
 impl TradingPair {
 	pub fn new(asset_id_a: AssetId, asset_id_b: AssetId) -> Self {
 		TradingPair::from((asset_id_a, asset_id_b))
+	}
+
+	pub fn pool_address<T: crate::Config>(&self) -> T::AccountId
+	where
+		T::AccountId: From<H160>,
+	{
+		let hash_data = (self.0, self.1);
+		let hash = sp_io::hashing::twox_128(&hash_data.encode());
+		// Extract the first 20 bytes of the hash
+		let mut account_id_bytes = [0u8; 20];
+		account_id_bytes[0..16].copy_from_slice(&hash[..20.min(hash.len())]);
+		// account_id_bytes.copy_from_slice(&hash[0..16]);
+		account_id_bytes[16..20].copy_from_slice(&[0u8; 4]); // set last 4 bytes to zero
+		let h160_address: H160 = H160::from_slice(&account_id_bytes);
+		T::AccountId::from(h160_address)
 	}
 }
 

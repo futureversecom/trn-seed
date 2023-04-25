@@ -132,8 +132,7 @@ impl Config for Test {
 
 parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
-	pub const TradingPathLimit: u32 = 3;
-	pub const DEXPalletId: PalletId = PalletId(*b"mock/dex");
+	pub const TradingPathLimit: u32 = 2;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
 	pub const LPTokenName: [u8; 10] = *b"Uniswap V2";
 	pub const LPTokenSymbol: [u8; 6] = *b"UNI-V2";
@@ -143,7 +142,6 @@ impl pallet_dex::Config for Test {
 	type Event = Event;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
-	type DEXPalletId = DEXPalletId;
 	type DEXBurnPalletId = DEXBurnPalletId;
 	type LPTokenName = LPTokenName;
 	type LPTokenSymbol = LPTokenSymbol;

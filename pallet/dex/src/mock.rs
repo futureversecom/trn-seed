@@ -21,12 +21,8 @@ use sp_runtime::{
 	Perbill,
 };
 
+use seed_primitives::AccountId;
 pub(crate) use seed_primitives::{AssetId, Balance, Index};
-
-pub type MockAccountId = u64;
-
-pub const ALICE: MockAccountId = 1;
-pub const BOB: MockAccountId = 2;
 
 mod dex {
 	pub use super::super::*;
@@ -45,7 +41,7 @@ impl frame_system::Config for Test {
 	type Call = Call;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = MockAccountId;
+	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type Event = Event;
@@ -78,7 +74,7 @@ impl pallet_assets::Config for Test {
 	type AssetId = AssetId;
 
 	type Currency = Balances;
-	type ForceOrigin = EnsureRoot<MockAccountId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 	type AssetDeposit = AssetDeposit;
 	type AssetAccountDeposit = AssetAccountDeposit;
 	type ApprovalDeposit = ApprovalDeposit;
@@ -123,8 +119,7 @@ impl pallet_assets_ext::Config for Test {
 
 parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
-	pub const TradingPathLimit: u32 = 3;
-	pub const DEXPalletId: PalletId = PalletId(*b"mock/dex");
+	pub const TradingPathLimit: u32 = 2;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
 	pub const LPTokenName: [u8; 10] = *b"Uniswap V2";
 	pub const LPTokenSymbol: [u8; 6] = *b"UNI-V2";
@@ -134,7 +129,6 @@ impl Config for Test {
 	type Event = Event;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
-	type DEXPalletId = DEXPalletId;
 	type DEXBurnPalletId = DEXBurnPalletId;
 	type LPTokenName = LPTokenName;
 	type LPTokenSymbol = LPTokenSymbol;

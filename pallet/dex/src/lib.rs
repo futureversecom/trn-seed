@@ -97,10 +97,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type TradingPathLimit: Get<u32>;
 
-		/// The DEX's module id, keep all assets in DEX.
-		#[pallet::constant]
-		type DEXPalletId: Get<PalletId>;
-
 		/// The DEX's burn id, to provide for a redundant, unredeemable minter/burner address.
 		#[pallet::constant]
 		type DEXBurnPalletId: Get<PalletId>;
@@ -224,7 +220,10 @@ pub mod pallet {
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	{
 		/// Trading with DEX, swap with exact supply amount. Specify your input; retrieve variable
 		/// output.
 		/// - note: analogous to Uniswapv2 `swapExactTokensForTokens`
@@ -301,12 +300,12 @@ pub mod pallet {
 			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
 
 			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
-
+			let pool_address = trading_pair.pool_address::<T>();
 			// create trading pair if non-existent
 			if Self::lp_token_id(&trading_pair).is_none() {
 				// create a new token and return the asset id
 				let lp_asset_id = T::MultiCurrency::create_with_metadata(
-					&Self::account_id(),
+					&pool_address,
 					T::LPTokenName::get(),
 					T::LPTokenSymbol::get(),
 					T::LPTokenDecimals::get(),
@@ -429,11 +428,10 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T> {
-	pub fn account_id() -> T::AccountId {
-		T::DEXPalletId::get().into_account_truncating()
-	}
-
+impl<T: Config> Pallet<T>
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	pub fn burn_account_id() -> T::AccountId {
 		T::DEXBurnPalletId::get().into_account_truncating()
 	}
@@ -525,24 +523,24 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		let module_account_id = Self::account_id();
+		let pool_address = trading_pair.pool_address::<T>();
 		T::MultiCurrency::transfer(
 			asset_id_a,
 			who,
-			&module_account_id,
+			&pool_address,
 			amount_a.saturated_into(),
 			false,
 		)?;
 		T::MultiCurrency::transfer(
 			asset_id_b,
 			who,
-			&module_account_id,
+			&pool_address,
 			amount_b.saturated_into(),
 			false,
 		)?;
 
-		let balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
-		let balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
+		let balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
+		let balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
 		let amount_0 = balance_0.sub(reserve_a)?;
 		let amount_1 = balance_1.sub(reserve_b)?;
 
@@ -614,11 +612,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
 
 		// transfer lp tokens to dex
-		let module_account_id = Self::account_id();
+		let pool_address = trading_pair.pool_address::<T>();
 		T::MultiCurrency::transfer(
 			lp_share_asset_id,
 			&who,
-			&module_account_id,
+			&pool_address,
 			remove_liquidity,
 			false,
 		)?;
@@ -631,9 +629,9 @@ impl<T: Config> Pallet<T> {
 				(asset_id_b, asset_id_a, min_withdrawn_b, min_withdrawn_a)
 			};
 
-		let mut balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
-		let mut balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
-		let liquidity = T::MultiCurrency::balance(lp_share_asset_id, &module_account_id);
+		let mut balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
+		let mut balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
+		let liquidity = T::MultiCurrency::balance(lp_share_asset_id, &pool_address);
 		let total_supply = T::MultiCurrency::total_issuance(lp_share_asset_id);
 
 		// amount0 = liquidity.mul(balance0) / _totalSupply;
@@ -652,12 +650,12 @@ impl<T: Config> Pallet<T> {
 		ensure!(amount_0 >= min_withdrawn_a, Error::<T>::InsufficientWithdrawnAmountA);
 		ensure!(amount_1 >= min_withdrawn_b, Error::<T>::InsufficientWithdrawnAmountB);
 
-		T::MultiCurrency::burn_from(lp_share_asset_id, &module_account_id, remove_liquidity)?;
-		T::MultiCurrency::transfer(asset_id_a, &module_account_id, who, amount_0, false)?;
-		T::MultiCurrency::transfer(asset_id_b, &module_account_id, who, amount_1, false)?;
+		T::MultiCurrency::burn_from(lp_share_asset_id, &pool_address, remove_liquidity)?;
+		T::MultiCurrency::transfer(asset_id_a, &pool_address, who, amount_0, false)?;
+		T::MultiCurrency::transfer(asset_id_b, &pool_address, who, amount_1, false)?;
 
-		balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
-		balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
+		balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
+		balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
 
 		let result = LiquidityPool::<T>::try_mutate(
 			trading_pair,
@@ -762,7 +760,7 @@ impl<T: Config> Pallet<T> {
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		let path_length = path.len();
 		ensure!(
-			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
+			path_length <= T::TradingPathLimit::get().saturated_into(),
 			Error::<T>::InvalidTradingPathLength
 		);
 		let mut amounts: Vec<Balance> = vec![Zero::zero(); path_length];
@@ -803,7 +801,7 @@ impl<T: Config> Pallet<T> {
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		let path_length = path.len();
 		ensure!(
-			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
+			path_length <= T::TradingPathLimit::get().saturated_into(),
 			Error::<T>::InvalidTradingPathLength
 		);
 		let mut amounts: Vec<Balance> = vec![Zero::zero(); path_length];
@@ -852,9 +850,9 @@ impl<T: Config> Pallet<T> {
 			let (amount_0_out, amount_1_out) =
 				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
 
-			let module_account_id = Self::account_id();
+			let pool_address = trading_pair.pool_address::<T>();
 
-			let to = if i < path.len() - 2 { &module_account_id } else { to };
+			let to = if i < path.len() - 2 { &pool_address } else { to };
 
 			// IUniswapV2Pair(UniswapV2Library.pairFor(factory, input, output)).swap(amount0Out,
 			// amount1Out, to, new bytes(0));
@@ -875,7 +873,7 @@ impl<T: Config> Pallet<T> {
 				// optimistically transfer tokens
 				T::MultiCurrency::transfer(
 					trading_pair.0,
-					&module_account_id,
+					&pool_address,
 					&to,
 					amount_0_out,
 					false,
@@ -885,15 +883,15 @@ impl<T: Config> Pallet<T> {
 				// optimistically transfer tokens
 				T::MultiCurrency::transfer(
 					trading_pair.1,
-					&module_account_id,
+					&pool_address,
 					&to,
 					amount_1_out,
 					false,
 				)?;
 			}
 
-			let balance_0 = T::MultiCurrency::balance(trading_pair.0, &module_account_id);
-			let balance_1 = T::MultiCurrency::balance(trading_pair.1, &module_account_id);
+			let balance_0 = T::MultiCurrency::balance(trading_pair.0, &pool_address);
+			let balance_1 = T::MultiCurrency::balance(trading_pair.1, &pool_address);
 
 			// uint256 amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0
 			// - amount0Out) : 0; uint256 amount1In = balance1 > _reserve1 - amount1Out ?
@@ -966,10 +964,11 @@ impl<T: Config> Pallet<T> {
 
 		// INSUFFICIENT_OUTPUT_AMOUNT
 		ensure!(amounts[amounts.len() - 1] >= min_amount_out, Error::<T>::InsufficientTargetAmount);
-
+		let trading_pair = TradingPair::new(path[0], path[1]);
 		// transfer tokens to module account (uniswapv2 trading pair)
-		let module_account_id = Self::account_id();
-		T::MultiCurrency::transfer(path[0], who, &module_account_id, amounts[0], false)?;
+		let pool_address = trading_pair.pool_address::<T>();
+
+		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
 		Self::_swap(&amounts, &path, who)?;
 		Self::deposit_event(Event::Swap(
@@ -993,9 +992,9 @@ impl<T: Config> Pallet<T> {
 
 		// EXCESSIVE_INPUT_AMOUNT
 		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
-
-		let module_account_id = Self::account_id();
-		T::MultiCurrency::transfer(path[0], who, &module_account_id, amounts[0], false)?;
+		let trading_pair = TradingPair::new(path[0], path[1]);
+		let pool_address = trading_pair.pool_address::<T>();
+		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
 		Self::_swap(&amounts, &path, who)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out));
