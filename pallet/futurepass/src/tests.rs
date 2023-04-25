@@ -658,6 +658,8 @@ fn proxy_extrinsic_simple_transfer_works() {
 				value: transfer_amount,
 			}));
 			// call proxy_extrinsic by owner
+			let owner_root_balance = AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner);
+			let owner_gas_balance = AssetsExt::balance(MOCK_PAYMENT_ASSET_ID, &owner);
 			assert_ok!(Futurepass::proxy_extrinsic(
 				Origin::signed(owner),
 				futurepass,
@@ -671,8 +673,13 @@ fn proxy_extrinsic_simple_transfer_works() {
 				fund_amount - transfer_amount
 			);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), transfer_amount);
+			// owner's(i.e caller's) balance not changed
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), owner_root_balance);
+			assert_eq!(AssetsExt::balance(MOCK_PAYMENT_ASSET_ID, &owner), owner_gas_balance);
 
 			// call proxy_extrinsic by delegate
+			let delegate_root_balance = AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate);
+			let delegate_gas_balance = AssetsExt::balance(MOCK_PAYMENT_ASSET_ID, &delegate);
 			assert_ok!(Futurepass::proxy_extrinsic(
 				Origin::signed(delegate),
 				futurepass,
@@ -684,6 +691,9 @@ fn proxy_extrinsic_simple_transfer_works() {
 				fund_amount - 2 * transfer_amount
 			);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 2 * transfer_amount);
+			// delegate's(i.e caller's) balance not changed
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate), delegate_root_balance);
+			assert_eq!(AssetsExt::balance(MOCK_PAYMENT_ASSET_ID, &delegate), delegate_gas_balance);
 		});
 }
 
