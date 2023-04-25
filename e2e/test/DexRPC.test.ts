@@ -85,7 +85,7 @@ export const rpc = {
       type: "Json",
     },
     getTradingPairStatus: {
-      description: "Returns the status of the given trading pairs",
+      description: "Returns the status of the given trading pair",
       params: [
         {
           name: "assetIdA",

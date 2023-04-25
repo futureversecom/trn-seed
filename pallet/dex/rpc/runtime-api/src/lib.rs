@@ -54,7 +54,7 @@ sp_api::decl_runtime_apis! {
 		asset_id_b: AssetId,
 		) -> (Balance, Balance);
 
-		/// Returns the status of the given trading pairs
+		/// Returns the status of the given trading pair
 		fn get_trading_pair_status(
 		asset_id_a: AssetId,
 		asset_id_b: AssetId,
