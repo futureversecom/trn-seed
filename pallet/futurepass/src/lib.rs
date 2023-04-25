@@ -44,6 +44,7 @@ use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
 	weights::GetDispatchInfo,
+	transactional,
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::AccountId;
@@ -218,6 +219,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `account`: The delegated account for the futurepass.
 		#[pallet::weight(T::WeightInfo::create())]
+		#[transactional]
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_create_futurepass(who, account)?;
@@ -241,6 +243,7 @@ pub mod pallet {
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::register_delegate(delegate_count)
 		})]
+		#[transactional]
 		pub fn register_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
@@ -294,6 +297,7 @@ pub mod pallet {
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::unregister_delegate(delegate_count)
 		})]
+		#[transactional]
 		pub fn unregister_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
@@ -340,6 +344,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `new_owner`: The new account that will become the owner of the futurepass.
 		#[pallet::weight(T::WeightInfo::transfer_futurepass())]
+		#[transactional]
 		pub fn transfer_futurepass(
 			origin: OriginFor<T>,
 			new_owner: T::AccountId,
@@ -401,7 +406,7 @@ pub mod pallet {
 			ensure_signed(origin.clone())?;
 			let result = T::Proxy::proxy_call(origin, futurepass, *call);
 			Self::deposit_event(Event::ProxyExecuted { result: result.map(|_| ()).map_err(|e| e) });
-			Ok(())
+			result
 		}
 
 		// /// Set the default proxy for a delegate, which can be used to proxy all delegate
