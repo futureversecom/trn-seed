@@ -404,7 +404,7 @@ pub mod pallet {
 			ensure_signed(origin.clone())?;
 			let result = T::Proxy::proxy_call(origin, futurepass, *call);
 			Self::deposit_event(Event::ProxyExecuted { result: result.map(|_| ()).map_err(|e| e) });
-			Ok(())
+			result
 		}
 
 		// /// Set the default proxy for a delegate, which can be used to proxy all delegate

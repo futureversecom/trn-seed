@@ -193,9 +193,7 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 			call: call.into(),
 		};
 
-		<Call as Dispatchable>::dispatch(call.into(), caller)
-			.map(|_| ())
-			.map_err(|e| e.error)
+		Call::dispatch(call.into(), caller).map(|_| ()).map_err(|e| e.error)
 	}
 }
 
