@@ -43,8 +43,8 @@ use frame_support::{
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
-	weights::GetDispatchInfo,
 	transactional,
+	weights::GetDispatchInfo,
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::AccountId;
