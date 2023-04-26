@@ -3,7 +3,8 @@ extern crate alloc;
 
 use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
-use pallet_evm::{AddressMapping, ExitReason, Precompile, PrecompileFailure};
+use pallet_evm::{AddressMapping, ExitReason, GasWeightMapping, Precompile, PrecompileFailure};
+use pallet_futurepass::WeightInfo;
 use precompile_utils::prelude::*;
 use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
@@ -212,11 +213,9 @@ where
 		read_args!(handle, { owner: Address });
 		let owner: H160 = owner.into();
 
-		//TODO(surangap):
-		// Manually record gas
-		// handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-		// 	<Runtime as pallet_futurepass::Config>::WeightInfo::create(),
-		// ))?;
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_futurepass::Config>::WeightInfo::create(),
+		))?;
 		let futurepass = pallet_futurepass::Pallet::<Runtime>::do_create_futurepass(
 			handle.context().caller.into(),
 			owner.into(),
@@ -246,7 +245,7 @@ where
 	}
 
 	fn register_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 		read_args!( handle, { futurepass: Address, delegate: Address, proxy_type: u8});
 		let futurepass: H160 = futurepass.into();
 		let delegate: H160 = delegate.into();
@@ -255,12 +254,6 @@ where
 			.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
 
 		let caller = handle.context().caller;
-
-		//TODO(surangap):
-		// Manually record gas
-		// handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-		// 	<Runtime as pallet_futurepass::Config>::WeightInfo::register(),
-		// ))?;
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(caller.into()).into(),
@@ -291,11 +284,6 @@ where
 		let delegate: H160 = delegate.into();
 		let caller = handle.context().caller;
 
-		//TODO(surangap):
-		// Manually record gas
-		// handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
-		// 	<Runtime as pallet_futurepass::Config>::WeightInfo::unregister(),
-		// ))?;
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(caller.into()).into(),
