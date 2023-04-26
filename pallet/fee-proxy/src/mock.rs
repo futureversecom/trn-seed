@@ -13,7 +13,7 @@ use crate as pallet_fee_proxy;
 use crate::*;
 use frame_support::{
 	parameter_types,
-	traits::FindAuthor,
+	traits::{FindAuthor, InstanceFilter},
 	weights::{ConstantMultiplier, WeightToFee},
 	PalletId,
 };

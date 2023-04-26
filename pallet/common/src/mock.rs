@@ -365,6 +365,84 @@ macro_rules! impl_pallet_futurepass_config {
 			}
 		}
 
+		#[derive(
+			Copy,
+			Clone,
+			Eq,
+			PartialEq,
+			Ord,
+			PartialOrd,
+			Encode,
+			Decode,
+			RuntimeDebug,
+			MaxEncodedLen,
+			TypeInfo,
+		)]
+		pub enum ProxyType {
+			NoPermission = 0,
+			Any = 1,
+			NonTransfer = 2,
+			Governance = 3,
+			Staking = 4,
+		}
+
+		impl Default for ProxyType {
+			fn default() -> Self {
+				Self::Any
+			}
+		}
+
+		impl TryFrom<u8> for ProxyType {
+			type Error = &'static str;
+			fn try_from(value: u8) -> Result<Self, Self::Error> {
+				match value {
+					0 => Ok(ProxyType::NoPermission),
+					1 => Ok(ProxyType::Any),
+					2 => Ok(ProxyType::NonTransfer),
+					3 => Ok(ProxyType::Governance),
+					4 => Ok(ProxyType::Staking),
+					_ => Err("Invalid value for ProxyType"),
+				}
+			}
+		}
+
+		impl TryInto<u8> for ProxyType {
+			type Error = &'static str;
+			fn try_into(self) -> Result<u8, Self::Error> {
+				match self {
+					ProxyType::NoPermission => Ok(0),
+					ProxyType::Any => Ok(1),
+					ProxyType::NonTransfer => Ok(2),
+					ProxyType::Governance => Ok(3),
+					ProxyType::Staking => Ok(4),
+				}
+			}
+		}
+
+		impl InstanceFilter<Call> for ProxyType {
+			fn filter(&self, c: &Call) -> bool {
+				match self {
+					// only ProxyType::Any is used in V1
+					ProxyType::Any => true,
+					// TODO - need to add allowed calls under this category in v2. allowing all for
+					// now.
+					ProxyType::NonTransfer => true,
+					ProxyType::Governance => false,
+					ProxyType::Staking => false,
+					ProxyType::NoPermission => false,
+				}
+			}
+
+			fn is_superset(&self, o: &Self) -> bool {
+				match (self, o) {
+					(x, y) if x == y => true,
+					(ProxyType::Any, _) => true,
+					(_, ProxyType::Any) => false,
+					_ => false,
+				}
+			}
+		}
+
 		parameter_types! {
 			/// 4 byte futurepass account prefix
 			pub const FuturepassPrefix: [u8; 4] = [0xFF; 4];

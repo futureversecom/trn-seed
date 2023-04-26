@@ -16,7 +16,12 @@ use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
 pub use seed_primitives::types::{AccountId, Balance};
 use seed_primitives::AssetId;
 
-use frame_support::{parameter_types, traits::FindAuthor, weights::WeightToFee, PalletId};
+use frame_support::{
+	parameter_types,
+	traits::{FindAuthor, InstanceFilter},
+	weights::WeightToFee,
+	PalletId,
+};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::*;
 use sp_core::{H160, H256};
