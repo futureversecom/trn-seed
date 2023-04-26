@@ -7,6 +7,9 @@ Pallet Dex is based on UniswapV2; a subset of the [router functions](https://doc
 - [`quote`](https://docs.uniswap.org/protocol/V2/reference/smart-contracts/library#quote)
 - [`getAmountsOut`](https://docs.uniswap.org/protocol/V2/reference/smart-contracts/library#getamountsout)
 - [`getAmountsIn`](https://docs.uniswap.org/protocol/V2/reference/smart-contracts/library#getamountsin)
+- `getLPTokenID`
+- `getLiquidity`
+- `getTradingPairStatus`
 
 ## RPCs
 
@@ -32,16 +35,12 @@ Returns the amount of output token that can be obtained by swapping an amount of
 {
   "jsonrpc": "2.0",
   "method": "dex_quote",
-  "params": [
-    1,
-    5,
-    10
-  ],
+  "params": [1, 5, 10],
   "id": 1
 }
 ```
 
-***Curl example:***
+**_Curl example:_**
 
 ```sh
 curl -X POST \
@@ -50,7 +49,7 @@ curl -X POST \
   http://localhost:9933
 ```
 
-***Response (successful)***
+**_Response (successful)_**
 
 ```json
 {
@@ -66,7 +65,7 @@ curl -X POST \
 
 Returns the amount of output tokens that you would receive if you sent an amount of input tokens to the DEX.
 
-***Note**: This RPC requires liquidity for the given pair in the `path` param to be present in the DEX.*
+**\*Note**: This RPC requires liquidity for the given pair in the `path` param to be present in the DEX.\*
 
 #### Parameters
 
@@ -79,24 +78,18 @@ Returns the amount of output tokens that you would receive if you sent an amount
 
 #### Example
 
-***Payload:***
+**_Payload:_**
 
 ```json
 {
   "jsonrpc": "2.0",
   "method": "dex_getAmountsOut",
-  "params": [
-    1000000000000,
-    [
-      2,
-      1124
-    ]
-  ],
+  "params": [1000000000000, [2, 1124]],
   "id": 1
 }
 ```
 
-***Curl:***
+**_Curl:_**
 
 ```sh
 curl -X POST \
@@ -105,7 +98,7 @@ curl -X POST \
   http://localhost:9933
 ```
 
-***Response (error)***
+**_Response (error)_**
 
 ```json
 {
@@ -114,7 +107,7 @@ curl -X POST \
     "Err": {
       "Module": {
         "index": 16,
-        "error": [0,0,0,0],
+        "error": [0, 0, 0, 0],
         "message": "MustBeEnabled"
       }
     }
@@ -129,7 +122,7 @@ curl -X POST \
 
 Returns the amount of input token that you would need to send to the DEX in order to receive an amount of output token.
 
-***Note**: This RPC requires liquidity for the given pair in the `path` param to be present in the DEX.*
+**\*Note**: This RPC requires liquidity for the given pair in the `path` param to be present in the DEX.\*
 
 #### Parameters
 
@@ -142,24 +135,18 @@ Returns the amount of input token that you would need to send to the DEX in orde
 
 #### Example
 
-***Payload:***
+**_Payload:_**
 
 ```json
 {
   "jsonrpc": "2.0",
   "method": "dex_getAmountsIn",
-  "params": [
-    1000000000000,
-    [
-      2,
-      1124
-    ]
-  ],
+  "params": [1000000000000, [2, 1124]],
   "id": 1
 }
 ```
 
-***Curl:***
+**_Curl:_**
 
 ```sh
 curl -X POST \
@@ -168,7 +155,7 @@ curl -X POST \
   http://localhost:9933
 ```
 
-***Response (error)***
+**_Response (error)_**
 
 ```json
 {
@@ -177,11 +164,152 @@ curl -X POST \
     "Err": {
       "Module": {
         "index": 16,
-        "error": [0,0,0,0],
+        "error": [0, 0, 0, 0],
         "message": "MustBeEnabled"
       }
     }
   },
+  "id": 1
+}
+```
+
+---
+
+### `getLPTokenID`
+
+Returns the LP token ID from the given trading pair.
+
+#### Parameters
+
+- `assetIdA`: The first asset ID of the trading pair.
+- `assetIdB`: The second asset ID of the trading pair.
+
+#### Returns
+
+- `lpTokenId`: The LP token ID of the trading pair (assetIdA, assetIdB).
+
+#### Example
+
+**_Payload:_**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "dex_getLPTokenID",
+  "params": [2, 1124],
+  "id": 1
+}
+```
+
+**_Curl:_**
+
+```sh
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"id":1, "jsonrpc":"2.0", "method": "dex_getLPTokenID", "params": [2, 1124]}' \
+  http://localhost:9933
+```
+
+**_Response (successful)_**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": { "Ok": 2148 },
+  "id": 1
+}
+```
+
+---
+
+### `getLiquidity`
+
+Returns the liquidity balances of the given trading pair.
+
+#### Parameters
+
+- `assetIdA`: The first asset ID of the trading pair.
+- `assetIdB`: The second asset ID of the trading pair.
+
+#### Returns
+
+- `balances`: The corresponding balances of each asset in the given trading pair (assetIdA, assetIdB).
+
+#### Example
+
+**_Payload:_**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "dex_getLiquidity",
+  "params": [2, 1124],
+  "id": 1
+}
+```
+
+**_Curl:_**
+
+```sh
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"id":1, "jsonrpc":"2.0", "method": "dex_getLiquidity", "params": [2, 1124]}' \
+  http://localhost:9933
+```
+
+**_Response (successful)_**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": [10000000, 250],
+  "id": 1
+}
+```
+
+---
+
+### `getTradingPairStatus`
+
+Returns the status of the given trading pair.
+
+#### Parameters
+
+- `assetIdA`: The first asset ID of the trading pair.
+- `assetIdB`: The second asset ID of the trading pair.
+
+#### Returns
+
+- `status`: The current status of the given trading pair (assetIdA, assetIdB).
+
+#### Example
+
+**_Payload:_**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "dex_getTradingPairStatus",
+  "params": [2, 1124],
+  "id": 1
+}
+```
+
+**_Curl:_**
+
+```sh
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"id":1, "jsonrpc":"2.0", "method": "dex_getTradingPairStatus", "params": [2, 1124]}' \
+  http://localhost:9933
+```
+
+**_Response (successful)_**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "result": "Enabled",
   "id": 1
 }
 ```

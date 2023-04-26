@@ -16,7 +16,7 @@ use jsonrpsee::{
 	core::{Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
-use pallet_dex::{types::WrappedBalance, Config};
+use pallet_dex::{types::WrappedBalance, Config, TradingPairStatus};
 pub use pallet_dex_rpc_runtime_api::{self as runtime_api, DexApi as DexRuntimeApi};
 use seed_primitives::types::{AssetId, Balance, BlockNumber};
 use sp_api::ProvideRuntimeApi;
@@ -47,6 +47,27 @@ pub trait DexApi {
 		amount_out: WrappedBalance,
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>>;
+
+	#[method(name = "getLPTokenID")]
+	fn get_lp_token_id(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<Result<AssetId, DispatchError>>;
+
+	#[method(name = "getLiquidity")]
+	fn get_liquidity(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<(Balance, Balance)>;
+
+	#[method(name = "getTradingPairStatus")]
+	fn get_trading_pair_status(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<TradingPairStatus>;
 }
 
 /// An implementation of Dex specific RPC methods.
@@ -100,6 +121,39 @@ where
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(self.client.info().best_hash);
 		api.get_amounts_in(&at, amount_out.0.into(), path)
+			.map_err(|e| RpcError::to_call_error(e))
+	}
+
+	fn get_lp_token_id(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<Result<AssetId, DispatchError>> {
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(self.client.info().best_hash);
+		api.get_lp_token_id(&at, asset_id_a, asset_id_b)
+			.map_err(|e| RpcError::to_call_error(e))
+	}
+
+	fn get_liquidity(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<(Balance, Balance)> {
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(self.client.info().best_hash);
+		api.get_liquidity(&at, asset_id_a, asset_id_b)
+			.map_err(|e| RpcError::to_call_error(e))
+	}
+
+	fn get_trading_pair_status(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<TradingPairStatus> {
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(self.client.info().best_hash);
+		api.get_trading_pair_status(&at, asset_id_a, asset_id_b)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 }

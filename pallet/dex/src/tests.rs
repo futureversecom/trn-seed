@@ -925,6 +925,46 @@ fn multiple_swaps_with_multiple_lp() {
 	});
 }
 
+#[test]
+fn query_with_trading_pair() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let weth = AssetsExt::create(&BOB, None).unwrap();
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(5)));
+		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(1)));
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(ALICE),
+			usdc,
+			weth,
+			to_eth(5),
+			to_eth(1),
+			to_eth(5),
+			to_eth(1),
+			0u128, //not used
+		));
+
+		// The trading pair should be enabled regardless of the order of the query inputs
+		assert_eq!(Dex::get_trading_pair_status(usdc, weth), TradingPairStatus::Enabled);
+		assert_eq!(Dex::get_trading_pair_status(weth, usdc), TradingPairStatus::Enabled);
+
+		// The trading pair should have the unique lp token id regardless of the order of the query
+		// inputs
+		let asset_id = 3 << 10 | 100;
+		assert_eq!(Dex::get_lp_token_id(usdc, weth).unwrap(), asset_id);
+		assert_eq!(Dex::get_lp_token_id(weth, usdc).unwrap(), asset_id);
+
+		// The trading pair should return the corresponding balances according to the order of the
+		// query inputs
+		assert_eq!(Dex::get_liquidity(usdc, weth), (to_eth(5), to_eth(1)));
+		assert_eq!(Dex::get_liquidity(weth, usdc), (to_eth(1), to_eth(5)));
+	});
+}
+
 // macro swap with exact supply
 // - `$name`: name of the test
 // - `$liquidity`: LP user adds liquidity with $liquidity[0] and $liquidity[1]

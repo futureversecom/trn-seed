@@ -25,6 +25,7 @@ use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
 use seed_primitives::{AssetId, Balance};
+use serde::{Deserialize, Serialize};
 use sp_core::U256;
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
@@ -49,7 +50,19 @@ pub type Ratio = FixedU128;
 pub type Rate = FixedU128;
 
 /// Status for TradingPair
-#[derive(Clone, Copy, Encode, Decode, RuntimeDebug, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	PartialEq,
+	Eq,
+	MaxEncodedLen,
+	TypeInfo,
+	Serialize,
+	Deserialize,
+)]
 pub enum TradingPairStatus {
 	/// Default status,
 	/// can withdraw liquidity, re-enable and list this trading pair.
@@ -666,7 +679,15 @@ impl<T: Config> Pallet<T> {
 		result
 	}
 
-	fn get_liquidity(asset_id_a: AssetId, asset_id_b: AssetId) -> (Balance, Balance) {
+	pub fn get_lp_token_id(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> sp_std::result::Result<AssetId, DispatchError> {
+		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+		Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId.into())
+	}
+
+	pub fn get_liquidity(asset_id_a: AssetId, asset_id_b: AssetId) -> (Balance, Balance) {
 		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 		let (reserve_0, reserve_1) = Self::liquidity_pool(trading_pair);
 		if asset_id_a == trading_pair.0 {
@@ -674,6 +695,11 @@ impl<T: Config> Pallet<T> {
 		} else {
 			(reserve_1, reserve_0)
 		}
+	}
+
+	pub fn get_trading_pair_status(asset_id_a: AssetId, asset_id_b: AssetId) -> TradingPairStatus {
+		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+		Self::trading_pair_statuses(trading_pair)
 	}
 
 	/// Given an input amount of an asset and pair reserves, returns the maximum output amount of
