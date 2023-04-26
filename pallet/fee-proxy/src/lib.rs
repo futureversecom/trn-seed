@@ -54,6 +54,8 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
+		/// Origin type to allow new whitelist entries
+		type ApproveOrigin: EnsureOrigin<Self::Origin>;
 		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
@@ -102,7 +104,11 @@ pub mod pallet {
 		FeeTokenIsGasToken,
 	}
 
+	// #[pallet::storage]
+	// pub type AssetWhitelist<T: Config> = StorageMap<_, Twox64Concat, AssetId, bool, ValueQuery>;
+
 	#[pallet::storage]
+	#[pallet::getter(fn asset_white_list)]
 	pub type AssetWhitelist<T: Config> = StorageMap<_, Twox64Concat, AssetId, bool, ValueQuery>;
 
 	#[pallet::call]
@@ -145,7 +151,7 @@ pub mod pallet {
 			new_asset_setting: AssetId,
 			is_allowed: bool,
 		) -> DispatchResult {
-			let who = ensure_signed(origin.clone())?;
+			T::ApproveOrigin::ensure_origin(origin)?;
 
 			AssetWhitelist::<T>::insert(new_asset_setting, is_allowed);
 

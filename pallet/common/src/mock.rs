@@ -238,11 +238,14 @@ macro_rules! impl_pallet_fee_proxy_config {
 	($test:ident) => {
 		parameter_types! {
 			pub const XrpAssetId: AssetId = MOCK_PAYMENT_ASSET_ID;
+			pub const MaxWhiteListedAssets: u8 = 5;
 		}
 
 		pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Test, XrpAssetId>;
 
 		impl pallet_fee_proxy::Config for $test {
+			type ApproveOrigin = EnsureRoot<AccountId>;
+			type MaxWhiteListedAssets = MaxWhiteListedAssets;
 			type Call = Call;
 			type Event = Event;
 			type PalletsOrigin = OriginCaller;

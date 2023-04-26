@@ -419,6 +419,7 @@ parameter_types! {
 	/// PalletId for Echo pallet
 	pub const EchoPalletId: PalletId = PalletId(*b"pingpong");
 }
+
 impl pallet_echo::Config for Runtime {
 	type Event = Event;
 	type EthereumBridge = EthBridge;
@@ -426,7 +427,13 @@ impl pallet_echo::Config for Runtime {
 	type WeightInfo = weights::pallet_echo::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	pub const MaxWhiteListedAssets: u8 = 5;
+}
+
 impl pallet_fee_proxy::Config for Runtime {
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type MaxWhiteListedAssets = MaxWhiteListedAssets;
 	type Call = Call;
 	type Event = Event;
 	type PalletsOrigin = OriginCaller;
@@ -1105,7 +1112,7 @@ construct_runtime! {
 		Erc20Peg: pallet_erc20_peg::{Pallet, Call, Storage, Event<T>} = 29,
 		NftPeg: pallet_nft_peg::{Pallet, Call, Storage, Event<T>} = 30,
 
-		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
+		FeeProxy: pallet_fee_proxy::{Pallet, Call, Storage, Event<T>} = 31,
 		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
 		Xls20: pallet_xls20::{Pallet, Call, Storage, Event<T>} = 42,
 	}

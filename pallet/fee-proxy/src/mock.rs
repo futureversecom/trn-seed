@@ -114,10 +114,13 @@ where
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Test, XrpAssetId>;
 
 parameter_types! {
-		pub const XrpAssetId: AssetId = XRP_ASSET_ID;
+	pub const XrpAssetId: AssetId = XRP_ASSET_ID;
+	pub const MaxWhiteListedAssets: u8 = 5;
 }
 
 impl Config for Test {
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type MaxWhiteListedAssets = MaxWhiteListedAssets;
 	type Call = Call;
 	type Event = Event;
 	type PalletsOrigin = OriginCaller;

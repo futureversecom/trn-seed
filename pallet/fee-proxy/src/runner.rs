@@ -9,7 +9,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{AssetWhitelist, Config};
+use crate::{AssetWhitelist, Config, Pallet};
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, fail, traits::fungibles::InspectMetadata};
 use pallet_evm::{
@@ -120,7 +120,7 @@ pub struct FeePreferencesRunner<T, U>(PhantomData<(T, U)>);
 
 impl<T, U> FeePreferencesRunner<T, U>
 where
-	T: pallet_evm::Config<AccountId = AccountId>,
+	T: pallet_evm::Config<AccountId = AccountId> + Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 {
 	/// Decodes the input for call_with_fee_preferences
@@ -146,6 +146,7 @@ where
 			if let Some(payment_asset) = payment_asset {
 				ensure!(
 					AssetWhitelist::<T>::get(payment_asset),
+					// Pallet::<T>::asset_white_list(payment_asset),
 					FeePreferencesError::InvalidPaymentAsset
 				);
 			} else {
