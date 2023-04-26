@@ -71,8 +71,8 @@ describe("Futurepass Precompile", function () {
 
   afterEach(async () => await node.stop());
 
-  // TODO: migrate to unit test
-  it("create futurepass succeeds for account with balance", async () => {
+  // This testcase is included in futurepass substrate tests
+  it.skip("create futurepass succeeds for account with balance", async () => {
     const owner = Wallet.createRandom().address;
 
     // fund owner to pay for futurepass creation
@@ -86,8 +86,8 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
   });
 
-  // TODO: migrate to unit test
-  it("create futurepass succeeds for account with no balance", async () => {
+  // This testcase is included in futurepass substrate tests
+  it.skip("create futurepass succeeds for account with no balance", async () => {
     const owner = Wallet.createRandom().address;
     const tx = await futurepassProxy.connect(alithSigner).create(owner);
     const receipt = await tx.wait();
@@ -180,8 +180,7 @@ describe("Futurepass Precompile", function () {
       .catch((err: any) => expect(err.message).contains("DelegateAlreadyExists"));
   });
 
-  // TODO: validate whether we want this functionality
-  // @note TBD - maybe in v2
+  // @note TBD - v2 functionality
   it.skip("delegate can register more delegates", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
@@ -501,7 +500,7 @@ describe("Futurepass Precompile", function () {
     expect(await erc1155.balanceOf(owner.address, 2)).to.equal(3);
   });
 
-  // TODO: introduce functionality
+  // TODO: introduce functionality in v2
   it.skip("futurepass can deploy a contract using CREATE", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
