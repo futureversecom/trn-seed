@@ -122,7 +122,7 @@ mod weights;
 
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
-use precompile_utils::constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX};
+use precompile_utils::constants::FEE_PROXY_ADDRESS;
 
 #[cfg(test)]
 mod tests;
@@ -1104,14 +1104,8 @@ impl pallet_proxy::Config for Runtime {
 	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	/// 4 byte futurepass account prefix
-	pub const FuturepassPrefix: [u8; 4] = *FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
-}
-
 impl pallet_futurepass::Config for Runtime {
 	type Event = Event;
-	type FuturepassPrefix = FuturepassPrefix;
 	type Proxy = impls::ProxyPalletProvider;
 	type Call = Call;
 	type ApproveOrigin = EnsureRoot<AccountId>;

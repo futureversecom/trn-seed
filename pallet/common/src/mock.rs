@@ -443,14 +443,8 @@ macro_rules! impl_pallet_futurepass_config {
 			}
 		}
 
-		parameter_types! {
-			/// 4 byte futurepass account prefix
-			pub const FuturepassPrefix: [u8; 4] = [0xFF; 4];
-		}
-
 		impl pallet_futurepass::Config for $test {
 			type Event = Event;
-			type FuturepassPrefix = FuturepassPrefix;
 			type Proxy = MockProxyProvider;
 			type Call = Call;
 			type ApproveOrigin = EnsureRoot<AccountId>;

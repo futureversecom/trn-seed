@@ -47,11 +47,11 @@ use frame_support::{
 	weights::GetDispatchInfo,
 };
 use frame_system::pallet_prelude::*;
+use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
 use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
-
 pub use weights::WeightInfo;
 
 /// The logging target for this pallet
@@ -97,9 +97,6 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The overarching event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
-		#[pallet::constant]
-		type FuturepassPrefix: Get<[u8; 4]>;
 
 		type Proxy: ProxyProvider<Self>;
 
@@ -472,12 +469,12 @@ impl<T: Config> Pallet<T> {
 			bytes
 		});
 
-		let prefix = T::FuturepassPrefix::get();
+		let prefix = FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
 
 		// Create a new byte array with the combined length of the prefix and the futurepass_id
 		// (bytes)
 		let mut address_bytes = [0u8; 20];
-		address_bytes[..4].copy_from_slice(&prefix);
+		address_bytes[..4].copy_from_slice(prefix);
 		address_bytes[4..].copy_from_slice(&futurepass_id_bytes);
 
 		let address = H160::from_slice(&address_bytes);

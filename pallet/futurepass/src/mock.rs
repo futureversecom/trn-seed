@@ -211,7 +211,6 @@ parameter_types! {
 
 impl crate::Config for Test {
 	type Event = Event;
-	type FuturepassPrefix = FuturepassPrefix;
 	type Proxy = ProxyPalletProvider;
 	type Call = Call;
 	type ApproveOrigin = EnsureRoot<AccountId>;
