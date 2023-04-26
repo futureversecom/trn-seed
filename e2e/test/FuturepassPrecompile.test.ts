@@ -550,11 +550,7 @@ describe("Futurepass Precompile", function () {
     // const salt = ethers.utils.hexZeroPad(ethers.utils.randomBytes(32), 32);
     // const salt = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.BigNumber.from(ethers.utils.randomBytes(32))), 32);
     const salt = ethers.utils.id("1234");
-    ethers.utils.getCreate2Address(
-      futurepass,
-      salt,
-      ethers.utils.keccak256(erc20Bytecode),
-    );
+    ethers.utils.getCreate2Address(futurepass, salt, ethers.utils.keccak256(erc20Bytecode));
 
     // Encode the CREATE2 call to deploy the template contract
     const deployCallData = ethers.utils.hexConcat([ethers.utils.hexZeroPad("0xff", 32), erc20Bytecode, salt]);

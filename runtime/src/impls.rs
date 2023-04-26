@@ -41,7 +41,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 
 use precompile_utils::{
 	constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE},
-	keccak256, Address, ErcIdConversion,
+	Address, ErcIdConversion,
 };
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
