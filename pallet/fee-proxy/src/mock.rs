@@ -119,6 +119,7 @@ parameter_types! {
 }
 
 impl Config for Test {
+	type AssetsUtil = AssetsExt;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type MaxWhiteListedAssets = MaxWhiteListedAssets;
 	type Call = Call;

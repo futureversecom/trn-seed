@@ -433,6 +433,7 @@ parameter_types! {
 
 impl pallet_fee_proxy::Config for Runtime {
 	type ApproveOrigin = EnsureRoot<AccountId>;
+	type AssetsUtil = AssetsExt;
 	type MaxWhiteListedAssets = MaxWhiteListedAssets;
 	type Call = Call;
 	type Event = Event;

@@ -57,6 +57,10 @@ pub trait TransferExt: Transfer<Self::AccountId> {
 	) -> DispatchResult;
 }
 
+pub trait AssetsUtil {
+	fn asset_exists(asset: AssetId) -> bool;
+}
+
 /// Place, release, and spend holds on assets
 pub trait Hold {
 	/// The ID type for an account in the system

@@ -43,6 +43,7 @@ pub mod pallet {
 	use super::*;
 	use pallet_transaction_payment::OnChargeTransaction;
 	use precompile_utils::{Address, ErcIdConversion};
+	use seed_pallet_common::AssetsUtil;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -54,6 +55,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
+		type AssetsUtil: AssetsUtil;
 		/// Origin type to allow new whitelist entries
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
 		/// The overarching call type.
@@ -96,6 +98,8 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
+		/// Tried to act on an asset which could not be found
+		AssetNotFound,
 		/// All fee tokens must be in the map of known fee tokens
 		FeeTokenNotWhitelisted,
 		/// The inner call is a fee preference call
@@ -147,17 +151,16 @@ pub mod pallet {
 		#[pallet::weight(20_000_000)]
 		pub fn set_fee_token(
 			origin: OriginFor<T>,
-			new_asset_setting: AssetId,
+			asset_id: AssetId,
 			is_allowed: bool,
 		) -> DispatchResult {
 			T::ApproveOrigin::ensure_origin(origin)?;
 
-			AssetWhitelist::<T>::insert(new_asset_setting, is_allowed);
+			ensure!(T::AssetsUtil::asset_exists(asset_id), Error::<T>::AssetNotFound);
 
-			Self::deposit_event(Event::<T>::AssetWhitelistSet {
-				asset_id: new_asset_setting,
-				is_allowed,
-			});
+			AssetWhitelist::<T>::insert(asset_id, is_allowed);
+
+			Self::deposit_event(Event::<T>::AssetWhitelistSet { asset_id, is_allowed });
 
 			Ok(())
 		}

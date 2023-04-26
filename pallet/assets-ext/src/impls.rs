@@ -17,6 +17,7 @@ use frame_support::{
 		SignedImbalance, WithdrawReasons,
 	},
 };
+use seed_pallet_common::AssetsUtil;
 use sp_runtime::{traits::Zero, DispatchError};
 use sp_std::marker::PhantomData;
 
@@ -343,6 +344,12 @@ where
 	}
 	fn remove_lock(id: LockIdentifier, who: &T::AccountId) {
 		S::remove_lock(id, who)
+	}
+}
+
+impl<T: Config> AssetsUtil for Pallet<T> {
+	fn asset_exists(asset: AssetId) -> bool {
+		pallet_assets::Pallet::<T, ()>::maybe_total_supply(asset).is_some()
 	}
 }
 

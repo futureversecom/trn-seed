@@ -315,6 +315,8 @@ mod get_fee_preferences_data {
 mod calculate_total_gas {
 	use frame_system::RawOrigin;
 
+	use crate::mock::Assets;
+
 	use super::*;
 
 	#[test]
@@ -352,9 +354,38 @@ mod calculate_total_gas {
 	}
 
 	#[test]
+	fn fails_to_set_whitelisted_token_if_nonexistant() {
+		TestExt::default().build().execute_with(|| {
+			let payment_asset_id: AssetId = 12;
+
+			assert_eq!(AssetWhitelist::<Test>::get(payment_asset_id), false);
+			assert_noop!(
+				Pallet::<Test>::set_fee_token(RawOrigin::Root.into(), payment_asset_id, true),
+				Error::<Test>::AssetNotFound
+			);
+		});
+	}
+
+	#[test]
 	fn sets_whitelisted_tokens() {
 		TestExt::default().build().execute_with(|| {
 			let payment_asset_id: AssetId = 12;
+			let owner: AccountId = create_account(1);
+
+			assert_ok!(Assets::force_create(
+				RawOrigin::Root.into(),
+				payment_asset_id,
+				owner,
+				true,
+				500000
+			));
+
+			assert_ok!(Assets::mint(
+				RawOrigin::Signed(owner).into(),
+				payment_asset_id,
+				owner,
+				42000000
+			));
 
 			assert_eq!(AssetWhitelist::<Test>::get(payment_asset_id), false);
 			assert_ok!(Pallet::<Test>::set_fee_token(
