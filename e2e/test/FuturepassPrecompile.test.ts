@@ -8,8 +8,6 @@ import { ethers } from "hardhat";
 import web3 from "web3";
 
 import MockERC20Data from "../artifacts/contracts/MockERC20.sol/MockERC20.json";
-import MockERC721Data from "../artifacts/contracts/MockERC721.sol/MockERC721.json";
-import MockERC1155Data from "../artifacts/contracts/MockERC1155.sol/MockERC1155.json";
 import {
   ALITH_PRIVATE_KEY,
   ERC20_ABI,
@@ -20,7 +18,6 @@ import {
   startNode,
   typedefs,
 } from "../common";
-import type { MockERC20, MockERC721, MockERC1155 } from "../typechain-types";
 
 const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
 
@@ -553,7 +550,7 @@ describe("Futurepass Precompile", function () {
     // const salt = ethers.utils.hexZeroPad(ethers.utils.randomBytes(32), 32);
     // const salt = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.BigNumber.from(ethers.utils.randomBytes(32))), 32);
     const salt = ethers.utils.id("1234");
-    const expectedContractAddress = ethers.utils.getCreate2Address(
+    ethers.utils.getCreate2Address(
       futurepass,
       salt,
       ethers.utils.keccak256(erc20Bytecode),
