@@ -251,7 +251,7 @@ where
 		let delegate: H160 = delegate.into();
 		let proxy_type_enum: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type
 			.try_into()
-			.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not be passed
+			.map_err(|_e| RevertReason::custom("Futurepass: ProxyType conversion failure"))?; // TODO - check why e can not be passed
 
 		let caller = handle.context().caller;
 		RuntimeHelper::<Runtime>::try_dispatch(
