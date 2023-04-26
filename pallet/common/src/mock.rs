@@ -456,6 +456,8 @@ macro_rules! impl_pallet_futurepass_config {
 			type ApproveOrigin = EnsureRoot<AccountId>;
 			type ProxyType = ProxyType;
 			type WeightInfo = ();
+			#[cfg(feature = "runtime-benchmarks")]
+			type MultiCurrency = pallet_assets_ext::Pallet<Test>;
 		}
 	};
 }

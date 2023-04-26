@@ -217,6 +217,8 @@ impl crate::Config for Test {
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = ProxyType;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = pallet_assets_ext::Pallet<Test>;
 }
 
 pub fn create_account(seed: u64) -> AccountId {
