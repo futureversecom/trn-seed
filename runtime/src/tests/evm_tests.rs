@@ -29,6 +29,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin::Root;
 
+use pallet_fee_proxy::AssetWhitelist;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_client::chain_spec::get_account_id_from_seed;
@@ -130,6 +131,8 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 			None,
 			None
 		));
+
+		AssetWhitelist::<Runtime>::insert(payment_asset, true);
 
 		// Check Bob's initial balance is 0
 		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), 0);

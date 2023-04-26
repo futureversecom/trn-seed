@@ -43,6 +43,8 @@ mod call_with_fee_preferences {
 				remark: b"Mischief Managed".to_vec(),
 			});
 
+			AssetWhitelist::<Test>::insert(payment_asset, true);
+
 			assert_ok!(FeeProxy::call_with_fee_preferences(
 				Some(caller).into(),
 				payment_asset,
@@ -52,6 +54,28 @@ mod call_with_fee_preferences {
 
 			System::assert_has_event(
 				Event::CallWithFeePreferences { who: caller, payment_asset, max_payment }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn call_fails_token_not_whitelisted() {
+		TestExt::default().build().execute_with(|| {
+			let caller: AccountId = create_account(1);
+			let payment_asset: AssetId = 10;
+			let max_payment: Balance = 100;
+			let call = mock::Call::System(frame_system::Call::remark {
+				remark: b"Mischief Managed".to_vec(),
+			});
+
+			assert_noop!(
+				FeeProxy::call_with_fee_preferences(
+					Some(caller).into(),
+					payment_asset,
+					max_payment,
+					Box::new(call)
+				),
+				Error::<Test>::FeeTokenNotWhitelisted
 			);
 		});
 	}
@@ -87,6 +111,7 @@ mod call_with_fee_preferences {
 			let max_payment: Balance = 100;
 			let call =
 				mock::Call::System(frame_system::Call::fill_block { ratio: Default::default() });
+			AssetWhitelist::<Test>::insert(payment_asset, true);
 
 			// Test that the error returned is the error from the inner call. In this case it is
 			// BadOrigin as fill_block requires root. This is the easiest example to use without
@@ -109,6 +134,8 @@ mod call_with_fee_preferences {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
+
+			AssetWhitelist::<Test>::insert(payment_asset, true);
 
 			let call_inner = mock::Call::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),
@@ -139,7 +166,7 @@ mod decode_input {
 	use super::*;
 
 	#[test]
-	fn decode_input_works() {
+	fn decode_input_fails_if_token_not_whitelisted() {
 		TestExt::default().build().execute_with(|| {
 			// Abi generated from below parameters using the following function name:
 			// callWithFeePreferences
@@ -157,6 +184,36 @@ mod decode_input {
 				Token::Address(exp_target),
 				Token::Bytes(exp_input.clone())],
 			));
+
+			assert_eq!(
+				Runner::decode_input(input),
+				Err(FeePreferencesError::InvalidPaymentAsset)
+			);
+		});
+	}
+
+	#[test]
+	fn decode_input_works() {
+		TestExt::default().build().execute_with(|| {
+			// Abi generated from below parameters using the following function name:
+			// callWithFeePreferences
+			// abi can be easily generated here https://abi.hashex.org/
+			let exp_payment_asset = 16000_u32;
+			let exp_max_payment = 123_456_789 as Balance;
+			let exp_target = H160::from_slice(&hex!("cCccccCc00003E80000000000000000000000000"));
+			let exp_input: Vec<u8> =
+				hex!("a9059cbb0000000000000000000000007a107fc1794f505cb351148f529accae12ffbcd8000000000000000000000000000000000000000000000000000000000000007b"
+			).to_vec();
+			let mut input = FEE_FUNCTION_SELECTOR.to_vec();
+
+			input.append(&mut ethabi::encode(&[
+				Token::Address(Test::runtime_id_to_evm_id(exp_payment_asset, ERC20_PRECOMPILE_ADDRESS_PREFIX).0),
+				Token::Uint(exp_max_payment.into()),
+				Token::Address(exp_target),
+				Token::Bytes(exp_input.clone())],
+			));
+
+			AssetWhitelist::<Test>::insert(exp_payment_asset, true);
 
 			assert_eq!(
 				Runner::decode_input(input),
