@@ -313,11 +313,9 @@ mod get_fee_preferences_data {
 
 /// Unit tests for the calculate total gas function on the runner
 mod calculate_total_gas {
-	use frame_system::RawOrigin;
-
-	use crate::mock::Assets;
-
 	use super::*;
+	use crate::mock::Assets;
+	use frame_system::RawOrigin;
 
 	#[test]
 	fn calculate_total_gas_works() {

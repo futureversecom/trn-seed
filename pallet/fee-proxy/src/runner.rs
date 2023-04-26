@@ -146,7 +146,6 @@ where
 			if let Some(payment_asset) = payment_asset {
 				ensure!(
 					AssetWhitelist::<T>::get(payment_asset),
-					// Pallet::<T>::asset_white_list(payment_asset),
 					FeePreferencesError::InvalidPaymentAsset
 				);
 			} else {

@@ -108,9 +108,6 @@ pub mod pallet {
 		FeeTokenIsGasToken,
 	}
 
-	// #[pallet::storage]
-	// pub type AssetWhitelist<T: Config> = StorageMap<_, Twox64Concat, AssetId, bool, ValueQuery>;
-
 	#[pallet::storage]
 	pub type AssetWhitelist<T: Config> = StorageMap<_, Twox64Concat, AssetId, bool, ValueQuery>;
 
@@ -157,9 +154,7 @@ pub mod pallet {
 			T::ApproveOrigin::ensure_origin(origin)?;
 
 			ensure!(T::AssetsUtil::asset_exists(asset_id), Error::<T>::AssetNotFound);
-
 			AssetWhitelist::<T>::insert(asset_id, is_allowed);
-
 			Self::deposit_event(Event::<T>::AssetWhitelistSet { asset_id, is_allowed });
 
 			Ok(())

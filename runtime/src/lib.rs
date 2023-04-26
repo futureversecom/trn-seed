@@ -432,6 +432,7 @@ parameter_types! {
 }
 
 impl pallet_fee_proxy::Config for Runtime {
+	// Elevated origin which can set allowed fee tokens. Later can be governance
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type AssetsUtil = AssetsExt;
 	type MaxWhiteListedAssets = MaxWhiteListedAssets;
