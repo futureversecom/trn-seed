@@ -184,8 +184,9 @@ pub mod pallet {
 			delegate: T::AccountId,
 			futurepass: Option<T::AccountId>,
 		},
-		/// A proxy call was executed correctly, with the given call
+		/// A proxy call was executed with the given call
 		ProxyExecuted {
+			delegate: T::AccountId,
 			result: DispatchResult,
 		},
 	}
@@ -411,9 +412,12 @@ pub mod pallet {
 			futurepass: T::AccountId,
 			call: Box<<T as Config>::Call>,
 		) -> DispatchResult {
-			ensure_signed(origin.clone())?;
+			let who = ensure_signed(origin.clone())?;
 			let result = T::Proxy::proxy_call(origin, futurepass, *call);
-			Self::deposit_event(Event::ProxyExecuted { result: result.map(|_| ()).map_err(|e| e) });
+			Self::deposit_event(Event::ProxyExecuted {
+				delegate: who,
+				result: result.map(|_| ()).map_err(|e| e),
+			});
 			result
 		}
 

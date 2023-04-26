@@ -674,8 +674,10 @@ fn proxy_extrinsic_simple_transfer_works() {
 				inner_call.clone(),
 			));
 			// assert event ProxyExecuted
-			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
-			//check balances
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
+			// check balances
 			assert_eq!(
 				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
 				fund_amount - transfer_amount
@@ -831,6 +833,7 @@ fn proxy_extrinsic_failures() {
 			// assert event (ProxyExecuted with error)
 			System::assert_has_event(
 				Event::<Test>::ProxyExecuted {
+					delegate: other,
 					result: Err(pallet_proxy::Error::<Test>::NotProxy.into()),
 				}
 				.into(),
@@ -854,6 +857,7 @@ fn proxy_extrinsic_failures() {
 			);
 			System::assert_has_event(
 				Event::<Test>::ProxyExecuted {
+					delegate: other,
 					result: Err(pallet_proxy::Error::<Test>::NotProxy.into()),
 				}
 				.into(),
@@ -871,7 +875,9 @@ fn proxy_extrinsic_failures() {
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
 			// assert event ProxyExecuted
-			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
 			// assert event pallet_proxy::ProxyExecuted with the error
 			System::assert_has_event(
 				pallet_proxy::Event::<Test>::ProxyExecuted {
@@ -888,7 +894,9 @@ fn proxy_extrinsic_failures() {
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call));
 			// assert event ProxyExecuted
-			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
 			// assert event pallet_proxy::ProxyExecuted with the error
 			System::assert_has_event(
 				pallet_proxy::Event::<Test>::ProxyExecuted {
@@ -907,7 +915,9 @@ fn proxy_extrinsic_failures() {
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call));
 			// assert event ProxyExecuted
-			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
 			// assert event pallet_proxy::ProxyExecuted with the error
 			System::assert_has_event(
 				pallet_proxy::Event::<Test>::ProxyExecuted {
@@ -967,7 +977,9 @@ fn whitelist_works() {
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
 			// assert event ProxyExecuted
-			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
 			System::assert_has_event(
 				Event::<Test>::DelegateRegistered {
 					futurepass,
@@ -988,7 +1000,9 @@ fn whitelist_works() {
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
 			// assert event ProxyExecuted
-			System::assert_has_event(Event::<Test>::ProxyExecuted { result: Ok(()) }.into());
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
 			System::assert_has_event(
 				Event::<Test>::DelegateUnregistered { futurepass, delegate }.into(),
 			);
