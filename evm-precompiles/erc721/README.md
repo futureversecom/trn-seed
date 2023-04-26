@@ -45,8 +45,8 @@ interface TRN721 is IERC165 {
 interface Ownable is IERC165 {
     event OwnershipTransferred(address indexed oldOwner, address newOwner);
 
-    function owner() public view returns (address),
-    function renounceOwnership() external,
-    function transferOwnership(address owner) external,
+    function owner() public view returns (address);
+    function renounceOwnership() external;
+    function transferOwnership(address owner) external;
 }
 ```
