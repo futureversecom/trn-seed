@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(dead_code)]
 extern crate alloc;
 
 use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
@@ -50,12 +51,12 @@ impl TryFrom<u8> for CallType {
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	FuturepassOf = "futurepassOf(address)",
-	IsDelegate = "isDelegate(address,address)",
-	DelegateType = "delegateType(address,address)",
+	// IsDelegate = "isDelegate(address,address)",
+	// DelegateType = "delegateType(address,address)",
 	Create = "create(address)",
-	RegisterDelegate = "registerDelegate(address,address,uint8)",
-	UnRegisterDelegate = "unregisterDelegate(address,address)",
-	ProxyCall = "proxyCall(address,address,uint8,bytes)",
+	// RegisterDelegate = "registerDelegate(address,address,uint8)",
+	// UnRegisterDelegate = "unregisterDelegate(address,address)",
+	// ProxyCall = "proxyCall(address,address,uint8,bytes)",
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
@@ -113,12 +114,12 @@ where
 
 			match selector {
 				Action::FuturepassOf => Self::futurepass_of(handle),
-				Action::IsDelegate => Self::is_delegate(handle),
-				Action::DelegateType => Self::delegate_type(handle),
+				// Action::IsDelegate => Self::is_delegate(handle),
+				// Action::DelegateType => Self::delegate_type(handle),
 				Action::Create => Self::create_futurepass(handle),
-				Action::RegisterDelegate => Self::register_delegate(handle),
-				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
-				Action::ProxyCall => Self::proxy_call(handle),
+				// Action::RegisterDelegate => Self::register_delegate(handle),
+				// Action::UnRegisterDelegate => Self::unregister_delegate(handle),
+				// Action::ProxyCall => Self::proxy_call(handle),
 			}
 		};
 		return result

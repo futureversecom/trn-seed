@@ -333,11 +333,6 @@ pub mod pallet {
 			// Remove the delegate from the futurepass
 			T::Proxy::remove_delegate(&caller, &futurepass, &delegate)?;
 
-			// If the caller is the owner of the futurepass, remove the ownership
-			// if is_owner && caller == delegate { // TODO: validate whether we cant this
-			// functionality 	Holders::<T>::remove(&caller);
-			// }
-
 			Self::deposit_event(Event::<T>::DelegateUnregistered { futurepass, delegate });
 			Ok(())
 		}

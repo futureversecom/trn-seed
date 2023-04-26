@@ -68,8 +68,7 @@ describe("Futurepass Precompile", function () {
 
   afterEach(async () => await node.stop());
 
-  // This testcase is included in futurepass substrate tests
-  it.skip("create futurepass succeeds for account with balance", async () => {
+  it("create futurepass succeeds for account with balance", async () => {
     const owner = Wallet.createRandom().address;
 
     // fund owner to pay for futurepass creation
@@ -95,7 +94,8 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
   });
 
-  it("create futurepass fails - already existing account", async () => {
+  // This testcase is included in futurepass substrate tests
+  it.skip("create futurepass fails - already existing account", async () => {
     const owner = Wallet.createRandom().address;
     const tx = await futurepassProxy.connect(alithSigner).create(owner);
     await tx.wait();
@@ -109,7 +109,7 @@ describe("Futurepass Precompile", function () {
       });
   });
 
-  it("isDelegate, delegateType works", async () => {
+  it.skip("isDelegate, delegateType works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -140,7 +140,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it("register delegate works", async () => {
+  it.skip("register delegate works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -204,7 +204,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassProxy.delegateType(futurepass, delegate2.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it("unregister delegate from owner", async () => {
+  it.skip("unregister delegate from owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -230,7 +230,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
   });
 
-  it("unregister delegate from delegate (themself)", async () => {
+  it.skip("unregister delegate from delegate (themself)", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -259,7 +259,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
   });
 
-  it("proxy call can transfer value to EOA", async () => {
+  it.skip("proxy call can transfer value to EOA", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
     // fund owner
@@ -286,7 +286,7 @@ describe("Futurepass Precompile", function () {
     expect(recipientBalanceRes.balance).to.equal(15_000_000);
   });
 
-  it("proxy call can transfer value to contract", async () => {
+  it.skip("proxy call can transfer value to contract", async () => {
     // contract to test outgoing futurepass proxied calls
     const FuturepassFactory = await ethers.getContractFactory("CurrencyTester");
     const futurepassTester = await FuturepassFactory.connect(alithSigner).deploy();
@@ -345,7 +345,7 @@ describe("Futurepass Precompile", function () {
     expect(ethers.utils.formatEther(futurepassContractBalance)).to.equal("20.0");
   });
 
-  it("futurepass can hold and transfer ERC20", async () => {
+  it.skip("futurepass can hold and transfer ERC20", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
     // fund owner
@@ -381,7 +381,7 @@ describe("Futurepass Precompile", function () {
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(500_000);
   });
 
-  it("futurepass can hold and transfer ERC721", async () => {
+  it.skip("futurepass can hold and transfer ERC721", async () => {
     // deploy ERC721 contract and mint a token
     const ERC721Factory = await ethers.getContractFactory("MockERC721");
     const erc721 = await ERC721Factory.connect(alithSigner).deploy();
@@ -437,7 +437,7 @@ describe("Futurepass Precompile", function () {
     expect(await erc721.ownerOf(2)).to.equal(owner.address);
   });
 
-  it("futurepass can hold and transfer ERC1155", async () => {
+  it.skip("futurepass can hold and transfer ERC1155", async () => {
     // deploy ERC1155 contract and mint a token
     const ERC1155Factory = await ethers.getContractFactory("MockERC1155");
     const erc1155 = await ERC1155Factory.connect(alithSigner).deploy();
