@@ -1324,23 +1324,23 @@ impl_runtime_apis! {
 		}
 
 		fn get_lp_token_id(
-		asset_id_a: AssetId,
-		asset_id_b: AssetId,
+			asset_id_a: AssetId,
+			asset_id_b: AssetId,
 		) -> Result<AssetId, sp_runtime::DispatchError> {
 			Dex::get_lp_token_id(asset_id_a, asset_id_b)
 		}
 
 		fn get_liquidity(
-		asset_id_a: AssetId,
-		asset_id_b: AssetId,
-		) -> (Balance, Balance){
+			asset_id_a: AssetId,
+			asset_id_b: AssetId,
+		) -> (Balance, Balance) {
 			Dex::get_liquidity(asset_id_a, asset_id_b)
 		}
 
 		fn get_trading_pair_status(
-		asset_id_a: AssetId,
-		asset_id_b: AssetId,
-		) -> TradingPairStatus{
+			asset_id_a: AssetId,
+			asset_id_b: AssetId,
+		) -> TradingPairStatus {
 			Dex::get_trading_pair_status(asset_id_a, asset_id_b)
 		}
 	}
