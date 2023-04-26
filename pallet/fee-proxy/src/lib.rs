@@ -108,7 +108,6 @@ pub mod pallet {
 	// pub type AssetWhitelist<T: Config> = StorageMap<_, Twox64Concat, AssetId, bool, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn asset_white_list)]
 	pub type AssetWhitelist<T: Config> = StorageMap<_, Twox64Concat, AssetId, bool, ValueQuery>;
 
 	#[pallet::call]

@@ -313,6 +313,8 @@ mod get_fee_preferences_data {
 
 /// Unit tests for the calculate total gas function on the runner
 mod calculate_total_gas {
+	use frame_system::RawOrigin;
+
 	use super::*;
 
 	#[test]
@@ -346,6 +348,21 @@ mod calculate_total_gas {
 				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false),
 				FeePreferencesError::FeeOverflow
 			);
+		});
+	}
+
+	#[test]
+	fn sets_whitelisted_tokens() {
+		TestExt::default().build().execute_with(|| {
+			let payment_asset_id: AssetId = 12;
+
+			assert_eq!(AssetWhitelist::<Test>::get(payment_asset_id), false);
+			assert_ok!(Pallet::<Test>::set_fee_token(
+				RawOrigin::Root.into(),
+				payment_asset_id,
+				true
+			));
+			assert_eq!(AssetWhitelist::<Test>::get(payment_asset_id), true);
 		});
 	}
 }
