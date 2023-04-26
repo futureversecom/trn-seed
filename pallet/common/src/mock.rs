@@ -392,9 +392,9 @@ macro_rules! impl_pallet_proxy_config {
 
 		parameter_types! {
 			// One storage item; key size 32, value size 8
-			pub ProxyDepositBase: Balance = deposit(1, 8); // TODO - set 0 for futurepass
+			pub ProxyDepositBase: Balance = deposit(1, 8);
 			// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
-			pub ProxyDepositFactor: Balance = deposit(0, 21); // TODO - set 0 for futurepass
+			pub ProxyDepositFactor: Balance = deposit(0, 21);
 			pub AnnouncementDepositBase: Balance = deposit(1, 8);
 			// Additional storage item size of 56 bytes:
 			// - 20 bytes AccountId

@@ -212,10 +212,6 @@ where
 		is_transactional: bool,
 		evm_config: &EvmConfig,
 	) -> Result<(), RunnerError<Self::Error>> {
-		// @todo check source, proxy request if needed
-
-		// @todo check target, proxy request if needed
-
 		<Runner<T> as RunnerT<T>>::validate(
 			source,
 			target,
@@ -245,11 +241,13 @@ where
 		validate: bool,
 		config: &EvmConfig,
 	) -> Result<CallInfo, RunnerError<Self::Error>> {
+		// Futurepass v2 code, should not have any impact
 		let mut source = source;
 		if let Some(futurepass) = P::primary_proxy(&source.into()) {
 			source = futurepass.into();
 		}
 
+		// Futurepass v2 code, should not have any impact
 		let mut target = target;
 		if let Some(futurepass) = P::primary_proxy(&target.into()) {
 			target = futurepass.into();

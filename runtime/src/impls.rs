@@ -470,9 +470,7 @@ pub struct ProxyPalletProvider;
 
 impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	fn exists(futurepass: &AccountId, delegate: &AccountId, proxy_type: Option<ProxyType>) -> bool {
-		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, proxy_type)
-			.map(|_| true)
-			.unwrap_or(false)
+		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, proxy_type).is_ok()
 	}
 
 	fn delegates(futurepass: &AccountId) -> Vec<(AccountId, ProxyType)> {
@@ -554,7 +552,8 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 			call: call.into(),
 		};
 
-		Call::dispatch(call.into(), caller).map(|_| ()).map_err(|e| e.error)
+		Call::dispatch(call.into(), caller).map_err(|e| e.error)?;
+		Ok(())
 	}
 }
 

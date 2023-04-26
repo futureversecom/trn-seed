@@ -344,6 +344,7 @@ pub trait Xls20MintRequest {
 	) -> DispatchResult;
 }
 
+// Code used for futurepass V2
 pub trait AccountProxy<AccountId> {
 	fn primary_proxy(who: &AccountId) -> Option<AccountId>;
 }

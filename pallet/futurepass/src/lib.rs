@@ -114,10 +114,10 @@ pub mod pallet {
 		/// Allowed origins to ease transition to council governance
 		type ApproveOrigin: EnsureOrigin<Self::Origin>;
 
-		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` fitler.
+		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
 		/// The instance filter determines whether a given call may be proxied under this type.
 		///
-		/// IMPORTANT: `Default` must be provided and MUST BE the the *most permissive* value.
+		/// IMPORTANT: `Default` must be provided and MUST BE the *most permissive* value.
 		type ProxyType: Parameter
 			+ Member
 			+ Ord

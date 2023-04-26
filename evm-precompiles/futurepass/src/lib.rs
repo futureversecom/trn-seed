@@ -26,9 +26,9 @@ pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 enum CallType {
 	StaticCall,
 	Call,
-	DelegateCall,
-	Create,
-	Create2,
+	DelegateCall, // Does not support in V1
+	Create,       // Does not support in V1
+	Create2,      // Does not support in V1
 }
 
 impl TryFrom<u8> for CallType {
