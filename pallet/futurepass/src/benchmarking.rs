@@ -103,7 +103,7 @@ benchmarks! {
 
 	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), Box::new(call))
 	verify {
-		assert_last_event::<T>(Event::ProxyExecuted { result: Ok(()) }.into())
+		assert_last_event::<T>(Event::ProxyExecuted {  delegate: owner, result: Ok(()) }.into())
 	}
 }
 
