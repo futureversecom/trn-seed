@@ -560,6 +560,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 #[derive(
 	Copy,
 	Clone,
+	Default,
 	Eq,
 	PartialEq,
 	Ord,
@@ -572,16 +573,11 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 )]
 pub enum ProxyType {
 	NoPermission = 0,
+	#[default]
 	Any = 1,
 	NonTransfer = 2,
 	Governance = 3,
 	Staking = 4,
-}
-
-impl Default for ProxyType {
-	fn default() -> Self {
-		Self::Any
-	}
 }
 
 impl TryFrom<u8> for ProxyType {
