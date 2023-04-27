@@ -26,7 +26,7 @@ pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
 
 pub mod types {
 	use crate::signature::EthereumSignature;
-	use sp_runtime::traits::{IdentifyAccount, Verify};
+	use sp_runtime::traits::{BlakeTwo256, IdentifyAccount, Verify};
 
 	/// An index to a block.
 	pub type BlockNumber = u32;
@@ -88,6 +88,9 @@ pub mod types {
 
 	/// Ethereum address type
 	pub type EthAddress = sp_core::H160;
+
+	/// Blake2-256 Hash implementation.
+	pub type BlakeTwo256Hash = BlakeTwo256;
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

@@ -343,3 +343,8 @@ pub trait Xls20MintRequest {
 		metadata_scheme: MetadataScheme,
 	) -> DispatchResult;
 }
+
+// Code used for futurepass V2
+pub trait AccountProxy<AccountId> {
+	fn primary_proxy(who: &AccountId) -> Option<AccountId>;
+}

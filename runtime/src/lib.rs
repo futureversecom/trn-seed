@@ -37,8 +37,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
-		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup,
-		PostDispatchInfoOf, Verify,
+		Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup, PostDispatchInfoOf, Verify,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -63,7 +62,8 @@ pub use frame_support::{
 	ensure, parameter_types,
 	traits::{
 		fungibles::{Inspect, InspectMetadata},
-		ConstU32, CurrencyToVote, Everything, Get, IsInVec, KeyOwnerProofSystem, Randomness,
+		ConstU128, ConstU32, CurrencyToVote, Everything, Get, IsInVec, KeyOwnerProofSystem,
+		Randomness,
 	},
 	weights::{
 		constants::{ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -99,8 +99,8 @@ mod bag_thresholds;
 
 pub mod constants;
 use constants::{
-	RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES, ONE_ROOT,
-	ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
+	deposit, RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES,
+	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
 // Implementations of some helper traits passed into runtime modules as associated types.
@@ -123,6 +123,7 @@ mod weights;
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
+use seed_primitives::BlakeTwo256Hash;
 
 #[cfg(test)]
 mod tests;
@@ -261,7 +262,7 @@ impl frame_system::Config for Runtime {
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
+	type Hashing = BlakeTwo256Hash;
 	/// The header type.
 	type Header = Header;
 	/// The ubiquitous event type.
@@ -310,7 +311,7 @@ impl frame_support::weights::WeightToFee for FeeControlLengthToFee {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type OnChargeTransaction = FeeProxy;
+	type OnChargeTransaction = impls::FuturepassTransactionFee;
 	type Event = Event;
 	type WeightToFee = FeeControlWeightToFee;
 	type LengthToFee = FeeControlLengthToFee;
@@ -953,7 +954,7 @@ impl pallet_evm::Config for Runtime {
 	type AddressMapping = AddressMapping<AccountId>;
 	type Currency = EvmCurrencyScaler<XrpCurrency>;
 	type Event = Event;
-	type Runner = FeePreferencesRunner<Self, Self>;
+	type Runner = FeePreferencesRunner<Self, Self, Futurepass>;
 	type PrecompilesType = FutureversePrecompiles<Self>;
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EVMChainId;
@@ -1057,6 +1058,65 @@ impl pallet_fee_control::Config for Runtime {
 	type DefaultValues = FeeControlDefaultValues;
 }
 
+parameter_types! {
+	pub const ConfigDepositBase: u64 = 10;
+	pub const FriendDepositFactor: u64 = 1;
+	pub const MaxFriends: u32 = 3;
+	pub const RecoveryDeposit: u64 = 10;
+}
+
+impl pallet_recovery::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+	type ConfigDepositBase = ConfigDepositBase;
+	type FriendDepositFactor = FriendDepositFactor;
+	type MaxFriends = MaxFriends;
+	type RecoveryDeposit = RecoveryDeposit;
+	type WeightInfo = pallet_recovery::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+	// One storage item; key size 32, value size 8
+	pub ProxyDepositBase: Balance = deposit(1, 8);
+	// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
+	pub ProxyDepositFactor: Balance = deposit(0, 21);
+	pub AnnouncementDepositBase: Balance = deposit(1, 8);
+	// Additional storage item size of 56 bytes:
+	// - 20 bytes AccountId
+	// - 32 bytes Hasher (Blake2256)
+	// - 4 bytes BlockNumber (u32)
+	pub AnnouncementDepositFactor: Balance = deposit(0, 56);
+}
+
+impl pallet_proxy::Config for Runtime {
+	type Event = Event;
+	type Call = Call;
+	type Currency = Balances;
+
+	type ProxyType = impls::ProxyType;
+	type ProxyDepositBase = ProxyDepositBase;
+	type ProxyDepositFactor = ProxyDepositFactor;
+	type MaxProxies = ConstU32<32>;
+	type MaxPending = ConstU32<32>;
+	type CallHasher = BlakeTwo256Hash;
+	type AnnouncementDepositBase = AnnouncementDepositBase;
+	type AnnouncementDepositFactor = AnnouncementDepositFactor;
+	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_futurepass::Config for Runtime {
+	type Event = Event;
+	type Proxy = impls::ProxyPalletProvider;
+	type Call = Call;
+	type ApproveOrigin = EnsureRoot<AccountId>;
+	type ProxyType = impls::ProxyType;
+	type WeightInfo = weights::pallet_futurepass::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type MultiCurrency = AssetsExt;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -1068,6 +1128,7 @@ construct_runtime! {
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent}= 2,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
 		Utility: pallet_utility::{Pallet, Call, Event} = 4,
+		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
@@ -1109,11 +1170,15 @@ construct_runtime! {
 		FeeProxy: pallet_fee_proxy::{Pallet, Call, Event<T>} = 31,
 		FeeControl: pallet_fee_control::{Pallet, Call, Storage, Event<T>} = 40,
 		Xls20: pallet_xls20::{Pallet, Call, Storage, Event<T>} = 42,
+
+		// FuturePass Account
+		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
+		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
 	}
 }
 
 /// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// A Block signed with a Justification
@@ -1642,7 +1707,7 @@ fn transaction_asset_check(
 		};
 
 		let (payment_asset_id, max_payment, _target, _input) =
-			FeePreferencesRunner::<Runtime, Runtime>::decode_input(input)?;
+			FeePreferencesRunner::<Runtime, Runtime, Futurepass>::decode_input(input)?;
 		// ensure user owns max payment amount
 		let user_asset_balance = <pallet_assets_ext::Pallet<Runtime> as Inspect<
 			<Runtime as frame_system::Config>::AccountId,
@@ -1656,7 +1721,7 @@ fn transaction_asset_check(
 			TransactionValidityError::Invalid(InvalidTransaction::Payment)
 		);
 		let FeePreferencesData { path, total_fee_scaled } =
-			get_fee_preferences_data::<Runtime, Runtime>(
+			get_fee_preferences_data::<Runtime, Runtime, Futurepass>(
 				gas_limit.as_u64(),
 				max_fee_per_gas,
 				payment_asset_id,
@@ -1796,6 +1861,8 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
+		[pallet_recovery, Recovery]
+		[pallet_proxy, Proxy]
 		// Local
 		[pallet_nft, Nft]
 		[pallet_fee_control, FeeControl]
@@ -1807,5 +1874,6 @@ mod benches {
 		[pallet_evm_chain_id, EVMChainId]
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
+		[pallet_futurepass, Futurepass]
 	);
 }

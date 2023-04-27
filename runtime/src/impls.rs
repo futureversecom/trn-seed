@@ -15,35 +15,45 @@ use core::ops::Mul;
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
-	dispatch::RawOrigin,
+	dispatch::{EncodeLike, RawOrigin},
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, OnUnbalanced, SignedImbalance, WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, IsSubType, OnUnbalanced,
+		SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin};
+use pallet_futurepass::ProxyProvider;
+use pallet_transaction_payment::OnChargeTransaction;
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
-	traits::{AccountIdConversion, Extrinsic, SaturatedConversion, Verify, Zero},
+	traits::{
+		AccountIdConversion, DispatchInfoOf, Extrinsic, PostDispatchInfoOf, SaturatedConversion,
+		Verify, Zero,
+	},
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-use precompile_utils::{constants::FEE_PROXY_ADDRESS, Address, ErcIdConversion};
+use precompile_utils::{
+	constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE},
+	Address, ErcIdConversion,
+};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, Balance, Index, Signature};
+use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic,
 };
+use sp_runtime::traits::Dispatchable;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -205,9 +215,18 @@ pub struct AddressMapping<AccountId>(PhantomData<AccountId>);
 
 impl<AccountId> AddressMappingT<AccountId> for AddressMapping<AccountId>
 where
-	AccountId: From<H160>,
+	AccountId:
+		From<H160> + From<seed_primitives::AccountId> + EncodeLike<seed_primitives::AccountId>,
 {
 	fn into_account_id(address: H160) -> AccountId {
+		// metamask -> getBalance RPC -> account_basic -> EVM::account_basic ->
+		// T::AddressMapping::into_account_id checked_extrinsic (apply) ->
+		// pre_dispatch_self_contained -> validate_transaction_in_block -> EVM::account_basic
+		if let Some(futurepass) =
+			pallet_futurepass::DefaultProxy::<Runtime>::get::<AccountId>(address.into())
+		{
+			return futurepass.into()
+		}
 		address.into()
 	}
 }
@@ -444,6 +463,290 @@ where
 			RawOrigin::Signed(who) if &who.into() == address => Ok(who),
 			r => Err(OuterOrigin::from(r)),
 		})
+	}
+}
+
+pub struct ProxyPalletProvider;
+
+impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
+	fn exists(futurepass: &AccountId, delegate: &AccountId, proxy_type: Option<ProxyType>) -> bool {
+		pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, proxy_type).is_ok()
+	}
+
+	fn delegates(futurepass: &AccountId) -> Vec<(AccountId, ProxyType)> {
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
+		proxy_definitions
+			.into_iter()
+			.map(|proxy_def| (proxy_def.delegate, proxy_def.proxy_type))
+			.collect()
+	}
+
+	/// Adding a delegate requires funding the futurepass account (from funder) with the cost of the
+	/// proxy creation.
+	/// The futurepass cannot pay for itself as it may not have any funds.
+	fn add_delegate(
+		funder: &AccountId,
+		futurepass: &AccountId,
+		delegate: &AccountId,
+		proxy_type: &ProxyType,
+	) -> DispatchResult {
+		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
+		// executes proxy creation)
+		let (proxy_definitions, reserve_amount) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
+		// get proxy_definitions length + 1 (cost of upcoming insertion); cost to reserve
+		let new_reserve =
+			pallet_proxy::Pallet::<Runtime>::deposit(proxy_definitions.len() as u32 + 1);
+		let extra_reserve_required = new_reserve - reserve_amount;
+		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
+			funder,
+			futurepass,
+			extra_reserve_required,
+			ExistenceRequirement::KeepAlive,
+		)?;
+
+		pallet_proxy::Pallet::<Runtime>::add_proxy_delegate(futurepass, *delegate, *proxy_type, 0)
+	}
+
+	/// Removing a delegate requires refunding the potential funder (who may have funded the
+	/// creation of futurepass or added the delegates) with the cost of the proxy creation.
+	/// The futurepass accrues deposits (as reserved balance) by the funder(s) when delegates are
+	/// added to the futurepass account.
+	/// Removing delegates unreserves the deposits (funds) from the futurepass account - which
+	/// should be paid back out to potential receiver(s).
+	fn remove_delegate(
+		receiver: &AccountId,
+		futurepass: &AccountId,
+		delegate: &AccountId,
+	) -> DispatchResult {
+		let proxy_def = pallet_proxy::Pallet::<Runtime>::find_proxy(futurepass, delegate, None)?;
+		// get deposits before proxy removal (value gets mutated in removal)
+		let (_, pre_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
+
+		let result = pallet_proxy::Pallet::<Runtime>::remove_proxy_delegate(
+			futurepass,
+			*delegate,
+			proxy_def.proxy_type,
+			0,
+		);
+		if result.is_ok() {
+			let (_, post_removal_deposit) = pallet_proxy::Proxies::<Runtime>::get(futurepass);
+			let removal_refund = pre_removal_deposit - post_removal_deposit;
+			<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
+				futurepass,
+				receiver,
+				removal_refund,
+				ExistenceRequirement::KeepAlive,
+			)?;
+		}
+		result
+	}
+
+	fn proxy_call(
+		caller: <Runtime as frame_system::Config>::Origin,
+		futurepass: AccountId,
+		call: Call,
+	) -> DispatchResult {
+		let call = pallet_proxy::Call::<Runtime>::proxy {
+			real: futurepass.into(),
+			force_proxy_type: None,
+			call: call.into(),
+		};
+
+		Call::dispatch(call.into(), caller).map_err(|e| e.error)?;
+		Ok(())
+	}
+}
+
+#[derive(
+	Copy,
+	Clone,
+	Default,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub enum ProxyType {
+	NoPermission = 0,
+	#[default]
+	Any = 1,
+	NonTransfer = 2,
+	Governance = 3,
+	Staking = 4,
+}
+
+impl TryFrom<u8> for ProxyType {
+	type Error = &'static str;
+	fn try_from(value: u8) -> Result<Self, Self::Error> {
+		match value {
+			0 => Ok(ProxyType::NoPermission),
+			1 => Ok(ProxyType::Any),
+			2 => Ok(ProxyType::NonTransfer),
+			3 => Ok(ProxyType::Governance),
+			4 => Ok(ProxyType::Staking),
+			_ => Err("Invalid value for ProxyType"),
+		}
+	}
+}
+
+impl TryInto<u8> for ProxyType {
+	type Error = &'static str;
+	fn try_into(self) -> Result<u8, Self::Error> {
+		match self {
+			ProxyType::NoPermission => Ok(0),
+			ProxyType::Any => Ok(1),
+			ProxyType::NonTransfer => Ok(2),
+			ProxyType::Governance => Ok(3),
+			ProxyType::Staking => Ok(4),
+		}
+	}
+}
+
+// Precompile side proxy filter.
+// NOTE - Precompile and Substrate side filters should be in sync
+// TODO(surangap): check if the granualarity can be improved to the call level (V2)
+impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
+	fn is_evm_proxy_call_allowed(
+		&self,
+		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
+		_recipient_has_code: bool,
+	) -> bool {
+		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
+			// Whitelist for precompile side
+			// TODO - call.call_data is not clonable coz of ConstU32. i.e we use
+			// BoundedBytes<ConstU32<65536>> and when call.call_data.into_vec(), it moves out the
+			// call data which we need later in the function we should either change the type of
+			// call.call_data or fix it by other mean but for V1, this code is not functionally
+			// relevant. let sub_call_selector = &call.call_data.clone().into_vec()[..4];
+			// if sub_call_selector == &keccak256!("registerDelegate(address,address,uint8)")[..4]
+			// 	|| sub_call_selector == &keccak256!("unregisterDelegate(address,address)")[..4] {
+			// 	return true;
+			// }
+			return false
+		}
+		match self {
+			ProxyType::Any => true,
+			// ProxyType::NonTransfer can not have value. i.e call.value == U256::zero()
+			ProxyType::NonTransfer => false,
+			ProxyType::Governance => false,
+			ProxyType::Staking => false,
+			ProxyType::NoPermission => false,
+		}
+	}
+}
+
+// substrate side proxy filter
+impl InstanceFilter<Call> for ProxyType {
+	fn filter(&self, c: &Call) -> bool {
+		// NOTE - any call for Proxy, Futurepass pallets can not be proxied except the Whitelist.
+		// this may seems extra restrictive than Proxy pallet. But if a delegate has permission to
+		// proxy a call of the proxy pallet, they should be able to call it directly in the pallet.
+		// This keeps the logic simple and avoids unnecessary loops
+		// TODO - implement the whitelist as a list that can be configured in the runtime.
+		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
+			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
+			// pallet_futurepass::Call::unregister_delegate
+			if !matches!(
+				c,
+				Call::Futurepass(pallet_futurepass::Call::register_delegate { .. }) |
+					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+			) {
+				return false
+			}
+		}
+		match self {
+			// only ProxyType::Any is used in V1
+			ProxyType::Any => true,
+			// TODO - need to add allowed calls under this category in v2. allowing all for now.
+			ProxyType::NonTransfer => false,
+			ProxyType::Governance => false,
+			ProxyType::Staking => false,
+			ProxyType::NoPermission => false,
+		}
+	}
+
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			_ => false,
+		}
+	}
+}
+
+/// Switch gas payer to Futurepass if proxy called with a Futurepass account
+pub struct FuturepassTransactionFee;
+
+impl<T> OnChargeTransaction<T> for FuturepassTransactionFee
+where
+	T: frame_system::Config<AccountId = AccountId>
+		+ pallet_transaction_payment::Config
+		+ pallet_futurepass::Config
+		+ pallet_fee_proxy::Config
+		+ pallet_dex::Config
+		+ pallet_evm::Config
+		+ pallet_assets_ext::Config,
+	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
+	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
+	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
+	<T as pallet_fee_proxy::Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
+	Balance: From<
+		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance,
+	>,
+{
+	type Balance =
+		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
+	type LiquidityInfo = <<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::LiquidityInfo;
+
+	fn withdraw_fee(
+		who: &T::AccountId,
+		call: &<T as frame_system::Config>::Call,
+		info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
+		fee: Self::Balance,
+		tip: Self::Balance,
+	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+		let mut who = who;
+		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
+		// of the FP(futurepass), we switch the gas payer to the FP
+		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
+			call.is_sub_type()
+		{
+			if ProxyPalletProvider::exists(futurepass, who, None) {
+				who = futurepass;
+			}
+		}
+		<pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
+			who, call, info, fee, tip,
+		)
+	}
+
+	fn correct_and_deposit_fee(
+		who: &T::AccountId,
+		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
+		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::Call>,
+		corrected_fee: Self::Balance,
+		tip: Self::Balance,
+		already_withdrawn: Self::LiquidityInfo,
+	) -> Result<(), TransactionValidityError> {
+		// NOTE - ideally we should check and switch the account to FP here also, But we don't have
+		// the call information within this function. What this means, if any extra fee was charged,
+		// that fee wont return to FP but the caller. Ideally we could pass the required info via
+		// pre, But this requires a new signed extension and some research.
+		<<T as pallet_fee_proxy::Config>::OnChargeTransaction>::correct_and_deposit_fee(
+			who,
+			dispatch_info,
+			post_info,
+			corrected_fee,
+			tip,
+			already_withdrawn,
+		)
 	}
 }
 

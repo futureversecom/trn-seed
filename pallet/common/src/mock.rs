@@ -158,6 +158,17 @@ macro_rules! impl_pallet_assets_ext_config {
 }
 
 #[macro_export]
+macro_rules! impl_pallet_fee_control_config {
+	($test:ident) => {
+		impl pallet_fee_control::Config for $test {
+			type Event = Event;
+			type WeightInfo = ();
+			type DefaultValues = ();
+		}
+	};
+}
+
+#[macro_export]
 macro_rules! impl_pallet_evm_config {
 	($test:ident) => {
 		pub struct FindAuthorTruncated;
@@ -236,6 +247,31 @@ macro_rules! impl_pallet_dex_config {
 #[macro_export]
 macro_rules! impl_pallet_fee_proxy_config {
 	($test:ident) => {
+		impl<RuntimeId> ErcIdConversion<RuntimeId> for $test
+		where
+			RuntimeId: From<u32> + Into<u32>,
+		{
+			type EvmId = Address;
+
+			fn evm_id_to_runtime_id(
+				evm_id: Self::EvmId,
+				_precompile_address_prefix: &[u8; 4],
+			) -> Option<RuntimeId> {
+				if H160::from(evm_id) == H160::from_low_u64_be(16000) {
+					// Our expected value for the test
+					return Some(RuntimeId::from(16000))
+				}
+				None
+			}
+			fn runtime_id_to_evm_id(
+				runtime_id: RuntimeId,
+				_precompile_address_prefix: &[u8; 4],
+			) -> Self::EvmId {
+				let id: u32 = runtime_id.into();
+				Self::EvmId::from(H160::from_low_u64_be(id as u64))
+			}
+		}
+
 		parameter_types! {
 			pub const XrpAssetId: AssetId = MOCK_PAYMENT_ASSET_ID;
 		}
@@ -249,6 +285,212 @@ macro_rules! impl_pallet_fee_proxy_config {
 			type FeeAssetId = XrpAssetId;
 			type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
 			type ErcIdConversion = Self;
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_transaction_payment_config {
+	($test:ident) => {
+		pub struct FeeControlWeightToFee;
+		impl WeightToFee for FeeControlWeightToFee {
+			type Balance = Balance;
+			fn weight_to_fee(weight: &Weight) -> Self::Balance {
+				FeeControl::weight_to_fee(weight)
+			}
+		}
+
+		pub struct FeeControlLengthToFee;
+		impl WeightToFee for FeeControlLengthToFee {
+			type Balance = Balance;
+			fn weight_to_fee(weight: &Weight) -> Self::Balance {
+				FeeControl::length_to_fee(weight)
+			}
+		}
+
+		parameter_types! {
+			pub const OperationalFeeMultiplier: u8 = 1;
+		}
+
+		impl pallet_transaction_payment::Config for $test {
+			type OnChargeTransaction = FeeProxy;
+			type Event = Event;
+			type WeightToFee = FeeControlWeightToFee;
+			type LengthToFee = FeeControlLengthToFee;
+			type FeeMultiplierUpdate = ();
+			type OperationalFeeMultiplier = OperationalFeeMultiplier;
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_futurepass_config {
+	($test:ident) => {
+		pub struct MockProxyProvider;
+
+		impl<T: pallet_futurepass::Config> pallet_futurepass::ProxyProvider<T>
+			for MockProxyProvider
+		{
+			fn exists(
+				futurepass: &T::AccountId,
+				delegate: &T::AccountId,
+				proxy_type: Option<T::ProxyType>,
+			) -> bool {
+				false
+			}
+			fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)> {
+				vec![]
+			}
+			fn add_delegate(
+				_: &T::AccountId,
+				futurepass: &T::AccountId,
+				delegate: &T::AccountId,
+				proxy_type: &T::ProxyType,
+			) -> DispatchResult {
+				Ok(())
+			}
+			fn remove_delegate(
+				_: &T::AccountId,
+				futurepass: &T::AccountId,
+				delegate: &T::AccountId,
+			) -> DispatchResult {
+				Ok(())
+			}
+			fn proxy_call(
+				caller: T::Origin,
+				futurepass: T::AccountId,
+				call: <T as pallet_futurepass::Config>::Call,
+			) -> DispatchResult {
+				Ok(())
+			}
+		}
+
+		#[derive(
+			Copy,
+			Clone,
+			Eq,
+			PartialEq,
+			Ord,
+			PartialOrd,
+			Encode,
+			Decode,
+			RuntimeDebug,
+			MaxEncodedLen,
+			TypeInfo,
+		)]
+		pub enum ProxyType {
+			NoPermission = 0,
+			Any = 1,
+			NonTransfer = 2,
+			Governance = 3,
+			Staking = 4,
+		}
+
+		impl Default for ProxyType {
+			fn default() -> Self {
+				Self::Any
+			}
+		}
+
+		impl TryFrom<u8> for ProxyType {
+			type Error = &'static str;
+			fn try_from(value: u8) -> Result<Self, Self::Error> {
+				match value {
+					0 => Ok(ProxyType::NoPermission),
+					1 => Ok(ProxyType::Any),
+					2 => Ok(ProxyType::NonTransfer),
+					3 => Ok(ProxyType::Governance),
+					4 => Ok(ProxyType::Staking),
+					_ => Err("Invalid value for ProxyType"),
+				}
+			}
+		}
+
+		impl TryInto<u8> for ProxyType {
+			type Error = &'static str;
+			fn try_into(self) -> Result<u8, Self::Error> {
+				match self {
+					ProxyType::NoPermission => Ok(0),
+					ProxyType::Any => Ok(1),
+					ProxyType::NonTransfer => Ok(2),
+					ProxyType::Governance => Ok(3),
+					ProxyType::Staking => Ok(4),
+				}
+			}
+		}
+
+		impl InstanceFilter<Call> for ProxyType {
+			fn filter(&self, c: &Call) -> bool {
+				match self {
+					// only ProxyType::Any is used in V1
+					ProxyType::Any => true,
+					// TODO - need to add allowed calls under this category in v2. allowing all for
+					// now.
+					ProxyType::NonTransfer => true,
+					ProxyType::Governance => false,
+					ProxyType::Staking => false,
+					ProxyType::NoPermission => false,
+				}
+			}
+
+			fn is_superset(&self, o: &Self) -> bool {
+				match (self, o) {
+					(x, y) if x == y => true,
+					(ProxyType::Any, _) => true,
+					(_, ProxyType::Any) => false,
+					_ => false,
+				}
+			}
+		}
+
+		impl pallet_futurepass::Config for $test {
+			type Event = Event;
+			type Proxy = MockProxyProvider;
+			type Call = Call;
+			type ApproveOrigin = EnsureRoot<AccountId>;
+			type ProxyType = ProxyType;
+			type WeightInfo = ();
+			#[cfg(feature = "runtime-benchmarks")]
+			type MultiCurrency = pallet_assets_ext::Pallet<Test>;
+		}
+	};
+}
+
+// TODO: satisfy `ProxyType` trait
+#[macro_export]
+macro_rules! impl_pallet_proxy_config {
+	($test:ident) => {
+		pub const fn deposit(items: u32, bytes: u32) -> Balance {
+			items as Balance * 100 + (bytes as Balance) * 6
+		}
+
+		parameter_types! {
+			// One storage item; key size 32, value size 8
+			pub ProxyDepositBase: Balance = deposit(1, 8);
+			// Additional storage item size of 21 bytes (20 bytes AccountId + 1 byte sizeof(ProxyType)).
+			pub ProxyDepositFactor: Balance = deposit(0, 21);
+			pub AnnouncementDepositBase: Balance = deposit(1, 8);
+			// Additional storage item size of 56 bytes:
+			// - 20 bytes AccountId
+			// - 32 bytes Hasher (Blake2256)
+			// - 4 bytes BlockNumber (u32)
+			pub AnnouncementDepositFactor: Balance = deposit(0, 56);
+		}
+
+		impl pallet_proxy::Config for Test {
+			type Event = Event;
+			type Call = Call;
+			type Currency = Balances;
+
+			type ProxyType = ProxyType;
+			type ProxyDepositBase = ProxyDepositBase;
+			type ProxyDepositFactor = ProxyDepositFactor;
+			type MaxProxies = ConstU32<32>;
+			type MaxPending = ConstU32<32>;
+			type CallHasher = BlakeTwo256;
+			type AnnouncementDepositBase = AnnouncementDepositBase;
+			type AnnouncementDepositFactor = AnnouncementDepositFactor;
+			type WeightInfo = ();
 		}
 	};
 }
