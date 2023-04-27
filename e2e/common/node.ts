@@ -30,8 +30,22 @@ interface NodeOpts {
   };
 }
 
-const defaultOpts: NodeOpts = {
+const defaultDockerOpts: NodeOpts = {
   type: "docker",
+  httpPort: 9933,
+  wsPort: 9944,
+  dockerOpts: {
+    // image: "ghcr.io/futureversecom/seed:latest",
+    image: "seed/pr",
+    pull: false,
+  },
+  binaryOpts: {
+    binaryPath: "target/release/seed",
+  },
+};
+
+const defaultLocalOpts: NodeOpts = {
+  type: "local",
   httpPort: 9933,
   wsPort: 9944,
   dockerOpts: {
@@ -56,6 +70,8 @@ export interface NodeProcess {
  * Start a node given connection type
  */
 export function startNode(nodeOpts?: NodeOpts): Promise<NodeProcess> {
+  // Start local options if the NODE_OPTION is set to "local"
+  const defaultOpts = process.env.NODE_OPTION == "local" ? defaultLocalOpts : defaultDockerOpts;
   const nodeOptions = nodeOpts ?? defaultOpts;
 
   if (nodeOptions.type === "local") {
