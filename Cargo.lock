@@ -4844,6 +4844,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
@@ -4852,6 +4853,7 @@ dependencies = [
  "seed-pallet-common",
  "seed-primitives",
  "serde",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -4866,6 +4868,7 @@ dependencies = [
  "pallet-dex",
  "pallet-dex-rpc-runtime-api",
  "seed-primitives",
+ "serde_json",
  "sp-api",
  "sp-blockchain",
  "sp-runtime",
@@ -5140,6 +5143,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-precompiles-futurepass"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "pallet-futurepass",
+ "pallet-proxy",
+ "precompile-utils",
+ "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
 dependencies = [
@@ -5149,6 +5171,25 @@ dependencies = [
  "num_enum",
  "pallet-evm",
  "pallet-nft",
+ "precompile-utils",
+ "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm-precompiles-peg"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-erc20-peg",
+ "pallet-evm",
+ "pallet-nft-peg",
  "precompile-utils",
  "scale-info",
  "seed-primitives",
@@ -5171,6 +5212,7 @@ dependencies = [
  "pallet-dex",
  "pallet-evm",
  "pallet-fee-proxy",
+ "pallet-futurepass",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -5198,6 +5240,7 @@ dependencies = [
  "pallet-balances",
  "pallet-dex",
  "pallet-evm",
+ "pallet-futurepass",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -5205,6 +5248,40 @@ dependencies = [
  "scale-info",
  "seed-pallet-common",
  "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-futurepass"
+version = "1.0.0-dev"
+dependencies = [
+ "fp-evm",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal 0.3.4",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-dex",
+ "pallet-evm",
+ "pallet-fee-control",
+ "pallet-fee-proxy",
+ "pallet-proxy",
+ "pallet-timestamp",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "precompile-utils",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "seed-runtime",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5394,6 +5471,36 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-proxy"
+version = "4.0.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-recovery"
+version = "4.0.0-dev"
+source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -6363,6 +6470,15 @@ name = "redox_syscall"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
+dependencies = [
+ "bitflags",
+]
+
+[[package]]
+name = "redox_syscall"
+version = "0.3.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "567664f262709473930a4bf9e51bf2ebf3348f2e748ccc50dea20646858f8f29"
 dependencies = [
  "bitflags",
 ]
@@ -7835,7 +7951,7 @@ dependencies = [
 
 [[package]]
 name = "seed-client"
-version = "0.0.1"
+version = "1.0.0"
 dependencies = [
  "clap",
  "ethy-gadget",
@@ -7957,6 +8073,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "hex",
  "hex-literal 0.3.4",
  "log",
  "pallet-assets",
@@ -7982,9 +8099,12 @@ dependencies = [
  "pallet-evm-precompile-simple",
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
+ "pallet-evm-precompiles-futurepass",
  "pallet-evm-precompiles-nft",
+ "pallet-evm-precompiles-peg",
  "pallet-fee-control",
  "pallet-fee-proxy",
+ "pallet-futurepass",
  "pallet-grandpa",
  "pallet-im-online",
  "pallet-marketplace",
@@ -7993,6 +8113,8 @@ dependencies = [
  "pallet-nft-rpc-runtime-api",
  "pallet-nomination-pools",
  "pallet-offences",
+ "pallet-proxy",
+ "pallet-recovery",
  "pallet-scheduler",
  "pallet-session",
  "pallet-session-benchmarking",
@@ -8009,6 +8131,7 @@ dependencies = [
  "parity-scale-codec",
  "precompile-utils",
  "primitive-types",
+ "remote-externalities",
  "rustc-hex",
  "scale-info",
  "seed-client",
@@ -8031,6 +8154,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
+ "tokio",
  "try-runtime-cli",
 ]
 

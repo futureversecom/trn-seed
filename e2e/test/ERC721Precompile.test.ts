@@ -19,7 +19,7 @@ import {
 
 // NFT Collection information
 const name = "test-collection";
-const metadataPath = { Https: "example.com/nft/metadata/" };
+const metadataPath = "https://example.com/nft/metadata/";
 const initialIssuance = 10;
 const maxIssuance = 100;
 

@@ -141,9 +141,11 @@ fn do_deposit_creates_tokens_and_collection() {
 		assert_eq!(Nft::collection_exists(expected_collection_id), true);
 
 		let collection_info = Nft::collection_info(expected_collection_id).unwrap();
+		let mut h160_addr = sp_std::Writer::default();
+		write!(&mut h160_addr, "ethereum://{:?}/", test_vals.token_address).expect("Not written");
 		assert_eq!(
 			collection_info.metadata_scheme,
-			MetadataScheme::Ethereum(test_vals.token_address)
+			MetadataScheme::try_from(h160_addr.inner().clone().as_slice()).unwrap()
 		);
 
 		// Token balance should be 1 as one token was deposited
@@ -330,12 +332,12 @@ fn do_withdraw_works() {
 		// Wait for mint to occur
 		NftPeg::on_initialize(6);
 
-		let collection_ids = vec![collection_id];
-
+		let collection_ids = BoundedVec::truncate_from(vec![collection_id]);
+		let serial_numbers = BoundedVec::truncate_from(vec![BoundedVec::truncate_from(vec![1])]);
 		assert_ok!(Pallet::<Test>::withdraw(
 			Origin::signed(AccountId::from(test_vals.destination)),
 			collection_ids,
-			vec![vec![1]],
+			serial_numbers,
 			H160::from_low_u64_be(123),
 		));
 
@@ -347,11 +349,13 @@ fn do_withdraw_works() {
 #[test]
 fn do_withdraw_invalid_token_length_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
+		let collection_ids = BoundedVec::truncate_from(vec![1, 2, 3]);
+		let serial_numbers = BoundedVec::truncate_from(vec![BoundedVec::truncate_from(vec![1])]);
 		assert_noop!(
-			Pallet::<Test>::do_withdraw(
-				&AccountId::from(H160::default()),
-				&vec![1, 2, 3],
-				&vec![vec![1]],
+			Pallet::<Test>::withdraw(
+				Origin::signed(AccountId::from(H160::default())),
+				collection_ids,
+				serial_numbers,
 				H160::default()
 			),
 			Error::<Test>::TokenListLengthMismatch

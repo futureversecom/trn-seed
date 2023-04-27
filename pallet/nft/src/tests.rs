@@ -27,12 +27,20 @@ use seed_primitives::{AccountId, MetadataScheme, TokenCount, TokenId};
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
+type OwnedTokens = BoundedVec<
+	TokenOwnership<
+		<Test as frame_system::Config>::AccountId,
+		<Test as Config>::MaxTokensPerCollection,
+	>,
+	<Test as Config>::MaxTokensPerCollection,
+>;
+
 // Create an NFT collection
 // Returns the created `collection_id`
 fn setup_collection(owner: AccountId) -> CollectionUuid {
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = b"test-collection".to_vec();
-	let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
+	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
 		collection_name,
@@ -65,7 +73,7 @@ fn setup_token_with_royalties(
 	let collection_owner = create_account(1);
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = b"test-collection".to_vec();
-	let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
+	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(collection_owner).into(),
 		collection_name,
@@ -128,11 +136,8 @@ fn make_new_simple_offer(
 }
 
 /// Helper function to create bounded vec of TokenOwnership
-pub fn create_owned_tokens(
-	owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>,
-) -> BoundedVec<TokenOwnership<Test>, MaxTokensPerCollection> {
-	let mut token_ownership: BoundedVec<TokenOwnership<Test>, MaxTokensPerCollection> =
-		BoundedVec::default();
+pub fn create_owned_tokens(owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>) -> OwnedTokens {
+	let mut token_ownership: OwnedTokens = BoundedVec::default();
 	for (owner, serial_numbers) in owned_tokens {
 		let serial_numbers_bounded: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(serial_numbers).unwrap();
@@ -182,7 +187,7 @@ fn owned_tokens_works() {
 			quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -274,35 +279,34 @@ fn create_collection() {
 		let royalties_schedule =
 			RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
 
+		let expected_tokens = create_owned_tokens(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
+		let expected_info = CollectionInformation {
+			owner: collection_owner,
+			name: b"test-collection".to_vec(),
+			metadata_scheme: MetadataScheme::try_from(b"https://example.com/metadata".as_slice())
+				.unwrap(),
+			royalties_schedule: Some(royalties_schedule.clone()),
+			max_issuance: None,
+			origin_chain: OriginChain::Root,
+			next_serial_number: quantity,
+			collection_issuance: quantity,
+			owned_tokens: expected_tokens,
+			cross_chain_compatibility: CrossChainCompatibility::default(),
+		};
+
 		// mint token Ids 0-4
 		assert_ok!(Nft::create_collection(
-			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
+			Some(expected_info.owner).into(),
+			expected_info.name.clone(),
+			expected_info.next_serial_number.clone(),
 			None,
 			Some(token_owner),
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
-			Some(royalties_schedule.clone()),
-			CrossChainCompatibility::default(),
+			expected_info.metadata_scheme.clone(),
+			expected_info.royalties_schedule.clone(),
+			expected_info.cross_chain_compatibility.clone(),
 		));
 
-		let expected_tokens = create_owned_tokens(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
-
-		assert_eq!(
-			Nft::collection_info(collection_id).unwrap(),
-			CollectionInformation {
-				owner: collection_owner,
-				name: b"test-collection".to_vec(),
-				metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
-				royalties_schedule: Some(royalties_schedule.clone()),
-				max_issuance: None,
-				origin_chain: OriginChain::Root,
-				next_serial_number: quantity,
-				collection_issuance: quantity,
-				owned_tokens: expected_tokens,
-				cross_chain_compatibility: CrossChainCompatibility::default(),
-			}
-		);
+		assert_eq!(Nft::collection_info(collection_id).unwrap(), expected_info);
 
 		// EVM pallet should have account code for collection
 		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
@@ -314,7 +318,8 @@ fn create_collection() {
 			initial_issuance: 5,
 			max_issuance: None,
 			collection_owner,
-			metadata_scheme: MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			metadata_scheme: MetadataScheme::try_from(b"https://example.com/metadata".as_slice())
+				.unwrap(),
 			name: b"test-collection".to_vec(),
 			royalties_schedule: Some(royalties_schedule.clone()),
 			origin_chain: OriginChain::Root,
@@ -380,7 +385,7 @@ fn create_collection_invalid_name() {
 		let collection_owner = create_account(1);
 		let bad_collection_name =
 			b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
-		let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
+		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 		assert_noop!(
 			Nft::create_collection(
 				Some(collection_owner).into(),
@@ -434,7 +439,7 @@ fn create_collection_royalties_invalid() {
 	TestExt::default().build().execute_with(|| {
 		let owner = create_account(1);
 		let name = b"test-collection".to_vec();
-		let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
+		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 
 		// Too big royalties should fail
 		let royalty_schedule = RoyaltiesSchedule::<AccountId> {
@@ -487,7 +492,7 @@ fn transfer() {
 			1,
 			None,
 			Some(token_owner),
-			MetadataScheme::Ipfs(b"<CID>".to_vec()),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -541,7 +546,7 @@ fn transfer_fails_prechecks() {
 			1,
 			None,
 			Some(token_owner),
-			MetadataScheme::Ipfs(b"<CID>".to_vec()),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -590,7 +595,7 @@ fn burn() {
 			3,
 			None,
 			Some(token_owner),
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -634,7 +639,7 @@ fn burn_fails_prechecks() {
 			100,
 			None,
 			Some(token_owner),
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -684,7 +689,7 @@ fn sell() {
 				quantity,
 				None,
 				None,
-				MetadataScheme::Https(b"example.com/metadata".to_vec()),
+				MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -1551,7 +1556,7 @@ fn auction_bundle() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2103,7 +2108,7 @@ fn mint_over_max_issuance_should_fail() {
 			initial_issuance,
 			Some(max_issuance),
 			Some(token_owner),
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2151,7 +2156,7 @@ fn invalid_max_issuance_should_fail() {
 				0,
 				Some(0),
 				None,
-				MetadataScheme::Https(b"example.com/metadata".to_vec()),
+				MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			),
@@ -2166,7 +2171,7 @@ fn invalid_max_issuance_should_fail() {
 				5,
 				Some(2),
 				None,
-				MetadataScheme::Https(b"example.com/metadata".to_vec()),
+				MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			),
@@ -2181,7 +2186,7 @@ fn invalid_max_issuance_should_fail() {
 				5,
 				Some(mock::MaxTokensPerCollection::get() + 1),
 				None,
-				MetadataScheme::Https(b"example.com/metadata".to_vec()),
+				MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			),
@@ -2203,7 +2208,7 @@ fn mint_fails() {
 			5,
 			None,
 			None,
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2241,7 +2246,7 @@ fn mint_over_mint_limit_fails() {
 			5,
 			None,
 			None,
-			MetadataScheme::Https(b"example.com/metadata".to_vec()),
+			MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2272,7 +2277,7 @@ fn create_collection_over_mint_limit_fails() {
 				<Test as Config>::MintLimit::get() + 1,
 				None,
 				None,
-				MetadataScheme::Https(b"example.com/metadata".to_vec()),
+				MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			),
@@ -2286,7 +2291,7 @@ fn token_uri_construction() {
 	TestExt::default().build().execute_with(|| {
 		let owner = create_account(1);
 		let quantity = 5;
-		let mut collection_id = Nft::next_collection_uuid().unwrap();
+		let collection_id = Nft::next_collection_uuid().unwrap();
 		// mint token Ids
 		assert_ok!(Nft::create_collection(
 			Some(owner).into(),
@@ -2294,86 +2299,13 @@ fn token_uri_construction() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::Https(b"example.com/metadata/".to_vec()),
+			MetadataScheme::try_from(b"https://example.com/metadata/".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
 
 		assert_eq!(Nft::token_uri((collection_id, 0)), b"https://example.com/metadata/0".to_vec(),);
 		assert_eq!(Nft::token_uri((collection_id, 1)), b"https://example.com/metadata/1".to_vec(),);
-
-		collection_id = Nft::next_collection_uuid().unwrap();
-		assert_ok!(Nft::create_collection(
-			Some(owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			None,
-			MetadataScheme::Http(b"test.example.com/metadata/".to_vec()),
-			None,
-			CrossChainCompatibility::default(),
-		));
-
-		assert_eq!(
-			Nft::token_uri((collection_id, 1)),
-			b"http://test.example.com/metadata/1".to_vec(),
-		);
-
-		collection_id = Nft::next_collection_uuid().unwrap();
-		assert_ok!(Nft::create_collection(
-			Some(owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			None,
-			MetadataScheme::Ipfs(
-				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".to_vec()
-			),
-			None,
-			CrossChainCompatibility::default(),
-		));
-		assert_eq!(
-			Nft::token_uri((collection_id, 1)),
-			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1".to_vec(),
-		);
-
-		collection_id = Nft::next_collection_uuid().unwrap();
-		assert_ok!(Nft::create_collection(
-			Some(owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			None,
-			MetadataScheme::Ipfs(
-				b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".to_vec()
-			),
-			None,
-			CrossChainCompatibility::default(),
-		));
-		assert_eq!(
-			Nft::token_uri((collection_id, 1)),
-			b"ipfs://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/1".to_vec(),
-		);
-
-		let collection_address = H160::from_low_u64_be(123);
-		let token_id = 1;
-
-		collection_id = Nft::next_collection_uuid().unwrap();
-		assert_ok!(Nft::create_collection(
-			Some(owner).into(),
-			b"test-collection".to_vec(),
-			quantity,
-			None,
-			None,
-			MetadataScheme::Ethereum(collection_address),
-			None,
-			CrossChainCompatibility::default(),
-		));
-
-		assert_eq!(
-			Nft::token_uri((collection_id, token_id)),
-			b"ethereum://0x000000000000000000000000000000000000007b/1".to_vec()
-		);
 	});
 }
 
@@ -2849,7 +2781,7 @@ fn transfer_changes_token_balance() {
 			initial_quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::Ipfs(b"<CID>".to_vec()),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2913,7 +2845,7 @@ fn transfer_many_tokens_changes_token_balance() {
 			initial_quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::Ipfs(b"<CID>".to_vec()),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -2960,7 +2892,7 @@ fn transfer_many_tokens_at_once_changes_token_balance() {
 			initial_quantity,
 			None,
 			Some(token_owner),
-			MetadataScheme::Ipfs(b"<CID>".to_vec()),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
 			None,
 			CrossChainCompatibility::default(),
 		));
@@ -3006,7 +2938,7 @@ fn cannot_mint_bridged_collections() {
 			0,
 			None,
 			None,
-			MetadataScheme::Ethereum(H160::zero()),
+			MetadataScheme::try_from(H160::zero().as_bytes()).unwrap(),
 			None,
 			// "From ethereum"
 			OriginChain::Ethereum,
@@ -3036,7 +2968,7 @@ fn mints_multiple_specified_tokens_by_id() {
 			0,
 			None,
 			None,
-			MetadataScheme::Ipfs(b"<CID>".to_vec()),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
 			None,
 			OriginChain::Ethereum,
 			CrossChainCompatibility::default(),
@@ -3078,7 +3010,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 			0,
 			None,
 			None,
-			MetadataScheme::Ipfs(b"<CID>".to_vec()),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
 			None,
 			OriginChain::Ethereum,
 			CrossChainCompatibility::default(),
@@ -3135,7 +3067,7 @@ fn token_exists_works() {
 			quantity,
 			None,
 			None,
-			MetadataScheme::Ipfs(b"<CID>".to_vec()),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
 			None,
 			OriginChain::Root,
 			CrossChainCompatibility::default(),
@@ -3199,8 +3131,7 @@ fn add_user_tokens_works() {
 		let tokens: Vec<SerialNumber> = vec![0, 1, 2, 3, 900, 1000, 101010101];
 		let collection_id = setup_collection(collection_owner);
 		let mut collection_info = Nft::collection_info(collection_id).unwrap();
-		let expected_owned_tokens: BoundedVec<TokenOwnership<Test>, MaxTokensPerCollection> =
-			BoundedVec::default();
+		let expected_owned_tokens: OwnedTokens = BoundedVec::default();
 		// Initially, owned tokens should be empty
 		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
 
@@ -3257,7 +3188,7 @@ fn add_user_tokens_over_token_limit_should_fail() {
 			BoundedVec::try_from(vec![max]).unwrap();
 		assert_noop!(
 			collection_info.add_user_tokens(&token_owner, serial_numbers_max.clone()),
-			Error::<Test>::TokenLimitExceeded
+			TokenOwnershipError::TokenLimitExceeded
 		);
 		// Adding tokens to different user still works
 		assert_ok!(collection_info.add_user_tokens(&token_owner_2, serial_numbers_max.clone()));
@@ -3290,7 +3221,7 @@ fn add_user_tokens_over_user_limit_should_fail() {
 		// adding another user should fail
 		assert_noop!(
 			collection_info.add_user_tokens(&create_account(max as u64), serial_numbers),
-			Error::<Test>::TokenLimitExceeded
+			TokenOwnershipError::TokenLimitExceeded
 		);
 	});
 }
@@ -3301,7 +3232,7 @@ mod claim_unowned_collection {
 	#[test]
 	fn can_claim_ownership() {
 		TestExt::default().build().execute_with(|| {
-			let metadata = MetadataScheme::Https("google.com".into());
+			let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let pallet_account = Nft::account_id();
 			let new_owner = create_account(10);
@@ -3336,7 +3267,7 @@ mod claim_unowned_collection {
 	#[test]
 	fn origin_needs_to_be_root() {
 		TestExt::default().build().execute_with(|| {
-			let metadata = MetadataScheme::Https("google.com".into());
+			let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let pallet_account = Nft::account_id();
 			let new_owner = create_account(10);
@@ -3378,7 +3309,7 @@ mod claim_unowned_collection {
 	#[test]
 	fn collection_needs_to_be_owned_by_pallet() {
 		TestExt::default().build().execute_with(|| {
-			let metadata = MetadataScheme::Https("google.com".into());
+			let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 			let collection_id = Nft::next_collection_uuid().unwrap();
 			let new_owner = create_account(10);
 			let old_owner = create_account(10);
@@ -3409,7 +3340,7 @@ fn create_xls20_collection_works() {
 		let collection_owner = create_account(10);
 		let collection_name = b"test-xls20-collection".to_vec();
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
+		let metadata_scheme = MetadataScheme::try_from(b"https://example.com".as_slice()).unwrap();
 		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
 		let initial_issuance: TokenCount = 0;
 
@@ -3461,7 +3392,7 @@ fn create_xls20_collection_with_initial_issuance_fails() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
 		let collection_name = b"test-xls20-collection".to_vec();
-		let metadata_scheme = MetadataScheme::Https(b"example.com".to_vec());
+		let metadata_scheme = MetadataScheme::try_from(b"https://example.com".as_slice()).unwrap();
 		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
 		let initial_issuance: TokenCount = 1;
 
@@ -3497,7 +3428,7 @@ mod set_max_issuance {
 				0,
 				None,
 				None,
-				MetadataScheme::Https("google.com".into()),
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3537,7 +3468,7 @@ mod set_max_issuance {
 				max_issuance,
 				None,
 				None,
-				MetadataScheme::Https("google.com".into()),
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3576,7 +3507,7 @@ mod set_max_issuance {
 				0,
 				None,
 				None,
-				MetadataScheme::Https("google.com".into()),
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3604,7 +3535,7 @@ mod set_max_issuance {
 				0,
 				None,
 				None,
-				MetadataScheme::Https("google.com".into()),
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3654,7 +3585,7 @@ mod set_max_issuance {
 				0,
 				Some(max_issuance),
 				None,
-				MetadataScheme::Https("google.com".into()),
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3684,7 +3615,7 @@ mod set_max_issuance {
 				0,
 				None,
 				None,
-				MetadataScheme::Https("google.com".into()),
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3729,7 +3660,7 @@ mod set_max_issuance {
 				initial_issuance,
 				None,
 				None,
-				MetadataScheme::Https("google.com".into()),
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
 				None,
 				CrossChainCompatibility::default(),
 			));
@@ -3781,7 +3712,8 @@ mod set_base_uri {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = create_account(10);
 			let collection_id = Nft::next_collection_uuid().unwrap();
-			let metadata_scheme = MetadataScheme::Https("google.com".into());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 
 			// Setup collection with no Max issuance
 			assert_ok!(Nft::create_collection(
@@ -3811,7 +3743,7 @@ mod set_base_uri {
 			// Storage updated
 			assert_eq!(
 				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::Http("zeeshan.com".into())
+				MetadataScheme::try_from(b"http://zeeshan.com".as_slice()).unwrap()
 			);
 
 			// Event thrown
@@ -3828,18 +3760,6 @@ mod set_base_uri {
 			let collection_owner = create_account(10);
 			let collection_id = setup_collection(collection_owner);
 
-			// HTTP
-			assert_ok!(Nft::set_base_uri(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				"http://zeeshan.com".into()
-			));
-			assert_eq!(
-				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::Http("zeeshan.com".into())
-			);
-
-			// HTTPS
 			assert_ok!(Nft::set_base_uri(
 				RawOrigin::Signed(collection_owner).into(),
 				collection_id,
@@ -3847,31 +3767,7 @@ mod set_base_uri {
 			));
 			assert_eq!(
 				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::Https("zeeshan.com".into())
-			);
-
-			// IPFS
-			assert_ok!(Nft::set_base_uri(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				"ipfs://zeeshan.com".into()
-			));
-			assert_eq!(
-				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::Ipfs("zeeshan.com".into())
-			);
-
-			// Ethereum
-			assert_ok!(Nft::set_base_uri(
-				RawOrigin::Signed(collection_owner).into(),
-				collection_id,
-				"ethereum://E04CC55ebEE1cBCE552f250e85c57B70B2E2625b".into()
-			));
-			assert_eq!(
-				CollectionInfo::<Test>::get(collection_id).unwrap().metadata_scheme,
-				MetadataScheme::Ethereum(H160::from_slice(
-					&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()
-				))
+				MetadataScheme::try_from(b"https://zeeshan.com".as_slice()).unwrap()
 			);
 		});
 	}
@@ -3926,34 +3822,7 @@ mod set_base_uri {
 				Nft::set_base_uri(
 					RawOrigin::Signed(collection_owner).into(),
 					collection_id,
-					"tcp://notarealCIDblah".into()
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-
-			assert_noop!(
-				Nft::set_base_uri(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					"notarealCIDblah".into()
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-
-			assert_noop!(
-				Nft::set_base_uri(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					"".into()
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-
-			assert_noop!(
-				Nft::set_base_uri(
-					RawOrigin::Signed(collection_owner).into(),
-					collection_id,
-					"https://".into()
+					vec![0; 2000]
 				),
 				Error::<Test>::InvalidMetadataPath
 			);

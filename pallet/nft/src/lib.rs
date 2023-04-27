@@ -34,8 +34,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber,
-	TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -76,7 +76,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -107,7 +107,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config {
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
 		type DefaultListingDuration: Get<Self::BlockNumber>;
@@ -143,8 +143,12 @@ pub mod pallet {
 	/// Map from collection to its information
 	#[pallet::storage]
 	#[pallet::getter(fn collection_info)]
-	pub type CollectionInfo<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionUuid, CollectionInformation<T>>;
+	pub type CollectionInfo<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		CollectionUuid,
+		CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+	>;
 
 	/// The next available incrementing collection id
 	#[pallet::storage]
@@ -515,8 +519,11 @@ pub mod pallet {
 				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
-			collection_info.metadata_scheme =
-				base_uri.clone().try_into().map_err(|_| Error::<T>::InvalidMetadataPath)?;
+			collection_info.metadata_scheme = base_uri
+				.clone()
+				.as_slice()
+				.try_into()
+				.map_err(|_| Error::<T>::InvalidMetadataPath)?;
 
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::BaseUriSet { collection_id, base_uri });
@@ -1116,6 +1123,14 @@ pub mod pallet {
 					Ok(())
 				},
 			}
+		}
+	}
+}
+
+impl<T: Config> From<TokenOwnershipError> for Error<T> {
+	fn from(val: TokenOwnershipError) -> Error<T> {
+		match val {
+			TokenOwnershipError::TokenLimitExceeded => Error::<T>::TokenLimitExceeded,
 		}
 	}
 }

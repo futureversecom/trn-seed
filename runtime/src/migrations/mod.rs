@@ -10,8 +10,10 @@
 // You may obtain a copy of the License at the root of this project source code
 
 mod fee_control;
+mod nft;
+mod xrpl_bridge;
 
-use codec::{Decode, Encode, FullCodec};
+use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
 		clear_storage_prefix, get_storage_value, have_storage_value, move_prefix,
@@ -29,6 +31,8 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
 		fee_control::Upgrade::pre_upgrade()?;
+		nft::Upgrade::pre_upgrade()?;
+		xrpl_bridge::Upgrade::pre_upgrade()?;
 
 		Ok(())
 	}
@@ -36,6 +40,8 @@ impl OnRuntimeUpgrade for AllMigrations {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
 		weight += fee_control::Upgrade::on_runtime_upgrade();
+		weight += nft::Upgrade::on_runtime_upgrade();
+		weight += xrpl_bridge::Upgrade::on_runtime_upgrade();
 
 		weight
 	}
@@ -43,6 +49,8 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
 		fee_control::Upgrade::post_upgrade()?;
+		nft::Upgrade::post_upgrade()?;
+		xrpl_bridge::Upgrade::post_upgrade()?;
 
 		Ok(())
 	}
@@ -377,6 +385,20 @@ impl Map {
 	{
 		put_storage_value::<T>(module, item, hash, value)
 	}
+
+	#[allow(dead_code)]
+	pub fn iter<Storage, K, V>() -> Vec<(K, V)>
+	where
+		Storage: frame_support::storage::StorageMap<K, V>
+			+ frame_support::storage::IterableStorageMap<K, V>,
+		K: FullEncode + Clone,
+		V: FullCodec,
+	{
+		let keys: Vec<K> = Storage::iter_keys().collect();
+		keys.iter()
+			.filter_map(|key| Storage::try_get(key).and_then(|v| Ok((key.clone(), v))).ok())
+			.collect()
+	}
 }
 
 #[cfg(test)]
@@ -571,6 +593,29 @@ mod value_tests {
 			assert_eq!(Value::unsafe_exists(module, item), true);
 			assert_eq!(Value::unsafe_clear(module, item), true);
 			assert_eq!(Value::unsafe_exists(module, item), false);
+		});
+	}
+}
+
+#[cfg(all(test, feature = "try-runtime"))]
+mod remote_tests {
+	use super::*;
+	use crate::{migrations::AllMigrations, Block};
+	use remote_externalities::{Builder, Mode, OfflineConfig};
+	use std::env::var;
+
+	#[tokio::test]
+	async fn run_migrations() {
+		//std::env::set_var("SNAP", "/full/path/to/snap.top");
+		let Some(state_snapshot) = var("SNAP").map(|s| s.into()).ok() else {
+			return;
+		};
+		let mode = Mode::Offline(OfflineConfig { state_snapshot });
+		let mut ext = Builder::<Block>::default().mode(mode).build().await.unwrap();
+		ext.execute_with(|| {
+			AllMigrations::pre_upgrade().unwrap();
+			AllMigrations::on_runtime_upgrade();
+			AllMigrations::post_upgrade().unwrap();
 		});
 	}
 }

@@ -26,6 +26,8 @@ pallet-grandpa = { git = "https://github.com/futureversecom/substrate", branch =
 pallet-im-online = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-nomination-pools = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-offences = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-proxy = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-recovery = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-scheduler = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-session = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-staking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
@@ -68,6 +70,8 @@ precompile-utils = { path = "../evm-precompiles/utils", default-features = false
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 pallet-evm-precompiles-nft = { path = "../evm-precompiles/nft", default-features = false }
+pallet-evm-precompiles-peg = { path = "../evm-precompiles/peg", default-features = false }
+pallet-evm-precompiles-futurepass = { path = "../evm-precompiles/futurepass", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
@@ -85,6 +89,7 @@ pallet-erc20-peg = { path = "../pallet/erc20-peg", default-features = false }
 pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
 pallet-xls20 = { path = "../pallet/xls20", default-features = false }
+pallet-futurepass = { path = "../pallet/futurepass", default-features = false }
 pallet-marketplace = { path = "../pallet/marketplace", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
@@ -106,9 +111,12 @@ pallet-election-provider-support-benchmarking = { git = "https://github.com/futu
 substrate-wasm-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 [dev-dependencies]
+hex = { version = "0.4.3" }
 ethereum = { version = "0.12.0", features = ["with-codec"] }
 seed-client = { path = "../client" }
 ethabi = { version = "17.1.0" }
+remote-externalities = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+tokio = { version = "1.19.2", features = ["macros"] }
 
 [features]
 default = [ "std" ]
@@ -134,6 +142,8 @@ std = [
 	"pallet-im-online/std",
 	"pallet-nomination-pools/std",
 	"pallet-offences/std",
+	"pallet-proxy/std",
+	"pallet-recovery/std",
 	"pallet-session/std",
 	"pallet-staking/std",
 	"pallet-sudo/std",
@@ -167,6 +177,7 @@ std = [
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
 	"pallet-xls20/std",
+	"pallet-futurepass/std",
 	"pallet-marketplace/std",
 	"seed-primitives/std",
 	"primitive-types/std",
@@ -183,6 +194,8 @@ std = [
 	"pallet-evm-precompiles-erc721/std",
 	"pallet-evm-precompiles-erc20/std",
 	"pallet-evm-precompiles-nft/std",
+	"pallet-evm-precompiles-peg/std",
+	"pallet-evm-precompiles-futurepass/std",
 	"pallet-fee-control/std",
 	"precompile-utils/std",
 	"rustc-hex/std",
@@ -199,6 +212,8 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-babe/try-runtime",
 	"pallet-timestamp/try-runtime",
+	"pallet-proxy/try-runtime",
+	"pallet-recovery/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-balances/try-runtime",
@@ -228,6 +243,7 @@ try-runtime = [
 	"pallet-erc20-peg/try-runtime",
 	"pallet-nft-peg/try-runtime",
 	"pallet-xls20/try-runtime",
+	"pallet-futurepass/try-runtime",
 	"pallet-marketplace/try-runtime",
 ]
 
@@ -242,6 +258,8 @@ runtime-benchmarks = [
 	"pallet-babe/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
+	"pallet-recovery/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
@@ -264,5 +282,6 @@ runtime-benchmarks = [
 	"pallet-evm-chain-id/runtime-benchmarks",
 	"pallet-token-approvals/runtime-benchmarks",
 	"pallet-xls20/runtime-benchmarks",
+	"pallet-futurepass/runtime-benchmarks",
 	"pallet-marketplace/runtime-benchmarks",
 ]
