@@ -1127,6 +1127,7 @@ construct_runtime! {
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent}= 2,
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
 		Utility: pallet_utility::{Pallet, Call, Event} = 4,
+		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
@@ -1135,7 +1136,6 @@ construct_runtime! {
 		Authorship: pallet_authorship::{Pallet, Call, Storage} = 8,
 		Staking: pallet_staking::{Pallet, Call, Storage, Config<T>, Event<T>} = 9,
 		Offences: pallet_offences::{Pallet, Storage, Event} = 10,
-		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
 
 		// Validators
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 11,
