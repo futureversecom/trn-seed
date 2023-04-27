@@ -10,7 +10,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "256"]
 //! # Marketplace Module
 //!
 //! Provides marketplace functionality for NFT and SFT pallets
