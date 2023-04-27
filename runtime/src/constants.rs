@@ -46,15 +46,13 @@ pub mod currency {
 	pub const XRP_DECIMALS: u8 = 6;
 	/// XRP asset Id within the root network
 	pub const XRP_ASSET_ID: AssetId = 2;
-	/// XRP lowest denomination
-	pub const DROP: Balance = 1;
 	/// The minimal XRP asset balance before account storage is reaped
-	pub const XRP_MINIMUM_BALANCE: Balance = DROP;
+	pub const XRP_MINIMUM_BALANCE: Balance = 1;
 	pub const ONE_XRP: Balance = (10 as Balance).pow(XRP_DECIMALS as u32); // 1_000_000 drops
 
 	pub const fn deposit(items: u32, bytes: u32) -> Balance {
 		// TODO: figure out a better way to calculate this
-		items as Balance * 100 * DROP + (bytes as Balance) * 6 * DROP
+		items as Balance * 100 * XRP_MINIMUM_BALANCE + (bytes as Balance) * 6 * XRP_MINIMUM_BALANCE
 	}
 }
 
