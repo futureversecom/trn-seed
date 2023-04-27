@@ -117,8 +117,6 @@ where
 /// seed implementation of the evm runner which handles the case where users are attempting
 /// to set their payment asset. In this case, we will exchange their desired asset into gas
 /// token (XRP) to complete the transaction
-// pub struct FeePreferencesRunner<T, U>(PhantomData<(T, U)>);
-
 pub struct FeePreferencesRunner<T, U, P: AccountProxy<AccountId>> {
 	_proxy: P,
 	_phantom: PhantomData<(T, U)>,

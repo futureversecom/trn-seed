@@ -67,11 +67,7 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_fee_control_config!(Test);
-// impl_pallet_transaction_payment_config!(Test);
-// impl_pallet_fee_proxy_config!(Test);
 impl_pallet_dex_config!(Test);
-// impl_pallet_timestamp_config!(Test); // required for pallet-evm
-// impl_pallet_evm_config!(Test);
 
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
@@ -228,7 +224,6 @@ pub fn create_random() -> AccountId {
 }
 
 #[derive(Default)]
-// #[derive(Clone, Copy, Default)]
 pub struct TestExt {
 	balances: Vec<(AccountId, Balance)>,
 	xrp_balances: Vec<(AssetId, AccountId, Balance)>,

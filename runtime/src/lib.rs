@@ -36,8 +36,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
 	create_runtime_str, generic,
 	traits::{
-		BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup,
-		PostDispatchInfoOf, Verify,
+		Block as BlockT, DispatchInfoOf, Dispatchable, IdentityLookup, PostDispatchInfoOf, Verify,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
@@ -123,6 +122,7 @@ mod weights;
 use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
+use seed_primitives::BlakeTwo256Hash;
 
 #[cfg(test)]
 mod tests;
@@ -261,7 +261,7 @@ impl frame_system::Config for Runtime {
 	/// The type for hashing blocks and tries.
 	type Hash = Hash;
 	/// The hashing algorithm used.
-	type Hashing = BlakeTwo256;
+	type Hashing = BlakeTwo256Hash;
 	/// The header type.
 	type Header = Header;
 	/// The ubiquitous event type.
@@ -1098,7 +1098,7 @@ impl pallet_proxy::Config for Runtime {
 	type ProxyDepositFactor = ProxyDepositFactor;
 	type MaxProxies = ConstU32<32>;
 	type MaxPending = ConstU32<32>;
-	type CallHasher = BlakeTwo256;
+	type CallHasher = BlakeTwo256Hash;
 	type AnnouncementDepositBase = AnnouncementDepositBase;
 	type AnnouncementDepositFactor = AnnouncementDepositFactor;
 	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
@@ -1177,7 +1177,7 @@ construct_runtime! {
 }
 
 /// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256Hash>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// A Block signed with a Justification
