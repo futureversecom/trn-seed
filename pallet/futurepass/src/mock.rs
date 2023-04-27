@@ -15,17 +15,13 @@
 use crate::{self as pallet_futurepass, *};
 use frame_support::{
 	parameter_types,
-	traits::{Currency, ExistenceRequirement, FindAuthor, InstanceFilter},
-	weights::WeightToFee,
+	traits::{Currency, ExistenceRequirement, InstanceFilter},
 	PalletId,
 };
-use frame_system::{limits, EnsureRoot};
-use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
-use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, Address, ErcIdConversion};
+use frame_system::EnsureRoot;
 use seed_pallet_common::*;
 use seed_primitives::types::{AccountId, AssetId, Balance};
 use seed_runtime::{
-	constants::currency::deposit,
 	impls::{ProxyPalletProvider, ProxyType},
 	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
 };
@@ -33,7 +29,6 @@ use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
