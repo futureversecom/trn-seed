@@ -28,10 +28,13 @@ use pallet_nft::{weights::WeightInfo as NftWeightInfo, ListingId, MarketplaceId,
 use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{DispatchResult, Permill};
 
+mod impls;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
 mod tests;
+mod types;
+use types::*;
 
 pub use pallet::*;
 
@@ -62,6 +65,208 @@ pub mod pallet {
 		type WeightInfo: NftWeightInfo;
 	}
 
+	/// The next available marketplace id
+	#[pallet::storage]
+	#[pallet::getter(fn next_marketplace_id)]
+	pub type NextMarketplaceId<T> = StorageValue<_, MarketplaceId, ValueQuery>;
+
+	/// Map from marketplace account_id to royalties schedule
+	#[pallet::storage]
+	#[pallet::getter(fn registered_marketplaces)]
+	pub type RegisteredMarketplaces<T: Config> =
+		StorageMap<_, Twox64Concat, MarketplaceId, Marketplace<T::AccountId>>;
+
+	/// NFT sale/auction listings keyed by listing id
+	#[pallet::storage]
+	pub type Listings<T: Config> = StorageMap<_, Twox64Concat, ListingId, Listing<T>>;
+
+	/// The next available listing Id
+	#[pallet::storage]
+	#[pallet::getter(fn next_listing_id)]
+	pub type NextListingId<T> = StorageValue<_, ListingId, ValueQuery>;
+
+	/// Map from collection to any open listings
+	#[pallet::storage]
+	#[pallet::getter(fn open_collection_listings)]
+	pub type OpenCollectionListings<T> =
+		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, ListingId, bool>;
+
+	/// Winning bids on open listings.
+	#[pallet::storage]
+	#[pallet::getter(fn listing_winning_bid)]
+	pub type ListingWinningBid<T: Config> =
+		StorageMap<_, Twox64Concat, ListingId, (T::AccountId, Balance)>;
+
+	/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is
+	/// scheduled to close.
+	#[pallet::storage]
+	#[pallet::getter(fn listing_end_schedule)]
+	pub type ListingEndSchedule<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, T::BlockNumber, Twox64Concat, ListingId, bool>;
+
+	/// Map from offer_id to the information related to the offer
+	#[pallet::storage]
+	#[pallet::getter(fn offers)]
+	pub type Offers<T: Config> = StorageMap<_, Twox64Concat, OfferId, OfferType<T::AccountId>>;
+
+	/// Maps from token_id to a vector of offer_ids on that token
+	#[pallet::storage]
+	#[pallet::getter(fn token_offers)]
+	pub type TokenOffers<T: Config> =
+		StorageMap<_, Twox64Concat, TokenId, BoundedVec<OfferId, T::MaxOffers>>;
+
+	/// The next available offer_id
+	#[pallet::storage]
+	#[pallet::getter(fn next_offer_id)]
+	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A fixed price sale has been listed
+		FixedPriceSaleList {
+			collection_id: CollectionUuid,
+			serial_numbers: Vec<SerialNumber>,
+			listing_id: ListingId,
+			marketplace_id: Option<MarketplaceId>,
+			price: Balance,
+			payment_asset: AssetId,
+			seller: T::AccountId,
+		},
+		/// A fixed price sale has completed
+		FixedPriceSaleComplete {
+			collection_id: CollectionUuid,
+			serial_numbers: Vec<SerialNumber>,
+			listing_id: ListingId,
+			price: Balance,
+			payment_asset: AssetId,
+			buyer: T::AccountId,
+			seller: T::AccountId,
+		},
+		/// A fixed price sale has closed without selling
+		FixedPriceSaleClose {
+			collection_id: CollectionUuid,
+			serial_numbers: Vec<SerialNumber>,
+			listing_id: ListingId,
+			reason: FixedPriceClosureReason,
+		},
+		/// A fixed price sale has had its price updated
+		FixedPriceSalePriceUpdate {
+			collection_id: CollectionUuid,
+			serial_numbers: Vec<SerialNumber>,
+			listing_id: ListingId,
+			new_price: Balance,
+		},
+		/// An auction has opened
+		AuctionOpen {
+			collection_id: CollectionUuid,
+			serial_numbers: Vec<SerialNumber>,
+			payment_asset: AssetId,
+			reserve_price: Balance,
+			listing_id: ListingId,
+			marketplace_id: Option<MarketplaceId>,
+			seller: T::AccountId,
+		},
+		/// An auction has sold
+		AuctionSold {
+			collection_id: CollectionUuid,
+			listing_id: ListingId,
+			payment_asset: AssetId,
+			hammer_price: Balance,
+			winner: T::AccountId,
+		},
+		/// An auction has closed without selling
+		AuctionClose {
+			collection_id: CollectionUuid,
+			listing_id: ListingId,
+			reason: AuctionClosureReason,
+		},
+		/// A new highest bid was placed
+		Bid {
+			collection_id: CollectionUuid,
+			serial_numbers: Vec<SerialNumber>,
+			listing_id: ListingId,
+			amount: Balance,
+			bidder: T::AccountId,
+		},
+		/// An account has been registered as a marketplace
+		MarketplaceRegister {
+			account: T::AccountId,
+			entitlement: Permill,
+			marketplace_id: MarketplaceId,
+		},
+		/// An offer has been made on an NFT
+		Offer {
+			offer_id: OfferId,
+			amount: Balance,
+			asset_id: AssetId,
+			marketplace_id: Option<MarketplaceId>,
+			buyer: T::AccountId,
+		},
+		/// An offer has been cancelled
+		OfferCancel { offer_id: OfferId, token_id: TokenId },
+		/// An offer has been accepted
+		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// No more Ids are available, they've been exhausted
+		NoAvailableIds,
+		/// Origin does not own the NFT
+		NotTokenOwner,
+		/// The token does not exist
+		NoToken,
+		/// The token is not listed for fixed price sale
+		NotForFixedPriceSale,
+		/// The token is not listed for auction sale
+		NotForAuction,
+		/// Origin is not the collection owner and is not permitted to perform the operation
+		NotCollectionOwner,
+		/// The token is not listed for sale
+		TokenNotListed,
+		/// The maximum number of offers on this token has been reached
+		MaxOffersReached,
+		/// Cannot operate on a listed NFT
+		TokenLocked,
+		/// Total royalties would exceed 100% of sale or an empty vec is supplied
+		RoyaltiesInvalid,
+		/// Auction bid was lower than reserve or current highest bid
+		BidTooLow,
+		/// Selling tokens from different collection is not allowed
+		MixedBundleSale,
+		/// The account_id hasn't been registered as a marketplace
+		MarketplaceNotRegistered,
+		/// The collection does not exist
+		NoCollectionFound,
+		/// The metadata path is invalid (non-utf8 or empty)
+		InvalidMetadataPath,
+		/// No offer exists for the given OfferId
+		InvalidOffer,
+		/// The caller is not the specified buyer
+		NotBuyer,
+		/// The caller is not the seller of the NFT
+		NotSeller,
+		/// The caller owns the token and can't make an offer
+		IsTokenOwner,
+		/// Offer amount needs to be greater than 0
+		ZeroOffer,
+		/// Cannot make an offer on a token up for auction
+		TokenOnAuction,
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Check and close all expired listings
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			// TODO: this is unbounded and could become costly
+			// https://github.com/cennznet/cennznet/issues/444
+			let removed_count = Self::close_listings_at(now);
+			// 'buy' weight is comparable to successful closure of an auction
+			T::WeightInfo::buy() * removed_count as Weight
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Flag an account as a marketplace
@@ -75,9 +280,8 @@ pub mod pallet {
 			marketplace_account: Option<T::AccountId>,
 			entitlement: Permill,
 		) -> DispatchResult {
-			let call =
-				pallet_nft::Call::<T>::register_marketplace { marketplace_account, entitlement };
-			Self::proxy_call(origin, call)
+			let who = ensure_signed(origin)?;
+			Self::do_register_marketplace(who, marketplace_account, entitlement)
 		}
 
 		/// Sell a bundle of tokens at a fixed price
@@ -101,7 +305,9 @@ pub mod pallet {
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::sell {
+			let who = ensure_signed(origin)?;
+			Self::do_sell_nft(
+				who,
 				collection_id,
 				serial_numbers,
 				buyer,
@@ -109,8 +315,7 @@ pub mod pallet {
 				fixed_price,
 				duration,
 				marketplace_id,
-			};
-			Self::proxy_call(origin, call)
+			)
 		}
 
 		/// Update fixed price for a single token sale
@@ -124,16 +329,16 @@ pub mod pallet {
 			listing_id: ListingId,
 			new_price: Balance,
 		) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::update_fixed_price { listing_id, new_price };
-			Self::proxy_call(origin, call)
+			let who = ensure_signed(origin)?;
+			Self::do_update_fixed_price(who, listing_id, new_price)
 		}
 
 		/// Buy a token listing for its specified price
 		#[pallet::weight(<T as Config>::WeightInfo::buy())]
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::buy { listing_id };
-			Self::proxy_call(origin, call)
+			let who = ensure_signed(origin)?;
+			Self::do_buy(who, listing_id)
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
@@ -155,15 +360,16 @@ pub mod pallet {
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::auction {
+			let who = ensure_signed(origin)?;
+			Self::do_auction_nft(
+				who,
 				collection_id,
 				serial_numbers,
 				payment_asset,
 				reserve_price,
 				duration,
 				marketplace_id,
-			};
-			Self::proxy_call(origin, call)
+			)
 		}
 
 		/// Place a bid on an open auction
@@ -171,8 +377,8 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::bid())]
 		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::bid { listing_id, amount };
-			Self::proxy_call(origin, call)
+			let who = ensure_signed(origin)?;
+			Self::do_bid(who, listing_id, amount)
 		}
 
 		/// Close a sale or auction returning tokens
@@ -180,8 +386,8 @@ pub mod pallet {
 		/// Caller must be the listed seller
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::cancel_sale { listing_id };
-			Self::proxy_call(origin, call)
+			let who = ensure_signed(origin)?;
+			Self::do_cancel_sale(who, listing_id)
 		}
 
 		/// Create an offer on a token
@@ -198,21 +404,16 @@ pub mod pallet {
 			asset_id: AssetId,
 			marketplace_id: Option<MarketplaceId>,
 		) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::make_simple_offer {
-				token_id,
-				amount,
-				asset_id,
-				marketplace_id,
-			};
-			Self::proxy_call(origin, call)
+			let who = ensure_signed(origin)?;
+			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)
 		}
 
 		/// Cancels an offer on a token
 		/// Caller must be the offer buyer
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::cancel_offer { offer_id };
-			Self::proxy_call(origin, call)
+			let who = ensure_signed(origin)?;
+			Self::do_cancel_offer(who, offer_id)
 		}
 
 		/// Accepts an offer on a token
@@ -220,17 +421,8 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::accept_offer())]
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::accept_offer { offer_id };
-			Self::proxy_call(origin, call)
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		/// Proxy a call to the NFT pallet
-		pub fn proxy_call(origin: OriginFor<T>, call: pallet_nft::Call<T>) -> DispatchResult {
-			let call = <T as Config>::Call::from(call);
-			call.dispatch(origin).map_err(|err| err.error)?;
-			Ok(())
+			let who = ensure_signed(origin)?;
+			Self::do_accept_offer(who, offer_id)
 		}
 	}
 }
