@@ -33,7 +33,6 @@ pub fn fund<T: Config>(account: &T::AccountId) {
 	let xrp_asset_id: u32 = 2;
 
 	assert_ok!(T::MultiCurrency::mint_into(root_asset_id.into(), &account, 1_000_000u32.into()));
-	// assert_ok!(T::MultiCurrency::mint_into(xrp_asset_id.into(), &account, 1_000_000u32.into()));
 }
 
 benchmarks! {

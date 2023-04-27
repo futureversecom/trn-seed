@@ -197,13 +197,11 @@ where
 			.iter()
 			.find(|pd| pd.delegate == delegate)
 		{
-			// let proxy_type =  proxy_type as u8; // Note - check why this won't work
 			proxy_type = proxy_def
 				.proxy_type
 				.clone()
 				.try_into()
-				.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?; // TODO - check why e can not
-			                                                          // be passed
+				.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?;
 		}
 
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
@@ -252,7 +250,7 @@ where
 		let delegate: H160 = delegate.into();
 		let proxy_type_enum: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type
 			.try_into()
-			.map_err(|_e| RevertReason::custom("Futurepass: ProxyType conversion failure"))?; // TODO - check why e can not be passed
+			.map_err(|_e| RevertReason::custom("Futurepass: ProxyType conversion failure"))?;
 
 		let caller = handle.context().caller;
 		RuntimeHelper::<Runtime>::try_dispatch(
