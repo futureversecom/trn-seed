@@ -24,7 +24,7 @@ use sp_runtime::{BoundedVec, Permill};
 fn setup_collection(owner: AccountId) -> CollectionUuid {
 	let collection_id = Nft::next_collection_uuid().unwrap();
 	let collection_name = b"test-collection".to_vec();
-	let metadata_scheme = MetadataScheme::Ipfs(b"<CID>".to_vec());
+	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
 		collection_name,
