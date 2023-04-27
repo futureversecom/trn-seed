@@ -21,7 +21,6 @@
 
 use frame_support::{
 	dispatch::Dispatchable,
-	transactional,
 	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use pallet_nft::{weights::WeightInfo as NftWeightInfo, ListingId, MarketplaceId, OfferId};
@@ -77,7 +76,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let call =
 				pallet_nft::Call::<T>::register_marketplace { marketplace_account, entitlement };
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Sell a bundle of tokens at a fixed price
@@ -90,7 +91,6 @@ pub mod pallet {
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
 		#[pallet::weight(<T as Config>::WeightInfo::sell())]
-		#[transactional]
 		pub fn sell_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -110,7 +110,9 @@ pub mod pallet {
 				duration,
 				marketplace_id,
 			};
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Update fixed price for a single token sale
@@ -125,15 +127,18 @@ pub mod pallet {
 			new_price: Balance,
 		) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::update_fixed_price { listing_id, new_price };
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Buy a token listing for its specified price
 		#[pallet::weight(<T as Config>::WeightInfo::buy())]
-		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::buy { listing_id };
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
@@ -145,7 +150,6 @@ pub mod pallet {
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
 		#[pallet::weight(<T as Config>::WeightInfo::auction())]
-		#[transactional]
 		pub fn auction_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -163,16 +167,19 @@ pub mod pallet {
 				duration,
 				marketplace_id,
 			};
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
 		#[pallet::weight(<T as Config>::WeightInfo::bid())]
-		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::bid { listing_id, amount };
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Close a sale or auction returning tokens
@@ -181,7 +188,9 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::cancel_sale { listing_id };
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Create an offer on a token
@@ -190,7 +199,6 @@ pub mod pallet {
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
 		#[pallet::weight(<T as Config>::WeightInfo::make_simple_offer())]
-		#[transactional]
 		pub fn make_simple_offer(
 			origin: OriginFor<T>,
 			token_id: TokenId,
@@ -204,7 +212,9 @@ pub mod pallet {
 				asset_id,
 				marketplace_id,
 			};
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Cancels an offer on a token
@@ -212,22 +222,16 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::cancel_offer { offer_id };
-			Self::proxy_call(origin, call)
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
 		}
 
 		/// Accepts an offer on a token
 		/// Caller must be token owner
 		#[pallet::weight(<T as Config>::WeightInfo::accept_offer())]
-		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::accept_offer { offer_id };
-			Self::proxy_call(origin, call)
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		/// Proxy a call to the NFT pallet
-		pub fn proxy_call(origin: OriginFor<T>, call: pallet_nft::Call<T>) -> DispatchResult {
 			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
