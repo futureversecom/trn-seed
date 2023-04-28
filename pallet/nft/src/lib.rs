@@ -10,7 +10,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "256"]
 //! # NFT Module
 //!
 //! Provides the basic creation and management of dynamic NFTs (created at runtime).
@@ -49,7 +48,7 @@ mod benchmarking;
 pub mod mock;
 #[cfg(test)]
 mod tests;
-mod weights;
+pub mod weights;
 pub use weights::WeightInfo;
 
 mod impls;

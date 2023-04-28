@@ -90,6 +90,7 @@ pallet-nft-peg = { path = "../pallet/nft-peg", default-features = false }
 pallet-fee-control = { path = "../pallet/fee-control", default-features = false }
 pallet-xls20 = { path = "../pallet/xls20", default-features = false }
 pallet-futurepass = { path = "../pallet/futurepass", default-features = false }
+pallet-marketplace = { path = "../pallet/marketplace", default-features = false }
 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
@@ -177,6 +178,7 @@ std = [
 	"pallet-token-approvals/std",
 	"pallet-xls20/std",
 	"pallet-futurepass/std",
+	"pallet-marketplace/std",
 	"seed-primitives/std",
 	"primitive-types/std",
 	"fp-rpc/std",
@@ -242,6 +244,7 @@ try-runtime = [
 	"pallet-nft-peg/try-runtime",
 	"pallet-xls20/try-runtime",
 	"pallet-futurepass/try-runtime",
+	"pallet-marketplace/try-runtime",
 ]
 
 runtime-benchmarks = [
@@ -280,4 +283,5 @@ runtime-benchmarks = [
 	"pallet-token-approvals/runtime-benchmarks",
 	"pallet-xls20/runtime-benchmarks",
 	"pallet-futurepass/runtime-benchmarks",
+	"pallet-marketplace/runtime-benchmarks",
 ]

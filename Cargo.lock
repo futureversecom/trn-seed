@@ -5332,6 +5332,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-marketplace"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-evm",
+ "pallet-fee-control",
+ "pallet-nft",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "serde",
+ "serde_json",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-nft"
 version = "2.2.0"
 dependencies = [
@@ -8072,6 +8099,7 @@ dependencies = [
  "pallet-futurepass",
  "pallet-grandpa",
  "pallet-im-online",
+ "pallet-marketplace",
  "pallet-nft",
  "pallet-nft-peg",
  "pallet-nft-rpc-runtime-api",
