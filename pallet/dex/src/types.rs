@@ -41,14 +41,24 @@ impl TradingPair {
 	where
 		T::AccountId: From<H160>,
 	{
-		let hash_data = (self.0, self.1);
-		let hash = sp_io::hashing::twox_128(&hash_data.encode());
-		// Extract the first 20 bytes of the hash
-		let mut account_id_bytes = [0u8; 20];
-		account_id_bytes[0..16].copy_from_slice(&hash[..20.min(hash.len())]);
-		// account_id_bytes.copy_from_slice(&hash[0..16]);
-		account_id_bytes[16..20].copy_from_slice(&[0u8; 4]); // set last 4 bytes to zero
-		let h160_address: H160 = H160::from_slice(&account_id_bytes);
+		let asset_a = &self.0.to_string();
+		let asset_b = &self.1.to_string();
+
+		let mut asset_a_padded = asset_a.clone();
+		while asset_a_padded.len() < 20 {
+			asset_a_padded = format!("{}{}", "0", asset_a_padded);
+		}
+		// Make asset 20 characters long
+		let mut asset_b_padded = asset_b.clone();
+		while asset_b_padded.len() < 20 {
+			asset_b_padded = format!("{}{}", "0", asset_b_padded);
+		}
+
+		// Concatenate the padded strings
+		let address = asset_a_padded + &asset_b_padded;
+		let bytes = hex::decode(address).unwrap();
+		let h160_address: H160 = H160::from_slice(&bytes);
+
 		T::AccountId::from(h160_address)
 	}
 }

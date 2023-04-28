@@ -470,12 +470,12 @@ fn get_trading_pair_address() {
 		let trading_pair = TradingPair::new(usdc, weth);
 		let pool_address: AccountId = trading_pair.pool_address::<Test>();
 		let pool_address = encode(H160(pool_address.into()).as_bytes());
-		assert_eq!(pool_address, "2c89ca81535edc3445f63fdd9e44c93800000000");
+		assert_eq!(pool_address, "0000000000000000112400000000000000002148");
 
 		let trading_pair_reverse = TradingPair::new(weth, usdc);
 		let pool_address_reverse: AccountId = trading_pair_reverse.pool_address::<Test>();
 		let pool_address_reverse = encode(H160(pool_address_reverse.into()).as_bytes());
-		assert_eq!(pool_address_reverse, "2c89ca81535edc3445f63fdd9e44c93800000000");
+		assert_eq!(pool_address_reverse, "0000000000000000112400000000000000002148");
 
 		assert_eq!(pool_address, pool_address_reverse);
 	});
