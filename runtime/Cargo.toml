@@ -72,6 +72,7 @@ pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-feat
 pallet-evm-precompiles-nft = { path = "../evm-precompiles/nft", default-features = false }
 pallet-evm-precompiles-peg = { path = "../evm-precompiles/peg", default-features = false }
 pallet-evm-precompiles-futurepass = { path = "../evm-precompiles/futurepass", default-features = false }
+pallet-evm-precompiles-futurepass-registrar = { path = "../evm-precompiles/futurepass_registrar", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
@@ -196,6 +197,7 @@ std = [
 	"pallet-evm-precompiles-nft/std",
 	"pallet-evm-precompiles-peg/std",
 	"pallet-evm-precompiles-futurepass/std",
+	"pallet-evm-precompiles-futurepass-registrar/std",
 	"pallet-fee-control/std",
 	"precompile-utils/std",
 	"rustc-hex/std",

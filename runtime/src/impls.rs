@@ -40,7 +40,7 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 
 use precompile_utils::{
-	constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE},
+	constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE},
 	Address, ErcIdConversion,
 };
 use seed_pallet_common::{
@@ -616,7 +616,7 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
 		_recipient_has_code: bool,
 	) -> bool {
-		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
+		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_REGISTRAR_PRECOMPILE) ||  call.to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX){
 			// Whitelist for precompile side
 			// TODO - call.call_data is not clonable coz of ConstU32. i.e we use
 			// BoundedBytes<ConstU32<65536>> and when call.call_data.into_vec(), it moves out the
