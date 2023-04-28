@@ -5343,6 +5343,7 @@ dependencies = [
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-evm",
+ "pallet-fee-control",
  "pallet-nft",
  "pallet-timestamp",
  "parity-scale-codec",
