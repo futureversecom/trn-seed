@@ -1190,16 +1190,18 @@ fn multiple_swaps_with_multiple_lp() {
 fn query_with_trading_pair() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
+		let alice: AccountId = make_account_id(1);
+		let bob: AccountId = make_account_id(2);
 
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
-		let weth = AssetsExt::create(&BOB, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
 
 		// mint tokens to user
-		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(5)));
-		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(1)));
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			to_eth(5),
