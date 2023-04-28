@@ -760,7 +760,7 @@ where
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		let path_length = path.len();
 		ensure!(
-			path_length <= T::TradingPathLimit::get().saturated_into(),
+			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
 			Error::<T>::InvalidTradingPathLength
 		);
 		let mut amounts: Vec<Balance> = vec![Zero::zero(); path_length];
@@ -801,7 +801,7 @@ where
 	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		let path_length = path.len();
 		ensure!(
-			path_length <= T::TradingPathLimit::get().saturated_into(),
+			path_length >= 2 && path_length <= T::TradingPathLimit::get().saturated_into(),
 			Error::<T>::InvalidTradingPathLength
 		);
 		let mut amounts: Vec<Balance> = vec![Zero::zero(); path_length];
