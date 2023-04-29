@@ -17,6 +17,7 @@ use mock::{Dex, Event as MockEvent, Origin, System, Test, TestExt};
 use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::{traits::BadOrigin, ArithmeticError, DispatchError};
+use std::str::FromStr;
 
 fn make_account_id(seed: u64) -> AccountId {
 	AccountId::from(H160::from_low_u64_be(seed))
@@ -131,6 +132,37 @@ fn reenable_trading_pair() {
 			Dex::reenable_trading_pair(Origin::root(), weth, usdc),
 			Error::<Test>::MustBeNotEnabled
 		);
+	});
+}
+
+#[test]
+fn trading_pair_pool_address() {
+	TestExt::default().build().execute_with(|| {
+		let alice: AccountId = make_account_id(1);
+
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
+		assert_eq!(usdc, 1124);
+		assert_eq!(weth, 2148);
+
+		let pool_address: H160 = TradingPair::new(usdc, weth).pool_address::<Test>().into();
+
+		let expected_pool_address =
+			H160::from_str("dd000000000000001124dd000000000000002148").unwrap();
+		assert_eq!(pool_address, expected_pool_address);
+
+		let pool_address_reverse: H160 = TradingPair::new(weth, usdc).pool_address::<Test>().into();
+		assert_eq!(pool_address_reverse, expected_pool_address);
+
+		let hex_address = pool_address.to_fixed_bytes();
+		let usdc_hex = &hex_address[6..10]; // Last 4 bytes of the first half (u32 is 4 bytes)
+		let weth_hex = &hex_address[16..20]; // Last 4 bytes of the second half
+
+		let usdc_decimal = u32::from_str_radix(&hex::encode(usdc_hex), 10).unwrap();
+		let weth_decimal = u32::from_str_radix(&hex::encode(weth_hex), 10).unwrap();
+
+		assert_eq!(usdc_decimal, usdc);
+		assert_eq!(weth_decimal, weth);
 	});
 }
 

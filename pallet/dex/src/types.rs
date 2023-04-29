@@ -8,8 +8,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
+#![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{alloc::string::ToString, Decode, Encode, MaxEncodedLen};
 use hex;
 use scale_info::TypeInfo;
 use seed_primitives::AssetId;
@@ -41,24 +43,14 @@ impl TradingPair {
 	where
 		T::AccountId: From<H160>,
 	{
+		let pool_address_prefix = "dd";
 		let asset_a = &self.0.to_string();
 		let asset_b = &self.1.to_string();
-
-		let mut asset_a_padded = asset_a.clone();
-		while asset_a_padded.len() < 20 {
-			asset_a_padded = format!("{}{}", "0", asset_a_padded);
-		}
-		// Make asset 20 characters long
-		let mut asset_b_padded = asset_b.clone();
-		while asset_b_padded.len() < 20 {
-			asset_b_padded = format!("{}{}", "0", asset_b_padded);
-		}
-
-		// Concatenate the padded strings
+		let asset_a_padded = alloc::format!("{}{:0>18}", pool_address_prefix, asset_a);
+		let asset_b_padded = alloc::format!("{}{:0>18}", pool_address_prefix, asset_b);
 		let address = asset_a_padded + &asset_b_padded;
 		let bytes = hex::decode(address).unwrap();
 		let h160_address: H160 = H160::from_slice(&bytes);
-
 		T::AccountId::from(h160_address)
 	}
 }
