@@ -83,6 +83,14 @@ pub trait ProxyProvider<T: Config> {
 	) -> DispatchResult;
 }
 
+pub trait FuturepassMigrator<T: frame_system::Config> {
+	fn transfer_nfts(
+		collection_id: u32,
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult;
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -126,6 +134,12 @@ pub mod pallet {
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 
+		/// Default futurepass migration data
+		type MigratorAdmin: Get<Self::AccountId>;
+
+		/// EVM Futurepass assets migration provider
+		type FuturepassMigrator: FuturepassMigrator<Self>;
+
 		#[cfg(feature = "runtime-benchmarks")]
 		/// Handles a multi-currency fungible asset system for benchmarking.
 		type MultiCurrency: frame_support::traits::fungibles::Inspect<
@@ -137,6 +151,11 @@ pub mod pallet {
 	#[pallet::type_value]
 	pub fn DefaultValue() -> u128 {
 		1
+	}
+
+	#[pallet::type_value]
+	pub fn DefaultMigratorAdmin<T: Config>() -> T::AccountId {
+		T::MigratorAdmin::get()
 	}
 
 	/// The next available incrementing futurepass id
@@ -152,14 +171,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type DefaultProxy<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
 
+	/// Migration data for user (root) and collections they can migrate
+	#[pallet::storage]
+	pub type MigrationAdmin<T: Config> =
+		StorageValue<_, T::AccountId, ValueQuery, DefaultMigratorAdmin<T>>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Futurepass creation
-		FuturepassCreated {
-			futurepass: T::AccountId,
-			delegate: T::AccountId,
-		},
+		FuturepassCreated { futurepass: T::AccountId, delegate: T::AccountId },
 		/// Delegate registration to Futurepass account
 		DelegateRegistered {
 			futurepass: T::AccountId,
@@ -167,24 +188,27 @@ pub mod pallet {
 			proxy_type: T::ProxyType,
 		},
 		/// Delegate unregistration from Futurepass account
-		DelegateUnregistered {
-			futurepass: T::AccountId,
-			delegate: T::AccountId,
-		},
+		DelegateUnregistered { futurepass: T::AccountId, delegate: T::AccountId },
 		/// Futurepass transfer
 		FuturepassTransferred {
 			old_owner: T::AccountId,
 			new_owner: T::AccountId,
 			futurepass: T::AccountId,
 		},
-		DefaultFuturepassSet {
-			delegate: T::AccountId,
-			futurepass: Option<T::AccountId>,
-		},
+		/// Futurepass set as default proxy
+		DefaultFuturepassSet { delegate: T::AccountId, futurepass: Option<T::AccountId> },
 		/// A proxy call was executed with the given call
-		ProxyExecuted {
-			delegate: T::AccountId,
-			result: DispatchResult,
+		ProxyExecuted { delegate: T::AccountId, result: DispatchResult },
+		/// Migration of Futurepass assets
+		FuturepassAssetsMigrated {
+			evm_futurepass: T::AccountId,
+			futurepass: T::AccountId,
+			collection_id: u32,
+		},
+		/// Updating Futurepass migrator account
+		FuturepassMigratorSet {
+			old_migrator: T::AccountId,
+			new_migrator: T::AccountId,
 		},
 	}
 
@@ -411,6 +435,55 @@ pub mod pallet {
 				result: result.map(|_| ()).map_err(|e| e),
 			});
 			result
+		}
+
+		// https://docs.substrate.io/build/tx-weights-fees/
+		#[pallet::weight(T::WeightInfo::transfer_futurepass())] // TODO: can make this a free tx sudo call?
+		#[transactional]
+		pub fn migrate_evm_futurepass(
+			origin: OriginFor<T>,
+			owner: T::AccountId,
+			evm_futurepass: T::AccountId,
+			collection_ids: Vec<u32>,
+		) -> DispatchResult {
+			let admin: seed_primitives::AccountId20 = ensure_signed(origin)?;
+			ensure!(admin == MigrationAdmin::<T>::get(), Error::<T>::PermissionDenied);
+
+			// create futurepass if non-existent for owner
+			let futurepass = if Holders::<T>::contains_key(&owner) {
+				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
+			} else {
+				Self::do_create_futurepass(admin, owner)?;
+				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
+			};
+
+			// transfer nfts
+			for collection_id in collection_ids.into_iter() {
+				T::FuturepassMigrator::transfer_nfts(collection_id, &evm_futurepass, &futurepass)?;
+				Self::deposit_event(Event::FuturepassAssetsMigrated {
+					evm_futurepass,
+					futurepass,
+					collection_id,
+				});
+			}
+			Ok(())
+		}
+
+		#[pallet::weight(T::WeightInfo::transfer_futurepass())] // TODO: can make this a free tx sudo call?
+		#[transactional]
+		pub fn set_futurepass_migrator(
+			origin: OriginFor<T>,
+			new_migrator: T::AccountId,
+		) -> DispatchResult {
+			let migrator: seed_primitives::AccountId20 = ensure_signed(origin)?;
+			ensure!(migrator == MigrationAdmin::<T>::get(), Error::<T>::PermissionDenied);
+
+			MigrationAdmin::<T>::set(new_migrator);
+			Self::deposit_event(Event::FuturepassMigratorSet {
+				old_migrator: migrator,
+				new_migrator,
+			});
+			Ok(())
 		}
 
 		// /// Set the default proxy for a delegate, which can be used to proxy all delegate

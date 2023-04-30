@@ -48,6 +48,7 @@ pallet-fee-control = { path = "../fee-control" }
 pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 pallet-fee-proxy = { path = "../fee-proxy" }
 pallet-dex = { path = "../dex" }
+pallet-nft = { path = "../nft" }
 pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 hex-literal = { version = "0.3.4" }
