@@ -5,7 +5,7 @@ extern crate alloc;
 use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{AddressMapping, ExitReason, PrecompileFailure, PrecompileSet};
-use precompile_utils::prelude::*;
+use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
 use sp_runtime::{
@@ -13,7 +13,6 @@ use sp_runtime::{
 	traits::{ConstU32, Zero},
 };
 use sp_std::marker::PhantomData;
-use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
 
 /// Solidity selector of the Futurepass logs, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =

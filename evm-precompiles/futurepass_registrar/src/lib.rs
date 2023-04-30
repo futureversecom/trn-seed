@@ -19,7 +19,7 @@ pub const SELECTOR_LOG_FUTUREPASS_CREATED: [u8; 32] =
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	FuturepassOf = "futurepassOf(address)",
-	Create = "createFuturepass(address)",
+	Create = "create(address)",
 }
 
 /// Provides access to the Futurepass pallet
