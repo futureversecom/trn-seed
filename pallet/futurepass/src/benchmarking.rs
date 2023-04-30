@@ -30,7 +30,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
 // fund account with ROOT & XRP
 pub fn fund<T: Config>(account: &T::AccountId) {
 	let root_asset_id: u32 = 1;
-	let xrp_asset_id: u32 = 2;
+	// let xrp_asset_id: u32 = 2;
 
 	assert_ok!(T::MultiCurrency::mint_into(root_asset_id.into(), &account, 1_000_000u32.into()));
 }
