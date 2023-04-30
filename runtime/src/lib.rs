@@ -1110,13 +1110,23 @@ impl pallet_proxy::Config for Runtime {
 	type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
 }
 
+pub struct FuturepassMigratorAdmin;
+impl Get<<Runtime as frame_system::Config>::AccountId> for FuturepassMigratorAdmin {
+	fn get() -> <Runtime as frame_system::Config>::AccountId {
+		// TODO: provide default address that is futurepass migrator admin
+		H160::from_slice(&hex::decode("E04CC55ebEE1cBCE552f250e85c57B70B2E2625b").unwrap()).into()
+	}
+}
+
 impl pallet_futurepass::Config for Runtime {
 	type Event = Event;
 	type Proxy = impls::ProxyPalletProvider;
 	type Call = Call;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
-	type WeightInfo = weights::pallet_futurepass::WeightInfo<Runtime>;
+	type MigratorAdmin = FuturepassMigratorAdmin;
+	type FuturepassMigrator = impls::FuturepassMigrationProvider;
+	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type MultiCurrency = AssetsExt;
