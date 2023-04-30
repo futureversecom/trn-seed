@@ -7,6 +7,6 @@ interface FuturePassRegistrar {
     event FuturepassCreated(address indexed futurepass, address owner);
     
     function futurepassOf(address owner) external view returns (address);
-    function createFuturepass(address owner) external returns (address);
+    function create(address owner) external returns (address);
 }
 ```
