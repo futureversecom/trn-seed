@@ -206,10 +206,7 @@ pub mod pallet {
 			collection_id: u32,
 		},
 		/// Updating Futurepass migrator account
-		FuturepassMigratorSet {
-			old_migrator: T::AccountId,
-			new_migrator: T::AccountId,
-		},
+		FuturepassMigratorSet { old_migrator: T::AccountId, new_migrator: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -437,8 +434,38 @@ pub mod pallet {
 			result
 		}
 
-		// https://docs.substrate.io/build/tx-weights-fees/
+		/// Update futurepass native assets migrator account.
+		///
+		/// The dispatch origin for this call must be _Signed_ and must be the current futurepass
+		/// migrator account.
+		///
+		/// Parameters:
+		/// - `new_migrator`: The new account that will become the futurepass asset migrator.
 		#[pallet::weight(T::WeightInfo::transfer_futurepass())] // TODO: can make this a free tx sudo call?
+		pub fn set_futurepass_migrator(
+			origin: OriginFor<T>,
+			new_migrator: T::AccountId,
+		) -> DispatchResult {
+			let migrator: seed_primitives::AccountId20 = ensure_signed(origin)?;
+			ensure!(migrator == MigrationAdmin::<T>::get(), Error::<T>::PermissionDenied);
+
+			MigrationAdmin::<T>::set(new_migrator);
+			Self::deposit_event(Event::FuturepassMigratorSet {
+				old_migrator: migrator,
+				new_migrator,
+			});
+			Ok(())
+		}
+
+		/// This extrinsic migrates EVM-based Futurepass assets to the Substrate-based Futurepass
+		/// (native).
+		///
+		/// Parameters:
+		/// - `owner` - The account ID of the owner of the EVM-based Futurepass.
+		/// - `evm_futurepass` - The account ID of the EVM-based Futurepass.
+		/// - `collection_ids` - A vector of collection IDs representing the NFTs collections to be
+		///   migrated.
+		#[pallet::weight(T::WeightInfo::transfer_futurepass())] // TODO: can make this a free tx sudo call? https://docs.substrate.io/build/tx-weights-fees/
 		#[transactional]
 		pub fn migrate_evm_futurepass(
 			origin: OriginFor<T>,
@@ -466,23 +493,6 @@ pub mod pallet {
 					collection_id,
 				});
 			}
-			Ok(())
-		}
-
-		#[pallet::weight(T::WeightInfo::transfer_futurepass())] // TODO: can make this a free tx sudo call?
-		#[transactional]
-		pub fn set_futurepass_migrator(
-			origin: OriginFor<T>,
-			new_migrator: T::AccountId,
-		) -> DispatchResult {
-			let migrator: seed_primitives::AccountId20 = ensure_signed(origin)?;
-			ensure!(migrator == MigrationAdmin::<T>::get(), Error::<T>::PermissionDenied);
-
-			MigrationAdmin::<T>::set(new_migrator);
-			Self::deposit_event(Event::FuturepassMigratorSet {
-				old_migrator: migrator,
-				new_migrator,
-			});
 			Ok(())
 		}
 
