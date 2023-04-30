@@ -750,6 +750,37 @@ where
 	}
 }
 
+pub struct FuturepassMigrationProvider;
+
+impl<T: pallet_nft::Config> pallet_futurepass::FuturepassMigrator<T>
+	for FuturepassMigrationProvider
+{
+	fn transfer_nfts(
+		collection_id: u32,
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult {
+		let collection_info = pallet_nft::CollectionInfo::<T>::get(collection_id)
+			.ok_or(pallet_nft::Error::<T>::NoCollectionFound)?;
+		let serials = collection_info
+			.owned_tokens
+			.into_iter()
+			.flat_map(|ownership| ownership.owned_serials)
+			.collect::<Vec<_>>();
+		let serials_bounded: BoundedVec<_, <T as pallet_nft::Config>::MaxTokensPerCollection> =
+			BoundedVec::try_from(serials)
+				.map_err(|_| pallet_nft::Error::<T>::TokenLimitExceeded)?;
+
+		pallet_nft::Pallet::<T>::do_transfer(
+			collection_id,
+			serials_bounded,
+			current_owner,
+			new_owner,
+		)?;
+		Ok(())
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
