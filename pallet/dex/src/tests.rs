@@ -912,6 +912,9 @@ fn restrict_multiple_pair_swap_with_exact_supply() {
 			0u128,
 		));
 
+		assert_ok!(Dex::get_amounts_out(50000000u128, &[a, b]), vec![50000000u128, 33266599u128]);
+		assert_ok!(Dex::get_amounts_out(33266599u128, &[a, b]), vec![33266599u128, 24906207u128]);
+
 		// swap with exact supply ( path a->b->c )
 		assert_noop!(
 			Dex::swap_with_exact_supply(
