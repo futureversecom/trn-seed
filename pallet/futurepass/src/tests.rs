@@ -6,6 +6,9 @@ use hex_literal::hex;
 use seed_primitives::{AssetId, Balance};
 use seed_runtime::{impls::ProxyType, Inspect};
 
+use pallet_nft::CrossChainCompatibility;
+use seed_primitives::{CollectionUuid, MetadataScheme};
+
 type MockCall = crate::mock::Call;
 
 const FP_CREATION_RESERVE: Balance = 148 + 126 * 1;
@@ -13,6 +16,23 @@ const FP_DELIGATE_RESERVE: Balance = 126 * 1;
 
 fn transfer_funds(asset_id: AssetId, source: &AccountId, destination: &AccountId, amount: Balance) {
 	assert_ok!(AssetsExt::transfer(asset_id, &source, &destination, amount, false));
+}
+
+fn setup_collection(owner: &AccountId) -> CollectionUuid {
+	let collection_id = Nft::next_collection_uuid().unwrap();
+	let collection_name = b"test-collection".to_vec();
+	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
+	assert_ok!(Nft::create_collection(
+		Some(owner.clone()).into(),         // owner
+		collection_name,                    // name
+		0,                                  // initial_issuance
+		None,                               // max_issuance
+		None,                               // token_owner
+		metadata_scheme,                    // metadata_scheme
+		None,                               // royalties_schedule
+		CrossChainCompatibility::default(), // origin_chain
+	));
+	collection_id
 }
 
 #[test]
@@ -1149,5 +1169,209 @@ fn whitelist_works() {
 				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
 				false
 			);
+		});
+}
+
+#[test]
+fn futurepass_set_futurepass_migrator() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let futurepass_admin_migrator = create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID);
+
+			let mock_admin_migrator = create_account(2);
+			let new_admin_migrator = create_account(3);
+
+			// fails if not admin migrator
+			assert_noop!(
+				Futurepass::set_futurepass_migrator(
+					Origin::signed(mock_admin_migrator),
+					new_admin_migrator,
+				),
+				Error::<Test>::PermissionDenied
+			);
+
+			// set new admin migrator succeeds if admin migrator
+			assert_ok!(Futurepass::set_futurepass_migrator(
+				Origin::signed(futurepass_admin_migrator),
+				new_admin_migrator,
+			));
+			System::assert_has_event(
+				Event::<Test>::FuturepassMigratorSet {
+					old_migrator: futurepass_admin_migrator,
+					new_migrator: new_admin_migrator,
+				}
+				.into(),
+			);
+		});
+}
+
+#[test]
+fn futurepass_migration_single_collection() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let futurepass_admin_migrator = create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID);
+
+			// create EOA and respective futurepass
+			let (eoa, evm_futurepass) = (create_account(420), create_account(421));
+
+			// setup collection with eoa as owner, mint tokens to eoa EVM futurepass account
+			let collection_id = setup_collection(&eoa);
+			assert_ok!(Nft::mint(Some(eoa).into(), collection_id, 5, Some(evm_futurepass),));
+
+			// assert evm futurepass has tokens
+			assert_eq!(Nft::token_balance_of(&evm_futurepass, collection_id), 5);
+
+			// fund migrator
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass_admin_migrator,
+				FP_CREATION_RESERVE,
+				false
+			));
+			// create FP for owner
+			// assert_ok!(Futurepass::create(Origin::signed(futurepass_admin_migrator), eoa));
+			assert_ok!(Futurepass::migrate_evm_futurepass(
+				Origin::signed(futurepass_admin_migrator),
+				eoa,
+				evm_futurepass,
+				vec![collection_id],
+			));
+			let futurepass = Holders::<Test>::get(&eoa).unwrap();
+			System::assert_has_event(
+				Event::<Test>::FuturepassAssetsMigrated {
+					evm_futurepass,
+					futurepass,
+					collection_id,
+				}
+				.into(),
+			);
+
+			// assert evm futurepass has no tokens
+			assert_eq!(Nft::token_balance_of(&evm_futurepass, collection_id), 0);
+
+			// assert new futurepass has no tokens
+			assert_eq!(Nft::token_balance_of(&futurepass, collection_id), 5);
+		});
+}
+
+#[test]
+fn futurepass_migration_multiple_collections() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let futurepass_admin_migrator = create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID);
+
+			// create EOA and respective futurepass
+			let (eoa, evm_futurepass) = (create_account(420), create_account(421));
+
+			// setup collections with eoa as owner, mint tokens to eoa EVM futurepass account
+			let collection_id_1 = setup_collection(&eoa);
+			assert_ok!(Nft::mint(Some(eoa).into(), collection_id_1, 5, Some(evm_futurepass),));
+			let collection_id_2 = setup_collection(&eoa);
+			assert_ok!(Nft::mint(Some(eoa).into(), collection_id_2, 9, Some(evm_futurepass),));
+
+			// fund migrator
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass_admin_migrator,
+				FP_CREATION_RESERVE,
+				false
+			));
+			assert_ok!(Futurepass::migrate_evm_futurepass(
+				Origin::signed(futurepass_admin_migrator),
+				eoa,
+				evm_futurepass,
+				vec![collection_id_1, collection_id_2],
+			));
+			let futurepass = Holders::<Test>::get(&eoa).unwrap();
+			System::assert_has_event(
+				Event::<Test>::FuturepassAssetsMigrated {
+					evm_futurepass,
+					futurepass,
+					collection_id: collection_id_1,
+				}
+				.into(),
+			);
+
+			// assert evm futurepass has no tokens
+			assert_eq!(Nft::token_balance_of(&evm_futurepass, collection_id_1), 0);
+			assert_eq!(Nft::token_balance_of(&futurepass, collection_id_1), 5);
+			assert_eq!(Nft::token_balance_of(&evm_futurepass, collection_id_2), 0);
+			assert_eq!(Nft::token_balance_of(&futurepass, collection_id_2), 9);
+		});
+}
+
+#[test]
+fn futurepass_migration_existing_futurepass_account() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let futurepass_admin_migrator = create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID);
+
+			// create EOA and respective futurepass
+			let (eoa, evm_futurepass) = (create_account(420), create_account(421));
+
+			// setup collection with eoa as owner, mint tokens to eoa EVM futurepass account
+			let collection_id = setup_collection(&eoa);
+			assert_ok!(Nft::mint(Some(eoa).into(), collection_id, 5, Some(evm_futurepass),));
+
+			// fund migrator
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass_admin_migrator,
+				FP_CREATION_RESERVE,
+				false
+			));
+
+			// create FP for eoa
+			assert_ok!(Futurepass::create(Origin::signed(futurepass_admin_migrator), eoa));
+			let futurepass = Holders::<Test>::get(&eoa).unwrap();
+
+			// migrate evm futurepass to new futurepass - where futurepass already exists
+			assert_ok!(Futurepass::migrate_evm_futurepass(
+				Origin::signed(futurepass_admin_migrator),
+				eoa,
+				evm_futurepass,
+				vec![collection_id],
+			));
+			System::assert_has_event(
+				Event::<Test>::FuturepassAssetsMigrated {
+					evm_futurepass,
+					futurepass,
+					collection_id,
+				}
+				.into(),
+			);
+
+			// assert evm futurepass has no tokens
+			assert_eq!(Nft::token_balance_of(&evm_futurepass, collection_id), 0);
+
+			// assert new futurepass has no tokens
+			assert_eq!(Nft::token_balance_of(&futurepass, collection_id), 5);
 		});
 }
