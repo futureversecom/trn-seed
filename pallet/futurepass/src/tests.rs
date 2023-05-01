@@ -1217,6 +1217,9 @@ fn futurepass_migration_single_collection() {
 			let collection_id = setup_collection(&eoa);
 			assert_ok!(Nft::mint(Some(eoa).into(), collection_id, 5, Some(evm_futurepass),));
 
+			// mint some other tokens to funder - these should not be migrated
+			assert_ok!(Nft::mint(Some(eoa).into(), collection_id, 15, Some(funder),));
+
 			// assert evm futurepass has tokens
 			assert_eq!(Nft::token_balance_of(&evm_futurepass, collection_id), 5);
 
@@ -1250,6 +1253,9 @@ fn futurepass_migration_single_collection() {
 
 			// assert new futurepass has no tokens
 			assert_eq!(Nft::token_balance_of(&futurepass, collection_id), 5);
+
+			// assert funder has tokens (untouched)
+			assert_eq!(Nft::token_balance_of(&funder, collection_id), 15);
 		});
 }
 

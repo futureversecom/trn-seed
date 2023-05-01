@@ -468,7 +468,7 @@ pub mod pallet {
 			evm_futurepass: T::AccountId,
 			collection_ids: Vec<u32>,
 		) -> DispatchResult {
-			let admin: seed_primitives::AccountId20 = ensure_signed(origin)?;
+			let admin = ensure_signed(origin)?;
 			ensure!(admin == MigrationAdmin::<T>::get(), Error::<T>::PermissionDenied);
 
 			// create futurepass if non-existent for owner

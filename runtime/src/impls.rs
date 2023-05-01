@@ -765,6 +765,7 @@ impl<T: pallet_nft::Config> pallet_futurepass::FuturepassMigrator<T>
 		let serials = collection_info
 			.owned_tokens
 			.into_iter()
+			.filter(|ownership| ownership.owner == *current_owner)
 			.flat_map(|ownership| ownership.owned_serials)
 			.collect::<Vec<_>>();
 		let serials_bounded: BoundedVec<_, <T as pallet_nft::Config>::MaxTokensPerCollection> =
