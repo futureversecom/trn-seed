@@ -9,7 +9,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod fee_control;
 mod nft;
 mod xrpl_bridge;
 
@@ -30,7 +29,6 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		fee_control::Upgrade::pre_upgrade()?;
 		nft::Upgrade::pre_upgrade()?;
 		xrpl_bridge::Upgrade::pre_upgrade()?;
 
@@ -39,7 +37,6 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
-		weight += fee_control::Upgrade::on_runtime_upgrade();
 		weight += nft::Upgrade::on_runtime_upgrade();
 		weight += xrpl_bridge::Upgrade::on_runtime_upgrade();
 
@@ -48,7 +45,6 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
-		fee_control::Upgrade::post_upgrade()?;
 		nft::Upgrade::post_upgrade()?;
 		xrpl_bridge::Upgrade::post_upgrade()?;
 
