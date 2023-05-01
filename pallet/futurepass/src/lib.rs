@@ -443,7 +443,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			new_migrator: T::AccountId,
 		) -> DispatchResult {
-			let migrator: seed_primitives::AccountId20 = ensure_signed(origin)?;
+			let migrator = ensure_signed(origin)?;
 			ensure!(migrator == MigrationAdmin::<T>::get(), Error::<T>::PermissionDenied);
 
 			MigrationAdmin::<T>::set(new_migrator);
