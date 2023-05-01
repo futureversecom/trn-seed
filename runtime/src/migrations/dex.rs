@@ -12,10 +12,9 @@
 use crate::{Dex, Runtime, Weight};
 use frame_support::{
 	dispatch::GetStorageVersion,
-	storage_alias,
 	traits::{Get, OnRuntimeUpgrade, StorageVersion},
 };
-use sp_std::{fmt::Debug, vec::Vec};
+
 
 pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
@@ -57,16 +56,14 @@ impl OnRuntimeUpgrade for Upgrade {
 #[allow(dead_code)]
 pub mod v1 {
 	use super::*;
-	use codec::{Decode, Encode};
-	use core::fmt::Write;
-	use frame_support::{
-		BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, Twox64Concat,
-	};
-	use pallet_dex::{LiquidityPool, TradingPairLPToken, TradingPairStatus};
-	use scale_info::TypeInfo;
-	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
-	use sp_core::H160;
-	use sp_std::vec::Vec;
+	
+	
+	
+	
+	
+	
+	
+	
 
 //		#[storage_alias]
 //		type TradingPairLPToken<T: pallet_dex::Config> =
