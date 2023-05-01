@@ -183,7 +183,6 @@ macro_rules! impl_pallet_nft_config {
 			pub const DefaultListingDuration: u64 = 5;
 			pub const MaxAttributeLength: u8 = 140;
 			pub const MaxOffers: u32 = 10;
-			// pub const TestParachainId: u32 = 100;
 			pub const MaxTokensPerCollection: u32 = 10_000;
 			pub const MintLimit: u32 = 100;
 			pub const Xls20PaymentAsset: AssetId = 2;
