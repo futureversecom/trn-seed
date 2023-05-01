@@ -44,7 +44,7 @@ use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
 	transactional,
-	weights::GetDispatchInfo,
+	weights::{constants::RocksDbWeight, GetDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
@@ -437,7 +437,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `migrator`: The new account that will become the futurepass asset migrator.
-		#[pallet::weight(T::WeightInfo::transfer_futurepass())] // TODO: can make this a free tx sudo call?
+		#[pallet::weight(RocksDbWeight::get().writes(1))]
 		pub fn set_futurepass_migrator(
 			origin: OriginFor<T>,
 			migrator: T::AccountId,
