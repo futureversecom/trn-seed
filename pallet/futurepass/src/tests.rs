@@ -1173,43 +1173,28 @@ fn whitelist_works() {
 }
 
 #[test]
-fn futurepass_set_futurepass_migrator() {
-	let funder = create_account(1);
-	let endowed = [(funder, 1_000_000)];
+fn futurepass_admin_migrator_set_by_sudo() {
 	let futurepass_admin_migrator = create_account(1337);
 
-	TestExt::default()
-		.with_balances(&endowed)
-		.with_xrp_balances(&endowed)
-		.build()
-		.execute_with(|| {
-			MigrationAdmin::<Test>::put(futurepass_admin_migrator);
-
-			let mock_admin_migrator = create_account(2);
-			let new_admin_migrator = create_account(3);
-
-			// fails if not admin migrator
-			assert_noop!(
-				Futurepass::set_futurepass_migrator(
-					Origin::signed(mock_admin_migrator),
-					new_admin_migrator,
-				),
-				Error::<Test>::PermissionDenied
-			);
-
-			// set new admin migrator succeeds if admin migrator
-			assert_ok!(Futurepass::set_futurepass_migrator(
+	TestExt::default().build().execute_with(|| {
+		// fails if not root
+		assert_noop!(
+			Futurepass::set_futurepass_migrator(
 				Origin::signed(futurepass_admin_migrator),
-				new_admin_migrator,
-			));
-			System::assert_has_event(
-				Event::<Test>::FuturepassMigratorSet {
-					old_migrator: futurepass_admin_migrator,
-					new_migrator: new_admin_migrator,
-				}
-				.into(),
-			);
-		});
+				futurepass_admin_migrator,
+			),
+			sp_runtime::DispatchError::BadOrigin,
+		);
+
+		// set new admin migrator succeeds from sudo
+		assert_ok!(Futurepass::set_futurepass_migrator(
+			frame_system::RawOrigin::Root.into(),
+			futurepass_admin_migrator,
+		));
+		System::assert_has_event(
+			Event::<Test>::FuturepassMigratorSet { migrator: futurepass_admin_migrator }.into(),
+		);
+	});
 }
 
 #[test]

@@ -203,7 +203,7 @@ pub mod pallet {
 			collection_id: u32,
 		},
 		/// Updating Futurepass migrator account
-		FuturepassMigratorSet { old_migrator: T::AccountId, new_migrator: T::AccountId },
+		FuturepassMigratorSet { migrator: T::AccountId },
 	}
 
 	#[pallet::error]
@@ -431,26 +431,20 @@ pub mod pallet {
 			result
 		}
 
-		/// Update futurepass native assets migrator account.
+		/// Update futurepass native assets migrator admin account.
 		///
-		/// The dispatch origin for this call must be _Signed_ and must be the current futurepass
-		/// migrator account.
+		/// The dispatch origin for this call must be sudo/root origin.
 		///
 		/// Parameters:
-		/// - `new_migrator`: The new account that will become the futurepass asset migrator.
+		/// - `migrator`: The new account that will become the futurepass asset migrator.
 		#[pallet::weight(T::WeightInfo::transfer_futurepass())] // TODO: can make this a free tx sudo call?
 		pub fn set_futurepass_migrator(
 			origin: OriginFor<T>,
-			new_migrator: T::AccountId,
+			migrator: T::AccountId,
 		) -> DispatchResult {
-			let migrator = ensure_signed(origin)?;
-			ensure!(migrator == MigrationAdmin::<T>::get(), Error::<T>::PermissionDenied);
-
-			MigrationAdmin::<T>::set(new_migrator);
-			Self::deposit_event(Event::FuturepassMigratorSet {
-				old_migrator: migrator,
-				new_migrator,
-			});
+			ensure_root(origin)?;
+			MigrationAdmin::<T>::set(migrator);
+			Self::deposit_event(Event::FuturepassMigratorSet { migrator });
 			Ok(())
 		}
 
