@@ -11,7 +11,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use codec::{alloc::string::ToString, Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use hex;
 use scale_info::TypeInfo;
 use seed_primitives::AssetId;
@@ -39,16 +39,19 @@ impl TradingPair {
 		TradingPair::from((asset_id_a, asset_id_b))
 	}
 
+	/// Returns the pool address for this trading pair
+	/// Spec:
+	/// `0xdddddddd` + <8-byte-asset_a-padded> + `00000000` + `dddddddd` + <8-byte-asset_b-padded>
 	pub fn pool_address<T: crate::Config>(&self) -> T::AccountId
 	where
 		T::AccountId: From<H160>,
 	{
-		let pool_address_prefix = "dd";
-		let asset_a = &self.0.to_string();
-		let asset_b = &self.1.to_string();
-		let asset_a_padded = alloc::format!("{}{:0>18}", pool_address_prefix, asset_a);
-		let asset_b_padded = alloc::format!("{}{:0>18}", pool_address_prefix, asset_b);
-		let address = asset_a_padded + &asset_b_padded;
+		let pool_address_prefix = "dddddddd";
+		let asset_a = format!("{:08x}", self.0);
+		let asset_b = format!("{:08x}", self.1);
+		let asset_a_padded = format!("{}{}", pool_address_prefix, asset_a);
+		let asset_b_padded = format!("{}{}", pool_address_prefix, asset_b);
+		let address = asset_a_padded + "00000000" + &asset_b_padded;
 		let bytes = hex::decode(address).unwrap();
 		let h160_address: H160 = H160::from_slice(&bytes);
 		T::AccountId::from(h160_address)

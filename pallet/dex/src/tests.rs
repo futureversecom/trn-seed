@@ -148,18 +148,18 @@ fn trading_pair_pool_address() {
 		let pool_address: H160 = TradingPair::new(usdc, weth).pool_address::<Test>().into();
 
 		let expected_pool_address =
-			H160::from_str("dd000000000000001124dd000000000000002148").unwrap();
-		assert_eq!(pool_address, expected_pool_address);
+			H160::from_str("dddddddd0000046400000000dddddddd00000864").unwrap();
+		assert_eq!(pool_address.to_string(), expected_pool_address.to_string());
 
 		let pool_address_reverse: H160 = TradingPair::new(weth, usdc).pool_address::<Test>().into();
 		assert_eq!(pool_address_reverse, expected_pool_address);
 
 		let hex_address = pool_address.to_fixed_bytes();
-		let usdc_hex = &hex_address[6..10]; // Last 4 bytes of the first half (u32 is 4 bytes)
-		let weth_hex = &hex_address[16..20]; // Last 4 bytes of the second half
+		let usdc_hex = &hex_address[5..8]; // 2nd 4 bytes
+		let weth_hex = &hex_address[17..20]; // Last 4 bytes
 
-		let usdc_decimal = u32::from_str_radix(&hex::encode(usdc_hex), 10).unwrap();
-		let weth_decimal = u32::from_str_radix(&hex::encode(weth_hex), 10).unwrap();
+		let usdc_decimal = u32::from_str_radix(&hex::encode(usdc_hex), 16).unwrap();
+		let weth_decimal = u32::from_str_radix(&hex::encode(weth_hex), 16).unwrap();
 
 		assert_eq!(usdc_decimal, usdc);
 		assert_eq!(weth_decimal, weth);
