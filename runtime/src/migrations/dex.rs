@@ -56,23 +56,6 @@ impl OnRuntimeUpgrade for Upgrade {
 pub mod v1 {
 	use super::*;
 
-	//		#[storage_alias]
-	//		type TradingPairLPToken<T: pallet_dex::Config> =
-	//			StorageMap<pallet_dex::Pallet<T>, Twox64Concat, TradingPair, Option<AssetId>, ValueQuery>;
-	//
-	//		#[storage_alias]
-	//		type LiquidityPool<T: pallet_dex::Config> = StorageMap<
-	//			pallet_dex::Pallet<T>,
-	//			Twox64Concat,
-	//			TradingPair,
-	//			(Balance, Balance),
-	//			ValueQuery,
-	//		>;
-	//
-	//		#[storage_alias]
-	//		type TradingPairStatuses<T: pallet_dex::Config> =
-	//			StorageMap<pallet_dex::Pallet<T>, Twox64Concat, TradingPair, TradingPairStatus, ValueQuery>;
-
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
 		log::info!(target: "Migration", "Dex: Upgrade to v1 Pre Upgrade.");
@@ -108,6 +91,6 @@ pub mod v1 {
 
 		log::info!(target: "Migration", "Dex: ...Successfully cleaned up dex related storages");
 
-		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, 0)
+		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(3, 0)
 	}
 }
