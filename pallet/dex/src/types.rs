@@ -47,10 +47,10 @@ impl TradingPair {
 		T::AccountId: From<H160>,
 	{
 		let pool_address_prefix = "dddddddd";
-		let asset_a = format!("{:08x}", self.0);
-		let asset_b = format!("{:08x}", self.1);
-		let asset_a_padded = format!("{}{}", pool_address_prefix, asset_a);
-		let asset_b_padded = format!("{}{}", pool_address_prefix, asset_b);
+		let asset_a = alloc::format!("{:08x}", self.0);
+		let asset_b = alloc::format!("{:08x}", self.1);
+		let asset_a_padded = alloc::format!("{}{}", pool_address_prefix, asset_a);
+		let asset_b_padded = alloc::format!("{}{}", pool_address_prefix, asset_b);
 		let address = asset_a_padded + "00000000" + &asset_b_padded;
 		let bytes = hex::decode(address).unwrap();
 		let h160_address: H160 = H160::from_slice(&bytes);
