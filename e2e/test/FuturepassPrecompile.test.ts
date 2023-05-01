@@ -12,7 +12,8 @@ import {
   ALITH_PRIVATE_KEY,
   ERC20_ABI,
   FUTUREPASS_PRECOMPILE_ABI,
-  FUTUREPASS_PRECOMPILE_ADDRESS,
+  FUTUREPASS_REGISTRAR_PRECOMPILE_ABI,
+  FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS,
   GAS_TOKEN_ID,
   NodeProcess,
   startNode,
@@ -42,7 +43,8 @@ describe("Futurepass Precompile", function () {
   let provider: JsonRpcProvider;
   let alithKeyring: KeyringPair;
   let alithSigner: Wallet;
-  let futurepassProxy: Contract;
+  let futurepassRegistrar: Contract;
+  let futurepassPrecompile: Contract;
   let xrpERC20Precompile: Contract;
 
   beforeEach(async () => {
@@ -62,118 +64,113 @@ describe("Futurepass Precompile", function () {
     provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
 
-    futurepassProxy = new Contract(FUTUREPASS_PRECOMPILE_ADDRESS, FUTUREPASS_PRECOMPILE_ABI, alithSigner);
+    futurepassRegistrar = new Contract(
+      FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS,
+      FUTUREPASS_REGISTRAR_PRECOMPILE_ABI,
+      alithSigner,
+    );
     xrpERC20Precompile = new Contract(XRP_PRECOMPILE_ADDRESS, ERC20_ABI, alithSigner);
   });
 
   afterEach(async () => await node.stop());
 
-  it("create futurepass succeeds for account with balance", async () => {
-    const owner = Wallet.createRandom().address;
+  function fundAccount(
+    api: ApiPromise,
+    keyring: KeyringPair,
+    address: string,
+    amount: string | number = 10_000_000,
+  ): Promise<void> {
+    return new Promise<void>((resolve) => {
+      api.tx.utility
+        .batch([
+          api.tx.assets.transfer(GAS_TOKEN_ID, address, amount), // 10 XRP
+          api.tx.balances.transfer(address, amount), // 10 XRP
+        ])
+        .signAndSend(keyring, ({ status }) => {
+          if (status.isInBlock) resolve();
+        });
+    });
+  }
 
-    // fund owner to pay for futurepass creation
-    await fundEOA(alithSigner, owner);
-
-    const tx = await futurepassProxy.connect(alithSigner).create(owner);
-    const receipt = await tx.wait();
-    expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
-    expect((receipt?.events as any)[0].args.owner).to.equal(owner);
-
-    expect(await futurepassProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
-  });
-
-  // This testcase is included in futurepass substrate tests
-  it.skip("create futurepass succeeds for account with no balance", async () => {
-    const owner = Wallet.createRandom().address;
-    const tx = await futurepassProxy.connect(alithSigner).create(owner);
-    const receipt = await tx.wait();
-
-    expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
-    expect((receipt?.events as any)[0].args.owner).to.equal(owner);
-
-    expect(await futurepassProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
-  });
-
-  // This testcase is included in futurepass substrate tests
-  it.skip("create futurepass fails - already existing account", async () => {
-    const owner = Wallet.createRandom().address;
-    const tx = await futurepassProxy.connect(alithSigner).create(owner);
+  async function fundEOA(signer: Wallet, address: string, value: string = "10000") {
+    const tx = await signer.sendTransaction({ to: address, value: ethers.utils.parseEther(value) });
     await tx.wait();
+  }
 
-    // should fail upon creation of FP for same owner again
-    await futurepassProxy
-      .connect(alithSigner)
-      .create(owner)
-      .catch((err: any) => {
-        expect(err.message).contains("AccountAlreadyRegistered");
-      });
+  async function createFuturepass(caller: Wallet, owner: string): boolean {
+    // fund caller to pay for futurepass creation
+    await fundAccount(api, alithKeyring, caller.address);
+
+    const tx = await futurepassRegistrar.connect(caller).create(owner);
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
+    expect((receipt?.events as any)[0].args.owner).to.equal(owner);
+
+    const futurepass = (receipt?.events as any)[0].args.futurepass;
+    expect(await futurepassRegistrar.futurepassOf(owner)).to.equal(futurepass);
+    futurepassPrecompile = new Contract(futurepass, FUTUREPASS_PRECOMPILE_ABI, caller);
+    return true;
+  }
+
+  it("test create futurepass", async () => {
+    const owner = Wallet.createRandom().address;
+
+    expect(await createFuturepass(alithSigner, owner)).true;
   });
 
-  it.skip("isDelegate, delegateType works", async () => {
+  it("isDelegate, delegateType works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
-    // fund owner so it can create FP
-    // await fundEOA(alithSigner, owner.address);
-    await fundAccount(api, alithKeyring, owner.address); // TODO <- why is this required?
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(owner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     // isDelegate should return false.
-    expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
     // checkDelegate should return 0 value(ProxyType.NoPermission)
-    expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.NoPermission);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
 
-    tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
+    const tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
-    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
+    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepassPrecompile.address);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
     expect((receipt?.events as any)[0].args.proxyType).to.equal(PROXY_TYPE.Any);
 
-    // isDelegate should return false.
-    expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(true);
+    // isDelegate should return true.
+    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(true);
     // checkDelegate should return PROXY_TYPE.Any
-    expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it.skip("register delegate works", async () => {
+  it("register delegate works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
-    // fund owner so it can create FP
-    // await fundEOA(alithSigner, owner.address);
-    await fundAccount(api, alithKeyring, owner.address); // TODO <- why is this required?
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(owner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     // ensure delegate doesnt exist for FP
-    expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
 
     // registering with proxytype other than PROXY_TYPE.Any fails
-    await futurepassProxy
+    await futurepassPrecompile
       .connect(owner)
-      .registerDelegate(futurepass, delegate.address, PROXY_TYPE.NonTransfer)
+      .registerDelegate(delegate.address, PROXY_TYPE.NonTransfer)
       .catch((err: any) => expect(err.message).contains("PermissionDenied"));
 
-    tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
+    const tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
-    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
+    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepassPrecompile.address);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
     expect((receipt?.events as any)[0].args.proxyType).to.equal(PROXY_TYPE.Any);
-    expect(await futurepassProxy.delegateType(futurepass, delegate.address)).to.equal(PROXY_TYPE.Any);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
 
     // registering the same delegate with the same PROXY_TYPE fails
-    await futurepassProxy
+    await futurepassPrecompile
       .connect(owner)
-      .registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any)
+      .registerDelegate(delegate.address, PROXY_TYPE.Any)
       .catch((err: any) => expect(err.message).contains("DelegateAlreadyExists"));
   });
 
@@ -182,16 +179,11 @@ describe("Futurepass Precompile", function () {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
-    // fund owner so it can create FP
-    await fundEOA(alithSigner, owner.address);
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(owner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     // register delegate
-    tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
+    let tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
     await tx.wait();
 
     // fund delegate so it can register another delegate
@@ -199,91 +191,82 @@ describe("Futurepass Precompile", function () {
 
     // delegate can register another delegate
     const delegate2 = Wallet.createRandom();
-    tx = await futurepassProxy.connect(delegate).registerDelegate(futurepass, delegate2.address, PROXY_TYPE.Any);
+    tx = await futurepassPrecompile.connect(delegate).registerDelegate(delegate2.address, PROXY_TYPE.Any);
     await tx.wait();
-    expect(await futurepassProxy.delegateType(futurepass, delegate2.address)).to.equal(PROXY_TYPE.Any);
+    expect(await futurepassPrecompile.delegateType(delegate2.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it.skip("unregister delegate from owner", async () => {
+  it("unregister delegate from owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
-    // fund owner so it can create FP
-    // await fundEOA(alithSigner, owner.address);
-    await fundAccount(api, alithKeyring, owner.address); // TODO <- why is this required?
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(owner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     // register delegate
-    tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
+    let tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
     await tx.wait();
 
     // unregister delegate as owner
-    tx = await futurepassProxy.connect(owner).unregisterDelegate(futurepass, delegate.address);
+    tx = await futurepassPrecompile.connect(owner).unregisterDelegate(delegate.address);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateUnregistered");
-    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
+    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepassPrecompile.address);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
-    expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
   });
 
-  it.skip("unregister delegate from delegate (themself)", async () => {
+  it("unregister delegate from delegate (themself)", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
-    // fund owner so it can create FP
-    // await fundEOA(alithSigner, owner.address);
-    await fundAccount(api, alithKeyring, owner.address); // TODO <- why is this required?
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(owner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     // register delegate
-    tx = await futurepassProxy.connect(owner).registerDelegate(futurepass, delegate.address, PROXY_TYPE.Any);
+    let tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
     await tx.wait();
 
     // fund delegate so it can unregister
     await fundEOA(alithSigner, delegate.address);
 
     // unregister delegate as delegate
-    tx = await futurepassProxy.connect(delegate).unregisterDelegate(futurepass, delegate.address);
+    tx = await futurepassPrecompile.connect(delegate).unregisterDelegate(delegate.address);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateUnregistered");
-    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepass);
+    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepassPrecompile.address);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
-    expect(await futurepassProxy.isDelegate(futurepass, delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
   });
 
   it.skip("proxy call can transfer value to EOA", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
-    // fund owner
-    await fundEOA(alithSigner, owner.address);
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(alithSigner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
+    // Transfer funds to futurepass
+    // await fundAccount(api, alithKeyring, futurepassPrecompile.address);
+    await fundEOA(alithSigner, owner.address);
+    const futurepass_balance = await xrpERC20Precompile.balanceOf(futurepassPrecompile.address);
+
+    console.log(futurepass_balance);
 
     // create new recipient to transfer value to
     const recipient = Wallet.createRandom();
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(0);
 
     // proxy transfer of value from futurepass to recipient
-    tx = await futurepassProxy.connect(owner).proxyCall(futurepass, recipient.address, CALL_TYPE.Call, "0x", {
-      value: ethers.utils.parseEther("15"),
+    const tx = await futurepassPrecompile.connect(owner).proxyCall(recipient.address, CALL_TYPE.Call, "0x", {
+      value: ethers.utils.parseEther("5"),
     });
     await tx.wait();
 
     // validate proxy based value transfer to recipient
-    expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(15_000_000);
+    expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(5_000_000);
     const recipientBalanceRes: any = (await api.query.assets.account(GAS_TOKEN_ID, recipient.address)).toJSON();
-    expect(recipientBalanceRes.balance).to.equal(15_000_000);
+    expect(recipientBalanceRes.balance).to.equal(5_000_000);
+    // check futurepass balance
+    // expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(futurepass_balance - 5_000_000);
   });
 
   it.skip("proxy call can transfer value to contract", async () => {
@@ -295,28 +278,23 @@ describe("Futurepass Precompile", function () {
 
     const owner = Wallet.createRandom().connect(provider);
 
-    // fund owner
-    await fundEOA(alithSigner, owner.address);
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(alithSigner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(0);
 
     // proxy transfer of value from futurepass to contract fails since this is staticcall
     // note: this is possible since contract has `receive() external payable` function
-    await futurepassProxy
+    await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepass, futurepassTester.address, CALL_TYPE.StaticCall, "0x", {
+      .proxyCall(futurepassTester.address, CALL_TYPE.StaticCall, "0x", {
         value: ethers.utils.parseEther("15"),
       })
       .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
 
     // proxy transfer of value from futurepass to contract succeeds if call
     // note: this is possible since contract has `receive() external payable` function
-    tx = await futurepassProxy.connect(owner).proxyCall(futurepass, futurepassTester.address, CALL_TYPE.Call, "0x", {
+    let tx = await futurepassPrecompile.connect(owner).proxyCall(futurepassTester.address, CALL_TYPE.Call, "0x", {
       value: ethers.utils.parseEther("15"),
     });
     await tx.wait();
@@ -329,11 +307,9 @@ describe("Futurepass Precompile", function () {
     // proxy transfer of value from futurepass to contract
     // note: here we call a payable function instead of default receive fallback function
     const fnCallData = futurepassTester.interface.encodeFunctionData("deposit");
-    tx = await futurepassProxy
-      .connect(owner)
-      .proxyCall(futurepass, futurepassTester.address, CALL_TYPE.Call, fnCallData, {
-        value: ethers.utils.parseEther("5"),
-      });
+    tx = await futurepassPrecompile.connect(owner).proxyCall(futurepassTester.address, CALL_TYPE.Call, fnCallData, {
+      value: ethers.utils.parseEther("5"),
+    });
     await tx.wait();
 
     // validate proxy based value transfer to payable function
@@ -341,29 +317,26 @@ describe("Futurepass Precompile", function () {
     contractBalanceRes = (await api.query.assets.account(GAS_TOKEN_ID, futurepassTester.address)).toJSON();
     expect(contractBalanceRes.balance).to.equal(20_000_000);
 
-    const futurepassContractBalance = await futurepassTester.deposits(futurepass);
+    const futurepassContractBalance = await futurepassTester.deposits(futurepassPrecompile.address);
     expect(ethers.utils.formatEther(futurepassContractBalance)).to.equal("20.0");
   });
 
-  it.skip("futurepass can hold and transfer ERC20", async () => {
+  it("futurepass can hold and transfer ERC20", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
-    // fund owner
-    await fundEOA(alithSigner, owner.address);
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(alithSigner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     // transfer some funds to futurepass
-    expect(await xrpERC20Precompile.balanceOf(futurepass)).to.equal(0);
+    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(0);
     await new Promise<void>((resolve) => {
-      api.tx.assets.transfer(GAS_TOKEN_ID, futurepass, 500_000).signAndSend(alithKeyring, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
+      api.tx.assets
+        .transfer(GAS_TOKEN_ID, futurepassPrecompile.address, 500_000)
+        .signAndSend(alithKeyring, ({ status }) => {
+          if (status.isInBlock) resolve();
+        });
     });
-    expect(await xrpERC20Precompile.balanceOf(futurepass)).to.equal(500_000);
+    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(500_000);
 
     // create new recipient to transfer funds to
     const recipient = Wallet.createRandom();
@@ -371,17 +344,17 @@ describe("Futurepass Precompile", function () {
 
     // transfer funds from futurepass to recipient - using proxied, encoded erc20 transfer call
     const transferCallData = xrpERC20Precompile.interface.encodeFunctionData("transfer", [recipient.address, 500_000]);
-    tx = await futurepassProxy
+    const tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepass, xrpERC20Precompile.address, CALL_TYPE.Call, transferCallData);
+      .proxyCall(xrpERC20Precompile.address, CALL_TYPE.Call, transferCallData);
     await tx.wait();
 
     // validate proxy based funds transfer
-    expect(await xrpERC20Precompile.balanceOf(futurepass)).to.equal(0);
+    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(0);
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(500_000);
   });
 
-  it.skip("futurepass can hold and transfer ERC721", async () => {
+  it("futurepass can hold and transfer ERC721", async () => {
     // deploy ERC721 contract and mint a token
     const ERC721Factory = await ethers.getContractFactory("MockERC721");
     const erc721 = await ERC721Factory.connect(alithSigner).deploy();
@@ -390,54 +363,53 @@ describe("Futurepass Precompile", function () {
 
     const owner = Wallet.createRandom().connect(provider);
 
-    // fund owner
-    await fundEOA(alithSigner, owner.address);
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(alithSigner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     // mint owner a token
     let tokenId = 1;
     let gas = await erc721.connect(owner).estimateGas.safeMint(owner.address, tokenId);
-    tx = await erc721.connect(owner).safeMint(owner.address, tokenId, { gasLimit: gas });
+    let tx = await erc721.connect(owner).safeMint(owner.address, tokenId, { gasLimit: gas });
     await tx.wait();
 
     // transfer ERC721 token to futurepass
-    gas = await erc721.connect(owner).estimateGas.transferFrom(owner.address, futurepass, tokenId);
-    tx = await erc721.connect(owner).transferFrom(owner.address, futurepass, tokenId, { gasLimit: gas });
+    gas = await erc721.connect(owner).estimateGas.transferFrom(owner.address, futurepassPrecompile.address, tokenId);
+    tx = await erc721
+      .connect(owner)
+      .transferFrom(owner.address, futurepassPrecompile.address, tokenId, { gasLimit: gas });
     await tx.wait();
-    expect(await erc721.ownerOf(1)).to.equal(futurepass);
+    expect(await erc721.ownerOf(1)).to.equal(futurepassPrecompile.address);
 
     // mint futurepass a token
     tokenId = 2;
-    gas = await erc721.connect(owner).estimateGas.safeMint(futurepass, tokenId);
-    tx = await erc721.connect(owner).safeMint(futurepass, tokenId, { gasLimit: gas });
+    gas = await erc721.connect(owner).estimateGas.safeMint(futurepassPrecompile.address, tokenId);
+    tx = await erc721.connect(owner).safeMint(futurepassPrecompile.address, tokenId, { gasLimit: gas });
     await tx.wait();
-    expect(await erc721.ownerOf(2)).to.equal(futurepass);
+    expect(await erc721.ownerOf(2)).to.equal(futurepassPrecompile.address);
 
     // transfer ERC721 token from futurepass to owner - using proxied, encoded ERC721 transferFrom call
-    const transferFromCallData = erc721.interface.encodeFunctionData("transferFrom", [futurepass, owner.address, 2]);
+    const transferFromCallData = erc721.interface.encodeFunctionData("transferFrom", [
+      futurepassPrecompile.address,
+      owner.address,
+      2,
+    ]);
 
     // proxy transfer of token from futurepass to contract fails since this is staticcall
-    await futurepassProxy
+    await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepass, erc721.address, CALL_TYPE.StaticCall, transferFromCallData)
+      .proxyCall(erc721.address, CALL_TYPE.StaticCall, transferFromCallData)
       .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
 
     // proxy transfer of value from futurepass to contract succeeds since this is call
-    tx = await futurepassProxy
-      .connect(owner)
-      .proxyCall(futurepass, erc721.address, CALL_TYPE.Call, transferFromCallData);
+    tx = await futurepassPrecompile.connect(owner).proxyCall(erc721.address, CALL_TYPE.Call, transferFromCallData);
     await tx.wait();
 
     // validate proxy based ERC721 token transfers
-    expect(await erc721.ownerOf(1)).to.equal(futurepass);
+    expect(await erc721.ownerOf(1)).to.equal(futurepassPrecompile.address);
     expect(await erc721.ownerOf(2)).to.equal(owner.address);
   });
 
-  it.skip("futurepass can hold and transfer ERC1155", async () => {
+  it("futurepass can hold and transfer ERC1155", async () => {
     // deploy ERC1155 contract and mint a token
     const ERC1155Factory = await ethers.getContractFactory("MockERC1155");
     const erc1155 = await ERC1155Factory.connect(alithSigner).deploy();
@@ -446,54 +418,49 @@ describe("Futurepass Precompile", function () {
 
     const owner = Wallet.createRandom().connect(provider);
 
-    // fund owner
-    await fundEOA(alithSigner, owner.address);
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(alithSigner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     // mint owner a token
     let tokenId = 1;
     let amount = 10;
     let gas = await erc1155.connect(owner).estimateGas.mint(owner.address, tokenId, amount, []);
-    tx = await erc1155.connect(owner).mint(owner.address, tokenId, amount, [], { gasLimit: gas });
+    let tx = await erc1155.connect(owner).mint(owner.address, tokenId, amount, [], { gasLimit: gas });
     await tx.wait();
 
     // transfer ERC1155 token to futurepass
-    gas = await erc1155.connect(owner).estimateGas.safeTransferFrom(owner.address, futurepass, tokenId, amount, []);
+    gas = await erc1155
+      .connect(owner)
+      .estimateGas.safeTransferFrom(owner.address, futurepassPrecompile.address, tokenId, amount, []);
     tx = await erc1155
       .connect(owner)
-      .safeTransferFrom(owner.address, futurepass, tokenId, amount, [], { gasLimit: gas });
+      .safeTransferFrom(owner.address, futurepassPrecompile.address, tokenId, amount, [], { gasLimit: gas });
     await tx.wait();
-    expect(await erc1155.balanceOf(futurepass, tokenId)).to.equal(amount);
+    expect(await erc1155.balanceOf(futurepassPrecompile.address, tokenId)).to.equal(amount);
 
     // mint futurepass a token
     tokenId = 2;
     amount = 5;
-    gas = await erc1155.connect(owner).estimateGas.mint(futurepass, tokenId, amount, []);
-    tx = await erc1155.connect(owner).mint(futurepass, tokenId, amount, [], { gasLimit: gas });
+    gas = await erc1155.connect(owner).estimateGas.mint(futurepassPrecompile.address, tokenId, amount, []);
+    tx = await erc1155.connect(owner).mint(futurepassPrecompile.address, tokenId, amount, [], { gasLimit: gas });
     await tx.wait();
-    expect(await erc1155.balanceOf(futurepass, tokenId)).to.equal(amount);
+    expect(await erc1155.balanceOf(futurepassPrecompile.address, tokenId)).to.equal(amount);
 
     // transfer ERC1155 token from futurepass to owner - using proxied, encoded ERC1155 safeTransferFrom call
     const transferAmount = 3;
     const safeTransferFromCallData = erc1155.interface.encodeFunctionData("safeTransferFrom", [
-      futurepass,
+      futurepassPrecompile.address,
       owner.address,
       tokenId,
       transferAmount,
       [],
     ]);
-    tx = await futurepassProxy
-      .connect(owner)
-      .proxyCall(futurepass, erc1155.address, CALL_TYPE.Call, safeTransferFromCallData);
+    tx = await futurepassPrecompile.connect(owner).proxyCall(erc1155.address, CALL_TYPE.Call, safeTransferFromCallData);
     await tx.wait();
 
     // validate proxy based ERC1155 token transfers
-    expect(await erc1155.balanceOf(futurepass, 1)).to.equal(10);
-    expect(await erc1155.balanceOf(futurepass, 2)).to.equal(2);
+    expect(await erc1155.balanceOf(futurepassPrecompile.address, 1)).to.equal(10);
+    expect(await erc1155.balanceOf(futurepassPrecompile.address, 2)).to.equal(2);
     expect(await erc1155.balanceOf(owner.address, 2)).to.equal(3);
   });
 
@@ -501,24 +468,22 @@ describe("Futurepass Precompile", function () {
   it.skip("futurepass can deploy a contract using CREATE", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
-    // fund owner
-    await fundEOA(alithSigner, owner.address);
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(alithSigner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     const erc20Bytecode = MockERC20Data.bytecode;
 
     // calculate the expected contract address
-    const futurepassNonce = await provider.getTransactionCount(futurepass);
-    const expectedContractAddress = ethers.utils.getContractAddress({ from: futurepass, nonce: futurepassNonce });
+    const futurepassNonce = await provider.getTransactionCount(futurepassPrecompile.address);
+    const expectedContractAddress = ethers.utils.getContractAddress({
+      from: futurepassPrecompile.address,
+      nonce: futurepassNonce,
+    });
 
     // call the proxyCall function with the futurepass address and the encoded CREATE call data
-    tx = await futurepassProxy
+    const tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepass, ethers.constants.AddressZero, CALL_TYPE.Create, erc20Bytecode);
+      .proxyCall(ethers.constants.AddressZero, CALL_TYPE.Create, erc20Bytecode);
     const receipt = await tx.wait();
 
     console.warn(receipt);
@@ -536,13 +501,8 @@ describe("Futurepass Precompile", function () {
   it.skip("futurepass can deploy a contract using CREATE2", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
-    // fund owner
-    await fundEOA(alithSigner, owner.address);
-
     // create FP for owner
-    let tx = await futurepassProxy.connect(alithSigner).create(owner.address);
-    await tx.wait();
-    const futurepass = await futurepassProxy.futurepassOf(owner.address);
+    expect(await createFuturepass(owner, owner.address)).true;
 
     const erc20Bytecode = MockERC20Data.bytecode;
 
@@ -550,15 +510,15 @@ describe("Futurepass Precompile", function () {
     // const salt = ethers.utils.hexZeroPad(ethers.utils.randomBytes(32), 32);
     // const salt = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.BigNumber.from(ethers.utils.randomBytes(32))), 32);
     const salt = ethers.utils.id("1234");
-    ethers.utils.getCreate2Address(futurepass, salt, ethers.utils.keccak256(erc20Bytecode));
+    ethers.utils.getCreate2Address(futurepassPrecompile.address, salt, ethers.utils.keccak256(erc20Bytecode));
 
     // Encode the CREATE2 call to deploy the template contract
     const deployCallData = ethers.utils.hexConcat([ethers.utils.hexZeroPad("0xff", 32), erc20Bytecode, salt]);
 
     // Call the proxyCall function with the futurepass address and the encoded CREATE2 call data
-    tx = await futurepassProxy
+    const tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepass, ethers.constants.AddressZero, CALL_TYPE.Create2, deployCallData);
+      .proxyCall(ethers.constants.AddressZero, CALL_TYPE.Create2, deployCallData);
     await tx.wait();
 
     // // Verify that the created contract has the same bytecode as the template contract
@@ -570,26 +530,3 @@ describe("Futurepass Precompile", function () {
     // expect(await createdContract.owner()).to.equal(futurepass);
   });
 });
-
-function fundAccount(
-  api: ApiPromise,
-  keyring: KeyringPair,
-  address: string,
-  amount: string | number = 10_000_000,
-): Promise<void> {
-  return new Promise<void>((resolve) => {
-    api.tx.utility
-      .batch([
-        api.tx.assets.transfer(GAS_TOKEN_ID, address, amount), // 10 XRP
-        api.tx.balances.transfer(address, amount), // 10 XRP
-      ])
-      .signAndSend(keyring, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-  });
-}
-
-async function fundEOA(signer: Wallet, address: string, value: string = "10000") {
-  const tx = await signer.sendTransaction({ to: address, value: ethers.utils.parseEther(value) });
-  await tx.wait();
-}
