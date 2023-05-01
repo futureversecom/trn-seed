@@ -1176,13 +1176,14 @@ fn whitelist_works() {
 fn futurepass_set_futurepass_migrator() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
+	let futurepass_admin_migrator = create_account(1337);
 
 	TestExt::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
 		.execute_with(|| {
-			let futurepass_admin_migrator = create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID);
+			MigrationAdmin::<Test>::put(futurepass_admin_migrator);
 
 			let mock_admin_migrator = create_account(2);
 			let new_admin_migrator = create_account(3);
@@ -1215,13 +1216,14 @@ fn futurepass_set_futurepass_migrator() {
 fn futurepass_migration_single_collection() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
+	let futurepass_admin_migrator = create_account(1337);
 
 	TestExt::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
 		.execute_with(|| {
-			let futurepass_admin_migrator = create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID);
+			MigrationAdmin::<Test>::put(futurepass_admin_migrator);
 
 			// create EOA and respective futurepass
 			let (eoa, evm_futurepass) = (create_account(420), create_account(421));
@@ -1242,7 +1244,6 @@ fn futurepass_migration_single_collection() {
 				false
 			));
 			// create FP for owner
-			// assert_ok!(Futurepass::create(Origin::signed(futurepass_admin_migrator), eoa));
 			assert_ok!(Futurepass::migrate_evm_futurepass(
 				Origin::signed(futurepass_admin_migrator),
 				eoa,
@@ -1271,13 +1272,14 @@ fn futurepass_migration_single_collection() {
 fn futurepass_migration_multiple_collections() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
+	let futurepass_admin_migrator = create_account(1337);
 
 	TestExt::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
 		.execute_with(|| {
-			let futurepass_admin_migrator = create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID);
+			MigrationAdmin::<Test>::put(futurepass_admin_migrator);
 
 			// create EOA and respective futurepass
 			let (eoa, evm_futurepass) = (create_account(420), create_account(421));
@@ -1324,13 +1326,14 @@ fn futurepass_migration_multiple_collections() {
 fn futurepass_migration_existing_futurepass_account() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
+	let futurepass_admin_migrator = create_account(1337);
 
 	TestExt::default()
 		.with_balances(&endowed)
 		.with_xrp_balances(&endowed)
 		.build()
 		.execute_with(|| {
-			let futurepass_admin_migrator = create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID);
+			MigrationAdmin::<Test>::put(futurepass_admin_migrator);
 
 			// create EOA and respective futurepass
 			let (eoa, evm_futurepass) = (create_account(420), create_account(421));

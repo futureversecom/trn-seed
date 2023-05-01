@@ -38,7 +38,6 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 pub const MOCK_PAYMENT_ASSET_ID: AssetId = 100;
 pub const MOCK_NATIVE_ASSET_ID: AssetId = 1;
-pub const MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID: u64 = 1337;
 
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -213,7 +212,6 @@ impl crate::Config for Test {
 	type ProxyType = ProxyType;
 	type WeightInfo = ();
 
-	type MigratorAdmin = MockMigratorAdmin;
 	type FuturepassMigrator = MockMigrationProvider;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MultiCurrency = pallet_assets_ext::Pallet<Test>;
@@ -245,13 +243,6 @@ impl<T: pallet_nft::Config> crate::FuturepassMigrator<T> for MockMigrationProvid
 			new_owner,
 		)?;
 		Ok(())
-	}
-}
-
-pub struct MockMigratorAdmin;
-impl Get<<Test as frame_system::Config>::AccountId> for MockMigratorAdmin {
-	fn get() -> <Test as frame_system::Config>::AccountId {
-		create_account(MOCK_FUTUREPASS_MIGRATOR_ADMIN_ID)
 	}
 }
 

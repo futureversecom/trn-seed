@@ -492,13 +492,6 @@ macro_rules! impl_pallet_futurepass_config {
 			}
 		}
 
-		pub struct MockMigratorAdmin;
-		impl Get<<Test as frame_system::Config>::AccountId> for MockMigratorAdmin {
-			fn get() -> <Test as frame_system::Config>::AccountId {
-				AccountId::from(H160::from_low_u64_be(1337))
-			}
-		}
-
 		pub struct MockMigrationProvider;
 		impl<T: frame_system::Config> pallet_futurepass::FuturepassMigrator<T>
 			for MockMigrationProvider
@@ -520,7 +513,6 @@ macro_rules! impl_pallet_futurepass_config {
 			type ProxyType = ProxyType;
 			type WeightInfo = ();
 
-			type MigratorAdmin = MockMigratorAdmin;
 			type FuturepassMigrator = MockMigrationProvider;
 			#[cfg(feature = "runtime-benchmarks")]
 			type MultiCurrency = pallet_assets_ext::Pallet<Test>;

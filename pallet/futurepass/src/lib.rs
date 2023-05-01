@@ -134,9 +134,6 @@ pub mod pallet {
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 
-		/// Default futurepass migration data
-		type MigratorAdmin: Get<Self::AccountId>;
-
 		/// EVM Futurepass assets migration provider
 		type FuturepassMigrator: FuturepassMigrator<Self>;
 
@@ -155,7 +152,7 @@ pub mod pallet {
 
 	#[pallet::type_value]
 	pub fn DefaultMigratorAdmin<T: Config>() -> T::AccountId {
-		T::MigratorAdmin::get()
+		T::AccountId::default()
 	}
 
 	/// The next available incrementing futurepass id
