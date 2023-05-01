@@ -44,7 +44,7 @@ use frame_support::{
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
 	transactional,
-	weights::{constants::RocksDbWeight, GetDispatchInfo},
+	weights::{constants::RocksDbWeight, DispatchClass, GetDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
@@ -437,7 +437,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `migrator`: The new account that will become the futurepass asset migrator.
-		#[pallet::weight(RocksDbWeight::get().writes(1))]
+		#[pallet::weight((RocksDbWeight::get().writes(1), DispatchClass::Operational))]
 		pub fn set_futurepass_migrator(
 			origin: OriginFor<T>,
 			migrator: T::AccountId,
@@ -456,7 +456,11 @@ pub mod pallet {
 		/// - `evm_futurepass` - The account ID of the EVM-based Futurepass.
 		/// - `collection_ids` - A vector of collection IDs representing the NFTs collections to be
 		///   migrated.
-		#[pallet::weight(T::WeightInfo::transfer_futurepass())] // TODO: can make this a free tx sudo call? https://docs.substrate.io/build/tx-weights-fees/
+		///
+		/// # <weight>
+		/// Weight is a function of the number of collections migrated; not the tokens migrated.
+		/// # </weight>
+		#[pallet::weight((RocksDbWeight::get().writes(collection_ids.len() as u64), DispatchClass::Operational))]
 		#[transactional]
 		pub fn migrate_evm_futurepass(
 			origin: OriginFor<T>,
