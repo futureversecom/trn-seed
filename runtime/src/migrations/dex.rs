@@ -12,9 +12,8 @@
 use crate::{Dex, Runtime, Weight};
 use frame_support::{
 	dispatch::GetStorageVersion,
-	traits::{Get, OnRuntimeUpgrade, StorageVersion},
+	traits::{OnRuntimeUpgrade, StorageVersion},
 };
-
 
 pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
@@ -56,31 +55,23 @@ impl OnRuntimeUpgrade for Upgrade {
 #[allow(dead_code)]
 pub mod v1 {
 	use super::*;
-	
-	
-	
-	
-	
-	
-	
-	
 
-//		#[storage_alias]
-//		type TradingPairLPToken<T: pallet_dex::Config> =
-//			StorageMap<pallet_dex::Pallet<T>, Twox64Concat, TradingPair, Option<AssetId>, ValueQuery>;
-//	
-//		#[storage_alias]
-//		type LiquidityPool<T: pallet_dex::Config> = StorageMap<
-//			pallet_dex::Pallet<T>,
-//			Twox64Concat,
-//			TradingPair,
-//			(Balance, Balance),
-//			ValueQuery,
-//		>;
-//	
-//		#[storage_alias]
-//		type TradingPairStatuses<T: pallet_dex::Config> =
-//			StorageMap<pallet_dex::Pallet<T>, Twox64Concat, TradingPair, TradingPairStatus, ValueQuery>;
+	//		#[storage_alias]
+	//		type TradingPairLPToken<T: pallet_dex::Config> =
+	//			StorageMap<pallet_dex::Pallet<T>, Twox64Concat, TradingPair, Option<AssetId>, ValueQuery>;
+	//
+	//		#[storage_alias]
+	//		type LiquidityPool<T: pallet_dex::Config> = StorageMap<
+	//			pallet_dex::Pallet<T>,
+	//			Twox64Concat,
+	//			TradingPair,
+	//			(Balance, Balance),
+	//			ValueQuery,
+	//		>;
+	//
+	//		#[storage_alias]
+	//		type TradingPairStatuses<T: pallet_dex::Config> =
+	//			StorageMap<pallet_dex::Pallet<T>, Twox64Concat, TradingPair, TradingPairStatus, ValueQuery>;
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
@@ -119,5 +110,4 @@ pub mod v1 {
 
 		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, 0)
 	}
-
 }
