@@ -150,11 +150,6 @@ pub mod pallet {
 		1
 	}
 
-	#[pallet::type_value]
-	pub fn DefaultMigratorAdmin<T: Config>() -> T::AccountId {
-		T::AccountId::default()
-	}
-
 	/// The next available incrementing futurepass id
 	#[pallet::storage]
 	pub type NextFuturepassId<T> = StorageValue<_, u128, ValueQuery, DefaultValue>;
@@ -170,8 +165,7 @@ pub mod pallet {
 
 	/// Migration data for user (root) and collections they can migrate
 	#[pallet::storage]
-	pub type MigrationAdmin<T: Config> =
-		StorageValue<_, T::AccountId, ValueQuery, DefaultMigratorAdmin<T>>;
+	pub type MigrationAdmin<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
@@ -220,6 +214,8 @@ pub mod pallet {
 		OwnerCannotUnregister,
 		/// Account does not have permission to call this function
 		PermissionDenied,
+		/// Futurepass migrator admin account is not set
+		MigratorNotSet,
 	}
 
 	#[pallet::call]
@@ -443,7 +439,7 @@ pub mod pallet {
 			migrator: T::AccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			MigrationAdmin::<T>::set(migrator);
+			MigrationAdmin::<T>::set(Some(migrator));
 			Self::deposit_event(Event::FuturepassMigratorSet { migrator });
 			Ok(())
 		}
@@ -469,7 +465,9 @@ pub mod pallet {
 			collection_ids: Vec<u32>,
 		) -> DispatchResult {
 			let admin = ensure_signed(origin)?;
-			ensure!(admin == MigrationAdmin::<T>::get(), Error::<T>::PermissionDenied);
+
+			let migrator = MigrationAdmin::<T>::get().ok_or(Error::<T>::MigratorNotSet)?;
+			ensure!(admin == migrator, Error::<T>::PermissionDenied);
 
 			// create futurepass if non-existent for owner
 			let futurepass = if Holders::<T>::contains_key(&owner) {

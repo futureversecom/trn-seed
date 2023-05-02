@@ -1177,6 +1177,8 @@ fn futurepass_admin_migrator_set_by_sudo() {
 	let futurepass_admin_migrator = create_account(1337);
 
 	TestExt::default().build().execute_with(|| {
+		assert_eq!(MigrationAdmin::<Test>::get(), None);
+
 		// fails if not root
 		assert_noop!(
 			Futurepass::set_futurepass_migrator(
