@@ -17,6 +17,8 @@ use sp_arithmetic::traits::SaturatedConversion;
 use sp_core::{H160, U256};
 use sp_runtime::{ArithmeticError, DispatchError, RuntimeDebug};
 
+pub const POOL_ADDRESS_PREFIX: &[u8; 4] = &[0xDD; 4];
+
 #[derive(Encode, Decode, PartialEq, Copy, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct TradingPair(pub AssetId, pub AssetId);
@@ -43,15 +45,14 @@ impl TradingPair {
 	where
 		T::AccountId: From<H160>,
 	{
-		let pool_address_prefix = [0xdd; 4];
 		let asset_a_bytes = self.0.to_be_bytes();
 		let asset_b_bytes = self.1.to_be_bytes();
 
 		let mut address = Vec::with_capacity(20);
-		address.extend_from_slice(&pool_address_prefix);
+		address.extend_from_slice(POOL_ADDRESS_PREFIX);
 		address.extend_from_slice(&asset_a_bytes);
 		address.extend_from_slice(&[0; 4]);
-		address.extend_from_slice(&pool_address_prefix);
+		address.extend_from_slice(POOL_ADDRESS_PREFIX);
 		address.extend_from_slice(&asset_b_bytes);
 
 		let h160_address: H160 = H160::from_slice(&address);
