@@ -18,7 +18,7 @@ pub use pallet::*;
 
 use frame_support::{
 	pallet_prelude::*,
-	traits::fungibles::{self, Inspect, Mutate, Transfer},
+	traits::fungibles::{self, Inspect, InspectMetadata, Mutate, Transfer},
 	transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
@@ -101,14 +101,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type DEXBurnPalletId: Get<PalletId>;
 
-		/// Liquidity pair default token name - matching UniswapV2
-		#[pallet::constant]
-		type LPTokenName: Get<Vec<u8>>;
-
-		/// Liquidity pair default token symbol - matching UniswapV2
-		#[pallet::constant]
-		type LPTokenSymbol: Get<Vec<u8>>;
-
 		/// Liquidity pair default token decimals
 		#[pallet::constant]
 		type LPTokenDecimals: Get<u8>;
@@ -120,6 +112,7 @@ pub mod pallet {
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ fungibles::Transfer<Self::AccountId, Balance = Balance>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
+			+ fungibles::InspectMetadata<Self::AccountId>
 			+ fungibles::Mutate<Self::AccountId>;
 	}
 
@@ -300,19 +293,9 @@ pub mod pallet {
 			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
 
 			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
-			let pool_address = trading_pair.pool_address::<T>();
-			// create trading pair if non-existent
+			// create trading pair & lp token if non-existent
 			if Self::lp_token_id(&trading_pair).is_none() {
-				// create a new token and return the asset id
-				let lp_asset_id = T::MultiCurrency::create_with_metadata(
-					&pool_address,
-					T::LPTokenName::get(),
-					T::LPTokenSymbol::get(),
-					T::LPTokenDecimals::get(),
-					None,
-				)?;
-				TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
-				TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
+				Self::create_lp_token(&trading_pair)?;
 			}
 
 			Self::do_add_liquidity(
@@ -450,6 +433,45 @@ where
 		ensure!(reserve_a > 0_u128 && reserve_b > 0_u128, Error::<T>::InsufficientLiquidity);
 		let amount_b = amount_a.mul(U256::from(reserve_b))?.div(U256::from(reserve_a))?;
 		Ok(amount_b)
+	}
+
+	fn create_lp_token(trading_pair: &TradingPair) -> Result<AssetId, DispatchError> {
+		let symbol_a_truncated: Vec<u8> =
+			T::MultiCurrency::symbol(&trading_pair.0).into_iter().take(20).collect();
+		let symbol_b_truncated: Vec<u8> =
+			T::MultiCurrency::symbol(&trading_pair.1).into_iter().take(20).collect();
+
+		// Convert the symbol vectors to str
+		let symbol_a_str = sp_std::str::from_utf8(&symbol_a_truncated)
+			.map_err(|_| DispatchError::Other("Invalid symbol A"))?;
+		let symbol_b_str = sp_std::str::from_utf8(&symbol_b_truncated)
+			.map_err(|_| DispatchError::Other("Invalid symbol B"))?;
+
+		// name: "LP symbol_a_truncated symbol_b_truncated"
+		let mut lp_token_name = String::with_capacity(3 + symbol_a_str.len() + symbol_b_str.len());
+		lp_token_name.push_str("LP ");
+		lp_token_name.push_str(symbol_a_str);
+		lp_token_name.push(' ');
+		lp_token_name.push_str(symbol_b_str);
+
+		let mut lp_token_symbol = String::with_capacity(
+			3 + trading_pair.0.to_string().len() + trading_pair.1.to_string().len(),
+		);
+		lp_token_symbol.push_str("LP-");
+		lp_token_symbol.push_str(&trading_pair.0.to_string());
+		lp_token_symbol.push('-');
+		lp_token_symbol.push_str(&trading_pair.1.to_string());
+
+		let lp_asset_id = T::MultiCurrency::create_with_metadata(
+			&trading_pair.pool_address::<T>(),
+			lp_token_name.into(),
+			lp_token_symbol.into(),
+			T::LPTokenDecimals::get(),
+			None,
+		)?;
+		TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
+		TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
+		Ok(lp_asset_id)
 	}
 
 	fn do_add_liquidity(
