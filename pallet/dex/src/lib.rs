@@ -26,7 +26,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
-use seed_primitives::{AssetId, Balance};
+use seed_primitives::{AccountId, AssetId, Balance};
 use serde::{Deserialize, Serialize};
 use sp_core::U256;
 use sp_runtime::{
@@ -215,8 +215,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T>
-	{
+	impl<T: Config> Pallet<T> {
 		/// Trading with DEX, swap with exact supply amount. Specify your input; retrieve variable
 		/// output.
 		/// - note: analogous to Uniswapv2 `swapExactTokensForTokens`
@@ -411,8 +410,7 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T>
-{
+impl<T: Config> Pallet<T> {
 	pub fn burn_account_id() -> T::AccountId {
 		T::DEXBurnPalletId::get().into_account_truncating()
 	}
