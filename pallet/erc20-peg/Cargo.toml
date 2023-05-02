@@ -16,20 +16,20 @@ log = "0.4"
 ethabi = { version = "17.1.0", default-features = false }
 
 # Substrate
-frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
-frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
-frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
-sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false  }
-sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false  }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false  }
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", optional = true, default-features = false }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false  }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false  }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
 
 [dev-dependencies]
 pallet-nft = { path = "../nft" }
-sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
 hex-literal = { version = "0.3.4" }
 pallet-assets-ext = { path = "../assets-ext" }
-pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
 
 [features]
 default = ["std"]

@@ -23,60 +23,60 @@ clap = { version = "3.2.22", features = ["derive"] }
 url = "2.3.1"
 hex-literal = "0.3.4"
 
-sc-cli = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
-sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-network = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-executor = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
-sc-service = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
-sc-telemetry = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-transaction-pool = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-transaction-pool-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-consensus-babe = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-consensus-babe-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-consensus-uncles = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-authorship = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-consensus-babe = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-consensus = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-consensus = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-consensus-epochs = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-finality-grandpa = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-finality-grandpa-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-finality-grandpa = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-client-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-inherents = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-transaction-storage-proof = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate" , branch = "polkadot-v0.9.27" }
+sc-cli = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "trn-tx-fees-trait" }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-network = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-executor = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "trn-tx-fees-trait" }
+sc-service = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "trn-tx-fees-trait" }
+sc-telemetry = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-keystore = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-transaction-pool = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-transaction-pool-api = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-consensus-babe = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-consensus-babe-rpc = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-consensus-uncles = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-authorship = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-consensus-babe = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-consensus = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-consensus = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-consensus-epochs = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-finality-grandpa = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-finality-grandpa-rpc = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-finality-grandpa = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-client-api = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-inherents = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-transaction-storage-proof = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate" , branch = "trn-tx-fees-trait" }
 
 # Frontier
-fc-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-fc-db = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-fc-mapping-sync = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN", features = [ "rpc_binary_search_estimate" ] }
-fc-rpc-core = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-fp-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-fp-storage = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+fc-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
+fc-db = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
+fc-mapping-sync = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
+fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait", features = [ "rpc_binary_search_estimate" ] }
+fc-rpc-core = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
+fp-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
+fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
+fp-storage = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.14.0", features = ["server", "macros"] }
-sc-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-rpc-api = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-blockchain = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-block-builder = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-basic-authorship = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-substrate-frame-rpc-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-pallet-transaction-payment-rpc = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sc-rpc = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-api = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-rpc-api = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-blockchain = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-block-builder = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sc-basic-authorship = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+substrate-frame-rpc-system = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+pallet-transaction-payment-rpc = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
 
 # These dependencies are used for runtime benchmarking
-frame-benchmarking = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27" }
-frame-benchmarking-cli = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27" }
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "trn-tx-fees-trait" }
+frame-benchmarking-cli = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "trn-tx-fees-trait" }
 
 # Local Dependencies
 ethy-gadget = { path = "../ethy-gadget" }
@@ -90,13 +90,13 @@ pallet-nft-rpc = { path = "../pallet/nft/rpc" }
 log = "0.4.0"
 
 # Try Runtime
-frame-try-runtime = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27" }
-try-runtime-cli = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "polkadot-v0.9.27" }
+frame-try-runtime = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "trn-tx-fees-trait" }
+try-runtime-cli = { git = "https://github.com/futureversecom/substrate", optional = true, branch = "trn-tx-fees-trait" }
 
 # CLI-specific dependencies
 
 [build-dependencies]
-substrate-build-script-utils = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+substrate-build-script-utils = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
 
 [features]
 default = []

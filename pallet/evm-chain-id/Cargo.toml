@@ -18,17 +18,17 @@ codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 
 # Substrate FRAME
-frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
 
 # Benchmarking
-frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", optional = true, default-features = false }
 
 [dev-dependencies]
-sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
 
 [features]
 default = ["std"]

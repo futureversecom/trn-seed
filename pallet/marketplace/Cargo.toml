@@ -10,13 +10,13 @@ description = "Root Network Marketplace pallet"
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 serde = { version = "1.0.145", default-features = false, features = ["derive"], optional = true }
-sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-frame-benchmarking = { git = "https://github.com/futureversecom/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.27" }
-frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-frame-system = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "trn-tx-fees-trait" }
+sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "trn-tx-fees-trait" }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "trn-tx-fees-trait" }
+sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "trn-tx-fees-trait" }
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", default-features = false, optional = true, branch = "trn-tx-fees-trait" }
+frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "trn-tx-fees-trait" }
+frame-system = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "trn-tx-fees-trait" }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 
 seed-primitives = { path = "../../primitives", default-features = false }
@@ -28,10 +28,10 @@ log = { default-features = false, version = "0.4.14"}
 serde_json = "1.0"
 pallet-assets-ext = { path = "../assets-ext" }
 pallet-fee-control = { path = "../fee-control" }
-pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
+pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
+pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait" }
 
 [features]
 default = ["std"]

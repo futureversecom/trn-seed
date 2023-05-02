@@ -21,6 +21,8 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use codec::{Decode, Encode};
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
+use frame_support::traits::Currency;
+use pallet_assets_ext::PositiveImbalance;
 use pallet_dex::TradingPairStatus;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,
@@ -46,6 +48,7 @@ use sp_runtime::{
 	ApplyExtrinsicResult, FixedPointNumber, Percent, Perquintill,
 };
 pub use sp_runtime::{impl_opaque_keys, traits::NumberFor, Perbill, Permill};
+use sp_staking::FeeRewards;
 use sp_std::prelude::*;
 
 pub use frame_system::Call as SystemCall;
@@ -719,7 +722,41 @@ parameter_types! {
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
 }
 type SlashCancelOrigin = EnsureRoot<AccountId>;
+
+pub struct FeePotStakingRewards;
+impl FeeRewards<AccountId, Balance, PositiveImbalance<Runtime>> for FeePotStakingRewards {
+	fn from_pot_or_mint_creating(who: &AccountId, value: Balance) -> PositiveImbalance<Runtime> {
+		if Assets::balance(XrpAssetId::get(), &TxFeePot::account_id()) >= value {
+			// TODO: Need to check and see what logic to add here to perform the equivalant of the
+			// account `creating` functionality
+			<XrpCurrency as Currency<AccountId>>::transfer(
+				&TxFeePot::account_id(),
+				&who,
+				value,
+				frame_support::traits::ExistenceRequirement::KeepAlive,
+			);
+		}
+		return <XrpCurrency as Currency<AccountId>>::deposit_creating(who, value)
+	}
+
+	fn from_pot_or_mint_into_existing(
+		who: &AccountId,
+		value: Balance,
+	) -> Result<PositiveImbalance<Runtime>, sp_runtime::DispatchError> {
+		if Assets::balance(XrpAssetId::get(), &TxFeePot::account_id()) >= value {
+			<XrpCurrency as Currency<AccountId>>::transfer(
+				&TxFeePot::account_id(),
+				&who,
+				value,
+				frame_support::traits::ExistenceRequirement::KeepAlive,
+			);
+		}
+		return <XrpCurrency as Currency<AccountId>>::deposit_into_existing(who, value)
+	}
+}
+
 impl pallet_staking::Config for Runtime {
+	type TrnRewards = FeePotStakingRewards;
 	type MaxNominations = MaxNominations;
 	type Currency = DualStakingCurrency;
 	type CurrencyBalance = Balance;
@@ -1116,8 +1153,7 @@ impl pallet_futurepass::Config for Runtime {
 	type Call = Call;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
-	type FuturepassMigrator = impls::FuturepassMigrationProvider;
-	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
+	type WeightInfo = weights::pallet_futurepass::WeightInfo<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type MultiCurrency = AssetsExt;

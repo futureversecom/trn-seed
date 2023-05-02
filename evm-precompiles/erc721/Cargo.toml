@@ -18,15 +18,15 @@ precompile-utils = { path = "../utils", default-features = false }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 
 # Substrate
-frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "trn-tx-fees-trait", default-features = false }
 
 # Frontier
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
+pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "trn-tx-fees-trait" }
 
 [features]
 default = ["std"]
