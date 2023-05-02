@@ -195,6 +195,96 @@ fn quote() {
 }
 
 #[test]
+fn create_lp_token() {
+	TestExt::default().build().execute_with(|| {
+		let alice: AccountId = make_account_id(1);
+
+		let usdc =
+			AssetsExt::create_with_metadata(&alice, "usdc".into(), "usdc".into(), 6, None).unwrap();
+		let weth = AssetsExt::create_with_metadata(&alice, "weth".into(), "weth".into(), 18, None)
+			.unwrap();
+
+		assert_eq!(usdc, 1124);
+		assert_eq!(weth, 2148);
+
+		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
+		let weth_symbol_bytes = AssetsExt::symbol(&weth);
+		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
+		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
+
+		assert_eq!(usdc_symbol, "usdc");
+		assert_eq!(weth_symbol, "weth");
+
+		let trading_pair = TradingPair::new(usdc, weth);
+
+		let lp_token = Dex::create_lp_token(&trading_pair).unwrap();
+		assert_eq!(lp_token, 3172);
+
+		let lp_token_name_bytes =
+			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
+				&lp_token,
+			);
+		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
+		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
+		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
+
+		assert_eq!(lp_token_name, "LP usdc weth");
+		assert_eq!(lp_token_symbol, "LP-1124-2148");
+	});
+}
+
+#[test]
+fn create_lp_token_long_symbol() {
+	TestExt::default().build().execute_with(|| {
+		let alice: AccountId = make_account_id(1);
+
+		let usdc = AssetsExt::create_with_metadata(
+			&alice,
+			"usdc".into(),
+			"usdc-something-very-long".into(),
+			6,
+			None,
+		)
+		.unwrap();
+		let weth = AssetsExt::create_with_metadata(
+			&alice,
+			"weth".into(),
+			"weth-symbol-very-very-long".into(),
+			18,
+			None,
+		)
+		.unwrap();
+
+		assert_eq!(usdc, 1124);
+		assert_eq!(weth, 2148);
+
+		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
+		let weth_symbol_bytes = AssetsExt::symbol(&weth);
+		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
+		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
+
+		assert_eq!(usdc_symbol, "usdc-something-very-long");
+		assert_eq!(weth_symbol, "weth-symbol-very-very-long");
+
+		let trading_pair = TradingPair::new(usdc, weth);
+
+		let lp_token = Dex::create_lp_token(&trading_pair).unwrap();
+		assert_eq!(lp_token, 3172);
+
+		let lp_token_name_bytes =
+			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
+				&lp_token,
+			);
+		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
+		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
+		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
+
+		assert_eq!(lp_token_name, "LP usdc-something-very- weth-symbol-very-ver");
+		assert_eq!(lp_token_symbol, "LP-1124-2148");
+	});
+}
+
+#[test]
 fn add_liquidity() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
