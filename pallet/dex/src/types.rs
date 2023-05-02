@@ -48,7 +48,7 @@ impl TradingPair {
 		let asset_a_bytes = self.0.to_be_bytes();
 		let asset_b_bytes = self.1.to_be_bytes();
 
-		let mut address = Vec::with_capacity(20);
+		let mut address = crate::Vec::with_capacity(20);
 		address.extend_from_slice(POOL_ADDRESS_PREFIX);
 		address.extend_from_slice(&asset_a_bytes);
 		address.extend_from_slice(&[0; 4]);
