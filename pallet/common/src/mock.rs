@@ -223,8 +223,6 @@ macro_rules! impl_pallet_dex_config {
 			pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
 			pub const TradingPathLimit: u32 = 2;
 			pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
-			pub const LPTokenName: [u8; 10] = *b"Uniswap V2";
-			pub const LPTokenSymbol: [u8; 6] = *b"UNI-V2";
 			pub const LPTokenDecimals: u8 = 6;
 		}
 
@@ -233,8 +231,6 @@ macro_rules! impl_pallet_dex_config {
 			type GetExchangeFee = GetExchangeFee;
 			type TradingPathLimit = TradingPathLimit;
 			type DEXBurnPalletId = DEXBurnPalletId;
-			type LPTokenName = LPTokenName;
-			type LPTokenSymbol = LPTokenSymbol;
 			type LPTokenDecimals = LPTokenDecimals;
 			type WeightInfo = ();
 			type MultiCurrency = AssetsExt;
