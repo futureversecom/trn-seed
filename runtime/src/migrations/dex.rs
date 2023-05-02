@@ -93,4 +93,47 @@ pub mod v1 {
 
 		<Runtime as frame_system::Config>::DbWeight::get().reads_writes(3, 0)
 	}
+	#[cfg(test)]
+	mod tests {
+		use super::*;
+		use crate::migrations::tests::new_test_ext;
+		use pallet_dex::{TradingPair, TradingPairStatus};
+
+		#[test]
+		fn migration_test() {
+			new_test_ext().execute_with(|| {
+				StorageVersion::new(0).put::<Dex>();
+
+				let tp = TradingPair::new(1, 2);
+
+				// Insert TradingPair data
+				pallet_dex::TradingPairLPToken::<Runtime>::insert(tp, Some(12));
+				pallet_dex::LiquidityPool::<Runtime>::insert(tp, (1000000, 3000000));
+				pallet_dex::TradingPairStatuses::<Runtime>::insert(tp, TradingPairStatus::Enabled);
+
+				// Make sure TradingPair data are correctly stored
+				assert_eq!(pallet_dex::TradingPairLPToken::<Runtime>::get(tp).unwrap(), 12);
+				assert_eq!(pallet_dex::LiquidityPool::<Runtime>::get(tp), (1000000, 3000000));
+				assert_eq!(
+					pallet_dex::TradingPairStatuses::<Runtime>::get(tp),
+					TradingPairStatus::Enabled
+				);
+
+				// Do runtime upgrade
+				Upgrade::on_runtime_upgrade();
+
+				// Check if inserted data are cleaned
+				assert_eq!(pallet_dex::TradingPairLPToken::<Runtime>::get(tp), None);
+				assert_eq!(pallet_dex::LiquidityPool::<Runtime>::get(tp), (0, 0));
+				assert_eq!(
+					pallet_dex::TradingPairStatuses::<Runtime>::get(tp),
+					TradingPairStatus::NotEnabled
+				);
+
+				// Check if version has been set correctly
+				let onchain = Dex::on_chain_storage_version();
+				assert_eq!(onchain, 1);
+			});
+		}
+	}
 }
