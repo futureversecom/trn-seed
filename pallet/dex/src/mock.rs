@@ -119,7 +119,7 @@ impl pallet_assets_ext::Config for Test {
 
 parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
-	pub const TradingPathLimit: u32 = 2;
+	pub const TradingPathLimit: u32 = 3;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
 	pub const LPTokenDecimals: u8 = 6;
 }

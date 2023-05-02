@@ -962,7 +962,7 @@ fn swap_with_exact_supply() {
 }
 
 #[test]
-fn restrict_multiple_pair_swap_with_exact_supply() {
+fn perform_multiple_pair_swap_with_exact_supply() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 		// restrict the trading path length to 2
@@ -1002,19 +1002,18 @@ fn restrict_multiple_pair_swap_with_exact_supply() {
 			0u128,
 		));
 
-		assert_ok!(Dex::get_amounts_out(50000000u128, &[a, b]), vec![50000000u128, 33266599u128]);
-		assert_ok!(Dex::get_amounts_out(33266599u128, &[a, b]), vec![33266599u128, 24906207u128]);
+		assert_ok!(
+			Dex::get_amounts_out(50000u128, &[a, b, c]),
+			vec![50000u128, 49825u128, 49650u128]
+		);
 
 		// swap with exact supply ( path a->b->c )
-		assert_noop!(
-			Dex::swap_with_exact_supply(
-				Origin::signed(alice),
-				50_000_000u128, // input a
-				1u128,          // expect c
-				vec![a, b, c],
-			),
-			Error::<Test>::InvalidTradingPathLength
-		);
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(alice),
+			50_000u128, // input a
+			1u128,      // expect c
+			vec![a, b, c],
+		),);
 	});
 }
 

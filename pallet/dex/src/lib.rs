@@ -866,9 +866,16 @@ impl<T: Config> Pallet<T> {
 			let (amount_0_out, amount_1_out) =
 				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
 
-			let pool_address = trading_pair.pool_address::<T>();
+			let trading_pair_new = if i < path.len() - 2 {
+				TradingPair::new(output, path[i + 2])
+			} else {
+				trading_pair
+			};
 
-			let to = if i < path.len() - 2 { &pool_address } else { to };
+			let pool_address_new = trading_pair_new.pool_address::<T>();
+
+			let to = if i < path.len() - 2 { &pool_address_new } else { to };
+			let pool_address = trading_pair.pool_address::<T>();
 
 			// IUniswapV2Pair(UniswapV2Library.pairFor(factory, input, output)).swap(amount0Out,
 			// amount1Out, to, new bytes(0));
