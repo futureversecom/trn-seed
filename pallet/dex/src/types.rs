@@ -51,9 +51,8 @@ impl TradingPair {
 		let mut address = crate::Vec::with_capacity(20);
 		address.extend_from_slice(POOL_ADDRESS_PREFIX);
 		address.extend_from_slice(&asset_a_bytes);
-		address.extend_from_slice(&[0; 4]);
-		address.extend_from_slice(POOL_ADDRESS_PREFIX);
 		address.extend_from_slice(&asset_b_bytes);
+		address.extend_from_slice(&[0; 8]);
 
 		let h160_address: H160 = H160::from_slice(&address);
 		T::AccountId::from(h160_address)

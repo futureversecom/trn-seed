@@ -148,7 +148,7 @@ fn trading_pair_pool_address() {
 		let pool_address: H160 = TradingPair::new(usdc, weth).pool_address::<Test>().into();
 
 		let expected_pool_address =
-			H160::from_str("dddddddd0000046400000000dddddddd00000864").unwrap();
+			H160::from_str("dddddddd00000464000008640000000000000000").unwrap();
 		assert_eq!(pool_address.to_string(), expected_pool_address.to_string());
 
 		let pool_address_reverse: H160 = TradingPair::new(weth, usdc).pool_address::<Test>().into();
@@ -156,7 +156,7 @@ fn trading_pair_pool_address() {
 
 		let hex_address = pool_address.to_fixed_bytes();
 		let usdc_hex = &hex_address[5..8]; // 2nd 4 bytes
-		let weth_hex = &hex_address[17..20]; // Last 4 bytes
+		let weth_hex = &hex_address[9..12]; // 3rd 4 bytes
 
 		let usdc_decimal = u32::from_str_radix(&hex::encode(usdc_hex), 16).unwrap();
 		let weth_decimal = u32::from_str_radix(&hex::encode(weth_hex), 16).unwrap();
@@ -592,12 +592,12 @@ fn get_trading_pair_address() {
 		let trading_pair = TradingPair::new(usdc, weth);
 		let pool_address: AccountId = trading_pair.pool_address::<Test>();
 		let pool_address = encode(H160(pool_address.into()).as_bytes());
-		assert_eq!(pool_address, "dddddddd0000046400000000dddddddd00000864");
+		assert_eq!(pool_address, "dddddddd00000464000008640000000000000000");
 
 		let trading_pair_reverse = TradingPair::new(weth, usdc);
 		let pool_address_reverse: AccountId = trading_pair_reverse.pool_address::<Test>();
 		let pool_address_reverse = encode(H160(pool_address_reverse.into()).as_bytes());
-		assert_eq!(pool_address_reverse, "dddddddd0000046400000000dddddddd00000864");
+		assert_eq!(pool_address_reverse, "dddddddd00000464000008640000000000000000");
 
 		assert_eq!(pool_address, pool_address_reverse);
 	});
