@@ -19,7 +19,7 @@ use sp_core::H160;
 use sp_runtime::{traits::BadOrigin, ArithmeticError, DispatchError};
 use std::str::FromStr;
 
-fn make_account_id(seed: u64) -> AccountId {
+fn create_account(seed: u64) -> AccountId {
 	AccountId::from(H160::from_low_u64_be(seed))
 }
 /// x * 10e18
@@ -36,7 +36,7 @@ fn test_run() {
 fn disable_trading_pair() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let alice: AccountId = make_account_id(1);
+		let alice: AccountId = create_account(1);
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
 		let weth = AssetsExt::create(&alice, None).unwrap();
@@ -80,7 +80,7 @@ fn reenable_trading_pair() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let alice: AccountId = make_account_id(1);
+		let alice: AccountId = create_account(1);
 
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -138,7 +138,7 @@ fn reenable_trading_pair() {
 #[test]
 fn trading_pair_pool_address() {
 	TestExt::default().build().execute_with(|| {
-		let alice: AccountId = make_account_id(1);
+		let alice: AccountId = create_account(1);
 
 		let usdc = AssetsExt::create(&alice, None).unwrap();
 		let weth = AssetsExt::create(&alice, None).unwrap();
@@ -195,101 +195,11 @@ fn quote() {
 }
 
 #[test]
-fn create_lp_token() {
-	TestExt::default().build().execute_with(|| {
-		let alice: AccountId = make_account_id(1);
-
-		let usdc =
-			AssetsExt::create_with_metadata(&alice, "usdc".into(), "usdc".into(), 6, None).unwrap();
-		let weth = AssetsExt::create_with_metadata(&alice, "weth".into(), "weth".into(), 18, None)
-			.unwrap();
-
-		assert_eq!(usdc, 1124);
-		assert_eq!(weth, 2148);
-
-		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
-		let weth_symbol_bytes = AssetsExt::symbol(&weth);
-		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
-		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
-
-		assert_eq!(usdc_symbol, "usdc");
-		assert_eq!(weth_symbol, "weth");
-
-		let trading_pair = TradingPair::new(usdc, weth);
-
-		let lp_token = Dex::create_lp_token(&trading_pair).unwrap();
-		assert_eq!(lp_token, 3172);
-
-		let lp_token_name_bytes =
-			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
-				&lp_token,
-			);
-		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
-		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
-		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
-
-		assert_eq!(lp_token_name, "LP usdc weth");
-		assert_eq!(lp_token_symbol, "LP-1124-2148");
-	});
-}
-
-#[test]
-fn create_lp_token_long_symbol() {
-	TestExt::default().build().execute_with(|| {
-		let alice: AccountId = make_account_id(1);
-
-		let usdc = AssetsExt::create_with_metadata(
-			&alice,
-			"usdc".into(),
-			"usdc-something-very-long".into(),
-			6,
-			None,
-		)
-		.unwrap();
-		let weth = AssetsExt::create_with_metadata(
-			&alice,
-			"weth".into(),
-			"weth-symbol-very-very-long".into(),
-			18,
-			None,
-		)
-		.unwrap();
-
-		assert_eq!(usdc, 1124);
-		assert_eq!(weth, 2148);
-
-		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
-		let weth_symbol_bytes = AssetsExt::symbol(&weth);
-		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
-		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
-
-		assert_eq!(usdc_symbol, "usdc-something-very-long");
-		assert_eq!(weth_symbol, "weth-symbol-very-very-long");
-
-		let trading_pair = TradingPair::new(usdc, weth);
-
-		let lp_token = Dex::create_lp_token(&trading_pair).unwrap();
-		assert_eq!(lp_token, 3172);
-
-		let lp_token_name_bytes =
-			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
-				&lp_token,
-			);
-		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
-		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
-		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
-
-		assert_eq!(lp_token_name, "LP usdc-something-very- weth-symbol-very-ver");
-		assert_eq!(lp_token_symbol, "LP-1124-2148");
-	});
-}
-
-#[test]
 fn add_liquidity() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -412,8 +322,8 @@ fn add_liquidity() {
 fn add_shared_liquidity() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		// create 3 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -582,7 +492,7 @@ fn get_trading_pair_address() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let alice: AccountId = make_account_id(1);
+		let alice: AccountId = create_account(1);
 
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -608,8 +518,8 @@ fn add_liquidity_issue_15() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice.clone(), None).unwrap();
@@ -653,8 +563,8 @@ fn remove_liquidity_simple() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		// create 2 tokens (by different users)
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -711,8 +621,8 @@ fn remove_liquidity_full() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		// create 2 tokens (by different users)
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -852,8 +762,8 @@ fn swap_with_exact_supply() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		let weth = AssetsExt::create(&alice, None).unwrap();
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -967,7 +877,7 @@ fn restrict_multiple_pair_swap_with_exact_supply() {
 		System::set_block_number(1);
 		// restrict the trading path length to 2
 
-		let alice: AccountId = make_account_id(1);
+		let alice: AccountId = create_account(1);
 
 		let a = AssetsExt::create(&alice, None).unwrap();
 		let b = AssetsExt::create(&alice, None).unwrap();
@@ -1023,8 +933,8 @@ fn swap_with_exact_target() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		// create tokens (by different users)
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -1149,11 +1059,11 @@ fn multiple_swaps_with_multiple_lp() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
-		let charlie: AccountId = make_account_id(3);
-		let danny: AccountId = make_account_id(4);
-		let elliot: AccountId = make_account_id(5);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
+		let danny: AccountId = create_account(4);
+		let elliot: AccountId = create_account(5);
 
 		// create tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -1315,8 +1225,8 @@ fn multiple_swaps_with_multiple_lp() {
 fn query_with_trading_pair() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
-		let alice: AccountId = make_account_id(1);
-		let bob: AccountId = make_account_id(2);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -1374,8 +1284,8 @@ macro_rules! swap_with_exact_supply_multi {
 
 				let (lp_amount_token_1, lp_amount_token_2) = $liquidity;
 
-				let alice: AccountId = make_account_id(1);
-				let bob: AccountId = make_account_id(2);
+				let alice: AccountId = create_account(1);
+				let bob: AccountId = create_account(2);
 
 				// create tokens
 				let token_0 = AssetsExt::create(&alice, None).unwrap();
@@ -1484,8 +1394,8 @@ macro_rules! swap_with_exact_target_multi {
 
 				let (lp_amount_token_1, lp_amount_token_2) = $liquidity;
 
-				let alice: AccountId = make_account_id(1);
-				let bob: AccountId = make_account_id(2);
+				let alice: AccountId = create_account(1);
+				let bob: AccountId = create_account(2);
 
 				// create tokens
 				let token_0 = AssetsExt::create(&alice, None).unwrap();

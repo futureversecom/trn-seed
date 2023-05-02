@@ -85,7 +85,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Trading fee rate
 		/// The first item of the tuple is the numerator of the fee rate, second
@@ -216,8 +216,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
-	where
-		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		/// Trading with DEX, swap with exact supply amount. Specify your input; retrieve variable
 		/// output.
@@ -414,8 +412,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T>
-where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
 	pub fn burn_account_id() -> T::AccountId {
 		T::DEXBurnPalletId::get().into_account_truncating()
