@@ -43,14 +43,18 @@ impl TradingPair {
 	where
 		T::AccountId: From<H160>,
 	{
-		let pool_address_prefix = "dddddddd";
-		let asset_a = alloc::format!("{:08x}", self.0);
-		let asset_b = alloc::format!("{:08x}", self.1);
-		let asset_a_padded = alloc::format!("{}{}", pool_address_prefix, asset_a);
-		let asset_b_padded = alloc::format!("{}{}", pool_address_prefix, asset_b);
-		let address = asset_a_padded + "00000000" + &asset_b_padded;
-		let bytes = hex::decode(address).unwrap();
-		let h160_address: H160 = H160::from_slice(&bytes);
+		let pool_address_prefix = [0xdd; 4];
+		let asset_a_bytes = self.0.to_be_bytes();
+		let asset_b_bytes = self.1.to_be_bytes();
+
+		let mut address = Vec::with_capacity(20);
+		address.extend_from_slice(&pool_address_prefix);
+		address.extend_from_slice(&asset_a_bytes);
+		address.extend_from_slice(&[0; 4]);
+		address.extend_from_slice(&pool_address_prefix);
+		address.extend_from_slice(&asset_b_bytes);
+
+		let h160_address: H160 = H160::from_slice(&address);
 		T::AccountId::from(h160_address)
 	}
 }
