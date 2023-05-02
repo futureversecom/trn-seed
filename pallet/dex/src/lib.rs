@@ -8,14 +8,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
-
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::collapsible_if)]
+extern crate alloc;
+
 pub use pallet::*;
 
+use alloc::string::ToString;
 use frame_support::{
 	pallet_prelude::*,
 	traits::fungibles::{self, Inspect, InspectMetadata, Mutate, Transfer},
@@ -448,20 +450,9 @@ where
 			.map_err(|_| DispatchError::Other("Invalid symbol B"))?;
 
 		// name: "LP symbol_a_truncated symbol_b_truncated"
-		let mut lp_token_name = String::with_capacity(3 + symbol_a_str.len() + symbol_b_str.len());
-		lp_token_name.push_str("LP ");
-		lp_token_name.push_str(symbol_a_str);
-		lp_token_name.push(' ');
-		lp_token_name.push_str(symbol_b_str);
-
-		let mut lp_token_symbol = String::with_capacity(
-			3 + trading_pair.0.to_string().len() + trading_pair.1.to_string().len(),
-		);
-		lp_token_symbol.push_str("LP-");
-		lp_token_symbol.push_str(&trading_pair.0.to_string());
-		lp_token_symbol.push('-');
-		lp_token_symbol.push_str(&trading_pair.1.to_string());
-
+		let lp_token_name = alloc::format!("LP {} {}", symbol_a_str, symbol_b_str);
+		let lp_token_symbol =
+			alloc::format!("LP-{}-{}", trading_pair.0.to_string(), trading_pair.1.to_string(),);
 		let lp_asset_id = T::MultiCurrency::create_with_metadata(
 			&trading_pair.pool_address::<T>(),
 			lp_token_name.into(),

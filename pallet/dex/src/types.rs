@@ -8,9 +8,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
-#![cfg_attr(not(feature = "std"), no_std)]
-extern crate alloc;
-
 use codec::{Decode, Encode, MaxEncodedLen};
 use hex;
 use scale_info::TypeInfo;
