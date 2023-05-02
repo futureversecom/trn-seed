@@ -437,20 +437,29 @@ impl<T: Config> Pallet<T> {
 		let symbol_b_truncated: Vec<u8> =
 			T::MultiCurrency::symbol(&trading_pair.1).into_iter().take(20).collect();
 
-		// Convert the symbol vectors to str
-		let symbol_a_str = sp_std::str::from_utf8(&symbol_a_truncated)
-			.map_err(|_| DispatchError::Other("Invalid symbol A"))?;
-		let symbol_b_str = sp_std::str::from_utf8(&symbol_b_truncated)
-			.map_err(|_| DispatchError::Other("Invalid symbol B"))?;
+		// name: b"LP " + symbol_a_truncated + b" " + symbol_b_truncated
+		let mut lp_token_name =
+			Vec::with_capacity(22 + symbol_a_truncated.len() + symbol_b_truncated.len());
+		lp_token_name.extend_from_slice(b"LP ");
+		lp_token_name.extend_from_slice(&symbol_a_truncated);
+		lp_token_name.push(b' ');
+		lp_token_name.extend_from_slice(&symbol_b_truncated);
 
-		// name: "LP symbol_a_truncated symbol_b_truncated"
-		let lp_token_name = alloc::format!("LP {} {}", symbol_a_str, symbol_b_str);
-		let lp_token_symbol =
-			alloc::format!("LP-{}-{}", trading_pair.0.to_string(), trading_pair.1.to_string(),);
+		let asset_id_a_bytes = trading_pair.0.to_string().into_bytes();
+		let asset_id_b_bytes = trading_pair.1.to_string().into_bytes();
+
+		// symbol: b"LP-" + asset_id_a_bytes + b"-" + asset_id_b_bytes
+		let mut lp_token_symbol =
+			Vec::with_capacity(3 + asset_id_a_bytes.len() + 1 + asset_id_b_bytes.len());
+		lp_token_symbol.extend_from_slice(b"LP-");
+		lp_token_symbol.extend_from_slice(&asset_id_a_bytes);
+		lp_token_symbol.push(b'-');
+		lp_token_symbol.extend_from_slice(&asset_id_b_bytes);
+
 		let lp_asset_id = T::MultiCurrency::create_with_metadata(
 			&trading_pair.pool_address::<T>(),
-			lp_token_name.into(),
-			lp_token_symbol.into(),
+			lp_token_name,
+			lp_token_symbol,
 			T::LPTokenDecimals::get(),
 			None,
 		)?;
