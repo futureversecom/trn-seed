@@ -863,12 +863,21 @@ impl<T: Config> Pallet<T> {
 			ensure!(input != output, Error::<T>::IdenticalTokenAddress);
 
 			let trading_pair = TradingPair::new(input, output);
+
+			// (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) :
+			// (amountOut, uint(0))
 			let (amount_0_out, amount_1_out) =
 				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
 
-			let pool_address = trading_pair.pool_address::<T>();
+			// address to = i < path.length - 2 ? UniswapV2Library.pairFor(factory, output, path[i +
+			// 2]) : _to;
+			let to = if i < path.len() - 2 {
+				TradingPair::new(output, path[i + 2]).pool_address::<T>()
+			} else {
+				*to
+			};
 
-			let to = if i < path.len() - 2 { &pool_address } else { to };
+			let pool_address = trading_pair.pool_address::<T>();
 
 			// IUniswapV2Pair(UniswapV2Library.pairFor(factory, input, output)).swap(amount0Out,
 			// amount1Out, to, new bytes(0));
