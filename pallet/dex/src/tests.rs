@@ -1003,8 +1003,8 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 		));
 
 		assert_ok!(
-			Dex::get_amounts_out(50000u128, &[a, b, c]),
-			vec![50000u128, 49825u128, 49650u128]
+			Dex::get_amounts_out(50_000u128, &[a, b, c]),
+			vec![50_000u128, 49_825u128, 49_650u128]
 		);
 
 		// swap with exact supply ( path a->b->c )
@@ -1013,7 +1013,38 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 			50_000u128, // input a
 			1u128,      // expect c
 			vec![a, b, c],
-		),);
+		));
+
+		let trading_pair = TradingPair::new(a, b);
+		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let (reserve_0, reserve_1) = LiquidityPool::<Test>::get(trading_pair);
+		let balance_0 = AssetsExt::balance(trading_pair.0, &pool_address);
+		let balance_1 = AssetsExt::balance(trading_pair.1, &pool_address);
+
+		assert_eq!(reserve_0, balance_0);
+		assert_eq!(reserve_1, balance_1);
+		assert_eq!(reserve_0, 100_050_000u128); // 100_000_000u128 + 50_000u128
+		assert_eq!(reserve_1, 99_950_175u128); // 100_000_000u128 - 49_825u128
+
+		let trading_pair_2: TradingPair = TradingPair::new(b, c);
+		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+
+		let (reserve_2, reserve_3) = LiquidityPool::<Test>::get(trading_pair_2);
+		let balance_2 = AssetsExt::balance(trading_pair_2.0, &pool_address);
+		let balance_3 = AssetsExt::balance(trading_pair_2.1, &pool_address);
+		assert_eq!(reserve_2, balance_2);
+		assert_eq!(reserve_3, balance_3);
+		assert_eq!(reserve_2, 100_049_825u128); // 100_000_000u128 + 49_825u128
+		assert_eq!(reserve_3, 99_950_350u128); // 100_000_000u128 - 49_650u128
+
+		// Alice's a and c balance
+		let alice_a = AssetsExt::balance(a, &alice);
+		let alice_b = AssetsExt::balance(b, &alice);
+		let alice_c = AssetsExt::balance(c, &alice);
+		assert_eq!(alice_a, to_eth(100) - 100_000_000u128 - 50_000u128); // Initial minted - liquidity added - swap a for c
+		assert_eq!(alice_b, to_eth(100) - 200_000_000u128); // Initial minted - liquidity added ( in pool [a-b] & [b-c]
+		assert_eq!(alice_c, to_eth(100) - 100_000_000u128 + 49_650u128); // Initial minted - liquidity added
+		                                                         // + swap a for c
 	});
 }
 
