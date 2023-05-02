@@ -158,6 +158,54 @@ macro_rules! impl_pallet_assets_ext_config {
 }
 
 #[macro_export]
+macro_rules! impl_pallet_nft_config {
+	($test:ident) => {
+		pub struct MockXls20MintRequest;
+		impl Xls20MintRequest for MockXls20MintRequest {
+			type AccountId = AccountId;
+			fn request_xls20_mint(
+				_who: &Self::AccountId,
+				_collection_id: CollectionUuid,
+				_serial_numbers: Vec<SerialNumber>,
+				_metadata_scheme: MetadataScheme,
+			) -> DispatchResult {
+				Ok(())
+			}
+		}
+
+		pub struct MockTransferSubscriber;
+		impl OnTransferSubscriber for MockTransferSubscriber {
+			fn on_nft_transfer(_token_id: &TokenId) {}
+		}
+
+		parameter_types! {
+			pub const NftPalletId: PalletId = PalletId(*b"nftokens");
+			pub const DefaultListingDuration: u64 = 5;
+			pub const MaxAttributeLength: u8 = 140;
+			pub const MaxOffers: u32 = 10;
+			pub const MaxTokensPerCollection: u32 = 10_000;
+			pub const MintLimit: u32 = 100;
+			pub const Xls20PaymentAsset: AssetId = 2;
+		}
+
+		impl pallet_nft::Config for Test {
+			type DefaultListingDuration = DefaultListingDuration;
+			type Event = Event;
+			type MaxOffers = MaxOffers;
+			type MaxTokensPerCollection = MaxTokensPerCollection;
+			type MintLimit = MintLimit;
+			type MultiCurrency = AssetsExt;
+			type OnTransferSubscription = MockTransferSubscriber;
+			type OnNewAssetSubscription = ();
+			type PalletId = NftPalletId;
+			type ParachainId = TestParachainId;
+			type Xls20MintRequest = MockXls20MintRequest;
+			type WeightInfo = ();
+		}
+	};
+}
+
+#[macro_export]
 macro_rules! impl_pallet_fee_control_config {
 	($test:ident) => {
 		impl pallet_fee_control::Config for $test {
@@ -443,6 +491,19 @@ macro_rules! impl_pallet_futurepass_config {
 			}
 		}
 
+		pub struct MockMigrationProvider;
+		impl<T: frame_system::Config> pallet_futurepass::FuturepassMigrator<T>
+			for MockMigrationProvider
+		{
+			fn transfer_nfts(
+				collection_id: u32,
+				current_owner: &T::AccountId,
+				new_owner: &T::AccountId,
+			) -> DispatchResult {
+				Ok(())
+			}
+		}
+
 		impl pallet_futurepass::Config for $test {
 			type Event = Event;
 			type Proxy = MockProxyProvider;
@@ -450,6 +511,8 @@ macro_rules! impl_pallet_futurepass_config {
 			type ApproveOrigin = EnsureRoot<AccountId>;
 			type ProxyType = ProxyType;
 			type WeightInfo = ();
+
+			type FuturepassMigrator = MockMigrationProvider;
 			#[cfg(feature = "runtime-benchmarks")]
 			type MultiCurrency = pallet_assets_ext::Pallet<Test>;
 		}

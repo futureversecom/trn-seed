@@ -20,7 +20,9 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use seed_pallet_common::*;
-use seed_primitives::types::{AccountId, AssetId, Balance};
+use seed_primitives::{
+	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
+};
 use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
 	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
@@ -47,6 +49,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
+		Nft: pallet_nft,
 		FeeControl: pallet_fee_control,
 		// TransactionPayment: pallet_transaction_payment,
 		// FeeProxy: pallet_fee_proxy,
@@ -60,6 +63,7 @@ frame_support::construct_runtime!(
 impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
+impl_pallet_nft_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 impl_pallet_fee_control_config!(Test);
 impl_pallet_dex_config!(Test);
@@ -207,8 +211,40 @@ impl crate::Config for Test {
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = ProxyType;
 	type WeightInfo = ();
+
+	type FuturepassMigrator = MockMigrationProvider;
 	#[cfg(feature = "runtime-benchmarks")]
 	type MultiCurrency = pallet_assets_ext::Pallet<Test>;
+}
+
+pub struct MockMigrationProvider;
+
+impl<T: pallet_nft::Config> crate::FuturepassMigrator<T> for MockMigrationProvider {
+	fn transfer_nfts(
+		collection_id: u32,
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult {
+		let collection_info = pallet_nft::CollectionInfo::<T>::get(collection_id)
+			.ok_or(pallet_nft::Error::<T>::NoCollectionFound)?;
+		let serials = collection_info
+			.owned_tokens
+			.into_iter()
+			.filter(|ownership| ownership.owner == *current_owner)
+			.flat_map(|ownership| ownership.owned_serials)
+			.collect::<Vec<_>>();
+		let serials_bounded: BoundedVec<_, <T as pallet_nft::Config>::MaxTokensPerCollection> =
+			BoundedVec::try_from(serials)
+				.map_err(|_| pallet_nft::Error::<T>::TokenLimitExceeded)?;
+
+		pallet_nft::Pallet::<T>::do_transfer(
+			collection_id,
+			serials_bounded,
+			current_owner,
+			new_owner,
+		)?;
+		Ok(())
+	}
 }
 
 pub fn create_account(seed: u64) -> AccountId {

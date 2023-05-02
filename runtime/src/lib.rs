@@ -1116,7 +1116,8 @@ impl pallet_futurepass::Config for Runtime {
 	type Call = Call;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = impls::ProxyType;
-	type WeightInfo = weights::pallet_futurepass::WeightInfo<Runtime>;
+	type FuturepassMigrator = impls::FuturepassMigrationProvider;
+	type WeightInfo = weights::pallet_futurepass::WeightInfo<Self>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type MultiCurrency = AssetsExt;

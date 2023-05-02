@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Transfer the given token from `current_owner` to `new_owner`
 	/// Does no verification
-	pub(crate) fn do_transfer(
+	pub fn do_transfer(
 		collection_id: CollectionUuid,
 		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 		current_owner: &T::AccountId,

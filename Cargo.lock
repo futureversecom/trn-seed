@@ -5272,6 +5272,7 @@ dependencies = [
  "pallet-evm",
  "pallet-fee-control",
  "pallet-fee-proxy",
+ "pallet-nft",
  "pallet-proxy",
  "pallet-timestamp",
  "pallet-transaction-payment",
