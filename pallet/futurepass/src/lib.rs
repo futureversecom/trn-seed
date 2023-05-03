@@ -1,30 +1,14 @@
-// SPDX-License-Identifier: Apache-2.0
-// This file is part of Frontier.
+// Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Copyright (c) 2022 Parity Technologies (UK) Ltd.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
-//! # EVM chain ID pallet
-//!
-//! The pallet that stores the numeric Ethereum-style chain id in the runtime.
-//! It can simplify setting up multiple networks with different chain ID by configuring the
-//! chain spec without requiring changes to the runtime config.
-//!
-//! **NOTE**: we recommend that the production chains still use the const parameter type, as
-//! this extra storage access would imply some performance penalty.
-
-// Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
