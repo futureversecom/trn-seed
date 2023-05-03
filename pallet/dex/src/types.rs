@@ -41,10 +41,7 @@ impl TradingPair {
 	/// Returns the pool address for this trading pair
 	/// Spec:
 	/// `0xdddddddd` + <8-byte-asset_a-padded> + `00000000` + `dddddddd` + <8-byte-asset_b-padded>
-	pub fn pool_address<T: crate::Config>(&self) -> T::AccountId
-	where
-		T::AccountId: From<H160>,
-	{
+	pub fn pool_address<AccountId: From<H160>>(&self) -> AccountId {
 		let asset_a_bytes = self.0.to_be_bytes();
 		let asset_b_bytes = self.1.to_be_bytes();
 
@@ -55,7 +52,7 @@ impl TradingPair {
 		address.extend_from_slice(&[0; 8]);
 
 		let h160_address: H160 = H160::from_slice(&address);
-		T::AccountId::from(h160_address)
+		AccountId::from(h160_address)
 	}
 }
 
