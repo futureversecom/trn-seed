@@ -20,18 +20,24 @@ use frame_support::{assert_ok, traits::fungibles::Mutate};
 use frame_system::RawOrigin;
 use sp_std::vec;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
+fn assert_last_event<T: Config>(generic_event: <T as Config>::Event)
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
 // fund account with ROOT & XRP
-pub fn fund<T: Config>(account: &T::AccountId) {
+pub fn fund<T: Config>(account: &T::AccountId)
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	let root_asset_id: u32 = 1;
 	assert_ok!(T::MultiCurrency::mint_into(root_asset_id.into(), &account, 1_000_000u32.into()));
 }
 
 benchmarks! {
-
+	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> }
 	create {
 		let caller: T::AccountId = whitelisted_caller();
 		let owner: T::AccountId = account("owner", 0, 0);

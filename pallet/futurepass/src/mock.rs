@@ -216,7 +216,10 @@ impl crate::Config for Test {
 
 pub struct MockMigrationProvider;
 
-impl<T: pallet_nft::Config> crate::FuturepassMigrator<T> for MockMigrationProvider {
+impl<T: pallet_nft::Config> crate::FuturepassMigrator<T> for MockMigrationProvider
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,

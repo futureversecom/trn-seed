@@ -14,7 +14,7 @@ use super::*;
 use crate::mock::*;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::tokens::fungibles::Transfer};
 use hex_literal::hex;
-use seed_primitives::{AssetId, Balance};
+use seed_primitives::{AccountId, AssetId, Balance};
 use seed_runtime::{impls::ProxyType, Inspect};
 
 use pallet_nft::CrossChainCompatibility;
