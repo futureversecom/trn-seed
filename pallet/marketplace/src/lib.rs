@@ -10,7 +10,6 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![recursion_limit = "256"]
 //! # Marketplace Module
 //!
 //! Provides marketplace functionality for NFT and SFT pallets
@@ -46,7 +45,6 @@ pub mod pallet {
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
-
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -294,7 +292,6 @@ pub mod pallet {
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
 		#[pallet::weight(<T as Config>::WeightInfo::sell())]
-		#[transactional]
 		pub fn sell_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -335,7 +332,6 @@ pub mod pallet {
 
 		/// Buy a token listing for its specified price
 		#[pallet::weight(<T as Config>::WeightInfo::buy())]
-		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_buy(who, listing_id)
@@ -350,7 +346,6 @@ pub mod pallet {
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
 		#[pallet::weight(<T as Config>::WeightInfo::auction())]
-		#[transactional]
 		pub fn auction_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -375,7 +370,6 @@ pub mod pallet {
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
 		#[pallet::weight(<T as Config>::WeightInfo::bid())]
-		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_bid(who, listing_id, amount)
@@ -396,7 +390,6 @@ pub mod pallet {
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
 		#[pallet::weight(<T as Config>::WeightInfo::make_simple_offer())]
-		#[transactional]
 		pub fn make_simple_offer(
 			origin: OriginFor<T>,
 			token_id: TokenId,
@@ -419,7 +412,6 @@ pub mod pallet {
 		/// Accepts an offer on a token
 		/// Caller must be token owner
 		#[pallet::weight(<T as Config>::WeightInfo::accept_offer())]
-		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_accept_offer(who, offer_id)

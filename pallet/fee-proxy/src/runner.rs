@@ -20,7 +20,7 @@ use precompile_utils::{
 	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_PROXY_ADDRESS},
 	Address as EthAddress, ErcIdConversion,
 };
-use seed_pallet_common::log;
+use seed_pallet_common::{log, AccountProxy};
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
@@ -92,7 +92,7 @@ pub struct FeePreferencesData {
 	pub total_fee_scaled: u128,
 }
 
-pub fn get_fee_preferences_data<T, U>(
+pub fn get_fee_preferences_data<T, U, P>(
 	gas_limit: u64,
 	max_fee_per_gas: Option<U256>,
 	payment_asset_id: u32,
@@ -100,9 +100,10 @@ pub fn get_fee_preferences_data<T, U>(
 where
 	T: pallet_evm::Config<AccountId = AccountId> + pallet_assets_ext::Config + Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
+	P: AccountProxy<AccountId>,
 {
 	let total_fee =
-		FeePreferencesRunner::<T, U>::calculate_total_gas(gas_limit, max_fee_per_gas, false)?;
+		FeePreferencesRunner::<T, U, P>::calculate_total_gas(gas_limit, max_fee_per_gas, false)?;
 
 	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
 	let decimals =
@@ -116,12 +117,16 @@ where
 /// seed implementation of the evm runner which handles the case where users are attempting
 /// to set their payment asset. In this case, we will exchange their desired asset into gas
 /// token (XRP) to complete the transaction
-pub struct FeePreferencesRunner<T, U>(PhantomData<(T, U)>);
+pub struct FeePreferencesRunner<T, U, P: AccountProxy<AccountId>> {
+	_proxy: P,
+	_phantom: PhantomData<(T, U)>,
+}
 
-impl<T, U> FeePreferencesRunner<T, U>
+impl<T, U, P> FeePreferencesRunner<T, U, P>
 where
 	T: pallet_evm::Config<AccountId = AccountId>,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
+	P: AccountProxy<AccountId>,
 {
 	/// Decodes the input for call_with_fee_preferences
 	pub fn decode_input(
@@ -180,7 +185,7 @@ where
 	}
 }
 
-impl<T, U> RunnerT<T> for FeePreferencesRunner<T, U>
+impl<T, U, P> RunnerT<T> for FeePreferencesRunner<T, U, P>
 where
 	T: pallet_evm::Config<AccountId = AccountId>
 		+ pallet_assets_ext::Config
@@ -188,6 +193,7 @@ where
 		+ Config,
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
+	P: AccountProxy<AccountId>,
 {
 	type Error = pallet_evm::Error<T>;
 
@@ -233,9 +239,20 @@ where
 		validate: bool,
 		config: &EvmConfig,
 	) -> Result<CallInfo, RunnerError<Self::Error>> {
+		// Futurepass v2 code, should not have any impact
+		let mut source = source;
+		if let Some(futurepass) = P::primary_proxy(&source.into()) {
+			source = futurepass.into();
+		}
+
+		// Futurepass v2 code, should not have any impact
+		let mut target = target;
+		if let Some(futurepass) = P::primary_proxy(&target.into()) {
+			target = futurepass.into();
+		}
+
 		// These values may change if we are using the fee_preferences precompile
 		let mut input = input;
-		let mut target = target;
 
 		// Check if we are calling with fee preferences
 		if target == H160::from_low_u64_be(FEE_PROXY_ADDRESS) {
@@ -249,7 +266,7 @@ where
 			target = new_target;
 
 			let FeePreferencesData { path, total_fee_scaled } =
-				get_fee_preferences_data::<T, U>(gas_limit, max_fee_per_gas, payment_asset_id)
+				get_fee_preferences_data::<T, U, P>(gas_limit, max_fee_per_gas, payment_asset_id)
 					.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
 
 			let account =
@@ -307,6 +324,8 @@ where
 		validate: bool,
 		config: &EvmConfig,
 	) -> Result<CreateInfo, RunnerError<Self::Error>> {
+		// @todo check source, proxy request if needed
+
 		<Runner<T> as RunnerT<T>>::create(
 			source,
 			init,
@@ -336,6 +355,8 @@ where
 		validate: bool,
 		config: &EvmConfig,
 	) -> Result<CreateInfo, RunnerError<Self::Error>> {
+		// @todo check source, proxy request if needed
+
 		<Runner<T> as RunnerT<T>>::create2(
 			source,
 			init,

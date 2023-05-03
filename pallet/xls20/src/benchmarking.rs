@@ -37,7 +37,7 @@ pub fn build_xls20_collection<T: Config>(
 ) -> CollectionUuid {
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
 	let relayer = relayer.unwrap_or_else(|| account::<T>("Bob"));
-	let metadata_scheme = MetadataScheme::Https("google.com".into());
+	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 	let collection_id = T::NFTExt::do_create_collection(
 		caller.clone(),
 		BoundedVec::truncate_from("New Collection".encode()),

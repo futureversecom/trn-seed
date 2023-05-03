@@ -8,21 +8,23 @@ repository = "https://github.com/futureversecom/seed"
 description = "Root Network DEX module"
 
 [dependencies]
-serde = { version = "1.0.145", default-features = false, optional = true }
+hex={ version = "0.4.3", default-features= false }
+serde = { version = "1.0.145", default-features= false, features = ["derive"] }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive", "max-encoded-len"] }
 sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 frame-benchmarking = { git = "https://github.com/futureversecom/substrate", default-features = false, optional = true, branch = "polkadot-v0.9.27" }
 frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 frame-system = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-arithmetic = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 pallet-assets = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 pallet-balances = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 pallet-assets-ext = { path = "../assets-ext" }
@@ -30,7 +32,6 @@ pallet-assets-ext = { path = "../assets-ext" }
 [features]
 default = ["std"]
 std = [
-    "serde",
     "codec/std",
     "sp-runtime/std",
     "frame-support/std",
@@ -38,6 +39,7 @@ std = [
     "sp-std/std",
     "seed-primitives/std",
     "seed-pallet-common/std",
+    "sp-io/std"
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]

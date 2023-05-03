@@ -19,7 +19,7 @@ use seed_primitives::{
 	Balance,
 };
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct XrpTransaction {
 	pub transaction_hash: XrplTxHash,
@@ -37,7 +37,7 @@ pub struct XrpWithdrawTransaction {
 	pub destination: XrplAccountId,
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub enum XrplTxData {
 	Payment { amount: Balance, address: H160 },
@@ -73,7 +73,7 @@ impl Default for XrplTxData {
 	}
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct XrplTicketSequenceParams {
 	pub start_sequence: u32,

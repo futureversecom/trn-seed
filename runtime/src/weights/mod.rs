@@ -9,6 +9,7 @@ pub mod pallet_election_provider_multi_phase;
 pub mod pallet_erc20_peg;
 pub mod pallet_evm_chain_id;
 pub mod pallet_fee_control;
+pub mod pallet_futurepass;
 pub mod pallet_im_online;
 pub mod pallet_nft;
 pub mod pallet_nft_peg;

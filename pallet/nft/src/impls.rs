@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Transfer the given token from `current_owner` to `new_owner`
 	/// Does no verification
-	pub(crate) fn do_transfer(
+	pub fn do_transfer(
 		collection_id: CollectionUuid,
 		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 		current_owner: &T::AccountId,
@@ -92,7 +92,9 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 
-			collection_info.add_user_tokens(new_owner, serial_numbers.clone())?;
+			collection_info
+				.add_user_tokens(new_owner, serial_numbers.clone())
+				.map_err(|e| Error::<T>::from(e))?;
 			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
 
 			for serial_number in serial_numbers.clone().iter() {
@@ -155,7 +157,7 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-				let _ = Self::do_mint(collection_id, collection_info, owner, &serial_numbers);
+				let _ = Self::do_mint(collection_id, collection_info, &owner, &serial_numbers);
 
 				// throw event, listing all serial numbers minted from bridging
 				// SerialNumbers will never exceed the limit denoted by nft_peg::MaxTokensPerMint
@@ -164,7 +166,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::BridgedMint {
 					collection_id,
 					serial_numbers: serial_numbers.clone(),
-					owner: *owner,
+					owner: owner.clone(),
 				});
 
 				T::DbWeight::get().reads_writes(1, 1)
@@ -178,7 +180,7 @@ impl<T: Config> Pallet<T> {
 	pub fn pre_mint(
 		who: &T::AccountId,
 		quantity: TokenCount,
-		collection_info: &CollectionInformation<T>,
+		collection_info: &CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
@@ -222,7 +224,7 @@ impl<T: Config> Pallet<T> {
 	/// Perform the mint operation and update storage accordingly.
 	pub(crate) fn do_mint(
 		collection_id: CollectionUuid,
-		collection_info: CollectionInformation<T>,
+		collection_info: CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
 		token_owner: &T::AccountId,
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
@@ -233,7 +235,9 @@ impl<T: Config> Pallet<T> {
 			.checked_add(serial_numbers.len().saturated_into())
 			.ok_or(Error::<T>::TokenLimitExceeded)?;
 
-		new_collection_info.add_user_tokens(&token_owner, serial_numbers.clone())?;
+		new_collection_info
+			.add_user_tokens(&token_owner, serial_numbers.clone())
+			.map_err(|e| Error::<T>::from(e))?;
 
 		// Update CollectionInfo storage
 		<CollectionInfo<T>>::insert(collection_id, new_collection_info);
@@ -326,8 +330,6 @@ impl<T: Config> Pallet<T> {
 		// Validate collection attributes
 		ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
 		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
-		let metadata_scheme =
-			metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
 		if let Some(royalties_schedule) = royalties_schedule.clone() {
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 		}
@@ -448,13 +450,13 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
-	type T = T;
+	type MaxTokensPerCollection = T::MaxTokensPerCollection;
 
 	fn do_mint(
-		origin: T::AccountId,
+		origin: Self::AccountId,
 		collection_id: CollectionUuid,
 		quantity: TokenCount,
-		token_owner: Option<T::AccountId>,
+		token_owner: Option<Self::AccountId>,
 	) -> DispatchResult {
 		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner)
 	}
@@ -483,7 +485,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 	}
 
 	fn get_token_owner(token_id: &TokenId) -> Option<Self::AccountId> {
-		let Some(collection) = CollectionInfo::<Self::T>::get(token_id.0) else {
+		let Some(collection) = CollectionInfo::<T>::get(token_id.0) else {
 			return None
 		};
 		collection.get_token_owner(token_id.1)
@@ -491,12 +493,13 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<CollectionInformation<Self::T>, DispatchError> {
+	) -> Result<CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>
+	{
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 
 	fn enable_xls20_compatibility(
-		who: T::AccountId,
+		who: Self::AccountId,
 		collection_id: CollectionUuid,
 	) -> DispatchResult {
 		Self::enable_xls20_compatibility(who, collection_id)

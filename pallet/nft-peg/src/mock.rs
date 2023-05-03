@@ -196,6 +196,8 @@ parameter_types! {
 	pub const DelayLength: BlockNumber = 5;
 	pub const MaxAddresses: u32 = 30;
 	pub const MaxIdsPerMultipleMint: u32 = 50;
+	pub const MaxCollectionsPerWithdraw: u32 = 10;
+	pub const MaxSerialsPerWithdraw: u32 = 50;
 }
 
 impl pallet_nft_peg::Config for Test {
@@ -206,6 +208,8 @@ impl pallet_nft_peg::Config for Test {
 	type MaxTokensPerMint = MaxIdsPerMultipleMint;
 	type EthBridge = MockEthBridge;
 	type NftPegWeightInfo = ();
+	type MaxCollectionsPerWithdraw = MaxCollectionsPerWithdraw;
+	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
 }
 
 /// Mock ethereum bridge

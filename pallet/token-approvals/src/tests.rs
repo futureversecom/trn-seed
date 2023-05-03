@@ -32,9 +32,10 @@ fn prepare_test() -> TestData {
 	let alice = create_account(10);
 	let coll_owner = alice.clone();
 	let collection_name = BoundedVec::truncate_from("Hello".into());
-	let metadata_scheme = MetadataScheme::Ipfs(
-		b"bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi".to_vec(),
-	);
+	let metadata_scheme = MetadataScheme::try_from(
+		b"ethereum://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".as_slice(),
+	)
+	.unwrap();
 
 	let coll_id = Nft::do_create_collection(
 		coll_owner.clone(),

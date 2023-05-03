@@ -1,5 +1,7 @@
 # TRN ERC721 Precompile supported interfaces
 
+Precompile address spec: `0xAAAAAAAA[4-byte-collection-id]000000000000000000000000`
+
 ```solidity
 interface IERC721 is IERC165 {
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
@@ -34,8 +36,8 @@ interface TRN721 is IERC165 {
     function totalSupply() external view returns (uint256);
     function mint(address owner, uint32 quantity) external;
     function setMaxSupply(uint32 maxSupply) external;
-    function setBaseURI(bytes baseURI) external;
-    function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory);
+    function setBaseURI(bytes calldata baseURI) external;
+    function ownedTokens(address who, uint16 limit, uint32 cursor) external view returns (uint32, uint32, uint32[] memory);
 }
 ```
 
@@ -43,8 +45,8 @@ interface TRN721 is IERC165 {
 interface Ownable is IERC165 {
     event OwnershipTransferred(address indexed oldOwner, address newOwner);
 
-    function owner() public view returns (address),
-    function renounceOwnership() external,
-    function transferOwnership(address owner) external,
+    function owner() external view returns (address);
+    function renounceOwnership() external;
+    function transferOwnership(address owner) external;
 }
 ```

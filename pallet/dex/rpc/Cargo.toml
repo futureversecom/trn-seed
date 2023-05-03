@@ -9,6 +9,7 @@ license = "GPL-3.0"
 [dependencies]
 jsonrpsee = { version = "0.14.0", features = ["server", "macros"] }
 
+serde_json = "1.0.64"
 sp-api = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 sp-blockchain = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }

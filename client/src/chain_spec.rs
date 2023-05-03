@@ -17,9 +17,9 @@ use seed_runtime::{
 		ROOT_SYMBOL, XRP_ASSET_ID, XRP_DECIMALS, XRP_MINIMUM_BALANCE, XRP_NAME, XRP_SYMBOL,
 	},
 	keys::*,
-	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig, Forcing,
-	GenesisConfig, SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig,
-	SystemConfig, XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
+	AccountId, AssetsConfig, BabeConfig, Balance, BalancesConfig, EthBridgeConfig, GenesisConfig,
+	SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+	XRPLBridgeConfig, BABE_GENESIS_EPOCH_CONFIG, WASM_BINARY,
 };
 use sp_core::{ecdsa, Pair, Public};
 use sp_runtime::{
@@ -193,7 +193,6 @@ fn testnet_genesis(
 				.map(|x| (x.0.clone(), x.0.clone(), VALIDATOR_BOND, StakerStatus::Validator))
 				.collect(),
 			invulnerables: initial_authorities.iter().map(|x| x.0.clone()).collect(),
-			force_era: Forcing::ForceNone,
 			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		},
