@@ -39,6 +39,8 @@ pub mod v3 {
 		pub next_serial_number: SerialNumber,
 		/// the total count of tokens in this collection
 		pub collection_issuance: TokenCount,
+		/// This collections compatibility with other chains
+		pub cross_chain_compatibility: CrossChainCompatibility,
 		/// All serial numbers owned by an account in a collection
 		pub owned_tokens: BoundedVec<TokenOwnership<T>, <T as Config>::MaxTokensPerCollection>,
 	}
@@ -49,10 +51,10 @@ pub mod v3 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade<T: Config>() -> Result<(), &'static str> {
-		log::info!(target: "Nft", "Upgrade to V2 Pre Upgrade.");
+		log::info!(target: "Nft", "Upgrade to V4 Pre Upgrade.");
 
 		let onchain = Pallet::<T>::on_chain_storage_version();
-		assert_eq!(onchain, 2);
+		assert_eq!(onchain, 3);
 
 		// Let's make sure that we don't have any corrupted data to begin with
 		let keys: Vec<u32> = CollectionInfo::<T>::iter_keys().collect();
@@ -70,12 +72,12 @@ pub mod v3 {
 
 		let mut weight = DbWeight::get().reads_writes(2, 0);
 
-		if onchain == 2 {
-			log::info!(target: "Nft", "Migrating from onchain version 2 to onchain version 3.");
+		if onchain == 3 {
+			log::info!(target: "Nft", "Migrating from onchain version 3 to onchain version 4.");
 			weight += migrate::<T>();
 
 			log::info!(target: "Nft", "Migration successfully finished.");
-			StorageVersion::new(3).put::<Pallet<T>>();
+			StorageVersion::new(4).put::<Pallet<T>>();
 		} else {
 			log::info!(target: "Nft", "No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
 		}
@@ -89,8 +91,8 @@ pub mod v3 {
 
 		let current = Pallet::<T>::current_storage_version();
 		let onchain = Pallet::<T>::on_chain_storage_version();
-		assert_eq!(current, 3);
-		assert_eq!(onchain, 3);
+		assert_eq!(current, 4);
+		assert_eq!(onchain, 4);
 
 		// Let's make sure that we don't have any corrupted data to begin with
 		let keys: Vec<u32> = crate::CollectionInfo::<T>::iter_keys().collect();
@@ -103,12 +105,10 @@ pub mod v3 {
 	pub fn migrate<T: Config>() -> Weight {
 		log::info!(target: "Nft", "Translating CollectionInfo...");
 		crate::CollectionInfo::<T>::translate(|_, old: OldCollectionInformation<T>| {
-			let cross_chain_compatibility = CrossChainCompatibility { xrpl: false };
-
+			let new_name = BoundedVec::truncate_from(old.name);
 			let new = CollectionInformation {
 				owner: old.owner,
-				name: BoundedVec::try_from(old.name).unwrap(), /* TODO Fix this whole migration
-				                                                * script */
+				name: new_name,
 				metadata_scheme: old.metadata_scheme,
 				royalties_schedule: old.royalties_schedule,
 				max_issuance: old.max_issuance,
@@ -116,12 +116,12 @@ pub mod v3 {
 				next_serial_number: old.next_serial_number,
 				collection_issuance: old.collection_issuance,
 				owned_tokens: old.owned_tokens,
-				cross_chain_compatibility,
+				cross_chain_compatibility: old.cross_chain_compatibility,
 			};
 
 			Some(new)
 		});
-		log::info!(target: "Nft", "...Successfully translated CollectionInfo");
+		log::info!(target: "Nft", "...Successfully translated CollectionInfo with new name");
 
 		let key_count = crate::CollectionInfo::<T>::iter().count();
 		<T as frame_system::Config>::DbWeight::get().writes(key_count as u64)
@@ -138,7 +138,7 @@ pub mod v3 {
 		#[test]
 		fn migration_test() {
 			TestExt::default().build().execute_with(|| {
-				StorageVersion::new(2).put::<Pallet<Test>>();
+				StorageVersion::new(3).put::<Pallet<Test>>();
 				let user_1 = create_account(5);
 				let owner = create_account(123);
 
@@ -149,10 +149,11 @@ pub mod v3 {
 						entitlements: vec![(user_1, Permill::one())],
 					}),
 					metadata_scheme: MetadataScheme::Ipfs(b"Test1/".to_vec()),
-					max_issuance: None,
+					max_issuance: Some(10900),
 					origin_chain: OriginChain::Root,
 					next_serial_number: 0,
 					collection_issuance: 100,
+					cross_chain_compatibility: CrossChainCompatibility { xrpl: false },
 					owned_tokens: BoundedVec::default(),
 				};
 
@@ -173,7 +174,7 @@ pub mod v3 {
 						entitlements: vec![(user_1, Permill::one())],
 					}),
 					metadata_scheme: MetadataScheme::Ipfs(b"Test1/".to_vec()),
-					max_issuance: None,
+					max_issuance: Some(10900),
 					origin_chain: OriginChain::Root,
 					next_serial_number: 0,
 					collection_issuance: 100,
@@ -189,7 +190,7 @@ pub mod v3 {
 				}
 
 				let onchain = Pallet::<Test>::on_chain_storage_version();
-				assert_eq!(onchain, 3);
+				assert_eq!(onchain, 4);
 			});
 		}
 	}
