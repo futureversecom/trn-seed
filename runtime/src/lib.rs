@@ -493,18 +493,12 @@ impl pallet_xrpl_bridge::Config for Runtime {
 parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000);	// 0.3%
 	pub const TradingPathLimit: u32 = 3;
-	pub const DEXPalletId: PalletId = PalletId(*b"root/dex");
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
-	pub const LPTokenName: [u8; 10] = *b"Uniswap V2";
-	pub const LPTokenSymbol: [u8; 6] = *b"UNI-V2";
 	pub const LPTokenDecimals: u8 = 18;
 }
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
-	type DEXPalletId = DEXPalletId;
 	type DEXBurnPalletId = DEXBurnPalletId;
-	type LPTokenName = LPTokenName;
-	type LPTokenSymbol = LPTokenSymbol;
 	type LPTokenDecimals = LPTokenDecimals;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;

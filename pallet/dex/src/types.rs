@@ -8,30 +8,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
-
 use codec::{Decode, Encode, MaxEncodedLen};
 use hex;
 use scale_info::TypeInfo;
 use seed_primitives::AssetId;
+use serde::{Deserialize, Deserializer, Serialize};
 use sp_arithmetic::traits::SaturatedConversion;
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_runtime::{ArithmeticError, DispatchError, RuntimeDebug};
 
-use serde::{Deserialize, Deserializer, Serialize};
+pub const POOL_ADDRESS_PREFIX: &[u8; 4] = &[0xDD; 4];
 
-#[derive(
-	Encode,
-	Decode,
-	Eq,
-	PartialEq,
-	Copy,
-	Clone,
-	RuntimeDebug,
-	PartialOrd,
-	Ord,
-	TypeInfo,
-	MaxEncodedLen,
-)]
+#[derive(Encode, Decode, PartialEq, Copy, Clone, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct TradingPair(pub AssetId, pub AssetId);
 
@@ -48,6 +36,26 @@ impl From<(AssetId, AssetId)> for TradingPair {
 impl TradingPair {
 	pub fn new(asset_id_a: AssetId, asset_id_b: AssetId) -> Self {
 		TradingPair::from((asset_id_a, asset_id_b))
+	}
+
+	/// Returns the pool address for this trading pair
+	/// Spec:
+	/// `0xdddddddd` + <8-byte-asset_a-padded> + `00000000` + `dddddddd` + <8-byte-asset_b-padded>
+	pub fn pool_address<T: crate::Config>(&self) -> T::AccountId
+	where
+		T::AccountId: From<H160>,
+	{
+		let asset_a_bytes = self.0.to_be_bytes();
+		let asset_b_bytes = self.1.to_be_bytes();
+
+		let mut address = crate::Vec::with_capacity(20);
+		address.extend_from_slice(POOL_ADDRESS_PREFIX);
+		address.extend_from_slice(&asset_a_bytes);
+		address.extend_from_slice(&asset_b_bytes);
+		address.extend_from_slice(&[0; 8]);
+
+		let h160_address: H160 = H160::from_slice(&address);
+		T::AccountId::from(h160_address)
 	}
 }
 

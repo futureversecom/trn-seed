@@ -1,5 +1,5 @@
 name: CI
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -48,7 +48,7 @@ jobs:
           cargo test --workspace --all-features
       #- name: Benchmark (build only)
       #  run: cargo check --features=runtime-benchmarks
-  
+
   e2e:
     runs-on: [seed-builder]
     defaults:

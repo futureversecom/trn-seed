@@ -8,23 +8,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
-
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::unused_unit)]
 #![allow(clippy::collapsible_if)]
+extern crate alloc;
+
 pub use pallet::*;
 
+use alloc::string::ToString;
 use frame_support::{
 	pallet_prelude::*,
-	traits::fungibles::{self, Inspect, Mutate, Transfer},
+	traits::fungibles::{self, Inspect, InspectMetadata, Mutate, Transfer},
 	transactional, PalletId,
 };
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
-use seed_primitives::{AssetId, Balance};
+use seed_primitives::{AccountId, AssetId, Balance};
 use serde::{Deserialize, Serialize};
 use sp_core::U256;
 use sp_runtime::{
@@ -83,7 +85,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Trading fee rate
 		/// The first item of the tuple is the numerator of the fee rate, second
@@ -97,21 +99,9 @@ pub mod pallet {
 		#[pallet::constant]
 		type TradingPathLimit: Get<u32>;
 
-		/// The DEX's module id, keep all assets in DEX.
-		#[pallet::constant]
-		type DEXPalletId: Get<PalletId>;
-
 		/// The DEX's burn id, to provide for a redundant, unredeemable minter/burner address.
 		#[pallet::constant]
 		type DEXBurnPalletId: Get<PalletId>;
-
-		/// Liquidity pair default token name - matching UniswapV2
-		#[pallet::constant]
-		type LPTokenName: Get<Vec<u8>>;
-
-		/// Liquidity pair default token symbol - matching UniswapV2
-		#[pallet::constant]
-		type LPTokenSymbol: Get<Vec<u8>>;
 
 		/// Liquidity pair default token decimals
 		#[pallet::constant]
@@ -124,6 +114,7 @@ pub mod pallet {
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 			+ fungibles::Transfer<Self::AccountId, Balance = Balance>
 			+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
+			+ fungibles::InspectMetadata<Self::AccountId>
 			+ fungibles::Mutate<Self::AccountId>;
 	}
 
@@ -301,19 +292,9 @@ pub mod pallet {
 			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
 
 			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
-
-			// create trading pair if non-existent
+			// create trading pair & lp token if non-existent
 			if Self::lp_token_id(&trading_pair).is_none() {
-				// create a new token and return the asset id
-				let lp_asset_id = T::MultiCurrency::create_with_metadata(
-					&Self::account_id(),
-					T::LPTokenName::get(),
-					T::LPTokenSymbol::get(),
-					T::LPTokenDecimals::get(),
-					None,
-				)?;
-				TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
-				TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
+				Self::create_lp_token(&trading_pair)?;
 			}
 
 			Self::do_add_liquidity(
@@ -430,10 +411,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn account_id() -> T::AccountId {
-		T::DEXPalletId::get().into_account_truncating()
-	}
-
 	pub fn burn_account_id() -> T::AccountId {
 		T::DEXBurnPalletId::get().into_account_truncating()
 	}
@@ -452,6 +429,43 @@ impl<T: Config> Pallet<T> {
 		ensure!(reserve_a > 0_u128 && reserve_b > 0_u128, Error::<T>::InsufficientLiquidity);
 		let amount_b = amount_a.mul(U256::from(reserve_b))?.div(U256::from(reserve_a))?;
 		Ok(amount_b)
+	}
+
+	fn create_lp_token(trading_pair: &TradingPair) -> Result<AssetId, DispatchError> {
+		let symbol_a_truncated: Vec<u8> =
+			T::MultiCurrency::symbol(&trading_pair.0).into_iter().take(20).collect();
+		let symbol_b_truncated: Vec<u8> =
+			T::MultiCurrency::symbol(&trading_pair.1).into_iter().take(20).collect();
+
+		// name: b"LP " + symbol_a_truncated + b" " + symbol_b_truncated
+		let mut lp_token_name =
+			Vec::with_capacity(22 + symbol_a_truncated.len() + symbol_b_truncated.len());
+		lp_token_name.extend_from_slice(b"LP ");
+		lp_token_name.extend_from_slice(&symbol_a_truncated);
+		lp_token_name.push(b' ');
+		lp_token_name.extend_from_slice(&symbol_b_truncated);
+
+		let asset_id_a_bytes = trading_pair.0.to_string().into_bytes();
+		let asset_id_b_bytes = trading_pair.1.to_string().into_bytes();
+
+		// symbol: b"LP-" + asset_id_a_bytes + b"-" + asset_id_b_bytes
+		let mut lp_token_symbol =
+			Vec::with_capacity(3 + asset_id_a_bytes.len() + 1 + asset_id_b_bytes.len());
+		lp_token_symbol.extend_from_slice(b"LP-");
+		lp_token_symbol.extend_from_slice(&asset_id_a_bytes);
+		lp_token_symbol.push(b'-');
+		lp_token_symbol.extend_from_slice(&asset_id_b_bytes);
+
+		let lp_asset_id = T::MultiCurrency::create_with_metadata(
+			&trading_pair.pool_address::<T>(),
+			lp_token_name,
+			lp_token_symbol,
+			T::LPTokenDecimals::get(),
+			None,
+		)?;
+		TradingPairLPToken::<T>::insert(trading_pair, Some(lp_asset_id));
+		TradingPairStatuses::<T>::insert(trading_pair, TradingPairStatus::Enabled);
+		Ok(lp_asset_id)
 	}
 
 	fn do_add_liquidity(
@@ -525,24 +539,24 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		let module_account_id = Self::account_id();
+		let pool_address = trading_pair.pool_address::<T>();
 		T::MultiCurrency::transfer(
 			asset_id_a,
 			who,
-			&module_account_id,
+			&pool_address,
 			amount_a.saturated_into(),
 			false,
 		)?;
 		T::MultiCurrency::transfer(
 			asset_id_b,
 			who,
-			&module_account_id,
+			&pool_address,
 			amount_b.saturated_into(),
 			false,
 		)?;
 
-		let balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
-		let balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
+		let balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
+		let balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
 		let amount_0 = balance_0.sub(reserve_a)?;
 		let amount_1 = balance_1.sub(reserve_b)?;
 
@@ -614,11 +628,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
 
 		// transfer lp tokens to dex
-		let module_account_id = Self::account_id();
+		let pool_address = trading_pair.pool_address::<T>();
 		T::MultiCurrency::transfer(
 			lp_share_asset_id,
 			&who,
-			&module_account_id,
+			&pool_address,
 			remove_liquidity,
 			false,
 		)?;
@@ -631,9 +645,9 @@ impl<T: Config> Pallet<T> {
 				(asset_id_b, asset_id_a, min_withdrawn_b, min_withdrawn_a)
 			};
 
-		let mut balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
-		let mut balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
-		let liquidity = T::MultiCurrency::balance(lp_share_asset_id, &module_account_id);
+		let mut balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
+		let mut balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
+		let liquidity = T::MultiCurrency::balance(lp_share_asset_id, &pool_address);
 		let total_supply = T::MultiCurrency::total_issuance(lp_share_asset_id);
 
 		// amount0 = liquidity.mul(balance0) / _totalSupply;
@@ -652,12 +666,12 @@ impl<T: Config> Pallet<T> {
 		ensure!(amount_0 >= min_withdrawn_a, Error::<T>::InsufficientWithdrawnAmountA);
 		ensure!(amount_1 >= min_withdrawn_b, Error::<T>::InsufficientWithdrawnAmountB);
 
-		T::MultiCurrency::burn_from(lp_share_asset_id, &module_account_id, remove_liquidity)?;
-		T::MultiCurrency::transfer(asset_id_a, &module_account_id, who, amount_0, false)?;
-		T::MultiCurrency::transfer(asset_id_b, &module_account_id, who, amount_1, false)?;
+		T::MultiCurrency::burn_from(lp_share_asset_id, &pool_address, remove_liquidity)?;
+		T::MultiCurrency::transfer(asset_id_a, &pool_address, who, amount_0, false)?;
+		T::MultiCurrency::transfer(asset_id_b, &pool_address, who, amount_1, false)?;
 
-		balance_0 = T::MultiCurrency::balance(asset_id_a, &module_account_id);
-		balance_1 = T::MultiCurrency::balance(asset_id_b, &module_account_id);
+		balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
+		balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
 
 		let result = LiquidityPool::<T>::try_mutate(
 			trading_pair,
@@ -849,12 +863,21 @@ impl<T: Config> Pallet<T> {
 			ensure!(input != output, Error::<T>::IdenticalTokenAddress);
 
 			let trading_pair = TradingPair::new(input, output);
+
+			// (uint amount0Out, uint amount1Out) = input == token0 ? (uint(0), amountOut) :
+			// (amountOut, uint(0))
 			let (amount_0_out, amount_1_out) =
 				if input == trading_pair.0 { (0, amount_out) } else { (amount_out, 0) };
 
-			let module_account_id = Self::account_id();
+			// address to = i < path.length - 2 ? UniswapV2Library.pairFor(factory, output, path[i +
+			// 2]) : _to;
+			let to = if i < path.len() - 2 {
+				TradingPair::new(output, path[i + 2]).pool_address::<T>()
+			} else {
+				*to
+			};
 
-			let to = if i < path.len() - 2 { &module_account_id } else { to };
+			let pool_address = trading_pair.pool_address::<T>();
 
 			// IUniswapV2Pair(UniswapV2Library.pairFor(factory, input, output)).swap(amount0Out,
 			// amount1Out, to, new bytes(0));
@@ -875,7 +898,7 @@ impl<T: Config> Pallet<T> {
 				// optimistically transfer tokens
 				T::MultiCurrency::transfer(
 					trading_pair.0,
-					&module_account_id,
+					&pool_address,
 					&to,
 					amount_0_out,
 					false,
@@ -885,15 +908,15 @@ impl<T: Config> Pallet<T> {
 				// optimistically transfer tokens
 				T::MultiCurrency::transfer(
 					trading_pair.1,
-					&module_account_id,
+					&pool_address,
 					&to,
 					amount_1_out,
 					false,
 				)?;
 			}
 
-			let balance_0 = T::MultiCurrency::balance(trading_pair.0, &module_account_id);
-			let balance_1 = T::MultiCurrency::balance(trading_pair.1, &module_account_id);
+			let balance_0 = T::MultiCurrency::balance(trading_pair.0, &pool_address);
+			let balance_1 = T::MultiCurrency::balance(trading_pair.1, &pool_address);
 
 			// uint256 amount0In = balance0 > _reserve0 - amount0Out ? balance0 - (_reserve0
 			// - amount0Out) : 0; uint256 amount1In = balance1 > _reserve1 - amount1Out ?
@@ -966,10 +989,11 @@ impl<T: Config> Pallet<T> {
 
 		// INSUFFICIENT_OUTPUT_AMOUNT
 		ensure!(amounts[amounts.len() - 1] >= min_amount_out, Error::<T>::InsufficientTargetAmount);
-
+		let trading_pair = TradingPair::new(path[0], path[1]);
 		// transfer tokens to module account (uniswapv2 trading pair)
-		let module_account_id = Self::account_id();
-		T::MultiCurrency::transfer(path[0], who, &module_account_id, amounts[0], false)?;
+		let pool_address = trading_pair.pool_address::<T>();
+
+		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
 		Self::_swap(&amounts, &path, who)?;
 		Self::deposit_event(Event::Swap(
@@ -993,9 +1017,9 @@ impl<T: Config> Pallet<T> {
 
 		// EXCESSIVE_INPUT_AMOUNT
 		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
-
-		let module_account_id = Self::account_id();
-		T::MultiCurrency::transfer(path[0], who, &module_account_id, amounts[0], false)?;
+		let trading_pair = TradingPair::new(path[0], path[1]);
+		let pool_address = trading_pair.pool_address::<T>();
+		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
 		Self::_swap(&amounts, &path, who)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out));
