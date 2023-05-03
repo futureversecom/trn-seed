@@ -33,8 +33,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenCount,
-	TokenId,
+	AccountId, AssetId, Balance, CollectionUuid, ListingId, MetadataScheme, OriginChain,
+	ParachainId, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -99,9 +99,6 @@ pub mod pallet {
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
 			NextCollectionId::<T>::put(1_u32);
-			NextMarketplaceId::<T>::put(1 as MarketplaceId);
-			NextListingId::<T>::put(1 as ListingId);
-			NextOfferId::<T>::put(1 as OfferId);
 		}
 	}
 
@@ -149,7 +146,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		CollectionUuid,
-		CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+		CollectionInformation<T::AccountId, T::MaxTokensPerCollection, T::StringLimit>,
 	>;
 
 	/// The next available incrementing collection id

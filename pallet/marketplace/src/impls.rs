@@ -15,6 +15,7 @@ use frame_support::{
 	traits::{tokens::fungibles::Mutate, Get},
 	transactional, PalletId,
 };
+use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
@@ -316,8 +317,7 @@ impl<T: Config> Pallet<T> {
 		marketplace_id: Option<MarketplaceId>,
 	) -> DispatchResult {
 		ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
-		let collection_info =
-			Self::collection_info(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+		let collection_info = T::NFTExt::get_collection_info(token_id.0)?;
 		ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
 		let offer_id = Self::next_offer_id();
 		ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -552,8 +552,7 @@ impl<T: Config> Pallet<T> {
 		owner: &T::AccountId,
 		listing_id: ListingId,
 	) -> DispatchResult {
-		let collection_info =
-			Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		let collection_info = T::NFTExt::get_collection_info(collection_id)?;
 
 		// Check whether token is locked and that owner owns each token
 		for serial_number in serial_numbers.iter() {
@@ -625,11 +624,11 @@ impl<T: Config> Pallet<T> {
 	pub(crate) fn calculate_bundle_royalties(
 		collection_id: CollectionUuid,
 		marketplace_id: Option<MarketplaceId>,
-	) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
-		let mut royalties: RoyaltiesSchedule<T::AccountId> = Self::collection_info(collection_id)
-			.ok_or(Error::<T>::NoCollectionFound)?
-			.royalties_schedule
-			.unwrap_or_default();
+	) -> Result<RoyaltiesSchedule<T::AccountId>, DispatchError> {
+		let mut royalties: RoyaltiesSchedule<T::AccountId> =
+			T::NFTExt::get_collection_info(collection_id)?
+				.royalties_schedule
+				.unwrap_or_default();
 
 		let Some(marketplace_id) = marketplace_id else {
 			return Ok(royalties)

@@ -13,19 +13,33 @@ use crate::*;
 use codec::{Decode, Encode};
 use core::fmt::Write;
 use scale_info::TypeInfo;
-use sp_core::H160;
-use sp_runtime::{PerThing, Permill};
+use sp_runtime::{traits::ConstU32, BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
+
+/// Defines the length limit of the type MetadataScheme.
+/// To avoid overly complex primitives, local const is used here instead of a runtime configurable
+/// constant
+const METADATA_SCHEME_LIMIT: u32 = 200;
 
 /// The max. number of entitlements any royalties schedule can have
 /// just a sensible upper bound
 pub const MAX_ENTITLEMENTS: usize = 8;
+
+/// Unique Id for a listing
+pub type ListingId = u128;
 
 /// Describes the chain that the bridged resource originated from
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub enum OriginChain {
 	Ethereum,
 	Root,
+}
+
+/// Reason for an NFT being locked (un-transferrable)
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
+pub enum TokenLockReason {
+	/// Token is listed for sale
+	Listed(ListingId),
 }
 
 /// Denotes the metadata URI referencing scheme used by a collection

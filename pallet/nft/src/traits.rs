@@ -11,7 +11,8 @@
 
 use frame_support::traits::Get;
 use seed_primitives::{
-	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, TokenId,
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 use sp_std::fmt::Debug;
@@ -20,6 +21,7 @@ use crate::{CollectionInformation, Config};
 
 pub trait NFTExt {
 	type AccountId: Debug + PartialEq + Clone;
+	type StringLimit: Get<u32>;
 	type MaxTokensPerCollection: Get<u32>;
 
 	fn do_mint(
@@ -29,9 +31,16 @@ pub trait NFTExt {
 		token_owner: Option<Self::AccountId>,
 	) -> DispatchResult;
 
+	fn do_transfer(
+		origin: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: BoundedVec<SerialNumber, Self::MaxTokensPerCollection>,
+		new_owner: Self::AccountId,
+	) -> DispatchResult;
+
 	fn do_create_collection(
 		owner: Self::AccountId,
-		name: BoundedVec<u8, <Self::T as Config>::StringLimit>,
+		name: BoundedVec<u8, Self::StringLimit>,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<Self::AccountId>,
@@ -44,7 +53,10 @@ pub trait NFTExt {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>;
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	>;
 
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,

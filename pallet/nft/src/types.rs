@@ -21,7 +21,12 @@ use seed_primitives::{
 	TokenCount, TokenId,
 };
 use sp_runtime::BoundedVec;
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
+
+#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
+pub enum TokenOwnershipError {
+	TokenLimitExceeded,
+}
 
 /// Struct that represents the owned serial numbers within a collection of an individual account
 #[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo)]
@@ -85,15 +90,16 @@ impl Default for CrossChainCompatibility {
 #[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
-pub struct CollectionInformation<AccountId, MaxTokensPerCollection>
+pub struct CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
+	StringLimit: Get<u32>,
 {
 	/// The owner of the collection
 	pub owner: AccountId,
 	/// A human friendly name
-	pub name: BoundedVec<u8, T::StringLimit>,
+	pub name: BoundedVec<u8, StringLimit>,
 	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
 	/// configured royalties schedule
@@ -113,10 +119,12 @@ where
 		BoundedVec<TokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
 }
 
-impl<AccountId, MaxTokensPerCollection> CollectionInformation<AccountId, MaxTokensPerCollection>
+impl<AccountId, MaxTokensPerCollection, StringLimit>
+	CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
+	StringLimit: Get<u32>,
 {
 	/// Check whether a token has been minted in a collection
 	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {

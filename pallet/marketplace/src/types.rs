@@ -4,8 +4,8 @@ use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use scale_info::TypeInfo;
 use seed_primitives::{
-	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, BlockNumber, CollectionUuid, ListingId, MetadataScheme, OriginChain,
+	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
 };
 use sp_runtime::{BoundedVec, Permill};
 use sp_std::prelude::*;
@@ -20,9 +20,6 @@ pub type OfferId = u64;
 /// Uniquely identifies a registered marketplace
 pub type MarketplaceId = u32;
 
-/// Unique Id for a listing
-pub type ListingId = u128;
-
 /// Holds information relating to NFT offers
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub struct SimpleOffer<AccountId> {
@@ -36,13 +33,6 @@ pub struct SimpleOffer<AccountId> {
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
-}
-
-/// Reason for an NFT being locked (un-transferrable)
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
-pub enum TokenLockReason {
-	/// Token is listed for sale
-	Listed(ListingId),
 }
 
 /// Reasons for an auction closure

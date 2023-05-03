@@ -23,8 +23,10 @@ use frame_support::{
 	transactional,
 	weights::{GetDispatchInfo, PostDispatchInfo},
 };
-use pallet_nft::{weights::WeightInfo as NftWeightInfo, ListingId, MarketplaceId, OfferId};
-use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
+use pallet_nft::{traits::NFTExt, weights::WeightInfo as NftWeightInfo};
+use seed_primitives::{
+	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
+};
 use sp_runtime::{DispatchResult, Permill};
 
 mod impls;
@@ -50,6 +52,27 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
+	#[pallet::genesis_config]
+	pub struct GenesisConfig<T: Config> {
+		_phantom: sp_std::marker::PhantomData<T>,
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			GenesisConfig { _phantom: Default::default() }
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			NextMarketplaceId::<T>::put(1 as MarketplaceId);
+			NextListingId::<T>::put(1 as ListingId);
+			NextOfferId::<T>::put(1 as OfferId);
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config:
 		frame_system::Config<AccountId = AccountId> + pallet_nft::Config<AccountId = AccountId>
@@ -59,6 +82,10 @@ pub mod pallet {
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<pallet_nft::Call<Self>>;
+		/// The system event type
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// NFT Extension, used to retrieve nextCollectionUuid
+		type NFTExt: NFTExt<AccountId = Self::AccountId>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: NftWeightInfo;
 	}
@@ -261,7 +288,7 @@ pub mod pallet {
 			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
-			T::WeightInfo::buy() * removed_count as Weight
+			<T as Config>::WeightInfo::buy() * removed_count as Weight
 		}
 	}
 
