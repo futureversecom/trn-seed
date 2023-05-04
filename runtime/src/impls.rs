@@ -44,7 +44,7 @@ use precompile_utils::{
 	constants::{
 		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
 	},
-	Address, ErcIdConversion,
+	keccak256, Address, ErcIdConversion,
 };
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
@@ -623,15 +623,12 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 			call.to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX)
 		{
 			// Whitelist for precompile side
-			// TODO - call.call_data is not clonable coz of ConstU32. i.e we use
-			// BoundedBytes<ConstU32<65536>> and when call.call_data.into_vec(), it moves out the
-			// call data which we need later in the function we should either change the type of
-			// call.call_data or fix it by other mean but for V1, this code is not functionally
-			// relevant. let sub_call_selector = &call.call_data.clone().into_vec()[..4];
-			// if sub_call_selector == &keccak256!("registerDelegate(address,address,uint8)")[..4]
-			// 	|| sub_call_selector == &keccak256!("unregisterDelegate(address,address)")[..4] {
-			// 	return true;
-			// }
+			let sub_call_selector = &call.call_data.inner[..4];
+			if sub_call_selector == &keccak256!("registerDelegate(address,uint8)")[..4] ||
+				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+			{
+				return true
+			}
 			return false
 		}
 		match self {
