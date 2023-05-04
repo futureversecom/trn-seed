@@ -89,7 +89,7 @@ impl Default for CrossChainCompatibility {
 /// Information related to a specific collection
 #[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
-#[scale_info(skip_type_params(MaxTokensPerCollection))]
+#[scale_info(skip_type_params(MaxTokensPerCollection, StringLimit))]
 pub struct CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
 where
 	AccountId: Debug + PartialEq + Clone,
