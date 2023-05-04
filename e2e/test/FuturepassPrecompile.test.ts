@@ -84,7 +84,7 @@ describe("Futurepass Precompile", function () {
       api.tx.utility
         .batch([
           api.tx.assets.transfer(GAS_TOKEN_ID, address, amount), // 10 XRP
-          api.tx.balances.transfer(address, amount), // 10 XRP
+          api.tx.balances.transfer(address, amount), // 10 ROOT
         ])
         .signAndSend(keyring, ({ status }) => {
           if (status.isInBlock) resolve();
@@ -239,37 +239,64 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
   });
 
-  it.skip("proxy call can transfer value to EOA", async () => {
+  it("proxy call can transfer value to EOA", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
     // create FP for owner
     expect(await createFuturepass(owner, owner.address)).true;
-    // Transfer funds to futurepass
-    // await fundAccount(api, alithKeyring, futurepassPrecompile.address);
+    // Transfer funds to owner
     await fundEOA(alithSigner, owner.address);
-    const futurepass_balance = await xrpERC20Precompile.balanceOf(futurepassPrecompile.address);
-
-    console.log(futurepass_balance);
+    const futurepassBalanceBefore = await xrpERC20Precompile.balanceOf(futurepassPrecompile.address);
+    let ownerBalanceBefore = await xrpERC20Precompile.balanceOf(owner.address);
 
     // create new recipient to transfer value to
     const recipient = Wallet.createRandom();
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(0);
+    // check futurepass has zero balance
+    expect(futurepassBalanceBefore).to.equal(0);
 
-    // proxy transfer of value from futurepass to recipient
+    // proxy transfer of value from owner -> futurepass -> recipient
+    // NOTE: This call will be failed due to an arithmetic error that happens in the insider code.
+    // i.e 5_000_000 being interpretted as 4_999_999
+    // This means the FP need to have at least 1 drop more than the actual amount being transferred.
+    await futurepassPrecompile.connect(owner).proxyCall(recipient.address, CALL_TYPE.Call, "0x", {
+      value: ethers.utils.parseEther("5"),
+    })
+    .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
+
+    // owner should have paid the gas for the previous failed tx. get the new balance
+    ownerBalanceBefore = await xrpERC20Precompile.balanceOf(owner.address);
+
+    // Let's fund the FP 1 drop and try again
+    await fundAccount(api, alithKeyring, futurepassPrecompile.address, 1);
+    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(1);
+    // proxy transfer of value from owner -> futurepass -> recipient
+    const gasEstimate = await futurepassPrecompile.connect(owner).estimateGas.proxyCall(recipient.address, CALL_TYPE.Call, "0x", {
+      value: ethers.utils.parseEther("5"),
+    });
     const tx = await futurepassPrecompile.connect(owner).proxyCall(recipient.address, CALL_TYPE.Call, "0x", {
       value: ethers.utils.parseEther("5"),
     });
-    await tx.wait();
+    const receipt = await tx.wait();
+    console.log("estimate: ", gasEstimate);
+    console.log("return: ", receipt);
 
-    // validate proxy based value transfer to recipient
+    // check recipient balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(5_000_000);
     const recipientBalanceRes: any = (await api.query.assets.account(GAS_TOKEN_ID, recipient.address)).toJSON();
     expect(recipientBalanceRes.balance).to.equal(5_000_000);
-    // check futurepass balance
-    // expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(futurepass_balance - 5_000_000);
+    // check futurepass balance, should equla to 1 drop
+    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(1);
+
+    const ownerBalanceAfter = await xrpERC20Precompile.balanceOf(owner.address);
+
+    console.log("owner bal before:",ownerBalanceBefore);
+    console.log("owner bal after:",ownerBalanceAfter);
+
+    // TODO - do the gas calculation
   });
 
-  it.skip("proxy call can transfer value to contract", async () => {
+  it("proxy call can transfer value to contract", async () => {
     // contract to test outgoing futurepass proxied calls
     const FuturepassFactory = await ethers.getContractFactory("CurrencyTester");
     const futurepassTester = await FuturepassFactory.connect(alithSigner).deploy();
@@ -280,8 +307,13 @@ describe("Futurepass Precompile", function () {
 
     // create FP for owner
     expect(await createFuturepass(owner, owner.address)).true;
+    // Transfer funds to owner
+    await fundEOA(alithSigner, owner.address);
 
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(0);
+    // fund the FP 1 drop, to avoid 5_000_000 being interpretted as 4_999_999
+    await fundAccount(api, alithKeyring, futurepassPrecompile.address, 1);
+    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(1);
 
     // proxy transfer of value from futurepass to contract fails since this is staticcall
     // note: this is possible since contract has `receive() external payable` function
