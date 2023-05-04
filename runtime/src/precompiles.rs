@@ -74,7 +74,7 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 		PrecompileSetStartingWith<
 			FuturepassPrefix,
 			FuturePassPrecompileSet<R>,
-			ForbidRecursion,
+			LimitRecursionTo<1>,
 			AllowDelegateCall,
 		>,
 	),
