@@ -79,7 +79,7 @@ impl Into<Vec<u8>> for Bytes {
 /// Same as `Bytes` but with an additional length bound on read.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BoundedBytes<S> {
-	inner: Vec<u8>,
+	pub inner: Vec<u8>,
 	_phantom: PhantomData<S>,
 }
 
