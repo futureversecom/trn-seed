@@ -450,7 +450,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// The account ID of the auctions pot.
+	/// The account ID of the NFT pallet.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}
@@ -473,10 +473,12 @@ impl<T: Config> NFTExt for Pallet<T> {
 	fn do_transfer(
 		origin: Self::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, Self::MaxTokensPerCollection>,
+		serial_numbers: Vec<SerialNumber>,
 		new_owner: Self::AccountId,
 	) -> DispatchResult {
-		Self::transfer(RawOrigin::Signed(origin).into(), collection_id, serial_numbers, new_owner)
+		let bounded_serials =
+			BoundedVec::try_from(serial_numbers).map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		Self::transfer(RawOrigin::Signed(origin).into(), collection_id, bounded_serials, new_owner)
 	}
 
 	fn do_create_collection(
@@ -532,6 +534,23 @@ impl<T: Config> NFTExt for Pallet<T> {
 	fn increment_collection_id() -> DispatchResult {
 		ensure!(<NextCollectionId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
 		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
+		Ok(())
+	}
+
+	fn get_token_lock(token_id: TokenId) -> Option<TokenLockReason> {
+		<TokenLocks<T>>::get(token_id)
+	}
+
+	fn set_token_lock(token_id: TokenId, lock_reason: Option<TokenLockReason>) -> DispatchResult {
+		match lock_reason {
+			Some(reason) => {
+				ensure!(!<TokenLocks<T>>::contains_key(token_id), Error::<T>::TokenLocked);
+				<TokenLocks<T>>::insert(token_id, reason);
+			},
+			None => {
+				<TokenLocks<T>>::remove(token_id);
+			},
+		}
 		Ok(())
 	}
 }

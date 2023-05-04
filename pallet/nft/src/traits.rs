@@ -12,7 +12,7 @@
 use frame_support::traits::Get;
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
-	TokenId,
+	TokenId, TokenLockReason,
 };
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 use sp_std::fmt::Debug;
@@ -34,7 +34,7 @@ pub trait NFTExt {
 	fn do_transfer(
 		origin: Self::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, Self::MaxTokensPerCollection>,
+		serial_numbers: Vec<SerialNumber>,
 		new_owner: Self::AccountId,
 	) -> DispatchResult;
 
@@ -66,4 +66,8 @@ pub trait NFTExt {
 	fn next_collection_uuid() -> Result<CollectionUuid, DispatchError>;
 
 	fn increment_collection_id() -> DispatchResult;
+
+	fn get_token_lock(token_id: TokenId) -> Option<TokenLockReason>;
+
+	fn set_token_lock(token_id: TokenId, lock_reason: Option<TokenLockReason>) -> DispatchResult;
 }

@@ -10,6 +10,9 @@ use seed_primitives::{
 use sp_runtime::{BoundedVec, Permill};
 use sp_std::prelude::*;
 
+/// The logging target for this module
+pub(crate) const LOG_TARGET: &str = "marketplace";
+
 // Time before auction ends that auction is extended if a bid is placed
 pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 
@@ -87,7 +90,7 @@ pub struct AuctionListing<T: Config> {
 	/// The listing collection id
 	pub collection_id: CollectionUuid,
 	/// The serial numbers for sale in this listing
-	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
+	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerListing>,
 	/// The royalties applicable to this auction
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
@@ -111,7 +114,7 @@ pub struct FixedPriceListing<T: Config> {
 	/// The listing collection id
 	pub collection_id: CollectionUuid,
 	/// The serial numbers for sale in this listing
-	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
+	pub serial_numbers: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerListing>,
 	/// The royalties applicable to this sale
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on

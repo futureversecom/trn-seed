@@ -109,18 +109,10 @@ pub mod pallet {
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		/// The maximum number of offers allowed on a collection
-		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
 		type MaxTokensPerCollection: Get<u32>;
 		/// Max quantity of NFTs that can be minted in one transaction
 		type MintLimit: Get<u32>;
-		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
-			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created

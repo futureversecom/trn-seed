@@ -74,20 +74,30 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config<AccountId = AccountId> + pallet_nft::Config<AccountId = AccountId>
-	{
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
-			+ GetDispatchInfo
-			+ From<pallet_nft::Call<Self>>;
+			+ GetDispatchInfo;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// Handles a multi-currency fungible asset system
+		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
+			+ Hold<AccountId = Self::AccountId>
+			+ Mutate<Self::AccountId, AssetId = AssetId>
+			+ CreateExt<AccountId = Self::AccountId>
+			+ Transfer<Self::AccountId, Balance = Balance>;
 		/// NFT Extension, used to retrieve nextCollectionUuid
 		type NFTExt: NFTExt<AccountId = Self::AccountId>;
+		/// This pallet's Id, used for deriving a sovereign account ID
+		#[pallet::constant]
+		type PalletId: Get<PalletId>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: NftWeightInfo;
+		/// Max tokens that can be sold in one listing
+		type MaxTokensPerListing: Get<u32>;
+		/// The maximum number of offers allowed on a collection
+		type MaxOffers: Get<u32>;
 	}
 
 	/// The next available marketplace id
@@ -322,7 +332,7 @@ pub mod pallet {
 		pub fn sell_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
 			buyer: Option<T::AccountId>,
 			payment_asset: AssetId,
 			fixed_price: Balance,
@@ -376,7 +386,7 @@ pub mod pallet {
 		pub fn auction_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
 			payment_asset: AssetId,
 			reserve_price: Balance,
 			duration: Option<T::BlockNumber>,

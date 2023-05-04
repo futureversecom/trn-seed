@@ -17,7 +17,7 @@ use frame_support::{
 };
 use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{
-	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
+	log, CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId,
@@ -25,7 +25,7 @@ use seed_primitives::{
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
-	BoundedVec, DispatchResult, PerThing, Permill,
+	BoundedVec, DispatchError, DispatchResult, PerThing, Permill,
 };
 use types::*;
 
@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_sell_nft(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
 		buyer: Option<T::AccountId>,
 		payment_asset: AssetId,
 		fixed_price: Balance,
@@ -109,69 +109,67 @@ impl<T: Config> Pallet<T> {
 		listing_id: ListingId,
 		new_price: Balance,
 	) -> DispatchResult {
-		match Listings::<T>::get(listing_id) {
-			Some(Listing::<T>::FixedPrice(mut sale)) => {
-				ensure!(sale.seller == who, Error::<T>::NotSeller);
+		let Some(Listing::FixedPrice(mut listing)) = Listings::<T>::get(listing_id) else {
+			return Err(Error::<T>::NotForFixedPriceSale.into());
+		};
+		ensure!(listing.seller == who, Error::<T>::NotSeller);
 
-				sale.fixed_price = new_price;
+		listing.fixed_price = new_price;
 
-				<Listings<T>>::insert(listing_id, Listing::<T>::FixedPrice(sale.clone()));
-				Self::deposit_event(Event::<T>::FixedPriceSalePriceUpdate {
-					collection_id: sale.collection_id,
-					serial_numbers: sale.serial_numbers.into_inner(),
-					listing_id,
-					new_price,
-				});
-				Ok(())
-			},
-			_ => Err(Error::<T>::NotForFixedPriceSale.into()),
-		}
+		<Listings<T>>::insert(listing_id, Listing::<T>::FixedPrice(listing.clone()));
+		Self::deposit_event(Event::<T>::FixedPriceSalePriceUpdate {
+			collection_id: listing.collection_id,
+			serial_numbers: listing.serial_numbers.into_inner(),
+			listing_id,
+			new_price,
+		});
+		Ok(())
 	}
 
 	pub fn do_buy(who: T::AccountId, listing_id: ListingId) -> DispatchResult {
-		if let Some(Listing::FixedPrice(listing)) = Listings::<T>::get(listing_id) {
-			// if buyer is specified in the listing, then `who` must be buyer
-			if let Some(buyer) = &listing.buyer {
-				ensure!(&who == buyer, Error::<T>::NotBuyer);
-			}
+		let Some(Listing::FixedPrice(listing)) = Listings::<T>::get(listing_id) else {
+			return Err(Error::<T>::NotForFixedPriceSale.into());
+		};
 
-			Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
-
-			let payouts = Self::calculate_royalty_payouts(
-				listing.seller.clone(),
-				listing.royalties_schedule,
-				listing.fixed_price,
-			);
-			// Make split transfer
-			T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
-
-			// Transfer the tokens
-			let _ = Self::do_transfer(
-				listing.collection_id,
-				listing.serial_numbers.clone(),
-				&listing.seller,
-				&who,
-			)?;
-
-			Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
-				collection_id: listing.collection_id,
-				serial_numbers: listing.serial_numbers.into_inner(),
-				listing_id,
-				price: listing.fixed_price,
-				payment_asset: listing.payment_asset,
-				buyer: who,
-				seller: listing.seller,
-			});
-		} else {
-			return Err(Error::<T>::NotForFixedPriceSale.into())
+		// if buyer is specified in the listing, then `who` must be buyer
+		if let Some(buyer) = &listing.buyer {
+			ensure!(&who == buyer, Error::<T>::NotBuyer);
 		}
+
+		Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
+
+		let payouts = Self::calculate_royalty_payouts(
+			listing.seller.clone(),
+			listing.royalties_schedule,
+			listing.fixed_price,
+		);
+		// Make split transfer
+		T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
+
+		// Transfer the tokens
+		let _ = T::NFTExt::do_transfer(
+			listing.seller.clone(),
+			listing.collection_id,
+			listing.serial_numbers.clone().into_inner(),
+			who.clone(),
+		)?;
+
+		Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
+			collection_id: listing.collection_id,
+			serial_numbers: listing.serial_numbers.into_inner(),
+			listing_id,
+			price: listing.fixed_price,
+			payment_asset: listing.payment_asset,
+			buyer: who,
+			seller: listing.seller,
+		});
 		Ok(())
 	}
 
 	pub fn do_auction_nft(
 		who: T::AccountId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
 		payment_asset: AssetId,
 		reserve_price: Balance,
 		duration: Option<T::BlockNumber>,
@@ -278,7 +276,7 @@ impl<T: Config> Pallet<T> {
 				Listings::<T>::remove(listing_id);
 				ListingEndSchedule::<T>::remove(sale.close, listing_id);
 				for serial_number in sale.serial_numbers.iter() {
-					<TokenLocks<T>>::remove((sale.collection_id, serial_number));
+					T::NFTExt::set_token_lock((sale.collection_id, serial_number), None)?;
 				}
 				<OpenCollectionListings<T>>::remove(sale.collection_id, listing_id);
 
@@ -295,7 +293,7 @@ impl<T: Config> Pallet<T> {
 				Listings::<T>::remove(listing_id);
 				ListingEndSchedule::<T>::remove(auction.close, listing_id);
 				for serial_number in auction.serial_numbers.iter() {
-					<TokenLocks<T>>::remove((auction.collection_id, serial_number));
+					T::NFTExt::set_token_lock((auction.collection_id, serial_number), None)?;
 				}
 				<OpenCollectionListings<T>>::remove(auction.collection_id, listing_id);
 
@@ -355,63 +353,72 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn do_cancel_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {
-		let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
-		match offer_type {
-			OfferType::Simple(offer) => {
-				ensure!(offer.buyer == who, Error::<T>::NotBuyer);
-				T::MultiCurrency::release_hold(
-					T::PalletId::get(),
-					&who,
-					offer.asset_id,
-					offer.amount,
-				)?;
-				let _ = Self::remove_offer(offer_id, offer.token_id)?;
-				Self::deposit_event(Event::<T>::OfferCancel { offer_id, token_id: offer.token_id });
-				Ok(())
-			},
-		}
+		let OfferType::Simple(offer) = Self::offers(offer_id) else {
+			return Err(Error::<T>::InvalidOffer.into());
+		};
+		ensure!(offer.buyer == who, Error::<T>::NotBuyer);
+		T::MultiCurrency::release_hold(T::PalletId::get(), &who, offer.asset_id, offer.amount)?;
+		let _ = Self::remove_offer(offer_id, offer.token_id)?;
+		Self::deposit_event(Event::<T>::OfferCancel { offer_id, token_id: offer.token_id });
+		Ok(())
 	}
 
 	pub fn do_accept_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {
-		let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
-		match offer_type {
-			OfferType::Simple(offer) => {
-				let (collection_id, serial_number) = offer.token_id;
+		let OfferType::Simple(offer) = Self::offers(offer_id) else {
+			return Err(Error::<T>::InvalidOffer.into());
+		};
 
-				// Check whether token is listed for fixed price sale
-				if let Some(TokenLockReason::Listed(listing_id)) = Self::token_locks(offer.token_id)
-				{
-					if let Some(listing) = <Listings<T>>::get(listing_id) {
-						Self::remove_listing(listing, listing_id);
-					}
-				}
+		let (collection_id, serial_number) = offer.token_id;
 
-				let royalties_schedule =
-					Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
-				let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
-					BoundedVec::try_from(vec![serial_number])
-						.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-
-				Self::process_payment_and_transfer(
-					&offer.buyer,
-					&who,
-					offer.asset_id,
-					collection_id,
-					serial_numbers,
-					offer.amount,
-					royalties_schedule,
-				)?;
-
-				let _ = Self::remove_offer(offer_id, offer.token_id)?;
-				Self::deposit_event(Event::<T>::OfferAccept {
-					offer_id,
-					token_id: offer.token_id,
-					amount: offer.amount,
-					asset_id: offer.asset_id,
-				});
-				Ok(())
-			},
+		// Check whether token is listed for fixed price sale
+		if let Some(TokenLockReason::Listed(listing_id)) = T::NFTExt::get_token_lock(offer.token_id)
+		{
+			if let Some(listing) = <Listings<T>>::get(listing_id) {
+				Self::remove_listing(listing, listing_id);
+			}
 		}
+
+		let royalties_schedule =
+			Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
+		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
+			BoundedVec::try_from(vec![serial_number])
+				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+
+		Self::process_payment_and_transfer(
+			&offer.buyer,
+			&who,
+			offer.asset_id,
+			collection_id,
+			serial_numbers,
+			offer.amount,
+			royalties_schedule,
+		)?;
+
+		let _ = Self::remove_offer(offer_id, offer.token_id)?;
+		Self::deposit_event(Event::<T>::OfferAccept {
+			offer_id,
+			token_id: offer.token_id,
+			amount: offer.amount,
+			asset_id: offer.asset_id,
+		});
+		Ok(())
+	}
+
+	/// Removes an offer, cleaning storage if it's the last offer for the token
+	pub(crate) fn remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
+		Offers::<T>::remove(offer_id);
+		TokenOffers::<T>::try_mutate(token_id, |maybe_offers| -> DispatchResult {
+			if let Some(offers) = maybe_offers {
+				let pos =
+					offers.binary_search(&offer_id).map_err(|_| Error::<T>::NoAvailableIds)?;
+				offers.remove(pos);
+
+				if offers.is_empty() {
+					*maybe_offers = None;
+				}
+			}
+			Ok(())
+		})
 	}
 
 	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships
@@ -459,7 +466,7 @@ impl<T: Config> Pallet<T> {
 
 		OpenCollectionListings::<T>::remove(collection_id, listing_id);
 		for serial_number in serial_numbers.iter() {
-			TokenLocks::<T>::remove((collection_id, *serial_number));
+			T::NFTExt::set_token_lock((collection_id, *serial_number), None)?;
 		}
 		<Listings<T>>::remove(listing_id);
 	}
@@ -531,7 +538,7 @@ impl<T: Config> Pallet<T> {
 		seller: &T::AccountId,
 		asset_id: AssetId,
 		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing>,
 		amount: Balance,
 		royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	) -> DispatchResult {
@@ -540,7 +547,7 @@ impl<T: Config> Pallet<T> {
 		T::MultiCurrency::spend_hold(T::PalletId::get(), &buyer, asset_id, &payouts)?;
 
 		// Transfer each token
-		Self::do_transfer(collection_id, serial_numbers, seller, buyer)
+		T::NFTExt::do_transfer(*seller, collection_id, serial_numbers.into_inner(), *buyer)
 	}
 
 	/// Locks a group of tokens before listing for sale
@@ -548,7 +555,7 @@ impl<T: Config> Pallet<T> {
 	#[transactional]
 	pub(crate) fn lock_tokens_for_listing(
 		collection_id: CollectionUuid,
-		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerListing>,
 		owner: &T::AccountId,
 		listing_id: ListingId,
 	) -> DispatchResult {
@@ -557,7 +564,7 @@ impl<T: Config> Pallet<T> {
 		// Check whether token is locked and that owner owns each token
 		for serial_number in serial_numbers.iter() {
 			ensure!(
-				!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
+				NFTExt::get_token_lock((collection_id, serial_number)).is_none(),
 				Error::<T>::TokenLocked
 			);
 			ensure!(
@@ -568,10 +575,10 @@ impl<T: Config> Pallet<T> {
 
 		// Insert locks for tokens
 		for serial_number in serial_numbers.iter() {
-			<TokenLocks<T>>::insert(
-				(collection_id, serial_number),
-				TokenLockReason::Listed(listing_id),
-			);
+			T::NFTExt::set_token_lock(
+				(collection_id, *serial_number),
+				Some(TokenLockReason::Listed(listing_id)),
+			)?;
 		}
 		Ok(())
 	}
@@ -596,24 +603,6 @@ impl<T: Config> Pallet<T> {
 		}
 		payouts.push((seller, for_seller));
 		payouts
-	}
-
-	/// Removes an offer, cleaning storage if it's the last offer for the token
-	pub(crate) fn remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
-		Offers::<T>::remove(offer_id);
-		TokenOffers::<T>::try_mutate(token_id, |maybe_offers| -> DispatchResult {
-			if let Some(offers) = maybe_offers {
-				let pos =
-					offers.binary_search(&offer_id).map_err(|_| Error::<T>::NoAvailableIds)?;
-				offers.remove(pos);
-
-				if offers.is_empty() {
-					*maybe_offers = None;
-				}
-			}
-			Ok(())
-		})?;
-		Ok(())
 	}
 
 	/// Check royalties will be respected on all tokens if placed into a bundle sale.
