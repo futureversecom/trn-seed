@@ -1,6 +1,5 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, WsProvider } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
 import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
@@ -106,24 +105,6 @@ describe("Futurepass Precompile", function () {
     );
   });
 });
-
-function fundAccount(
-  api: ApiPromise,
-  keyring: KeyringPair,
-  address: string,
-  amount: string | number = 10_000_000,
-): Promise<void> {
-  return new Promise<void>((resolve) => {
-    api.tx.utility
-      .batch([
-        api.tx.assets.transfer(GAS_TOKEN_ID, address, amount), // 10 XRP
-        api.tx.balances.transfer(address, amount), // 10 XRP
-      ])
-      .signAndSend(keyring, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-  });
-}
 
 async function fundEOA(signer: Wallet, address: string, value: string = "10000") {
   const tx = await signer.sendTransaction({ to: address, value: ethers.utils.parseEther(value) });
