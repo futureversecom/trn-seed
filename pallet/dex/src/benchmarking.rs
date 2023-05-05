@@ -1,17 +1,14 @@
-// /* Copyright 2019-2021 Centrality Investments Limited
-// *
-// * Licensed under the LGPL, Version 3.0 (the "License");
-// * you may not use this file except in compliance with the License.
-// * Unless required by applicable law or agreed to in writing, software
-// * distributed under the License is distributed on an "AS IS" BASIS,
-// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// * See the License for the specific language governing permissions and
-// * limitations under the License.
-// * You may obtain a copy of the License at the root of this project source code,
-// * or at:
-// * https://centrality.ai/licenses/gplv3.txt
-// * https://centrality.ai/licenses/lgplv3.txt
-// */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 //! DEX benchmarking.
 
 use super::*;
@@ -19,11 +16,15 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite, vec};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
+use sp_core::H160;
 
 use crate::Pallet as Dex;
 
 /// This is a helper function to get an account.
-pub fn account<T: Config>(name: &'static str) -> T::AccountId {
+pub fn account<T: Config>(name: &'static str) -> T::AccountId
+where
+	T::AccountId: From<H160>,
+{
 	bench_account(name, 0, 0)
 }
 
@@ -31,7 +32,10 @@ pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 	RawOrigin::Signed(acc.clone())
 }
 
-fn mint_asset<T: Config>() -> AssetId {
+fn mint_asset<T: Config>() -> AssetId
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
 	let alice = account::<T>("Alice");
 	let asset_id = T::MultiCurrency::create(&alice, None).unwrap();
 	let mint_amount = Balance::from(10_000_000u32);
@@ -40,7 +44,10 @@ fn mint_asset<T: Config>() -> AssetId {
 	asset_id
 }
 
-fn build_liquidity<T: Config>() -> (AssetId, AssetId) {
+fn build_liquidity<T: Config>() -> (AssetId, AssetId)
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
 	let (asset_id_1, asset_id_2) = (mint_asset::<T>(), mint_asset::<T>());
 
 	assert_ok!(Dex::<T>::add_liquidity(
@@ -58,9 +65,11 @@ fn build_liquidity<T: Config>() -> (AssetId, AssetId) {
 }
 
 benchmarks! {
+	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160> }
 	swap_with_exact_supply {
+		let alice = account::<T>("Alice");
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
-	}: _(origin::<T>(&account::<T>("Alice")), Balance::from(100u32), Balance::from(10u32), vec![asset_id_1, asset_id_2])
+	}: _(origin::<T>(&alice), Balance::from(100u32), Balance::from(10u32), vec![asset_id_1, asset_id_2])
 
 	swap_with_exact_target {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();

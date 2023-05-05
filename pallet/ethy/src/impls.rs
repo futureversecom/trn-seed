@@ -1,3 +1,14 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 use codec::Encode;
 use ethabi::Token;
 use frame_support::{
@@ -505,7 +516,7 @@ impl<T: Config> Module<T> {
 
 				if let Some(relayer) = Self::relayer() {
 					// Relayer bond goes to challenger
-					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer);
+					let relayer_paid_bond = <RelayerPaidBond<T>>::take(relayer.clone());
 					T::MultiCurrency::spend_hold(
 						T::BridgePalletId::get(),
 						&relayer,

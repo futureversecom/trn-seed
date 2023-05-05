@@ -1,3 +1,14 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
@@ -14,7 +25,7 @@ use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{CollectionUuid, SerialNumber, TokenCount, TokenId};
+use seed_primitives::{CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId};
 
 /// Solidity selector of the Transfer log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER: [u8; 32] = keccak256!("Transfer(address,address,uint256)");
@@ -726,7 +737,7 @@ where
 			log3(
 				handle.code_address(),
 				SELECTOR_LOG_TRANSFER,
-				origin,
+				EthAddress::zero(),
 				to,
 				EvmDataWriter::new().write(token_id).build(),
 			)
@@ -821,16 +832,18 @@ where
 		let cursor: SerialNumber = cursor.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let (new_cursor, collected_tokens) = pallet_nft::Pallet::<Runtime>::owned_tokens(
-			collection_id,
-			&owner.into(),
-			cursor,
-			limit,
-		);
+		let (new_cursor, total_owned, collected_tokens) =
+			pallet_nft::Pallet::<Runtime>::owned_tokens(
+				collection_id,
+				&owner.into(),
+				cursor,
+				limit,
+			);
 		// Build output.
 		Ok(succeed(
 			EvmDataWriter::new()
 				.write::<u32>(new_cursor)
+				.write::<u32>(total_owned)
 				.write::<Vec<u32>>(collected_tokens)
 				.build(),
 		))

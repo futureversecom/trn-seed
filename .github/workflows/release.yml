@@ -16,7 +16,7 @@ jobs:
         id: find_client_version
         # client version is `x.y.z` in `client/Cargo.toml`; only get `z` part
         run: |
-          echo ::set-output name=client_version::$(grep '^version' client/Cargo.toml | sed 's/.*"\([0-9]*\.[0-9]*\.\)\([0-9]*\)".*/\2/')
+          echo ::set-output name=client_version::$(grep '^version' client/Cargo.toml | sed 's/.*"\([0-9]*\)\.\([0-9]*\)\..*/\1/')
       - name: Find spec version
         id: find_spec_version
         run: |
@@ -52,7 +52,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
           asset_path: ./target/debug/wbuild/seed-runtime/seed_runtime.compact.compressed.wasm
-          asset_name: seed_runtime-${{ steps.find_spec_version.outputs.spec }}.compact.compressed.wasm
+          asset_name: seed_runtime-${{ steps.find_spec_version.outputs.spec_version }}.compact.compressed.wasm
           asset_content_type: application/wasm
   # TODO: Slack notification on release
   # on-success:

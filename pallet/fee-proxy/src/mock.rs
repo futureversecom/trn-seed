@@ -1,29 +1,26 @@
-/* Copyright 2019-2021 Centrality Investments Limited
- *
- * Licensed under the LGPL, Version 3.0 (the "License");
- * you may not use this file except in compliance with the License.
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * You may obtain a copy of the License at the root of this project source code,
- * or at:
- *     https://centrality.ai/licenses/gplv3.txt
- *     https://centrality.ai/licenses/lgplv3.txt
- */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_fee_proxy;
 use crate::*;
 use frame_support::{
 	parameter_types,
-	traits::FindAuthor,
+	traits::{FindAuthor, InstanceFilter},
 	weights::{ConstantMultiplier, WeightToFee},
 	PalletId,
 };
 use frame_system::{limits, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
 use precompile_utils::{Address, ErcIdConversion};
+use seed_pallet_common::*;
 use seed_primitives::{AccountId, AssetId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
@@ -53,8 +50,11 @@ frame_support::construct_runtime!(
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Futurepass: pallet_futurepass,
 	}
 );
+
+impl_pallet_futurepass_config!(Test);
 
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
@@ -133,20 +133,14 @@ impl Config for Test {
 parameter_types! {
 	pub const GetExchangeFee: (u32, u32) = (3, 1000); // 0.3% fee
 	pub const TradingPathLimit: u32 = 3;
-	pub const DEXPalletId: PalletId = PalletId(*b"mock/dex");
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
-	pub const LPTokenName: [u8; 10] = *b"Uniswap V2";
-	pub const LPTokenSymbol: [u8; 6] = *b"UNI-V2";
 	pub const LPTokenDecimals: u8 = 6;
 }
 impl pallet_dex::Config for Test {
 	type Event = Event;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
-	type DEXPalletId = DEXPalletId;
 	type DEXBurnPalletId = DEXBurnPalletId;
-	type LPTokenName = LPTokenName;
-	type LPTokenSymbol = LPTokenSymbol;
 	type LPTokenDecimals = LPTokenDecimals;
 	type WeightInfo = ();
 	type MultiCurrency = AssetsExt;
@@ -299,7 +293,7 @@ impl pallet_timestamp::Config for Test {
 }
 
 /// type alias for runtime configured FeePreferencesRunner
-pub type Runner = FeePreferencesRunner<Test, Test>;
+pub type Runner = FeePreferencesRunner<Test, Test, Futurepass>;
 
 #[derive(Default)]
 pub struct TestExt;

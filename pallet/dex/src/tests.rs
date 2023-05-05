@@ -1,9 +1,27 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 use super::*;
 use crate::mock::AssetsExt;
 use frame_support::{assert_noop, assert_ok};
-use mock::{Dex, Event as MockEvent, MockAccountId, Origin, System, Test, TestExt, ALICE, BOB};
+use hex::encode;
+use mock::{Dex, Event as MockEvent, Origin, System, Test, TestExt};
+use seed_primitives::AccountId;
+use sp_core::H160;
 use sp_runtime::{traits::BadOrigin, ArithmeticError, DispatchError};
+use std::str::FromStr;
 
+fn create_account(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
 /// x * 10e18
 fn to_eth(amount: u128) -> u128 {
 	amount * 1_000_000_000_000_000_000_u128
@@ -18,13 +36,13 @@ fn test_run() {
 fn disable_trading_pair() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
-
+		let alice: AccountId = create_account(1);
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
-		let weth = AssetsExt::create(&ALICE, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
 
 		// normal user can not disable trading_pair
-		assert_noop!(Dex::disable_trading_pair(Origin::signed(ALICE), usdc, weth), BadOrigin);
+		assert_noop!(Dex::disable_trading_pair(Origin::signed(alice), usdc, weth), BadOrigin);
 
 		// lp token must exist
 		assert_noop!(
@@ -62,12 +80,14 @@ fn reenable_trading_pair() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
+		let alice: AccountId = create_account(1);
+
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
-		let weth = AssetsExt::create(&ALICE, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
 
 		// normal user can not enable trading_pair
-		assert_noop!(Dex::reenable_trading_pair(Origin::signed(ALICE), usdc, weth), BadOrigin);
+		assert_noop!(Dex::reenable_trading_pair(Origin::signed(alice), usdc, weth), BadOrigin);
 
 		// lp token must exist
 		assert_noop!(
@@ -116,6 +136,37 @@ fn reenable_trading_pair() {
 }
 
 #[test]
+fn trading_pair_pool_address() {
+	TestExt::default().build().execute_with(|| {
+		let alice: AccountId = create_account(1);
+
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
+		assert_eq!(usdc, 1124);
+		assert_eq!(weth, 2148);
+
+		let pool_address: H160 = TradingPair::new(usdc, weth).pool_address::<Test>().into();
+
+		let expected_pool_address =
+			H160::from_str("dddddddd00000464000008640000000000000000").unwrap();
+		assert_eq!(pool_address.to_string(), expected_pool_address.to_string());
+
+		let pool_address_reverse: H160 = TradingPair::new(weth, usdc).pool_address::<Test>().into();
+		assert_eq!(pool_address_reverse, expected_pool_address);
+
+		let hex_address = pool_address.to_fixed_bytes();
+		let usdc_hex = &hex_address[5..8]; // 2nd 4 bytes
+		let weth_hex = &hex_address[9..12]; // 3rd 4 bytes
+
+		let usdc_decimal = u32::from_str_radix(&hex::encode(usdc_hex), 16).unwrap();
+		let weth_decimal = u32::from_str_radix(&hex::encode(weth_hex), 16).unwrap();
+
+		assert_eq!(usdc_decimal, usdc);
+		assert_eq!(weth_decimal, weth);
+	});
+}
+
+#[test]
 fn quote() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
@@ -144,19 +195,111 @@ fn quote() {
 }
 
 #[test]
+fn create_lp_token() {
+	TestExt::default().build().execute_with(|| {
+		let alice: AccountId = create_account(1);
+
+		let usdc =
+			AssetsExt::create_with_metadata(&alice, "usdc".into(), "usdc".into(), 6, None).unwrap();
+		let weth = AssetsExt::create_with_metadata(&alice, "weth".into(), "weth".into(), 18, None)
+			.unwrap();
+
+		assert_eq!(usdc, 1124);
+		assert_eq!(weth, 2148);
+
+		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
+		let weth_symbol_bytes = AssetsExt::symbol(&weth);
+		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
+		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
+
+		assert_eq!(usdc_symbol, "usdc");
+		assert_eq!(weth_symbol, "weth");
+
+		let trading_pair = TradingPair::new(usdc, weth);
+
+		let lp_token = Dex::create_lp_token(&trading_pair).unwrap();
+		assert_eq!(lp_token, 3172);
+
+		let lp_token_name_bytes =
+			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
+				&lp_token,
+			);
+		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
+		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
+		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
+
+		assert_eq!(lp_token_name, "LP usdc weth");
+		assert_eq!(lp_token_symbol, "LP-1124-2148");
+	});
+}
+
+#[test]
+fn create_lp_token_long_symbol() {
+	TestExt::default().build().execute_with(|| {
+		let alice: AccountId = create_account(1);
+
+		let usdc = AssetsExt::create_with_metadata(
+			&alice,
+			"usdc".into(),
+			"usdc-something-very-long".into(),
+			6,
+			None,
+		)
+		.unwrap();
+		let weth = AssetsExt::create_with_metadata(
+			&alice,
+			"weth".into(),
+			"weth-symbol-very-very-long".into(),
+			18,
+			None,
+		)
+		.unwrap();
+
+		assert_eq!(usdc, 1124);
+		assert_eq!(weth, 2148);
+
+		let usdc_symbol_bytes = AssetsExt::symbol(&usdc);
+		let weth_symbol_bytes = AssetsExt::symbol(&weth);
+		let usdc_symbol = sp_std::str::from_utf8(&usdc_symbol_bytes).unwrap();
+		let weth_symbol = sp_std::str::from_utf8(&weth_symbol_bytes).unwrap();
+
+		assert_eq!(usdc_symbol, "usdc-something-very-long");
+		assert_eq!(weth_symbol, "weth-symbol-very-very-long");
+
+		let trading_pair = TradingPair::new(usdc, weth);
+
+		let lp_token = Dex::create_lp_token(&trading_pair).unwrap();
+		assert_eq!(lp_token, 3172);
+
+		let lp_token_name_bytes =
+			<AssetsExt as frame_support::traits::fungibles::InspectMetadata<AccountId>>::name(
+				&lp_token,
+			);
+		let lp_token_symbol_bytes = AssetsExt::symbol(&lp_token);
+		let lp_token_name = sp_std::str::from_utf8(&lp_token_name_bytes).unwrap();
+		let lp_token_symbol = sp_std::str::from_utf8(&lp_token_symbol_bytes).unwrap();
+
+		assert_eq!(lp_token_name, "LP usdc-something-very- weth-symbol-very-ver");
+		assert_eq!(lp_token_symbol, "LP-1124-2148");
+	});
+}
+
+#[test]
 fn add_liquidity() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
 
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
-		let weth = AssetsExt::create(&BOB, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
 
 		// mint tokens to user
-		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(1)));
-		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(1)));
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(1)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			to_eth(1),
@@ -172,22 +315,8 @@ fn add_liquidity() {
 			TradingPairStatus::Enabled
 		);
 
-		// System::assert_has_event(MockEvent::Assets(pallet_assets::Event::Transferred {
-		// 	asset_id: usdc,
-		// 	from: ALICE,
-		// 	to: Dex::account_id(),
-		// 	amount: 1_000_000_000_000u128,
-		// }));
-
-		// System::assert_has_event(MockEvent::Assets(pallet_assets::Event::Transferred {
-		// 	asset_id: weth,
-		// 	from: ALICE,
-		// 	to: Dex::account_id(),
-		// 	amount: 1_000_000_000_000u128,
-		// }));
-
 		System::assert_last_event(MockEvent::Dex(crate::Event::AddLiquidity(
-			ALICE,
+			alice,
 			usdc,
 			to_eth(1),
 			weth,
@@ -208,18 +337,18 @@ fn add_liquidity() {
 
 		// verify Alice now has LP tokens
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			999_999_999_999_999_000u128,
 		);
 
 		// mint tokens to new user
-		assert_ok!(AssetsExt::mint_into(usdc, &BOB, to_eth(2)));
-		assert_ok!(AssetsExt::mint_into(weth, &BOB, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(usdc, &bob, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(2)));
 
 		// add liquidity to new user fails - as they expect too much lp tokens
 		assert_noop!(
 			Dex::add_liquidity(
-				Origin::signed(BOB),
+				Origin::signed(bob),
 				usdc,
 				weth,
 				to_eth(2),
@@ -233,7 +362,7 @@ fn add_liquidity() {
 
 		// add liquidity to new user succeeds - as min expected lp tokens saisfied
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(BOB),
+			Origin::signed(bob),
 			usdc,
 			weth,
 			to_eth(2),
@@ -245,14 +374,14 @@ fn add_liquidity() {
 
 		// verify Bob now has LP tokens
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &BOB),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &bob),
 			to_eth(2),
 		);
 
 		// bob should have more LP tokens than Alice as Bob provisioned more liquidity
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE) <
-				AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &BOB),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice) <
+				AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &bob),
 			true
 		);
 
@@ -265,7 +394,7 @@ fn add_liquidity() {
 		// user cannot add liquidity to disabled pair
 		assert_noop!(
 			Dex::add_liquidity(
-				Origin::signed(BOB),
+				Origin::signed(bob),
 				usdc,
 				weth,
 				2_000_000_000_000u128,
@@ -279,21 +408,218 @@ fn add_liquidity() {
 	});
 }
 
+#[test]
+fn add_shared_liquidity() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
+		// create 3 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
+		let asto = AssetsExt::create(&bob, None).unwrap();
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(1)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
+		// add liquidity <usdc-weth>
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			usdc,
+			weth,
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			0u128, //not used
+		));
+		let trading_pair: TradingPair = TradingPair::new(usdc, weth);
+
+		// adding LP enables trading pair
+		assert_eq!(Dex::trading_pair_statuses(trading_pair), TradingPairStatus::Enabled);
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::AddLiquidity(
+			alice,
+			usdc,
+			to_eth(1),
+			weth,
+			to_eth(1),
+			999_999_999_999_999_000u128, // lp token shares
+		)));
+
+		// lp token is the same token independent of trading pair token ordering
+		assert_eq!(
+			Dex::lp_token_id(TradingPair::new(usdc, weth)),
+			Dex::lp_token_id(TradingPair::new(weth, usdc))
+		);
+
+		// mint tokens to new user
+		assert_ok!(AssetsExt::mint_into(usdc, &bob, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(asto, &bob, to_eth(2)));
+
+		// add liquidity to new user succeeds
+		// add liquidity <usdc-asto>
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(bob),
+			usdc,
+			asto,
+			to_eth(2),
+			to_eth(2),
+			to_eth(2),
+			to_eth(2),
+			0u128, // mint lp tokens satisfied
+		));
+
+		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+
+		let (reserve_0, reserve_1) = LiquidityPool::<Test>::get(trading_pair);
+		let balance_0 = AssetsExt::balance(trading_pair.0, &pool_address);
+		let balance_1 = AssetsExt::balance(trading_pair.1, &pool_address);
+
+		assert_eq!(reserve_0, balance_0);
+		assert_eq!(reserve_1, balance_1);
+
+		let trading_pair_2: TradingPair = TradingPair::new(asto, usdc);
+		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+
+		let (reserve_2, reserve_3) = LiquidityPool::<Test>::get(trading_pair_2);
+		let balance_2 = AssetsExt::balance(trading_pair_2.0, &pool_address);
+		let balance_3 = AssetsExt::balance(trading_pair_2.1, &pool_address);
+
+		assert_eq!(reserve_2, balance_2);
+		assert_eq!(reserve_3, balance_3);
+
+		assert_ok!(AssetsExt::mint_into(usdc, &bob, to_eth(2)));
+
+		// swap <usdc/weth>
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(bob),
+			to_eth(1), // input usdc
+			0u128,     // min expected weth
+			vec![usdc, weth],
+		));
+
+		// validate reserves for usdc/weth have been updated after swap
+		let (reserve_0_0, reserve_1_0) = LiquidityPool::<Test>::get(trading_pair);
+		assert_ne!(reserve_0, reserve_0_0);
+		assert_ne!(reserve_1, reserve_1_0);
+		assert_eq!(reserve_0, 1000000000000000000);
+		assert_eq!(reserve_0_0, 2000000000000000000);
+		assert_eq!(reserve_1, 1000000000000000000);
+		assert_eq!(reserve_1_0, 500751126690035053);
+
+		// validate pool address for usdc/weth has accumulated liquidity/tokens after the swap
+		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let balance_0_0 = AssetsExt::balance(trading_pair.0, &pool_address);
+		let balance_1_0 = AssetsExt::balance(trading_pair.1, &pool_address);
+		assert_ne!(balance_0, balance_0_0); // balance should change before and after swap
+		assert_ne!(balance_1, balance_1_0); // balance should change before and after swap
+		assert_eq!(balance_0, 1000000000000000000);
+		assert_eq!(balance_0_0, 2000000000000000000);
+		assert_eq!(balance_1, 1000000000000000000);
+		assert_eq!(balance_1_0, 500751126690035053);
+
+		// validate reserves for usdc/asto stays same after swap
+		let (reserve_2_0, reserve_3_0) = LiquidityPool::<Test>::get(trading_pair_2);
+		assert_eq!(reserve_2, reserve_2_0);
+		assert_eq!(reserve_3, reserve_3_0);
+
+		// validate pool address for usdc/asto has not accumulated liquidity/tokens after the swap
+		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+		let balance_2_0 = AssetsExt::balance(trading_pair_2.0, &pool_address);
+		let balance_3_0 = AssetsExt::balance(trading_pair_2.1, &pool_address);
+		assert_eq!(balance_2, balance_2_0); // balance should not change
+		assert_eq!(balance_3, balance_3_0); // balance should not change
+
+		assert_ok!(AssetsExt::mint_into(usdc, &bob, to_eth(2)));
+
+		// swap <usdc/asto>
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(bob),
+			to_eth(1), // input usdc
+			0u128,     // min expected asto
+			vec![usdc, asto],
+		));
+
+		// validate reserves for usdc/asto change after swap
+		let (reserve_2_0_0, reserve_3_0_0) = LiquidityPool::<Test>::get(trading_pair_2);
+		assert_ne!(reserve_2_0, reserve_2_0_0);
+		assert_ne!(reserve_3_0, reserve_3_0_0);
+		assert_eq!(reserve_2_0, 2000000000000000000);
+		assert_eq!(reserve_2_0_0, 3000000000000000000);
+		assert_eq!(reserve_3_0, 2000000000000000000);
+		assert_eq!(reserve_3_0_0, 1334668001334668002);
+
+		// validate pool address for usdc/asto has accumulated liquidity/tokens after the swap
+		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+		let balance_2_0_0 = AssetsExt::balance(trading_pair_2.0, &pool_address);
+		let balance_3_0_0 = AssetsExt::balance(trading_pair_2.1, &pool_address);
+		assert_ne!(balance_2_0, balance_2_0_0); // balance should change before and after swap
+		assert_ne!(balance_3_0, balance_3_0_0); // balance should change before and after swap
+		assert_eq!(balance_2_0, 2000000000000000000);
+		assert_eq!(balance_2_0_0, 3000000000000000000);
+		assert_eq!(balance_3_0, 2000000000000000000);
+		assert_eq!(balance_3_0_0, 1334668001334668002);
+
+		// validate reserves for usdc/weth stay same after swap
+		let (reserve_0_0_0, reserve_1_0_0) = LiquidityPool::<Test>::get(trading_pair);
+		assert_eq!(reserve_0_0, reserve_0_0_0);
+		assert_eq!(reserve_1_0, reserve_1_0_0);
+
+		// validate pool address for usdc/weth does not accumulate liquidity/tokens after the swap
+		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let balance_0_0_0 = AssetsExt::balance(trading_pair.0, &pool_address);
+		let balance_1_0_0 = AssetsExt::balance(trading_pair.1, &pool_address);
+		assert_eq!(balance_0_0, balance_0_0_0); // balance should change before and after swap
+		assert_eq!(balance_1_0, balance_1_0_0); // balance should change before and after swap
+	});
+}
+
+// unit test
+#[test]
+fn get_trading_pair_address() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
+
+		// TradingPair::new(usdc, weth);
+		let trading_pair = TradingPair::new(usdc, weth);
+		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let pool_address = encode(H160(pool_address.into()).as_bytes());
+		assert_eq!(pool_address, "dddddddd00000464000008640000000000000000");
+
+		let trading_pair_reverse = TradingPair::new(weth, usdc);
+		let pool_address_reverse: AccountId = trading_pair_reverse.pool_address::<Test>();
+		let pool_address_reverse = encode(H160(pool_address_reverse.into()).as_bytes());
+		assert_eq!(pool_address_reverse, "dddddddd00000464000008640000000000000000");
+
+		assert_eq!(pool_address, pool_address_reverse);
+	});
+}
 /// https://github.com/futureversecom/seed/issues/15
 #[test]
 fn add_liquidity_issue_15() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
 		// create 2 tokens
-		let usdc = AssetsExt::create(&ALICE.clone(), None).unwrap();
-		let weth = AssetsExt::create(&BOB.clone(), None).unwrap();
+		let usdc = AssetsExt::create(&alice.clone(), None).unwrap();
+		let weth = AssetsExt::create(&bob.clone(), None).unwrap();
 
 		// mint tokens to user
-		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(10)));
-		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(10)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			to_eth(1),
@@ -304,7 +630,7 @@ fn add_liquidity_issue_15() {
 		));
 
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			to_eth(2),
@@ -314,11 +640,11 @@ fn add_liquidity_issue_15() {
 			0u128, //not used
 		));
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			1_999_999_999_999_999_000_u128,
 		);
-		assert_eq!(AssetsExt::balance(usdc, &ALICE), 8_000_000_000_000_000_000_u128);
-		assert_eq!(AssetsExt::balance(weth, &ALICE), 8_000_000_000_000_000_000_u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 8_000_000_000_000_000_000_u128);
+		assert_eq!(AssetsExt::balance(weth, &alice), 8_000_000_000_000_000_000_u128);
 	});
 }
 
@@ -327,15 +653,18 @@ fn remove_liquidity_simple() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
 		// create 2 tokens (by different users)
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
-		let weth = AssetsExt::create(&BOB, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
 
 		// add liquidity as user
-		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(2)));
-		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(2)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			to_eth(2),
@@ -345,13 +674,13 @@ fn remove_liquidity_simple() {
 			1_999_999_999_999_999_000u128, // min expected LP token shares
 		));
 		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
-		assert_eq!(AssetsExt::balance(lp_token_id, &ALICE), 1_999_999_999_999_999_000u128);
-		assert_eq!(AssetsExt::balance(usdc, &ALICE), 0);
-		assert_eq!(AssetsExt::balance(weth, &ALICE), 0);
+		assert_eq!(AssetsExt::balance(lp_token_id, &alice), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 0);
+		assert_eq!(AssetsExt::balance(weth, &alice), 0);
 
 		// providing all-1 LP token shares should succeed
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			1_999_999_999_999_999_000u128, // all lp -1 to retrieve input tokens
@@ -360,7 +689,7 @@ fn remove_liquidity_simple() {
 		));
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::RemoveLiquidity(
-			ALICE,
+			alice,
 			usdc,
 			1_999_999_999_999_999_000u128,
 			weth,
@@ -369,11 +698,11 @@ fn remove_liquidity_simple() {
 		)));
 
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			0,
 		);
-		assert_eq!(AssetsExt::balance(usdc, &ALICE), 1_999_999_999_999_999_000u128);
-		assert_eq!(AssetsExt::balance(weth, &ALICE), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(weth, &alice), 1_999_999_999_999_999_000u128);
 	});
 }
 
@@ -382,24 +711,27 @@ fn remove_liquidity_full() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
 		// create 2 tokens (by different users)
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
-		let weth = AssetsExt::create(&BOB, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
 
 		// fails if no LP tokens withdrawn
 		assert_eq!(
-			Dex::remove_liquidity(Origin::signed(ALICE), usdc, weth, 0u128, 2u128, 2u128).is_ok(),
+			Dex::remove_liquidity(Origin::signed(alice), usdc, weth, 0u128, 2u128, 2u128).is_ok(),
 			false
 		);
 
 		// remove liquidity fails if LP token doesnt exist
 		assert_noop!(
-			Dex::remove_liquidity(Origin::signed(ALICE), usdc, weth, 1u128, 2u128, 2u128,),
+			Dex::remove_liquidity(Origin::signed(alice), usdc, weth, 1u128, 2u128, 2u128,),
 			Error::<Test>::InvalidAssetId
 		);
 
 		// maually create and enable LP token
-		let lp_token_id = AssetsExt::create(&ALICE, None).unwrap();
+		let lp_token_id = AssetsExt::create(&alice, None).unwrap();
 		TradingPairLPToken::<Test>::insert(TradingPair::new(usdc, weth), Some(lp_token_id));
 		TradingPairStatuses::<Test>::insert(
 			TradingPair::new(usdc, weth),
@@ -407,10 +739,10 @@ fn remove_liquidity_full() {
 		);
 
 		// add liquidity as user
-		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(2)));
-		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(2)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			to_eth(2),
@@ -420,14 +752,14 @@ fn remove_liquidity_full() {
 			1_999_999_999_999_999_000u128, // min expected LP token shares
 		));
 		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(); // TODO remove
-		assert_eq!(AssetsExt::balance(lp_token_id, &ALICE), 1_999_999_999_999_999_000u128);
-		assert_eq!(AssetsExt::balance(usdc, &ALICE), 0);
-		assert_eq!(AssetsExt::balance(weth, &ALICE), 0);
+		assert_eq!(AssetsExt::balance(lp_token_id, &alice), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 0);
+		assert_eq!(AssetsExt::balance(weth, &alice), 0);
 
 		// remove liquidity fails if user expects more balance of a token than they have
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(ALICE),
+				Origin::signed(alice),
 				usdc,
 				weth,
 				1u128,
@@ -439,7 +771,7 @@ fn remove_liquidity_full() {
 
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(ALICE),
+				Origin::signed(alice),
 				usdc,
 				weth,
 				1u128,
@@ -451,7 +783,7 @@ fn remove_liquidity_full() {
 
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(ALICE),
+				Origin::signed(alice),
 				usdc,
 				weth,
 				100u128, // provided LP token shares too low to retrieve input tokens
@@ -463,7 +795,7 @@ fn remove_liquidity_full() {
 
 		// providing all-1 LP token shares should succeed
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			1_999_999_999_999_999_000u128 - 1, // all lp -1 to retrieve input tokens
@@ -472,7 +804,7 @@ fn remove_liquidity_full() {
 		));
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::RemoveLiquidity(
-			ALICE,
+			alice,
 			usdc,
 			1_999_999_999_999_998_999_u128,
 			weth,
@@ -481,11 +813,11 @@ fn remove_liquidity_full() {
 		)));
 
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			1,
 		);
-		assert_eq!(AssetsExt::balance(usdc, &ALICE), 1_999_999_999_999_998_999_u128);
-		assert_eq!(AssetsExt::balance(weth, &ALICE), 1_999_999_999_999_998_999_u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 1_999_999_999_999_998_999_u128);
+		assert_eq!(AssetsExt::balance(weth, &alice), 1_999_999_999_999_998_999_u128);
 
 		// disable trading pair
 		TradingPairStatuses::<Test>::insert(
@@ -496,7 +828,7 @@ fn remove_liquidity_full() {
 		// can still successfully remove liquidity if trading pair is disabled
 		// remove last lp token remaining
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			1,
@@ -506,12 +838,12 @@ fn remove_liquidity_full() {
 
 		// removing all liquidity should imply user has recieved all input tokens
 		assert_eq!(
-			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &ALICE),
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			0u128,
 		);
 		// do not get 100% tokens back as some lost due to minimum liquidity minting
-		assert_eq!(AssetsExt::balance(usdc, &ALICE), 1_999_999_999_999_999_000_u128);
-		assert_eq!(AssetsExt::balance(weth, &ALICE), 1_999_999_999_999_999_000_u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 1_999_999_999_999_999_000_u128);
+		assert_eq!(AssetsExt::balance(weth, &alice), 1_999_999_999_999_999_000_u128);
 	});
 }
 
@@ -520,16 +852,19 @@ fn swap_with_exact_supply() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		let weth = AssetsExt::create(&ALICE, None).unwrap();
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
+		let weth = AssetsExt::create(&alice, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
 
 		// mint tokens to user
-		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
-		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(100)));
 
 		// provide liquidity - note: differing amount of input tokens - ratio 1:2
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			weth,
 			usdc,
 			to_eth(1),
@@ -538,13 +873,13 @@ fn swap_with_exact_supply() {
 			to_eth(2),
 			0u128,
 		));
-		assert_eq!(AssetsExt::balance(weth, &ALICE), to_eth(100) - to_eth(1));
-		assert_eq!(AssetsExt::balance(usdc, &ALICE), to_eth(100) - to_eth(2));
+		assert_eq!(AssetsExt::balance(weth, &alice), to_eth(100) - to_eth(1));
+		assert_eq!(AssetsExt::balance(usdc, &alice), to_eth(100) - to_eth(2));
 
 		// swap should fail if user does not have sufficient balance of input tokens
 		assert_noop!(
 			Dex::swap_with_exact_supply(
-				Origin::signed(BOB),
+				Origin::signed(bob),
 				to_eth(1), // input weth <- insufficient balance
 				10u128,    // expected usdc
 				vec![weth, usdc],
@@ -553,13 +888,13 @@ fn swap_with_exact_supply() {
 		);
 
 		// mint weth for 2nd user and allow them to perform swap against usdc
-		assert_ok!(AssetsExt::mint_into(weth, &BOB, to_eth(2)));
-		assert_eq!(AssetsExt::balance(usdc, &BOB), 0); // no balance initially for bob
+		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(2)));
+		assert_eq!(AssetsExt::balance(usdc, &bob), 0); // no balance initially for bob
 
 		// swap should fail if user expects more output tokens than they can get
 		assert_noop!(
 			Dex::swap_with_exact_supply(
-				Origin::signed(BOB),
+				Origin::signed(bob),
 				to_eth(1), // input weth
 				to_eth(1), // min expected usdc <- too much
 				vec![weth, usdc],
@@ -570,7 +905,7 @@ fn swap_with_exact_supply() {
 		// swap succeeds if user has sufficient balance of input tokens
 		// and min expected output tokens are provided
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(BOB),
+			Origin::signed(bob),
 			to_eth(1), // input weth
 			0u128,     // min expected usdc
 			vec![weth, usdc],
@@ -580,13 +915,13 @@ fn swap_with_exact_supply() {
 
 		// verify swap event and user balances
 		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
-			BOB,
+			bob,
 			vec![weth, usdc],
 			to_eth(1),
 			out_usdc_amount_1,
 		)));
-		assert_eq!(AssetsExt::balance(weth, &BOB), to_eth(1));
-		assert_eq!(AssetsExt::balance(usdc, &BOB), out_usdc_amount_1);
+		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(1));
+		assert_eq!(AssetsExt::balance(usdc, &bob), out_usdc_amount_1);
 
 		// verify dex trading pair liquidity changes (usdc removed, weth added)
 		assert_eq!(
@@ -601,7 +936,7 @@ fn swap_with_exact_supply() {
 
 		// user b swaps again with same params
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(BOB),
+			Origin::signed(bob),
 			to_eth(1), // input weth
 			10u128,    // min expected usdc
 			vec![weth, usdc],
@@ -611,14 +946,14 @@ fn swap_with_exact_supply() {
 
 		// verify swap event and user balances
 		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
-			BOB,
+			bob,
 			vec![weth, usdc],
 			to_eth(1),
 			out_usdc_amount_2,
 		)));
-		assert_eq!(AssetsExt::balance(weth, &BOB), 0);
-		assert_eq!(AssetsExt::balance(usdc, &BOB), out_usdc_amount_1 + out_usdc_amount_2);
-		assert_eq!(AssetsExt::balance(usdc, &BOB), 1_331_663_494_574_527_790u128);
+		assert_eq!(AssetsExt::balance(weth, &bob), 0);
+		assert_eq!(AssetsExt::balance(usdc, &bob), out_usdc_amount_1 + out_usdc_amount_2);
+		assert_eq!(AssetsExt::balance(usdc, &bob), 1_331_663_494_574_527_790u128);
 
 		// verify that 2nd swap returns less output tokens than first
 		// - due to shift in constant product -> resulting in higher slippage
@@ -627,21 +962,111 @@ fn swap_with_exact_supply() {
 }
 
 #[test]
+fn perform_multiple_pair_swap_with_exact_supply() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+		// restrict the trading path length to 2
+
+		let alice: AccountId = create_account(1);
+
+		let a = AssetsExt::create(&alice, None).unwrap();
+		let b = AssetsExt::create(&alice, None).unwrap();
+		let c = AssetsExt::create(&alice, None).unwrap();
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(a, &alice, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(b, &alice, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(c, &alice, to_eth(100)));
+
+		// provide liquidity (a-b)
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			a,
+			b,
+			100_000_000u128,
+			100_000_000u128,
+			100_000_000u128,
+			100_000_000u128,
+			0u128,
+		));
+
+		// provide liquidity (b-c)
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			b,
+			c,
+			100_000_000u128,
+			100_000_000u128,
+			100_000_000u128,
+			100_000_000u128,
+			0u128,
+		));
+
+		assert_ok!(
+			Dex::get_amounts_out(50_000u128, &[a, b, c]),
+			vec![50_000u128, 49_825u128, 49_650u128]
+		);
+
+		// swap with exact supply ( path a->b->c )
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(alice),
+			50_000u128, // input a
+			1u128,      // expect c
+			vec![a, b, c],
+		));
+
+		let trading_pair = TradingPair::new(a, b);
+		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let (reserve_0, reserve_1) = LiquidityPool::<Test>::get(trading_pair);
+		let balance_0 = AssetsExt::balance(trading_pair.0, &pool_address);
+		let balance_1 = AssetsExt::balance(trading_pair.1, &pool_address);
+
+		assert_eq!(reserve_0, balance_0);
+		assert_eq!(reserve_1, balance_1);
+		assert_eq!(reserve_0, 100_050_000u128); // 100_000_000u128 + 50_000u128
+		assert_eq!(reserve_1, 99_950_175u128); // 100_000_000u128 - 49_825u128
+
+		let trading_pair_2: TradingPair = TradingPair::new(b, c);
+		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+
+		let (reserve_2, reserve_3) = LiquidityPool::<Test>::get(trading_pair_2);
+		let balance_2 = AssetsExt::balance(trading_pair_2.0, &pool_address);
+		let balance_3 = AssetsExt::balance(trading_pair_2.1, &pool_address);
+		assert_eq!(reserve_2, balance_2);
+		assert_eq!(reserve_3, balance_3);
+		assert_eq!(reserve_2, 100_049_825u128); // 100_000_000u128 + 49_825u128
+		assert_eq!(reserve_3, 99_950_350u128); // 100_000_000u128 - 49_650u128
+
+		// Alice's a and c balance
+		let alice_a = AssetsExt::balance(a, &alice);
+		let alice_b = AssetsExt::balance(b, &alice);
+		let alice_c = AssetsExt::balance(c, &alice);
+		assert_eq!(alice_a, to_eth(100) - 100_000_000u128 - 50_000u128); // Initial minted - liquidity added - swap a for c
+		assert_eq!(alice_b, to_eth(100) - 200_000_000u128); // Initial minted - liquidity added ( in pool [a-b] & [b-c]
+		assert_eq!(alice_c, to_eth(100) - 100_000_000u128 + 49_650u128); // Initial minted - liquidity added
+		                                                         // + swap a for c
+	});
+}
+
+#[test]
 fn swap_with_exact_target() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
 		// create tokens (by different users)
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
-		let weth = AssetsExt::create(&ALICE, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
 
 		// mint tokens to user
-		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
-		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(100)));
 
 		// provide liquidity - note: differing amount of input tokens - ratio 2:1
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			weth,
 			usdc,
 			to_eth(8),
@@ -654,7 +1079,7 @@ fn swap_with_exact_target() {
 		// swap should fail if user does not have sufficient balance of input tokens
 		assert_noop!(
 			Dex::swap_with_exact_target(
-				Origin::signed(BOB),
+				Origin::signed(bob),
 				10u128,                // expected usdc
 				1_000_000_000_000u128, // max input weth <- insufficient balance
 				vec![weth, usdc],
@@ -663,12 +1088,12 @@ fn swap_with_exact_target() {
 		);
 
 		// mint weth for 2nd user and allow them to perform swap against usdc
-		assert_ok!(AssetsExt::mint_into(weth, &BOB, to_eth(20)));
+		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(20)));
 
 		// swap should fail if eqiuvalent tokens asked for are not available
 		assert_noop!(
 			Dex::swap_with_exact_target(
-				Origin::signed(BOB),
+				Origin::signed(bob),
 				to_eth(4), // expected <- too much
 				to_eth(4), // max input weth willing to give
 				vec![weth, usdc],
@@ -679,7 +1104,7 @@ fn swap_with_exact_target() {
 		// fails if too much output tokens are expected
 		assert_noop!(
 			Dex::swap_with_exact_target(
-				Origin::signed(BOB),
+				Origin::signed(bob),
 				to_eth(1) / 2,
 				to_eth(1), // max input weth willing to give
 				vec![weth, usdc],
@@ -690,7 +1115,7 @@ fn swap_with_exact_target() {
 		// swap succeeds if user has sufficient balance of input tokens
 		// and expected output tokens are provided
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(BOB),
+			Origin::signed(bob),
 			to_eth(1), // want usdc
 			to_eth(5), // max input weth willing to give
 			vec![weth, usdc],
@@ -700,14 +1125,14 @@ fn swap_with_exact_target() {
 
 		// verify swap event and user balances
 		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
-			BOB,
+			bob,
 			vec![weth, usdc],
 			in_weth_amount_1, // supply amount
 			to_eth(1),        // target amount
 		)));
-		assert_eq!(AssetsExt::balance(weth, &BOB), to_eth(20) - in_weth_amount_1);
-		assert_eq!(AssetsExt::balance(weth, &BOB), 17_325_309_261_116_683_383_u128);
-		assert_eq!(AssetsExt::balance(usdc, &BOB), to_eth(1));
+		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(20) - in_weth_amount_1);
+		assert_eq!(AssetsExt::balance(weth, &bob), 17_325_309_261_116_683_383_u128);
+		assert_eq!(AssetsExt::balance(usdc, &bob), to_eth(1));
 
 		// verify dex trading pair liquidity changes (weth added, usdc removed)
 		assert_eq!(
@@ -717,7 +1142,7 @@ fn swap_with_exact_target() {
 
 		// user b swaps again with same params
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(BOB),
+			Origin::signed(bob),
 			to_eth(1), // want usdc
 			to_eth(6), // max input weth willing to give
 			vec![weth, usdc],
@@ -727,17 +1152,17 @@ fn swap_with_exact_target() {
 
 		// verify swap event and user balances
 		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
-			BOB,
+			bob,
 			vec![weth, usdc],
 			in_weth_amount_2, // supply amount
 			to_eth(1),        // target amount
 		)));
 		assert_eq!(
-			AssetsExt::balance(weth, &BOB),
+			AssetsExt::balance(weth, &bob),
 			to_eth(20) - in_weth_amount_1 - in_weth_amount_2
 		);
-		assert_eq!(AssetsExt::balance(weth, &BOB), 11_971_903_674_916_424_297_u128);
-		assert_eq!(AssetsExt::balance(usdc, &BOB), to_eth(2));
+		assert_eq!(AssetsExt::balance(weth, &bob), 11_971_903_674_916_424_297_u128);
+		assert_eq!(AssetsExt::balance(usdc, &bob), to_eth(2));
 
 		// verify that 2nd swap requires more input tokens than first for the same output
 		// - due to shift in constant product -> resulting in higher slippage
@@ -754,37 +1179,39 @@ fn multiple_swaps_with_multiple_lp() {
 	TestExt::default().build().execute_with(|| {
 		System::set_block_number(1);
 
-		pub const CHARLIE: MockAccountId = 3;
-		pub const DANNY: MockAccountId = 4;
-		pub const ELLIOT: MockAccountId = 5;
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
+		let danny: AccountId = create_account(4);
+		let elliot: AccountId = create_account(5);
 
 		// create tokens
-		let usdc = AssetsExt::create(&ALICE, None).unwrap();
-		let weth = AssetsExt::create(&ALICE, None).unwrap();
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&alice, None).unwrap();
 
 		// mint 100 tokens to alice
-		assert_ok!(AssetsExt::mint_into(usdc, &ALICE, to_eth(100)));
-		assert_ok!(AssetsExt::mint_into(weth, &ALICE, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(100)));
 
 		// mint 100 tokens to bob
-		assert_ok!(AssetsExt::mint_into(usdc, &BOB, to_eth(100)));
-		assert_ok!(AssetsExt::mint_into(weth, &BOB, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(usdc, &bob, to_eth(100)));
+		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(100)));
 
 		// mint 10 tokens to charlie
-		assert_ok!(AssetsExt::mint_into(usdc, &CHARLIE, to_eth(50)));
-		assert_ok!(AssetsExt::mint_into(weth, &CHARLIE, to_eth(50)));
+		assert_ok!(AssetsExt::mint_into(usdc, &charlie, to_eth(50)));
+		assert_ok!(AssetsExt::mint_into(weth, &charlie, to_eth(50)));
 
 		// mint 10 tokens to danny
-		assert_ok!(AssetsExt::mint_into(usdc, &DANNY, to_eth(10)));
-		assert_ok!(AssetsExt::mint_into(weth, &DANNY, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(usdc, &danny, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(weth, &danny, to_eth(10)));
 
 		// mint 10 tokens to elliot
-		assert_ok!(AssetsExt::mint_into(usdc, &ELLIOT, to_eth(10)));
-		assert_ok!(AssetsExt::mint_into(weth, &ELLIOT, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(usdc, &elliot, to_eth(10)));
+		assert_ok!(AssetsExt::mint_into(weth, &elliot, to_eth(10)));
 
 		// alice provides liquidity for USDC/WETH pair - in ratio 1:3
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
 			to_eth(10),
@@ -796,7 +1223,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// bob provides liquidity for USDC/WETH pair - in ratio 1:3
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(BOB),
+			Origin::signed(bob),
 			usdc,
 			weth,
 			to_eth(10),
@@ -809,28 +1236,28 @@ fn multiple_swaps_with_multiple_lp() {
 		let lp_usdc_weth = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
 
 		// lp providers alice have lp tokens
-		assert_eq!(AssetsExt::balance(lp_usdc_weth, &ALICE), 17_320_508_075_688_771_935_u128);
-		assert_eq!(AssetsExt::balance(lp_usdc_weth, &BOB), 17_320_508_075_688_772_935_u128);
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &alice), 17_320_508_075_688_771_935_u128);
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &bob), 17_320_508_075_688_772_935_u128);
 
 		// charlie swaps 5 USDC for WETH
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(CHARLIE),
+			Origin::signed(charlie),
 			to_eth(5), // max input weth willing to give
 			0u128,
 			vec![usdc, weth],
 		));
-		assert_eq!(AssetsExt::balance(usdc, &CHARLIE), to_eth(50) - to_eth(5));
-		assert_eq!(AssetsExt::balance(weth, &CHARLIE), 61_971_182_709_625_775_465_u128);
+		assert_eq!(AssetsExt::balance(usdc, &charlie), to_eth(50) - to_eth(5));
+		assert_eq!(AssetsExt::balance(weth, &charlie), 61_971_182_709_625_775_465_u128);
 
 		// elliot swaps x USDC for 5 WETH
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(ELLIOT),
+			Origin::signed(elliot),
 			to_eth(5), // exact want amount of weth
 			to_eth(5),
 			vec![usdc, weth],
 		));
-		assert_eq!(AssetsExt::balance(usdc, &ELLIOT), 7_086_228_804_778_169_590_u128);
-		assert_eq!(AssetsExt::balance(weth, &ELLIOT), to_eth(10) + to_eth(5));
+		assert_eq!(AssetsExt::balance(usdc, &elliot), 7_086_228_804_778_169_590_u128);
+		assert_eq!(AssetsExt::balance(weth, &elliot), to_eth(10) + to_eth(5));
 
 		let (reserve_0, reserve_1) = Dex::get_liquidity(usdc, weth);
 		assert_eq!(reserve_0, 27_913_771_195_221_830_410_u128);
@@ -838,7 +1265,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// charlie provides liquidity for USDC/WETH pair - in different ratio
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(CHARLIE),
+			Origin::signed(charlie),
 			usdc,
 			weth,
 			to_eth(2),
@@ -847,70 +1274,112 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(2),
 			0u128
 		));
-		assert_eq!(AssetsExt::balance(lp_usdc_weth, &CHARLIE), 2_482_001_869_909_090_520_u128);
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &charlie), 2_482_001_869_909_090_520_u128);
 
 		// danny swaps x USDC for 2 WETH
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(DANNY),
+			Origin::signed(danny),
 			to_eth(2), // exact want amount of weth
 			to_eth(2),
 			vec![usdc, weth],
 		));
-		assert_eq!(AssetsExt::balance(usdc, &DANNY), 8_639_648_189_269_446_680_u128);
-		assert_eq!(AssetsExt::balance(weth, &DANNY), to_eth(10) + to_eth(2));
+		assert_eq!(AssetsExt::balance(usdc, &danny), 8_639_648_189_269_446_680_u128);
+		assert_eq!(AssetsExt::balance(weth, &danny), to_eth(10) + to_eth(2));
 
 		// elliot fails to remove any liquidity (he has none)
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(ELLIOT),
+				Origin::signed(elliot),
 				usdc,
 				weth,
-				AssetsExt::balance(lp_usdc_weth, &ELLIOT),
+				AssetsExt::balance(lp_usdc_weth, &elliot),
 				to_eth(10),
 				to_eth(10),
 			),
 			Error::<Test>::InsufficientLiquidityBurnt
 		);
 
-		assert_eq!(AssetsExt::balance(lp_usdc_weth, &CHARLIE), 2_482_001_869_909_090_520_u128);
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &charlie), 2_482_001_869_909_090_520_u128);
 		// charlie removes all his liquidity
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(CHARLIE),
+			Origin::signed(charlie),
 			usdc,
 			weth,
-			AssetsExt::balance(lp_usdc_weth, &CHARLIE),
+			AssetsExt::balance(lp_usdc_weth, &charlie),
 			to_eth(1),
 			to_eth(1),
 		));
-		assert_eq!(AssetsExt::balance(lp_usdc_weth, &CHARLIE), 0u128);
-		assert_eq!(AssetsExt::balance(usdc, &CHARLIE), 45_090_951_542_141_088_801_u128);
-		assert_eq!(AssetsExt::balance(weth, &CHARLIE), 61_837_465_032_443_069_536_u128);
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &charlie), 0u128);
+		assert_eq!(AssetsExt::balance(usdc, &charlie), 45_090_951_542_141_088_801_u128);
+		assert_eq!(AssetsExt::balance(weth, &charlie), 61_837_465_032_443_069_536_u128);
 
 		// alice removes all her liquidity
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(ALICE),
+			Origin::signed(alice),
 			usdc,
 			weth,
-			AssetsExt::balance(lp_usdc_weth, &ALICE),
+			AssetsExt::balance(lp_usdc_weth, &alice),
 			to_eth(10),
 			to_eth(10),
 		));
-		assert_eq!(AssetsExt::balance(lp_usdc_weth, &ALICE), 0u128);
-		assert_eq!(AssetsExt::balance(usdc, &ALICE), 104_591_585_731_905_646_622_u128);
-		assert_eq!(AssetsExt::balance(weth, &ALICE), 90_581_267_483_778_464_043_u128);
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &alice), 0u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 104_591_585_731_905_646_622_u128);
+		assert_eq!(AssetsExt::balance(weth, &alice), 90_581_267_483_778_464_043_u128);
 
 		// bob removes all his liquidity
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(BOB),
+			Origin::signed(bob),
 			usdc,
 			weth,
-			AssetsExt::balance(lp_usdc_weth, &BOB),
+			AssetsExt::balance(lp_usdc_weth, &bob),
 			to_eth(10),
 			to_eth(10),
 		));
-		assert_eq!(AssetsExt::balance(lp_usdc_weth, &BOB), 0u128);
-		assert_eq!(AssetsExt::balance(usdc, &BOB), 104_591_585_731_905_647_464_u128);
-		assert_eq!(AssetsExt::balance(weth, &BOB), 90_581_267_483_778_465_232_u128);
+		assert_eq!(AssetsExt::balance(lp_usdc_weth, &bob), 0u128);
+		assert_eq!(AssetsExt::balance(usdc, &bob), 104_591_585_731_905_647_464_u128);
+		assert_eq!(AssetsExt::balance(weth, &bob), 90_581_267_483_778_465_232_u128);
+	});
+}
+
+#[test]
+fn query_with_trading_pair() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			usdc,
+			weth,
+			to_eth(5),
+			to_eth(1),
+			to_eth(5),
+			to_eth(1),
+			0u128, //not used
+		));
+
+		// The trading pair should be enabled regardless of the order of the query inputs
+		assert_eq!(Dex::get_trading_pair_status(usdc, weth), TradingPairStatus::Enabled);
+		assert_eq!(Dex::get_trading_pair_status(weth, usdc), TradingPairStatus::Enabled);
+
+		// The trading pair should have the unique lp token id regardless of the order of the query
+		// inputs
+		let asset_id = 3 << 10 | 100;
+		assert_eq!(Dex::get_lp_token_id(usdc, weth).unwrap(), asset_id);
+		assert_eq!(Dex::get_lp_token_id(weth, usdc).unwrap(), asset_id);
+
+		// The trading pair should return the corresponding balances according to the order of the
+		// query inputs
+		assert_eq!(Dex::get_liquidity(usdc, weth), (to_eth(5), to_eth(1)));
+		assert_eq!(Dex::get_liquidity(weth, usdc), (to_eth(1), to_eth(5)));
 	});
 }
 
@@ -935,17 +1404,20 @@ macro_rules! swap_with_exact_supply_multi {
 
 				let (lp_amount_token_1, lp_amount_token_2) = $liquidity;
 
+				let alice: AccountId = create_account(1);
+				let bob: AccountId = create_account(2);
+
 				// create tokens
-				let token_0 = AssetsExt::create(&ALICE, None).unwrap();
-				let token_1 = AssetsExt::create(&ALICE, None).unwrap();
+				let token_0 = AssetsExt::create(&alice, None).unwrap();
+				let token_1 = AssetsExt::create(&alice, None).unwrap();
 
 				// mint input tokens to alice for LP
-				assert_ok!(AssetsExt::mint_into(token_0, &ALICE, lp_amount_token_1));
-				assert_ok!(AssetsExt::mint_into(token_1, &ALICE, lp_amount_token_2));
+				assert_ok!(AssetsExt::mint_into(token_0, &alice, lp_amount_token_1));
+				assert_ok!(AssetsExt::mint_into(token_1, &alice, lp_amount_token_2));
 
 				// add liquidity
 				assert_ok!(Dex::add_liquidity(
-					Origin::signed(ALICE),
+					Origin::signed(alice),
 					token_0,
 					token_1,
 					lp_amount_token_1,
@@ -956,26 +1428,26 @@ macro_rules! swap_with_exact_supply_multi {
 				));
 
 				// mint input tokens to bob for swap
-				assert_ok!(AssetsExt::mint_into(token_0, &BOB, $amount_in));
+				assert_ok!(AssetsExt::mint_into(token_0, &bob, $amount_in));
 
 				let result: Result<u128, DispatchError> = $amount_out;
 
 				match result {
 					Ok(amount_out) => {
 						assert_ok!(Dex::swap_with_exact_supply(
-							Origin::signed(BOB),
+							Origin::signed(bob),
 							$amount_in,
 							$amount_out_min,
 							vec![token_0, token_1],
 						));
 
-						assert_eq!(AssetsExt::balance(token_0, &BOB), 0u128);
-						assert_eq!(AssetsExt::balance(token_1, &BOB), amount_out);
+						assert_eq!(AssetsExt::balance(token_0, &bob), 0u128);
+						assert_eq!(AssetsExt::balance(token_1, &bob), amount_out);
 					},
 					Err(err) => {
 						assert_noop!(
 							Dex::swap_with_exact_supply(
-								Origin::signed(BOB),
+								Origin::signed(bob),
 								$amount_in,
 								$amount_out_min,
 								vec![token_0, token_1],
@@ -1042,17 +1514,20 @@ macro_rules! swap_with_exact_target_multi {
 
 				let (lp_amount_token_1, lp_amount_token_2) = $liquidity;
 
+				let alice: AccountId = create_account(1);
+				let bob: AccountId = create_account(2);
+
 				// create tokens
-				let token_0 = AssetsExt::create(&ALICE, None).unwrap();
-				let token_1 = AssetsExt::create(&ALICE, None).unwrap();
+				let token_0 = AssetsExt::create(&alice, None).unwrap();
+				let token_1 = AssetsExt::create(&alice, None).unwrap();
 
 				// mint input tokens to alice for LP
-				assert_ok!(AssetsExt::mint_into(token_0, &ALICE, lp_amount_token_1));
-				assert_ok!(AssetsExt::mint_into(token_1, &ALICE, lp_amount_token_2));
+				assert_ok!(AssetsExt::mint_into(token_0, &alice, lp_amount_token_1));
+				assert_ok!(AssetsExt::mint_into(token_1, &alice, lp_amount_token_2));
 
 				// add liquidity
 				assert_ok!(Dex::add_liquidity(
-					Origin::signed(ALICE),
+					Origin::signed(alice),
 					token_0,
 					token_1,
 					lp_amount_token_1,
@@ -1063,26 +1538,26 @@ macro_rules! swap_with_exact_target_multi {
 				));
 
 				// mint input tokens to bob for swap
-				assert_ok!(AssetsExt::mint_into(token_0, &BOB, $amount_in_max));
+				assert_ok!(AssetsExt::mint_into(token_0, &bob, $amount_in_max));
 
 				let result: Result<u128, DispatchError> = $amount_in;
 
 				match result {
 					Ok(amount_in) => {
 						assert_ok!(Dex::swap_with_exact_target(
-							Origin::signed(BOB),
+							Origin::signed(bob),
 							$amount_out,
 							$amount_in_max,
 							vec![token_0, token_1],
 						));
 
-						assert_eq!(AssetsExt::balance(token_0, &BOB), amount_in);
-						assert_eq!(AssetsExt::balance(token_1, &BOB), $amount_out);
+						assert_eq!(AssetsExt::balance(token_0, &bob), amount_in);
+						assert_eq!(AssetsExt::balance(token_1, &bob), $amount_out);
 					},
 					Err(err) => {
 						assert_noop!(
 							Dex::swap_with_exact_target(
-								Origin::signed(BOB),
+								Origin::signed(bob),
 								$amount_out,
 								$amount_in_max,
 								vec![token_0, token_1],

@@ -1,18 +1,13 @@
-// Copyright 2020-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
-// This file is part of Substrate.
-
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 //! Runtime API definition required by NFT RPC extensions.
 
@@ -20,7 +15,7 @@
 
 use codec::Codec;
 use pallet_nft::Config;
-use seed_primitives::types::{CollectionUuid, SerialNumber, TokenId};
+use seed_primitives::types::{CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_std::prelude::*;
 
 sp_api::decl_runtime_apis! {
@@ -35,7 +30,7 @@ sp_api::decl_runtime_apis! {
 			who: AccountId,
 			cursor: SerialNumber,
 			limit: u16
-		) -> (SerialNumber, Vec<SerialNumber>);
+		) -> (SerialNumber, TokenCount, Vec<SerialNumber>);
 
 		/// Return the token metadata URI for a given token
 		fn token_uri(token_id: TokenId) -> Vec<u8>;

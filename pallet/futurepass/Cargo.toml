@@ -1,0 +1,80 @@
+[package]
+name = "pallet-futurepass"
+version = "1.0.0-dev"
+authors = ["Centrality Developers <support@centrality.ai>"]
+edition = "2021"
+license = "GPL-3.0"
+description = "FuturePass"
+repository = "https://github.com/futureversecom/seed"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+serde = { version = "1.0.145", features = ["derive"], optional = true }
+
+# Parity
+codec = { package = "parity-scale-codec", version = "3.0.0", features = ["derive"], default-features = false }
+scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+
+# Substrate FRAME
+frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+
+# Benchmarking
+frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
+
+# Custom
+log = "0.4"
+hex = { version = "0.4.3", default-features = false }
+seed-pallet-common = { path = "../common", default-features = false }
+seed-primitives = { path = "../../primitives", default-features = false }
+precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
+
+[dev-dependencies]
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+seed-runtime = { path = "../../runtime" }
+
+seed-pallet-common= { path = "../common" }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-proxy = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-assets-ext = { path = "../assets-ext" }
+pallet-fee-control = { path = "../fee-control" }
+pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-fee-proxy = { path = "../fee-proxy" }
+pallet-dex = { path = "../dex" }
+pallet-nft = { path = "../nft" }
+pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+hex-literal = { version = "0.3.4" }
+
+
+[features]
+default = ["std"]
+std = [
+	"serde",
+	# Parity
+	"codec/std",
+	"scale-info/std",
+	# Substrate FRAME
+	"frame-support/std",
+	"frame-system/std",
+	"sp-core/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	# Custom
+	"hex/std",
+	"seed-pallet-common/std",
+	"seed-primitives/std",
+	"pallet-assets/std",
+	"pallet-balances/std",
+	"precompile-utils/std",
+	"fp-evm/std",
+]
+try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = ["frame-benchmarking"]

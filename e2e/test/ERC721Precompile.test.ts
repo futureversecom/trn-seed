@@ -19,7 +19,7 @@ import {
 
 // NFT Collection information
 const name = "test-collection";
-const metadataPath = { Https: "example.com/nft/metadata/" };
+const metadataPath = "https://example.com/nft/metadata/";
 const initialIssuance = 10;
 const maxIssuance = 100;
 
@@ -99,34 +99,38 @@ describe("ERC721 Precompile", function () {
   });
 
   it("ownedTokens", async () => {
-    let cursor, limit, new_cursor, tokens;
+    let cursor, limit, new_cursor, tokens, total_owned;
 
     // First 5 tokens
     cursor = 0;
     limit = 5;
-    [new_cursor, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(5);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([0, 1, 2, 3, 4]);
 
     // Last 5 tokens, cursor should be 0 to indicate end of owned tokens
     cursor = 5;
     limit = 5;
-    [new_cursor, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([5, 6, 7, 8, 9]);
 
     // Tokens over owned tokens should return empty
     cursor = 10;
     limit = 5;
-    [new_cursor, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([]);
 
     // high limit should return ALL tokens owned by bob
     cursor = 0;
     limit = 500;
-    [new_cursor, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
+    [new_cursor, total_owned, tokens] = await erc721Precompile.ownedTokens(bobSigner.address, limit, cursor);
     expect(new_cursor).to.equal(0);
+    expect(total_owned).to.equal(initialIssuance);
     expect(tokens).to.eql([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
@@ -143,7 +147,7 @@ describe("ERC721 Precompile", function () {
 
       // Check event thrown
       expect((receipt?.events as any)[i].event).to.equal("Transfer");
-      expect((receipt?.events as any)[i].args.from).to.equal(bobSigner.address);
+      expect((receipt?.events as any)[i].args.from).to.equal(constants.AddressZero);
       expect((receipt?.events as any)[i].args.to).to.equal(receiverAddress);
       expect((receipt?.events as any)[i].args.tokenId).to.equal(initialIssuance + i);
     }
@@ -189,11 +193,11 @@ describe("ERC721 Precompile", function () {
     expect(await newErc721Precompile.totalSupply()).to.equal(quantity);
   });
 
-  it("mint - max quantity per mint request is over 10_000", async () => {
+  it("mint fails over max quantity per mint 1_000", async () => {
     const receiverAddress = await Wallet.createRandom().getAddress();
 
     // new collection with unlimited mintable supply
-    let tx = await nftPrecompile.connect(bobSigner).initializeCollection(
+    const tx = await nftPrecompile.connect(bobSigner).initializeCollection(
       bobSigner.address,
       ethers.utils.hexlify(ethers.utils.toUtf8Bytes(name)),
       BigNumber.from(0), // no max issuance
@@ -201,19 +205,14 @@ describe("ERC721 Precompile", function () {
       [alithSigner.address],
       [1000],
     );
-    let receipt = await tx.wait();
+    const receipt = await tx.wait();
     const erc721PrecompileAddress = (receipt?.events as any)[0].args.precompileAddress;
     const newErc721Precompile = new Contract(erc721PrecompileAddress, ERC721_PRECOMPILE_ABI, bobSigner);
 
-    // // TODO: fails to mint if quantity per mint is too high
-    // await newErc721Precompile.connect(bobSigner).mint(receiverAddress, 10_001)
-    //     .catch((err: any) => expect(err.message).contains("MaxQuantityPerMintRequestExceeded"));
-
-    tx = await newErc721Precompile.connect(bobSigner).mint(receiverAddress, 10_000);
-    receipt = await tx.wait();
-
-    // verify balance
-    expect(await newErc721Precompile.balanceOf(receiverAddress)).to.equal(10_000);
+    await newErc721Precompile
+      .connect(bobSigner)
+      .mint(receiverAddress, 1_001)
+      .catch((err: any) => expect(err.message).contains("MintLimitExceeded"));
   });
 
   it("setMaxSupply", async () => {
@@ -324,6 +323,19 @@ describe("ERC721 Precompile", function () {
 
     // Receiver_address now owner of tokenId
     expect(await erc721Precompile.ownerOf(tokenId)).to.equal(receiverAddress);
+  });
+
+  it("mint - over mintLimit fails", async () => {
+    const receiverAddress = await Wallet.createRandom().getAddress();
+    const quantity = 1001; // MintLimit set to 1000 so this should fail
+
+    const mint = await erc721Precompile.connect(alithSigner).mint(receiverAddress, quantity, { gasLimit: 50000 });
+    await mint.wait().catch((err: any) => {
+      expect(err.code).eq("CALL_EXCEPTION");
+    });
+
+    // Verify balance of receiver is 0
+    expect(await erc721Precompile.balanceOf(receiverAddress)).to.equal(0);
   });
 
   it("setApprovalForAll, isApprovedForAll and safeTransferFrom", async () => {

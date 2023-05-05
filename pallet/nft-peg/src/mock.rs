@@ -1,17 +1,13 @@
-/* Copyright 2019-2021 Centrality Investments Limited
- *
- * Licensed under the LGPL, Version 3.0 (the "License");
- * you may not use this file except in compliance with the License.
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * You may obtain a copy of the License at the root of this project source code,
- * or at:
- *     https://centrality.ai/licenses/gplv3.txt
- *     https://centrality.ai/licenses/lgplv3.txt
- */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_nft_peg;
 
@@ -175,6 +171,7 @@ parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
+	pub const MintLimit: u32 = 100;
 	pub const StringLimit: u32 = 50;
 }
 
@@ -183,6 +180,7 @@ impl pallet_nft::Config for Test {
 	type Event = Event;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
+	type MintLimit = MintLimit;
 	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = ();
@@ -198,6 +196,8 @@ parameter_types! {
 	pub const DelayLength: BlockNumber = 5;
 	pub const MaxAddresses: u32 = 30;
 	pub const MaxIdsPerMultipleMint: u32 = 50;
+	pub const MaxCollectionsPerWithdraw: u32 = 10;
+	pub const MaxSerialsPerWithdraw: u32 = 50;
 }
 
 impl pallet_nft_peg::Config for Test {
@@ -208,6 +208,8 @@ impl pallet_nft_peg::Config for Test {
 	type MaxTokensPerMint = MaxIdsPerMultipleMint;
 	type EthBridge = MockEthBridge;
 	type NftPegWeightInfo = ();
+	type MaxCollectionsPerWithdraw = MaxCollectionsPerWithdraw;
+	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
 }
 
 /// Mock ethereum bridge

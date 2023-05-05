@@ -1,24 +1,19 @@
-// Copyright 2020-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
-// This file is part of Substrate.
-
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 //! Runtime API definition required by DEX RPC extensions.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use pallet_dex::Config;
+use pallet_dex::{Config, TradingPairStatus};
 use seed_primitives::types::{AssetId, Balance};
 use sp_runtime::DispatchError;
 use sp_std::prelude::*;
@@ -46,5 +41,23 @@ sp_api::decl_runtime_apis! {
 			amount_out: Balance,
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, DispatchError>;
+
+		/// Returns the LP token ID from the given trading pair
+		fn get_lp_token_id(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> Result<AssetId, DispatchError>;
+
+		/// Returns the liquidity balances of the given trading pair
+		fn get_liquidity(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> (Balance, Balance);
+
+		/// Returns the status of the given trading pair
+		fn get_trading_pair_status(
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+		) -> TradingPairStatus;
 	}
 }

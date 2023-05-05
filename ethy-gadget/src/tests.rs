@@ -1,20 +1,13 @@
-// This file is part of Substrate.
-
-// Copyright (C) 2018-2022 Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
-
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with this program. If not, see <https://www.gnu.org/licenses/>.
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 //! Tests and test helpers for ETHY.
 
@@ -26,16 +19,12 @@ use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient,
 	TestNetFactory,
 };
-use seed_primitives::ethy::{
-	crypto::AuthorityId, ConsensusLog, EthyApi, ValidatorSet, ETHY_ENGINE_ID, ETHY_KEY_TYPE,
-};
+use seed_primitives::ethy::{crypto::AuthorityId, EthyApi, ValidatorSet, ETHY_KEY_TYPE};
 use serde::{Deserialize, Serialize};
 use sp_api::{ApiRef, ProvideRuntimeApi};
-use sp_consensus::BlockOrigin;
 use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
-use sp_runtime::{codec::Encode, traits::Header as HeaderT, BuildStorage, DigestItem, Storage};
+use sp_runtime::{BuildStorage, Storage};
 use std::sync::Arc;
-use substrate_test_runtime_client::runtime::Header;
 
 pub(crate) const ETHY_PROTOCOL_NAME: &'static str = "/ethy/1";
 
@@ -55,12 +44,12 @@ impl BuildStorage for Genesis {
 
 #[derive(Clone)]
 pub(crate) struct EthyLinkHalf {
-	pub event_proof_stream: EthyEventProofStream,
+	pub _event_proof_stream: EthyEventProofStream,
 }
 
 #[derive(Default)]
 pub(crate) struct PeerData {
-	pub(crate) beefy_link_half: Mutex<Option<EthyLinkHalf>>,
+	pub(crate) _beefy_link_half: Mutex<Option<EthyLinkHalf>>,
 }
 
 #[derive(Default)]
@@ -88,7 +77,7 @@ impl EthyTestNet {
 		})
 	}
 
-	pub(crate) fn generate_blocks_and_sync(
+	/* 	pub(crate) fn generate_blocks_and_sync(
 		&mut self,
 		count: usize,
 		session_length: u64,
@@ -104,7 +93,7 @@ impl EthyTestNet {
 			block
 		});
 		self.block_until_sync();
-	}
+	} */
 }
 
 impl TestNetFactory for EthyTestNet {
@@ -186,12 +175,12 @@ macro_rules! create_test_api {
 
 create_test_api!(two_validators, EthyKeyring::Alice, EthyKeyring::Bob);
 
-fn add_auth_change_digest(header: &mut Header, new_auth_set: EthyValidatorSet) {
+/* fn add_auth_change_digest(header: &mut Header, new_auth_set: EthyValidatorSet) {
 	header.digest_mut().push(DigestItem::Consensus(
 		ETHY_ENGINE_ID,
 		ConsensusLog::<AuthorityId>::AuthoritiesChange(new_auth_set).encode(),
 	));
-}
+} */
 
 pub(crate) fn make_ethy_ids(keys: &[EthyKeyring]) -> Vec<AuthorityId> {
 	keys.iter().map(|key| key.clone().public().into()).collect()

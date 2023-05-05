@@ -1,31 +1,27 @@
-/* Copyright 2019-2021 Centrality Investments Limited
- *
- * Licensed under the LGPL, Version 3.0 (the "License");
- * you may not use this file except in compliance with the License.
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * You may obtain a copy of the License at the root of this project source code,
- * or at:
- *     https://centrality.ai/licenses/gplv3.txt
- *     https://centrality.ai/licenses/lgplv3.txt
- */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 //! NFT module types
 
-use crate::{Config, Error};
+use crate::Config;
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
+use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{
 	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
 	SerialNumber, TokenCount, TokenId,
 };
-use sp_runtime::{BoundedVec, Permill};
-use sp_std::prelude::*;
+use sp_runtime::{BoundedVec, PerThing, Permill};
+use sp_std::{fmt::Debug, prelude::*};
 
 // Time before auction ends that auction is extended if a bid is placed
 pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
@@ -55,19 +51,33 @@ pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
 }
 
-/// Struct that represents the owned serial numbers within a collection of an individual account
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct TokenOwnership<T: Config> {
-	pub owner: T::AccountId,
-	pub owned_serials: BoundedVec<SerialNumber, <T as Config>::MaxTokensPerCollection>,
+#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
+pub enum TokenOwnershipError {
+	TokenLimitExceeded,
 }
 
-impl<T: Config> TokenOwnership<T> {
+/// Struct that represents the owned serial numbers within a collection of an individual account
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
+#[scale_info(skip_type_params(MaxTokensPerCollection))]
+pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxTokensPerCollection: Get<u32>,
+{
+	pub owner: AccountId,
+	pub owned_serials: BoundedVec<SerialNumber, MaxTokensPerCollection>,
+}
+
+impl<AccountId, MaxTokensPerCollection> TokenOwnership<AccountId, MaxTokensPerCollection>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxTokensPerCollection: Get<u32>,
+{
 	/// Creates a new TokenOwnership with the given owner and serial numbers
 	pub fn new(
-		owner: T::AccountId,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		owner: AccountId,
+		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) -> Self {
 		let mut owned_serials = serial_numbers.clone();
 		owned_serials.sort();
@@ -75,10 +85,10 @@ impl<T: Config> TokenOwnership<T> {
 	}
 
 	/// Adds a serial to owned_serials and sorts the vec
-	pub fn add(&mut self, serial_number: SerialNumber) -> DispatchResult {
+	pub fn add(&mut self, serial_number: SerialNumber) -> Result<(), TokenOwnershipError> {
 		self.owned_serials
 			.try_push(serial_number)
-			.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+			.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
 		self.owned_serials.sort();
 		Ok(())
 	}
@@ -105,17 +115,22 @@ impl Default for CrossChainCompatibility {
 }
 
 /// Information related to a specific collection
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct CollectionInformation<T: Config> {
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
+#[scale_info(skip_type_params(MaxTokensPerCollection))]
+pub struct CollectionInformation<AccountId, MaxTokensPerCollection>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxTokensPerCollection: Get<u32>,
+{
 	/// The owner of the collection
-	pub owner: T::AccountId,
+	pub owner: AccountId,
 	/// A human friendly name
 	pub name: BoundedVec<u8, T::StringLimit>,
 	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
 	/// configured royalties schedule
-	pub royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
 	/// Maximum number of tokens allowed in a collection
 	pub max_issuance: Option<TokenCount>,
 	/// The chain in which the collection was minted originally
@@ -127,10 +142,15 @@ pub struct CollectionInformation<T: Config> {
 	/// This collections compatibility with other chains
 	pub cross_chain_compatibility: CrossChainCompatibility,
 	/// All serial numbers owned by an account in a collection
-	pub owned_tokens: BoundedVec<TokenOwnership<T>, <T as Config>::MaxTokensPerCollection>,
+	pub owned_tokens:
+		BoundedVec<TokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
 }
 
-impl<T: Config> CollectionInformation<T> {
+impl<AccountId, MaxTokensPerCollection> CollectionInformation<AccountId, MaxTokensPerCollection>
+where
+	AccountId: Debug + PartialEq + Clone,
+	MaxTokensPerCollection: Get<u32>,
+{
 	/// Check whether a token has been minted in a collection
 	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {
 		self.owned_tokens
@@ -139,12 +159,12 @@ impl<T: Config> CollectionInformation<T> {
 	}
 
 	/// Check whether who is the collection owner
-	pub fn is_collection_owner(&self, who: &T::AccountId) -> bool {
+	pub fn is_collection_owner(&self, who: &AccountId) -> bool {
 		&self.owner == who
 	}
 
 	/// Check whether who owns the serial number in collection_info
-	pub fn is_token_owner(&self, who: &T::AccountId, serial_number: SerialNumber) -> bool {
+	pub fn is_token_owner(&self, who: &AccountId, serial_number: SerialNumber) -> bool {
 		self.owned_tokens.iter().any(|token_ownership| {
 			if &token_ownership.owner == who {
 				token_ownership.contains_serial(&serial_number)
@@ -155,7 +175,7 @@ impl<T: Config> CollectionInformation<T> {
 	}
 
 	/// Get's the token owner
-	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<T::AccountId> {
+	pub fn get_token_owner(&self, serial_number: SerialNumber) -> Option<AccountId> {
 		let Some(token) = self.owned_tokens.iter().find(|x| x.contains_serial(&serial_number)) else {
 			return None
 		};
@@ -165,9 +185,9 @@ impl<T: Config> CollectionInformation<T> {
 	/// Adds a list of tokens to a users balance in collection_info
 	pub fn add_user_tokens(
 		&mut self,
-		token_owner: &T::AccountId,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-	) -> DispatchResult {
+		token_owner: &AccountId,
+		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
+	) -> Result<(), TokenOwnershipError> {
 		if self
 			.owned_tokens
 			.iter()
@@ -187,7 +207,7 @@ impl<T: Config> CollectionInformation<T> {
 			let new_token_ownership = TokenOwnership::new(token_owner.clone(), serial_numbers);
 			self.owned_tokens
 				.try_push(new_token_ownership)
-				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+				.map_err(|_| TokenOwnershipError::TokenLimitExceeded)?;
 		}
 		Ok(())
 	}
@@ -195,8 +215,8 @@ impl<T: Config> CollectionInformation<T> {
 	/// Removes a list of tokens from a users balance in collection_info
 	pub fn remove_user_tokens(
 		&mut self,
-		token_owner: &T::AccountId,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+		token_owner: &AccountId,
+		serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection>,
 	) {
 		let mut removing_all_tokens: bool = false;
 		for token_ownership in self.owned_tokens.iter_mut() {

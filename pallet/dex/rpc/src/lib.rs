@@ -1,34 +1,27 @@
-// Copyright 2020-2021 Parity Technologies (UK) Ltd. and Centrality Investments Ltd.
-// This file is part of Substrate.
-
-// Substrate is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 //! Node-specific RPC methods for interaction with NFT module.
-
 use std::sync::Arc;
 
 use jsonrpsee::{
 	core::{Error as RpcError, RpcResult},
 	proc_macros::rpc,
 };
-use pallet_dex::Config;
+use pallet_dex::{types::WrappedBalance, Config, TradingPairStatus};
+pub use pallet_dex_rpc_runtime_api::{self as runtime_api, DexApi as DexRuntimeApi};
 use seed_primitives::types::{AssetId, Balance, BlockNumber};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
-
-pub use pallet_dex_rpc_runtime_api::{self as runtime_api, DexApi as DexRuntimeApi};
 
 /// Dex RPC methods.
 #[rpc(client, server, namespace = "dex")]
@@ -44,16 +37,37 @@ pub trait DexApi {
 	#[method(name = "getAmountsOut")]
 	fn get_amounts_out(
 		&self,
-		amount_in: Balance,
+		amount_in: WrappedBalance,
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>>;
 
 	#[method(name = "getAmountsIn")]
 	fn get_amounts_in(
 		&self,
-		amount_out: Balance,
+		amount_out: WrappedBalance,
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>>;
+
+	#[method(name = "getLPTokenID")]
+	fn get_lp_token_id(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<Result<AssetId, DispatchError>>;
+
+	#[method(name = "getLiquidity")]
+	fn get_liquidity(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<(Balance, Balance)>;
+
+	#[method(name = "getTradingPairStatus")]
+	fn get_trading_pair_status(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<TradingPairStatus>;
 }
 
 /// An implementation of Dex specific RPC methods.
@@ -90,23 +104,74 @@ where
 
 	fn get_amounts_out(
 		&self,
-		amount_in: Balance,
+		amount_in: WrappedBalance,
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(self.client.info().best_hash);
-		api.get_amounts_out(&at, amount_in, path)
+		api.get_amounts_out(&at, amount_in.0.into(), path)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
 	fn get_amounts_in(
 		&self,
-		amount_out: Balance,
+		amount_out: WrappedBalance,
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>> {
 		let api = self.client.runtime_api();
 		let at = BlockId::hash(self.client.info().best_hash);
-		api.get_amounts_in(&at, amount_out, path)
+		api.get_amounts_in(&at, amount_out.0.into(), path)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
+
+	fn get_lp_token_id(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<Result<AssetId, DispatchError>> {
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(self.client.info().best_hash);
+		api.get_lp_token_id(&at, asset_id_a, asset_id_b)
+			.map_err(|e| RpcError::to_call_error(e))
+	}
+
+	fn get_liquidity(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<(Balance, Balance)> {
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(self.client.info().best_hash);
+		api.get_liquidity(&at, asset_id_a, asset_id_b)
+			.map_err(|e| RpcError::to_call_error(e))
+	}
+
+	fn get_trading_pair_status(
+		&self,
+		asset_id_a: AssetId,
+		asset_id_b: AssetId,
+	) -> RpcResult<TradingPairStatus> {
+		let api = self.client.runtime_api();
+		let at = BlockId::hash(self.client.info().best_hash);
+		api.get_trading_pair_status(&at, asset_id_a, asset_id_b)
+			.map_err(|e| RpcError::to_call_error(e))
+	}
+}
+
+#[test]
+fn wrapped_balance_can_deserialize_integer_or_hex() {
+	let info = WrappedBalance(u64::MAX.into());
+	let json_str = r#"{"value":18446744073709551615}"#;
+
+	assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));
+	assert_eq!(serde_json::from_str::<WrappedBalance>("18446744073709551615").unwrap(), info);
+
+	let info = WrappedBalance { 0: u128::MAX };
+	let json_str = r#"{"value":340282366920938463463374607431768211455}"#;
+
+	assert_eq!(serde_json::to_string(&info).unwrap(), String::from(json_str));
+	assert_eq!(
+		serde_json::from_str::<WrappedBalance>(r#""0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF""#).unwrap(),
+		info
+	);
 }

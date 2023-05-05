@@ -1,3 +1,14 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 use super::*;
 
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
@@ -55,7 +66,7 @@ benchmarks! {
 		assert_ok!(XrplBridge::<T>::set_door_address(RawOrigin::Root.into(), door_address));
 		assert_ok!(T::MultiCurrency::mint_into(
 			asset_id,
-			&alice.into(),
+			&alice.clone().into(),
 			alice_balance,
 		));
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), alice.clone()));
@@ -71,10 +82,10 @@ benchmarks! {
 		let relayer = account::<T>("Alice");
 
 		// Sanity check
-		let is_relayer = Relayer::<T>::get(relayer);
+		let is_relayer = Relayer::<T>::get(relayer.clone());
 		assert_eq!(is_relayer, None);
 
-	}: _(RawOrigin::Root, relayer)
+	}: _(RawOrigin::Root, relayer.clone())
 	verify {
 		let is_relayer = Relayer::<T>::get(relayer);
 		assert_eq!(is_relayer, Some(true));
@@ -84,7 +95,7 @@ benchmarks! {
 		let relayer = account::<T>("Alice");
 
 		assert_ok!(XrplBridge::<T>::add_relayer(RawOrigin::Root.into(), relayer.clone()));
-	}: _(RawOrigin::Root, relayer)
+	}: _(RawOrigin::Root, relayer.clone())
 	verify {
 		let is_relayer = Relayer::<T>::get(relayer);
 		assert_eq!(is_relayer, None);

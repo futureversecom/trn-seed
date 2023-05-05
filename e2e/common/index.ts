@@ -21,6 +21,18 @@ export const typedefs = {
   },
   ExtrinsicSignature: "EthereumSignature",
   SessionKeys: "([u8; 32], [u8; 32])",
+  CollectionInformation: {
+    owner: "AccountId",
+    name: "Vec<u8>",
+    metadataScheme: "MetadataScheme",
+    royaltiesSchedule: "Option<RoyaltiesSchedule>",
+    maxIssuance: "Option<TokenCount>",
+    originChain: "OriginChain",
+    nextSerialNumber: "SerialNumber",
+    collectionIssuance: "TokenCount",
+    crossChainCompatibility: "CrossChainCompatibility",
+    ownedTokens: "Vec<TokenOwnership>",
+  },
 };
 
 /** CONSTANTS */
@@ -38,6 +50,11 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
+// Precompile address for futurepass precompile is 65535
+export const FUTUREPASS_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
+
+// Precompile address for peg precompile is 1939
+export const PEG_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000000793";
 
 /** ABIs */
 
@@ -60,6 +77,13 @@ export const ERC20_ABI = [
 export const NFT_PRECOMPILE_ABI = [
   "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
   "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
+];
+
+export const PEG_PRECOMPILE_ABI = [
+  "event Erc20Withdrawal(uint64 indexed eventProofId, address indexed beneficiary, address indexed tokenAddress, uint128 balance)",
+  "event Erc721Withdrawal(uint64 indexed eventProofId, address indexed beneficiary, address indexed tokenAddress, uint32[] serialNumbers)",
+  "function erc20Withdraw(address beneficiary, address asset, uint128 balance) returns (uint64)",
+  "function erc721Withdraw(address beneficiary, address[] tokenAddresses, uint32[][] serialNumbers) returns (uint64)",
 ];
 
 export const ERC721_PRECOMPILE_ABI = [
@@ -90,7 +114,7 @@ export const ERC721_PRECOMPILE_ABI = [
   "function mint(address owner, uint32 quantity)",
   "function setMaxSupply(uint32 maxSupply)",
   "function setBaseURI(bytes baseURI)",
-  "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32[] memory)",
+  "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
 
   // Ownable
   "event OwnershipTransferred(address indexed oldOwner, address newOwner)",
@@ -98,6 +122,20 @@ export const ERC721_PRECOMPILE_ABI = [
   "function owner() public view returns (address)",
   "function renounceOwnership()",
   "function transferOwnership(address owner)",
+];
+
+export const FUTUREPASS_PRECOMPILE_ABI = [
+  "event FuturepassCreated(address indexed futurepass, address owner)",
+  // "event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType)",
+  // "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
+
+  "function futurepassOf(address owner) external view returns (address)",
+  // "function isDelegate(address futurepass, address delegate) external view returns (bool)",
+  // "function delegateType(address futurepass, address delegate) external view returns (uint8)",
+  "function create(address owner) external returns (address)",
+  // "function registerDelegate(address futurepass, address delegate, uint8 proxyType) external",
+  // "function unregisterDelegate(address futurepass, address delegate) external",
+  // "function proxyCall(address futurepass, address callTo, uint8 callType, bytes memory callData) external payable",
 ];
 
 /** Functions */

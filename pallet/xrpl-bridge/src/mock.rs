@@ -1,3 +1,14 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{ConstU16, ConstU64},
@@ -151,6 +162,7 @@ parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
 	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
+	pub const XRPTransactionLimit: u32 = 10;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
@@ -164,6 +176,7 @@ impl pallet_xrpl_bridge::Config for Test {
 	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = TimestampPallet;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
+	type XRPTransactionLimit = XRPTransactionLimit;
 }
 
 pub struct MockEthyAdapter;
@@ -196,6 +209,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
 }
 
+#[allow(dead_code)]
 pub fn new_test_ext_benchmark() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 

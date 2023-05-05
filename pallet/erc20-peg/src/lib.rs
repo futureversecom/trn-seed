@@ -1,17 +1,13 @@
-/* Copyright 2021 Centrality Investments Limited
- *
- * Licensed under the LGPL, Version 3.0 (the "License");
- * you may not use this file except in compliance with the License.
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * You may obtain a copy of the License at the root of this project source code,
- * or at:
- *     https://centrality.ai/licenses/gplv3.txt
- *     https://centrality.ai/licenses/lgplv3.txt
- */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -54,15 +50,12 @@ pub trait Config: frame_system::Config<AccountId = AccountId> {
 	/// Submits event messages to Ethereum
 	type EthBridge: EthereumBridge;
 	/// Currency functions
-	// type MultiCurrency: MultiCurrency<AccountId = Self::AccountId, Balance = Balance, CurrencyId
-	// = AssetId>;
 	type MultiCurrency: CreateExt<AccountId = Self::AccountId>
 		+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
 		+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
 		+ fungibles::Mutate<Self::AccountId>;
 	/// The overarching event type.
 	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
 	/// Interface to generate weights
 	type WeightInfo: WeightInfo;
 }
@@ -274,7 +267,7 @@ impl<T: Config> Module<T> {
 		amount: Balance,
 		beneficiary: EthAddress,
 		call_origin: WithdrawCallOrigin,
-	) -> DispatchResult {
+	) -> Result<Option<u64>, DispatchError> {
 		ensure!(Self::withdrawals_active(), Error::<T>::WithdrawalsPaused);
 
 		// there should be a known ERC20 address mapped for this asset
@@ -294,7 +287,7 @@ impl<T: Config> Module<T> {
 						// Delay the payment
 						let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
 						Self::delay_payment(delay, PendingPayment::Withdrawal(message));
-						Ok(())
+						Ok(None)
 					},
 					WithdrawCallOrigin::Evm => {
 						// EVM payment delays are not supported
@@ -306,15 +299,14 @@ impl<T: Config> Module<T> {
 
 		// Process transfer or withdrawal of payment asset
 		let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
-		Self::process_withdrawal(message, asset_id)?;
-		Ok(())
+		Self::process_withdrawal(message, asset_id)
 	}
 
 	/// Process withdrawal and send
 	fn process_withdrawal(
 		withdrawal_message: WithdrawMessage,
 		asset_id: AssetId,
-	) -> DispatchResult {
+	) -> Result<Option<u64>, DispatchError> {
 		let source: T::AccountId = T::PegPalletId::get().into_account_truncating();
 		let message = ethabi::encode(&[
 			Token::Address(withdrawal_message.token_address),
@@ -323,13 +315,14 @@ impl<T: Config> Module<T> {
 		]);
 
 		// Call whatever handler loosely coupled from ethy
-		T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?;
+		let event_proof_id =
+			T::EthBridge::send_event(&source.into(), &Self::contract_address(), &message)?;
 		Self::deposit_event(Event::<T>::Erc20Withdraw(
 			asset_id,
 			withdrawal_message.amount.saturated_into(),
 			withdrawal_message.beneficiary,
 		));
-		Ok(())
+		Ok(Some(event_proof_id))
 	}
 
 	/// Process payments at a block after a delay

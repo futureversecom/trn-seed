@@ -1,7 +1,7 @@
 [package]
 name = "pallet-evm-chain-id"
 version = "1.0.0-dev"
-authors = ["Centrality Developers <support@centrality.ai>"]
+authors = ["The Root Network Team"]
 edition = "2021"
 license = "GPL-3.0"
 description = "EVM chain id storage pallet"
