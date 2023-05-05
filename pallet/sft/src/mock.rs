@@ -172,6 +172,7 @@ parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = 2;
+	pub const MintLimit: u32 = 100;
 }
 
 impl pallet_nft::Config for Test {
@@ -187,6 +188,7 @@ impl pallet_nft::Config for Test {
 	type Xls20MintRequest = MockXls20MintRequest;
 	type WeightInfo = ();
 	type StringLimit = StringLimit;
+	type MintLimit = MintLimit;
 }
 
 parameter_types! {

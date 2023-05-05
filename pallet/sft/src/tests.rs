@@ -29,7 +29,7 @@ use sp_runtime::{BoundedVec, Permill};
 pub fn create_test_collection(owner: <Test as frame_system::Config>::AccountId) -> CollectionUuid {
 	let collection_uuid = next_collection_uuid();
 	let collection_name = bounded_string("test-collection");
-	let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+	let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 	assert_ok!(Sft::create_collection(
 		Some(owner).into(),
@@ -152,7 +152,8 @@ mod create_collection {
 			let caller = alice();
 			let collection_name = bounded_string("test");
 			let collection_owner = bob();
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 			let royalties_schedule =
 				RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
 
@@ -200,7 +201,8 @@ mod create_collection {
 			let collection_uuid = next_collection_uuid();
 			let caller = alice();
 			let collection_name = bounded_string("test");
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Call works
 			assert_ok!(Sft::create_collection(
@@ -222,7 +224,8 @@ mod create_collection {
 	#[test]
 	fn create_collection_invalid_collection_name_fails() {
 		TestExt::default().build().execute_with(|| {
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Empty Collection Name
 			let empty_collection_name = bounded_string("");
@@ -253,40 +256,10 @@ mod create_collection {
 	}
 
 	#[test]
-	fn create_collection_invalid_metadata_scheme_fails() {
-		TestExt::default().build().execute_with(|| {
-			// Empty MetadataScheme
-			let empty_metadata_scheme = MetadataScheme::Https(b"".to_vec());
-			assert_noop!(
-				Sft::create_collection(
-					Some(alice()).into(),
-					bounded_string("test-collection"),
-					None,
-					empty_metadata_scheme,
-					None
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-
-			// Non utf-8 MetadataScheme
-			let non_utf8_metadata_scheme = MetadataScheme::Https(vec![0xfe, 0xff]);
-			assert_noop!(
-				Sft::create_collection(
-					Some(alice()).into(),
-					bounded_string("test-collection"),
-					None,
-					non_utf8_metadata_scheme,
-					None
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-		});
-	}
-
-	#[test]
 	fn create_collection_invalid_royalties_schedule_fails() {
 		TestExt::default().build().execute_with(|| {
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Empty RoyaltiesSchedule
 			let empty_royalties_schedule = RoyaltiesSchedule { entitlements: vec![] };
@@ -554,7 +527,8 @@ mod create_token {
 	fn create_token_invalid_next_serial_number_fails() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = alice();
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Create storage with max next serial number
 			let dummy_collection_info = SftCollectionInformation {
@@ -1481,7 +1455,8 @@ mod set_base_uri {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 
-			let metadata_scheme = MetadataScheme::Https(b"cool.new.scheme.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"cool.new.scheme.com/metadata".as_slice()).unwrap();
 
 			// Set base uri
 			assert_ok!(Sft::set_base_uri(
@@ -1501,7 +1476,8 @@ mod set_base_uri {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
-			let metadata_scheme = MetadataScheme::Https(b"cool.new.scheme.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"cool.new.scheme.com/metadata".as_slice()).unwrap();
 
 			// Set base uri fails because not collection owner
 			assert_noop!(

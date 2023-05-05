@@ -227,7 +227,11 @@ impl<T: Config> Pallet<T> {
 	pub fn pre_mint(
 		who: &T::AccountId,
 		quantity: TokenCount,
-		collection_info: &CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+		collection_info: &CollectionInformation<
+			T::AccountId,
+			T::MaxTokensPerCollection,
+			T::StringLimit,
+		>,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
@@ -271,7 +275,11 @@ impl<T: Config> Pallet<T> {
 	/// Perform the mint operation and update storage accordingly.
 	pub(crate) fn do_mint(
 		collection_id: CollectionUuid,
-		collection_info: CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+		collection_info: CollectionInformation<
+			T::AccountId,
+			T::MaxTokensPerCollection,
+			T::StringLimit,
+		>,
 		token_owner: &T::AccountId,
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
@@ -683,6 +691,7 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
 	type MaxTokensPerCollection = T::MaxTokensPerCollection;
+	type StringLimit = T::StringLimit;
 
 	fn do_mint(
 		origin: Self::AccountId,
@@ -695,7 +704,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn do_create_collection(
 		owner: Self::AccountId,
-		name: BoundedVec<u8, <Self::T as Config>::StringLimit>,
+		name: BoundedVec<u8, Self::StringLimit>,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<Self::AccountId>,
@@ -725,8 +734,10 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>
-	{
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	> {
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 

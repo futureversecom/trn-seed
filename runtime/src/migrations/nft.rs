@@ -62,12 +62,11 @@ pub mod v4 {
 	use frame_support::{
 		BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound, Twox64Concat,
 	};
-	use pallet_nft::{
-		CollectionInformation, CollectionNameType, CrossChainCompatibility, OriginChain,
-		RoyaltiesSchedule, TokenOwnership,
-	};
+	use pallet_nft::{CollectionInformation, CrossChainCompatibility, TokenOwnership};
 	use scale_info::TypeInfo;
-	use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
+	use seed_primitives::{
+		CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
+	};
 	use sp_core::H160;
 	use sp_std::vec::Vec;
 
@@ -94,6 +93,8 @@ pub mod v4 {
 		// ethereum://<contractaddress>/<originalid>
 		Ethereum(H160),
 	}
+
+	pub type CollectionNameType = Vec<u8>;
 
 	/// Information related to a specific collection
 	#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
@@ -181,11 +182,17 @@ pub mod v4 {
 	{
 		pub fn transform(
 			&self,
-		) -> Option<CollectionInformation<AccountId, MaxTokensPerCollection>> {
+		) -> Option<
+			CollectionInformation<
+				AccountId,
+				MaxTokensPerCollection,
+				<Runtime as pallet_nft::Config>::StringLimit,
+			>,
+		> {
 			match self.transform_metadata() {
 				Ok(metadata_scheme) => Some(CollectionInformation {
 					owner: self.owner.clone(),
-					name: self.name.clone(),
+					name: BoundedVec::truncate_from(self.name.clone()),
 					metadata_scheme,
 					royalties_schedule: self.royalties_schedule.clone(),
 					max_issuance: self.max_issuance.clone(),
@@ -351,7 +358,7 @@ pub mod v4 {
 
 				let new_info = CollectionInformation {
 					owner,
-					name: b"test-collection-1".to_vec(),
+					name: BoundedVec::truncate_from(b"test-collection-1".to_vec()),
 					royalties_schedule: Some(RoyaltiesSchedule {
 						entitlements: vec![(user_1, Permill::one())],
 					}),
@@ -365,7 +372,7 @@ pub mod v4 {
 				};
 
 				let expected_value = CollectionInformation {
-					name: b"test-collection-1".to_vec(),
+					name: BoundedVec::truncate_from(b"test-collection-1".to_vec()),
 					metadata_scheme: MetadataScheme::try_from(b"ipfs://Test1/".as_slice()).unwrap(),
 					..new_info.clone()
 				};
@@ -373,7 +380,7 @@ pub mod v4 {
 				assert_eq!(expected_value, actual_value);
 
 				let expected_value = CollectionInformation {
-					name: b"test-collection-2".to_vec(),
+					name: BoundedVec::truncate_from(b"test-collection-2".to_vec()),
 					metadata_scheme: MetadataScheme::try_from(b"https://google.com/".as_slice())
 						.unwrap(),
 					..new_info.clone()
@@ -382,7 +389,7 @@ pub mod v4 {
 				assert_eq!(expected_value, actual_value);
 
 				let expected_value = CollectionInformation {
-					name: b"test-collection-3".to_vec(),
+					name: BoundedVec::truncate_from(b"test-collection-3".to_vec()),
 					metadata_scheme: MetadataScheme::try_from(b"http://google.com/".as_slice())
 						.unwrap(),
 					..new_info.clone()
@@ -391,7 +398,7 @@ pub mod v4 {
 				assert_eq!(expected_value, actual_value);
 
 				let expected_value = CollectionInformation {
-					name: b"test-collection-4".to_vec(),
+					name: BoundedVec::truncate_from(b"test-collection-4".to_vec()),
 					metadata_scheme: MetadataScheme::try_from(
 						b"ethereum://0xe04cc55ebee1cbce552f250e85c57b70b2e2625b/".as_slice(),
 					)

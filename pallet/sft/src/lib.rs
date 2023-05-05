@@ -174,41 +174,24 @@ pub mod pallet {
 		},
 	}
 
-	// TODO Remove Errors not being used
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Given collection or token name is invalid (invalid utf-8, empty)
 		NameInvalid,
-		/// No more Ids are available, they've been exhausted
-		NoAvailableIds,
-		/// Origin does not own the NFT
-		NotTokenOwner,
 		/// The token does not exist
 		NoToken,
-		/// The token is not listed for fixed price sale
-		NotForFixedPriceSale,
-		/// The token is not listed for auction sale
-		NotForAuction,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
-		/// The token is not listed for sale
-		TokenNotListed,
 		/// The maximum number of offers on this token has been reached
 		MaxOffersReached,
-		/// Cannot operate on a listed NFT
-		TokenLocked,
 		/// Total royalties would exceed 100% of sale or an empty vec is supplied
 		RoyaltiesInvalid,
 		/// The collection does not exist
 		NoCollectionFound,
 		/// The user does not own enough of this token to perform the operation
 		InsufficientBalance,
-		/// The metadata path is invalid (non-utf8 or empty)
-		InvalidMetadataPath,
 		/// The specified quantity must be greater than 0
 		InvalidQuantity,
-		/// The caller owns the token and can't make an offer
-		IsTokenOwner,
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
@@ -218,14 +201,6 @@ pub mod pallet {
 		MaxIssuanceReached,
 		/// The max amount of owners per token has been reached
 		MaxOwnersReached,
-		/// Attemped to mint a token that was bridged from a different chain
-		AttemptedMintOnBridgedToken,
-		/// Cannot claim already claimed collections
-		CannotClaimNonClaimableCollections,
-		/// Initial issuance on XLS-20 compatible collections must be zero
-		InitialIssuanceNotZero,
-		/// Total issuance of collection must be zero to add xls20 compatibility
-		CollectionIssuanceNotZero,
 		/// The operation would cause a numeric overflow
 		Overflow,
 	}

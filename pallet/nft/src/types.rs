@@ -20,7 +20,7 @@ use seed_primitives::{
 	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
 	SerialNumber, TokenCount, TokenId,
 };
-use sp_runtime::{BoundedVec, PerThing, Permill};
+use sp_runtime::{BoundedVec, Permill};
 use sp_std::{fmt::Debug, prelude::*};
 
 // Time before auction ends that auction is extended if a bid is placed
@@ -117,16 +117,17 @@ impl Default for CrossChainCompatibility {
 /// Information related to a specific collection
 #[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
-#[scale_info(skip_type_params(MaxTokensPerCollection))]
-pub struct CollectionInformation<AccountId, MaxTokensPerCollection>
+#[scale_info(skip_type_params(MaxTokensPerCollection, StringLimit))]
+pub struct CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
+	StringLimit: Get<u32>,
 {
 	/// The owner of the collection
 	pub owner: AccountId,
 	/// A human friendly name
-	pub name: BoundedVec<u8, T::StringLimit>,
+	pub name: BoundedVec<u8, StringLimit>,
 	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
 	/// configured royalties schedule
@@ -146,10 +147,12 @@ where
 		BoundedVec<TokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
 }
 
-impl<AccountId, MaxTokensPerCollection> CollectionInformation<AccountId, MaxTokensPerCollection>
+impl<AccountId, MaxTokensPerCollection, StringLimit>
+	CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
+	StringLimit: Get<u32>,
 {
 	/// Check whether a token has been minted in a collection
 	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {

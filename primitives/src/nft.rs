@@ -13,7 +13,6 @@ use crate::*;
 use codec::{Decode, Encode};
 use core::fmt::Write;
 use scale_info::TypeInfo;
-use sp_core::H160;
 use sp_runtime::{traits::ConstU32, BoundedVec, PerThing, Permill};
 use sp_std::prelude::*;
 

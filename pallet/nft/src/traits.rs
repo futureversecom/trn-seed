@@ -14,7 +14,7 @@ use seed_primitives::{CollectionUuid, MetadataScheme, TokenCount, TokenId};
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 use sp_std::fmt::Debug;
 
-use crate::{CollectionInformation, Config, OriginChain, RoyaltiesSchedule};
+use crate::{CollectionInformation, OriginChain, RoyaltiesSchedule};
 
 pub trait NFTExt {
 	type AccountId: Debug + PartialEq + Clone;
@@ -43,7 +43,10 @@ pub trait NFTExt {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>;
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	>;
 
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,

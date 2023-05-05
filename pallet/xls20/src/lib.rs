@@ -26,9 +26,7 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use pallet_nft::traits::NFTExt;
 use seed_pallet_common::Xls20MintRequest;
-use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount,
-};
+use seed_primitives::{AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount};
 use sp_runtime::{traits::Zero, DispatchResult, SaturatedConversion};
 use sp_std::prelude::*;
 

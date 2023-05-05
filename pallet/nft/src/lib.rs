@@ -33,8 +33,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId,
-	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -149,7 +149,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		CollectionUuid,
-		CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+		CollectionInformation<T::AccountId, T::MaxTokensPerCollection, T::StringLimit>,
 	>;
 
 	/// The next available incrementing collection id
