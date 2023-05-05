@@ -121,8 +121,7 @@ impl<T: Config> Pallet<T> {
 		SftCollectionInfo::<T>::insert(collection_id, existing_collection);
 
 		Self::deposit_event(Event::<T>::TokenCreated {
-			collection_id,
-			serial_number: next_serial_number,
+			token_id: (collection_id, next_serial_number),
 			initial_issuance,
 			max_issuance,
 			token_owner,
@@ -172,13 +171,13 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// Add the balance
-			token_info.add_balance(&owner, *quantity)?;
+			token_info.add_balance(&owner, *quantity).map_err(|err| Error::<T>::from(err))?;
 			token_info.token_issuance += quantity;
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
-		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
-		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, quantities, owner });
+		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
+		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, balances, owner });
 
 		Ok(())
 	}
@@ -202,16 +201,18 @@ impl<T: Config> Pallet<T> {
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Transfer the balance
-			token_info.transfer_balance(&who, &new_owner, *quantity)?;
+			token_info
+				.transfer_balance(&who, &new_owner, *quantity)
+				.map_err(|err| Error::<T>::from(err))?;
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
-		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
+		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Transfer {
 			previous_owner: who,
 			collection_id,
 			serial_numbers,
-			quantities,
+			balances,
 			new_owner,
 		});
 
@@ -237,16 +238,18 @@ impl<T: Config> Pallet<T> {
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Burn the balance
-			token_info.remove_balance(&who, *quantity)?;
+			token_info
+				.remove_balance(&who, *quantity)
+				.map_err(|err| Error::<T>::from(err))?;
 			token_info.token_issuance = token_info.token_issuance.saturating_sub(*quantity);
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
-		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
+		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Burn {
 			collection_id,
 			serial_numbers,
-			quantities,
+			balances,
 			owner: who,
 		});
 

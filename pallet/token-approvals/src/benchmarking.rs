@@ -21,7 +21,6 @@ use super::*;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-// use pallet_nft::OriginChain;
 use seed_primitives::{nft::OriginChain, MetadataScheme};
 
 use crate::Pallet as TokeApprovals;

@@ -20,59 +20,73 @@ use crate::{Config, Error};
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use seed_primitives::{Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber};
-use sp_runtime::{BoundedVec, DispatchResult};
+use sp_runtime::{traits::Get, BoundedVec};
 use sp_std::prelude::*;
 
 /// Information related to a specific collection
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct SftCollectionInformation<T: Config> {
+#[scale_info(skip_type_params(StringLimit))]
+pub struct SftCollectionInformation<AccountId, StringLimit>
+where
+	StringLimit: Get<u32>,
+{
 	/// The owner of the collection
-	pub collection_owner: T::AccountId,
+	pub collection_owner: AccountId,
 	/// A human friendly name
-	pub collection_name: BoundedVec<u8, T::StringLimit>,
+	pub collection_name: BoundedVec<u8, StringLimit>,
 	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
 	/// configured royalties schedule
-	pub royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
+	pub royalties_schedule: Option<RoyaltiesSchedule<AccountId>>,
 	/// The chain in which the collection was minted originally
 	pub origin_chain: OriginChain,
 	/// The next available serial_number
 	pub next_serial_number: SerialNumber,
 }
 
-pub trait TokenInformation<T: Config> {
+pub trait TokenInformation<AccountId> {
 	/// Check whether who is the collection owner
-	fn is_collection_owner(&self, who: &T::AccountId) -> bool;
+	fn is_collection_owner(&self, who: &AccountId) -> bool;
 }
 
-// TODO Add a common trait for both SFT and NFT that shares a lot of the functionality
-// that is implemented on each struct. i.e. is_collection_owner()
-
-impl<T: Config> TokenInformation<T> for SftCollectionInformation<T> {
+impl<AccountId, StringLimit> TokenInformation<AccountId>
+	for SftCollectionInformation<AccountId, StringLimit>
+where
+	AccountId: PartialEq,
+	StringLimit: Get<u32>,
+{
 	/// Check whether who is the collection owner
-	fn is_collection_owner(&self, who: &T::AccountId) -> bool {
+	fn is_collection_owner(&self, who: &AccountId) -> bool {
 		&self.collection_owner == who
 	}
 }
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub struct SftTokenInformation<T: Config> {
+#[scale_info(skip_type_params(StringLimit, MaxOwnersPerSftToken))]
+pub struct SftTokenInformation<AccountId, StringLimit, MaxOwnersPerSftToken>
+where
+	StringLimit: Get<u32>,
+	MaxOwnersPerSftToken: Get<u32>,
+{
 	/// A human friendly name
-	pub token_name: BoundedVec<u8, T::StringLimit>,
+	pub token_name: BoundedVec<u8, StringLimit>,
 	/// Maximum number of this token allowed
 	pub max_issuance: Option<Balance>,
 	/// the total count of tokens in this collection
 	pub token_issuance: Balance,
 	/// Map from account to tokens owned by that account
-	pub owned_tokens:
-		BoundedVec<(T::AccountId, SftTokenBalance), <T as Config>::MaxOwnersPerSftToken>,
+	pub owned_tokens: BoundedVec<(AccountId, SftTokenBalance), MaxOwnersPerSftToken>,
 }
 
-impl<T: Config> SftTokenInformation<T> {
+impl<AccountId, StringLimit, MaxOwnersPerSftToken>
+	SftTokenInformation<AccountId, StringLimit, MaxOwnersPerSftToken>
+where
+	AccountId: PartialEq + Clone,
+	StringLimit: Get<u32>,
+	MaxOwnersPerSftToken: Get<u32>,
+{
 	/// Returns the total balance of a token owned by who
-	pub fn free_balance_of(&self, who: &T::AccountId) -> Balance {
+	pub fn free_balance_of(&self, who: &AccountId) -> Balance {
 		self.owned_tokens
 			.iter()
 			.find(|(account, _)| account == who)
@@ -81,31 +95,37 @@ impl<T: Config> SftTokenInformation<T> {
 	}
 
 	/// Adds some balance into an account
-	pub fn add_balance(&mut self, who: &T::AccountId, amount: Balance) -> DispatchResult {
+	pub fn add_balance(
+		&mut self,
+		who: &AccountId,
+		amount: Balance,
+	) -> Result<(), TokenBalanceError> {
 		let existing_owner = self.owned_tokens.iter_mut().find(|(account, _)| account == who);
 
 		if let Some((_, balance)) = existing_owner {
 			// Owner already exists, add to their balance
-			balance.add_free_balance(amount).map_err(|err| Error::<T>::from(err))?;
+			balance.add_free_balance(amount)?;
 		} else {
 			// The owner doesn't exist for this SerialNumber, add them
 			let new_token_balance = SftTokenBalance::new(amount, 0);
 			self.owned_tokens
 				.try_push((who.clone(), new_token_balance))
-				.map_err(|_| Error::<T>::MaxOwnersReached)?;
+				.map_err(|_| TokenBalanceError::MaxOwnersReached)?;
 		}
 		Ok(())
 	}
 
 	/// Removes some balance from an account
-	pub fn remove_balance(&mut self, who: &T::AccountId, amount: Balance) -> DispatchResult {
+	pub fn remove_balance(
+		&mut self,
+		who: &AccountId,
+		amount: Balance,
+	) -> Result<(), TokenBalanceError> {
 		let Some((_, existing_balance)) = self.owned_tokens.iter_mut().find(|(account, _)| account == who) else {
-			return Err(Error::<T>::InsufficientBalance.into());
+			return Err(TokenBalanceError::InsufficientBalance.into());
 		};
 
-		existing_balance
-			.remove_free_balance(amount)
-			.map_err(|err| Error::<T>::from(err))?;
+		existing_balance.remove_free_balance(amount)?;
 
 		if existing_balance.total_balance() == 0 {
 			// Remove the owner if they have no balance
@@ -118,10 +138,10 @@ impl<T: Config> SftTokenInformation<T> {
 	/// Transfers some balance from one account to another
 	pub fn transfer_balance(
 		&mut self,
-		from: &T::AccountId,
-		to: &T::AccountId,
+		from: &AccountId,
+		to: &AccountId,
 		amount: Balance,
-	) -> DispatchResult {
+	) -> Result<(), TokenBalanceError> {
 		self.remove_balance(from, amount)?;
 		self.add_balance(to, amount)?;
 		Ok(())
@@ -138,10 +158,10 @@ pub struct SftTokenBalance {
 	pub reserved_balance: Balance,
 }
 
-// TODO Go back to using pallet error
 pub enum TokenBalanceError {
 	InsufficientBalance,
 	Overflow,
+	MaxOwnersReached,
 }
 
 impl<T: Config> From<TokenBalanceError> for Error<T> {
@@ -149,6 +169,7 @@ impl<T: Config> From<TokenBalanceError> for Error<T> {
 		match error {
 			TokenBalanceError::InsufficientBalance => Error::<T>::InsufficientBalance.into(),
 			TokenBalanceError::Overflow => Error::<T>::Overflow.into(),
+			TokenBalanceError::MaxOwnersReached => Error::<T>::MaxOwnersReached.into(),
 		}
 	}
 }

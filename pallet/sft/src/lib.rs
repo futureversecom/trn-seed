@@ -60,7 +60,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -107,15 +107,21 @@ pub mod pallet {
 
 	/// Map from collection to its information
 	#[pallet::storage]
-	pub type SftCollectionInfo<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionUuid, SftCollectionInformation<T>>;
+	pub type SftCollectionInfo<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		CollectionUuid,
+		SftCollectionInformation<T::AccountId, T::StringLimit>,
+	>;
 
+	/// Map from token to its token information, including ownership information
 	#[pallet::storage]
-	pub type TokenInfo<T: Config> = StorageMap<_, Twox64Concat, TokenId, SftTokenInformation<T>>;
-
-	/// TODO Use NFT pallet NextCollectionID
-	//#[pallet::storage]
-	//pub type NextCollectionId<T> = StorageValue<_, u32, ValueQuery>;
+	pub type TokenInfo<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		TokenId,
+		SftTokenInformation<T::AccountId, T::StringLimit, T::MaxOwnersPerSftToken>,
+	>;
 
 	// TODO Remove Events not being used
 	#[pallet::event]
@@ -134,7 +140,7 @@ pub mod pallet {
 		Mint {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			owner: T::AccountId,
 		},
 		/// A new owner was set
@@ -145,8 +151,7 @@ pub mod pallet {
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
 		/// A new token was created within a collection
 		TokenCreated {
-			collection_id: CollectionUuid,
-			serial_number: SerialNumber,
+			token_id: TokenId,
 			initial_issuance: Balance,
 			max_issuance: Option<Balance>,
 			token_name: BoundedVec<u8, T::StringLimit>,
@@ -157,18 +162,16 @@ pub mod pallet {
 			previous_owner: T::AccountId,
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
 		Burn {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			owner: T::AccountId,
 		},
-		/// Collection has been claimed
-		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
 
 	// TODO Remove Errors not being used

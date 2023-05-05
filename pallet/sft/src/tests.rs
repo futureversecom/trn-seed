@@ -389,8 +389,7 @@ mod create_token {
 
 			// Event emitted
 			System::assert_last_event(Event::Sft(crate::Event::TokenCreated {
-				collection_id,
-				serial_number: 0,
+				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: Some(max_issuance),
 				token_name,
@@ -429,8 +428,7 @@ mod create_token {
 
 			// Event emitted
 			System::assert_last_event(Event::Sft(crate::Event::TokenCreated {
-				collection_id,
-				serial_number: 0,
+				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: None,
 				token_name,
@@ -622,7 +620,7 @@ mod mint {
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
-				quantities: bounded_quantities(vec![quantity]),
+				balances: bounded_quantities(vec![quantity]),
 				owner: token_owner,
 			}));
 
@@ -647,7 +645,7 @@ mod mint {
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
-				quantities: bounded_quantities(vec![quantity2]),
+				balances: bounded_quantities(vec![quantity2]),
 				owner: token_owner,
 			}));
 		});
@@ -694,7 +692,7 @@ mod mint {
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
-				quantities: bounded_quantities(quantities),
+				balances: bounded_quantities(quantities),
 				owner: token_owner,
 			}));
 		});
@@ -728,7 +726,7 @@ mod mint {
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
-				quantities: bounded_quantities(quantities),
+				balances: bounded_quantities(quantities),
 				owner: token_owner,
 			}));
 		});
@@ -970,7 +968,7 @@ mod transfer {
 				previous_owner: token_owner,
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
-				quantities: bounded_quantities(vec![quantity]),
+				balances: bounded_quantities(vec![quantity]),
 				new_owner,
 			}));
 		});
@@ -1022,7 +1020,7 @@ mod transfer {
 				previous_owner: collection_owner,
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
-				quantities: bounded_quantities(quantities),
+				balances: bounded_quantities(quantities),
 				new_owner: token_owner,
 			}));
 		});
@@ -1201,7 +1199,7 @@ mod burn {
 			System::assert_last_event(Event::Sft(crate::Event::Burn {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
-				quantities: bounded_quantities(vec![burn_amount]),
+				balances: bounded_quantities(vec![burn_amount]),
 				owner: collection_owner,
 			}));
 		});
@@ -1314,7 +1312,6 @@ mod burn {
 			let (collection_id, serial_number) = token_id;
 
 			// Burn 100 tokens
-			let burn_amount = 100;
 			assert_noop!(
 				Sft::burn(
 					Some(collection_owner.clone()).into(),
