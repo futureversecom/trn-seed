@@ -18,16 +18,19 @@
 use crate::{Config, Error};
 
 use codec::{Decode, Encode};
+use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber};
-use sp_runtime::{traits::Get, BoundedVec};
-use sp_std::prelude::*;
+use sp_runtime::BoundedVec;
+use sp_std::{fmt::Debug, prelude::*};
 
 /// Information related to a specific collection
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(StringLimit))]
 pub struct SftCollectionInformation<AccountId, StringLimit>
 where
+	AccountId: Debug + PartialEq + Clone,
 	StringLimit: Get<u32>,
 {
 	/// The owner of the collection
@@ -52,7 +55,7 @@ pub trait TokenInformation<AccountId> {
 impl<AccountId, StringLimit> TokenInformation<AccountId>
 	for SftCollectionInformation<AccountId, StringLimit>
 where
-	AccountId: PartialEq,
+	AccountId: Debug + PartialEq + Clone,
 	StringLimit: Get<u32>,
 {
 	/// Check whether who is the collection owner
@@ -61,10 +64,12 @@ where
 	}
 }
 
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(StringLimit, MaxOwnersPerSftToken))]
 pub struct SftTokenInformation<AccountId, StringLimit, MaxOwnersPerSftToken>
 where
+	AccountId: Debug + PartialEq + Clone,
 	StringLimit: Get<u32>,
 	MaxOwnersPerSftToken: Get<u32>,
 {
@@ -81,7 +86,7 @@ where
 impl<AccountId, StringLimit, MaxOwnersPerSftToken>
 	SftTokenInformation<AccountId, StringLimit, MaxOwnersPerSftToken>
 where
-	AccountId: PartialEq + Clone,
+	AccountId: Debug + PartialEq + Clone,
 	StringLimit: Get<u32>,
 	MaxOwnersPerSftToken: Get<u32>,
 {

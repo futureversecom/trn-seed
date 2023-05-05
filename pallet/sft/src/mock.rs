@@ -191,11 +191,9 @@ impl pallet_nft::Config for Test {
 
 parameter_types! {
 	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
-	#[derive(PartialEq, Debug)]
 	pub const StringLimit: u32 = 50;
 	pub const MaxTokensPerSftCollection: u32 = 10_000;
 	pub const MaxSerialsPerMint: u32 = 10;
-	#[derive(PartialEq, Debug)]
 	pub const MaxOwnersPerSftToken: u32 = 100;
 }
 
