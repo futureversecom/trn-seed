@@ -1,30 +1,14 @@
-// SPDX-License-Identifier: Apache-2.0
-// This file is part of Frontier.
+// Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Copyright (c) 2022 Parity Technologies (UK) Ltd.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
-//! # EVM chain ID pallet
-//!
-//! The pallet that stores the numeric Ethereum-style chain id in the runtime.
-//! It can simplify setting up multiple networks with different chain ID by configuring the
-//! chain spec without requiring changes to the runtime config.
-//!
-//! **NOTE**: we recommend that the production chains still use the const parameter type, as
-//! this extra storage access would imply some performance penalty.
-
-// Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
@@ -48,7 +32,6 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
-use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::traits::Dispatchable;
 use sp_std::vec::Vec;
@@ -58,7 +41,10 @@ pub use weights::WeightInfo;
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
-pub trait ProxyProvider<T: Config> {
+pub trait ProxyProvider<T: Config>
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
 	fn exists(
 		futurepass: &T::AccountId,
 		delegate: &T::AccountId,
@@ -83,7 +69,10 @@ pub trait ProxyProvider<T: Config> {
 	) -> DispatchResult;
 }
 
-pub trait FuturepassMigrator<T: frame_system::Config> {
+pub trait FuturepassMigrator<T: frame_system::Config>
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,
@@ -102,7 +91,10 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config
+	where
+		<Self as frame_system::Config>::AccountId: From<H160>,
+	{
 		/// The overarching event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -169,7 +161,10 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
-	pub enum Event<T: Config> {
+	pub enum Event<T: Config>
+	where
+		<T as frame_system::Config>::AccountId: From<H160>,
+	{
 		/// Futurepass creation
 		FuturepassCreated { futurepass: T::AccountId, delegate: T::AccountId },
 		/// Delegate registration to Futurepass account
@@ -218,10 +213,16 @@ pub mod pallet {
 		MigratorNotSet,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+		<T as frame_system::Config>::AccountId: From<H160>
+	{
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
-		T::AccountId: From<H160>,
+		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		/// Create a futurepass account for the delegator that is able to make calls on behalf of
 		/// futurepass.
@@ -322,8 +323,8 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 
 			// Check if the caller is the owner of the futurepass
-			let is_owner = Holders::<T>::get(&caller) == Some(futurepass);
-			let unreg_owner = Holders::<T>::get(&delegate) == Some(futurepass);
+			let is_owner = Holders::<T>::get(&caller) == Some(futurepass.clone());
+			let unreg_owner = Holders::<T>::get(&delegate) == Some(futurepass.clone());
 
 			// The owner can not be unregistered
 			ensure!(!unreg_owner, Error::<T>::OwnerCannotUnregister);
@@ -439,7 +440,7 @@ pub mod pallet {
 			migrator: T::AccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			MigrationAdmin::<T>::set(Some(migrator));
+			MigrationAdmin::<T>::set(Some(migrator.clone()));
 			Self::deposit_event(Event::FuturepassMigratorSet { migrator });
 			Ok(())
 		}
@@ -473,7 +474,7 @@ pub mod pallet {
 			let futurepass = if Holders::<T>::contains_key(&owner) {
 				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
 			} else {
-				Self::do_create_futurepass(admin, owner)?;
+				Self::do_create_futurepass(admin, owner.clone())?;
 				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
 			};
 
@@ -481,8 +482,8 @@ pub mod pallet {
 			for collection_id in collection_ids.into_iter() {
 				T::FuturepassMigrator::transfer_nfts(collection_id, &evm_futurepass, &futurepass)?;
 				Self::deposit_event(Event::FuturepassAssetsMigrated {
-					evm_futurepass,
-					futurepass,
+					evm_futurepass: evm_futurepass.clone(),
+					futurepass: futurepass.clone(),
 					collection_id,
 				});
 			}
@@ -520,7 +521,10 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config> Pallet<T>
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
 	/// Generate the next Ethereum address (H160) with a custom prefix.
 	///
 	/// The Ethereum address will have a prefix of "FFFFFFFF" (8 hex digits) followed by the current
@@ -534,10 +538,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// # Returns
 	/// - `T::AccountId`: A generated Ethereum address (H160) with the desired custom prefix.
-	fn generate_futurepass_account() -> T::AccountId
-	where
-		T::AccountId: From<H160>,
-	{
+	fn generate_futurepass_account() -> T::AccountId {
 		// Convert the futurepass_id to a byte array and increment the value
 		let futurepass_id_bytes = NextFuturepassId::<T>::mutate(|futurepass_id| {
 			let bytes = futurepass_id.to_be_bytes();
@@ -561,10 +562,7 @@ impl<T: Config> Pallet<T> {
 	pub fn do_create_futurepass(
 		funder: T::AccountId,
 		account: T::AccountId,
-	) -> Result<T::AccountId, DispatchError>
-	where
-		T::AccountId: From<sp_core::H160>,
-	{
+	) -> Result<T::AccountId, DispatchError> {
 		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
 		let futurepass = Self::generate_futurepass_account();
 		Holders::<T>::set(&account, Some(futurepass.clone()));
@@ -578,7 +576,10 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> seed_pallet_common::AccountProxy<T::AccountId> for Pallet<T> {
+impl<T: Config> seed_pallet_common::AccountProxy<T::AccountId> for Pallet<T>
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
 	fn primary_proxy(who: &T::AccountId) -> Option<T::AccountId> {
 		<DefaultProxy<T>>::get(who)
 	}

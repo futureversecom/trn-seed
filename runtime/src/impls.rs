@@ -752,8 +752,9 @@ where
 
 pub struct FuturepassMigrationProvider;
 
-impl<T: pallet_nft::Config> pallet_futurepass::FuturepassMigrator<T>
-	for FuturepassMigrationProvider
+impl<T: pallet_nft::Config> pallet_futurepass::FuturepassMigrator<T> for FuturepassMigrationProvider
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
 {
 	fn transfer_nfts(
 		collection_id: u32,

@@ -1,17 +1,14 @@
-// /* Copyright 2019-2021 Centrality Investments Limited
-// *
-// * Licensed under the LGPL, Version 3.0 (the "License");
-// * you may not use this file except in compliance with the License.
-// * Unless required by applicable law or agreed to in writing, software
-// * distributed under the License is distributed on an "AS IS" BASIS,
-// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// * See the License for the specific language governing permissions and
-// * limitations under the License.
-// * You may obtain a copy of the License at the root of this project source code,
-// * or at:
-// * https://centrality.ai/licenses/gplv3.txt
-// * https://centrality.ai/licenses/lgplv3.txt
-// */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
@@ -23,18 +20,24 @@ use frame_support::{assert_ok, traits::fungibles::Mutate};
 use frame_system::RawOrigin;
 use sp_std::vec;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
+fn assert_last_event<T: Config>(generic_event: <T as Config>::Event)
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
 // fund account with ROOT & XRP
-pub fn fund<T: Config>(account: &T::AccountId) {
+pub fn fund<T: Config>(account: &T::AccountId)
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	let root_asset_id: u32 = 1;
 	assert_ok!(T::MultiCurrency::mint_into(root_asset_id.into(), &account, 1_000_000u32.into()));
 }
 
 benchmarks! {
-
+	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> }
 	create {
 		let caller: T::AccountId = whitelisted_caller();
 		let owner: T::AccountId = account("owner", 0, 0);

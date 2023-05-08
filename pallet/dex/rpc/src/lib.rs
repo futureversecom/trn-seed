@@ -71,12 +71,18 @@ pub trait DexApi {
 }
 
 /// An implementation of Dex specific RPC methods.
-pub struct Dex<C, Block, T: Config> {
+pub struct Dex<C, Block, T: Config>
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	client: Arc<C>,
 	_marker: std::marker::PhantomData<(Block, T)>,
 }
 
-impl<C, Block, T: Config> Dex<C, Block, T> {
+impl<C, Block, T: Config> Dex<C, Block, T>
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	/// Create new `Dex` with the given reference to the client.
 	pub fn new(client: Arc<C>) -> Self {
 		Dex { client, _marker: Default::default() }
@@ -87,6 +93,7 @@ impl<C, Block, T> DexApiServer for Dex<C, Block, T>
 where
 	Block: BlockT,
 	T: Config<BlockNumber = BlockNumber> + Send + Sync,
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: DexRuntimeApi<Block, T>,
 {
