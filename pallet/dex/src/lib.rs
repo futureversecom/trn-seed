@@ -84,6 +84,9 @@ impl Default for TradingPairStatus {
 pub mod pallet {
 	use super::*;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config
 	where
@@ -215,6 +218,7 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, TradingPair, TradingPairStatus, ValueQuery>;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
