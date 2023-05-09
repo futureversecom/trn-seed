@@ -76,7 +76,7 @@ pub trait ProxyProvider<T: Config> {
 		futurepass: &T::AccountId,
 		delegate: &T::AccountId,
 	) -> DispatchResult;
-	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult;
+	fn remove_account(receiver: &T::AccountId, futurepass: &T::AccountId) -> DispatchResult;
 	fn proxy_call(
 		caller: OriginFor<T>,
 		futurepass: T::AccountId,
