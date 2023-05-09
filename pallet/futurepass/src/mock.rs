@@ -15,7 +15,7 @@
 use crate::{self as pallet_futurepass, *};
 use frame_support::{
 	parameter_types,
-	traits::{Currency, ExistenceRequirement, InstanceFilter},
+	traits::{Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -177,6 +177,12 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 			)?;
 		}
 		result
+	}
+
+	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
+		let (_, old_deposit) = pallet_proxy::Proxies::<Test>::take(futurepass);
+		<pallet_balances::Pallet<Test> as ReservableCurrency<_>>::unreserve(receiver, old_deposit);
+		Ok(())
 	}
 
 	fn proxy_call(
