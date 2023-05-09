@@ -6,14 +6,12 @@ import { ethers } from "hardhat";
 
 import {
   ALITH_PRIVATE_KEY,
-  ERC20_ABI,
   FUTUREPASS_REGISTRAR_PRECOMPILE_ABI,
   FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS,
-  GAS_TOKEN_ID,
   NodeProcess,
   startNode,
   typedefs,
-} from "../common";
+} from "../../common";
 
 describe("Futurepass Precompile", function () {
   let node: NodeProcess;
@@ -59,7 +57,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassRegistrarProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
   });
 
-  // This testcase is included in futurepass substrate tests
+  // Note: This testcase is included in futurepass substrate tests
   it.skip("create futurepass succeeds for account with no balance", async () => {
     const owner = Wallet.createRandom().address;
     const tx = await futurepassRegistrarProxy.connect(alithSigner).create(owner);
@@ -71,7 +69,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassRegistrarProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
   });
 
-  // This testcase is included in futurepass substrate tests
+  // Note: This testcase is included in futurepass substrate tests
   it.skip("create futurepass fails - already existing account", async () => {
     const owner = Wallet.createRandom().address;
     const tx = await futurepassRegistrarProxy.connect(alithSigner).create(owner);
@@ -100,9 +98,7 @@ describe("Futurepass Precompile", function () {
     // check futurepassOf(owner)
     expect(await futurepassRegistrarProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
     // check futurepassOf of a random address. shoud return 0 address
-    expect(await futurepassRegistrarProxy.futurepassOf(Wallet.createRandom().address)).to.equal(
-      "0x0000000000000000000000000000000000000000",
-    );
+    expect(await futurepassRegistrarProxy.futurepassOf(Wallet.createRandom().address)).to.equal(ethers.constants.AddressZero);
   });
 });
 
