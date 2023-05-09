@@ -252,12 +252,12 @@ describe("Futurepass Precompile", function () {
 
     // create FP for owner
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
-     
+
     // Transfer funds to owner
     await fundEOA(alithSigner, owner.address);
     const futurepassBalanceBefore = await xrpERC20Precompile.balanceOf(futurepassPrecompile.address);
     let ownerBalanceBefore = await xrpERC20Precompile.balanceOf(owner.address);
-   
+
     // ensure recipient and futurepass has zero balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(0);
     expect(futurepassBalanceBefore).to.equal(0);
@@ -280,7 +280,7 @@ describe("Futurepass Precompile", function () {
     // fund futurepass with 1 drop; assert balance
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, 1);
     expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(1);
-    
+
     // proxy transfer of value from owner -> futurepass -> recipient
     const transferAmount = 5;
     const tx = await futurepassPrecompile
@@ -294,7 +294,7 @@ describe("Futurepass Precompile", function () {
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(transferAmount * 1_000_000);
     const recipientBalanceRes: any = (await api.query.assets.account(GAS_TOKEN_ID, recipient.address)).toJSON();
     expect(recipientBalanceRes.balance).to.equal(transferAmount * 1_000_000);
-    
+
     // check futurepass balance, should remain to 1 drop
     expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(1);
 

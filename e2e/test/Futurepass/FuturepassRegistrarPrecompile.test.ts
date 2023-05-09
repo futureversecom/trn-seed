@@ -98,7 +98,9 @@ describe("Futurepass Precompile", function () {
     // check futurepassOf(owner)
     expect(await futurepassRegistrarProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
     // check futurepassOf of a random address. shoud return 0 address
-    expect(await futurepassRegistrarProxy.futurepassOf(Wallet.createRandom().address)).to.equal(ethers.constants.AddressZero);
+    expect(await futurepassRegistrarProxy.futurepassOf(Wallet.createRandom().address)).to.equal(
+      ethers.constants.AddressZero,
+    );
   });
 });
 
