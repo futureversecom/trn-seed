@@ -598,6 +598,70 @@ fn transfer_futurepass_to_address_works() {
 		});
 }
 
+#[test]
+fn transfer_futurepass_to_none_works() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+
+			// fund owner
+			transfer_funds(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+			);
+			assert_eq!(
+				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner),
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE
+			);
+
+			// create FP
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+			// register delegate
+			assert_ok!(Futurepass::register_delegate(
+				Origin::signed(owner),
+				futurepass,
+				delegate,
+				ProxyType::Any
+			));
+			// check delegate is a proxy of futurepass
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
+
+			// transfer the ownership to none
+			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
+			// the owner will get back the old reserve amount
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
+			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), None));
+			// assert event
+			System::assert_has_event(
+				Event::<Test>::FuturepassTransferred {
+					old_owner: owner,
+					new_owner: None,
+					futurepass,
+				}
+				.into(),
+			);
+			assert_eq!(Holders::<Test>::get(&owner), None);
+			// only the new owner(i.e other) should be a delegate
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Any)),
+				false
+			);
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				false
+			);
+			// caller(the owner) should receive the reserved balance diff
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
 		});
 }
 
