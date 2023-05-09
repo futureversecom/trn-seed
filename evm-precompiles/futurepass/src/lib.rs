@@ -287,7 +287,7 @@ where
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let def = pallet_proxy::Pallet::<Runtime>::find_proxy(&futurepass_account_id, &who, None)
 			.map_err(|_| RevertReason::custom("Futurepass: Not proxy"))?;
-		ensure!(def.delay.is_zero(), revert("Unannounced")); // no delay for futurepass
+		ensure!(def.delay.is_zero(), revert("Futurepass: Unannounced")); // no delay for futurepass
 
 		// Read subcall recipient code
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -297,7 +297,7 @@ where
 		// Apply proxy type filter
 		ensure!(
 			def.proxy_type.is_evm_proxy_call_allowed(&evm_subcall, recipient_has_code),
-			revert("CallFiltered")
+			revert("Futurepass: CallFiltered")
 		);
 
 		let EvmSubCall { to, call_data } = evm_subcall;
