@@ -120,15 +120,13 @@ describe("Futurepass Precompile", function () {
     expect(await createFuturepass(alithSigner, owner)).true;
   });
 
-  it("isDelegate, delegateType works", async () => {
+  it("delegateType works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
     // create FP for owner
     expect(await createFuturepass(owner, owner.address)).true;
 
-    // isDelegate should return false.
-    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
     // checkDelegate should return 0 value(ProxyType.NoPermission)
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
 
@@ -139,8 +137,6 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
     expect((receipt?.events as any)[0].args.proxyType).to.equal(PROXY_TYPE.Any);
 
-    // isDelegate should return true.
-    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(true);
     // checkDelegate should return PROXY_TYPE.Any
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
   });
@@ -153,7 +149,7 @@ describe("Futurepass Precompile", function () {
     expect(await createFuturepass(owner, owner.address)).true;
 
     // ensure delegate doesnt exist for FP
-    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
 
     // registering with proxytype other than PROXY_TYPE.Any fails
     await futurepassPrecompile
@@ -215,7 +211,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateUnregistered");
     expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepassPrecompile.address);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
-    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
   it("unregister delegate from delegate (themself)", async () => {
@@ -238,7 +234,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateUnregistered");
     expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepassPrecompile.address);
     expect((receipt?.events as any)[0].args.delegate).to.equal(delegate.address);
-    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
   it("proxy call can transfer value to EOA", async () => {
@@ -504,7 +500,7 @@ describe("Futurepass Precompile", function () {
     expect(await createFuturepass(owner, owner.address)).true;
 
     // ensure delegate doesnt exist for FP
-    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
     // fund the FP, FP_DELIGATE_RESERVE amount of Root for the delegate reserve
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELIGATE_RESERVE);
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
@@ -542,7 +538,7 @@ describe("Futurepass Precompile", function () {
     let tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
     await tx.wait();
     // ensure delegate doesnt exist for FP
-    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(true);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
 
     // get unregisterDelegate call data
     const unregisterDelegateCallData = futurepassPrecompile.interface.encodeFunctionData("unregisterDelegate", [
@@ -554,7 +550,7 @@ describe("Futurepass Precompile", function () {
       .proxyCall(futurepassPrecompile.address, CALL_TYPE.Call, unregisterDelegateCallData);
     await tx.wait();
     // check delegate is not a delegate of the futurepass
-    expect(await futurepassPrecompile.isDelegate(delegate.address)).to.equal(false);
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
 
     //TODO : check who pays the fee
   });
@@ -573,13 +569,6 @@ describe("Futurepass Precompile", function () {
 
     // create() not allowed
     let CallData = futurepassRegistrar.interface.encodeFunctionData("create", [other.address]);
-    await futurepassPrecompile
-      .connect(owner)
-      .proxyCall(futurepassPrecompile.address, CALL_TYPE.Call, CallData)
-      .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
-
-    // isDelegate() not allowed
-    CallData = futurepassPrecompile.interface.encodeFunctionData("isDelegate", [other.address]);
     await futurepassPrecompile
       .connect(owner)
       .proxyCall(futurepassPrecompile.address, CALL_TYPE.Call, CallData)

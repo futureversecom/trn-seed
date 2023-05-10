@@ -7,7 +7,6 @@ interface FuturePass {
     event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType);
     event FuturepassDelegateUnregistered(address indexed futurepass, address delegate);
     
-    function isDelegate(address delegate) external view returns (bool);
     function delegateType(address delegate) external view returns (uint8);
 
     function registerDelegate(address delegate, uint8 proxyType) external;

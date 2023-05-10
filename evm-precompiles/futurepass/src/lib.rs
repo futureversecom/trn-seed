@@ -47,7 +47,6 @@ impl TryFrom<u8> for CallType {
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
-	IsDelegate = "isDelegate(address)",
 	DelegateType = "delegateType(address)",
 	RegisterDelegate = "registerDelegate(address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address)",
@@ -110,7 +109,6 @@ where
 			};
 
 			match selector {
-				Action::IsDelegate => Self::is_delegate(futurepass, handle),
 				Action::DelegateType => Self::delegate_type(futurepass, handle),
 				Action::RegisterDelegate => Self::register_delegate(futurepass, handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(futurepass, handle),
@@ -149,24 +147,6 @@ where
 	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
 	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
 {
-	fn is_delegate(
-		futurepass: Address,
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		read_args!(handle, { delegate: Address });
-		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
-		let futurepass = Runtime::AddressMapping::into_account_id(futurepass.into());
-
-		// Manually record gas
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let is_proxy = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
-			.0
-			.iter()
-			.any(|pd| pd.delegate == delegate);
-
-		Ok(succeed(EvmDataWriter::new().write::<bool>(is_proxy).build()))
-	}
-
 	fn delegate_type(
 		futurepass: Address,
 		handle: &mut impl PrecompileHandle,
