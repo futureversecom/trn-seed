@@ -1379,14 +1379,22 @@ impl_runtime_apis! {
 			amount_in: Balance,
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
-			Dex::get_amounts_out(amount_in, &path)
+			Dex::get_amounts_out(amount_in, &path).map_err(|e| match e {
+				sp_runtime::DispatchError::Arithmetic(_)  =>
+					sp_runtime::DispatchError::Other("Insufficient Liquidity"),
+					e => e,
+			})
 		}
 
 		fn get_amounts_in(
 			amount_out: Balance,
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
-			Dex::get_amounts_in(amount_out, &path)
+			Dex::get_amounts_in(amount_out, &path).map_err(|e| match e {
+				sp_runtime::DispatchError::Arithmetic(_)  =>
+					sp_runtime::DispatchError::Other("Insufficient Liquidity"),
+					e => e,
+			})
 		}
 
 		fn get_lp_token_id(
