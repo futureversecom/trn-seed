@@ -50,7 +50,7 @@ pub enum Action {
 	DelegateType = "delegateType(address)",
 	RegisterDelegate = "registerDelegate(address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address)",
-	ProxyCall = "proxyCall(address,uint8,bytes)",
+	ProxyCall = "proxyCall(uint8,address,uint256,bytes)",
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
