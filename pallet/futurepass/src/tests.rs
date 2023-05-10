@@ -25,8 +25,8 @@ use seed_primitives::{CollectionUuid, MetadataScheme};
 
 type MockCall = crate::mock::Call;
 
-const FP_CREATION_RESERVE: Balance = 148 + 126 * 1;
-const FP_DELIGATE_RESERVE: Balance = 126 * 1;
+const FP_CREATION_RESERVE: Balance = 148 + 126; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
+const FP_DELIGATE_RESERVE: Balance = 126; // ProxyDepositFactor * 1(num of delegates)
 
 fn transfer_funds(asset_id: AssetId, source: &AccountId, destination: &AccountId, amount: Balance) {
 	assert_ok!(AssetsExt::transfer(asset_id, &source, &destination, amount, false));
