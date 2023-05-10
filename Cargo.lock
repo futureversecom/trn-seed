@@ -5150,7 +5150,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "num_enum",
- "pallet-assets-ext",
  "pallet-evm",
  "pallet-futurepass",
  "pallet-proxy",
