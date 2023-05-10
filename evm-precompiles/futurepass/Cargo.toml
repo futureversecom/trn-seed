@@ -11,6 +11,7 @@ precompile-utils = { path = "../utils", default-features = false }
 num_enum = { version = "0.5.3", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 pallet-futurepass = { path = "../../pallet/futurepass", default-features = false }
+pallet-assets-ext = { path = "../../pallet/assets-ext", default-features = false }
 
 # Substrate
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }

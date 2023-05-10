@@ -3,10 +3,16 @@
 extern crate alloc;
 
 use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
-use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
+use frame_support::{
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
+	traits::fungibles::Inspect,
+};
 use pallet_evm::{AddressMapping, ExitReason, PrecompileFailure, PrecompileSet};
-use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::CollectionUuid;
+use precompile_utils::{
+	constants::{FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, XRP_ASSET_ID},
+	prelude::*,
+};
+use seed_primitives::{AssetId, CollectionUuid};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	codec::Decode,
@@ -88,7 +94,8 @@ where
 	Runtime: frame_system::Config
 		+ pallet_futurepass::Config
 		+ pallet_evm::Config
-		+ pallet_proxy::Config,
+		+ pallet_proxy::Config
+		+ pallet_assets_ext::Config<AssetId = AssetId>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<Runtime as pallet_proxy::Config>::ProxyType: Decode + EvmProxyCallFilter,
 	<Runtime as frame_system::Config>::Call:
@@ -136,7 +143,8 @@ where
 	Runtime: frame_system::Config
 		+ pallet_futurepass::Config
 		+ pallet_evm::Config
-		+ pallet_proxy::Config,
+		+ pallet_proxy::Config
+		+ pallet_assets_ext::Config<AssetId = AssetId>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<Runtime as pallet_proxy::Config>::ProxyType: Decode + EvmProxyCallFilter,
 	<Runtime as frame_system::Config>::Call:
@@ -246,15 +254,16 @@ where
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, {
-			call_to: Address,
 			call_type: u8,
+			call_to: Address,
+			value_out_fp: U256,
 			call_data: BoundedBytes<GetCallDataLimit>
 		});
 		let call_type: CallType = call_type.try_into().map_err(|err| RevertReason::custom(err))?;
 		let evm_subcall =
 			EvmSubCall { to: call_to, call_data, value: handle.context().apparent_value };
 
-		Self::do_proxy(handle, futurepass, call_type, evm_subcall)
+		Self::do_proxy(handle, futurepass, call_type, evm_subcall, value_out_fp)
 	}
 
 	fn do_proxy(
@@ -262,6 +271,7 @@ where
 		futurepass: Address,
 		call_type: CallType,
 		evm_subcall: EvmSubCall,
+		value_out_fp: U256,
 	) -> EvmResult<PrecompileOutput> {
 		// Read proxy
 		let futurepass_account_id =
@@ -286,16 +296,36 @@ where
 
 		let EvmSubCall { to, value, call_data } = evm_subcall;
 		let address = to.0;
-		// build the sub context. here we switch the caller and address
-		let sub_context =
-			Context { caller: futurepass.0, address: address.clone(), apparent_value: value };
 
-		let transfer = if value.is_zero() {
+		// build the sub context. here we switch the caller and the address.
+		// We also update the apparent_value of the sub call and the transfer for the sub call
+		// accordingly.
+		let mut final_value_out = value;
+		if !value_out_fp.is_zero() {
+			// check if the futurepass balance is enough
+			let fp_balance: U256 = <pallet_assets_ext::Pallet<Runtime> as Inspect<
+				Runtime::AccountId,
+			>>::reducible_balance(XRP_ASSET_ID, &futurepass.0.into(), false)
+			.into();
+			frame_support::ensure!(
+				fp_balance <= value_out_fp,
+				revert("Futurepass: Insufficient balance")
+			);
+			final_value_out = value_out_fp;
+		}
+		let sub_context = Context {
+			caller: futurepass.0,
+			address: address.clone(),
+			apparent_value: final_value_out,
+		};
+
+		let transfer = if final_value_out.is_zero() {
 			None
 		} else {
-			// if it has a value, that value should be charged from the futurepass for the sub call.
-			// before the current call, the same value would be transferred to the futurepass.
-			Some(Transfer { source: futurepass.0, target: address.clone(), value })
+			// if final_value_out is non zero, that amount should be transferred from the
+			// futurepass. This means "value_out_fp" takes precedence over apparent value of the
+			// initial proxyCall.
+			Some(Transfer { source: futurepass.0, target: address.clone(), value: final_value_out })
 		};
 
 		let (reason, output) = match call_type {
