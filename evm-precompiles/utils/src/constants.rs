@@ -10,6 +10,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 pub use precompile_addresses::*;
+pub use runtime_constants::*;
 
 mod precompile_addresses {
 	/// Calls to contracts starting with this prefix will be shim'd to the Seed NFT module
@@ -32,4 +33,9 @@ mod precompile_addresses {
 	pub const FEE_FUNCTION_SELECTOR: [u8; 4] = [0x25, 0x5a, 0x34, 0x32];
 	/// Precompile address for futurepass registar
 	pub const FUTUREPASS_REGISTRAR_PRECOMPILE: u64 = 65_535; // 0xFFFF
+}
+
+mod runtime_constants {
+	/// XRP asset Id within the root network
+	pub const XRP_ASSET_ID: u32 = 2;
 }
