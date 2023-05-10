@@ -3,7 +3,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, Wallet } from "ethers";
+import { BigNumber, Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
@@ -112,6 +112,10 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassRegistrar.futurepassOf(owner)).to.equal(futurepass);
     futurepassPrecompile = new Contract(futurepass, FUTUREPASS_PRECOMPILE_ABI, caller);
     return true;
+  }
+
+  function parseEther(amount: number): BigNumber {
+    return ethers.utils.parseEther(amount.toString());
   }
 
   it("test create futurepass", async () => {
@@ -257,10 +261,11 @@ describe("Futurepass Precompile", function () {
     // NOTE: This call will be failed due to an arithmetic error that happens in the insider code.
     // i.e 5_000_000 being interpretted as 4_999_999
     // This means the FP need to have at least 1 drop more than the actual amount being transferred.
+    const amount = 5;
     await futurepassPrecompile
       .connect(owner)
-      .proxyCall(recipient.address, CALL_TYPE.Call, "0x", {
-        value: ethers.utils.parseEther("5"),
+      .proxyCall(CALL_TYPE.Call, recipient.address, parseEther(amount), "0x", {
+        value: parseEther(amount),
       })
       .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
 
@@ -272,9 +277,11 @@ describe("Futurepass Precompile", function () {
     expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(1);
     // proxy transfer of value from owner -> futurepass -> recipient
     const transferAmount = 5;
-    const tx = await futurepassPrecompile.connect(owner).proxyCall(recipient.address, CALL_TYPE.Call, "0x", {
-      value: ethers.utils.parseEther(transferAmount.toString()),
-    });
+    const tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Call, recipient.address, parseEther(transferAmount), "0x", {
+        value: parseEther(transferAmount),
+      });
     await tx.wait();
 
     // check recipient balance
@@ -315,16 +322,19 @@ describe("Futurepass Precompile", function () {
     // note: this is possible since contract has `receive() external payable` function
     await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepassTester.address, CALL_TYPE.StaticCall, "0x", {
-        value: ethers.utils.parseEther("15"),
+      .proxyCall(CALL_TYPE.StaticCall, futurepassTester.address, parseEther(15), "0x", {
+        value: parseEther(15),
       })
       .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
 
     // proxy transfer of value from futurepass to contract succeeds if call
     // note: this is possible since contract has `receive() external payable` function
-    let tx = await futurepassPrecompile.connect(owner).proxyCall(futurepassTester.address, CALL_TYPE.Call, "0x", {
-      value: ethers.utils.parseEther("15"),
-    });
+    let amount = 15;
+    let tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Call, futurepassTester.address, parseEther(amount), "0x", {
+        value: parseEther(amount),
+      });
     await tx.wait();
 
     // validate proxy based value transfer to contract payable receive function
@@ -334,10 +344,13 @@ describe("Futurepass Precompile", function () {
 
     // proxy transfer of value from futurepass to contract
     // note: here we call a payable function instead of default receive fallback function
+    amount = 5;
     const fnCallData = futurepassTester.interface.encodeFunctionData("deposit");
-    tx = await futurepassPrecompile.connect(owner).proxyCall(futurepassTester.address, CALL_TYPE.Call, fnCallData, {
-      value: ethers.utils.parseEther("5"),
-    });
+    tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Call, futurepassTester.address, parseEther(amount), fnCallData, {
+        value: parseEther(amount),
+      });
     await tx.wait();
 
     // validate proxy based value transfer to payable function
@@ -374,7 +387,7 @@ describe("Futurepass Precompile", function () {
     const transferCallData = xrpERC20Precompile.interface.encodeFunctionData("transfer", [recipient.address, 500_000]);
     const tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(xrpERC20Precompile.address, CALL_TYPE.Call, transferCallData);
+      .proxyCall(CALL_TYPE.Call, xrpERC20Precompile.address, ethers.constants.Zero, transferCallData);
     await tx.wait();
 
     // validate proxy based funds transfer
@@ -425,11 +438,13 @@ describe("Futurepass Precompile", function () {
     // proxy transfer of token from futurepass to contract fails since this is staticcall
     await futurepassPrecompile
       .connect(owner)
-      .proxyCall(erc721.address, CALL_TYPE.StaticCall, transferFromCallData)
+      .proxyCall(CALL_TYPE.StaticCall, erc721.address, ethers.constants.Zero, transferFromCallData)
       .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
 
     // proxy transfer of value from futurepass to contract succeeds since this is call
-    tx = await futurepassPrecompile.connect(owner).proxyCall(erc721.address, CALL_TYPE.Call, transferFromCallData);
+    tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Call, erc721.address, ethers.constants.Zero, transferFromCallData);
     await tx.wait();
 
     // validate proxy based ERC721 token transfers
@@ -483,7 +498,9 @@ describe("Futurepass Precompile", function () {
       transferAmount,
       [],
     ]);
-    tx = await futurepassPrecompile.connect(owner).proxyCall(erc1155.address, CALL_TYPE.Call, safeTransferFromCallData);
+    tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Call, erc1155.address, ethers.constants.Zero, safeTransferFromCallData);
     await tx.wait();
 
     // validate proxy based ERC1155 token transfers
@@ -514,7 +531,7 @@ describe("Futurepass Precompile", function () {
     // do proxy call
     const tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepassPrecompile.address, CALL_TYPE.Call, registerDelegateCallData);
+      .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, registerDelegateCallData);
     await tx.wait();
     // check delegate is a delegate of the futurepass
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
@@ -547,7 +564,7 @@ describe("Futurepass Precompile", function () {
     // do proxy call
     tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepassPrecompile.address, CALL_TYPE.Call, unregisterDelegateCallData);
+      .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, unregisterDelegateCallData);
     await tx.wait();
     // check delegate is not a delegate of the futurepass
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
@@ -568,24 +585,29 @@ describe("Futurepass Precompile", function () {
     expect(fpBalance.data.free).to.equal(FP_DELIGATE_RESERVE);
 
     // create() not allowed
-    let CallData = futurepassRegistrar.interface.encodeFunctionData("create", [other.address]);
+    let callData = futurepassRegistrar.interface.encodeFunctionData("create", [other.address]);
     await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepassPrecompile.address, CALL_TYPE.Call, CallData)
+      .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, callData)
       .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
 
     // delegateType() not allowed
-    CallData = futurepassPrecompile.interface.encodeFunctionData("delegateType", [other.address]);
+    callData = futurepassPrecompile.interface.encodeFunctionData("delegateType", [other.address]);
     await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepassPrecompile.address, CALL_TYPE.Call, CallData)
+      .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, callData)
       .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
 
     // proxyCall() not allowed
-    CallData = futurepassPrecompile.interface.encodeFunctionData("proxyCall", [other.address, CALL_TYPE.Call, []]);
+    callData = futurepassPrecompile.interface.encodeFunctionData("proxyCall", [
+      CALL_TYPE.Call,
+      other.address,
+      ethers.constants.Zero,
+      [],
+    ]);
     await futurepassPrecompile
       .connect(owner)
-      .proxyCall(futurepassPrecompile.address, CALL_TYPE.Call, CallData)
+      .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, callData)
       .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
   });
 
@@ -608,7 +630,7 @@ describe("Futurepass Precompile", function () {
     // call the proxyCall function with the futurepass address and the encoded CREATE call data
     const tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(ethers.constants.AddressZero, CALL_TYPE.Create, erc20Bytecode);
+      .proxyCall(CALL_TYPE.Create, ethers.constants.AddressZero, ethers.constants.Zero, erc20Bytecode);
     const receipt = await tx.wait();
 
     console.warn(receipt);
@@ -643,7 +665,7 @@ describe("Futurepass Precompile", function () {
     // Call the proxyCall function with the futurepass address and the encoded CREATE2 call data
     const tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(ethers.constants.AddressZero, CALL_TYPE.Create2, deployCallData);
+      .proxyCall(CALL_TYPE.Create2, ethers.constants.AddressZero, ethers.constants.Zero, deployCallData);
     await tx.wait();
 
     // // Verify that the created contract has the same bytecode as the template contract
