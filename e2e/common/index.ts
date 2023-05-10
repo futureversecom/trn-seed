@@ -57,10 +57,10 @@ export const FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS = "0x0000000000000000000000
 export const PEG_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000000793";
 
 // Futurepass delegate reserve amount
-export const FP_DELIGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
+export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
 
 // Futurepass creation reserve amount
-export const FP_CREATION_RESERVE = 148 + FP_DELIGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
+export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
 
 /** ABIs */
 

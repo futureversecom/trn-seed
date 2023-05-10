@@ -686,7 +686,7 @@ describe("Futurepass Precompile", function () {
 
     // ensure delegate doesnt exist for FP
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
-    // fund the FP, FP_DELIGATE_RESERVE amount of Root for the delegate reserve
+    // fund the FP, FP_DELEGATE_RESERVE amount of Root for the delegate reserve
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
     expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
