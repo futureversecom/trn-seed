@@ -9,7 +9,7 @@ use frame_support::{
 };
 use pallet_evm::{AddressMapping, ExitReason, PrecompileFailure, PrecompileSet};
 use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::CollectionUuid;
+use seed_primitives::{CollectionUuid};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	codec::Decode,
@@ -59,7 +59,7 @@ pub enum Action {
 	UnRegisterDelegate = "unregisterDelegate(address)",
 	ProxyCall = "proxyCall(uint8,address,uint256,bytes)",
 	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
-	Owner = "owner()",
+	// Owner = "owner()", // TODO: support this once we have a more optimal way to retrieve the owner
 	RenounceOwnership = "renounceOwnership()",
 	TransferOwnership = "transferOwnership(address)",
 }
@@ -124,7 +124,7 @@ where
 				Action::UnRegisterDelegate => Self::unregister_delegate(futurepass, handle),
 				Action::ProxyCall => Self::proxy_call(futurepass, handle),
 				// Ownable
-				Action::Owner => Self::owner(futurepass, handle),
+				// Action::Owner => Self::owner(futurepass, handle),
 				Action::RenounceOwnership => Self::renounce_ownership(handle),
 				Action::TransferOwnership => Self::transfer_ownership(handle),
 			}
@@ -348,25 +348,23 @@ where
 		}
 	}
 
-	fn owner(
-		futurepass: Address,
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		let futurepass: H160 = futurepass.into();
+	// fn owner(
+	// 	futurepass: Address,
+	// 	handle: &mut impl PrecompileHandle,
+	// ) -> EvmResult<PrecompileOutput> {
+	// 	let futurepass: H160 = futurepass.into();
 
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let owner = pallet_futurepass::Holders::<Runtime>::iter()
-			.find_map(|(holder, fp)| {
-				let holder: H160 = holder.into();
-				if futurepass == fp.into() {
-					return Some(holder)
-				}
-				None
-			})
-			.unwrap_or(H160::default());
+	// 	handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+	// 	let owner = pallet_proxy::Pallet::<Runtime>::proxies::<AccountId>(futurepass.into())
+	// 		.0
+	// 		.into_iter()
+	// 		.last()
+	// 		.map(|pd| pd.delegate.into())
+	// 		.unwrap_or(H160::default());
 
-		Ok(succeed(EvmDataWriter::new().write(Address::from(owner)).build()))
-	}
+
+	// 	Ok(succeed(EvmDataWriter::new().write(Address::from(owner)).build()))
+	// }
 
 	fn renounce_ownership(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(1, 32)?;
