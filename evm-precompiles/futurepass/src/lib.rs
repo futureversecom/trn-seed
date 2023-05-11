@@ -9,7 +9,7 @@ use frame_support::{
 };
 use pallet_evm::{AddressMapping, ExitReason, PrecompileFailure, PrecompileSet};
 use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{CollectionUuid};
+use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
 use sp_runtime::{
 	codec::Decode,
@@ -59,7 +59,8 @@ pub enum Action {
 	UnRegisterDelegate = "unregisterDelegate(address)",
 	ProxyCall = "proxyCall(uint8,address,uint256,bytes)",
 	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
-	// Owner = "owner()", // TODO: support this once we have a more optimal way to retrieve the owner
+	// Owner = "owner()", // TODO: support this once we have a more optimal way to retrieve the
+	// owner
 	RenounceOwnership = "renounceOwnership()",
 	TransferOwnership = "transferOwnership(address)",
 }
@@ -361,7 +362,6 @@ where
 	// 		.last()
 	// 		.map(|pd| pd.delegate.into())
 	// 		.unwrap_or(H160::default());
-
 
 	// 	Ok(succeed(EvmDataWriter::new().write(Address::from(owner)).build()))
 	// }
