@@ -74,29 +74,6 @@ describe("Futurepass Precompile", function () {
 
   afterEach(async () => await node.stop());
 
-  async function fundAccount(
-    api: ApiPromise,
-    keyring: KeyringPair,
-    address: string,
-    amount: string | number = 10_000_000,
-  ): Promise<void> {
-    return new Promise<void>((resolve) => {
-      api.tx.utility
-        .batch([
-          api.tx.assets.transfer(GAS_TOKEN_ID, address, amount), // 10 XRP
-          api.tx.balances.transfer(address, amount), // 10 ROOT
-        ])
-        .signAndSend(keyring, ({ status }) => {
-          if (status.isInBlock) resolve();
-        });
-    });
-  }
-
-  async function fundEOA(signer: Wallet, address: string, value: string = "10000") {
-    const tx = await signer.sendTransaction({ to: address, value: ethers.utils.parseEther(value) });
-    await tx.wait();
-  }
-
   async function createFuturepass(caller: Wallet, address: string) {
     // fund caller to pay for futurepass creation
     await fundAccount(api, alithKeyring, address);
@@ -108,14 +85,12 @@ describe("Futurepass Precompile", function () {
     return new Contract(futurepass, FUTUREPASS_PRECOMPILE_ABI, caller);
   }
 
-  function parseEther(amount: number): BigNumber {
-    return ethers.utils.parseEther(amount.toString());
-  }
-
   // TODO - check why the first transfer method does not work
   it.skip("transfer value to futurepass address works", async () => {
-    const owner = Wallet.createRandom().address;
-    expect(await createFuturepass(alithSigner, owner)).true;
+    const owner = Wallet.createRandom().connect(provider);
+
+    // create FP for owner
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
     // transfer value 5 XRP to futurepass
     let value = 5;
@@ -310,7 +285,8 @@ describe("Futurepass Precompile", function () {
     const owner = Wallet.createRandom().connect(provider);
 
     // create FP for owner
-    expect(await createFuturepass(owner, owner.address)).true;
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
     // Transfer funds(10 XRP) to the futurepass
     await fundAccount(api, alithKeyring, futurepassPrecompile.address);
     const futurepassBalanceBefore = await xrpERC20Precompile.balanceOf(futurepassPrecompile.address);
@@ -345,7 +321,8 @@ describe("Futurepass Precompile", function () {
     const owner = Wallet.createRandom().connect(provider);
 
     // create FP for owner
-    expect(await createFuturepass(owner, owner.address)).true;
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
     // Transfer funds(10 XRP) to the futurepass
     await fundAccount(api, alithKeyring, futurepassPrecompile.address);
     const futurepassBalanceBefore = await xrpERC20Precompile.balanceOf(futurepassPrecompile.address);
@@ -386,7 +363,8 @@ describe("Futurepass Precompile", function () {
     const owner = Wallet.createRandom().connect(provider);
 
     // create FP for owner
-    expect(await createFuturepass(owner, owner.address)).true;
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
     // Transfer funds(10 XRP) to the futurepass
     await fundAccount(api, alithKeyring, futurepassPrecompile.address);
     const futurepassBalanceBefore = await xrpERC20Precompile.balanceOf(futurepassPrecompile.address);
@@ -493,7 +471,8 @@ describe("Futurepass Precompile", function () {
     const owner = Wallet.createRandom().connect(provider);
 
     // create FP for owner
-    expect(await createFuturepass(owner, owner.address)).true;
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
     // Transfer funds to futurepass (20 XRP)
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, 20_000_000);
 
@@ -889,3 +868,30 @@ describe("Futurepass Precompile", function () {
     // expect(await futurepassPrecompile.owner()).to.equal(newOwner.address); // TODO
   });
 });
+
+async function fundAccount(
+  api: ApiPromise,
+  keyring: KeyringPair,
+  address: string,
+  amount: string | number = 10_000_000,
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    api.tx.utility
+      .batch([
+        api.tx.assets.transfer(GAS_TOKEN_ID, address, amount), // 10 XRP
+        api.tx.balances.transfer(address, amount), // 10 ROOT
+      ])
+      .signAndSend(keyring, ({ status }) => {
+        if (status.isInBlock) resolve();
+      });
+  });
+}
+
+async function fundEOA(signer: Wallet, address: string, value: string = "10000") {
+  const tx = await signer.sendTransaction({ to: address, value: ethers.utils.parseEther(value) });
+  await tx.wait();
+}
+
+function parseEther(amount: number): BigNumber {
+  return ethers.utils.parseEther(amount.toString());
+}
