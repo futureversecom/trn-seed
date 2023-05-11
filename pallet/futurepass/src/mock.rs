@@ -189,7 +189,7 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 			futurepass,
 			receiver,
 			old_deposit,
-			ExistenceRequirement::KeepAlive,
+			ExistenceRequirement::AllowDeath,
 		)?;
 		Ok(())
 	}
