@@ -63,6 +63,7 @@ pub enum Action {
 	// owner
 	RenounceOwnership = "renounceOwnership()",
 	TransferOwnership = "transferOwnership(address)",
+	Default = "",
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
@@ -116,7 +117,14 @@ where
 		let result = {
 			let selector = match handle.read_selector() {
 				Ok(selector) => selector,
-				Err(e) => return Some(Err(e.into())),
+				Err(e) => {
+					if handle.input().is_empty() && !handle.context().apparent_value.is_zero() {
+						// This is the default receive function for the futurepass
+						Action::Default
+					} else {
+						return Some(Err(e.into()))
+					}
+				},
 			};
 
 			match selector {
@@ -128,6 +136,7 @@ where
 				// Action::Owner => Self::owner(futurepass, handle),
 				Action::RenounceOwnership => Self::renounce_ownership(handle),
 				Action::TransferOwnership => Self::transfer_ownership(handle),
+				Action::Default => Self::receive(futurepass, handle),
 			}
 		};
 		return Some(result)
@@ -271,6 +280,14 @@ where
 		let evm_subcall = EvmSubCall { to: call_to, call_data };
 
 		Self::do_proxy(handle, futurepass, call_type, evm_subcall, value)
+	}
+
+	fn receive(
+		_futurepass: Address,
+		_handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		// do nothing
+		Ok(succeed([]))
 	}
 
 	fn do_proxy(

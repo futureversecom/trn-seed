@@ -85,8 +85,7 @@ describe("Futurepass Precompile", function () {
     return new Contract(futurepass, FUTUREPASS_PRECOMPILE_ABI, caller);
   }
 
-  // TODO - check why the first transfer method does not work
-  it.skip("transfer value to futurepass address works", async () => {
+  it("transfer value to futurepass address works", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
     // create FP for owner
