@@ -73,6 +73,12 @@ pub trait FuturepassMigrator<T: frame_system::Config>
 where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {
+	fn transfer_asset(
+		asset_id: seed_primitives::AssetId,
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult;
+
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,
@@ -189,7 +195,8 @@ pub mod pallet {
 		FuturepassAssetsMigrated {
 			evm_futurepass: T::AccountId,
 			futurepass: T::AccountId,
-			collection_id: u32,
+			assets: Vec<u32>,
+			collections: Vec<u32>,
 		},
 		/// Updating Futurepass migrator account
 		FuturepassMigratorSet { migrator: T::AccountId },
@@ -463,6 +470,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			owner: T::AccountId,
 			evm_futurepass: T::AccountId,
+			asset_ids: Vec<u32>,
 			collection_ids: Vec<u32>,
 		) -> DispatchResult {
 			let admin = ensure_signed(origin)?;
@@ -478,15 +486,27 @@ pub mod pallet {
 				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
 			};
 
-			// transfer nfts
-			for collection_id in collection_ids.into_iter() {
-				T::FuturepassMigrator::transfer_nfts(collection_id, &evm_futurepass, &futurepass)?;
-				Self::deposit_event(Event::FuturepassAssetsMigrated {
-					evm_futurepass: evm_futurepass.clone(),
-					futurepass: futurepass.clone(),
-					collection_id,
-				});
+			// transfer assets
+			for asset_id in asset_ids.iter() {
+				T::FuturepassMigrator::transfer_asset(*asset_id, &evm_futurepass, &futurepass)?;
 			}
+
+			// transfer nfts
+			for collection_id in collection_ids.iter() {
+				T::FuturepassMigrator::transfer_nfts(
+					*collection_id,
+					&evm_futurepass,
+					&futurepass,
+				)?;
+			}
+
+			Self::deposit_event(Event::FuturepassAssetsMigrated {
+				evm_futurepass: evm_futurepass.clone(),
+				futurepass: futurepass.clone(),
+				assets: asset_ids,
+				collections: collection_ids,
+			});
+
 			Ok(())
 		}
 
