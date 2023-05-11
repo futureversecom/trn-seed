@@ -181,7 +181,16 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 
 	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
 		let (_, old_deposit) = pallet_proxy::Proxies::<Test>::take(futurepass);
-		<pallet_balances::Pallet<Test> as ReservableCurrency<_>>::unreserve(receiver, old_deposit);
+		<pallet_balances::Pallet<Test> as ReservableCurrency<_>>::unreserve(
+			futurepass,
+			old_deposit,
+		);
+		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
+			futurepass,
+			receiver,
+			old_deposit,
+			ExistenceRequirement::KeepAlive,
+		)?;
 		Ok(())
 	}
 

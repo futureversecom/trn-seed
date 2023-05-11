@@ -660,7 +660,7 @@ fn transfer_futurepass_to_none_works() {
 				false
 			);
 			// caller(the owner) should receive the reserved balance diff
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 400);
 		});
 }
 

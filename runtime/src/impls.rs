@@ -543,14 +543,19 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		result
 	}
 
-	/// Removing an account simply refunds the account with the reserved balance (deposits) of the
-	/// account.
+	/// Removing futurepass refunds caller with reserved balance (deposits) of the futurepass.
 	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
 		let (_, old_deposit) = pallet_proxy::Proxies::<Runtime>::take(futurepass);
 		<pallet_balances::Pallet<Runtime> as ReservableCurrency<_>>::unreserve(
 			receiver,
 			old_deposit,
 		);
+		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
+			futurepass,
+			receiver,
+			old_deposit,
+			ExistenceRequirement::KeepAlive,
+		)?;
 		Ok(())
 	}
 
