@@ -22,7 +22,7 @@ use frame_support::{
 		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
 		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, IsSubType, OnUnbalanced,
-		SignedImbalance, WithdrawReasons,
+		ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
@@ -542,6 +542,22 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 			)?;
 		}
 		result
+	}
+
+	/// Removing futurepass refunds caller with reserved balance (deposits) of the futurepass.
+	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
+		let (_, old_deposit) = pallet_proxy::Proxies::<Runtime>::take(futurepass);
+		<pallet_balances::Pallet<Runtime> as ReservableCurrency<_>>::unreserve(
+			futurepass,
+			old_deposit,
+		);
+		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
+			futurepass,
+			receiver,
+			old_deposit,
+			ExistenceRequirement::AllowDeath,
+		)?;
+		Ok(())
 	}
 
 	fn proxy_call(
