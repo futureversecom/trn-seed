@@ -3,7 +3,10 @@
 extern crate alloc;
 
 use fp_evm::{Context, PrecompileHandle, PrecompileOutput, PrecompileResult, Transfer};
-use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
+use frame_support::{
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
+	ensure,
+};
 use pallet_evm::{AddressMapping, ExitReason, PrecompileFailure, PrecompileSet};
 use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::CollectionUuid;
@@ -19,6 +22,10 @@ pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateRegistered(address,address,uint8)"); // futurepass, delegate, proxyType
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateUnregistered(address,address)"); // futurepass, delegate
+
+/// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
+	keccak256!("OwnershipTransferred(address,address)");
 
 // evm proxy call type
 #[derive(Debug, PartialEq)]
@@ -51,6 +58,11 @@ pub enum Action {
 	RegisterDelegate = "registerDelegate(address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address)",
 	ProxyCall = "proxyCall(uint8,address,uint256,bytes)",
+	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
+	// Owner = "owner()", // TODO: support this once we have a more optimal way to retrieve the
+	// owner
+	RenounceOwnership = "renounceOwnership()",
+	TransferOwnership = "transferOwnership(address)",
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
@@ -112,6 +124,10 @@ where
 				Action::RegisterDelegate => Self::register_delegate(futurepass, handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(futurepass, handle),
 				Action::ProxyCall => Self::proxy_call(futurepass, handle),
+				// Ownable
+				// Action::Owner => Self::owner(futurepass, handle),
+				Action::RenounceOwnership => Self::renounce_ownership(handle),
+				Action::TransferOwnership => Self::transfer_ownership(handle),
 			}
 		};
 		return Some(result)
@@ -163,11 +179,10 @@ where
 			.iter()
 			.find(|pd| pd.delegate == delegate)
 		{
-			proxy_type = proxy_def
-				.proxy_type
-				.clone()
-				.try_into()
-				.map_err(|_e| RevertReason::custom("ProxyType conversion failure"))?;
+			proxy_type =
+				proxy_def.proxy_type.clone().try_into().map_err(|_e| {
+					RevertReason::custom("Futurepass: ProxyType conversion failure")
+				})?;
 		}
 
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
@@ -250,7 +265,9 @@ where
 			value: U256,
 			call_data: BoundedBytes<GetCallDataLimit>
 		});
-		let call_type: CallType = call_type.try_into().map_err(|err| RevertReason::custom(err))?;
+		let call_type: CallType = call_type
+			.try_into()
+			.map_err(|err| RevertReason::custom(alloc::format!("Futurepass: {}", err)))?;
 		let evm_subcall = EvmSubCall { to: call_to, call_data };
 
 		Self::do_proxy(handle, futurepass, call_type, evm_subcall, value)
@@ -270,8 +287,8 @@ where
 		// find proxy
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let def = pallet_proxy::Pallet::<Runtime>::find_proxy(&futurepass_account_id, &who, None)
-			.map_err(|_| RevertReason::custom("Not proxy"))?;
-		frame_support::ensure!(def.delay.is_zero(), revert("Unannounced")); // no delay for futurepass
+			.map_err(|_| RevertReason::custom("Futurepass: Not proxy"))?;
+		ensure!(def.delay.is_zero(), revert("Futurepass: Unannounced")); // no delay for futurepass
 
 		// Read subcall recipient code
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -279,9 +296,9 @@ where
 			pallet_evm::AccountCodes::<Runtime>::decode_len(evm_subcall.to.0).unwrap_or(0) > 0;
 
 		// Apply proxy type filter
-		frame_support::ensure!(
+		ensure!(
 			def.proxy_type.is_evm_proxy_call_allowed(&evm_subcall, recipient_has_code),
-			revert("CallFiltered")
+			revert("Futurepass: CallFiltered")
 		);
 
 		let EvmSubCall { to, call_data } = evm_subcall;
@@ -319,7 +336,7 @@ where
 				&sub_context,
 			),
 			CallType::DelegateCall | CallType::Create | CallType::Create2 =>
-				Err(RevertReason::custom("call type not supported"))?,
+				Err(RevertReason::custom("Futurepass: call type not supported"))?,
 		};
 
 		// Return subcall result
@@ -330,5 +347,78 @@ where
 			ExitReason::Error(exit_status) => Err(PrecompileFailure::Error { exit_status }),
 			ExitReason::Succeed(_) => Ok(succeed([])),
 		}
+	}
+
+	// fn owner(
+	// 	futurepass: Address,
+	// 	handle: &mut impl PrecompileHandle,
+	// ) -> EvmResult<PrecompileOutput> {
+	// 	let futurepass: H160 = futurepass.into();
+
+	// 	handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+	// 	let owner = pallet_proxy::Pallet::<Runtime>::proxies::<AccountId>(futurepass.into())
+	// 		.0
+	// 		.into_iter()
+	// 		.last()
+	// 		.map(|pd| pd.delegate.into())
+	// 		.unwrap_or(H160::default());
+
+	// 	Ok(succeed(EvmDataWriter::new().write(Address::from(owner)).build()))
+	// }
+
+	fn renounce_ownership(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		let caller = handle.context().caller;
+		let burn_account: H160 = H160::default();
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(caller.into()).into(),
+			pallet_futurepass::Call::<Runtime>::transfer_futurepass { new_owner: None },
+		)?;
+
+		// emit OwnershipTransferred(address,address) event
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
+			caller,
+			EvmDataWriter::new().write(Address::from(burn_account)).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn transfer_ownership(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		// Parse input.
+		read_args!(handle, { new_owner: Address });
+		let new_owner: H160 = new_owner.into();
+		let caller = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(caller.into()).into(),
+			pallet_futurepass::Call::<Runtime>::transfer_futurepass {
+				new_owner: Some(new_owner.into()),
+			},
+		)?;
+
+		// emit OwnershipTransferred(address,address) event
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
+			caller,
+			EvmDataWriter::new().write(Address::from(new_owner)).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 }
