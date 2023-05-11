@@ -651,7 +651,6 @@ fn transfer_futurepass_to_none_works() {
 				.into(),
 			);
 			assert_eq!(Holders::<Test>::get(&owner), None);
-			// only the new owner(i.e other) should be a delegate
 			assert_eq!(
 				<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Any)),
 				false
