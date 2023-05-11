@@ -493,11 +493,7 @@ pub mod pallet {
 
 			// transfer nfts
 			for collection_id in collection_ids.iter() {
-				T::FuturepassMigrator::transfer_nfts(
-					*collection_id,
-					&evm_futurepass,
-					&futurepass,
-				)?;
+				T::FuturepassMigrator::transfer_nfts(*collection_id, &evm_futurepass, &futurepass)?;
 			}
 
 			Self::deposit_event(Event::FuturepassAssetsMigrated {
