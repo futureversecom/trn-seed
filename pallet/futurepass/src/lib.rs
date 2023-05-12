@@ -378,7 +378,7 @@ pub mod pallet {
 			// Get the current futurepass owner from the `Holders` storage mapping
 			let futurepass = Holders::<T>::take(&owner).ok_or(Error::<T>::NotFuturepassOwner)?;
 
-			if let Some(new_owner) = new_owner.clone() {
+			if let Some( ref new_owner) = new_owner {
 				// Ensure that the new owner does not already own a futurepass
 				ensure!(
 					!Holders::<T>::contains_key(&new_owner),
@@ -391,13 +391,13 @@ pub mod pallet {
 				// Iterate through the list of delegates and remove them, except for the new_owner
 				let delegates = T::Proxy::delegates(&futurepass);
 				for delegate in delegates.iter() {
-					if delegate.0 != new_owner {
+					if delegate.0 != *new_owner {
 						T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
 					}
 				}
 
 				// Set the new owner as the owner of the futurepass
-				Holders::<T>::insert(&new_owner, futurepass.clone());
+				Holders::<T>::insert(new_owner, futurepass.clone());
 			} else {
 				// remove the account - which should remove all delegates
 				T::Proxy::remove_account(&owner, &futurepass)?;
