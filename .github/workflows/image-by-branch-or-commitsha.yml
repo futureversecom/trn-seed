@@ -1,4 +1,4 @@
-name: "Build Image from a Branch or Commit SHA"
+name: "Image Builder by Branch"
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
