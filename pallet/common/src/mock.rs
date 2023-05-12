@@ -399,7 +399,7 @@ macro_rules! impl_pallet_futurepass_config {
 			) -> DispatchResult {
 				Ok(())
 			}
-			fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
+			fn remove_account(receiver: &T::AccountId, futurepass: &T::AccountId) -> DispatchResult {
 				Ok(())
 			}
 			fn proxy_call(
