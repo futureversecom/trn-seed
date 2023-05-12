@@ -54,6 +54,7 @@ impl TryFrom<u8> for CallType {
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
+	Default = "",
 	DelegateType = "delegateType(address)",
 	RegisterDelegate = "registerDelegate(address,uint8)",
 	UnRegisterDelegate = "unregisterDelegate(address)",
@@ -63,7 +64,6 @@ pub enum Action {
 	// owner
 	RenounceOwnership = "renounceOwnership()",
 	TransferOwnership = "transferOwnership(address)",
-	Default = "",
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
@@ -128,6 +128,7 @@ where
 			};
 
 			match selector {
+				Action::Default => Self::receive(futurepass, handle),
 				Action::DelegateType => Self::delegate_type(futurepass, handle),
 				Action::RegisterDelegate => Self::register_delegate(futurepass, handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(futurepass, handle),
@@ -136,7 +137,6 @@ where
 				// Action::Owner => Self::owner(futurepass, handle),
 				Action::RenounceOwnership => Self::renounce_ownership(handle),
 				Action::TransferOwnership => Self::transfer_ownership(handle),
-				Action::Default => Self::receive(futurepass, handle),
 			}
 		};
 		return Some(result)
