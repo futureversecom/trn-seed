@@ -356,7 +356,7 @@ pub mod pallet {
 			// Get the current futurepass owner from the `Holders` storage mapping
 			let futurepass = Holders::<T>::take(&owner).ok_or(Error::<T>::NotFuturepassOwner)?;
 
-			if let Some( ref new_owner) = new_owner {
+			if let Some(ref new_owner) = new_owner {
 				// Ensure that the new owner does not already own a futurepass
 				ensure!(
 					!Holders::<T>::contains_key(&new_owner),
