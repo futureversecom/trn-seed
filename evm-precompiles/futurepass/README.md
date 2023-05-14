@@ -6,6 +6,7 @@ Precompile address spec: `0xFFFFFFFF[16-byte-futurepass-index]`
 interface FuturePass {
     event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType);
     event FuturepassDelegateUnregistered(address indexed futurepass, address delegate);
+    event FuturepassReceived(address indexed sender, uint256 value);
     
     function delegateType(address delegate) external view returns (uint8);
 

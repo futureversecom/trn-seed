@@ -25,7 +25,11 @@ pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 
 /// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
-	keccak256!("OwnershipTransferred(address,address)");
+	keccak256!("OwnershipTransferred(address,address)"); // previousOwner, newOwner
+
+/// Solidity selector of the FuturepassReceived log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_FUTUREPASS_RECEIVED: [u8; 32] =
+	keccak256!("FuturepassReceived(address,uint256)"); // sender, value
 
 // evm proxy call type
 #[derive(Debug, PartialEq)]
@@ -171,6 +175,23 @@ where
 	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
 	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
 {
+	fn receive(
+		_futurepass: Address,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+		// emit FuturepassReceived(address,uint256) event
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_FUTUREPASS_RECEIVED,
+			handle.context().caller,
+			EvmDataWriter::new().write(handle.context().apparent_value).build(),
+		)
+		.record(handle)?;
+
+		Ok(succeed([]))
+	}
+
 	fn delegate_type(
 		futurepass: Address,
 		handle: &mut impl PrecompileHandle,
@@ -280,14 +301,6 @@ where
 		let evm_subcall = EvmSubCall { to: call_to, call_data };
 
 		Self::do_proxy(handle, futurepass, call_type, evm_subcall, value)
-	}
-
-	fn receive(
-		_futurepass: Address,
-		_handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
-		// do nothing
-		Ok(succeed([]))
 	}
 
 	fn do_proxy(

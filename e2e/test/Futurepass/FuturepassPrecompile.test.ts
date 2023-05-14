@@ -94,7 +94,11 @@ describe("Futurepass Precompile", function () {
     // transfer value 5 XRP to futurepass
     let value = 5;
     const tx = await alithSigner.sendTransaction({ to: futurepassPrecompile.address, value: parseEther(value) });
-    await tx.wait();
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("FuturepassReceived");
+    expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepassPrecompile.address);
+    expect((receipt?.events as any)[0].args.sender).to.equal(alithSigner.address);
+    expect((receipt?.events as any)[0].args.value).to.equal(parseEther(5));
     // check if the value is reflected
     expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(value * 1_000_000);
 

@@ -144,6 +144,7 @@ export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [
 export const FUTUREPASS_PRECOMPILE_ABI = [
   "event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType)",
   "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
+  "event FuturepassReceived(address indexed sender, uint256 value)",
 
   "function delegateType(address delegate) external view returns (uint8)",
   "function registerDelegate(address delegate, uint8 proxyType) external",
