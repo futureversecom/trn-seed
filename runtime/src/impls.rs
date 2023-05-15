@@ -765,10 +765,10 @@ where
 	) -> DispatchResult {
 		let amount = <pallet_assets_ext::Pallet<T> as fungibles::Inspect<
 			<T as frame_system::Config>::AccountId,
-		>>::reducible_balance(asset_id, current_owner, true);
+		>>::reducible_balance(asset_id, current_owner, false);
 		<pallet_assets_ext::Pallet<T> as fungibles::Transfer<
 			<T as frame_system::Config>::AccountId,
-		>>::transfer(asset_id, current_owner, new_owner, amount, true)?;
+		>>::transfer(asset_id, current_owner, new_owner, amount, false)?;
 		Ok(())
 	}
 

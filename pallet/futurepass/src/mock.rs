@@ -231,13 +231,13 @@ where
 	) -> DispatchResult {
 		let amount = <pallet_assets_ext::Pallet<T> as Inspect<
 			<T as frame_system::Config>::AccountId,
-		>>::reducible_balance(asset_id, current_owner, true);
+		>>::reducible_balance(asset_id, current_owner, false);
 		<pallet_assets_ext::Pallet<T> as Transfer<<T as frame_system::Config>::AccountId>>::transfer(
 			asset_id,
 			current_owner,
 			new_owner,
 			amount,
-			true,
+			false,
 		)?;
 		Ok(())
 	}

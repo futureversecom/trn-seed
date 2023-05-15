@@ -1233,13 +1233,13 @@ fn futurepass_migration_multiple_assets() {
 			assert_ok!(AssetsExt::mint_into(MOCK_NATIVE_ASSET_ID, &evm_futurepass, 1000));
 			assert_ok!(AssetsExt::mint_into(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, 500));
 			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, true),
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, false),
 				1000
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, true),
-				499
-			); // TODO: <- why is this not 500?
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
+				500
+			);
 
 			// fund migrator
 			assert_ok!(AssetsExt::transfer(
@@ -1271,17 +1271,15 @@ fn futurepass_migration_multiple_assets() {
 
 			// assert evm futurepass has assets
 			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, true),
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, false),
 				0
 			);
 			assert_eq!(
-				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, true),
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
 				0
 			);
-			assert_eq!(AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, true), 1000);
-			assert_eq!(AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &futurepass, true), 498); // TODO: <-
-			                                                                             // why is this
-			                                                                             // not 499?
+			assert_eq!(AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false), 1000);
+			assert_eq!(AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &futurepass, false), 500);
 		});
 }
 
