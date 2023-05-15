@@ -9,7 +9,6 @@ use frame_support::{
 };
 use pallet_evm::{AddressMapping, ExitReason, PrecompileFailure, PrecompileSet};
 use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::CollectionUuid;
 use sp_core::{H160, U256};
 use sp_runtime::{
 	codec::Decode,
@@ -101,7 +100,6 @@ where
 		+ pallet_futurepass::Config
 		+ pallet_evm::Config
 		+ pallet_proxy::Config,
-	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<Runtime as pallet_proxy::Config>::ProxyType: Decode + EvmProxyCallFilter,
 	<Runtime as frame_system::Config>::Call:
 		Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
@@ -161,7 +159,6 @@ where
 		+ pallet_futurepass::Config
 		+ pallet_evm::Config
 		+ pallet_proxy::Config,
-	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	<Runtime as pallet_proxy::Config>::ProxyType: Decode + EvmProxyCallFilter,
 	<Runtime as frame_system::Config>::Call:
 		Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
