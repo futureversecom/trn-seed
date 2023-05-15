@@ -276,8 +276,6 @@ describe("Futurepass Precompile", function () {
     const ownerBalanceAfter = await xrpERC20Precompile.balanceOf(owner.address);
     const totalSpent = ownerBalanceBefore - ownerBalanceAfter;
     expect(totalSpent - transferAmount * 1_000_000).to.lessThan(transferAmount * 1_000_000);
-
-    // TODO - do the gas calculation and tally here
   });
 
   it("proxy call - transfer value from futurepass to recipient EOA", async () => {
@@ -681,8 +679,6 @@ describe("Futurepass Precompile", function () {
     await tx.wait();
     // check delegate is a delegate of the futurepass
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
-
-    // TODO : check who pays the fee
   });
 
   it("whitelist - unregister delegate via proxyCall is allowed", async () => {
@@ -714,8 +710,6 @@ describe("Futurepass Precompile", function () {
     await tx.wait();
     // check delegate is not a delegate of the futurepass
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
-
-    // TODO : check who pays the fee
   });
 
   it("whitelist - non whitelisted calls via proxyCall is not allowed", async () => {

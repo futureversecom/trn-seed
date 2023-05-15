@@ -143,7 +143,7 @@ where
 	}
 
 	fn is_precompile(&self, address: H160) -> bool {
-		// TODO - check if we need to verify whether the address is a futurepass
+		// check if the address starts with futurepass precompile prefix
 		address.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX)
 	}
 }
