@@ -458,6 +458,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `owner` - The account ID of the owner of the EVM-based Futurepass.
 		/// - `evm_futurepass` - The account ID of the EVM-based Futurepass.
+		/// - `asset_ids` - A vector of asset IDs representing the assets to be migrated.
 		/// - `collection_ids` - A vector of collection IDs representing the NFTs collections to be
 		///   migrated.
 		///
