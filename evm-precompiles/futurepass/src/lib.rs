@@ -7,7 +7,7 @@ use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	ensure,
 };
-use pallet_evm::{AddressMapping, ExitReason, PrecompileFailure, PrecompileSet};
+use pallet_evm::{ExitReason, PrecompileFailure, PrecompileSet};
 use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use sp_core::{H160, U256};
 use sp_runtime::{
@@ -110,8 +110,6 @@ where
 	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
 {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
-		let futurepass = Address(handle.code_address());
-
 		let result = {
 			let selector = match handle.read_selector() {
 				Ok(selector) => selector,
@@ -126,11 +124,11 @@ where
 			};
 
 			match selector {
-				Action::Default => Self::receive(futurepass, handle),
-				Action::DelegateType => Self::delegate_type(futurepass, handle),
-				Action::RegisterDelegate => Self::register_delegate(futurepass, handle),
-				Action::UnRegisterDelegate => Self::unregister_delegate(futurepass, handle),
-				Action::ProxyCall => Self::proxy_call(futurepass, handle),
+				Action::Default => Self::receive(handle),
+				Action::DelegateType => Self::delegate_type(handle),
+				Action::RegisterDelegate => Self::register_delegate(handle),
+				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
+				Action::ProxyCall => Self::proxy_call(handle),
 				// Ownable
 				// Action::Owner => Self::owner(futurepass, handle),
 				Action::RenounceOwnership => Self::renounce_ownership(handle),
@@ -168,13 +166,10 @@ where
 	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
 	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
 {
-	fn delegate_type(
-		futurepass: Address,
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
+	fn delegate_type(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, { delegate: Address });
-		let futurepass = Runtime::AddressMapping::into_account_id(futurepass.into());
-		let delegate = Runtime::AddressMapping::into_account_id(delegate.into());
+		let futurepass: Runtime::AccountId = handle.code_address().into();
+		let delegate: H160 = delegate.into();
 
 		// Manually record gas
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -183,7 +178,7 @@ where
 		if let Some(proxy_def) = pallet_proxy::Pallet::<Runtime>::proxies(futurepass)
 			.0
 			.iter()
-			.find(|pd| pd.delegate == delegate)
+			.find(|pd| pd.delegate == delegate.into())
 		{
 			proxy_type =
 				proxy_def.proxy_type.clone().try_into().map_err(|_e| {
@@ -194,13 +189,10 @@ where
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
 	}
 
-	fn register_delegate(
-		futurepass: Address,
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
+	fn register_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
 		read_args!( handle, { delegate: Address, proxy_type: u8});
-		let futurepass: H160 = futurepass.into();
+		let futurepass: H160 = handle.code_address();
 		let delegate: H160 = delegate.into();
 		let proxy_type_enum: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type
 			.try_into()
@@ -230,13 +222,10 @@ where
 		Ok(succeed([]))
 	}
 
-	fn unregister_delegate(
-		futurepass: Address,
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
+	fn unregister_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(2, 32)?;
 		read_args!(handle, { delegate: Address });
-		let futurepass: H160 = futurepass.into();
+		let futurepass: H160 = handle.code_address();
 		let delegate: H160 = delegate.into();
 		let caller = handle.context().caller;
 
@@ -261,10 +250,7 @@ where
 		Ok(succeed([]))
 	}
 
-	fn proxy_call(
-		futurepass: Address,
-		handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
+	fn proxy_call(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, {
 			call_type: u8,
 			call_to: Address,
@@ -276,28 +262,24 @@ where
 			.map_err(|err| RevertReason::custom(alloc::format!("Futurepass: {}", err)))?;
 		let evm_subcall = EvmSubCall { to: call_to, call_data };
 
-		Self::do_proxy(handle, futurepass, call_type, evm_subcall, value)
+		Self::do_proxy(handle, handle.code_address(), call_type, evm_subcall, value)
 	}
 
-	fn receive(
-		_futurepass: Address,
-		_handle: &mut impl PrecompileHandle,
-	) -> EvmResult<PrecompileOutput> {
+	fn receive(_handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		// do nothing
 		Ok(succeed([]))
 	}
 
 	fn do_proxy(
 		handle: &mut impl PrecompileHandle,
-		futurepass: Address,
+		futurepass: H160,
 		call_type: CallType,
 		evm_subcall: EvmSubCall,
 		value: U256,
 	) -> EvmResult<PrecompileOutput> {
 		// Read proxy
-		let futurepass_account_id =
-			Runtime::AddressMapping::into_account_id(futurepass.clone().into());
-		let who = Runtime::AddressMapping::into_account_id(handle.context().caller);
+		let futurepass_account_id = futurepass.clone().into();
+		let who = handle.context().caller.into();
 		// find proxy
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		let def = pallet_proxy::Pallet::<Runtime>::find_proxy(&futurepass_account_id, &who, None)
@@ -322,14 +304,14 @@ where
 		// We also update the value for the sub call and for the transfer to match the "value" input
 		// parameter
 		let sub_context =
-			Context { caller: futurepass.0, address: address.clone(), apparent_value: value };
+			Context { caller: futurepass, address: address.clone(), apparent_value: value };
 
 		let transfer = if value.is_zero() {
 			None
 		} else {
 			// Transfer should happen from the futurepass and the value should be equal to the
 			// "value" input parameter.
-			Some(Transfer { source: futurepass.0, target: address.clone(), value })
+			Some(Transfer { source: futurepass, target: address.clone(), value })
 		};
 
 		let (reason, output) = match call_type {
