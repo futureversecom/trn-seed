@@ -19,6 +19,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
+		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
 		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, IsSubType, OnUnbalanced,
 		SignedImbalance, WithdrawReasons,
@@ -752,10 +753,25 @@ where
 
 pub struct FuturepassMigrationProvider;
 
-impl<T: pallet_nft::Config> pallet_futurepass::FuturepassMigrator<T> for FuturepassMigrationProvider
+impl<T: pallet_nft::Config + pallet_assets_ext::Config> pallet_futurepass::FuturepassMigrator<T>
+	for FuturepassMigrationProvider
 where
-	<T as frame_system::Config>::AccountId: From<H160>,
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
+	fn transfer_asset(
+		asset_id: AssetId,
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult {
+		let amount = <pallet_assets_ext::Pallet<T> as fungibles::Inspect<
+			<T as frame_system::Config>::AccountId,
+		>>::reducible_balance(asset_id, current_owner, false);
+		<pallet_assets_ext::Pallet<T> as fungibles::Transfer<
+			<T as frame_system::Config>::AccountId,
+		>>::transfer(asset_id, current_owner, new_owner, amount, false)?;
+		Ok(())
+	}
+
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,

@@ -12,7 +12,10 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_err, assert_noop, assert_ok, traits::tokens::fungibles::Transfer};
+use frame_support::{
+	assert_err, assert_noop, assert_ok,
+	traits::tokens::fungibles::{Mutate, Transfer},
+};
 use hex_literal::hex;
 use seed_primitives::{AccountId, AssetId, Balance};
 use seed_runtime::{impls::ProxyType, Inspect};
@@ -1211,6 +1214,82 @@ fn futurepass_admin_migrator_set_by_sudo() {
 }
 
 #[test]
+fn futurepass_migration_multiple_assets() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+	let futurepass_admin_migrator = create_account(1337);
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			MigrationAdmin::<Test>::put(futurepass_admin_migrator);
+
+			// create EOA and respective futurepass
+			let (eoa, evm_futurepass) = (create_account(420), create_account(421));
+
+			// setup assets with eoa as owner, mint assets to eoa EVM futurepass account
+			assert_ok!(AssetsExt::mint_into(MOCK_NATIVE_ASSET_ID, &evm_futurepass, 1000));
+			assert_ok!(AssetsExt::mint_into(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, 500));
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, false),
+				1000
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
+				500
+			);
+
+			// fund migrator
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass_admin_migrator,
+				FP_CREATION_RESERVE,
+				false
+			));
+
+			// perform migration
+			assert_ok!(Futurepass::migrate_evm_futurepass(
+				Origin::signed(futurepass_admin_migrator),
+				eoa,
+				evm_futurepass,
+				vec![MOCK_NATIVE_ASSET_ID, MOCK_PAYMENT_ASSET_ID],
+				vec![],
+			));
+			let futurepass = Holders::<Test>::get(&eoa).unwrap();
+			System::assert_has_event(
+				Event::<Test>::FuturepassAssetsMigrated {
+					evm_futurepass,
+					futurepass,
+					assets: vec![MOCK_NATIVE_ASSET_ID, MOCK_PAYMENT_ASSET_ID],
+					collections: vec![],
+				}
+				.into(),
+			);
+
+			// assert evm futurepass has assets
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, false),
+				0
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
+				0
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				1000
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &futurepass, false),
+				500
+			);
+		});
+}
+
+#[test]
 fn futurepass_migration_single_collection() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
@@ -1249,6 +1328,7 @@ fn futurepass_migration_single_collection() {
 				Origin::signed(futurepass_admin_migrator),
 				eoa,
 				evm_futurepass,
+				vec![],
 				vec![collection_id],
 			));
 			let futurepass = Holders::<Test>::get(&eoa).unwrap();
@@ -1256,7 +1336,8 @@ fn futurepass_migration_single_collection() {
 				Event::<Test>::FuturepassAssetsMigrated {
 					evm_futurepass,
 					futurepass,
-					collection_id,
+					assets: vec![],
+					collections: vec![collection_id],
 				}
 				.into(),
 			);
@@ -1306,6 +1387,7 @@ fn futurepass_migration_multiple_collections() {
 				Origin::signed(futurepass_admin_migrator),
 				eoa,
 				evm_futurepass,
+				vec![],
 				vec![collection_id_1, collection_id_2],
 			));
 			let futurepass = Holders::<Test>::get(&eoa).unwrap();
@@ -1313,7 +1395,8 @@ fn futurepass_migration_multiple_collections() {
 				Event::<Test>::FuturepassAssetsMigrated {
 					evm_futurepass,
 					futurepass,
-					collection_id: collection_id_1,
+					assets: vec![],
+					collections: vec![collection_id_1, collection_id_2],
 				}
 				.into(),
 			);
@@ -1364,13 +1447,15 @@ fn futurepass_migration_existing_futurepass_account() {
 				Origin::signed(futurepass_admin_migrator),
 				eoa,
 				evm_futurepass,
+				vec![],
 				vec![collection_id],
 			));
 			System::assert_has_event(
 				Event::<Test>::FuturepassAssetsMigrated {
 					evm_futurepass,
 					futurepass,
-					collection_id,
+					assets: vec![],
+					collections: vec![collection_id],
 				}
 				.into(),
 			);
