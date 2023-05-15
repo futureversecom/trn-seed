@@ -1278,8 +1278,14 @@ fn futurepass_migration_multiple_assets() {
 				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
 				0
 			);
-			assert_eq!(AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false), 1000);
-			assert_eq!(AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &futurepass, false), 500);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				1000
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &futurepass, false),
+				500
+			);
 		});
 }
 
