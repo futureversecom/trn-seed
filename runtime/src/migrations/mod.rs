@@ -30,7 +30,7 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		nft::Upgrade::pre_upgrade()?;
+		//nft::Upgrade::pre_upgrade()?;
 		xrpl_bridge::Upgrade::pre_upgrade()?;
 		dex::Upgrade::pre_upgrade()?;
 
@@ -39,7 +39,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
-		weight += nft::Upgrade::on_runtime_upgrade();
+		//weight += nft::Upgrade::on_runtime_upgrade();
 		weight += xrpl_bridge::Upgrade::on_runtime_upgrade();
 		weight += dex::Upgrade::on_runtime_upgrade();
 
@@ -48,7 +48,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
-		nft::Upgrade::post_upgrade()?;
+		//nft::Upgrade::post_upgrade()?;
 		xrpl_bridge::Upgrade::post_upgrade()?;
 		dex::Upgrade::post_upgrade()?;
 

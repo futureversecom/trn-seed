@@ -24,21 +24,15 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use frame_support::{
-	ensure,
-	traits::{tokens::fungibles::Mutate, Get},
-	transactional, PalletId,
-};
-use seed_pallet_common::{
-	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
-};
+use frame_support::{ensure, traits::Get, transactional, PalletId};
+use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
 use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, ListingId, MetadataScheme, OriginChain,
-	ParachainId, RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
+	CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule, SerialNumber,
+	TokenCount, TokenId, TokenLockReason,
 };
 use sp_runtime::{
-	traits::{AccountIdConversion, One, Saturating, Zero},
-	DispatchResult, PerThing, Permill,
+	traits::{AccountIdConversion, One, Zero},
+	DispatchResult,
 };
 use sp_std::prelude::*;
 
@@ -71,7 +65,7 @@ pub(crate) const LOG_TARGET: &str = "nft";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
@@ -104,9 +98,6 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Default auction / sale length in blocks
-		#[pallet::constant]
-		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Max tokens that a collection can contain

@@ -1,11 +1,22 @@
-use crate::{Config, Error};
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
-use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
+//! Marketplace pallet types
+
+use crate::Config;
+
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use seed_primitives::{
-	AssetId, Balance, BlockNumber, CollectionUuid, ListingId, MetadataScheme, OriginChain,
-	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId, TokenLockReason,
+	AssetId, Balance, BlockNumber, CollectionUuid, RoyaltiesSchedule, SerialNumber, TokenId,
 };
 use sp_runtime::{BoundedVec, Permill};
 use sp_std::prelude::*;
@@ -24,7 +35,7 @@ pub type OfferId = u64;
 pub type MarketplaceId = u32;
 
 /// Holds information relating to NFT offers
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct SimpleOffer<AccountId> {
 	pub token_id: TokenId,
 	pub asset_id: AssetId,
@@ -33,7 +44,8 @@ pub struct SimpleOffer<AccountId> {
 	pub marketplace_id: Option<MarketplaceId>,
 }
 
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, TypeInfo, MaxEncodedLen)]
+#[codec(mel_bound(AccountId: MaxEncodedLen))]
 pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
 }
@@ -59,7 +71,7 @@ pub enum FixedPriceClosureReason {
 }
 
 /// Information about a marketplace
-#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct Marketplace<AccountId> {
 	/// The marketplace account
 	pub account: AccountId,
@@ -68,7 +80,7 @@ pub struct Marketplace<AccountId> {
 }
 
 /// A type of NFT sale listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub enum Listing<T: Config> {
 	FixedPrice(FixedPriceListing<T>),
@@ -76,7 +88,7 @@ pub enum Listing<T: Config> {
 }
 
 /// Information about an auction listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
@@ -98,7 +110,7 @@ pub struct AuctionListing<T: Config> {
 }
 
 /// Information about a fixed price listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct FixedPriceListing<T: Config> {
 	/// The asset to allow bids with

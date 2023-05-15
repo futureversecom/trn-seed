@@ -11,7 +11,6 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
 use core::fmt::Write;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, traits::Get, weights::Weight, BoundedVec, PalletId};

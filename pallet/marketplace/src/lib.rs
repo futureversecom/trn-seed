@@ -20,10 +20,12 @@
 
 use frame_support::{
 	dispatch::Dispatchable,
-	transactional,
+	traits::fungibles::{Mutate, Transfer},
 	weights::{GetDispatchInfo, PostDispatchInfo},
+	PalletId,
 };
 use pallet_nft::{traits::NFTExt, weights::WeightInfo as NftWeightInfo};
+use seed_pallet_common::{CreateExt, Hold, TransferExt};
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
 };
@@ -38,7 +40,7 @@ mod types;
 use types::*;
 
 pub use pallet::*;
-
+use sp_std::vec::Vec;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
@@ -79,6 +81,9 @@ pub mod pallet {
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo;
+		/// Default auction / sale length in blocks
+		#[pallet::constant]
+		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Handles a multi-currency fungible asset system

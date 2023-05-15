@@ -10,15 +10,13 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{traits::NFTExt, *};
-use frame_support::{ensure, traits::Get, transactional, weights::Weight};
+use frame_support::{ensure, traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::{
-	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
-};
+use seed_pallet_common::{log, utils::next_asset_uuid, OnNewAssetSubscriber, OnTransferSubscriber};
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId,
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 

@@ -15,9 +15,9 @@ use seed_primitives::{
 	TokenId, TokenLockReason,
 };
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
-use sp_std::fmt::Debug;
+use sp_std::{fmt::Debug, vec::Vec};
 
-use crate::{CollectionInformation, Config};
+use crate::CollectionInformation;
 
 pub trait NFTExt {
 	type AccountId: Debug + PartialEq + Clone;

@@ -10,23 +10,15 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::*;
-use frame_support::{
-	ensure,
-	traits::{tokens::fungibles::Mutate, Get},
-	transactional, PalletId,
-};
+use frame_support::{ensure, traits::Get, transactional};
 use pallet_nft::traits::NFTExt;
-use seed_pallet_common::{
-	log, CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
-};
-use seed_primitives::{
-	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId,
-	RoyaltiesSchedule, SerialNumber, TokenCount, TokenId,
-};
+use seed_pallet_common::{log, Hold, TransferExt};
+use seed_primitives::{AssetId, Balance, CollectionUuid, RoyaltiesSchedule, SerialNumber, TokenId};
 use sp_runtime::{
-	traits::{AccountIdConversion, One, Saturating, Zero},
+	traits::{One, Saturating, Zero},
 	BoundedVec, DispatchError, DispatchResult, PerThing, Permill,
 };
+use sp_std::{vec, vec::Vec};
 use types::*;
 
 impl<T: Config> Pallet<T> {
@@ -276,7 +268,7 @@ impl<T: Config> Pallet<T> {
 				Listings::<T>::remove(listing_id);
 				ListingEndSchedule::<T>::remove(sale.close, listing_id);
 				for serial_number in sale.serial_numbers.iter() {
-					T::NFTExt::set_token_lock((sale.collection_id, serial_number), None)?;
+					T::NFTExt::set_token_lock((sale.collection_id, *serial_number), None)?;
 				}
 				<OpenCollectionListings<T>>::remove(sale.collection_id, listing_id);
 
@@ -293,7 +285,7 @@ impl<T: Config> Pallet<T> {
 				Listings::<T>::remove(listing_id);
 				ListingEndSchedule::<T>::remove(auction.close, listing_id);
 				for serial_number in auction.serial_numbers.iter() {
-					T::NFTExt::set_token_lock((auction.collection_id, serial_number), None)?;
+					T::NFTExt::set_token_lock((auction.collection_id, *serial_number), None)?;
 				}
 				<OpenCollectionListings<T>>::remove(auction.collection_id, listing_id);
 
@@ -321,7 +313,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 		// ensure the token_id is not currently in an auction
-		if let Some(TokenLockReason::Listed(listing_id)) = Self::token_locks(token_id) {
+		if let Some(TokenLockReason::Listed(listing_id)) = T::NFTExt::get_token_lock(token_id) {
 			match Listings::<T>::get(listing_id) {
 				Some(Listing::<T>::Auction(_)) => return Err(Error::<T>::TokenOnAuction.into()),
 				None | Some(Listing::<T>::FixedPrice(_)) => (),
@@ -353,7 +345,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn do_cancel_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {
-		let OfferType::Simple(offer) = Self::offers(offer_id) else {
+		let Some(OfferType::Simple(offer)) = Self::offers(offer_id) else {
 			return Err(Error::<T>::InvalidOffer.into());
 		};
 		ensure!(offer.buyer == who, Error::<T>::NotBuyer);
@@ -364,7 +356,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn do_accept_offer(who: T::AccountId, offer_id: OfferId) -> DispatchResult {
-		let OfferType::Simple(offer) = Self::offers(offer_id) else {
+		let Some(OfferType::Simple(offer)) = Self::offers(offer_id) else {
 			return Err(Error::<T>::InvalidOffer.into());
 		};
 
@@ -380,9 +372,8 @@ impl<T: Config> Pallet<T> {
 
 		let royalties_schedule =
 			Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
-		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
-			BoundedVec::try_from(vec![serial_number])
-				.map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerListing> =
+			BoundedVec::truncate_from(vec![serial_number]);
 
 		Self::process_payment_and_transfer(
 			&offer.buyer,
@@ -466,7 +457,7 @@ impl<T: Config> Pallet<T> {
 
 		OpenCollectionListings::<T>::remove(collection_id, listing_id);
 		for serial_number in serial_numbers.iter() {
-			T::NFTExt::set_token_lock((collection_id, *serial_number), None)?;
+			let _ = T::NFTExt::set_token_lock((collection_id, *serial_number), None);
 		}
 		<Listings<T>>::remove(listing_id);
 	}
@@ -564,7 +555,7 @@ impl<T: Config> Pallet<T> {
 		// Check whether token is locked and that owner owns each token
 		for serial_number in serial_numbers.iter() {
 			ensure!(
-				NFTExt::get_token_lock((collection_id, serial_number)).is_none(),
+				T::NFTExt::get_token_lock((collection_id, *serial_number)).is_none(),
 				Error::<T>::TokenLocked
 			);
 			ensure!(
@@ -628,7 +619,10 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::MarketplaceNotRegistered
 		);
 		if let Some(marketplace) = Self::registered_marketplaces(marketplace_id) {
-			royalties.entitlements.push((marketplace.account, marketplace.entitlement));
+			royalties
+				.entitlements
+				.try_push((marketplace.account, marketplace.entitlement))
+				.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
 		}
 		ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
 		Ok(royalties)

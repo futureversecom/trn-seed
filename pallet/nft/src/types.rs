@@ -11,15 +11,10 @@
 
 //! NFT module types
 
-use crate::Config;
-
 use codec::{Decode, Encode};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
-use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId,
-};
+use seed_primitives::{MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount};
 use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 

@@ -31,10 +31,6 @@ impl<T: Config> Pallet<T> {
 		ensure!(!collection_name.is_empty(), Error::<T>::NameInvalid);
 		ensure!(core::str::from_utf8(&collection_name).is_ok(), Error::<T>::NameInvalid);
 
-		// Validate MetadataScheme
-		let metadata_scheme =
-			metadata_scheme.sanitize().map_err(|_| Error::<T>::InvalidMetadataPath)?;
-
 		// Validate RoyaltiesSchedule
 		if let Some(royalties_schedule) = royalties_schedule.clone() {
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
