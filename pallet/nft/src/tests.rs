@@ -2766,6 +2766,40 @@ fn accept_offer_not_token_owner_should_fail() {
 }
 
 #[test]
+fn transfer_to_signer_address() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+		let collection_id = Nft::next_collection_uuid().unwrap();
+		let token_owner = create_account(2);
+		let initial_quantity: u32 = 3;
+
+		// Mint 1 token
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			b"test-collection".to_vec(),
+			initial_quantity,
+			None,
+			Some(token_owner),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
+			None,
+			CrossChainCompatibility::default(),
+		));
+
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
+
+		// Transfer 2 tokens
+		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+			BoundedVec::try_from(vec![0, 1]).unwrap();
+		assert_noop!(
+			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner),
+			Error::<Test>::InvalidNewOwner
+		);
+
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
+	});
+}
+
+#[test]
 fn transfer_changes_token_balance() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(1);

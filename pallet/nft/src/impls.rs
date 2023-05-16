@@ -122,6 +122,8 @@ impl<T: Config> Pallet<T> {
 		current_owner: &T::AccountId,
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
+		ensure!(current_owner != new_owner, Error::<T>::InvalidNewOwner);
+
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
@@ -138,10 +140,10 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 
+			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
 			collection_info
 				.add_user_tokens(new_owner, serial_numbers.clone())
 				.map_err(|e| Error::<T>::from(e))?;
-			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
 
 			for serial_number in serial_numbers.clone().iter() {
 				T::OnTransferSubscription::on_nft_transfer(&(collection_id, *serial_number));
