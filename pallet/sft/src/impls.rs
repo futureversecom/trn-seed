@@ -1,17 +1,13 @@
-/* Copyright 2019-2021 Centrality Investments Limited
- *
- * Licensed under the LGPL, Version 3.0 (the "License");
- * you may not use this file except in compliance with the License.
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * You may obtain a copy of the License at the root of this project source code,
- * or at:
- *     https://centrality.ai/licenses/gplv3.txt
- *     https://centrality.ai/licenses/lgplv3.txt
- */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 use crate::*;
 use frame_support::ensure;
@@ -142,7 +138,7 @@ impl<T: Config> Pallet<T> {
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 		// Caller must be collection_owner
-		ensure!(sft_collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(sft_collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 		let owner = token_owner.unwrap_or(who);
 
@@ -259,7 +255,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let mut collection =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-		ensure!(collection.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(collection.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 		collection.collection_owner = new_owner.clone();
 		SftCollectionInfo::<T>::insert(collection_id, collection);
@@ -281,7 +277,7 @@ impl<T: Config> Pallet<T> {
 		let collection_info =
 			SftCollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 		// Caller must be collection_owner
-		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 		// Max issuance can only be set once
@@ -307,7 +303,7 @@ impl<T: Config> Pallet<T> {
 		let mut collection_info =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		// Caller must be collection_owner
-		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 		collection_info.metadata_scheme = metadata_scheme.clone();
 		SftCollectionInfo::<T>::insert(collection_id, collection_info);

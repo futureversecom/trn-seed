@@ -13,7 +13,7 @@
 
 use crate::Config;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{
@@ -37,7 +37,7 @@ pub type MarketplaceId = u32;
 pub type ListingId = u128;
 
 /// Holds information relating to NFT offers
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct SimpleOffer<AccountId> {
 	pub token_id: TokenId,
 	pub asset_id: AssetId,
@@ -46,18 +46,20 @@ pub struct SimpleOffer<AccountId> {
 	pub marketplace_id: Option<MarketplaceId>,
 }
 
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
 }
 
-#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum TokenOwnershipError {
 	TokenLimitExceeded,
 }
 
 /// Struct that represents the owned serial numbers within a collection of an individual account
-#[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo)]
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo, MaxEncodedLen,
+)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
 pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
@@ -102,7 +104,7 @@ where
 /// Determines compatibility with external chains.
 /// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
 /// token on The Root Network
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
 pub struct CrossChainCompatibility {
 	/// This collection is compatible with the XLS-20 standard on XRPL
 	pub xrpl: bool,
@@ -115,7 +117,9 @@ impl Default for CrossChainCompatibility {
 }
 
 /// Information related to a specific collection
-#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection, StringLimit))]
 pub struct CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
@@ -239,14 +243,14 @@ where
 }
 
 /// Reason for an NFT being locked (un-transferrable)
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum TokenLockReason {
 	/// Token is listed for sale
 	Listed(ListingId),
 }
 
 /// Reasons for an auction closure
-#[derive(Decode, Encode, Debug, Clone, PartialEq, Eq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum AuctionClosureReason {
 	/// Auction expired with no bids
 	ExpiredNoBids,
@@ -257,7 +261,7 @@ pub enum AuctionClosureReason {
 }
 
 /// Reason for a fixed price closure
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum FixedPriceClosureReason {
 	/// Listing was cancelled by the vendor
 	VendorCancelled,
@@ -266,7 +270,7 @@ pub enum FixedPriceClosureReason {
 }
 
 /// Information about a marketplace
-#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct Marketplace<AccountId> {
 	/// The marketplace account
 	pub account: AccountId,
@@ -275,7 +279,7 @@ pub struct Marketplace<AccountId> {
 }
 
 /// A type of NFT sale listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub enum Listing<T: Config> {
 	FixedPrice(FixedPriceListing<T>),
@@ -283,7 +287,7 @@ pub enum Listing<T: Config> {
 }
 
 /// Information about an auction listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
@@ -305,7 +309,7 @@ pub struct AuctionListing<T: Config> {
 }
 
 /// Information about a fixed price listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct FixedPriceListing<T: Config> {
 	/// The asset to allow bids with

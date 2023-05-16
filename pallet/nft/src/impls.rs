@@ -109,7 +109,10 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::MarketplaceNotRegistered
 		);
 		if let Some(marketplace) = Self::registered_marketplaces(marketplace_id) {
-			royalties.entitlements.push((marketplace.account, marketplace.entitlement));
+			royalties
+				.entitlements
+				.try_push((marketplace.account, marketplace.entitlement))
+				.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
 		}
 		ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
 		Ok(royalties)

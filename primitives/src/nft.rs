@@ -10,7 +10,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::*;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Write;
 use scale_info::TypeInfo;
 use sp_runtime::{traits::ConstU32, BoundedVec, PerThing, Permill};
@@ -18,10 +18,10 @@ use sp_std::prelude::*;
 
 /// The max. number of entitlements any royalties schedule can have
 /// just a sensible upper bound
-pub const MAX_ENTITLEMENTS: usize = 8;
+pub const MAX_ENTITLEMENTS: u32 = 8;
 
 /// Describes the chain that the bridged resource originated from
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum OriginChain {
 	Ethereum,
 	Root,
@@ -35,7 +35,7 @@ const METADATA_SCHEME_LIMIT: u32 = 200;
 /// Denotes the metadata URI referencing scheme used by a collection
 /// MetadataScheme guarantees the data length not exceed the given limit, and the content won't be
 /// checked and needs to be taken care by callers
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct MetadataScheme(BoundedVec<u8, ConstU32<METADATA_SCHEME_LIMIT>>);
 
 impl MetadataScheme {
@@ -61,10 +61,10 @@ impl TryFrom<&[u8]> for MetadataScheme {
 }
 
 /// Describes the royalty scheme for secondary sales for an NFT collection/token
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct RoyaltiesSchedule<AccountId> {
 	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
-	pub entitlements: Vec<(AccountId, Permill)>,
+	pub entitlements: BoundedVec<(AccountId, Permill), ConstU32<MAX_ENTITLEMENTS>>,
 }
 
 impl<AccountId> RoyaltiesSchedule<AccountId> {
@@ -73,7 +73,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 	/// - < MAX_ENTITLEMENTS
 	pub fn validate(&self) -> bool {
 		!self.entitlements.is_empty() &&
-			self.entitlements.len() <= MAX_ENTITLEMENTS &&
+			self.entitlements.len() <= MAX_ENTITLEMENTS as usize &&
 			self.entitlements
 				.iter()
 				.map(|(_who, share)| share.deconstruct() as u32)
@@ -94,7 +94,7 @@ impl<AccountId> RoyaltiesSchedule<AccountId> {
 
 impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
 	fn default() -> Self {
-		Self { entitlements: vec![] }
+		Self { entitlements: BoundedVec::default() }
 	}
 }
 
@@ -102,21 +102,25 @@ impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
 mod test {
 	use super::{MetadataScheme, RoyaltiesSchedule};
 	use sp_core::H160;
-	use sp_runtime::Permill;
+	use sp_runtime::{BoundedVec, Permill};
 
 	#[test]
 	fn valid_royalties_plan() {
-		assert!(RoyaltiesSchedule::<u32> { entitlements: vec![(1_u32, Permill::from_float(0.1))] }
-			.validate());
+		assert!(RoyaltiesSchedule::<u32> {
+			entitlements: BoundedVec::truncate_from(vec![(1_u32, Permill::from_float(0.1))])
+		}
+		.validate());
 
 		// explicitally specifying zero royalties is odd but fine
-		assert!(RoyaltiesSchedule::<u32> { entitlements: vec![(1_u32, Permill::from_float(0.0))] }
-			.validate());
+		assert!(RoyaltiesSchedule::<u32> {
+			entitlements: BoundedVec::truncate_from(vec![(1_u32, Permill::from_float(0.0))])
+		}
+		.validate());
 
 		let plan = RoyaltiesSchedule::<u32> {
-			entitlements: vec![
+			entitlements: BoundedVec::truncate_from(vec![
 				(1_u32, Permill::from_float(1.01)), // saturates at 100%
-			],
+			]),
 		};
 		assert_eq!(plan.entitlements[0].1, Permill::one());
 		assert!(plan.validate());
@@ -126,10 +130,10 @@ mod test {
 	fn invalid_royalties_plan() {
 		// overcommits > 100% to royalties
 		assert!(!RoyaltiesSchedule::<u32> {
-			entitlements: vec![
+			entitlements: BoundedVec::truncate_from(vec![
 				(1_u32, Permill::from_float(0.2)),
 				(2_u32, Permill::from_float(0.81)),
-			],
+			]),
 		}
 		.validate());
 	}

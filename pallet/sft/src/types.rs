@@ -1,23 +1,19 @@
-/* Copyright 2019-2021 Centrality Investments Limited
- *
- * Licensed under the LGPL, Version 3.0 (the "License");
- * you may not use this file except in compliance with the License.
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- * You may obtain a copy of the License at the root of this project source code,
- * or at:
- *     https://centrality.ai/licenses/gplv3.txt
- *     https://centrality.ai/licenses/lgplv3.txt
- */
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
 
 //! SFT module types
 
 use crate::{Config, Error};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{Balance, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber};
@@ -25,7 +21,9 @@ use sp_runtime::BoundedVec;
 use sp_std::{fmt::Debug, prelude::*};
 
 /// Information related to a specific collection
-#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(StringLimit))]
 pub struct SftCollectionInformation<AccountId, StringLimit>
@@ -47,24 +45,9 @@ where
 	pub next_serial_number: SerialNumber,
 }
 
-pub trait TokenInformation<AccountId> {
-	/// Check whether who is the collection owner
-	fn is_collection_owner(&self, who: &AccountId) -> bool;
-}
-
-impl<AccountId, StringLimit> TokenInformation<AccountId>
-	for SftCollectionInformation<AccountId, StringLimit>
-where
-	AccountId: Debug + PartialEq + Clone,
-	StringLimit: Get<u32>,
-{
-	/// Check whether who is the collection owner
-	fn is_collection_owner(&self, who: &AccountId) -> bool {
-		&self.collection_owner == who
-	}
-}
-
-#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
+#[derive(
+	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
+)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(StringLimit, MaxOwnersPerSftToken))]
 pub struct SftTokenInformation<AccountId, StringLimit, MaxOwnersPerSftToken>
@@ -155,7 +138,7 @@ where
 
 /// Holds information about a users balance of a specific token
 /// An amount of SFT balance can be reserved when listed for sale
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct SftTokenBalance {
 	// The balance currently available
 	pub free_balance: Balance,
