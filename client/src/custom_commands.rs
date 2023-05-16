@@ -7,7 +7,7 @@ use seed_primitives::ethy::EthyChainId;
 #[derive(Debug, clap::Subcommand)]
 pub enum VerifyProofSigSubCommand {
 	/// verify proof signatures for XRPL
-	Xrpl(XrplVefiryCommand),
+	Xrpl(XrplVerifyCommand),
 }
 
 impl VerifyProofSigSubCommand {
@@ -19,7 +19,7 @@ impl VerifyProofSigSubCommand {
 }
 
 #[derive(Debug, Clone, Parser)]
-pub struct XrplVefiryCommand {
+pub struct XrplVerifyCommand {
 	#[clap(long)]
 	pub signature: String,
 	#[clap(long)]
@@ -28,7 +28,7 @@ pub struct XrplVefiryCommand {
 	pub message: String,
 }
 
-impl XrplVefiryCommand {
+impl XrplVerifyCommand {
 	pub fn run(&self) -> Result<(), Error> {
 		let data = hex::decode(&self.message).expect("Hex decoding failed");
 		let signature = hex::decode(&self.signature).expect("Hex decoding failed");
