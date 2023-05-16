@@ -12,7 +12,7 @@
 mod dex;
 mod nft;
 
-use crate::{Futurepass, Marketplace};
+use crate::{Futurepass, Marketplace, Sft};
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -31,6 +31,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
 		dex::Upgrade::pre_upgrade()?;
+		nft::Upgrade::pre_upgrade()?;
 
 		Ok(())
 	}
@@ -38,10 +39,12 @@ impl OnRuntimeUpgrade for AllMigrations {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
 		weight += dex::Upgrade::on_runtime_upgrade();
+		weight += nft::Upgrade::on_runtime_upgrade();
 
 		// Set Marketplace and Futurepass storage version to 0
 		StorageVersion::new(0).put::<Marketplace>();
 		StorageVersion::new(0).put::<Futurepass>();
+		StorageVersion::new(0).put::<Sft>();
 
 		weight
 	}
@@ -49,6 +52,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
 		dex::Upgrade::post_upgrade()?;
+		nft::Upgrade::post_upgrade()?;
 
 		Ok(())
 	}
