@@ -10,6 +10,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 mod dex;
+mod nft;
 
 use crate::{Futurepass, Marketplace};
 use codec::{Decode, Encode, FullCodec, FullEncode};
