@@ -7,9 +7,9 @@ use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	ensure,
 };
-use pallet_evm::{ExitReason, PrecompileFailure, PrecompileSet};
+use pallet_evm::{ExitReason, PrecompileFailure, PrecompileSet, Runner};
 use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use sp_core::{H160, U256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	codec::Decode,
 	traits::{ConstU32, Zero},
@@ -21,6 +21,10 @@ pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateRegistered(address,address,uint8)"); // futurepass, delegate, proxyType
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateUnregistered(address,address)"); // futurepass, delegate
+pub const SELECTOR_LOG_FUTUREPASS_EXECUTED: [u8; 32] =
+	keccak256!("Executed(uint8,address,uint256,bytes4)"); // operation, contractAddress, value, functionData
+pub const SELECTOR_LOG_FUTUREPASS_CONTRACT_CREATED: [u8; 32] =
+	keccak256!("ContractCreated(uint8,address,uint256,bytes32)"); // operation, contractAddress, value, salt
 
 /// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
@@ -46,6 +50,18 @@ impl TryFrom<u8> for CallType {
 			3 => Ok(CallType::Create),
 			4 => Ok(CallType::Create2),
 			_ => Err("Invalid value for CallType"),
+		}
+	}
+}
+
+impl From<CallType> for u8 {
+	fn from(value: CallType) -> Self {
+		match value {
+			CallType::StaticCall => 0,
+			CallType::Call => 1,
+			CallType::DelegateCall => 2,
+			CallType::Create => 3,
+			CallType::Create2 => 4,
 		}
 	}
 }
@@ -323,16 +339,61 @@ where
 				true,
 				&sub_context,
 			),
-			CallType::Call => handle.call(
-				address,
-				transfer,
-				call_data.into_vec(),
-				Some(handle.remaining_gas()),
-				false,
-				&sub_context,
-			),
-			CallType::DelegateCall | CallType::Create | CallType::Create2 =>
-				Err(RevertReason::custom("Futurepass: call type not supported"))?,
+			CallType::Call => {
+				let call_data = call_data.into_vec();
+				let (reason, output) = handle.call(
+					address,
+					transfer,
+					call_data.clone(),
+					Some(handle.remaining_gas()),
+					false,
+					&sub_context,
+				);
+
+				// emit Executed(CALL, target, value, bytes4(data));
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_EXECUTED,
+					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
+					address,
+					H256::from_slice(&Into::<[u8; 32]>::into(value)),
+					EvmDataWriter::new().write(call_data).build(),
+				)
+				.record(handle)?;
+
+				(reason, output)
+			},
+			CallType::Create => {
+				let execution_info = <Runtime as pallet_evm::Config>::Runner::create(
+					futurepass.into(),
+					call_data.into_vec(),
+					value,
+					handle.remaining_gas(),
+					None,
+					None,
+					None, // may need storage item for this if not handled by EVM
+					alloc::vec![],
+					false,
+					false,
+					<Runtime as pallet_evm::Config>::config(),
+				)
+				.map_err(|_| RevertReason::custom("create failed"))?;
+
+				// emit ContractCreated(CREATE, contractAddress, value, bytes32(0));
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_CONTRACT_CREATED,
+					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
+					execution_info.value,
+					H256::from_slice(&Into::<[u8; 32]>::into(value)),
+					EvmDataWriter::new().write(U256::zero()).build(),
+				)
+				.record(handle)?;
+
+				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
+			},
+			CallType::DelegateCall | CallType::Create2 =>
+				Err(RevertReason::custom("call type not supported"))?,
 		};
 
 		// Return subcall result
@@ -341,7 +402,7 @@ where
 			ExitReason::Revert(exit_status) =>
 				Err(PrecompileFailure::Revert { exit_status, output }),
 			ExitReason::Error(exit_status) => Err(PrecompileFailure::Error { exit_status }),
-			ExitReason::Succeed(_) => Ok(succeed([])),
+			ExitReason::Succeed(_) => Ok(succeed(output)),
 		}
 	}
 
