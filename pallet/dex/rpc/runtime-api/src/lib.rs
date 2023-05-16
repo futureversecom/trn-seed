@@ -22,6 +22,7 @@ sp_api::decl_runtime_apis! {
 	/// The RPC API to interact with DEX module
 	pub trait DexApi<T> where
 		T: Config,
+		<T as frame_system::Config>::AccountId: From<sp_core::H160>
 	{
 		/// Returns amount of output token that can be obtained by swapping an amount of input token
 		fn quote(

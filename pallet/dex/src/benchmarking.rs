@@ -28,7 +28,10 @@ where
 	bench_account(name, 0, 0)
 }
 
-pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
+pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId>
+where
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+{
 	RawOrigin::Signed(acc.clone())
 }
 

@@ -85,6 +85,9 @@ wait_for_download() {
         fi
         sleep 1
     done
+    
+    # Give it time to breath before continuing
+    sleep 5
 }
 
 get_snapshot_and_chain_spec() {

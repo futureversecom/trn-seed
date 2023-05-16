@@ -23,7 +23,7 @@ use frame_support::{
 	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use pallet_nft::{weights::WeightInfo as NftWeightInfo, ListingId, MarketplaceId, OfferId};
-use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
+use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{DispatchResult, Permill};
 
 #[cfg(test)]
@@ -39,14 +39,15 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config<AccountId = AccountId> + pallet_nft::Config<AccountId = AccountId>
-	{
+	pub trait Config: frame_system::Config + pallet_nft::Config {
 		/// The overarching call type.
 		type Call: Parameter
 			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>

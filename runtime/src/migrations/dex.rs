@@ -81,7 +81,10 @@ pub mod v1 {
 		Ok(())
 	}
 
-	pub fn migrate<T: pallet_dex::Config>() -> Weight {
+	pub fn migrate<T: pallet_dex::Config>() -> Weight
+	where
+		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+	{
 		log::info!(target: "Migration", "Dex: Cleaning up dex related storages...");
 
 		// Kill Dex Storage

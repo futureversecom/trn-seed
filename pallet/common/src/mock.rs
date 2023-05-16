@@ -370,8 +370,9 @@ macro_rules! impl_pallet_futurepass_config {
 	($test:ident) => {
 		pub struct MockProxyProvider;
 
-		impl<T: pallet_futurepass::Config> pallet_futurepass::ProxyProvider<T>
-			for MockProxyProvider
+		impl<T: pallet_futurepass::Config> pallet_futurepass::ProxyProvider<T> for MockProxyProvider
+		where
+			<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 		{
 			fn exists(
 				futurepass: &T::AccountId,
@@ -488,7 +489,16 @@ macro_rules! impl_pallet_futurepass_config {
 		pub struct MockMigrationProvider;
 		impl<T: frame_system::Config> pallet_futurepass::FuturepassMigrator<T>
 			for MockMigrationProvider
+		where
+			<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 		{
+			fn transfer_asset(
+				asset_id: u32,
+				current_owner: &T::AccountId,
+				new_owner: &T::AccountId,
+			) -> DispatchResult {
+				Ok(())
+			}
 			fn transfer_nfts(
 				collection_id: u32,
 				current_owner: &T::AccountId,
