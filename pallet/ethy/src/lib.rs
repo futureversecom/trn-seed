@@ -159,7 +159,44 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-
+		/// Verifying an event succeeded
+		Verified(EventClaimId),
+		/// Verifying an event failed
+		Invalid(EventClaimId),
+		/// A notary (validator) set change is in motion (event_id, new_validator_set_id)
+		/// A proof for the change will be generated with the given `event_id`
+		AuthoritySetChange(EventProofId, u64),
+		/// A notary (validator) set change for Xrpl is in motion (event_id, new_validator_set_id)
+		/// A proof for the change will be generated with the given `event_id`
+		XrplAuthoritySetChange(EventProofId, u64),
+		/// Generating event proof delayed as bridge is paused
+		ProofDelayed(EventProofId),
+		/// Processing an event succeeded
+		ProcessingOk(EventClaimId),
+		/// Processing an event failed
+		ProcessingFailed(EventClaimId, EventRouterError),
+		/// An event has been challenged (claim_id, challenger)
+		Challenged(EventClaimId, T::AccountId),
+		/// The event is still awaiting consensus. Process block pushed out (claim_id, process_at)
+		ProcessAtExtended(EventClaimId, BlockNumber),
+		/// An event proof has been sent for signing by ethy-gadget
+		EventSend { event_proof_id: EventProofId, signing_request: EthySigningRequest },
+		/// An event has been submitted from Ethereum (event_claim_id, event_claim, process_at)
+		EventSubmit(EventClaimId, EventClaim, BlockNumber),
+		/// An account has deposited a relayer bond
+		RelayerBondDeposit(T::AccountId, Balance),
+		/// An account has withdrawn a relayer bond
+		RelayerBondWithdraw(T::AccountId, Balance),
+		/// A new relayer has been set
+		RelayerSet(Option<T::AccountId>),
+		/// Xrpl Door signers are set
+		XrplDoorSignersSet,
+		/// The schedule to unpause the bridge has failed (scheduled_block)
+		FinaliseScheduleFail(BlockNumber),
+		/// The bridge contract address has been set
+		SetContractAddress(EthAddress),
+		/// Xrpl authority set change request failed
+		XrplAuthoritySetChangeRequestFailed
 	}
 
 	#[pallet::hooks]
