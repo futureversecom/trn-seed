@@ -2773,7 +2773,7 @@ fn transfer_to_signer_address() {
 		let token_owner = create_account(2);
 		let initial_quantity: u32 = 3;
 
-		// Mint 1 token
+		// Mint 3 tokens
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
 			b"test-collection".to_vec(),
@@ -2787,7 +2787,7 @@ fn transfer_to_signer_address() {
 
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
 
-		// Transfer 2 tokens
+		// Transfer 2 tokens to signer address
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![0, 1]).unwrap();
 		assert_noop!(
@@ -2795,6 +2795,7 @@ fn transfer_to_signer_address() {
 			Error::<Test>::InvalidNewOwner
 		);
 
+		// Check storage remains the same
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
 	});
 }
