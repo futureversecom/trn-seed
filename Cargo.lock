@@ -7936,6 +7936,7 @@ dependencies = [
  "hex",
  "hex-literal 0.3.4",
  "jsonrpsee",
+ "libsecp256k1 0.6.0",
  "log",
  "pallet-dex-rpc",
  "pallet-nft-rpc",

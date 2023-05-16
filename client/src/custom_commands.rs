@@ -1,6 +1,7 @@
 use clap::Parser;
-use ethy_gadget::{get_digest, verify_secp256k1_signature};
+use ethy_gadget::data_to_digest;
 use hex::ToHex;
+use libsecp256k1::{Message, PublicKey, Signature};
 use sc_cli::{Error, SubstrateCli};
 use seed_primitives::ethy::EthyChainId;
 
@@ -32,24 +33,25 @@ impl XrplVerifyCommand {
 	pub fn run(&self) -> Result<(), Error> {
 		let data = hex::decode(&self.message).expect("Hex decoding failed");
 		let signature = hex::decode(&self.signature).expect("Hex decoding failed");
-		let pubkey = hex::decode(&self.public_key).expect("Hex decoding failed");
+		let pub_key = hex::decode(&self.public_key).expect("Hex decoding failed");
 
-		let digest = get_digest(
+		let digest = data_to_digest(
 			EthyChainId::Xrpl,
 			data.to_vec(),
-			pubkey.clone().try_into().expect("Incorrect Public key"),
+			pub_key.clone().try_into().expect("Incorrect Public key"),
 		)
 		.unwrap();
 		println!("\ndigest: {:?}", digest.clone().encode_hex::<String>());
 
 		// verify
-		let result = verify_secp256k1_signature(
-			signature,
-			pubkey.try_into().expect("Incorrect Signature"),
-			digest,
+		let result = libsecp256k1::verify(
+			&Message::parse(&digest),
+			&Signature::parse_der(&signature).unwrap(),
+			&PublicKey::parse_compressed(&pub_key.try_into().expect("Incorrect Public key"))
+				.unwrap(),
 		);
-		println!("result: {:?}", result);
 
+		println!("result: {:?}", result);
 		Ok(())
 	}
 }

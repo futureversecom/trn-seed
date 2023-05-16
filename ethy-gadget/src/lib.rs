@@ -27,14 +27,12 @@ use prometheus::Registry;
 
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
+use seed_primitives::ethy::EthyApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::Block;
-
-use libsecp256k1::{Message, PublicKey, Signature};
-use seed_primitives::ethy::{EthyApi, EthyChainId};
 
 mod error;
 mod gossip;
@@ -52,6 +50,7 @@ mod tests;
 
 pub use ethy_protocol_name::standard_name as protocol_standard_name;
 pub use keystore::EthyEcdsaToEthereum;
+pub use types::data_to_digest;
 
 pub(crate) mod ethy_protocol_name {
 	use sc_chain_spec::ChainSpec;
@@ -195,16 +194,4 @@ where
 	let worker = worker::EthyWorker::<_, _, _, _, _>::new(worker_params);
 
 	worker.run().await
-}
-
-pub fn get_digest(chain_id: EthyChainId, data: Vec<u8>, public_key: [u8; 33]) -> Option<[u8; 32]> {
-	types::data_to_digest(chain_id, data, public_key)
-}
-
-pub fn verify_secp256k1_signature(signature: Vec<u8>, pub_key: [u8; 33], digest: [u8; 32]) -> bool {
-	libsecp256k1::verify(
-		&Message::parse(&digest),
-		&Signature::parse_der(&signature).unwrap(),
-		&PublicKey::parse_compressed(&pub_key).unwrap(),
-	)
 }
