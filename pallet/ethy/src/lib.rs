@@ -199,6 +199,45 @@ pub mod pallet {
 		XrplAuthoritySetChangeRequestFailed
 	}
 
+	#[pallet::error]
+	pub enum Error<T> {
+		// Error returned when making signed transactions in off-chain worker
+		NoLocalSigningAccount,
+		// Error returned when making unsigned transactions with signed payloads in off-chain worker
+		OffchainUnsignedTxSignedPayload,
+		/// A notarization was invalid
+		InvalidNotarization,
+		// Error returned when fetching github info
+		HttpFetch,
+		/// Claim was invalid e.g. not properly ABI encoded
+		InvalidClaim,
+		/// offchain worker not configured properly
+		OcwConfig,
+		/// Event was already submitted and is pending
+		EventReplayPending,
+		/// Event was already submitted and is complete
+		EventReplayProcessed,
+		/// The bridge is paused pending validator set changes (once every era / 24 hours)
+		/// It will reactive after ~10 minutes
+		BridgePaused,
+		/// Some internal operation failed
+		Internal,
+		/// Caller does not have permission for that action
+		NoPermission,
+		/// There is no event claim associated with the supplied claim_id
+		NoClaim,
+		/// There is already a challenge for this claim
+		ClaimAlreadyChallenged,
+		/// The relayer is active and cant unbond the specified amount
+		CantUnbondRelayer,
+		/// The relayer already has a bonded amount
+		CantBondRelayer,
+		/// The relayer hasn't paid the relayer bond so can't be set as the active relayer
+		NoBondPaid,
+		/// Someone tried to set a greater amount of validators than allowed
+		MaxNewSignersExceeded
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 
