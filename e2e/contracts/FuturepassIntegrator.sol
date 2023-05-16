@@ -18,3 +18,9 @@ contract CurrencyTester {
     emit Deposit(msg.sender, msg.value);
   }
 }
+
+contract CreateTester {
+  function getValue() public pure returns (uint256) {
+    return 420;
+  }
+}

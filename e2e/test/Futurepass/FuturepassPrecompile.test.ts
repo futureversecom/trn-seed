@@ -7,7 +7,7 @@ import { BigNumber, Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
-import MockERC20Data from "../../artifacts/contracts/MockERC20.sol/MockERC20.json";
+import MockCreateContract from "../../artifacts/contracts/FuturepassIntegrator.sol/CreateTester.json";
 import {
   ALITH_PRIVATE_KEY,
   ERC20_ABI,
@@ -262,7 +262,12 @@ describe("Futurepass Precompile", function () {
       .proxyCall(CALL_TYPE.Call, recipient.address, parseEther(transferAmount), "0x", {
         value: parseEther(transferAmount),
       });
-    await tx.wait();
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("Executed");
+    expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Call);
+    expect((receipt?.events as any)[0].args.target).to.equal(recipient.address);
+    expect((receipt?.events as any)[0].args.value).to.equal(parseEther(transferAmount));
+    expect((receipt?.events as any)[0].args.data).to.equal(ethers.constants.Zero);
 
     // check recipient balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(transferAmount * 1_000_000);
@@ -299,7 +304,12 @@ describe("Futurepass Precompile", function () {
     const tx = await futurepassPrecompile
       .connect(owner)
       .proxyCall(CALL_TYPE.Call, recipient.address, parseEther(transferAmount), "0x");
-    await tx.wait();
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("Executed");
+    expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Call);
+    expect((receipt?.events as any)[0].args.target).to.equal(recipient.address);
+    expect((receipt?.events as any)[0].args.value).to.equal(parseEther(transferAmount));
+    expect((receipt?.events as any)[0].args.data).to.equal(ethers.constants.Zero);
 
     // check recipient balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(transferAmount * 1_000_000);
@@ -341,7 +351,12 @@ describe("Futurepass Precompile", function () {
       .proxyCall(CALL_TYPE.Call, recipient.address, parseEther(transferAmount), "0x", {
         value: parseEther(transferAmount - futurepassBalanceBefore / 1_000_000),
       });
-    await tx.wait();
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("Executed");
+    expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Call);
+    expect((receipt?.events as any)[0].args.target).to.equal(recipient.address);
+    expect((receipt?.events as any)[0].args.value).to.equal(parseEther(transferAmount));
+    expect((receipt?.events as any)[0].args.data).to.equal(ethers.constants.Zero);
 
     // check recipient balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(transferAmount * 1_000_000);
@@ -431,7 +446,12 @@ describe("Futurepass Precompile", function () {
       .proxyCall(CALL_TYPE.Call, futurepassTester.address, parseEther(amount), "0x", {
         value: parseEther(amount),
       });
-    await tx.wait();
+    let receipt = await tx.wait();
+    expect((receipt?.events as any)[1].event).to.equal("Executed");
+    expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
+    expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
+    expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
+    expect((receipt?.events as any)[1].args.data).to.equal(ethers.constants.Zero);
 
     // validate proxy based value transfer to contract payable receive function
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(15_000_000);
@@ -447,7 +467,12 @@ describe("Futurepass Precompile", function () {
       .proxyCall(CALL_TYPE.Call, futurepassTester.address, parseEther(amount), fnCallData, {
         value: parseEther(amount),
       });
-    await tx.wait();
+    receipt = await tx.wait();
+    expect((receipt?.events as any)[1].event).to.equal("Executed");
+    expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
+    expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
+    expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
+    // expect((receipt?.events as any)[1].args.data).to.equal(fnCallData); // TODO: fix this
 
     // validate proxy based value transfer to payable function
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(20_000_000);
@@ -481,7 +506,13 @@ describe("Futurepass Precompile", function () {
     let tx = await futurepassPrecompile
       .connect(owner)
       .proxyCall(CALL_TYPE.Call, futurepassTester.address, parseEther(amount), "0x");
-    await tx.wait();
+    let receipt = await tx.wait();
+    // note: 1st event in list is from target contract function execution
+    expect((receipt?.events as any)[1].event).to.equal("Executed");
+    expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
+    expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
+    expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
+    expect((receipt?.events as any)[1].args.data).to.equal(ethers.constants.Zero);
 
     // validate proxy based value transfer to contract payable receive function
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(amount * 1_000_000);
@@ -495,7 +526,13 @@ describe("Futurepass Precompile", function () {
     tx = await futurepassPrecompile
       .connect(owner)
       .proxyCall(CALL_TYPE.Call, futurepassTester.address, parseEther(amount), fnCallData);
-    await tx.wait();
+    receipt = await tx.wait();
+    // note: 1st event in list is from target contract function execution
+    expect((receipt?.events as any)[1].event).to.equal("Executed");
+    expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
+    expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
+    expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
+    // expect((receipt?.events as any)[1].args.data).to.equal(fnCallData); // TODO: fix this
 
     // validate proxy based value transfer to payable function
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(amount * 2 * 1_000_000); // we transferred 2 times
@@ -504,6 +541,69 @@ describe("Futurepass Precompile", function () {
 
     const futurepassContractBalance = await futurepassTester.deposits(futurepassPrecompile.address);
     expect(futurepassContractBalance).to.equal(ethers.utils.parseEther((amount * 2).toString()));
+  });
+
+  it("proxyCall - futurepass can deploy a contract using CREATE", async () => {
+    const owner = Wallet.createRandom().connect(provider);
+
+    // transfer funds to owner
+    await fundEOA(alithSigner, owner.address);
+
+    // create FP for owner
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
+    const bytecode = MockCreateContract.bytecode;
+
+    // calculate the expected contract address - this is absed on deployer address (futurepass) and nonce
+    // for contracts, the nonce is based on how many contract deployments the account has made
+    const futurepassNonce = await provider.getTransactionCount(futurepassPrecompile.address);
+    const expectedContractAddress = ethers.utils.getContractAddress({
+      from: futurepassPrecompile.address,
+      nonce: futurepassNonce,
+    });
+
+    // call the proxyCall function with the futurepass address and the encoded CREATE call data
+    const tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Create, ethers.constants.AddressZero, ethers.constants.Zero, bytecode);
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("ContractCreated");
+    expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Create);
+    expect((receipt?.events as any)[0].args.contract).to.equal(expectedContractAddress);
+    expect((receipt?.events as any)[0].args.value).to.equal(ethers.constants.Zero);
+    expect((receipt?.events as any)[0].args.salt).to.equal(ethers.constants.Zero);
+
+    // validate nonce increases
+    expect(await provider.getTransactionCount(futurepassPrecompile.address)).to.equal(futurepassNonce + 1);
+
+    // validate contract functions can be called at the expected address
+    const testCreateContract = new ethers.Contract(expectedContractAddress, MockCreateContract.abi, provider);
+    expect(await testCreateContract.getValue()).to.equal(420);
+  });
+
+  // TODO: introduce functionality
+  it.skip("proxyCall - futurepass can deploy a contract using CREATE2", async () => {
+    const owner = Wallet.createRandom().connect(provider);
+
+    // create FP for owner
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
+    const erc20Bytecode = MockCreateContract.bytecode;
+
+    // Define a salt value for CREATE2
+    // const salt = ethers.utils.hexZeroPad(ethers.utils.randomBytes(32), 32);
+    // const salt = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.BigNumber.from(ethers.utils.randomBytes(32))), 32);
+    const salt = ethers.utils.id("1234");
+    ethers.utils.getCreate2Address(futurepassPrecompile.address, salt, ethers.utils.keccak256(erc20Bytecode));
+
+    // Encode the CREATE2 call to deploy the template contract
+    const deployCallData = ethers.utils.hexConcat([ethers.utils.hexZeroPad("0xff", 32), erc20Bytecode, salt]);
+
+    // Call the proxyCall function with the futurepass address and the encoded CREATE2 call data
+    const tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Create2, ethers.constants.AddressZero, ethers.constants.Zero, deployCallData);
+    await tx.wait();
   });
 
   it("futurepass can hold and transfer ERC20", async () => {
@@ -749,72 +849,6 @@ describe("Futurepass Precompile", function () {
       .connect(owner)
       .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, callData)
       .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
-  });
-
-  // TODO: introduce functionality in v2
-  it.skip("futurepass can deploy a contract using CREATE", async () => {
-    const owner = Wallet.createRandom().connect(provider);
-
-    // create FP for owner
-    const futurepassPrecompile = await createFuturepass(owner, owner.address);
-
-    const erc20Bytecode = MockERC20Data.bytecode;
-
-    // calculate the expected contract address
-    const futurepassNonce = await provider.getTransactionCount(futurepassPrecompile.address);
-    const expectedContractAddress = ethers.utils.getContractAddress({
-      from: futurepassPrecompile.address,
-      nonce: futurepassNonce,
-    });
-
-    // call the proxyCall function with the futurepass address and the encoded CREATE call data
-    const tx = await futurepassPrecompile
-      .connect(owner)
-      .proxyCall(CALL_TYPE.Create, ethers.constants.AddressZero, ethers.constants.Zero, erc20Bytecode);
-    const receipt = await tx.wait();
-
-    console.warn(receipt);
-
-    // verify that the created contract has the same bytecode as the template contract
-    const deployedContractBytecode = await provider.getCode(expectedContractAddress);
-    expect(deployedContractBytecode).to.equal(erc20Bytecode);
-
-    // // verify that the created contract's owner is the futurepass
-    // const createdContract = MockERC20Factory.attach(expectedContractAddress);
-    // expect(await createdContract.owner()).to.equal(futurepass);
-  });
-
-  // TODO: introduce functionality
-  it.skip("futurepass can deploy a contract using CREATE2", async () => {
-    const owner = Wallet.createRandom().connect(provider);
-
-    // create FP for owner
-    const futurepassPrecompile = await createFuturepass(owner, owner.address);
-
-    const erc20Bytecode = MockERC20Data.bytecode;
-
-    // Define a salt value for CREATE2
-    // const salt = ethers.utils.hexZeroPad(ethers.utils.randomBytes(32), 32);
-    // const salt = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.BigNumber.from(ethers.utils.randomBytes(32))), 32);
-    const salt = ethers.utils.id("1234");
-    ethers.utils.getCreate2Address(futurepassPrecompile.address, salt, ethers.utils.keccak256(erc20Bytecode));
-
-    // Encode the CREATE2 call to deploy the template contract
-    const deployCallData = ethers.utils.hexConcat([ethers.utils.hexZeroPad("0xff", 32), erc20Bytecode, salt]);
-
-    // Call the proxyCall function with the futurepass address and the encoded CREATE2 call data
-    const tx = await futurepassPrecompile
-      .connect(owner)
-      .proxyCall(CALL_TYPE.Create2, ethers.constants.AddressZero, ethers.constants.Zero, deployCallData);
-    await tx.wait();
-
-    // // Verify that the created contract has the same bytecode as the template contract
-    // const deployedContractBytecode = await provider.getCode(expectedContractAddress);
-    // expect(deployedContractBytecode).to.equal(erc20Bytecode);
-
-    // // Verify that the created contract's owner is the futurepass
-    // const createdContract = MockERC20Factory.attach(expectedContractAddress);
-    // expect(await createdContract.owner()).to.equal(futurepass);
   });
 
   // TODO: introduce functionality
