@@ -104,7 +104,56 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		/// Length of time the bridge will be paused while the authority set changes
+		type AuthorityChangeDelay: Get<Self::BlockNumber>;
+		/// Knows the active authority set (validator stash addresses)
+		type AuthoritySet: ValidatorSetT<Self::AccountId, ValidatorId = Self::AccountId>;
+		/// The pallet bridge address (destination for incoming messages, source for outgoing)
+		type BridgePalletId: Get<PalletId>;
+		/// The runtime call type.
+		type Call: From<Call<Self>>;
+		/// Bond required by challenger to make a challenge
+		type ChallengeBond: Get<Balance>;
+		// The duration in blocks of one epoch
+		type EpochDuration: Get<u64>;
+		/// Pallet subscribing to of notarized eth calls
+		type EthCallSubscribers: EthCallOracleSubscriber<CallId = EthCallId>;
+		/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
+		type EthereumRpcClient: BridgeEthereumRpcApi;
+		/// The runtime event type.
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// Handles routing received Ethereum events upon verification
+		type EventRouter: EthereumEventRouter;
+		/// The identifier type for an authority in this module (i.e. active validator session key)
+		/// 33 byte secp256k1 public key
+		type EthyId: Member
+		+ Parameter
+		+ AsRef<[u8]>
+		+ RuntimeAppPublic
+		+ Ord
+		+ MaybeSerializeDeserialize;
+		/// Reports the final session of na eras
+		type FinalSessionTracker: FinalSessionTrackerT;
+		/// Max amount of new signers that can be set an in extrinsic
+		type MaxNewSigners: Get<u8>;
+		/// Handles a multi-currency fungible asset system
+		type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+		/// The native token asset Id (managed by pallet-balances)
+		type NativeAssetId: Get<AssetId>;
+		/// The threshold of notarizations required to approve an Ethereum event
+		type NotarizationThreshold: Get<Percent>;
+		/// Bond required for an account to act as relayer
+		type RelayerBond: Get<Balance>;
+		/// The Scheduler.
+		type Scheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
+		/// Overarching type of all pallets origins.
+		type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+		/// Returns the block timestamp
+		type UnixTime: UnixTime;
+		/// Max Xrpl notary (validator) public keys
+		type MaxXrplKeys: Get<u8>;
+		/// Xrpl-bridge adapter
+		type XrplBridgeAdapter: EthyToXrplBridgeAdapter<H160>;
 	}
 
 	#[pallet::event]
