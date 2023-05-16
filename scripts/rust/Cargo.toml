@@ -1,0 +1,12 @@
+[package]
+name = "root-scripts"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = "1.0"
+tokio = { version = "1", features = ["full"] }
+subxt = { version = "0.25.0" }
+codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = ["derive"] }
+sp-core = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
+clap = { version = "4.2.7", features = ["derive"] }

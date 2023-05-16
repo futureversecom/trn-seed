@@ -9,6 +9,10 @@ members = [
 	"evm-precompiles/*"
 ]
 
+exclude = [
+	"scripts/rust"
+]
+
 [profile.release]
 panic = "unwind"
 opt-level = 3
