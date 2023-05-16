@@ -138,7 +138,11 @@ pub mod v5 {
 	{
 		log::info!(target: "Migration", "Nft: updating royalties schedule and collection name");
 		pallet_nft::CollectionInfo::<T>::translate(|_, old: OldCollectionInformation<T>| {
-			let new_name = BoundedVec::truncate_from(old.name);
+			// Bound new name vec, if it is from Ethereum, change the name to "bridged-collection"
+			let new_name = match old.origin_chain {
+				OriginChain::Root => BoundedVec::truncate_from(old.name),
+				OriginChain::Ethereum => BoundedVec::truncate_from(b"bridged-collection".to_vec()),
+			};
 			let new_royalties = match old.royalties_schedule {
 				Some(old_royalties) => Some(RoyaltiesSchedule {
 					entitlements: BoundedVec::truncate_from(old_royalties.entitlements),
@@ -186,7 +190,7 @@ pub mod v5 {
 				let user_2 = create_account(6);
 				let owner = create_account(123);
 
-				let old_info = OldCollectionInformation {
+				let old_info_root = OldCollectionInformation {
 					owner: owner.clone(),
 					name: b"test-collection-1".to_vec(),
 					royalties_schedule: Some(OldRoyaltiesSchedule {
@@ -203,12 +207,29 @@ pub mod v5 {
 					cross_chain_compatibility: CrossChainCompatibility::default(),
 					owned_tokens: BoundedVec::default(),
 				};
-				CollectionInfo::<Runtime>::insert(12, old_info);
+				CollectionInfo::<Runtime>::insert(12, old_info_root);
+
+				let old_info_eth = OldCollectionInformation {
+					owner: owner.clone(),
+					name: "".encode(),
+					royalties_schedule: Some(OldRoyaltiesSchedule {
+						entitlements: vec![(user_1, Permill::one())],
+					}),
+					metadata_scheme: MetadataScheme::try_from(b"Test".as_slice()).unwrap(),
+					max_issuance: None,
+					origin_chain: OriginChain::Ethereum,
+					next_serial_number: 0,
+					collection_issuance: 100,
+					cross_chain_compatibility: CrossChainCompatibility::default(),
+					owned_tokens: BoundedVec::default(),
+				};
+				CollectionInfo::<Runtime>::insert(13, old_info_eth);
 
 				// Do runtime upgrade
 				Upgrade::on_runtime_upgrade();
 
 				// Check if inserted data is correct
+				// Root collection
 				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(12).unwrap();
 				let expected_name: BoundedVec<u8, <Runtime as Config>::StringLimit> =
 					BoundedVec::truncate_from(b"test-collection-1".to_vec());
@@ -218,6 +239,16 @@ pub mod v5 {
 						(user_1, Permill::one()),
 						(user_2, Permill::from_parts(123)),
 					]),
+				});
+				assert_eq!(actual_value.royalties_schedule, expected_royalties);
+
+				// Eth collection
+				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(13).unwrap();
+				let expected_name: BoundedVec<u8, <Runtime as Config>::StringLimit> =
+					BoundedVec::truncate_from(b"bridged-collection".to_vec());
+				assert_eq!(actual_value.name, expected_name);
+				let expected_royalties = Some(RoyaltiesSchedule {
+					entitlements: BoundedVec::truncate_from(vec![(user_1, Permill::one())]),
 				});
 				assert_eq!(actual_value.royalties_schedule, expected_royalties);
 
