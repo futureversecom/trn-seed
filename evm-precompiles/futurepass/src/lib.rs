@@ -8,7 +8,9 @@ use frame_support::{
 	ensure,
 };
 use pallet_evm::{ExitReason, PrecompileFailure, PrecompileSet, Runner};
-use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
+use precompile_utils::{
+	constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, data::Bytes32PostPad, get_selector, prelude::*,
+};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	codec::Decode,
@@ -22,7 +24,7 @@ pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateUnregistered(address,address)"); // futurepass, delegate
 pub const SELECTOR_LOG_FUTUREPASS_EXECUTED: [u8; 32] =
-	keccak256!("Executed(uint8,address,uint256,bytes4)"); // operation, contractAddress, value, functionData
+	keccak256!("Executed(uint8,address,uint256,bytes4)"); // operation, contractAddress, value, functionSelector
 pub const SELECTOR_LOG_FUTUREPASS_CONTRACT_CREATED: [u8; 32] =
 	keccak256!("ContractCreated(uint8,address,uint256,bytes32)"); // operation, contractAddress, value, salt
 
@@ -331,15 +333,35 @@ where
 		};
 
 		let (reason, output) = match call_type {
-			CallType::StaticCall => handle.call(
-				address,
-				transfer,
-				call_data.into_vec(),
-				Some(handle.remaining_gas()),
-				true,
-				&sub_context,
-			),
+			CallType::StaticCall => {
+				handle.record_log_costs_manual(4, 32)?;
+				let call_data = call_data.into_vec();
+				let (reason, output) = handle.call(
+					address,
+					transfer,
+					call_data.clone(),
+					Some(handle.remaining_gas()),
+					true,
+					&sub_context,
+				);
+
+				// emit Executed(CALL, target, value, bytes4(data));
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_EXECUTED,
+					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
+					address,
+					H256::from_slice(&Into::<[u8; 32]>::into(value)),
+					EvmDataWriter::new()
+						.write(Bytes32PostPad::from(get_selector(&call_data).as_slice()))
+						.build(),
+				)
+				.record(handle)?;
+
+				(reason, output)
+			},
 			CallType::Call => {
+				handle.record_log_costs_manual(4, 32)?;
 				let call_data = call_data.into_vec();
 				let (reason, output) = handle.call(
 					address,
@@ -357,13 +379,16 @@ where
 					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
 					address,
 					H256::from_slice(&Into::<[u8; 32]>::into(value)),
-					EvmDataWriter::new().write(call_data).build(),
+					EvmDataWriter::new()
+						.write(Bytes32PostPad::from(get_selector(&call_data).as_slice()))
+						.build(),
 				)
 				.record(handle)?;
 
 				(reason, output)
 			},
 			CallType::Create => {
+				handle.record_log_costs_manual(4, 32)?;
 				let execution_info = <Runtime as pallet_evm::Config>::Runner::create(
 					futurepass.into(),
 					call_data.into_vec(),
