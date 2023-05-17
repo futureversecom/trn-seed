@@ -334,6 +334,7 @@ where
 
 		let (reason, output) = match call_type {
 			CallType::StaticCall => {
+				handle.record_log_costs_manual(4, 32)?;
 				let call_data = call_data.into_vec();
 				let (reason, output) = handle.call(
 					address,
@@ -345,7 +346,6 @@ where
 				);
 
 				// emit Executed(CALL, target, value, bytes4(data));
-				handle.record_log_costs_manual(4, 32)?;
 				log4(
 					handle.code_address(),
 					SELECTOR_LOG_FUTUREPASS_EXECUTED,
@@ -361,6 +361,7 @@ where
 				(reason, output)
 			},
 			CallType::Call => {
+				handle.record_log_costs_manual(4, 32)?;
 				let call_data = call_data.into_vec();
 				let (reason, output) = handle.call(
 					address,
@@ -372,7 +373,6 @@ where
 				);
 
 				// emit Executed(CALL, target, value, bytes4(data));
-				handle.record_log_costs_manual(4, 32)?;
 				log4(
 					handle.code_address(),
 					SELECTOR_LOG_FUTUREPASS_EXECUTED,
@@ -388,6 +388,7 @@ where
 				(reason, output)
 			},
 			CallType::Create => {
+				handle.record_log_costs_manual(4, 32)?;
 				let execution_info = <Runtime as pallet_evm::Config>::Runner::create(
 					futurepass.into(),
 					call_data.into_vec(),
@@ -404,7 +405,6 @@ where
 				.map_err(|_| RevertReason::custom("create failed"))?;
 
 				// emit ContractCreated(CREATE, contractAddress, value, bytes32(0));
-				handle.record_log_costs_manual(4, 32)?;
 				log4(
 					handle.code_address(),
 					SELECTOR_LOG_FUTUREPASS_CONTRACT_CREATED,
