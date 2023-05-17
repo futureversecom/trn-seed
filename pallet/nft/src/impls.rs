@@ -15,8 +15,8 @@ use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
 use seed_pallet_common::{log, utils::next_asset_uuid, OnNewAssetSubscriber, OnTransferSubscriber};
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId,
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
@@ -456,7 +456,6 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
-	type StringLimit = T::StringLimit;
 	type MaxTokensPerCollection = T::MaxTokensPerCollection;
 	type StringLimit = T::StringLimit;
 

@@ -244,23 +244,18 @@ impl Xls20MintRequest for MockXls20MintRequest {
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
 	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const MintLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
-	#[derive(PartialEq, Debug)]
 	pub const StringLimit: u32 = 50;
 }
 
 impl crate::Config for Test {
-	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
-	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type MultiCurrency = AssetsExt;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;

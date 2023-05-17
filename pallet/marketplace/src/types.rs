@@ -44,7 +44,7 @@ pub struct SimpleOffer<AccountId> {
 	pub marketplace_id: Option<MarketplaceId>,
 }
 
-#[derive(Decode, Encode, Debug, Clone, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),

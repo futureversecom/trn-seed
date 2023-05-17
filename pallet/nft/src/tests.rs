@@ -12,19 +12,14 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, AssetsExt, Event as MockEvent, MaxTokensPerCollection,
-		NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
+		create_account, has_event, Event as MockEvent, MaxTokensPerCollection, Nft, System, Test,
+		TestExt,
 	},
 	Event as NftEvent,
 };
-use frame_support::{
-	assert_noop, assert_ok,
-	traits::{fungibles::Inspect, OnInitialize},
-};
+use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use seed_primitives::{
-	AccountId, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, TokenId,
-};
+use seed_primitives::{AccountId, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount};
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
@@ -53,49 +48,6 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 		CrossChainCompatibility::default(),
 	));
 	collection_id
-}
-
-/// Setup a token, return collection id, token id, token owner
-fn setup_token() -> (CollectionUuid, TokenId, AccountId) {
-	let collection_owner = create_account(1);
-	let collection_id = setup_collection(collection_owner);
-	let token_owner = create_account(2);
-	let token_id = (collection_id, 0);
-	assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1, Some(token_owner)));
-
-	(collection_id, token_id, token_owner)
-}
-
-/// Setup a token, return collection id, token id, token owner
-fn setup_token_with_royalties(
-	royalties_schedule: RoyaltiesSchedule<AccountId>,
-	quantity: TokenCount,
-) -> (CollectionUuid, TokenId, AccountId) {
-	let collection_owner = create_account(1);
-	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = bounded_string("test-collection");
-	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
-	assert_ok!(Nft::create_collection(
-		Some(collection_owner).into(),
-		collection_name,
-		0,
-		None,
-		None,
-		metadata_scheme,
-		Some(royalties_schedule),
-		CrossChainCompatibility::default(),
-	));
-
-	let token_owner = create_account(2);
-	let token_id = (collection_id, 0);
-	assert_ok!(Nft::mint(
-		Some(collection_owner).into(),
-		collection_id,
-		quantity,
-		Some(token_owner),
-	));
-
-	(collection_id, token_id, token_owner)
 }
 
 /// Helper function to create bounded vec of TokenOwnership
@@ -351,22 +303,7 @@ fn create_collection() {
 fn create_collection_invalid_name() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
-		let bad_collection_name =
-			b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
 		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
-		assert_noop!(
-			Nft::create_collection(
-				Some(collection_owner).into(),
-				BoundedVec::truncate_from(bad_collection_name),
-				1,
-				None,
-				None,
-				metadata_scheme.clone(),
-				None,
-				CrossChainCompatibility::default(),
-			),
-			Error::<Test>::CollectionNameInvalid
-		);
 
 		// empty name
 		assert_noop!(
@@ -530,18 +467,8 @@ fn transfer_fails_prechecks() {
 			Error::<Test>::NotTokenOwner,
 		);
 
-		assert_ok!(Nft::sell(
-			Some(token_owner).into(),
-			collection_id,
-			serial_numbers.clone(),
-			Some(create_account(5)),
-			NativeAssetId::get(),
-			1_000,
-			None,
-			None,
-		));
-
 		// cannot transfer while listed
+		<TokenLocks<Test>>::insert((collection_id, 0), TokenLockReason::Listed(1));
 		assert_noop!(
 			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner),
 			Error::<Test>::TokenLocked,
@@ -618,19 +545,9 @@ fn burn_fails_prechecks() {
 			Error::<Test>::NotTokenOwner,
 		);
 
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-			BoundedVec::try_from(vec![0]).unwrap();
-		assert_ok!(Nft::sell(
-			Some(token_owner).into(),
-			collection_id,
-			serial_numbers,
-			None,
-			NativeAssetId::get(),
-			1_000,
-			None,
-			None,
-		));
 		// cannot burn while listed
+		<TokenLocks<Test>>::insert((collection_id, 0), TokenLockReason::Listed(1));
+
 		assert_noop!(
 			Nft::burn(Some(token_owner).into(), (collection_id, 0)),
 			Error::<Test>::TokenLocked,

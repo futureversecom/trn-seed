@@ -21,7 +21,6 @@ use crate::CollectionInformation;
 
 pub trait NFTExt {
 	type AccountId: Debug + PartialEq + Clone;
-	type StringLimit: Get<u32>;
 	type MaxTokensPerCollection: Get<u32>;
 	type StringLimit: Get<u32>;
 

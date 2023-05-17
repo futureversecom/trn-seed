@@ -34,7 +34,7 @@ fn transfer_funds(asset_id: AssetId, source: &AccountId, destination: &AccountId
 
 fn setup_collection(owner: &AccountId) -> CollectionUuid {
 	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = b"test-collection".to_vec();
+	let collection_name = BoundedVec::truncate_from(b"test-collection".to_vec());
 	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(owner.clone()).into(),         // owner

@@ -21,6 +21,7 @@
 use frame_support::{
 	dispatch::Dispatchable,
 	traits::fungibles::{Mutate, Transfer},
+	transactional,
 	weights::{GetDispatchInfo, PostDispatchInfo},
 	PalletId,
 };
@@ -375,6 +376,7 @@ pub mod pallet {
 
 		/// Buy a token listing for its specified price
 		#[pallet::weight(<T as Config>::WeightInfo::buy())]
+		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_buy(who, listing_id)
@@ -413,6 +415,7 @@ pub mod pallet {
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
 		#[pallet::weight(<T as Config>::WeightInfo::bid())]
+		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_bid(who, listing_id, amount)
@@ -422,6 +425,7 @@ pub mod pallet {
 		/// Requires no successful bids have been made for an auction.
 		/// Caller must be the listed seller
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_sale())]
+		#[transactional]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_cancel_sale(who, listing_id)
@@ -433,6 +437,7 @@ pub mod pallet {
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
 		#[pallet::weight(<T as Config>::WeightInfo::make_simple_offer())]
+		#[transactional]
 		pub fn make_simple_offer(
 			origin: OriginFor<T>,
 			token_id: TokenId,
@@ -455,6 +460,7 @@ pub mod pallet {
 		/// Accepts an offer on a token
 		/// Caller must be token owner
 		#[pallet::weight(<T as Config>::WeightInfo::accept_offer())]
+		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_accept_offer(who, offer_id)

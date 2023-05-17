@@ -150,8 +150,9 @@ mod create_collection {
 			let collection_owner = bob();
 			let metadata_scheme =
 				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
-			let royalties_schedule =
-				RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+			};
 
 			// Call works
 			assert_ok!(Sft::create_collection(
@@ -258,7 +259,8 @@ mod create_collection {
 				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Empty RoyaltiesSchedule
-			let empty_royalties_schedule = RoyaltiesSchedule { entitlements: vec![] };
+			let empty_royalties_schedule =
+				RoyaltiesSchedule { entitlements: BoundedVec::default() };
 			assert_noop!(
 				Sft::create_collection(
 					Some(alice()).into(),
@@ -273,7 +275,7 @@ mod create_collection {
 			// Too Large RoyaltiesSchedule vec
 			// MAX_ENTITLEMENTS is set to 8 so anything over 8 should fail
 			let large_royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![
+				entitlements: BoundedVec::truncate_from(vec![
 					(bob(), Permill::one()),
 					(bob(), Permill::one()),
 					(bob(), Permill::one()),
@@ -283,7 +285,7 @@ mod create_collection {
 					(bob(), Permill::one()),
 					(bob(), Permill::one()),
 					(bob(), Permill::one()),
-				],
+				]),
 			};
 			assert_noop!(
 				Sft::create_collection(
@@ -299,10 +301,10 @@ mod create_collection {
 			// Royalties over 100%
 			// MAX_ENTITLEMENTS is set to 8 so anything over 8 should fail
 			let large_royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![
+				entitlements: BoundedVec::truncate_from(vec![
 					(bob(), Permill::from_parts(500_000)),
 					(bob(), Permill::from_parts(500_001)),
-				],
+				]),
 			};
 			assert_noop!(
 				Sft::create_collection(

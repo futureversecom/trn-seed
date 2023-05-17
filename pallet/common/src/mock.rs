@@ -180,27 +180,47 @@ macro_rules! impl_pallet_nft_config {
 
 		parameter_types! {
 			pub const NftPalletId: PalletId = PalletId(*b"nftokens");
-			pub const DefaultListingDuration: u64 = 5;
-			pub const MaxAttributeLength: u8 = 140;
-			pub const MaxOffers: u32 = 10;
 			pub const MaxTokensPerCollection: u32 = 10_000;
 			pub const MintLimit: u32 = 100;
 			pub const Xls20PaymentAsset: AssetId = 2;
+			pub const StringLimit: u32 = 50;
 		}
 
 		impl pallet_nft::Config for Test {
-			type DefaultListingDuration = DefaultListingDuration;
 			type Event = Event;
-			type MaxOffers = MaxOffers;
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
-			type MultiCurrency = AssetsExt;
 			type OnTransferSubscription = MockTransferSubscriber;
 			type OnNewAssetSubscription = ();
 			type PalletId = NftPalletId;
 			type ParachainId = TestParachainId;
 			type Xls20MintRequest = MockXls20MintRequest;
 			type WeightInfo = ();
+			type StringLimit = StringLimit;
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_marketplace_config {
+	($test:ident) => {
+		parameter_types! {
+			pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
+			pub const DefaultListingDuration: u64 = 5;
+			pub const MaxOffers: u32 = 10;
+			pub const MaxTokensPerListing: u32 = 100;
+		}
+
+		impl pallet_marketplace::Config for Test {
+			type Call = Call;
+			type DefaultListingDuration = DefaultListingDuration;
+			type Event = Event;
+			type MultiCurrency = AssetsExt;
+			type NFTExt = Nft;
+			type PalletId = MarketplacePalletId;
+			type WeightInfo = ();
+			type MaxTokensPerListing = MaxTokensPerListing;
+			type MaxOffers = MaxOffers;
 		}
 	};
 }

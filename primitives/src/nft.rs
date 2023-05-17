@@ -25,6 +25,9 @@ const METADATA_SCHEME_LIMIT: u32 = 200;
 /// just a sensible upper bound
 pub const MAX_ENTITLEMENTS: u32 = 8;
 
+/// Unique Id for a listing
+pub type ListingId = u128;
+
 /// Describes the chain that the bridged resource originated from
 #[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum OriginChain {
@@ -33,7 +36,7 @@ pub enum OriginChain {
 }
 
 /// Reason for an NFT being locked (un-transferrable)
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum TokenLockReason {
 	/// Token is listed for sale
 	Listed(ListingId),
@@ -108,7 +111,6 @@ impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
 #[cfg(test)]
 mod test {
 	use super::{MetadataScheme, RoyaltiesSchedule};
-	use sp_core::H160;
 	use sp_runtime::{BoundedVec, Permill};
 
 	#[test]

@@ -361,6 +361,10 @@ impl<T: Config> Pallet<T> {
 		};
 
 		let (collection_id, serial_number) = offer.token_id;
+		ensure!(
+			T::NFTExt::get_token_owner(&(offer.token_id)) == Some(who),
+			Error::<T>::NotTokenOwner
+		);
 
 		// Check whether token is listed for fixed price sale
 		if let Some(TokenLockReason::Listed(listing_id)) = T::NFTExt::get_token_lock(offer.token_id)
