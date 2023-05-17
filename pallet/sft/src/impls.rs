@@ -113,8 +113,7 @@ impl<T: Config> Pallet<T> {
 		SftCollectionInfo::<T>::insert(collection_id, existing_collection);
 
 		Self::deposit_event(Event::<T>::TokenCreated {
-			collection_id,
-			serial_number: next_serial_number,
+			token_id: (collection_id, next_serial_number),
 			initial_issuance,
 			max_issuance,
 			token_owner,
@@ -139,7 +138,7 @@ impl<T: Config> Pallet<T> {
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 		// Caller must be collection_owner
-		ensure!(sft_collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(sft_collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 		let owner = token_owner.unwrap_or(who);
 
@@ -164,13 +163,13 @@ impl<T: Config> Pallet<T> {
 			}
 
 			// Add the balance
-			token_info.add_balance(&owner, *quantity)?;
+			token_info.add_balance(&owner, *quantity).map_err(|err| Error::<T>::from(err))?;
 			token_info.token_issuance += quantity;
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
-		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
-		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, quantities, owner });
+		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
+		Self::deposit_event(Event::<T>::Mint { collection_id, serial_numbers, balances, owner });
 
 		Ok(())
 	}
@@ -194,16 +193,18 @@ impl<T: Config> Pallet<T> {
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Transfer the balance
-			token_info.transfer_balance(&who, &new_owner, *quantity)?;
+			token_info
+				.transfer_balance(&who, &new_owner, *quantity)
+				.map_err(|err| Error::<T>::from(err))?;
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
-		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
+		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Transfer {
 			previous_owner: who,
 			collection_id,
 			serial_numbers,
-			quantities,
+			balances,
 			new_owner,
 		});
 
@@ -229,16 +230,18 @@ impl<T: Config> Pallet<T> {
 			let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 
 			// Burn the balance
-			token_info.remove_balance(&who, *quantity)?;
+			token_info
+				.remove_balance(&who, *quantity)
+				.map_err(|err| Error::<T>::from(err))?;
 			token_info.token_issuance = token_info.token_issuance.saturating_sub(*quantity);
 			TokenInfo::<T>::insert(token_id, token_info);
 		}
 
-		let (serial_numbers, quantities) = Self::unzip_serial_numbers(serial_numbers);
+		let (serial_numbers, balances) = Self::unzip_serial_numbers(serial_numbers);
 		Self::deposit_event(Event::<T>::Burn {
 			collection_id,
 			serial_numbers,
-			quantities,
+			balances,
 			owner: who,
 		});
 
@@ -252,7 +255,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let mut collection =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-		ensure!(collection.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(collection.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 		collection.collection_owner = new_owner.clone();
 		SftCollectionInfo::<T>::insert(collection_id, collection);
@@ -274,7 +277,7 @@ impl<T: Config> Pallet<T> {
 		let collection_info =
 			SftCollectionInfo::<T>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 		// Caller must be collection_owner
-		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 		let mut token_info = TokenInfo::<T>::get(token_id).ok_or(Error::<T>::NoToken)?;
 		// Max issuance can only be set once
@@ -300,7 +303,7 @@ impl<T: Config> Pallet<T> {
 		let mut collection_info =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		// Caller must be collection_owner
-		ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+		ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
 
 		collection_info.metadata_scheme = metadata_scheme.clone();
 		SftCollectionInfo::<T>::insert(collection_id, collection_info);

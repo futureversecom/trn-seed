@@ -4864,6 +4864,7 @@ dependencies = [
 name = "pallet-dex-rpc"
 version = "0.0.1"
 dependencies = [
+ "frame-system",
  "jsonrpsee",
  "pallet-dex",
  "pallet-dex-rpc-runtime-api",
@@ -4871,6 +4872,7 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-blockchain",
+ "sp-core",
  "sp-runtime",
  "sp-std",
 ]
@@ -4879,9 +4881,11 @@ dependencies = [
 name = "pallet-dex-rpc-runtime-api"
 version = "0.0.1"
 dependencies = [
+ "frame-system",
  "pallet-dex",
  "seed-primitives",
  "sp-api",
+ "sp-core",
  "sp-runtime",
  "sp-std",
 ]

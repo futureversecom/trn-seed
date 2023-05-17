@@ -17,7 +17,6 @@ use crate::{
 	},
 	Event as NftEvent,
 };
-use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{fungibles::Inspect, OnInitialize},
@@ -789,7 +788,7 @@ fn mint_over_mint_limit_fails() {
 		// mint token Ids 0-4
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			BoundedVec::truncate_from(b"test-collection".to_vec()),
+			bounded_string("test-collection"),
 			5,
 			None,
 			None,
@@ -820,7 +819,7 @@ fn create_collection_over_mint_limit_fails() {
 		assert_noop!(
 			Nft::create_collection(
 				Some(collection_owner).into(),
-				BoundedVec::truncate_from(b"test-collection".to_vec()),
+				bounded_string("test-collection"),
 				<Test as Config>::MintLimit::get() + 1,
 				None,
 				None,

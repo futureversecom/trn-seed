@@ -25,13 +25,8 @@ const METADATA_SCHEME_LIMIT: u32 = 200;
 /// just a sensible upper bound
 pub const MAX_ENTITLEMENTS: u32 = 8;
 
-pub type MaxEntitlements = ConstU32<MAX_ENTITLEMENTS>;
-
-/// Unique Id for a listing
-pub type ListingId = u128;
-
 /// Describes the chain that the bridged resource originated from
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub enum OriginChain {
 	Ethereum,
 	Root,
@@ -47,7 +42,7 @@ pub enum TokenLockReason {
 /// Denotes the metadata URI referencing scheme used by a collection
 /// MetadataScheme guarantees the data length not exceed the given limit, and the content won't be
 /// checked and needs to be taken care by callers
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct MetadataScheme(BoundedVec<u8, ConstU32<METADATA_SCHEME_LIMIT>>);
 
 impl MetadataScheme {
@@ -76,7 +71,7 @@ impl TryFrom<&[u8]> for MetadataScheme {
 #[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub struct RoyaltiesSchedule<AccountId> {
 	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
-	pub entitlements: BoundedVec<(AccountId, Permill), MaxEntitlements>,
+	pub entitlements: BoundedVec<(AccountId, Permill), ConstU32<MAX_ENTITLEMENTS>>,
 }
 
 impl<AccountId> RoyaltiesSchedule<AccountId> {
@@ -113,6 +108,7 @@ impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
 #[cfg(test)]
 mod test {
 	use super::{MetadataScheme, RoyaltiesSchedule};
+	use sp_core::H160;
 	use sp_runtime::{BoundedVec, Permill};
 
 	#[test]

@@ -57,12 +57,11 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -104,15 +103,21 @@ pub mod pallet {
 
 	/// Map from collection to its information
 	#[pallet::storage]
-	pub type SftCollectionInfo<T: Config> =
-		StorageMap<_, Twox64Concat, CollectionUuid, SftCollectionInformation<T>>;
+	pub type SftCollectionInfo<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		CollectionUuid,
+		SftCollectionInformation<T::AccountId, T::StringLimit>,
+	>;
 
+	/// Map from token to its token information, including ownership information
 	#[pallet::storage]
-	pub type TokenInfo<T: Config> = StorageMap<_, Twox64Concat, TokenId, SftTokenInformation<T>>;
-
-	/// TODO Use NFT pallet NextCollectionID
-	//#[pallet::storage]
-	//pub type NextCollectionId<T> = StorageValue<_, u32, ValueQuery>;
+	pub type TokenInfo<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		TokenId,
+		SftTokenInformation<T::AccountId, T::StringLimit, T::MaxOwnersPerSftToken>,
+	>;
 
 	// TODO Remove Events not being used
 	#[pallet::event]
@@ -131,7 +136,7 @@ pub mod pallet {
 		Mint {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			owner: T::AccountId,
 		},
 		/// A new owner was set
@@ -142,8 +147,7 @@ pub mod pallet {
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
 		/// A new token was created within a collection
 		TokenCreated {
-			collection_id: CollectionUuid,
-			serial_number: SerialNumber,
+			token_id: TokenId,
 			initial_issuance: Balance,
 			max_issuance: Option<Balance>,
 			token_name: BoundedVec<u8, T::StringLimit>,
@@ -154,55 +158,36 @@ pub mod pallet {
 			previous_owner: T::AccountId,
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
 		Burn {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerMint>,
-			quantities: BoundedVec<Balance, T::MaxSerialsPerMint>,
+			balances: BoundedVec<Balance, T::MaxSerialsPerMint>,
 			owner: T::AccountId,
 		},
-		/// Collection has been claimed
-		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
 
-	// TODO Remove Errors not being used
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Given collection or token name is invalid (invalid utf-8, empty)
 		NameInvalid,
-		/// No more Ids are available, they've been exhausted
-		NoAvailableIds,
-		/// Origin does not own the NFT
-		NotTokenOwner,
 		/// The token does not exist
 		NoToken,
-		/// The token is not listed for fixed price sale
-		NotForFixedPriceSale,
-		/// The token is not listed for auction sale
-		NotForAuction,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
-		/// The token is not listed for sale
-		TokenNotListed,
 		/// The maximum number of offers on this token has been reached
 		MaxOffersReached,
-		/// Cannot operate on a listed NFT
-		TokenLocked,
 		/// Total royalties would exceed 100% of sale or an empty vec is supplied
 		RoyaltiesInvalid,
 		/// The collection does not exist
 		NoCollectionFound,
 		/// The user does not own enough of this token to perform the operation
 		InsufficientBalance,
-		/// The metadata path is invalid (non-utf8 or empty)
-		InvalidMetadataPath,
 		/// The specified quantity must be greater than 0
 		InvalidQuantity,
-		/// The caller owns the token and can't make an offer
-		IsTokenOwner,
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
@@ -212,14 +197,6 @@ pub mod pallet {
 		MaxIssuanceReached,
 		/// The max amount of owners per token has been reached
 		MaxOwnersReached,
-		/// Attemped to mint a token that was bridged from a different chain
-		AttemptedMintOnBridgedToken,
-		/// Cannot claim already claimed collections
-		CannotClaimNonClaimableCollections,
-		/// Initial issuance on XLS-20 compatible collections must be zero
-		InitialIssuanceNotZero,
-		/// Total issuance of collection must be zero to add xls20 compatibility
-		CollectionIssuanceNotZero,
 		/// The operation would cause a numeric overflow
 		Overflow,
 	}

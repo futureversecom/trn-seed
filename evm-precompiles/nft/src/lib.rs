@@ -18,10 +18,13 @@ use pallet_evm::{GasWeightMapping, Precompile};
 use pallet_nft::{CrossChainCompatibility, WeightInfo};
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{
-	CollectionUuid, MaxEntitlements, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount,
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, MAX_ENTITLEMENTS,
 };
 use sp_core::{H160, U256};
-use sp_runtime::{traits::SaturatedConversion, BoundedVec, Permill};
+use sp_runtime::{
+	traits::{ConstU32, SaturatedConversion},
+	BoundedVec, Permill,
+};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the InitializeCollection log, which is the Keccak of the Log signature.
@@ -143,14 +146,17 @@ where
 		});
 		let royalties_schedule: Option<RoyaltiesSchedule<Runtime::AccountId>> =
 			if royalty_addresses.len() > 0 {
-				let entitlements: Vec<(Runtime::AccountId, Permill)> = royalty_addresses
+				let entitlements_unbounded: Vec<(Runtime::AccountId, Permill)> = royalty_addresses
 					.into_iter()
 					.map(|address| H160::from(address).into())
 					.zip(royalty_entitlements)
 					.collect();
-				let entitlements: BoundedVec<(Runtime::AccountId, Permill), MaxEntitlements> =
-					BoundedVec::try_from(entitlements)
-						.map_err(|_| revert("NFT: Too many royalty entitlements provided"))?;
+				let entitlements: BoundedVec<
+					(Runtime::AccountId, Permill),
+					ConstU32<MAX_ENTITLEMENTS>,
+				> = BoundedVec::try_from(entitlements_unbounded)
+					.map_err(|_| revert("NFT: Too many royalty entitlements provided"))?;
+
 				Some(RoyaltiesSchedule { entitlements })
 			} else {
 				None

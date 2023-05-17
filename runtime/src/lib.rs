@@ -140,7 +140,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 33,
+	spec_version: 35,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -1411,14 +1411,22 @@ impl_runtime_apis! {
 			amount_in: Balance,
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
-			Dex::get_amounts_out(amount_in, &path)
+			Dex::get_amounts_out(amount_in, &path).map_err(|e| match e {
+				sp_runtime::DispatchError::Arithmetic(_)  =>
+					sp_runtime::DispatchError::Other("Insufficient Liquidity"),
+					e => e,
+			})
 		}
 
 		fn get_amounts_in(
 			amount_out: Balance,
 			path: Vec<AssetId>,
 		) -> Result<Vec<Balance>, sp_runtime::DispatchError> {
-			Dex::get_amounts_in(amount_out, &path)
+			Dex::get_amounts_in(amount_out, &path).map_err(|e| match e {
+				sp_runtime::DispatchError::Arithmetic(_)  =>
+					sp_runtime::DispatchError::Other("Insufficient Liquidity"),
+					e => e,
+			})
 		}
 
 		fn get_lp_token_id(

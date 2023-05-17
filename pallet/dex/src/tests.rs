@@ -145,13 +145,14 @@ fn trading_pair_pool_address() {
 		assert_eq!(usdc, 1124);
 		assert_eq!(weth, 2148);
 
-		let pool_address: H160 = TradingPair::new(usdc, weth).pool_address::<Test>().into();
+		let pool_address: H160 = TradingPair::new(usdc, weth).pool_address::<AccountId>().into();
 
 		let expected_pool_address =
 			H160::from_str("dddddddd00000464000008640000000000000000").unwrap();
 		assert_eq!(pool_address.to_string(), expected_pool_address.to_string());
 
-		let pool_address_reverse: H160 = TradingPair::new(weth, usdc).pool_address::<Test>().into();
+		let pool_address_reverse: H160 =
+			TradingPair::new(weth, usdc).pool_address::<AccountId>().into();
 		assert_eq!(pool_address_reverse, expected_pool_address);
 
 		let hex_address = pool_address.to_fixed_bytes();
@@ -471,7 +472,7 @@ fn add_shared_liquidity() {
 			0u128, // mint lp tokens satisfied
 		));
 
-		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair.pool_address::<AccountId>();
 
 		let (reserve_0, reserve_1) = LiquidityPool::<Test>::get(trading_pair);
 		let balance_0 = AssetsExt::balance(trading_pair.0, &pool_address);
@@ -481,7 +482,7 @@ fn add_shared_liquidity() {
 		assert_eq!(reserve_1, balance_1);
 
 		let trading_pair_2: TradingPair = TradingPair::new(asto, usdc);
-		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair_2.pool_address::<AccountId>();
 
 		let (reserve_2, reserve_3) = LiquidityPool::<Test>::get(trading_pair_2);
 		let balance_2 = AssetsExt::balance(trading_pair_2.0, &pool_address);
@@ -510,7 +511,7 @@ fn add_shared_liquidity() {
 		assert_eq!(reserve_1_0, 500751126690035053);
 
 		// validate pool address for usdc/weth has accumulated liquidity/tokens after the swap
-		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair.pool_address::<AccountId>();
 		let balance_0_0 = AssetsExt::balance(trading_pair.0, &pool_address);
 		let balance_1_0 = AssetsExt::balance(trading_pair.1, &pool_address);
 		assert_ne!(balance_0, balance_0_0); // balance should change before and after swap
@@ -526,7 +527,7 @@ fn add_shared_liquidity() {
 		assert_eq!(reserve_3, reserve_3_0);
 
 		// validate pool address for usdc/asto has not accumulated liquidity/tokens after the swap
-		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair_2.pool_address::<AccountId>();
 		let balance_2_0 = AssetsExt::balance(trading_pair_2.0, &pool_address);
 		let balance_3_0 = AssetsExt::balance(trading_pair_2.1, &pool_address);
 		assert_eq!(balance_2, balance_2_0); // balance should not change
@@ -552,7 +553,7 @@ fn add_shared_liquidity() {
 		assert_eq!(reserve_3_0_0, 1334668001334668002);
 
 		// validate pool address for usdc/asto has accumulated liquidity/tokens after the swap
-		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair_2.pool_address::<AccountId>();
 		let balance_2_0_0 = AssetsExt::balance(trading_pair_2.0, &pool_address);
 		let balance_3_0_0 = AssetsExt::balance(trading_pair_2.1, &pool_address);
 		assert_ne!(balance_2_0, balance_2_0_0); // balance should change before and after swap
@@ -568,7 +569,7 @@ fn add_shared_liquidity() {
 		assert_eq!(reserve_1_0, reserve_1_0_0);
 
 		// validate pool address for usdc/weth does not accumulate liquidity/tokens after the swap
-		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair.pool_address::<AccountId>();
 		let balance_0_0_0 = AssetsExt::balance(trading_pair.0, &pool_address);
 		let balance_1_0_0 = AssetsExt::balance(trading_pair.1, &pool_address);
 		assert_eq!(balance_0_0, balance_0_0_0); // balance should change before and after swap
@@ -590,12 +591,12 @@ fn get_trading_pair_address() {
 
 		// TradingPair::new(usdc, weth);
 		let trading_pair = TradingPair::new(usdc, weth);
-		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair.pool_address::<AccountId>();
 		let pool_address = encode(H160(pool_address.into()).as_bytes());
 		assert_eq!(pool_address, "dddddddd00000464000008640000000000000000");
 
 		let trading_pair_reverse = TradingPair::new(weth, usdc);
-		let pool_address_reverse: AccountId = trading_pair_reverse.pool_address::<Test>();
+		let pool_address_reverse: AccountId = trading_pair_reverse.pool_address::<AccountId>();
 		let pool_address_reverse = encode(H160(pool_address_reverse.into()).as_bytes());
 		assert_eq!(pool_address_reverse, "dddddddd00000464000008640000000000000000");
 
@@ -1016,7 +1017,7 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 		));
 
 		let trading_pair = TradingPair::new(a, b);
-		let pool_address: AccountId = trading_pair.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair.pool_address::<AccountId>();
 		let (reserve_0, reserve_1) = LiquidityPool::<Test>::get(trading_pair);
 		let balance_0 = AssetsExt::balance(trading_pair.0, &pool_address);
 		let balance_1 = AssetsExt::balance(trading_pair.1, &pool_address);
@@ -1027,7 +1028,7 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 		assert_eq!(reserve_1, 99_950_175u128); // 100_000_000u128 - 49_825u128
 
 		let trading_pair_2: TradingPair = TradingPair::new(b, c);
-		let pool_address: AccountId = trading_pair_2.pool_address::<Test>();
+		let pool_address: AccountId = trading_pair_2.pool_address::<AccountId>();
 
 		let (reserve_2, reserve_3) = LiquidityPool::<Test>::get(trading_pair_2);
 		let balance_2 = AssetsExt::balance(trading_pair_2.0, &pool_address);

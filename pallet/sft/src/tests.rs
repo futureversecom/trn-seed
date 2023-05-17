@@ -25,7 +25,7 @@ use sp_runtime::{BoundedVec, Permill};
 pub fn create_test_collection(owner: <Test as frame_system::Config>::AccountId) -> CollectionUuid {
 	let collection_uuid = next_collection_uuid();
 	let collection_name = bounded_string("test-collection");
-	let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+	let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 	assert_ok!(Sft::create_collection(
 		Some(owner).into(),
@@ -148,7 +148,8 @@ mod create_collection {
 			let caller = alice();
 			let collection_name = bounded_string("test");
 			let collection_owner = bob();
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 			let royalties_schedule =
 				RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
 
@@ -196,7 +197,8 @@ mod create_collection {
 			let collection_uuid = next_collection_uuid();
 			let caller = alice();
 			let collection_name = bounded_string("test");
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Call works
 			assert_ok!(Sft::create_collection(
@@ -218,7 +220,8 @@ mod create_collection {
 	#[test]
 	fn create_collection_invalid_collection_name_fails() {
 		TestExt::default().build().execute_with(|| {
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Empty Collection Name
 			let empty_collection_name = bounded_string("");
@@ -249,40 +252,10 @@ mod create_collection {
 	}
 
 	#[test]
-	fn create_collection_invalid_metadata_scheme_fails() {
-		TestExt::default().build().execute_with(|| {
-			// Empty MetadataScheme
-			let empty_metadata_scheme = MetadataScheme::Https(b"".to_vec());
-			assert_noop!(
-				Sft::create_collection(
-					Some(alice()).into(),
-					bounded_string("test-collection"),
-					None,
-					empty_metadata_scheme,
-					None
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-
-			// Non utf-8 MetadataScheme
-			let non_utf8_metadata_scheme = MetadataScheme::Https(vec![0xfe, 0xff]);
-			assert_noop!(
-				Sft::create_collection(
-					Some(alice()).into(),
-					bounded_string("test-collection"),
-					None,
-					non_utf8_metadata_scheme,
-					None
-				),
-				Error::<Test>::InvalidMetadataPath
-			);
-		});
-	}
-
-	#[test]
 	fn create_collection_invalid_royalties_schedule_fails() {
 		TestExt::default().build().execute_with(|| {
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Empty RoyaltiesSchedule
 			let empty_royalties_schedule = RoyaltiesSchedule { entitlements: vec![] };
@@ -385,8 +358,7 @@ mod create_token {
 
 			// Event emitted
 			System::assert_last_event(Event::Sft(crate::Event::TokenCreated {
-				collection_id,
-				serial_number: 0,
+				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: Some(max_issuance),
 				token_name,
@@ -425,8 +397,7 @@ mod create_token {
 
 			// Event emitted
 			System::assert_last_event(Event::Sft(crate::Event::TokenCreated {
-				collection_id,
-				serial_number: 0,
+				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: None,
 				token_name,
@@ -552,7 +523,8 @@ mod create_token {
 	fn create_token_invalid_next_serial_number_fails() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = alice();
-			let metadata_scheme = MetadataScheme::Https(b"example.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"example.com/metadata".as_slice()).unwrap();
 
 			// Create storage with max next serial number
 			let dummy_collection_info = SftCollectionInformation {
@@ -618,7 +590,7 @@ mod mint {
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
-				quantities: bounded_quantities(vec![quantity]),
+				balances: bounded_quantities(vec![quantity]),
 				owner: token_owner,
 			}));
 
@@ -643,7 +615,7 @@ mod mint {
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
-				quantities: bounded_quantities(vec![quantity2]),
+				balances: bounded_quantities(vec![quantity2]),
 				owner: token_owner,
 			}));
 		});
@@ -690,7 +662,7 @@ mod mint {
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
-				quantities: bounded_quantities(quantities),
+				balances: bounded_quantities(quantities),
 				owner: token_owner,
 			}));
 		});
@@ -724,7 +696,7 @@ mod mint {
 			System::assert_last_event(Event::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
-				quantities: bounded_quantities(quantities),
+				balances: bounded_quantities(quantities),
 				owner: token_owner,
 			}));
 		});
@@ -966,7 +938,7 @@ mod transfer {
 				previous_owner: token_owner,
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
-				quantities: bounded_quantities(vec![quantity]),
+				balances: bounded_quantities(vec![quantity]),
 				new_owner,
 			}));
 		});
@@ -1018,7 +990,7 @@ mod transfer {
 				previous_owner: collection_owner,
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
-				quantities: bounded_quantities(quantities),
+				balances: bounded_quantities(quantities),
 				new_owner: token_owner,
 			}));
 		});
@@ -1197,7 +1169,7 @@ mod burn {
 			System::assert_last_event(Event::Sft(crate::Event::Burn {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
-				quantities: bounded_quantities(vec![burn_amount]),
+				balances: bounded_quantities(vec![burn_amount]),
 				owner: collection_owner,
 			}));
 		});
@@ -1310,7 +1282,6 @@ mod burn {
 			let (collection_id, serial_number) = token_id;
 
 			// Burn 100 tokens
-			let burn_amount = 100;
 			assert_noop!(
 				Sft::burn(
 					Some(collection_owner.clone()).into(),
@@ -1480,7 +1451,8 @@ mod set_base_uri {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 
-			let metadata_scheme = MetadataScheme::Https(b"cool.new.scheme.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"cool.new.scheme.com/metadata".as_slice()).unwrap();
 
 			// Set base uri
 			assert_ok!(Sft::set_base_uri(
@@ -1500,7 +1472,8 @@ mod set_base_uri {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = alice();
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
-			let metadata_scheme = MetadataScheme::Https(b"cool.new.scheme.com/metadata".to_vec());
+			let metadata_scheme =
+				MetadataScheme::try_from(b"cool.new.scheme.com/metadata".as_slice()).unwrap();
 
 			// Set base uri fails because not collection owner
 			assert_noop!(

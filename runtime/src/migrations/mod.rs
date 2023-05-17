@@ -11,8 +11,8 @@
 
 mod dex;
 mod nft;
-mod xrpl_bridge;
 
+use crate::{Futurepass, Marketplace, Sft};
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -20,7 +20,7 @@ use frame_support::{
 		move_storage_from_pallet, put_storage_value, storage_key_iter, take_storage_value,
 	},
 	storage::storage_prefix,
-	traits::OnRuntimeUpgrade,
+	traits::{OnRuntimeUpgrade, StorageVersion},
 	weights::Weight,
 	ReversibleStorageHasher,
 };
@@ -30,27 +30,29 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		//nft::Upgrade::pre_upgrade()?;
-		xrpl_bridge::Upgrade::pre_upgrade()?;
 		dex::Upgrade::pre_upgrade()?;
+		nft::Upgrade::pre_upgrade()?;
 
 		Ok(())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
-		//weight += nft::Upgrade::on_runtime_upgrade();
-		weight += xrpl_bridge::Upgrade::on_runtime_upgrade();
 		weight += dex::Upgrade::on_runtime_upgrade();
+		weight += nft::Upgrade::on_runtime_upgrade();
+
+		// Set Marketplace and Futurepass storage version to 0
+		StorageVersion::new(0).put::<Marketplace>();
+		StorageVersion::new(0).put::<Futurepass>();
+		StorageVersion::new(0).put::<Sft>();
 
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
-		//nft::Upgrade::post_upgrade()?;
-		xrpl_bridge::Upgrade::post_upgrade()?;
 		dex::Upgrade::post_upgrade()?;
+		nft::Upgrade::post_upgrade()?;
 
 		Ok(())
 	}

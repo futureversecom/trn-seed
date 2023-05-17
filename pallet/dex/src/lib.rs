@@ -26,9 +26,9 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use scale_info::TypeInfo;
 use seed_pallet_common::CreateExt;
-use seed_primitives::{AccountId, AssetId, Balance};
+use seed_primitives::{AssetId, Balance};
 use serde::{Deserialize, Serialize};
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
 	ArithmeticError, DispatchError, DispatchResult, FixedU128, RuntimeDebug, SaturatedConversion,
@@ -84,8 +84,14 @@ impl Default for TradingPairStatus {
 pub mod pallet {
 	use super::*;
 
+	/// The current storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> {
+	pub trait Config: frame_system::Config
+	where
+		<Self as frame_system::Config>::AccountId: From<H160>,
+	{
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// Trading fee rate
 		/// The first item of the tuple is the numerator of the fee rate, second
@@ -170,7 +176,10 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
-	pub enum Event<T: Config> {
+	pub enum Event<T: Config>
+	where
+		<T as frame_system::Config>::AccountId: From<H160>,
+	{
 		/// add provision success \[who, asset_id_0, contribution_0,
 		/// asset_id_1, contribution_1\]
 		AddProvision(T::AccountId, AssetId, Balance, AssetId, Balance),
@@ -209,13 +218,20 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, TradingPair, TradingPairStatus, ValueQuery>;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
+		<T as frame_system::Config>::AccountId: From<H160>
+	{
+	}
 
 	#[pallet::call]
-	impl<T: Config> Pallet<T> {
+	impl<T: Config> Pallet<T>
+	where
+		<T as frame_system::Config>::AccountId: From<H160>,
+	{
 		/// Trading with DEX, swap with exact supply amount. Specify your input; retrieve variable
 		/// output.
 		/// - note: analogous to Uniswapv2 `swapExactTokensForTokens`
@@ -410,7 +426,10 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config> Pallet<T>
+where
+	<T as frame_system::Config>::AccountId: From<H160>,
+{
 	pub fn burn_account_id() -> T::AccountId {
 		T::DEXBurnPalletId::get().into_account_truncating()
 	}
@@ -457,7 +476,7 @@ impl<T: Config> Pallet<T> {
 		lp_token_symbol.extend_from_slice(&asset_id_b_bytes);
 
 		let lp_asset_id = T::MultiCurrency::create_with_metadata(
-			&trading_pair.pool_address::<T>(),
+			&trading_pair.pool_address(),
 			lp_token_name,
 			lp_token_symbol,
 			T::LPTokenDecimals::get(),
@@ -539,7 +558,7 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		let pool_address = trading_pair.pool_address::<T>();
+		let pool_address = trading_pair.pool_address();
 		T::MultiCurrency::transfer(
 			asset_id_a,
 			who,
@@ -628,7 +647,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
 
 		// transfer lp tokens to dex
-		let pool_address = trading_pair.pool_address::<T>();
+		let pool_address = trading_pair.pool_address();
 		T::MultiCurrency::transfer(
 			lp_share_asset_id,
 			&who,
@@ -872,12 +891,12 @@ impl<T: Config> Pallet<T> {
 			// address to = i < path.length - 2 ? UniswapV2Library.pairFor(factory, output, path[i +
 			// 2]) : _to;
 			let to = if i < path.len() - 2 {
-				TradingPair::new(output, path[i + 2]).pool_address::<T>()
+				TradingPair::new(output, path[i + 2]).pool_address()
 			} else {
-				*to
+				to.clone()
 			};
 
-			let pool_address = trading_pair.pool_address::<T>();
+			let pool_address = trading_pair.pool_address();
 
 			// IUniswapV2Pair(UniswapV2Library.pairFor(factory, input, output)).swap(amount0Out,
 			// amount1Out, to, new bytes(0));
@@ -991,7 +1010,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(amounts[amounts.len() - 1] >= min_amount_out, Error::<T>::InsufficientTargetAmount);
 		let trading_pair = TradingPair::new(path[0], path[1]);
 		// transfer tokens to module account (uniswapv2 trading pair)
-		let pool_address = trading_pair.pool_address::<T>();
+		let pool_address = trading_pair.pool_address();
 
 		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
@@ -1018,7 +1037,7 @@ impl<T: Config> Pallet<T> {
 		// EXCESSIVE_INPUT_AMOUNT
 		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
 		let trading_pair = TradingPair::new(path[0], path[1]);
-		let pool_address = trading_pair.pool_address::<T>();
+		let pool_address = trading_pair.pool_address();
 		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
 		Self::_swap(&amounts, &path, who)?;
