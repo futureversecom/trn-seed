@@ -267,7 +267,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[0].args.target).to.equal(recipient.address);
     expect((receipt?.events as any)[0].args.value).to.equal(parseEther(transferAmount));
-    expect((receipt?.events as any)[0].args.data).to.equal(ethers.constants.Zero);
+    expect((receipt?.events as any)[0].args.data).to.equal("0x00000000");
 
     // check recipient balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(transferAmount * 1_000_000);
@@ -309,7 +309,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[0].args.target).to.equal(recipient.address);
     expect((receipt?.events as any)[0].args.value).to.equal(parseEther(transferAmount));
-    expect((receipt?.events as any)[0].args.data).to.equal(ethers.constants.Zero);
+    expect((receipt?.events as any)[0].args.data).to.equal("0x00000000");
 
     // check recipient balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(transferAmount * 1_000_000);
@@ -356,7 +356,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[0].args.target).to.equal(recipient.address);
     expect((receipt?.events as any)[0].args.value).to.equal(parseEther(transferAmount));
-    expect((receipt?.events as any)[0].args.data).to.equal(ethers.constants.Zero);
+    expect((receipt?.events as any)[0].args.data).to.equal("0x00000000");
 
     // check recipient balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(transferAmount * 1_000_000);
@@ -451,7 +451,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
     expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
-    expect((receipt?.events as any)[1].args.data).to.equal(ethers.constants.Zero);
+    expect((receipt?.events as any)[1].args.data).to.equal("0x00000000");
 
     // validate proxy based value transfer to contract payable receive function
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(15_000_000);
@@ -472,7 +472,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
     expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
-    // expect((receipt?.events as any)[1].args.data).to.equal(fnCallData); // TODO: fix this
+    expect((receipt?.events as any)[1].args.data).to.equal(fnCallData.substring(0,10)); // "0x<8 hex chars for 4 bytes>"
 
     // validate proxy based value transfer to payable function
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(20_000_000);
@@ -512,7 +512,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
     expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
-    expect((receipt?.events as any)[1].args.data).to.equal(ethers.constants.Zero);
+    expect((receipt?.events as any)[1].args.data).to.equal("0x00000000");
 
     // validate proxy based value transfer to contract payable receive function
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(amount * 1_000_000);
@@ -532,7 +532,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
     expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
-    // expect((receipt?.events as any)[1].args.data).to.equal(fnCallData); // TODO: fix this
+    expect((receipt?.events as any)[1].args.data).to.equal(fnCallData.substring(0,10)); // "0x<8 hex chars for 4 bytes>"
 
     // validate proxy based value transfer to payable function
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(amount * 2 * 1_000_000); // we transferred 2 times
