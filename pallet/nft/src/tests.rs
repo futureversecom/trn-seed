@@ -526,6 +526,7 @@ fn transfer_fails_prechecks() {
 		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let token_owner = create_account(2);
+		let new_owner = create_account(3);
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![0]).unwrap();
 
@@ -535,7 +536,7 @@ fn transfer_fails_prechecks() {
 				Some(token_owner).into(),
 				collection_id,
 				serial_numbers.clone(),
-				token_owner
+				new_owner
 			),
 			Error::<Test>::NoCollectionFound,
 		);
@@ -551,13 +552,12 @@ fn transfer_fails_prechecks() {
 			CrossChainCompatibility::default(),
 		));
 
-		let not_the_owner = create_account(3);
 		assert_noop!(
 			Nft::transfer(
-				Some(not_the_owner).into(),
+				Some(new_owner).into(),
 				collection_id,
 				serial_numbers.clone(),
-				not_the_owner
+				token_owner
 			),
 			Error::<Test>::NotTokenOwner,
 		);
@@ -575,7 +575,7 @@ fn transfer_fails_prechecks() {
 
 		// cannot transfer while listed
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner),
+			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, new_owner),
 			Error::<Test>::TokenLocked,
 		);
 	});
