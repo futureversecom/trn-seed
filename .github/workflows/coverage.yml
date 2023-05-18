@@ -7,12 +7,17 @@ on:
   push:
     branches:
     - main
+  issue_comment:
+    types:
+    - created
 
 jobs:
   coverage:
     runs-on: [seed-builder]
     # Run on the PR branch that was commented, otherwise run on push to 'main'
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, 'check coverage') }} || ${{ github.event.push && github.ref == 'refs/heads/main' }}
+    if: |
+      (github.event.issue.pull_request && contains(github.event.comment.body, 'check coverage')) || 
+      (github.event.push && github.ref == 'refs/heads/main' && github.event_name == 'push')
     steps:
       - uses: xt0rted/pull-request-comment-branch@v1
         # this is allowed to fail on 'main'
