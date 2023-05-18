@@ -591,7 +591,6 @@ describe("Futurepass Precompile", function () {
     // create FP for owner
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
-    // abi.encodePacked(bytecode, abi.encode(arg1))
     const amount = 100;
     const bytecodeWithContstructor = ethers.utils.solidityPack(
       ["bytes", "bytes"],
@@ -690,7 +689,6 @@ describe("Futurepass Precompile", function () {
     // create FP for owner
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
-    // abi.encodePacked(bytecode, abi.encode(arg1))
     const amount = 100;
     const bytecodeWithContstructor = ethers.utils.solidityPack(
       ["bytes", "bytes"],
