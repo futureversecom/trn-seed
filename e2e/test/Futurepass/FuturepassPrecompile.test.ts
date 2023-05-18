@@ -8,6 +8,7 @@ import { ethers } from "hardhat";
 import web3 from "web3";
 
 import MockCreateContract from "../../artifacts/contracts/FuturepassIntegrator.sol/CreateTester.json";
+import MockCreatePayableContract from "../../artifacts/contracts/FuturepassIntegrator.sol/CreateTesterPayable.json";
 import {
   ALITH_PRIVATE_KEY,
   ERC20_ABI,
@@ -554,7 +555,7 @@ describe("Futurepass Precompile", function () {
 
     const bytecode = MockCreateContract.bytecode;
 
-    // calculate the expected contract address - this is absed on deployer address (futurepass) and nonce
+    // calculate the expected contract address - this is based on deployer address (futurepass), bytecode and nonce
     // for contracts, the nonce is based on how many contract deployments the account has made
     const futurepassNonce = await provider.getTransactionCount(futurepassPrecompile.address);
     const expectedContractAddress = ethers.utils.getContractAddress({
@@ -581,29 +582,159 @@ describe("Futurepass Precompile", function () {
     expect(await testCreateContract.getValue()).to.equal(420);
   });
 
-  // TODO: introduce functionality
-  it.skip("proxyCall - futurepass can deploy a contract using CREATE2", async () => {
+  it("proxyCall - futurepass can deploy a contract with constructor using CREATE", async () => {
     const owner = Wallet.createRandom().connect(provider);
+
+    // transfer funds to owner
+    await fundEOA(alithSigner, owner.address);
 
     // create FP for owner
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
-    const erc20Bytecode = MockCreateContract.bytecode;
+    // abi.encodePacked(bytecode, abi.encode(arg1))
+    const amount = 100;
+    const bytecodeWithContstructor = ethers.utils.solidityPack(
+      ["bytes", "bytes"],
+      [MockCreatePayableContract.bytecode, ethers.utils.defaultAbiCoder.encode(["uint256"], [amount])],
+    );
 
-    // Define a salt value for CREATE2
-    // const salt = ethers.utils.hexZeroPad(ethers.utils.randomBytes(32), 32);
-    // const salt = ethers.utils.hexZeroPad(ethers.utils.hexlify(ethers.BigNumber.from(ethers.utils.randomBytes(32))), 32);
-    const salt = ethers.utils.id("1234");
-    ethers.utils.getCreate2Address(futurepassPrecompile.address, salt, ethers.utils.keccak256(erc20Bytecode));
+    // fails to deploy contract - no amount or value provided (constructor requires amount to be paid to contract)
+    await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Create, ethers.constants.AddressZero, ethers.constants.Zero, bytecodeWithContstructor)
+      .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
 
-    // Encode the CREATE2 call to deploy the template contract
-    const deployCallData = ethers.utils.hexConcat([ethers.utils.hexZeroPad("0xff", 32), erc20Bytecode, salt]);
+    // fails to deploy contract - no amount provided (constructor requires amount to be paid to contract)
+    await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Create, ethers.constants.AddressZero, ethers.constants.Zero, bytecodeWithContstructor, {
+        value: parseEther(1),
+      })
+      .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
 
-    // Call the proxyCall function with the futurepass address and the encoded CREATE2 call data
+    const futurepassNonce = await provider.getTransactionCount(futurepassPrecompile.address);
+    const expectedContractAddress = ethers.utils.getContractAddress({
+      from: futurepassPrecompile.address,
+      nonce: futurepassNonce,
+    });
+
+    // call the proxyCall function with the futurepass address and the encoded CREATE call data
     const tx = await futurepassPrecompile
       .connect(owner)
-      .proxyCall(CALL_TYPE.Create2, ethers.constants.AddressZero, ethers.constants.Zero, deployCallData);
-    await tx.wait();
+      .proxyCall(CALL_TYPE.Create, ethers.constants.AddressZero, amount, bytecodeWithContstructor, {
+        value: parseEther(1),
+      });
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("ContractCreated");
+    expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Create);
+    expect((receipt?.events as any)[0].args.contract).to.equal(expectedContractAddress);
+    expect((receipt?.events as any)[0].args.value).to.equal(amount);
+    expect((receipt?.events as any)[0].args.salt).to.equal(ethers.constants.Zero);
+
+    // validate nonce increases
+    expect(await provider.getTransactionCount(futurepassPrecompile.address)).to.equal(futurepassNonce + 1);
+
+    // validate contract functions can be called at the expected address
+    const testCreateContract = new ethers.Contract(expectedContractAddress, MockCreatePayableContract.abi, provider);
+    expect(await testCreateContract.getValue()).to.equal(420);
+    expect(await testCreateContract.getDeposit()).to.equal(100);
+  });
+
+  it("proxyCall - futurepass can deploy a contract using CREATE2", async () => {
+    const owner = Wallet.createRandom().connect(provider);
+
+    // transfer funds to owner
+    await fundEOA(alithSigner, owner.address);
+
+    // create FP for owner
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
+    const bytecode = MockCreateContract.bytecode;
+
+    // Define a salt value for CREATE2
+    // calculate the expected contract address - this is based on deployer address (futurepass), bytecode and salt
+    // the salt in the precompile is generated calculated using the last 32 bytes of the bytecode
+    // Note:
+    //    In solidity, the bytes type is an array of bytes, and it is typically represented as a hexadecimal string,
+    //    where each byte is represented by 2 hexadecimal digits. Therefore, to get the last 32 bytes, you should get the
+    //    last 64 characters from the bytecode string.
+    const expectedSalt = "0x" + bytecode.slice(-64);
+    const expectedContractAddress = ethers.utils.getCreate2Address(
+      futurepassPrecompile.address,
+      expectedSalt,
+      ethers.utils.keccak256(bytecode),
+    );
+
+    // call the proxyCall function with the futurepass address and the encoded CREATE2 call data
+    const tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Create2, ethers.constants.AddressZero, ethers.constants.Zero, bytecode);
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("ContractCreated");
+    expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Create2);
+    expect((receipt?.events as any)[0].args.contract).to.equal(expectedContractAddress);
+    expect((receipt?.events as any)[0].args.value).to.equal(ethers.constants.Zero);
+    expect((receipt?.events as any)[0].args.salt).to.equal(expectedSalt);
+
+    // validate contract functions can be called at the expected address
+    const testCreateContract = new ethers.Contract(expectedContractAddress, MockCreateContract.abi, provider);
+    expect(await testCreateContract.getValue()).to.equal(420);
+  });
+
+  it.only("proxyCall - futurepass can deploy a contract with constructor using CREATE2", async () => {
+    const owner = Wallet.createRandom().connect(provider);
+
+    // transfer funds to owner
+    await fundEOA(alithSigner, owner.address);
+
+    // create FP for owner
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
+    // abi.encodePacked(bytecode, abi.encode(arg1))
+    const amount = 100;
+    const bytecodeWithContstructor = ethers.utils.solidityPack(
+      ["bytes", "bytes"],
+      [MockCreatePayableContract.bytecode, ethers.utils.defaultAbiCoder.encode(["uint256"], [amount])],
+    );
+
+    // fails to deploy contract - no amount or value provided (constructor requires amount to be paid to contract)
+    await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Create2, ethers.constants.AddressZero, ethers.constants.Zero, bytecodeWithContstructor)
+      .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
+
+    // fails to deploy contract - no amount provided (constructor requires amount to be paid to contract)
+    await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Create2, ethers.constants.AddressZero, ethers.constants.Zero, bytecodeWithContstructor, {
+        value: parseEther(1),
+      })
+      .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
+
+    const expectedSalt = "0x" + bytecodeWithContstructor.slice(-64);
+    const expectedContractAddress = ethers.utils.getCreate2Address(
+      futurepassPrecompile.address,
+      expectedSalt,
+      ethers.utils.keccak256(bytecodeWithContstructor),
+    );
+
+    // call the proxyCall function with the futurepass address and the encoded CREATE2 call data
+    const tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Create2, ethers.constants.AddressZero, amount, bytecodeWithContstructor, {
+        value: parseEther(1),
+      });
+    const receipt = await tx.wait();
+    expect((receipt?.events as any)[0].event).to.equal("ContractCreated");
+    expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Create2);
+    expect((receipt?.events as any)[0].args.contract).to.equal(expectedContractAddress);
+    expect((receipt?.events as any)[0].args.value).to.equal(amount);
+    expect((receipt?.events as any)[0].args.salt).to.equal(expectedSalt);
+
+    // validate contract functions can be called at the expected address
+    const testCreateContract = new ethers.Contract(expectedContractAddress, MockCreatePayableContract.abi, provider);
+    expect(await testCreateContract.getValue()).to.equal(420);
+    expect(await testCreateContract.getDeposit()).to.equal(100);
   });
 
   it("futurepass can hold and transfer ERC20", async () => {
