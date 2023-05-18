@@ -396,7 +396,7 @@ where
 					handle.remaining_gas(),
 					None,
 					None,
-					None, // may need storage item for this if not handled by EVM
+					None, // handled by EVM
 					alloc::vec![],
 					false,
 					false,
@@ -440,7 +440,7 @@ where
 					handle.remaining_gas(),
 					None,
 					None,
-					None, // may need storage item for this if not handled by EVM
+					None, // handled by EVM
 					alloc::vec![],
 					false,
 					false,
