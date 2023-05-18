@@ -446,7 +446,7 @@ where
 					false,
 					<Runtime as pallet_evm::Config>::config(),
 				)
-				.map_err(|_| RevertReason::custom("create failed"))?;
+				.map_err(|_| RevertReason::custom("create2 failed"))?;
 
 				// emit ContractCreated(CREATE2, contractAddress, value, salt);
 				log4(
