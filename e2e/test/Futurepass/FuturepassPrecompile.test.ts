@@ -472,7 +472,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
     expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
-    expect((receipt?.events as any)[1].args.data).to.equal(fnCallData.substring(0,10)); // "0x<8 hex chars for 4 bytes>"
+    expect((receipt?.events as any)[1].args.data).to.equal(fnCallData.substring(0, 10)); // "0x<8 hex chars for 4 bytes>"
     expect(fnCallData).to.equal("0xd0e30db0");
 
     // validate proxy based value transfer to payable function
@@ -532,7 +532,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[1].args.callType).to.equal(CALL_TYPE.Call);
     expect((receipt?.events as any)[1].args.target).to.equal(futurepassTester.address);
     expect((receipt?.events as any)[1].args.value).to.equal(parseEther(amount));
-    expect((receipt?.events as any)[1].args.data).to.equal(fnCallData.substring(0,10)); // "0x<8 hex chars for 4 bytes>"
+    expect((receipt?.events as any)[1].args.data).to.equal(fnCallData.substring(0, 10)); // "0x<8 hex chars for 4 bytes>"
     expect(fnCallData).to.equal("0xd0e30db0");
 
     // validate proxy based value transfer to payable function
