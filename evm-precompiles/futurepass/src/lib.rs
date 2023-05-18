@@ -417,8 +417,51 @@ where
 
 				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
 			},
-			CallType::DelegateCall | CallType::Create2 =>
-				Err(RevertReason::custom("call type not supported"))?,
+			CallType::Create2 => {
+				handle.record_log_costs_manual(4, 32)?;
+
+				let creation_code_len = call_data.inner.len();
+				let call_data_vec = call_data.into_vec();
+
+				// salt is the last 32 bytes of the creation code
+				// source: https://github.com/ERC725Alliance/ERC725/blob/c7f009261ff72b488f160028b835c311987638af/implementations/contracts/ERC725XCore.sol#L261
+				let salt = call_data_vec
+						.clone()  // clone here is on Vec<u8>, which is clonable
+						.into_iter()
+						.skip(creation_code_len - 32)
+						.collect::<alloc::vec::Vec<u8>>();
+				let salt = H256::from_slice(&salt);
+
+				let execution_info = <Runtime as pallet_evm::Config>::Runner::create2(
+						futurepass.into(),
+						call_data_vec,  // reuse the vector here
+						salt,
+						value,
+						handle.remaining_gas(),
+						None,
+						None,
+						None, // may need storage item for this if not handled by EVM
+						alloc::vec![],
+						false,
+						false,
+						<Runtime as pallet_evm::Config>::config(),
+				)
+				.map_err(|_| RevertReason::custom("create failed"))?;
+
+				// emit ContractCreated(CREATE2, contractAddress, value, salt);
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_CONTRACT_CREATED,
+					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
+					execution_info.value,
+					H256::from_slice(&Into::<[u8; 32]>::into(value)),
+					EvmDataWriter::new().write(salt).build(),
+				)
+				.record(handle)?;
+
+				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
+			},
+			CallType::DelegateCall => Err(RevertReason::custom("call type not supported"))?,
 		};
 
 		// Return subcall result
