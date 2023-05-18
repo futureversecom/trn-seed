@@ -426,25 +426,25 @@ where
 				// salt is the last 32 bytes of the creation code
 				// source: https://github.com/ERC725Alliance/ERC725/blob/c7f009261ff72b488f160028b835c311987638af/implementations/contracts/ERC725XCore.sol#L261
 				let salt = call_data_vec
-						.clone()  // clone here is on Vec<u8>, which is clonable
-						.into_iter()
-						.skip(creation_code_len - 32)
-						.collect::<alloc::vec::Vec<u8>>();
+					.clone() // clone here is on Vec<u8>, which is clonable
+					.into_iter()
+					.skip(creation_code_len - 32)
+					.collect::<alloc::vec::Vec<u8>>();
 				let salt = H256::from_slice(&salt);
 
 				let execution_info = <Runtime as pallet_evm::Config>::Runner::create2(
-						futurepass.into(),
-						call_data_vec,  // reuse the vector here
-						salt,
-						value,
-						handle.remaining_gas(),
-						None,
-						None,
-						None, // may need storage item for this if not handled by EVM
-						alloc::vec![],
-						false,
-						false,
-						<Runtime as pallet_evm::Config>::config(),
+					futurepass.into(),
+					call_data_vec, // reuse the vector here
+					salt,
+					value,
+					handle.remaining_gas(),
+					None,
+					None,
+					None, // may need storage item for this if not handled by EVM
+					alloc::vec![],
+					false,
+					false,
+					<Runtime as pallet_evm::Config>::config(),
 				)
 				.map_err(|_| RevertReason::custom("create failed"))?;
 
