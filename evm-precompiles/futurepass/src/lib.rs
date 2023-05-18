@@ -7,9 +7,11 @@ use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	ensure,
 };
-use pallet_evm::{ExitReason, PrecompileFailure, PrecompileSet};
-use precompile_utils::{constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use sp_core::{H160, U256};
+use pallet_evm::{ExitReason, PrecompileFailure, PrecompileSet, Runner};
+use precompile_utils::{
+	constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, data::Bytes32PostPad, get_selector, prelude::*,
+};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	codec::Decode,
 	traits::{ConstU32, Zero},
@@ -21,6 +23,10 @@ pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateRegistered(address,address,uint8)"); // futurepass, delegate, proxyType
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_UNREGISTERED: [u8; 32] =
 	keccak256!("FuturepassDelegateUnregistered(address,address)"); // futurepass, delegate
+pub const SELECTOR_LOG_FUTUREPASS_EXECUTED: [u8; 32] =
+	keccak256!("Executed(uint8,address,uint256,bytes4)"); // operation, contractAddress, value, functionSelector
+pub const SELECTOR_LOG_FUTUREPASS_CONTRACT_CREATED: [u8; 32] =
+	keccak256!("ContractCreated(uint8,address,uint256,bytes32)"); // operation, contractAddress, value, salt
 
 /// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
@@ -46,6 +52,18 @@ impl TryFrom<u8> for CallType {
 			3 => Ok(CallType::Create),
 			4 => Ok(CallType::Create2),
 			_ => Err("Invalid value for CallType"),
+		}
+	}
+}
+
+impl From<CallType> for u8 {
+	fn from(value: CallType) -> Self {
+		match value {
+			CallType::StaticCall => 0,
+			CallType::Call => 1,
+			CallType::DelegateCall => 2,
+			CallType::Create => 3,
+			CallType::Create2 => 4,
 		}
 	}
 }
@@ -315,24 +333,135 @@ where
 		};
 
 		let (reason, output) = match call_type {
-			CallType::StaticCall => handle.call(
-				address,
-				transfer,
-				call_data.into_vec(),
-				Some(handle.remaining_gas()),
-				true,
-				&sub_context,
-			),
-			CallType::Call => handle.call(
-				address,
-				transfer,
-				call_data.into_vec(),
-				Some(handle.remaining_gas()),
-				false,
-				&sub_context,
-			),
-			CallType::DelegateCall | CallType::Create | CallType::Create2 =>
-				Err(RevertReason::custom("Futurepass: call type not supported"))?,
+			CallType::StaticCall => {
+				handle.record_log_costs_manual(4, 32)?;
+				let call_data = call_data.into_vec();
+				let (reason, output) = handle.call(
+					address,
+					transfer,
+					call_data.clone(),
+					Some(handle.remaining_gas()),
+					true,
+					&sub_context,
+				);
+
+				// emit Executed(CALL, target, value, bytes4(data));
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_EXECUTED,
+					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
+					address,
+					H256::from_slice(&Into::<[u8; 32]>::into(value)),
+					EvmDataWriter::new()
+						.write(Bytes32PostPad::from(get_selector(&call_data).as_slice()))
+						.build(),
+				)
+				.record(handle)?;
+
+				(reason, output)
+			},
+			CallType::Call => {
+				handle.record_log_costs_manual(4, 32)?;
+				let call_data = call_data.into_vec();
+				let (reason, output) = handle.call(
+					address,
+					transfer,
+					call_data.clone(),
+					Some(handle.remaining_gas()),
+					false,
+					&sub_context,
+				);
+
+				// emit Executed(CALL, target, value, bytes4(data));
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_EXECUTED,
+					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
+					address,
+					H256::from_slice(&Into::<[u8; 32]>::into(value)),
+					EvmDataWriter::new()
+						.write(Bytes32PostPad::from(get_selector(&call_data).as_slice()))
+						.build(),
+				)
+				.record(handle)?;
+
+				(reason, output)
+			},
+			CallType::Create => {
+				handle.record_log_costs_manual(4, 32)?;
+				let execution_info = <Runtime as pallet_evm::Config>::Runner::create(
+					futurepass.into(),
+					call_data.into_vec(),
+					value,
+					handle.remaining_gas(),
+					None,
+					None,
+					None, // handled by EVM
+					alloc::vec![],
+					false,
+					false,
+					<Runtime as pallet_evm::Config>::config(),
+				)
+				.map_err(|_| RevertReason::custom("create failed"))?;
+
+				// emit ContractCreated(CREATE, contractAddress, value, bytes32(0));
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_CONTRACT_CREATED,
+					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
+					execution_info.value,
+					H256::from_slice(&Into::<[u8; 32]>::into(value)),
+					EvmDataWriter::new().write(U256::zero()).build(),
+				)
+				.record(handle)?;
+
+				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
+			},
+			CallType::Create2 => {
+				handle.record_log_costs_manual(4, 32)?;
+
+				let creation_code_len = call_data.inner.len();
+				let call_data_vec = call_data.into_vec();
+
+				// salt is the last 32 bytes of the creation code
+				// source: https://github.com/ERC725Alliance/ERC725/blob/c7f009261ff72b488f160028b835c311987638af/implementations/contracts/ERC725XCore.sol#L261
+				let salt = call_data_vec
+					.clone() // clone here is on Vec<u8>, which is clonable
+					.into_iter()
+					.skip(creation_code_len - 32)
+					.collect::<alloc::vec::Vec<u8>>();
+				let salt = H256::from_slice(&salt);
+
+				let execution_info = <Runtime as pallet_evm::Config>::Runner::create2(
+					futurepass.into(),
+					call_data_vec, // reuse the vector here
+					salt,
+					value,
+					handle.remaining_gas(),
+					None,
+					None,
+					None, // handled by EVM
+					alloc::vec![],
+					false,
+					false,
+					<Runtime as pallet_evm::Config>::config(),
+				)
+				.map_err(|_| RevertReason::custom("create2 failed"))?;
+
+				// emit ContractCreated(CREATE2, contractAddress, value, salt);
+				log4(
+					handle.code_address(),
+					SELECTOR_LOG_FUTUREPASS_CONTRACT_CREATED,
+					H256::from_low_u64_be(<CallType as Into<u8>>::into(call_type).into()),
+					execution_info.value,
+					H256::from_slice(&Into::<[u8; 32]>::into(value)),
+					EvmDataWriter::new().write(salt).build(),
+				)
+				.record(handle)?;
+
+				(execution_info.exit_reason, execution_info.value.to_fixed_bytes().to_vec())
+			},
+			CallType::DelegateCall => Err(RevertReason::custom("call type not supported"))?,
 		};
 
 		// Return subcall result
@@ -341,7 +470,7 @@ where
 			ExitReason::Revert(exit_status) =>
 				Err(PrecompileFailure::Revert { exit_status, output }),
 			ExitReason::Error(exit_status) => Err(PrecompileFailure::Error { exit_status }),
-			ExitReason::Succeed(_) => Ok(succeed([])),
+			ExitReason::Succeed(_) => Ok(succeed(output)),
 		}
 	}
 
