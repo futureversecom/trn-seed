@@ -37,7 +37,7 @@ mod impls;
 pub mod mock;
 #[cfg(test)]
 mod tests;
-mod types;
+pub mod types;
 use types::*;
 
 pub use pallet::*;

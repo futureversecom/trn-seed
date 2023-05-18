@@ -12,7 +12,6 @@
 mod dex;
 mod nft;
 
-use crate::{Futurepass, Marketplace, Sft};
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -20,7 +19,7 @@ use frame_support::{
 		move_storage_from_pallet, put_storage_value, storage_key_iter, take_storage_value,
 	},
 	storage::storage_prefix,
-	traits::{OnRuntimeUpgrade, StorageVersion},
+	traits::{OnRuntimeUpgrade},
 	weights::Weight,
 	ReversibleStorageHasher,
 };
@@ -30,7 +29,6 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		dex::Upgrade::pre_upgrade()?;
 		nft::Upgrade::pre_upgrade()?;
 
 		Ok(())
@@ -38,20 +36,12 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
-		weight += dex::Upgrade::on_runtime_upgrade();
 		weight += nft::Upgrade::on_runtime_upgrade();
-
-		// Set Marketplace and Futurepass storage version to 0
-		StorageVersion::new(0).put::<Marketplace>();
-		StorageVersion::new(0).put::<Futurepass>();
-		StorageVersion::new(0).put::<Sft>();
-
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
-		dex::Upgrade::post_upgrade()?;
 		nft::Upgrade::post_upgrade()?;
 
 		Ok(())
@@ -175,7 +165,7 @@ impl Value {
 	/// # Usage
 	///
 	/// let (module, item) = (b"MyPallet", b"MyStorageName");
-	/// Value::unsafe_storage_put(module, item, 100u32);
+	/// Value::unsafe_storage_get(module, item);
 	#[allow(dead_code)]
 	pub fn unsafe_storage_get<T>(module: &[u8], item: &[u8]) -> Option<T>
 	where

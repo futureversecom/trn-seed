@@ -9,7 +9,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{Nft, Runtime, Weight};
+use crate::{Marketplace, Nft, Runtime, Weight};
 use frame_support::{
 	dispatch::GetStorageVersion,
 	traits::{OnRuntimeUpgrade, StorageVersion},
@@ -19,7 +19,7 @@ pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		v5::pre_upgrade()?;
+		v6::pre_upgrade()?;
 		Ok(())
 	}
 
@@ -30,12 +30,13 @@ impl OnRuntimeUpgrade for Upgrade {
 
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 0);
 
-		if onchain == 4 {
-			log::info!(target: "Migration", "Nft: Migrating from onchain version 4 to onchain version 5.");
-			weight += v5::migrate::<Runtime>();
+		if onchain == 5 {
+			log::info!(target: "Migration", "Nft: Migrating from onchain version 5 to onchain version 6.");
+			weight += v6::migrate::<Runtime>();
 
 			log::info!(target: "Migration", "Nft: Migration successfully finished.");
-			StorageVersion::new(5).put::<Nft>();
+			StorageVersion::new(6).put::<Nft>();
+			StorageVersion::new(1).put::<Marketplace>();
 		} else {
 			log::info!(target: "Migration", "Nft: No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
 		}
@@ -45,77 +46,35 @@ impl OnRuntimeUpgrade for Upgrade {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
-		v5::post_upgrade()?;
+		v6::post_upgrade()?;
 		Ok(())
 	}
 }
 
 #[allow(dead_code)]
-pub mod v5 {
+pub mod v6 {
 	use super::*;
+	use crate::migrations::{Map, Value};
 	use codec::{Decode, Encode};
-	use frame_support::{storage_alias, weights::Weight, Twox64Concat};
-	use pallet_nft::{
-		CollectionInformation, Config, CrossChainCompatibility, Pallet, TokenOwnership,
+	use frame_support::{storage_alias, weights::Weight, BoundedVec, StorageHasher, Twox64Concat};
+	use pallet_marketplace::types::{
+		FixedPriceListing, Listing, Listing::FixedPrice, Marketplace as MarketplaceS,
+		MarketplaceId, OfferId, OfferType, SimpleOffer,
 	};
-	use scale_info::TypeInfo;
-	use seed_primitives::{
-		CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
-	};
-	use sp_runtime::{BoundedVec, Permill};
-	use sp_std::vec::Vec;
+	use seed_primitives::{Balance, CollectionUuid, ListingId, RoyaltiesSchedule, TokenId};
 
-	/// old NFT collection name type
-	pub type CollectionNameType = Vec<u8>;
-
-	/// Old unbounded Royalties Schedule
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
-	pub struct OldRoyaltiesSchedule<AccountId> {
-		pub entitlements: Vec<(AccountId, Permill)>,
-	}
-
-	/// Information related to a specific collection
-	#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo)]
-	#[scale_info(skip_type_params(T))]
-	pub struct OldCollectionInformation<T: Config> {
-		/// The owner of the collection
-		pub owner: T::AccountId,
-		/// A human friendly name
-		pub name: CollectionNameType,
-		/// Collection metadata reference scheme
-		pub metadata_scheme: MetadataScheme,
-		/// configured royalties schedule
-		pub royalties_schedule: Option<OldRoyaltiesSchedule<T::AccountId>>,
-		/// Maximum number of tokens allowed in a collection
-		pub max_issuance: Option<TokenCount>,
-		/// The chain in which the collection was minted originally
-		pub origin_chain: OriginChain,
-		/// The next available serial_number
-		pub next_serial_number: SerialNumber,
-		/// the total count of tokens in this collection
-		pub collection_issuance: TokenCount,
-		/// This collections compatibility with other chains
-		pub cross_chain_compatibility: CrossChainCompatibility,
-		/// All serial numbers owned by an account in a collection
-		pub owned_tokens: BoundedVec<
-			TokenOwnership<T::AccountId, T::MaxTokensPerCollection>,
-			<T as Config>::MaxTokensPerCollection,
-		>,
-	}
-
-	#[storage_alias]
-	type CollectionInfo<T: Config> =
-		StorageMap<Pallet<T>, Twox64Concat, CollectionUuid, OldCollectionInformation<T>>;
+	type AccountId = <Runtime as frame_system::Config>::AccountId;
+	type BlockNumber = <Runtime as frame_system::Config>::BlockNumber;
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
 		log::info!(target: "Migration", "Nft: Upgrade to v5 Pre Upgrade.");
 		let onchain = Nft::on_chain_storage_version();
 		// Return OK(()) if upgrade has already been done
-		if onchain == 5 {
+		if onchain == 6 {
 			return Ok(())
 		}
-		assert_eq!(onchain, 4);
+		assert_eq!(onchain, 5);
 
 		Ok(())
 	}
@@ -126,135 +85,268 @@ pub mod v5 {
 
 		let current = Nft::current_storage_version();
 		let onchain = Nft::on_chain_storage_version();
-		assert_eq!(current, 5);
-		assert_eq!(onchain, 5);
+		assert_eq!(current, 6);
+		assert_eq!(onchain, 6);
 
+		let current = Marketplace::current_storage_version();
+		let onchain = Marketplace::on_chain_storage_version();
+		assert_eq!(current, 1);
+		assert_eq!(onchain, 1);
 		Ok(())
 	}
 
-	pub fn migrate<T: pallet_nft::Config>() -> Weight
+	pub fn migrate<T: pallet_nft::Config + pallet_marketplace::Config>() -> Weight
 	where
-		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
+		AccountId: From<sp_core::H160>,
 	{
-		log::info!(target: "Migration", "Nft: updating royalties schedule and collection name");
-		pallet_nft::CollectionInfo::<T>::translate(|_, old: OldCollectionInformation<T>| {
-			// Bound new name vec, if it is from Ethereum, change the name to "bridged-collection"
-			let new_name = match old.origin_chain {
-				OriginChain::Root => BoundedVec::truncate_from(old.name),
-				OriginChain::Ethereum => BoundedVec::truncate_from(b"bridged-collection".to_vec()),
-			};
-			let new_royalties = match old.royalties_schedule {
-				Some(old_royalties) => Some(RoyaltiesSchedule {
-					entitlements: BoundedVec::truncate_from(old_royalties.entitlements),
-				}),
-				None => None,
-			};
+		log::info!(target: "Migration", "Nft: moving marketplace storage items to Marketplace pallet");
 
-			let new = CollectionInformation {
-				owner: old.owner,
-				name: new_name,
-				metadata_scheme: old.metadata_scheme,
-				royalties_schedule: new_royalties,
-				max_issuance: old.max_issuance,
-				origin_chain: old.origin_chain,
-				next_serial_number: old.next_serial_number,
-				collection_issuance: old.collection_issuance,
-				owned_tokens: old.owned_tokens,
-				cross_chain_compatibility: old.cross_chain_compatibility,
-			};
+		Value::unsafe_storage_move(b"NextMarketplaceId", b"Nft", b"Marketplace");
+		Map::unsafe_storage_move::<MarketplaceId, MarketplaceS<AccountId>, Twox64Concat>(
+			b"RegisteredMarketplaces",
+			b"Nft",
+			b"Marketplace",
+		);
+		Map::unsafe_storage_move::<ListingId, Listing<T>, Twox64Concat>(
+			b"Listings",
+			b"Nft",
+			b"Marketplace",
+		);
+		Value::unsafe_storage_move(b"NextListingId", b"Nft", b"Marketplace");
+		Map::unsafe_storage_move::<(CollectionUuid, ListingId), bool, Twox64Concat>(
+			b"OpenCollectionListings",
+			b"Nft",
+			b"Marketplace",
+		);
+		Map::unsafe_storage_move::<ListingId, (AccountId, Balance), Twox64Concat>(
+			b"ListingWinningBid",
+			b"Nft",
+			b"Marketplace",
+		);
+		Map::unsafe_storage_move::<(BlockNumber, ListingId), bool, Twox64Concat>(
+			b"ListingEndSchedule",
+			b"Nft",
+			b"Marketplace",
+		);
+		Map::unsafe_storage_move::<OfferId, OfferType<AccountId>, Twox64Concat>(
+			b"Offers",
+			b"Nft",
+			b"Marketplace",
+		);
+		// TODO Check whether this config trait bound for boundedVec works as expected
+		Map::unsafe_storage_move::<
+			TokenId,
+			BoundedVec<OfferId, <T as pallet_marketplace::Config>::MaxOffers>,
+			Twox64Concat,
+		>(b"TokenOffers", b"Nft", b"Marketplace");
+		Value::unsafe_storage_move(b"NextOfferId", b"Nft", b"Marketplace");
 
-			Some(new)
-		});
-		log::info!(target: "Nft", "...Successfully translated CollectionInfo with new name and royalties schedule");
+		log::info!(target: "Nft", "...Successfully moved marketplace storage items to Marketplace pallet");
 
-		let key_count = pallet_nft::CollectionInfo::<T>::iter().count();
-		<Runtime as frame_system::Config>::DbWeight::get().writes(key_count as u64)
+		<Runtime as frame_system::Config>::DbWeight::get().writes(10_u64)
 	}
 	#[cfg(test)]
 	mod tests {
-		use super::{OldCollectionInformation, OldRoyaltiesSchedule, *};
+		use super::*;
 		use crate::migrations::tests::new_test_ext;
 		use sp_core::H160;
+		use sp_runtime::Permill;
 
-		fn create_account(seed: u64) -> <Runtime as frame_system::Config>::AccountId {
-			<Runtime as frame_system::Config>::AccountId::from(H160::from_low_u64_be(seed))
+		fn create_account(seed: u64) -> AccountId {
+			AccountId::from(H160::from_low_u64_be(seed))
 		}
 
 		#[test]
 		fn migration_test() {
 			new_test_ext().execute_with(|| {
-				StorageVersion::new(4).put::<Nft>();
+				// Setup storage
+				StorageVersion::new(5).put::<Nft>();
+				StorageVersion::new(0).put::<Marketplace>();
 
-				// Insert collection info
-				let user_1 = create_account(5);
-				let user_2 = create_account(6);
-				let owner = create_account(123);
+				// NextMarketplaceId
+				let next_marketplace_id: MarketplaceId = 12;
+				Value::unsafe_storage_put::<MarketplaceId>(
+					b"Nft",
+					b"NextMarketplaceId",
+					next_marketplace_id,
+				);
 
-				let old_info_root = OldCollectionInformation {
-					owner: owner.clone(),
-					name: b"test-collection-1".to_vec(),
-					royalties_schedule: Some(OldRoyaltiesSchedule {
-						entitlements: vec![
-							(user_1, Permill::one()),
-							(user_2, Permill::from_parts(123)),
-						],
-					}),
-					metadata_scheme: MetadataScheme::try_from(b"Test".as_slice()).unwrap(),
-					max_issuance: None,
-					origin_chain: OriginChain::Root,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
+				// RegisteredMarketplaces
+				let marketplace_key = Twox64Concat::hash(&(1 as MarketplaceId).encode());
+				let registered_marketplace = MarketplaceS {
+					account: create_account(1),
+					entitlement: Permill::from_parts(123),
 				};
-				CollectionInfo::<Runtime>::insert(12, old_info_root);
+				Map::unsafe_storage_put::<MarketplaceS<AccountId>>(
+					b"Nft",
+					b"RegisteredMarketplaces",
+					&marketplace_key,
+					registered_marketplace.clone(),
+				);
 
-				let old_info_eth = OldCollectionInformation {
-					owner: owner.clone(),
-					name: "".encode(),
-					royalties_schedule: Some(OldRoyaltiesSchedule {
-						entitlements: vec![(user_1, Permill::one())],
-					}),
-					metadata_scheme: MetadataScheme::try_from(b"Test".as_slice()).unwrap(),
-					max_issuance: None,
-					origin_chain: OriginChain::Ethereum,
-					next_serial_number: 0,
-					collection_issuance: 100,
-					cross_chain_compatibility: CrossChainCompatibility::default(),
-					owned_tokens: BoundedVec::default(),
-				};
-				CollectionInfo::<Runtime>::insert(13, old_info_eth);
+				// Listings
+				let listing_key = Twox64Concat::hash(&(1 as ListingId).encode());
+				let listing = Listing::<Runtime>::FixedPrice(FixedPriceListing {
+					payment_asset: 1,
+					fixed_price: 2,
+					close: 3,
+					buyer: None,
+					seller: create_account(4),
+					collection_id: 5,
+					serial_numbers: BoundedVec::truncate_from(vec![6, 7, 8]),
+					royalties_schedule: RoyaltiesSchedule::default(),
+					marketplace_id: None,
+				});
+				Map::unsafe_storage_put::<Listing<Runtime>>(
+					b"Nft",
+					b"Listings",
+					&listing_key,
+					listing.clone(),
+				);
+
+				// NextListingId
+				let next_listing_id: ListingId = 9;
+				Value::unsafe_storage_put::<ListingId>(b"Nft", b"NextListingId", next_listing_id);
+
+				// OpenCollectionListings
+				let mut open_collection_listings_key =
+					Twox64Concat::hash(&(1 as CollectionUuid).encode());
+				let open_collection_listings_key_2 = Twox64Concat::hash(&(2 as ListingId).encode());
+				open_collection_listings_key.extend_from_slice(&open_collection_listings_key_2);
+				let open_collection_listings = true;
+				Map::unsafe_storage_put::<bool>(
+					b"Nft",
+					b"OpenCollectionListings",
+					&open_collection_listings_key,
+					open_collection_listings.clone(),
+				);
+
+				// ListingWinningBid
+				let listing_winning_bid_key = Twox64Concat::hash(&(1 as ListingId).encode());
+				let listing_winning_bid = (create_account(2), 3);
+				Map::unsafe_storage_put::<(AccountId, Balance)>(
+					b"Nft",
+					b"ListingWinningBid",
+					&listing_winning_bid_key,
+					listing_winning_bid.clone(),
+				);
+
+				// ListingEndSchedule
+				let mut listing_end_schedule_key =
+					Twox64Concat::hash(&BlockNumber::default().encode());
+				let listing_end_schedule_key_2 = Twox64Concat::hash(&(2 as ListingId).encode());
+				listing_end_schedule_key.extend_from_slice(&listing_end_schedule_key_2);
+				let listing_end_schedule = true;
+				Map::unsafe_storage_put::<bool>(
+					b"Nft",
+					b"ListingEndSchedule",
+					&listing_end_schedule_key,
+					listing_end_schedule.clone(),
+				);
+
+				// Offers
+				let offer_key = Twox64Concat::hash(&(1 as OfferId).encode());
+				let offer = OfferType::Simple(SimpleOffer {
+					token_id: (0, 1),
+					asset_id: 2,
+					amount: 3,
+					buyer: create_account(4),
+					marketplace_id: Some(5 as MarketplaceId),
+				});
+				Map::unsafe_storage_put::<OfferType<AccountId>>(
+					b"Nft",
+					b"Offers",
+					&offer_key,
+					offer.clone(),
+				);
+
+				// TokenOffers
+				let token_offers_key = Twox64Concat::hash(&((0_u32, 1_u32) as TokenId).encode());
+				let token_offers = BoundedVec::truncate_from(vec![1 as OfferId, 2 as OfferId]);
+				Map::unsafe_storage_put::<
+					BoundedVec<OfferId, <Runtime as pallet_marketplace::Config>::MaxOffers>,
+				>(b"Nft", b"TokenOffers", &token_offers_key, token_offers.clone());
+
+				// NextOfferId
+				let next_offer_id: OfferId = 3;
+				Value::unsafe_storage_put::<OfferId>(b"Nft", b"NextOfferId", next_offer_id);
 
 				// Do runtime upgrade
 				Upgrade::on_runtime_upgrade();
 
-				// Check if inserted data is correct
-				// Root collection
-				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(12).unwrap();
-				let expected_name: BoundedVec<u8, <Runtime as Config>::StringLimit> =
-					BoundedVec::truncate_from(b"test-collection-1".to_vec());
-				assert_eq!(actual_value.name, expected_name);
-				let expected_royalties = Some(RoyaltiesSchedule {
-					entitlements: BoundedVec::truncate_from(vec![
-						(user_1, Permill::one()),
-						(user_2, Permill::from_parts(123)),
-					]),
-				});
-				assert_eq!(actual_value.royalties_schedule, expected_royalties);
-
-				// Eth collection
-				let actual_value = pallet_nft::CollectionInfo::<Runtime>::get(13).unwrap();
-				let expected_name: BoundedVec<u8, <Runtime as Config>::StringLimit> =
-					BoundedVec::truncate_from(b"bridged-collection".to_vec());
-				assert_eq!(actual_value.name, expected_name);
-				let expected_royalties = Some(RoyaltiesSchedule {
-					entitlements: BoundedVec::truncate_from(vec![(user_1, Permill::one())]),
-				});
-				assert_eq!(actual_value.royalties_schedule, expected_royalties);
+				assert_eq!(
+					Value::unsafe_storage_get::<MarketplaceId>(
+						b"Marketplace",
+						b"NextMarketplaceId",
+					),
+					Some(next_marketplace_id)
+				);
+				assert_eq!(
+					Map::unsafe_storage_get::<MarketplaceS<AccountId>>(
+						b"Marketplace",
+						b"RegisteredMarketplaces",
+						&marketplace_key,
+					),
+					Some(registered_marketplace)
+				);
+				assert_eq!(
+					Map::unsafe_storage_get::<Listing<Runtime>>(
+						b"Marketplace",
+						b"Listings",
+						&listing_key,
+					),
+					Some(listing)
+				);
+				assert_eq!(
+					Value::unsafe_storage_get::<ListingId>(b"Marketplace", b"NextListingId",),
+					Some(next_listing_id)
+				);
+				assert_eq!(
+					Map::unsafe_storage_get::<bool>(
+						b"Marketplace",
+						b"OpenCollectionListings",
+						&open_collection_listings_key,
+					),
+					Some(open_collection_listings)
+				);
+				assert_eq!(
+					Map::unsafe_storage_get::<(AccountId, Balance)>(
+						b"Marketplace",
+						b"ListingWinningBid",
+						&listing_winning_bid_key,
+					),
+					Some(listing_winning_bid)
+				);
+				assert_eq!(
+					Map::unsafe_storage_get::<bool>(
+						b"Marketplace",
+						b"ListingEndSchedule",
+						&listing_end_schedule_key,
+					),
+					Some(listing_end_schedule)
+				);
+				assert_eq!(
+					Map::unsafe_storage_get::<OfferType<AccountId>>(
+						b"Marketplace",
+						b"Offers",
+						&offer_key,
+					),
+					Some(offer)
+				);
+				assert_eq!(
+					Map::unsafe_storage_get::<
+						BoundedVec<OfferId, <Runtime as pallet_marketplace::Config>::MaxOffers>,
+					>(b"Marketplace", b"TokenOffers", &token_offers_key,),
+					Some(token_offers)
+				);
+				assert_eq!(
+					Value::unsafe_storage_get::<OfferId>(b"Marketplace", b"NextOfferId",),
+					Some(next_offer_id)
+				);
 
 				// Check if version has been set correctly
-				let onchain = Nft::on_chain_storage_version();
-				assert_eq!(onchain, 5);
+				assert_eq!(Nft::on_chain_storage_version(), 6);
+				assert_eq!(Marketplace::on_chain_storage_version(), 1);
 			});
 		}
 	}
