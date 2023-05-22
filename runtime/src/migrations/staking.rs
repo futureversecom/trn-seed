@@ -9,10 +9,9 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{AccountId, Staking, Runtime, Weight, StakingRewardDestinationsVersionTmp};
+use crate::{AccountId, Runtime, Weight};
 use frame_support::{
-	dispatch::GetStorageVersion,
-	traits::{OnRuntimeUpgrade, StorageVersion},
+	traits::OnRuntimeUpgrade,
 };
 use pallet_staking::{RewardDestination, Payee};
 use sp_std::vec::Vec;
@@ -26,21 +25,10 @@ impl OnRuntimeUpgrade for Upgrade {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let current = Staking::current_storage_version();
-		let onchain = StakingRewardDestinationsVersionTmp::<Runtime>::get();
-		log::info!(target: "Migration", "Staking: Running migration with current storage version {current:?} / onchain {onchain:?}");
-
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 0);
-
-		if onchain == 0 {
-			log::info!(target: "Migration", "Staking: Migrating from onchain version 0 to onchain version 1.");
-			weight += v1::migrate::<Runtime>();
-
-			log::info!(target: "Migration", "Staking: Migration successfully finished.");
-            StakingRewardDestinationsVersionTmp::<Runtime>::set(1);
-		} else {
-			log::info!(target: "Migration", "Staking: No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
-		}
+		log::info!(target: "Migration", "Starting Staking migration");
+		weight += v1::migrate::<Runtime>();
+		log::info!(target: "Migration", "Staking: Migration successfully finished.");
 		weight
 	}
 
@@ -59,25 +47,19 @@ pub mod v1 {
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
 		log::info!(target: "Migration", "Staking: Upgrade to v1 Pre Upgrade.");
-		let onchain = Staking::on_chain_storage_version();
-		// Return OK(()) if upgrade has already been done
-		if onchain == 1 {
-			return Ok(())
-		}
-		assert_eq!(onchain, 0);
-
 		Ok(())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade() -> Result<(), &'static str> {
+		Payee::<T>::iter().for_each(|(k, v)| {
+			log::info!(target: "Migration", "Staking: Sanity checking {:?}, {:?}", k, v);
+			if v == RewardDestination::Staked {
+				log::error!("There was an error migrating Staker reward destinations: {:?} retained their `staked` designation", k);
+			}
+		});
+
 		log::info!(target: "Migration", "Staking: Upgrade to v1 Post Upgrade.");
-
-		let current = Staking::current_storage_version();
-		let onchain = Staking::on_chain_storage_version();
-		assert_eq!(current, 1);
-		assert_eq!(onchain, 1);
-
 		Ok(())
 	}
 
@@ -94,14 +76,11 @@ pub mod v1 {
 
         existing_storage.iter()
         .for_each(|(key, v)| {
-            if let Ok(mut payee) = Payee::<Runtime>::try_get(&key) {
-                if payee == RewardDestination::Staked {
-                    // Try removing first
-                    Payee::<Runtime>::remove(key);
-                    Payee::<Runtime>::insert(key, RewardDestination::Stash);
-                    weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 2);
-                }
-            }
+			if v == &RewardDestination::Staked {
+				Payee::<Runtime>::remove(key);
+				Payee::<Runtime>::insert(key, RewardDestination::Stash);
+				weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 2);
+			}
             weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 0);
         });
         weight
@@ -117,18 +96,23 @@ pub mod v1 {
 			new_test_ext().execute_with(|| {
 				StorageVersion::new(0).put::<Staking>();
                 let alice = seed_primitives::AccountId20([1; 20]);
+                let bob = seed_primitives::AccountId20([2; 20]);
+                let charlie = seed_primitives::AccountId20([3; 20]);
 
                 pallet_staking::Payee::<Runtime>::insert(alice, RewardDestination::Staked);
+                pallet_staking::Payee::<Runtime>::insert(bob, RewardDestination::Staked);
+                pallet_staking::Payee::<Runtime>::insert(charlie, RewardDestination::Staked);
+				
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(alice), RewardDestination::Staked);
+				assert_eq!(pallet_staking::Payee::<Runtime>::get(bob), RewardDestination::Staked);
+				assert_eq!(pallet_staking::Payee::<Runtime>::get(charlie), RewardDestination::Staked);
 
 				// Do runtime upgrade
 				Upgrade::on_runtime_upgrade();
 
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(alice), RewardDestination::Stash);
-
-				// Check if version has been set correctly
-				let onchain = StakingRewardDestinationsVersionTmp::<Runtime>::get();
-				assert_eq!(onchain, 1);
+				assert_eq!(pallet_staking::Payee::<Runtime>::get(bob), RewardDestination::Stash);
+				assert_eq!(pallet_staking::Payee::<Runtime>::get(charlie), RewardDestination::Stash);
 			});
 		}
 	}
