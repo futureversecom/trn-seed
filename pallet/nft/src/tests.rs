@@ -2773,7 +2773,7 @@ fn transfer_to_signer_address() {
 		// Mint 3 tokens
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string(b"test-collection"),
 			initial_quantity,
 			None,
 			Some(token_owner),
@@ -2809,7 +2809,7 @@ fn transfer_changes_token_balance() {
 		// Mint token
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			bounded_string("test-collection-1"),
+			bounded_string("test-collection"),
 			initial_quantity,
 			None,
 			Some(token_owner),
