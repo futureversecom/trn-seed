@@ -32,9 +32,8 @@ pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 pub fn build_collection<T: Config>(caller: Option<T::AccountId>) -> CollectionUuid {
 	let id = T::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
 	let caller = caller.unwrap_or_else(|| account::<T>("Alice"));
-	let metadata_scheme = MetadataScheme::Https(b"example.com/metadata/".to_vec());
+	let metadata_scheme = MetadataScheme::try_from(b"example.com/metadata/".as_slice()).unwrap();
 	let collection_name = bounded_string::<T>("Collection");
-
 	assert_ok!(Sft::<T>::create_collection(
 		origin::<T>(&caller).into(),
 		collection_name.clone(),
@@ -82,10 +81,11 @@ pub fn bounded_string<T: Config>(name: &str) -> BoundedVec<u8, <T as Config>::St
 
 benchmarks! {
 	create_collection {
-		let metadata = MetadataScheme::Https("google.com".into());
+		let id = T::NFTExt::next_collection_uuid().expect("Failed to get next collection uuid");
+		let metadata = MetadataScheme::try_from(b"example.com/".as_slice()).unwrap();
 	}: _(origin::<T>(&account::<T>("Alice")), bounded_string::<T>("Collection"), None, metadata, None)
 	verify {
-		assert!( SftCollectionInfo::<T>::get(1124).is_some());
+		assert!( SftCollectionInfo::<T>::get(id).is_some());
 	}
 
 	create_token {
@@ -93,7 +93,7 @@ benchmarks! {
 		let initial_issuance = u128::MAX;
 	}: _(origin::<T>(&account::<T>("Alice")), id, bounded_string::<T>("Token"), initial_issuance, None, None)
 	verify {
-		let token = TokenInfo::<T>::get((1124, 0));
+		let token = TokenInfo::<T>::get((id, 0));
 		assert!(token.is_some());
 	}
 
@@ -103,7 +103,7 @@ benchmarks! {
 		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers, None)
 	verify {
-		let token = TokenInfo::<T>::get((1124, 0));
+		let token = TokenInfo::<T>::get((collection_id, serial_number));
 		assert!(token.is_some());
 		let token = token.unwrap();
 		assert_eq!(token.token_issuance, u128::MAX);
@@ -115,7 +115,7 @@ benchmarks! {
 		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![u128::MAX]);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers, account::<T>("Bob"))
 	verify {
-		let token = TokenInfo::<T>::get((1124, 0));
+		let token = TokenInfo::<T>::get((collection_id, serial_number));
 		assert!(token.is_some());
 		let token = token.unwrap();
 		assert_eq!(token.free_balance_of(&account::<T>("Alice")), 0);
@@ -129,7 +129,7 @@ benchmarks! {
 		let serial_numbers = bounded_combined::<T>(vec![serial_number], vec![initial_issuance]);
 	}: _(origin::<T>(&owner), collection_id, serial_numbers)
 	verify {
-		let token = TokenInfo::<T>::get((1124, 0));
+		let token = TokenInfo::<T>::get((collection_id, serial_number));
 		assert!(token.is_some());
 		let token = token.unwrap();
 		assert_eq!(token.token_issuance, 0);
@@ -140,7 +140,7 @@ benchmarks! {
 		let collection_id = build_collection::<T>(Some(owner.clone()));
 	}: _(origin::<T>(&owner), collection_id, account::<T>("Bob"))
 	verify {
-		let collection = SftCollectionInfo::<T>::get(1124);
+		let collection = SftCollectionInfo::<T>::get(collection_id);
 		assert!(collection.is_some());
 		let collection = collection.unwrap();
 		assert_eq!(collection.collection_owner, account::<T>("Bob"));
@@ -151,7 +151,7 @@ benchmarks! {
 		let token_id = build_token::<T>(Some(owner.clone()), 0);
 	}: _(origin::<T>(&owner), token_id, 32)
 	verify {
-		let token = TokenInfo::<T>::get((1124, 0));
+		let token = TokenInfo::<T>::get(token_id);
 		assert!(token.is_some());
 		let token = token.unwrap();
 		assert_eq!(token.max_issuance, Some(32));
@@ -160,13 +160,13 @@ benchmarks! {
 	set_base_uri {
 		let owner = account::<T>("Alice");
 		let id = build_collection::<T>(Some(owner.clone()));
-		let metadata_scheme = MetadataScheme::Https(b"example.com/changed".to_vec());
-	}: _(origin::<T>(&owner), id, metadata_scheme)
+		let metadata_scheme = MetadataScheme::try_from(b"example.com/changed/".as_slice()).unwrap();
+	}: _(origin::<T>(&owner), id, metadata_scheme.clone())
 	verify {
-		let collection = SftCollectionInfo::<T>::get(1124);
+		let collection = SftCollectionInfo::<T>::get(id);
 		assert!(collection.is_some());
 		let collection = collection.unwrap();
-		assert_eq!(collection.metadata_scheme,  MetadataScheme::Https(b"example.com/changed".to_vec()));
+		assert_eq!(collection.metadata_scheme, metadata_scheme);
 	}
 }
 

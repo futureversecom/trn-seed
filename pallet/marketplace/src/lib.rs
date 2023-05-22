@@ -32,12 +32,14 @@ use seed_primitives::{
 };
 use sp_runtime::{DispatchResult, Permill};
 
+mod benchmarking;
 mod impls;
 #[cfg(test)]
 pub mod mock;
 #[cfg(test)]
 mod tests;
 pub mod types;
+
 use types::*;
 
 pub use pallet::*;
