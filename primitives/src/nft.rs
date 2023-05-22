@@ -101,7 +101,6 @@ impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
 #[cfg(test)]
 mod test {
 	use super::{MetadataScheme, RoyaltiesSchedule};
-	use sp_core::H160;
 	use sp_runtime::{BoundedVec, Permill};
 
 	#[test]

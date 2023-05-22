@@ -282,8 +282,9 @@ fn create_collection() {
 		let token_owner = create_account(2);
 		let quantity = 5;
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let royalties_schedule =
-			RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+		};
 
 		let expected_tokens = create_owned_tokens(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
 		let expected_info = CollectionInformation {
@@ -388,22 +389,7 @@ fn create_collection() {
 fn create_collection_invalid_name() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
-		let bad_collection_name =
-			b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
 		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
-		assert_noop!(
-			Nft::create_collection(
-				Some(collection_owner).into(),
-				bad_collection_name,
-				1,
-				None,
-				None,
-				metadata_scheme.clone(),
-				None,
-				CrossChainCompatibility::default(),
-			),
-			Error::<Test>::CollectionNameInvalid
-		);
 
 		// empty name
 		assert_noop!(
@@ -448,10 +434,10 @@ fn create_collection_royalties_invalid() {
 
 		// Too big royalties should fail
 		let royalty_schedule = RoyaltiesSchedule::<AccountId> {
-			entitlements: vec![
+			entitlements: BoundedVec::truncate_from(vec![
 				(create_account(3), Permill::from_float(1.2)),
 				(create_account(4), Permill::from_float(3.3)),
-			],
+			]),
 		};
 		assert_noop!(
 			Nft::create_collection(
@@ -476,7 +462,7 @@ fn create_collection_royalties_invalid() {
 				None,
 				None,
 				metadata_scheme,
-				Some(RoyaltiesSchedule::<AccountId> { entitlements: vec![] }),
+				Some(RoyaltiesSchedule::<AccountId> { entitlements: BoundedVec::default() }),
 				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::RoyaltiesInvalid
@@ -1141,7 +1127,10 @@ fn buy_with_marketplace_royalties() {
 			let collection_owner = create_account(1);
 			let beneficiary_1 = create_account(11);
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![(beneficiary_1, Permill::from_float(0.1111))],
+				entitlements: BoundedVec::truncate_from(vec![(
+					beneficiary_1,
+					Permill::from_float(0.1111),
+				)]),
 			};
 			let (collection_id, _, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 2);
@@ -1210,7 +1199,10 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 		.execute_with(|| {
 			let beneficiary_1 = create_account(11);
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![(beneficiary_1, Permill::from_float(0.51))],
+				entitlements: BoundedVec::truncate_from(vec![(
+					beneficiary_1,
+					Permill::from_float(0.51),
+				)]),
 			};
 			let (collection_id, _, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 2);
@@ -1298,11 +1290,11 @@ fn buy_with_royalties() {
 			let beneficiary_1 = create_account(11);
 			let beneficiary_2 = create_account(12);
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![
+				entitlements: BoundedVec::truncate_from(vec![
 					(collection_owner, Permill::from_float(0.111)),
 					(beneficiary_1, Permill::from_float(0.1111)),
 					(beneficiary_2, Permill::from_float(0.3333)),
-				],
+				]),
 			};
 			let (collection_id, token_id, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 2);
@@ -1468,10 +1460,10 @@ fn buy_with_overcommitted_royalties() {
 		// royalty schedules should not make it into storage but we protect against it anyway
 		let (collection_id, token_id, token_owner) = setup_token();
 		let bad_schedule = RoyaltiesSchedule {
-			entitlements: vec![
+			entitlements: BoundedVec::truncate_from(vec![
 				(11_u64, Permill::from_float(0.125)),
 				(12_u64, Permill::from_float(0.9)),
-			],
+			]),
 		};
 		let listing_id = Nft::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
@@ -1762,11 +1754,11 @@ fn auction_royalty_payments() {
 			let beneficiary_2 = create_account(12);
 			let collection_owner = create_account(1);
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![
+				entitlements: BoundedVec::truncate_from(vec![
 					(collection_owner, Permill::from_float(0.1111)),
 					(beneficiary_1, Permill::from_float(0.1111)),
 					(beneficiary_2, Permill::from_float(0.1111)),
-				],
+				]),
 			};
 			let (collection_id, token_id, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 1);

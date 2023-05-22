@@ -37,14 +37,14 @@ fn setup_collection(owner: &AccountId) -> CollectionUuid {
 	let collection_name = b"test-collection".to_vec();
 	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
-		Some(owner.clone()).into(),         // owner
-		collection_name,                    // name
-		0,                                  // initial_issuance
-		None,                               // max_issuance
-		None,                               // token_owner
-		metadata_scheme,                    // metadata_scheme
-		None,                               // royalties_schedule
-		CrossChainCompatibility::default(), // origin_chain
+		Some(owner.clone()).into(),                 // owner
+		BoundedVec::truncate_from(collection_name), // name
+		0,                                          // initial_issuance
+		None,                                       // max_issuance
+		None,                                       // token_owner
+		metadata_scheme,                            // metadata_scheme
+		None,                                       // royalties_schedule
+		CrossChainCompatibility::default(),         // origin_chain
 	));
 	collection_id
 }
