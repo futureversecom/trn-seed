@@ -51,6 +51,8 @@ use sp_std::prelude::*;
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 
+pub use pallet_tx_fee_pot::StakingRewardDestinationsVersionTmp;
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;

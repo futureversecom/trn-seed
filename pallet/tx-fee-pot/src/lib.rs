@@ -55,6 +55,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn era_tx_fees)]
 	pub type EraTxFees<T> = StorageValue<_, Balance, ValueQuery>;
+
+	// TODO: Think: do we want this here?
+	#[pallet::storage]
+	pub type StakingRewardDestinationsVersionTmp<T> = StorageValue<_, u8, ValueQuery>;
 }
 
 impl<T: Config> Pallet<T> {
