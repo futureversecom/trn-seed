@@ -10,10 +10,8 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{AccountId, Runtime, Weight};
-use frame_support::{
-	traits::OnRuntimeUpgrade,
-};
-use pallet_staking::{RewardDestination, Payee};
+use frame_support::traits::OnRuntimeUpgrade;
+use pallet_staking::{Payee, RewardDestination};
 use sp_std::vec::Vec;
 
 pub struct Upgrade;
@@ -67,23 +65,25 @@ pub mod v1 {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
-        let mut weight = 0;
+		let mut weight = 0;
 
-        // Same as `Map::iter()` but available for this file
-        let existing_storage: Vec<(AccountId, RewardDestination<AccountId>)> = Payee::<Runtime>::iter_keys()
-            .filter_map(|key| Payee::<Runtime>::try_get(key).and_then(|v| Ok((key.clone(), v))).ok())
-            .collect();
+		// Same as `Map::iter()` but available for this file
+		let existing_storage: Vec<(AccountId, RewardDestination<AccountId>)> =
+			Payee::<Runtime>::iter_keys()
+				.filter_map(|key| {
+					Payee::<Runtime>::try_get(key).and_then(|v| Ok((key.clone(), v))).ok()
+				})
+				.collect();
 
-        existing_storage.iter()
-        .for_each(|(key, v)| {
+		existing_storage.iter().for_each(|(key, v)| {
 			if v == &RewardDestination::Staked {
 				Payee::<Runtime>::remove(key);
 				Payee::<Runtime>::insert(key, RewardDestination::Stash);
 				weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 2);
 			}
-            weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 0);
-        });
-        weight
+			weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 0);
+		});
+		weight
 	}
 
 	#[cfg(test)]
@@ -94,24 +94,30 @@ pub mod v1 {
 		#[test]
 		fn migration_test() {
 			new_test_ext().execute_with(|| {
-                let alice = seed_primitives::AccountId20([1; 20]);
-                let bob = seed_primitives::AccountId20([2; 20]);
-                let charlie = seed_primitives::AccountId20([3; 20]);
+				let alice = seed_primitives::AccountId20([1; 20]);
+				let bob = seed_primitives::AccountId20([2; 20]);
+				let charlie = seed_primitives::AccountId20([3; 20]);
 
-                pallet_staking::Payee::<Runtime>::insert(alice, RewardDestination::Staked);
-                pallet_staking::Payee::<Runtime>::insert(bob, RewardDestination::Staked);
-                pallet_staking::Payee::<Runtime>::insert(charlie, RewardDestination::Staked);
+				pallet_staking::Payee::<Runtime>::insert(alice, RewardDestination::Staked);
+				pallet_staking::Payee::<Runtime>::insert(bob, RewardDestination::Staked);
+				pallet_staking::Payee::<Runtime>::insert(charlie, RewardDestination::Staked);
 
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(alice), RewardDestination::Staked);
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(bob), RewardDestination::Staked);
-				assert_eq!(pallet_staking::Payee::<Runtime>::get(charlie), RewardDestination::Staked);
+				assert_eq!(
+					pallet_staking::Payee::<Runtime>::get(charlie),
+					RewardDestination::Staked
+				);
 
 				// Do runtime upgrade
 				Upgrade::on_runtime_upgrade();
 
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(alice), RewardDestination::Stash);
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(bob), RewardDestination::Stash);
-				assert_eq!(pallet_staking::Payee::<Runtime>::get(charlie), RewardDestination::Stash);
+				assert_eq!(
+					pallet_staking::Payee::<Runtime>::get(charlie),
+					RewardDestination::Stash
+				);
 			});
 		}
 	}
