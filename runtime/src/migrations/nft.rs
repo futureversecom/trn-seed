@@ -9,7 +9,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{Nft, Runtime, Weight};
+use crate::{migrations::Map, Nft, Runtime, Weight};
 use frame_support::{
 	dispatch::GetStorageVersion,
 	traits::{OnRuntimeUpgrade, StorageVersion},
@@ -30,7 +30,7 @@ impl OnRuntimeUpgrade for Upgrade {
 
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 0);
 
-		if onchain == 4 {
+		if current == 5 && onchain == 4 {
 			log::info!(target: "Migration", "Nft: Migrating from onchain version 4 to onchain version 5.");
 			weight += v5::migrate::<Runtime>();
 
@@ -117,6 +117,11 @@ pub mod v5 {
 		}
 		assert_eq!(onchain, 4);
 
+		// Making sure that we don't start with corrupted data
+		let old_length = CollectionInfo::<Runtime>::iter_keys().count();
+		let new_length = Map::iter::<CollectionInfo<Runtime>, _, _>().iter().count();
+		assert_eq!(old_length, new_length);
+
 		Ok(())
 	}
 
@@ -129,6 +134,11 @@ pub mod v5 {
 		assert_eq!(current, 5);
 		assert_eq!(onchain, 5);
 
+		// Making sure that we don't end up with corrupted data
+		let old_length = pallet_nft::CollectionInfo::<Runtime>::iter_keys().count();
+		let new_length = Map::iter::<pallet_nft::CollectionInfo<Runtime>, _, _>().iter().count();
+		assert_eq!(old_length, new_length);
+
 		Ok(())
 	}
 
@@ -137,8 +147,13 @@ pub mod v5 {
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		log::info!(target: "Migration", "Nft: updating royalties schedule and collection name");
-		pallet_nft::CollectionInfo::<T>::translate(|_, old: OldCollectionInformation<T>| {
-			// Bound new name vec, if it is from Ethereum, change the name to "bridged-collection"
+
+		let old_collections = Map::iter::<CollectionInfo<T>, _, _>();
+		_ = CollectionInfo::<T>::clear(u32::MAX, None);
+
+		for (key, old) in old_collections {
+			// Bound new name vec, if it is from Ethereum, change the name to
+			// "bridged-collection"
 			let new_name = match old.origin_chain {
 				OriginChain::Root => BoundedVec::truncate_from(old.name),
 				OriginChain::Ethereum => BoundedVec::truncate_from(b"bridged-collection".to_vec()),
@@ -162,9 +177,9 @@ pub mod v5 {
 				owned_tokens: old.owned_tokens,
 				cross_chain_compatibility: old.cross_chain_compatibility,
 			};
+			pallet_nft::CollectionInfo::<T>::insert(key, new);
+		}
 
-			Some(new)
-		});
 		log::info!(target: "Nft", "...Successfully translated CollectionInfo with new name and royalties schedule");
 
 		let key_count = pallet_nft::CollectionInfo::<T>::iter().count();
