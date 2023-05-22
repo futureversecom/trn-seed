@@ -1,5 +1,5 @@
-name: "Build Image from a Branch or Commit SHA"
-concurrency: 
+name: "Image Builder by Branch/Commit"
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 

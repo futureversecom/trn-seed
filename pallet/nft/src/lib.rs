@@ -388,6 +388,8 @@ pub mod pallet {
 		NotSeller,
 		/// The caller owns the token and can't make an offer
 		IsTokenOwner,
+		/// The caller can not be the new owner
+		InvalidNewOwner,
 		/// Offer amount needs to be greater than 0
 		ZeroOffer,
 		/// The number of tokens have exceeded the max tokens allowed

@@ -87,7 +87,7 @@ benchmarks! {
 		assert_ok!(Futurepass::<T>::create(RawOrigin::Signed(owner.clone()).into(), owner.clone()));
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
 
-	}: _(RawOrigin::Signed(owner), new_owner.clone())
+	}: _(RawOrigin::Signed(owner), Some(new_owner.clone()))
 	verify {
 		assert_eq!(Holders::<T>::get(new_owner), Some(futurepass));
 	}
