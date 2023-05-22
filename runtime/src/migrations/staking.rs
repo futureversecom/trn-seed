@@ -94,7 +94,6 @@ pub mod v1 {
 		#[test]
 		fn migration_test() {
 			new_test_ext().execute_with(|| {
-				StorageVersion::new(0).put::<Staking>();
                 let alice = seed_primitives::AccountId20([1; 20]);
                 let bob = seed_primitives::AccountId20([2; 20]);
                 let charlie = seed_primitives::AccountId20([3; 20]);
@@ -102,7 +101,7 @@ pub mod v1 {
                 pallet_staking::Payee::<Runtime>::insert(alice, RewardDestination::Staked);
                 pallet_staking::Payee::<Runtime>::insert(bob, RewardDestination::Staked);
                 pallet_staking::Payee::<Runtime>::insert(charlie, RewardDestination::Staked);
-				
+
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(alice), RewardDestination::Staked);
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(bob), RewardDestination::Staked);
 				assert_eq!(pallet_staking::Payee::<Runtime>::get(charlie), RewardDestination::Staked);
