@@ -2771,7 +2771,7 @@ fn transfer_changes_token_balance() {
 		let new_owner = create_account(3);
 		let initial_quantity: u32 = 1;
 
-		// Mint 1 token
+		// Mint token
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
 			bounded_string("test-collection"),
