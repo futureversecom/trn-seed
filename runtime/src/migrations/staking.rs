@@ -50,7 +50,7 @@ pub mod v1 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade() -> Result<(), &'static str> {
-		Payee::<T>::iter().for_each(|(k, v)| {
+		Payee::<Runtime>::iter().for_each(|(k, v)| {
 			log::info!(target: "Migration", "Staking: Sanity checking {:?}, {:?}", k, v);
 			if v == RewardDestination::Staked {
 				log::error!("There was an error migrating Staker reward destinations: {:?} retained their `staked` designation", k);
