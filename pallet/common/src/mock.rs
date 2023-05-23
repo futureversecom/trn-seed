@@ -399,6 +399,12 @@ macro_rules! impl_pallet_futurepass_config {
 			) -> DispatchResult {
 				Ok(())
 			}
+			fn remove_account(
+				receiver: &T::AccountId,
+				futurepass: &T::AccountId,
+			) -> DispatchResult {
+				Ok(())
+			}
 			fn proxy_call(
 				caller: T::Origin,
 				futurepass: T::AccountId,
@@ -492,6 +498,13 @@ macro_rules! impl_pallet_futurepass_config {
 		where
 			<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 		{
+			fn transfer_asset(
+				asset_id: u32,
+				current_owner: &T::AccountId,
+				new_owner: &T::AccountId,
+			) -> DispatchResult {
+				Ok(())
+			}
 			fn transfer_nfts(
 				collection_id: u32,
 				current_owner: &T::AccountId,

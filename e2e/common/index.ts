@@ -50,13 +50,27 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
-// Precompile address for futurepass precompile is 65535
-export const FUTUREPASS_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
+// Precompile address for futurepass registrar precompile is 65535
+export const FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
 
 // Precompile address for peg precompile is 1939
 export const PEG_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000000793";
 
+// Futurepass delegate reserve amount
+export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
+
+// Futurepass creation reserve amount
+export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
+
 /** ABIs */
+
+const OWNABLE_ABI = [
+  "event OwnershipTransferred(address indexed previousOwner, address newOwner)",
+
+  "function owner() public view returns (address)",
+  "function renounceOwnership()",
+  "function transferOwnership(address owner)",
+];
 
 export const FEE_PROXY_ABI = [
   "function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)",
@@ -117,25 +131,29 @@ export const ERC721_PRECOMPILE_ABI = [
   "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
 
   // Ownable
-  "event OwnershipTransferred(address indexed oldOwner, address newOwner)",
+  ...OWNABLE_ABI,
+];
 
-  "function owner() public view returns (address)",
-  "function renounceOwnership()",
-  "function transferOwnership(address owner)",
+export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [
+  "event FuturepassCreated(address indexed futurepass, address owner)",
+
+  "function futurepassOf(address owner) external view returns (address)",
+  "function create(address owner) external returns (address)",
 ];
 
 export const FUTUREPASS_PRECOMPILE_ABI = [
-  "event FuturepassCreated(address indexed futurepass, address owner)",
-  // "event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType)",
-  // "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
+  "event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType)",
+  "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
+  "event Executed(uint8 indexed callType, address indexed target, uint256 indexed value, bytes4 data)",
+  "event ContractCreated(uint8 indexed callType, address indexed contract, uint256 indexed value, bytes32 salt)",
 
-  "function futurepassOf(address owner) external view returns (address)",
-  // "function isDelegate(address futurepass, address delegate) external view returns (bool)",
-  // "function delegateType(address futurepass, address delegate) external view returns (uint8)",
-  "function create(address owner) external returns (address)",
-  // "function registerDelegate(address futurepass, address delegate, uint8 proxyType) external",
-  // "function unregisterDelegate(address futurepass, address delegate) external",
-  // "function proxyCall(address futurepass, address callTo, uint8 callType, bytes memory callData) external payable",
+  "function delegateType(address delegate) external view returns (uint8)",
+  "function registerDelegate(address delegate, uint8 proxyType) external",
+  "function unregisterDelegate(address delegate) external",
+  "function proxyCall(uint8 callType, address callTo, uint256 value, bytes memory callData) external payable",
+
+  // Ownable
+  ...OWNABLE_ABI,
 ];
 
 /** Functions */

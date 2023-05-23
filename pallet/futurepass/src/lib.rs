@@ -62,6 +62,7 @@ where
 		futurepass: &T::AccountId,
 		delegate: &T::AccountId,
 	) -> DispatchResult;
+	fn remove_account(receiver: &T::AccountId, futurepass: &T::AccountId) -> DispatchResult;
 	fn proxy_call(
 		caller: OriginFor<T>,
 		futurepass: T::AccountId,
@@ -73,6 +74,12 @@ pub trait FuturepassMigrator<T: frame_system::Config>
 where
 	<T as frame_system::Config>::AccountId: From<H160>,
 {
+	fn transfer_asset(
+		asset_id: seed_primitives::AssetId,
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult;
+
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,
@@ -178,7 +185,7 @@ pub mod pallet {
 		/// Futurepass transfer
 		FuturepassTransferred {
 			old_owner: T::AccountId,
-			new_owner: T::AccountId,
+			new_owner: Option<T::AccountId>,
 			futurepass: T::AccountId,
 		},
 		/// Futurepass set as default proxy
@@ -189,7 +196,8 @@ pub mod pallet {
 		FuturepassAssetsMigrated {
 			evm_futurepass: T::AccountId,
 			futurepass: T::AccountId,
-			collection_id: u32,
+			assets: Vec<u32>,
+			collections: Vec<u32>,
 		},
 		/// Updating Futurepass migrator account
 		FuturepassMigratorSet { migrator: T::AccountId },
@@ -363,29 +371,37 @@ pub mod pallet {
 		#[transactional]
 		pub fn transfer_futurepass(
 			origin: OriginFor<T>,
-			new_owner: T::AccountId,
+			new_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let owner = ensure_signed(origin)?;
 
 			// Get the current futurepass owner from the `Holders` storage mapping
 			let futurepass = Holders::<T>::take(&owner).ok_or(Error::<T>::NotFuturepassOwner)?;
 
-			// Ensure that the new owner does not already own a futurepass
-			ensure!(!Holders::<T>::contains_key(&new_owner), Error::<T>::AccountAlreadyRegistered);
+			if let Some(ref new_owner) = new_owner {
+				// Ensure that the new owner does not already own a futurepass
+				ensure!(
+					!Holders::<T>::contains_key(&new_owner),
+					Error::<T>::AccountAlreadyRegistered
+				);
 
-			// Add the new owner as a proxy delegate with the most permissive type, i.e.,
-			T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
+				// Add the new owner as a proxy delegate with the most permissive type, i.e.,
+				T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
 
-			// Iterate through the list of delegates and remove them, except for the new_owner
-			let delegates = T::Proxy::delegates(&futurepass);
-			for delegate in delegates.iter() {
-				if delegate.0 != new_owner {
-					T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
+				// Iterate through the list of delegates and remove them, except for the new_owner
+				let delegates = T::Proxy::delegates(&futurepass);
+				for delegate in delegates.iter() {
+					if delegate.0 != *new_owner {
+						T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
+					}
 				}
-			}
 
-			// Set the new owner as the owner of the futurepass
-			Holders::<T>::insert(&new_owner, futurepass.clone());
+				// Set the new owner as the owner of the futurepass
+				Holders::<T>::insert(new_owner, futurepass.clone());
+			} else {
+				// remove the account - which should remove all delegates
+				T::Proxy::remove_account(&owner, &futurepass)?;
+			}
 
 			Self::deposit_event(Event::<T>::FuturepassTransferred {
 				old_owner: owner,
@@ -451,6 +467,7 @@ pub mod pallet {
 		/// Parameters:
 		/// - `owner` - The account ID of the owner of the EVM-based Futurepass.
 		/// - `evm_futurepass` - The account ID of the EVM-based Futurepass.
+		/// - `asset_ids` - A vector of asset IDs representing the assets to be migrated.
 		/// - `collection_ids` - A vector of collection IDs representing the NFTs collections to be
 		///   migrated.
 		///
@@ -463,6 +480,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			owner: T::AccountId,
 			evm_futurepass: T::AccountId,
+			asset_ids: Vec<u32>,
 			collection_ids: Vec<u32>,
 		) -> DispatchResult {
 			let admin = ensure_signed(origin)?;
@@ -478,15 +496,23 @@ pub mod pallet {
 				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
 			};
 
-			// transfer nfts
-			for collection_id in collection_ids.into_iter() {
-				T::FuturepassMigrator::transfer_nfts(collection_id, &evm_futurepass, &futurepass)?;
-				Self::deposit_event(Event::FuturepassAssetsMigrated {
-					evm_futurepass: evm_futurepass.clone(),
-					futurepass: futurepass.clone(),
-					collection_id,
-				});
+			// transfer assets
+			for asset_id in asset_ids.iter() {
+				T::FuturepassMigrator::transfer_asset(*asset_id, &evm_futurepass, &futurepass)?;
 			}
+
+			// transfer nfts
+			for collection_id in collection_ids.iter() {
+				T::FuturepassMigrator::transfer_nfts(*collection_id, &evm_futurepass, &futurepass)?;
+			}
+
+			Self::deposit_event(Event::FuturepassAssetsMigrated {
+				evm_futurepass: evm_futurepass.clone(),
+				futurepass: futurepass.clone(),
+				assets: asset_ids,
+				collections: collection_ids,
+			});
+
 			Ok(())
 		}
 

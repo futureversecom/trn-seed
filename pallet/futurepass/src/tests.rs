@@ -12,7 +12,10 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::*;
-use frame_support::{assert_err, assert_noop, assert_ok, traits::tokens::fungibles::Transfer};
+use frame_support::{
+	assert_err, assert_noop, assert_ok,
+	traits::tokens::fungibles::{Mutate, Transfer},
+};
 use hex_literal::hex;
 use seed_primitives::{AccountId, AssetId, Balance};
 use seed_runtime::{impls::ProxyType, Inspect};
@@ -22,8 +25,8 @@ use seed_primitives::{CollectionUuid, MetadataScheme};
 
 type MockCall = crate::mock::Call;
 
-const FP_CREATION_RESERVE: Balance = 148 + 126 * 1;
-const FP_DELIGATE_RESERVE: Balance = 126 * 1;
+const FP_CREATION_RESERVE: Balance = 148 + 126; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
+const FP_DELEGATE_RESERVE: Balance = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
 
 fn transfer_funds(asset_id: AssetId, source: &AccountId, destination: &AccountId, amount: Balance) {
 	assert_ok!(AssetsExt::transfer(asset_id, &source, &destination, amount, false));
@@ -156,9 +159,9 @@ fn register_delegate_by_owner_works() {
 			);
 
 			// register delegate
-			// owner needs another FP_DELIGATE_RESERVE for this
-			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELIGATE_RESERVE);
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELIGATE_RESERVE);
+			// owner needs another FP_DELEGATE_RESERVE for this
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
 			assert_ok!(Futurepass::register_delegate(
 				Origin::signed(owner),
 				futurepass,
@@ -200,7 +203,7 @@ fn register_delegate_by_non_delegate_fails() {
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
 			let futurepass = Holders::<Test>::get(&owner).unwrap();
 			// fund the other
-			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &other, FP_DELIGATE_RESERVE);
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &other, FP_DELEGATE_RESERVE);
 			// Try to register_delegate by other (non owner)
 			assert_noop!(
 				Futurepass::register_delegate(
@@ -233,7 +236,7 @@ fn register_delegate_with_not_allowed_proxy_type_fails() {
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
 			let futurepass = Holders::<Test>::get(&owner).unwrap();
 			// fund the owner
-			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELIGATE_RESERVE);
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
 			// register_delegate with proxy_type != ProxyType::Any
 			assert_noop!(
 				Futurepass::register_delegate(
@@ -290,8 +293,8 @@ fn register_delegate_failures_common() {
 			);
 
 			// fund the owner and other
-			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELIGATE_RESERVE);
-			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &other, FP_DELIGATE_RESERVE);
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &other, FP_DELEGATE_RESERVE);
 			// register delegate by owner successfully
 			assert_ok!(Futurepass::register_delegate(
 				Origin::signed(owner),
@@ -313,7 +316,7 @@ fn register_delegate_failures_common() {
 			);
 			// register_delegate by another delegate should fail - NOTE: for V1
 			// fund delegate1
-			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &delegate1, FP_DELIGATE_RESERVE);
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &delegate1, FP_DELEGATE_RESERVE);
 			assert_noop!(
 				Futurepass::register_delegate(
 					Origin::signed(delegate1),
@@ -344,7 +347,7 @@ fn unregister_delegate_by_owner_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -371,7 +374,7 @@ fn unregister_delegate_by_owner_works() {
 			);
 
 			// check the reserved amount has been received by the caller. i.e the owner
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELIGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
 
 			// check delegate is not a proxy of futurepass
 			assert_eq!(
@@ -399,7 +402,7 @@ fn unregister_delegate_by_the_delegate_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -425,7 +428,7 @@ fn unregister_delegate_by_the_delegate_works() {
 				Event::<Test>::DelegateUnregistered { futurepass, delegate }.into(),
 			);
 			// check the reserved amount has been received by the caller. i.e the delegate
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate), FP_DELIGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &delegate), FP_DELEGATE_RESERVE);
 
 			// check delegate is not a proxy of futurepass
 			assert_eq!(
@@ -456,7 +459,7 @@ fn unregister_delegate_by_not_permissioned_fails() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + 2 * FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + 2 * FP_DELEGATE_RESERVE,
 			);
 			// create FP
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -535,7 +538,7 @@ fn unregister_delegate_failures_common() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -563,7 +566,7 @@ fn unregister_delegate_failures_common() {
 }
 
 #[test]
-fn transfer_futurepass_works() {
+fn transfer_futurepass_to_address_works() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
 
@@ -581,7 +584,7 @@ fn transfer_futurepass_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -597,16 +600,16 @@ fn transfer_futurepass_works() {
 			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
 
 			// transfer the ownership to other
-			// fund owner since it requires FP_DELIGATE_RESERVE to add new owner
+			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
 			// the owner will get back the old reserve amount
-			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELIGATE_RESERVE);
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELIGATE_RESERVE);
-			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), other));
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
+			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), Some(other)));
 			// assert event
 			System::assert_has_event(
 				Event::<Test>::FuturepassTransferred {
 					old_owner: owner,
-					new_owner: other,
+					new_owner: Some(other),
 					futurepass,
 				}
 				.into(),
@@ -625,7 +628,73 @@ fn transfer_futurepass_works() {
 				false
 			);
 			// caller(the owner) should receive the reserved balance diff
-			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2 * FP_DELIGATE_RESERVE);
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2 * FP_DELEGATE_RESERVE);
+		});
+}
+
+#[test]
+fn transfer_futurepass_to_none_works() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+
+			// fund owner
+			transfer_funds(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&owner,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
+			);
+			assert_eq!(
+				AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner),
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE
+			);
+
+			// create FP
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+			// register delegate
+			assert_ok!(Futurepass::register_delegate(
+				Origin::signed(owner),
+				futurepass,
+				delegate,
+				ProxyType::Any
+			));
+			// check delegate is a proxy of futurepass
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
+
+			// transfer the ownership to none
+			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
+			// the owner will get back the old reserve amount
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
+			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), None));
+			// assert event
+			System::assert_has_event(
+				Event::<Test>::FuturepassTransferred {
+					old_owner: owner,
+					new_owner: None,
+					futurepass,
+				}
+				.into(),
+			);
+			assert_eq!(Holders::<Test>::get(&owner), None);
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Any)),
+				false
+			);
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				false
+			);
+			// caller(the owner) should receive the reserved balance diff
+			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 400);
 		});
 }
 
@@ -648,7 +717,7 @@ fn transfer_futurepass_failures() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -670,12 +739,15 @@ fn transfer_futurepass_failures() {
 
 			// call transfer_futurepass by other than owner should fail
 			assert_noop!(
-				Futurepass::transfer_futurepass(Origin::signed(create_random()), create_random()),
+				Futurepass::transfer_futurepass(
+					Origin::signed(create_random()),
+					Some(create_random())
+				),
 				Error::<Test>::NotFuturepassOwner
 			);
 			// call transfer_futurepass for another futurepass owner should fail
 			assert_noop!(
-				Futurepass::transfer_futurepass(Origin::signed(owner), owner2),
+				Futurepass::transfer_futurepass(Origin::signed(owner), Some(owner2)),
 				Error::<Test>::AccountAlreadyRegistered
 			);
 		});
@@ -700,7 +772,7 @@ fn proxy_extrinsic_simple_transfer_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -788,7 +860,7 @@ fn proxy_extrinsic_non_transfer_call_works() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -844,7 +916,7 @@ fn proxy_extrinsic_by_non_delegate_fails() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -914,7 +986,7 @@ fn proxy_extrinsic_to_futurepass_non_whitelist_fails() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -976,7 +1048,7 @@ fn proxy_extrinsic_to_proxy_pallet_fails() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -1040,7 +1112,7 @@ fn proxy_extrinsic_failures_common() {
 				MOCK_NATIVE_ASSET_ID,
 				&funder,
 				&owner,
-				FP_CREATION_RESERVE + FP_DELIGATE_RESERVE,
+				FP_CREATION_RESERVE + FP_DELEGATE_RESERVE,
 			);
 			// create FP for owner
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
@@ -1211,6 +1283,82 @@ fn futurepass_admin_migrator_set_by_sudo() {
 }
 
 #[test]
+fn futurepass_migration_multiple_assets() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+	let futurepass_admin_migrator = create_account(1337);
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			MigrationAdmin::<Test>::put(futurepass_admin_migrator);
+
+			// create EOA and respective futurepass
+			let (eoa, evm_futurepass) = (create_account(420), create_account(421));
+
+			// setup assets with eoa as owner, mint assets to eoa EVM futurepass account
+			assert_ok!(AssetsExt::mint_into(MOCK_NATIVE_ASSET_ID, &evm_futurepass, 1000));
+			assert_ok!(AssetsExt::mint_into(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, 500));
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, false),
+				1000
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
+				500
+			);
+
+			// fund migrator
+			assert_ok!(AssetsExt::transfer(
+				MOCK_NATIVE_ASSET_ID,
+				&funder,
+				&futurepass_admin_migrator,
+				FP_CREATION_RESERVE,
+				false
+			));
+
+			// perform migration
+			assert_ok!(Futurepass::migrate_evm_futurepass(
+				Origin::signed(futurepass_admin_migrator),
+				eoa,
+				evm_futurepass,
+				vec![MOCK_NATIVE_ASSET_ID, MOCK_PAYMENT_ASSET_ID],
+				vec![],
+			));
+			let futurepass = Holders::<Test>::get(&eoa).unwrap();
+			System::assert_has_event(
+				Event::<Test>::FuturepassAssetsMigrated {
+					evm_futurepass,
+					futurepass,
+					assets: vec![MOCK_NATIVE_ASSET_ID, MOCK_PAYMENT_ASSET_ID],
+					collections: vec![],
+				}
+				.into(),
+			);
+
+			// assert evm futurepass has assets
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &evm_futurepass, false),
+				0
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &evm_futurepass, false),
+				0
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				1000
+			);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_PAYMENT_ASSET_ID, &futurepass, false),
+				500
+			);
+		});
+}
+
+#[test]
 fn futurepass_migration_single_collection() {
 	let funder = create_account(1);
 	let endowed = [(funder, 1_000_000)];
@@ -1249,6 +1397,7 @@ fn futurepass_migration_single_collection() {
 				Origin::signed(futurepass_admin_migrator),
 				eoa,
 				evm_futurepass,
+				vec![],
 				vec![collection_id],
 			));
 			let futurepass = Holders::<Test>::get(&eoa).unwrap();
@@ -1256,7 +1405,8 @@ fn futurepass_migration_single_collection() {
 				Event::<Test>::FuturepassAssetsMigrated {
 					evm_futurepass,
 					futurepass,
-					collection_id,
+					assets: vec![],
+					collections: vec![collection_id],
 				}
 				.into(),
 			);
@@ -1306,6 +1456,7 @@ fn futurepass_migration_multiple_collections() {
 				Origin::signed(futurepass_admin_migrator),
 				eoa,
 				evm_futurepass,
+				vec![],
 				vec![collection_id_1, collection_id_2],
 			));
 			let futurepass = Holders::<Test>::get(&eoa).unwrap();
@@ -1313,7 +1464,8 @@ fn futurepass_migration_multiple_collections() {
 				Event::<Test>::FuturepassAssetsMigrated {
 					evm_futurepass,
 					futurepass,
-					collection_id: collection_id_1,
+					assets: vec![],
+					collections: vec![collection_id_1, collection_id_2],
 				}
 				.into(),
 			);
@@ -1364,13 +1516,15 @@ fn futurepass_migration_existing_futurepass_account() {
 				Origin::signed(futurepass_admin_migrator),
 				eoa,
 				evm_futurepass,
+				vec![],
 				vec![collection_id],
 			));
 			System::assert_has_event(
 				Event::<Test>::FuturepassAssetsMigrated {
 					evm_futurepass,
 					futurepass,
-					collection_id,
+					assets: vec![],
+					collections: vec![collection_id],
 				}
 				.into(),
 			);

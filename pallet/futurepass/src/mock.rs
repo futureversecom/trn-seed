@@ -12,7 +12,10 @@
 use crate::{self as pallet_futurepass, *};
 use frame_support::{
 	parameter_types,
-	traits::{Currency, ExistenceRequirement, InstanceFilter},
+	traits::{
+		fungibles::{Inspect, Transfer},
+		Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
+	},
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -180,6 +183,21 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 		result
 	}
 
+	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
+		let (_, old_deposit) = pallet_proxy::Proxies::<Test>::take(futurepass);
+		<pallet_balances::Pallet<Test> as ReservableCurrency<_>>::unreserve(
+			futurepass,
+			old_deposit,
+		);
+		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
+			futurepass,
+			receiver,
+			old_deposit,
+			ExistenceRequirement::AllowDeath,
+		)?;
+		Ok(())
+	}
+
 	fn proxy_call(
 		caller: <Test as frame_system::Config>::Origin,
 		futurepass: AccountId,
@@ -216,10 +234,29 @@ impl crate::Config for Test {
 
 pub struct MockMigrationProvider;
 
-impl<T: pallet_nft::Config> crate::FuturepassMigrator<T> for MockMigrationProvider
+impl<T: pallet_nft::Config + pallet_assets_ext::Config> crate::FuturepassMigrator<T>
+	for MockMigrationProvider
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
+	fn transfer_asset(
+		asset_id: AssetId,
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult {
+		let amount = <pallet_assets_ext::Pallet<T> as Inspect<
+			<T as frame_system::Config>::AccountId,
+		>>::reducible_balance(asset_id, current_owner, false);
+		<pallet_assets_ext::Pallet<T> as Transfer<<T as frame_system::Config>::AccountId>>::transfer(
+			asset_id,
+			current_owner,
+			new_owner,
+			amount,
+			false,
+		)?;
+		Ok(())
+	}
+
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,

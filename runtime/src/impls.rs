@@ -19,9 +19,10 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
+		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
 		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, IsSubType, OnUnbalanced,
-		SignedImbalance, WithdrawReasons,
+		ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
@@ -40,8 +41,10 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 
 use precompile_utils::{
-	constants::{FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE},
-	Address, ErcIdConversion,
+	constants::{
+		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
+	},
+	keccak256, Address, ErcIdConversion,
 };
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
@@ -541,6 +544,22 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		result
 	}
 
+	/// Removing futurepass refunds caller with reserved balance (deposits) of the futurepass.
+	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
+		let (_, old_deposit) = pallet_proxy::Proxies::<Runtime>::take(futurepass);
+		<pallet_balances::Pallet<Runtime> as ReservableCurrency<_>>::unreserve(
+			futurepass,
+			old_deposit,
+		);
+		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
+			futurepass,
+			receiver,
+			old_deposit,
+			ExistenceRequirement::AllowDeath,
+		)?;
+		Ok(())
+	}
+
 	fn proxy_call(
 		caller: <Runtime as frame_system::Config>::Origin,
 		futurepass: AccountId,
@@ -616,17 +635,16 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
 		_recipient_has_code: bool,
 	) -> bool {
-		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
+		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_REGISTRAR_PRECOMPILE) ||
+			call.to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX)
+		{
 			// Whitelist for precompile side
-			// TODO - call.call_data is not clonable coz of ConstU32. i.e we use
-			// BoundedBytes<ConstU32<65536>> and when call.call_data.into_vec(), it moves out the
-			// call data which we need later in the function we should either change the type of
-			// call.call_data or fix it by other mean but for V1, this code is not functionally
-			// relevant. let sub_call_selector = &call.call_data.clone().into_vec()[..4];
-			// if sub_call_selector == &keccak256!("registerDelegate(address,address,uint8)")[..4]
-			// 	|| sub_call_selector == &keccak256!("unregisterDelegate(address,address)")[..4] {
-			// 	return true;
-			// }
+			let sub_call_selector = &call.call_data.inner[..4];
+			if sub_call_selector == &keccak256!("registerDelegate(address,uint8)")[..4] ||
+				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+			{
+				return true
+			}
 			return false
 		}
 		match self {
@@ -752,10 +770,25 @@ where
 
 pub struct FuturepassMigrationProvider;
 
-impl<T: pallet_nft::Config> pallet_futurepass::FuturepassMigrator<T> for FuturepassMigrationProvider
+impl<T: pallet_nft::Config + pallet_assets_ext::Config> pallet_futurepass::FuturepassMigrator<T>
+	for FuturepassMigrationProvider
 where
-	<T as frame_system::Config>::AccountId: From<H160>,
+	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
+	fn transfer_asset(
+		asset_id: AssetId,
+		current_owner: &T::AccountId,
+		new_owner: &T::AccountId,
+	) -> DispatchResult {
+		let amount = <pallet_assets_ext::Pallet<T> as fungibles::Inspect<
+			<T as frame_system::Config>::AccountId,
+		>>::reducible_balance(asset_id, current_owner, false);
+		<pallet_assets_ext::Pallet<T> as fungibles::Transfer<
+			<T as frame_system::Config>::AccountId,
+		>>::transfer(asset_id, current_owner, new_owner, amount, false)?;
+		Ok(())
+	}
+
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,
