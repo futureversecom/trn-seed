@@ -1709,10 +1709,18 @@ fn transaction_asset_check(
 	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY_ADDRESS));
 
 	if action == fee_proxy {
-		let (input, gas_limit, gas_price, max_fee_per_gas, max_priority_fee_per_gas) = match eth_tx {
+		let (input, gas_limit, gas_price, max_fee_per_gas, max_priority_fee_per_gas) = match eth_tx
+		{
 			EthereumTransaction::Legacy(t) => (t.input, t.gas_limit, Some(t.gas_price), None, None),
-			EthereumTransaction::EIP2930(t) => (t.input, t.gas_limit, Some(t.gas_price), None, None),
-			EthereumTransaction::EIP1559(t) => (t.input, t.gas_limit, None, Some(t.max_fee_per_gas), Some(t.max_priority_fee_per_gas)),
+			EthereumTransaction::EIP2930(t) =>
+				(t.input, t.gas_limit, Some(t.gas_price), None, None),
+			EthereumTransaction::EIP1559(t) => (
+				t.input,
+				t.gas_limit,
+				None,
+				Some(t.max_fee_per_gas),
+				Some(t.max_priority_fee_per_gas),
+			),
 		};
 
 		let (payment_asset_id, max_payment, _target, _input) =
