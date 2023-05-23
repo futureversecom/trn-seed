@@ -118,7 +118,6 @@ pub mod pallet {
 		SftTokenInformation<T::AccountId, T::StringLimit, T::MaxOwnersPerSftToken>,
 	>;
 
-	// TODO Remove Events not being used
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -145,7 +144,7 @@ pub mod pallet {
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
 		/// A new token was created within a collection
-		TokenCreated {
+		TokenCreate {
 			token_id: TokenId,
 			initial_issuance: Balance,
 			max_issuance: Option<Balance>,
@@ -177,8 +176,6 @@ pub mod pallet {
 		NoToken,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
-		/// The maximum number of offers on this token has been reached
-		MaxOffersReached,
 		/// Total royalties would exceed 100% of sale or an empty vec is supplied
 		RoyaltiesInvalid,
 		/// The collection does not exist
@@ -190,6 +187,8 @@ pub mod pallet {
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
+		/// Caller can not be the new owner
+		InvalidNewOwner,
 		/// The max issuance has already been set and can't be changed
 		MaxIssuanceAlreadySet,
 		/// The collection max issuance has been reached and no more tokens can be minted

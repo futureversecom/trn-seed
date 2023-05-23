@@ -359,7 +359,7 @@ mod create_token {
 			);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::TokenCreated {
+			System::assert_last_event(Event::Sft(crate::Event::TokenCreate {
 				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: Some(max_issuance),
@@ -398,7 +398,7 @@ mod create_token {
 			assert_eq!(TokenInfo::<Test>::get((collection_id, 0)).unwrap(), expected_token_info);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::TokenCreated {
+			System::assert_last_event(Event::Sft(crate::Event::TokenCreate {
 				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: None,
@@ -1127,6 +1127,26 @@ mod transfer {
 					new_owner,
 				),
 				Error::<Test>::NoToken
+			);
+		});
+	}
+
+	#[test]
+	fn transfer_new_owner_is_signer_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let (collection_id, serial_number) = token_id;
+
+			// Second serial number does not exist so should fail
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_combined(vec![serial_number, 12], vec![100, 10]),
+					collection_owner,
+				),
+				Error::<Test>::InvalidNewOwner
 			);
 		});
 	}

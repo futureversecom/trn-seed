@@ -112,7 +112,7 @@ impl<T: Config> Pallet<T> {
 		TokenInfo::<T>::insert((collection_id, next_serial_number), new_sft);
 		SftCollectionInfo::<T>::insert(collection_id, existing_collection);
 
-		Self::deposit_event(Event::<T>::TokenCreated {
+		Self::deposit_event(Event::<T>::TokenCreate {
 			token_id: (collection_id, next_serial_number),
 			initial_issuance,
 			max_issuance,
@@ -184,6 +184,8 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// Must be some serial numbers to transfer
 		ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
+		// Caller must not be new owner
+		ensure!(who != new_owner, Error::<T>::InvalidNewOwner);
 
 		for (serial_number, quantity) in &serial_numbers {
 			// Validate quantity
