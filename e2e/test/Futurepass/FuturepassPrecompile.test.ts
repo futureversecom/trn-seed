@@ -680,7 +680,7 @@ describe("Futurepass Precompile", function () {
     expect(await testCreateContract.getValue()).to.equal(420);
   });
 
-  it.only("proxyCall - futurepass can deploy a contract with constructor using CREATE2", async () => {
+  it("proxyCall - futurepass can deploy a contract with constructor using CREATE2", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
     // transfer funds to owner
