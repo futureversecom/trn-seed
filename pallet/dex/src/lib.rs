@@ -172,6 +172,8 @@ pub mod pallet {
 		UnacceptableShareIncrement,
 		/// The Liquidity Provider token does not exist
 		LiquidityProviderTokenNotCreated,
+		/// The deadline has been missed
+		DeadlineMissed,
 	}
 
 	#[pallet::event]
@@ -184,15 +186,15 @@ pub mod pallet {
 		/// asset_id_1, contribution_1\]
 		AddProvision(T::AccountId, AssetId, Balance, AssetId, Balance),
 		/// Add liquidity success. \[who, asset_id_0, reserve_0_increment,
-		/// asset_id_1, reserve_1_increment, share_increment\]
-		AddLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance),
+		/// asset_id_1, reserve_1_increment, share_increment, recipient\]
+		AddLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance, T::AccountId),
 		/// Remove liquidity from the trading pool success. \[who,
 		/// asset_id_0, reserve_0_decrement, asset_id_1, reserve_1_decrement,
-		/// share_decrement\]
-		RemoveLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance),
+		/// share_decrement, recipient\]
+		RemoveLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance, T::AccountId),
 		/// Use supply Asset to swap target Asset. \[trader, trading_path,
-		/// supply_Asset_amount, target_Asset_amount\]
-		Swap(T::AccountId, Vec<AssetId>, Balance, Balance),
+		/// supply_Asset_amount, target_Asset_amount, recipient\]
+		Swap(T::AccountId, Vec<AssetId>, Balance, Balance, T::AccountId),
 		/// Enable trading pair. \[trading_pair\]
 		EnableTradingPair(TradingPair),
 		/// Disable trading pair. \[trading_pair\]
@@ -239,6 +241,10 @@ pub mod pallet {
 		/// - `path`: trading path.
 		/// - `amount_in`: exact supply amount.
 		/// - `amount_out_min`: acceptable minimum target amount.
+		/// - `recipient`: The recipient of the swapped token asset. The caller is the default
+		///   recipient if it is set to None.
+		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
+		///   it is set to None
 		#[pallet::weight(T::WeightInfo::swap_with_exact_supply())]
 		#[transactional]
 		pub fn swap_with_exact_supply(
@@ -246,9 +252,25 @@ pub mod pallet {
 			#[pallet::compact] amount_in: Balance,
 			#[pallet::compact] amount_out_min: Balance,
 			path: Vec<AssetId>,
+			recipient: Option<T::AccountId>,
+			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_swap_with_exact_supply(&who, amount_in, amount_out_min, &path)?;
+
+			// Check if the deadline is met when the `deadline` parameter is not None
+			if let Some(deadline_block) = deadline {
+				let current_block_number = frame_system::Pallet::<T>::block_number();
+				ensure!(deadline_block >= current_block_number, Error::<T>::DeadlineMissed);
+			}
+
+			Self::do_swap_with_exact_supply(
+				&who,
+				amount_in,
+				amount_out_min,
+				&path,
+				recipient.unwrap_or(who.clone()), /* set the caller as LP recipient if
+				                                   * recipient is set to None */
+			)?;
 			Ok(().into())
 		}
 
@@ -259,6 +281,10 @@ pub mod pallet {
 		/// - `amount_out`: exact target amount.
 		/// - `amount_in_max`: acceptable maximum supply amount.
 		/// - `path`: trading path.
+		/// - `recipient`: The recipient of the swapped token asset. The caller is the default
+		///   recipient if it is set to None.
+		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
+		///   it is set to None
 		#[pallet::weight(T::WeightInfo::swap_with_exact_target())]
 		#[transactional]
 		pub fn swap_with_exact_target(
@@ -266,9 +292,25 @@ pub mod pallet {
 			#[pallet::compact] amount_out: Balance,
 			#[pallet::compact] amount_in_max: Balance,
 			path: Vec<AssetId>,
+			recipient: Option<T::AccountId>,
+			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_swap_with_exact_target(&who, amount_out, amount_in_max, &path)?;
+
+			// Check if the deadline is met when the `deadline` parameter is not None
+			if let Some(deadline_block) = deadline {
+				let current_block_number = frame_system::Pallet::<T>::block_number();
+				ensure!(deadline_block >= current_block_number, Error::<T>::DeadlineMissed);
+			}
+
+			Self::do_swap_with_exact_target(
+				&who,
+				amount_out,
+				amount_in_max,
+				&path,
+				recipient.unwrap_or(who.clone()), /* set the caller as LP recipient if
+				                                   * recipient is set to None */
+			)?;
 			Ok(().into())
 		}
 
@@ -288,7 +330,11 @@ pub mod pallet {
 		/// - `amount_b_desired`: amount b desired to add.
 		/// - `amount_a_min`: amount a minimum willing to add.
 		/// - `amount_b_min`: amount b minimum willing to add.
-		/// - `min_share_increment`: minimum expected lp token shares to be recieved.
+		/// - `min_share_increment`: minimum expected lp token shares to be received.
+		/// - `recipient`: The recipient of the LP token. The caller is the default recipient if it
+		///   is set to None.
+		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
+		///   it is set to None
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		#[transactional]
 		pub fn add_liquidity(
@@ -301,8 +347,16 @@ pub mod pallet {
 			#[pallet::compact] amount_b_min: Balance,
 			#[pallet::compact] min_share_increment: Balance, /* TODO: may not need this (not
 			                                                  * used in uniswapv2) */
+			recipient: Option<T::AccountId>,
+			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+
+			// Check if the deadline is met when the `deadline` parameter is not None
+			if let Some(deadline_block) = deadline {
+				let current_block_number = frame_system::Pallet::<T>::block_number();
+				ensure!(deadline_block >= current_block_number, Error::<T>::DeadlineMissed);
+			}
 
 			ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
 			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
@@ -322,6 +376,8 @@ pub mod pallet {
 				amount_a_min,
 				amount_b_min,
 				min_share_increment,
+				recipient.unwrap_or(who.clone()), /* set the caller as LP recipient if
+				                                   * recipient is set to None */
 			)?;
 			Ok(().into())
 		}
@@ -336,6 +392,10 @@ pub mod pallet {
 		/// - `remove_liquidity`: liquidity amount to remove.
 		/// - `min_withdrawn_a`: minimum amount of asset A to be withdrawn from LP token.
 		/// - `min_withdrawn_b`: minimum amount of asset B to be withdrawn from LP token.
+		/// - `recipient`: The recipient of the withdrawn token assets. The caller is the default
+		///   recipient if it is set to None.
+		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
+		///   it is set to None
 		#[pallet::weight(T::WeightInfo::remove_liquidity())]
 		#[transactional]
 		pub fn remove_liquidity(
@@ -345,8 +405,17 @@ pub mod pallet {
 			#[pallet::compact] remove_liquidity: Balance,
 			#[pallet::compact] min_withdrawn_a: Balance,
 			#[pallet::compact] min_withdrawn_b: Balance,
+			recipient: Option<T::AccountId>,
+			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+
+			// Check if the deadline is met when the `deadline` parameter is not None
+			if let Some(deadline_block) = deadline {
+				let current_block_number = frame_system::Pallet::<T>::block_number();
+				ensure!(deadline_block >= current_block_number, Error::<T>::DeadlineMissed);
+			}
+
 			Self::do_remove_liquidity(
 				&who,
 				asset_id_a,
@@ -354,6 +423,8 @@ pub mod pallet {
 				remove_liquidity,
 				min_withdrawn_a,
 				min_withdrawn_b,
+				recipient.unwrap_or(who.clone()), /* set the caller as LP recipient if
+				                                   * recipient is set to None */
 			)?;
 			Ok(().into())
 		}
@@ -496,6 +567,7 @@ where
 		amount_a_min: Balance,
 		amount_b_min: Balance,
 		min_share_increment: Balance,
+		recipient: T::AccountId,
 	) -> DispatchResult {
 		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
 
@@ -607,8 +679,8 @@ where
 		ensure!(!liquidity.is_zero(), Error::<T>::InvalidLiquidityIncrement,);
 		ensure!(liquidity >= min_share_increment, Error::<T>::UnacceptableShareIncrement);
 
-		// mint lp tokens to user
-		T::MultiCurrency::mint_into(lp_share_asset_id, who, liquidity)?;
+		// mint lp tokens to the LP recipient
+		T::MultiCurrency::mint_into(lp_share_asset_id, &recipient, liquidity)?;
 
 		let result = LiquidityPool::<T>::try_mutate(
 			trading_pair,
@@ -624,6 +696,7 @@ where
 					trading_pair.1,
 					amount_1,
 					liquidity,
+					recipient,
 				));
 				Ok(())
 			},
@@ -639,6 +712,7 @@ where
 		remove_liquidity: Balance,
 		min_withdrawn_a: Balance,
 		min_withdrawn_b: Balance,
+		recipient: T::AccountId,
 	) -> DispatchResult {
 		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
 		let lp_share_asset_id =
@@ -686,8 +760,8 @@ where
 		ensure!(amount_1 >= min_withdrawn_b, Error::<T>::InsufficientWithdrawnAmountB);
 
 		T::MultiCurrency::burn_from(lp_share_asset_id, &pool_address, remove_liquidity)?;
-		T::MultiCurrency::transfer(asset_id_a, &pool_address, who, amount_0, false)?;
-		T::MultiCurrency::transfer(asset_id_b, &pool_address, who, amount_1, false)?;
+		T::MultiCurrency::transfer(asset_id_a, &pool_address, &recipient, amount_0, false)?;
+		T::MultiCurrency::transfer(asset_id_b, &pool_address, &recipient, amount_1, false)?;
 
 		balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
 		balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
@@ -705,6 +779,7 @@ where
 					trading_pair.1,
 					amount_1,
 					remove_liquidity,
+					recipient,
 				));
 				Ok(())
 			},
@@ -1003,6 +1078,7 @@ where
 		amount_in: Balance,
 		min_amount_out: Balance,
 		path: &[AssetId],
+		recipient: T::AccountId,
 	) -> sp_std::result::Result<Balance, DispatchError> {
 		let amounts = Self::get_amounts_out(amount_in, &path)?;
 
@@ -1012,7 +1088,7 @@ where
 		// transfer tokens to module account (uniswapv2 trading pair)
 		let pool_address = trading_pair.pool_address();
 
-		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
+		T::MultiCurrency::transfer(path[0], &recipient, &pool_address, amounts[0], false)?;
 
 		Self::_swap(&amounts, &path, who)?;
 		Self::deposit_event(Event::Swap(
@@ -1020,6 +1096,7 @@ where
 			path.to_vec(),
 			amount_in,
 			amounts[amounts.len() - 1],
+			recipient,
 		));
 		Ok(amounts[amounts.len() - 1])
 	}
@@ -1031,6 +1108,7 @@ where
 		amount_out: Balance,
 		amount_in_max: Balance,
 		path: &[AssetId],
+		recipient: T::AccountId,
 	) -> sp_std::result::Result<Balance, DispatchError> {
 		let amounts = Self::get_amounts_in(amount_out, &path)?;
 
@@ -1038,10 +1116,16 @@ where
 		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
 		let trading_pair = TradingPair::new(path[0], path[1]);
 		let pool_address = trading_pair.pool_address();
-		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
+		T::MultiCurrency::transfer(path[0], &recipient, &pool_address, amounts[0], false)?;
 
 		Self::_swap(&amounts, &path, who)?;
-		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out));
+		Self::deposit_event(Event::Swap(
+			who.clone(),
+			path.to_vec(),
+			amounts[0],
+			amount_out,
+			recipient,
+		));
 		Ok(amounts[0])
 	}
 }
