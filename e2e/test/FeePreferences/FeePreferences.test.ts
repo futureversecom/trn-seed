@@ -4,6 +4,7 @@ import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { BigNumber, Contract, Wallet, utils } from "ethers";
+import { ethers } from "hardhat";
 
 import {
   ALITH_PRIVATE_KEY,
@@ -11,6 +12,9 @@ import {
   ERC20_ABI,
   FEE_PROXY_ABI,
   FEE_PROXY_ADDRESS,
+  FUTUREPASS_PRECOMPILE_ABI,
+  FUTUREPASS_REGISTRAR_PRECOMPILE_ABI,
+  FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS,
   GAS_TOKEN_ID,
   NATIVE_TOKEN_ID,
   NodeProcess,
@@ -18,6 +22,7 @@ import {
   startNode,
   typedefs,
 } from "../../common";
+import { CALL_TYPE } from "../Futurepass/FuturepassPrecompile.test";
 
 const FEE_TOKEN_ASSET_ID = 1124;
 
@@ -28,7 +33,9 @@ describe("Fee Preferences", function () {
 
   let node: NodeProcess;
 
+  let api: ApiPromise;
   let provider: JsonRpcProvider;
+  let alith: KeyringPair;
   let bob: KeyringPair;
   let emptyAccount: KeyringPair;
   let emptyAccountSigner: Wallet;
@@ -40,9 +47,9 @@ describe("Fee Preferences", function () {
 
     // Setup PolkadotJS rpc provider
     const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
-    const api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     const keyring = new Keyring({ type: "ethereum" });
-    const alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+    alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
     emptyAccount = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
 
@@ -155,6 +162,94 @@ describe("Fee Preferences", function () {
     expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance);
 
     expect(tokenBalance.sub(tokenBalanceUpdated)).to.equal(estimatedTokenTxCost + transferAmount);
+  });
+
+  it("Futurepass caller pays fees in non-native token - legacy tx", async () => {
+    const fees = await provider.getFeeData();
+
+    // create futurepass
+    const alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
+    const futurepassRegistrar = new Contract(
+      FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS,
+      FUTUREPASS_REGISTRAR_PRECOMPILE_ABI,
+      alithSigner,
+    );
+    const owner = Wallet.createRandom().connect(provider);
+    let tx = await futurepassRegistrar.connect(alithSigner).create(owner.address);
+    let receipt = await tx.wait();
+    const futurepassAddress: string = (receipt?.events as any)[0].args.futurepass;
+    const futurepass = new Contract(futurepassAddress, FUTUREPASS_PRECOMPILE_ABI, owner);
+
+    // mint fee tokens to owner (pay for fees) & FP (transfer tokens to bob)
+    await new Promise<void>((resolve) => {
+      api.tx.utility
+        .batch([
+          api.tx.assets.mint(FEE_TOKEN_ASSET_ID, owner.address, 2_000_000_000),
+          api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepass.address, 1),
+        ])
+        .signAndSend(alith, ({ status }) => {
+          if (status.isInBlock) resolve();
+        });
+    });
+
+    // get token balances
+    const [xrpBalance, tokenBalance, fpXRPBalance, fpTokenBalance] = await Promise.all([
+      xrpToken.balanceOf(owner.address),
+      feeToken.balanceOf(owner.address),
+      xrpToken.balanceOf(futurepass.address),
+      feeToken.balanceOf(futurepass.address),
+    ]);
+    expect(xrpBalance).to.equal(0);
+    expect(tokenBalance).to.equal(2_000_000_000);
+    expect(fpXRPBalance).to.equal(0);
+    expect(fpTokenBalance).to.equal(1);
+
+    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
+    const transferAmount = 1;
+    const iface = new utils.Interface(ERC20_ABI);
+    const transferCallData = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
+
+    // estimate gas for futurepass proxy call - which encodes transfer call data
+    const proxyCallInput = futurepass.interface.encodeFunctionData("proxyCall", [
+      CALL_TYPE.Call,
+      feeToken.address,
+      ethers.constants.Zero,
+      transferCallData,
+    ]);
+    const gasEstimate = await futurepass
+      .connect(owner)
+      .estimateGas.proxyCall(CALL_TYPE.Call, feeToken.address, ethers.constants.Zero, transferCallData);
+
+    const estimatedTokenTxCost = await getAmountIn(provider, gasEstimate, FEE_TOKEN_ASSET_ID);
+    tx = await feeProxy
+      .connect(owner)
+      .callWithFeePreferences(feeToken.address, estimatedTokenTxCost, futurepass.address, proxyCallInput, {
+        gasLimit: gasEstimate,
+        gasPrice: fees.gasPrice!,
+      });
+    receipt = await tx.wait();
+    expect((receipt?.events as any).length).to.equal(2);
+    expect((receipt?.events as any)[0].address).to.equal(feeToken.address); // transfer event
+    expect((receipt?.events as any)[1].address).to.equal(futurepass.address); // futurepass executed event
+
+    // check updated balances
+    const [xrpBalanceUpdated, tokenBalanceUpdated, fpXRPBalanceUpdated, fpTokenBalanceUpdated] = await Promise.all([
+      xrpToken.balanceOf(owner.address),
+      feeToken.balanceOf(owner.address),
+      xrpToken.balanceOf(futurepass.address),
+      feeToken.balanceOf(futurepass.address),
+    ]);
+    // verify XRP balance has not changed (payment made in non-native token)
+    expect(xrpBalanceUpdated).to.equal(0);
+    // verify fee token was paid for fees
+    expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance);
+    // verify FP balance has not changed (payment made in non-native token)
+    expect(fpXRPBalanceUpdated).to.equal(0);
+    // verify minted token was transferred to bob
+    expect(fpTokenBalanceUpdated).to.equal(0);
+
+    expect(tokenBalance.sub(tokenBalanceUpdated)).to.equal(estimatedTokenTxCost);
   });
 
   it("Pays fees in non-native token via legacy type 0 tx object", async () => {
