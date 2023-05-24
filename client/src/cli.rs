@@ -1,3 +1,4 @@
+use crate::custom_commands::VerifyProofSigSubCommand;
 use sc_cli::{Error, Result};
 
 #[allow(missing_docs)]
@@ -88,4 +89,8 @@ pub enum Subcommand {
 
 	/// Db meta columns information.
 	ChainInfo(sc_cli::ChainInfoCmd),
+
+	/// verify proof signatures
+	#[clap(subcommand)]
+	VerifyProofSig(VerifyProofSigSubCommand),
 }
