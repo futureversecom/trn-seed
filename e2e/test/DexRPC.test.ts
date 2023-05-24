@@ -130,6 +130,8 @@ describe("DexRPC", () => {
         utils.parseEther("1000").toString(),
         250_000_000,
         0,
+        null,
+        null,
       ),
     ];
 
