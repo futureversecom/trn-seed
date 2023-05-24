@@ -77,7 +77,7 @@ pub mod v1 {
 
 		existing_storage.iter().for_each(|(key, v)| {
 			if v == &RewardDestination::Staked {
-				Payee::<Runtime>::remove(key);
+				// Payee::<Runtime>::remove(key);
 				Payee::<Runtime>::insert(key, RewardDestination::Stash);
 				weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 2);
 			}
