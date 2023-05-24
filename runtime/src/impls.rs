@@ -48,13 +48,13 @@ use precompile_utils::{
 };
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
+	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
-
+use seed_runtime_constants::UPGRADE_FEE_AMOUNT;
 use crate::{
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic,
+	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking,
+	System, UncheckedExtrinsic,
 };
 use sp_runtime::traits::Dispatchable;
 
@@ -710,6 +710,7 @@ where
 		+ pallet_dex::Config
 		+ pallet_evm::Config
 		+ pallet_assets_ext::Config,
+	<T as frame_system::Config>::Call: IsSubType<frame_system::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
 	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
@@ -718,6 +719,7 @@ where
 	Balance: From<
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance,
 	>,
+	<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: From<u128>
 {
 	type Balance =
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -740,6 +742,15 @@ where
 				who = futurepass;
 			}
 		}
+
+		if let Some(frame_system::Call::set_code { .. }) =
+		call.is_sub_type()
+		{
+			return <pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
+				who, call, info, UPGRADE_FEE_AMOUNT.into(), tip,
+			)
+		}
+
 		<pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
 			who, call, info, fee, tip,
 		)
@@ -815,6 +826,7 @@ where
 		Ok(())
 	}
 }
+
 
 #[cfg(test)]
 mod tests {
