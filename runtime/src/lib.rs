@@ -383,6 +383,7 @@ impl pallet_assets_ext::Config for Runtime {
 
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
+	pub const CollectionNameStringLimit: u32 = 50;
 	/// How long listings are open for by default
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const WorldId: seed_primitives::ParachainId = 100;
@@ -401,6 +402,7 @@ impl pallet_nft::Config for Runtime {
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
+	type StringLimit = CollectionNameStringLimit;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 }
@@ -408,6 +410,27 @@ impl pallet_nft::Config for Runtime {
 impl pallet_marketplace::Config for Runtime {
 	type Call = Call;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	pub const SftPalletId: PalletId = PalletId(*b"sftokens");
+	pub const MaxTokensPerSftCollection: u32 = 1_000_000;
+	pub const MaxOwnersPerSftCollection: u32 = 1_000_000;
+	pub const MaxSerialsPerMint: u32 = 100; // Higher values can be storage heavy
+}
+impl pallet_sft::Config for Runtime {
+	type Event = Event;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type OnTransferSubscription = TokenApprovals;
+	type OnNewAssetSubscription = OnNewAssetSubscription;
+	type PalletId = SftPalletId;
+	type ParachainId = WorldId;
+	type StringLimit = CollectionNameStringLimit;
+	type WeightInfo = weights::pallet_sft::WeightInfo<Runtime>;
+	type MaxTokensPerSftCollection = MaxTokensPerSftCollection;
+	type MaxSerialsPerMint = MaxSerialsPerMint;
+	type MaxOwnersPerSftToken = MaxOwnersPerSftCollection;
 }
 
 parameter_types! {
@@ -1148,6 +1171,7 @@ construct_runtime! {
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 15,
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>} = 16,
 		Nft: pallet_nft::{Pallet, Call, Storage, Config<T>, Event<T>} = 17,
+		Sft: pallet_sft::{Pallet, Call, Storage, Event<T>} = 43,
 		XRPLBridge: pallet_xrpl_bridge::{Pallet, Call, Storage, Config<T>, Event<T>} = 18,
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
@@ -1874,6 +1898,7 @@ mod benches {
 		[pallet_proxy, Proxy]
 		// Local
 		[pallet_nft, Nft]
+		[pallet_sft, Sft]
 		[pallet_fee_control, FeeControl]
 		[pallet_nft_peg, NftPeg]
 		[pallet_xrpl_bridge, XRPLBridge]

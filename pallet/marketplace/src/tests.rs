@@ -27,7 +27,7 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
-		collection_name,
+		BoundedVec::truncate_from(collection_name),
 		0,
 		None,
 		None,

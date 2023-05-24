@@ -15,13 +15,16 @@ extern crate alloc;
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{GasWeightMapping, Precompile};
-use pallet_nft::{
-	CollectionNameType, CrossChainCompatibility, OriginChain, RoyaltiesSchedule, WeightInfo,
-};
+use pallet_nft::{CrossChainCompatibility, WeightInfo};
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{CollectionUuid, MetadataScheme, TokenCount};
+use seed_primitives::{
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, MAX_ENTITLEMENTS,
+};
 use sp_core::{H160, U256};
-use sp_runtime::{traits::SaturatedConversion, Permill};
+use sp_runtime::{
+	traits::{ConstU32, SaturatedConversion},
+	BoundedVec, Permill,
+};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the InitializeCollection log, which is the Keccak of the Log signature.
@@ -108,7 +111,11 @@ where
 		// Parse owner
 		let collection_owner: H160 = collection_owner.into();
 		// Parse name
-		let name: CollectionNameType = name.as_bytes().to_vec();
+		let name: BoundedVec<u8, <Runtime as pallet_nft::Config>::StringLimit> = name
+			.as_bytes()
+			.to_vec()
+			.try_into()
+			.map_err(|_| revert("NFT: Collection name exceeds the maximum length"))?;
 
 		// Parse max issuance
 		// If max issuance is 0, we assume no max issuance is set
@@ -139,11 +146,17 @@ where
 		});
 		let royalties_schedule: Option<RoyaltiesSchedule<Runtime::AccountId>> =
 			if royalty_addresses.len() > 0 {
-				let entitlements = royalty_addresses
+				let entitlements_unbounded: Vec<(Runtime::AccountId, Permill)> = royalty_addresses
 					.into_iter()
 					.map(|address| H160::from(address).into())
 					.zip(royalty_entitlements)
 					.collect();
+				let entitlements: BoundedVec<
+					(Runtime::AccountId, Permill),
+					ConstU32<MAX_ENTITLEMENTS>,
+				> = BoundedVec::try_from(entitlements_unbounded)
+					.map_err(|_| revert("NFT: Too many royalty entitlements provided"))?;
+
 				Some(RoyaltiesSchedule { entitlements })
 			} else {
 				None

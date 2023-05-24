@@ -11,14 +11,15 @@
 
 use frame_support::traits::Get;
 use seed_primitives::{CollectionUuid, MetadataScheme, TokenCount, TokenId};
-use sp_runtime::{DispatchError, DispatchResult};
+use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 use sp_std::fmt::Debug;
 
-use crate::{CollectionInformation, CollectionNameType, OriginChain, RoyaltiesSchedule};
+use crate::{CollectionInformation, OriginChain, RoyaltiesSchedule};
 
 pub trait NFTExt {
 	type AccountId: Debug + PartialEq + Clone;
 	type MaxTokensPerCollection: Get<u32>;
+	type StringLimit: Get<u32>;
 
 	fn do_mint(
 		origin: Self::AccountId,
@@ -29,7 +30,7 @@ pub trait NFTExt {
 
 	fn do_create_collection(
 		owner: Self::AccountId,
-		name: CollectionNameType,
+		name: BoundedVec<u8, Self::StringLimit>,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<Self::AccountId>,
@@ -42,10 +43,17 @@ pub trait NFTExt {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>;
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	>;
 
 	fn enable_xls20_compatibility(
 		who: Self::AccountId,
 		collection_id: CollectionUuid,
 	) -> DispatchResult;
+
+	fn next_collection_uuid() -> Result<CollectionUuid, DispatchError>;
+
+	fn increment_collection_id() -> DispatchResult;
 }

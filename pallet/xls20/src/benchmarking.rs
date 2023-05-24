@@ -19,7 +19,7 @@ use crate::Pallet as Xls20;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use pallet_nft::OriginChain;
+use seed_primitives::{nft::OriginChain, MetadataScheme};
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -40,7 +40,7 @@ pub fn build_xls20_collection<T: Config>(
 	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 	let collection_id = T::NFTExt::do_create_collection(
 		caller.clone(),
-		"New Collection".into(),
+		BoundedVec::truncate_from("New Collection".encode()),
 		0,
 		None,
 		None,

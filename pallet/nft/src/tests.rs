@@ -17,13 +17,14 @@ use crate::{
 	},
 	Event as NftEvent,
 };
-use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use frame_system::RawOrigin;
-use seed_primitives::{AccountId, MetadataScheme, TokenCount, TokenId};
+use seed_primitives::{
+	AccountId, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, TokenId,
+};
 use sp_core::H160;
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
@@ -39,7 +40,7 @@ type OwnedTokens = BoundedVec<
 // Returns the created `collection_id`
 fn setup_collection(owner: AccountId) -> CollectionUuid {
 	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = b"test-collection".to_vec();
+	let collection_name = bounded_string("test-collection");
 	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
@@ -72,7 +73,7 @@ fn setup_token_with_royalties(
 ) -> (CollectionUuid, TokenId, AccountId) {
 	let collection_owner = create_account(1);
 	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = b"test-collection".to_vec();
+	let collection_name = bounded_string("test-collection");
 	let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(collection_owner).into(),
@@ -147,6 +148,11 @@ pub fn create_owned_tokens(owned_tokens: Vec<(AccountId, Vec<SerialNumber>)>) ->
 	token_ownership
 }
 
+// Helper function for creating the collection name type
+pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
+	BoundedVec::truncate_from(name.as_bytes().to_vec())
+}
+
 #[test]
 fn next_collection_uuid_works() {
 	TestExt::default().build().execute_with(|| {
@@ -183,7 +189,7 @@ fn owned_tokens_works() {
 		// mint token Ids 0-4999
 		assert_ok!(Nft::create_collection(
 			Some(token_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			quantity,
 			None,
 			Some(token_owner),
@@ -276,13 +282,14 @@ fn create_collection() {
 		let token_owner = create_account(2);
 		let quantity = 5;
 		let collection_id = Nft::next_collection_uuid().unwrap();
-		let royalties_schedule =
-			RoyaltiesSchedule { entitlements: vec![(collection_owner, Permill::one())] };
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(collection_owner, Permill::one())]),
+		};
 
 		let expected_tokens = create_owned_tokens(vec![(token_owner, vec![0, 1, 2, 3, 4])]);
 		let expected_info = CollectionInformation {
 			owner: collection_owner,
-			name: b"test-collection".to_vec(),
+			name: bounded_string("test-collection"),
 			metadata_scheme: MetadataScheme::try_from(b"https://example.com/metadata".as_slice())
 				.unwrap(),
 			royalties_schedule: Some(royalties_schedule.clone()),
@@ -381,30 +388,14 @@ fn create_collection() {
 #[test]
 fn create_collection_invalid_name() {
 	TestExt::default().build().execute_with(|| {
-		// too long
 		let collection_owner = create_account(1);
-		let bad_collection_name =
-			b"someidentifierthatismuchlongerthanthe32bytelimitsoshouldfail".to_vec();
 		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
-		assert_noop!(
-			Nft::create_collection(
-				Some(collection_owner).into(),
-				bad_collection_name,
-				1,
-				None,
-				None,
-				metadata_scheme.clone(),
-				None,
-				CrossChainCompatibility::default(),
-			),
-			Error::<Test>::CollectionNameInvalid
-		);
 
 		// empty name
 		assert_noop!(
 			Nft::create_collection(
 				Some(collection_owner).into(),
-				vec![],
+				bounded_string(""),
 				1,
 				None,
 				None,
@@ -417,7 +408,7 @@ fn create_collection_invalid_name() {
 
 		// non UTF-8 chars
 		// kudos: https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt
-		let bad_collection_name = vec![0xfe, 0xff];
+		let bad_collection_name = BoundedVec::truncate_from(vec![0xfe, 0xff]);
 		assert_noop!(
 			Nft::create_collection(
 				Some(collection_owner).into(),
@@ -438,15 +429,15 @@ fn create_collection_invalid_name() {
 fn create_collection_royalties_invalid() {
 	TestExt::default().build().execute_with(|| {
 		let owner = create_account(1);
-		let name = b"test-collection".to_vec();
+		let name = bounded_string("test-collection");
 		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
 
 		// Too big royalties should fail
 		let royalty_schedule = RoyaltiesSchedule::<AccountId> {
-			entitlements: vec![
+			entitlements: BoundedVec::truncate_from(vec![
 				(create_account(3), Permill::from_float(1.2)),
 				(create_account(4), Permill::from_float(3.3)),
-			],
+			]),
 		};
 		assert_noop!(
 			Nft::create_collection(
@@ -471,7 +462,7 @@ fn create_collection_royalties_invalid() {
 				None,
 				None,
 				metadata_scheme,
-				Some(RoyaltiesSchedule::<AccountId> { entitlements: vec![] }),
+				Some(RoyaltiesSchedule::<AccountId> { entitlements: BoundedVec::default() }),
 				CrossChainCompatibility::default(),
 			),
 			Error::<Test>::RoyaltiesInvalid
@@ -488,7 +479,7 @@ fn transfer() {
 		let token_owner = create_account(2);
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			1,
 			None,
 			Some(token_owner),
@@ -543,7 +534,7 @@ fn transfer_fails_prechecks() {
 
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			1,
 			None,
 			Some(token_owner),
@@ -591,7 +582,7 @@ fn burn() {
 
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			3,
 			None,
 			Some(token_owner),
@@ -635,7 +626,7 @@ fn burn_fails_prechecks() {
 
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			100,
 			None,
 			Some(token_owner),
@@ -685,7 +676,7 @@ fn sell() {
 
 			assert_ok!(Nft::create_collection(
 				Some(collection_owner).into(),
-				b"test-collection".to_vec(),
+				bounded_string("test-collection"),
 				quantity,
 				None,
 				None,
@@ -1136,7 +1127,10 @@ fn buy_with_marketplace_royalties() {
 			let collection_owner = create_account(1);
 			let beneficiary_1 = create_account(11);
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![(beneficiary_1, Permill::from_float(0.1111))],
+				entitlements: BoundedVec::truncate_from(vec![(
+					beneficiary_1,
+					Permill::from_float(0.1111),
+				)]),
 			};
 			let (collection_id, _, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 2);
@@ -1205,7 +1199,10 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 		.execute_with(|| {
 			let beneficiary_1 = create_account(11);
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![(beneficiary_1, Permill::from_float(0.51))],
+				entitlements: BoundedVec::truncate_from(vec![(
+					beneficiary_1,
+					Permill::from_float(0.51),
+				)]),
 			};
 			let (collection_id, _, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 2);
@@ -1293,11 +1290,11 @@ fn buy_with_royalties() {
 			let beneficiary_1 = create_account(11);
 			let beneficiary_2 = create_account(12);
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![
+				entitlements: BoundedVec::truncate_from(vec![
 					(collection_owner, Permill::from_float(0.111)),
 					(beneficiary_1, Permill::from_float(0.1111)),
 					(beneficiary_2, Permill::from_float(0.3333)),
-				],
+				]),
 			};
 			let (collection_id, token_id, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 2);
@@ -1463,10 +1460,10 @@ fn buy_with_overcommitted_royalties() {
 		// royalty schedules should not make it into storage but we protect against it anyway
 		let (collection_id, token_id, token_owner) = setup_token();
 		let bad_schedule = RoyaltiesSchedule {
-			entitlements: vec![
+			entitlements: BoundedVec::truncate_from(vec![
 				(11_u64, Permill::from_float(0.125)),
 				(12_u64, Permill::from_float(0.9)),
-			],
+			]),
 		};
 		let listing_id = Nft::next_listing_id();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
@@ -1552,7 +1549,7 @@ fn auction_bundle() {
 
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			quantity,
 			None,
 			None,
@@ -1757,11 +1754,11 @@ fn auction_royalty_payments() {
 			let beneficiary_2 = create_account(12);
 			let collection_owner = create_account(1);
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: vec![
+				entitlements: BoundedVec::truncate_from(vec![
 					(collection_owner, Permill::from_float(0.1111)),
 					(beneficiary_1, Permill::from_float(0.1111)),
 					(beneficiary_2, Permill::from_float(0.1111)),
-				],
+				]),
 			};
 			let (collection_id, token_id, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 1);
@@ -2104,7 +2101,7 @@ fn mint_over_max_issuance_should_fail() {
 		// mint token Ids 0-1
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			initial_issuance,
 			Some(max_issuance),
 			Some(token_owner),
@@ -2152,7 +2149,7 @@ fn invalid_max_issuance_should_fail() {
 		assert_noop!(
 			Nft::create_collection(
 				Some(create_account(1)).into(),
-				b"test-collection".to_vec(),
+				bounded_string("test-collection"),
 				0,
 				Some(0),
 				None,
@@ -2167,7 +2164,7 @@ fn invalid_max_issuance_should_fail() {
 		assert_noop!(
 			Nft::create_collection(
 				Some(create_account(1)).into(),
-				b"test-collection".to_vec(),
+				bounded_string("test-collection"),
 				5,
 				Some(2),
 				None,
@@ -2182,7 +2179,7 @@ fn invalid_max_issuance_should_fail() {
 		assert_noop!(
 			Nft::create_collection(
 				Some(create_account(1)).into(),
-				b"test-collection".to_vec(),
+				bounded_string("test-collection"),
 				5,
 				Some(mock::MaxTokensPerCollection::get() + 1),
 				None,
@@ -2204,7 +2201,7 @@ fn mint_fails() {
 		// mint token Ids 0-4
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			5,
 			None,
 			None,
@@ -2242,7 +2239,7 @@ fn mint_over_mint_limit_fails() {
 		// mint token Ids 0-4
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			5,
 			None,
 			None,
@@ -2273,7 +2270,7 @@ fn create_collection_over_mint_limit_fails() {
 		assert_noop!(
 			Nft::create_collection(
 				Some(collection_owner).into(),
-				b"test-collection".to_vec(),
+				bounded_string("test-collection"),
 				<Test as Config>::MintLimit::get() + 1,
 				None,
 				None,
@@ -2295,7 +2292,7 @@ fn token_uri_construction() {
 		// mint token Ids
 		assert_ok!(Nft::create_collection(
 			Some(owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			quantity,
 			None,
 			None,
@@ -2776,7 +2773,7 @@ fn transfer_to_signer_address() {
 		// Mint 3 tokens
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			initial_quantity,
 			None,
 			Some(token_owner),
@@ -2809,10 +2806,10 @@ fn transfer_changes_token_balance() {
 		let new_owner = create_account(3);
 		let initial_quantity: u32 = 1;
 
-		// Mint 1 token
+		// Mint token
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			initial_quantity,
 			None,
 			Some(token_owner),
@@ -2876,7 +2873,7 @@ fn transfer_many_tokens_changes_token_balance() {
 		// Mint tokens
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			initial_quantity,
 			None,
 			Some(token_owner),
@@ -2923,7 +2920,7 @@ fn transfer_many_tokens_at_once_changes_token_balance() {
 		// Mint tokens
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			initial_quantity,
 			None,
 			Some(token_owner),
@@ -2969,7 +2966,7 @@ fn cannot_mint_bridged_collections() {
 
 		let collection_id = Pallet::<Test>::do_create_collection(
 			collection_owner,
-			"".encode(),
+			bounded_string("test-collection"),
 			0,
 			None,
 			None,
@@ -2999,7 +2996,7 @@ fn mints_multiple_specified_tokens_by_id() {
 
 		assert_ok!(Nft::do_create_collection(
 			collection_owner,
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			0,
 			None,
 			None,
@@ -3041,7 +3038,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 
 		assert_ok!(Nft::do_create_collection(
 			collection_owner,
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			0,
 			None,
 			None,
@@ -3098,7 +3095,7 @@ fn token_exists_works() {
 
 		assert_ok!(Nft::do_create_collection(
 			collection_owner,
-			b"test-collection".to_vec(),
+			bounded_string("test-collection"),
 			quantity,
 			None,
 			None,
@@ -3275,7 +3272,7 @@ mod claim_unowned_collection {
 			assert_ne!(new_owner, pallet_account);
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(pallet_account.clone()).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				None,
 				None,
@@ -3309,7 +3306,7 @@ mod claim_unowned_collection {
 
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(pallet_account.clone()).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				None,
 				None,
@@ -3351,7 +3348,7 @@ mod claim_unowned_collection {
 
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(old_owner.clone()).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				None,
 				None,
@@ -3373,7 +3370,7 @@ mod claim_unowned_collection {
 fn create_xls20_collection_works() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
-		let collection_name = b"test-xls20-collection".to_vec();
+		let collection_name = bounded_string("test-xls20-collection");
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let metadata_scheme = MetadataScheme::try_from(b"https://example.com".as_slice()).unwrap();
 		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
@@ -3397,7 +3394,7 @@ fn create_xls20_collection_works() {
 			max_issuance: None,
 			collection_owner,
 			metadata_scheme: metadata_scheme.clone(),
-			name: b"test-xls20-collection".to_vec(),
+			name: collection_name.clone().into_inner(),
 			royalties_schedule: None,
 			origin_chain: OriginChain::Root,
 			compatibility: cross_chain_compatibility,
@@ -3426,7 +3423,7 @@ fn create_xls20_collection_works() {
 fn create_xls20_collection_with_initial_issuance_fails() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(10);
-		let collection_name = b"test-xls20-collection".to_vec();
+		let collection_name = bounded_string("test-xls20-collection");
 		let metadata_scheme = MetadataScheme::try_from(b"https://example.com".as_slice()).unwrap();
 		let cross_chain_compatibility = CrossChainCompatibility { xrpl: true };
 		let initial_issuance: TokenCount = 1;
@@ -3459,7 +3456,7 @@ mod set_max_issuance {
 			// Setup collection with no Max issuance
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				None,
 				None,
@@ -3499,7 +3496,7 @@ mod set_max_issuance {
 			// Setup collection with no Max issuance and initial issuance of 100
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				max_issuance,
 				None,
 				None,
@@ -3538,7 +3535,7 @@ mod set_max_issuance {
 			// Setup collection with no Max issuance
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				None,
 				None,
@@ -3566,7 +3563,7 @@ mod set_max_issuance {
 			// Setup collection with no Max issuance
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				None,
 				None,
@@ -3616,7 +3613,7 @@ mod set_max_issuance {
 			// Setup collection with some Max issuance
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				Some(max_issuance),
 				None,
@@ -3646,7 +3643,7 @@ mod set_max_issuance {
 			// Setup collection with no Max issuance
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				None,
 				None,
@@ -3691,7 +3688,7 @@ mod set_max_issuance {
 			// Setup collection with no max issuance but initial issuance of 10
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				initial_issuance,
 				None,
 				None,
@@ -3753,7 +3750,7 @@ mod set_base_uri {
 			// Setup collection with no Max issuance
 			assert_ok!(Nft::create_collection(
 				RawOrigin::Signed(collection_owner).into(),
-				"My Collection".into(),
+				bounded_string("test-collection"),
 				0,
 				None,
 				None,

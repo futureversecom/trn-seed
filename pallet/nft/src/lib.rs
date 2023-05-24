@@ -33,8 +33,8 @@ use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenCount,
-	TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
+	SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -63,7 +63,7 @@ pub use types::*;
 pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
-/// The maximum amount of listings to return
+/// The maximum amount of owned tokens to be returned by the RPC
 pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
@@ -75,12 +75,11 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -133,6 +132,9 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 		/// The parachain_id being used by this parachain
 		type ParachainId: Get<ParachainId>;
+		/// The maximum length of a collection name, stored on-chain
+		#[pallet::constant]
+		type StringLimit: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 		/// Interface for sending XLS20 mint requests
@@ -146,7 +148,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		CollectionUuid,
-		CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+		CollectionInformation<T::AccountId, T::MaxTokensPerCollection, T::StringLimit>,
 	>;
 
 	/// The next available incrementing collection id
@@ -223,7 +225,7 @@ pub mod pallet {
 			max_issuance: Option<TokenCount>,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
-			name: CollectionNameType,
+			name: Vec<u8>,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
 			compatibility: CrossChainCompatibility,
@@ -491,16 +493,6 @@ pub mod pallet {
 				Error::<T>::InvalidMaxIssuance
 			);
 
-			match collection_info.max_issuance {
-				// cannot set - if already set
-				Some(_) => return Err(Error::<T>::InvalidMaxIssuance.into()),
-				// if not set, ensure that the max issuance is greater than the current issuance
-				None => ensure!(
-					collection_info.collection_issuance <= max_issuance,
-					Error::<T>::InvalidMaxIssuance
-				),
-			}
-
 			collection_info.max_issuance = Some(max_issuance);
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::MaxIssuanceSet { collection_id, max_issuance });
@@ -579,7 +571,7 @@ pub mod pallet {
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
-			name: CollectionNameType,
+			name: BoundedVec<u8, T::StringLimit>,
 			initial_issuance: TokenCount,
 			max_issuance: Option<TokenCount>,
 			token_owner: Option<T::AccountId>,
