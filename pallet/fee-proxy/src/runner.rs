@@ -186,17 +186,22 @@ where
 		// Handle type 2 transactions (EIP1559)
 		let (max_fee_per_gas, max_priority_fee_per_gas) =
 			match (max_fee_per_gas, max_priority_fee_per_gas, is_transactional) {
-				// ignore priority fee, it becomes more expensive than legacy transactions
+				(Some(max_fee_per_gas), Some(max_priority_fee_per_gas), _) =>
+					(max_fee_per_gas, max_priority_fee_per_gas),
 				(Some(max_fee_per_gas), _, _) => (max_fee_per_gas, Default::default()),
 				(None, _, _) => (Default::default(), Default::default()),
 			};
 
 		// After eip-1559 we make sure the account can pay both the evm execution and priority
 		// fees.
-		let total_fee = (max_fee_per_gas
-			.checked_add(max_priority_fee_per_gas)
-			.ok_or(FeePreferencesError::FeeOverflow)?)
+		let total_fee = max_fee_per_gas
 		.checked_mul(U256::from(gas_limit))
+			.ok_or(FeePreferencesError::FeeOverflow)?
+			.checked_add(
+				max_priority_fee_per_gas
+					.checked_mul(U256::from(gas_limit))
+					.ok_or(FeePreferencesError::FeeOverflow)?,
+			)
 		.ok_or(FeePreferencesError::FeeOverflow)?;
 
 		Ok(total_fee)
