@@ -12,6 +12,3 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod weights;
-
-// All upgrades cost 100 XRP only
-pub const UPGRADE_FEE_AMOUNT: u128 = 100 * 000000;

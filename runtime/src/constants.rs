@@ -88,4 +88,6 @@ mod constants {
 	pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 	pub const HOURS: BlockNumber = MINUTES * 60;
 	pub const DAYS: BlockNumber = HOURS * 24;
+
+	pub const UPGRADE_FEE_AMOUNT: u128 = 100 * crate::ONE_XRP;
 }

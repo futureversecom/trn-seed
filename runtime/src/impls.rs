@@ -40,6 +40,11 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
+use super::UPGRADE_FEE_AMOUNT;
+use crate::{
+	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
+	UncheckedExtrinsic,
+};
 use precompile_utils::{
 	constants::{
 		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
@@ -48,14 +53,9 @@ use precompile_utils::{
 };
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber
+	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
-use seed_runtime_constants::UPGRADE_FEE_AMOUNT;
-use crate::{
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking,
-	System, UncheckedExtrinsic,
-};
 use sp_runtime::traits::Dispatchable;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -719,7 +719,8 @@ where
 	Balance: From<
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance,
 	>,
-	<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance: From<u128>
+	<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance:
+		From<u128>,
 {
 	type Balance =
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -743,11 +744,13 @@ where
 			}
 		}
 
-		if let Some(frame_system::Call::set_code { .. }) =
-		call.is_sub_type()
-		{
+		if let Some(frame_system::Call::set_code { .. }) = call.is_sub_type() {
 			return <pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
-				who, call, info, UPGRADE_FEE_AMOUNT.into(), tip,
+				who,
+				call,
+				info,
+				UPGRADE_FEE_AMOUNT.into(),
+				tip,
 			)
 		}
 
@@ -826,7 +829,6 @@ where
 		Ok(())
 	}
 }
-
 
 #[cfg(test)]
 mod tests {
