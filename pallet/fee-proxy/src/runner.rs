@@ -195,14 +195,14 @@ where
 		// After eip-1559 we make sure the account can pay both the evm execution and priority
 		// fees.
 		let total_fee = max_fee_per_gas
-		.checked_mul(U256::from(gas_limit))
+			.checked_mul(U256::from(gas_limit))
 			.ok_or(FeePreferencesError::FeeOverflow)?
 			.checked_add(
 				max_priority_fee_per_gas
 					.checked_mul(U256::from(gas_limit))
 					.ok_or(FeePreferencesError::FeeOverflow)?,
 			)
-		.ok_or(FeePreferencesError::FeeOverflow)?;
+			.ok_or(FeePreferencesError::FeeOverflow)?;
 
 		Ok(total_fee)
 	}
