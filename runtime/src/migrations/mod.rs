@@ -10,6 +10,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 mod nft;
+mod staking;
 
 use crate::Sft;
 use codec::{Decode, Encode, FullCodec, FullEncode};
