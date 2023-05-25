@@ -20,12 +20,18 @@ use frame_support::{
 use pallet_evm::{GasWeightMapping, Precompile};
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, TokenCount};
-use sp_core::{H160, U256};
+use sp_core::{H160, U128, U256};
 use sp_runtime::{traits::SaturatedConversion, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
 
-/// Solidity selector of the AddLiquidity log, which is the Keccak of the Log signature.
-pub const SELECTOR_LOG_ADD_LIQUIDITY: [u8; 32] = keccak256!("AddLiquidity(address,address)");
+/// Solidity selector of the Mint log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_MINT: [u8; 32] = keccak256!("Mint(address,uint,uint)");
+
+/// Solidity selector of the Burn log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_BURN: [u8; 32] = keccak256!("Burn(address,uint,uint,address)");
+
+/// Solidity selector of the Swap log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_SWAP: [u8; 32] = keccak256!("Swap(address,uint,uint,uint,uint,address)");
 
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
@@ -61,8 +67,10 @@ impl<T> Default for DexPrecompile<T> {
 impl<Runtime> Precompile for DexPrecompile<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
-	Runtime::BlockNumber: Into<U256>,
-	Runtime: frame_system::Config + pallet_dex::Config + pallet_evm::Config,
+	Runtime: frame_system::Config
+		+ pallet_dex::Config
+		+ pallet_evm::Config
+		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<pallet_dex::Call<Runtime>>,
@@ -98,15 +106,17 @@ impl<Runtime> DexPrecompile<Runtime> {
 impl<Runtime> DexPrecompile<Runtime>
 where
 	Runtime::AccountId: From<H160> + Into<H160>,
-	Runtime::BlockNumber: Into<U256>,
-	Runtime: frame_system::Config + pallet_dex::Config + pallet_evm::Config,
+	Runtime: frame_system::Config
+		+ pallet_dex::Config
+		+ pallet_evm::Config
+		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
 	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 	Runtime::Call: From<pallet_dex::Call<Runtime>>,
 	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
 {
 	fn add_liquidity(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -124,13 +134,6 @@ where
 		);
 
 		let caller = handle.context().caller;
-		let current_block_number = frame_system::Pallet::<Runtime>::block_number();
-
-		// Make sure the deadline meets
-		ensure!(
-			deadline >= current_block_number.into(),
-			revert("DEX: The deadline has been missed.")
-		);
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -147,11 +150,12 @@ where
 			},
 		)?;
 
-		log2(
+		log3(
 			handle.code_address(),
-			SELECTOR_LOG_ADD_LIQUIDITY,
+			SELECTOR_LOG_MINT,
 			caller,
-			EvmDataWriter::new().write(AssetId::from(asset_id_a)).build(),
+			amount_a_desired,
+			EvmDataWriter::new().write(amount_b_desired).build(),
 		)
 		.record(handle)?;
 
@@ -180,12 +184,6 @@ where
 		let caller = handle.context().caller;
 		let current_block_number = frame_system::Pallet::<Runtime>::block_number();
 
-		// Make sure the deadline meets
-		ensure!(
-			deadline >= current_block_number.into(),
-			revert("DEX: The deadline has been missed.")
-		);
-
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
@@ -201,15 +199,34 @@ where
 			},
 		)?;
 
-		log2(
+		log3(
 			handle.code_address(),
-			SELECTOR_LOG_ADD_LIQUIDITY,
+			SELECTOR_LOG_MINT,
 			caller,
-			EvmDataWriter::new().write(AssetId::from(asset_id_a)).build(),
+			amount_a_desired,
+			EvmDataWriter::new().write(amount_b_desired).build(),
 		)
 		.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
+	}
+
+	fn quote(
+		amount_a: U128,
+		reserve_a: Balance,
+		reserve_b: Balance,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		match pallet_dex::Pallet::<Runtime>::quote(amount_a, reserve_a, reserve_b) {
+			Ok(amount_b) => Ok(succeed(EvmDataWriter::new().write::<U128>(amount_b).build())),
+			Err(e) => Err(revert(
+				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
+					.as_bytes()
+					.to_vec(),
+			)),
+		}
 	}
 }

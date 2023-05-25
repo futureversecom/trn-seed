@@ -5110,6 +5110,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "num_enum",
+ "pallet-assets",
  "pallet-dex",
  "pallet-evm",
  "precompile-utils",
