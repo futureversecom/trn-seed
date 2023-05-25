@@ -16,12 +16,6 @@ use sp_std::vec::Vec;
 
 pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
-		v1::pre_upgrade()?;
-		Ok(())
-	}
-
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 0);
 		log::info!(target: "Migration", "Starting Staking migration");
@@ -33,7 +27,6 @@ impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
 		v1::post_upgrade()?;
-
 		Ok(())
 	}
 }
@@ -41,12 +34,6 @@ impl OnRuntimeUpgrade for Upgrade {
 #[allow(dead_code)]
 pub mod v1 {
 	use super::*;
-
-	#[cfg(feature = "try-runtime")]
-	pub fn pre_upgrade() -> Result<(), &'static str> {
-		log::info!(target: "Migration", "Staking: Upgrade to v1 Pre Upgrade.");
-		Ok(())
-	}
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade() -> Result<(), &'static str> {
@@ -77,7 +64,6 @@ pub mod v1 {
 
 		existing_storage.iter().for_each(|(key, v)| {
 			if v == &RewardDestination::Staked {
-				// Payee::<Runtime>::remove(key);
 				Payee::<Runtime>::insert(key, RewardDestination::Stash);
 				weight += <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 2);
 			}
