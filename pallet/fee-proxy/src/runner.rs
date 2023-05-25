@@ -184,10 +184,9 @@ where
 		}
 
 		// Handle type 2 transactions (EIP1559)
-		let (max_fee_per_gas, max_priority_fee_per_gas) =
+		let (max_fee_per_gas, max_priority_fee_per_gas): (U256, U256) =
 			match (max_fee_per_gas, max_priority_fee_per_gas, is_transactional) {
-				(Some(max_fee_per_gas), Some(max_priority_fee_per_gas), _) =>
-					(max_fee_per_gas, max_priority_fee_per_gas),
+				// ignore priority fee, it becomes more expensive than legacy transactions
 				(Some(max_fee_per_gas), _, _) => (max_fee_per_gas, Default::default()),
 				(None, _, _) => (Default::default(), Default::default()),
 			};
