@@ -24,7 +24,7 @@ import {
 
 const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
 
-export const CALL_TYPE = {
+const CALL_TYPE = {
   StaticCall: 0,
   Call: 1,
   DelegateCall: 2,

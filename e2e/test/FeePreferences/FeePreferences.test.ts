@@ -22,7 +22,6 @@ import {
   startNode,
   typedefs,
 } from "../../common";
-import { CALL_TYPE } from "../Futurepass/FuturepassPrecompile.test";
 
 const FEE_TOKEN_ASSET_ID = 1124;
 
@@ -211,15 +210,16 @@ describe("Fee Preferences", function () {
     const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
 
     // estimate gas for futurepass proxy call - which encodes transfer call data
+    const callTxType = 1;
     const proxyCallInput = futurepass.interface.encodeFunctionData("proxyCall", [
-      CALL_TYPE.Call,
+      callTxType,
       feeToken.address,
       ethers.constants.Zero,
       transferCallData,
     ]);
     const gasEstimate = await futurepass
       .connect(owner)
-      .estimateGas.proxyCall(CALL_TYPE.Call, feeToken.address, ethers.constants.Zero, transferCallData);
+      .estimateGas.proxyCall(callTxType, feeToken.address, ethers.constants.Zero, transferCallData);
 
     const estimatedTokenTxCost = await getAmountIn(provider, gasEstimate, FEE_TOKEN_ASSET_ID);
     tx = await feeProxy
