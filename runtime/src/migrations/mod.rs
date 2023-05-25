@@ -48,7 +48,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 		let mut weight = Weight::from(0u32);
 		weight += dex::Upgrade::on_runtime_upgrade();
 		weight += staking::Upgrade::on_runtime_upgrade();
-		weight += staking::Upgrade::post_upgrade();
+		staking::Upgrade::post_upgrade();
 
 		// Set Marketplace and Futurepass storage version to 0
 		StorageVersion::new(0).put::<Marketplace>();
