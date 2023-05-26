@@ -542,7 +542,7 @@ where
 		amount_b_min: Balance,
 		to: T::AccountId,
 		deadline: Option<T::BlockNumber>,
-	) -> DispatchResult {
+	) -> sp_std::result::Result<(Balance, Balance, Balance), DispatchError> {
 		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
 
 		// Check if the deadline is met when the `deadline` parameter is not None
@@ -643,26 +643,23 @@ where
 		// mint lp tokens to the LP to
 		T::MultiCurrency::mint_into(lp_share_asset_id, &to, liquidity)?;
 
-		let result = LiquidityPool::<T>::try_mutate(
-			trading_pair,
-			|(reserve_a, reserve_b)| -> DispatchResult {
-				// update reserves
-				*reserve_a = balance_0;
-				*reserve_b = balance_1;
+		LiquidityPool::<T>::try_mutate(trading_pair, |(reserve_a, reserve_b)| -> DispatchResult {
+			// update reserves
+			*reserve_a = balance_0;
+			*reserve_b = balance_1;
 
-				Self::deposit_event(Event::AddLiquidity(
-					who.clone(),
-					trading_pair.0,
-					amount_0,
-					trading_pair.1,
-					amount_1,
-					liquidity,
-					to,
-				));
-				Ok(())
-			},
-		);
-		result
+			Self::deposit_event(Event::AddLiquidity(
+				who.clone(),
+				trading_pair.0,
+				amount_0,
+				trading_pair.1,
+				amount_1,
+				liquidity,
+				to,
+			));
+			Ok(())
+		})?;
+		Ok((amount_0, amount_1, liquidity))
 	}
 
 	#[transactional]
@@ -675,7 +672,7 @@ where
 		amount_b_min: Balance,
 		to: T::AccountId,
 		deadline: Option<T::BlockNumber>,
-	) -> DispatchResult {
+	) -> sp_std::result::Result<(Balance, Balance), DispatchError> {
 		// Check if the deadline is met when the `deadline` parameter is not None
 		if let Some(deadline_block) = deadline {
 			let current_block_number = frame_system::Pallet::<T>::block_number();
@@ -727,25 +724,22 @@ where
 		balance_0 = T::MultiCurrency::balance(token_a, &pool_address);
 		balance_1 = T::MultiCurrency::balance(token_b, &pool_address);
 
-		let result = LiquidityPool::<T>::try_mutate(
-			trading_pair,
-			|(reserve_0, reserve_1)| -> DispatchResult {
-				*reserve_0 = balance_0;
-				*reserve_1 = balance_1;
+		LiquidityPool::<T>::try_mutate(trading_pair, |(reserve_0, reserve_1)| -> DispatchResult {
+			*reserve_0 = balance_0;
+			*reserve_1 = balance_1;
 
-				Self::deposit_event(Event::RemoveLiquidity(
-					who.clone(),
-					trading_pair.0,
-					amount_0,
-					trading_pair.1,
-					amount_1,
-					liquidity,
-					to,
-				));
-				Ok(())
-			},
-		);
-		result
+			Self::deposit_event(Event::RemoveLiquidity(
+				who.clone(),
+				trading_pair.0,
+				amount_0,
+				trading_pair.1,
+				amount_1,
+				liquidity,
+				to,
+			));
+			Ok(())
+		})?;
+		Ok((amount_0, amount_1))
 	}
 
 	pub fn get_lp_token_id(
@@ -1041,7 +1035,7 @@ where
 		path: &[AssetId],
 		to: T::AccountId,
 		deadline: Option<T::BlockNumber>,
-	) -> sp_std::result::Result<Balance, DispatchError> {
+	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		// Check if the deadline is met when the `deadline` parameter is not None
 		if let Some(deadline_block) = deadline {
 			let current_block_number = frame_system::Pallet::<T>::block_number();
@@ -1066,7 +1060,7 @@ where
 			amounts[amounts.len() - 1],
 			to,
 		));
-		Ok(amounts[amounts.len() - 1])
+		Ok(amounts)
 	}
 
 	/// Ensured atomic.
@@ -1078,7 +1072,7 @@ where
 		path: &[AssetId],
 		to: T::AccountId,
 		deadline: Option<T::BlockNumber>,
-	) -> sp_std::result::Result<Balance, DispatchError> {
+	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
 		// Check if the deadline is met when the `deadline` parameter is not None
 		if let Some(deadline_block) = deadline {
 			let current_block_number = frame_system::Pallet::<T>::block_number();
@@ -1095,6 +1089,6 @@ where
 
 		Self::_swap(&amounts, &path, &to)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out, to));
-		Ok(amounts[0])
+		Ok(amounts)
 	}
 }
