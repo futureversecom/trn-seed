@@ -723,10 +723,26 @@ fn remove_liquidity_simple() {
 			None,
 			None,
 		));
+
 		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
 		assert_eq!(AssetsExt::balance(lp_token_id, &alice), 1_999_999_999_999_999_000u128);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 0);
 		assert_eq!(AssetsExt::balance(weth, &alice), 0);
+
+		// providing all-1 LP token shares should fail - deadline is in the past
+		assert_noop!(
+			Dex::remove_liquidity(
+				Origin::signed(alice),
+				usdc,
+				weth,
+				1_999_999_999_999_999_000u128, // all lp -1 to retrieve input tokens
+				0u128,                         // ignoring expected input token liquidity
+				0u128,                         // ignoring expected input token liquidity
+				Some(bob),                     // Bob is the token recipient
+				Some(0),
+			),
+			Error::<Test>::DeadlineMissed
+		);
 
 		// providing all-1 LP token shares should succeed
 		assert_ok!(Dex::remove_liquidity(
@@ -736,8 +752,8 @@ fn remove_liquidity_simple() {
 			1_999_999_999_999_999_000u128, // all lp -1 to retrieve input tokens
 			0u128,                         // ignoring expected input token liquidity
 			0u128,                         // ignoring expected input token liquidity
-			None,
-			None,
+			Some(bob),                     // Bob is the token recipient
+			Some(2),
 		));
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::RemoveLiquidity(
@@ -747,15 +763,15 @@ fn remove_liquidity_simple() {
 			weth,
 			1_999_999_999_999_999_000u128,
 			1_999_999_999_999_999_000u128,
-			alice,
+			bob,
 		)));
 
 		assert_eq!(
 			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			0,
 		);
-		assert_eq!(AssetsExt::balance(usdc, &alice), 1_999_999_999_999_999_000u128);
-		assert_eq!(AssetsExt::balance(weth, &alice), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &bob), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(weth, &bob), 1_999_999_999_999_999_000u128);
 	});
 }
 
@@ -938,6 +954,7 @@ fn swap_with_exact_supply() {
 
 		let alice: AccountId = create_account(1);
 		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
 
 		let weth = AssetsExt::create(&alice, None).unwrap();
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -961,6 +978,19 @@ fn swap_with_exact_supply() {
 		assert_eq!(AssetsExt::balance(weth, &alice), to_eth(100) - to_eth(1));
 		assert_eq!(AssetsExt::balance(usdc, &alice), to_eth(100) - to_eth(2));
 
+		// swap should fail if the deadline is in the past
+		assert_noop!(
+			Dex::swap_with_exact_supply(
+				Origin::signed(bob),
+				to_eth(1), // input weth <- insufficient balance
+				10u128,    // expected usdc
+				vec![weth, usdc],
+				None,
+				Some(0),
+			),
+			Error::<Test>::DeadlineMissed
+		);
+
 		// swap should fail if user does not have sufficient balance of input tokens
 		assert_noop!(
 			Dex::swap_with_exact_supply(
@@ -975,7 +1005,7 @@ fn swap_with_exact_supply() {
 		);
 
 		// mint weth for 2nd user and allow them to perform swap against usdc
-		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(3)));
 		assert_eq!(AssetsExt::balance(usdc, &bob), 0); // no balance initially for bob
 
 		// swap should fail if user expects more output tokens than they can get
@@ -999,7 +1029,7 @@ fn swap_with_exact_supply() {
 			0u128,     // min expected usdc
 			vec![weth, usdc],
 			None,
-			None,
+			Some(2),
 		));
 
 		let out_usdc_amount_1 = 998_497_746_619_929_894_u128;
@@ -1012,7 +1042,7 @@ fn swap_with_exact_supply() {
 			out_usdc_amount_1,
 			bob,
 		)));
-		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(1));
+		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(2));
 		assert_eq!(AssetsExt::balance(usdc, &bob), out_usdc_amount_1);
 
 		// verify dex trading pair liquidity changes (usdc removed, weth added)
@@ -1046,13 +1076,37 @@ fn swap_with_exact_supply() {
 			out_usdc_amount_2,
 			bob,
 		)));
-		assert_eq!(AssetsExt::balance(weth, &bob), 0);
+		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(1));
 		assert_eq!(AssetsExt::balance(usdc, &bob), out_usdc_amount_1 + out_usdc_amount_2);
 		assert_eq!(AssetsExt::balance(usdc, &bob), 1_331_663_494_574_527_790u128);
 
 		// verify that 2nd swap returns less output tokens than first
 		// - due to shift in constant product -> resulting in higher slippage
 		assert_eq!(out_usdc_amount_1 > out_usdc_amount_2, true);
+
+		// user bob swaps again with recipient charlie
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(bob),
+			to_eth(1), // input weth
+			10u128,    // min expected usdc
+			vec![weth, usdc],
+			Some(charlie),
+			None,
+		));
+
+		let out_usdc_amount_3 = 166_707_904_905_978_432_u128;
+
+		// verify swap event and user balances
+		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
+			bob,
+			vec![weth, usdc],
+			to_eth(1),
+			out_usdc_amount_3,
+			charlie,
+		)));
+		assert_eq!(AssetsExt::balance(weth, &bob), 0);
+		assert_eq!(AssetsExt::balance(usdc, &bob), out_usdc_amount_1 + out_usdc_amount_2);
+		assert_eq!(AssetsExt::balance(usdc, &charlie), out_usdc_amount_3);
 	});
 }
 
@@ -1154,6 +1208,7 @@ fn swap_with_exact_target() {
 
 		let alice: AccountId = create_account(1);
 		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
 
 		// create tokens (by different users)
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -1218,6 +1273,19 @@ fn swap_with_exact_target() {
 			Error::<Test>::ExcessiveSupplyAmount
 		);
 
+		// swap should fail if the deadline is in the past
+		assert_noop!(
+			Dex::swap_with_exact_target(
+				Origin::signed(bob),
+				to_eth(1), // want usdc
+				to_eth(5), // max input weth willing to give
+				vec![weth, usdc],
+				None,
+				Some(0),
+			),
+			Error::<Test>::DeadlineMissed
+		);
+
 		// swap succeeds if user has sufficient balance of input tokens
 		// and expected output tokens are provided
 		assert_ok!(Dex::swap_with_exact_target(
@@ -1226,7 +1294,7 @@ fn swap_with_exact_target() {
 			to_eth(5), // max input weth willing to give
 			vec![weth, usdc],
 			None,
-			None,
+			Some(2), // deadline in future
 		));
 
 		let in_weth_amount_1 = 2_674_690_738_883_316_617_u128;
@@ -1279,6 +1347,35 @@ fn swap_with_exact_target() {
 		// verify that 2nd swap requires more input tokens than first for the same output
 		// - due to shift in constant product -> resulting in higher slippage
 		assert_eq!(in_weth_amount_1 < in_weth_amount_2, true);
+
+		// mint another 20 weth for bob and allow them to perform swap against usdc
+		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(20)));
+
+		// user bob swaps again with recipient charlie
+		assert_ok!(Dex::swap_with_exact_target(
+			Origin::signed(bob),
+			to_eth(1),  // want usdc
+			to_eth(20), // max input weth willing to give
+			vec![weth, usdc],
+			Some(charlie),
+			None,
+		));
+
+		let in_weth_amount_3 = 16_076_325_300_986_535_309_u128;
+
+		// verify swap event and user balances
+		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
+			bob,
+			vec![weth, usdc],
+			in_weth_amount_3, // supply amount
+			to_eth(1),        // target amount
+			charlie,
+		)));
+		assert_eq!(
+			AssetsExt::balance(weth, &bob),
+			to_eth(40) - in_weth_amount_1 - in_weth_amount_2 - in_weth_amount_3
+		);
+		assert_eq!(AssetsExt::balance(usdc, &charlie), to_eth(1));
 	});
 }
 

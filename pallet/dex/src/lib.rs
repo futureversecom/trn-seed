@@ -1055,9 +1055,9 @@ where
 		// transfer tokens to module account (uniswapv2 trading pair)
 		let pool_address = trading_pair.pool_address();
 
-		T::MultiCurrency::transfer(path[0], &to, &pool_address, amounts[0], false)?;
+		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
-		Self::_swap(&amounts, &path, who)?;
+		Self::_swap(&amounts, &path, &to)?;
 		Self::deposit_event(Event::Swap(
 			who.clone(),
 			path.to_vec(),
@@ -1083,9 +1083,9 @@ where
 		ensure!(amounts[0] <= amount_in_max, Error::<T>::ExcessiveSupplyAmount);
 		let trading_pair = TradingPair::new(path[0], path[1]);
 		let pool_address = trading_pair.pool_address();
-		T::MultiCurrency::transfer(path[0], &to, &pool_address, amounts[0], false)?;
+		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
-		Self::_swap(&amounts, &path, who)?;
+		Self::_swap(&amounts, &path, &to)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out, to));
 		Ok(amounts[0])
 	}
