@@ -255,12 +255,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			// Check if the deadline is met when the `deadline` parameter is not None
-			if let Some(deadline_block) = deadline {
-				let current_block_number = frame_system::Pallet::<T>::block_number();
-				ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
-			}
-
 			Self::do_swap_with_exact_supply(
 				&who,
 				amount_in,
@@ -268,6 +262,7 @@ pub mod pallet {
 				&path,
 				to.unwrap_or(who.clone()), /* set the caller as token recipient if
 				                            * it is None */
+				deadline,
 			)?;
 			Ok(().into())
 		}
@@ -295,12 +290,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			// Check if the deadline is met when the `deadline` parameter is not None
-			if let Some(deadline_block) = deadline {
-				let current_block_number = frame_system::Pallet::<T>::block_number();
-				ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
-			}
-
 			Self::do_swap_with_exact_target(
 				&who,
 				amount_out,
@@ -308,6 +297,7 @@ pub mod pallet {
 				&path,
 				to.unwrap_or(who.clone()), /* set the caller as token recipient if
 				                            * it is None */
+				deadline,
 			)?;
 			Ok(().into())
 		}
@@ -347,12 +337,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			// Check if the deadline is met when the `deadline` parameter is not None
-			if let Some(deadline_block) = deadline {
-				let current_block_number = frame_system::Pallet::<T>::block_number();
-				ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
-			}
-
 			ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
 			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
 
@@ -372,6 +356,7 @@ pub mod pallet {
 				amount_b_min,
 				to.unwrap_or(who.clone()), /* set the caller as LP recipient if
 				                            * it is None */
+				deadline,
 			)?;
 			Ok(().into())
 		}
@@ -404,12 +389,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			// Check if the deadline is met when the `deadline` parameter is not None
-			if let Some(deadline_block) = deadline {
-				let current_block_number = frame_system::Pallet::<T>::block_number();
-				ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
-			}
-
 			Self::do_remove_liquidity(
 				&who,
 				token_a,
@@ -419,6 +398,7 @@ pub mod pallet {
 				amount_b_min,
 				to.unwrap_or(who.clone()), /* set the caller as token recipient if
 				                            * it is None */
+				deadline,
 			)?;
 			Ok(().into())
 		}
@@ -561,8 +541,15 @@ where
 		amount_a_min: Balance,
 		amount_b_min: Balance,
 		to: T::AccountId,
+		deadline: Option<T::BlockNumber>,
 	) -> DispatchResult {
 		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
+
+		// Check if the deadline is met when the `deadline` parameter is not None
+		if let Some(deadline_block) = deadline {
+			let current_block_number = frame_system::Pallet::<T>::block_number();
+			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
+		}
 
 		let trading_pair = TradingPair::new(token_a, token_b);
 		let lp_share_asset_id =
@@ -687,7 +674,14 @@ where
 		amount_a_min: Balance,
 		amount_b_min: Balance,
 		to: T::AccountId,
+		deadline: Option<T::BlockNumber>,
 	) -> DispatchResult {
+		// Check if the deadline is met when the `deadline` parameter is not None
+		if let Some(deadline_block) = deadline {
+			let current_block_number = frame_system::Pallet::<T>::block_number();
+			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
+		}
+
 		let trading_pair = TradingPair::new(token_a, token_b);
 		let lp_share_asset_id =
 			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
@@ -1046,7 +1040,14 @@ where
 		min_amount_out: Balance,
 		path: &[AssetId],
 		to: T::AccountId,
+		deadline: Option<T::BlockNumber>,
 	) -> sp_std::result::Result<Balance, DispatchError> {
+		// Check if the deadline is met when the `deadline` parameter is not None
+		if let Some(deadline_block) = deadline {
+			let current_block_number = frame_system::Pallet::<T>::block_number();
+			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
+		}
+
 		let amounts = Self::get_amounts_out(amount_in, &path)?;
 
 		// INSUFFICIENT_OUTPUT_AMOUNT
@@ -1076,7 +1077,14 @@ where
 		amount_in_max: Balance,
 		path: &[AssetId],
 		to: T::AccountId,
+		deadline: Option<T::BlockNumber>,
 	) -> sp_std::result::Result<Balance, DispatchError> {
+		// Check if the deadline is met when the `deadline` parameter is not None
+		if let Some(deadline_block) = deadline {
+			let current_block_number = frame_system::Pallet::<T>::block_number();
+			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
+		}
+
 		let amounts = Self::get_amounts_in(amount_out, &path)?;
 
 		// EXCESSIVE_INPUT_AMOUNT
