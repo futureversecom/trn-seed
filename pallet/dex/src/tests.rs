@@ -772,6 +772,8 @@ fn remove_liquidity_simple() {
 		);
 		assert_eq!(AssetsExt::balance(usdc, &bob), 1_999_999_999_999_999_000u128);
 		assert_eq!(AssetsExt::balance(weth, &bob), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 0u128);
+		assert_eq!(AssetsExt::balance(weth, &alice), 0u128);
 	});
 }
 
