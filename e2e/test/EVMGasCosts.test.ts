@@ -136,6 +136,7 @@ describe("EVM gas costs", () => {
 
     const factory = new ethers.ContractFactory(MockERC20Data.abi, MockERC20Data.bytecode, alithSigner);
     const actualGasEstimate = await provider.estimateGas(factory.getDeployTransaction());
+    const expectedTxCost = actualGasEstimate.mul(fees.gasPrice!);
     erc20Contract = (await factory.connect(alithSigner).deploy({
       gasLimit: actualGasEstimate,
       maxFeePerGas: fees.lastBaseFeePerGas!,
@@ -146,6 +147,7 @@ describe("EVM gas costs", () => {
 
     // assert gas used
     const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
+    expect(totalPaid).to.eql(expectedTxCost);
     const alithBalanceAfter = await alithSigner.getBalance();
     expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
@@ -166,6 +168,7 @@ describe("EVM gas costs", () => {
       maxFeePerGas: fees.lastBaseFeePerGas!,
       maxPriorityFeePerGas: 0,
     });
+    const expectedTxCost = actualGasEstimate.mul(fees.gasPrice!);
     expect(actualGasEstimate.toNumber()).to.be.greaterThan(wantGasEstimateLower).and.lessThan(wantGasEstimateUpper);
 
     const tx = await erc20Contract.connect(alithSigner).mint(alithSigner.address, 1000, {
@@ -182,6 +185,7 @@ describe("EVM gas costs", () => {
     expect(receipt.cumulativeGasUsed?.toNumber()).to.be.greaterThan(wantGasUsedLower).and.lessThan(wantGasUsedUpper);
 
     const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
+    expect(totalPaid).to.eql(expectedTxCost);
     const alithBalanceAfter = await alithSigner.getBalance();
     expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
@@ -202,6 +206,7 @@ describe("EVM gas costs", () => {
       maxFeePerGas: fees.lastBaseFeePerGas!,
       maxPriorityFeePerGas: 0,
     });
+    const expectedTxCost = actualGasEstimate.mul(fees.gasPrice!);
     expect(actualGasEstimate.toNumber()).to.be.greaterThan(wantGasEstimateLower).and.lessThan(wantGasEstimateUpper);
 
     const tx = await erc20Contract.connect(alithSigner).transfer(bobSigner.address, 500, {
@@ -218,6 +223,7 @@ describe("EVM gas costs", () => {
     expect(receipt.cumulativeGasUsed?.toNumber()).to.be.greaterThan(wantGasUsedLower).and.lessThan(wantGasUsedUpper);
 
     const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
+    expect(totalPaid).to.eql(expectedTxCost);
     const alithBalanceAfter = await alithSigner.getBalance();
     expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
@@ -246,6 +252,7 @@ describe("EVM gas costs", () => {
         maxFeePerGas: fees.lastBaseFeePerGas!,
         maxPriorityFeePerGas: 0,
       });
+    const expectedTxCost = actualGasEstimate.mul(fees.gasPrice!);
     expect(actualGasEstimate.toNumber()).to.eql(wantGasEstimate);
 
     const tx = await erc20PrecompileContract.connect(alithSigner).transfer(bobSigner.address, 500, {
@@ -261,6 +268,7 @@ describe("EVM gas costs", () => {
     expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantGasUsed);
 
     const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
+    expect(totalPaid).to.eql(expectedTxCost);
     const alithBalanceAfter = await alithSigner.getBalance();
     expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
