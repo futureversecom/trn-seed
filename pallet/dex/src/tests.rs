@@ -291,6 +291,7 @@ fn add_liquidity() {
 		System::set_block_number(1);
 		let alice: AccountId = create_account(1);
 		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
 
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -307,7 +308,6 @@ fn add_liquidity() {
 			to_eth(1),
 			to_eth(1),
 			to_eth(1),
-			0u128, //not used
 			None,
 			None,
 		));
@@ -328,6 +328,33 @@ fn add_liquidity() {
 			alice,
 		)));
 
+		// mint tokens to alice
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(1)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
+
+		// add liquidity from alice to charlie
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			usdc,
+			weth,
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			Some(charlie),
+			None,
+		));
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::AddLiquidity(
+			alice,
+			usdc,
+			to_eth(1),
+			weth,
+			to_eth(1),
+			1_000_000_000_000_000_000u128, // lp token shares
+			charlie,
+		)));
+
 		// the created lp token should be the 3rd created token (first 22bit) + 100 (last 10bits)
 		assert_eq!(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), 3 << 10 | 100);
 
@@ -345,11 +372,17 @@ fn add_liquidity() {
 			999_999_999_999_999_000u128,
 		);
 
+		// verify Charlie now has LP tokens
+		assert_eq!(
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &charlie),
+			1_000_000_000_000_000_000u128,
+		);
+
 		// mint tokens to new user
 		assert_ok!(AssetsExt::mint_into(usdc, &bob, to_eth(2)));
 		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(2)));
 
-		// add liquidity to new user fails - as they expect too much lp tokens
+		// add liquidity to new user fails - as the deadline has been missed
 		assert_noop!(
 			Dex::add_liquidity(
 				Origin::signed(bob),
@@ -359,14 +392,13 @@ fn add_liquidity() {
 				to_eth(2),
 				to_eth(2),
 				to_eth(2),
-				to_eth(2) + 1, // min lp tokens expected too high
 				None,
-				None,
+				Some(0),
 			),
-			Error::<Test>::UnacceptableShareIncrement
+			Error::<Test>::DeadlineMissed
 		);
 
-		// add liquidity to new user succeeds - as min expected lp tokens saisfied
+		// add liquidity to new user succeeds - as the deadline meets
 		assert_ok!(Dex::add_liquidity(
 			Origin::signed(bob),
 			usdc,
@@ -375,9 +407,8 @@ fn add_liquidity() {
 			to_eth(2),
 			to_eth(2),
 			to_eth(2),
-			to_eth(2), // mint lp tokens satisfied
 			None,
-			None,
+			Some(2),
 		));
 
 		// verify Bob now has LP tokens
@@ -409,7 +440,6 @@ fn add_liquidity() {
 				2_000_000_000_000u128,
 				2_000_000_000_000u128,
 				2_000_000_000_000u128,
-				0u128, //not used
 				None,
 				None,
 			),
@@ -442,7 +472,6 @@ fn add_shared_liquidity() {
 			to_eth(1),
 			to_eth(1),
 			to_eth(1),
-			0u128, //not used
 			None,
 			None,
 		));
@@ -481,7 +510,6 @@ fn add_shared_liquidity() {
 			to_eth(2),
 			to_eth(2),
 			to_eth(2),
-			0u128, // mint lp tokens satisfied
 			None,
 			None,
 		));
@@ -645,7 +673,6 @@ fn add_liquidity_issue_15() {
 			to_eth(1),
 			to_eth(1),
 			to_eth(1),
-			0u128, //not used
 			None,
 			None,
 		));
@@ -658,7 +685,6 @@ fn add_liquidity_issue_15() {
 			to_eth(1),
 			to_eth(1),
 			to_eth(1),
-			0u128, //not used
 			None,
 			None,
 		));
@@ -694,7 +720,6 @@ fn remove_liquidity_simple() {
 			to_eth(2),
 			to_eth(2),
 			to_eth(2),
-			1_999_999_999_999_999_000u128, // min expected LP token shares
 			None,
 			None,
 		));
@@ -796,7 +821,6 @@ fn remove_liquidity_full() {
 			to_eth(2),
 			to_eth(2),
 			to_eth(2),
-			1_999_999_999_999_999_000u128, // min expected LP token shares
 			None,
 			None,
 		));
@@ -931,7 +955,6 @@ fn swap_with_exact_supply() {
 			to_eth(2),
 			to_eth(1),
 			to_eth(2),
-			0u128,
 			None,
 			None,
 		));
@@ -1059,7 +1082,6 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 			100_000_000u128,
 			100_000_000u128,
 			100_000_000u128,
-			0u128,
 			None,
 			None,
 		));
@@ -1073,7 +1095,6 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 			100_000_000u128,
 			100_000_000u128,
 			100_000_000u128,
-			0u128,
 			None,
 			None,
 		));
@@ -1151,7 +1172,6 @@ fn swap_with_exact_target() {
 			to_eth(4),
 			to_eth(8),
 			to_eth(4),
-			0u128,
 			None,
 			None,
 		));
@@ -1310,7 +1330,6 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(30),
 			to_eth(10),
 			to_eth(30),
-			0u128,
 			None,
 			None,
 		));
@@ -1324,7 +1343,6 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(30),
 			to_eth(10),
 			to_eth(30),
-			0u128,
 			None,
 			None,
 		));
@@ -1372,7 +1390,6 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(4),
 			to_eth(1),
 			to_eth(2),
-			0u128,
 			None,
 			None,
 		));
@@ -1475,7 +1492,6 @@ fn query_with_trading_pair() {
 			to_eth(1),
 			to_eth(5),
 			to_eth(1),
-			0u128, //not used
 			None,
 			None,
 		));
@@ -1538,7 +1554,6 @@ macro_rules! swap_with_exact_supply_multi {
 					lp_amount_token_2,
 					lp_amount_token_1,
 					lp_amount_token_2,
-					0u128,
 					None,
 					None,
 				));
@@ -1654,7 +1669,6 @@ macro_rules! swap_with_exact_target_multi {
 					lp_amount_token_2,
 					lp_amount_token_1,
 					lp_amount_token_2,
-					0u128,
 					None,
 					None,
 				));

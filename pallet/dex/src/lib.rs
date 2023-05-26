@@ -168,8 +168,6 @@ pub mod pallet {
 		ZeroSupplyAmount,
 		/// The target amount is zero
 		ZeroTargetAmount,
-		/// The share increment is unacceptable
-		UnacceptableShareIncrement,
 		/// The Liquidity Provider token does not exist
 		LiquidityProviderTokenNotCreated,
 		/// The deadline has been missed
@@ -330,7 +328,6 @@ pub mod pallet {
 		/// - `amount_b_desired`: amount b desired to add.
 		/// - `amount_a_min`: amount a minimum willing to add.
 		/// - `amount_b_min`: amount b minimum willing to add.
-		/// - `min_share_increment`: minimum expected lp token shares to be received.
 		/// - `to`: The recipient of the LP token. The caller is the default recipient if it is set
 		///   to None.
 		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
@@ -345,8 +342,6 @@ pub mod pallet {
 			#[pallet::compact] amount_b_desired: Balance,
 			#[pallet::compact] amount_a_min: Balance,
 			#[pallet::compact] amount_b_min: Balance,
-			#[pallet::compact] min_share_increment: Balance, /* TODO: may not need this (not
-			                                                  * used in uniswapv2) */
 			to: Option<T::AccountId>,
 			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
@@ -375,7 +370,6 @@ pub mod pallet {
 				amount_b_desired,
 				amount_a_min,
 				amount_b_min,
-				min_share_increment,
 				to.unwrap_or(who.clone()), /* set the caller as LP recipient if
 				                            * it is None */
 			)?;
@@ -566,7 +560,6 @@ where
 		amount_b_desired: Balance,
 		amount_a_min: Balance,
 		amount_b_min: Balance,
-		min_share_increment: Balance,
 		to: T::AccountId,
 	) -> DispatchResult {
 		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
@@ -659,7 +652,6 @@ where
 		};
 
 		ensure!(!liquidity.is_zero(), Error::<T>::InvalidLiquidityIncrement,);
-		ensure!(liquidity >= min_share_increment, Error::<T>::UnacceptableShareIncrement);
 
 		// mint lp tokens to the LP to
 		T::MultiCurrency::mint_into(lp_share_asset_id, &to, liquidity)?;

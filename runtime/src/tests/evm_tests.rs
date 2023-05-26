@@ -157,7 +157,6 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 			10_000,
 			1,
 			1,
-			1,
 			None,
 			None,
 		));
