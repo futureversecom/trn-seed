@@ -171,7 +171,7 @@ pub mod pallet {
 		/// The Liquidity Provider token does not exist
 		LiquidityProviderTokenNotCreated,
 		/// The deadline has been missed
-		DeadlineMissed,
+		ExpiredDeadline,
 	}
 
 	#[pallet::event]
@@ -258,7 +258,7 @@ pub mod pallet {
 			// Check if the deadline is met when the `deadline` parameter is not None
 			if let Some(deadline_block) = deadline {
 				let current_block_number = frame_system::Pallet::<T>::block_number();
-				ensure!(deadline_block >= current_block_number, Error::<T>::DeadlineMissed);
+				ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
 			}
 
 			Self::do_swap_with_exact_supply(
@@ -298,7 +298,7 @@ pub mod pallet {
 			// Check if the deadline is met when the `deadline` parameter is not None
 			if let Some(deadline_block) = deadline {
 				let current_block_number = frame_system::Pallet::<T>::block_number();
-				ensure!(deadline_block >= current_block_number, Error::<T>::DeadlineMissed);
+				ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
 			}
 
 			Self::do_swap_with_exact_target(
@@ -350,7 +350,7 @@ pub mod pallet {
 			// Check if the deadline is met when the `deadline` parameter is not None
 			if let Some(deadline_block) = deadline {
 				let current_block_number = frame_system::Pallet::<T>::block_number();
-				ensure!(deadline_block >= current_block_number, Error::<T>::DeadlineMissed);
+				ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
 			}
 
 			ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
@@ -407,7 +407,7 @@ pub mod pallet {
 			// Check if the deadline is met when the `deadline` parameter is not None
 			if let Some(deadline_block) = deadline {
 				let current_block_number = frame_system::Pallet::<T>::block_number();
-				ensure!(deadline_block >= current_block_number, Error::<T>::DeadlineMissed);
+				ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
 			}
 
 			Self::do_remove_liquidity(

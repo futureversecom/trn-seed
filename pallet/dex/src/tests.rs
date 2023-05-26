@@ -395,7 +395,7 @@ fn add_liquidity() {
 				None,
 				Some(0),
 			),
-			Error::<Test>::DeadlineMissed
+			Error::<Test>::ExpiredDeadline
 		);
 
 		// add liquidity to new user succeeds - as the deadline meets
@@ -741,7 +741,7 @@ fn remove_liquidity_simple() {
 				Some(bob),                     // Bob is the token recipient
 				Some(0),
 			),
-			Error::<Test>::DeadlineMissed
+			Error::<Test>::ExpiredDeadline
 		);
 
 		// providing all-1 LP token shares should succeed
@@ -988,7 +988,7 @@ fn swap_with_exact_supply() {
 				None,
 				Some(0),
 			),
-			Error::<Test>::DeadlineMissed
+			Error::<Test>::ExpiredDeadline
 		);
 
 		// swap should fail if user does not have sufficient balance of input tokens
@@ -1283,7 +1283,7 @@ fn swap_with_exact_target() {
 				None,
 				Some(0),
 			),
-			Error::<Test>::DeadlineMissed
+			Error::<Test>::ExpiredDeadline
 		);
 
 		// swap succeeds if user has sufficient balance of input tokens
