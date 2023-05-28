@@ -323,4 +323,17 @@ impl<T: Config> Pallet<T> {
 		let (serial_numbers, quantities) = serial_numbers.into_iter().unzip();
 		(BoundedVec::truncate_from(serial_numbers), BoundedVec::truncate_from(quantities))
 	}
+
+	/// Returns true if an SFT collection exists for this collectionId
+	pub fn collection_exists(collection_id: CollectionUuid) -> bool {
+		SftCollectionInfo::<T>::contains_key(collection_id)
+	}
+
+	// Returns the balance of who of a token_id
+	pub fn balance_of(who: &T::AccountId, token_id: TokenId) -> Balance {
+		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
+			return Balance::zero()
+		};
+		token_info.free_balance_of(who)
+	}
 }
