@@ -291,6 +291,7 @@ fn add_liquidity() {
 		System::set_block_number(1);
 		let alice: AccountId = create_account(1);
 		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
 
 		// create 2 tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -307,7 +308,8 @@ fn add_liquidity() {
 			to_eth(1),
 			to_eth(1),
 			to_eth(1),
-			0u128, //not used
+			None,
+			None,
 		));
 
 		// adding LP enables trading pair
@@ -323,6 +325,34 @@ fn add_liquidity() {
 			weth,
 			to_eth(1),
 			999_999_999_999_999_000u128, // lp token shares
+			alice,
+		)));
+
+		// mint tokens to alice
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(1)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
+
+		// add liquidity from alice to charlie
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			usdc,
+			weth,
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			to_eth(1),
+			Some(charlie),
+			None,
+		));
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::AddLiquidity(
+			alice,
+			usdc,
+			to_eth(1),
+			weth,
+			to_eth(1),
+			1_000_000_000_000_000_000u128, // lp token shares
+			charlie,
 		)));
 
 		// the created lp token should be the 3rd created token (first 22bit) + 100 (last 10bits)
@@ -342,11 +372,17 @@ fn add_liquidity() {
 			999_999_999_999_999_000u128,
 		);
 
+		// verify Charlie now has LP tokens
+		assert_eq!(
+			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &charlie),
+			1_000_000_000_000_000_000u128,
+		);
+
 		// mint tokens to new user
 		assert_ok!(AssetsExt::mint_into(usdc, &bob, to_eth(2)));
 		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(2)));
 
-		// add liquidity to new user fails - as they expect too much lp tokens
+		// add liquidity to new user fails - as the deadline has been missed
 		assert_noop!(
 			Dex::add_liquidity(
 				Origin::signed(bob),
@@ -356,12 +392,13 @@ fn add_liquidity() {
 				to_eth(2),
 				to_eth(2),
 				to_eth(2),
-				to_eth(2) + 1, // min lp tokens expected too high
+				None,
+				Some(0),
 			),
-			Error::<Test>::UnacceptableShareIncrement
+			Error::<Test>::ExpiredDeadline
 		);
 
-		// add liquidity to new user succeeds - as min expected lp tokens saisfied
+		// add liquidity to new user succeeds - as the deadline meets
 		assert_ok!(Dex::add_liquidity(
 			Origin::signed(bob),
 			usdc,
@@ -370,7 +407,8 @@ fn add_liquidity() {
 			to_eth(2),
 			to_eth(2),
 			to_eth(2),
-			to_eth(2), // mint lp tokens satisfied
+			None,
+			Some(2),
 		));
 
 		// verify Bob now has LP tokens
@@ -402,7 +440,8 @@ fn add_liquidity() {
 				2_000_000_000_000u128,
 				2_000_000_000_000u128,
 				2_000_000_000_000u128,
-				0u128, //not used
+				None,
+				None,
 			),
 			Error::<Test>::MustBeEnabled
 		);
@@ -433,7 +472,8 @@ fn add_shared_liquidity() {
 			to_eth(1),
 			to_eth(1),
 			to_eth(1),
-			0u128, //not used
+			None,
+			None,
 		));
 		let trading_pair: TradingPair = TradingPair::new(usdc, weth);
 
@@ -447,6 +487,7 @@ fn add_shared_liquidity() {
 			weth,
 			to_eth(1),
 			999_999_999_999_999_000u128, // lp token shares
+			alice,
 		)));
 
 		// lp token is the same token independent of trading pair token ordering
@@ -469,7 +510,8 @@ fn add_shared_liquidity() {
 			to_eth(2),
 			to_eth(2),
 			to_eth(2),
-			0u128, // mint lp tokens satisfied
+			None,
+			None,
 		));
 
 		let pool_address: AccountId = trading_pair.pool_address::<AccountId>();
@@ -499,6 +541,8 @@ fn add_shared_liquidity() {
 			to_eth(1), // input usdc
 			0u128,     // min expected weth
 			vec![usdc, weth],
+			None,
+			None,
 		));
 
 		// validate reserves for usdc/weth have been updated after swap
@@ -541,6 +585,8 @@ fn add_shared_liquidity() {
 			to_eth(1), // input usdc
 			0u128,     // min expected asto
 			vec![usdc, asto],
+			None,
+			None,
 		));
 
 		// validate reserves for usdc/asto change after swap
@@ -627,7 +673,8 @@ fn add_liquidity_issue_15() {
 			to_eth(1),
 			to_eth(1),
 			to_eth(1),
-			0u128, //not used
+			None,
+			None,
 		));
 
 		assert_ok!(Dex::add_liquidity(
@@ -638,7 +685,8 @@ fn add_liquidity_issue_15() {
 			to_eth(1),
 			to_eth(1),
 			to_eth(1),
-			0u128, //not used
+			None,
+			None,
 		));
 		assert_eq!(
 			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
@@ -672,12 +720,29 @@ fn remove_liquidity_simple() {
 			to_eth(2),
 			to_eth(2),
 			to_eth(2),
-			1_999_999_999_999_999_000u128, // min expected LP token shares
+			None,
+			None,
 		));
+
 		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
 		assert_eq!(AssetsExt::balance(lp_token_id, &alice), 1_999_999_999_999_999_000u128);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 0);
 		assert_eq!(AssetsExt::balance(weth, &alice), 0);
+
+		// providing all-1 LP token shares should fail - deadline is in the past
+		assert_noop!(
+			Dex::remove_liquidity(
+				Origin::signed(alice),
+				usdc,
+				weth,
+				1_999_999_999_999_999_000u128, // all lp -1 to retrieve input tokens
+				0u128,                         // ignoring expected input token liquidity
+				0u128,                         // ignoring expected input token liquidity
+				Some(bob),                     // Bob is the token recipient
+				Some(0),
+			),
+			Error::<Test>::ExpiredDeadline
+		);
 
 		// providing all-1 LP token shares should succeed
 		assert_ok!(Dex::remove_liquidity(
@@ -687,6 +752,8 @@ fn remove_liquidity_simple() {
 			1_999_999_999_999_999_000u128, // all lp -1 to retrieve input tokens
 			0u128,                         // ignoring expected input token liquidity
 			0u128,                         // ignoring expected input token liquidity
+			Some(bob),                     // Bob is the token recipient
+			Some(2),
 		));
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::RemoveLiquidity(
@@ -696,14 +763,17 @@ fn remove_liquidity_simple() {
 			weth,
 			1_999_999_999_999_999_000u128,
 			1_999_999_999_999_999_000u128,
+			bob,
 		)));
 
 		assert_eq!(
 			AssetsExt::balance(Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(), &alice),
 			0,
 		);
-		assert_eq!(AssetsExt::balance(usdc, &alice), 1_999_999_999_999_999_000u128);
-		assert_eq!(AssetsExt::balance(weth, &alice), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &bob), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(weth, &bob), 1_999_999_999_999_999_000u128);
+		assert_eq!(AssetsExt::balance(usdc, &alice), 0u128);
+		assert_eq!(AssetsExt::balance(weth, &alice), 0u128);
 	});
 }
 
@@ -721,13 +791,32 @@ fn remove_liquidity_full() {
 
 		// fails if no LP tokens withdrawn
 		assert_eq!(
-			Dex::remove_liquidity(Origin::signed(alice), usdc, weth, 0u128, 2u128, 2u128).is_ok(),
+			Dex::remove_liquidity(
+				Origin::signed(alice),
+				usdc,
+				weth,
+				0u128,
+				2u128,
+				2u128,
+				None,
+				None
+			)
+			.is_ok(),
 			false
 		);
 
 		// remove liquidity fails if LP token doesnt exist
 		assert_noop!(
-			Dex::remove_liquidity(Origin::signed(alice), usdc, weth, 1u128, 2u128, 2u128,),
+			Dex::remove_liquidity(
+				Origin::signed(alice),
+				usdc,
+				weth,
+				1u128,
+				2u128,
+				2u128,
+				None,
+				None,
+			),
 			Error::<Test>::InvalidAssetId
 		);
 
@@ -750,7 +839,8 @@ fn remove_liquidity_full() {
 			to_eth(2),
 			to_eth(2),
 			to_eth(2),
-			1_999_999_999_999_999_000u128, // min expected LP token shares
+			None,
+			None,
 		));
 		let lp_token_id = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap(); // TODO remove
 		assert_eq!(AssetsExt::balance(lp_token_id, &alice), 1_999_999_999_999_999_000u128);
@@ -766,6 +856,8 @@ fn remove_liquidity_full() {
 				1u128,
 				to_eth(2) + 1, // more balance than user had LPed
 				0u128,
+				None,
+				None,
 			),
 			Error::<Test>::InsufficientWithdrawnAmountA
 		);
@@ -778,6 +870,8 @@ fn remove_liquidity_full() {
 				1u128,
 				0u128,
 				to_eth(2) + 1, // more balance than user had LPed
+				None,
+				None,
 			),
 			Error::<Test>::InsufficientWithdrawnAmountB
 		);
@@ -790,6 +884,8 @@ fn remove_liquidity_full() {
 				100u128, // provided LP token shares too low to retrieve input tokens
 				2_000_000_000_000u128,
 				2_000_000_000_000u128,
+				None,
+				None,
 			),
 			Error::<Test>::InsufficientWithdrawnAmountA
 		);
@@ -802,6 +898,8 @@ fn remove_liquidity_full() {
 			1_999_999_999_999_999_000u128 - 1, // all lp -1 to retrieve input tokens
 			0u128,                             // ignoring expected input token liquidity
 			0u128,                             // ignoring expected input token liquidity
+			None,
+			None,
 		));
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::RemoveLiquidity(
@@ -811,6 +909,7 @@ fn remove_liquidity_full() {
 			weth,
 			1_999_999_999_999_998_999_u128,
 			1_999_999_999_999_998_999_u128,
+			alice,
 		)));
 
 		assert_eq!(
@@ -835,6 +934,8 @@ fn remove_liquidity_full() {
 			1,
 			0u128, // ignoring expected input token liquidity
 			0u128, // ignoring expected input token liquidity
+			None,
+			None,
 		));
 
 		// removing all liquidity should imply user has recieved all input tokens
@@ -855,6 +956,7 @@ fn swap_with_exact_supply() {
 
 		let alice: AccountId = create_account(1);
 		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
 
 		let weth = AssetsExt::create(&alice, None).unwrap();
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -872,10 +974,24 @@ fn swap_with_exact_supply() {
 			to_eth(2),
 			to_eth(1),
 			to_eth(2),
-			0u128,
+			None,
+			None,
 		));
 		assert_eq!(AssetsExt::balance(weth, &alice), to_eth(100) - to_eth(1));
 		assert_eq!(AssetsExt::balance(usdc, &alice), to_eth(100) - to_eth(2));
+
+		// swap should fail if the deadline is in the past
+		assert_noop!(
+			Dex::swap_with_exact_supply(
+				Origin::signed(bob),
+				to_eth(1), // input weth <- insufficient balance
+				10u128,    // expected usdc
+				vec![weth, usdc],
+				None,
+				Some(0),
+			),
+			Error::<Test>::ExpiredDeadline
+		);
 
 		// swap should fail if user does not have sufficient balance of input tokens
 		assert_noop!(
@@ -884,12 +1000,14 @@ fn swap_with_exact_supply() {
 				to_eth(1), // input weth <- insufficient balance
 				10u128,    // expected usdc
 				vec![weth, usdc],
+				None,
+				None,
 			),
 			pallet_assets::Error::<Test>::NoAccount
 		);
 
 		// mint weth for 2nd user and allow them to perform swap against usdc
-		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(2)));
+		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(3)));
 		assert_eq!(AssetsExt::balance(usdc, &bob), 0); // no balance initially for bob
 
 		// swap should fail if user expects more output tokens than they can get
@@ -899,6 +1017,8 @@ fn swap_with_exact_supply() {
 				to_eth(1), // input weth
 				to_eth(1), // min expected usdc <- too much
 				vec![weth, usdc],
+				None,
+				None,
 			),
 			Error::<Test>::InsufficientTargetAmount
 		);
@@ -910,6 +1030,8 @@ fn swap_with_exact_supply() {
 			to_eth(1), // input weth
 			0u128,     // min expected usdc
 			vec![weth, usdc],
+			None,
+			Some(2),
 		));
 
 		let out_usdc_amount_1 = 998_497_746_619_929_894_u128;
@@ -920,8 +1042,9 @@ fn swap_with_exact_supply() {
 			vec![weth, usdc],
 			to_eth(1),
 			out_usdc_amount_1,
+			bob,
 		)));
-		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(1));
+		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(2));
 		assert_eq!(AssetsExt::balance(usdc, &bob), out_usdc_amount_1);
 
 		// verify dex trading pair liquidity changes (usdc removed, weth added)
@@ -941,6 +1064,8 @@ fn swap_with_exact_supply() {
 			to_eth(1), // input weth
 			10u128,    // min expected usdc
 			vec![weth, usdc],
+			None,
+			None,
 		));
 
 		let out_usdc_amount_2 = 333_165_747_954_597_896_u128;
@@ -951,14 +1076,39 @@ fn swap_with_exact_supply() {
 			vec![weth, usdc],
 			to_eth(1),
 			out_usdc_amount_2,
+			bob,
 		)));
-		assert_eq!(AssetsExt::balance(weth, &bob), 0);
+		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(1));
 		assert_eq!(AssetsExt::balance(usdc, &bob), out_usdc_amount_1 + out_usdc_amount_2);
 		assert_eq!(AssetsExt::balance(usdc, &bob), 1_331_663_494_574_527_790u128);
 
 		// verify that 2nd swap returns less output tokens than first
 		// - due to shift in constant product -> resulting in higher slippage
 		assert_eq!(out_usdc_amount_1 > out_usdc_amount_2, true);
+
+		// user bob swaps again with recipient charlie
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(bob),
+			to_eth(1), // input weth
+			10u128,    // min expected usdc
+			vec![weth, usdc],
+			Some(charlie),
+			None,
+		));
+
+		let out_usdc_amount_3 = 166_707_904_905_978_432_u128;
+
+		// verify swap event and user balances
+		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
+			bob,
+			vec![weth, usdc],
+			to_eth(1),
+			out_usdc_amount_3,
+			charlie,
+		)));
+		assert_eq!(AssetsExt::balance(weth, &bob), 0);
+		assert_eq!(AssetsExt::balance(usdc, &bob), out_usdc_amount_1 + out_usdc_amount_2);
+		assert_eq!(AssetsExt::balance(usdc, &charlie), out_usdc_amount_3);
 	});
 }
 
@@ -988,7 +1138,8 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 			100_000_000u128,
 			100_000_000u128,
 			100_000_000u128,
-			0u128,
+			None,
+			None,
 		));
 
 		// provide liquidity (b-c)
@@ -1000,7 +1151,8 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 			100_000_000u128,
 			100_000_000u128,
 			100_000_000u128,
-			0u128,
+			None,
+			None,
 		));
 
 		assert_ok!(
@@ -1014,6 +1166,8 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 			50_000u128, // input a
 			1u128,      // expect c
 			vec![a, b, c],
+			None,
+			None,
 		));
 
 		let trading_pair = TradingPair::new(a, b);
@@ -1056,6 +1210,7 @@ fn swap_with_exact_target() {
 
 		let alice: AccountId = create_account(1);
 		let bob: AccountId = create_account(2);
+		let charlie: AccountId = create_account(3);
 
 		// create tokens (by different users)
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -1074,7 +1229,8 @@ fn swap_with_exact_target() {
 			to_eth(4),
 			to_eth(8),
 			to_eth(4),
-			0u128,
+			None,
+			None,
 		));
 
 		// swap should fail if user does not have sufficient balance of input tokens
@@ -1084,6 +1240,8 @@ fn swap_with_exact_target() {
 				10u128,                // expected usdc
 				1_000_000_000_000u128, // max input weth <- insufficient balance
 				vec![weth, usdc],
+				None,
+				None,
 			),
 			pallet_assets::Error::<Test>::NoAccount
 		);
@@ -1098,6 +1256,8 @@ fn swap_with_exact_target() {
 				to_eth(4), // expected <- too much
 				to_eth(4), // max input weth willing to give
 				vec![weth, usdc],
+				None,
+				None,
 			),
 			ArithmeticError::DivisionByZero
 		);
@@ -1109,8 +1269,23 @@ fn swap_with_exact_target() {
 				to_eth(1) / 2,
 				to_eth(1), // max input weth willing to give
 				vec![weth, usdc],
+				None,
+				None,
 			),
 			Error::<Test>::ExcessiveSupplyAmount
+		);
+
+		// swap should fail if the deadline is in the past
+		assert_noop!(
+			Dex::swap_with_exact_target(
+				Origin::signed(bob),
+				to_eth(1), // want usdc
+				to_eth(5), // max input weth willing to give
+				vec![weth, usdc],
+				None,
+				Some(0),
+			),
+			Error::<Test>::ExpiredDeadline
 		);
 
 		// swap succeeds if user has sufficient balance of input tokens
@@ -1120,6 +1295,8 @@ fn swap_with_exact_target() {
 			to_eth(1), // want usdc
 			to_eth(5), // max input weth willing to give
 			vec![weth, usdc],
+			None,
+			Some(2), // deadline in future
 		));
 
 		let in_weth_amount_1 = 2_674_690_738_883_316_617_u128;
@@ -1130,6 +1307,7 @@ fn swap_with_exact_target() {
 			vec![weth, usdc],
 			in_weth_amount_1, // supply amount
 			to_eth(1),        // target amount
+			bob,
 		)));
 		assert_eq!(AssetsExt::balance(weth, &bob), to_eth(20) - in_weth_amount_1);
 		assert_eq!(AssetsExt::balance(weth, &bob), 17_325_309_261_116_683_383_u128);
@@ -1147,6 +1325,8 @@ fn swap_with_exact_target() {
 			to_eth(1), // want usdc
 			to_eth(6), // max input weth willing to give
 			vec![weth, usdc],
+			None,
+			None,
 		));
 
 		let in_weth_amount_2 = 5_353_405_586_200_259_086_u128;
@@ -1157,6 +1337,7 @@ fn swap_with_exact_target() {
 			vec![weth, usdc],
 			in_weth_amount_2, // supply amount
 			to_eth(1),        // target amount
+			bob,
 		)));
 		assert_eq!(
 			AssetsExt::balance(weth, &bob),
@@ -1168,6 +1349,35 @@ fn swap_with_exact_target() {
 		// verify that 2nd swap requires more input tokens than first for the same output
 		// - due to shift in constant product -> resulting in higher slippage
 		assert_eq!(in_weth_amount_1 < in_weth_amount_2, true);
+
+		// mint another 20 weth for bob and allow them to perform swap against usdc
+		assert_ok!(AssetsExt::mint_into(weth, &bob, to_eth(20)));
+
+		// user bob swaps again with recipient charlie
+		assert_ok!(Dex::swap_with_exact_target(
+			Origin::signed(bob),
+			to_eth(1),  // want usdc
+			to_eth(20), // max input weth willing to give
+			vec![weth, usdc],
+			Some(charlie),
+			None,
+		));
+
+		let in_weth_amount_3 = 16_076_325_300_986_535_309_u128;
+
+		// verify swap event and user balances
+		System::assert_last_event(MockEvent::Dex(crate::Event::Swap(
+			bob,
+			vec![weth, usdc],
+			in_weth_amount_3, // supply amount
+			to_eth(1),        // target amount
+			charlie,
+		)));
+		assert_eq!(
+			AssetsExt::balance(weth, &bob),
+			to_eth(40) - in_weth_amount_1 - in_weth_amount_2 - in_weth_amount_3
+		);
+		assert_eq!(AssetsExt::balance(usdc, &charlie), to_eth(1));
 	});
 }
 
@@ -1219,7 +1429,8 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(30),
 			to_eth(10),
 			to_eth(30),
-			0u128
+			None,
+			None,
 		));
 
 		// bob provides liquidity for USDC/WETH pair - in ratio 1:3
@@ -1231,7 +1442,8 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(30),
 			to_eth(10),
 			to_eth(30),
-			0u128
+			None,
+			None,
 		));
 
 		let lp_usdc_weth = Dex::lp_token_id(TradingPair::new(usdc, weth)).unwrap();
@@ -1246,6 +1458,8 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(5), // max input weth willing to give
 			0u128,
 			vec![usdc, weth],
+			None,
+			None,
 		));
 		assert_eq!(AssetsExt::balance(usdc, &charlie), to_eth(50) - to_eth(5));
 		assert_eq!(AssetsExt::balance(weth, &charlie), 61_971_182_709_625_775_465_u128);
@@ -1256,6 +1470,8 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(5), // exact want amount of weth
 			to_eth(5),
 			vec![usdc, weth],
+			None,
+			None,
 		));
 		assert_eq!(AssetsExt::balance(usdc, &elliot), 7_086_228_804_778_169_590_u128);
 		assert_eq!(AssetsExt::balance(weth, &elliot), to_eth(10) + to_eth(5));
@@ -1273,7 +1489,8 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(4),
 			to_eth(1),
 			to_eth(2),
-			0u128
+			None,
+			None,
 		));
 		assert_eq!(AssetsExt::balance(lp_usdc_weth, &charlie), 2_482_001_869_909_090_520_u128);
 
@@ -1283,6 +1500,8 @@ fn multiple_swaps_with_multiple_lp() {
 			to_eth(2), // exact want amount of weth
 			to_eth(2),
 			vec![usdc, weth],
+			None,
+			None,
 		));
 		assert_eq!(AssetsExt::balance(usdc, &danny), 8_639_648_189_269_446_680_u128);
 		assert_eq!(AssetsExt::balance(weth, &danny), to_eth(10) + to_eth(2));
@@ -1296,6 +1515,8 @@ fn multiple_swaps_with_multiple_lp() {
 				AssetsExt::balance(lp_usdc_weth, &elliot),
 				to_eth(10),
 				to_eth(10),
+				None,
+				None,
 			),
 			Error::<Test>::InsufficientLiquidityBurnt
 		);
@@ -1309,6 +1530,8 @@ fn multiple_swaps_with_multiple_lp() {
 			AssetsExt::balance(lp_usdc_weth, &charlie),
 			to_eth(1),
 			to_eth(1),
+			None,
+			None,
 		));
 		assert_eq!(AssetsExt::balance(lp_usdc_weth, &charlie), 0u128);
 		assert_eq!(AssetsExt::balance(usdc, &charlie), 45_090_951_542_141_088_801_u128);
@@ -1322,6 +1545,8 @@ fn multiple_swaps_with_multiple_lp() {
 			AssetsExt::balance(lp_usdc_weth, &alice),
 			to_eth(10),
 			to_eth(10),
+			None,
+			None,
 		));
 		assert_eq!(AssetsExt::balance(lp_usdc_weth, &alice), 0u128);
 		assert_eq!(AssetsExt::balance(usdc, &alice), 104_591_585_731_905_646_622_u128);
@@ -1335,6 +1560,8 @@ fn multiple_swaps_with_multiple_lp() {
 			AssetsExt::balance(lp_usdc_weth, &bob),
 			to_eth(10),
 			to_eth(10),
+			None,
+			None,
 		));
 		assert_eq!(AssetsExt::balance(lp_usdc_weth, &bob), 0u128);
 		assert_eq!(AssetsExt::balance(usdc, &bob), 104_591_585_731_905_647_464_u128);
@@ -1364,7 +1591,8 @@ fn query_with_trading_pair() {
 			to_eth(1),
 			to_eth(5),
 			to_eth(1),
-			0u128, //not used
+			None,
+			None,
 		));
 
 		// The trading pair should be enabled regardless of the order of the query inputs
@@ -1425,7 +1653,8 @@ macro_rules! swap_with_exact_supply_multi {
 					lp_amount_token_2,
 					lp_amount_token_1,
 					lp_amount_token_2,
-					0u128
+					None,
+					None,
 				));
 
 				// mint input tokens to bob for swap
@@ -1440,6 +1669,8 @@ macro_rules! swap_with_exact_supply_multi {
 							$amount_in,
 							$amount_out_min,
 							vec![token_0, token_1],
+							None,
+							None,
 						));
 
 						assert_eq!(AssetsExt::balance(token_0, &bob), 0u128);
@@ -1452,6 +1683,8 @@ macro_rules! swap_with_exact_supply_multi {
 								$amount_in,
 								$amount_out_min,
 								vec![token_0, token_1],
+								None,
+								None,
 							),
 							err
 						);
@@ -1535,7 +1768,8 @@ macro_rules! swap_with_exact_target_multi {
 					lp_amount_token_2,
 					lp_amount_token_1,
 					lp_amount_token_2,
-					0u128
+					None,
+					None,
 				));
 
 				// mint input tokens to bob for swap
@@ -1550,6 +1784,8 @@ macro_rules! swap_with_exact_target_multi {
 							$amount_out,
 							$amount_in_max,
 							vec![token_0, token_1],
+							None,
+							None,
 						));
 
 						assert_eq!(AssetsExt::balance(token_0, &bob), amount_in);
@@ -1562,6 +1798,8 @@ macro_rules! swap_with_exact_target_multi {
 								$amount_out,
 								$amount_in_max,
 								vec![token_0, token_1],
+								None,
+								None,
 							),
 							err
 						);

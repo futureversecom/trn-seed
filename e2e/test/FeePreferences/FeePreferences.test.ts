@@ -67,7 +67,8 @@ describe("Fee Preferences", function () {
         100_000_000_000,
         100_000_000_000,
         100_000_000_000,
-        0,
+        null,
+        null,
       ),
     ];
     await new Promise<void>((resolve) => {
