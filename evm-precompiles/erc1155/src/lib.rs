@@ -37,7 +37,8 @@ pub const SELECTOR_LOG_TRANSFER_BATCH: [u8; 32] =
 	keccak256!("TransferBatch(address,address,address,uint256[],uint256[])");
 
 /// Solidity selector of the Approval log, which is the Keccak of the Log signature.
-pub const SELECTOR_LOG_APPROVAL: [u8; 32] = keccak256!("ApprovalForAll(address,address,bool)");
+pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
+	keccak256!("ApprovalForAll(address,address,bool)");
 
 /// Solidity selector of the URI log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_URI: [u8; 32] = keccak256!("URI(string,uint256)");
@@ -125,6 +126,10 @@ where
 						// Core ERC1155
 						Action::BalanceOf => Self::balance_of(collection_id, handle),
 						Action::BalanceOfBatch => Self::balance_of_batch(collection_id, handle),
+						Action::SetApprovalForAll =>
+							Self::set_approval_for_all(collection_id, handle),
+						Action::IsApprovedForAll =>
+							Self::is_approved_for_all(collection_id, handle),
 						_ => Self::balance_of(collection_id, handle),
 					}
 				};
@@ -219,5 +224,59 @@ where
 		});
 
 		Ok(succeed(EvmDataWriter::new().write(balances).build()))
+	}
+
+	fn is_approved_for_all(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { owner: Address, operator: Address });
+		let owner: Runtime::AccountId = H160::from(owner).into();
+		let operator: Runtime::AccountId = H160::from(operator).into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+			owner,
+			(collection_id, operator),
+		)
+		.unwrap_or_default();
+
+		Ok(succeed(EvmDataWriter::new().write(is_approved).build()))
+	}
+
+	fn set_approval_for_all(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { operator: Address, approved: bool });
+		let operator = H160::from(operator);
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			None.into(),
+			pallet_token_approvals::Call::<Runtime>::erc1155_approval_for_all {
+				caller: handle.context().caller.into(),
+				operator_account: operator.clone().into(),
+				collection_uuid: collection_id,
+				approved,
+			},
+		)?;
+
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_APPROVAL_FOR_ALL,
+			handle.context().caller,
+			operator,
+			EvmDataWriter::new().write(approved).build(),
+		)
+		.record(handle)?;
+		Ok(succeed([]))
 	}
 }
