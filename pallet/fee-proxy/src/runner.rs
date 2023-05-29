@@ -94,7 +94,9 @@ pub struct FeePreferencesData {
 
 pub fn get_fee_preferences_data<T, U, P>(
 	gas_limit: u64,
+	gas_price: Option<U256>,
 	max_fee_per_gas: Option<U256>,
+	max_priority_fee_per_gas: Option<U256>,
 	payment_asset_id: u32,
 ) -> Result<FeePreferencesData, FeePreferencesError>
 where
@@ -102,8 +104,13 @@ where
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	P: AccountProxy<AccountId>,
 {
-	let total_fee =
-		FeePreferencesRunner::<T, U, P>::calculate_total_gas(gas_limit, max_fee_per_gas, false)?;
+	let total_fee = FeePreferencesRunner::<T, U, P>::calculate_total_gas(
+		gas_limit,
+		gas_price,
+		max_fee_per_gas,
+		max_priority_fee_per_gas,
+		false,
+	)?;
 
 	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
 	let decimals =
@@ -163,25 +170,40 @@ where
 	// Calculate gas price for transaction to use for exchanging asset into gas-token currency
 	pub fn calculate_total_gas(
 		gas_limit: u64,
+		gas_price: Option<U256>,
 		max_fee_per_gas: Option<U256>,
+		max_priority_fee_per_gas: Option<U256>,
 		is_transactional: bool,
 	) -> Result<U256, FeePreferencesError> {
-		let max_fee_per_gas = match (max_fee_per_gas, is_transactional) {
-			(Some(max_fee_per_gas), _) => max_fee_per_gas,
-			// Gas price check is skipped for non-transactional calls that don't
-			// define a `max_fee_per_gas` input.
-			(None, false) => Default::default(),
-			// Unreachable, previously validated. Handle gracefully.
-			_ => return Err(FeePreferencesError::FeeOverflow),
-		};
+		// Handle type 0/1 transactions
+		if let Some(gas_price) = gas_price {
+			let total_fee = gas_price
+				.checked_mul(U256::from(gas_limit))
+				.ok_or(FeePreferencesError::FeeOverflow)?;
+			return Ok(total_fee)
+		}
+
+		// Handle type 2 transactions (EIP1559)
+		let (max_fee_per_gas, max_priority_fee_per_gas): (U256, U256) =
+			match (max_fee_per_gas, max_priority_fee_per_gas, is_transactional) {
+				// ignore priority fee, it becomes more expensive than legacy transactions
+				(Some(max_fee_per_gas), _, _) => (max_fee_per_gas, Default::default()),
+				(None, _, _) => (Default::default(), Default::default()),
+			};
 
 		// After eip-1559 we make sure the account can pay both the evm execution and priority
 		// fees.
 		let total_fee = max_fee_per_gas
 			.checked_mul(U256::from(gas_limit))
+			.ok_or(FeePreferencesError::FeeOverflow)?
+			.checked_add(
+				max_priority_fee_per_gas
+					.checked_mul(U256::from(gas_limit))
+					.ok_or(FeePreferencesError::FeeOverflow)?,
+			)
 			.ok_or(FeePreferencesError::FeeOverflow)?;
 
-		Ok(total_fee.into())
+		Ok(total_fee)
 	}
 }
 
@@ -266,8 +288,14 @@ where
 			target = new_target;
 
 			let FeePreferencesData { path, total_fee_scaled } =
-				get_fee_preferences_data::<T, U, P>(gas_limit, max_fee_per_gas, payment_asset_id)
-					.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
+				get_fee_preferences_data::<T, U, P>(
+					gas_limit,
+					None,
+					max_fee_per_gas,
+					max_priority_fee_per_gas,
+					payment_asset_id,
+				)
+				.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
 
 			let account =
 				<T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
@@ -278,6 +306,8 @@ where
 					total_fee_scaled,
 					max_payment,
 					&path,
+					account.clone(),
+					None,
 				)
 				.map_err(|err| {
 					log!(

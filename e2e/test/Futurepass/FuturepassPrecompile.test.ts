@@ -438,6 +438,7 @@ describe("Futurepass Precompile", function () {
         value: parseEther(15),
       })
       .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
+    expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(0);
 
     // proxy transfer of value from futurepass to contract succeeds if call
     // note: this is possible since contract has `receive() external payable` function
@@ -476,12 +477,12 @@ describe("Futurepass Precompile", function () {
     expect(fnCallData).to.equal("0xd0e30db0");
 
     // validate proxy based value transfer to payable function
-    expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(20_000_000);
+    expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(30_000_000);
     contractBalanceRes = (await api.query.assets.account(GAS_TOKEN_ID, futurepassTester.address)).toJSON();
-    expect(contractBalanceRes.balance).to.equal(20_000_000);
+    expect(contractBalanceRes.balance).to.equal(30_000_000);
 
     const futurepassContractBalance = await futurepassTester.deposits(futurepassPrecompile.address);
-    expect(ethers.utils.formatEther(futurepassContractBalance)).to.equal("20.0");
+    expect(ethers.utils.formatEther(futurepassContractBalance)).to.equal("30.0");
   });
 
   it("proxy call - transfer value to contract from futurepass", async () => {
@@ -680,7 +681,7 @@ describe("Futurepass Precompile", function () {
     expect(await testCreateContract.getValue()).to.equal(420);
   });
 
-  it.only("proxyCall - futurepass can deploy a contract with constructor using CREATE2", async () => {
+  it("proxyCall - futurepass can deploy a contract with constructor using CREATE2", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
     // transfer funds to owner

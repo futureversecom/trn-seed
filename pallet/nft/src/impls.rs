@@ -17,7 +17,8 @@ use seed_pallet_common::{
 	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
+	TokenCount, TokenId,
 };
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
@@ -108,7 +109,10 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::MarketplaceNotRegistered
 		);
 		if let Some(marketplace) = Self::registered_marketplaces(marketplace_id) {
-			royalties.entitlements.push((marketplace.account, marketplace.entitlement));
+			royalties
+				.entitlements
+				.try_push((marketplace.account, marketplace.entitlement))
+				.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
 		}
 		ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
 		Ok(royalties)
@@ -228,7 +232,11 @@ impl<T: Config> Pallet<T> {
 	pub fn pre_mint(
 		who: &T::AccountId,
 		quantity: TokenCount,
-		collection_info: &CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+		collection_info: &CollectionInformation<
+			T::AccountId,
+			T::MaxTokensPerCollection,
+			T::StringLimit,
+		>,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
@@ -272,7 +280,11 @@ impl<T: Config> Pallet<T> {
 	/// Perform the mint operation and update storage accordingly.
 	pub(crate) fn do_mint(
 		collection_id: CollectionUuid,
-		collection_info: CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
+		collection_info: CollectionInformation<
+			T::AccountId,
+			T::MaxTokensPerCollection,
+			T::StringLimit,
+		>,
 		token_owner: &T::AccountId,
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
@@ -538,7 +550,7 @@ impl<T: Config> Pallet<T> {
 	/// Create the collection
 	pub fn do_create_collection(
 		owner: T::AccountId,
-		name: CollectionNameType,
+		name: BoundedVec<u8, T::StringLimit>,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<T::AccountId>,
@@ -561,10 +573,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Validate collection attributes
-		ensure!(
-			!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
-			Error::<T>::CollectionNameInvalid
-		);
+		ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
 		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
 		if let Some(royalties_schedule) = royalties_schedule.clone() {
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
@@ -620,7 +629,7 @@ impl<T: Config> Pallet<T> {
 			max_issuance,
 			collection_owner: owner,
 			metadata_scheme,
-			name,
+			name: name.into_inner(),
 			royalties_schedule,
 			origin_chain,
 			compatibility: cross_chain_compatibility,
@@ -687,6 +696,7 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
 	type MaxTokensPerCollection = T::MaxTokensPerCollection;
+	type StringLimit = T::StringLimit;
 
 	fn do_mint(
 		origin: Self::AccountId,
@@ -699,7 +709,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn do_create_collection(
 		owner: Self::AccountId,
-		name: CollectionNameType,
+		name: BoundedVec<u8, Self::StringLimit>,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<Self::AccountId>,
@@ -729,8 +739,10 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>
-	{
+	) -> Result<
+		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
+		DispatchError,
+	> {
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 
@@ -739,5 +751,15 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection_id: CollectionUuid,
 	) -> DispatchResult {
 		Self::enable_xls20_compatibility(who, collection_id)
+	}
+
+	fn next_collection_uuid() -> Result<CollectionUuid, DispatchError> {
+		Self::next_collection_uuid()
+	}
+
+	fn increment_collection_id() -> DispatchResult {
+		ensure!(<NextCollectionId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
+		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
+		Ok(())
 	}
 }

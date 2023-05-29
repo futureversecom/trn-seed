@@ -17,6 +17,7 @@ mod chain_spec;
 mod service;
 mod cli;
 mod command;
+mod custom_commands;
 mod rpc;
 
 #[cfg(feature = "runtime-benchmarks")]

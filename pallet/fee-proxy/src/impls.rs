@@ -56,24 +56,40 @@ where
 			// This is required as the fee value here does not take into account the max
 			// fee from an evm call. For all other extrinsics, the fee parameter
 			// should cover all required fees.
-			if let Some(pallet_evm::Call::call { gas_limit, max_fee_per_gas, .. }) =
-				call.is_sub_type()
+			if let Some(pallet_evm::Call::call {
+				gas_limit,
+				max_fee_per_gas,
+				max_priority_fee_per_gas,
+				..
+			}) = call.is_sub_type()
 			{
-				if let Some(fee_preferences_data) =
-					get_fee_preferences_data::<
-						T,
-						<T as Config>::ErcIdConversion,
-						pallet_futurepass::Pallet<T>,
-					>(*gas_limit, Some(*max_fee_per_gas), *payment_asset)
-					.ok()
+				if let Some(fee_preferences_data) = get_fee_preferences_data::<
+					T,
+					<T as Config>::ErcIdConversion,
+					pallet_futurepass::Pallet<T>,
+				>(
+					*gas_limit,
+					None,
+					Some(*max_fee_per_gas),
+					*max_priority_fee_per_gas,
+					*payment_asset,
+				)
+				.ok()
 				{
 					total_fee = total_fee.saturating_add(fee_preferences_data.total_fee_scaled);
 				}
 			}
 
 			let path: &[AssetId] = &[*payment_asset, native_asset];
-			pallet_dex::Pallet::<T>::do_swap_with_exact_target(who, total_fee, *max_payment, path)
-				.map_err(|_| InvalidTransaction::Payment)?;
+			pallet_dex::Pallet::<T>::do_swap_with_exact_target(
+				who,
+				total_fee,
+				*max_payment,
+				path,
+				who.clone(),
+				None,
+			)
+			.map_err(|_| InvalidTransaction::Payment)?;
 		};
 
 		<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::withdraw_fee(

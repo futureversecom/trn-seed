@@ -11,14 +11,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
 use core::fmt::Write;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;
-use pallet_nft::OriginChain;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
-use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
+use seed_primitives::{CollectionUuid, MetadataScheme, OriginChain, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec::Vec};
@@ -267,7 +265,7 @@ where
 		let mut weight: Weight = 0;
 
 		let destination: T::AccountId = destination.into();
-		let name = "".encode();
+		let name = BoundedVec::truncate_from(b"bridged-collection".to_vec());
 
 		for current_token in token_info.tokens.iter() {
 			// Assign collection owner to pallet. User can claim it later

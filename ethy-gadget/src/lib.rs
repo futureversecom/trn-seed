@@ -27,13 +27,12 @@ use prometheus::Registry;
 
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
+use seed_primitives::ethy::EthyApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::Block;
-
-use seed_primitives::ethy::EthyApi;
 
 mod error;
 mod gossip;
@@ -51,6 +50,7 @@ mod tests;
 
 pub use ethy_protocol_name::standard_name as protocol_standard_name;
 pub use keystore::EthyEcdsaToEthereum;
+pub use types::data_to_digest;
 
 pub(crate) mod ethy_protocol_name {
 	use sc_chain_spec::ChainSpec;

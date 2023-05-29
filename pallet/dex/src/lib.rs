@@ -168,10 +168,10 @@ pub mod pallet {
 		ZeroSupplyAmount,
 		/// The target amount is zero
 		ZeroTargetAmount,
-		/// The share increment is unacceptable
-		UnacceptableShareIncrement,
 		/// The Liquidity Provider token does not exist
 		LiquidityProviderTokenNotCreated,
+		/// The deadline has been missed
+		ExpiredDeadline,
 	}
 
 	#[pallet::event]
@@ -184,15 +184,15 @@ pub mod pallet {
 		/// asset_id_1, contribution_1\]
 		AddProvision(T::AccountId, AssetId, Balance, AssetId, Balance),
 		/// Add liquidity success. \[who, asset_id_0, reserve_0_increment,
-		/// asset_id_1, reserve_1_increment, share_increment\]
-		AddLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance),
+		/// asset_id_1, reserve_1_increment, share_increment, to\]
+		AddLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance, T::AccountId),
 		/// Remove liquidity from the trading pool success. \[who,
 		/// asset_id_0, reserve_0_decrement, asset_id_1, reserve_1_decrement,
-		/// share_decrement\]
-		RemoveLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance),
+		/// share_decrement, to\]
+		RemoveLiquidity(T::AccountId, AssetId, Balance, AssetId, Balance, Balance, T::AccountId),
 		/// Use supply Asset to swap target Asset. \[trader, trading_path,
-		/// supply_Asset_amount, target_Asset_amount\]
-		Swap(T::AccountId, Vec<AssetId>, Balance, Balance),
+		/// supply_Asset_amount, target_Asset_amount, to\]
+		Swap(T::AccountId, Vec<AssetId>, Balance, Balance, T::AccountId),
 		/// Enable trading pair. \[trading_pair\]
 		EnableTradingPair(TradingPair),
 		/// Disable trading pair. \[trading_pair\]
@@ -239,6 +239,10 @@ pub mod pallet {
 		/// - `path`: trading path.
 		/// - `amount_in`: exact supply amount.
 		/// - `amount_out_min`: acceptable minimum target amount.
+		/// - `to`: The recipient of the swapped token asset. The caller is the default recipient if
+		///   it is set to None.
+		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
+		///   it is set to None
 		#[pallet::weight(T::WeightInfo::swap_with_exact_supply())]
 		#[transactional]
 		pub fn swap_with_exact_supply(
@@ -246,9 +250,20 @@ pub mod pallet {
 			#[pallet::compact] amount_in: Balance,
 			#[pallet::compact] amount_out_min: Balance,
 			path: Vec<AssetId>,
+			to: Option<T::AccountId>,
+			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_swap_with_exact_supply(&who, amount_in, amount_out_min, &path)?;
+
+			Self::do_swap_with_exact_supply(
+				&who,
+				amount_in,
+				amount_out_min,
+				&path,
+				to.unwrap_or(who.clone()), /* set the caller as token recipient if
+				                            * it is None */
+				deadline,
+			)?;
 			Ok(().into())
 		}
 
@@ -259,6 +274,10 @@ pub mod pallet {
 		/// - `amount_out`: exact target amount.
 		/// - `amount_in_max`: acceptable maximum supply amount.
 		/// - `path`: trading path.
+		/// - `to`: The recipient of the swapped token asset. The caller is the default recipient if
+		///   it is set to None.
+		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
+		///   it is set to None
 		#[pallet::weight(T::WeightInfo::swap_with_exact_target())]
 		#[transactional]
 		pub fn swap_with_exact_target(
@@ -266,9 +285,20 @@ pub mod pallet {
 			#[pallet::compact] amount_out: Balance,
 			#[pallet::compact] amount_in_max: Balance,
 			path: Vec<AssetId>,
+			to: Option<T::AccountId>,
+			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_swap_with_exact_target(&who, amount_out, amount_in_max, &path)?;
+
+			Self::do_swap_with_exact_target(
+				&who,
+				amount_out,
+				amount_in_max,
+				&path,
+				to.unwrap_or(who.clone()), /* set the caller as token recipient if
+				                            * it is None */
+				deadline,
+			)?;
 			Ok(().into())
 		}
 
@@ -282,32 +312,35 @@ pub mod pallet {
 		/// - Creates and enables TradingPair LP token if it does not exist for trading pair.
 		/// - Fails to add liquidity for `NotEnabled` trading pair.
 		///
-		/// - `asset_id_a`: Asset id A.
-		/// - `asset_id_b`: Asset id B.
+		/// - `token_a`: Asset id A.
+		/// - `token_b`: Asset id B.
 		/// - `amount_a_desired`: amount a desired to add.
 		/// - `amount_b_desired`: amount b desired to add.
 		/// - `amount_a_min`: amount a minimum willing to add.
 		/// - `amount_b_min`: amount b minimum willing to add.
-		/// - `min_share_increment`: minimum expected lp token shares to be recieved.
+		/// - `to`: The recipient of the LP token. The caller is the default recipient if it is set
+		///   to None.
+		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
+		///   it is set to None
 		#[pallet::weight(T::WeightInfo::add_liquidity())]
 		#[transactional]
 		pub fn add_liquidity(
 			origin: OriginFor<T>,
-			asset_id_a: AssetId,
-			asset_id_b: AssetId,
+			token_a: AssetId,
+			token_b: AssetId,
 			#[pallet::compact] amount_a_desired: Balance,
 			#[pallet::compact] amount_b_desired: Balance,
 			#[pallet::compact] amount_a_min: Balance,
 			#[pallet::compact] amount_b_min: Balance,
-			#[pallet::compact] min_share_increment: Balance, /* TODO: may not need this (not
-			                                                  * used in uniswapv2) */
+			to: Option<T::AccountId>,
+			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
+			ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
 			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
 
-			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+			let trading_pair = TradingPair::new(token_a, token_b);
 			// create trading pair & lp token if non-existent
 			if Self::lp_token_id(&trading_pair).is_none() {
 				Self::create_lp_token(&trading_pair)?;
@@ -315,13 +348,15 @@ pub mod pallet {
 
 			Self::do_add_liquidity(
 				&who,
-				asset_id_a,
-				asset_id_b,
+				token_a,
+				token_b,
 				amount_a_desired,
 				amount_b_desired,
 				amount_a_min,
 				amount_b_min,
-				min_share_increment,
+				to.unwrap_or(who.clone()), /* set the caller as LP recipient if
+				                            * it is None */
+				deadline,
 			)?;
 			Ok(().into())
 		}
@@ -331,29 +366,39 @@ pub mod pallet {
 		/// pool in proportion, and withdraw liquidity incentive interest.
 		/// - note: liquidity can still be withdrawn for `NotEnabled` trading pairs.
 		///
-		/// - `asset_id_a`: Asset id A.
-		/// - `asset_id_b`: Asset id B.
-		/// - `remove_liquidity`: liquidity amount to remove.
-		/// - `min_withdrawn_a`: minimum amount of asset A to be withdrawn from LP token.
-		/// - `min_withdrawn_b`: minimum amount of asset B to be withdrawn from LP token.
+		/// - `token_a`: Asset id A.
+		/// - `token_b`: Asset id B.
+		/// - `liquidity`: liquidity amount to remove.
+		/// - `amount_a_min`: minimum amount of asset A to be withdrawn from LP token.
+		/// - `amount_b_min`: minimum amount of asset B to be withdrawn from LP token.
+		/// - `to`: The recipient of the withdrawn token assets. The caller is the default recipient
+		///   if it is set to None.
+		/// - `deadline`: The deadline of executing this extrinsic. The deadline won't be checked if
+		///   it is set to None
 		#[pallet::weight(T::WeightInfo::remove_liquidity())]
 		#[transactional]
 		pub fn remove_liquidity(
 			origin: OriginFor<T>,
-			asset_id_a: AssetId,
-			asset_id_b: AssetId,
-			#[pallet::compact] remove_liquidity: Balance,
-			#[pallet::compact] min_withdrawn_a: Balance,
-			#[pallet::compact] min_withdrawn_b: Balance,
+			token_a: AssetId,
+			token_b: AssetId,
+			#[pallet::compact] liquidity: Balance,
+			#[pallet::compact] amount_a_min: Balance,
+			#[pallet::compact] amount_b_min: Balance,
+			to: Option<T::AccountId>,
+			deadline: Option<T::BlockNumber>,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+
 			Self::do_remove_liquidity(
 				&who,
-				asset_id_a,
-				asset_id_b,
-				remove_liquidity,
-				min_withdrawn_a,
-				min_withdrawn_b,
+				token_a,
+				token_b,
+				liquidity,
+				amount_a_min,
+				amount_b_min,
+				to.unwrap_or(who.clone()), /* set the caller as token recipient if
+				                            * it is None */
+				deadline,
 			)?;
 			Ok(().into())
 		}
@@ -362,18 +407,18 @@ pub mod pallet {
 		/// - Requires LP token to be created and in the `NotEnabled` status
 		/// - Only root can enable a disabled trading pair
 		///
-		/// - `asset_id_a`: Asset id A.
-		/// - `asset_id_b`: Asset id B.
+		/// - `token_a`: Asset id A.
+		/// - `token_b`: Asset id B.
 		#[pallet::weight(T::WeightInfo::reenable_trading_pair())]
 		#[transactional]
 		pub fn reenable_trading_pair(
 			origin: OriginFor<T>,
-			asset_id_a: AssetId,
-			asset_id_b: AssetId,
+			token_a: AssetId,
+			token_b: AssetId,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+			let trading_pair = TradingPair::new(token_a, token_b);
 
 			ensure!(
 				Self::lp_token_id(&trading_pair).is_some(),
@@ -395,18 +440,18 @@ pub mod pallet {
 		/// - Requires LP token to be created and in the `Enabled` status
 		/// - Only root can disable trading pair
 		///
-		/// - `asset_id_a`: Asset id A.
-		/// - `asset_id_b`: Asset id B.
+		/// - `token_a`: Asset id A.
+		/// - `token_b`: Asset id B.
 		#[pallet::weight(T::WeightInfo::disable_trading_pair())]
 		#[transactional]
 		pub fn disable_trading_pair(
 			origin: OriginFor<T>,
-			asset_id_a: AssetId,
-			asset_id_b: AssetId,
+			token_a: AssetId,
+			token_b: AssetId,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+			let trading_pair = TradingPair::new(token_a, token_b);
 
 			ensure!(
 				Self::lp_token_id(&trading_pair).is_some(),
@@ -464,16 +509,16 @@ where
 		lp_token_name.push(b' ');
 		lp_token_name.extend_from_slice(&symbol_b_truncated);
 
-		let asset_id_a_bytes = trading_pair.0.to_string().into_bytes();
-		let asset_id_b_bytes = trading_pair.1.to_string().into_bytes();
+		let token_a_bytes = trading_pair.0.to_string().into_bytes();
+		let token_b_bytes = trading_pair.1.to_string().into_bytes();
 
-		// symbol: b"LP-" + asset_id_a_bytes + b"-" + asset_id_b_bytes
+		// symbol: b"LP-" + token_a_bytes + b"-" + token_b_bytes
 		let mut lp_token_symbol =
-			Vec::with_capacity(3 + asset_id_a_bytes.len() + 1 + asset_id_b_bytes.len());
+			Vec::with_capacity(3 + token_a_bytes.len() + 1 + token_b_bytes.len());
 		lp_token_symbol.extend_from_slice(b"LP-");
-		lp_token_symbol.extend_from_slice(&asset_id_a_bytes);
+		lp_token_symbol.extend_from_slice(&token_a_bytes);
 		lp_token_symbol.push(b'-');
-		lp_token_symbol.extend_from_slice(&asset_id_b_bytes);
+		lp_token_symbol.extend_from_slice(&token_b_bytes);
 
 		let lp_asset_id = T::MultiCurrency::create_with_metadata(
 			&trading_pair.pool_address(),
@@ -489,17 +534,24 @@ where
 
 	fn do_add_liquidity(
 		who: &T::AccountId,
-		asset_id_a: AssetId,
-		asset_id_b: AssetId,
+		token_a: AssetId,
+		token_b: AssetId,
 		amount_a_desired: Balance,
 		amount_b_desired: Balance,
 		amount_a_min: Balance,
 		amount_b_min: Balance,
-		min_share_increment: Balance,
-	) -> DispatchResult {
+		to: T::AccountId,
+		deadline: Option<T::BlockNumber>,
+	) -> sp_std::result::Result<(Balance, Balance, Balance), DispatchError> {
 		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
 
-		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+		// Check if the deadline is met when the `deadline` parameter is not None
+		if let Some(deadline_block) = deadline {
+			let current_block_number = frame_system::Pallet::<T>::block_number();
+			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
+		}
+
+		let trading_pair = TradingPair::new(token_a, token_b);
 		let lp_share_asset_id =
 			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
 
@@ -509,32 +561,26 @@ where
 		);
 
 		// match trading-pair to inputs - to match reserves in liquidity pool
-		let (
-			asset_id_a,
-			asset_id_b,
-			amount_a_desired,
-			amount_b_desired,
-			amount_a_min,
-			amount_b_min,
-		) = if asset_id_a == trading_pair.0 {
-			(
-				asset_id_a,
-				asset_id_b,
-				U256::from(amount_a_desired),
-				U256::from(amount_b_desired),
-				U256::from(amount_a_min),
-				U256::from(amount_b_min),
-			)
-		} else {
-			(
-				asset_id_b,
-				asset_id_a,
-				U256::from(amount_b_desired),
-				U256::from(amount_a_desired),
-				U256::from(amount_b_min),
-				U256::from(amount_a_min),
-			)
-		};
+		let (token_a, token_b, amount_a_desired, amount_b_desired, amount_a_min, amount_b_min) =
+			if token_a == trading_pair.0 {
+				(
+					token_a,
+					token_b,
+					U256::from(amount_a_desired),
+					U256::from(amount_b_desired),
+					U256::from(amount_a_min),
+					U256::from(amount_b_min),
+				)
+			} else {
+				(
+					token_b,
+					token_a,
+					U256::from(amount_b_desired),
+					U256::from(amount_a_desired),
+					U256::from(amount_b_min),
+					U256::from(amount_a_min),
+				)
+			};
 
 		let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
 
@@ -559,23 +605,11 @@ where
 		};
 
 		let pool_address = trading_pair.pool_address();
-		T::MultiCurrency::transfer(
-			asset_id_a,
-			who,
-			&pool_address,
-			amount_a.saturated_into(),
-			false,
-		)?;
-		T::MultiCurrency::transfer(
-			asset_id_b,
-			who,
-			&pool_address,
-			amount_b.saturated_into(),
-			false,
-		)?;
+		T::MultiCurrency::transfer(token_a, who, &pool_address, amount_a.saturated_into(), false)?;
+		T::MultiCurrency::transfer(token_b, who, &pool_address, amount_b.saturated_into(), false)?;
 
-		let balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
-		let balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
+		let balance_0 = T::MultiCurrency::balance(token_a, &pool_address);
+		let balance_1 = T::MultiCurrency::balance(token_b, &pool_address);
 		let amount_0 = balance_0.sub(reserve_a)?;
 		let amount_1 = balance_1.sub(reserve_b)?;
 
@@ -605,67 +639,65 @@ where
 		};
 
 		ensure!(!liquidity.is_zero(), Error::<T>::InvalidLiquidityIncrement,);
-		ensure!(liquidity >= min_share_increment, Error::<T>::UnacceptableShareIncrement);
 
-		// mint lp tokens to user
-		T::MultiCurrency::mint_into(lp_share_asset_id, who, liquidity)?;
+		// mint lp tokens to the LP to
+		T::MultiCurrency::mint_into(lp_share_asset_id, &to, liquidity)?;
 
-		let result = LiquidityPool::<T>::try_mutate(
-			trading_pair,
-			|(reserve_a, reserve_b)| -> DispatchResult {
-				// update reserves
-				*reserve_a = balance_0;
-				*reserve_b = balance_1;
+		LiquidityPool::<T>::try_mutate(trading_pair, |(reserve_a, reserve_b)| -> DispatchResult {
+			// update reserves
+			*reserve_a = balance_0;
+			*reserve_b = balance_1;
 
-				Self::deposit_event(Event::AddLiquidity(
-					who.clone(),
-					trading_pair.0,
-					amount_0,
-					trading_pair.1,
-					amount_1,
-					liquidity,
-				));
-				Ok(())
-			},
-		);
-		result
+			Self::deposit_event(Event::AddLiquidity(
+				who.clone(),
+				trading_pair.0,
+				amount_0,
+				trading_pair.1,
+				amount_1,
+				liquidity,
+				to,
+			));
+			Ok(())
+		})?;
+		Ok((amount_0, amount_1, liquidity))
 	}
 
 	#[transactional]
 	fn do_remove_liquidity(
 		who: &T::AccountId,
-		asset_id_a: AssetId,
-		asset_id_b: AssetId,
-		remove_liquidity: Balance,
-		min_withdrawn_a: Balance,
-		min_withdrawn_b: Balance,
-	) -> DispatchResult {
-		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+		token_a: AssetId,
+		token_b: AssetId,
+		liquidity: Balance,
+		amount_a_min: Balance,
+		amount_b_min: Balance,
+		to: T::AccountId,
+		deadline: Option<T::BlockNumber>,
+	) -> sp_std::result::Result<(Balance, Balance), DispatchError> {
+		// Check if the deadline is met when the `deadline` parameter is not None
+		if let Some(deadline_block) = deadline {
+			let current_block_number = frame_system::Pallet::<T>::block_number();
+			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
+		}
+
+		let trading_pair = TradingPair::new(token_a, token_b);
 		let lp_share_asset_id =
 			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
 
-		ensure!(asset_id_a != asset_id_b, Error::<T>::IdenticalTokenAddress);
+		ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
 
 		// transfer lp tokens to dex
 		let pool_address = trading_pair.pool_address();
-		T::MultiCurrency::transfer(
-			lp_share_asset_id,
-			&who,
-			&pool_address,
-			remove_liquidity,
-			false,
-		)?;
+		T::MultiCurrency::transfer(lp_share_asset_id, &who, &pool_address, liquidity, false)?;
 
 		// match trading-pair to inputs - to match reserves in liquidity pool
-		let (asset_id_a, asset_id_b, min_withdrawn_a, min_withdrawn_b) =
-			if asset_id_a == trading_pair.0 {
-				(asset_id_a, asset_id_b, min_withdrawn_a, min_withdrawn_b)
-			} else {
-				(asset_id_b, asset_id_a, min_withdrawn_b, min_withdrawn_a)
-			};
+		let (token_a, token_b, amount_a_min, amount_b_min) = if token_a == trading_pair.0 {
+			(token_a, token_b, amount_a_min, amount_b_min)
+		} else {
+			(token_b, token_a, amount_b_min, amount_a_min)
+		};
 
-		let mut balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
-		let mut balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
+		let mut balance_0 = T::MultiCurrency::balance(token_a, &pool_address);
+		let mut balance_1 = T::MultiCurrency::balance(token_b, &pool_address);
 		let liquidity = T::MultiCurrency::balance(lp_share_asset_id, &pool_address);
 		let total_supply = T::MultiCurrency::total_issuance(lp_share_asset_id);
 
@@ -682,56 +714,54 @@ where
 			.saturated_into();
 
 		ensure!(amount_0 > 0 && amount_1 > 0, Error::<T>::InsufficientLiquidityBurnt);
-		ensure!(amount_0 >= min_withdrawn_a, Error::<T>::InsufficientWithdrawnAmountA);
-		ensure!(amount_1 >= min_withdrawn_b, Error::<T>::InsufficientWithdrawnAmountB);
+		ensure!(amount_0 >= amount_a_min, Error::<T>::InsufficientWithdrawnAmountA);
+		ensure!(amount_1 >= amount_b_min, Error::<T>::InsufficientWithdrawnAmountB);
 
-		T::MultiCurrency::burn_from(lp_share_asset_id, &pool_address, remove_liquidity)?;
-		T::MultiCurrency::transfer(asset_id_a, &pool_address, who, amount_0, false)?;
-		T::MultiCurrency::transfer(asset_id_b, &pool_address, who, amount_1, false)?;
+		T::MultiCurrency::burn_from(lp_share_asset_id, &pool_address, liquidity)?;
+		T::MultiCurrency::transfer(token_a, &pool_address, &to, amount_0, false)?;
+		T::MultiCurrency::transfer(token_b, &pool_address, &to, amount_1, false)?;
 
-		balance_0 = T::MultiCurrency::balance(asset_id_a, &pool_address);
-		balance_1 = T::MultiCurrency::balance(asset_id_b, &pool_address);
+		balance_0 = T::MultiCurrency::balance(token_a, &pool_address);
+		balance_1 = T::MultiCurrency::balance(token_b, &pool_address);
 
-		let result = LiquidityPool::<T>::try_mutate(
-			trading_pair,
-			|(reserve_0, reserve_1)| -> DispatchResult {
-				*reserve_0 = balance_0;
-				*reserve_1 = balance_1;
+		LiquidityPool::<T>::try_mutate(trading_pair, |(reserve_0, reserve_1)| -> DispatchResult {
+			*reserve_0 = balance_0;
+			*reserve_1 = balance_1;
 
-				Self::deposit_event(Event::RemoveLiquidity(
-					who.clone(),
-					trading_pair.0,
-					amount_0,
-					trading_pair.1,
-					amount_1,
-					remove_liquidity,
-				));
-				Ok(())
-			},
-		);
-		result
+			Self::deposit_event(Event::RemoveLiquidity(
+				who.clone(),
+				trading_pair.0,
+				amount_0,
+				trading_pair.1,
+				amount_1,
+				liquidity,
+				to,
+			));
+			Ok(())
+		})?;
+		Ok((amount_0, amount_1))
 	}
 
 	pub fn get_lp_token_id(
-		asset_id_a: AssetId,
-		asset_id_b: AssetId,
+		token_a: AssetId,
+		token_b: AssetId,
 	) -> sp_std::result::Result<AssetId, DispatchError> {
-		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+		let trading_pair = TradingPair::new(token_a, token_b);
 		Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId.into())
 	}
 
-	pub fn get_liquidity(asset_id_a: AssetId, asset_id_b: AssetId) -> (Balance, Balance) {
-		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+	pub fn get_liquidity(token_a: AssetId, token_b: AssetId) -> (Balance, Balance) {
+		let trading_pair = TradingPair::new(token_a, token_b);
 		let (reserve_0, reserve_1) = Self::liquidity_pool(trading_pair);
-		if asset_id_a == trading_pair.0 {
+		if token_a == trading_pair.0 {
 			(reserve_0, reserve_1)
 		} else {
 			(reserve_1, reserve_0)
 		}
 	}
 
-	pub fn get_trading_pair_status(asset_id_a: AssetId, asset_id_b: AssetId) -> TradingPairStatus {
-		let trading_pair = TradingPair::new(asset_id_a, asset_id_b);
+	pub fn get_trading_pair_status(token_a: AssetId, token_b: AssetId) -> TradingPairStatus {
+		let trading_pair = TradingPair::new(token_a, token_b);
 		Self::trading_pair_statuses(trading_pair)
 	}
 
@@ -1003,7 +1033,15 @@ where
 		amount_in: Balance,
 		min_amount_out: Balance,
 		path: &[AssetId],
-	) -> sp_std::result::Result<Balance, DispatchError> {
+		to: T::AccountId,
+		deadline: Option<T::BlockNumber>,
+	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
+		// Check if the deadline is met when the `deadline` parameter is not None
+		if let Some(deadline_block) = deadline {
+			let current_block_number = frame_system::Pallet::<T>::block_number();
+			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
+		}
+
 		let amounts = Self::get_amounts_out(amount_in, &path)?;
 
 		// INSUFFICIENT_OUTPUT_AMOUNT
@@ -1014,14 +1052,15 @@ where
 
 		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
-		Self::_swap(&amounts, &path, who)?;
+		Self::_swap(&amounts, &path, &to)?;
 		Self::deposit_event(Event::Swap(
 			who.clone(),
 			path.to_vec(),
 			amount_in,
 			amounts[amounts.len() - 1],
+			to,
 		));
-		Ok(amounts[amounts.len() - 1])
+		Ok(amounts)
 	}
 
 	/// Ensured atomic.
@@ -1031,7 +1070,15 @@ where
 		amount_out: Balance,
 		amount_in_max: Balance,
 		path: &[AssetId],
-	) -> sp_std::result::Result<Balance, DispatchError> {
+		to: T::AccountId,
+		deadline: Option<T::BlockNumber>,
+	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
+		// Check if the deadline is met when the `deadline` parameter is not None
+		if let Some(deadline_block) = deadline {
+			let current_block_number = frame_system::Pallet::<T>::block_number();
+			ensure!(deadline_block >= current_block_number, Error::<T>::ExpiredDeadline);
+		}
+
 		let amounts = Self::get_amounts_in(amount_out, &path)?;
 
 		// EXCESSIVE_INPUT_AMOUNT
@@ -1040,8 +1087,8 @@ where
 		let pool_address = trading_pair.pool_address();
 		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
-		Self::_swap(&amounts, &path, who)?;
-		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out));
-		Ok(amounts[0])
+		Self::_swap(&amounts, &path, &to)?;
+		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out, to));
+		Ok(amounts)
 	}
 }
