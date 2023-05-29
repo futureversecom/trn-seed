@@ -224,7 +224,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set approval for an account (or contract) to transfer any tokens from a collection
+		/// Set approval for an account (or contract) to transfer any tokens from an SFT collection
 		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
 		#[pallet::weight(T::WeightInfo::erc1155_approval_for_all())]
 		pub fn erc1155_approval_for_all(

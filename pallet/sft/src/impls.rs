@@ -336,4 +336,25 @@ impl<T: Config> Pallet<T> {
 		};
 		token_info.free_balance_of(who)
 	}
+
+	/// Returns the total supply of a specified token_id
+	pub fn total_supply(token_id: TokenId) -> Balance {
+		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
+			return Balance::zero()
+		};
+		token_info.token_issuance
+	}
+
+	/// Indicates whether a token with a given id exists or not
+	pub fn token_exists(token_id: TokenId) -> bool {
+		TokenInfo::<T>::contains_key(token_id)
+	}
+
+	/// Returns the metadatascheme or None if no collection exists
+	pub fn token_uri(token_id: TokenId) -> Option<Vec<u8>> {
+		let Some(collection_info) = SftCollectionInfo::<T>::get(token_id.0) else {
+			return None
+		};
+		Some(collection_info.metadata_scheme.construct_token_uri(token_id.1))
+	}
 }

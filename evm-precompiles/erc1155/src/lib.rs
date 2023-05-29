@@ -20,13 +20,15 @@ use frame_support::{
 	traits::OriginTrait,
 };
 use pallet_evm::{Context, ExitReason, PrecompileFailure, PrecompileSet};
-use pallet_nft::traits::NFTExt;
-use sp_core::{H160, U256};
-use sp_runtime::{traits::SaturatedConversion, BoundedVec};
+use sp_core::{H160, H256, U256};
+use sp_runtime::{
+	traits::{Get, SaturatedConversion},
+	BoundedVec,
+};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId};
+use seed_primitives::{Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId};
 
 /// Solidity selector of the TransferSingle log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER_SINGLE: [u8; 32] =
@@ -43,6 +45,13 @@ pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 /// Solidity selector of the URI log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_URI: [u8; 32] = keccak256!("URI(string,uint256)");
 
+/// Solidity selector of the onERC1155Received(address,address,uint256,uint256,bytes) function
+pub const ON_ERC1155_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0xf2, 0x3a, 0x6e, 0x61];
+
+/// Solidity selector of the onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)
+/// function
+pub const ON_ERC1155_BATCH_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0xbc, 0x19, 0x7c, 0x81];
+
 #[precompile_utils::generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
@@ -58,11 +67,15 @@ pub enum Action {
 	BurnBatch = "burnBatch(address,uint256[],uint256[])",
 	// ERC1155 supply extensions
 	TotalSupply = "totalSupply(uint256)",
+	Exists = "exists(uint256)",
 	// ERC1155 metadata URI extensions
 	Uri = "uri(uint256)",
 	// TRN extensions
 	Mint = "mint(address,uint256,uint256)",
 	MintBatch = "mintBatch(address,uint256[],uint256[])",
+	// Selector used by SafeTransferFrom function
+	OnErc1155Received = "onERC1155Received(address,address,uint256,uint256,bytes)",
+	OnErc1155BatchReceived = "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -112,15 +125,18 @@ where
 						Err(e) => return Some(Err(e.into())),
 					};
 
-					// if let Err(err) = handle.check_function_modifier(match selector {
-					// 	Action::Approve |
-					// 	Action::SafeTransferFrom |
-					// 	Action::TransferFrom |
-					// 	Action::SafeTransferFromCallData => FunctionModifier::NonPayable,
-					// 	_ => FunctionModifier::View,
-					// }) {
-					// 	return Some(Err(err.into()))
-					// }
+					if let Err(err) = handle.check_function_modifier(match selector {
+						Action::SetApprovalForAll |
+						Action::SafeTransferFrom |
+						Action::SafeBatchTransferFrom |
+						Action::Burn |
+						Action::BurnBatch |
+						Action::Mint |
+						Action::MintBatch => FunctionModifier::NonPayable,
+						_ => FunctionModifier::View,
+					}) {
+						return Some(Err(err.into()))
+					}
 
 					match selector {
 						// Core ERC1155
@@ -130,7 +146,21 @@ where
 							Self::set_approval_for_all(collection_id, handle),
 						Action::IsApprovedForAll =>
 							Self::is_approved_for_all(collection_id, handle),
-						_ => Self::balance_of(collection_id, handle),
+						Action::SafeTransferFrom => Self::safe_transfer_from(collection_id, handle),
+						Action::SafeBatchTransferFrom =>
+							Self::safe_batch_transfer_from(collection_id, handle),
+						// Burnable
+						Action::Burn => Self::burn(collection_id, handle),
+						Action::BurnBatch => Self::burn_batch(collection_id, handle),
+						// Supply
+						Action::TotalSupply => Self::total_supply(collection_id, handle),
+						Action::Exists => Self::exists(collection_id, handle),
+						// Metadata
+						Action::Uri => Self::uri(collection_id, handle),
+						// TRN
+						Action::Mint => Self::mint(collection_id, handle),
+						Action::MintBatch => Self::mint_batch(collection_id, handle),
+						_ => return Some(Err(revert("ERC1155: Function not implemented").into())),
 					}
 				};
 				return Some(result)
@@ -178,7 +208,7 @@ where
 
 		// Parse args
 		let owner: H160 = owner.into();
-		ensure!(id > u32::MAX.into(), revert("ERC721: Expected token id <= 2^32"));
+		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 		let serial_number: SerialNumber = id.saturated_into();
 
 		// Get balance from SFT pallet
@@ -277,6 +307,489 @@ where
 			EvmDataWriter::new().write(approved).build(),
 		)
 		.record(handle)?;
+		Ok(succeed([]))
+	}
+
+	fn safe_transfer_from(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(4, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				from: Address,
+				to: Address,
+				id: U256,
+				amount: U256,
+				data: Bytes
+			}
+		);
+
+		let to: H160 = to.into();
+		Self::do_safe_transfer_acceptance_check(handle, from, to, id, amount, data)?;
+
+		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(amount > Balance::MAX.into(), revert("ERC1155: Expected amounts <= 2^128"));
+		let serial_number: SerialNumber = id.saturated_into();
+		let balance: Balance = amount.saturated_into();
+
+		let from: H160 = from.into();
+		let res = Self::do_safe_transfer(
+			collection_id,
+			handle,
+			from,
+			to,
+			vec![serial_number],
+			vec![balance],
+		)?;
+
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER_SINGLE,
+			handle.context().caller,
+			from,
+			to,
+			EvmDataWriter::new().write(id).write(amount).build(),
+		)
+		.record(handle)?;
+
+		Ok(res)
+	}
+
+	// Check that target implements onERC1155Received
+	// Check that caller is not a smart contract s.t. no code is inserted into
+	// pallet_evm::AccountCodes except if the caller is another precompile i.e. CallPermit
+	fn do_safe_transfer_acceptance_check(
+		handle: &mut impl PrecompileHandle,
+		from: Address,
+		to: H160,
+		id: U256,
+		amount: U256,
+		data: Bytes,
+	) -> Result<(), PrecompileFailure> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let caller_code = pallet_evm::Pallet::<Runtime>::account_codes(to);
+		if !(caller_code.is_empty()) {
+			let operator = handle.context().caller;
+			// Setup input for onErc1155Received call
+			let sub_context =
+				Context { address: to, caller: operator, apparent_value: Default::default() };
+			let input = EvmDataWriter::new_with_selector(Action::OnErc1155Received)
+				.write::<Address>(operator.into())
+				.write::<Address>(from)
+				.write::<U256>(id)
+				.write::<U256>(amount)
+				.write::<Bytes>(data)
+				.build();
+			let (reason, output) =
+				handle.call(to, None, input.clone(), handle.gas_limit(), false, &sub_context);
+			// Check response from call
+			match reason {
+				ExitReason::Succeed(_) => {
+					if output[..4] != ON_ERC1155_RECEIVED_FUNCTION_SELECTOR.to_vec() {
+						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into())
+					}
+				},
+				_ =>
+					return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()),
+			};
+		}
+		Ok(())
+	}
+
+	fn safe_batch_transfer_from(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(4, 32)?;
+
+		// Parse input.
+		read_args!(
+			handle,
+			{
+				from: Address,
+				to: Address,
+				ids: Vec<U256>,
+				amounts: Vec<U256>,
+				data: Bytes
+			}
+		);
+
+		let to: H160 = to.into();
+		Self::do_batch_safe_transfer_acceptance_check(
+			handle,
+			from,
+			to,
+			ids.clone(),
+			amounts.clone(),
+			data,
+		)?;
+
+		let serial_numbers: Vec<SerialNumber> = ids
+			.iter()
+			.map(|id| {
+				ensure!(*id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+				Ok((*id).saturated_into())
+			})
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+
+		let balances: Vec<Balance> = amounts
+			.iter()
+			.map(|amount| {
+				ensure!(
+					*amount > Balance::MAX.into(),
+					revert("ERC1155: Expected amounts <= 2^128")
+				);
+				Ok((*amount).saturated_into())
+			})
+			.collect::<Result<Vec<Balance>, PrecompileFailure>>()?;
+
+		let from: H160 = from.into();
+		let res =
+			Self::do_safe_transfer(collection_id, handle, from, to, serial_numbers, balances)?;
+
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER_BATCH,
+			handle.context().caller,
+			from,
+			to,
+			EvmDataWriter::new().write(ids).write(amounts).build(),
+		)
+		.record(handle)?;
+
+		Ok(res)
+	}
+
+	// Check that target implements onERC1155BatchReceived
+	// Check that caller is not a smart contract s.t. no code is inserted into
+	// pallet_evm::AccountCodes except if the caller is another precompile i.e. CallPermit
+	fn do_batch_safe_transfer_acceptance_check(
+		handle: &mut impl PrecompileHandle,
+		from: Address,
+		to: H160,
+		ids: Vec<U256>,
+		amounts: Vec<U256>,
+		data: Bytes,
+	) -> Result<(), PrecompileFailure> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let caller_code = pallet_evm::Pallet::<Runtime>::account_codes(to);
+		if !(caller_code.is_empty()) {
+			let operator = handle.context().caller;
+			// Setup input for onErc1155BatchReceived call
+			let sub_context =
+				Context { address: to, caller: operator, apparent_value: Default::default() };
+			let input = EvmDataWriter::new_with_selector(Action::OnErc1155Received)
+				.write::<Address>(operator.into())
+				.write::<Address>(from)
+				.write::<Vec<U256>>(ids)
+				.write::<Vec<U256>>(amounts)
+				.write::<Bytes>(data)
+				.build();
+			let (reason, output) =
+				handle.call(to, None, input.clone(), handle.gas_limit(), false, &sub_context);
+			// Check response from call
+			match reason {
+				ExitReason::Succeed(_) => {
+					if output[..4] != ON_ERC1155_BATCH_RECEIVED_FUNCTION_SELECTOR.to_vec() {
+						return Err(revert("ERC1155: ERC1155Receiver rejected tokens").into())
+					}
+				},
+				_ =>
+					return Err(revert("ERC1155: transfer to non-ERC1155Receiver implementer").into()),
+			};
+		}
+		Ok(())
+	}
+
+	fn do_safe_transfer(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+		from: H160,
+		to: H160,
+		serial_numbers: Vec<SerialNumber>,
+		amounts: Vec<Balance>,
+	) -> EvmResult<PrecompileOutput> {
+		ensure!(
+			serial_numbers.len() == amounts.len(),
+			revert("ERC1155: ids and amounts length mismatch")
+		);
+		ensure!(to != H160::default(), revert("ERC1155: transfer to the zero address"));
+
+		// Check approvals
+		if from != handle.context().caller {
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+				Runtime::AccountId::from(from),
+				(collection_id, Runtime::AccountId::from(handle.context().caller)),
+			)
+			.unwrap_or_default();
+			ensure!(is_approved, revert("ERC1155: Caller is not token owner or approved"));
+		}
+
+		// Build input BoundedVec from serial_numbers and amounts.
+		let combined = serial_numbers.into_iter().zip(amounts.into_iter()).collect::<Vec<_>>();
+		let serial_numbers: BoundedVec<
+			(SerialNumber, Balance),
+			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
+		> = BoundedVec::try_from(combined)
+			.map_err(|_| revert("ERC1155: Too many serial numbers in one transfer."))?;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(Runtime::AccountId::from(from)).into(),
+			pallet_sft::Call::<Runtime>::transfer {
+				collection_id,
+				serial_numbers,
+				new_owner: to.into(),
+			},
+		)?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn burn(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(handle, { account: Address, id: U256, value: U256 });
+
+		let operator = H160::from(account);
+		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(value > Balance::MAX.into(), revert("ERC1155: Expected amount <= 2^128"));
+		let serial_number: SerialNumber = id.saturated_into();
+		let amount: Balance = value.saturated_into();
+
+		// Check approvals
+		if operator != handle.context().caller {
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+				Runtime::AccountId::from(operator),
+				(collection_id, Runtime::AccountId::from(handle.context().caller)),
+			)
+			.unwrap_or_default();
+			ensure!(is_approved, revert("ERC1155: Caller is not token owner or approved"));
+		}
+
+		// Build input BoundedVec from serial_number and amount.
+		let combined = vec![(serial_number, amount)];
+		let serial_numbers: BoundedVec<
+			(SerialNumber, Balance),
+			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
+		> = BoundedVec::truncate_from(combined);
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(Runtime::AccountId::from(operator)).into(),
+			pallet_sft::Call::<Runtime>::burn { collection_id, serial_numbers },
+		)?;
+
+		Ok(succeed([]))
+	}
+
+	fn burn_batch(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(handle, { account: Address, ids: Vec<U256>, values: Vec<U256> });
+
+		let operator = H160::from(account);
+		ensure!(ids.len() == values.len(), revert("ERC1155: ids and values length mismatch"));
+		let serial_numbers: Vec<SerialNumber> = ids
+			.iter()
+			.map(|id| {
+				ensure!(*id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+				Ok((*id).saturated_into())
+			})
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+
+		let balances: Vec<Balance> = values
+			.iter()
+			.map(|amount| {
+				ensure!(*amount > Balance::MAX.into(), revert("ERC1155: Expected values <= 2^128"));
+				Ok((*amount).saturated_into())
+			})
+			.collect::<Result<Vec<Balance>, PrecompileFailure>>()?;
+
+		// Check approvals
+		if operator != handle.context().caller {
+			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+			let is_approved = pallet_token_approvals::Pallet::<Runtime>::erc1155_approvals_for_all(
+				Runtime::AccountId::from(operator),
+				(collection_id, Runtime::AccountId::from(handle.context().caller)),
+			)
+			.unwrap_or_default();
+			ensure!(is_approved, revert("ERC1155: Caller is not token owner or approved"));
+		}
+
+		// Build input BoundedVec from serial_number and amount.
+		let combined = serial_numbers.into_iter().zip(balances.into_iter()).collect::<Vec<_>>();
+		let serial_numbers: BoundedVec<
+			(SerialNumber, Balance),
+			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
+		> = BoundedVec::try_from(combined)
+			.map_err(|_| revert("ERC1155: Too many serial numbers in one burn."))?;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(Runtime::AccountId::from(operator)).into(),
+			pallet_sft::Call::<Runtime>::burn { collection_id, serial_numbers },
+		)?;
+
+		Ok(succeed([]))
+	}
+
+	fn total_supply(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { id: U256 });
+
+		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		let serial_number: SerialNumber = id.saturated_into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let total_supply =
+			pallet_sft::Pallet::<Runtime>::total_supply((collection_id, serial_number));
+
+		Ok(succeed(EvmDataWriter::new().write(total_supply).build()))
+	}
+
+	fn exists(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { id: U256 });
+
+		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		let serial_number: SerialNumber = id.saturated_into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let exists = pallet_sft::Pallet::<Runtime>::token_exists((collection_id, serial_number));
+
+		Ok(succeed(EvmDataWriter::new().write(exists).build()))
+	}
+
+	fn uri(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { id: U256 });
+
+		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		let serial_number: SerialNumber = id.saturated_into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let uri = pallet_sft::Pallet::<Runtime>::token_uri((collection_id, serial_number))
+			.unwrap_or_default();
+		Ok(succeed(EvmDataWriter::new().write::<Bytes>(uri.as_slice().into()).build()))
+	}
+
+	fn mint(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(handle, { to: Address, id: U256, amount: U256 });
+		let receiver = H160::from(to);
+		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		let serial_number: SerialNumber = id.saturated_into();
+		ensure!(amount > Balance::MAX.into(), revert("ERC1155: Expected values <= 2^128"));
+		let amount: Balance = amount.saturated_into();
+
+		// Build input BoundedVec from serial_number and amount.
+		let combined = vec![(serial_number, amount)];
+		let serial_numbers: BoundedVec<
+			(SerialNumber, Balance),
+			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
+		> = BoundedVec::truncate_from(combined);
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(Runtime::AccountId::from(handle.context().caller)).into(),
+			pallet_sft::Call::<Runtime>::mint {
+				collection_id,
+				serial_numbers,
+				token_owner: Some(Runtime::AccountId::from(receiver)),
+			},
+		)?;
+
+		Ok(succeed([]))
+	}
+
+	fn mint_batch(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
+
+		// Parse input.
+		read_args!(handle, { to: Address, ids: Vec<U256>, amounts: Vec<U256> });
+		ensure!(amounts.len() == ids.len(), revert("ERC1155: ids and amounts length mismatch"));
+
+		let receiver = H160::from(to);
+		let serial_numbers: Vec<SerialNumber> = ids
+			.iter()
+			.map(|id| {
+				ensure!(*id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+				Ok((*id).saturated_into())
+			})
+			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
+		let balances: Vec<Balance> = amounts
+			.iter()
+			.map(|amount| {
+				ensure!(
+					*amount > Balance::MAX.into(),
+					revert("ERC1155: Expected amounts <= 2^128")
+				);
+				Ok((*amount).saturated_into())
+			})
+			.collect::<Result<Vec<Balance>, PrecompileFailure>>()?;
+
+		// Build input BoundedVec from serial_number and amount.
+		let combined = serial_numbers.into_iter().zip(balances.into_iter()).collect::<Vec<_>>();
+		let serial_numbers: BoundedVec<
+			(SerialNumber, Balance),
+			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
+		> = BoundedVec::try_from(combined)
+			.map_err(|_| revert("ERC1155: Too many serial numbers in one mint."))?;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(Runtime::AccountId::from(handle.context().caller)).into(),
+			pallet_sft::Call::<Runtime>::mint {
+				collection_id,
+				serial_numbers,
+				token_owner: Some(receiver.into()),
+			},
+		)?;
+
 		Ok(succeed([]))
 	}
 }
