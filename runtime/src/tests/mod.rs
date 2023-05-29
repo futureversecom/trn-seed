@@ -22,7 +22,7 @@ mod staker_payouts;
 use crate::{
 	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
 	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
-	UncheckedExtrinsic, H256, U256,
+	UncheckedExtrinsic, H256, U256, UPGRADE_FEE_AMOUNT
 };
 use frame_support::{
 	assert_ok,
@@ -32,7 +32,6 @@ use frame_support::{
 use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
-use seed_runtime_constants::UPGRADE_FEE_AMOUNT;
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
