@@ -37,6 +37,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
 		weight += nft::Upgrade::on_runtime_upgrade();
+		StorageVersion::new(0).put::<Sft>();
 
 		weight
 	}
