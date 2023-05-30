@@ -34,7 +34,6 @@ impl OnRuntimeUpgrade for AllMigrations {
 		Ok(())
 	}
 
-	#[cfg(not(feature = "try-runtime"))]
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
 		weight += nft::Upgrade::on_runtime_upgrade();
@@ -59,6 +58,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
 		nft::Upgrade::post_upgrade()?;
+
 		Ok(())
 	}
 }
