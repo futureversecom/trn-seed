@@ -14,7 +14,8 @@ extern crate alloc;
 
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
-use pallet_evm::Precompile;
+use pallet_dex::WeightInfo;
+use pallet_evm::{GasWeightMapping, Precompile};
 use precompile_utils::prelude::*;
 use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid};
 use sp_core::{H160, H256, U256};
@@ -145,6 +146,11 @@ where
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::add_liquidity(),
+		))?;
+
 		let (amount_0, amount_1, liquidity) = pallet_dex::Pallet::<Runtime>::do_add_liquidity(
 			&caller,
 			token_a,
@@ -193,6 +199,11 @@ where
 
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
+
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::add_liquidity(),
+		))?;
 
 		let (amount_0, amount_1, liquidity) = pallet_dex::Pallet::<Runtime>::do_add_liquidity(
 			&caller,
@@ -246,6 +257,11 @@ where
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::remove_liquidity(),
+		))?;
+
 		let (amount_0, amount_1) = pallet_dex::Pallet::<Runtime>::do_remove_liquidity(
 			&caller,
 			token_a,
@@ -287,6 +303,11 @@ where
 				deadline: BlockNumber
 			}
 		);
+
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::remove_liquidity(),
+		))?;
 
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
@@ -334,6 +355,11 @@ where
 
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
+
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::swap_with_exact_supply(),
+		))?;
 
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_supply(
 			&caller,
@@ -384,6 +410,11 @@ where
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::swap_with_exact_target(),
+		))?;
+
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_target(
 			&caller,
 			amount_out,
@@ -431,6 +462,11 @@ where
 
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
+
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::swap_with_exact_supply(),
+		))?;
 
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_supply(
 			&caller,
@@ -481,6 +517,11 @@ where
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::swap_with_exact_target(),
+		))?;
+
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_target(
 			&caller,
 			amount_out,
@@ -530,6 +571,11 @@ where
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::swap_with_exact_supply(),
+		))?;
+
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_supply(
 			&caller,
 			amount_in,
@@ -578,6 +624,11 @@ where
 		let to: H160 = to.into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_dex::Config>::WeightInfo::swap_with_exact_target(),
+		))?;
+
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_target(
 			&caller,
 			amount_out,
@@ -610,8 +661,6 @@ where
 	}
 
 	fn quote(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
 		// Parse input.
 		read_args!(
 			handle,
@@ -679,8 +728,6 @@ where
 	}
 
 	fn get_amounts_out(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
 		// Parse input.
 		read_args!(
 			handle,
@@ -689,6 +736,11 @@ where
 				path: Vec<AssetId>
 			}
 		);
+
+		let path_len = path.len() as u64;
+		handle.record_cost(
+			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3 * path_len),
+		)?;
 
 		match pallet_dex::Pallet::<Runtime>::get_amounts_out(amount_in, &path) {
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
@@ -701,8 +753,6 @@ where
 	}
 
 	fn get_amounts_in(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
 		// Parse input.
 		read_args!(
 			handle,
@@ -711,6 +761,11 @@ where
 				path: Vec<AssetId>
 			}
 		);
+
+		let path_len = path.len() as u64;
+		handle.record_cost(
+			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3 * path_len),
+		)?;
 
 		match pallet_dex::Pallet::<Runtime>::get_amounts_in(amount_out, &path) {
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
