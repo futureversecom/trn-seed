@@ -532,7 +532,7 @@ where
 		Ok(lp_asset_id)
 	}
 
-	fn do_add_liquidity(
+	pub fn do_add_liquidity(
 		who: &T::AccountId,
 		token_a: AssetId,
 		token_b: AssetId,
@@ -663,7 +663,7 @@ where
 	}
 
 	#[transactional]
-	fn do_remove_liquidity(
+	pub fn do_remove_liquidity(
 		who: &T::AccountId,
 		token_a: AssetId,
 		token_b: AssetId,
@@ -767,7 +767,7 @@ where
 
 	/// Given an input amount of an asset and pair reserves, returns the maximum output amount of
 	/// the other asset
-	fn get_amount_out(
+	pub fn get_amount_out(
 		amount_in: Balance,
 		reserve_in: Balance,
 		reserve_out: Balance,
@@ -795,7 +795,7 @@ where
 	}
 
 	/// Get how much supply amount will be paid for specific target amount.
-	fn get_amount_in(
+	pub fn get_amount_in(
 		amount_out: Balance,
 		reserve_in: Balance,
 		reserve_out: Balance,
@@ -903,8 +903,14 @@ where
 
 	// Uniswapv2 `_swap` implementation in rust
 	// TODO: may need re-entrancy lock for this function
-	fn _swap(amounts: &[Balance], path: &[AssetId], to: &T::AccountId) -> DispatchResult {
+	fn _swap(
+		amounts: &[Balance],
+		path: &[AssetId],
+		to: &T::AccountId,
+	) -> sp_std::result::Result<Vec<(Balance, Balance, Balance, Balance)>, DispatchError> {
 		let mut i: usize = 0;
+		// build the result vec for precompile events
+		let mut res = Vec::new();
 		while i < path.len() - 1 {
 			let (input, output) = (path[i], path[i + 1]);
 			let amount_out = amounts[i + 1];
@@ -1021,21 +1027,26 @@ where
 				},
 			);
 
+			res.push((amount_0_in, amount_1_in, amount_0_out, amount_1_out));
+
 			i += 1;
 		}
-		Ok(())
+		Ok(res)
 	}
 
 	/// Ensured atomic.
 	#[transactional]
-	fn do_swap_with_exact_supply(
+	pub fn do_swap_with_exact_supply(
 		who: &T::AccountId,
 		amount_in: Balance,
 		min_amount_out: Balance,
 		path: &[AssetId],
 		to: T::AccountId,
 		deadline: Option<T::BlockNumber>,
-	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
+	) -> sp_std::result::Result<
+		(Vec<Balance>, Vec<(Balance, Balance, Balance, Balance)>),
+		DispatchError,
+	> {
 		// Check if the deadline is met when the `deadline` parameter is not None
 		if let Some(deadline_block) = deadline {
 			let current_block_number = frame_system::Pallet::<T>::block_number();
@@ -1052,7 +1063,7 @@ where
 
 		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
-		Self::_swap(&amounts, &path, &to)?;
+		let swap_res = Self::_swap(&amounts, &path, &to)?;
 		Self::deposit_event(Event::Swap(
 			who.clone(),
 			path.to_vec(),
@@ -1060,7 +1071,7 @@ where
 			amounts[amounts.len() - 1],
 			to,
 		));
-		Ok(amounts)
+		Ok((amounts, swap_res))
 	}
 
 	/// Ensured atomic.
@@ -1072,7 +1083,10 @@ where
 		path: &[AssetId],
 		to: T::AccountId,
 		deadline: Option<T::BlockNumber>,
-	) -> sp_std::result::Result<Vec<Balance>, DispatchError> {
+	) -> sp_std::result::Result<
+		(Vec<Balance>, Vec<(Balance, Balance, Balance, Balance)>),
+		DispatchError,
+	> {
 		// Check if the deadline is met when the `deadline` parameter is not None
 		if let Some(deadline_block) = deadline {
 			let current_block_number = frame_system::Pallet::<T>::block_number();
@@ -1087,8 +1101,8 @@ where
 		let pool_address = trading_pair.pool_address();
 		T::MultiCurrency::transfer(path[0], who, &pool_address, amounts[0], false)?;
 
-		Self::_swap(&amounts, &path, &to)?;
+		let swap_res = Self::_swap(&amounts, &path, &to)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out, to));
-		Ok(amounts)
+		Ok((amounts, swap_res))
 	}
 }
