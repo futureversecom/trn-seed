@@ -29,7 +29,7 @@ mod precompile_addresses {
 	pub const PEG_PRECOMPILE: u64 = 1939; // 0x0793
 	/// Precompile address for dex precompile
 	/// via an UniSwap V2 compliant interface (`DexPrecompile`)
-	pub const DEX_PRECOMPILE: u64 = 1632; // 0x0660
+	pub const DEX_PRECOMPILE: u64 = 56797; // 0xDDDD
 	/// The decoded location for the fee proxy function selector
 	/// 0x04BB = 00000100 10111011
 	pub const FEE_PROXY_ADDRESS: u64 = 1211; // 0x04BB

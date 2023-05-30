@@ -1,6 +1,6 @@
 # TRN Dex Precompile supported interfaces
 
-Precompile address: `0x0000000000000000000000000000000000000660`
+Precompile address: `0x000000000000000000000000000000000000DDDD`
 
 ```solidity
     event Mint(address indexed sender, uint amount0, uint amount1);
