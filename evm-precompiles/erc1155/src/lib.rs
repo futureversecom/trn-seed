@@ -12,7 +12,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use core::convert::TryFrom;
+use core::convert::{TryFrom, TryInto};
 use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
@@ -22,13 +22,15 @@ use frame_support::{
 use pallet_evm::{Context, ExitReason, PrecompileFailure, PrecompileSet};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
-	traits::{Get, SaturatedConversion},
+	traits::{Get, SaturatedConversion, Zero},
 	BoundedVec,
 };
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{Balance, CollectionUuid, EthAddress, SerialNumber, TokenCount, TokenId};
+use seed_primitives::{
+	Balance, CollectionUuid, EthAddress, MetadataScheme, SerialNumber, TokenCount, TokenId,
+};
 
 /// Solidity selector of the TransferSingle log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER_SINGLE: [u8; 32] =
@@ -42,8 +44,15 @@ pub const SELECTOR_LOG_TRANSFER_BATCH: [u8; 32] =
 pub const SELECTOR_LOG_APPROVAL_FOR_ALL: [u8; 32] =
 	keccak256!("ApprovalForAll(address,address,bool)");
 
-/// Solidity selector of the URI log, which is the Keccak of the Log signature.
-pub const SELECTOR_LOG_URI: [u8; 32] = keccak256!("URI(string,uint256)");
+/// Solidity selector of the OwnershipTransferred log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
+	keccak256!("OwnershipTransferred(address,address)");
+
+/// Solidity selector of the MaxSupplyUpdated log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxSupplyUpdated(uint32)");
+
+/// Solidity selector of the BaseURIUpdated log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
 
 /// Solidity selector of the onERC1155Received(address,address,uint256,uint256,bytes) function
 pub const ON_ERC1155_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0xf2, 0x3a, 0x6e, 0x61];
@@ -70,9 +79,16 @@ pub enum Action {
 	Exists = "exists(uint256)",
 	// ERC1155 metadata URI extensions
 	Uri = "uri(uint256)",
+	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
+	Owner = "owner()",
+	RenounceOwnership = "renounceOwnership()",
+	TransferOwnership = "transferOwnership(address)",
 	// TRN extensions
+	CreateToken = "createToken(bytes,uint128)",
 	Mint = "mint(address,uint256,uint256)",
 	MintBatch = "mintBatch(address,uint256[],uint256[])",
+	SetMaxSupply = "setMaxSupply(uint256,uint32)",
+	SetBaseURI = "setBaseURI(bytes)",
 	// Selector used by SafeTransferFrom function
 	OnErc1155Received = "onERC1155Received(address,address,uint256,uint256,bytes)",
 	OnErc1155BatchReceived = "onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)",
@@ -157,9 +173,18 @@ where
 						Action::Exists => Self::exists(collection_id, handle),
 						// Metadata
 						Action::Uri => Self::uri(collection_id, handle),
+						// Ownable
+						Action::Owner => Self::owner(collection_id, handle),
+						Action::RenounceOwnership =>
+							Self::renounce_ownership(collection_id, handle),
+						Action::TransferOwnership =>
+							Self::transfer_ownership(collection_id, handle),
 						// TRN
+						Action::CreateToken => Self::create_token(collection_id, handle),
 						Action::Mint => Self::mint(collection_id, handle),
 						Action::MintBatch => Self::mint_batch(collection_id, handle),
+						Action::SetMaxSupply => Self::set_max_supply(collection_id, handle),
+						Action::SetBaseURI => Self::set_base_uri(collection_id, handle),
 						_ => return Some(Err(revert("ERC1155: Function not implemented").into())),
 					}
 				};
@@ -260,8 +285,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
-
 		// Parse input.
 		read_args!(handle, { owner: Address, operator: Address });
 		let owner: Runtime::AccountId = H160::from(owner).into();
@@ -281,7 +304,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { operator: Address, approved: bool });
@@ -557,8 +580,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
 		// Parse input.
 		read_args!(handle, { account: Address, id: U256, value: U256 });
 
@@ -600,8 +621,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
 		// Parse input.
 		read_args!(handle, { account: Address, ids: Vec<U256>, values: Vec<U256> });
 
@@ -656,8 +675,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
-
 		// Parse input.
 		read_args!(handle, { id: U256 });
 
@@ -675,8 +692,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
-
 		// Parse input.
 		read_args!(handle, { id: U256 });
 
@@ -693,8 +708,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
-
 		// Parse input.
 		read_args!(handle, { id: U256 });
 
@@ -707,12 +720,131 @@ where
 		Ok(succeed(EvmDataWriter::new().write::<Bytes>(uri.as_slice().into()).build()))
 	}
 
+	fn owner(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+
+		let maybe_owner = pallet_sft::Pallet::<Runtime>::get_collection_owner(collection_id);
+		match maybe_owner {
+			Some(collection_owner) => Ok(succeed(
+				EvmDataWriter::new()
+					.write(Address::from(Into::<H160>::into(collection_owner)))
+					.build(),
+			)),
+			None => Err(revert(
+				alloc::format!("ERC1155: Collection does not exist").as_bytes().to_vec(),
+			)),
+		}
+	}
+
+	fn renounce_ownership(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		let origin = handle.context().caller;
+		let burn_account: H160 = H160::default();
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_sft::Call::<Runtime>::set_owner {
+				collection_id,
+				new_owner: burn_account.into(),
+			},
+		)?;
+
+		// emit OwnershipTransferred(address,address) event
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
+			origin,
+			EvmDataWriter::new().write(Address::from(burn_account)).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn transfer_ownership(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
+		// Parse input.
+		read_args!(handle, { new_owner: Address });
+		let new_owner: H160 = new_owner.into();
+		let origin = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_sft::Call::<Runtime>::set_owner { collection_id, new_owner: new_owner.into() },
+		)?;
+
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
+			origin,
+			EvmDataWriter::new().write(Address::from(new_owner)).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed(EvmDataWriter::new().write(true).build()))
+	}
+
+	fn create_token(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		read_args!(handle, { name: Bytes, max_issuance: U256});
+		// Parse name
+		let name: BoundedVec<u8, <Runtime as pallet_sft::Config>::StringLimit> = name
+			.as_bytes()
+			.to_vec()
+			.try_into()
+			.map_err(|_| revert("ERC1155: Collection name exceeds the maximum length"))?;
+		// Parse max issuance
+		ensure!(
+			max_issuance > Balance::MAX.into(),
+			revert("ERC1155: Expected max issuance <= 2^128")
+		);
+		let max_issuance: Balance = max_issuance.saturated_into();
+		// If max issuance is set to 0, we take this as no max issuance set
+		let max_issuance = if max_issuance == 0 { None } else { Some(max_issuance) };
+
+		let serial_number = pallet_sft::Pallet::<Runtime>::do_create_token(
+			handle.context().caller.into(),
+			collection_id,
+			name,
+			Balance::zero(),
+			max_issuance,
+			None,
+		);
+
+		match serial_number {
+			Ok(serial_number) =>
+				Ok(succeed(EvmDataWriter::new().write(U256::from(serial_number)).build())),
+			Err(err) => Err(revert(
+				alloc::format!("ERC1155: Create token failed {:?}", err.stripped())
+					.as_bytes()
+					.to_vec(),
+			)),
+		}
+	}
+
 	fn mint(
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
 		// Parse input.
 		read_args!(handle, { to: Address, id: U256, amount: U256 });
 		let receiver = H160::from(to);
@@ -746,8 +878,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
 		// Parse input.
 		read_args!(handle, { to: Address, ids: Vec<U256>, amounts: Vec<U256> });
 		ensure!(amounts.len() == ids.len(), revert("ERC1155: ids and amounts length mismatch"));
@@ -790,6 +920,78 @@ where
 			},
 		)?;
 
+		Ok(succeed([]))
+	}
+
+	fn set_max_supply(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		// Parse input.
+		read_args!(handle, { id: U256, max_supply: U256 });
+
+		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		let serial_number: SerialNumber = id.saturated_into();
+
+		// Parse max_supply
+		if max_supply > Balance::MAX.into() {
+			return Err(revert("ERC1155: Expected max_supply <= 2^128").into())
+		}
+		let max_issuance: Balance = max_supply.saturated_into();
+		let origin = handle.context().caller;
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_sft::Call::<Runtime>::set_max_issuance {
+				token_id: (collection_id, serial_number),
+				max_issuance,
+			},
+		)?;
+
+		// Emit event.
+		log1(
+			handle.code_address(),
+			SELECTOR_LOG_MAX_SUPPLY_UPDATED,
+			EvmDataWriter::new().write(max_supply).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
+	fn set_base_uri(
+		collection_id: CollectionUuid,
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(1, 32)?;
+
+		// Parse input.
+		read_args!(handle, { base_uri: Bytes });
+
+		let origin = handle.context().caller;
+		let metadata_scheme = MetadataScheme::try_from(base_uri.0.as_slice()).unwrap();
+
+		// Dispatch call (if enough gas).
+		RuntimeHelper::<Runtime>::try_dispatch(
+			handle,
+			Some(origin.into()).into(),
+			pallet_sft::Call::<Runtime>::set_base_uri { collection_id, metadata_scheme },
+		)?;
+
+		// Emit event.
+		log1(
+			handle.code_address(),
+			SELECTOR_LOG_BASE_URI_UPDATED,
+			EvmDataWriter::new().write(base_uri).build(),
+		)
+		.record(handle)?;
+
+		// Build output.
 		Ok(succeed([]))
 	}
 }

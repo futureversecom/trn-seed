@@ -21,11 +21,12 @@ use pallet_evm_precompiles_futurepass::FuturePassPrecompileSet;
 use pallet_evm_precompiles_futurepass_registrar::FuturePassRegistrarPrecompile;
 use pallet_evm_precompiles_nft::NftPrecompile;
 use pallet_evm_precompiles_peg::PegPrecompile;
+use pallet_evm_precompiles_sft::SftPrecompile;
 use precompile_utils::{
 	constants::{
 		ERC1155_PRECOMPILE_ADDRESS_PREFIX, ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		ERC721_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX,
-		FUTUREPASS_REGISTRAR_PRECOMPILE, NFT_PRECOMPILE, PEG_PRECOMPILE,
+		FUTUREPASS_REGISTRAR_PRECOMPILE, NFT_PRECOMPILE, PEG_PRECOMPILE, SFT_PRECOMPILE,
 	},
 	precompile_set::*,
 };
@@ -63,6 +64,7 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 				PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
 				// Futureverse specific precompiles:
 				PrecompileAt<AddressU64<NFT_PRECOMPILE>, NftPrecompile<R>>,
+				PrecompileAt<AddressU64<SFT_PRECOMPILE>, SftPrecompile<R>>,
 				PrecompileAt<AddressU64<PEG_PRECOMPILE>, PegPrecompile<R>>,
 				PrecompileAt<
 					AddressU64<FUTUREPASS_REGISTRAR_PRECOMPILE>,

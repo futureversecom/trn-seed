@@ -5244,6 +5244,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-precompiles-sft"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-evm",
+ "pallet-sft",
+ "precompile-utils",
+ "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-fee-control"
 version = "1.0.0"
 dependencies = [
@@ -8169,6 +8187,7 @@ dependencies = [
  "pallet-evm-precompiles-futurepass-registrar",
  "pallet-evm-precompiles-nft",
  "pallet-evm-precompiles-peg",
+ "pallet-evm-precompiles-sft",
  "pallet-fee-control",
  "pallet-fee-proxy",
  "pallet-futurepass",

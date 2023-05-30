@@ -93,6 +93,12 @@ export const NFT_PRECOMPILE_ABI = [
   "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
 ];
 
+
+export const SFT_PRECOMPILE_ABI = [
+  "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
+  "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
+];
+
 export const PEG_PRECOMPILE_ABI = [
   "event Erc20Withdrawal(uint64 indexed eventProofId, address indexed beneficiary, address indexed tokenAddress, uint128 balance)",
   "event Erc721Withdrawal(uint64 indexed eventProofId, address indexed beneficiary, address indexed tokenAddress, uint32[] serialNumbers)",
@@ -129,6 +135,41 @@ export const ERC721_PRECOMPILE_ABI = [
   "function setMaxSupply(uint32 maxSupply)",
   "function setBaseURI(bytes baseURI)",
   "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
+
+  // Ownable
+  ...OWNABLE_ABI,
+];
+
+export const ERC1155_PRECOMPILE_ABI = [
+  // ERC1155
+  "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
+  "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)",
+  "event ApprovalForAll(address indexed account, address indexed operator, bool approved)",
+
+  "function balanceOf(address owner, uint256 id) external view returns (uint256)",
+  "function balanceOfBatch(address[] owners, uint256[] ids) external view returns (uint256[] memory)",
+  "function setApprovalForAll(address operator, bool approved) external",
+  "function isApprovedForAll(address account, address operator) external view returns (bool)",
+  "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external",
+  "function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, uint256[] calldata amounts, bytes calldata data) external",
+
+  // Burnable
+  "function burn(address account, uint256 id, uint256 value) external",
+  "function burnBatch(address account, uint256[] ids, uint256[] values) external",
+
+  // Supply
+  "function totalSupply(uint256 id) external view returns (uint256)",
+  "function exists(uint256 id) external view returns (bool)",
+
+  // Metadata
+  "function uri(uint256 id) external view returns (string memory)",
+
+  // TRN
+  "function createToken(bytes name, uint128 maxIssuance) external returns (uint32)",
+  "function mint(address owner, uint256 id, uint256 amount) external",
+  "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
+  "function setMaxSupply(uint256 id, uint32 maxSupply) external",
+  "function setBaseURI(bytes baseURI) external",
 
   // Ownable
   ...OWNABLE_ABI,

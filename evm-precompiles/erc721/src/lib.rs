@@ -870,6 +870,8 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
+
 		let origin = handle.context().caller;
 		let burn_account: H160 = H160::default();
 
