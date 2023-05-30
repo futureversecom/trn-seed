@@ -15,7 +15,7 @@ extern crate alloc;
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::Precompile;
-use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
+use precompile_utils::prelude::*;
 use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid};
 use sp_core::{H160, H256, U256};
 use sp_std::{marker::PhantomData, vec::Vec};

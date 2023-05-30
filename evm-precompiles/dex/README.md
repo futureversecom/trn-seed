@@ -13,12 +13,8 @@ Precompile address: `0x0000000000000000000000000000000000000000`
         uint amount1Out,
         address indexed to
     );
-    event Sync(uint112 reserve0, uint112 reserve1);
 
 interface IUniswapV2Router01 {
-    function factory() external pure returns (address);
-    function WETH() external pure returns (address);
-
     function addLiquidity(
         address tokenA,
         address tokenB,
