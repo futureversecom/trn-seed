@@ -9,10 +9,9 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod dex;
 mod nft;
 
-use crate::{Futurepass, Marketplace, Sft};
+use crate::Sft;
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
