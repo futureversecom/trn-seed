@@ -14,13 +14,12 @@
 use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::{Currency, ExistenceRequirement, Get},
-	PalletId,
 };
 use sp_std::vec::Vec;
 
 use seed_primitives::RootUpgrader;
 
-use frame_system::{ensure_signed, pallet_prelude::OriginFor};
+use frame_system::pallet_prelude::OriginFor;
 pub use pallet::*;
 
 type BalanceOf<T> =
@@ -28,14 +27,9 @@ type BalanceOf<T> =
 
 #[frame_support::pallet]
 pub mod pallet {
-	use core::fmt::Debug;
-
-	use codec::{Codec, MaxEncodedLen};
-	use frame_support::{traits::WithdrawReasons, Parameter};
+	use frame_support::traits::WithdrawReasons;
 	use frame_system::ensure_root;
-	use scale_info::TypeInfo;
 	use seed_primitives::RootOrGovernanceKeyGetter;
-	use sp_runtime::traits::{AtLeast32BitUnsigned, MaybeSerializeDeserialize, Member};
 
 	use super::*;
 
@@ -48,16 +42,6 @@ pub mod pallet {
 		type RootUpgrader: RootUpgrader;
 		type Currency: Currency<Self::AccountId>;
 		type CallerKey: RootOrGovernanceKeyGetter<Self::AccountId>;
-		// type Balance: Parameter
-		// 	+ Member
-		// 	+ AtLeast32BitUnsigned
-		// 	+ Codec
-		// 	+ Default
-		// 	+ Copy
-		// 	+ MaybeSerializeDeserialize
-		// 	+ Debug
-		// 	+ MaxEncodedLen
-		// 	+ TypeInfo;
 		type WithdrawAmount: Get<BalanceOf<Self>>;
 	}
 
@@ -72,7 +56,6 @@ pub mod pallet {
 			let privileged_caller = T::CallerKey::get();
 
 			T::Currency::withdraw(
-				// privileged_caller.into(),
 				&privileged_caller,
 				T::WithdrawAmount::get(),
 				WithdrawReasons::FEE,
