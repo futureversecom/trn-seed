@@ -40,9 +40,8 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-use super::UPGRADE_FEE_AMOUNT;
 use crate::{
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
+	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, Sudo, System,
 	UncheckedExtrinsic,
 };
 use precompile_utils::{
@@ -55,7 +54,9 @@ use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
-use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
+use seed_primitives::{
+	AccountId, AssetId, Balance, Index, RootOrGovernanceKeyGetter, RootUpgrader, Signature,
+};
 use sp_runtime::traits::Dispatchable;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -744,16 +745,6 @@ where
 			}
 		}
 
-		if let Some(frame_system::Call::set_code { .. }) = call.is_sub_type() {
-			return <pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
-				who,
-				call,
-				info,
-				UPGRADE_FEE_AMOUNT.into(),
-				tip,
-			)
-		}
-
 		<pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
 			who, call, info, fee, tip,
 		)
@@ -827,6 +818,27 @@ where
 			new_owner,
 		)?;
 		Ok(())
+	}
+}
+
+pub struct RootUpgradeHelper;
+impl RootUpgrader for RootUpgradeHelper {
+	fn set_code_cheap(code: Vec<u8>) -> Result<(), sp_runtime::DispatchError> {
+		System::update_code_in_storage(code.as_ref())
+	}
+}
+
+// pub struct WithdrawHelper;
+// impl WithdrawExtrinsicHelper for WithdrawHelper {
+// 	fn call_withdraw(origin: OriginFor<Runtime>) -> Result<(), sp_runtime::DispatchError> {
+// 		Balances::withdraw(origin)
+// 	}
+// }
+
+pub struct RootOrGovernanceKey<Acct>(PhantomData<Acct>);
+impl<AcctId: From<AccountId>> RootOrGovernanceKeyGetter<AcctId> for RootOrGovernanceKey<AcctId> {
+	fn get() -> AcctId {
+		Sudo::key().unwrap().into()
 	}
 }
 

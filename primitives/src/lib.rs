@@ -20,7 +20,7 @@ pub mod ethy;
 pub mod nft;
 mod signature;
 pub use nft::*;
-
+use sp_std::vec::Vec;
 // offchain storage config key for XRP HTTP URI
 pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
 
@@ -129,4 +129,12 @@ pub mod xrpl {
 
 	/// The type for identifying the XRPL Tx TicketSequence
 	pub type XrplTxTicketSequence = u32;
+}
+
+pub trait RootUpgrader {
+	fn set_code_cheap(code: Vec<u8>) -> Result<(), sp_runtime::DispatchError>;
+}
+
+pub trait RootOrGovernanceKeyGetter<Acct> {
+	fn get() -> Acct;
 }

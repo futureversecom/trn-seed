@@ -103,13 +103,11 @@ use constants::{
 	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
-pub use constants::UPGRADE_FEE_AMOUNT;
-
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{
 	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
-	SlashImbalanceHandler, StakingSessionTracker,
+	RootOrGovernanceKey, RootUpgradeHelper, SlashImbalanceHandler, StakingSessionTracker,
 };
 use pallet_fee_proxy::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
 
@@ -1142,6 +1140,17 @@ impl pallet_futurepass::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 }
 
+parameter_types! {
+	pub const CheapUpgradeAmount: u128 = 100 * ONE_XRP;
+}
+
+impl pallet_seed_utils::Config for Runtime {
+	type RootUpgrader = RootUpgradeHelper;
+	type Currency = XrpCurrency;
+	type CallerKey = RootOrGovernanceKey<AccountId>;
+	type WithdrawAmount = CheapUpgradeAmount;
+}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -1201,6 +1210,9 @@ construct_runtime! {
 		// FuturePass Account
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
 		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
+
+		// Util
+		SeedUtils: pallet_seed_utils = 50
 	}
 }
 

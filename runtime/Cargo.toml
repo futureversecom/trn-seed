@@ -84,6 +84,7 @@ pallet-ethy = { path = "../pallet/ethy", default-features = false }
 pallet-fee-proxy = { path = "../pallet/fee-proxy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
+pallet-seed-utils = { path = "../pallet/seed-utils", default-features = false }
 pallet-sft = { path = "../pallet/sft", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
@@ -176,6 +177,7 @@ std = [
 	"pallet-fee-proxy/std",
 	"pallet-nft/std",
 	"pallet-nft-rpc-runtime-api/std",
+	"pallet-seed-utils/std",
 	"pallet-sft/std",
 	"pallet-xrpl-bridge/std",
 	"pallet-tx-fee-pot/std",

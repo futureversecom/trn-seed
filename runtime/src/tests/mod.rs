@@ -22,7 +22,7 @@ mod staker_payouts;
 use crate::{
 	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
 	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
-	UncheckedExtrinsic, H256, U256, UPGRADE_FEE_AMOUNT
+	UncheckedExtrinsic, H256, U256,
 };
 use frame_support::{
 	assert_ok,
@@ -294,30 +294,6 @@ fn fund_authorities_and_accounts() {
 		assert_eq!(
 			AssetsExt::reducible_balance(ROOT_ASSET_ID, &bob(), false),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
-		);
-	});
-}
-
-#[test]
-fn cheap_upgrade_is_cheap() {
-	ExtBuilder::default().build().execute_with(|| {
-		let set_code_call = frame_system::Call::<Runtime>::set_code {
-			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
-		};
-		let set_code_call = <Runtime as frame_system::Config>::Call::from(set_code_call);
-		let dispatch_info = set_code_call.get_dispatch_info();
-
-		assert_ok!(<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-			ChargeTransactionPayment::from(0),
-			&alice(),
-			&set_code_call,
-			&dispatch_info,
-			1,
-		));
-
-		assert_eq!(
-			AssetsExt::balance(XRP_ASSET_ID, &alice()),
-			INITIAL_ROOT_BALANCE - UPGRADE_FEE_AMOUNT
 		);
 	});
 }
