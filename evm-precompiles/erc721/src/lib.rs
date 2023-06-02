@@ -20,7 +20,7 @@ use frame_support::{
 };
 use pallet_evm::{Context, ExitReason, PrecompileSet};
 use pallet_nft::traits::NFTExt;
-use sp_core::{H160, U256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
@@ -333,14 +333,12 @@ where
 			return Err(revert("ERC721: Caller not approved").into())
 		}
 
-		log3(
-			handle.code_address(),
-			SELECTOR_LOG_TRANSFER,
-			from,
-			to,
-			EvmDataWriter::new().write(serial_number).build(),
-		)
-		.record(handle)?;
+		let u32_value: u32 = serial_number;
+		let u256_value: U256 = u32_value.into();
+		let bytes: [u8; 32] = u256_value.into();
+		let h256_value = H256::from_slice(&bytes);
+		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, h256_value, vec![])
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
@@ -464,14 +462,12 @@ where
 			},
 		)?;
 
-		log3(
-			handle.code_address(),
-			SELECTOR_LOG_TRANSFER,
-			from,
-			to,
-			EvmDataWriter::new().write(serial_number).build(),
-		)
-		.record(handle)?;
+		let u32_value: u32 = serial_number;
+		let u256_value: U256 = u32_value.into();
+		let bytes: [u8; 32] = u256_value.into();
+		let h256_value = H256::from_slice(&bytes);
+		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, h256_value, vec![])
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
@@ -513,12 +509,17 @@ where
 			},
 		)?;
 
-		log3(
+		let u32_value: u32 = serial_number;
+		let u256_value: U256 = u32_value.into();
+		let bytes: [u8; 32] = u256_value.into();
+		let h256_value = H256::from_slice(&bytes);
+		log4(
 			handle.code_address(),
 			SELECTOR_LOG_APPROVAL,
 			handle.context().caller,
 			to,
-			EvmDataWriter::new().write(serial_number).build(),
+			h256_value,
+			vec![],
 		)
 		.record(handle)?;
 
@@ -734,12 +735,17 @@ where
 		)?;
 
 		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
-			log3(
+			let u32_value: u32 = token_id;
+			let u256_value: U256 = u32_value.into();
+			let bytes: [u8; 32] = u256_value.into();
+			let h256_value = H256::from_slice(&bytes);
+			log4(
 				handle.code_address(),
 				SELECTOR_LOG_TRANSFER,
 				EthAddress::zero(),
 				to,
-				EvmDataWriter::new().write(token_id).build(),
+				h256_value,
+				vec![],
 			)
 			.record(handle)?;
 		}

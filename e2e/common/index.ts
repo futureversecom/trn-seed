@@ -118,8 +118,8 @@ export const PEG_PRECOMPILE_ABI = [
 
 export const ERC721_PRECOMPILE_ABI = [
   // ERC721
-  "event Transfer(address indexed from, address indexed to, uint256 tokenId)",
-  "event Approval(address indexed owner, address indexed approved, uint256 tokenId)",
+  "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
+  "event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)",
   "event ApprovalForAll(address indexed owner, address indexed operator, bool approved)",
 
   "function balanceOf(address who) public view returns (uint256)",
