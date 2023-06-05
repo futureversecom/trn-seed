@@ -39,6 +39,10 @@ interface IERC1155MetadataURI is IERC1155 {
 
 ```solidity
 interface TRN1155 is IERC165 {
+    event TokenCreated(uint32 serialNumber);
+    event MaxSupplyUpdated(uint128 maxSupply);
+    event BaseURIUpdated(string baseURI);
+
     function createToken(bytes name, uint128 maxIssuance) external returns (uint32);
     function mint(address owner, uint256 id, uint256 amount) external;
     function mintBatch(address owner, uint256[] ids, uint256[] amounts) external;

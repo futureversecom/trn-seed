@@ -10,6 +10,7 @@
     "format:fix": "prettier --config ./.prettierrc.yml --write \"**/*.{js,json,ts}\"",
     "lint": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts .",
     "test": "hardhat test",
+    "test:erc1155": "hardhat test --network seed './test/ERC1155Precompile.test.ts'",
     "seed": "docker-compose up && docker-compose rm -fsv"
   },
   "devDependencies": {

@@ -20,17 +20,15 @@ use frame_support::{
 	traits::OriginTrait,
 };
 use pallet_evm::{Context, ExitReason, PrecompileFailure, PrecompileSet};
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, U256};
 use sp_runtime::{
-	traits::{Get, SaturatedConversion, Zero},
+	traits::{SaturatedConversion, Zero},
 	BoundedVec,
 };
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{
-	Balance, CollectionUuid, EthAddress, MetadataScheme, SerialNumber, TokenCount, TokenId,
-};
+use seed_primitives::{Balance, CollectionUuid, MetadataScheme, SerialNumber};
 
 /// Solidity selector of the TransferSingle log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER_SINGLE: [u8; 32] =
@@ -49,7 +47,10 @@ pub const SELECTOR_LOG_OWNERSHIP_TRANSFERRED: [u8; 32] =
 	keccak256!("OwnershipTransferred(address,address)");
 
 /// Solidity selector of the MaxSupplyUpdated log, which is the Keccak of the Log signature.
-pub const SELECTOR_LOG_MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxSupplyUpdated(uint32)");
+pub const SELECTOR_LOG_MAX_SUPPLY_UPDATED: [u8; 32] = keccak256!("MaxSupplyUpdated(uint128)");
+
+/// Solidity selector of the TokenCreated log, which is the Keccak of the Log signature.
+pub const SELECTOR_LOG_TOKEN_CREATED: [u8; 32] = keccak256!("TokenCreated(uint32)");
 
 /// Solidity selector of the BaseURIUpdated log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
@@ -233,7 +234,7 @@ where
 
 		// Parse args
 		let owner: H160 = owner.into();
-		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 		let serial_number: SerialNumber = id.saturated_into();
 
 		// Get balance from SFT pallet
@@ -354,8 +355,8 @@ where
 		let to: H160 = to.into();
 		Self::do_safe_transfer_acceptance_check(handle, from, to, id, amount, data)?;
 
-		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
-		ensure!(amount > Balance::MAX.into(), revert("ERC1155: Expected amounts <= 2^128"));
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(amount <= Balance::MAX.into(), revert("ERC1155: Expected amounts <= 2^128"));
 		let serial_number: SerialNumber = id.saturated_into();
 		let balance: Balance = amount.saturated_into();
 
@@ -454,7 +455,7 @@ where
 		let serial_numbers: Vec<SerialNumber> = ids
 			.iter()
 			.map(|id| {
-				ensure!(*id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+				ensure!(*id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 				Ok((*id).saturated_into())
 			})
 			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
@@ -463,7 +464,7 @@ where
 			.iter()
 			.map(|amount| {
 				ensure!(
-					*amount > Balance::MAX.into(),
+					*amount <= Balance::MAX.into(),
 					revert("ERC1155: Expected amounts <= 2^128")
 				);
 				Ok((*amount).saturated_into())
@@ -584,8 +585,8 @@ where
 		read_args!(handle, { account: Address, id: U256, value: U256 });
 
 		let operator = H160::from(account);
-		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
-		ensure!(value > Balance::MAX.into(), revert("ERC1155: Expected amount <= 2^128"));
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(value <= Balance::MAX.into(), revert("ERC1155: Expected amount <= 2^128"));
 		let serial_number: SerialNumber = id.saturated_into();
 		let amount: Balance = value.saturated_into();
 
@@ -614,6 +615,16 @@ where
 			pallet_sft::Call::<Runtime>::burn { collection_id, serial_numbers },
 		)?;
 
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER_SINGLE,
+			handle.context().caller,
+			operator,
+			H160::zero(),
+			EvmDataWriter::new().write(id).write(amount).build(),
+		)
+		.record(handle)?;
+
 		Ok(succeed([]))
 	}
 
@@ -621,6 +632,8 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(4, 32)?;
+
 		// Parse input.
 		read_args!(handle, { account: Address, ids: Vec<U256>, values: Vec<U256> });
 
@@ -629,7 +642,7 @@ where
 		let serial_numbers: Vec<SerialNumber> = ids
 			.iter()
 			.map(|id| {
-				ensure!(*id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+				ensure!(*id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 				Ok((*id).saturated_into())
 			})
 			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
@@ -637,7 +650,10 @@ where
 		let balances: Vec<Balance> = values
 			.iter()
 			.map(|amount| {
-				ensure!(*amount > Balance::MAX.into(), revert("ERC1155: Expected values <= 2^128"));
+				ensure!(
+					*amount <= Balance::MAX.into(),
+					revert("ERC1155: Expected values <= 2^128")
+				);
 				Ok((*amount).saturated_into())
 			})
 			.collect::<Result<Vec<Balance>, PrecompileFailure>>()?;
@@ -668,6 +684,16 @@ where
 			pallet_sft::Call::<Runtime>::burn { collection_id, serial_numbers },
 		)?;
 
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER_BATCH,
+			handle.context().caller,
+			operator,
+			H160::zero(),
+			EvmDataWriter::new().write(ids).write(values).build(),
+		)
+		.record(handle)?;
+
 		Ok(succeed([]))
 	}
 
@@ -678,7 +704,7 @@ where
 		// Parse input.
 		read_args!(handle, { id: U256 });
 
-		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 		let serial_number: SerialNumber = id.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -695,7 +721,7 @@ where
 		// Parse input.
 		read_args!(handle, { id: U256 });
 
-		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 		let serial_number: SerialNumber = id.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -711,7 +737,7 @@ where
 		// Parse input.
 		read_args!(handle, { id: U256 });
 
-		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 		let serial_number: SerialNumber = id.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -814,7 +840,7 @@ where
 			.map_err(|_| revert("ERC1155: Collection name exceeds the maximum length"))?;
 		// Parse max issuance
 		ensure!(
-			max_issuance > Balance::MAX.into(),
+			max_issuance <= Balance::MAX.into(),
 			revert("ERC1155: Expected max issuance <= 2^128")
 		);
 		let max_issuance: Balance = max_issuance.saturated_into();
@@ -831,8 +857,16 @@ where
 		);
 
 		match serial_number {
-			Ok(serial_number) =>
-				Ok(succeed(EvmDataWriter::new().write(U256::from(serial_number)).build())),
+			Ok(serial_number) => {
+				log1(
+					handle.code_address(),
+					SELECTOR_LOG_TOKEN_CREATED,
+					EvmDataWriter::new().write(serial_number).build(),
+				)
+				.record(handle)?;
+
+				Ok(succeed(EvmDataWriter::new().write(U256::from(serial_number)).build()))
+			},
 			Err(err) => Err(revert(
 				alloc::format!("ERC1155: Create token failed {:?}", err.stripped())
 					.as_bytes()
@@ -845,16 +879,18 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(4, 32)?;
+
 		// Parse input.
 		read_args!(handle, { to: Address, id: U256, amount: U256 });
 		let receiver = H160::from(to);
-		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 		let serial_number: SerialNumber = id.saturated_into();
-		ensure!(amount > Balance::MAX.into(), revert("ERC1155: Expected values <= 2^128"));
-		let amount: Balance = amount.saturated_into();
+		ensure!(amount <= Balance::MAX.into(), revert("ERC1155: Expected values <= 2^128"));
+		let balance: Balance = amount.saturated_into();
 
 		// Build input BoundedVec from serial_number and amount.
-		let combined = vec![(serial_number, amount)];
+		let combined = vec![(serial_number, balance)];
 		let serial_numbers: BoundedVec<
 			(SerialNumber, Balance),
 			<Runtime as pallet_sft::Config>::MaxSerialsPerMint,
@@ -871,6 +907,16 @@ where
 			},
 		)?;
 
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER_SINGLE,
+			handle.context().caller,
+			H160::zero(),
+			receiver,
+			EvmDataWriter::new().write(id).write(amount).build(),
+		)
+		.record(handle)?;
+
 		Ok(succeed([]))
 	}
 
@@ -878,6 +924,8 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(4, 32)?;
+
 		// Parse input.
 		read_args!(handle, { to: Address, ids: Vec<U256>, amounts: Vec<U256> });
 		ensure!(amounts.len() == ids.len(), revert("ERC1155: ids and amounts length mismatch"));
@@ -886,7 +934,7 @@ where
 		let serial_numbers: Vec<SerialNumber> = ids
 			.iter()
 			.map(|id| {
-				ensure!(*id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+				ensure!(*id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 				Ok((*id).saturated_into())
 			})
 			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
@@ -894,7 +942,7 @@ where
 			.iter()
 			.map(|amount| {
 				ensure!(
-					*amount > Balance::MAX.into(),
+					*amount <= Balance::MAX.into(),
 					revert("ERC1155: Expected amounts <= 2^128")
 				);
 				Ok((*amount).saturated_into())
@@ -920,6 +968,16 @@ where
 			},
 		)?;
 
+		log4(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER_BATCH,
+			handle.context().caller,
+			H160::zero(),
+			receiver,
+			EvmDataWriter::new().write(ids).write(amounts).build(),
+		)
+		.record(handle)?;
+
 		Ok(succeed([]))
 	}
 
@@ -932,7 +990,7 @@ where
 		// Parse input.
 		read_args!(handle, { id: U256, max_supply: U256 });
 
-		ensure!(id > u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
+		ensure!(id <= u32::MAX.into(), revert("ERC1155: Expected token id <= 2^32"));
 		let serial_number: SerialNumber = id.saturated_into();
 
 		// Parse max_supply
@@ -974,7 +1032,8 @@ where
 		read_args!(handle, { base_uri: Bytes });
 
 		let origin = handle.context().caller;
-		let metadata_scheme = MetadataScheme::try_from(base_uri.0.as_slice()).unwrap();
+		let metadata_scheme = MetadataScheme::try_from(base_uri.0.as_slice())
+			.map_err(|_| revert("ERC1155: Base uri too long."))?;
 
 		// Dispatch call (if enough gas).
 		RuntimeHelper::<Runtime>::try_dispatch(

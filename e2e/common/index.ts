@@ -50,6 +50,8 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
+// Precompile address for sft precompile is 1731
+export const SFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006c3";
 // Precompile address for futurepass registrar precompile is 65535
 export const FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
 
@@ -143,7 +145,7 @@ export const ERC721_PRECOMPILE_ABI = [
 export const ERC1155_PRECOMPILE_ABI = [
   // ERC1155
   "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
-  "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values)",
+  "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] balances)",
   "event ApprovalForAll(address indexed account, address indexed operator, bool approved)",
 
   "function balanceOf(address owner, uint256 id) external view returns (uint256)",
@@ -165,6 +167,10 @@ export const ERC1155_PRECOMPILE_ABI = [
   "function uri(uint256 id) external view returns (string memory)",
 
   // TRN
+  "event TokenCreated(uint32 serialNumber)",
+  "event MaxSupplyUpdated(uint128 maxSupply)",
+  "event BaseURIUpdated(string baseURI)",
+
   "function createToken(bytes name, uint128 maxIssuance) external returns (uint32)",
   "function mint(address owner, uint256 id, uint256 amount) external",
   "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
