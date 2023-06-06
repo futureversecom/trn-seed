@@ -11,10 +11,12 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-	pallet_prelude::DispatchResult,
-	traits::{Currency, ExistenceRequirement, Get},
-};
+#[cfg(test)]
+pub mod mock;
+#[cfg(test)]
+mod tests;
+
+use frame_support::traits::{Currency, ExistenceRequirement, Get};
 use sp_std::vec::Vec;
 
 use seed_primitives::RootUpgrader;
@@ -27,7 +29,10 @@ type BalanceOf<T> =
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::traits::WithdrawReasons;
+	use frame_support::{
+		pallet_prelude::DispatchResultWithPostInfo, traits::WithdrawReasons,
+		weights::PostDispatchInfo,
+	};
 	use frame_system::ensure_root;
 	use seed_primitives::RootOrGovernanceKeyGetter;
 
@@ -48,7 +53,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(25000000)]
-		pub fn cheap_upgrade(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResult {
+		pub fn set_code_cheap(origin: OriginFor<T>, code: Vec<u8>) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
 			T::RootUpgrader::set_code_cheap(code)?;
@@ -62,7 +67,10 @@ pub mod pallet {
 				ExistenceRequirement::KeepAlive,
 			)?;
 
-			Ok(())
+			Ok(PostDispatchInfo {
+				actual_weight: Some(2500000),
+				pays_fee: frame_support::weights::Pays::No,
+			})
 		}
 	}
 }

@@ -17,9 +17,18 @@ sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polka
 sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
-# pallet-assets-ext = { path = "../assets-ext", default-features = false }
-# seed-pallet-common = { path = "../common", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
+
+[dev-dependencies]
+pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-balances = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+substrate-test-runtime-client = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-io = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-assets-ext = { path = "../assets-ext" }
+pallet-sudo = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-externalities = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-version = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 [features]
 default = ["std"]

@@ -828,13 +828,6 @@ impl RootUpgrader for RootUpgradeHelper {
 	}
 }
 
-// pub struct WithdrawHelper;
-// impl WithdrawExtrinsicHelper for WithdrawHelper {
-// 	fn call_withdraw(origin: OriginFor<Runtime>) -> Result<(), sp_runtime::DispatchError> {
-// 		Balances::withdraw(origin)
-// 	}
-// }
-
 pub struct RootOrGovernanceKey<Acct>(PhantomData<Acct>);
 impl<AcctId: From<AccountId>> RootOrGovernanceKeyGetter<AcctId> for RootOrGovernanceKey<AcctId> {
 	fn get() -> AcctId {

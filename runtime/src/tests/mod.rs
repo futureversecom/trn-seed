@@ -24,12 +24,7 @@ use crate::{
 	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
 	UncheckedExtrinsic, H256, U256,
 };
-use frame_support::{
-	assert_ok,
-	traits::{fungibles::Inspect as _, GenesisBuild, Get},
-	weights::GetDispatchInfo,
-};
-use pallet_transaction_payment::ChargeTransactionPayment;
+use frame_support::traits::{fungibles::Inspect as _, GenesisBuild, Get};
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
 use sp_core::{
@@ -37,7 +32,7 @@ use sp_core::{
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
 	Encode, Pair,
 };
-use sp_runtime::{generic::Era, traits::SignedExtension, Perbill};
+use sp_runtime::{generic::Era, Perbill};
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;

@@ -5551,12 +5551,21 @@ version = "0.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-assets",
+ "pallet-assets-ext",
+ "pallet-balances",
+ "pallet-sudo",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
  "seed-primitives",
  "sp-core",
+ "sp-externalities",
+ "sp-io",
  "sp-runtime",
  "sp-std",
+ "sp-version",
+ "substrate-test-runtime-client",
 ]
 
 [[package]]
