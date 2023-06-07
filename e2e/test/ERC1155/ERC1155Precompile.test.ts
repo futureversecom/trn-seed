@@ -520,7 +520,7 @@ describe("ERC1155 Precompile", function () {
       serialNumber,
       transferAmount,
       callData,
-      { gasLimit: 50000 }
+      { gasLimit: 50000 },
     );
     await tx2.wait();
 
@@ -552,7 +552,7 @@ describe("ERC1155 Precompile", function () {
       [serialNumber1, serialNumber2],
       [transferAmount1, transferAmount2],
       callData,
-      { gasLimit: 50000 }
+      { gasLimit: 50000 },
     );
     await tx2.wait();
 
