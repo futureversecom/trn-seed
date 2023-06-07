@@ -488,14 +488,14 @@ describe("ERC1155 Precompile", function () {
   it("SetApprovalForAll, isApprovedForAll via Proxy", async () => {
     await createToken(100);
 
-    const tx = await precompileCaller.setApprovalForAllProxy(alithSigner.address, true);
+    const tx = await precompileCaller.setApprovalForAllProxy(alithSigner.address, true, { gasLimit: 50000 });
     await tx.wait();
 
     // Verify isApprovedForAll is correct
     expect(await precompileCaller.isApprovedForAllProxy(precompileCaller.address, alithSigner.address)).to.equal(true);
 
     // set approval to false
-    const tx2 = await precompileCaller.setApprovalForAllProxy(alithSigner.address, false);
+    const tx2 = await precompileCaller.setApprovalForAllProxy(alithSigner.address, false, { gasLimit: 50000 });
     await tx2.wait();
 
     // Verify isApprovedForAll is removed
@@ -507,7 +507,7 @@ describe("ERC1155 Precompile", function () {
     const serialNumber = await createToken(initialIssuance);
 
     // Approve contract
-    const tx = await erc1155Precompile.setApprovalForAll(precompileCaller.address, true);
+    const tx = await erc1155Precompile.setApprovalForAll(precompileCaller.address, true, { gasLimit: 50000 });
     await tx.wait();
     // Verify isApprovedForAll is correct
     expect(await erc1155Precompile.isApprovedForAll(bobSigner.address, precompileCaller.address)).to.equal(true);
@@ -520,6 +520,7 @@ describe("ERC1155 Precompile", function () {
       serialNumber,
       transferAmount,
       callData,
+      { gasLimit: 50000 }
     );
     await tx2.wait();
 
@@ -537,7 +538,7 @@ describe("ERC1155 Precompile", function () {
     const serialNumber2 = await createToken(initialIssuance2);
 
     // Approve contract
-    const tx = await erc1155Precompile.setApprovalForAll(precompileCaller.address, true);
+    const tx = await erc1155Precompile.setApprovalForAll(precompileCaller.address, true, { gasLimit: 50000 });
     await tx.wait();
     // Verify isApprovedForAll is correct
     expect(await erc1155Precompile.isApprovedForAll(bobSigner.address, precompileCaller.address)).to.equal(true);
@@ -551,6 +552,7 @@ describe("ERC1155 Precompile", function () {
       [serialNumber1, serialNumber2],
       [transferAmount1, transferAmount2],
       callData,
+      { gasLimit: 50000 }
     );
     await tx2.wait();
 
