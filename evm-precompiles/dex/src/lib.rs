@@ -12,13 +12,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
+use fp_evm::{PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_dex::WeightInfo;
 use pallet_evm::{GasWeightMapping, Precompile};
-use precompile_utils::prelude::*;
+use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid};
 use sp_core::{H160, H256, U256};
+use sp_runtime::SaturatedConversion;
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// The ID of the gas token on TRN, equivalent to ETH on ethereum
@@ -33,24 +34,42 @@ pub const SELECTOR_LOG_BURN: [u8; 32] = keccak256!("Burn(address,uint,uint,addre
 /// Solidity selector of the Swap log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_SWAP: [u8; 32] = keccak256!("Swap(address,uint,uint,uint,uint,address)");
 
+/// Saturated conversion from EVM uint256 to Balance
+fn saturated_convert_balance(input: U256) -> Result<Balance, PrecompileFailure> {
+	if input > Balance::MAX.into() {
+		return Err(revert("DEX: Input number exceeds the Balance type boundary (2^128)").into())
+	}
+	Ok(input.saturated_into())
+}
+
+/// Saturated conversion from EVM uint256 to Blocknumber
+fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
+	if input > BlockNumber::MAX.into() {
+		return Err(revert("DEX: Input number exceeds the BlockNumber type boundary (2^32)").into())
+	}
+	Ok(input.saturated_into())
+}
+
 #[generate_function_selector]
 #[derive(Debug, PartialEq)]
 pub enum Action {
-	AddLiquidity = "addLiquidity(address,address,uint,uint,uint,uint,address,uint)",
-	AddLiquidityETH = "addLiquidityETH(address,uint,uint,uint,address,uint)",
-	RemoveLiquidity = "removeLiquidity(address,address,uint,uint,uint,address,uint)",
-	RemoveLiquidityETH = "removeLiquidityETH(address,uint,uint,uint,address,uint)",
-	SwapExactTokensForTokens = "swapExactTokensForTokens(uint,uint,address[],address,uint)",
-	SwapTokensForExactTokens = "swapTokensForExactTokens(uint,uint,address[],address,uint)",
-	SwapExactETHForTokens = "swapExactETHForTokens(uint,address[],address,uint)",
-	SwapTokensForExactETH = "swapTokensForExactETH(uint,uint,address[],address,uint)",
-	SwapExactTokensForETH = "swapExactTokensForETH(uint,uint,address[],address,uint)",
-	SwapETHForExactTokens = "swapETHForExactTokens(uint,address[],address,uint)",
-	Quote = "quote(uint,uint,uint)",
-	GetAmountOut = "getAmountOut(uint,uint,uint)",
-	GetAmountIn = "getAmountIn(uint,uint,uint)",
-	GetAmountsOut = "getAmountsOut(uint,address[])",
-	GetAmountsIn = "getAmountsIn(uint,address[])",
+	AddLiquidity = "addLiquidity(address,address,uint256,uint256,uint256,uint256,address,uint256)",
+	AddLiquidityETH = "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+	RemoveLiquidity = "removeLiquidity(address,address,uint256,uint256,uint256,address,uint256)",
+	RemoveLiquidityETH = "removeLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+	SwapExactTokensForTokens =
+		"swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+	SwapTokensForExactTokens =
+		"swapTokensForExactTokens(uint256,uint256,address[],address,uint256)",
+	SwapExactETHForTokens = "swapExactETHForTokens(uint256,address[],address,uint256)",
+	SwapTokensForExactETH = "swapTokensForExactETH(uint256,uint256,address[],address,uint256)",
+	SwapExactTokensForETH = "swapExactTokensForETH(uint256,uint256,address[],address,uint256)",
+	SwapETHForExactTokens = "swapETHForExactTokens(uint256,address[],address,uint256)",
+	Quote = "quote(uint256,uint256,uint256)",
+	GetAmountOut = "getAmountOut(uint256,uint256,uint256)",
+	GetAmountIn = "getAmountIn(uint256,uint256,uint256)",
+	GetAmountsOut = "getAmountsOut(uint256,address[])",
+	GetAmountsIn = "getAmountsIn(uint256,address[])",
 }
 
 /// Provides access to the Dex pallet
@@ -132,18 +151,29 @@ where
 		read_args!(
 			handle,
 			{
-				token_a: AssetId,
-				token_b: AssetId,
-				amount_a_desired: Balance,
-				amount_b_desired: Balance,
-				amount_a_min: Balance,
-				amount_b_min: Balance,
+				token_a: Address,
+				token_b: Address,
+				amount_a_desired: U256,
+				amount_b_desired: U256,
+				amount_a_min: U256,
+				amount_b_min: U256,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		// Parse asset_id
+		let asset_id_a: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			token_a,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+		let asset_id_b: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			token_b,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("DEX: Invalid asset address"))?;
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -153,14 +183,14 @@ where
 
 		let (amount_0, amount_1, liquidity) = pallet_dex::Pallet::<Runtime>::do_add_liquidity(
 			&caller,
-			token_a,
-			token_b,
-			amount_a_desired,
-			amount_b_desired,
-			amount_a_min,
-			amount_b_min,
+			asset_id_a,
+			asset_id_b,
+			saturated_convert_balance(amount_a_desired)?,
+			saturated_convert_balance(amount_b_desired)?,
+			saturated_convert_balance(amount_a_min)?,
+			saturated_convert_balance(amount_b_min)?,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -188,16 +218,22 @@ where
 		read_args!(
 			handle,
 			{
-				token_a: AssetId,
-				amount_a_desired: Balance,
-				amount_a_min: Balance,
-				amount_b_min: Balance,
+				token_a: Address,
+				amount_a_desired: U256,
+				amount_a_min: U256,
+				amount_b_min: U256,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		// Parse asset_id
+		let asset_id_a: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			token_a,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("DEX: Invalid asset address"))?;
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -207,14 +243,14 @@ where
 
 		let (amount_0, amount_1, liquidity) = pallet_dex::Pallet::<Runtime>::do_add_liquidity(
 			&caller,
-			token_a,
+			asset_id_a,
 			GAS_TOKEN_ID,
-			amount_a_desired,
-			handle.context().apparent_value.as_u128(),
-			amount_a_min,
-			amount_b_min,
+			saturated_convert_balance(amount_a_desired)?,
+			saturated_convert_balance(handle.context().apparent_value)?,
+			saturated_convert_balance(amount_a_min)?,
+			saturated_convert_balance(amount_b_min)?,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -244,17 +280,28 @@ where
 		read_args!(
 			handle,
 			{
-				token_a: AssetId,
-				token_b: AssetId,
-				liquidity: Balance,
-				amount_a_min: Balance,
-				amount_b_min: Balance,
+				token_a: Address,
+				token_b: Address,
+				liquidity: U256,
+				amount_a_min: U256,
+				amount_b_min: U256,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		// Parse asset_id
+		let asset_id_a: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			token_a,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+		let asset_id_b: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			token_b,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("DEX: Invalid asset address"))?;
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -264,13 +311,13 @@ where
 
 		let (amount_0, amount_1) = pallet_dex::Pallet::<Runtime>::do_remove_liquidity(
 			&caller,
-			token_a,
-			token_b,
-			liquidity,
-			amount_a_min,
-			amount_b_min,
+			asset_id_a,
+			asset_id_b,
+			saturated_convert_balance(liquidity)?,
+			saturated_convert_balance(amount_a_min)?,
+			saturated_convert_balance(amount_b_min)?,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -295,12 +342,12 @@ where
 		read_args!(
 			handle,
 			{
-				token_a: AssetId,
-				liquidity: Balance,
-				amount_a_min: Balance,
-				amount_b_min: Balance,
+				token_a: Address,
+				liquidity: U256,
+				amount_a_min: U256,
+				amount_b_min: U256,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
@@ -310,17 +357,23 @@ where
 		))?;
 
 		let to: H160 = to.into();
+		// Parse asset_id
+		let asset_id_a: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+			token_a,
+			ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		)
+		.ok_or_else(|| revert("DEX: Invalid asset address"))?;
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		let (amount_0, amount_1) = pallet_dex::Pallet::<Runtime>::do_remove_liquidity(
 			&caller,
-			token_a,
+			asset_id_a,
 			GAS_TOKEN_ID,
-			liquidity,
-			amount_a_min,
-			amount_b_min,
+			saturated_convert_balance(liquidity)?,
+			saturated_convert_balance(amount_a_min)?,
+			saturated_convert_balance(amount_b_min)?,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -345,15 +398,24 @@ where
 		read_args!(
 			handle,
 			{
-				amount_in: Balance,
-				amount_out_min: Balance,
-				path: Vec<AssetId>,
+				amount_in: U256,
+				amount_out_min: U256,
+				path: Vec<Address>,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		let mut path_assets = Vec::new();
+		for token_address in path.into_iter() {
+			let asset_id = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+				token_address,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+			path_assets.push(asset_id);
+		}
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -363,11 +425,11 @@ where
 
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_supply(
 			&caller,
-			amount_in,
-			amount_out_min,
-			&path,
+			saturated_convert_balance(amount_in)?,
+			saturated_convert_balance(amount_out_min)?,
+			&path_assets,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -399,15 +461,24 @@ where
 		read_args!(
 			handle,
 			{
-				amount_out: Balance,
-				amount_in_max: Balance,
-				path: Vec<AssetId>,
+				amount_out: U256,
+				amount_in_max: U256,
+				path: Vec<Address>,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		let mut path_assets = Vec::new();
+		for token_address in path.into_iter() {
+			let asset_id = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+				token_address,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+			path_assets.push(asset_id);
+		}
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -417,11 +488,11 @@ where
 
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_target(
 			&caller,
-			amount_out,
-			amount_in_max,
-			&path,
+			saturated_convert_balance(amount_out)?,
+			saturated_convert_balance(amount_in_max)?,
+			&path_assets,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -453,14 +524,23 @@ where
 		read_args!(
 			handle,
 			{
-				amount_out_min: Balance,
-				path: Vec<AssetId>,
+				amount_out_min: U256,
+				path: Vec<Address>,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		let mut path_assets = Vec::new();
+		for token_address in path.into_iter() {
+			let asset_id = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+				token_address,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+			path_assets.push(asset_id);
+		}
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -470,11 +550,11 @@ where
 
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_supply(
 			&caller,
-			handle.context().apparent_value.as_u128(),
-			amount_out_min,
-			&path,
+			saturated_convert_balance(handle.context().apparent_value)?,
+			saturated_convert_balance(amount_out_min)?,
+			&path_assets,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -506,15 +586,24 @@ where
 		read_args!(
 			handle,
 			{
-				amount_out: Balance,
-				amount_in_max: Balance,
-				path: Vec<AssetId>,
+				amount_out: U256,
+				amount_in_max: U256,
+				path: Vec<Address>,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		let mut path_assets = Vec::new();
+		for token_address in path.into_iter() {
+			let asset_id = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+				token_address,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+			path_assets.push(asset_id);
+		}
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -524,11 +613,11 @@ where
 
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_target(
 			&caller,
-			amount_out,
-			amount_in_max,
-			&path,
+			saturated_convert_balance(amount_out)?,
+			saturated_convert_balance(amount_in_max)?,
+			&path_assets,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -560,15 +649,24 @@ where
 		read_args!(
 			handle,
 			{
-				amount_in: Balance,
-				amount_out_min: Balance,
-				path: Vec<AssetId>,
+				amount_in: U256,
+				amount_out_min: U256,
+				path: Vec<Address>,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		let mut path_assets = Vec::new();
+		for token_address in path.into_iter() {
+			let asset_id = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+				token_address,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+			path_assets.push(asset_id);
+		}
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -578,11 +676,11 @@ where
 
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_supply(
 			&caller,
-			amount_in,
-			amount_out_min,
-			&path,
+			saturated_convert_balance(amount_in)?,
+			saturated_convert_balance(amount_out_min)?,
+			&path_assets,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -614,14 +712,23 @@ where
 		read_args!(
 			handle,
 			{
-				amount_out: Balance,
-				path: Vec<AssetId>,
+				amount_out: U256,
+				path: Vec<Address>,
 				to: Address,
-				deadline: BlockNumber
+				deadline: U256
 			}
 		);
 
 		let to: H160 = to.into();
+		let mut path_assets = Vec::new();
+		for token_address in path.into_iter() {
+			let asset_id = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+				token_address,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+			path_assets.push(asset_id);
+		}
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		// Manually record gas
@@ -631,11 +738,11 @@ where
 
 		let (amounts, swap_res) = pallet_dex::Pallet::<Runtime>::do_swap_with_exact_target(
 			&caller,
-			amount_out,
-			handle.context().apparent_value.as_u128(),
-			&path,
+			saturated_convert_balance(amount_out)?,
+			saturated_convert_balance(handle.context().apparent_value)?,
+			&path_assets,
 			to.into(),
-			Some(deadline.into()),
+			Some(saturated_convert_blocknumber(deadline)?.into()),
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
@@ -666,12 +773,16 @@ where
 			handle,
 			{
 				amount_a: U256,
-				reserve_a: Balance,
-				reserve_b: Balance
+				reserve_a: U256,
+				reserve_b: U256
 			}
 		);
 
-		match pallet_dex::Pallet::<Runtime>::quote(amount_a, reserve_a, reserve_b) {
+		match pallet_dex::Pallet::<Runtime>::quote(
+			amount_a,
+			saturated_convert_balance(reserve_a)?,
+			saturated_convert_balance(reserve_b)?,
+		) {
 			Ok(amount_b) => Ok(succeed(EvmDataWriter::new().write::<U256>(amount_b).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
@@ -688,13 +799,17 @@ where
 		read_args!(
 			handle,
 			{
-				amount_in: Balance,
-				reserve_in: Balance,
-				reserve_out: Balance
+				amount_in: U256,
+				reserve_in: U256,
+				reserve_out: U256
 			}
 		);
 
-		match pallet_dex::Pallet::<Runtime>::get_amount_out(amount_in, reserve_in, reserve_out) {
+		match pallet_dex::Pallet::<Runtime>::get_amount_out(
+			saturated_convert_balance(amount_in)?,
+			saturated_convert_balance(reserve_in)?,
+			saturated_convert_balance(reserve_out)?,
+		) {
 			Ok(amount_out) => Ok(succeed(EvmDataWriter::new().write::<u128>(amount_out).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
@@ -711,13 +826,17 @@ where
 		read_args!(
 			handle,
 			{
-				amount_out: Balance,
-				reserve_in: Balance,
-				reserve_out: Balance
+				amount_out: U256,
+				reserve_in: U256,
+				reserve_out: U256
 			}
 		);
 
-		match pallet_dex::Pallet::<Runtime>::get_amount_in(amount_out, reserve_in, reserve_out) {
+		match pallet_dex::Pallet::<Runtime>::get_amount_in(
+			saturated_convert_balance(amount_out)?,
+			saturated_convert_balance(reserve_in)?,
+			saturated_convert_balance(reserve_out)?,
+		) {
 			Ok(amount_in) => Ok(succeed(EvmDataWriter::new().write::<u128>(amount_in).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
@@ -732,17 +851,29 @@ where
 		read_args!(
 			handle,
 			{
-				amount_in: Balance,
-				path: Vec<AssetId>
+				amount_in: U256,
+				path: Vec<Address>
 			}
 		);
 
 		let path_len = path.len() as u64;
+		let mut path_assets = Vec::new();
+		for token_address in path.into_iter() {
+			let asset_id = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+				token_address,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+			path_assets.push(asset_id);
+		}
 		handle.record_cost(
 			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3 * path_len),
 		)?;
 
-		match pallet_dex::Pallet::<Runtime>::get_amounts_out(amount_in, &path) {
+		match pallet_dex::Pallet::<Runtime>::get_amounts_out(
+			saturated_convert_balance(amount_in)?,
+			&path_assets,
+		) {
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
@@ -757,17 +888,29 @@ where
 		read_args!(
 			handle,
 			{
-				amount_out: Balance,
-				path: Vec<AssetId>
+				amount_out: U256,
+				path: Vec<Address>
 			}
 		);
 
 		let path_len = path.len() as u64;
+		let mut path_assets = Vec::new();
+		for token_address in path.into_iter() {
+			let asset_id = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
+				token_address,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.ok_or_else(|| revert("DEX: Invalid asset address"))?;
+			path_assets.push(asset_id);
+		}
 		handle.record_cost(
 			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3 * path_len),
 		)?;
 
-		match pallet_dex::Pallet::<Runtime>::get_amounts_in(amount_out, &path) {
+		match pallet_dex::Pallet::<Runtime>::get_amounts_in(
+			saturated_convert_balance(amount_out)?,
+			&path_assets,
+		) {
 			Ok(amounts) => Ok(succeed(EvmDataWriter::new().write(amounts).build())),
 			Err(e) => Err(revert(
 				alloc::format!("DEX: Dispatched call failed with error: {:?}", e)
