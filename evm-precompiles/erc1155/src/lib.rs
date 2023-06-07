@@ -21,10 +21,7 @@ use frame_support::{
 };
 use pallet_evm::{Context, ExitReason, PrecompileFailure, PrecompileSet};
 use sp_core::{H160, U256};
-use sp_runtime::{
-	traits::{SaturatedConversion, Zero},
-	BoundedVec,
-};
+use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 use precompile_utils::{constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
