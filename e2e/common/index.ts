@@ -1,6 +1,9 @@
 import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
+import { writeFileSync } from "fs";
+import { CliPrettify } from "markdown-table-prettify";
+import { join } from "path";
 import web3 from "web3";
 
 export * from "./node";
@@ -64,6 +67,12 @@ export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of del
 // Futurepass creation reserve amount
 export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
 
+export type GasCosts = {
+  Contract: number;
+  Precompile: number;
+  Extrinsic: number;
+};
+
 /** ABIs */
 
 const OWNABLE_ABI = [
@@ -95,10 +104,9 @@ export const NFT_PRECOMPILE_ABI = [
   "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
 ];
 
-
 export const SFT_PRECOMPILE_ABI = [
-  "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
-  "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
+  "event InitializeSftCollection(address indexed collectionOwner, address precompileAddress)",
+  "function initializeCollection(address owner, bytes name, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
 ];
 
 export const PEG_PRECOMPILE_ABI = [
@@ -171,7 +179,7 @@ export const ERC1155_PRECOMPILE_ABI = [
   "event MaxSupplyUpdated(uint128 maxSupply)",
   "event BaseURIUpdated(string baseURI)",
 
-  "function createToken(bytes name, uint128 maxIssuance) external returns (uint32)",
+  "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
   "function mint(address owner, uint256 id, uint256 amount) external",
   "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
   "function setMaxSupply(uint256 id, uint32 maxSupply) external",
@@ -248,6 +256,47 @@ export const getCollectionPrecompileAddress = (collectionId: number) => {
   const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
   const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
   return web3.utils.toChecksumAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
+};
+
+/**
+ *
+ * @param collectionId Converts collection id to precompile address (without parachain id)
+ * @returns
+ */
+export const getSftCollectionPrecompileAddress = (collectionId: number) => {
+  const collectionIdBin = (+collectionId).toString(2).padStart(22, "0");
+  const parachainIdBin = (100).toString(2).padStart(10, "0");
+  const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
+  const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
+  return web3.utils.toChecksumAddress(`0xBBBBBBBB${collectionIdHex}000000000000000000000000`);
+};
+
+/**
+ * Saves gas cost to a markdown file
+ * @returns
+ * @param costs Dictionary of gas costs for different function calls
+ * @param filePath The file path to save the output
+ * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
+ */
+export const SaveGasCosts = (costs: { [key: string]: GasCosts }, filePath: string, header: string) => {
+  // Set string headers
+  let data: string = `## Generated gas prices for ${header}\n\n`;
+  data += "| Function Call | Contract gas | Precompile gas | Extrinsic gas |\n";
+  data += "| :--- | :---: | :---: | :---: |\n";
+
+  // Iterate through functions and add gas prices
+  for (const key in costs) {
+    const value = costs[key];
+    data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
+  }
+
+  // Prettify data
+  data = CliPrettify.prettify(data);
+
+  // Save data to specified file path
+  writeFileSync(join("./test", filePath), data, {
+    flag: "w",
+  });
 };
 
 /**

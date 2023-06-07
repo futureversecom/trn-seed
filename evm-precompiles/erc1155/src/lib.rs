@@ -85,7 +85,7 @@ pub enum Action {
 	RenounceOwnership = "renounceOwnership()",
 	TransferOwnership = "transferOwnership(address)",
 	// TRN extensions
-	CreateToken = "createToken(bytes,uint128)",
+	CreateToken = "createToken(bytes,uint128,uint128,address)",
 	Mint = "mint(address,uint256,uint256)",
 	MintBatch = "mintBatch(address,uint256[],uint256[])",
 	SetMaxSupply = "setMaxSupply(uint256,uint32)",
@@ -267,11 +267,14 @@ where
 			})
 			.collect::<Result<Vec<SerialNumber>, PrecompileFailure>>()?;
 
+		// Record one read cost per token
+		handle.record_cost(
+			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(ids.len() as u64),
+		)?;
+
 		// Get balance from SFT pallet for each
 		let mut balances: Vec<U256> = vec![];
 		owners.iter().zip(ids.iter()).for_each(|(owner, id)| {
-			// Record one read cost per token
-			handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost()).unwrap();
 			let balance = pallet_sft::Pallet::<Runtime>::balance_of(
 				&Runtime::AccountId::from(*owner),
 				(collection_id, *id),
@@ -831,13 +834,19 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		read_args!(handle, { name: Bytes, max_issuance: U256});
+		read_args!(handle, { name: Bytes, initial_issuance: U256, max_issuance: U256, token_owner: Address});
 		// Parse name
 		let name: BoundedVec<u8, <Runtime as pallet_sft::Config>::StringLimit> = name
 			.as_bytes()
 			.to_vec()
 			.try_into()
 			.map_err(|_| revert("ERC1155: Collection name exceeds the maximum length"))?;
+		// Parse initial issuance
+		ensure!(
+			initial_issuance <= Balance::MAX.into(),
+			revert("ERC1155: Expected initial issuance <= 2^128")
+		);
+		let initial_issuance: Balance = initial_issuance.saturated_into();
 		// Parse max issuance
 		ensure!(
 			max_issuance <= Balance::MAX.into(),
@@ -846,14 +855,18 @@ where
 		let max_issuance: Balance = max_issuance.saturated_into();
 		// If max issuance is set to 0, we take this as no max issuance set
 		let max_issuance = if max_issuance == 0 { None } else { Some(max_issuance) };
+		// Parse token owner, if zero address, we take this as no owner
+		let token_owner: H160 = token_owner.into();
+		let token_owner: Option<Runtime::AccountId> =
+			if token_owner == H160::default() { None } else { Some(token_owner.into()) };
 
 		let serial_number = pallet_sft::Pallet::<Runtime>::do_create_token(
 			handle.context().caller.into(),
 			collection_id,
 			name,
-			Balance::zero(),
+			initial_issuance,
 			max_issuance,
-			None,
+			token_owner,
 		);
 
 		match serial_number {

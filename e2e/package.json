@@ -10,7 +10,8 @@
     "format:fix": "prettier --config ./.prettierrc.yml --write \"**/*.{js,json,ts}\"",
     "lint": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts .",
     "test": "hardhat test",
-    "test:erc1155": "hardhat test --network seed './test/ERC1155Precompile.test.ts'",
+    "test:erc1155": "hardhat test --network seed 'test/ERC1155/ERC1155Precompile.test.ts'",
+    "test:erc1155-gas": "hardhat test --network seed 'test/ERC1155/ERC1155GasEstimates.test.ts'",
     "seed": "docker-compose up && docker-compose rm -fsv"
   },
   "devDependencies": {
@@ -44,6 +45,7 @@
     "web3": "^1.8.0"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.3"
+    "@openzeppelin/contracts": "^4.7.3",
+    "markdown-table-prettify": "^3.6.0"
   }
 }
