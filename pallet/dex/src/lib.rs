@@ -337,15 +337,6 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
-			ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
-			ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
-
-			let trading_pair = TradingPair::new(token_a, token_b);
-			// create trading pair & lp token if non-existent
-			if Self::lp_token_id(&trading_pair).is_none() {
-				Self::create_lp_token(&trading_pair)?;
-			}
-
 			Self::do_add_liquidity(
 				&who,
 				token_a,
@@ -545,6 +536,9 @@ where
 	) -> sp_std::result::Result<(Balance, Balance, Balance), DispatchError> {
 		const MINIMUM_LIQUIDITY_AMOUNT: u128 = 1000_u128; // for 18 decimals -> 1000; hence for 6 decimals -> 10
 
+		ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
+		ensure!(amount_a_desired > 0 && amount_b_desired > 0, Error::<T>::InvalidInputAmounts);
+
 		// Check if the deadline is met when the `deadline` parameter is not None
 		if let Some(deadline_block) = deadline {
 			let current_block_number = frame_system::Pallet::<T>::block_number();
@@ -552,8 +546,11 @@ where
 		}
 
 		let trading_pair = TradingPair::new(token_a, token_b);
-		let lp_share_asset_id =
-			Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
+		// create trading pair & lp token if non-existent
+		let lp_share_asset_id = match Self::lp_token_id(trading_pair) {
+			Some(lp_id) => lp_id,
+			None => Self::create_lp_token(&trading_pair)?,
+		};
 
 		ensure!(
 			matches!(Self::trading_pair_statuses(&trading_pair), TradingPairStatus::Enabled),
