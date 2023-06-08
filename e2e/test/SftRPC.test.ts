@@ -1,8 +1,9 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import {hexToU8a, u8aToString} from "@polkadot/util";
+import { hexToU8a, u8aToString } from "@polkadot/util";
 import axios from "axios";
 import { expect } from "chai";
-import {ALITH_PRIVATE_KEY, ERC721_PRECOMPILE_ABI, GAS_TOKEN_ID, NodeProcess, startNode, typedefs} from "../common";
+
+import { ALITH_PRIVATE_KEY, ERC721_PRECOMPILE_ABI, GAS_TOKEN_ID, NodeProcess, startNode, typedefs } from "../common";
 
 export const rpc = {
   sft: {
