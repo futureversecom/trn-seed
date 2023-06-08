@@ -16,6 +16,7 @@ codec = { version = "3.0.0", package = "parity-scale-codec", default-features = 
 num_enum = { version = "0.5.3", default-features = false }
 precompile-utils = { path = "../utils", default-features = false }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
+ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
 
 # Substrate
 frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
@@ -32,6 +33,7 @@ pallet-evm = { default-features = false, git = "https://github.com/futureverseco
 default = ["std"]
 std = [
 	"codec/std",
+	"ethereum-types/std",
 	"scale-info/std",
 	"pallet-sft/std",
 	"pallet-nft/std",

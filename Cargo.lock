@@ -5106,6 +5106,7 @@ dependencies = [
 name = "pallet-evm-precompiles-erc1155"
 version = "2.0.0"
 dependencies = [
+ "ethereum-types",
  "fp-evm",
  "frame-support",
  "frame-system",

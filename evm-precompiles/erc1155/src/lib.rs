@@ -13,6 +13,7 @@
 extern crate alloc;
 
 use core::convert::{TryFrom, TryInto};
+use ethereum_types::BigEndianHash;
 use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
@@ -20,12 +21,11 @@ use frame_support::{
 	traits::OriginTrait,
 };
 use pallet_evm::{Context, ExitReason, PrecompileFailure, PrecompileSet};
-use sp_core::{H160, U256};
-use sp_runtime::{traits::SaturatedConversion, BoundedVec};
-use sp_std::{marker::PhantomData, vec, vec::Vec};
-
 use precompile_utils::{constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{Balance, CollectionUuid, MetadataScheme, SerialNumber};
+use sp_core::{H160, H256, U256};
+use sp_runtime::{traits::SaturatedConversion, BoundedVec};
+use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 /// Solidity selector of the TransferSingle log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_TRANSFER_SINGLE: [u8; 32] =
@@ -741,8 +741,7 @@ where
 		let serial_number: SerialNumber = id.saturated_into();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let uri = pallet_sft::Pallet::<Runtime>::token_uri((collection_id, serial_number))
-			.unwrap_or_default();
+		let uri = pallet_sft::Pallet::<Runtime>::token_uri((collection_id, serial_number));
 		Ok(succeed(EvmDataWriter::new().write::<Bytes>(uri.as_slice().into()).build()))
 	}
 
@@ -752,8 +751,7 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		let maybe_owner = pallet_sft::Pallet::<Runtime>::get_collection_owner(collection_id);
-		match maybe_owner {
+		match pallet_sft::Pallet::<Runtime>::get_collection_owner(collection_id) {
 			Some(collection_owner) => Ok(succeed(
 				EvmDataWriter::new()
 					.write(Address::from(Into::<H160>::into(collection_owner)))
@@ -769,7 +767,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		let origin = handle.context().caller;
 		let burn_account: H160 = H160::default();
@@ -785,11 +783,12 @@ where
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
-		log2(
+		log3(
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
 			origin,
-			EvmDataWriter::new().write(Address::from(burn_account)).build(),
+			burn_account,
+			vec![],
 		)
 		.record(handle)?;
 
@@ -801,7 +800,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { new_owner: Address });
@@ -815,13 +814,8 @@ where
 			pallet_sft::Call::<Runtime>::set_owner { collection_id, new_owner: new_owner.into() },
 		)?;
 
-		log2(
-			handle.code_address(),
-			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
-			origin,
-			EvmDataWriter::new().write(Address::from(new_owner)).build(),
-		)
-		.record(handle)?;
+		log3(handle.code_address(), SELECTOR_LOG_OWNERSHIP_TRANSFERRED, origin, new_owner, vec![])
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
@@ -831,6 +825,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(2, 32)?;
 		read_args!(handle, { name: Bytes, initial_issuance: U256, max_issuance: U256, token_owner: Address});
 		// Parse name
 		let name: BoundedVec<u8, <Runtime as pallet_sft::Config>::StringLimit> = name
@@ -868,10 +863,11 @@ where
 
 		match serial_number {
 			Ok(serial_number) => {
-				log1(
+				log2(
 					handle.code_address(),
 					SELECTOR_LOG_TOKEN_CREATED,
-					EvmDataWriter::new().write(serial_number).build(),
+					H256::from_uint(&U256::from(serial_number)),
+					EvmDataWriter::new().build(),
 				)
 				.record(handle)?;
 
@@ -995,7 +991,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(handle, { id: U256, max_supply: U256 });
@@ -1021,10 +1017,11 @@ where
 		)?;
 
 		// Emit event.
-		log1(
+		log2(
 			handle.code_address(),
 			SELECTOR_LOG_MAX_SUPPLY_UPDATED,
-			EvmDataWriter::new().write(max_supply).build(),
+			H256::from_uint(&max_supply),
+			vec![],
 		)
 		.record(handle)?;
 

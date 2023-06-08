@@ -167,11 +167,12 @@ where
 				let precompile_address =
 					Runtime::runtime_id_to_evm_id(collection_id, ERC721_PRECOMPILE_ADDRESS_PREFIX);
 
-				log2(
+				log3(
 					handle.code_address(),
 					SELECTOR_LOG_INITIALIZE_SFT_COLLECTION,
 					collection_owner,
-					EvmDataWriter::new().write(precompile_address).build(),
+					H160::from(precompile_address),
+					EvmDataWriter::new().build(),
 				)
 				.record(handle)?;
 

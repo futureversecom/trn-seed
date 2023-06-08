@@ -76,7 +76,7 @@ export type GasCosts = {
 /** ABIs */
 
 const OWNABLE_ABI = [
-  "event OwnershipTransferred(address indexed previousOwner, address newOwner)",
+  "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)",
 
   "function owner() public view returns (address)",
   "function renounceOwnership()",
@@ -105,7 +105,7 @@ export const NFT_PRECOMPILE_ABI = [
 ];
 
 export const SFT_PRECOMPILE_ABI = [
-  "event InitializeSftCollection(address indexed collectionOwner, address precompileAddress)",
+  "event InitializeSftCollection(address indexed collectionOwner, address indexed precompileAddress)",
   "function initializeCollection(address owner, bytes name, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
 ];
 
@@ -175,8 +175,8 @@ export const ERC1155_PRECOMPILE_ABI = [
   "function uri(uint256 id) external view returns (string memory)",
 
   // TRN
-  "event TokenCreated(uint32 serialNumber)",
-  "event MaxSupplyUpdated(uint128 maxSupply)",
+  "event TokenCreated(uint32 indexed serialNumber)",
+  "event MaxSupplyUpdated(uint128 indexed maxSupply)",
   "event BaseURIUpdated(string baseURI)",
 
   "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
@@ -200,7 +200,7 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
   "event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType)",
   "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
   "event Executed(uint8 indexed callType, address indexed target, uint256 indexed value, bytes4 data)",
-  "event ContractCreated(uint8 indexed callType, address indexed contract, uint256 indexed value, bytes32 salt)",
+  "event ContractCreated(uint8 indexed callType, address indexed contractAddress, uint256 indexed value, bytes32 salt)",
 
   "function delegateType(address delegate) external view returns (uint8)",
   "function registerDelegate(address delegate, uint8 proxyType) external",

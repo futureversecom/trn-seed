@@ -24,7 +24,7 @@ mod precompile_addresses {
 	/// Calls to contracts starting with this prefix will be shim'd to the Futurepass module
 	pub const FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xFF; 4];
 	/// Precompile address for NFT
-	pub const NFT_PRECOMPILE: u64 = 1721; // 0x06B9\
+	pub const NFT_PRECOMPILE: u64 = 1721; // 0x06B9
 	/// Precompile address for SFT
 	pub const SFT_PRECOMPILE: u64 = 1731; // 0x06C3
 	/// Precompile address for peg precompile

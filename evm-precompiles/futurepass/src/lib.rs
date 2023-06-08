@@ -16,7 +16,7 @@ use sp_runtime::{
 	codec::Decode,
 	traits::{ConstU32, Zero},
 };
-use sp_std::marker::PhantomData;
+use sp_std::{marker::PhantomData, vec};
 
 /// Solidity selector of the Futurepass logs, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
@@ -492,7 +492,7 @@ where
 	// }
 
 	fn renounce_ownership(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		let caller = handle.context().caller;
 		let burn_account: H160 = H160::default();
@@ -505,11 +505,12 @@ where
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
-		log2(
+		log3(
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
 			caller,
-			EvmDataWriter::new().write(Address::from(burn_account)).build(),
+			burn_account,
+			vec![],
 		)
 		.record(handle)?;
 
@@ -518,7 +519,7 @@ where
 	}
 
 	fn transfer_ownership(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { new_owner: Address });
@@ -535,13 +536,8 @@ where
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
-		log2(
-			handle.code_address(),
-			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
-			caller,
-			EvmDataWriter::new().write(Address::from(new_owner)).build(),
-		)
-		.record(handle)?;
+		log3(handle.code_address(), SELECTOR_LOG_OWNERSHIP_TRANSFERRED, caller, new_owner, vec![])
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))

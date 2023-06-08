@@ -870,7 +870,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		let origin = handle.context().caller;
 		let burn_account: H160 = H160::default();
@@ -886,11 +886,12 @@ where
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
-		log2(
+		log3(
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
 			origin,
-			EvmDataWriter::new().write(Address::from(burn_account)).build(),
+			burn_account,
+			vec![],
 		)
 		.record(handle)?;
 
@@ -902,7 +903,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { new_owner: Address });
@@ -916,13 +917,8 @@ where
 			pallet_nft::Call::<Runtime>::set_owner { collection_id, new_owner: new_owner.into() },
 		)?;
 
-		log2(
-			handle.code_address(),
-			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
-			origin,
-			EvmDataWriter::new().write(Address::from(new_owner)).build(),
-		)
-		.record(handle)?;
+		log3(handle.code_address(), SELECTOR_LOG_OWNERSHIP_TRANSFERRED, origin, new_owner, vec![])
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))

@@ -570,7 +570,7 @@ describe("Futurepass Precompile", function () {
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("ContractCreated");
     expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Create);
-    expect((receipt?.events as any)[0].args.contract).to.equal(expectedContractAddress);
+    expect((receipt?.events as any)[0].args.contractAddress).to.equal(expectedContractAddress);
     expect((receipt?.events as any)[0].args.value).to.equal(ethers.constants.Zero);
     expect((receipt?.events as any)[0].args.salt).to.equal(ethers.constants.Zero);
 
@@ -626,7 +626,7 @@ describe("Futurepass Precompile", function () {
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("ContractCreated");
     expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Create);
-    expect((receipt?.events as any)[0].args.contract).to.equal(expectedContractAddress);
+    expect((receipt?.events as any)[0].args.contractAddress).to.equal(expectedContractAddress);
     expect((receipt?.events as any)[0].args.value).to.equal(amount);
     expect((receipt?.events as any)[0].args.salt).to.equal(ethers.constants.Zero);
 
@@ -671,7 +671,7 @@ describe("Futurepass Precompile", function () {
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("ContractCreated");
     expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Create2);
-    expect((receipt?.events as any)[0].args.contract).to.equal(expectedContractAddress);
+    expect((receipt?.events as any)[0].args.contractAddress).to.equal(expectedContractAddress);
     expect((receipt?.events as any)[0].args.value).to.equal(ethers.constants.Zero);
     expect((receipt?.events as any)[0].args.salt).to.equal(expectedSalt);
 
@@ -725,7 +725,7 @@ describe("Futurepass Precompile", function () {
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("ContractCreated");
     expect((receipt?.events as any)[0].args.callType).to.equal(CALL_TYPE.Create2);
-    expect((receipt?.events as any)[0].args.contract).to.equal(expectedContractAddress);
+    expect((receipt?.events as any)[0].args.contractAddress).to.equal(expectedContractAddress);
     expect((receipt?.events as any)[0].args.value).to.equal(amount);
     expect((receipt?.events as any)[0].args.salt).to.equal(expectedSalt);
 

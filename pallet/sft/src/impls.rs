@@ -354,10 +354,10 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Returns the metadatascheme or None if no collection exists
-	pub fn token_uri(token_id: TokenId) -> Option<Vec<u8>> {
+	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
 		let Some(collection_info) = SftCollectionInfo::<T>::get(token_id.0) else {
-			return None
+			return Default::default()
 		};
-		Some(collection_info.metadata_scheme.construct_token_uri(token_id.1))
+		collection_info.metadata_scheme.construct_token_uri(token_id.1)
 	}
 }
