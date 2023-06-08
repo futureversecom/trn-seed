@@ -80,9 +80,9 @@ describe("ERC1155 Gas Estimates", function () {
   });
 
   after(async () => {
-    await node.stop();
-
     SaveGasCosts(allCosts, "ERC1155/GasCosts.md", "ERC1155 Precompiles");
+
+    await node.stop();
   });
 
   it("uri gas estimates", async () => {

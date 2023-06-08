@@ -488,14 +488,25 @@ describe("ERC1155 Precompile", function () {
   it("SetApprovalForAll, isApprovedForAll via Proxy", async () => {
     await createToken(100);
 
-    const tx = await precompileCaller.setApprovalForAllProxy(alithSigner.address, true, { gasLimit: 50000 });
+    const setApprovalGasEstimate = await precompileCaller.estimateGas.setApprovalForAllProxy(alithSigner.address, true);
+    console.log(`SetApprovalForAllProxy gas estimate: ${setApprovalGasEstimate}`);
+    const tx = await precompileCaller.setApprovalForAllProxy(alithSigner.address, true, {
+      gasLimit: setApprovalGasEstimate,
+    });
     await tx.wait();
 
     // Verify isApprovedForAll is correct
     expect(await precompileCaller.isApprovedForAllProxy(precompileCaller.address, alithSigner.address)).to.equal(true);
 
     // set approval to false
-    const tx2 = await precompileCaller.setApprovalForAllProxy(alithSigner.address, false, { gasLimit: 50000 });
+    const setApprovalGasEstimate2 = await precompileCaller.estimateGas.setApprovalForAllProxy(
+      alithSigner.address,
+      false,
+    );
+    console.log(`SetApprovalForAllProxy second gas estimate: ${setApprovalGasEstimate2}`);
+    const tx2 = await precompileCaller.setApprovalForAllProxy(alithSigner.address, false, {
+      gasLimit: setApprovalGasEstimate2,
+    });
     await tx2.wait();
 
     // Verify isApprovedForAll is removed
@@ -507,20 +518,32 @@ describe("ERC1155 Precompile", function () {
     const serialNumber = await createToken(initialIssuance);
 
     // Approve contract
-    const tx = await erc1155Precompile.setApprovalForAll(precompileCaller.address, true, { gasLimit: 50000 });
+    const setApprovalGasEstimate = await precompileCaller.estimateGas.setApprovalForAllProxy(alithSigner.address, true);
+    console.log(`SetApprovalForAllProxy gas estimate: ${setApprovalGasEstimate}`);
+    const tx = await erc1155Precompile.setApprovalForAll(precompileCaller.address, true, {
+      gasLimit: setApprovalGasEstimate,
+    });
     await tx.wait();
     // Verify isApprovedForAll is correct
     expect(await erc1155Precompile.isApprovedForAll(bobSigner.address, precompileCaller.address)).to.equal(true);
 
     const transferAmount = 69;
     const callData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("data"));
+    const transferFromGasEstimate = await precompileCaller.estimateGas.safeTransferFromProxy(
+      bobSigner.address,
+      alithSigner.address,
+      serialNumber,
+      transferAmount,
+      callData,
+    );
+    console.log(`SafeTransferFromProxy gas estimate: ${transferFromGasEstimate}`);
     const tx2 = await precompileCaller.safeTransferFromProxy(
       bobSigner.address,
       alithSigner.address,
       serialNumber,
       transferAmount,
       callData,
-      { gasLimit: 50000 },
+      { gasLimit: transferFromGasEstimate },
     );
     await tx2.wait();
 
