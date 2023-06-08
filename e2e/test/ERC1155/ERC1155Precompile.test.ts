@@ -489,7 +489,6 @@ describe("ERC1155 Precompile", function () {
     await createToken(100);
 
     const setApprovalGasEstimate = await precompileCaller.estimateGas.setApprovalForAllProxy(alithSigner.address, true);
-    console.log(`SetApprovalForAllProxy gas estimate: ${setApprovalGasEstimate}`);
     const tx = await precompileCaller.setApprovalForAllProxy(alithSigner.address, true, {
       gasLimit: setApprovalGasEstimate,
     });
@@ -503,7 +502,6 @@ describe("ERC1155 Precompile", function () {
       alithSigner.address,
       false,
     );
-    console.log(`SetApprovalForAllProxy second gas estimate: ${setApprovalGasEstimate2}`);
     const tx2 = await precompileCaller.setApprovalForAllProxy(alithSigner.address, false, {
       gasLimit: setApprovalGasEstimate2,
     });
@@ -519,7 +517,6 @@ describe("ERC1155 Precompile", function () {
 
     // Approve contract
     const setApprovalGasEstimate = await precompileCaller.estimateGas.setApprovalForAllProxy(alithSigner.address, true);
-    console.log(`SetApprovalForAllProxy gas estimate: ${setApprovalGasEstimate}`);
     const tx = await erc1155Precompile.setApprovalForAll(precompileCaller.address, true, {
       gasLimit: setApprovalGasEstimate,
     });
@@ -536,7 +533,6 @@ describe("ERC1155 Precompile", function () {
       transferAmount,
       callData,
     );
-    console.log(`SafeTransferFromProxy gas estimate: ${transferFromGasEstimate}`);
     const tx2 = await precompileCaller.safeTransferFromProxy(
       bobSigner.address,
       alithSigner.address,
