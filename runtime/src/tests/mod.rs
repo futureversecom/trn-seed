@@ -22,7 +22,7 @@ mod staker_payouts;
 use crate::{
 	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
 	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
-	UncheckedExtrinsic, H256, U256, UPGRADE_FEE_AMOUNT
+	UncheckedExtrinsic, H256, U256, UPGRADE_FEE_AMOUNT,
 };
 use frame_support::{
 	assert_ok,
@@ -300,6 +300,8 @@ fn fund_authorities_and_accounts() {
 
 #[test]
 fn cheap_upgrade_is_cheap() {
+	env_logger::init();
+
 	ExtBuilder::default().build().execute_with(|| {
 		let set_code_call = frame_system::Call::<Runtime>::set_code {
 			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),

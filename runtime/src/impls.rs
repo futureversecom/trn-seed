@@ -40,7 +40,6 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-use super::UPGRADE_FEE_AMOUNT;
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic,
@@ -60,6 +59,9 @@ use sp_runtime::traits::Dispatchable;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
+
+// All upgrades cost 100 XRP only
+pub const UPGRADE_FEE_AMOUNT: u128 = 100 * 1000000;
 
 /// Convert 18dp wei values to 6dp equivalents (XRP)
 /// fractional amounts < `XRP_UNIT_VALUE` are rounded up by adding 1 / 0.000001 xrp
@@ -698,6 +700,8 @@ impl InstanceFilter<Call> for ProxyType {
 	}
 }
 
+// impl IsSubType<pallet_sudo::Call<Runtime>> for frame_system::Call<Runtime> {}
+
 /// Switch gas payer to Futurepass if proxy called with a Futurepass account
 pub struct FuturepassTransactionFee;
 
@@ -709,11 +713,14 @@ where
 		+ pallet_fee_proxy::Config
 		+ pallet_dex::Config
 		+ pallet_evm::Config
-		+ pallet_assets_ext::Config,
+		+ pallet_assets_ext::Config
+		+ pallet_sudo::Config,
 	<T as frame_system::Config>::Call: IsSubType<frame_system::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
 	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
+	<T as frame_system::Config>::Call: IsSubType<pallet_sudo::Call<T>>,
+	<T as pallet_sudo::Config>::Call: IsSubType<frame_system::Call<T>>,
 	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as pallet_fee_proxy::Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<
@@ -744,14 +751,24 @@ where
 			}
 		}
 
-		if let Some(frame_system::Call::set_code { .. }) = call.is_sub_type() {
-			return <pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
-				who,
-				call,
-				info,
-				UPGRADE_FEE_AMOUNT.into(),
-				tip,
-			)
+		if let Some(pallet_sudo::Call::sudo_unchecked_weight { call: inner_call, .. }) =
+			call.is_sub_type()
+		{
+			match inner_call.is_sub_type() {
+				Some(frame_system::Call::set_code { .. }) => {
+					log::info!("Forcibly made cheaper");
+					return <pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
+						who,
+						call,
+						info,
+						UPGRADE_FEE_AMOUNT.into(),
+						tip,
+					)
+				},
+				_ => {
+					log::info!("Other. Check the call {:?}", inner_call)
+				},
+			};
 		}
 
 		<pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
