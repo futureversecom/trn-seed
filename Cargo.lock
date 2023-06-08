@@ -5627,6 +5627,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-sft-rpc"
+version = "2.2.0"
+dependencies = [
+ "jsonrpsee",
+ "pallet-sft",
+ "pallet-sft-rpc-runtime-api",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-arithmetic",
+ "sp-blockchain",
+ "sp-core",
+ "sp-io",
+ "sp-rpc",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-sft-rpc-runtime-api"
+version = "2.2.0"
+dependencies = [
+ "pallet-sft",
+ "parity-scale-codec",
+ "seed-primitives",
+ "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
@@ -8046,6 +8077,7 @@ dependencies = [
  "log",
  "pallet-dex-rpc",
  "pallet-nft-rpc",
+ "pallet-sft-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
@@ -8195,6 +8227,7 @@ dependencies = [
  "pallet-session",
  "pallet-session-benchmarking",
  "pallet-sft",
+ "pallet-sft-rpc-runtime-api",
  "pallet-staking",
  "pallet-sudo",
  "pallet-timestamp",
