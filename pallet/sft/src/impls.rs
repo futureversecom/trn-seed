@@ -13,18 +13,17 @@ use crate::*;
 use frame_support::ensure;
 use precompile_utils::constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 use seed_primitives::CollectionUuid;
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::Zero, DispatchError};
 
 impl<T: Config> Pallet<T> {
 	/// Perform the create collection operation and insert SftCollectionInfo into storage
 	pub fn do_create_collection(
-		origin: T::AccountId,
+		collection_owner: T::AccountId,
 		collection_name: BoundedVec<u8, T::StringLimit>,
-		collection_owner: Option<T::AccountId>,
 		metadata_scheme: MetadataScheme,
 		royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		origin_chain: OriginChain,
-	) -> DispatchResult {
+	) -> Result<CollectionUuid, DispatchError> {
 		let collection_uuid = <T as Config>::NFTExt::next_collection_uuid()?;
 
 		// Validate collection_name
@@ -35,10 +34,9 @@ impl<T: Config> Pallet<T> {
 		if let Some(royalties_schedule) = royalties_schedule.clone() {
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
 		}
-		let owner = collection_owner.unwrap_or(origin);
 
 		let sft_collection_info = SftCollectionInformation {
-			collection_owner: owner.clone(),
+			collection_owner: collection_owner.clone(),
 			collection_name: collection_name.clone(),
 			metadata_scheme: metadata_scheme.clone(),
 			royalties_schedule: royalties_schedule.clone(),
@@ -59,14 +57,14 @@ impl<T: Config> Pallet<T> {
 
 		Self::deposit_event(Event::<T>::CollectionCreate {
 			collection_id: collection_uuid,
-			collection_owner: owner,
+			collection_owner,
 			metadata_scheme,
 			name: collection_name,
 			royalties_schedule,
 			origin_chain,
 		});
 
-		Ok(())
+		Ok(collection_uuid)
 	}
 
 	pub fn do_create_token(
@@ -76,7 +74,7 @@ impl<T: Config> Pallet<T> {
 		initial_issuance: Balance,
 		max_issuance: Option<Balance>,
 		token_owner: Option<T::AccountId>,
-	) -> DispatchResult {
+	) -> Result<SerialNumber, DispatchError> {
 		let mut existing_collection =
 			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 		ensure!(who == existing_collection.collection_owner, Error::<T>::NotCollectionOwner);
@@ -120,7 +118,7 @@ impl<T: Config> Pallet<T> {
 			token_name,
 		});
 
-		Ok(())
+		Ok(next_serial_number)
 	}
 
 	/// Perform the mint operation and increase the quantity of the user
@@ -322,5 +320,44 @@ impl<T: Config> Pallet<T> {
 	{
 		let (serial_numbers, quantities) = serial_numbers.into_iter().unzip();
 		(BoundedVec::truncate_from(serial_numbers), BoundedVec::truncate_from(quantities))
+	}
+
+	/// Returns true if an SFT collection exists for this collectionId
+	pub fn collection_exists(collection_id: CollectionUuid) -> bool {
+		SftCollectionInfo::<T>::contains_key(collection_id)
+	}
+
+	/// Returns the owner of a collection
+	pub fn get_collection_owner(collection_id: CollectionUuid) -> Option<T::AccountId> {
+		SftCollectionInfo::<T>::get(collection_id).map(|info| info.collection_owner)
+	}
+
+	// Returns the balance of who of a token_id
+	pub fn balance_of(who: &T::AccountId, token_id: TokenId) -> Balance {
+		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
+			return Balance::zero()
+		};
+		token_info.free_balance_of(who)
+	}
+
+	/// Returns the total supply of a specified token_id
+	pub fn total_supply(token_id: TokenId) -> Balance {
+		let Some(token_info) = TokenInfo::<T>::get(token_id) else {
+			return Balance::zero()
+		};
+		token_info.token_issuance
+	}
+
+	/// Indicates whether a token with a given id exists or not
+	pub fn token_exists(token_id: TokenId) -> bool {
+		TokenInfo::<T>::contains_key(token_id)
+	}
+
+	/// Returns the metadatascheme or None if no collection exists
+	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
+		let Some(collection_info) = SftCollectionInfo::<T>::get(token_id.0) else {
+			return Default::default()
+		};
+		collection_info.metadata_scheme.construct_token_uri(token_id.1)
 	}
 }

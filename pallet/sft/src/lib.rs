@@ -223,14 +223,15 @@ pub mod pallet {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_create_collection(
-				who,
+			let owner = collection_owner.unwrap_or(who);
+			let _ = Self::do_create_collection(
+				owner,
 				collection_name,
-				collection_owner,
 				metadata_scheme,
 				royalties_schedule,
 				OriginChain::Root,
-			)
+			)?;
+			Ok(())
 		}
 
 		/// Create additional tokens for an existing collection
@@ -247,14 +248,15 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_create_token(
+			let _ = Self::do_create_token(
 				who,
 				collection_id,
 				token_name,
 				initial_issuance,
 				max_issuance,
 				token_owner,
-			)
+			)?;
+			Ok(())
 		}
 
 		/// Mints some balances into some serial numbers for an account
