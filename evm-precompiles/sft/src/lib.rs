@@ -25,7 +25,7 @@ use sp_runtime::{
 	traits::{ConstU32, SaturatedConversion},
 	BoundedVec, Permill,
 };
-use sp_std::{marker::PhantomData, vec::Vec};
+use sp_std::{marker::PhantomData, vec, vec::Vec};
 
 /// Solidity selector of the InitializeSftCollection log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_INITIALIZE_SFT_COLLECTION: [u8; 32] =
