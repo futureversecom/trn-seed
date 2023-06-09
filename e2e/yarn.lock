@@ -4968,6 +4968,11 @@ make-error@^1.1.1:
   resolved "https://registry.yarnpkg.com/make-error/-/make-error-1.3.6.tgz#2eb2e37ea9b67c4891f684a1394799af484cf7a2"
   integrity sha512-s8UhlNe7vPKomQhC1qFelMokr/Sc3AgNbso3n74mVPA5LTZwkB9NlXf4XPamLxJE8h0gh73rM94xvwRT2CVInw==
 
+markdown-table-prettify@^3.6.0:
+  version "3.6.0"
+  resolved "https://registry.yarnpkg.com/markdown-table-prettify/-/markdown-table-prettify-3.6.0.tgz#8ab664ddf9fe8d6a45994c334a42b223a616cb9b"
+  integrity sha512-xZg+sL5yWyPz75GwNHtCOLe85CPnssoTLqpGc19xSr6CirGu4xRW2f8wj1f7c8Kx1IItXo3hUIqlUX4qAOwAdg==
+
 markdown-table@^1.1.3:
   version "1.1.3"
   resolved "https://registry.yarnpkg.com/markdown-table/-/markdown-table-1.1.3.tgz#9fcb69bcfdb8717bfd0398c6ec2d93036ef8de60"

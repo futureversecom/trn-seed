@@ -2,6 +2,8 @@ import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
 import web3 from "web3";
+import { writeFileSync } from "fs";
+import { CliPrettify } from "markdown-table-prettify";
 
 export * from "./node";
 
@@ -86,6 +88,7 @@ export const ERC20_ABI = [
   "function symbol() public view returns (string memory)",
   "function decimals() public view returns (uint8)",
   "function transfer(address who, uint256 amount)",
+  "function transferFrom(address from, address to, uint256 amount)",
 ];
 
 export const NFT_PRECOMPILE_ABI = [
@@ -239,6 +242,40 @@ export const getOrCreateAssetUntil = async (
         });
     });
   }
+};
+
+export type GasCosts = {
+  Contract: number;
+  Precompile: number;
+  Extrinsic: number;
+};
+
+/**
+ * Saves gas cost to a markdown file
+ * @returns
+ * @param costs Dictionary of gas costs for different function calls
+ * @param filePath The file path to save the output
+ * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
+ */
+export const saveGasCosts = (costs: { [key: string]: GasCosts }, filePath: string, header: string) => {
+  // Set string headers
+  let data: string = `## Generated gas prices for ${header}\n\n`;
+  data += "| Function Call | Contract gas | Precompile gas | Extrinsic gas |\n";
+  data += "| :--- | :---: | :---: | :---: |\n";
+
+  // Iterate through functions and add gas prices
+  for (const key in costs) {
+    const value = costs[key];
+    data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
+  }
+
+  // Prettify data
+  data = CliPrettify.prettify(data);
+
+  // Save data to specified file path
+  writeFileSync(join("./test", filePath), data, {
+    flag: "w",
+  });
 };
 
 /**
