@@ -1,9 +1,9 @@
 import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
-import web3 from "web3";
 import { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
+import web3 from "web3";
 
 export * from "./node";
 
