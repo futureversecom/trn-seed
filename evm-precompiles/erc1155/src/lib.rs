@@ -52,11 +52,12 @@ pub const SELECTOR_LOG_TOKEN_CREATED: [u8; 32] = keccak256!("TokenCreated(uint32
 /// Solidity selector of the BaseURIUpdated log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_BASE_URI_UPDATED: [u8; 32] = keccak256!("BaseURIUpdated(string)");
 
-/// Solidity selector of the onERC1155Received(address,address,uint256,uint256,bytes) function
+/// Solidity selector of the onERC1155Received function
+/// bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"));
 pub const ON_ERC1155_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0xf2, 0x3a, 0x6e, 0x61];
 
-/// Solidity selector of the onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)
-/// function
+/// Solidity selector of the onERC1155BatchReceived function
+/// bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
 pub const ON_ERC1155_BATCH_RECEIVED_FUNCTION_SELECTOR: [u8; 4] = [0xbc, 0x19, 0x7c, 0x81];
 
 #[precompile_utils::generate_function_selector]
