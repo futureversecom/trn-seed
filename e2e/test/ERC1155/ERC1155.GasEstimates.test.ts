@@ -16,8 +16,8 @@ import {
   NodeProcess,
   SFT_PRECOMPILE_ABI,
   SFT_PRECOMPILE_ADDRESS,
-  saveGasCosts,
   getSftCollectionPrecompileAddress,
+  saveGasCosts,
   startNode,
   typedefs,
 } from "../../common";
