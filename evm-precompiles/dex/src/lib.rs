@@ -13,7 +13,10 @@
 extern crate alloc;
 
 use fp_evm::{PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult};
-use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
+use frame_support::{
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
+	log,
+};
 use pallet_dex::WeightInfo;
 use pallet_evm::{GasWeightMapping, Precompile};
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
@@ -100,7 +103,19 @@ where
 				Err(e) => return Err(e.into()),
 			};
 
-			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
+			if let Err(err) = handle.check_function_modifier(match selector {
+				Action::AddLiquidity |
+				Action::RemoveLiquidity |
+				Action::RemoveLiquidityETH |
+				Action::SwapExactTokensForTokens |
+				Action::SwapTokensForExactTokens |
+				Action::SwapTokensForExactETH |
+				Action::SwapExactTokensForETH => FunctionModifier::NonPayable,
+				Action::AddLiquidityETH |
+				Action::SwapExactETHForTokens |
+				Action::SwapETHForExactTokens => FunctionModifier::Payable,
+				_ => FunctionModifier::View,
+			}) {
 				return Err(err.into())
 			}
 
