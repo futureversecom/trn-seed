@@ -29,15 +29,21 @@ use frame_support::{
 	traits::{fungibles::Inspect as _, GenesisBuild, Get},
 	weights::GetDispatchInfo,
 };
+use frame_system::RawOrigin;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
+	traits::ReadRuntimeVersionExt,
 	Encode, Pair,
 };
-use sp_runtime::{generic::Era, traits::SignedExtension, Perbill};
+use sp_runtime::{
+	generic::Era,
+	traits::{Dispatchable, SignedExtension},
+	Perbill,
+};
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
@@ -197,8 +203,29 @@ impl ExtBuilder {
 		let (pool, _state) = testing::TestTransactionPoolExt::new();
 		ext.register_extension(TransactionPoolExt::new(pool));
 
-		let executor = substrate_test_runtime_client::new_native_executor();
-		ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+		// let executor = substrate_test_runtime_client::new_native_executor();
+		// ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
+
+		struct ReadRuntimeVersion(Vec<u8>);
+		impl sp_core::traits::ReadRuntimeVersion for ReadRuntimeVersion {
+			fn read_runtime_version(
+				&self,
+				_wasm_code: &[u8],
+				_ext: &mut dyn sp_externalities::Externalities,
+			) -> Result<Vec<u8>, String> {
+				Ok(self.0.clone())
+			}
+		}
+
+		let version = sp_version::RuntimeVersion {
+			spec_version: 35,
+			impl_version: 1,
+			spec_name: "root".into(),
+			..Default::default()
+		};
+		let read_runtime_version = ReadRuntimeVersion(version.encode());
+
+		ext.register_extension(ReadRuntimeVersionExt::new(read_runtime_version));
 
 		ext
 	}
@@ -306,20 +333,40 @@ fn cheap_upgrade_is_cheap() {
 		let set_code_call = frame_system::Call::<Runtime>::set_code {
 			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
 		};
-		let set_code_call = <Runtime as frame_system::Config>::Call::from(set_code_call);
-		let dispatch_info = set_code_call.get_dispatch_info();
 
-		assert_ok!(<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
+		let sudo_call = pallet_sudo::Call::<Runtime>::sudo_unchecked_weight {
+			call: Box::new(<Runtime as frame_system::Config>::Call::from(set_code_call)),
+			weight: 42069_u64.into(),
+		};
+
+		let runtime_level_sudo_call = <Runtime as frame_system::Config>::Call::from(sudo_call);
+
+		let dispatch_info = runtime_level_sudo_call.clone().get_dispatch_info();
+
+		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
+
+		let pre = <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
 			ChargeTransactionPayment::from(0),
 			&alice(),
-			&set_code_call,
+			&runtime_level_sudo_call,
 			&dispatch_info,
 			1,
+		)
+		.unwrap();
+
+		let post_dispatch_info = runtime_level_sudo_call.dispatch(RawOrigin::Root.into()).unwrap();
+
+		assert_ok!(<ChargeTransactionPayment<Runtime> as SignedExtension>::post_dispatch(
+			Some(pre),
+			&dispatch_info,
+			&post_dispatch_info,
+			50,
+			&Ok(())
 		));
 
 		assert_eq!(
 			AssetsExt::balance(XRP_ASSET_ID, &alice()),
-			INITIAL_ROOT_BALANCE - UPGRADE_FEE_AMOUNT
+			initial_balance - UPGRADE_FEE_AMOUNT
 		);
 	});
 }

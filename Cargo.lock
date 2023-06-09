@@ -8189,6 +8189,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-babe",
  "sp-core",
+ "sp-externalities",
  "sp-inherents",
  "sp-io",
  "sp-npos-elections",

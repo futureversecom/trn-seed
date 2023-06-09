@@ -42,7 +42,7 @@ use sp_std::{marker::PhantomData, prelude::*};
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic,
+	UncheckedExtrinsic, UPGRADE_FEE_AMOUNT,
 };
 use precompile_utils::{
 	constants::{
@@ -61,7 +61,7 @@ use sp_runtime::traits::Dispatchable;
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
 
 // All upgrades cost 100 XRP only
-pub const UPGRADE_FEE_AMOUNT: u128 = 100 * 1000000;
+// pub const UPGRADE_FEE_AMOUNT: u128 = 100 * 1000000;
 
 /// Convert 18dp wei values to 6dp equivalents (XRP)
 /// fractional amounts < `XRP_UNIT_VALUE` are rounded up by adding 1 / 0.000001 xrp
@@ -756,7 +756,7 @@ where
 		{
 			match inner_call.is_sub_type() {
 				Some(frame_system::Call::set_code { .. }) => {
-					log::info!("Forcibly made cheaper");
+					log::info!("Forcibly made cheaper. returning");
 					return <pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
 						who,
 						call,
@@ -770,7 +770,6 @@ where
 				},
 			};
 		}
-
 		<pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
 			who, call, info, fee, tip,
 		)
