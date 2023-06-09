@@ -16,7 +16,7 @@ import {
   NodeProcess,
   SFT_PRECOMPILE_ABI,
   SFT_PRECOMPILE_ADDRESS,
-  SaveGasCosts,
+  saveGasCosts,
   getSftCollectionPrecompileAddress,
   startNode,
   typedefs,
@@ -80,7 +80,7 @@ describe("ERC1155 Gas Estimates", function () {
   });
 
   after(async () => {
-    SaveGasCosts(allCosts, "ERC1155/GasCosts.md", "ERC1155 Precompiles");
+    saveGasCosts(allCosts, "ERC1155/GasCosts.md", "ERC1155 Precompiles");
 
     await node.stop();
   });

@@ -278,7 +278,7 @@ export const getSftCollectionPrecompileAddress = (collectionId: number) => {
  * @param filePath The file path to save the output
  * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
  */
-export const SaveGasCosts = (costs: { [key: string]: GasCosts }, filePath: string, header: string) => {
+export const saveGasCosts = (costs: { [key: string]: GasCosts }, filePath: string, header: string) => {
   // Set string headers
   let data: string = `## Generated gas prices for ${header}\n\n`;
   data += "| Function Call | Contract gas | Precompile gas | Extrinsic gas |\n";
