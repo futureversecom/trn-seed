@@ -14,23 +14,26 @@ use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
+use pallet_evm_precompiles_erc1155::Erc1155PrecompileSet;
 use pallet_evm_precompiles_erc20::Erc20PrecompileSet;
 use pallet_evm_precompiles_erc721::Erc721PrecompileSet;
 use pallet_evm_precompiles_futurepass::FuturePassPrecompileSet;
 use pallet_evm_precompiles_futurepass_registrar::FuturePassRegistrarPrecompile;
 use pallet_evm_precompiles_nft::NftPrecompile;
 use pallet_evm_precompiles_peg::PegPrecompile;
+use pallet_evm_precompiles_sft::SftPrecompile;
 use precompile_utils::{
 	constants::{
-		ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX,
-		FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE, NFT_PRECOMPILE,
-		PEG_PRECOMPILE,
+		ERC1155_PRECOMPILE_ADDRESS_PREFIX, ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		ERC721_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX,
+		FUTUREPASS_REGISTRAR_PRECOMPILE, NFT_PRECOMPILE, PEG_PRECOMPILE, SFT_PRECOMPILE,
 	},
 	precompile_set::*,
 };
 
 parameter_types! {
 	pub Erc721AssetPrefix: &'static [u8] = ERC721_PRECOMPILE_ADDRESS_PREFIX;
+	pub Erc1155AssetPrefix: &'static [u8] = ERC1155_PRECOMPILE_ADDRESS_PREFIX;
 	pub Erc20AssetPrefix: &'static [u8] = ERC20_PRECOMPILE_ADDRESS_PREFIX;
 	pub FuturepassPrefix: &'static [u8] = FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
 }
@@ -61,6 +64,7 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 				PrecompileAt<AddressU64<1026>, ECRecoverPublicKey>,
 				// Futureverse specific precompiles:
 				PrecompileAt<AddressU64<NFT_PRECOMPILE>, NftPrecompile<R>>,
+				PrecompileAt<AddressU64<SFT_PRECOMPILE>, SftPrecompile<R>>,
 				PrecompileAt<AddressU64<PEG_PRECOMPILE>, PegPrecompile<R>>,
 				PrecompileAt<
 					AddressU64<FUTUREPASS_REGISTRAR_PRECOMPILE>,
@@ -70,6 +74,7 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 		>,
 		// Prefixed precompile sets (XC20)
 		PrecompileSetStartingWith<Erc721AssetPrefix, Erc721PrecompileSet<R>>,
+		PrecompileSetStartingWith<Erc1155AssetPrefix, Erc1155PrecompileSet<R>>,
 		PrecompileSetStartingWith<Erc20AssetPrefix, Erc20PrecompileSet<R>>,
 		PrecompileSetStartingWith<
 			FuturepassPrefix,

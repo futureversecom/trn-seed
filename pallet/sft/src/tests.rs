@@ -370,6 +370,37 @@ mod create_token {
 	}
 
 	#[test]
+	fn do_create_token_returns_serial() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let collection_id = create_test_collection(collection_owner);
+			let token_name = bounded_string("my-token");
+
+			let serial_number = Sft::do_create_token(
+				collection_owner,
+				collection_id,
+				token_name.clone(),
+				0,
+				None,
+				None,
+			)
+			.unwrap();
+			assert_eq!(serial_number, 0);
+
+			let serial_number = Sft::do_create_token(
+				collection_owner,
+				collection_id,
+				token_name.clone(),
+				0,
+				None,
+				None,
+			)
+			.unwrap();
+			assert_eq!(serial_number, 1);
+		});
+	}
+
+	#[test]
 	fn create_token_zero_initial_issuance_works() {
 		TestExt::default().build().execute_with(|| {
 			let collection_owner = alice();

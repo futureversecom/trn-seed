@@ -25,6 +25,8 @@ mod precompile_addresses {
 	pub const FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xFF; 4];
 	/// Precompile address for NFT
 	pub const NFT_PRECOMPILE: u64 = 1721; // 0x06B9
+	/// Precompile address for SFT
+	pub const SFT_PRECOMPILE: u64 = 1731; // 0x06C3
 	/// Precompile address for peg precompile
 	pub const PEG_PRECOMPILE: u64 = 1939; // 0x0793
 	/// The decoded location for the fee proxy function selector
