@@ -83,6 +83,18 @@ pub mod pallet {
 		Balance,
 	>;
 
+	// Accounts with transfer approval for an SFT collection of another account
+	#[pallet::storage]
+	#[pallet::getter(fn erc1155_approvals_for_all)]
+	pub type ERC1155ApprovalsForAll<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Twox64Concat,
+		(CollectionUuid, T::AccountId),
+		bool,
+	>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The token doesn't exist
@@ -208,6 +220,30 @@ pub mod pallet {
 				);
 			} else {
 				ERC721ApprovalsForAll::<T>::remove(caller, (collection_uuid, operator_account));
+			}
+			Ok(())
+		}
+
+		/// Set approval for an account (or contract) to transfer any tokens from an SFT collection
+		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
+		#[pallet::weight(T::WeightInfo::erc1155_approval_for_all())]
+		pub fn erc1155_approval_for_all(
+			origin: OriginFor<T>,
+			caller: T::AccountId,
+			operator_account: T::AccountId,
+			collection_uuid: CollectionUuid,
+			approved: bool,
+		) -> DispatchResult {
+			let _ = ensure_none(origin)?;
+			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
+			if approved {
+				ERC1155ApprovalsForAll::<T>::insert(
+					caller,
+					(collection_uuid, operator_account),
+					true,
+				);
+			} else {
+				ERC1155ApprovalsForAll::<T>::remove(caller, (collection_uuid, operator_account));
 			}
 			Ok(())
 		}

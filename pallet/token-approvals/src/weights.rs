@@ -36,6 +36,7 @@ pub trait WeightInfo {
 	fn erc20_approval() -> Weight;
 	fn erc20_update_approval() -> Weight;
 	fn erc721_approval_for_all() -> Weight;
+	fn erc1155_approval_for_all() -> Weight;
 }
 
 // For backwards compatibility and tests
@@ -68,6 +69,11 @@ impl WeightInfo for () {
 	}
 	// Storage: TokenApprovals ERC721ApprovalsForAll (r:0 w:1)
 	fn erc721_approval_for_all() -> Weight {
+		(3_383_000 as Weight)
+			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+	// Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)
+	fn erc1155_approval_for_all() -> Weight {
 		(3_383_000 as Weight)
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}

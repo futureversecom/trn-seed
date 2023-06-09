@@ -82,6 +82,10 @@ benchmarks! {
 	erc721_approval_for_all {
 		let ( alice, collection_id, _ ) = build_collection::<T>();
 	}: _(RawOrigin::None, alice, account::<T>("Operator_Account"), collection_id, true)
+
+	erc1155_approval_for_all {
+		let ( alice, collection_id, _ ) = build_collection::<T>();
+	}: _(RawOrigin::None, alice, account::<T>("Operator_Account"), collection_id, true)
 }
 
 impl_benchmark_test_suite!(TokeApprovals, crate::mock::new_test_ext(), crate::mock::Test,);

@@ -62,4 +62,9 @@ impl<T: frame_system::Config> pallet_token_approvals::WeightInfo for WeightInfo<
 		(3_378_000 as Weight)
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
+	// Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)
+	fn erc1155_approval_for_all() -> Weight {
+		(3_378_000 as Weight)
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
 }
