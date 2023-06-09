@@ -326,7 +326,7 @@ fn fund_authorities_and_accounts() {
 }
 
 #[test]
-fn cheap_upgrade_is_cheap() {
+fn set_code_has_known_cheap_fee() {
 	ExtBuilder::default().build().execute_with(|| {
 		let set_code_call = frame_system::Call::<Runtime>::set_code {
 			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
@@ -360,7 +360,7 @@ fn cheap_upgrade_is_cheap() {
 }
 
 #[test]
-fn unexpected_upgrade_is_normal_price() {
+fn set_code_without_checks_is_normal_price() {
 	ExtBuilder::default().build().execute_with(|| {
 		let set_code_call = frame_system::Call::<Runtime>::set_code_without_checks {
 			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
