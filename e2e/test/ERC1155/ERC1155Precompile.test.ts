@@ -586,7 +586,7 @@ describe("ERC1155 Precompile", function () {
     expect(await erc1155Precompile.balanceOf(alithSigner.address, serialNumber2)).to.equal(transferAmount2);
   });
 
-  it("owner, renounceOwnership, transferOwnership", async () => {
+  it("Ownable - owner, renounceOwnership, transferOwnership", async () => {
     // Check ownership is bob
     expect(await erc1155Precompile.owner()).to.equal(bobSigner.address);
 
