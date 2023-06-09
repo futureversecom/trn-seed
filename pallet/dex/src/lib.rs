@@ -558,26 +558,35 @@ where
 		);
 
 		// match trading-pair to inputs - to match reserves in liquidity pool
-		let (token_a, token_b, amount_a_desired, amount_b_desired, amount_a_min, amount_b_min) =
-			if token_a == trading_pair.0 {
-				(
-					token_a,
-					token_b,
-					U256::from(amount_a_desired),
-					U256::from(amount_b_desired),
-					U256::from(amount_a_min),
-					U256::from(amount_b_min),
-				)
-			} else {
-				(
-					token_b,
-					token_a,
-					U256::from(amount_b_desired),
-					U256::from(amount_a_desired),
-					U256::from(amount_b_min),
-					U256::from(amount_a_min),
-				)
-			};
+		let (
+			token_a,
+			token_b,
+			amount_a_desired,
+			amount_b_desired,
+			amount_a_min,
+			amount_b_min,
+			is_swapped,
+		) = if token_a == trading_pair.0 {
+			(
+				token_a,
+				token_b,
+				U256::from(amount_a_desired),
+				U256::from(amount_b_desired),
+				U256::from(amount_a_min),
+				U256::from(amount_b_min),
+				false,
+			)
+		} else {
+			(
+				token_b,
+				token_a,
+				U256::from(amount_b_desired),
+				U256::from(amount_a_desired),
+				U256::from(amount_b_min),
+				U256::from(amount_a_min),
+				true,
+			)
+		};
 
 		let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
 
@@ -656,7 +665,12 @@ where
 			));
 			Ok(())
 		})?;
-		Ok((amount_0, amount_1, liquidity))
+
+		if is_swapped {
+			Ok((amount_1, amount_0, liquidity))
+		} else {
+			Ok((amount_0, amount_1, liquidity))
+		}
 	}
 
 	#[transactional]
@@ -687,11 +701,12 @@ where
 		T::MultiCurrency::transfer(lp_share_asset_id, &who, &pool_address, liquidity, false)?;
 
 		// match trading-pair to inputs - to match reserves in liquidity pool
-		let (token_a, token_b, amount_a_min, amount_b_min) = if token_a == trading_pair.0 {
-			(token_a, token_b, amount_a_min, amount_b_min)
-		} else {
-			(token_b, token_a, amount_b_min, amount_a_min)
-		};
+		let (token_a, token_b, amount_a_min, amount_b_min, is_swapped) =
+			if token_a == trading_pair.0 {
+				(token_a, token_b, amount_a_min, amount_b_min, false)
+			} else {
+				(token_b, token_a, amount_b_min, amount_a_min, true)
+			};
 
 		let mut balance_0 = T::MultiCurrency::balance(token_a, &pool_address);
 		let mut balance_1 = T::MultiCurrency::balance(token_b, &pool_address);
@@ -736,7 +751,12 @@ where
 			));
 			Ok(())
 		})?;
-		Ok((amount_0, amount_1))
+
+		if is_swapped {
+			Ok((amount_1, amount_0))
+		} else {
+			Ok((amount_0, amount_1))
+		}
 	}
 
 	pub fn get_lp_token_id(
