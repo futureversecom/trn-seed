@@ -60,9 +60,6 @@ use sp_runtime::traits::Dispatchable;
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
 
-// All upgrades cost 100 XRP only
-// pub const UPGRADE_FEE_AMOUNT: u128 = 100 * 1000000;
-
 /// Convert 18dp wei values to 6dp equivalents (XRP)
 /// fractional amounts < `XRP_UNIT_VALUE` are rounded up by adding 1 / 0.000001 xrp
 pub fn scale_wei_to_6dp(value: Balance) -> Balance {
@@ -699,8 +696,6 @@ impl InstanceFilter<Call> for ProxyType {
 		}
 	}
 }
-
-// impl IsSubType<pallet_sudo::Call<Runtime>> for frame_system::Call<Runtime> {}
 
 /// Switch gas payer to Futurepass if proxy called with a Futurepass account
 pub struct FuturepassTransactionFee;

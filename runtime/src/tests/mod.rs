@@ -25,7 +25,6 @@ use crate::{
 	UncheckedExtrinsic, H256, U256, UPGRADE_FEE_AMOUNT,
 };
 use frame_support::{
-	assert_ok,
 	traits::{fungibles::Inspect as _, GenesisBuild, Get},
 	weights::GetDispatchInfo,
 };
@@ -207,9 +206,6 @@ impl ExtBuilder {
 		let (pool, _state) = testing::TestTransactionPoolExt::new();
 		ext.register_extension(TransactionPoolExt::new(pool));
 
-		// let executor = substrate_test_runtime_client::new_native_executor();
-		// ext.register_extension(sp_core::traits::ReadRuntimeVersionExt::new(executor));
-
 		struct ReadRuntimeVersion(Vec<u8>);
 		impl sp_core::traits::ReadRuntimeVersion for ReadRuntimeVersion {
 			fn read_runtime_version(
@@ -331,8 +327,6 @@ fn fund_authorities_and_accounts() {
 
 #[test]
 fn cheap_upgrade_is_cheap() {
-	env_logger::init();
-
 	ExtBuilder::default().build().execute_with(|| {
 		let set_code_call = frame_system::Call::<Runtime>::set_code {
 			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
@@ -349,7 +343,7 @@ fn cheap_upgrade_is_cheap() {
 
 		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
 
-		let pre = <ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
+		<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
 			ChargeTransactionPayment::from(0),
 			&alice(),
 			&runtime_level_sudo_call,
