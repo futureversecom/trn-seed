@@ -187,6 +187,10 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
+		pallet_sudo::GenesisConfig::<Runtime> { key: Some(alice()) }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| {
 			// Ensure a test genesis hash exists in storage.
@@ -354,19 +358,49 @@ fn cheap_upgrade_is_cheap() {
 		)
 		.unwrap();
 
-		let post_dispatch_info = runtime_level_sudo_call.dispatch(RawOrigin::Root.into()).unwrap();
-
-		assert_ok!(<ChargeTransactionPayment<Runtime> as SignedExtension>::post_dispatch(
-			Some(pre),
-			&dispatch_info,
-			&post_dispatch_info,
-			50,
-			&Ok(())
-		));
+		runtime_level_sudo_call.dispatch(RawOrigin::Signed(alice()).into()).unwrap();
 
 		assert_eq!(
 			AssetsExt::balance(XRP_ASSET_ID, &alice()),
 			initial_balance - UPGRADE_FEE_AMOUNT
+		);
+	});
+}
+
+#[test]
+fn unexpected_upgrade_is_normal_price() {
+	ExtBuilder::default().build().execute_with(|| {
+		let set_code_call = frame_system::Call::<Runtime>::set_code_without_checks {
+			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
+		};
+
+		let sudo_call = pallet_sudo::Call::<Runtime>::sudo_unchecked_weight {
+			call: Box::new(<Runtime as frame_system::Config>::Call::from(set_code_call)),
+			weight: 42069_u64.into(),
+		};
+
+		let runtime_level_sudo_call = <Runtime as frame_system::Config>::Call::from(sudo_call);
+
+		let dispatch_info = runtime_level_sudo_call.clone().get_dispatch_info();
+
+		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
+
+		<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
+			ChargeTransactionPayment::from(0),
+			&alice(),
+			&runtime_level_sudo_call,
+			&dispatch_info,
+			1,
+		)
+		.unwrap();
+
+		runtime_level_sudo_call.dispatch(RawOrigin::Signed(alice()).into()).unwrap();
+
+		// We know that the unadjusted upgrade should always cost more than the adjusted one. We
+		// leniently say ">" because we will likely adjust our fee calculations many times in the
+		// future
+		assert!(
+			AssetsExt::balance(XRP_ASSET_ID, &alice()) > (initial_balance - UPGRADE_FEE_AMOUNT)
 		);
 	});
 }

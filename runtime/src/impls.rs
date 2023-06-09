@@ -755,19 +755,15 @@ where
 			call.is_sub_type()
 		{
 			match inner_call.is_sub_type() {
-				Some(frame_system::Call::set_code { .. }) => {
-					log::info!("Forcibly made cheaper. returning");
+				Some(frame_system::Call::set_code { .. }) =>
 					return <pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
 						who,
 						call,
 						info,
 						UPGRADE_FEE_AMOUNT.into(),
 						tip,
-					)
-				},
-				_ => {
-					log::info!("Other. Check the call {:?}", inner_call)
-				},
+					),
+				_ => {},
 			};
 		}
 		<pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
