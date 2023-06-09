@@ -172,7 +172,7 @@ where
 					SELECTOR_LOG_INITIALIZE_SFT_COLLECTION,
 					collection_owner,
 					H160::from(precompile_address),
-					EvmDataWriter::new().build(),
+					vec![],
 				)
 				.record(handle)?;
 
