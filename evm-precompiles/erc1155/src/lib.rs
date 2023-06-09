@@ -868,7 +868,7 @@ where
 					handle.code_address(),
 					SELECTOR_LOG_TOKEN_CREATED,
 					H256::from_uint(&U256::from(serial_number)),
-					EvmDataWriter::new().build(),
+					vec![],
 				)
 				.record(handle)?;
 
