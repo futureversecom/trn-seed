@@ -9,9 +9,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod nft;
+mod staking;
 
-use crate::Sft;
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -19,7 +18,7 @@ use frame_support::{
 		move_storage_from_pallet, put_storage_value, storage_key_iter, take_storage_value,
 	},
 	storage::storage_prefix,
-	traits::{OnRuntimeUpgrade, StorageVersion},
+	traits::OnRuntimeUpgrade,
 	weights::Weight,
 	ReversibleStorageHasher,
 };
@@ -29,21 +28,19 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		nft::Upgrade::pre_upgrade()?;
 		Ok(())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
-		weight += nft::Upgrade::on_runtime_upgrade();
-		StorageVersion::new(0).put::<Sft>();
+		weight += staking::Upgrade::on_runtime_upgrade();
 
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
-		nft::Upgrade::post_upgrade()?;
+		staking::Upgrade::post_upgrade()?;
 		Ok(())
 	}
 }
