@@ -338,9 +338,7 @@ fn cheap_upgrade_is_cheap() {
 		};
 
 		let runtime_level_sudo_call = <Runtime as frame_system::Config>::Call::from(sudo_call);
-
 		let dispatch_info = runtime_level_sudo_call.clone().get_dispatch_info();
-
 		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
 
 		<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
@@ -374,9 +372,7 @@ fn unexpected_upgrade_is_normal_price() {
 		};
 
 		let runtime_level_sudo_call = <Runtime as frame_system::Config>::Call::from(sudo_call);
-
 		let dispatch_info = runtime_level_sudo_call.clone().get_dispatch_info();
-
 		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
 
 		<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
