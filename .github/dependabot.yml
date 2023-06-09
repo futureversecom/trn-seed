@@ -13,3 +13,5 @@ updates:
       - dependency-name: "sc-*"
       - dependency-name: "substrate-*"
       - dependency-name: "pallet-*"
+      - dependency-name: "fp-*"
+      - dependency-name: "fc-*"
