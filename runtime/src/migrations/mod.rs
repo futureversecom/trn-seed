@@ -11,7 +11,6 @@
 
 mod staking;
 
-use crate::Sft;
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -19,7 +18,7 @@ use frame_support::{
 		move_storage_from_pallet, put_storage_value, storage_key_iter, take_storage_value,
 	},
 	storage::storage_prefix,
-	traits::{OnRuntimeUpgrade, StorageVersion},
+	traits::OnRuntimeUpgrade,
 	weights::Weight,
 	ReversibleStorageHasher,
 };
@@ -36,19 +35,6 @@ impl OnRuntimeUpgrade for AllMigrations {
 		let mut weight = Weight::from(0u32);
 		weight += staking::Upgrade::on_runtime_upgrade();
 
-		weight
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from(0u32);
-		weight += dex::Upgrade::on_runtime_upgrade();
-		weight += staking::Upgrade::on_runtime_upgrade();
-		staking::Upgrade::post_upgrade();
-
-		// Set Marketplace and Futurepass storage version to 0
-		StorageVersion::new(0).put::<Marketplace>();
-		StorageVersion::new(0).put::<Futurepass>();
 		weight
 	}
 
