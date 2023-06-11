@@ -103,6 +103,8 @@ use constants::{
 	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
 };
 
+pub use constants::UPGRADE_FEE_AMOUNT;
+
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
 use impls::{

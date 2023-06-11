@@ -40,6 +40,10 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
+use crate::{
+	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
+	UncheckedExtrinsic, UPGRADE_FEE_AMOUNT,
+};
 use precompile_utils::{
 	constants::{
 		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
@@ -51,11 +55,6 @@ use seed_pallet_common::{
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
-
-use crate::{
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic,
-};
 use sp_runtime::traits::Dispatchable;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
@@ -709,15 +708,21 @@ where
 		+ pallet_fee_proxy::Config
 		+ pallet_dex::Config
 		+ pallet_evm::Config
-		+ pallet_assets_ext::Config,
+		+ pallet_assets_ext::Config
+		+ pallet_sudo::Config,
+	<T as frame_system::Config>::Call: IsSubType<frame_system::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
 	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
+	<T as frame_system::Config>::Call: IsSubType<pallet_sudo::Call<T>>,
+	<T as pallet_sudo::Config>::Call: IsSubType<frame_system::Call<T>>,
 	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as pallet_fee_proxy::Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance,
 	>,
+	<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance:
+		From<u128>,
 {
 	type Balance =
 		<<T as pallet_fee_proxy::Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance;
@@ -739,6 +744,22 @@ where
 			if ProxyPalletProvider::exists(futurepass, who, None) {
 				who = futurepass;
 			}
+		}
+
+		if let Some(pallet_sudo::Call::sudo_unchecked_weight { call: inner_call, .. }) =
+			call.is_sub_type()
+		{
+			match inner_call.is_sub_type() {
+				Some(frame_system::Call::set_code { .. }) =>
+					return <pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
+						who,
+						call,
+						info,
+						UPGRADE_FEE_AMOUNT.into(),
+						tip,
+					),
+				_ => {},
+			};
 		}
 		<pallet_fee_proxy::Pallet<T> as OnChargeTransaction<T>>::withdraw_fee(
 			who, call, info, fee, tip,
