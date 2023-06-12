@@ -223,6 +223,8 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 				}
 				true
 			},
+			// Payouts are restricted until a new staking payout system is implemented
+			Call::Staking(pallet_staking::Call::payout_stakers { .. }) => false,
 			_ => true,
 		}
 	}
