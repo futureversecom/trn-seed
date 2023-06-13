@@ -25,8 +25,8 @@ impl OnRuntimeUpgrade for Upgrade {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade() -> Result<(), &'static str> {
-		v1::post_upgrade()?;
+	fn post_upgrade(data: Vec<u8>) -> Result<(), &'static str> {
+		v1::post_upgrade(data)?;
 		Ok(())
 	}
 }
@@ -36,7 +36,7 @@ pub mod v1 {
 	use super::*;
 
 	#[cfg(feature = "try-runtime")]
-	pub fn post_upgrade() -> Result<(), &'static str> {
+	pub fn post_upgrade(_data: Vec<u8>) -> Result<(), &'static str> {
 		Payee::<Runtime>::iter().for_each(|(k, v)| {
 			log::info!(target: "Migration", "Staking: Sanity checking {:?}, {:?}", k, v);
 			if v == RewardDestination::Staked {

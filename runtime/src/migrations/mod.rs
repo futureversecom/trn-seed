@@ -36,12 +36,13 @@ impl Get<&'static str> for StakingMigrationV11OldPallet {
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
-		Ok(())
+	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+		let data = Vec::new();
+		Ok(data)
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from_ref_time(0u64);
+		let _weight = Weight::from_ref_time(0u64);
 		staking::Upgrade::on_runtime_upgrade();
 
 		pallet_staking::migrations::v8::migrate::<Runtime>();
@@ -57,8 +58,8 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade() -> Result<(), &'static str> {
-		staking::Upgrade::post_upgrade()?;
+	fn post_upgrade(data: Vec<u8>) -> Result<(), &'static str> {
+		staking::Upgrade::post_upgrade(data)?;
 		Ok(())
 	}
 }

@@ -22,11 +22,11 @@ mod staker_payouts;
 use crate::{
 	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Runtime,
 	RuntimeOrigin, SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
-	UncheckedExtrinsic, H256, U256, UPGRADE_FEE_AMOUNT,
+	UncheckedExtrinsic, Weight, H256, U256, UPGRADE_FEE_AMOUNT,
 };
 use frame_support::{
+	dispatch::GetDispatchInfo,
 	traits::{fungibles::Inspect as _, GenesisBuild, Get},
-	weights::GetDispatchInfo,
 };
 use frame_system::RawOrigin;
 use pallet_transaction_payment::ChargeTransactionPayment;
@@ -333,11 +333,12 @@ fn set_code_has_known_cheap_fee() {
 		};
 
 		let sudo_call = pallet_sudo::Call::<Runtime>::sudo_unchecked_weight {
-			call: Box::new(<Runtime as frame_system::Config>::Call::from(set_code_call)),
-			weight: 42069_u64.into(),
+			call: Box::new(<Runtime as frame_system::Config>::RuntimeCall::from(set_code_call)),
+			weight: Weight::from_ref_time(42069_u64),
 		};
 
-		let runtime_level_sudo_call = <Runtime as frame_system::Config>::Call::from(sudo_call);
+		let runtime_level_sudo_call =
+			<Runtime as frame_system::Config>::RuntimeCall::from(sudo_call);
 		let dispatch_info = runtime_level_sudo_call.clone().get_dispatch_info();
 		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
 
@@ -367,11 +368,12 @@ fn set_code_without_checks_is_normal_price() {
 		};
 
 		let sudo_call = pallet_sudo::Call::<Runtime>::sudo_unchecked_weight {
-			call: Box::new(<Runtime as frame_system::Config>::Call::from(set_code_call)),
-			weight: 42069_u64.into(),
+			call: Box::new(<Runtime as frame_system::Config>::RuntimeCall::from(set_code_call)),
+			weight: Weight::from_ref_time(42069_u64),
 		};
 
-		let runtime_level_sudo_call = <Runtime as frame_system::Config>::Call::from(sudo_call);
+		let runtime_level_sudo_call =
+			<Runtime as frame_system::Config>::RuntimeCall::from(sudo_call);
 		let dispatch_info = runtime_level_sudo_call.clone().get_dispatch_info();
 		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
 

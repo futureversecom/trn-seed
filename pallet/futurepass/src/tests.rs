@@ -974,14 +974,6 @@ fn proxy_extrinsic_by_non_delegate_fails() {
 				),
 				pallet_proxy::Error::<Test>::NotProxy
 			);
-			// assert event (ProxyExecuted with error)
-			System::assert_has_event(
-				Event::<Test>::ProxyExecuted {
-					delegate: other,
-					result: Err(pallet_proxy::Error::<Test>::NotProxy.into()),
-				}
-				.into(),
-			);
 			//check balances
 			assert_eq!(
 				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
@@ -1180,13 +1172,6 @@ fn proxy_extrinsic_failures_common() {
 					inner_call.clone()
 				),
 				pallet_proxy::Error::<Test>::NotProxy
-			);
-			System::assert_has_event(
-				Event::<Test>::ProxyExecuted {
-					delegate: other,
-					result: Err(pallet_proxy::Error::<Test>::NotProxy.into()),
-				}
-				.into(),
 			);
 
 			// proxy_extrinsic does not care about wrapped internal call failure. It's task is to
