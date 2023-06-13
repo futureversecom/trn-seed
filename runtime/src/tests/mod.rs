@@ -20,8 +20,8 @@ mod multiplier;
 mod staker_payouts;
 
 use crate::{
-	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
-	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
+	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Runtime,
+	RuntimeOrigin, SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
 	UncheckedExtrinsic, H256, U256, UPGRADE_FEE_AMOUNT,
 };
 use frame_support::{
@@ -49,7 +49,7 @@ pub const BASE_TX_GAS_COST: u128 = 21000;
 pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
 
 /// The genesis block timestamp
-pub const INIT_TIMESTAMP: u64 = 30_000;
+pub const INIT_TIMESTAMP: u64 = 0;
 /// A genesis block hash for the first mock block, useful for extrinsic signatures
 pub(crate) const GENESIS_HASH: [u8; 32] = [69u8; 32];
 /// The default validator staked amount
@@ -398,7 +398,7 @@ fn set_code_without_checks_is_normal_price() {
 // Simple Transaction builder
 pub struct TxBuilder {
 	transaction: ethereum::EIP1559Transaction,
-	origin: Origin,
+	origin: RuntimeOrigin,
 }
 
 impl TxBuilder {
@@ -418,7 +418,8 @@ impl TxBuilder {
 			r: H256::zero(),
 			s: H256::zero(),
 		};
-		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
+		let origin =
+			RuntimeOrigin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
 
 		Self { transaction, origin }
 	}
@@ -430,7 +431,8 @@ impl TxBuilder {
 	}
 
 	pub fn origin(&mut self, value: AccountId) -> &mut Self {
-		self.origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(value.into()));
+		self.origin =
+			RuntimeOrigin::from(pallet_ethereum::RawOrigin::EthereumTransaction(value.into()));
 		self
 	}
 
@@ -439,7 +441,7 @@ impl TxBuilder {
 		self
 	}
 
-	pub fn build(&self) -> (Origin, pallet_ethereum::Transaction) {
+	pub fn build(&self) -> (RuntimeOrigin, pallet_ethereum::Transaction) {
 		let tx = pallet_ethereum::Transaction::EIP1559(self.transaction.clone());
 		(self.origin.clone(), tx)
 	}

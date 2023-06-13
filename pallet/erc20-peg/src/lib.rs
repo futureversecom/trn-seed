@@ -55,7 +55,8 @@ pub trait Config: frame_system::Config<AccountId = AccountId> {
 		+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
 		+ fungibles::Mutate<Self::AccountId>;
 	/// The overarching event type.
-	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+	type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
 	/// Interface to generate weights
 	type WeightInfo: WeightInfo;
 }
@@ -145,37 +146,38 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
 
 		/// Check and process outstanding payments
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let mut weight: Weight = DbWeight::get().reads(1 as Weight);
+			let mut weight: Weight = DbWeight::get().reads(1u64);
 			if DelayedPaymentSchedule::<T>::contains_key(now) {
 				ReadyBlocks::<T>::append(now);
-				weight = weight.saturating_add(DbWeight::get().writes(1 as Weight));
+				weight = weight.saturating_add(DbWeight::get().writes(1u64));
 			}
-			weight as Weight
+			weight
 		}
 
 		/// Check and process outstanding payments
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
-			let initial_read_cost = DbWeight::get().reads(1 as Weight);
+			let initial_read_cost = DbWeight::get().reads(1u64);
 			// Ensure we have enough weight to perform the initial read
-			if remaining_weight <= initial_read_cost {
-				return 0;
+			// TODO Is it all_lte or any_lte?
+			if remaining_weight.all_lte(initial_read_cost) {
+				return Weight::zero();
 			}
 			// Check that there are blocks in ready_blocks
 			let ready_blocks_length = ReadyBlocks::<T>::decode_len();
 			if ready_blocks_length.is_none() || ready_blocks_length == Some(0) {
-				return 0;
+				return Weight::zero();
 			}
 
 			// Process as many payments as we can
-			let weight_each: Weight = DbWeight::get().reads(8 as Weight).saturating_add(DbWeight::get().writes(10 as Weight));
-			let max_payments = ((remaining_weight - initial_read_cost) / weight_each).saturated_into::<u8>();
+			let weight_each: Weight = DbWeight::get().reads(8u64).saturating_add(DbWeight::get().writes(10u64));
+			let max_payments = remaining_weight.sub(initial_read_cost.ref_time()).div(weight_each.ref_time()).ref_time().saturated_into::<u8>();
 			let ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
 			// Total payments processed in this block
 			let mut processed_payment_count: u8 = 0;
@@ -202,7 +204,7 @@ decl_module! {
 			}
 
 			ReadyBlocks::<T>::put(&ready_blocks[processed_block_count as usize..]);
-			initial_read_cost + weight_each * processed_payment_count as Weight
+			initial_read_cost.add(weight_each.mul(processed_payment_count as u64).ref_time())
 		}
 
 		/// Activate/deactivate deposits (root only)
@@ -481,7 +483,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			data,
 		) {
 			Ok(abi) => abi,
-			Err(_) => return Err((0, Error::<T>::InvalidAbiEncoding.into())),
+			Err(_) => return Err((Weight::zero(), Error::<T>::InvalidAbiEncoding.into())),
 		};
 
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
@@ -491,8 +493,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			let amount: U256 = amount.into();
 			let beneficiary: H160 = beneficiary.into();
 			// The total weight of do_deposit assuming it reaches every path
-			let deposit_weight =
-				DbWeight::get().reads(6 as Weight) + DbWeight::get().writes(4 as Weight);
+			let deposit_weight = DbWeight::get().reads(6u64) + DbWeight::get().writes(4u64);
 			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {
 				Ok(_) => Ok(deposit_weight),
 				Err(e) => {
@@ -502,7 +503,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			}
 		} else {
 			// input data should be valid, we do not expect to fail here
-			Err((0, Error::<T>::InvalidAbiEncoding.into()))
+			Err((Weight::zero(), Error::<T>::InvalidAbiEncoding.into()))
 		}
 	}
 }

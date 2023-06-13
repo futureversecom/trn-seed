@@ -72,7 +72,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
 
@@ -82,7 +82,7 @@ pub mod pallet {
 			+ Mutate<Self::AccountId>;
 
 		/// Allowed origins to add/remove the relayers
-		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Weight information
 		type WeightInfo: WeightInfo;
@@ -452,11 +452,11 @@ impl<T: Config> Pallet<T> {
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		let tx_items = match <ProcessXRPTransaction<T>>::take(n) {
-			None => return DbWeight::get().reads(2 as Weight),
+			None => return DbWeight::get().reads(2u64),
 			Some(v) => v,
 		};
-		let mut reads = 2 as Weight;
-		let mut writes = 0 as Weight;
+		let mut reads = 2u64;
+		let mut writes = 0u64;
 
 		let tx_details = tx_items
 			.iter()
@@ -502,12 +502,12 @@ impl<T: Config> Pallet<T> {
 	/// Prune settled transaction data from storage
 	/// if it was scheduled to do so at block `n`
 	pub fn clear_storages(n: T::BlockNumber) -> Weight {
-		let mut reads: Weight = 0;
-		let mut writes: Weight = 0;
+		let mut reads = 0u64;
+		let mut writes = 0u64;
 		reads += 1;
 		if <SettledXRPTransactionDetails<T>>::contains_key(n) {
 			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
-				writes += 1 + tx_hashes.len() as Weight;
+				writes += 1 + tx_hashes.len() as u64;
 				for tx_hash in tx_hashes {
 					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
 				}

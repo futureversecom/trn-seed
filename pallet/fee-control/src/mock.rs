@@ -22,6 +22,7 @@ use frame_support::{
 	weights::WeightToFee,
 	PalletId,
 };
+use pallet_evm::GasWeightMapping;
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::*;
 use sp_core::{H160, H256};
@@ -102,7 +103,7 @@ pub mod mock_pallet {
 		}
 
 		// Some expected weight, given by a balances transfer
-		pub const WEIGHT: Weight = 0;
+		pub const WEIGHT: Weight = Weight::zero();
 
 		#[pallet::call]
 		impl<T: Config> Pallet<T> {

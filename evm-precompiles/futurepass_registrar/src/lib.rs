@@ -36,10 +36,10 @@ where
 	Runtime::AccountId: From<H160> + Into<H160>,
 	Runtime: frame_system::Config + pallet_futurepass::Config + pallet_evm::Config,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	<Runtime as frame_system::Config>::Call:
+	<Runtime as frame_system::Config>::RuntimeCall:
 		Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
+	<Runtime as frame_system::Config>::RuntimeCall: From<pallet_futurepass::Call<Runtime>>,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
 		From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
@@ -75,10 +75,10 @@ where
 	Runtime::AccountId: From<H160> + Into<H160>,
 	Runtime: frame_system::Config + pallet_futurepass::Config + pallet_evm::Config,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	<Runtime as frame_system::Config>::Call:
+	<Runtime as frame_system::Config>::RuntimeCall:
 		Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
+	<Runtime as frame_system::Config>::RuntimeCall: From<pallet_futurepass::Call<Runtime>>,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
 		From<Option<Runtime::AccountId>>,
 {
 	fn futurepass_of(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {

@@ -14,11 +14,13 @@ use crate::*;
 use frame_support::{
 	parameter_types,
 	traits::{FindAuthor, InstanceFilter},
-	weights::{ConstantMultiplier, WeightToFee},
+	weights::{ConstantMultiplier, Weight, WeightToFee},
 	PalletId,
 };
 use frame_system::{limits, EnsureRoot};
-use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
+use pallet_evm::{
+	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
+};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::*;
 use seed_primitives::{AccountId, AssetId};
@@ -66,17 +68,17 @@ impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = BlockLength;
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -122,8 +124,8 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type Call = Call;
-	type Event = Event;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
 	type FeeAssetId = XrpAssetId;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
@@ -137,7 +139,7 @@ parameter_types! {
 	pub const LPTokenDecimals: u8 = 6;
 }
 impl pallet_dex::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type DEXBurnPalletId = DEXBurnPalletId;
@@ -157,7 +159,7 @@ parameter_types! {
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -181,7 +183,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -192,7 +194,7 @@ impl pallet_assets_ext::Config for Test {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -218,13 +220,13 @@ where
 	type Balance = Balance;
 
 	fn weight_to_fee(weight: &Weight) -> Balance {
-		M::get().mul(*weight as Balance)
+		M::get().mul(weight.ref_time() as Balance)
 	}
 }
 
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = FeeProxy;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
@@ -234,7 +236,7 @@ impl pallet_transaction_payment::Config for Test {
 pub struct FixedGasPrice;
 impl FeeCalculator for FixedGasPrice {
 	fn min_gas_price() -> (U256, Weight) {
-		(1.into(), 0u64)
+		(1.into(), Weight::zero())
 	}
 }
 
@@ -262,15 +264,25 @@ impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
 	}
 }
 
+pub struct FixedGasWeightMapping;
+impl GasWeightMapping for FixedGasWeightMapping {
+	fn gas_to_weight(_gas: u64, _without_base_weight: bool) -> Weight {
+		Weight::zero()
+	}
+	fn weight_to_gas(_weight: Weight) -> u64 {
+		0u64
+	}
+}
+
 impl pallet_evm::Config for Test {
 	type FeeCalculator = FixedGasPrice;
-	type GasWeightMapping = ();
+	type GasWeightMapping = FixedGasWeightMapping;
 	type BlockHashMapping = MockBlockHashMapping<Test>;
 	type CallOrigin = EnsureAddressNever<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
 	type AddressMapping = MockAddressMapping;
 	type Currency = Balances;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type PrecompilesType = ();
 	type PrecompilesValue = ();
@@ -279,6 +291,7 @@ impl pallet_evm::Config for Test {
 	type OnChargeTransaction = ();
 	type FindAuthor = FindAuthorTruncated;
 	type HandleTxValidation = ();
+	type WeightPerGas = ();
 }
 
 parameter_types! {

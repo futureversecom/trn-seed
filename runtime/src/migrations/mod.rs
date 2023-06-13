@@ -32,7 +32,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from(0u32);
+		let mut weight = Weight::from_ref_time(0u64);
 		weight += staking::Upgrade::on_runtime_upgrade();
 
 		weight
@@ -604,7 +604,7 @@ mod remote_tests {
 		ext.execute_with(|| {
 			AllMigrations::pre_upgrade().unwrap();
 			AllMigrations::on_runtime_upgrade();
-			AllMigrations::post_upgrade().unwrap();
+			AllMigrations::post_upgrade(vec![]).unwrap();
 		});
 	}
 }

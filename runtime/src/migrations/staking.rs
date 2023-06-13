@@ -52,7 +52,7 @@ pub mod v1 {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
-		let mut weight = 0;
+		let mut weight: Weight = Weight::zero();
 
 		// Same as `Map::iter()` but available for this file
 		let existing_storage: Vec<(AccountId, RewardDestination<AccountId>)> =

@@ -14,12 +14,11 @@ extern crate alloc;
 
 use fp_evm::{PrecompileHandle, PrecompileOutput};
 use frame_support::{
-	dispatch::Dispatchable,
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::{
 		fungibles::{Inspect, InspectMetadata, Transfer},
 		OriginTrait,
 	},
-	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use pallet_evm::PrecompileSet;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
@@ -70,11 +69,11 @@ where
 		+ frame_system::Config
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_token_approvals::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
 {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<EvmResult<PrecompileOutput>> {
 		let context = handle.context();
@@ -149,11 +148,11 @@ where
 		+ frame_system::Config
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_token_approvals::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
 {
 	fn total_supply(
 		asset_id: AssetId,

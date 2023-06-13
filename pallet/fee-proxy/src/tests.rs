@@ -39,7 +39,7 @@ mod call_with_fee_preferences {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
-			let call = mock::Call::System(frame_system::Call::remark {
+			let call = mock::RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),
 			});
 
@@ -62,7 +62,7 @@ mod call_with_fee_preferences {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = XRP_ASSET_ID;
 			let max_payment: Balance = 100;
-			let call = mock::Call::System(frame_system::Call::remark {
+			let call = mock::RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),
 			});
 
@@ -85,8 +85,9 @@ mod call_with_fee_preferences {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
-			let call =
-				mock::Call::System(frame_system::Call::fill_block { ratio: Default::default() });
+			let call = mock::RuntimeCall::System(frame_system::Call::fill_block {
+				ratio: Default::default(),
+			});
 
 			// Test that the error returned is the error from the inner call. In this case it is
 			// BadOrigin as fill_block requires root. This is the easiest example to use without
@@ -110,11 +111,11 @@ mod call_with_fee_preferences {
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
 
-			let call_inner = mock::Call::System(frame_system::Call::remark {
+			let call_inner = mock::RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),
 			});
 
-			let call = mock::Call::FeeProxy(crate::Call::call_with_fee_preferences {
+			let call = mock::RuntimeCall::FeeProxy(crate::Call::call_with_fee_preferences {
 				payment_asset,
 				max_payment,
 				call: Box::new(call_inner),

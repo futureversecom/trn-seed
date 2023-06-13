@@ -17,7 +17,9 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::{limits, EnsureRoot};
-use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
+use pallet_evm::{
+	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
+};
 use seed_pallet_common::OnNewAssetSubscriber;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
@@ -57,16 +59,16 @@ parameter_types! {
 }
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = Index;
 	type BlockNumber = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = MockAccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type BlockLength = BlockLength;
 	type BlockWeights = ();
@@ -93,7 +95,7 @@ parameter_types! {
 pub type AssetsForceOrigin = EnsureRoot<MockAccountId>;
 
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -111,7 +113,7 @@ impl pallet_assets::Config for Test {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -124,7 +126,7 @@ impl pallet_balances::Config for Test {
 pub struct FixedGasPrice;
 impl FeeCalculator for FixedGasPrice {
 	fn min_gas_price() -> (U256, Weight) {
-		(1.into(), 0u64)
+		(1.into(), Weight::zero())
 	}
 }
 
@@ -152,15 +154,25 @@ impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
 	}
 }
 
+pub struct FixedGasWeightMapping;
+impl GasWeightMapping for FixedGasWeightMapping {
+	fn gas_to_weight(_gas: u64, _without_base_weight: bool) -> Weight {
+		Weight::zero()
+	}
+	fn weight_to_gas(_weight: Weight) -> u64 {
+		0u64
+	}
+}
+
 impl pallet_evm::Config for Test {
 	type FeeCalculator = FixedGasPrice;
-	type GasWeightMapping = ();
+	type GasWeightMapping = FixedGasWeightMapping;
 	type BlockHashMapping = MockBlockHashMapping<Test>;
 	type CallOrigin = EnsureAddressNever<MockAccountId>;
 	type WithdrawOrigin = EnsureAddressNever<MockAccountId>;
 	type AddressMapping = MockAddressMapping;
 	type Currency = Balances;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type PrecompilesType = ();
 	type PrecompilesValue = ();
@@ -169,6 +181,7 @@ impl pallet_evm::Config for Test {
 	type OnChargeTransaction = ();
 	type FindAuthor = FindAuthorTruncated;
 	type HandleTxValidation = ();
+	type WeightPerGas = ();
 }
 
 parameter_types! {
@@ -205,7 +218,7 @@ parameter_types! {
 	pub const MaxHolds: u32 = 16;
 }
 impl crate::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;

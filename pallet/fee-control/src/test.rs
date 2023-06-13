@@ -11,7 +11,9 @@
 
 use crate::mock::*;
 use frame_support::{
-	assert_ok, dispatch::GetDispatchInfo, traits::fungibles::Mutate, weights::DispatchClass,
+	assert_ok,
+	dispatch::{DispatchClass, GetDispatchInfo},
+	traits::fungibles::Mutate,
 };
 use frame_system::{limits::BlockWeights, RawOrigin};
 use pallet_transaction_payment::ChargeTransactionPayment;
@@ -46,7 +48,7 @@ fn charges_default_extrinsic_amount() {
 		let base_fee = FeeControl::weight_to_fee(
 			&BlockWeights::default().get(DispatchClass::Normal).base_extrinsic,
 		);
-		let extrinsic_fee = dispatch_info.weight;
+		let extrinsic_fee = dispatch_info.weight.ref_time();
 
 		assert_eq!(
 			Assets::balance(100, account),
@@ -88,7 +90,7 @@ fn charges_extrinsic_fee_based_on_setting() {
 		let base_fee = FeeControl::weight_to_fee(
 			&BlockWeights::default().get(DispatchClass::Normal).base_extrinsic,
 		);
-		let extrinsic_fee = dispatch_info.weight;
+		let extrinsic_fee = dispatch_info.weight.ref_time();
 
 		assert_eq!(
 			Assets::balance(100, account),

@@ -110,7 +110,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
@@ -423,7 +423,7 @@ pub mod pallet {
 			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
-			T::WeightInfo::buy() * removed_count as Weight
+			T::WeightInfo::buy().mul(removed_count as u64)
 		}
 	}
 

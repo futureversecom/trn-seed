@@ -20,6 +20,7 @@ use frame_support::{
 	parameter_types,
 	storage::{StorageDoubleMap, StorageValue},
 	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	weights::Weight,
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -59,7 +60,7 @@ pub const XRP_ASSET_ID: AssetId = 1;
 type BlockNumber = u64;
 pub type SessionIndex = u32;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-pub type Extrinsic = TestXt<Call, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
@@ -86,17 +87,17 @@ impl frame_system::Config for TestRuntime {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = BlockNumber;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -131,8 +132,8 @@ impl Config for TestRuntime {
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
 	type UnixTime = MockUnixTime;
-	type Call = Call;
-	type Event = Event;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
 	type EpochDuration = EpochDuration;
 	type ChallengeBond = ChallengerBond;
 	type MultiCurrency = AssetsExt;
@@ -163,7 +164,7 @@ parameter_types! {
 }
 
 impl pallet_assets::Config for TestRuntime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -187,7 +188,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for TestRuntime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -202,7 +203,7 @@ parameter_types! {
 
 impl pallet_balances::Config for TestRuntime {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -216,10 +217,10 @@ parameter_types! {
 	pub const MaxScheduledPerBlock: u32 = 50;
 }
 impl pallet_scheduler::Config for TestRuntime {
-	type Event = Event;
-	type Origin = Origin;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = ();
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
@@ -569,7 +570,7 @@ impl MockValidatorSet {
 pub struct MockEventRouter;
 impl EthereumEventRouter for MockEventRouter {
 	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
-		Ok(1000)
+		Ok(Weight::from_ref_time(1000))
 	}
 }
 
@@ -637,22 +638,22 @@ impl frame_system::offchain::SigningTypes for TestRuntime {
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
 where
-	Call: From<C>,
+	RuntimeCall: From<C>,
 {
-	type OverarchingCall = Call;
+	type OverarchingCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
 where
-	Call: From<LocalCall>,
+	RuntimeCall: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-		call: Call,
+		call: RuntimeCall,
 		_public: <Signature as Verify>::Signer,
 		_account: AccountId,
 		nonce: u64,
-	) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
+	) -> Option<(RuntimeCall, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
 		Some((call, (nonce, ())))
 	}
 }
@@ -726,8 +727,10 @@ impl ExtBuilder {
 
 		if let Some(relayer) = self.relayer {
 			ext.execute_with(|| {
-				assert!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())).is_ok());
-				assert!(EthBridge::set_relayer(Origin::root(), relayer).is_ok());
+				assert!(
+					EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())).is_ok()
+				);
+				assert!(EthBridge::set_relayer(RuntimeOrigin::root(), relayer).is_ok());
 			});
 		}
 
