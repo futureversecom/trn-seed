@@ -176,7 +176,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(1, 32)?;
 
 		// Read input.
 		read_args!(handle, { owner: Address });
