@@ -95,7 +95,7 @@ pub mod pallet {
 		+ pallet_balances::Config<Balance = Balance, ReserveIdentifier = PalletIdValue>
 	{
 		/// The overarching event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The parachain_id being used by this parachain
 		type ParachainId: Get<ParachainId>;
 		/// The maximum * of holds per asset & account

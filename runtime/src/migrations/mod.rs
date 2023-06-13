@@ -20,17 +20,20 @@ use frame_support::{
 	weights::Weight,
 	ReversibleStorageHasher,
 };
+use sp_runtime::traits::Get;
 use sp_std::vec::Vec;
 
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
-		Ok(())
+	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+		let data = Vec::new();
+		Ok(data)
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let weight = Weight::from(0u32);
+		let _weight = Weight::from_ref_time(0u64);
+		staking::Upgrade::on_runtime_upgrade();
 
 		weight
 	}
@@ -600,7 +603,7 @@ mod remote_tests {
 		ext.execute_with(|| {
 			AllMigrations::pre_upgrade().unwrap();
 			AllMigrations::on_runtime_upgrade();
-			AllMigrations::post_upgrade().unwrap();
+			AllMigrations::post_upgrade(vec![]).unwrap();
 		});
 	}
 }

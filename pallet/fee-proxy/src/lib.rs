@@ -19,10 +19,9 @@
 pub use pallet::*;
 
 use frame_support::{
-	dispatch::Dispatchable,
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
 	traits::IsSubType,
-	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::{AssetId, Balance};
@@ -55,17 +54,17 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
 		/// The overarching call type.
-		type Call: Parameter
-			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>;
 		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The caller origin, overarching type of all pallets origins.
 		type PalletsOrigin: Parameter
-			+ Into<<Self as frame_system::Config>::Origin>
-			+ IsType<<<Self as frame_system::Config>::Origin as frame_support::traits::OriginTrait>::PalletsOrigin>;
+			+ Into<<Self as frame_system::Config>::RuntimeOrigin>
+			+ IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type FeeAssetId: Get<AssetId>;
@@ -99,13 +98,13 @@ pub mod pallet {
 		/// call: The inner call to be performed after the exchange
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
-			(dispatch_info.weight.saturating_add(10_000), dispatch_info.class)
+			(dispatch_info.weight.saturating_add(Weight::from_ref_time(10_000u64)), dispatch_info.class)
 		})]
 		pub fn call_with_fee_preferences(
 			origin: OriginFor<T>,
 			payment_asset: AssetId,
 			max_payment: Balance,
-			call: Box<<T as Config>::Call>,
+			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 

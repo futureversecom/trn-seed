@@ -10,7 +10,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{
-	chain_spec,
+	benchmarking, chain_spec,
 	cli::{Cli, Subcommand},
 	service,
 };
@@ -117,11 +117,8 @@ pub fn run() -> sc_cli::Result<()> {
 				Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
 			})
 		},
-		#[cfg(feature = "runtime-benchmarks")]
 		Some(Subcommand::Benchmark(cmd)) => {
-			use crate::benchmarking::{
-				inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder,
-			};
+			use benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
 			use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory};
 			use seed_primitives::EthereumSigner;
 			use seed_runtime::ExistentialDeposit;
@@ -149,6 +146,12 @@ pub fn run() -> sc_cli::Result<()> {
 						let PartialComponents { client, .. } = service::new_partial(&config, &cli)?;
 						cmd.run(client)
 					},
+					#[cfg(not(feature = "runtime-benchmarks"))]
+					BenchmarkCmd::Storage(_) => Err(
+						"Storage benchmarking can be enabled with `--features runtime-benchmarks`."
+							.into(),
+					),
+					#[cfg(feature = "runtime-benchmarks")]
 					BenchmarkCmd::Storage(cmd) => {
 						let PartialComponents { client, backend, .. } =
 							service::new_partial(&config, &cli)?;
@@ -161,7 +164,13 @@ pub fn run() -> sc_cli::Result<()> {
 						let PartialComponents { client, .. } = service::new_partial(&config, &cli)?;
 						let ext_builder = RemarkBuilder::new(client.clone());
 
-						cmd.run(config, client, inherent_benchmark_data()?, &ext_builder)
+						cmd.run(
+							config,
+							client,
+							inherent_benchmark_data()?,
+							Vec::new(),
+							&ext_builder,
+						)
 					},
 					BenchmarkCmd::Extrinsic(cmd) => {
 						let PartialComponents { client, .. } = service::new_partial(&config, &cli)?;
@@ -179,7 +188,7 @@ pub fn run() -> sc_cli::Result<()> {
 							)),
 						]);
 
-						cmd.run(client, inherent_benchmark_data()?, &ext_factory)
+						cmd.run(client, inherent_benchmark_data()?, Vec::new(), &ext_factory)
 					},
 					_ => panic!("Unsupported subcommand"),
 				}

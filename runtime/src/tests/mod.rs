@@ -19,20 +19,29 @@ mod evm_tests;
 mod multiplier;
 mod staker_payouts;
 
-use frame_support::traits::{fungibles::Inspect as _, GenesisBuild};
+use frame_support::{
+	dispatch::GetDispatchInfo,
+	traits::{fungibles::Inspect as _, GenesisBuild, Get},
+};
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
+	traits::ReadRuntimeVersionExt,
 	Encode, Pair,
 };
-use sp_runtime::{generic::Era, Perbill};
+use sp_runtime::{generic::Era, traits::{Dispatchable, SignedExtension}, Perbill};
 
 use crate::{
-	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
-	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
-	UncheckedExtrinsic, H256, U256,
+	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Runtime,
+	RuntimeOrigin, SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
+	UncheckedExtrinsic, Weight, H256, U256,
 };
-use frame_support::traits::Get;
+use frame_support::{
+	traits::{fungibles::Inspect as _, GenesisBuild, Get},
+	weights::GetDispatchInfo,
+};
+use frame_system::RawOrigin;
+use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
 
@@ -41,7 +50,7 @@ pub const BASE_TX_GAS_COST: u128 = 21000;
 pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
 
 /// The genesis block timestamp
-pub const INIT_TIMESTAMP: u64 = 30_000;
+pub const INIT_TIMESTAMP: u64 = 0;
 /// A genesis block hash for the first mock block, useful for extrinsic signatures
 pub(crate) const GENESIS_HASH: [u8; 32] = [69u8; 32];
 /// The default validator staked amount
@@ -295,7 +304,7 @@ fn fund_authorities_and_accounts() {
 // Simple Transaction builder
 pub struct TxBuilder {
 	transaction: ethereum::EIP1559Transaction,
-	origin: Origin,
+	origin: RuntimeOrigin,
 }
 
 impl TxBuilder {
@@ -315,7 +324,8 @@ impl TxBuilder {
 			r: H256::zero(),
 			s: H256::zero(),
 		};
-		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
+		let origin =
+			RuntimeOrigin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
 
 		Self { transaction, origin }
 	}
@@ -327,7 +337,8 @@ impl TxBuilder {
 	}
 
 	pub fn origin(&mut self, value: AccountId) -> &mut Self {
-		self.origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(value.into()));
+		self.origin =
+			RuntimeOrigin::from(pallet_ethereum::RawOrigin::EthereumTransaction(value.into()));
 		self
 	}
 
@@ -336,7 +347,7 @@ impl TxBuilder {
 		self
 	}
 
-	pub fn build(&self) -> (Origin, pallet_ethereum::Transaction) {
+	pub fn build(&self) -> (RuntimeOrigin, pallet_ethereum::Transaction) {
 		let tx = pallet_ethereum::Transaction::EIP1559(self.transaction.clone());
 		(self.origin.clone(), tx)
 	}

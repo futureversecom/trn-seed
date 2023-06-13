@@ -15,7 +15,9 @@
 
 use codec::Decode;
 use futures::{FutureExt, StreamExt};
-use jsonrpsee::{core::RpcResult, proc_macros::rpc, PendingSubscription};
+use jsonrpsee::{
+	core::RpcResult, proc_macros::rpc, types::SubscriptionEmptyError, SubscriptionSink,
+};
 use log::warn;
 use sc_client_api::backend::AuxStore;
 use sc_rpc::SubscriptionTaskExecutor;
@@ -99,7 +101,10 @@ where
 	R: ProvideRuntimeApi<B> + Sync + Send + 'static,
 	R::Api: EthyRuntimeApi<B>,
 {
-	fn subscribe_event_proofs(&self, pending: PendingSubscription) {
+	fn subscribe_event_proofs(
+		&self,
+		mut pending: SubscriptionSink,
+	) -> Result<(), SubscriptionEmptyError> {
 		let runtime_handle = self.runtime.clone();
 		let stream = self
 			.event_proof_stream
@@ -108,12 +113,11 @@ where
 
 		let fut = async move {
 			// asynchronous portion of the function
-			if let Some(mut sink) = pending.accept() {
-				sink.pipe_from_stream(stream).await;
-			}
+			pending.pipe_from_stream(stream).await;
 		};
 
 		self.executor.spawn("ethy-rpc-subscription", Some("rpc"), fut.boxed());
+		Ok(())
 	}
 
 	fn get_event_proof(&self, event_id: EventProofId) -> RpcResult<Option<EthEventProofResponse>> {

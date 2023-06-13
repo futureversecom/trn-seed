@@ -62,7 +62,7 @@ pub struct EthyDeps {
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
 	/// BABE protocol config.
-	pub babe_config: sc_consensus_babe::Config,
+	pub babe_config: sc_consensus_babe::BabeConfiguration,
 	/// BABE pending epoch changes.
 	pub shared_epoch_changes: SharedEpochChanges<Block, sc_consensus_babe::Epoch>,
 	/// The keystore that manages the keys of the node.

@@ -68,16 +68,16 @@ impl_pallet_assets_ext_config!(Test);
 impl_pallet_fee_control_config!(Test);
 impl_pallet_dex_config!(Test);
 
-impl InstanceFilter<Call> for ProxyType {
-	fn filter(&self, c: &Call) -> bool {
-		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
+		if matches!(c, RuntimeCall::Proxy(..) | RuntimeCall::Futurepass(..)) {
 			// Whitelist currently includes
 			// pallet_futurepass::Call::register_delegate_with_signature,
 			// pallet_futurepass::Call::unregister_delegate
 			if !matches!(
 				c,
-				Call::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+				RuntimeCall::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
+					RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
 			) {
 				return false
 			}
@@ -97,8 +97,8 @@ impl InstanceFilter<Call> for ProxyType {
 }
 
 impl pallet_proxy::Config for Test {
-	type Event = Event;
-	type Call = Call;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 
 	type ProxyType = ProxyType;
@@ -200,9 +200,9 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 	}
 
 	fn proxy_call(
-		caller: <Test as frame_system::Config>::Origin,
+		caller: <Test as frame_system::Config>::RuntimeOrigin,
 		futurepass: AccountId,
-		call: Call,
+		call: RuntimeCall,
 	) -> DispatchResult {
 		let call = pallet_proxy::Call::<Test>::proxy {
 			real: futurepass.into(),
@@ -210,7 +210,7 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 			call: call.into(),
 		};
 
-		Call::dispatch(call.into(), caller).map_err(|e| e.error)?;
+		RuntimeCall::dispatch(call.into(), caller).map_err(|e| e.error)?;
 		Ok(())
 	}
 }
@@ -221,9 +221,9 @@ parameter_types! {
 }
 
 impl crate::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Proxy = ProxyPalletProvider;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = ProxyType;
 	type WeightInfo = ();

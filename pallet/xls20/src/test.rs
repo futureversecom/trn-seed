@@ -12,8 +12,8 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	create_account, has_event, AssetsExt, Event as MockEvent, MaxTokensPerXls20Mint, Nft, System,
-	Test, TestExt, Xls20, Xls20PaymentAsset,
+	create_account, has_event, AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent,
+	System, Test, TestExt, Xls20, Xls20PaymentAsset,
 };
 use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
 use frame_system::RawOrigin;
