@@ -110,7 +110,10 @@ describe.only("ERC20 Gas Estimates", function () {
   it("transfer gas estimates", async () => {
     const amount = 100;
     const startingAmount = await erc20Precompile.balanceOf(alithSigner.address);
-    console.log("balance:", startingAmount?.toString());
+    console.log("Precompile alith balance:", startingAmount?.toString());
+
+    const startingAmountCan = await erc20Contract.balanceOf(alithSigner.address);
+    console.log("Canonical alith balance:", startingAmountCan?.toString());
     // Estimate contract call
     const contractGasEstimate = await erc20Contract
       .connect(alithSigner)
@@ -134,11 +137,11 @@ describe.only("ERC20 Gas Estimates", function () {
     // Estimate contract call
     const contractGasEstimate = await erc20Contract
       .connect(bobSigner)
-      .estimateGas.transferFrom(bobSigner, alithSigner.address, amount);
+      .estimateGas.transferFrom(bobSigner.address, alithSigner.address, amount);
     // Estimate precompile call
     const precompileGasEstimate = await erc20Precompile
       .connect(bobSigner)
-      .estimateGas.transferFrom(bobSigner, alithSigner.address, amount);
+      .estimateGas.transferFrom(bobSigner.address, alithSigner.address, amount);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
