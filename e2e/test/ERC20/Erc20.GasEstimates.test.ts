@@ -15,6 +15,7 @@ import {
   saveGasCosts,
   startNode,
 } from "../../common";
+import { MockERC20 } from "../../typechain-types";
 
 describe.only("ERC20 Gas Estimates", function () {
   let node: NodeProcess;
@@ -45,9 +46,23 @@ describe.only("ERC20 Gas Estimates", function () {
     // Deploy OpenZeppelin ERC20 contract
     const factory = new ethers.ContractFactory(ERC20Data.abi, ERC20Data.bytecode, alithSigner);
     erc20Contract = await factory.connect(alithSigner).deploy();
+
+    const actualGasEstimate = await provider.estimateGas(factory.getDeployTransaction());
+    const fees = await provider.getFeeData();
+    erc20Contract = (await factory.connect(alithSigner).deploy({
+      gasLimit: actualGasEstimate,
+      maxFeePerGas: fees.lastBaseFeePerGas!,
+      maxPriorityFeePerGas: 0,
+    })) as MockERC20;
+    await erc20Contract.deployTransaction.wait();
+    console.log("erc20Contract deployed to:", erc20Contract.address);
+
+    // assert gas used
     // const tokenAmount = 10000;
     // Estimate contract call
     await erc20Contract.connect(alithSigner).mint(alithSigner.address, 10000, { gasLimit: 50000 });
+    const alithBalanceAfter = await alithSigner.getBalance();
+    console.log("alithBalanceAfter::", alithBalanceAfter?.toString());
     // await tx.wait();
   });
 
