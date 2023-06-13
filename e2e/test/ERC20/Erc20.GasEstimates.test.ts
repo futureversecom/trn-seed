@@ -16,7 +16,7 @@ import {
   startNode,
 } from "../../common";
 
-describe("ERC20 Gas Estimates", function () {
+describe.only("ERC20 Gas Estimates", function () {
   let node: NodeProcess;
 
   let provider: JsonRpcProvider;
@@ -30,7 +30,8 @@ describe("ERC20 Gas Estimates", function () {
   // Setup api instance
   before(async () => {
     node = await startNode();
-
+    await node.wait(); // wait for the node to be ready
+    console.log(`url:http://127.0.0.1:${node.httpPort}`);
     provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
