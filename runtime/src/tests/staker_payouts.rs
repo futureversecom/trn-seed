@@ -18,7 +18,7 @@
 use frame_support::{
 	assert_ok,
 	dispatch::RawOrigin,
-	traits::{fungible::Inspect, Get, OffchainWorker, OnFinalize, OnInitialize},
+	traits::{fungible::Inspect, Get, OnFinalize, OnInitialize},
 };
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, SessionIndex};
@@ -29,12 +29,12 @@ use seed_primitives::{Balance, BlockNumber};
 
 use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
-	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, System,
-	Timestamp, TxFeePot, XrpCurrency,
+	Babe, Balances, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
+	Executive, Runtime, RuntimeCall, Scheduler, Session, SessionKeys, SessionsPerEra, Staking,
+	System, Timestamp, TxFeePot, XrpCurrency,
 };
 
-use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
+use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder};
 
 // the following helpers are copied from substrate `pallet-staking/src/mock.rs`
 /// Progress to the given block, triggering session and era changes as we progress.
@@ -44,26 +44,44 @@ use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTA
 /// in the function), and then finalize the block.
 fn run_to_block(n: BlockNumber) {
 	println!("call run to block: {:?}", n);
-	Staking::on_finalize(System::block_number());
-	for b in (System::block_number() + 1)..=n {
+
+	for b in (System::block_number())..n {
+		System::on_finalize(System::block_number());
+		Session::on_finalize(System::block_number());
+		Staking::on_finalize(System::block_number());
+		Timestamp::on_finalize(System::block_number());
+		ElectionProviderMultiPhase::on_finalize(System::block_number());
+		Babe::on_finalize(System::block_number());
+
+		let parent_hash = if System::block_number() > 1 {
+			let hdr = System::finalize();
+			hdr.hash()
+		} else {
+			System::parent_hash()
+		};
+
+		System::reset_events();
+		System::initialize(&(b as u32 + 1), &parent_hash, &Default::default());
+		System::set_block_number((b + 1).into());
+
+		System::on_initialize(System::block_number());
+		Babe::on_initialize(System::block_number());
+		<pallet_babe::CurrentSlot<Runtime>>::put(sp_consensus_babe::Slot::from(
+			b as u64 + 1 as u64,
+		));
+		Timestamp::on_initialize(System::block_number());
+		Timestamp::set_timestamp((System::block_number() * MILLISECS_PER_BLOCK as u32) as u64);
+
+		Session::on_initialize(System::block_number());
+		Staking::on_initialize(System::block_number());
+		ElectionProviderMultiPhase::on_initialize(System::block_number());
+
 		println!(
 			"start block: {:?}, era: {:?}, session: {:?}",
 			b,
 			active_era(),
 			Session::current_index()
 		);
-		System::set_block_number(b);
-		Timestamp::set_timestamp(
-			INIT_TIMESTAMP + (System::block_number() * MILLISECS_PER_BLOCK as u32) as u64,
-		);
-		<pallet_babe::CurrentSlot<Runtime>>::put(sp_consensus_babe::Slot::from(b as u64));
-		Session::on_initialize(b);
-		Staking::on_initialize(b);
-		ElectionProviderMultiPhase::on_initialize(b);
-		ElectionProviderMultiPhase::offchain_worker(b);
-		if b != n {
-			Staking::on_finalize(System::block_number());
-		}
 	}
 }
 
@@ -116,7 +134,9 @@ fn era_payout_redistributes_era_tx_fees() {
 				charlie(),
 				signed_extra(0, 5 * ONE_XRP),
 			),
-			function: Call::System(frame_system::Call::remark { remark: b"hello chain".to_vec() }),
+			function: RuntimeCall::System(frame_system::Call::remark {
+				remark: b"hello chain".to_vec(),
+			}),
 		});
 		let alice_era0_balance = XrpCurrency::balance(&alice());
 		let bob_era0_balance = XrpCurrency::balance(&bob());
@@ -178,7 +198,7 @@ fn era_payout_does_not_carry_over() {
 					charlie(),
 					signed_extra(charlie_nonce, 5 * ONE_XRP),
 				),
-				function: Call::System(frame_system::Call::remark {
+				function: RuntimeCall::System(frame_system::Call::remark {
 					remark: b"hello chain".to_vec(),
 				}),
 			});

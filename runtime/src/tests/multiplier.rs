@@ -18,7 +18,7 @@ use crate::{
 	AdjustmentVariable, MinimumMultiplier, Multiplier, RuntimeBlockWeights, TargetBlockFullness,
 	TargetedFeeAdjustment, Weight,
 };
-use frame_support::weights::DispatchClass;
+use frame_support::dispatch::DispatchClass;
 use sp_runtime::{
 	assert_eq_error_rate,
 	traits::{Convert, One, Zero},
@@ -58,13 +58,13 @@ fn truth_value_update(block_weight: Weight, previous: Multiplier) -> Multiplier 
 	let previous_float = previous_float.max(min_multiplier().into_inner() as f64 / accuracy);
 
 	// maximum tx weight
-	let m = max_normal() as f64;
+	let m = max_normal().ref_time() as f64;
 	// block weight always truncated to max weight
-	let block_weight = (block_weight as f64).min(m);
+	let block_weight = (block_weight.ref_time() as f64).min(m);
 	let v: f64 = AdjustmentVariable::get().to_float();
 
 	// Ideal saturation in terms of weight
-	let ss = target() as f64;
+	let ss = target().ref_time() as f64;
 	// Current saturation in terms of weight
 	let s = block_weight;
 
@@ -92,9 +92,9 @@ where
 fn truth_value_update_poc_works() {
 	let fm = Multiplier::saturating_from_rational(1, 2);
 	let test_set = vec![
-		(0, fm),
-		(100, fm),
-		(1000, fm),
+		(Weight::from_ref_time(0), fm),
+		(Weight::from_ref_time(100), fm),
+		(Weight::from_ref_time(1000), fm),
 		(target(), fm),
 		(max_normal() / 2, fm),
 		(max_normal(), fm),
@@ -124,7 +124,7 @@ fn multiplier_can_grow_from_zero() {
 #[test]
 fn multiplier_cannot_go_below_limit() {
 	// will not go any further below even if block is empty.
-	run_with_system_weight(0, || {
+	run_with_system_weight(Weight::zero(), || {
 		let next = runtime_multiplier_update(min_multiplier());
 		assert_eq!(next, min_multiplier());
 	})
@@ -167,27 +167,27 @@ fn weight_mul_decrease_on_small_block() {
 
 #[test]
 fn weight_to_fee_should_not_overflow_on_large_weights() {
-	let kb = 1024 as Weight;
-	let mb = kb * kb;
+	let kb = Weight::from_ref_time(1024u64);
+	let mb = kb.mul(kb.ref_time());
 	let max_fm = Multiplier::saturating_from_integer(i128::MAX);
 
 	// check that for all values it can compute, correctly.
 	vec![
-		0,
-		1,
-		10,
-		1000,
+		Weight::zero(),
+		Weight::from_ref_time(1u64),
+		Weight::from_ref_time(10u64),
+		Weight::from_ref_time(1000u64),
 		kb,
-		10 * kb,
-		100 * kb,
+		kb.mul(10u64),
+		kb.mul(100u64),
 		mb,
-		10 * mb,
-		2147483647,
-		4294967295,
-		RuntimeBlockWeights::get().max_block / 2,
+		mb.mul(10u64),
+		Weight::from_ref_time(2147483647u64),
+		Weight::from_ref_time(4294967295u64),
+		RuntimeBlockWeights::get().max_block.div(2u64),
 		RuntimeBlockWeights::get().max_block,
-		Weight::max_value() / 2,
-		Weight::max_value(),
+		Weight::MAX.div(2u64),
+		Weight::MAX,
 	]
 	.into_iter()
 	.for_each(|i| {
@@ -200,7 +200,7 @@ fn weight_to_fee_should_not_overflow_on_large_weights() {
 
 	// Some values that are all above the target and will cause an increase.
 	let t = target();
-	vec![t + 100, t * 2, t * 4].into_iter().for_each(|i| {
+	vec![t.add(100u64), t.mul(2u64), t.mul(4u64)].into_iter().for_each(|i| {
 		run_with_system_weight(i, || {
 			let fm = runtime_multiplier_update(max_fm);
 			// won't grow. The convert saturates everything.

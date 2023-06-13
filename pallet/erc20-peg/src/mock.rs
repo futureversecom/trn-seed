@@ -56,17 +56,17 @@ impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -90,7 +90,7 @@ parameter_types! {
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -114,7 +114,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -129,7 +129,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -144,7 +144,7 @@ parameter_types! {
 }
 
 impl crate::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type EthBridge = MockEthBridge;
 	type PegPalletId = PegPalletId;
 	type MultiCurrency = AssetsExt;
@@ -177,7 +177,7 @@ impl EthereumEventRouterT for MockEthereumEventRouter {
 			<pallet_erc20_peg::Pallet<Test> as EthereumEventSubscriber>::process_event(source, data)
 				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		} else {
-			Err((0, EventRouterError::NoReceiver))
+			Err((Weight::zero(), EventRouterError::NoReceiver))
 		}
 	}
 }

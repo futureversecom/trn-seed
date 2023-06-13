@@ -25,7 +25,7 @@ use frame_system::RawOrigin;
 use hex_literal::hex;
 use sp_std::vec;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event)
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent)
 where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
@@ -140,7 +140,7 @@ benchmarks! {
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
 		add_delegates::<T>(p-1, futurepass.clone(), Some(owner.clone()))?;
 
-		let call: <T as Config>::Call = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
 
 	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), Box::new(call))
 	verify {

@@ -15,8 +15,8 @@
 
 use super::*;
 use crate::mock::{
-	create_account, AssetsExt, Event as MockEvent, Marketplace, NativeAssetId, Nft, NftPalletId,
-	System, Test, TestExt,
+	create_account, AssetsExt, Marketplace, NativeAssetId, Nft, NftPalletId,
+	RuntimeEvent as MockEvent, System, Test, TestExt,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;

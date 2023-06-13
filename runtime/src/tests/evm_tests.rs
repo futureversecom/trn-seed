@@ -21,8 +21,8 @@ use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Futurepass, Origin, Runtime, System,
-	TxFeePot, XrpCurrency, EVM,
+	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Futurepass, Runtime, RuntimeOrigin,
+	System, TxFeePot, XrpCurrency, EVM,
 };
 use ethabi::Token;
 
@@ -83,7 +83,7 @@ fn evm_transfer_transaction_uses_xrp() {
 fn evm_call_success_by_any_address() {
 	ExtBuilder::default().build().execute_with(|| {
 		let result = EVM::call(
-			Origin::signed(charlie()),
+			RuntimeOrigin::signed(charlie()),
 			charlie().into(),
 			bob().into(),
 			Vec::new(),
@@ -102,7 +102,7 @@ fn evm_call_success_by_any_address() {
 fn evm_call_fail_by_origin_mismatch() {
 	ExtBuilder::default().build().execute_with(|| {
 		let result = EVM::call(
-			Origin::signed(alice()),
+			RuntimeOrigin::signed(alice()),
 			charlie().into(),
 			bob().into(),
 			Vec::new(),
@@ -182,7 +182,7 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		]));
 		// Setup inner EVM.call call
 		let access_list: Vec<(H160, Vec<H256>)> = vec![];
-		let inner_call = crate::Call::EVM(pallet_evm::Call::call {
+		let inner_call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
 			source: new_account.into(),
 			target,
 			input,
@@ -195,11 +195,12 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		});
 
 		let max_payment: Balance = 10_000_000_000_000_000;
-		let call = crate::Call::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
-			payment_asset,
-			max_payment,
-			call: Box::new(inner_call.clone()),
-		});
+		let call =
+			crate::RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				payment_asset,
+				max_payment,
+				call: Box::new(inner_call.clone()),
+			});
 
 		let dispatch_info = call.get_dispatch_info();
 

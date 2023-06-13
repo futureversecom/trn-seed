@@ -136,10 +136,10 @@ where
 		+ pallet_evm::Config
 		+ pallet_proxy::Config,
 	<Runtime as pallet_proxy::Config>::ProxyType: Decode + EvmProxyCallFilter,
-	<Runtime as frame_system::Config>::Call:
+	<Runtime as frame_system::Config>::RuntimeCall:
 		Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
+	<Runtime as frame_system::Config>::RuntimeCall: From<pallet_futurepass::Call<Runtime>>,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
 		From<Option<Runtime::AccountId>>,
 	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
 	<Runtime as pallet_proxy::Config>::ProxyType: Into<u8>,
@@ -194,10 +194,10 @@ where
 		+ pallet_evm::Config
 		+ pallet_proxy::Config,
 	<Runtime as pallet_proxy::Config>::ProxyType: Decode + EvmProxyCallFilter,
-	<Runtime as frame_system::Config>::Call:
+	<Runtime as frame_system::Config>::RuntimeCall:
 		Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	<Runtime as frame_system::Config>::Call: From<pallet_futurepass::Call<Runtime>>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
+	<Runtime as frame_system::Config>::RuntimeCall: From<pallet_futurepass::Call<Runtime>>,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin:
 		From<Option<Runtime::AccountId>>,
 	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
 	<Runtime as pallet_proxy::Config>::ProxyType: Into<u8>,

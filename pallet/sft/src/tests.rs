@@ -185,7 +185,7 @@ mod create_collection {
 			);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::CollectionCreate {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::CollectionCreate {
 				collection_id: collection_uuid,
 				collection_owner,
 				metadata_scheme,
@@ -363,7 +363,7 @@ mod create_token {
 			);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::TokenCreate {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::TokenCreate {
 				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: Some(max_issuance),
@@ -433,7 +433,7 @@ mod create_token {
 			assert_eq!(TokenInfo::<Test>::get((collection_id, 0)).unwrap(), expected_token_info);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::TokenCreate {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::TokenCreate {
 				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: None,
@@ -624,7 +624,7 @@ mod mint {
 			assert_eq!(token_info.token_issuance, quantity);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::Mint {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
 				balances: bounded_quantities(vec![quantity]),
@@ -649,7 +649,7 @@ mod mint {
 			assert_eq!(token_info.token_issuance, quantity + quantity2);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::Mint {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
 				balances: bounded_quantities(vec![quantity2]),
@@ -696,7 +696,7 @@ mod mint {
 			}
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::Mint {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
 				balances: bounded_quantities(quantities),
@@ -730,7 +730,7 @@ mod mint {
 			assert_eq!(token_info.token_issuance, sum);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::Mint {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::Mint {
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
 				balances: bounded_quantities(quantities),
@@ -971,7 +971,7 @@ mod transfer {
 			assert_eq!(token_info.token_issuance, initial_issuance);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::Transfer {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::Transfer {
 				previous_owner: token_owner,
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
@@ -1023,7 +1023,7 @@ mod transfer {
 			}
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::Transfer {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::Transfer {
 				previous_owner: collection_owner,
 				collection_id,
 				serial_numbers: bounded_serials(serial_numbers),
@@ -1223,7 +1223,7 @@ mod burn {
 			assert_eq!(token_info.owned_tokens, expected_owned_tokens);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::Burn {
+			System::assert_last_event(RuntimeEvent::Sft(crate::Event::Burn {
 				collection_id,
 				serial_numbers: bounded_serials(vec![serial_number]),
 				balances: bounded_quantities(vec![burn_amount]),

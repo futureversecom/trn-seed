@@ -38,7 +38,6 @@ pub trait WeightInfo {
     fn set_owner() -> Weight;
     fn set_max_issuance() -> Weight;
     fn set_base_uri() -> Weight;
-    fn set_name() -> Weight;
 }
 
 // For backwards compatibility and tests
@@ -93,12 +92,6 @@ impl WeightInfo for () {
     }
     // Storage: Sft SftCollectionInfo (r:1 w:1)
     fn set_base_uri() -> Weight {
-        (23_354_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(1 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(1 as Weight))
-    }
-    // Storage: Sft SftCollectionInfo (r:1 w:1)
-    fn set_name() -> Weight {
         (23_354_000 as Weight)
             .saturating_add(RocksDbWeight::get().reads(1 as Weight))
             .saturating_add(RocksDbWeight::get().writes(1 as Weight))

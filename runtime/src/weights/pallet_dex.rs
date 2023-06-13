@@ -38,18 +38,18 @@ impl<T: frame_system::Config> pallet_dex::WeightInfo for WeightInfo<T> {
 	// Storage: Assets Asset (r:2 w:2)
 	// Storage: Assets Account (r:4 w:4)
 	fn swap_with_exact_supply() -> Weight {
-		(72_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(72_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(8 as u64))
+			.saturating_add(T::DbWeight::get().writes(7 as u64))
 	}
 	// Storage: Dex TradingPairStatuses (r:1 w:0)
 	// Storage: Dex LiquidityPool (r:1 w:1)
 	// Storage: Assets Asset (r:2 w:2)
 	// Storage: Assets Account (r:4 w:4)
 	fn swap_with_exact_target() -> Weight {
-		(71_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(71_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(8 as u64))
+			.saturating_add(T::DbWeight::get().writes(7 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:1)
 	// Storage: Assets Metadata (r:3 w:1)
@@ -64,9 +64,9 @@ impl<T: frame_system::Config> pallet_dex::WeightInfo for WeightInfo<T> {
 	// Storage: Dex FeeTo (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:0 w:1)
 	fn add_liquidity() -> Weight {
-		(146_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(23 as Weight))
-			.saturating_add(T::DbWeight::get().writes(19 as Weight))
+		Weight::from_ref_time(146_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(23 as u64))
+			.saturating_add(T::DbWeight::get().writes(19 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex LiquidityPool (r:1 w:1)
@@ -76,23 +76,23 @@ impl<T: frame_system::Config> pallet_dex::WeightInfo for WeightInfo<T> {
 	// Storage: Dex LiquidityPoolLastK (r:1 w:0)
 	// Storage: Dex FeeTo (r:1 w:0)
 	fn remove_liquidity() -> Weight {
-		(118_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(14 as Weight))
-			.saturating_add(T::DbWeight::get().writes(11 as Weight))
+		Weight::from_ref_time(118_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(14 as u64))
+			.saturating_add(T::DbWeight::get().writes(11 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:1 w:1)
 	fn reenable_trading_pair() -> Weight {
-		(19_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(19_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Dex TradingPairLPToken (r:1 w:0)
 	// Storage: Dex TradingPairStatuses (r:1 w:1)
 	fn disable_trading_pair() -> Weight {
-		(19_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(19_000_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(2 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: Dex FeeTo (r:0 w:1)
 	fn set_fee_to() -> Weight {
