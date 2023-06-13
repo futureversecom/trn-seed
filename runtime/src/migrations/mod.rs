@@ -11,6 +11,7 @@
 
 mod staking;
 
+use crate::{Runtime, VoterList};
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -22,7 +23,15 @@ use frame_support::{
 	weights::Weight,
 	ReversibleStorageHasher,
 };
+use sp_runtime::traits::Get;
 use sp_std::vec::Vec;
+
+pub struct StakingMigrationV11OldPallet;
+impl Get<&'static str> for StakingMigrationV11OldPallet {
+	fn get() -> &'static str {
+		"VoterList"
+	}
+}
 
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
@@ -33,9 +42,18 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from_ref_time(0u64);
-		weight += staking::Upgrade::on_runtime_upgrade();
+		staking::Upgrade::on_runtime_upgrade();
 
-		weight
+		pallet_staking::migrations::v8::migrate::<Runtime>();
+		pallet_staking::migrations::v9::InjectValidatorsIntoVoterList::<Runtime>::on_runtime_upgrade();
+		pallet_staking::migrations::v10::MigrateToV10::<Runtime>::on_runtime_upgrade();
+		pallet_staking::migrations::v11::MigrateToV11::<
+			Runtime,
+			VoterList,
+			StakingMigrationV11OldPallet,
+		>::on_runtime_upgrade();
+
+		<Runtime as frame_system::Config>::BlockWeights::get().max_block
 	}
 
 	#[cfg(feature = "try-runtime")]
