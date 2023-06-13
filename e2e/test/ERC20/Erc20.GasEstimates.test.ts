@@ -47,9 +47,7 @@ describe.only("ERC20 Gas Estimates", function () {
     erc20Contract = await factory.connect(alithSigner).deploy();
     // const tokenAmount = 10000;
     // Estimate contract call
-    const tx = await erc20Contract
-      .connect(alithSigner)
-      .mint(alithSigner.address, utils.parseEther("101.000000"), { gasLimit: 50000 });
+    const tx = await erc20Contract.connect(alithSigner).mint(alithSigner.address, 10000, { gasLimit: 50000 });
     await tx.wait();
   });
 
