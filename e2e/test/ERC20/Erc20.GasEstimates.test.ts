@@ -1,6 +1,6 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { expect } from "chai";
-import { Contract, Wallet, utils } from "ethers";
+import { Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
