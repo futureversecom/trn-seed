@@ -1,7 +1,4 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
-import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
-import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
@@ -17,32 +14,22 @@ import {
   assetIdToERC20ContractAddress,
   saveGasCosts,
   startNode,
-  typedefs,
 } from "../../common";
 
 describe("ERC20 Gas Estimates", function () {
   let node: NodeProcess;
 
   let provider: JsonRpcProvider;
-  let api: ApiPromise;
   let bobSigner: Wallet;
   let alithSigner: Wallet;
   let erc20Precompile: Contract;
   let erc20Contract: Contract;
-  let alith: KeyringPair;
 
   const allCosts: { [key: string]: GasCosts } = {};
 
   // Setup api instance
   before(async () => {
     node = await startNode();
-
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
-
-    // Setup Root api instance and keyring
-    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
-    const keyring = new Keyring({ type: "ethereum" });
-    alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
     provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
