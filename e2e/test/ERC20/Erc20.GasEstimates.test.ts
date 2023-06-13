@@ -1,6 +1,6 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { expect } from "chai";
-import { Contract, Wallet } from "ethers";
+import { Contract, Wallet, utils } from "ethers";
 import { ethers } from "hardhat";
 import web3 from "web3";
 
@@ -45,9 +45,9 @@ describe.only("ERC20 Gas Estimates", function () {
     // Deploy OpenZeppelin ERC20 contract
     const factory = new ethers.ContractFactory(ERC20Data.abi, ERC20Data.bytecode, alithSigner);
     erc20Contract = await factory.connect(alithSigner).deploy();
-    const tokenAmount = 10000;
+    // const tokenAmount = 10000;
     // Estimate contract call
-    await erc20Contract.connect(alithSigner).mint(alithSigner.address, tokenAmount);
+    await erc20Contract.connect(alithSigner).mint(alithSigner.address, utils.parseEther("101.000000"));
   });
 
   after(async () => {
@@ -109,6 +109,8 @@ describe.only("ERC20 Gas Estimates", function () {
 
   it("transfer gas estimates", async () => {
     const amount = 100;
+    const startingAmount = await erc20Precompile.balanceOf(alithSigner.address);
+    console.log("balance:", startingAmount?.toString());
     // Estimate contract call
     const contractGasEstimate = await erc20Contract
       .connect(alithSigner)
@@ -132,11 +134,11 @@ describe.only("ERC20 Gas Estimates", function () {
     // Estimate contract call
     const contractGasEstimate = await erc20Contract
       .connect(bobSigner)
-      .estimateGas.transferFrom(alithSigner.address, amount);
+      .estimateGas.transferFrom(bobSigner, alithSigner.address, amount);
     // Estimate precompile call
     const precompileGasEstimate = await erc20Precompile
       .connect(bobSigner)
-      .estimateGas.transferFrom(alithSigner.address, amount);
+      .estimateGas.transferFrom(bobSigner, alithSigner.address, amount);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
