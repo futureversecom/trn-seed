@@ -189,7 +189,7 @@ impl<T: Config> Pallet<T> {
 		serial_numbers: Vec<SerialNumber>,
 	) -> Weight {
 		if serial_numbers.is_empty() {
-			return 0 as Weight
+			Weight::zero();
 		};
 
 		let collection_info = match Self::collection_info(collection_id) {

@@ -26,6 +26,7 @@ use frame_support::{
 	weights::Weight,
 	ReversibleStorageHasher,
 };
+use sp_runtime::traits::Get;
 use sp_std::vec::Vec;
 
 pub struct AllMigrations;
@@ -608,7 +609,7 @@ mod remote_tests {
 		ext.execute_with(|| {
 			AllMigrations::pre_upgrade().unwrap();
 			AllMigrations::on_runtime_upgrade();
-			AllMigrations::post_upgrade().unwrap();
+			AllMigrations::post_upgrade(vec![]).unwrap();
 		});
 	}
 }

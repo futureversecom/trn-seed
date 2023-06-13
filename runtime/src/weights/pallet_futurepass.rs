@@ -13,7 +13,7 @@
 // --chain=dev
 // --steps=50
 // --repeat=20
-// --pallet=pallet-futurepass
+// --pallet=pallet_futurepass
 // --extrinsic=*
 // --execution=wasm
 // --wasm-execution=compiled

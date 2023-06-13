@@ -5,11 +5,14 @@ authors = ["The Root Network Team"]
 edition = "2021"
 
 [dependencies]
-frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+sp-weights = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 
 [features]
 default = ["std"]
 std = [
-	"sp-runtime/std"
+	"sp-runtime/std",
+	"sp-core/std",
+	"sp-weights/std",
 ]

@@ -81,7 +81,7 @@ fn decode_deposit_event_errs_too_many_tokens() {
 
 		assert_noop!(
 			Pallet::<Test>::decode_deposit_event(&data),
-			(0_u64, Error::<Test>::ExceedsMaxTokens.into())
+			(Weight::zero(), Error::<Test>::ExceedsMaxTokens.into())
 		);
 	})
 }
@@ -104,7 +104,7 @@ fn decode_deposit_event_errs_too_many_addresses() {
 
 		assert_noop!(
 			Pallet::<Test>::decode_deposit_event(&data),
-			(0_u64, Error::<Test>::ExceedsMaxAddresses.into())
+			(Weight::zero(), Error::<Test>::ExceedsMaxAddresses.into())
 		);
 	})
 }
@@ -339,7 +339,7 @@ fn do_withdraw_works() {
 		let collection_ids = BoundedVec::truncate_from(vec![collection_id]);
 		let serial_numbers = BoundedVec::truncate_from(vec![BoundedVec::truncate_from(vec![1])]);
 		assert_ok!(Pallet::<Test>::withdraw(
-			Origin::signed(AccountId::from(test_vals.destination)),
+			RuntimeOrigin::signed(AccountId::from(test_vals.destination)),
 			collection_ids,
 			serial_numbers,
 			H160::from_low_u64_be(123),
@@ -357,7 +357,7 @@ fn do_withdraw_invalid_token_length_should_fail() {
 		let serial_numbers = BoundedVec::truncate_from(vec![BoundedVec::truncate_from(vec![1])]);
 		assert_noop!(
 			Pallet::<Test>::withdraw(
-				Origin::signed(AccountId::from(H160::default())),
+				RuntimeOrigin::signed(AccountId::from(H160::default())),
 				collection_ids,
 				serial_numbers,
 				H160::default()

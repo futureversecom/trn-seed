@@ -57,7 +57,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Weight Info
 		type WeightInfo: WeightInfo;
 		/// Default values
@@ -105,11 +105,11 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	pub fn weight_to_fee(weight: &Weight) -> Balance {
-		Data::<T>::get().weight_multiplier.mul(*weight as Balance)
+		Data::<T>::get().weight_multiplier.mul(weight.ref_time() as Balance)
 	}
 
 	pub fn length_to_fee(weight: &Weight) -> Balance {
-		Data::<T>::get().length_multiplier.mul(*weight as Balance)
+		Data::<T>::get().length_multiplier.mul(weight.ref_time() as Balance)
 	}
 
 	pub fn base_fee_per_gas() -> U256 {

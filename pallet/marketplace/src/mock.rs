@@ -16,12 +16,13 @@
 use crate as pallet_marketplace;
 use frame_support::{
 	dispatch::DispatchResult,
+	pallet_prelude::Weight,
 	parameter_types,
 	traits::{FindAuthor, GenesisBuild},
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
+use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use seed_pallet_common::*;
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
@@ -121,7 +122,7 @@ parameter_types! {
 
 impl pallet_nft::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
@@ -138,7 +139,7 @@ impl pallet_nft::Config for Test {
 }
 
 impl crate::Config for Test {
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type WeightInfo = ();
 }
 
