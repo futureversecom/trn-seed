@@ -481,7 +481,7 @@ describe("Fee Preferences", function () {
     };
 
     const error = await emptyAccountSigner.sendTransaction(unsignedTx).catch((e) => e);
-    // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.30-TRN/ts-tests/tests/test-transaction-cost.ts
+    // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.39-TRN/ts-tests/tests/test-transaction-cost.ts
     expect(error.code).to.be.eq("SERVER_ERROR");
     const body = JSON.parse(error.body);
     expect(body.error.message).to.be.eq(
@@ -516,7 +516,7 @@ describe("Fee Preferences", function () {
     };
 
     const error = await emptyAccountSigner.sendTransaction(unsignedTx).catch((e) => e);
-    // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.30-TRN/ts-tests/tests/test-transaction-cost.ts
+    // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.39-TRN/ts-tests/tests/test-transaction-cost.ts
     expect(error.code).to.be.eq("SERVER_ERROR");
     const body = JSON.parse(error.body);
     expect(body.error.message).to.be.eq(

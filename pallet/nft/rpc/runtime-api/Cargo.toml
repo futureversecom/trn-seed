@@ -6,10 +6,10 @@ edition = "2021"
 license = "GPL-3.0"
 
 [dependencies]
-codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
-sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+codec = { version = "3.2.2", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
 pallet-nft = { path = "../../../nft", default-features = false }
 seed-primitives = { path = "../../../../primitives", default-features = false}
 
