@@ -8,7 +8,7 @@ license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 [dependencies]
 codec = { version = "3.2.2", package = "parity-scale-codec", features = ["derive"] }
 futures = { version = "0.3.24" }
-jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
 libsecp256k1 = { version = "0.7.0" }
 log = "0.4"
 serde = { version = "1.0.131", features = ["derive"] }

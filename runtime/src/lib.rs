@@ -762,7 +762,7 @@ parameter_types! {
 	/// Holds XRP transaction fees for distribution to validators according to stake & undistributed reward remainders
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
 }
-type SlashCancelOrigin = EnsureRoot<AccountId>;
+
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
 	type Currency = DualStakingCurrency;

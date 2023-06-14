@@ -19,7 +19,7 @@ path = "src/main.rs"
 
 [dependencies]
 futures = "0.3.25"
-clap = { version = "3.2.22", features = ["derive"] }
+clap = { version = "4.0.9", features = ["derive"] }
 url = "2.3.1"
 hex-literal = "0.3.4"
 hex = "0.4"
@@ -64,7 +64,7 @@ fp-rpc = { default-features = false, git = "https://github.com/futureversecom/fr
 fp-storage = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.39-TRN" }
 
 # These dependencies are used for the node template's RPCs
-jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }

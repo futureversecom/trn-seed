@@ -8,7 +8,7 @@ license = "GPL-3.0"
 
 [dependencies]
 codec = { version = "3.2.2", package = "parity-scale-codec", default-features = false }
-jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["server", "macros"] }
 
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }

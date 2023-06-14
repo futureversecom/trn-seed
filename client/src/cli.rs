@@ -17,20 +17,15 @@ pub struct RunCmd {
 	pub fee_history_limit: u64,
 
 	/// Ethereum JSON-RPC client endpoint
-	#[clap(
-		parse(try_from_str = parse_uri),
-		long = "eth-http",
-	)]
+	#[clap(long = "eth-http")]
 	pub eth_http: Option<String>,
 
 	/// XRP JSON-RPC client endpoint
-	#[clap(
-		parse(try_from_str = parse_uri),
-		long = "xrp-http",
-	)]
+	#[clap(long = "xrp-http")]
 	pub xrp_http: Option<String>,
 }
 
+// TODO! Marko
 /// Parse HTTP `uri`
 fn parse_uri(uri: &str) -> Result<String> {
 	let _ = url::Url::parse(uri)

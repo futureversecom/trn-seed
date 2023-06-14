@@ -21,7 +21,7 @@ use jsonrpsee::{
 use log::warn;
 use sc_client_api::backend::AuxStore;
 use sc_rpc::SubscriptionTaskExecutor;
-use sp_api::{BlockId, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_core::{Bytes, H256};
 use sp_runtime::traits::{Block, Convert};
 use std::{marker::PhantomData, ops::Deref, sync::Arc};
