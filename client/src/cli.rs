@@ -3,25 +3,26 @@ use sc_cli::{Error, Result};
 
 #[allow(missing_docs)]
 #[derive(Debug, clap::Parser)]
+#[group(skip)]
 pub struct RunCmd {
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
 
 	/// Maximum number of logs in a query (EVM).
-	#[clap(long, default_value = "10000")]
+	#[arg(long, default_value = "10000")]
 	pub max_past_logs: u32,
 
 	/// Maximum fee history cache size (EVM).
-	#[clap(long, default_value = "2048")]
+	#[arg(long, default_value = "2048")]
 	pub fee_history_limit: u64,
 
 	/// Ethereum JSON-RPC client endpoint
-	#[clap(long = "eth-http")]
+	#[arg(long = "eth-http", value_parser = parse_uri)]
 	pub eth_http: Option<String>,
 
 	/// XRP JSON-RPC client endpoint
-	#[clap(long = "xrp-http")]
+	#[arg(long = "xrp-http", value_parser = parse_uri)]
 	pub xrp_http: Option<String>,
 }
 
