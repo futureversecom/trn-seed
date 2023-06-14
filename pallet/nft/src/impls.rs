@@ -205,8 +205,10 @@ impl<T: Config> Pallet<T> {
 			})
 			.collect::<Vec<SerialNumber>>();
 
-		let serial_numbers: Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, ()> =
-			BoundedVec::try_from(serial_numbers_trimmed);
+		let serial_numbers: Result<
+			BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+			sp_std::vec::Vec<u32>,
+		> = BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
 				let _ = Self::do_mint(collection_id, collection_info, &owner, &serial_numbers);

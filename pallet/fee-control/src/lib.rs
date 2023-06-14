@@ -77,6 +77,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_evm_base_fee())]
 		pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
@@ -87,6 +88,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_weight_multiplier())]
 		pub fn set_weight_multiplier(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
 			ensure_root(origin)?;

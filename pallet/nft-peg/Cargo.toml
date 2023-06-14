@@ -13,7 +13,7 @@ codec = { package = "parity-scale-codec", version = "3.2.2", default-features = 
 serde = { version = "1.0.145", optional = true, default-features = false }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
 log = "0.4"
-ethabi = { version = "17.1.0", default-features = false }
+ethabi = { version = "18.0.0", default-features = false }
 pallet-nft = { path = "../nft", default-features = false }
 
 # Substrate

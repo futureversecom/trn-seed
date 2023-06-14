@@ -132,6 +132,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set the relayer address
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_relayer())]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
@@ -144,6 +145,7 @@ pub mod pallet {
 		/// This covers the additional costs incurred by the relayer for the following:
 		///  - Minting the token on XRPL
 		///  - Calling fulfill_xls20_mint on The Root Network
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_xls20_fee())]
 		pub fn set_xls20_fee(origin: OriginFor<T>, new_fee: Balance) -> DispatchResult {
 			ensure_root(origin)?;
@@ -155,6 +157,7 @@ pub mod pallet {
 		/// Enables XLS-20 compatibility on a collection
 		///  - Collection must not have any tokens minted
 		///  - Caller must be collection owner
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::enable_xls20_compatibility())]
 		pub fn enable_xls20_compatibility(
 			origin: OriginFor<T>,
@@ -167,6 +170,7 @@ pub mod pallet {
 		}
 
 		// Collection owners can re-request XLS-20 mints on tokens that have failed
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::re_request_xls20_mint())]
 		#[transactional]
 		pub fn re_request_xls20_mint(
@@ -209,6 +213,7 @@ pub mod pallet {
 		/// Submit XLS-20 token ids to The Root Network
 		/// Only callable by the trusted relayer account
 		/// Can apply multiple mappings from the same collection in one transaction
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::fulfill_xls20_mint())]
 		#[transactional]
 		pub fn fulfill_xls20_mint(

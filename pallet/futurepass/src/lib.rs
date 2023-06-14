@@ -240,6 +240,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `account`: The delegated account for the futurepass.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create())]
 		#[transactional]
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
@@ -261,6 +262,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(1)]
 		#[pallet::weight({T::WeightInfo::register_delegate()})]
 		#[transactional]
 		pub fn register_delegate(
@@ -316,6 +318,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(2)]
 		#[pallet::weight({T::WeightInfo::unregister_delegate()})]
 		#[transactional]
 		pub fn unregister_delegate(
@@ -362,6 +365,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `new_owner`: The new account that will become the owner of the futurepass.
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::transfer_futurepass())]
 		#[transactional]
 		pub fn transfer_futurepass(
@@ -417,6 +421,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(4)]
 		#[pallet::weight({
  			let di = call.get_dispatch_info();
 			(T::WeightInfo::proxy_extrinsic()
@@ -445,6 +450,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `migrator`: The new account that will become the futurepass asset migrator.
+		#[pallet::call_index(5)]
 		#[pallet::weight((RocksDbWeight::get().writes(1), DispatchClass::Operational))]
 		pub fn set_futurepass_migrator(
 			origin: OriginFor<T>,
@@ -469,6 +475,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of collections migrated; not the tokens migrated.
 		/// # </weight>
+		#[pallet::call_index(6)]
 		#[pallet::weight((RocksDbWeight::get().writes(collection_ids.len() as u64), DispatchClass::Operational))]
 		#[transactional]
 		pub fn migrate_evm_futurepass(

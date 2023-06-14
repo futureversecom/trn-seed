@@ -22,7 +22,7 @@ use pallet_nft::Config;
 use seed_primitives::types::{BlockNumber, CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 
 pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
 
@@ -71,16 +71,14 @@ where
 		limit: u16,
 	) -> RpcResult<(SerialNumber, TokenCount, Vec<SerialNumber>)> {
 		let api = self.client.runtime_api();
-		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.owned_tokens(&at, collection_id, who, cursor, limit)
+		let at = self.client.info().best_hash;
+		api.owned_tokens(at, collection_id, who, cursor, limit)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
+		let at = self.client.info().best_hash;
+		api.token_uri(at, token_id).map_err(|e| RpcError::to_call_error(e))
 	}
 }

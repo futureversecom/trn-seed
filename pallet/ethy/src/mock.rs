@@ -226,8 +226,6 @@ impl pallet_scheduler::Config for TestRuntime {
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type WeightInfo = ();
-	type PreimageProvider = ();
-	type NoPreimagePostponement = ();
 }
 
 /// Values in EthBlock that we store in mock storage

@@ -21,7 +21,7 @@ pub use pallet_dex_rpc_runtime_api::{self as runtime_api, DexApi as DexRuntimeAp
 use seed_primitives::types::{AssetId, Balance, BlockNumber};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
+use sp_runtime::{traits::Block as BlockT, DispatchError};
 
 /// Dex RPC methods.
 #[rpc(client, server, namespace = "dex")]
@@ -104,8 +104,8 @@ where
 		reserve_b: u128,
 	) -> RpcResult<Result<u128, DispatchError>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(self.client.info().best_hash);
-		api.quote(&at, amount_a, reserve_a, reserve_b)
+		let at = self.client.info().best_hash;
+		api.quote(at, amount_a, reserve_a, reserve_b)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
@@ -115,8 +115,8 @@ where
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(self.client.info().best_hash);
-		api.get_amounts_out(&at, amount_in.0.into(), path)
+		let at = self.client.info().best_hash;
+		api.get_amounts_out(at, amount_in.0.into(), path)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
@@ -126,8 +126,8 @@ where
 		path: Vec<AssetId>,
 	) -> RpcResult<Result<Vec<Balance>, DispatchError>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(self.client.info().best_hash);
-		api.get_amounts_in(&at, amount_out.0.into(), path)
+		let at = self.client.info().best_hash;
+		api.get_amounts_in(at, amount_out.0.into(), path)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
@@ -137,8 +137,8 @@ where
 		asset_id_b: AssetId,
 	) -> RpcResult<Result<AssetId, DispatchError>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(self.client.info().best_hash);
-		api.get_lp_token_id(&at, asset_id_a, asset_id_b)
+		let at = self.client.info().best_hash;
+		api.get_lp_token_id(at, asset_id_a, asset_id_b)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
@@ -148,8 +148,8 @@ where
 		asset_id_b: AssetId,
 	) -> RpcResult<(Balance, Balance)> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(self.client.info().best_hash);
-		api.get_liquidity(&at, asset_id_a, asset_id_b)
+		let at = self.client.info().best_hash;
+		api.get_liquidity(at, asset_id_a, asset_id_b)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
@@ -159,8 +159,8 @@ where
 		asset_id_b: AssetId,
 	) -> RpcResult<TradingPairStatus> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(self.client.info().best_hash);
-		api.get_trading_pair_status(&at, asset_id_a, asset_id_b)
+		let at = self.client.info().best_hash;
+		api.get_trading_pair_status(at, asset_id_a, asset_id_b)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 }

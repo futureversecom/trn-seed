@@ -186,6 +186,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Creates a new asset with unique ID according to the network asset id scheme.
+		#[pallet::call_index(0)]
 		#[pallet::weight(<T as Config>::WeightInfo::create_asset())]
 		#[transactional]
 		pub fn create_asset(
@@ -291,6 +292,11 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 		} else {
 			<pallet_assets::Pallet<T>>::can_withdraw(asset_id, who, amount)
 		}
+	}
+
+	// TODO! Jason TODO! Marko
+	fn asset_exists(_asset: Self::AssetId) -> bool {
+		todo!()
 	}
 }
 
@@ -545,7 +551,7 @@ impl<T: Config> CreateExt for Pallet<T> {
 		// set metadata for new asset - as root origin
 		<pallet_assets::Pallet<T>>::force_set_metadata(
 			frame_system::RawOrigin::Root.into(),
-			new_asset_id,
+			new_asset_id.into(),
 			name,
 			symbol,
 			decimals,

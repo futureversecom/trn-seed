@@ -16,7 +16,7 @@ codec = { version = "3.2.2", package = "parity-scale-codec", default-features = 
 num_enum = { version = "0.5.3", default-features = false }
 precompile-utils = { path = "../utils", default-features = false }
 scale-info = { version = "2.3.0", default-features = false, features = ["derive"] }
-ethereum-types = { version = "0.13.1", default-features = false, features = ["serialize", "codec"] }
+ethereum-types = { version = "0.14.1", default-features = false, features = ["serialize", "codec"] }
 
 # Substrate
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }

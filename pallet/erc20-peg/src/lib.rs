@@ -177,7 +177,7 @@ decl_module! {
 
 			// Process as many payments as we can
 			let weight_each: Weight = DbWeight::get().reads(8u64).saturating_add(DbWeight::get().writes(10u64));
-			let max_payments = remaining_weight.sub(initial_read_cost.ref_time()).div(weight_each.ref_time()).ref_time().saturated_into::<u8>();
+			let max_payments = remaining_weight.saturating_sub(initial_read_cost).div(weight_each.ref_time()).ref_time().saturated_into::<u8>();
 			let ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
 			// Total payments processed in this block
 			let mut processed_payment_count: u8 = 0;
@@ -204,7 +204,7 @@ decl_module! {
 			}
 
 			ReadyBlocks::<T>::put(&ready_blocks[processed_block_count as usize..]);
-			initial_read_cost.add(weight_each.mul(processed_payment_count as u64).ref_time())
+			initial_read_cost.saturating_add(weight_each.mul(processed_payment_count as u64))
 		}
 
 		/// Activate/deactivate deposits (root only)

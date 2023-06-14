@@ -121,6 +121,7 @@ pub mod pallet {
 		/// Mapping from token_id to operator
 		/// clears approval on transfer
 		/// mapping(uint256 => address) private _tokenApprovals;
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::erc721_approval())]
 		pub fn erc721_approval(
 			origin: OriginFor<T>,
@@ -148,6 +149,7 @@ pub mod pallet {
 		}
 
 		/// Public method which allows users to remove approvals on a token they own
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::erc721_remove_approval())]
 		pub fn erc721_remove_approval(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
@@ -163,6 +165,7 @@ pub mod pallet {
 		/// Set approval for an account to transfer an amount of tokens on behalf of the caller
 		/// Mapping from caller to spender and amount
 		/// mapping(address => mapping(address => uint256)) private _allowances;
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::erc20_approval())]
 		pub fn erc20_approval(
 			origin: OriginFor<T>,
@@ -179,6 +182,7 @@ pub mod pallet {
 
 		/// Removes an approval over an account and asset_id
 		/// mapping(address => mapping(address => uint256)) private _allowances;
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::erc20_update_approval())]
 		pub fn erc20_update_approval(
 			origin: OriginFor<T>,
@@ -202,6 +206,7 @@ pub mod pallet {
 
 		/// Set approval for an account (or contract) to transfer any tokens from a collection
 		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::erc721_approval_for_all())]
 		pub fn erc721_approval_for_all(
 			origin: OriginFor<T>,
@@ -226,6 +231,7 @@ pub mod pallet {
 
 		/// Set approval for an account (or contract) to transfer any tokens from an SFT collection
 		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::erc1155_approval_for_all())]
 		pub fn erc1155_approval_for_all(
 			origin: OriginFor<T>,

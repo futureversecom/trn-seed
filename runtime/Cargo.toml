@@ -36,6 +36,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-consensus-babe = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
@@ -55,7 +56,7 @@ sp-version = { git = "https://github.com/paritytech/substrate", branch = "polkad
 fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.39-TRN" }
 fp-self-contained = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.39-TRN" }
 fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.39-TRN" }
-evm = { version = "0.36.0", default-features = false, features = ["with-codec"] }
+evm = { version = "0.37.0", default-features = false, features = ["with-codec"] }
 
 hex={ version = "0.4.3", default-features= false }
 hex-literal = { version = "0.3.4", default-features = false }
@@ -100,7 +101,7 @@ pallet-marketplace = { path = "../pallet/marketplace", default-features = false 
 seed-pallet-common = { path = "../pallet/common", default-features = false }
 seed-primitives = { path = "../primitives", default-features = false }
 seed-runtime-constants = { path = "constants", default-features = false }
-primitive-types = {version = "0.11.1", default-features = false, features = ["impl-codec", "impl-serde"] }
+primitive-types = {version = "0.12.0", default-features = false, features = ["impl-codec", "impl-serde"] }
 
 # Try-runtime
 frame-try-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false, optional = true }
@@ -116,9 +117,9 @@ pallet-election-provider-support-benchmarking = { git = "https://github.com/pari
 substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 
 [dev-dependencies]
-ethereum = { version = "0.12.0", features = ["with-codec"] }
+ethereum = { version = "0.14.0", features = ["with-codec"] }
 seed-client = { path = "../client" }
-ethabi = { version = "17.1.0" }
+ethabi = { version = "18.0.0" }
 frame-remote-externalities = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 tokio = { version = "1.19.2", features = ["macros"] }
 substrate-test-runtime-client = { version = "2.0.0", git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
@@ -217,6 +218,7 @@ std = [
 	"frame-system-benchmarking?/std",
 	"pallet-session-benchmarking?/std",
 	"pallet-election-provider-support-benchmarking?/std",
+	"pallet-preimage/std",
 ]
 
 try-runtime = [
@@ -243,6 +245,7 @@ try-runtime = [
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-ethereum/try-runtime",
+	"pallet-preimage/try-runtime",
 	# "pallet-base-fee/try-runtime",
 	# Local
 	"pallet-assets-ext/try-runtime",
@@ -288,6 +291,7 @@ runtime-benchmarks = [
 	"pallet-im-online/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
 	# Local
 	"pallet-nft/runtime-benchmarks",
 	"pallet-sft/runtime-benchmarks",

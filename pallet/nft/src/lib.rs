@@ -429,6 +429,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_unowned_collection())]
 		/// Bridged collections from Ethereum will initially lack an owner. These collections will
 		/// be assigned to the pallet. This allows for claiming those collections assuming they were
@@ -458,6 +459,7 @@ pub mod pallet {
 
 		/// Set the owner of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_owner())]
 		pub fn set_owner(
 			origin: OriginFor<T>,
@@ -476,6 +478,7 @@ pub mod pallet {
 
 		/// Set the max issuance of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_max_issuance())]
 		pub fn set_max_issuance(
 			origin: OriginFor<T>,
@@ -501,6 +504,7 @@ pub mod pallet {
 
 		/// Set the base URI of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::set_base_uri())]
 		pub fn set_base_uri(
 			origin: OriginFor<T>,
@@ -528,6 +532,7 @@ pub mod pallet {
 		/// `marketplace_account` - if specified, this account will be registered
 		/// `entitlement` - Permill, percentage of sales to go to the marketplace
 		/// If no marketplace is specified the caller will be registered
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::register_marketplace())]
 		pub fn register_marketplace(
 			origin: OriginFor<T>,
@@ -567,6 +572,7 @@ pub mod pallet {
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::create_collection())]
 		#[transactional]
 		pub fn create_collection(
@@ -602,6 +608,7 @@ pub mod pallet {
 		/// Caller must be the collection owner
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::mint())]
 		#[transactional]
 		pub fn mint(
@@ -654,6 +661,7 @@ pub mod pallet {
 
 		/// Transfer ownership of an NFT
 		/// Caller must be the token owner
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::transfer())]
 		#[transactional]
 		pub fn transfer(
@@ -670,6 +678,7 @@ pub mod pallet {
 		/// Burn a token 🔥
 		///
 		/// Caller must be the token owner
+		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::burn())]
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
@@ -690,6 +699,7 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
+		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::sell())]
 		#[transactional]
 		pub fn sell(
@@ -744,6 +754,7 @@ pub mod pallet {
 		}
 
 		/// Buy a token listing for its specified price
+		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::buy())]
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
@@ -796,6 +807,7 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
+		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::auction())]
 		#[transactional]
 		pub fn auction(
@@ -851,6 +863,7 @@ pub mod pallet {
 
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
+		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::bid())]
 		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
@@ -914,6 +927,7 @@ pub mod pallet {
 		/// Close a sale or auction returning tokens
 		/// Requires no successful bids have been made for an auction.
 		/// Caller must be the listed seller
+		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -964,6 +978,7 @@ pub mod pallet {
 		/// `listing_id` id of the fixed price listing
 		/// `new_price` new fixed price
 		/// Caller must be the token owner
+		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::update_fixed_price())]
 		pub fn update_fixed_price(
 			origin: OriginFor<T>,
@@ -996,6 +1011,7 @@ pub mod pallet {
 		/// An offer can't be made on a token currently in an auction
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
+		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::make_simple_offer())]
 		#[transactional]
 		pub fn make_simple_offer(
@@ -1047,6 +1063,7 @@ pub mod pallet {
 
 		/// Cancels an offer on a token
 		/// Caller must be the offer buyer
+		#[pallet::call_index(16)]
 		#[pallet::weight(T::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -1072,6 +1089,7 @@ pub mod pallet {
 
 		/// Accepts an offer on a token
 		/// Caller must be token owner
+		#[pallet::call_index(17)]
 		#[pallet::weight(T::WeightInfo::accept_offer())]
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
