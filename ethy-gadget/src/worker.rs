@@ -262,14 +262,16 @@ where
 
 			match self.backend.blockchain().header(hash) {
 				Ok(Some(parent_header)) => {
-					let n = FinalityNotification {
+					/* 					let n = FinalityNotification {
 						hash: parent_header.hash(),
 						header: parent_header.clone(),
 						// these fields are unused by ethy
 						tree_route: Arc::new([]),
 						stale_heads: Arc::new([]),
 					};
-					self.handle_finality_notification(n);
+					self.handle_finality_notification(n); */
+					// TODO! Marko TODO! SP
+					todo!()
 				},
 				Ok(None) => {
 					error!(target: "ethy", "💎 missing prior block #{:?}", number - One::one())
