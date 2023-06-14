@@ -113,6 +113,8 @@ impl pallet_assets::Config for Test {
 	type AssetIdParameter = codec::Compact<u32>;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<MockAccountId>>;
 	type CallbackHandle = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 impl pallet_balances::Config for Test {

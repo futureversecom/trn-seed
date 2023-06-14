@@ -609,7 +609,7 @@ mod value_tests {
 mod remote_tests {
 	use super::*;
 	use crate::{migrations::AllMigrations, Block};
-	use remote_externalities::{Builder, Mode, OfflineConfig};
+	use frame_remote_externalities::{Builder, Mode, OfflineConfig};
 	use std::env::var;
 
 	#[tokio::test]

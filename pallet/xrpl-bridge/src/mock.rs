@@ -111,6 +111,8 @@ impl pallet_assets::Config for Test {
 	type AssetIdParameter = codec::Compact<u32>;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type CallbackHandle = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
 parameter_types! {

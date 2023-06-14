@@ -28,6 +28,7 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+frame-benchmarking = { git = 'https://github.com/paritytech/substrate', branch = "polkadot-v0.9.39", default-features = false, optional = true }
 
 [dev-dependencies]
 hex-literal = "0.3"
@@ -59,3 +60,4 @@ std = [
 	"seed-pallet-common/std",
 ]
 try-runtime = ["frame-support/try-runtime"]
+runtime-benchmarks = ["frame-benchmarking"]

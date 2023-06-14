@@ -5319,6 +5319,7 @@ version = "1.0.1"
 dependencies = [
  "ethabi",
  "ethereum-types",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
@@ -8655,6 +8656,7 @@ dependencies = [
  "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
+ "sp-io",
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
@@ -10651,6 +10653,7 @@ dependencies = [
  "async-trait",
  "clap",
  "frame-remote-externalities",
+ "frame-try-runtime",
  "hex",
  "log",
  "parity-scale-codec",

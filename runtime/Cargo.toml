@@ -247,6 +247,7 @@ try-runtime = [
 	"pallet-ethereum/try-runtime",
 	"pallet-preimage/try-runtime",
 	# "pallet-base-fee/try-runtime",
+	"fp-self-contained/try-runtime",
 	# Local
 	"pallet-assets-ext/try-runtime",
 	"pallet-dex/try-runtime",
@@ -292,6 +293,8 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
+	"pallet-ethereum/runtime-benchmarks",
+	"pallet-evm/runtime-benchmarks",
 	# Local
 	"pallet-nft/runtime-benchmarks",
 	"pallet-sft/runtime-benchmarks",
@@ -309,4 +312,5 @@ runtime-benchmarks = [
 	"pallet-marketplace/runtime-benchmarks",
 	"pallet-evm/runtime-benchmarks",
 	"pallet-fee-proxy/runtime-benchmarks",
+	"pallet-ethy/runtime-benchmarks",
 ]

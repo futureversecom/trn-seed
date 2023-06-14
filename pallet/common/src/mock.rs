@@ -135,6 +135,8 @@ macro_rules! impl_pallet_assets_config {
 			type AssetIdParameter = codec::Compact<u32>;
 			type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 			type CallbackHandle = ();
+			#[cfg(feature = "runtime-benchmarks")]
+			type BenchmarkHelper = ();
 		}
 	};
 }
