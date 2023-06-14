@@ -131,6 +131,10 @@ macro_rules! impl_pallet_assets_config {
 			type Extra = ();
 			type WeightInfo = ();
 			type AssetAccountDeposit = AssetAccountDeposit;
+			type RemoveItemsLimit = ConstU32<1000>;
+			type AssetIdParameter = codec::Compact<u32>;
+			type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+			type CallbackHandle = ();
 		}
 	};
 }
@@ -273,6 +277,7 @@ macro_rules! impl_pallet_evm_config {
 			type FindAuthor = FindAuthorTruncated;
 			type HandleTxValidation = ();
 			type WeightPerGas = ();
+			type OnCreate = ();
 		}
 	};
 }

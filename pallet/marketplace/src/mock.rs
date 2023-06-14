@@ -14,16 +14,16 @@ use frame_support::{
 	dispatch::DispatchResult,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{FindAuthor, GenesisBuild},
+	traits::{AsEnsureOriginWithArg, FindAuthor, GenesisBuild},
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use seed_pallet_common::*;
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
 };
-use sp_core::{H160, H256};
+use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},

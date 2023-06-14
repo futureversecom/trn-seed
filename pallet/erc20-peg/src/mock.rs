@@ -16,8 +16,8 @@ use seed_pallet_common::{
 };
 use seed_primitives::types::{AccountId, AssetId, Balance};
 
-use frame_support::{pallet_prelude::*, parameter_types, PalletId};
-use frame_system::EnsureRoot;
+use frame_support::{pallet_prelude::*, parameter_types, traits::AsEnsureOriginWithArg, PalletId};
+use frame_system::{EnsureRoot, EnsureSigned};
 use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
@@ -100,6 +100,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetIdParameter = codec::Compact<u32>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {

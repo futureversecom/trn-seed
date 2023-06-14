@@ -18,10 +18,11 @@ use seed_primitives::AssetId;
 
 use frame_support::{
 	parameter_types,
-	traits::{FindAuthor, InstanceFilter},
+	traits::{AsEnsureOriginWithArg, FindAuthor, InstanceFilter},
 	weights::WeightToFee,
 	PalletId,
 };
+use frame_system::EnsureSigned;
 use pallet_evm::GasWeightMapping;
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::*;
@@ -108,6 +109,7 @@ pub mod mock_pallet {
 		#[pallet::call]
 		impl<T: Config> Pallet<T> {
 			// For tests. Charge some expected fee amount
+			#[pallet::call_index(0)]
 			#[pallet::weight(WEIGHT)]
 			pub fn mock_charge_fee(_origin: OriginFor<T>) -> DispatchResult {
 				Ok(())

@@ -40,7 +40,7 @@ hex-literal = "*"
 serde = "1.0.136"
 strum = { version = "0.24", features = ["derive"] }
 tempfile = "3.1.0"
-tokio = "1.17.0"
+tokio = "1.22.0"
 sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sc-network-test = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }

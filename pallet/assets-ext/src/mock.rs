@@ -12,16 +12,16 @@
 //! A mock runtime for integration testing common runtime functionality
 use frame_support::{
 	parameter_types,
-	traits::{FindAuthor, GenesisBuild},
+	traits::{AsEnsureOriginWithArg, FindAuthor, GenesisBuild},
 	weights::Weight,
 	PalletId,
 };
-use frame_system::{limits, EnsureRoot};
+use frame_system::{limits, EnsureRoot, EnsureSigned};
 use pallet_evm::{
 	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
 };
 use seed_pallet_common::OnNewAssetSubscriber;
-use sp_core::{H160, H256, U256};
+use sp_core::{ConstU32, H160, H256, U256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -109,6 +109,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetIdParameter = codec::Compact<u32>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<MockAccountId>>;
+	type CallbackHandle = ();
 }
 
 impl pallet_balances::Config for Test {
@@ -182,6 +186,7 @@ impl pallet_evm::Config for Test {
 	type FindAuthor = FindAuthorTruncated;
 	type HandleTxValidation = ();
 	type WeightPerGas = ();
+	type OnCreate = ();
 }
 
 parameter_types! {

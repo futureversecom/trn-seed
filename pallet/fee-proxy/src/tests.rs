@@ -85,7 +85,9 @@ mod call_with_fee_preferences {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
-			let call = mock::RuntimeCall::System(frame_system::Call::fill_block {
+
+			// Moved from System to RootTesting https://github.com/paritytech/substrate/pull/12451
+			let call = mock::RuntimeCall::RootTesting(pallet_root_testing::Call::fill_block {
 				ratio: Default::default(),
 			});
 

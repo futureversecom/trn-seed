@@ -137,13 +137,13 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		// Mint these assets into Alice and new_account
 		assert_ok!(Assets::mint(
 			RawOrigin::Signed(alice()).into(),
-			payment_asset,
+			codec::Compact(payment_asset),
 			alice(),
 			10_000_000_000_000_000
 		));
 		assert_ok!(Assets::mint(
 			RawOrigin::Signed(alice()).into(),
-			payment_asset,
+			codec::Compact(payment_asset),
 			new_account,
 			10_000_000_000_000_000
 		));

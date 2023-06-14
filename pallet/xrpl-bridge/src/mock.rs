@@ -11,12 +11,12 @@
 
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{ConstU16, ConstU64},
+	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64},
 	PalletId,
 };
 use frame_system as system;
 use frame_system::{limits, EnsureRoot};
-use sp_core::{ByteArray, H256};
+use sp_core::{ByteArray, ConstU32, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -28,6 +28,7 @@ use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	AccountId, AssetId, Balance, BlockNumber,
 };
+use system::EnsureSigned;
 
 use crate as pallet_xrpl_bridge;
 
@@ -106,6 +107,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetIdParameter = codec::Compact<u32>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {

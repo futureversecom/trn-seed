@@ -895,7 +895,7 @@ fn proxy_extrinsic_non_transfer_call_works() {
 
 			let asset_id = 5;
 			let inner_call = Box::new(MockCall::Assets(pallet_assets::Call::create {
-				id: asset_id,
+				id: codec::Compact(asset_id),
 				admin: futurepass,
 				min_balance: 1,
 			}));

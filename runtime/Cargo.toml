@@ -121,7 +121,7 @@ ethereum = { version = "0.14.0", features = ["with-codec"] }
 seed-client = { path = "../client" }
 ethabi = { version = "18.0.0" }
 frame-remote-externalities = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
-tokio = { version = "1.19.2", features = ["macros"] }
+tokio = { version = "1.22.0", features = ["macros"] }
 substrate-test-runtime-client = { version = "2.0.0", git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
 sp-externalities  = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 

@@ -14,11 +14,11 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungibles::{Inspect, Transfer},
-		Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
+		AsEnsureOriginWithArg, Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
 	},
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureSigned};
 use seed_pallet_common::*;
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,

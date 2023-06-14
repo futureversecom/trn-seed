@@ -14,16 +14,17 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 
+use crate::ConstU32;
 use codec::{Decode, Encode};
 use ethereum_types::U64;
 use frame_support::{
 	parameter_types,
 	storage::{StorageDoubleMap, StorageValue},
-	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{AsEnsureOriginWithArg, UnixTime, ValidatorSet as ValidatorSetT},
 	weights::Weight,
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, EnsureSigned};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ByteArray, H160, H256, U256};
@@ -77,6 +78,7 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+		Preimage: pallet_preimage,
 	}
 );
 
@@ -178,6 +180,10 @@ impl pallet_assets::Config for TestRuntime {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetIdParameter = codec::Compact<u32>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
@@ -226,6 +232,24 @@ impl pallet_scheduler::Config for TestRuntime {
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type WeightInfo = ();
+	type Preimages = Preimage;
+}
+
+parameter_types! {
+	// TODO! Marko
+	pub const PreimageBaseDeposit: Balance = 1_000_000_000;
+	// TODO! Marko
+	// One cent: $10,000 / MB
+	pub const PreimageByteDeposit: Balance = 1_000_000_000;
+}
+
+impl pallet_preimage::Config for TestRuntime {
+	type WeightInfo = ();
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type BaseDeposit = PreimageBaseDeposit;
+	type ByteDeposit = PreimageByteDeposit;
 }
 
 /// Values in EthBlock that we store in mock storage

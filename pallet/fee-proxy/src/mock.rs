@@ -13,11 +13,11 @@ use crate as pallet_fee_proxy;
 use crate::*;
 use frame_support::{
 	parameter_types,
-	traits::{FindAuthor, InstanceFilter},
+	traits::{AsEnsureOriginWithArg, FindAuthor, InstanceFilter},
 	weights::{ConstantMultiplier, Weight, WeightToFee},
 	PalletId,
 };
-use frame_system::{limits, EnsureRoot};
+use frame_system::{limits, EnsureRoot, EnsureSigned};
 use pallet_evm::{
 	AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator, GasWeightMapping,
 };
@@ -53,6 +53,7 @@ frame_support::construct_runtime!(
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
 		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Futurepass: pallet_futurepass,
+		RootTesting: pallet_root_testing,
 	}
 );
 
@@ -173,6 +174,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetIdParameter = codec::Compact<u32>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
@@ -292,6 +297,7 @@ impl pallet_evm::Config for Test {
 	type FindAuthor = FindAuthorTruncated;
 	type HandleTxValidation = ();
 	type WeightPerGas = ();
+	type OnCreate = ();
 }
 
 parameter_types! {
@@ -304,6 +310,8 @@ impl pallet_timestamp::Config for Test {
 	type MinimumPeriod = MinimumPeriod;
 	type WeightInfo = ();
 }
+
+impl pallet_root_testing::Config for Test {}
 
 /// type alias for runtime configured FeePreferencesRunner
 pub type Runner = FeePreferencesRunner<Test, Test, Futurepass>;

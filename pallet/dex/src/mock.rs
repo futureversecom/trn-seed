@@ -12,8 +12,8 @@
 #![cfg(test)]
 
 use super::*;
-use frame_support::{construct_runtime, parameter_types};
-use frame_system::{limits, EnsureRoot};
+use frame_support::{construct_runtime, parameter_types, traits::AsEnsureOriginWithArg};
+use frame_system::{limits, EnsureRoot, EnsureSigned};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -84,6 +84,10 @@ impl pallet_assets::Config for Test {
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetIdParameter = codec::Compact<u32>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {

@@ -10,11 +10,11 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as token_approvals;
-use frame_support::{parameter_types, PalletId};
-use frame_system::EnsureRoot;
+use frame_support::{parameter_types, traits::AsEnsureOriginWithArg, PalletId};
+use frame_system::{EnsureRoot, EnsureSigned};
 use seed_pallet_common::Xls20MintRequest;
 use seed_primitives::{AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber};
-use sp_core::H256;
+use sp_core::{ConstU32, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -94,6 +94,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetIdParameter = codec::Compact<u32>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {

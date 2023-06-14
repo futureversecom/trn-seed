@@ -10,11 +10,15 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_xls20;
-use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
-use frame_system::{limits, EnsureRoot};
+use frame_support::{
+	parameter_types,
+	traits::{AsEnsureOriginWithArg, GenesisBuild},
+	PalletId,
+};
+use frame_system::{limits, EnsureRoot, EnsureSigned};
 use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber};
 use seed_primitives::{AccountId, AssetId, Balance, TokenId};
-use sp_core::{H160, H256};
+use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -102,6 +106,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = ConstU32<1000>;
+	type AssetIdParameter = codec::Compact<u32>;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
