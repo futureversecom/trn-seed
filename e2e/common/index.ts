@@ -2,11 +2,11 @@ import { ApiPromise } from "@polkadot/api";
 import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
+import { BigNumber } from "ethers";
 import { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
 import { join } from "path";
 import web3 from "web3";
-import {BigNumber} from "ethers";
 
 export * from "./node";
 
