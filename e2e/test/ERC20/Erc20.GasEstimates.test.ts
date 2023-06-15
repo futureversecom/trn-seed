@@ -2,13 +2,12 @@ import { JsonRpcProvider } from "@ethersproject/providers";
 import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
-import web3 from "web3";
 
-import ERC20Data from "../../artifacts/contracts/MockERC20.sol/MockERC20.json";
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
   ERC20_ABI,
+  GAS_TOKEN_ID,
   GasCosts,
   NodeProcess,
   assetIdToERC20ContractAddress,
@@ -17,14 +16,14 @@ import {
 } from "../../common";
 import { MockERC20 } from "../../typechain-types";
 
-describe.only("ERC20 Gas Estimates", function () {
+describe("ERC20 Gas Estimates", function () {
   let node: NodeProcess;
 
   let provider: JsonRpcProvider;
   let bobSigner: Wallet;
   let alithSigner: Wallet;
-  let erc20Precompile: Contract;
-  let erc20Contract: Contract;
+  let erc20Precompile: MockERC20;
+  let erc20Contract: MockERC20;
 
   const allCosts: { [key: string]: GasCosts } = {};
 
@@ -32,38 +31,27 @@ describe.only("ERC20 Gas Estimates", function () {
   before(async () => {
     node = await startNode();
     await node.wait(); // wait for the node to be ready
-    console.log(`url:http://127.0.0.1:${node.httpPort}`);
+
     provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
 
     // Create ERC20 token
-    const erc20PrecompileAddress = web3.utils.toChecksumAddress(assetIdToERC20ContractAddress(2));
+    const erc20PrecompileAddress = assetIdToERC20ContractAddress(GAS_TOKEN_ID);
 
     // Create precompiles contract
-    erc20Precompile = new Contract(erc20PrecompileAddress, ERC20_ABI, alithSigner);
+    erc20Precompile = new Contract(erc20PrecompileAddress, ERC20_ABI, alithSigner) as MockERC20;
 
-    // Deploy OpenZeppelin ERC20 contract
-    const factory = new ethers.ContractFactory(ERC20Data.abi, ERC20Data.bytecode, alithSigner);
-    erc20Contract = await factory.connect(alithSigner).deploy();
+    // Deploy ERC20 contract
+    const ERC20Factory = await ethers.getContractFactory("MockERC20");
+    erc20Contract = await ERC20Factory.connect(alithSigner).deploy();
+    await erc20Contract.deployed();
+    console.log("MockERC20 deployed to:", erc20Contract.address);
 
-    const actualGasEstimate = await provider.estimateGas(factory.getDeployTransaction());
-    const fees = await provider.getFeeData();
-    erc20Contract = (await factory.connect(alithSigner).deploy({
-      gasLimit: actualGasEstimate,
-      maxFeePerGas: fees.lastBaseFeePerGas!,
-      maxPriorityFeePerGas: 0,
-    })) as MockERC20;
-    await erc20Contract.deployTransaction.wait();
-    console.log("erc20Contract deployed to:", erc20Contract.address);
-
-    // assert gas used
-    // const tokenAmount = 10000;
-    // Estimate contract call
-    await erc20Contract.connect(alithSigner).mint(alithSigner.address, 10000, { gasLimit: 50000 });
-    const alithBalanceAfter = await alithSigner.getBalance();
-    console.log("alithBalanceAfter::", alithBalanceAfter?.toString());
-    // await tx.wait();
+    // Mint 100 tokens to alith
+    const gas = await erc20Contract.connect(alithSigner).estimateGas.mint(alithSigner.address, 100);
+    const tx = await erc20Contract.connect(alithSigner).mint(alithSigner.address, 100, { gasLimit: gas });
+    await tx.wait();
   });
 
   after(async () => {
@@ -149,6 +137,14 @@ describe.only("ERC20 Gas Estimates", function () {
 
   it("transferFrom gas estimates", async () => {
     const amount = 100;
+
+    // // set approval to transfer tokens back from bob to alice
+    // let gas = await erc20Precompile.connect(bobSigner).estimateGas.approve(alithSigner.address, amount);
+    // let tx = await erc20Precompile.connect(bobSigner).approve(alithSigner.address, amount, { gasLimit: gas });
+    // await tx.wait();
+    // gas = await erc20Contract.connect(bobSigner).estimateGas.approve(alithSigner.address, amount);
+    // tx = await erc20Contract.connect(bobSigner).approve(alithSigner.address, amount, { gasLimit: gas });
+    // await tx.wait();
 
     // Estimate contract call
     const contractGasEstimate = await erc20Contract
