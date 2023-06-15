@@ -18,6 +18,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use crate::constants::ROOT_DECIMALS;
 use codec::{Decode, Encode};
 use core::ops::Mul;
 use fp_rpc::TransactionStatus;
@@ -1190,17 +1191,15 @@ impl pallet_futurepass::Config for Runtime {
 }
 
 parameter_types! {
-	// TODO! Marko
-	pub const PreimageBaseDeposit: Balance = 1_000_000_000;
-	// TODO! Marko
-	// One cent: $10,000 / MB
-	pub const PreimageByteDeposit: Balance = 1_000_000_000;
+	// TODO! Marko TODO! Z
+	pub const PreimageBaseDeposit: Balance = 10 * ONE_ROOT;
+	pub const PreimageByteDeposit: Balance = (1 as Balance).pow(ROOT_DECIMALS as u32);
 }
 
 impl pallet_preimage::Config for Runtime {
 	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
+	type Currency = Balances; // TODO! Marko TODO! Z
 	type ManagerOrigin = EnsureRoot<AccountId>;
 	type BaseDeposit = PreimageBaseDeposit;
 	type ByteDeposit = PreimageByteDeposit;

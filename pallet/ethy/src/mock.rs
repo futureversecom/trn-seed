@@ -240,8 +240,6 @@ impl pallet_scheduler::Config for TestRuntime {
 parameter_types! {
 	// TODO! Marko
 	pub const PreimageBaseDeposit: Balance = 1_000_000_000;
-	// TODO! Marko
-	// One cent: $10,000 / MB
 	pub const PreimageByteDeposit: Balance = 1_000_000_000;
 }
 

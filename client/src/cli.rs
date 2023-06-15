@@ -26,7 +26,6 @@ pub struct RunCmd {
 	pub xrp_http: Option<String>,
 }
 
-// TODO! Marko
 /// Parse HTTP `uri`
 fn parse_uri(uri: &str) -> Result<String> {
 	let _ = url::Url::parse(uri)

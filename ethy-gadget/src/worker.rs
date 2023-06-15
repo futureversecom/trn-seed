@@ -251,7 +251,6 @@ where
 		// block by ethy and the new finalized block notification
 		if number > *self.best_grandpa_block_header.number() + One::one() {
 			debug!(target: "ethy", "💎 finality notification for non-sequential future block #{:?}", number);
-			// TODO! Marko TODO! SP
 			let Ok(hash) = self.backend.blockchain().block_hash_from_id(&BlockId::Number(number - One::one())) else {
 				return;
 			};

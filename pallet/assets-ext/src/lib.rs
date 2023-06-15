@@ -295,8 +295,12 @@ impl<T: Config> Inspect<T::AccountId> for Pallet<T> {
 	}
 
 	// TODO! Jason TODO! Marko
-	fn asset_exists(_asset: Self::AssetId) -> bool {
-		todo!()
+	fn asset_exists(asset_id: Self::AssetId) -> bool {
+		if asset_id == T::NativeAssetId::get() {
+			true
+		} else {
+			<pallet_assets::Pallet<T>>::asset_exists(asset_id)
+		}
 	}
 }
 
