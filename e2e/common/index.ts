@@ -6,6 +6,7 @@ import { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
 import { join } from "path";
 import web3 from "web3";
+import {BigNumber} from "ethers";
 
 export * from "./node";
 
@@ -216,6 +217,12 @@ export type GasCosts = {
   Contract: number;
   Precompile: number;
   Extrinsic: number;
+};
+
+export type txCosts = {
+  Contract: BigNumber;
+  Precompile: BigNumber;
+  Extrinsic: BigNumber;
 };
 
 /** ABIs */
@@ -483,6 +490,34 @@ export const finalizeTx = (signer: KeyringPair, extrinsic: SubmittableExtrinsic<
     extrinsic.signAndSend(signer, ({ status }: any) => {
       if (status.isInBlock) resolve();
     });
+  });
+};
+
+/**
+ * Saves tx costs to a markdown file
+ * @returns
+ * @param costs Dictionary of tx costs for different function calls
+ * @param filePath The file path to save the output
+ * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
+ */
+export const saveTxCosts = (costs: { [key: string]: txCosts }, filePath: string, header: string) => {
+  // Set string headers
+  let data: string = `## Generated tx costs for ${header}\n\n`;
+  data += "| Function Call | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |\n";
+  data += "| :--- | :---: | :---: | :---: |\n";
+
+  // Iterate through functions and add tx fees
+  for (const key in costs) {
+    const value = costs[key];
+    data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
+  }
+
+  // Prettify data
+  data = CliPrettify.prettify(data);
+
+  // Save data to specified file path
+  writeFileSync(join("./test", filePath), data, {
+    flag: "w",
   });
 };
 
