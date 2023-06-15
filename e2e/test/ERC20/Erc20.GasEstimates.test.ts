@@ -49,8 +49,8 @@ describe("ERC20 Gas Estimates", function () {
     console.log("MockERC20 deployed to:", erc20Contract.address);
 
     // Mint 100 tokens to alith
-    const gas = await erc20Contract.connect(alithSigner).estimateGas.mint(alithSigner.address, 100);
-    const tx = await erc20Contract.connect(alithSigner).mint(alithSigner.address, 100, { gasLimit: gas });
+    const gas = await erc20Contract.connect(alithSigner).estimateGas.mint(alithSigner.address, 1000);
+    const tx = await erc20Contract.connect(alithSigner).mint(alithSigner.address, 1000, { gasLimit: gas });
     await tx.wait();
   });
 
@@ -139,21 +139,21 @@ describe("ERC20 Gas Estimates", function () {
     const amount = 100;
 
     // // set approval to transfer tokens back from bob to alice
-    // let gas = await erc20Precompile.connect(bobSigner).estimateGas.approve(alithSigner.address, amount);
-    // let tx = await erc20Precompile.connect(bobSigner).approve(alithSigner.address, amount, { gasLimit: gas });
-    // await tx.wait();
-    // gas = await erc20Contract.connect(bobSigner).estimateGas.approve(alithSigner.address, amount);
-    // tx = await erc20Contract.connect(bobSigner).approve(alithSigner.address, amount, { gasLimit: gas });
-    // await tx.wait();
+    let gas = await erc20Precompile.connect(alithSigner).estimateGas.approve(bobSigner.address, amount);
+    let tx = await erc20Precompile.connect(alithSigner).approve(bobSigner.address, amount, { gasLimit: gas });
+    await tx.wait();
+    gas = await erc20Contract.connect(alithSigner).estimateGas.approve(bobSigner.address, amount);
+    tx = await erc20Contract.connect(alithSigner).approve(bobSigner.address, amount, { gasLimit: gas });
+    await tx.wait();
 
     // Estimate contract call
     const contractGasEstimate = await erc20Contract
       .connect(bobSigner)
-      .estimateGas.transferFrom(bobSigner.address, alithSigner.address, amount);
+      .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount);
     // Estimate precompile call
     const precompileGasEstimate = await erc20Precompile
       .connect(bobSigner)
-      .estimateGas.transferFrom(bobSigner.address, alithSigner.address, amount);
+      .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
