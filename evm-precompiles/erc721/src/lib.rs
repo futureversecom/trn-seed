@@ -333,11 +333,8 @@ where
 			return Err(revert("ERC721: Caller not approved").into())
 		}
 
-		let u32_value: u32 = serial_number;
-		let u256_value: U256 = u32_value.into();
-		let bytes: [u8; 32] = u256_value.into();
-		let h256_value = H256::from_slice(&bytes);
-		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, h256_value, vec![])
+		let serial_number = H256::from_low_u64_be(serial_number as u64);
+		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, serial_number, vec![])
 			.record(handle)?;
 
 		// Build output.
@@ -462,11 +459,8 @@ where
 			},
 		)?;
 
-		let u32_value: u32 = serial_number;
-		let u256_value: U256 = u32_value.into();
-		let bytes: [u8; 32] = u256_value.into();
-		let h256_value = H256::from_slice(&bytes);
-		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, h256_value, vec![])
+		let serial_number = H256::from_low_u64_be(serial_number as u64);
+		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, serial_number, vec![])
 			.record(handle)?;
 
 		// Build output.
@@ -509,16 +503,13 @@ where
 			},
 		)?;
 
-		let u32_value: u32 = serial_number;
-		let u256_value: U256 = u32_value.into();
-		let bytes: [u8; 32] = u256_value.into();
-		let h256_value = H256::from_slice(&bytes);
+		let serial_number = H256::from_low_u64_be(serial_number as u64);
 		log4(
 			handle.code_address(),
 			SELECTOR_LOG_APPROVAL,
 			handle.context().caller,
 			to,
-			h256_value,
+			serial_number,
 			vec![],
 		)
 		.record(handle)?;
@@ -735,16 +726,13 @@ where
 		)?;
 
 		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
-			let u32_value: u32 = token_id;
-			let u256_value: U256 = u32_value.into();
-			let bytes: [u8; 32] = u256_value.into();
-			let h256_value = H256::from_slice(&bytes);
+			let token_id = H256::from_low_u64_be(token_id as u64);
 			log4(
 				handle.code_address(),
 				SELECTOR_LOG_TRANSFER,
 				EthAddress::zero(),
 				to,
-				h256_value,
+				token_id,
 				vec![],
 			)
 			.record(handle)?;
