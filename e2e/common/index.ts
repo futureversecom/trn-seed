@@ -96,6 +96,7 @@ export const ERC20_ABI = [
   "function name() public view returns (string memory)",
   "function symbol() public view returns (string memory)",
   "function decimals() public view returns (uint8)",
+  "function totalSupply() external view returns (uint256)",
   "function transfer(address who, uint256 amount)",
   "function transferFrom(address from, address to, uint256 amount)",
 ];
