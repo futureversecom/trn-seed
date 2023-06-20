@@ -20,7 +20,7 @@ use frame_support::{
 };
 use pallet_evm::{Context, ExitReason, PrecompileSet};
 use pallet_nft::traits::NFTExt;
-use sp_core::{H160, U256};
+use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
@@ -333,14 +333,9 @@ where
 			return Err(revert("ERC721: Caller not approved").into())
 		}
 
-		log3(
-			handle.code_address(),
-			SELECTOR_LOG_TRANSFER,
-			from,
-			to,
-			EvmDataWriter::new().write(serial_number).build(),
-		)
-		.record(handle)?;
+		let serial_number = H256::from_low_u64_be(serial_number as u64);
+		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, serial_number, vec![])
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
@@ -464,14 +459,9 @@ where
 			},
 		)?;
 
-		log3(
-			handle.code_address(),
-			SELECTOR_LOG_TRANSFER,
-			from,
-			to,
-			EvmDataWriter::new().write(serial_number).build(),
-		)
-		.record(handle)?;
+		let serial_number = H256::from_low_u64_be(serial_number as u64);
+		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, serial_number, vec![])
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
@@ -513,12 +503,14 @@ where
 			},
 		)?;
 
-		log3(
+		let serial_number = H256::from_low_u64_be(serial_number as u64);
+		log4(
 			handle.code_address(),
 			SELECTOR_LOG_APPROVAL,
 			handle.context().caller,
 			to,
-			EvmDataWriter::new().write(serial_number).build(),
+			serial_number,
+			vec![],
 		)
 		.record(handle)?;
 
@@ -734,12 +726,14 @@ where
 		)?;
 
 		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
-			log3(
+			let token_id = H256::from_low_u64_be(token_id as u64);
+			log4(
 				handle.code_address(),
 				SELECTOR_LOG_TRANSFER,
 				EthAddress::zero(),
 				to,
-				EvmDataWriter::new().write(token_id).build(),
+				token_id,
+				vec![],
 			)
 			.record(handle)?;
 		}

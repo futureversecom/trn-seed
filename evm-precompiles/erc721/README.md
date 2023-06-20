@@ -43,7 +43,7 @@ interface TRN721 is IERC165 {
 
 ```solidity
 interface Ownable is IERC165 {
-    event OwnershipTransferred(address indexed previousOwner, address newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     function owner() external view returns (address);
     function renounceOwnership() external;
