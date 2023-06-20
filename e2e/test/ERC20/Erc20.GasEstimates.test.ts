@@ -60,54 +60,7 @@ describe("ERC20 Gas Estimates", function () {
     await node.stop();
   });
 
-  it("name gas estimates", async () => {
-    // Estimate contract call
-    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.name();
-    // Estimate precompile call
-    const precompileGasEstimate = await erc20Precompile.connect(alithSigner).estimateGas.name();
-
-    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-
-    // Update all costs with gas info
-    allCosts["name"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
-    };
-  });
-
-  it("decimals gas estimates", async () => {
-    // Estimate contract call
-    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.decimals();
-    // Estimate precompile call
-    const precompileGasEstimate = await erc20Precompile.connect(alithSigner).estimateGas.decimals();
-
-    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate.add(50));
-
-    // Update all costs with gas info
-    allCosts["decimals"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
-    };
-  });
-
-  it("balanceOf gas estimates", async () => {
-    // Estimate contract call
-    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.balanceOf(bobSigner.address);
-    // Estimate precompile call
-    const precompileGasEstimate = await erc20Precompile.connect(alithSigner).estimateGas.balanceOf(bobSigner.address);
-
-    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-
-    // Update all costs with gas info
-    allCosts["balanceOf"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
-    };
-  });
-
+  // ERC20 view functions
   it("totalSupply gas estimates", async () => {
     // Estimate contract call
     const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.totalSupply();
@@ -124,19 +77,16 @@ describe("ERC20 Gas Estimates", function () {
     };
   });
 
-  it("setApproval gas estimates", async () => {
-    const amount = 1000;
+  it("balanceOf gas estimates", async () => {
     // Estimate contract call
-    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.approve(bobSigner.address, amount);
+    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.balanceOf(bobSigner.address);
     // Estimate precompile call
-    const precompileGasEstimate = await erc20Precompile
-      .connect(alithSigner)
-      .estimateGas.approve(bobSigner.address, amount);
+    const precompileGasEstimate = await erc20Precompile.connect(alithSigner).estimateGas.balanceOf(bobSigner.address);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
     // Update all costs with gas info
-    allCosts["approval"] = {
+    allCosts["balanceOf"] = {
       Contract: contractGasEstimate.toNumber(),
       Precompile: precompileGasEstimate.toNumber(),
       Extrinsic: 0, // No extrinsic
@@ -163,13 +113,29 @@ describe("ERC20 Gas Estimates", function () {
     };
   });
 
+  // ERC20 functions
+  it("setApproval gas estimates", async () => {
+    const amount = 1000;
+    // Estimate contract call
+    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.approve(bobSigner.address, amount);
+    // Estimate precompile call
+    const precompileGasEstimate = await erc20Precompile
+      .connect(alithSigner)
+      .estimateGas.approve(bobSigner.address, amount);
+
+    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+
+    // Update all costs with gas info
+    allCosts["approval"] = {
+      Contract: contractGasEstimate.toNumber(),
+      Precompile: precompileGasEstimate.toNumber(),
+      Extrinsic: 0, // No extrinsic
+    };
+  });
+
   it("transfer gas estimates", async () => {
     const amount = 100;
-    const startingAmount = await erc20Precompile.balanceOf(alithSigner.address);
-    console.log("Precompile alith balance:", startingAmount?.toString());
 
-    const startingAmountCan = await erc20Contract.balanceOf(alithSigner.address);
-    console.log("Canonical alith balance:", startingAmountCan?.toString());
     // Estimate contract call
     const contractGasEstimate = await erc20Contract
       .connect(alithSigner)
@@ -214,6 +180,55 @@ describe("ERC20 Gas Estimates", function () {
       Contract: contractGasEstimate.toNumber(),
       Precompile: precompileGasEstimate.toNumber(),
       Extrinsic: 0,
+    };
+  });
+
+  // ERC20 metadata view functions
+  it("name gas estimates", async () => {
+    // Estimate contract call
+    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.name();
+    // Estimate precompile call
+    const precompileGasEstimate = await erc20Precompile.connect(alithSigner).estimateGas.name();
+
+    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+
+    // Update all costs with gas info
+    allCosts["name"] = {
+      Contract: contractGasEstimate.toNumber(),
+      Precompile: precompileGasEstimate.toNumber(),
+      Extrinsic: 0, // No extrinsic
+    };
+  });
+
+  it("decimals gas estimates", async () => {
+    // Estimate contract call
+    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.decimals();
+    // Estimate precompile call
+    const precompileGasEstimate = await erc20Precompile.connect(alithSigner).estimateGas.decimals();
+
+    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate.add(50));
+
+    // Update all costs with gas info
+    allCosts["decimals"] = {
+      Contract: contractGasEstimate.toNumber(),
+      Precompile: precompileGasEstimate.toNumber(),
+      Extrinsic: 0, // No extrinsic
+    };
+  });
+
+  it("symbol gas estimates", async () => {
+    // Estimate contract call
+    const contractGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.symbol();
+    // Estimate precompile call
+    const precompileGasEstimate = await erc20Precompile.connect(alithSigner).estimateGas.symbol();
+
+    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+
+    // Update all costs with gas info
+    allCosts["symbol"] = {
+      Contract: contractGasEstimate.toNumber(),
+      Precompile: precompileGasEstimate.toNumber(),
+      Extrinsic: 0, // No extrinsic
     };
   });
 });
