@@ -3,8 +3,8 @@ import { expect } from "chai";
 import { BigNumber, Contract, ContractFactory, Wallet, utils } from "ethers";
 import web3 from "web3";
 
-import PrecompileCaller from "../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json";
-import { BOB_PRIVATE_KEY, ERC20_ABI, NodeProcess, startNode } from "../common";
+import PrecompileCaller from "../../artifacts/contracts/Erc20PrecompileCaller.sol/ERC20PrecompileCaller.json";
+import { BOB_PRIVATE_KEY, ERC20_ABI, NodeProcess, startNode } from "../../common";
 
 const xrpTokenAddress = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
 
