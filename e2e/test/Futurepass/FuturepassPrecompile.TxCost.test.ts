@@ -51,7 +51,7 @@ describe("Futurepass Precompile", function () {
 
   const allTxCosts: { [key: string]: txCosts } = {};
 
-  beforeEach(async () => {
+  before(async () => {
     node = await startNode();
 
     // Substrate variables
@@ -74,9 +74,8 @@ describe("Futurepass Precompile", function () {
     );
   });
 
-  afterEach(async () => await node.stop());
-
   after(async () => {
+    await node.stop();
     saveTxCosts(allTxCosts, "Futurepass/TxCosts.md", "Futurepass Precompiles");
   });
 
