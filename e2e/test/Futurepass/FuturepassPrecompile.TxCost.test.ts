@@ -20,6 +20,7 @@ import {
   startNode,
   txCosts,
   typedefs,
+  weiTo6DP,
 } from "../../common";
 
 const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
@@ -88,17 +89,6 @@ describe("Futurepass Precompile", function () {
 
     const futurepass: string = (receipt?.events as any)[0].args.futurepass;
     return new Contract(futurepass, FUTUREPASS_PRECOMPILE_ABI, caller);
-  }
-
-  function weiTo6DP(value: BigNumber) {
-    let quotient = value.div(1000000000000n);
-    const remainder = value.mod(1000000000000n);
-
-    if (remainder.isZero()) {
-      return quotient;
-    } else {
-      return quotient.add(1n);
-    }
   }
 
   it("gas estimate and actual fee tallies", async () => {

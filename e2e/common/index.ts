@@ -522,6 +522,21 @@ export const saveTxCosts = (costs: { [key: string]: txCosts }, filePath: string,
 };
 
 /**
+ * Converts a value in wei to 6 decimal places
+ * @param value
+ */
+export function weiTo6DP(value: BigNumber) {
+  let quotient = value.div(1000000000000n);
+  const remainder = value.mod(1000000000000n);
+
+  if (remainder.isZero()) {
+    return quotient;
+  } else {
+    return quotient.add(1n);
+  }
+}
+
+/**
  * createAssetUntil continously creates assets until asset with `assetId` exists
  * throws error if `assetId` is less than next asset id and does not already exist
  */
