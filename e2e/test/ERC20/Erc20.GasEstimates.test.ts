@@ -1,4 +1,7 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
+import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
+import { KeyringPair } from "@polkadot/keyring/types";
+import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
@@ -9,10 +12,12 @@ import {
   ERC20_ABI,
   GAS_TOKEN_ID,
   GasCosts,
+  NATIVE_TOKEN_ID,
   NodeProcess,
   assetIdToERC20ContractAddress,
   saveGasCosts,
   startNode,
+  typedefs,
 } from "../../common";
 import { MockERC20 } from "../../typechain-types";
 
@@ -20,10 +25,13 @@ describe("ERC20 Gas Estimates", function () {
   let node: NodeProcess;
 
   let provider: JsonRpcProvider;
+  let api: ApiPromise;
   let bobSigner: Wallet;
   let alithSigner: Wallet;
   let erc20Precompile: MockERC20;
   let erc20Contract: MockERC20;
+  let alith: KeyringPair;
+  let bob: KeyringPair;
 
   const allCosts: { [key: string]: GasCosts } = {};
 
@@ -32,9 +40,16 @@ describe("ERC20 Gas Estimates", function () {
     node = await startNode();
     await node.wait(); // wait for the node to be ready
 
+    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+
+    // Setup Root api instance and keyring
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
+    const keyring = new Keyring({ type: "ethereum" });
+    alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
+    bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
 
     // Create ERC20 token
     const erc20PrecompileAddress = assetIdToERC20ContractAddress(GAS_TOKEN_ID);
@@ -123,13 +138,24 @@ describe("ERC20 Gas Estimates", function () {
       .connect(alithSigner)
       .estimateGas.approve(bobSigner.address, amount);
 
+    const balanceBefore = await alithSigner.getBalance();
+    await new Promise<void>((resolve) => {
+      api.tx.assets.approveTransfer(NATIVE_TOKEN_ID, bobSigner.address, amount).signAndSend(alith, ({ status }) => {
+        if (status.isInBlock) resolve();
+      });
+    });
+    const balanceAfter = await alithSigner.getBalance();
+    const extrinsicCost = balanceBefore.sub(balanceAfter);
+    const fees = await provider.getFeeData();
+    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
 
     // Update all costs with gas info
     allCosts["approval"] = {
       Contract: contractGasEstimate.toNumber(),
       Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Extrinsic: extrinsicScaled.toNumber(),
     };
   });
 
@@ -145,11 +171,24 @@ describe("ERC20 Gas Estimates", function () {
       .connect(alithSigner)
       .estimateGas.transfer(bobSigner.address, amount);
 
+    const balanceBefore = await alithSigner.getBalance();
+    await new Promise<void>((resolve) => {
+      api.tx.assets.transfer(NATIVE_TOKEN_ID, bobSigner.address, amount).signAndSend(alith, ({ status }) => {
+        if (status.isInBlock) resolve();
+      });
+    });
+    const balanceAfter = await alithSigner.getBalance();
+    const extrinsicCost = balanceBefore.sub(balanceAfter);
+    const fees = await provider.getFeeData();
+    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+
+    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
     // Update all costs with gas info
     allCosts["transfer"] = {
       Contract: contractGasEstimate.toNumber(),
       Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Extrinsic: extrinsicScaled.toNumber(),
     };
   });
 
@@ -173,13 +212,27 @@ describe("ERC20 Gas Estimates", function () {
       .connect(bobSigner)
       .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount);
 
+    const balanceBefore = await bobSigner.getBalance();
+    await new Promise<void>((resolve) => {
+      api.tx.assets
+        .transferApproved(NATIVE_TOKEN_ID, alithSigner.address, bobSigner.address, amount)
+        .signAndSend(bob, ({ status }) => {
+          if (status.isInBlock) resolve();
+        });
+    });
+    const balanceAfter = await bobSigner.getBalance();
+    const extrinsicCost = balanceBefore.sub(balanceAfter);
+    const fees = await provider.getFeeData();
+    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
 
     // Update all costs with gas info
     allCosts["transferFrom"] = {
       Contract: contractGasEstimate.toNumber(),
       Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Extrinsic: extrinsicScaled.toNumber(),
     };
   });
 
