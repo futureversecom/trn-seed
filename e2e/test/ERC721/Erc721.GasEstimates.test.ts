@@ -226,29 +226,28 @@ describe("ERC721 Gas Estimates", function () {
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
+    const balanceBefore = await alithSigner.getBalance();
+    await new Promise<void>((resolve) => {
+      const serialId = 1;
+      // const tokenId = api.registry.createType('TokenId', [collectionId, serialId]);
+      api.tx.tokenApprovals
+        .erc721Approval(alithSigner.address, bobSigner.address, [collectionId, serialId])
+        .signAndSend(alith, ({ status }) => {
+          if (status.isInBlock) resolve();
+        });
+    });
+    const balanceAfter = await alithSigner.getBalance();
+    const extrinsicCost = balanceBefore.sub(balanceAfter);
+    const fees = await provider.getFeeData();
+    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+
+    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+
     // Update all costs with gas info
     allCosts["approve"] = {
       Contract: contractGasEstimate.toNumber(),
       Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
-    };
-  });
-
-  it("set approval for all gas estimates", async () => {
-    // Estimate contract call
-    const contractGasEstimate = await erc721Contract
-      .connect(alithSigner)
-      .estimateGas.setApprovalForAll(bobSigner.address, true);
-    // Estimate precompile call
-    const precompileGasEstimate = await erc721Precompile
-      .connect(alithSigner)
-      .estimateGas.setApprovalForAll(bobSigner.address, true);
-
-    // Update all costs with gas info
-    allCosts["setApprovalForAll"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Extrinsic: extrinsicScaled.toNumber(),
     };
   });
 
@@ -272,13 +271,26 @@ describe("ERC721 Gas Estimates", function () {
       .connect(bobSigner)
       .estimateGas.transferFrom(alithSigner.address, bobSigner.address, serialNumber);
 
+    const balanceBefore = await alithSigner.getBalance();
+    await new Promise<void>((resolve) => {
+      const serialId = 1;
+      api.tx.nft.transfer(collectionId, [serialId], bobSigner.address).signAndSend(alith, ({ status }) => {
+        if (status.isInBlock) resolve();
+      });
+    });
+    const balanceAfter = await alithSigner.getBalance();
+    const extrinsicCost = balanceBefore.sub(balanceAfter);
+    const fees = await provider.getFeeData();
+    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+
+    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
     // Update all costs with gas info
     allCosts["transferFrom"] = {
       Contract: contractGasEstimate.toNumber(),
       Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Extrinsic: extrinsicScaled.toNumber(),
     };
   });
 
@@ -302,6 +314,37 @@ describe("ERC721 Gas Estimates", function () {
       Contract: contractGasEstimate.toNumber(),
       Precompile: precompileGasEstimate.toNumber(),
       Extrinsic: 0,
+    };
+  });
+
+  it("set approval for all gas estimates", async () => {
+    // Estimate contract call
+    const contractGasEstimate = await erc721Contract
+      .connect(alithSigner)
+      .estimateGas.setApprovalForAll(bobSigner.address, true);
+    // Estimate precompile call
+    const precompileGasEstimate = await erc721Precompile
+      .connect(alithSigner)
+      .estimateGas.setApprovalForAll(bobSigner.address, true);
+
+    const balanceBefore = await alithSigner.getBalance();
+    await new Promise<void>((resolve) => {
+      api.tx.tokenApprovals
+        .erc721ApprovalForAll(alithSigner.address, bobSigner.address, collectionId, true)
+        .signAndSend(alith, ({ status }) => {
+          if (status.isInBlock) resolve();
+        });
+    });
+    const balanceAfter = await alithSigner.getBalance();
+    const extrinsicCost = balanceBefore.sub(balanceAfter);
+    const fees = await provider.getFeeData();
+    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+
+    // Update all costs with gas info
+    allCosts["setApprovalForAll"] = {
+      Contract: contractGasEstimate.toNumber(),
+      Precompile: precompileGasEstimate.toNumber(),
+      Extrinsic: extrinsicScaled.toNumber(),
     };
   });
 
