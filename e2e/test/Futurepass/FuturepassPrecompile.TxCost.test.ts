@@ -90,6 +90,17 @@ describe("Futurepass Precompile", function () {
     return new Contract(futurepass, FUTUREPASS_PRECOMPILE_ABI, caller);
   }
 
+  function weiTo6DP(value: BigNumber) {
+    let quotient = value.div(1000000000000n);
+    const remainder = value.mod(1000000000000n);
+
+    if (remainder.isZero()) {
+      return quotient;
+    } else {
+      return quotient.add(1n);
+    }
+  }
+
   it("gas estimate and actual fee tallies", async () => {
     const owner = Wallet.createRandom().connect(provider);
     // fund caller to pay for futurepass creation
@@ -104,8 +115,8 @@ describe("Futurepass Precompile", function () {
     const fees = await provider.getFeeData();
 
     // Note: we charge the maxFeePerGas * gaslimit upfront and do not refund the extra atm. Hence, users are charged extra
-    console.log("actual cost: ", actualCost.toString());
-    console.log("calculated cost: ", precompileGasEstimate.mul(fees.maxFeePerGas!).toString());
+    const calculatedCost = precompileGasEstimate.mul(fees.maxFeePerGas!);
+    expect(weiTo6DP(actualCost)).to.equal(weiTo6DP(calculatedCost));
   });
 
   it("create futurepass tx costs", async () => {
