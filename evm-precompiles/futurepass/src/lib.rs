@@ -73,7 +73,7 @@ impl From<CallType> for u8 {
 pub enum Action {
 	Default = "",
 	DelegateType = "delegateType(address)",
-	RegisterDelegate = "registerDelegate(address,uint8,uint32)",
+	RegisterDelegateWithSignature = "registerDelegateWithSignature(address,uint8,uint32,bytes)",
 	UnRegisterDelegate = "unregisterDelegate(address)",
 	ProxyCall = "proxyCall(uint8,address,uint256,bytes)",
 	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
@@ -146,7 +146,7 @@ where
 			match selector {
 				Action::Default => Self::receive(handle),
 				Action::DelegateType => Self::delegate_type(handle),
-				Action::RegisterDelegate => Self::register_delegate_with_signature(handle),
+				Action::RegisterDelegateWithSignature => Self::register_delegate_with_signature(handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
 				Action::ProxyCall => Self::proxy_call(handle),
 				// Ownable
