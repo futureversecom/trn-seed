@@ -48,7 +48,7 @@ benchmarks! {
 		assert_eq!(Holders::<T>::get(owner).is_some(), true);
 	}
 
-	register_delegate {
+	register_delegate_with_signature {
 		let owner: T::AccountId = account("account", 0, 0);
 
 		fund::<T>(&owner);
@@ -57,7 +57,9 @@ benchmarks! {
 
 		let delegate: T::AccountId = account("delegate", 0, 0);
 		let proxy_type = T::ProxyType::default();
-	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), delegate.clone(), proxy_type.clone())
+		let deadline: T::BlockNumber = 200;
+		let signature = [0u8; 65]; // TODO: generate signature
+	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), delegate.clone(), proxy_type.clone(), deadline, signature)
 	verify {
 		assert!(T::Proxy::exists(&futurepass, &delegate, Some(proxy_type)));
 	}
@@ -71,8 +73,10 @@ benchmarks! {
 
 		let delegate: T::AccountId = account("delegate", 0, 0);
 		let proxy_type = T::ProxyType::default();
+		let deadline: T::BlockNumber = 200;
+		let signature = [0u8; 65]; // TODO: generate signature
 
-		assert_ok!(Futurepass::<T>::register_delegate(RawOrigin::Signed(owner.clone()).into(), futurepass.clone(), delegate.clone(), proxy_type.clone()));
+		assert_ok!(Futurepass::<T>::register_delegate_with_signature(RawOrigin::Signed(owner.clone()).into(), futurepass.clone(), delegate.clone(), proxy_type.clone(), deadline, signature));
 	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), delegate.clone())
 	verify {
 		assert!(!T::Proxy::exists(&futurepass, &delegate, Some(proxy_type)));

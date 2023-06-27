@@ -43,7 +43,7 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 	// Storage: Futurepass Holders (r:1 w:0)
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
-	fn register_delegate(p: u32, ) -> Weight {
+	fn register_delegate_with_signature(p: u32, ) -> Weight {
 		(72_000_000 as Weight)
 			.saturating_add((76_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
