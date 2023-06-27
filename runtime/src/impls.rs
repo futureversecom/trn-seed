@@ -639,7 +639,7 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		{
 			// Whitelist for precompile side
 			let sub_call_selector = &call.call_data.inner[..4];
-			if sub_call_selector == &keccak256!("registerDelegate(address,uint8)")[..4] ||
+			if sub_call_selector == &keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
 				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
 			{
 				return true
