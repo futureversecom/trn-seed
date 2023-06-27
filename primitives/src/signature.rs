@@ -57,6 +57,23 @@ impl From<H160> for AccountId20 {
 	}
 }
 
+impl TryFrom<ecdsa::Public> for AccountId20 {
+	type Error = &'static str;
+
+	fn try_from(public: ecdsa::Public) -> Result<Self, Self::Error> {
+		let decompressed = libsecp256k1::PublicKey::parse_slice(
+			&public.0,
+			Some(libsecp256k1::PublicKeyFormat::Compressed),
+		)
+		.map_err(|_| "Wrong compressed public key provided")?
+		.serialize();
+		let mut m = [0u8; 64];
+		m.copy_from_slice(&decompressed[1..65]);
+		let account = H160(keccak_256(&m)[12..].try_into().map_err(|_| "Invalid account id")?);
+		Ok(Self(account.0))
+	}
+}
+
 impl Into<H160> for AccountId20 {
 	fn into(self) -> H160 {
 		H160(self.0)
