@@ -146,7 +146,8 @@ where
 			match selector {
 				Action::Default => Self::receive(handle),
 				Action::DelegateType => Self::delegate_type(handle),
-				Action::RegisterDelegateWithSignature => Self::register_delegate_with_signature(handle),
+				Action::RegisterDelegateWithSignature =>
+					Self::register_delegate_with_signature(handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
 				Action::ProxyCall => Self::proxy_call(handle),
 				// Ownable
