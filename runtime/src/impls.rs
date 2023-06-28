@@ -74,6 +74,11 @@ pub fn scale_wei_to_6dp(value: Balance) -> Balance {
 	}
 }
 
+/// convert 6dp (XRP) to 18dp (wei)
+pub fn scale_6dp_to_wei(value: Balance) -> Balance {
+	value * XRP_UNIT_VALUE
+}
+
 /// Wraps spending currency (XRP) for use by the EVM
 /// Scales balances into 18dp equivalents which ethereum tooling and contracts expect
 pub struct EvmCurrencyScaler<C>(PhantomData<C>);
@@ -843,6 +848,8 @@ where
 	>,
 	OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
 	U256: UniqueSaturatedInto<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance>,
+	C::Balance: From<u128>,
+	u128: From<C::Balance>,
 {
 	type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
 
@@ -857,7 +864,7 @@ where
 			WithdrawReasons::FEE,
 			ExistenceRequirement::AllowDeath,
 		)
-			.map_err(|_| pallet_evm::Error::<T>::BalanceLow)?;
+		.map_err(|_| pallet_evm::Error::<T>::BalanceLow)?;
 		Ok(Some(imbalance)) // Imbalance returned here is 6DP
 	}
 
@@ -867,7 +874,56 @@ where
 		base_fee: U256,
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Self::LiquidityInfo {
+		if let Some(paid) = already_withdrawn {
+			let account_id = T::AddressMapping::into_account_id(*who);
 
+			// NOTE: Here paid is in 6DP and corrected_fee is in 18DP. Hence convert paid to 18DP
+			// before any calculation.
+			let paid_18dp: C::Balance = scale_6dp_to_wei(paid.peek().into()).into();
+
+			// Calculate how much refund we should return
+			let refund_amount = paid_18dp.saturating_sub(corrected_fee.unique_saturated_into());
+			// refund to the account that paid the fees. If this fails, the
+			// account might have dropped below the existential balance. In
+			// that case we don't refund anything.
+			let refund_imbalance = C::deposit_into_existing(&account_id, refund_amount)
+				.unwrap_or_else(|_| C::PositiveImbalance::zero());
+
+			// Make sure this works with 0 ExistentialDeposit
+			// https://github.com/paritytech/substrate/issues/10117
+			// If we tried to refund something, the account still empty and the ED is set to 0,
+			// we call `make_free_balance_be` with the refunded amount.
+			let refund_imbalance = if C::minimum_balance().is_zero() &&
+				refund_amount > C::Balance::zero() &&
+				C::total_balance(&account_id).is_zero()
+			{
+				// Known bug: Substrate tried to refund to a zeroed AccountData, but
+				// interpreted the account to not exist.
+				match C::make_free_balance_be(&account_id, refund_amount) {
+					SignedImbalance::Positive(p) => p,
+					_ => C::PositiveImbalance::zero(),
+				}
+			} else {
+				refund_imbalance
+			};
+
+			// merge the imbalance caused by paying the fees and refunding parts of it again.
+			let adjusted_paid = paid
+				.offset(refund_imbalance)
+				.same()
+				.unwrap_or_else(|_| C::NegativeImbalance::zero());
+
+			// base_fee is in 18DP, adjusted_paid is in 6DP. Hence we need to scale base_fee to 6DP
+			// before the split
+			let base_fee_6dp: C::Balance =
+				scale_wei_to_6dp(base_fee.unique_saturated_into().into()).into();
+
+			let (base_fee, tip) = adjusted_paid.split(base_fee_6dp);
+			// Handle base fee. Can be either burned, rationed, etc ...
+			OU::on_unbalanced(base_fee); // base_fee here is in 6DP
+			return Some(tip) // tip here is in 6DP
+		}
+		None
 	}
 
 	fn pay_priority_fee(tip: Self::LiquidityInfo) {
