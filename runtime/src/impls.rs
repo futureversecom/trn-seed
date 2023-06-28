@@ -21,12 +21,12 @@ use frame_support::{
 		fungible::Inspect,
 		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, IsSubType, OnUnbalanced,
-		ReservableCurrency, SignedImbalance, WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, Imbalance, InstanceFilter, IsSubType,
+		OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
-use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin};
+use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
 use sp_core::{H160, U256};
@@ -54,9 +54,9 @@ use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic,
+	UncheckedExtrinsic, EVM,
 };
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -819,6 +819,59 @@ where
 			new_owner,
 		)?;
 		Ok(())
+	}
+}
+
+/// Futureverse EVM currency adapter, mainly handles tx fees and associated 18DP(wei) to 6DP(XRP)
+/// conversion for fees.
+pub struct FutureverseEVMCurrencyAdapter<C, OU>(PhantomData<(C, OU)>);
+
+type NegativeImbalanceOf<C, T> =
+	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+
+impl<T, C, OU> OnChargeEVMTransaction<T> for FutureverseEVMCurrencyAdapter<C, OU>
+where
+	T: pallet_evm::Config + pallet_assets_ext::Config,
+	C: Currency<<T as frame_system::Config>::AccountId>,
+	C::PositiveImbalance: Imbalance<
+		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+		Opposite = C::NegativeImbalance,
+	>,
+	C::NegativeImbalance: Imbalance<
+		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+		Opposite = C::PositiveImbalance,
+	>,
+	OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
+	U256: UniqueSaturatedInto<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance>,
+{
+	type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
+
+	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
+		if fee.is_zero() {
+			return Ok(None)
+		}
+		let account_id = T::AddressMapping::into_account_id(*who);
+		let imbalance = C::withdraw(
+			&account_id,
+			fee.unique_saturated_into(),
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		)
+			.map_err(|_| pallet_evm::Error::<T>::BalanceLow)?;
+		Ok(Some(imbalance)) // Imbalance returned here is 6DP
+	}
+
+	fn correct_and_deposit_fee(
+		who: &H160,
+		corrected_fee: U256,
+		base_fee: U256,
+		already_withdrawn: Self::LiquidityInfo,
+	) -> Self::LiquidityInfo {
+
+	}
+
+	fn pay_priority_fee(tip: Self::LiquidityInfo) {
+
 	}
 }
 
