@@ -43,17 +43,19 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 	// Storage: Futurepass Holders (r:1 w:0)
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
-	fn register_delegate_with_signature() -> Weight {
+	fn register_delegate_with_signature(p: u32, ) -> Weight {
 		(123_000_000 as Weight)
+			.saturating_add((76_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
-	// Storage: Futurepass Holders (r:2 w:0)
+	// Storage: Futurepass Holders (r:1 w:0)
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
-	fn unregister_delegate() -> Weight {
-		(79_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
+	fn unregister_delegate(p: u32, ) -> Weight {
+		(71_000_000 as Weight)
+			.saturating_add((76_000 as Weight).saturating_mul(p as Weight))
+			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
 	// Storage: Futurepass Holders (r:2 w:2)
@@ -65,8 +67,10 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
 	// Storage: Proxy Proxies (r:1 w:0)
-	fn proxy_extrinsic() -> Weight {
-		(30_000_000 as Weight)
+	fn proxy_extrinsic(p: u32, ) -> Weight {
+		(29_000_000 as Weight)
+			// Standard Error: 2_000
+			.saturating_add((76_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 	}
 }
