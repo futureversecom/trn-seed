@@ -13,7 +13,7 @@ import {
   typedefs,
 } from "../../common";
 
-describe("Futurepass Precompile", function () {
+describe.only("Futurepass Precompile", function () {
   let node: NodeProcess;
 
   let provider: JsonRpcProvider;
@@ -21,17 +21,17 @@ describe("Futurepass Precompile", function () {
   let futurepassRegistrarProxy: Contract;
 
   beforeEach(async () => {
-    node = await startNode();
+    // node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://localhost:9944`);
     await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
     });
 
     // Ethereum variables
-    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:9933`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
 
     futurepassRegistrarProxy = new Contract(
@@ -41,7 +41,7 @@ describe("Futurepass Precompile", function () {
     );
   });
 
-  afterEach(async () => await node.stop());
+  // afterEach(async () => await node.stop());
 
   it("create futurepass succeeds for account with balance", async () => {
     const owner = Wallet.createRandom().address;
@@ -58,7 +58,7 @@ describe("Futurepass Precompile", function () {
   });
 
   // Note: This testcase is included in futurepass substrate tests
-  it.skip("create futurepass succeeds for account with no balance", async () => {
+  it("create futurepass succeeds for account with no balance", async () => {
     const owner = Wallet.createRandom().address;
     const tx = await futurepassRegistrarProxy.connect(alithSigner).create(owner);
     const receipt = await tx.wait();
@@ -70,7 +70,7 @@ describe("Futurepass Precompile", function () {
   });
 
   // Note: This testcase is included in futurepass substrate tests
-  it.skip("create futurepass fails - already existing account", async () => {
+  it("create futurepass fails - already existing account", async () => {
     const owner = Wallet.createRandom().address;
     const tx = await futurepassRegistrarProxy.connect(alithSigner).create(owner);
     await tx.wait();
