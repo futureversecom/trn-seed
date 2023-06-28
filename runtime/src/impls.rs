@@ -927,7 +927,14 @@ where
 	}
 
 	fn pay_priority_fee(tip: Self::LiquidityInfo) {
-
+		// Default Ethereum behaviour: issue the tip to the block author.
+		if let Some(tip) = tip {
+			let account_id = T::AddressMapping::into_account_id(EVM::find_author());
+			// tip is in 6DP. We should convert it to 18DP before passing it down to C, as another
+			// 18DP to 6DP conversion happening there.
+			let tip_18dp: C::Balance = scale_6dp_to_wei(tip.peek().into()).into();
+			let _ = C::deposit_into_existing(&account_id, tip_18dp);
+		}
 	}
 }
 
