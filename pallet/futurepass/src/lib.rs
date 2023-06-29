@@ -488,6 +488,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 
+			// restrict delegate access to whitelist
 			match call.is_sub_type() {
 				Some(Call::register_delegate { .. }) | Some(Call::unregister_delegate { .. }) => {
 					ensure!(
