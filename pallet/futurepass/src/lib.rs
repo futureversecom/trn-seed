@@ -487,6 +487,17 @@ pub mod pallet {
 			call: Box<<T as Config>::Call>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
+
+			match call.is_sub_type() {
+				Some(Call::register_delegate { .. }) | Some(Call::unregister_delegate { .. }) => {
+					ensure!(
+						Holders::<T>::get(&who.clone()) == Some(futurepass.clone()),
+						Error::<T>::NotFuturepassOwner
+					);
+				},
+				_ => {},
+			}
+
 			let result = T::Proxy::proxy_call(origin, futurepass, *call);
 			Self::deposit_event(Event::ProxyExecuted {
 				delegate: who,

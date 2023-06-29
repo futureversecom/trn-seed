@@ -1661,6 +1661,78 @@ fn whitelist_works() {
 }
 
 #[test]
+fn delegate_can_not_call_whitelist_via_proxy_extrinsic() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let delegate = create_account(3);
+			let delegate2 = create_account(4);
+
+			// fund owner
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE);
+			// create FP for owner
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+
+			// fund futurepass with some tokens
+			let fund_amount: Balance = 1000;
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				fund_amount
+			);
+
+			// pallet_futurepass::Call::register_delegate works via proxy_extrinsic
+			let inner_call = Box::new(MockCall::Futurepass(Call::register_delegate {
+				futurepass,
+				delegate,
+				proxy_type: ProxyType::Any,
+			}));
+			System::reset_events();
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
+			// assert event ProxyExecuted
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::DelegateRegistered {
+					futurepass,
+					delegate,
+					proxy_type: ProxyType::Any,
+				}
+				.into(),
+			);
+			// check delegate is a delegate
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				true
+			);
+
+			// check delegate can not call register_delegate via proxy_extrinsic
+			let inner_call2 = Box::new(MockCall::Futurepass(Call::register_delegate {
+				futurepass,
+				delegate: delegate2,
+				proxy_type: ProxyType::Any,
+			}));
+
+			assert_err!(
+				Futurepass::proxy_extrinsic(Origin::signed(delegate), futurepass, inner_call2),
+				Error::<Test>::NotFuturepassOwner
+			);
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate2, Some(ProxyType::Any)),
+				false
+			);
+		});
+}
+
+#[test]
 fn futurepass_admin_migrator_set_by_sudo() {
 	let futurepass_admin_migrator = create_account(1337);
 
