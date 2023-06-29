@@ -23,6 +23,7 @@ on:
       - "**.lock"
       - "genesis/**"
       - "Dockerfile"
+      - "**.ts"
 
 env:
   REGISTRY: "ghcr.io"

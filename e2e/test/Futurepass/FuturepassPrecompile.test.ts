@@ -137,7 +137,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it.skip("register delegate works", async () => {
+  it("register delegate works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -192,7 +192,7 @@ describe("Futurepass Precompile", function () {
   });
 
   // @note TBD - v2 functionality
-  it.skip("delegate can register more delegates", async () => {
+  it("delegate can register more delegates", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
     const delegate2 = Wallet.createRandom();
@@ -229,7 +229,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate2.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it.skip("unregister delegate from owner", async () => {
+  it("unregister delegate from owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -261,7 +261,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
-  it.skip("unregister delegate from delegate (themself)", async () => {
+  it("unregister delegate from delegate (themself)", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
