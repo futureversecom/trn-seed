@@ -90,7 +90,7 @@ impl std::str::FromStr for AccountId20 {
 
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Eq, PartialEq, Clone, Encode, Decode, sp_core::RuntimeDebug, TypeInfo)]
-pub struct EthereumSignature(ecdsa::Signature);
+pub struct EthereumSignature(pub ecdsa::Signature);
 
 impl From<ecdsa::Signature> for EthereumSignature {
 	fn from(x: ecdsa::Signature) -> Self {
@@ -328,5 +328,33 @@ mod tests {
 		let signature: EthereumSignature = ecdsa::Signature(hex!["ad0992d40e5cdf99db76bed162808508ac65acd7ae2fdc8573594f03ed9c939773e813181788fc02c3c68f3fdc592759b35f6354484343e18cb5317d34dab6c61b"]).into();
 
 		assert!(!signature.verify(msg.as_ref(), &address.into_account()));
+	}
+
+	#[test]
+	fn construct_and_verify_message() {
+		let msg_hash: &[u8; 32] =
+			&hex!("4bb8b8a113de9a87a8c02cace5c8a9f61e478eaaa8f8100773a4c207f2c06662");
+		let msg_hash_str: &str = &hex::encode(msg_hash);
+		let eth_signed_msg =
+			&keccak_256(ethereum_signed_message(&msg_hash_str.as_bytes()).as_ref()); // 71ea60525c727e50bfa2358ef14e7456bae41fe483ed104341e1376ab3141338
+
+		let pair = ecdsa::Pair::from_seed(&hex![
+			"7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c"
+		]);
+		let address: EthereumSigner = pair.public().into(); // 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB
+
+		let signature: EthereumSignature = pair.sign_prehashed(eth_signed_msg).into();
+		assert!(signature.verify(msg_hash_str.as_ref(), &address.into_account()));
+
+		match sp_io::crypto::secp256k1_ecdsa_recover(&signature.0 .0, &eth_signed_msg) {
+			Ok(pubkey_bytes) => {
+				let account = AccountId20(keccak_256(&pubkey_bytes)[12..].try_into().unwrap());
+				assert_eq!(
+					AccountId20::from(hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB")),
+					account
+				);
+			},
+			_ => assert!(false),
+		};
 	}
 }
