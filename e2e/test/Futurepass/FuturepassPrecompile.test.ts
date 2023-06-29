@@ -939,18 +939,19 @@ describe("Futurepass Precompile", function () {
     // check delegate is a delegate of the futurepass
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
 
-    // registerDelegate with delegate
+    // registerDelegate with delegate should fail
+    await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
     const registerDelegateCallData2 = futurepassPrecompile.interface.encodeFunctionData("registerDelegate", [
       delegate2.address,
       PROXY_TYPE.Any,
     ]);
 
     await futurepassPrecompile
-      .connect(owner)
+      .connect(delegate)
       .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, registerDelegateCallData2)
       .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
 
-    // check delegate is not a delegate of the futurepass
+    // check delegate2 is not a delegate of the futurepass
     expect(await futurepassPrecompile.delegateType(delegate2.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
