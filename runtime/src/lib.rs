@@ -225,6 +225,8 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 			},
 			// Payouts are restricted until a new staking payout system is implemented
 			Call::Staking(pallet_staking::Call::payout_stakers { .. }) => false,
+			// Disable Proxy::add_proxy
+			Call::Proxy(pallet_proxy::Call::add_proxy { .. }) => false,
 			_ => true,
 		}
 	}
