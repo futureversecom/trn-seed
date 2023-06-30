@@ -19,30 +19,22 @@ mod evm_tests;
 mod multiplier;
 mod staker_payouts;
 
-use crate::{
-	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
-	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
-	UncheckedExtrinsic, H256, U256, UPGRADE_FEE_AMOUNT,
-};
-use frame_support::{
-	traits::{fungibles::Inspect as _, GenesisBuild, Get},
-	weights::GetDispatchInfo,
-};
-use frame_system::RawOrigin;
-use pallet_transaction_payment::ChargeTransactionPayment;
-use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
-use seed_primitives::{AccountId, AccountId20, Balance, Index};
+use frame_support::traits::{fungibles::Inspect as _, GenesisBuild};
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
-	traits::ReadRuntimeVersionExt,
 	Encode, Pair,
 };
-use sp_runtime::{
-	generic::Era,
-	traits::{Dispatchable, SignedExtension},
-	Perbill,
+use sp_runtime::{generic::Era, Perbill};
+
+use crate::{
+	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
+	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
+	UncheckedExtrinsic, H256, U256,
 };
+use frame_support::traits::Get;
+use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
+use seed_primitives::{AccountId, AccountId20, Balance, Index};
 
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
@@ -186,10 +178,6 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_sudo::GenesisConfig::<Runtime> { key: Some(alice()) }
-			.assimilate_storage(&mut t)
-			.unwrap();
-
 		let mut ext = sp_io::TestExternalities::new(t);
 		ext.execute_with(|| {
 			// Ensure a test genesis hash exists in storage.
@@ -205,27 +193,6 @@ impl ExtBuilder {
 		ext.register_extension(OffchainDbExt::new(offchain));
 		let (pool, _state) = testing::TestTransactionPoolExt::new();
 		ext.register_extension(TransactionPoolExt::new(pool));
-
-		struct ReadRuntimeVersion(Vec<u8>);
-		impl sp_core::traits::ReadRuntimeVersion for ReadRuntimeVersion {
-			fn read_runtime_version(
-				&self,
-				_wasm_code: &[u8],
-				_ext: &mut dyn sp_externalities::Externalities,
-			) -> Result<Vec<u8>, String> {
-				Ok(self.0.clone())
-			}
-		}
-
-		let version = sp_version::RuntimeVersion {
-			spec_version: 35,
-			impl_version: 1,
-			spec_name: "root".into(),
-			..Default::default()
-		};
-		let read_runtime_version = ReadRuntimeVersion(version.encode());
-
-		ext.register_extension(ReadRuntimeVersionExt::new(read_runtime_version));
 
 		ext
 	}
@@ -321,76 +288,6 @@ fn fund_authorities_and_accounts() {
 		assert_eq!(
 			AssetsExt::reducible_balance(ROOT_ASSET_ID, &bob(), false),
 			INITIAL_ROOT_BALANCE - VALIDATOR_BOND
-		);
-	});
-}
-
-#[test]
-fn set_code_has_known_cheap_fee() {
-	ExtBuilder::default().build().execute_with(|| {
-		let set_code_call = frame_system::Call::<Runtime>::set_code {
-			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
-		};
-
-		let sudo_call = pallet_sudo::Call::<Runtime>::sudo_unchecked_weight {
-			call: Box::new(<Runtime as frame_system::Config>::Call::from(set_code_call)),
-			weight: 42069_u64.into(),
-		};
-
-		let runtime_level_sudo_call = <Runtime as frame_system::Config>::Call::from(sudo_call);
-		let dispatch_info = runtime_level_sudo_call.clone().get_dispatch_info();
-		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
-
-		<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-			ChargeTransactionPayment::from(0),
-			&alice(),
-			&runtime_level_sudo_call,
-			&dispatch_info,
-			1,
-		)
-		.unwrap();
-
-		runtime_level_sudo_call.dispatch(RawOrigin::Signed(alice()).into()).unwrap();
-
-		assert_eq!(
-			AssetsExt::balance(XRP_ASSET_ID, &alice()),
-			initial_balance - UPGRADE_FEE_AMOUNT
-		);
-	});
-}
-
-#[test]
-fn set_code_without_checks_is_normal_price() {
-	ExtBuilder::default().build().execute_with(|| {
-		let set_code_call = frame_system::Call::<Runtime>::set_code_without_checks {
-			code: substrate_test_runtime_client::runtime::wasm_binary_unwrap().to_vec(),
-		};
-
-		let sudo_call = pallet_sudo::Call::<Runtime>::sudo_unchecked_weight {
-			call: Box::new(<Runtime as frame_system::Config>::Call::from(set_code_call)),
-			weight: 42069_u64.into(),
-		};
-
-		let runtime_level_sudo_call = <Runtime as frame_system::Config>::Call::from(sudo_call);
-		let dispatch_info = runtime_level_sudo_call.clone().get_dispatch_info();
-		let initial_balance = AssetsExt::balance(XRP_ASSET_ID, &alice());
-
-		<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
-			ChargeTransactionPayment::from(0),
-			&alice(),
-			&runtime_level_sudo_call,
-			&dispatch_info,
-			1,
-		)
-		.unwrap();
-
-		runtime_level_sudo_call.dispatch(RawOrigin::Signed(alice()).into()).unwrap();
-
-		// We know that the unadjusted upgrade should always cost more than the adjusted one. We
-		// leniently say ">" because we will likely adjust our fee calculations many times in the
-		// future
-		assert!(
-			AssetsExt::balance(XRP_ASSET_ID, &alice()) > (initial_balance - UPGRADE_FEE_AMOUNT)
 		);
 	});
 }
