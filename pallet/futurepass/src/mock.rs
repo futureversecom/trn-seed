@@ -27,7 +27,7 @@ use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
 	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
 };
-use sp_core::{H160, H256};
+use sp_core::{ecdsa, Pair, H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -71,11 +71,12 @@ impl_pallet_dex_config!(Test);
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
-			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
+			// Whitelist currently includes
+			// pallet_futurepass::Call::register_delegate_with_signature,
 			// pallet_futurepass::Call::unregister_delegate
 			if !matches!(
 				c,
-				Call::Futurepass(pallet_futurepass::Call::register_delegate { .. }) |
+				Call::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
 					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
 			) {
 				return false
@@ -290,11 +291,17 @@ pub fn create_account(seed: u64) -> AccountId {
 pub fn create_random() -> AccountId {
 	AccountId::from(H160::random())
 }
+pub fn create_random_pair() -> (ecdsa::Pair, AccountId) {
+	let (pair, _) = ecdsa::Pair::generate();
+	let account: AccountId = pair.public().try_into().unwrap();
+	(pair, account)
+}
 
 #[derive(Default)]
 pub struct TestExt {
 	balances: Vec<(AccountId, Balance)>,
 	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
+	block_number: BlockNumber,
 }
 
 impl TestExt {
@@ -310,6 +317,11 @@ impl TestExt {
 			.into_iter()
 			.map(|(who, balance)| (MOCK_PAYMENT_ASSET_ID, who, balance))
 			.collect();
+		self
+	}
+	/// Configure block number
+	pub fn with_block_number(mut self, block_number: BlockNumber) -> Self {
+		self.block_number = block_number;
 		self
 	}
 
@@ -330,8 +342,12 @@ impl TestExt {
 				.unwrap();
 		}
 
+		let block_number = std::cmp::max(self.block_number, 1);
+
 		let mut ext: sp_io::TestExternalities = storage.into();
-		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
+		ext.execute_with(|| {
+			System::initialize(&block_number, &[0u8; 32].into(), &Default::default())
+		});
 		ext
 	}
 }

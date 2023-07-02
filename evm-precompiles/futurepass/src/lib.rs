@@ -73,7 +73,7 @@ impl From<CallType> for u8 {
 pub enum Action {
 	Default = "",
 	DelegateType = "delegateType(address)",
-	RegisterDelegate = "registerDelegate(address,uint8)",
+	RegisterDelegateWithSignature = "registerDelegateWithSignature(address,uint8,uint32,bytes)",
 	UnRegisterDelegate = "unregisterDelegate(address)",
 	ProxyCall = "proxyCall(uint8,address,uint256,bytes)",
 	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
@@ -84,8 +84,10 @@ pub enum Action {
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
-
 type GetCallDataLimit = ConstU32<CALL_DATA_LIMIT>;
+
+pub const SIGNATURE_LENGTH: u32 = 65;
+type GetSignatureLimit = ConstU32<SIGNATURE_LENGTH>;
 
 pub struct EvmSubCall {
 	pub to: Address,
@@ -144,7 +146,8 @@ where
 			match selector {
 				Action::Default => Self::receive(handle),
 				Action::DelegateType => Self::delegate_type(handle),
-				Action::RegisterDelegate => Self::register_delegate(handle),
+				Action::RegisterDelegateWithSignature =>
+					Self::register_delegate_with_signature(handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
 				Action::ProxyCall => Self::proxy_call(handle),
 				// Ownable
@@ -207,23 +210,31 @@ where
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
 	}
 
-	fn register_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn register_delegate_with_signature(
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
-		read_args!( handle, { delegate: Address, proxy_type: u8});
+		read_args!( handle, { delegate: Address, proxy_type: u8, deadline: u32, signature: BoundedBytes<GetSignatureLimit> });
 		let futurepass: H160 = handle.code_address();
 		let delegate: H160 = delegate.into();
 		let proxy_type_enum: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type
 			.try_into()
 			.map_err(|_e| RevertReason::custom("Futurepass: ProxyType conversion failure"))?;
+		let signature: [u8; 65] = signature
+			.inner
+			.try_into()
+			.map_err(|_e| RevertReason::custom("Futurepass: Signature length mismatch"))?;
 
 		let caller = handle.context().caller;
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(caller.into()).into(),
-			pallet_futurepass::Call::<Runtime>::register_delegate {
+			pallet_futurepass::Call::<Runtime>::register_delegate_with_signature {
 				futurepass: futurepass.into(),
 				delegate: delegate.into(),
 				proxy_type: proxy_type_enum,
+				deadline: deadline.into(),
+				signature,
 			},
 		)?;
 

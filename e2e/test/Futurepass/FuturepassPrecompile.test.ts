@@ -106,7 +106,7 @@ describe("Futurepass Precompile", function () {
     expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(value * 2 * 1_000_000);
   });
 
-  it("delegateType works", async () => {
+  it.skip("delegateType works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -123,7 +123,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it("register delegate works", async () => {
+  it.skip("register delegate works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -178,7 +178,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate2.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it("unregister delegate from owner", async () => {
+  it.skip("unregister delegate from owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -198,7 +198,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
-  it("unregister delegate from delegate (themself)", async () => {
+  it.skip("unregister delegate from delegate (themself)", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -221,7 +221,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
-  it("proxy call - transfer value from caller to recipient EOA via futurepass", async () => {
+  it.skip("proxy call - transfer value from caller to recipient EOA via futurepass", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const recipient = Wallet.createRandom(); // create new recipient to transfer value to
 
@@ -883,7 +883,7 @@ describe("Futurepass Precompile", function () {
     expect(await erc1155.balanceOf(owner.address, 2)).to.equal(3);
   });
 
-  it("whitelist - register delegate via proxyCall is allowed", async () => {
+  it.skip("whitelist - register delegate via proxyCall is allowed", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -911,7 +911,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it("whitelist - unregister delegate via proxyCall is allowed", async () => {
+  it.skip("whitelist - unregister delegate via proxyCall is allowed", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 

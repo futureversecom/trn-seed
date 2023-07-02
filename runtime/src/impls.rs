@@ -640,7 +640,8 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		{
 			// Whitelist for precompile side
 			let sub_call_selector = &call.call_data.inner[..4];
-			if sub_call_selector == &keccak256!("registerDelegate(address,uint8)")[..4] ||
+			if sub_call_selector ==
+				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
 				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
 			{
 				return true
@@ -667,11 +668,12 @@ impl InstanceFilter<Call> for ProxyType {
 		// This keeps the logic simple and avoids unnecessary loops
 		// TODO - implement the whitelist as a list that can be configured in the runtime.
 		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
-			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
+			// Whitelist currently includes
+			// pallet_futurepass::Call::register_delegate_with_signature,
 			// pallet_futurepass::Call::unregister_delegate
 			if !matches!(
 				c,
-				Call::Futurepass(pallet_futurepass::Call::register_delegate { .. }) |
+				Call::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
 					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
 			) {
 				return false

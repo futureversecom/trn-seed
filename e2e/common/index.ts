@@ -205,7 +205,7 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
   "event ContractCreated(uint8 indexed callType, address indexed contractAddress, uint256 indexed value, bytes32 salt)",
 
   "function delegateType(address delegate) external view returns (uint8)",
-  "function registerDelegate(address delegate, uint8 proxyType) external",
+  "function registerDelegateWithSignature(address delegate, uint8 proxyType, uint32 deadline, bytes memory signature) external",
   "function unregisterDelegate(address delegate) external",
   "function proxyCall(uint8 callType, address callTo, uint256 value, bytes memory callData) external payable",
 
