@@ -490,7 +490,8 @@ pub mod pallet {
 
 			// restrict delegate access to whitelist
 			match call.is_sub_type() {
-				Some(Call::register_delegate { .. }) | Some(Call::unregister_delegate { .. }) => {
+				Some(Call::register_delegate_with_signature { .. }) |
+				Some(Call::unregister_delegate { .. }) => {
 					ensure!(
 						Holders::<T>::get(&who.clone()) == Some(futurepass.clone()),
 						Error::<T>::NotFuturepassOwner
