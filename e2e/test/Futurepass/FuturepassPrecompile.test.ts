@@ -883,7 +883,7 @@ describe("Futurepass Precompile", function () {
     expect(await erc1155.balanceOf(owner.address, 2)).to.equal(3);
   });
 
-  it.skip("whitelist - register delegate via proxyCall is allowed", async () => {
+  it.skip("whitelist - register delegate via proxyCall is allowed for owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -911,7 +911,51 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it.skip("whitelist - unregister delegate via proxyCall is allowed", async () => {
+  it.skip("whitelist - register delegate via proxyCall is not allowed for delegate", async () => {
+    const owner = Wallet.createRandom().connect(provider);
+    const delegate = Wallet.createRandom().connect(provider);
+    const delegate2 = Wallet.createRandom().connect(provider);
+
+    // create FP for owner
+    const futurepassPrecompile = await createFuturepass(owner, owner.address);
+
+    // ensure delegate doesnt exist for FP
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
+    // fund the FP, FP_DELEGATE_RESERVE amount of Root for the delegate reserve
+    await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
+    const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
+    expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
+
+    // get registerDelegate call data
+    const registerDelegateCallData = futurepassPrecompile.interface.encodeFunctionData("registerDelegate", [
+      delegate.address,
+      PROXY_TYPE.Any,
+    ]);
+    // do proxy call
+    const tx = await futurepassPrecompile
+      .connect(owner)
+      .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, registerDelegateCallData);
+    await tx.wait();
+    // check delegate is a delegate of the futurepass
+    expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
+
+    // registerDelegate with delegate should fail
+    await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
+    const registerDelegateCallData2 = futurepassPrecompile.interface.encodeFunctionData("registerDelegate", [
+      delegate2.address,
+      PROXY_TYPE.Any,
+    ]);
+
+    await futurepassPrecompile
+      .connect(delegate)
+      .proxyCall(CALL_TYPE.Call, futurepassPrecompile.address, ethers.constants.Zero, registerDelegateCallData2)
+      .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
+
+    // check delegate2 is not a delegate of the futurepass
+    expect(await futurepassPrecompile.delegateType(delegate2.address)).to.equal(PROXY_TYPE.NoPermission);
+  });
+
+  it.skip("whitelist - unregister delegate via proxyCall is allowed for owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 

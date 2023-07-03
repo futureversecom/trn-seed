@@ -289,8 +289,25 @@ where
 		let call_type: CallType = call_type
 			.try_into()
 			.map_err(|err| RevertReason::custom(alloc::format!("Futurepass: {}", err)))?;
-		let evm_subcall = EvmSubCall { to: call_to, call_data };
 
+		// restrict delegate access to whitelist
+		if call_to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX) {
+			let sub_call_selector = &call_data.inner[..4];
+			if sub_call_selector ==
+				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
+				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+			{
+				let futurepass: H160 = handle.code_address();
+				let caller: H160 = handle.context().caller;
+				ensure!(
+					pallet_futurepass::Holders::<Runtime>::get(&Runtime::AccountId::from(caller)) ==
+						Some(futurepass.into()),
+					revert("Futurepass: NotFuturepassOwner")
+				);
+			}
+		}
+
+		let evm_subcall = EvmSubCall { to: call_to, call_data };
 		Self::do_proxy(handle, handle.code_address(), call_type, evm_subcall, value)
 	}
 

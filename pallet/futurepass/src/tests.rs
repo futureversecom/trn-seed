@@ -1661,6 +1661,113 @@ fn whitelist_works() {
 }
 
 #[test]
+fn delegate_can_not_call_whitelist_via_proxy_extrinsic() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let (signer, delegate) = create_random_pair();
+			let (signer2, delegate2) = create_random_pair();
+			let proxy_type = ProxyType::Any;
+			let deadline = 200;
+
+			// fund owner
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE);
+			// create FP for owner
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+
+			// fund futurepass with some tokens
+			let fund_amount: Balance = 1000;
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, fund_amount);
+			assert_eq!(
+				AssetsExt::reducible_balance(MOCK_NATIVE_ASSET_ID, &futurepass, false),
+				fund_amount
+			);
+
+			let signature = signer
+				.sign_prehashed(
+					&Futurepass::generate_add_delegate_eth_signed_message(
+						&futurepass,
+						&delegate,
+						&proxy_type,
+						&deadline,
+					)
+					.unwrap()
+					.1,
+				)
+				.0;
+
+			// pallet_futurepass::Call::register_delegate_with_signature works via proxy_extrinsic
+			let inner_call =
+				Box::new(MockCall::Futurepass(Call::register_delegate_with_signature {
+					futurepass,
+					delegate,
+					proxy_type,
+					deadline,
+					signature,
+				}));
+			System::reset_events();
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
+			// assert event ProxyExecuted
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::DelegateRegistered {
+					futurepass,
+					delegate,
+					proxy_type: ProxyType::Any,
+				}
+				.into(),
+			);
+			// check delegate is a delegate
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				true
+			);
+
+			// Try to register delegate2 using delegate
+			let signature2 = signer2
+				.sign_prehashed(
+					&Futurepass::generate_add_delegate_eth_signed_message(
+						&futurepass,
+						&delegate2,
+						&proxy_type,
+						&deadline,
+					)
+					.unwrap()
+					.1,
+				)
+				.0;
+
+			// pallet_futurepass::Call::register_delegate_with_signature works via proxy_extrinsic
+			let inner_call2 =
+				Box::new(MockCall::Futurepass(Call::register_delegate_with_signature {
+					futurepass,
+					delegate: delegate2,
+					proxy_type,
+					deadline,
+					signature: signature2,
+				}));
+
+			assert_err!(
+				Futurepass::proxy_extrinsic(Origin::signed(delegate), futurepass, inner_call2),
+				Error::<Test>::NotFuturepassOwner
+			);
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate2, Some(ProxyType::Any)),
+				false
+			);
+		});
+}
+
+#[test]
 fn futurepass_admin_migrator_set_by_sudo() {
 	let futurepass_admin_migrator = create_account(1337);
 
