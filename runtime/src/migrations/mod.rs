@@ -9,8 +9,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod staking;
-
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -33,14 +31,12 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
-		weight += staking::Upgrade::on_runtime_upgrade();
 
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
-		staking::Upgrade::post_upgrade()?;
 		Ok(())
 	}
 }
