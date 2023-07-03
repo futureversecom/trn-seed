@@ -48,7 +48,7 @@ describe("Futurepass Precompile", function () {
   let futurepassRegistrar: Contract;
   let xrpERC20Precompile: Contract;
 
-  beforeEach(async () => {
+  before(async () => {
     node = await startNode();
 
     // Substrate variables
@@ -73,7 +73,7 @@ describe("Futurepass Precompile", function () {
     xrpERC20Precompile = new Contract(XRP_PRECOMPILE_ADDRESS, ERC20_ABI, alithSigner);
   });
 
-  afterEach(async () => await node.stop());
+  after(async () => await node.stop());
 
   async function createFuturepass(caller: Wallet, address: string) {
     // fund caller to pay for futurepass creation
@@ -106,7 +106,7 @@ describe("Futurepass Precompile", function () {
     expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(value * 2 * 1_000_000);
   });
 
-  it.skip("delegateType works", async () => {
+  it("delegateType works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -116,14 +116,27 @@ describe("Futurepass Precompile", function () {
     // checkDelegate should return 0 value(ProxyType.NoPermission)
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
 
-    const tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [futurepassPrecompile.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+
+    // eip191 sign message using delegate
+    const signature = await delegate.signMessage(message);
+
+    const tx = await futurepassPrecompile
+      .connect(owner)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
     await tx.wait();
 
     // checkDelegate should return PROXY_TYPE.Any
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it.skip("register delegate works", async () => {
+  it("register delegate works", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -133,13 +146,24 @@ describe("Futurepass Precompile", function () {
     // ensure delegate doesnt exist for FP
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
 
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [futurepassPrecompile.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+    const signature = await delegate.signMessage(message);
+
     // registering with proxytype other than PROXY_TYPE.Any fails
     await futurepassPrecompile
       .connect(owner)
-      .registerDelegate(delegate.address, PROXY_TYPE.NonTransfer)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.NonTransfer, deadline, signature)
       .catch((err: any) => expect(err.message).contains("PermissionDenied"));
 
-    const tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
+    const tx = await futurepassPrecompile
+      .connect(owner)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
     const receipt = await tx.wait();
     expect((receipt?.events as any)[0].event).to.equal("FuturepassDelegateRegistered");
     expect((receipt?.events as any)[0].args.futurepass).to.equal(futurepassPrecompile.address);
@@ -151,7 +175,7 @@ describe("Futurepass Precompile", function () {
     // registering the same delegate with the same PROXY_TYPE fails
     await futurepassPrecompile
       .connect(owner)
-      .registerDelegate(delegate.address, PROXY_TYPE.Any)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature)
       .catch((err: any) => expect(err.message).contains("DelegateAlreadyExists"));
   });
 
@@ -164,7 +188,7 @@ describe("Futurepass Precompile", function () {
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
     // register delegate
-    let tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
+    let tx = await futurepassPrecompile.connect(owner).registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any);
     await tx.wait();
 
     // fund delegate so it can register another delegate
@@ -172,21 +196,32 @@ describe("Futurepass Precompile", function () {
 
     // delegate can register another delegate
     const delegate2 = Wallet.createRandom();
-    tx = await futurepassPrecompile.connect(delegate).registerDelegate(delegate2.address, PROXY_TYPE.Any);
+    tx = await futurepassPrecompile.connect(delegate).registerDelegateWithSignature(delegate2.address, PROXY_TYPE.Any);
     await tx.wait();
 
     expect(await futurepassPrecompile.delegateType(delegate2.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it.skip("unregister delegate from owner", async () => {
+  it("unregister delegate from owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
     // create FP for owner
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [futurepassPrecompile.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+    const signature = await delegate.signMessage(message);
+
     // register delegate
-    let tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
+    let tx = await futurepassPrecompile
+      .connect(owner)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
     await tx.wait();
 
     // unregister delegate as owner
@@ -198,15 +233,26 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
-  it.skip("unregister delegate from delegate (themself)", async () => {
+  it("unregister delegate from delegate (themself)", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
     // create FP for owner
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [futurepassPrecompile.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+    const signature = await delegate.signMessage(message);
+
     // register delegate
-    let tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
+    let tx = await futurepassPrecompile
+      .connect(owner)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
     await tx.wait();
 
     // fund delegate so it can unregister
@@ -221,7 +267,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
-  it.skip("proxy call - transfer value from caller to recipient EOA via futurepass", async () => {
+  it("proxy call - transfer value from caller to recipient EOA via futurepass", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const recipient = Wallet.createRandom(); // create new recipient to transfer value to
 
@@ -883,7 +929,7 @@ describe("Futurepass Precompile", function () {
     expect(await erc1155.balanceOf(owner.address, 2)).to.equal(3);
   });
 
-  it.skip("whitelist - register delegate via proxyCall is allowed for owner", async () => {
+  it("whitelist - register delegate via proxyCall is allowed for owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -897,11 +943,20 @@ describe("Futurepass Precompile", function () {
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
     expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
 
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [futurepassPrecompile.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+    const signature = await delegate.signMessage(message);
+
     // get registerDelegate call data
-    const registerDelegateCallData = futurepassPrecompile.interface.encodeFunctionData("registerDelegate", [
-      delegate.address,
-      PROXY_TYPE.Any,
-    ]);
+    const registerDelegateCallData = futurepassPrecompile.interface.encodeFunctionData(
+      "registerDelegateWithSignature",
+      [delegate.address, PROXY_TYPE.Any, deadline, signature],
+    );
     // do proxy call
     const tx = await futurepassPrecompile
       .connect(owner)
@@ -911,7 +966,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
   });
 
-  it.skip("whitelist - register delegate via proxyCall is not allowed for delegate", async () => {
+  it("whitelist - register delegate via proxyCall is not allowed for delegate", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
     const delegate2 = Wallet.createRandom().connect(provider);
@@ -926,11 +981,20 @@ describe("Futurepass Precompile", function () {
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
     expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
 
-    // get registerDelegate call data
-    const registerDelegateCallData = futurepassPrecompile.interface.encodeFunctionData("registerDelegate", [
-      delegate.address,
-      PROXY_TYPE.Any,
-    ]);
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [futurepassPrecompile.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+    const signature = await delegate.signMessage(message);
+
+    // get registerDelegateWithSignature call data
+    const registerDelegateCallData = futurepassPrecompile.interface.encodeFunctionData(
+      "registerDelegateWithSignature",
+      [delegate.address, PROXY_TYPE.Any, deadline, signature],
+    );
     // do proxy call
     const tx = await futurepassPrecompile
       .connect(owner)
@@ -939,12 +1003,12 @@ describe("Futurepass Precompile", function () {
     // check delegate is a delegate of the futurepass
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
 
-    // registerDelegate with delegate should fail
+    // registerDelegate with delegate should fail (incorrect delegate)
     await fundAccount(api, alithKeyring, futurepassPrecompile.address, FP_DELEGATE_RESERVE);
-    const registerDelegateCallData2 = futurepassPrecompile.interface.encodeFunctionData("registerDelegate", [
-      delegate2.address,
-      PROXY_TYPE.Any,
-    ]);
+    const registerDelegateCallData2 = futurepassPrecompile.interface.encodeFunctionData(
+      "registerDelegateWithSignature",
+      [delegate2.address, PROXY_TYPE.Any, deadline, signature],
+    );
 
     await futurepassPrecompile
       .connect(delegate)
@@ -955,7 +1019,7 @@ describe("Futurepass Precompile", function () {
     expect(await futurepassPrecompile.delegateType(delegate2.address)).to.equal(PROXY_TYPE.NoPermission);
   });
 
-  it.skip("whitelist - unregister delegate via proxyCall is allowed for owner", async () => {
+  it("whitelist - unregister delegate via proxyCall is allowed for owner", async () => {
     const owner = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
 
@@ -967,8 +1031,19 @@ describe("Futurepass Precompile", function () {
     const fpBalance: any = (await api.query.system.account(futurepassPrecompile.address)).toJSON();
     expect(fpBalance.data.free).to.equal(FP_DELEGATE_RESERVE);
 
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [futurepassPrecompile.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+    const signature = await delegate.signMessage(message);
+
     // register delegate
-    let tx = await futurepassPrecompile.connect(owner).registerDelegate(delegate.address, PROXY_TYPE.Any);
+    let tx = await futurepassPrecompile
+      .connect(owner)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
     await tx.wait();
     // ensure delegate doesnt exist for FP
     expect(await futurepassPrecompile.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
@@ -1055,7 +1130,7 @@ describe("Futurepass Precompile", function () {
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
     // add newOwner as delegate // TODO: introduce this after fixing delegate -> owner bug
-    // let tx = await futurepassPrecompile.connect(owner).registerDelegate(newOwner.address, PROXY_TYPE.Any);
+    // let tx = await futurepassPrecompile.connect(owner).registerDelegateWithSignature(newOwner.address, PROXY_TYPE.Any);
     // await tx.wait();
     // expect(await futurepassPrecompile.owner()).to.equal(owner.address); // TODO
 
