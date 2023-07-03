@@ -30,7 +30,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from(0u32);
+		let weight = Weight::from(0u32);
 
 		weight
 	}
