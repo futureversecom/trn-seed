@@ -1,7 +1,7 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
-import { EventRecord } from "@polkadot/types/interfaces";
+import { Codec, IEventData } from "@polkadot/types/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { BigNumber, Contract, Wallet, utils } from "ethers";
@@ -607,7 +607,7 @@ describe("Fee Preferences", function () {
       Ok: [estimatedTokenTxCost],
     } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
 
-    const events = await new Promise<EventRecord[]>((resolve) => {
+    const eventData = await new Promise<Codec[] & IEventData>((resolve, reject) => {
       api.tx.feeProxy
         .callWithFeePreferences(
           FEE_TOKEN_ASSET_ID,
@@ -616,19 +616,20 @@ describe("Fee Preferences", function () {
         )
         .signAndSend(alith, ({ events, status }) => {
           if (status.isInBlock) {
-            console.log(`Tx executed at block hash: ${status.asInBlock}`);
-            resolve(events);
+            for (const { event } of events) {
+              if (event.section === "feeProxy" && event.method === "CallWithFeePreferences") {
+                resolve(event.data);
+              }
+            }
+            reject(null);
           }
         });
+      expect(eventData).to.exist;
+      const [from, paymentAsset, maxPayment] = eventData;
+      expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
+      expect(from.toString()).to.equal(alith.address.toString());
+      expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
     });
-    for (const { event } of events) {
-      if (event.section === "feeProxy" && event.method === "CallWithFeePreferences") {
-        const [from, paymentAsset, maxPayment] = event.data;
-        expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
-        expect(from.toString()).to.equal(alith.address.toString());
-        expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
-      }
-    }
   });
 });
 
