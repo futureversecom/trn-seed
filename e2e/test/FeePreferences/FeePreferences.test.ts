@@ -1,6 +1,7 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
+import { Codec, IEventData } from "@polkadot/types/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { BigNumber, Contract, Wallet, utils } from "ethers";
@@ -19,6 +20,7 @@ import {
   NATIVE_TOKEN_ID,
   NodeProcess,
   assetIdToERC20ContractAddress,
+  rpcs,
   startNode,
   typedefs,
 } from "../../common";
@@ -46,7 +48,7 @@ describe("Fee Preferences", function () {
 
     // Setup PolkadotJS rpc provider
     const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
-    api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
+    api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     const keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
@@ -557,6 +559,77 @@ describe("Fee Preferences", function () {
     const error = await newAccount.sendTransaction(unsignedTx).catch((e) => e);
     expect(error.code).to.be.eq("INSUFFICIENT_FUNDS");
     expect(error.reason).to.be.eq("insufficient funds for intrinsic transaction cost");
+  });
+
+  it("Pays fees in non-native token with extrinsic - check maxPayment works fine", async () => {
+    const erc20PrecompileAddress = assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID);
+    const sender = alith.address;
+    const value = 0; //eth
+    const gasLimit = 22953;
+    const maxFeePerGas = "15000000000000";
+    const maxPriorityFeePerGas = null;
+    const nonce = null;
+    const accessList = null;
+    const transferAmount = 1;
+    const iface = new utils.Interface(ERC20_ABI);
+    const encodedInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
+
+    const evmCall = api.tx.evm.call(
+      sender,
+      erc20PrecompileAddress,
+      encodedInput,
+      value,
+      gasLimit,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      nonce,
+      accessList,
+    );
+
+    // Find estimate cost for evm call
+    const evmCallGasEstimate = await evmCall.paymentInfo(sender);
+    const evmCallGasEstimateinXRP = evmCallGasEstimate.partialFee;
+
+    // Find estimate cost for feeProxy call
+    const extrinsicInfo = await api.tx.feeProxy
+      .callWithFeePreferences(
+        FEE_TOKEN_ASSET_ID,
+        utils.parseEther("1").toString(), // 10e18
+        api.createType("Call", evmCall).toHex(),
+      )
+      .paymentInfo(sender);
+    const feeProxyGasEstimateinXRP = extrinsicInfo.partialFee;
+
+    // cost for evm call + cost for fee proxy
+    const estimatedTotalGasCost = evmCallGasEstimateinXRP.toNumber() + feeProxyGasEstimateinXRP.toNumber();
+
+    const {
+      Ok: [estimatedTokenTxCost],
+    } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
+
+    const eventData = await new Promise<Codec[] & IEventData>((resolve, reject) => {
+      return api.tx.feeProxy
+        .callWithFeePreferences(
+          FEE_TOKEN_ASSET_ID,
+          estimatedTokenTxCost.toString(),
+          api.createType("Call", evmCall).toHex(),
+        )
+        .signAndSend(alith, ({ events, status }) => {
+          if (status.isInBlock) {
+            for (const { event } of events) {
+              if (event.section === "feeProxy" && event.method === "CallWithFeePreferences") {
+                resolve(event.data);
+              }
+            }
+            reject(null);
+          }
+        });
+      expect(eventData).to.exist;
+      const [from, paymentAsset, maxPayment] = eventData;
+      expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
+      expect(from.toString()).to.equal(alith.address.toString());
+      expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
+    });
   });
 });
 
