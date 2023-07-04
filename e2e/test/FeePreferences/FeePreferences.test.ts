@@ -608,7 +608,7 @@ describe("Fee Preferences", function () {
     } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
 
     const eventData = await new Promise<Codec[] & IEventData>((resolve, reject) => {
-      api.tx.feeProxy
+      return api.tx.feeProxy
         .callWithFeePreferences(
           FEE_TOKEN_ASSET_ID,
           estimatedTokenTxCost.toString(),
