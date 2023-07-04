@@ -26,7 +26,6 @@ use frame_support::{
 	weights::Weight,
 	ReversibleStorageHasher,
 };
-use sp_runtime::traits::Get;
 use sp_std::vec::Vec;
 
 pub struct AllMigrations;
@@ -38,7 +37,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from(0u32);
+		let mut weight = Weight::from(Weight::from_ref_time(0u64));
 		weight += proxy::Upgrade::on_runtime_upgrade();
 		weight
 	}

@@ -36,49 +36,49 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
 	fn create() -> Weight {
-		(40_604_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		Weight::from_ref_time(40_604_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(4 as u64))
+			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
 	// Storage: Futurepass Holders (r:1 w:0)
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn register_delegate_with_signature(p: u32, ) -> Weight {
-		(61_120_000 as Weight)
+		Weight::from_ref_time(61_120_000 as u64)
 			// Standard Error: 3_000
-			.saturating_add((104_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(Weight::from_ref_time(104_000 as u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(4 as u64))
+			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: Futurepass Holders (r:2 w:0)
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn unregister_delegate(p: u32, ) -> Weight {
-		(39_133_000 as Weight)
+		Weight::from_ref_time(39_133_000 as u64)
 			// Standard Error: 3_000
-			.saturating_add((113_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(Weight::from_ref_time(113_000 as u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(5 as u64))
+			.saturating_add(T::DbWeight::get().writes(3 as u64))
 	}
 	// Storage: Futurepass Holders (r:2 w:2)
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn transfer_futurepass(p: u32, ) -> Weight {
-		(34_404_000 as Weight)
+		Weight::from_ref_time(34_404_000 as Weight)
 			// Standard Error: 13_000
-			.saturating_add((18_878_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
+			.saturating_add((18_878_000 as Weight).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(5 as u64))
+			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
 	// Storage: Proxy Proxies (r:1 w:0)
 	/// The range of component `p` is `[1, 31]`.
 	fn proxy_extrinsic(p: u32, ) -> Weight {
-		(13_794_000 as Weight)
+		Weight::from_ref_time(13_794_000 as u64)
 			// Standard Error: 1_000
-			.saturating_add((36_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
+			.saturating_add(Weight::from_ref_time(36_000 as u64).saturating_mul(p as u64))
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
 	}
 }
