@@ -141,6 +141,8 @@ describe("ERC721 Precompile", function () {
     const tx = await erc721Precompile.connect(bobSigner).mint(receiverAddress, quantity);
     const receipt = await tx.wait();
 
+    console.log("receipts:", receipt.events);
+
     for (let i = 0; i < quantity; i++) {
       // Check token ownership
       expect(await erc721Precompile.ownerOf(initialIssuance + i)).to.equal(receiverAddress);

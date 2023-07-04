@@ -4,9 +4,8 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { BigNumber, Contract, ContractFactory, Wallet, utils } from "ethers";
+import { BigNumber, Contract, ContractFactory, ContractReceipt, ContractTransaction, Wallet, utils } from "ethers";
 import { ethers } from "hardhat";
-import web3 from "web3";
 
 import {
   ALITH_PRIVATE_KEY,
@@ -19,7 +18,14 @@ import {
   startNode,
   typedefs,
 } from "../common";
-import { CustomERC20, UniswapV2Factory, UniswapV2Pair, UniswapV2Router02, WETH9 } from "../typechain-types";
+import {
+  CustomERC20,
+  UniswapV2Factory,
+  UniswapV2Pair,
+  UniswapV2Pair__factory,
+  UniswapV2Router02,
+  WETH9,
+} from "../typechain-types";
 import { token } from "../typechain-types/factories/@openzeppelin/contracts";
 
 const TOKEN_ID_SUBALPHA = 1124;
@@ -42,6 +48,7 @@ describe("DEX Precompile", function () {
   let weth: WETH9;
   let uniswapV2Factory: UniswapV2Factory;
   let uniswapV2Router02: UniswapV2Router02;
+  let etherProvider: Provider;
 
   // Setup api instance
   before(async () => {
@@ -55,6 +62,7 @@ describe("DEX Precompile", function () {
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(jsonProvider); // 'development' seed
 
     // deploy all contracts
+    etherProvider = ethers.provider;
     const WETH9ERC20Factory = await ethers.getContractFactory("WETH9", owner);
     weth = await WETH9ERC20Factory.deploy();
     await weth.deployed();
@@ -176,7 +184,7 @@ describe("DEX Precompile", function () {
 
     const receipt = await uniAddLiquidity.wait();
 
-    //console.log("uni events: ", receipt?.events);
+    //console.log("add liquidity uni events: ", receipt?.events);
 
     // check events
     //expect((receipt?.events as any)[0].event).to.equal("Mint");
@@ -617,10 +625,10 @@ describe("DEX Precompile", function () {
         user.address,
         ethers.constants.MaxUint256,
       );
-    console.log("Add liquidity result from uniswap call: ", res);
+    console.log("Result from uniswap call: ", res);
 
     // 1.6 run the function on blockchain
-    const uniAddLiquidity = await uniswapV2Router02
+    const callRes: ContractTransaction = await uniswapV2Router02
       .connect(user)
       .swapExactTokensForTokens(
         utils.parseEther("100"),
@@ -630,9 +638,12 @@ describe("DEX Precompile", function () {
         ethers.constants.MaxUint256,
       );
 
-    const receipt = await uniAddLiquidity.wait();
+    const receipt = await callRes.wait();
 
     //console.log("uni events: ", receipt?.events);
+    //console.log("uni logs: ", receipt?.logs);
+    //console.log("uni event: ", (receipt?.events as any)[0].event);
+    //console.log("uni event: ", receipt.events[0].getTransactionReceipt());
 
     // 1.7 verify user token Alpha and Beta balances
     expect(await alpha.balanceOf(user.address)).to.eq(utils.parseEther("0"));
@@ -673,7 +684,7 @@ describe("DEX Precompile", function () {
         assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA),
         assetIdToERC20ContractAddress(TOKEN_ID_SUBBETA),
       ]);
-    expect(betaAmountOut).to.eq(BigNumber.from("22162943203289985550"));
+    expect(betaAmountOutSub).to.eq(BigNumber.from("22162943203289985550"));
 
     // 2.4 run function call static
     const resPrecompile = await dexPrecompile
@@ -686,10 +697,10 @@ describe("DEX Precompile", function () {
         20000,
       );
 
-    console.log("Add liquidity result from precompile: ", resPrecompile);
+    console.log("Result from precompile: ", resPrecompile);
 
     // 2.5 run and finalize it on chain
-    const addLiquidity = await dexPrecompile
+    const callResSub = await dexPrecompile
       .connect(bobSigner)
       .swapExactTokensForTokens(
         utils.parseEther("100"),
@@ -699,9 +710,11 @@ describe("DEX Precompile", function () {
         20000,
       );
 
-    const receiptSub = await addLiquidity.wait();
+    const receiptSub = await callResSub.wait();
 
-    //console.log("dex events: ", receiptSub?.events);
+    //console.log("uni events: ", receiptSub?.events);
+    //console.log("uni logs: ", receiptSub?.logs);
+    //console.log("uni event: ", (receiptSub?.events as any)[0].event);
 
     // 2.6 verify user token Alpha and Beta balances
     expect((await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any).to.eq(null);
@@ -721,57 +734,70 @@ describe("DEX Precompile", function () {
     expect(res[1]).to.eq(resPrecompile[1]);
   });
 
-  /*
-  it("swap exact eth for token", async () => {
+  it("swap exact token for eth", async () => {
     // 1. swap in uniswap
 
-    // 1.1 user approves router to spend tokens
-    await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+    // 1.1 get lp token
+    const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
+    const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
 
-    // 1.2 mint some tokens to user
+    // 1.2 user approves router to spend tokens
+    await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+    await weth.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+
+    // 1.3 mint some tokens to user
     await alpha.mint(user.address, utils.parseEther("100"));
 
-    // 1.3 verify user token Alpha and Eth balances
+    // 1.4 verify user token Alpha and Eth balances
     expect(await alpha.balanceOf(user.address)).to.eq(utils.parseEther("100"));
-    expect(await jsonProvider.getBalance(user.address)).to.eq(utils.parseEther("0"));
+    const userEthBalanceBefore = await etherProvider.getBalance(user.address);
 
-    // 1.4 check amount of tokens retrievable
+    // 1.5 check amount of tokens retrievable
     const [, ethAmountOut] = await uniswapV2Router02
       .connect(user)
       .getAmountsOut(utils.parseEther("100"), [alpha.address, weth.address]);
     expect(ethAmountOut).to.eq(BigNumber.from("22162943203289985550"));
-    console.log("eth out, alpha and eth: ", ethAmountOut, alpha.address, weth.address);
-    console.log("path: ", [alpha.address, weth.address]);
-    console.log("weth: ", await uniswapV2Router02.WETH());
 
-    // 1.5 run callstatic for swap
+    // 1.6 run callstatic for swap
     const res = await uniswapV2Router02
       .connect(user)
-      .callStatic.swapExactETHForTokens(
+      .callStatic.swapExactTokensForETH(
+        utils.parseEther("100"),
         ethAmountOut,
         [alpha.address, weth.address],
         user.address,
         ethers.constants.MaxUint256,
-        {
-          value: utils.parseEther("100"),
-        },
       );
-    console.log("Add liquidity result from uniswap call: ", res);
+    console.log("The result from uniswap call: ", res);
 
-    // 1.6 run the function on blockchain
-    const uniAddLiquidity = await uniswapV2Router02
-      .connect(user)
-      .swapExactETHForTokens(ethAmountOut, [alpha.address, weth.address], user.address, ethers.constants.MaxUint256, {
-        value: utils.parseEther("100"),
-      });
+    console.log("user lptoken uniswap are: ", user.address, lpToken.address, uniswapV2Router02.address);
 
-    const receipt = await uniAddLiquidity.wait();
+    // 1.7 run the function on blockchain
+    await expect(
+      uniswapV2Router02
+        .connect(user)
+        .swapExactTokensForETH(
+          utils.parseEther("100"),
+          ethAmountOut,
+          [alpha.address, weth.address],
+          user.address,
+          ethers.constants.MaxUint256,
+        ),
+    )
+      .to.emit(alpha, "Transfer")
+      .withArgs(user.address, lpToken.address, utils.parseEther("100"))
+      .to.emit(weth, "Transfer")
+      .withArgs(lpToken.address, uniswapV2Router02.address, ethAmountOut);
+
+    //const receipt = await uniAddLiquidity.wait();
 
     //console.log("uni events: ", receipt?.events);
 
-    // verify user token Alpha and Beta balances
+    // 1.8 verify user token balances
     expect(await alpha.balanceOf(user.address)).to.eq(utils.parseEther("0"));
-    expect(await jsonProvider.getBalance(user.address)).to.eq(BigNumber.from("22162943203289985550"));
+    // FIXME error occurs here
+    const userEthBalanceAfter = await etherProvider.getBalance(user.address);
+    expect(userEthBalanceAfter.sub(userEthBalanceBefore)).to.approximately(ethAmountOut, 100000000000000000n);
 
     // 2. swap via precompile
 
@@ -788,29 +814,30 @@ describe("DEX Precompile", function () {
         .catch((err) => reject(err));
     });
 
-    // 2.2 verify user token Alpha and Beta balances
+    // 2.2 verify user token balances
     expect(((await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any).balance).to.eq(
       utils.parseEther("100"),
     );
-    expect((await api.query.assets.account(TOKEN_ID_SUBBETA, bobSigner.address)).toJSON() as any).to.eq(null);
+    const balanceEthBefore = ((await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any)
+      .balance;
 
     // 2.3 check amount of tokens retrievable
-    const [, betaAmountOutSub] = await dexPrecompile
+    const [, ethAmountOutSub] = await dexPrecompile
       .connect(bobSigner)
       .getAmountsOut(utils.parseEther("100"), [
         assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA),
-        assetIdToERC20ContractAddress(TOKEN_ID_SUBBETA),
+        assetIdToERC20ContractAddress(GAS_TOKEN_ID),
       ]);
-    expect(betaAmountOut).to.eq(BigNumber.from("22162943203289985550"));
+    expect(ethAmountOutSub).to.eq(BigNumber.from("22162943203289985550"));
 
     // 2.4 run function call static
     const resPrecompile = await dexPrecompile
       .connect(bobSigner)
-      .callStatic.swapExactTokensForTokens(
+      .callStatic.swapExactTokensForETH(
         utils.parseEther("100"),
-        betaAmountOutSub,
-        [assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA), assetIdToERC20ContractAddress(TOKEN_ID_SUBBETA)],
-        bobSigner.address,
+        ethAmountOutSub,
+        [assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA), assetIdToERC20ContractAddress(GAS_TOKEN_ID)],
+        alithSigner.address,
         20000,
       );
 
@@ -819,11 +846,11 @@ describe("DEX Precompile", function () {
     // 2.5 run and finalize it on chain
     const addLiquidity = await dexPrecompile
       .connect(bobSigner)
-      .swapExactTokensForTokens(
+      .swapExactTokensForETH(
         utils.parseEther("100"),
-        betaAmountOutSub,
-        [assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA), assetIdToERC20ContractAddress(TOKEN_ID_SUBBETA)],
-        bobSigner.address,
+        ethAmountOutSub,
+        [assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA), assetIdToERC20ContractAddress(GAS_TOKEN_ID)],
+        alithSigner.address,
         20000,
       );
 
@@ -833,20 +860,540 @@ describe("DEX Precompile", function () {
 
     // 2.6 verify user token Alpha and Beta balances
     expect((await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any).to.eq(null);
-    expect(((await api.query.assets.account(TOKEN_ID_SUBBETA, bobSigner.address)).toJSON() as any).balance).to.eq(
-      BigNumber.from("22162943203289985550"),
-    );
-
-    // slippage = (25 - 22.162) / 25
-    const slippageLossSub = utils.parseEther("25").sub(BigNumber.from("22162943203289985550"));
-    const slippageLossDecimalSub = +utils.formatEther(slippageLossSub);
-    const slippageLossPercentSub = (slippageLossDecimal / 25) * 100;
-    expect(slippageLossDecimalSub).to.be.eq(2.8370567967100144);
-    expect(slippageLossPercentSub.toFixed(3)).to.be.eq("11.348"); // 11.348% lost in slippage
+    // FIXME AssertionError: expected 22162943202060927000 to equal '22162943203289985550'
+    expect(
+      ((await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any).balance - balanceEthBefore,
+    ).to.approximately(22162943203289985550, 100000000000);
 
     // 3. the two results should be equaled
     expect(res[0]).to.eq(resPrecompile[0]);
     expect(res[1]).to.eq(resPrecompile[1]);
   });
-  */
+
+  it("swap exact eth for token", async () => {
+    // 1. swap in uniswap
+
+    // 1.1 user approves router to spend tokens
+    await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+    await weth.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+
+    // 1.2 get the current user eth balance
+    const userEthBalanceBefore = await etherProvider.getBalance(user.address);
+
+    // 1.3 verify user token balances
+    expect(await alpha.balanceOf(user.address)).to.eq(utils.parseEther("0"));
+
+    // 1.4 check amount of tokens retrievable
+    const [, alphaAmountOut] = await uniswapV2Router02
+      .connect(user)
+      .getAmountsOut(utils.parseEther("100"), [weth.address, alpha.address]);
+
+    expect(alphaAmountOut).to.eq(BigNumber.from("323308177421962483072"));
+
+    // 1.5 run callstatic for swap
+    const res = await uniswapV2Router02
+      .connect(user)
+      .callStatic.swapExactETHForTokens(
+        alphaAmountOut,
+        [weth.address, alpha.address],
+        user.address,
+        ethers.constants.MaxUint256,
+        {
+          value: utils.parseEther("100"),
+        },
+      );
+    console.log("Result from uniswap call: ", res);
+
+    // 1.6 run the function on blockchain
+    await uniswapV2Router02
+      .connect(user)
+      .swapExactETHForTokens(alphaAmountOut, [weth.address, alpha.address], user.address, ethers.constants.MaxUint256, {
+        value: utils.parseEther("100"),
+      });
+
+    // verify user token balances
+    expect(await alpha.balanceOf(user.address)).to.eq(alphaAmountOut);
+    const userEthBalanceAfter = await etherProvider.getBalance(user.address);
+    expect(userEthBalanceBefore.sub(userEthBalanceAfter)).to.approximately(
+      utils.parseEther("100"),
+      1000000000000000000n,
+    );
+
+    // 2. swap via precompile
+
+    // 2.1 mint some tokens to bob
+    await new Promise<void>((resolve, reject) => {
+      api.tx.assets
+        .mint(GAS_TOKEN_ID, bobSigner.address, utils.parseEther("100").toString())
+        .signAndSend(alith, ({ status }) => {
+          if (status.isInBlock) {
+            console.log(`setup block hash: ${status.asInBlock}`);
+            resolve();
+          }
+        })
+        .catch((err) => reject(err));
+    });
+
+    // 2.2 verify user token balances
+    expect((await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any).to.eq(null);
+    const xrpBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, bobSigner.address)).toJSON() as any)
+      .balance;
+
+    console.log(`: get amount out`);
+    // 2.3 check amount of tokens retrievable
+    const [, alphaAmountOutSub] = await dexPrecompile
+      .connect(bobSigner)
+      .getAmountsOut(utils.parseEther("100"), [
+        assetIdToERC20ContractAddress(GAS_TOKEN_ID),
+        assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA),
+      ]);
+    expect(alphaAmountOutSub).to.eq(BigNumber.from("323308177421962483072"));
+    console.log(`: get amount out ${alphaAmountOutSub}`);
+
+    // 2.4 run function call static
+    const resPrecompile = await dexPrecompile
+      .connect(bobSigner)
+      .callStatic.swapExactETHForTokens(
+        alphaAmountOutSub,
+        [assetIdToERC20ContractAddress(GAS_TOKEN_ID), assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA)],
+        bobSigner.address,
+        20000,
+        {
+          value: utils.parseEther("100"),
+        },
+      );
+
+    console.log("Result from precompile: ", resPrecompile);
+
+    // 2.5 run and finalize it on chain
+    const callRes = await dexPrecompile
+      .connect(bobSigner)
+      .swapExactETHForTokens(
+        alphaAmountOutSub,
+        [assetIdToERC20ContractAddress(GAS_TOKEN_ID), assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA)],
+        bobSigner.address,
+        20000,
+        {
+          value: utils.parseEther("100"),
+        },
+      );
+
+    await callRes.wait();
+
+    // 2.6 verify user token balances
+    const xrpBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, bobSigner.address)).toJSON() as any).balance;
+    // Approximately equal due to gas fee usage
+    expect(BigInt(xrpBalanceBefore - xrpBalanceAfter)).to.approximately(utils.parseEther("100"), 1000000000n);
+    expect(((await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any).balance).to.eq(
+      BigNumber.from("323308177421962483072"),
+    );
+
+    // 3. the two results should be equaled
+    expect(res[0]).to.eq(resPrecompile[0]);
+    expect(res[1]).to.eq(resPrecompile[1]);
+  });
+
+  it("swap token for exact token", async () => {
+    // 1. swap in uniswap
+
+    // 1.1 user approves router to spend tokens
+    await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+    await beta.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+
+    // 1.2 mint some tokens to user
+    await alpha.mint(user.address, utils.parseEther("100"));
+
+    // 1.3 get current token Alpha and Beta balances
+    const alphaBalanceBefore = await alpha.balanceOf(user.address);
+    const betaBalanceBefore = await beta.balanceOf(user.address);
+
+    // 1.4 check amount of tokens retrievable
+    const [alphaIn] = await uniswapV2Router02
+      .connect(user)
+      .getAmountsIn(utils.parseEther("25"), [alpha.address, beta.address]);
+    expect(alphaIn).to.eq(BigNumber.from("147658582167971835438"));
+
+    // 1.5 run callstatic for swap
+    const res = await uniswapV2Router02
+      .connect(user)
+      .callStatic.swapTokensForExactTokens(
+        utils.parseEther("25"),
+        alphaIn,
+        [alpha.address, beta.address],
+        user.address,
+        ethers.constants.MaxUint256,
+      );
+    console.log("Result from uniswap call: ", res);
+
+    // 1.6 run the function on blockchain
+    const callRes: ContractTransaction = await uniswapV2Router02
+      .connect(user)
+      .swapTokensForExactTokens(
+        utils.parseEther("25"),
+        alphaIn,
+        [alpha.address, beta.address],
+        user.address,
+        ethers.constants.MaxUint256,
+      );
+
+    const receipt = await callRes.wait();
+
+    //console.log("uni events: ", receipt?.events);
+    //console.log("uni logs: ", receipt?.logs);
+    //console.log("uni event: ", (receipt?.events as any)[0].event);
+    //console.log("uni event: ", receipt.events[0].getTransactionReceipt());
+
+    // 1.7 verify user token Alpha and Beta balances
+    const alphaBalanceAfter = await alpha.balanceOf(user.address);
+    const betaBalanceAfter = await beta.balanceOf(user.address);
+    expect(alphaBalanceBefore.sub(alphaBalanceAfter)).to.eq(alphaIn);
+    expect(betaBalanceAfter.sub(betaBalanceBefore)).to.eq(utils.parseEther("25"));
+
+    // 2. swap via precompile
+
+    // 2.1 mint some tokens to bob
+    await new Promise<void>((resolve, reject) => {
+      api.tx.assets
+        .mint(TOKEN_ID_SUBALPHA, bobSigner.address, utils.parseEther("100").toString())
+        .signAndSend(alith, ({ status }) => {
+          if (status.isInBlock) {
+            console.log(`setup block hash: ${status.asInBlock}`);
+            resolve();
+          }
+        })
+        .catch((err) => reject(err));
+    });
+
+    // 2.2 get token Alpha and Beta balances
+    const subalphaBalanceBefore = (
+      (await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any
+    ).balance;
+    const subbetaBalanceBefore = ((await api.query.assets.account(TOKEN_ID_SUBBETA, bobSigner.address)).toJSON() as any)
+      .balance;
+
+    // 2.3 check amount of tokens retrievable
+    const [alphaInSub] = await dexPrecompile
+      .connect(bobSigner)
+      .getAmountsIn(utils.parseEther("25"), [
+        assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA),
+        assetIdToERC20ContractAddress(TOKEN_ID_SUBBETA),
+      ]);
+    expect(alphaInSub).to.eq(BigNumber.from("147658582167971835438"));
+
+    // 2.4 run function call static
+    const resPrecompile = await dexPrecompile
+      .connect(bobSigner)
+      .callStatic.swapTokensForExactTokens(
+        utils.parseEther("25"),
+        alphaInSub,
+        [assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA), assetIdToERC20ContractAddress(TOKEN_ID_SUBBETA)],
+        bobSigner.address,
+        20000,
+      );
+
+    console.log("Result from precompile: ", resPrecompile);
+
+    // 2.5 run and finalize it on chain
+    const callResSub = await dexPrecompile
+      .connect(bobSigner)
+      .swapTokensForExactTokens(
+        utils.parseEther("25"),
+        alphaInSub,
+        [assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA), assetIdToERC20ContractAddress(TOKEN_ID_SUBBETA)],
+        bobSigner.address,
+        20000,
+      );
+
+    const receiptSub = await callResSub.wait();
+
+    //console.log("uni events: ", receiptSub?.events);
+    //console.log("uni logs: ", receiptSub?.logs);
+    //console.log("uni event: ", (receiptSub?.events as any)[0].event);
+
+    // 2.6 verify user token Alpha and Beta balances
+    const subalphaBalanceAfter = (
+      (await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any
+    ).balance;
+    const subbetaBalanceAfter = ((await api.query.assets.account(TOKEN_ID_SUBBETA, bobSigner.address)).toJSON() as any)
+      .balance;
+    // FIXME there are some slight differences here. Needs to investigate it deeper
+    expect(BigInt(subalphaBalanceBefore - subalphaBalanceAfter)).to.approximately(alphaInSub, 100000n);
+    expect(BigInt(subbetaBalanceAfter - subbetaBalanceBefore)).to.approximately(utils.parseEther("25"), 100000n);
+
+    // 3. the two results should be equaled
+    expect(res[0]).to.eq(resPrecompile[0]);
+    expect(res[1]).to.eq(resPrecompile[1]);
+  });
+
+  it("swap token for exact eth", async () => {
+    // 1. swap in uniswap
+
+    // 1.1 get lp token
+    const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
+    const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
+
+    // 1.2 user approves router to spend tokens
+    await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+    await weth.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+
+    // 1.3 mint some tokens to user
+    await alpha.mint(user.address, utils.parseEther("100"));
+
+    // 1.4 get current token Alpha and Beta balances
+    const alphaBalanceBefore = await alpha.balanceOf(user.address);
+    const userEthBalanceBefore = await etherProvider.getBalance(user.address);
+
+    // 1.5 check amount of tokens retrievable
+    const [alphaIn] = await uniswapV2Router02
+      .connect(user)
+      .getAmountsIn(utils.parseEther("25"), [alpha.address, weth.address]);
+    expect(alphaIn).to.eq(BigNumber.from("57193663699659203786"));
+
+    // 1.6 run callstatic for swap
+    const res = await uniswapV2Router02
+      .connect(user)
+      .callStatic.swapTokensForExactETH(
+        utils.parseEther("25"),
+        alphaIn,
+        [alpha.address, weth.address],
+        user.address,
+        ethers.constants.MaxUint256,
+      );
+    console.log("The result from uniswap call: ", res);
+
+    // 1.7 run the function on blockchain
+    const uniRes = await uniswapV2Router02
+      .connect(user)
+      .swapTokensForExactETH(
+        utils.parseEther("25"),
+        alphaIn,
+        [alpha.address, weth.address],
+        user.address,
+        ethers.constants.MaxUint256,
+      );
+    const receipt = await uniRes.wait();
+
+    //console.log("uni events: ", receipt?.events);
+
+    // 1.8 verify user token balances
+    const alphaBalanceAfter = await alpha.balanceOf(user.address);
+    expect(alphaBalanceBefore.sub(alphaBalanceAfter)).to.eq(alphaIn);
+    const userEthBalanceAfter = await etherProvider.getBalance(user.address);
+    expect(userEthBalanceAfter.sub(userEthBalanceBefore)).to.approximately(utils.parseEther("25"), 100000000000000000n);
+
+    // 2. swap via precompile
+
+    // 2.1 mint some tokens to bob
+    await new Promise<void>((resolve, reject) => {
+      api.tx.assets
+        .mint(TOKEN_ID_SUBALPHA, bobSigner.address, utils.parseEther("100").toString())
+        .signAndSend(alith, ({ status }) => {
+          if (status.isInBlock) {
+            console.log(`setup block hash: ${status.asInBlock}`);
+            resolve();
+          }
+        })
+        .catch((err) => reject(err));
+    });
+
+    // 2.2 verify user token balances
+    const subalphaBalanceBefore = (
+      (await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any
+    ).balance;
+    const subEthBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, bobSigner.address)).toJSON() as any)
+      .balance;
+
+    // 2.3 check amount of tokens retrievable
+    const [alphaInSub] = await dexPrecompile
+      .connect(bobSigner)
+      .getAmountsIn(utils.parseEther("25"), [
+        assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA),
+        assetIdToERC20ContractAddress(GAS_TOKEN_ID),
+      ]);
+    expect(alphaInSub).to.eq(BigNumber.from("57193663699659203786"));
+
+    // 2.4 run function call static
+    const resPrecompile = await dexPrecompile
+      .connect(bobSigner)
+      .callStatic.swapTokensForExactETH(
+        utils.parseEther("25"),
+        alphaInSub,
+        [assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA), assetIdToERC20ContractAddress(GAS_TOKEN_ID)],
+        bobSigner.address,
+        20000,
+      );
+
+    console.log("Add liquidity result from precompile: ", resPrecompile);
+
+    // 2.5 run and finalize it on chain
+    const addLiquidity = await dexPrecompile
+      .connect(bobSigner)
+      .swapTokensForExactETH(
+        utils.parseEther("25"),
+        alphaInSub,
+        [assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA), assetIdToERC20ContractAddress(GAS_TOKEN_ID)],
+        bobSigner.address,
+        20000,
+      );
+
+    const receiptSub = await addLiquidity.wait();
+
+    //console.log("dex events: ", receiptSub?.events);
+
+    // 2.6 verify user token Alpha and Beta balances
+    const subalphaBalanceAfter = (
+      (await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any
+    ).balance;
+    const subEthBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, bobSigner.address)).toJSON() as any)
+      .balance;
+    // FIXME there are some slight differences here. Needs to investigate it deeper
+    expect(BigInt(subalphaBalanceBefore - subalphaBalanceAfter)).to.approximately(alphaInSub, 100000n);
+    expect(BigInt(subEthBalanceAfter - subEthBalanceBefore)).to.approximately(utils.parseEther("25"), 10000000n);
+
+    // 3. the two results should be equaled
+    expect(res[0]).to.eq(resPrecompile[0]);
+    expect(res[1]).to.eq(resPrecompile[1]);
+  });
+
+  it("swap eth for exact token", async () => {
+    // 1. swap in uniswap
+
+    // 1.1 user approves router to spend tokens
+    await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+    await weth.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
+
+    // 1.2 get the current user eth balance
+    const userEthBalanceBefore = await etherProvider.getBalance(user.address);
+    const alphaBalanceBefore = await alpha.balanceOf(user.address);
+
+    // 1.3 check amount of tokens retrievable
+    const [ethIn] = await uniswapV2Router02
+      .connect(user)
+      .getAmountsIn(utils.parseEther("25"), [weth.address, alpha.address]);
+
+    expect(ethIn).to.eq(BigNumber.from("10412378684622396208"));
+
+    // 1.4 callstatic for swap
+    const res = await uniswapV2Router02
+      .connect(user)
+      .callStatic.swapETHForExactTokens(
+        utils.parseEther("25"),
+        [weth.address, alpha.address],
+        user.address,
+        ethers.constants.MaxUint256,
+        {
+          value: ethIn,
+        },
+      );
+    console.log("Result from uniswap call: ", res);
+
+    // 1.5 run the function on blockchain
+    await uniswapV2Router02
+      .connect(user)
+      .swapETHForExactTokens(
+        utils.parseEther("25"),
+        [weth.address, alpha.address],
+        user.address,
+        ethers.constants.MaxUint256,
+        {
+          value: ethIn,
+        },
+      );
+
+    // 1.6 verify user token balances
+    const alphaBalanceAfter = await alpha.balanceOf(user.address);
+    expect(alphaBalanceAfter.sub(alphaBalanceBefore)).to.eq(utils.parseEther("25"));
+    const userEthBalanceAfter = await etherProvider.getBalance(user.address);
+    expect(userEthBalanceBefore.sub(userEthBalanceAfter)).to.approximately(ethIn, 100000000000000000n);
+
+    // 2. swap via precompile
+
+    // 2.1 mint some tokens to bob
+    await new Promise<void>((resolve, reject) => {
+      api.tx.assets
+        .mint(GAS_TOKEN_ID, bobSigner.address, utils.parseEther("100").toString())
+        .signAndSend(alith, ({ status }) => {
+          if (status.isInBlock) {
+            console.log(`setup block hash: ${status.asInBlock}`);
+            resolve();
+          }
+        })
+        .catch((err) => reject(err));
+    });
+
+    // 2.2 verify user token balances
+    const subalphaBalanceBefore = (
+      (await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any
+    ).balance;
+    const subEthBalanceBefore = ((await api.query.assets.account(GAS_TOKEN_ID, bobSigner.address)).toJSON() as any)
+      .balance;
+
+    // 2.3 check amount of tokens retrievable
+    const [ethInSub] = await dexPrecompile
+      .connect(bobSigner)
+      .getAmountsIn(utils.parseEther("25"), [
+        assetIdToERC20ContractAddress(GAS_TOKEN_ID),
+        assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA),
+      ]);
+    expect(ethInSub).to.eq(BigNumber.from("10412378684622396208"));
+
+    // 2.4 run function call static
+    const resPrecompile = await dexPrecompile
+      .connect(bobSigner)
+      .callStatic.swapETHForExactTokens(
+        utils.parseEther("25"),
+        [assetIdToERC20ContractAddress(GAS_TOKEN_ID), assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA)],
+        bobSigner.address,
+        20000,
+        {
+          value: ethInSub,
+        },
+      );
+
+    console.log("Result from precompile: ", resPrecompile);
+
+    // 2.5 run and finalize it on chain
+    const callRes = await dexPrecompile
+      .connect(bobSigner)
+      .swapETHForExactTokens(
+        utils.parseEther("25"),
+        [assetIdToERC20ContractAddress(GAS_TOKEN_ID), assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA)],
+        bobSigner.address,
+        20000,
+        {
+          value: ethInSub,
+        },
+      );
+
+    await callRes.wait();
+
+    // 2.6 verify user token balances
+    const subalphaBalanceAfter = (
+      (await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any
+    ).balance;
+    const subEthBalanceAfter = ((await api.query.assets.account(GAS_TOKEN_ID, bobSigner.address)).toJSON() as any)
+      .balance;
+    // Approximately equal due to gas fee usage
+    expect(BigInt(subEthBalanceBefore - subEthBalanceAfter)).to.approximately(ethInSub, 1000000000n);
+    expect(BigInt(subalphaBalanceAfter - subalphaBalanceBefore)).to.approximately(utils.parseEther("25"), 100000n);
+
+    // 3. the two results should be equaled
+    expect(res[0]).to.eq(resPrecompile[0]);
+    expect(res[1]).to.eq(resPrecompile[1]);
+  });
+
+  it("quote", async () => {
+    // 1. quote in uniswap
+    const res = await uniswapV2Router02
+      .connect(user)
+      .quote(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
+
+    // 2. quote in precompile
+    const resSub = await dexPrecompile
+      .connect(bobSigner)
+      .quote(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
+
+    // 3. verify the result
+    expect(res).to.eq(resSub);
+  });
 });

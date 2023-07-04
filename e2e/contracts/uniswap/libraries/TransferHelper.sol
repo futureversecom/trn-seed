@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.12;
 
+import "hardhat/console.sol";
+
 // helper methods for interacting with ERC20 tokens and sending ETH that do not consistently return true/false
 library TransferHelper {
   function safeApprove(
@@ -38,7 +40,10 @@ library TransferHelper {
   }
 
   function safeTransferETH(address to, uint256 value) internal {
+	console.log("current eth balance ", to.balance);
+	console.log("eth value out ", value);
     (bool success, ) = to.call{value: value}(new bytes(0));
+	console.log("current eth balance ", to.balance);
     require(success, "TransferHelper::safeTransferETH: ETH transfer failed");
   }
 }

@@ -1,6 +1,8 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.12;
 
+import "hardhat/console.sol";
+
 contract WETH9 {
   string public name = "Wrapped Ether";
   string public symbol = "WETH";
@@ -24,9 +26,12 @@ contract WETH9 {
 
   function withdraw(uint256 wad) public payable {
     require(balanceOf[msg.sender] >= wad, "");
+    //console.log("send eth to ", msg.sender);
+    //console.log("current balance ", balanceOf[msg.sender]);
     balanceOf[msg.sender] -= wad;
     // msg.sender.transfer(wad);
     payable(msg.sender).transfer(wad);
+    //console.log("current balance ", balanceOf[msg.sender]);
     emit Withdrawal(msg.sender, wad);
   }
 
@@ -44,11 +49,7 @@ contract WETH9 {
     return transferFrom(msg.sender, dst, wad);
   }
 
-  function transferFrom(
-    address src,
-    address dst,
-    uint256 wad
-  ) public returns (bool) {
+  function transferFrom(address src, address dst, uint256 wad) public returns (bool) {
     require(balanceOf[src] >= wad, "");
 
     // if (src != msg.sender && allowance[src][msg.sender] != uint(-1)) {
