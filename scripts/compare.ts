@@ -109,7 +109,7 @@ class Compare {
 type DiffEntry = { palletName: string, values: string[]};
 type DiffEntires =  { name: string, entires: DiffEntry[]}
 
-const writeToFile = (entires: DiffEntires[]) => {
+const writeToFile = (entires: DiffEntires[], filename: string = "diff.txt") => {
     let textToWrite = ""
 
     entires.filter((e) => e.entires.length > 0).forEach((e) => {
@@ -122,7 +122,7 @@ const writeToFile = (entires: DiffEntires[]) => {
         }
     })
 
-    Deno.writeTextFileSync("diff.txt", textToWrite);
+    Deno.writeTextFileSync(filename, textToWrite);
 }
 
 class Pallet {

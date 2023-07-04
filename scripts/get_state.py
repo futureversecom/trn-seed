@@ -185,13 +185,12 @@ def determine_node_version(substrate: SubstrateInterface, hash: str) -> str:
     # If the version is not found then we need to do some magic
     if version not in all_tags:
         version = ''
-        found_tag = False
         for tag in all_tags:
             sub_strings = tag.split('.')
             if (sub_strings[1] == f'{runtime_version}'):
                 version = tag
 
-    if (version == ''):
+    if version == '':
         print("Wasn't able to find the correct tag")
         exit(1)
 
@@ -208,7 +207,7 @@ def maybe_do_tag_switch(tag_switch, node_version):
     use_stash = False
     not_committed_changed = subprocess.run(
         'git status --porcelain', shell=True, text=True, check=True, capture_output=True).stdout
-    if (len(not_committed_changed) > 0):
+    if len(not_committed_changed) > 0:
         use_stash = True
         subprocess.run(
             'git stash', shell=True, text=True, check=True, capture_output=True)
@@ -236,7 +235,7 @@ def main():
         os.mkdir('./output')
         print("Created output directory: ./output")
 
-    (original_branch, use_stash) = maybe_do_tag_switch(tag_switch, node_version)
+    tag_switch = maybe_do_tag_switch(tag_switch, node_version)
 
     print("Fetching storage keys... ", end=None)
     keys = fetch_storage_keys(hash, url)
@@ -262,13 +261,15 @@ def main():
     print('Populating Dev Specification. location: ./output/fork.json')
     populate_dev_chain(substrate, forked_storage, chain_name)
 
-    if (original_branch is not None):
-        cmd = f'git checkout {original_branch}'
-        subprocess.run(cmd, shell=True, text=True, check=True)
+    if tag_switch is not None:
+        (original_branch, use_stash) = tag_switch
+        if original_branch is not None:
+            cmd = f'git checkout {original_branch}'
+            subprocess.run(cmd, shell=True, text=True, check=True)
 
-    if (use_stash):
-        subprocess.run(
-            'git stash pop', shell=True, text=True, check=True)
+        if use_stash:
+            subprocess.run(
+                'git stash pop', shell=True, text=True, check=True)
 
     print("Success :)")
 
