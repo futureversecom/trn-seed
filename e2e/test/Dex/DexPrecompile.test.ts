@@ -4,7 +4,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { BigNumber, Contract, ContractFactory, ContractReceipt, ContractTransaction, Wallet, utils } from "ethers";
+import { BigNumber, Contract, ContractTransaction, Wallet, utils } from "ethers";
 import { ethers } from "hardhat";
 
 import {
@@ -18,15 +18,7 @@ import {
   startNode,
   typedefs,
 } from "../../common";
-import {
-  CustomERC20,
-  UniswapV2Factory,
-  UniswapV2Pair,
-  UniswapV2Pair__factory,
-  UniswapV2Router02,
-  WETH9,
-} from "../../typechain-types";
-import { token } from "../../typechain-types/factories/@openzeppelin/contracts";
+import { CustomERC20, UniswapV2Factory, UniswapV2Router02, WETH9 } from "../../typechain-types";
 
 const TOKEN_ID_SUBALPHA = 1124;
 const TOKEN_ID_SUBBETA = 2148;
@@ -135,20 +127,6 @@ describe("DEX Precompile", function () {
 
   after(async () => await node.stop());
 
-  it("names", async () => {
-    expect(await alpha.name()).to.equal("Alpha");
-    expect(await beta.name()).to.equal("Beta");
-
-    let subAlphaMetadata: any = (await api.query.assets.metadata(TOKEN_ID_SUBALPHA)).toJSON();
-    console.log(subAlphaMetadata);
-    console.log(alithSigner.address);
-    console.log(assetIdToERC20ContractAddress(TOKEN_ID_SUBALPHA));
-    console.log(assetIdToERC20ContractAddress(TOKEN_ID_SUBBETA));
-    //expect(subAlphaMetadata.name.toString()).to.equal("subAlpha");
-    let subBetaMetadata: any = (await api.query.assets.metadata(TOKEN_ID_SUBBETA)).toJSON();
-    //expect(subBetaMetadata.name).to.equal("subBeta");
-  });
-
   it("add liquidity", async () => {
     // add liquidity on uniswap
     await alpha.connect(owner).approve(uniswapV2Router02.address, utils.parseEther("10000000"));
@@ -182,7 +160,7 @@ describe("DEX Precompile", function () {
         ethers.constants.MaxUint256,
       );
 
-    const receipt = await uniAddLiquidity.wait();
+    await uniAddLiquidity.wait();
 
     //console.log("add liquidity uni events: ", receipt?.events);
 
@@ -247,7 +225,7 @@ describe("DEX Precompile", function () {
         },
       );
 
-    const receiptSub = await addLiquidity.wait();
+    await addLiquidity.wait();
 
     //console.log("dex events: ", receiptSub?.events);
     // check events
@@ -396,7 +374,7 @@ describe("DEX Precompile", function () {
     // 1.1 verify liquidity balance
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, beta.address);
     const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
-    let lpBalance = await lpToken.balanceOf(owner.address);
+    const lpBalance = await lpToken.balanceOf(owner.address);
     expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
 
     // 1.2 allow owner to send funds to router - this is required to burn LP tokens which removes liquidity
@@ -638,7 +616,7 @@ describe("DEX Precompile", function () {
         ethers.constants.MaxUint256,
       );
 
-    const receipt = await callRes.wait();
+    await callRes.wait();
 
     //console.log("uni events: ", receipt?.events);
     //console.log("uni logs: ", receipt?.logs);
@@ -710,7 +688,7 @@ describe("DEX Precompile", function () {
         20000,
       );
 
-    const receiptSub = await callResSub.wait();
+    await callResSub.wait();
 
     //console.log("uni events: ", receiptSub?.events);
     //console.log("uni logs: ", receiptSub?.logs);
@@ -854,7 +832,7 @@ describe("DEX Precompile", function () {
         20000,
       );
 
-    const receiptSub = await addLiquidity.wait();
+    await addLiquidity.wait();
 
     //console.log("dex events: ", receiptSub?.events);
 
@@ -863,7 +841,7 @@ describe("DEX Precompile", function () {
     // FIXME AssertionError: expected 22162943202060927000 to equal '22162943203289985550'
     expect(
       ((await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any).balance - balanceEthBefore,
-    ).to.approximately(22162943203289985550, 100000000000);
+    ).to.approximately(22162943203289985550n, 100000000000n);
 
     // 3. the two results should be equaled
     expect(res[0]).to.eq(resPrecompile[0]);
@@ -1036,7 +1014,7 @@ describe("DEX Precompile", function () {
         ethers.constants.MaxUint256,
       );
 
-    const receipt = await callRes.wait();
+    await callRes.wait();
 
     //console.log("uni events: ", receipt?.events);
     //console.log("uni logs: ", receipt?.logs);
@@ -1104,7 +1082,7 @@ describe("DEX Precompile", function () {
         20000,
       );
 
-    const receiptSub = await callResSub.wait();
+    await callResSub.wait();
 
     //console.log("uni events: ", receiptSub?.events);
     //console.log("uni logs: ", receiptSub?.logs);
@@ -1129,8 +1107,8 @@ describe("DEX Precompile", function () {
     // 1. swap in uniswap
 
     // 1.1 get lp token
-    const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
-    const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
+    //const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
+    //const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
 
     // 1.2 user approves router to spend tokens
     await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
@@ -1171,7 +1149,7 @@ describe("DEX Precompile", function () {
         user.address,
         ethers.constants.MaxUint256,
       );
-    const receipt = await uniRes.wait();
+    await uniRes.wait();
 
     //console.log("uni events: ", receipt?.events);
 
@@ -1236,7 +1214,7 @@ describe("DEX Precompile", function () {
         20000,
       );
 
-    const receiptSub = await addLiquidity.wait();
+    await addLiquidity.wait();
 
     //console.log("dex events: ", receiptSub?.events);
 

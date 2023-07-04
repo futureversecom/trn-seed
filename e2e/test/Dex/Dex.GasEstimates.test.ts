@@ -20,14 +20,7 @@ import {
   startNode,
   typedefs,
 } from "../../common";
-import {
-  CustomERC20,
-  UniswapV2Factory,
-  UniswapV2Pair,
-  UniswapV2Pair__factory,
-  UniswapV2Router02,
-  WETH9,
-} from "../../typechain-types";
+import { CustomERC20, UniswapV2Factory, UniswapV2Router02, WETH9 } from "../../typechain-types";
 
 const TOKEN_ID_SUBALPHA = 1124;
 const TOKEN_ID_SUBBETA = 2148;
@@ -49,7 +42,6 @@ describe("Dex Gas Estimation", function () {
   let weth: WETH9;
   let uniswapV2Factory: UniswapV2Factory;
   let uniswapV2Router02: UniswapV2Router02;
-  let etherProvider: Provider;
 
   const allCosts: { [key: string]: GasCosts } = {};
 
@@ -65,7 +57,6 @@ describe("Dex Gas Estimation", function () {
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(jsonProvider); // 'development' seed
 
     // deploy all contracts
-    etherProvider = ethers.provider;
     const WETH9ERC20Factory = await ethers.getContractFactory("WETH9", owner);
     weth = await WETH9ERC20Factory.deploy();
     await weth.deployed();
