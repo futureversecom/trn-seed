@@ -840,8 +840,11 @@ describe("DEX Precompile", function () {
     expect((await api.query.assets.account(TOKEN_ID_SUBALPHA, bobSigner.address)).toJSON() as any).to.eq(null);
     // FIXME AssertionError: expected 22162943202060927000 to equal '22162943203289985550'
     expect(
-      ((await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any).balance - balanceEthBefore,
-    ).to.approximately(22162943203289985550n, 100000000000n);
+      BigInt(
+        ((await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any).balance -
+          balanceEthBefore,
+      ),
+    ).to.approximately(22162943203289985550n, 100000000000);
 
     // 3. the two results should be equaled
     expect(res[0]).to.eq(resPrecompile[0]);
