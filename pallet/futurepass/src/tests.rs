@@ -711,12 +711,20 @@ fn unregister_delegate_by_not_permissioned_fails() {
 
 			// unregister_delegate by other(non(owner | delegate)) fails
 			assert_noop!(
-				Futurepass::unregister_delegate(RuntimeOrigin::signed(other), futurepass, delegate_1),
+				Futurepass::unregister_delegate(
+					RuntimeOrigin::signed(other),
+					futurepass,
+					delegate_1
+				),
 				Error::<Test>::PermissionDenied
 			);
 			// unregister_delegate by another delegate fails
 			assert_noop!(
-				Futurepass::unregister_delegate(RuntimeOrigin::signed(delegate_2), futurepass, delegate_1),
+				Futurepass::unregister_delegate(
+					RuntimeOrigin::signed(delegate_2),
+					futurepass,
+					delegate_1
+				),
 				Error::<Test>::PermissionDenied
 			);
 		});
@@ -1801,7 +1809,11 @@ fn delegate_can_not_call_whitelist_via_proxy_extrinsic() {
 					signature,
 				}));
 			System::reset_events();
-			assert_ok!(Futurepass::proxy_extrinsic(RuntimeOrigin::signed(owner), futurepass, inner_call,));
+			assert_ok!(Futurepass::proxy_extrinsic(
+				RuntimeOrigin::signed(owner),
+				futurepass,
+				inner_call,
+			));
 			// assert event ProxyExecuted
 			System::assert_has_event(
 				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
@@ -1845,7 +1857,11 @@ fn delegate_can_not_call_whitelist_via_proxy_extrinsic() {
 				}));
 
 			assert_err!(
-				Futurepass::proxy_extrinsic(RuntimeOrigin::signed(delegate), futurepass, inner_call2),
+				Futurepass::proxy_extrinsic(
+					RuntimeOrigin::signed(delegate),
+					futurepass,
+					inner_call2
+				),
 				Error::<Test>::NotFuturepassOwner
 			);
 			assert_eq!(
