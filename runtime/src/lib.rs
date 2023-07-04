@@ -140,10 +140,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 35,
+	spec_version: 38,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 1,
+	transaction_version: 2,
 	state_version: 0,
 };
 
@@ -221,6 +221,10 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 				}
 				true
 			},
+			// Payouts are restricted until a new staking payout system is implemented
+			Call::Staking(pallet_staking::Call::payout_stakers { .. }) => false,
+			// Disable Proxy::add_proxy
+			Call::Proxy(pallet_proxy::Call::add_proxy { .. }) => false,
 			_ => true,
 		}
 	}

@@ -69,8 +69,10 @@ pallet-evm-precompile-simple = { default-features = false, git = "https://github
 pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 precompile-utils = { path = "../evm-precompiles/utils", default-features = false }
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
+pallet-evm-precompiles-erc1155 = { path = "../evm-precompiles/erc1155", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 pallet-evm-precompiles-nft = { path = "../evm-precompiles/nft", default-features = false }
+pallet-evm-precompiles-sft = { path = "../evm-precompiles/sft", default-features = false }
 pallet-evm-precompiles-peg = { path = "../evm-precompiles/peg", default-features = false }
 pallet-evm-precompiles-dex = { path = "../evm-precompiles/dex", default-features = false }
 pallet-evm-precompiles-futurepass = { path = "../evm-precompiles/futurepass", default-features = false }
@@ -196,8 +198,10 @@ std = [
 	"pallet-evm-precompile-simple/std",
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompiles-erc721/std",
+	"pallet-evm-precompiles-erc1155/std",
 	"pallet-evm-precompiles-erc20/std",
 	"pallet-evm-precompiles-nft/std",
+	"pallet-evm-precompiles-sft/std",
 	"pallet-evm-precompiles-peg/std",
 	"pallet-evm-precompiles-dex/std",
 	"pallet-evm-precompiles-futurepass/std",

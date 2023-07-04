@@ -16,7 +16,7 @@ use sp_runtime::{
 	codec::Decode,
 	traits::{ConstU32, Zero},
 };
-use sp_std::marker::PhantomData;
+use sp_std::{marker::PhantomData, vec};
 
 /// Solidity selector of the Futurepass logs, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_FUTUREPASS_DELEGATE_REGISTERED: [u8; 32] =
@@ -73,7 +73,7 @@ impl From<CallType> for u8 {
 pub enum Action {
 	Default = "",
 	DelegateType = "delegateType(address)",
-	RegisterDelegate = "registerDelegate(address,uint8)",
+	RegisterDelegateWithSignature = "registerDelegateWithSignature(address,uint8,uint32,bytes)",
 	UnRegisterDelegate = "unregisterDelegate(address)",
 	ProxyCall = "proxyCall(uint8,address,uint256,bytes)",
 	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
@@ -84,8 +84,10 @@ pub enum Action {
 }
 
 pub const CALL_DATA_LIMIT: u32 = 2u32.pow(16);
-
 type GetCallDataLimit = ConstU32<CALL_DATA_LIMIT>;
+
+pub const SIGNATURE_LENGTH: u32 = 65;
+type GetSignatureLimit = ConstU32<SIGNATURE_LENGTH>;
 
 pub struct EvmSubCall {
 	pub to: Address,
@@ -144,7 +146,8 @@ where
 			match selector {
 				Action::Default => Self::receive(handle),
 				Action::DelegateType => Self::delegate_type(handle),
-				Action::RegisterDelegate => Self::register_delegate(handle),
+				Action::RegisterDelegateWithSignature =>
+					Self::register_delegate_with_signature(handle),
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
 				Action::ProxyCall => Self::proxy_call(handle),
 				// Ownable
@@ -207,23 +210,31 @@ where
 		Ok(succeed(EvmDataWriter::new().write::<u8>(proxy_type).build()))
 	}
 
-	fn register_delegate(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+	fn register_delegate_with_signature(
+		handle: &mut impl PrecompileHandle,
+	) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;
-		read_args!( handle, { delegate: Address, proxy_type: u8});
+		read_args!( handle, { delegate: Address, proxy_type: u8, deadline: u32, signature: BoundedBytes<GetSignatureLimit> });
 		let futurepass: H160 = handle.code_address();
 		let delegate: H160 = delegate.into();
 		let proxy_type_enum: <Runtime as pallet_futurepass::Config>::ProxyType = proxy_type
 			.try_into()
 			.map_err(|_e| RevertReason::custom("Futurepass: ProxyType conversion failure"))?;
+		let signature: [u8; 65] = signature
+			.inner
+			.try_into()
+			.map_err(|_e| RevertReason::custom("Futurepass: Signature length mismatch"))?;
 
 		let caller = handle.context().caller;
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(caller.into()).into(),
-			pallet_futurepass::Call::<Runtime>::register_delegate {
+			pallet_futurepass::Call::<Runtime>::register_delegate_with_signature {
 				futurepass: futurepass.into(),
 				delegate: delegate.into(),
 				proxy_type: proxy_type_enum,
+				deadline: deadline.into(),
+				signature,
 			},
 		)?;
 
@@ -278,8 +289,25 @@ where
 		let call_type: CallType = call_type
 			.try_into()
 			.map_err(|err| RevertReason::custom(alloc::format!("Futurepass: {}", err)))?;
-		let evm_subcall = EvmSubCall { to: call_to, call_data };
 
+		// restrict delegate access to whitelist
+		if call_to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX) {
+			let sub_call_selector = &call_data.inner[..4];
+			if sub_call_selector ==
+				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
+				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+			{
+				let futurepass: H160 = handle.code_address();
+				let caller: H160 = handle.context().caller;
+				ensure!(
+					pallet_futurepass::Holders::<Runtime>::get(&Runtime::AccountId::from(caller)) ==
+						Some(futurepass.into()),
+					revert("Futurepass: NotFuturepassOwner")
+				);
+			}
+		}
+
+		let evm_subcall = EvmSubCall { to: call_to, call_data };
 		Self::do_proxy(handle, handle.code_address(), call_type, evm_subcall, value)
 	}
 
@@ -492,7 +520,7 @@ where
 	// }
 
 	fn renounce_ownership(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		let caller = handle.context().caller;
 		let burn_account: H160 = H160::default();
@@ -505,11 +533,12 @@ where
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
-		log2(
+		log3(
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
 			caller,
-			EvmDataWriter::new().write(Address::from(burn_account)).build(),
+			burn_account,
+			vec![],
 		)
 		.record(handle)?;
 
@@ -518,7 +547,7 @@ where
 	}
 
 	fn transfer_ownership(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { new_owner: Address });
@@ -535,13 +564,8 @@ where
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
-		log2(
-			handle.code_address(),
-			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
-			caller,
-			EvmDataWriter::new().write(Address::from(new_owner)).build(),
-		)
-		.record(handle)?;
+		log3(handle.code_address(), SELECTOR_LOG_OWNERSHIP_TRANSFERRED, caller, new_owner, vec![])
+			.record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))

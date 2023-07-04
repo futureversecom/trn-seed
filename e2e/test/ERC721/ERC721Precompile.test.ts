@@ -15,7 +15,7 @@ import {
   NodeProcess,
   startNode,
   typedefs,
-} from "../common";
+} from "../../common";
 
 // NFT Collection information
 const name = "test-collection";

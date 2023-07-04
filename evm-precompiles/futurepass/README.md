@@ -7,7 +7,7 @@ interface FuturePass {
     event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType);
     event FuturepassDelegateUnregistered(address indexed futurepass, address delegate);
     event Executed(uint8 indexed callType, address indexed target, uint256 indexed value, bytes4 data);
-    event ContractCreated(uint8 indexed callType, address indexed contract, uint256 indexed value, bytes32 salt);
+    event ContractCreated(uint8 indexed callType, address indexed contractAddress, uint256 indexed value, bytes32 salt);
     
     function delegateType(address delegate) external view returns (uint8);
 
@@ -19,7 +19,7 @@ interface FuturePass {
 
 ```solidity
 interface Ownable is IERC165 {
-    event OwnershipTransferred(address indexed previousOwner, address newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     function owner() external view returns (address);
     function renounceOwnership() external;

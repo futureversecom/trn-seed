@@ -33,8 +33,9 @@ use frame_support::{
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
 use sp_core::H160;
+use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Dispatchable;
-use sp_std::vec::Vec;
+use sp_std::{convert::TryInto, vec::Vec};
 pub use weights::WeightInfo;
 
 /// The logging target for this pallet
@@ -128,7 +129,8 @@ pub mod pallet {
 			+ PartialOrd
 			+ InstanceFilter<<Self as Config>::Call>
 			+ Default
-			+ MaxEncodedLen;
+			+ MaxEncodedLen
+			+ TryInto<u8>;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
@@ -219,6 +221,18 @@ pub mod pallet {
 		PermissionDenied,
 		/// Futurepass migrator admin account is not set
 		MigratorNotSet,
+		/// Invalid proxy type
+		InvalidProxyType,
+		/// ExpiredDeadline
+		ExpiredDeadline,
+		/// Invalid deadline
+		InvalidDeadline,
+		/// Invalid signature
+		InvalidSignature,
+		/// AccountParsingFailure
+		AccountParsingFailure,
+		/// RegisterDelegateSignerMismatch
+		RegisterDelegateSignerMismatch,
 	}
 
 	#[pallet::hooks]
@@ -247,29 +261,42 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Register a delegator to an existing futurepass account.
-		/// Note: Only futurepass owner account can add more delegates.
+		/// Register a delegator to an existing futurepass account given message parameters for a
+		/// respective signature. Note: Only futurepass owner account can add more delegates.
+		/// Note: The signer is recovered from signature given the message parameters (which is used
+		/// to reconstruct the message).
+		/// - You can assume the message is constructed like so:
+		/// ---
+		/// ```solidity
+		/// bytes32 message = keccak256(abi.encodePacked(futurepass, delegate, proxyType, deadline));
+		/// ethSignedMessage = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", message));
+		/// ```
+		/// ---
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// Parameters:
-		/// - `futurepass`: Futurepass account to register the account as delegate.
-		/// - `proxy_type`: Delegate permission level
-		/// - `delegate`: The delegated account for the futurepass.
+		/// - `futurepass`: Futurepass account to register the account as delegate; 20 bytes.
+		/// - `delegate`: The delegated account for the futurepass; 20 bytes.
+		/// - `proxy_type`: Delegate permission level; 1 byte.
+		/// - `deadline`: Deadline for the signature; 4 bytes.
+		/// - `signature`: Signature of the message parameters.
 		///
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
 		#[pallet::weight({
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
-			T::WeightInfo::register_delegate(delegate_count)
+			T::WeightInfo::register_delegate_with_signature(delegate_count)
 		})]
 		#[transactional]
-		pub fn register_delegate(
+		pub fn register_delegate_with_signature(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
 			proxy_type: T::ProxyType,
+			deadline: u32,
+			signature: [u8; 65],
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			let is_futurepass = caller == futurepass;
@@ -294,6 +321,30 @@ pub mod pallet {
 				!T::Proxy::exists(&futurepass, &delegate, None),
 				Error::<T>::DelegateAlreadyExists
 			);
+
+			let deadline_block_number: T::BlockNumber = deadline.into();
+			ensure!(
+				deadline_block_number >= frame_system::Pallet::<T>::block_number(),
+				Error::<T>::ExpiredDeadline
+			);
+
+			let (_, eth_signed_msg) = Self::generate_add_delegate_eth_signed_message(
+				&futurepass,
+				&delegate,
+				&proxy_type,
+				&deadline,
+			)?;
+			let delegate_signer: T::AccountId =
+				match sp_io::crypto::secp256k1_ecdsa_recover(&signature, &eth_signed_msg) {
+					Ok(pubkey_bytes) => H160(
+						keccak_256(&pubkey_bytes)[12..]
+							.try_into()
+							.map_err(|_| Error::<T>::AccountParsingFailure)?,
+					)
+					.into(),
+					Err(_err) => Err(Error::<T>::InvalidSignature)?,
+				};
+			ensure!(delegate_signer == delegate, Error::<T>::RegisterDelegateSignerMismatch);
 
 			T::Proxy::add_delegate(&caller, &futurepass, &delegate, &proxy_type)?;
 			Self::deposit_event(Event::<T>::DelegateRegistered {
@@ -436,6 +487,19 @@ pub mod pallet {
 			call: Box<<T as Config>::Call>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
+
+			// restrict delegate access to whitelist
+			match call.is_sub_type() {
+				Some(Call::register_delegate_with_signature { .. }) |
+				Some(Call::unregister_delegate { .. }) => {
+					ensure!(
+						Holders::<T>::get(&who.clone()) == Some(futurepass.clone()),
+						Error::<T>::NotFuturepassOwner
+					);
+				},
+				_ => {},
+			}
+
 			let result = T::Proxy::proxy_call(origin, futurepass, *call);
 			Self::deposit_event(Event::ProxyExecuted {
 				delegate: who,
@@ -599,6 +663,53 @@ where
 			delegate: account,
 		});
 		Ok(futurepass)
+	}
+
+	fn generate_add_delegate_eth_signed_message(
+		futurepass: &T::AccountId,
+		delegate: &T::AccountId,
+		proxy_type: &T::ProxyType,
+		deadline: &u32,
+	) -> Result<([u8; 32], [u8; 32]), DispatchError> {
+		let mut buffer = Vec::new(); // re-use buffer for encoding (performance)
+
+		futurepass.encode_to(&mut buffer);
+		let futurepass: [u8; 20] = H160::from_slice(&buffer[..]).into();
+		buffer.clear();
+
+		delegate.encode_to(&mut buffer);
+		let delegate: [u8; 20] = H160::from_slice(&buffer[..]).into();
+		buffer.clear();
+
+		proxy_type.encode_to(&mut buffer);
+		let proxy_type: [u8; 1] =
+			buffer[..].try_into().map_err(|_| Error::<T>::InvalidProxyType)?;
+		buffer.clear();
+
+		let deadline: [u8; 4] = deadline.to_be_bytes();
+
+		// create packed message - anologous to Solidity's abi.encodePacked
+		let mut packed_msg = Vec::new();
+		packed_msg.extend(&futurepass);
+		packed_msg.extend(&delegate);
+		packed_msg.extend(&proxy_type);
+		packed_msg.extend(&deadline);
+
+		#[cfg(test)]
+		println!("packed_msg: {:?}", hex::encode(&packed_msg));
+
+		let hashed_msg: [u8; 32] = keccak_256(&packed_msg);
+
+		#[cfg(test)]
+		println!("hashed_msg: {:?}", hex::encode(&hashed_msg));
+
+		let eth_signed_msg: [u8; 32] = keccak_256(
+			seed_primitives::ethereum_signed_message(hex::encode(hashed_msg).as_bytes()).as_ref(),
+		);
+		#[cfg(test)]
+		println!("ethereum_signed_message: {:?}", hex::encode(&eth_signed_msg));
+
+		Ok((hashed_msg, eth_signed_msg))
 	}
 }
 

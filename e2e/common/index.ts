@@ -1,6 +1,9 @@
 import { ApiPromise } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
+import { writeFileSync } from "fs";
+import { CliPrettify } from "markdown-table-prettify";
+import { join } from "path";
 import web3 from "web3";
 
 export * from "./node";
@@ -50,6 +53,8 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
+// Precompile address for sft precompile is 1731
+export const SFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006c3";
 // Precompile address for futurepass registrar precompile is 65535
 export const FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
 
@@ -65,10 +70,16 @@ export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of del
 // Futurepass creation reserve amount
 export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
 
+export type GasCosts = {
+  Contract: number;
+  Precompile: number;
+  Extrinsic: number;
+};
+
 /** ABIs */
 
 const OWNABLE_ABI = [
-  "event OwnershipTransferred(address indexed previousOwner, address newOwner)",
+  "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)",
 
   "function owner() public view returns (address)",
   "function renounceOwnership()",
@@ -88,12 +99,19 @@ export const ERC20_ABI = [
   "function name() public view returns (string memory)",
   "function symbol() public view returns (string memory)",
   "function decimals() public view returns (uint8)",
+  "function totalSupply() external view returns (uint256)",
   "function transfer(address who, uint256 amount)",
+  "function transferFrom(address from, address to, uint256 amount)",
 ];
 
 export const NFT_PRECOMPILE_ABI = [
   "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
   "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
+];
+
+export const SFT_PRECOMPILE_ABI = [
+  "event InitializeSftCollection(address indexed collectionOwner, address indexed precompileAddress)",
+  "function initializeCollection(address owner, bytes name, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
 ];
 
 export const PEG_PRECOMPILE_ABI = [
@@ -105,8 +123,8 @@ export const PEG_PRECOMPILE_ABI = [
 
 export const ERC721_PRECOMPILE_ABI = [
   // ERC721
-  "event Transfer(address indexed from, address indexed to, uint256 tokenId)",
-  "event Approval(address indexed owner, address indexed approved, uint256 tokenId)",
+  "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
+  "event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)",
   "event ApprovalForAll(address indexed owner, address indexed operator, bool approved)",
 
   "function balanceOf(address who) public view returns (uint256)",
@@ -137,6 +155,45 @@ export const ERC721_PRECOMPILE_ABI = [
   ...OWNABLE_ABI,
 ];
 
+export const ERC1155_PRECOMPILE_ABI = [
+  // ERC1155
+  "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
+  "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] balances)",
+  "event ApprovalForAll(address indexed account, address indexed operator, bool approved)",
+
+  "function balanceOf(address owner, uint256 id) external view returns (uint256)",
+  "function balanceOfBatch(address[] owners, uint256[] ids) external view returns (uint256[] memory)",
+  "function setApprovalForAll(address operator, bool approved) external",
+  "function isApprovedForAll(address account, address operator) external view returns (bool)",
+  "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external",
+  "function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, uint256[] calldata amounts, bytes calldata data) external",
+
+  // Burnable
+  "function burn(address account, uint256 id, uint256 value) external",
+  "function burnBatch(address account, uint256[] ids, uint256[] values) external",
+
+  // Supply
+  "function totalSupply(uint256 id) external view returns (uint256)",
+  "function exists(uint256 id) external view returns (bool)",
+
+  // Metadata
+  "function uri(uint256 id) external view returns (string memory)",
+
+  // TRN
+  "event TokenCreated(uint32 indexed serialNumber)",
+  "event MaxSupplyUpdated(uint128 indexed maxSupply)",
+  "event BaseURIUpdated(string baseURI)",
+
+  "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
+  "function mint(address owner, uint256 id, uint256 amount) external",
+  "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
+  "function setMaxSupply(uint256 id, uint32 maxSupply) external",
+  "function setBaseURI(bytes baseURI) external",
+
+  // Ownable
+  ...OWNABLE_ABI,
+];
+
 export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [
   "event FuturepassCreated(address indexed futurepass, address owner)",
 
@@ -148,10 +205,10 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
   "event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType)",
   "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
   "event Executed(uint8 indexed callType, address indexed target, uint256 indexed value, bytes4 data)",
-  "event ContractCreated(uint8 indexed callType, address indexed contract, uint256 indexed value, bytes32 salt)",
+  "event ContractCreated(uint8 indexed callType, address indexed contractAddress, uint256 indexed value, bytes32 salt)",
 
   "function delegateType(address delegate) external view returns (uint8)",
-  "function registerDelegate(address delegate, uint8 proxyType) external",
+  "function registerDelegateWithSignature(address delegate, uint8 proxyType, uint32 deadline, bytes memory signature) external",
   "function unregisterDelegate(address delegate) external",
   "function proxyCall(uint8 callType, address callTo, uint256 value, bytes memory callData) external payable",
 
@@ -191,6 +248,11 @@ export const assetIdToERC20ContractAddress = (assetId: string | number): string 
   return web3.utils.toChecksumAddress(`0xCCCCCCCC${asset_id_hex}000000000000000000000000`);
 };
 
+export const collectionIdToERC721Address = (collectionId: string | number): string => {
+  const collection_id_hex = (+collectionId).toString(16).padStart(8, "0");
+  return web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}000000000000000000000000`);
+};
+
 /**
  * Fields of a Polkadotjs event to match on
  */
@@ -227,6 +289,47 @@ export const getCollectionPrecompileAddress = (collectionId: number) => {
   const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
   const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
   return web3.utils.toChecksumAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
+};
+
+/**
+ *
+ * @param collectionId Converts collection id to precompile address (without parachain id)
+ * @returns
+ */
+export const getSftCollectionPrecompileAddress = (collectionId: number) => {
+  const collectionIdBin = (+collectionId).toString(2).padStart(22, "0");
+  const parachainIdBin = (100).toString(2).padStart(10, "0");
+  const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
+  const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
+  return web3.utils.toChecksumAddress(`0xBBBBBBBB${collectionIdHex}000000000000000000000000`);
+};
+
+/**
+ * Saves gas cost to a markdown file
+ * @returns
+ * @param costs Dictionary of gas costs for different function calls
+ * @param filePath The file path to save the output
+ * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
+ */
+export const saveGasCosts = (costs: { [key: string]: GasCosts }, filePath: string, header: string) => {
+  // Set string headers
+  let data: string = `## Generated gas prices for ${header}\n\n`;
+  data += "| Function Call | Contract gas | Precompile gas | Extrinsic gas |\n";
+  data += "| :--- | :---: | :---: | :---: |\n";
+
+  // Iterate through functions and add gas prices
+  for (const key in costs) {
+    const value = costs[key];
+    data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
+  }
+
+  // Prettify data
+  data = CliPrettify.prettify(data);
+
+  // Save data to specified file path
+  writeFileSync(join("./test", filePath), data, {
+    flag: "w",
+  });
 };
 
 /**
