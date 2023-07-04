@@ -1,6 +1,7 @@
 import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
+import { EventRecord } from "@polkadot/types/interfaces";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { BigNumber, Contract, Wallet, utils } from "ethers";
@@ -28,7 +29,7 @@ const FEE_TOKEN_ASSET_ID = 1124;
 
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
-describe.only("Fee Preferences", function () {
+describe("Fee Preferences", function () {
   const EMPTY_ACCT_PRIVATE_KEY = "0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589";
 
   let node: NodeProcess;
@@ -586,21 +587,8 @@ describe.only("Fee Preferences", function () {
     );
 
     // Find estimate cost for evm call
-    const evmCallGasEstimate = await api.tx.evm
-      .call(
-        sender,
-        erc20PrecompileAddress,
-        encodedInput,
-        value,
-        gasLimit,
-        maxFeePerGas,
-        maxPriorityFeePerGas,
-        nonce,
-        accessList,
-      )
-      .paymentInfo(sender);
+    const evmCallGasEstimate = await evmCall.paymentInfo(sender);
     const evmCallGasEstimateinXRP = evmCallGasEstimate.partialFee;
-    console.log("evmCallGasEstimateinXRP:", evmCallGasEstimateinXRP.toNumber());
 
     // Find estimate cost for feeProxy call
     const extrinsicInfo = await api.tx.feeProxy
@@ -611,19 +599,15 @@ describe.only("Fee Preferences", function () {
       )
       .paymentInfo(sender);
     const feeProxyGasEstimateinXRP = extrinsicInfo.partialFee;
-    console.log("feeProxyGasEstimateinXRP:", feeProxyGasEstimateinXRP.toNumber());
 
     // cost for evm call + cost for fee proxy
     const estimatedTotalGasCost = evmCallGasEstimateinXRP.toNumber() + feeProxyGasEstimateinXRP.toNumber();
-
-    console.log("estimatedTotalGasCost::", estimatedTotalGasCost);
 
     const {
       Ok: [estimatedTokenTxCost],
     } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
 
-    console.log("Fee in new token from adding both txs fee:", estimatedTokenTxCost);
-    await new Promise<void>((resolve) => {
+    const events = await new Promise<EventRecord[]>((resolve) => {
       api.tx.feeProxy
         .callWithFeePreferences(
           FEE_TOKEN_ASSET_ID,
@@ -633,18 +617,18 @@ describe.only("Fee Preferences", function () {
         .signAndSend(alith, ({ events, status }) => {
           if (status.isInBlock) {
             console.log(`Tx executed at block hash: ${status.asInBlock}`);
-            for (const { event } of events) {
-              if (event.section === "feeProxy" && event.method === "CallWithFeePreferences") {
-                const [from, paymentAsset, maxPayment] = event.data;
-                expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
-                expect(from.toString()).to.equal(alith.address.toString());
-                expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
-                resolve();
-              }
-            }
+            resolve(events);
           }
         });
     });
+    for (const { event } of events) {
+      if (event.section === "feeProxy" && event.method === "CallWithFeePreferences") {
+        const [from, paymentAsset, maxPayment] = event.data;
+        expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
+        expect(from.toString()).to.equal(alith.address.toString());
+        expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
+      }
+    }
   });
 });
 
