@@ -29,13 +29,14 @@ use sp_std::{marker::PhantomData, vec::Vec};
 const GAS_TOKEN_ID: AssetId = 2_u32;
 
 /// Solidity selector of the Mint log, which is the Keccak of the Log signature.
-pub const SELECTOR_LOG_MINT: [u8; 32] = keccak256!("Mint(address,uint,uint)");
+pub const SELECTOR_LOG_MINT: [u8; 32] = keccak256!("Mint(address,uint256,uint256)");
 
 /// Solidity selector of the Burn log, which is the Keccak of the Log signature.
-pub const SELECTOR_LOG_BURN: [u8; 32] = keccak256!("Burn(address,uint,uint,address)");
+pub const SELECTOR_LOG_BURN: [u8; 32] = keccak256!("Burn(address,uint256,uint256,address)");
 
 /// Solidity selector of the Swap log, which is the Keccak of the Log signature.
-pub const SELECTOR_LOG_SWAP: [u8; 32] = keccak256!("Swap(address,uint,uint,uint,uint,address)");
+pub const SELECTOR_LOG_SWAP: [u8; 32] =
+	keccak256!("Swap(address,uint256,uint256,uint256,uint256,address)");
 
 /// Saturated conversion from EVM uint256 to Balance
 fn saturated_convert_balance(input: U256) -> Result<Balance, PrecompileFailure> {

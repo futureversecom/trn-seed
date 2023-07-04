@@ -17,7 +17,7 @@ import {
   assetIdToERC20ContractAddress,
   startNode,
   typedefs,
-} from "../common";
+} from "../../common";
 import {
   CustomERC20,
   UniswapV2Factory,
@@ -25,8 +25,8 @@ import {
   UniswapV2Pair__factory,
   UniswapV2Router02,
   WETH9,
-} from "../typechain-types";
-import { token } from "../typechain-types/factories/@openzeppelin/contracts";
+} from "../../typechain-types";
+import { token } from "../../typechain-types/factories/@openzeppelin/contracts";
 
 const TOKEN_ID_SUBALPHA = 1124;
 const TOKEN_ID_SUBBETA = 2148;
