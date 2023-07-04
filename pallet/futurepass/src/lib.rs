@@ -370,7 +370,10 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
-		#[pallet::weight({T::WeightInfo::unregister_delegate()})]
+		#[pallet::weight({
+			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			T::WeightInfo::unregister_delegate(delegate_count)
+		})]
 		#[transactional]
 		pub fn unregister_delegate(
 			origin: OriginFor<T>,
@@ -472,8 +475,9 @@ pub mod pallet {
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
 		#[pallet::weight({
- 			let di = call.get_dispatch_info();
-			(T::WeightInfo::proxy_extrinsic()
+			let di = call.get_dispatch_info();
+			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
+			(T::WeightInfo::proxy_extrinsic(delegate_count)
 				.saturating_add(di.weight)
 				 // AccountData for inner call origin accountdata.
 				.saturating_add(T::DbWeight::get().reads_writes(1, 1)),

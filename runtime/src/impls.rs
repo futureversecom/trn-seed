@@ -54,7 +54,7 @@ use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic, UPGRADE_FEE_AMOUNT,
+	UncheckedExtrinsic,
 };
 use sp_runtime::traits::Dispatchable;
 
@@ -672,8 +672,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			// pallet_futurepass::Call::unregister_delegate
 			if !matches!(
 				c,
-				RuntimeCall::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
-					RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+				RuntimeCall::Futurepass(
+					pallet_futurepass::Call::register_delegate_with_signature { .. }
+				) | RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
 			) {
 				return false
 			}

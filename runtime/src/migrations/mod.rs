@@ -20,7 +20,6 @@ use frame_support::{
 	weights::Weight,
 	ReversibleStorageHasher,
 };
-use sp_runtime::traits::Get;
 use sp_std::vec::Vec;
 
 pub struct AllMigrations;
@@ -32,8 +31,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let _weight = Weight::from_ref_time(0u64);
-		staking::Upgrade::on_runtime_upgrade();
+		let weight = Weight::from(Weight::from_ref_time(0u64));
 
 		weight
 	}
