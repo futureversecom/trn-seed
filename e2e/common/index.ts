@@ -217,10 +217,12 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
 ];
 
 export const DEX_PRECOMPILE_ABI = [
+  // IUniswapV2Pair
   "event Mint(address indexed sender, uint256 amount0, uint256 amount1)",
   "event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to)",
   "event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)",
 
+  // IUniswapV2Router01
   "function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB, uint liquidity)",
   "function addLiquidityETH(address token, uint amountTokenDesired, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external payable returns (uint amountToken, uint amountETH, uint liquidity)",
   "function removeLiquidity(address tokenA, address tokenB, uint liquidity, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB)",
