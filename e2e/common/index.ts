@@ -462,7 +462,7 @@ export const getSftCollectionPrecompileAddress = (collectionId: number) => {
 export const saveTxGas = (costs: { [key: string]: TxCosts }, filePath: string, header: string) => {
   // Set string headers
   let data: string = `## Generated tx costs(Gas) for ${header}\n\n`;
-  data += "| Function Call | Contract gas | Precompile gas | (Extrinsic fee/gas price) |\n";
+  data += "| Function Call | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |\n";
   data += "| :--- | :---: | :---: | :---: |\n";
 
   // Iterate through functions and add gas prices

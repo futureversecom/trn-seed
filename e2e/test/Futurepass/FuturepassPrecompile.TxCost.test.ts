@@ -151,7 +151,7 @@ describe("Futurepass Precompile", function () {
     };
   });
 
-  it("register delegate tx costs", async () => {
+  it("register delegate with signature tx costs", async () => {
     const owner1 = Wallet.createRandom().connect(provider);
     const owner2 = Wallet.createRandom().connect(provider);
     const delegate = Wallet.createRandom().connect(provider);
@@ -160,9 +160,27 @@ describe("Futurepass Precompile", function () {
     const fp2 = await createFuturepass(owner2, owner2.address);
 
     // precompile approach
-    const precompileGasCost = await fp1.estimateGas.registerDelegate(delegate.address, PROXY_TYPE.Any);
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [fp1.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+
+    // eip191 sign message using delegate
+    const signature = await delegate.signMessage(message);
+
+    const precompileGasCost = await fp1.estimateGas.registerDelegateWithSignature(
+      delegate.address,
+      PROXY_TYPE.Any,
+      deadline,
+      signature,
+    );
     let balanceBefore = await owner1.getBalance();
-    const tx = await fp1.connect(owner1).registerDelegate(delegate.address, PROXY_TYPE.Any);
+    const tx = await fp1
+      .connect(owner1)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
     await tx.wait();
     let balanceAfter = await owner1.getBalance();
     // assert delegate is registered
@@ -170,11 +188,21 @@ describe("Futurepass Precompile", function () {
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
     // extrinsic approach
+    const deadline2 = (await provider.getBlockNumber()) + 20;
+    const message2 = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [fp2.address, delegate.address, PROXY_TYPE.Any, deadline2],
+      )
+      .substring(2); // remove `0x` prefix
+
+    // eip191 sign message using delegate
+    const signature2 = await delegate.signMessage(message2);
     const owner2KeyRing = keyring.addFromSeed(hexToU8a(owner2.privateKey));
     balanceBefore = await owner2.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.futurepass
-        .registerDelegate(fp2.address, delegate.address, PROXY_TYPE.Any)
+        .registerDelegateWithSignature(fp2.address, delegate.address, PROXY_TYPE.Any, deadline2, signature2)
         .signAndSend(owner2KeyRing, ({ status }) => {
           if (status.isInBlock) resolve();
         });
@@ -189,12 +217,12 @@ describe("Futurepass Precompile", function () {
     expect(extrinsicGasCost).to.be.lessThan(precompileGasCost);
 
     // Update all costs
-    allTxGasCosts["registerDelegate"] = {
+    allTxGasCosts["registerDelegateWithSignature"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileGasCost, // convert to XRP Drops(6)
       Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
     };
-    allTxFeeCosts["registerDelegate"] = {
+    allTxFeeCosts["registerDelegateWithSignature"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
@@ -208,9 +236,36 @@ describe("Futurepass Precompile", function () {
     // create FPs for owner1 and owner2 and register delegate delegate
     const fp1 = await createFuturepass(owner1, owner1.address);
     const fp2 = await createFuturepass(owner2, owner2.address);
-    let tx = await fp1.connect(owner1).registerDelegate(delegate.address, PROXY_TYPE.Any);
+
+    const deadline = (await provider.getBlockNumber()) + 20;
+    const message = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [fp1.address, delegate.address, PROXY_TYPE.Any, deadline],
+      )
+      .substring(2); // remove `0x` prefix
+
+    // eip191 sign message using delegate
+    const signature = await delegate.signMessage(message);
+
+    const deadline2 = (await provider.getBlockNumber()) + 20;
+    const message2 = ethers.utils
+      .solidityKeccak256(
+        ["address", "address", "uint8", "uint32"],
+        [fp2.address, delegate.address, PROXY_TYPE.Any, deadline2],
+      )
+      .substring(2); // remove `0x` prefix
+
+    // eip191 sign message using delegate
+    const signature2 = await delegate.signMessage(message2);
+
+    let tx = await fp1
+      .connect(owner1)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
     await tx.wait();
-    tx = await fp2.connect(owner2).registerDelegate(delegate.address, PROXY_TYPE.Any);
+    tx = await fp2
+      .connect(owner2)
+      .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline2, signature2);
     await tx.wait();
     expect(await fp1.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
     expect(await fp2.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
