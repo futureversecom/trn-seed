@@ -3,6 +3,7 @@
 Precompile address: `0x000000000000000000000000000000000000DdDD`
 
 ```solidity
+interface IUniswapV2Pair {
     event Mint(address indexed sender, uint amount0, uint amount1);
     event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
     event Swap(
@@ -13,7 +14,10 @@ Precompile address: `0x000000000000000000000000000000000000DdDD`
         uint amount1Out,
         address indexed to
     );
+}
+```
 
+```solidity
 interface IUniswapV2Router01 {
     function addLiquidity(
         address tokenA,
