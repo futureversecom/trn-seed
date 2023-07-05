@@ -18,7 +18,7 @@ import {
   startNode,
   typedefs,
 } from "../../common";
-import { CustomERC20, UniswapV2Factory, UniswapV2Router02, WETH9 } from "../../typechain-types";
+import { MockERC20, UniswapV2Factory, UniswapV2Router02, WETH9 } from "../../typechain-types";
 
 const TOKEN_ID_SUBALPHA = 1124;
 const TOKEN_ID_SUBBETA = 2148;
@@ -35,8 +35,8 @@ describe("DEX Precompile", function () {
 
   let owner: SignerWithAddress;
   let user: SignerWithAddress;
-  let alpha: CustomERC20;
-  let beta: CustomERC20;
+  let alpha: MockERC20;
+  let beta: MockERC20;
   let weth: WETH9;
   let uniswapV2Factory: UniswapV2Factory;
   let uniswapV2Router02: UniswapV2Router02;
@@ -59,14 +59,14 @@ describe("DEX Precompile", function () {
     weth = await WETH9ERC20Factory.deploy();
     await weth.deployed();
 
-    const ERC20Factory = await ethers.getContractFactory("CustomERC20");
+    const ERC20Factory = await ethers.getContractFactory("MockERC20");
 
     // deploy the AlphaERC20
-    alpha = await ERC20Factory.deploy("Alpha", "ALPHA");
+    alpha = await ERC20Factory.deploy();
     await alpha.deployed();
 
     // deploy the BetaERC20
-    beta = await ERC20Factory.deploy("Beta", "BETA");
+    beta = await ERC20Factory.deploy();
     await beta.deployed();
 
     // Set up owner for re-use
@@ -97,7 +97,7 @@ describe("DEX Precompile", function () {
       types: typedefs,
     });
 
-    dexPrecompile = new Contract(DEX_PRECOMPILE_ADDRESS, DEX_PRECOMPILE_ABI, alithSigner);
+    dexPrecompile = new Contract(DEX_PRECOMPILE_ADDRESS, DEX_PRECOMPILE_ABI, alithSigner) as UniswapV2Router02;
 
     // add alith to keyring
     const keyring = new Keyring({ type: "ethereum" });
@@ -171,7 +171,7 @@ describe("DEX Precompile", function () {
     //expect((receipt?.events as any)[0].args.amount1).to.equal(res.amountB);
 
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, beta.address);
-    const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
+    const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
     const lpBalance = await lpToken.balanceOf(owner.address);
     expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
 
@@ -300,7 +300,7 @@ describe("DEX Precompile", function () {
       );
 
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
-    const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
+    const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
     const lpBalance = await lpToken.balanceOf(owner.address);
     expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
 
@@ -373,7 +373,7 @@ describe("DEX Precompile", function () {
     // 1. remove liquidity on uniswap
     // 1.1 verify liquidity balance
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, beta.address);
-    const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
+    const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
     const lpBalance = await lpToken.balanceOf(owner.address);
     expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
 
@@ -490,7 +490,7 @@ describe("DEX Precompile", function () {
   it("remove liquidity eth", async () => {
     // remove liquidity on uniswap
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
-    const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
+    const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
     const lpBalance = await lpToken.balanceOf(owner.address);
     expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
 
@@ -717,7 +717,7 @@ describe("DEX Precompile", function () {
 
     // 1.1 get lp token
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
-    const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
+    const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
 
     // 1.2 user approves router to spend tokens
     await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
@@ -1111,7 +1111,7 @@ describe("DEX Precompile", function () {
 
     // 1.1 get lp token
     //const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
-    //const lpToken: CustomERC20 = await ethers.getContractAt("CustomERC20", pairAddress);
+    //const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
 
     // 1.2 user approves router to spend tokens
     await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
