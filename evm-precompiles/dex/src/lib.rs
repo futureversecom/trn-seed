@@ -13,10 +13,7 @@
 extern crate alloc;
 
 use fp_evm::{PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult};
-use frame_support::{
-	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
-	log,
-};
+use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_dex::WeightInfo;
 use pallet_evm::{GasWeightMapping, Precompile};
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
