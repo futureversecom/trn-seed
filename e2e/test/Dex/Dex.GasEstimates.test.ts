@@ -20,8 +20,7 @@ import {
   startNode,
   typedefs,
 } from "../../common";
-
-import { MockERC20, IUniswapV2Router01, UniswapV2Factory, UniswapV2Router02, WETH9 } from "../../typechain-types";
+import { IUniswapV2Router01, MockERC20, UniswapV2Factory, UniswapV2Router02, WETH9 } from "../../typechain-types";
 
 describe("Dex Gas Estimation", function () {
   let TOKEN_ID_1: number;
@@ -107,7 +106,10 @@ describe("Dex Gas Estimation", function () {
     await uniswapV2Factory.deployed();
 
     const UniswapV2Router02Factory = await ethers.getContractFactory("UniswapV2Router02");
-    uniswapV2Router02 = await UniswapV2Router02Factory.connect(alithSigner).deploy(uniswapV2Factory.address, weth.address);
+    uniswapV2Router02 = await UniswapV2Router02Factory.connect(alithSigner).deploy(
+      uniswapV2Factory.address,
+      weth.address,
+    );
     await uniswapV2Router02.deployed();
 
     // alpha = new Contract(assetIdToERC20ContractAddress(TOKEN_ID_1), MockERC20Contract.abi, owner) as MockERC20;
@@ -138,8 +140,7 @@ describe("Dex Gas Estimation", function () {
     // add alpha and beta liquidity for removeLiquidity calls and swaps
     gas = await uniswapV2Router02
       .connect(owner)
-      .estimateGas
-      .addLiquidity(
+      .estimateGas.addLiquidity(
         alpha.address,
         beta.address,
         utils.parseEther("1000").toString(),
@@ -167,7 +168,9 @@ describe("Dex Gas Estimation", function () {
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, beta.address);
     const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
     gas = await lpToken.connect(owner).estimateGas.approve(uniswapV2Router02.address, utils.parseEther("10000000"));
-    tx = await lpToken.connect(owner).approve(uniswapV2Router02.address, utils.parseEther("10000000"), { gasLimit: gas });
+    tx = await lpToken
+      .connect(owner)
+      .approve(uniswapV2Router02.address, utils.parseEther("10000000"), { gasLimit: gas });
     await tx.wait();
 
     // add alpha and weth liquidity for removeLiquidity calls and swaps
@@ -216,13 +219,12 @@ describe("Dex Gas Estimation", function () {
   /*//////////////////////////////////////////////////////////////
                     Dex functions (transactions)
   //////////////////////////////////////////////////////////////*/
-  
+
   it("addLiquidity gas estimates", async () => {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(owner)
-      .estimateGas
-      .addLiquidity(
+      .estimateGas.addLiquidity(
         alpha.address,
         beta.address,
         utils.parseEther("1000"),
@@ -236,8 +238,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(alithSigner)
-      .estimateGas
-      .addLiquidity(
+      .estimateGas.addLiquidity(
         alpha.address,
         beta.address,
         utils.parseEther("1000").toString(),
@@ -351,8 +352,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(owner)
-      .estimateGas
-      .removeLiquidity(
+      .estimateGas.removeLiquidity(
         alpha.address,
         beta.address,
         utils.parseEther("100").toString(),
@@ -365,8 +365,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(alithSigner)
-      .estimateGas
-      .removeLiquidity(
+      .estimateGas.removeLiquidity(
         alpha.address,
         beta.address,
         utils.parseEther("100").toString(),
@@ -379,15 +378,7 @@ describe("Dex Gas Estimation", function () {
     const balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.dex
-        .removeLiquidity(
-          TOKEN_ID_1,
-          TOKEN_ID_2,
-          utils.parseEther("100").toString(),
-          0,
-          0,
-          alithSigner.address,
-          20000,
-        )
+        .removeLiquidity(TOKEN_ID_1, TOKEN_ID_2, utils.parseEther("100").toString(), 0, 0, alithSigner.address, 20000)
         .signAndSend(alith, ({ status }) => {
           if (status.isInBlock) resolve();
         });
@@ -438,15 +429,7 @@ describe("Dex Gas Estimation", function () {
     const balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.dex
-        .removeLiquidity(
-          TOKEN_ID_1,
-          GAS_TOKEN_ID,
-          utils.parseEther("100").toString(),
-          0,
-          0,
-          bobSigner.address,
-          20000,
-        )
+        .removeLiquidity(TOKEN_ID_1, GAS_TOKEN_ID, utils.parseEther("100").toString(), 0, 0, bobSigner.address, 20000)
         .signAndSend(alith, ({ status }) => {
           if (status.isInBlock) resolve();
         });
@@ -473,8 +456,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(owner)
-      .estimateGas
-      .swapExactTokensForTokens(
+      .estimateGas.swapExactTokensForTokens(
         utils.parseEther("100"),
         0,
         [alpha.address, beta.address],
@@ -485,8 +467,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(alithSigner)
-      .estimateGas
-      .swapExactTokensForTokens(
+      .estimateGas.swapExactTokensForTokens(
         utils.parseEther("100"),
         0,
         [alpha.address, beta.address],
@@ -497,13 +478,7 @@ describe("Dex Gas Estimation", function () {
     const balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.dex
-        .swapWithExactSupply(
-          utils.parseEther("100").toString(),
-          0,
-          [TOKEN_ID_1, TOKEN_ID_2],
-          bobSigner.address,
-          20000,
-        )
+        .swapWithExactSupply(utils.parseEther("100").toString(), 0, [TOKEN_ID_1, TOKEN_ID_2], bobSigner.address, 20000)
         .signAndSend(alith, ({ status }) => {
           if (status.isInBlock) resolve();
         });
@@ -529,8 +504,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(owner)
-      .estimateGas
-      .swapExactTokensForETH(
+      .estimateGas.swapExactTokensForETH(
         utils.parseEther("100"),
         0,
         [alpha.address, weth.address],
@@ -541,8 +515,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(alithSigner)
-      .estimateGas
-      .swapExactTokensForETH(
+      .estimateGas.swapExactTokensForETH(
         utils.parseEther("100"),
         0,
         [alpha.address, assetIdToERC20ContractAddress(GAS_TOKEN_ID)],
@@ -605,13 +578,7 @@ describe("Dex Gas Estimation", function () {
     const balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.dex
-        .swapWithExactSupply(
-          utils.parseEther("5").toString(),
-          0,
-          [GAS_TOKEN_ID, TOKEN_ID_1],
-          bobSigner.address,
-          20000,
-        )
+        .swapWithExactSupply(utils.parseEther("5").toString(), 0, [GAS_TOKEN_ID, TOKEN_ID_1], bobSigner.address, 20000)
         .signAndSend(alith, ({ status }) => {
           if (status.isInBlock) resolve();
         });
@@ -637,8 +604,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(owner)
-      .estimateGas
-      .swapTokensForExactTokens(
+      .estimateGas.swapTokensForExactTokens(
         utils.parseEther("100"),
         utils.parseEther("10000"),
         [alpha.address, beta.address],
@@ -649,8 +615,7 @@ describe("Dex Gas Estimation", function () {
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(alithSigner)
-      .estimateGas
-      .swapTokensForExactTokens(
+      .estimateGas.swapTokensForExactTokens(
         utils.parseEther("100"),
         utils.parseEther("10000"),
         [alpha.address, beta.address],
@@ -772,10 +737,7 @@ describe("Dex Gas Estimation", function () {
 
     const [ethInSub] = await dexPrecompile
       .connect(bobSigner)
-      .getAmountsIn(utils.parseEther("25"), [
-        assetIdToERC20ContractAddress(GAS_TOKEN_ID),
-        alpha.address,
-      ]);
+      .getAmountsIn(utils.parseEther("25"), [assetIdToERC20ContractAddress(GAS_TOKEN_ID), alpha.address]);
 
     const balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
@@ -815,14 +777,12 @@ describe("Dex Gas Estimation", function () {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(user)
-      .estimateGas
-      .quote(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
+      .estimateGas.quote(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
 
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(bobSigner)
-      .estimateGas
-      .quote(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
+      .estimateGas.quote(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
@@ -838,14 +798,12 @@ describe("Dex Gas Estimation", function () {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(user)
-      .estimateGas
-      .getAmountOut(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
+      .estimateGas.getAmountOut(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
 
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(bobSigner)
-      .estimateGas
-      .getAmountOut(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
+      .estimateGas.getAmountOut(utils.parseEther("5"), utils.parseEther("200"), utils.parseEther("120"));
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
@@ -862,14 +820,12 @@ describe("Dex Gas Estimation", function () {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(user)
-      .estimateGas
-      .getAmountsOut(utils.parseEther("5"), [alpha.address, beta.address ]);
+      .estimateGas.getAmountsOut(utils.parseEther("5"), [alpha.address, beta.address]);
 
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(bobSigner)
-      .estimateGas
-      .getAmountsOut(utils.parseEther("5"), [ alpha.address, beta.address ]);
+      .estimateGas.getAmountsOut(utils.parseEther("5"), [alpha.address, beta.address]);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
@@ -886,14 +842,12 @@ describe("Dex Gas Estimation", function () {
     // Estimate contract call
     const contractGasEstimate = await uniswapV2Router02
       .connect(user)
-      .estimateGas
-      .getAmountsIn(utils.parseEther("5"), [alpha.address, beta.address ]);
+      .estimateGas.getAmountsIn(utils.parseEther("5"), [alpha.address, beta.address]);
 
     // Estimate precompile call
     const precompileGasEstimate = await dexPrecompile
       .connect(bobSigner)
-      .estimateGas
-      .getAmountsIn(utils.parseEther("5"), [ alpha.address, beta.address ]);
+      .estimateGas.getAmountsIn(utils.parseEther("5"), [alpha.address, beta.address]);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
 
