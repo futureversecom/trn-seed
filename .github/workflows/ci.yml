@@ -15,6 +15,7 @@ on:
       - "**.lock"
       - "chain-specs/**"
       - ".github/workflows/*.yml"
+      - "**.ts"
   push:
     branches:
       - trunk/*
@@ -25,6 +26,7 @@ on:
       - "**.lock"
       - "chain-specs/**"
       - ".github/workflows/*.yml"
+      - "**.ts"
 
 jobs:
   format-build-test:
