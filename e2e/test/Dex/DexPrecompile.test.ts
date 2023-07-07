@@ -614,13 +614,11 @@ describe("DEX Precompile", function () {
     const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
     const lpBalance = await lpToken.balanceOf(owner.address);
     const alphaBalance = await alpha.balanceOf(owner.address);
-    // const ethBalance = await owner.getBalance();
+    const ethBalance = await owner.getBalance();
     const alphaBalanceSubstrate: any = (
       (await api.query.assets.account(TOKEN_ID_1, alithSigner.address)).toJSON() as any
     ).balance;
-    // const ethBalanceSubstrate: any = (
-    //   (await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any
-    // ).balance;
+    const ethBalanceSubstrate: any = await localJsonProvider.getBalance(owner.address);
     const lpTokenSubstrate: any = (await api.query.dex.tradingPairLPToken([GAS_TOKEN_ID, TOKEN_ID_1])).toJSON();
     const lpBalanceSubstrate: any = (
       (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON() as any
@@ -631,7 +629,7 @@ describe("DEX Precompile", function () {
     expect(contractAddLiquidityEthRes.amountETH).to.eq(precompileAddLiquidityEthRes.amountETH);
     expect(contractAddLiquidityEthRes.liquidity).to.eq(precompileAddLiquidityEthRes.liquidity);
     expect(alphaBalance).to.eq(alphaBalanceSubstrate);
-    // expect(ethBalance).to.eq(ethBalanceSubstrate);
+    expect(ethBalance).to.eq(ethBalanceSubstrate);
     expect(lpBalance).to.eq(lpBalanceSubstrate);
   });
 
@@ -696,7 +694,7 @@ describe("DEX Precompile", function () {
     // verify the results on chain
     const lpBalance = await lpToken.balanceOf(owner.address);
     const alphaBalance = await alpha.balanceOf(owner.address);
-    // const ethBalance = await owner.getBalance();
+    const ethBalance = await owner.getBalance();
     const lpTokenSubstrate: any = (await api.query.dex.tradingPairLPToken([GAS_TOKEN_ID, TOKEN_ID_1])).toJSON();
     const lpBalanceSubstrate: any = (
       (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON() as any
@@ -704,15 +702,13 @@ describe("DEX Precompile", function () {
     const alphaBalanceSubstrate: any = (
       (await api.query.assets.account(TOKEN_ID_1, alithSigner.address)).toJSON() as any
     ).balance;
-    // const ethBalanceSubstrate: any = (
-    //   (await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any
-    // ).balance;
+    const ethBalanceSubstrate: any = await localJsonProvider.getBalance(owner.address);
 
     // validate results
     expect(contractRemoveLiquidityEthRes.amountToken).to.eq(precompileRemoveLiquidityEthRes.amountToken);
     expect(contractRemoveLiquidityEthRes.amountETH).to.eq(precompileRemoveLiquidityEthRes.amountETH);
     expect(alphaBalance).to.eq(alphaBalanceSubstrate);
-    // expect(ethBalance).to.eq(ethBalanceSubstrate);
+    expect(ethBalance).to.eq(ethBalanceSubstrate);
     expect(lpBalance).to.eq(lpBalanceSubstrate);
   });
 
