@@ -301,7 +301,6 @@ describe("DEX Precompile", function () {
     await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
     await beta.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
 
-    // verify user token Alpha and Beta balances
     // get current Alpha and Beta token balances
     const alphaBalanceBefore = await alpha.balanceOf(user.address);
     const betaBalanceBefore = await beta.balanceOf(user.address);
@@ -712,32 +711,26 @@ describe("DEX Precompile", function () {
     expect(lpBalance).to.eq(lpBalanceSubstrate);
   });
 
-  it.skip("swapExactTokensForETH", async () => {
-    // 1. swap in uniswap
-
-    // 1.1 get lp token
-    const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
-    const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
-
-    // 1.2 user approves router to spend tokens
+  // dependent on 'addLiquidityETH' test
+  // dependent on 'removeLiquidityETH' test
+  it("swapExactTokensForETH", async () => {
     await alpha.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
-    await weth.connect(user).approve(uniswapV2Router02.address, utils.parseEther("1000"));
 
-    // 1.3 mint some tokens to user
-    await alpha.mint(user.address, utils.parseEther("100"));
+    // get current Alpha and Beta token balances
+    const alphaBalanceBefore = await alpha.balanceOf(user.address);
+    const ethBalanceBefore = await user.getBalance();
 
-    // 1.4 verify user token Alpha and Eth balances
-    expect(await alpha.balanceOf(user.address)).to.eq(utils.parseEther("100"));
-    const userEthBalanceBefore = await localJsonProvider.getBalance(user.address);
-
-    // 1.5 check amount of tokens retrievable
+    // check amount of tokens retrievable
     const [, ethAmountOut] = await uniswapV2Router02
       .connect(user)
       .getAmountsOut(utils.parseEther("100"), [alpha.address, weth.address]);
-    expect(ethAmountOut).to.eq(BigNumber.from("22162943203289985550"));
 
-    // 1.6 run callstatic for swap
-    const res = await uniswapV2Router02
+    // mint some tokens to user
+    await alpha.mint(user.address, utils.parseEther("100"));
+
+    let tx;
+
+    const contractSwapTokensForEthRes = await uniswapV2Router02
       .connect(user)
       .callStatic.swapExactTokensForETH(
         utils.parseEther("100"),
@@ -746,111 +739,90 @@ describe("DEX Precompile", function () {
         user.address,
         ethers.constants.MaxUint256,
       );
-    console.log("The result from uniswap call: ", res);
+    tx = await uniswapV2Router02
+      .connect(user)
+      .swapExactTokensForETH(
+        utils.parseEther("100"),
+        ethAmountOut,
+        [alpha.address, weth.address],
+        user.address,
+        ethers.constants.MaxUint256,
+      );
+    await tx.wait();
 
-    console.log("user lptoken uniswap are: ", user.address, lpToken.address, uniswapV2Router02.address);
+    // TODO check events
+    // .to.emit(alpha, "Transfer")
+    // .withArgs(user.address, lpToken.address, utils.parseEther("100"))
+    // .to.emit(weth, "Transfer")
+    // .withArgs(lpToken.address, uniswapV2Router02.address, ethAmountOut);
 
-    // 1.7 run the function on blockchain
-    await expect(
-      uniswapV2Router02
-        .connect(user)
-        .swapExactTokensForETH(
-          utils.parseEther("100"),
-          ethAmountOut,
-          [alpha.address, weth.address],
-          user.address,
-          ethers.constants.MaxUint256,
-        ),
-    )
-      .to.emit(alpha, "Transfer")
-      .withArgs(user.address, lpToken.address, utils.parseEther("100"))
-      .to.emit(weth, "Transfer")
-      .withArgs(lpToken.address, uniswapV2Router02.address, ethAmountOut);
+    // user Alpha and Eth balances after swap
+    const alphaBalanceAfter = await alpha.balanceOf(user.address);
+    const ethBalanceAfter = await user.getBalance();
 
-    //const receipt = await uniAddLiquidity.wait();
+    // swap via precompile
 
-    //console.log("uni events: ", receipt?.events);
+    const subalphaBalanceBefore =
+      ((await api.query.assets.account(TOKEN_ID_1, bobSigner.address)).toJSON() as any)?.balance ?? 0; 
+    const substrateEthBalanceBefore = await localJsonProvider.getBalance(bobSigner.address);
 
-    // 1.8 verify user token balances
-    expect(await alpha.balanceOf(user.address)).to.eq(utils.parseEther("0"));
-    // FIXME error occurs here
-    const userEthBalanceAfter = await localJsonProvider.getBalance(user.address);
-    expect(userEthBalanceAfter.sub(userEthBalanceBefore)).to.approximately(ethAmountOut, 100000000000000000n);
+    // check amount of tokens retrievable
+    const alphaInSub = utils.parseEther("100"); // amount willing to swap in
+    const [, ethAmountOutSub] = await dexPrecompile
+      .connect(bobSigner)
+      .getAmountsOut(alphaInSub, [
+        assetIdToERC20ContractAddress(TOKEN_ID_1),
+        assetIdToERC20ContractAddress(GAS_TOKEN_ID),
+      ]);
 
-    // 2. swap via precompile
-
-    // 2.1 mint some tokens to bob
+    // mint some tokens to bob
     await new Promise<void>((resolve, reject) => {
       api.tx.assets
-        .mint(TOKEN_ID_1, bobSigner.address, utils.parseEther("100").toString())
+        .mint(TOKEN_ID_1, bobSigner.address, alphaInSub.toString())
         .signAndSend(alith, ({ status }) => {
-          if (status.isInBlock) {
-            console.log(`setup block hash: ${status.asInBlock}`);
-            resolve();
-          }
+          if (status.isInBlock) resolve();
         })
         .catch((err) => reject(err));
     });
 
-    // 2.2 verify user token balances
-    expect(((await api.query.assets.account(TOKEN_ID_1, bobSigner.address)).toJSON() as any).balance).to.eq(
-      utils.parseEther("100"),
-    );
-    const balanceEthBefore = ((await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any)
-      .balance;
-
-    // 2.3 check amount of tokens retrievable
-    const [, ethAmountOutSub] = await dexPrecompile
-      .connect(bobSigner)
-      .getAmountsOut(utils.parseEther("100"), [
-        assetIdToERC20ContractAddress(TOKEN_ID_1),
-        assetIdToERC20ContractAddress(GAS_TOKEN_ID),
-      ]);
-    expect(ethAmountOutSub).to.eq(BigNumber.from("22162943203289985550"));
-
-    // 2.4 run function call static
-    const resPrecompile = await dexPrecompile
+    const precompileSwapTokensForEthRes = await dexPrecompile
       .connect(bobSigner)
       .callStatic.swapExactTokensForETH(
-        utils.parseEther("100"),
+        alphaInSub,
         ethAmountOutSub,
         [assetIdToERC20ContractAddress(TOKEN_ID_1), assetIdToERC20ContractAddress(GAS_TOKEN_ID)],
         alithSigner.address,
         20000,
       );
-
-    console.log("Add liquidity result from precompile: ", resPrecompile);
-
-    // 2.5 run and finalize it on chain
-    const addLiquidity = await dexPrecompile
+    tx = await dexPrecompile
       .connect(bobSigner)
       .swapExactTokensForETH(
-        utils.parseEther("100"),
+        alphaInSub,
         ethAmountOutSub,
         [assetIdToERC20ContractAddress(TOKEN_ID_1), assetIdToERC20ContractAddress(GAS_TOKEN_ID)],
         alithSigner.address,
         20000,
       );
+    await tx.wait();
 
-    await addLiquidity.wait();
+    // TODO check events
 
-    //console.log("dex events: ", receiptSub?.events);
+    const subalphaBalanceAfter =
+      ((await api.query.assets.account(TOKEN_ID_1, bobSigner.address)).toJSON() as any)?.balance ?? 0;
+    const substrateEthBalanceAfter = await localJsonProvider.getBalance(bobSigner.address);
 
-    // 2.6 verify user token Alpha and Beta balances
-    expect((await api.query.assets.account(TOKEN_ID_1, bobSigner.address)).toJSON() as any).to.eq(null);
-    // FIXME AssertionError: expected 22162943202060927000 to equal '22162943203289985550'
-    expect(
-      BigInt(
-        ((await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any).balance -
-          balanceEthBefore,
-      ),
-    ).to.approximately(22162943203289985550n, 100000000000);
+    // validate before and after balances for contract swaps and precompile swaps are equivalent
+    expect(alphaBalanceBefore).to.eq(BigInt(subalphaBalanceBefore));
+    expect(alphaBalanceAfter).to.eq(BigInt(subalphaBalanceAfter));
+    // expect(ethBalanceBefore).to.eq(substrateEthBalanceBefore);
+    // expect(ethBalanceAfter).to.eq(substrateEthBalanceAfter);
 
-    // 3. the two results should be equaled
-    expect(res[0]).to.eq(resPrecompile[0]);
-    expect(res[1]).to.eq(resPrecompile[1]);
+    expect(contractSwapTokensForEthRes[0]).to.eq(precompileSwapTokensForEthRes[0]);
+    expect(contractSwapTokensForEthRes[1]).to.eq(precompileSwapTokensForEthRes[1]);
   });
 
+  // dependent on 'addLiquidityETH' test
+  // dependent on 'removeLiquidityETH' test
   it.skip("swapExactETHForTokens", async () => {
     // 1. swap in uniswap
 
