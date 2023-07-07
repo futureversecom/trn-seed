@@ -3,17 +3,17 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, Wallet } from "ethers";
+import {BigNumber, Contract, Wallet} from "ethers";
 import { ethers } from "hardhat";
 
 import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
   ERC721_PRECOMPILE_ABI,
-  GasCosts,
   NodeProcess,
+  TxCosts,
   collectionIdToERC721Address,
-  saveGasCosts,
+  saveTxGas,
   startNode,
   typedefs,
 } from "../../common";
@@ -38,7 +38,7 @@ describe("ERC721 Gas Estimates", function () {
   let alith: KeyringPair;
   let bob: KeyringPair;
 
-  const allCosts: { [key: string]: GasCosts } = {};
+  const allCosts: { [key: string]: TxCosts } = {};
 
   // Setup api instance
   before(async () => {
@@ -112,7 +112,7 @@ describe("ERC721 Gas Estimates", function () {
   });
 
   after(async () => {
-    saveGasCosts(allCosts, "ERC721/GasCosts.md", "ERC721 Precompiles");
+    saveTxGas(allCosts, "ERC721/TxCosts.md", "ERC721 Precompiles");
 
     await node.stop();
   });
@@ -128,9 +128,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["balanceOf"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -143,9 +143,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["ownerOf"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0),
     };
   });
 
@@ -158,9 +158,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["getApproved"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0),
     };
   });
 
@@ -176,9 +176,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["isApprovedForAll"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0),
     };
   });
 
@@ -207,9 +207,9 @@ describe("ERC721 Gas Estimates", function () {
     expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
     // Update all costs with gas info
     allCosts["mint"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -245,9 +245,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["approve"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -276,9 +276,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["setApprovalForAll"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -319,9 +319,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["transferFrom"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -342,9 +342,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["safetransferFrom"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0),
     };
   });
 
@@ -359,9 +359,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["name"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -375,9 +375,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["symbol"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -392,9 +392,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["tokenURI"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -407,9 +407,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["owner"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0),
     };
   });
 
@@ -440,9 +440,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["transferOwnership"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -468,9 +468,9 @@ describe("ERC721 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["renounceOwnership"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 });
