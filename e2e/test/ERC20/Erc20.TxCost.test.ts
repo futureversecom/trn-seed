@@ -3,7 +3,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, Wallet } from "ethers";
+import { BigNumber, Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 
 import {
@@ -11,11 +11,11 @@ import {
   BOB_PRIVATE_KEY,
   ERC20_ABI,
   GAS_TOKEN_ID,
-  GasCosts,
   NATIVE_TOKEN_ID,
   NodeProcess,
+  TxCosts,
   assetIdToERC20ContractAddress,
-  saveGasCosts,
+  saveTxGas,
   startNode,
   typedefs,
 } from "../../common";
@@ -33,7 +33,7 @@ describe("ERC20 Gas Estimates", function () {
   let alith: KeyringPair;
   let bob: KeyringPair;
 
-  const allCosts: { [key: string]: GasCosts } = {};
+  const allCosts: { [key: string]: TxCosts } = {};
 
   // Setup api instance
   before(async () => {
@@ -70,8 +70,7 @@ describe("ERC20 Gas Estimates", function () {
   });
 
   after(async () => {
-    saveGasCosts(allCosts, "ERC20/GasCosts.md", "ERC20 Precompiles");
-
+    saveTxGas(allCosts, "ERC20/TxCosts.md", "ERC20 Precompiles");
     await node.stop();
   });
 
@@ -86,9 +85,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["totalSupply"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -102,9 +101,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["balanceOf"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -122,9 +121,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["allowance"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -153,9 +152,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["approval"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -186,9 +185,9 @@ describe("ERC20 Gas Estimates", function () {
     expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
     // Update all costs with gas info
     allCosts["transfer"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -230,9 +229,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["transferFrom"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -247,9 +246,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["name"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -263,9 +262,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["decimals"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -279,9 +278,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["symbol"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 });
