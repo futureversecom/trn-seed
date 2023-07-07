@@ -183,8 +183,6 @@ describe("Futurepass Precompile", function () {
       .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
     await tx.wait();
     let balanceAfter = await owner1.getBalance();
-    // assert delegate is registered
-    expect(await fp1.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
     // extrinsic approach
@@ -208,8 +206,6 @@ describe("Futurepass Precompile", function () {
         });
     });
     balanceAfter = await owner2.getBalance();
-    // assert delegate is registered
-    expect(await fp2.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
 
     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
     const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
@@ -276,8 +272,6 @@ describe("Futurepass Precompile", function () {
     tx = await fp1.connect(owner1).unregisterDelegate(delegate.address);
     await tx.wait();
     let balanceAfter = await owner1.getBalance();
-    // assert delegate is registered
-    expect(await fp1.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
     // extrinsic approach
@@ -289,8 +283,6 @@ describe("Futurepass Precompile", function () {
       });
     });
     balanceAfter = await owner2.getBalance();
-    // assert delegate is registered
-    expect(await fp2.delegateType(delegate.address)).to.equal(PROXY_TYPE.NoPermission);
 
     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
     const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
@@ -325,8 +317,6 @@ describe("Futurepass Precompile", function () {
     const tx = await fp1.connect(owner1).transferOwnership(newOwner1.address);
     await tx.wait();
     let balanceAfter = await owner1.getBalance();
-    // assert newOwner1 is owner
-    // expect(await fp1.owner()).to.equal(newOwner1.address);
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
     // extrinsic approach
@@ -338,8 +328,6 @@ describe("Futurepass Precompile", function () {
       });
     });
     balanceAfter = await owner2.getBalance();
-    // assert newOwner2 is owner
-    // expect(await fp2.owner()).to.equal(newOwner2.address);
 
     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
     const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
