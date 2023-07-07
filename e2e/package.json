@@ -8,7 +8,7 @@
     "clean": "hardhat clean && rm -rf ./cache && hardhat typechain",
     "format": "prettier --check --config ./.prettierrc.yml \"**/*.{js,json,ts}\"",
     "format:fix": "prettier --config ./.prettierrc.yml --write \"**/*.{js,json,ts}\"",
-    "lint": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts .",
+    "lint": "eslint --config ./.eslintrc.yml --ignore-path ./.eslintignore --ext .js,.ts . --quiet",
     "test": "hardhat test",
     "seed": "docker-compose up && docker-compose rm -fsv"
   },
