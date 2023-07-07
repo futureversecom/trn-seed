@@ -54,7 +54,7 @@ describe("ERC1155 Gas Estimates", function () {
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
 
-    // Create SFT collection, bob is collection owner
+    // Create SFT collection, alice is collection owner
     collectionId = await api.query.nft.nextCollectionId();
     const erc1155PrecompileAddress = getSftCollectionPrecompileAddress(+collectionId);
 
@@ -69,9 +69,10 @@ describe("ERC1155 Gas Estimates", function () {
     // Create precompiles contract
     erc1155Precompile = new Contract(erc1155PrecompileAddress, ERC1155_PRECOMPILE_ABI, alithSigner);
 
+    // create token 1
     const tokenName = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("MyToken"));
-    const tx2 = await erc1155Precompile.connect(alithSigner).createToken(tokenName, 1000, 0, alithSigner.address);
-    await tx2.wait();
+    const tx1 = await erc1155Precompile.connect(alithSigner).createToken(tokenName, 1000, 0, alithSigner.address);
+    await tx1.wait();
 
     // Deploy OpenZeppelin ERC1155 contract
     const factory = new ethers.ContractFactory(ERC1155Data.abi, ERC1155Data.bytecode, alithSigner);
@@ -203,7 +204,7 @@ describe("ERC1155 Gas Estimates", function () {
     // Perform extrinsic call and calculate gas based on difference in balance
     balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
-      api.tx.sft.transfer(collectionId, [[0, 10]], bobSigner.address).signAndSend(alith, ({ status }) => {
+      api.tx.sft.transfer(collectionId, [[1, 11]], bobSigner.address).signAndSend(alith, ({ status }) => {
         if (status.isInBlock) resolve();
       });
     });
@@ -213,6 +214,7 @@ describe("ERC1155 Gas Estimates", function () {
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs
     allCosts["safeTransferFrom"] = {
@@ -268,6 +270,7 @@ describe("ERC1155 Gas Estimates", function () {
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs with gas info
     allCosts["safeBatchTransferFrom"] = {
@@ -312,6 +315,7 @@ describe("ERC1155 Gas Estimates", function () {
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs
     allCosts["mint"] = {
@@ -365,6 +369,7 @@ describe("ERC1155 Gas Estimates", function () {
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs
     allCosts["mintBatch"] = {
@@ -405,6 +410,7 @@ describe("ERC1155 Gas Estimates", function () {
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs
     allCosts["burn"] = {
@@ -452,6 +458,7 @@ describe("ERC1155 Gas Estimates", function () {
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs
     allCosts["burnBatch"] = {
