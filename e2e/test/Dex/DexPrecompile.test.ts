@@ -157,24 +157,7 @@ describe("DEX Precompile", function () {
     //expect((receipt?.events as any)[0].args.amount0).to.equal(res.amountA);
     //expect((receipt?.events as any)[0].args.amount1).to.equal(res.amountB);
 
-    const pairAddress = await uniswapV2Factory.getPair(alpha.address, beta.address);
-    const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
-    const lpBalance = await lpToken.balanceOf(owner.address);
-    expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
-
     // add liquidity via precompile
-    const gasEstimated = await dexPrecompile
-      .connect(alithSigner)
-      .estimateGas.addLiquidity(
-        assetIdToERC20ContractAddress(TOKEN_ID_1),
-        assetIdToERC20ContractAddress(TOKEN_ID_2),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("250").toString(),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("250").toString(),
-        alithSigner.address,
-        20000,
-      );
     const precompileAddLiquidityRes = await dexPrecompile
       .connect(alithSigner)
       .callStatic.addLiquidity(
@@ -186,9 +169,6 @@ describe("DEX Precompile", function () {
         utils.parseEther("250").toString(),
         alithSigner.address,
         20000,
-        {
-          gasLimit: gasEstimated,
-        },
       );
     tx = await dexPrecompile
       .connect(alithSigner)
@@ -201,28 +181,37 @@ describe("DEX Precompile", function () {
         utils.parseEther("250").toString(),
         alithSigner.address,
         20000,
-        {
-          gasLimit: gasEstimated,
-        },
       );
     await tx.wait();
 
-    //console.log("dex events: ", receiptSub?.events);
     // check events
     //expect((receiptSub?.events as any)[0].event).to.equal("Mint");
     //expect((receiptSub?.events as any)[0].args.sender).to.equal(alithSigner.address);
     //expect((receiptSub?.events as any)[0].args.amount0).to.equal(contractAddLiquidityRes.amountA);
     //expect((receiptSub?.events as any)[0].args.amount1).to.equal(contractAddLiquidityRes.amountB);
 
+    // verify the results on chain
+    const pairAddress = await uniswapV2Factory.getPair(alpha.address, beta.address);
+    const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
+    const lpBalance = await lpToken.balanceOf(owner.address);
+    const alphaBalance = await alpha.balanceOf(owner.address);
+    const betaBalance = await beta.balanceOf(owner.address);
     const lpTokenSubstrate: any = (await api.query.dex.tradingPairLPToken([TOKEN_ID_1, TOKEN_ID_2])).toJSON();
-    const lpAccountSubstrate: any = (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON();
-    const lpBalanceSubstrate = lpAccountSubstrate.balance;
-    expect(lpBalanceSubstrate).to.eq(BigNumber.from("499999999999999999000"));
+    const lpBalanceSubstrate: any = (
+      (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON() as any
+    ).balance;
+    const alphaBalanceSubstrate: any = (
+      (await api.query.assets.account(TOKEN_ID_1, alithSigner.address)).toJSON() as any
+    ).balance;
+    const betaBalanceSubstrate: any = (
+      (await api.query.assets.account(TOKEN_ID_2, alithSigner.address)).toJSON() as any
+    ).balance;
 
-    // the two results should be equaled
     expect(contractAddLiquidityRes.amountA).to.eq(precompileAddLiquidityRes.amountA);
     expect(contractAddLiquidityRes.amountB).to.eq(precompileAddLiquidityRes.amountB);
     expect(contractAddLiquidityRes.liquidity).to.eq(precompileAddLiquidityRes.liquidity);
+    expect(alphaBalance).to.eq(alphaBalanceSubstrate);
+    expect(betaBalance).to.eq(betaBalanceSubstrate);
     expect(lpBalance).to.eq(lpBalanceSubstrate);
   });
 
@@ -230,8 +219,6 @@ describe("DEX Precompile", function () {
   it("removeLiquidity", async () => {
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, beta.address);
     const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
-    const lpBalance = await lpToken.balanceOf(owner.address);
-    expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
 
     // allow owner to send funds to router - this is required to burn LP tokens which removes liquidity
     await lpToken.connect(owner).approve(uniswapV2Router02.address, utils.parseEther("10000000"));
@@ -262,22 +249,6 @@ describe("DEX Precompile", function () {
       );
     await tx.wait();
 
-    // verify the results on chain
-    expect(await lpToken.balanceOf(owner.address)).to.eq(BigNumber.from("399999999999999999000"));
-    expect(await alpha.balanceOf(owner.address)).to.eq(BigNumber.from("9999200000000000000000000"));
-    expect(await beta.balanceOf(owner.address)).to.eq(BigNumber.from("9999800000000000000000000"));
-
-    const gasEstimated = await dexPrecompile
-      .connect(alithSigner)
-      .estimateGas.removeLiquidity(
-        assetIdToERC20ContractAddress(TOKEN_ID_1),
-        assetIdToERC20ContractAddress(TOKEN_ID_2),
-        utils.parseEther("100").toString(),
-        0,
-        0,
-        alithSigner.address,
-        20000,
-      );
     const precompileRemoveLiquidityRes = await dexPrecompile
       .connect(alithSigner)
       .callStatic.removeLiquidity(
@@ -288,9 +259,6 @@ describe("DEX Precompile", function () {
         0,
         alithSigner.address,
         20000,
-        {
-          gasLimit: gasEstimated,
-        },
       );
     tx = await dexPrecompile
       .connect(alithSigner)
@@ -302,23 +270,29 @@ describe("DEX Precompile", function () {
         0,
         alithSigner.address,
         20000,
-        {
-          gasLimit: gasEstimated,
-        },
       );
     await tx.wait();
 
     // verify the results on chain
+    const lpBalance = await lpToken.balanceOf(owner.address);
+    const alphaBalance = await alpha.balanceOf(owner.address);
+    const betaBalance = await beta.balanceOf(owner.address);
     const lpTokenSubstrate: any = (await api.query.dex.tradingPairLPToken([TOKEN_ID_1, TOKEN_ID_2])).toJSON();
-    const lpAccountSubstrate: any = (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON();
-    const alphaAccountSubstrate: any = (await api.query.assets.account(TOKEN_ID_1, alithSigner.address)).toJSON();
-    const betaAccountSubstrate: any = (await api.query.assets.account(TOKEN_ID_2, alithSigner.address)).toJSON();
-    expect(lpAccountSubstrate.balance).to.eq(BigNumber.from("399999999999999999000"));
-    expect(alphaAccountSubstrate.balance).to.eq(BigNumber.from("9999200000000000000000000"));
-    expect(betaAccountSubstrate.balance).to.eq(BigNumber.from("9999800000000000000000000"));
+    const lpBalanceSubstrate: any = (
+      (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON() as any
+    ).balance;
+    const alphaBalanceSubstrate: any = (
+      (await api.query.assets.account(TOKEN_ID_1, alithSigner.address)).toJSON() as any
+    ).balance;
+    const betaBalanceSubstrate: any = (
+      (await api.query.assets.account(TOKEN_ID_2, alithSigner.address)).toJSON() as any
+    ).balance;
 
     expect(contractRemoveLiquidityRes.amountA).to.eq(precompileRemoveLiquidityRes.amountA);
     expect(contractRemoveLiquidityRes.amountB).to.eq(precompileRemoveLiquidityRes.amountB);
+    expect(alphaBalance).to.eq(alphaBalanceSubstrate);
+    expect(betaBalance).to.eq(betaBalanceSubstrate);
+    expect(lpBalance).to.eq(lpBalanceSubstrate);
   });
 
   // dependent on 'addLiquidity' test
@@ -570,26 +544,13 @@ describe("DEX Precompile", function () {
     expect(contractSwapTokensRes[1]).to.eq(precompileSwapTokensRes[1]);
   });
 
-  it.skip("addLiquidityETH", async () => {
-    // add liquidity on uniswap
+  it("addLiquidityETH", async () => {
+    await alpha.connect(owner).approve(uniswapV2Router02.address, utils.parseEther("10000000"));
+    await beta.connect(owner).approve(uniswapV2Router02.address, utils.parseEther("10000000"));
 
-    const gasEstimated = await uniswapV2Router02
-      .connect(owner)
-      .estimateGas.addLiquidityETH(
-        alpha.address,
-        utils.parseEther("1000").toString(),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("250").toString(),
-        owner.address,
-        ethers.constants.MaxUint256,
-        {
-          value: utils.parseEther("250"),
-        },
-      );
+    let tx;
 
-    console.log("Add liquidity eth gas: ", gasEstimated);
-
-    const res = await uniswapV2Router02
+    const contractAddLiquidityEthRes = await uniswapV2Router02
       .connect(owner)
       .callStatic.addLiquidityETH(
         alpha.address,
@@ -599,14 +560,10 @@ describe("DEX Precompile", function () {
         owner.address,
         ethers.constants.MaxUint256,
         {
-          gasLimit: gasEstimated,
           value: utils.parseEther("250"),
         },
       );
-
-    console.log("Add liquidity eth result from uniswap call: ", res);
-
-    await uniswapV2Router02
+    tx = await uniswapV2Router02
       .connect(owner)
       .addLiquidityETH(
         alpha.address,
@@ -616,90 +573,79 @@ describe("DEX Precompile", function () {
         owner.address,
         ethers.constants.MaxUint256,
         {
-          gasLimit: gasEstimated,
           value: utils.parseEther("250"),
         },
       );
+    await tx.wait();
 
+    // TODO check events
+
+    // add liquidity via precompile
+    const precompileAddLiquidityEthRes = await dexPrecompile
+      .connect(alithSigner)
+      .callStatic.addLiquidityETH(
+        assetIdToERC20ContractAddress(TOKEN_ID_1),
+        utils.parseEther("1000").toString(),
+        utils.parseEther("1000").toString(),
+        utils.parseEther("250").toString(),
+        alithSigner.address,
+        20000,
+        {
+          value: utils.parseEther("250"),
+        },
+      );
+    tx = await dexPrecompile
+      .connect(alithSigner)
+      .addLiquidityETH(
+        assetIdToERC20ContractAddress(TOKEN_ID_1),
+        utils.parseEther("1000").toString(),
+        utils.parseEther("1000").toString(),
+        utils.parseEther("250").toString(),
+        alithSigner.address,
+        20000,
+        {
+          value: utils.parseEther("250"),
+        },
+      );
+    await tx.wait();
+
+    // TODO check events
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
     const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
     const lpBalance = await lpToken.balanceOf(owner.address);
-    expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
+    const alphaBalance = await alpha.balanceOf(owner.address);
+    // const ethBalance = await owner.getBalance();
+    const alphaBalanceSubstrate: any = (
+      (await api.query.assets.account(TOKEN_ID_1, alithSigner.address)).toJSON() as any
+    ).balance;
+    // const ethBalanceSubstrate: any = (
+    //   (await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any
+    // ).balance;
+    const lpTokenSubstrate: any = (await api.query.dex.tradingPairLPToken([GAS_TOKEN_ID, TOKEN_ID_1])).toJSON();
+    const lpBalanceSubstrate: any = (
+      (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON() as any
+    ).balance;
 
-    // add liquidity via precompile
-    const gasEstimatedPrecompile = await dexPrecompile
-      .connect(alithSigner)
-      .estimateGas.addLiquidityETH(
-        assetIdToERC20ContractAddress(TOKEN_ID_1),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("250").toString(),
-        alithSigner.address,
-        20000,
-        {
-          value: utils.parseEther("250"),
-        },
-      );
-
-    console.log("Add liquidity gas: ", gasEstimatedPrecompile);
-
-    const resPrecompile = await dexPrecompile
-      .connect(alithSigner)
-      .callStatic.addLiquidityETH(
-        assetIdToERC20ContractAddress(TOKEN_ID_1),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("250").toString(),
-        alithSigner.address,
-        20000,
-        {
-          gasLimit: gasEstimatedPrecompile,
-          value: utils.parseEther("250"),
-        },
-      );
-
-    console.log("Add liquidity result from precompile: ", resPrecompile);
-
-    const addLiquidityETH = await dexPrecompile
-      .connect(alithSigner)
-      .addLiquidityETH(
-        assetIdToERC20ContractAddress(TOKEN_ID_1),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("1000").toString(),
-        utils.parseEther("250").toString(),
-        alithSigner.address,
-        20000,
-        {
-          gasLimit: gasEstimatedPrecompile,
-          value: utils.parseEther("250"),
-        },
-      );
-
-    await addLiquidityETH.wait();
-
-    const lpTokenSubstrate: any = (await api.query.dex.tradingPairLPToken([TOKEN_ID_1, TOKEN_ID_2])).toJSON();
-    const lpAccountSubstrate: any = (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON();
-    const lpBalanceSubstrate = lpAccountSubstrate.balance;
-    expect(lpBalanceSubstrate).to.eq(BigNumber.from("499999999999999999000"));
-
-    // the two results should be equaled
-    expect(res.amountToken).to.eq(resPrecompile.amountToken);
-    expect(res.amountETH).to.eq(resPrecompile.amountETH);
-    expect(res.liquidity).to.eq(resPrecompile.liquidity);
+    // validate results
+    expect(contractAddLiquidityEthRes.amountToken).to.eq(precompileAddLiquidityEthRes.amountToken);
+    expect(contractAddLiquidityEthRes.amountETH).to.eq(precompileAddLiquidityEthRes.amountETH);
+    expect(contractAddLiquidityEthRes.liquidity).to.eq(precompileAddLiquidityEthRes.liquidity);
+    expect(alphaBalance).to.eq(alphaBalanceSubstrate);
+    // expect(ethBalance).to.eq(ethBalanceSubstrate);
     expect(lpBalance).to.eq(lpBalanceSubstrate);
   });
 
-  it.skip("removeLiquidityETH", async () => {
-    // remove liquidity on uniswap
+  // dependent on 'addLiquidityETH' test
+  it("removeLiquidityETH", async () => {
     const pairAddress = await uniswapV2Factory.getPair(alpha.address, weth.address);
     const lpToken: MockERC20 = await ethers.getContractAt("MockERC20", pairAddress);
-    const lpBalance = await lpToken.balanceOf(owner.address);
-    expect(lpBalance).to.eq(BigNumber.from("499999999999999999000"));
 
     // allow user to send funds to router - this is required to burn LP tokens which removes liquidity
     await lpToken.connect(owner).approve(uniswapV2Router02.address, utils.parseEther("10000000"));
 
-    const res = await uniswapV2Router02
+    let tx;
+
+    const contractRemoveLiquidityEthRes = await uniswapV2Router02
       .connect(owner)
       .callStatic.removeLiquidityETH(
         alpha.address,
@@ -709,11 +655,7 @@ describe("DEX Precompile", function () {
         owner.address,
         ethers.constants.MaxUint256,
       );
-
-    console.log("Remove liquidity eth result from uniswap call: ", res);
-
-    // run the function on blockchain
-    await uniswapV2Router02
+    tx = await uniswapV2Router02
       .connect(owner)
       .removeLiquidityETH(
         alpha.address,
@@ -723,22 +665,11 @@ describe("DEX Precompile", function () {
         owner.address,
         ethers.constants.MaxUint256,
       );
+    await tx.wait();
 
-    // remove liquidity eth via precompile
-    const gasEstimated = await dexPrecompile
-      .connect(alithSigner)
-      .estimateGas.removeLiquidityETH(
-        assetIdToERC20ContractAddress(TOKEN_ID_1),
-        utils.parseEther("100").toString(),
-        0,
-        0,
-        alithSigner.address,
-        20000,
-      );
+    // TODO check events
 
-    console.log("Remove liquidity gas: ", gasEstimated);
-
-    const resPrecompile = await dexPrecompile
+    const precompileRemoveLiquidityEthRes = await dexPrecompile
       .connect(alithSigner)
       .callStatic.removeLiquidityETH(
         assetIdToERC20ContractAddress(TOKEN_ID_1),
@@ -747,14 +678,8 @@ describe("DEX Precompile", function () {
         0,
         alithSigner.address,
         20000,
-        {
-          gasLimit: gasEstimated,
-        },
       );
-
-    console.log("Add liquidity result from precompile: ", resPrecompile);
-
-    const removeLiquidity = await dexPrecompile
+    tx = await dexPrecompile
       .connect(alithSigner)
       .removeLiquidityETH(
         assetIdToERC20ContractAddress(TOKEN_ID_1),
@@ -763,16 +688,32 @@ describe("DEX Precompile", function () {
         0,
         alithSigner.address,
         20000,
-        {
-          gasLimit: gasEstimated,
-        },
       );
+    await tx.wait();
 
-    await removeLiquidity.wait();
+    // TODO check events
 
-    // the two results should be equaled
-    expect(res.amountToken).to.eq(resPrecompile.amountToken);
-    expect(res.amountETH).to.eq(resPrecompile.amountETH);
+    // verify the results on chain
+    const lpBalance = await lpToken.balanceOf(owner.address);
+    const alphaBalance = await alpha.balanceOf(owner.address);
+    // const ethBalance = await owner.getBalance();
+    const lpTokenSubstrate: any = (await api.query.dex.tradingPairLPToken([GAS_TOKEN_ID, TOKEN_ID_1])).toJSON();
+    const lpBalanceSubstrate: any = (
+      (await api.query.assets.account(lpTokenSubstrate, alithSigner.address)).toJSON() as any
+    ).balance;
+    const alphaBalanceSubstrate: any = (
+      (await api.query.assets.account(TOKEN_ID_1, alithSigner.address)).toJSON() as any
+    ).balance;
+    // const ethBalanceSubstrate: any = (
+    //   (await api.query.assets.account(GAS_TOKEN_ID, alithSigner.address)).toJSON() as any
+    // ).balance;
+
+    // validate results
+    expect(contractRemoveLiquidityEthRes.amountToken).to.eq(precompileRemoveLiquidityEthRes.amountToken);
+    expect(contractRemoveLiquidityEthRes.amountETH).to.eq(precompileRemoveLiquidityEthRes.amountETH);
+    expect(alphaBalance).to.eq(alphaBalanceSubstrate);
+    // expect(ethBalance).to.eq(ethBalanceSubstrate);
+    expect(lpBalance).to.eq(lpBalanceSubstrate);
   });
 
   it.skip("swapExactTokensForETH", async () => {
