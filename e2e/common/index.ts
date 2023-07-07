@@ -535,7 +535,7 @@ export async function getScaledGasForExtrinsicFee(provider: JsonRpcProvider, fee
  * @param value
  */
 export function weiTo6DP(value: BigNumber) {
-  let quotient = value.div(1000000000000n);
+  const quotient = value.div(1000000000000n);
   const remainder = value.mod(1000000000000n);
 
   if (remainder.isZero()) {
