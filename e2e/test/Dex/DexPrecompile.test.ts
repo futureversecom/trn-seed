@@ -723,19 +723,20 @@ describe("DEX Precompile", function () {
     const ethBalanceBefore = await user.getBalance();
 
     // check amount of tokens retrievable
+    const amountInAlpha = utils.parseEther("100");
     const [, ethAmountOut] = await uniswapV2Router02
       .connect(user)
-      .getAmountsOut(utils.parseEther("100"), [alpha.address, weth.address]);
+      .getAmountsOut(amountInAlpha, [alpha.address, weth.address]);
 
     // mint some tokens to user
-    await alpha.mint(user.address, utils.parseEther("100"));
+    await alpha.mint(user.address, amountInAlpha);
 
     let tx;
 
     const contractSwapTokensForEthRes = await uniswapV2Router02
       .connect(user)
       .callStatic.swapExactTokensForETH(
-        utils.parseEther("100"),
+        amountInAlpha,
         ethAmountOut,
         [alpha.address, weth.address],
         user.address,
@@ -744,7 +745,7 @@ describe("DEX Precompile", function () {
     tx = await uniswapV2Router02
       .connect(user)
       .swapExactTokensForETH(
-        utils.parseEther("100"),
+        amountInAlpha,
         ethAmountOut,
         [alpha.address, weth.address],
         user.address,
