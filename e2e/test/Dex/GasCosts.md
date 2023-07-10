@@ -8,5 +8,5 @@
 | swapTokensForExactTokens |    163647    |     53838      |     25008     |
 | quote                    |    23716     |     22377      |       0       |
 | getAmountOut             |    26047     |     22447      |       0       |
-| getAmountsOut            |    43843     |     26468      |       0       |
-| getAmountsIn             |    44058     |     26465      |       0       |
+| getAmountsOut            |    43843     |     42619      |       0       |
+| getAmountsIn             |    44058     |     42611      |       0       |

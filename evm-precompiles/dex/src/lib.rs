@@ -930,7 +930,7 @@ where
 			path_assets.push(asset_id);
 		}
 		handle.record_cost(
-			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3 * path_len),
+			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3 * path_len).saturating_mul(4),
 		)?;
 
 		match pallet_dex::Pallet::<Runtime>::get_amounts_out(
@@ -967,7 +967,7 @@ where
 			path_assets.push(asset_id);
 		}
 		handle.record_cost(
-			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3 * path_len),
+			RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3 * path_len).saturating_mul(4),
 		)?;
 
 		match pallet_dex::Pallet::<Runtime>::get_amounts_in(
