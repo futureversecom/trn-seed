@@ -4690,6 +4690,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-assets",
  "pallet-balances",
  "pallet-evm",
@@ -5384,6 +5385,7 @@ dependencies = [
 name = "pallet-nft"
 version = "2.2.0"
 dependencies = [
+ "env_logger 0.10.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

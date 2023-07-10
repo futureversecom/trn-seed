@@ -12,8 +12,8 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, AssetsExt, Event as MockEvent, MaxTokensPerCollection,
-		NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
+		create_account, has_event, Assets, AssetsExt, Event as MockEvent, FeePotId,
+		MaxTokensPerCollection, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 	},
 	Event as NftEvent,
 };
@@ -663,8 +663,10 @@ fn burn_fails_prechecks() {
 
 #[test]
 fn sell() {
+	env_logger::init();
+
 	let buyer = create_account(3);
-	let initial_balance = 1_000;
+	let initial_balance = 11111_225;
 
 	TestExt::default()
 		.with_balances(&[(buyer, initial_balance)])
@@ -717,6 +719,13 @@ fn sell() {
 				Nft::token_balance_of(&buyer, collection_id),
 				serial_numbers.len() as TokenCount
 			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			log::info!("Now checking account {:?}", fee_pot_account.0);
+
+			// assert_eq!(Assets::balance(NativeAssetId::get(), fee_pot_account), 100000)
+			assert_eq!(Assets::balance(1, fee_pot_account), 995)
 		})
 }
 

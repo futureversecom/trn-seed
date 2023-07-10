@@ -24,6 +24,7 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
+use core::ops::Mul;
 use frame_support::{
 	ensure,
 	traits::{tokens::fungibles::Mutate, Get},
@@ -41,7 +42,6 @@ use sp_runtime::{
 	DispatchResult, PerThing, Permill,
 };
 use sp_std::prelude::*;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -111,6 +111,9 @@ pub mod pallet {
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		// The account which collects funds(aka the index fund)
+		#[pallet::constant]
+		type TxFeePotId: Get<PalletId>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
@@ -123,6 +126,8 @@ pub mod pallet {
 			+ Mutate<Self::AccountId, AssetId = AssetId>
 			+ CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>;
+		// Percentage of sale price to charge for network fee
+		type NetworkFeePercentage: Get<Permill>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -757,11 +762,26 @@ pub mod pallet {
 
 				Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
 
-				let payouts = Self::calculate_royalty_payouts(
+				let mut payouts = Self::calculate_royalty_payouts(
 					listing.seller.clone(),
 					listing.royalties_schedule,
 					listing.fixed_price,
 				);
+
+				let amount_in_percentage = T::NetworkFeePercentage::get().mul(listing.fixed_price);
+				log::info!(
+					"Taking out percentage {:?} which is {:?}, all out of the original number: {:?}",
+					T::NetworkFeePercentage::get(),
+					amount_in_percentage,
+					listing.fixed_price
+				);
+				let network_fee = listing.fixed_price - amount_in_percentage;
+
+				let acct_debug: T::AccountId = T::TxFeePotId::get().into_account_truncating();
+
+				log::info!("Now pushing payee: {:?}, amount: {:?}", acct_debug, network_fee);
+
+				payouts.push((T::TxFeePotId::get().into_account_truncating(), network_fee));
 				// Make split transfer
 				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
 
