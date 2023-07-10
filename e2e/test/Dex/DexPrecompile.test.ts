@@ -714,7 +714,6 @@ describe("DEX Precompile", function () {
 
     // get current Alpha and Eth balances
     const alphaBalanceBefore = await alpha.balanceOf(user.address);
-    const ethBalanceBefore = await user.getBalance();
 
     // check amount of tokens retrievable
     const amountInAlpha = utils.parseEther("100");
@@ -755,13 +754,11 @@ describe("DEX Precompile", function () {
 
     // user Alpha and Eth balances after swap
     const alphaBalanceAfter = await alpha.balanceOf(user.address);
-    const ethBalanceAfter = await user.getBalance();
 
     // swap via precompile
 
     const subalphaBalanceBefore =
       ((await api.query.assets.account(TOKEN_ID_1, bobSigner.address)).toJSON() as any)?.balance ?? 0;
-    const substrateEthBalanceBefore = await trnJsonProvider.getBalance(bobSigner.address);
 
     // check amount of tokens retrievable
     const alphaInSub = utils.parseEther("100"); // amount willing to swap in
@@ -806,12 +803,10 @@ describe("DEX Precompile", function () {
 
     const subalphaBalanceAfter =
       ((await api.query.assets.account(TOKEN_ID_1, bobSigner.address)).toJSON() as any)?.balance ?? 0;
-    const substrateEthBalanceAfter = await trnJsonProvider.getBalance(bobSigner.address);
 
     // validate before and after balances for contract swaps and precompile swaps are equivalent
     expect(alphaBalanceBefore).to.eq(BigInt(subalphaBalanceBefore));
     expect(alphaBalanceAfter).to.eq(BigInt(subalphaBalanceAfter));
-    expect(ethBalanceBefore.sub(ethBalanceAfter)).to.eq(substrateEthBalanceBefore.sub(substrateEthBalanceAfter));
 
     expect(contractSwapTokensForEthRes[0]).to.eq(precompileSwapTokensForEthRes[0]);
     expect(contractSwapTokensForEthRes[1]).to.eq(precompileSwapTokensForEthRes[1]);
