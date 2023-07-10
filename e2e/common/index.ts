@@ -272,8 +272,10 @@ interface EventMatchers {
 /**
  * gets the next asset id - to be created by `assetsExt.createAsset`
  */
-export const getNextAssetId = async (api: ApiPromise): Promise<number> => {
-  const nextAssetId = (await api.query.assetsExt.nextAssetId()).toString();
+export const getNextAssetId = async (api: ApiPromise, nextAssetId?: string | number): Promise<number> => {
+  if (!nextAssetId) {
+    nextAssetId = (await api.query.assetsExt.nextAssetId()).toString();
+  }
   const nextAssetIdBin = (+nextAssetId).toString(2).padStart(22, "0");
   const parachainIdBin = (100).toString(2).padStart(10, "0");
   const nextAssetUuid = parseInt(nextAssetIdBin + parachainIdBin, 2);
