@@ -17,7 +17,7 @@ use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_dex::WeightInfo;
 use pallet_evm::{GasWeightMapping, Precompile};
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid};
+use seed_primitives::{AccountId, AssetId, Balance, BlockNumber, CollectionUuid};
 use sp_core::{H160, H256, U256};
 use sp_runtime::SaturatedConversion;
 use sp_std::{marker::PhantomData, vec::Vec};
@@ -207,8 +207,10 @@ where
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
+		let pair: AccountId =
+			pallet_dex::types::TradingPair::new(asset_id_a, asset_id_b).pool_address();
 		log3(
-			handle.code_address(),
+			<H160 as Into<Address>>::into(pair.into()),
 			SELECTOR_LOG_MINT,
 			caller.into(),
 			H256::from_slice(&EvmDataWriter::new().write(amount_0).build()),
@@ -267,8 +269,10 @@ where
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
+		let pair: AccountId =
+			pallet_dex::types::TradingPair::new(GAS_TOKEN_ID, asset_id_a).pool_address();
 		log3(
-			handle.code_address(),
+			<H160 as Into<Address>>::into(pair.into()),
 			SELECTOR_LOG_MINT,
 			caller.into(),
 			H256::from_slice(&EvmDataWriter::new().write(amount_0).build()),
@@ -334,8 +338,10 @@ where
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
+		let pair: AccountId =
+			pallet_dex::types::TradingPair::new(asset_id_a, asset_id_b).pool_address();
 		log4(
-			handle.code_address(),
+			<H160 as Into<Address>>::into(pair.into()),
 			SELECTOR_LOG_BURN,
 			caller.into(),
 			H256::from_slice(&EvmDataWriter::new().write(amount_0).build()),
@@ -390,8 +396,10 @@ where
 		)
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
+		let pair: AccountId =
+			pallet_dex::types::TradingPair::new(GAS_TOKEN_ID, asset_id_a).pool_address();
 		log4(
-			handle.code_address(),
+			<H160 as Into<Address>>::into(pair.into()),
 			SELECTOR_LOG_BURN,
 			caller.into(),
 			H256::from_slice(&EvmDataWriter::new().write(amount_0).build()),
@@ -447,9 +455,16 @@ where
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
 		handle.record_log_costs_manual(4 * swap_res.len(), 32)?;
-		for (amount_0_in, amount_1_in, amount_0_out, amount_1_out) in swap_res {
+		for (asset_index, (amount_0_in, amount_1_in, amount_0_out, amount_1_out)) in
+			swap_res.into_iter().enumerate()
+		{
+			let pair: AccountId = pallet_dex::types::TradingPair::new(
+				path_assets[asset_index],
+				path_assets[asset_index + 1],
+			)
+			.pool_address();
 			log4(
-				handle.code_address(),
+				<H160 as Into<Address>>::into(pair.into()),
 				SELECTOR_LOG_SWAP,
 				caller.clone().into(),
 				H256::from_slice(&EvmDataWriter::new().write(amount_0_in).build()),
@@ -510,9 +525,16 @@ where
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
 		handle.record_log_costs_manual(4 * swap_res.len(), 32)?;
-		for (amount_0_in, amount_1_in, amount_0_out, amount_1_out) in swap_res {
+		for (asset_index, (amount_0_in, amount_1_in, amount_0_out, amount_1_out)) in
+			swap_res.into_iter().enumerate()
+		{
+			let pair: AccountId = pallet_dex::types::TradingPair::new(
+				path_assets[asset_index],
+				path_assets[asset_index + 1],
+			)
+			.pool_address();
 			log4(
-				handle.code_address(),
+				<H160 as Into<Address>>::into(pair.into()),
 				SELECTOR_LOG_SWAP,
 				caller.clone().into(),
 				H256::from_slice(&EvmDataWriter::new().write(amount_0_in).build()),
@@ -572,9 +594,16 @@ where
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
 		handle.record_log_costs_manual(4 * swap_res.len(), 32)?;
-		for (amount_0_in, amount_1_in, amount_0_out, amount_1_out) in swap_res {
+		for (asset_index, (amount_0_in, amount_1_in, amount_0_out, amount_1_out)) in
+			swap_res.into_iter().enumerate()
+		{
+			let pair: AccountId = pallet_dex::types::TradingPair::new(
+				path_assets[asset_index],
+				path_assets[asset_index + 1],
+			)
+			.pool_address();
 			log4(
-				handle.code_address(),
+				<H160 as Into<Address>>::into(pair.into()),
 				SELECTOR_LOG_SWAP,
 				caller.clone().into(),
 				H256::from_slice(&EvmDataWriter::new().write(amount_0_in).build()),
@@ -635,9 +664,16 @@ where
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
 		handle.record_log_costs_manual(4 * swap_res.len(), 32)?;
-		for (amount_0_in, amount_1_in, amount_0_out, amount_1_out) in swap_res {
+		for (asset_index, (amount_0_in, amount_1_in, amount_0_out, amount_1_out)) in
+			swap_res.into_iter().enumerate()
+		{
+			let pair: AccountId = pallet_dex::types::TradingPair::new(
+				path_assets[asset_index],
+				path_assets[asset_index + 1],
+			)
+			.pool_address();
 			log4(
-				handle.code_address(),
+				<H160 as Into<Address>>::into(pair.into()),
 				SELECTOR_LOG_SWAP,
 				caller.clone().into(),
 				H256::from_slice(&EvmDataWriter::new().write(amount_0_in).build()),
@@ -698,9 +734,16 @@ where
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
 		handle.record_log_costs_manual(4 * swap_res.len(), 32)?;
-		for (amount_0_in, amount_1_in, amount_0_out, amount_1_out) in swap_res {
+		for (asset_index, (amount_0_in, amount_1_in, amount_0_out, amount_1_out)) in
+			swap_res.into_iter().enumerate()
+		{
+			let pair: AccountId = pallet_dex::types::TradingPair::new(
+				path_assets[asset_index],
+				path_assets[asset_index + 1],
+			)
+			.pool_address();
 			log4(
-				handle.code_address(),
+				<H160 as Into<Address>>::into(pair.into()),
 				SELECTOR_LOG_SWAP,
 				caller.clone().into(),
 				H256::from_slice(&EvmDataWriter::new().write(amount_0_in).build()),
@@ -760,9 +803,16 @@ where
 		.map_err(|e| revert(alloc::format!("DEX: Dispatched call failed with error: {:?}", e)))?;
 
 		handle.record_log_costs_manual(4 * swap_res.len(), 32)?;
-		for (amount_0_in, amount_1_in, amount_0_out, amount_1_out) in swap_res {
+		for (asset_index, (amount_0_in, amount_1_in, amount_0_out, amount_1_out)) in
+			swap_res.into_iter().enumerate()
+		{
+			let pair: AccountId = pallet_dex::types::TradingPair::new(
+				path_assets[asset_index],
+				path_assets[asset_index + 1],
+			)
+			.pool_address();
 			log4(
-				handle.code_address(),
+				<H160 as Into<Address>>::into(pair.into()),
 				SELECTOR_LOG_SWAP,
 				caller.clone().into(),
 				H256::from_slice(&EvmDataWriter::new().write(amount_0_in).build()),
