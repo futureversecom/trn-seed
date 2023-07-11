@@ -87,7 +87,7 @@ jobs:
         run: "yarn hardhat compile"
 
       - name: "Test the contracts"
-        run: "yarn test"
+        run: "yarn test:parallel"
 
       - name: "Clean up docker images"
         run: "yes | docker image prune"
