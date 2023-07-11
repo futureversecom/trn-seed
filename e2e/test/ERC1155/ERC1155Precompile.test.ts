@@ -10,14 +10,12 @@ import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
   ERC1155_PRECOMPILE_ABI,
-  FUTUREPASS_PRECOMPILE_ABI,
   NodeProcess,
   SFT_PRECOMPILE_ABI,
   SFT_PRECOMPILE_ADDRESS,
-  getCollectionPrecompileAddress,
+  getSftCollectionPrecompileAddress,
   startNode,
   typedefs,
-  getSftCollectionPrecompileAddress,
 } from "../../common";
 
 // SFT Collection information
