@@ -205,7 +205,7 @@ pub mod pallet {
 	/// FeeTo account where network fees are deposited
 	#[pallet::storage]
 	#[pallet::getter(fn fee_to)]
-	pub type FeeTo<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn lp_token_id)]
@@ -244,12 +244,12 @@ pub mod pallet {
 		/// Set the `FeeTo` account. This operation requires root access.
 		/// - note: analogous to Uniswapv2 `setFeeTo`
 		///
-		/// - `fee_to`: the new account assigned to FeeTo.
+		/// - `fee_to`: the new account or None assigned to FeeTo.
 		#[pallet::weight(T::WeightInfo::swap_with_exact_supply())]
 		#[transactional]
 		pub fn set_fee_to(
 			origin: OriginFor<T>,
-			fee_to: T::AccountId,
+			fee_to: Option<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
