@@ -5,9 +5,9 @@
 | totalSupply   |    23717     |     22388      |             0             |
 | balanceOf     |    25860     |     23974      |             0             |
 | allowance     |    26064     |     23273      |             0             |
-| approval      |    47152     |     26359      |           19670           |
-| transfer      |    50730     |     23241      |           19672           |
-| transferFrom  |    54986     |     32411      |           22673           |
+| approval      |    47152     |     26359      |           19503           |
+| transfer      |    50730     |     23241      |           19505           |
+| transferFrom  |    35619     |     32411      |           22673           |
 | name          |    25926     |     22388      |             0             |
 | decimals      |    22354     |     22388      |             0             |
 | symbol        |    25945     |     22388      |             0             |
@@ -17,6 +17,6 @@
 
 | Function Call | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:--------------|:---------------------:|:-----------------------:|:----------------------:|
-| approval      |           0           |         790810          |         295052         |
-| transfer      |           0           |         697365          |         295088         |
-| transferFrom  |           0           |         972329          |         340107         |
+| approval      |        1414631        |         790810          |         292552         |
+| transfer      |        1521977        |         697365          |         292588         |
+| transferFrom  |        1068624        |         972329          |         340107         |

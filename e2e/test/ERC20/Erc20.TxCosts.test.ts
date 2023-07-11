@@ -140,12 +140,18 @@ describe("ERC20 Gas Estimates", function () {
     const precompileGasEstimate = await erc20Precompile
       .connect(alithSigner)
       .estimateGas.approve(bobSigner.address, amount);
-    // precompile call cost
+    // precompile fee cost
     let balanceBefore = await alithSigner.getBalance();
-    const tx = await erc20Precompile.connect(alithSigner).approve(bobSigner.address, amount);
+    let tx = await erc20Precompile.connect(alithSigner).approve(bobSigner.address, amount);
     await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc20Contract.connect(alithSigner).approve(bobSigner.address, amount, { gasLimit: contractGasEstimate });
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Extrinsic cost
     balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
@@ -168,7 +174,7 @@ describe("ERC20 Gas Estimates", function () {
       Extrinsic: extrinsicGasScaled,
     };
     allTxFeeCosts["approval"] = {
-      Contract: BigNumber.from(0), // no contract
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
@@ -185,12 +191,20 @@ describe("ERC20 Gas Estimates", function () {
     const precompileGasEstimate = await erc20Precompile
       .connect(alithSigner)
       .estimateGas.transfer(bobSigner.address, amount);
-    // precompile call cost
+    // precompile fee cost
     let balanceBefore = await alithSigner.getBalance();
-    const tx = await erc20Precompile.connect(alithSigner).transfer(bobSigner.address, amount);
+    let tx = await erc20Precompile.connect(alithSigner).transfer(bobSigner.address, amount);
     await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc20Contract
+      .connect(alithSigner)
+      .transfer(bobSigner.address, amount, { gasLimit: contractGasEstimate });
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Extrinsic cost
     balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
@@ -213,7 +227,7 @@ describe("ERC20 Gas Estimates", function () {
       Extrinsic: extrinsicGasScaled,
     };
     allTxFeeCosts["transfer"] = {
-      Contract: BigNumber.from(0), // no contract
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
@@ -238,12 +252,20 @@ describe("ERC20 Gas Estimates", function () {
     const precompileGasEstimate = await erc20Precompile
       .connect(bobSigner)
       .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount);
-    // precompile call cost
+    // precompile fee cost
     let balanceBefore = await bobSigner.getBalance();
     tx = await erc20Precompile.connect(bobSigner).transferFrom(alithSigner.address, bobSigner.address, amount / 2);
     await tx.wait();
     let balanceAfter = await bobSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await bobSigner.getBalance();
+    tx = await erc20Contract
+      .connect(bobSigner)
+      .transferFrom(alithSigner.address, bobSigner.address, amount, { gasLimit: contractGasEstimate });
+    await tx.wait();
+    balanceAfter = await bobSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Extrinsic cost
     balanceBefore = await bobSigner.getBalance();
     await new Promise<void>((resolve) => {
@@ -268,7 +290,7 @@ describe("ERC20 Gas Estimates", function () {
       Extrinsic: extrinsicGasScaled,
     };
     allTxFeeCosts["transferFrom"] = {
-      Contract: BigNumber.from(0), // no contract
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
