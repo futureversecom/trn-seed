@@ -663,8 +663,6 @@ fn burn_fails_prechecks() {
 
 #[test]
 fn sell() {
-	env_logger::init();
-
 	let buyer = create_account(3);
 	let initial_balance = 11111_225;
 
@@ -721,11 +719,6 @@ fn sell() {
 			);
 
 			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
-
-			log::info!("Now checking account {:?}", fee_pot_account.0);
-
-			// assert_eq!(Assets::balance(NativeAssetId::get(), fee_pot_account), 100000)
-			assert_eq!(Assets::balance(1, fee_pot_account), 995)
 		})
 }
 
@@ -1249,41 +1242,111 @@ fn buy() {
 	let buyer = create_account(5);
 	let price = 1_000;
 
-	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
-		let (collection_id, token_id, token_owner) = setup_token();
-		let buyer = create_account(5);
+	TestExt::default()
+		.with_balances(&[(buyer, price * 2)])
+		.build()
+		.execute_with(|| {
+			let (collection_id, token_id, token_owner) = setup_token();
+			let buyer = create_account(5);
 
-		let listing_id = Nft::next_listing_id();
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-			BoundedVec::try_from(vec![token_id.1]).unwrap();
-		assert_ok!(Nft::sell(
-			Some(token_owner).into(),
-			collection_id,
-			serial_numbers,
-			Some(buyer),
-			NativeAssetId::get(),
-			price,
-			None,
-			None
-		));
+			let listing_id = Nft::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Nft::sell(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				NativeAssetId::get(),
+				price,
+				None,
+				None
+			));
 
-		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
-		// no royalties, all proceeds to token owner
-		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false), price);
+			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+			// no royalties, all proceeds to token owner
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+				price
+			);
 
-		// listing removed
-		assert!(Listings::<Test>::get(listing_id).is_none());
-		assert!(Nft::listing_end_schedule(
-			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-			listing_id
-		)
-		.is_none());
+			// listing removed
+			assert!(Listings::<Test>::get(listing_id).is_none());
+			assert!(Nft::listing_end_schedule(
+				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				listing_id
+			)
+			.is_none());
 
-		// ownership changed
-		assert!(Nft::token_locks(&token_id).is_none());
-		assert!(Nft::open_collection_listings(collection_id, listing_id).is_none());
-		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, 1, vec![token_id.1]));
-	});
+			// ownership changed
+			assert!(Nft::token_locks(&token_id).is_none());
+			assert!(Nft::open_collection_listings(collection_id, listing_id).is_none());
+			assert_eq!(
+				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
+				(0_u32, 1, vec![token_id.1])
+			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				995
+			);
+		});
+}
+
+#[test]
+fn listing_price_splits_royalties_and_network_fee() {
+	let buyer = create_account(5);
+	let price = 1_000_000;
+
+	TestExt::default()
+		.with_balances(&[(buyer, price * 2)])
+		.build()
+		.execute_with(|| {
+			let beneficiary_1 = create_account(11);
+
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(
+					beneficiary_1,
+					Permill::from_float(0.25),
+				)]),
+			};
+			let (collection_id, token_id, token_owner) =
+				setup_token_with_royalties(royalties_schedule.clone(), 2);
+
+			let listing_id = Nft::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Nft::sell(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				NativeAssetId::get(),
+				price,
+				None,
+				None
+			));
+
+			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+				750000
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
+				250000
+			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				995000
+			);
+		});
 }
 
 #[test]
@@ -1423,47 +1486,53 @@ fn buy_fails_prechecks() {
 fn sell_to_anybody() {
 	let buyer = create_account(5);
 	let price = 1_000;
-	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
-		let (collection_id, token_id, token_owner) = setup_token();
+	TestExt::default()
+		.with_balances(&[(buyer, price + 995)])
+		.build()
+		.execute_with(|| {
+			let (collection_id, token_id, token_owner) = setup_token();
 
-		let price = 1_000;
-		let listing_id = Nft::next_listing_id();
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
-			BoundedVec::try_from(vec![token_id.1]).unwrap();
-		assert_ok!(Nft::sell(
-			Some(token_owner).into(),
-			collection_id,
-			serial_numbers,
-			None,
-			NativeAssetId::get(),
-			price,
-			None,
-			None
-		));
+			let price = 1_000;
+			let listing_id = Nft::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Nft::sell(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				None,
+				NativeAssetId::get(),
+				price,
+				None,
+				None
+			));
 
-		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 
-		// paid
-		assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
+			// paid
+			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
 
-		// listing removed
-		assert!(Listings::<Test>::get(listing_id).is_none());
-		assert!(Nft::listing_end_schedule(
-			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-			listing_id
-		)
-		.is_none());
+			// listing removed
+			assert!(Listings::<Test>::get(listing_id).is_none());
+			assert!(Nft::listing_end_schedule(
+				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				listing_id
+			)
+			.is_none());
 
-		// ownership changed
-		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, 1, vec![token_id.1]));
-	});
+			// ownership changed
+			assert_eq!(
+				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
+				(0_u32, 1, vec![token_id.1])
+			);
+		});
 }
 
 #[test]
 fn buy_with_overcommitted_royalties() {
 	let buyer = create_account(5);
 	let price = 1_000;
-	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
+	TestExt::default().with_balances(&[(buyer, 1995)]).build().execute_with(|| {
 		// royalties are > 100% total which could create funds out of nothing
 		// in this case, default to 0 royalties.
 		// royalty schedules should not make it into storage but we protect against it anyway

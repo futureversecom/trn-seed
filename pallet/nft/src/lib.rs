@@ -768,18 +768,9 @@ pub mod pallet {
 					listing.fixed_price,
 				);
 
+				// We can handle the network fee payout to the tx fee pot as well here
 				let amount_in_percentage = T::NetworkFeePercentage::get().mul(listing.fixed_price);
-				log::info!(
-					"Taking out percentage {:?} which is {:?}, all out of the original number: {:?}",
-					T::NetworkFeePercentage::get(),
-					amount_in_percentage,
-					listing.fixed_price
-				);
 				let network_fee = listing.fixed_price - amount_in_percentage;
-
-				let acct_debug: T::AccountId = T::TxFeePotId::get().into_account_truncating();
-
-				log::info!("Now pushing payee: {:?}, amount: {:?}", acct_debug, network_fee);
 
 				payouts.push((T::TxFeePotId::get().into_account_truncating(), network_fee));
 				// Make split transfer
