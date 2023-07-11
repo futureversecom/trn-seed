@@ -26,6 +26,6 @@
 | mint              |        1537337        |         854293          |         257529         |
 | approve           |        1522277        |         833172          |         355030         |
 | setApprovalForAll |        1410401        |         790690          |         347523         |
-| transferFrom      |           0           |         1053113         |         307545         |
+| transferFrom      |        1842933        |         1053113         |         307545         |
 | transferOwnership |        819731         |         833112          |         295029         |
 | renounceOwnership |        855943         |         829632          |         295029         |
