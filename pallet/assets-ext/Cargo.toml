@@ -25,7 +25,6 @@ sp-runtime = { git = "https://github.com/futureversecom/substrate", default-feat
 seed-primitives = { path = "../../primitives", default-features = false }
 seed-pallet-common = { path = "../common", default-features = false }
 precompile-utils = { path = "../../evm-precompiles/utils", default-features = false }
-log = "0.4.0"
 
 [dev-dependencies]
 sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }

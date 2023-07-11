@@ -349,7 +349,7 @@ impl<T: Config> TransferExt for Pallet<T> {
 		ensure!(Self::reducible_balance(asset_id, who, false) >= total, Error::<T>::BalanceLow);
 
 		for (payee, amount) in transfers.into_iter() {
-			Self::transfer(asset_id, who, payee, amount.clone(), false)?;
+			Self::transfer(asset_id, who, payee, *amount, false)?;
 		}
 
 		Self::deposit_event(Event::SplitTransfer {
