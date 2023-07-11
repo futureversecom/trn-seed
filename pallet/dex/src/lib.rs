@@ -202,6 +202,11 @@ pub mod pallet {
 		ProvisioningToEnabled(TradingPair, Balance, Balance, Balance),
 	}
 
+	/// FeeTo account where network fees are deposited
+	#[pallet::storage]
+	#[pallet::getter(fn fee_to)]
+	pub type FeeTo<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
 	#[pallet::storage]
 	#[pallet::getter(fn lp_token_id)]
 	pub type TradingPairLPToken<T: Config> =
@@ -211,6 +216,10 @@ pub mod pallet {
 	#[pallet::getter(fn liquidity_pool)]
 	pub type LiquidityPool<T: Config> =
 		StorageMap<_, Twox64Concat, TradingPair, (Balance, Balance), ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn liquidity_pool_last_k)]
+	pub type LiquidityPoolLastK<T: Config> = StorageMap<_, Twox64Concat, AssetId, U256, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn trading_pair_statuses)]
@@ -232,6 +241,23 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
+		/// Set the `FeeTo` account. This operation requires root access.
+		/// - note: analogous to Uniswapv2 `setFeeTo`
+		///
+		/// - `fee_to`: the new account assigned to FeeTo.
+		#[pallet::weight(T::WeightInfo::swap_with_exact_supply())]
+		#[transactional]
+		pub fn set_fee_to(
+			origin: OriginFor<T>,
+			fee_to: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+
+			FeeTo::<T>::put(fee_to);
+
+			Ok(().into())
+		}
+
 		/// Trading with DEX, swap with exact supply amount. Specify your input; retrieve variable
 		/// output.
 		/// - note: analogous to Uniswapv2 `swapExactTokensForTokens`
@@ -613,6 +639,11 @@ where
 		let amount_0 = balance_0.sub(reserve_a)?;
 		let amount_1 = balance_1.sub(reserve_b)?;
 
+		// call mint_fee function here to collect network fees since the last collection and
+		// send it to the FeeTo account
+		let fee_on = Self::mint_fee(lp_share_asset_id, reserve_a, reserve_b)?;
+
+		// must read the storage here since total supply can update in mint_fee
 		let total_supply = U256::from(T::MultiCurrency::total_issuance(lp_share_asset_id));
 
 		let liquidity: Balance = if total_supply.is_zero() {
@@ -638,7 +669,7 @@ where
 			.saturated_into()
 		};
 
-		ensure!(!liquidity.is_zero(), Error::<T>::InvalidLiquidityIncrement,);
+		ensure!(!liquidity.is_zero(), Error::<T>::InvalidLiquidityIncrement);
 
 		// mint lp tokens to the LP to
 		T::MultiCurrency::mint_into(lp_share_asset_id, &to, liquidity)?;
@@ -659,6 +690,16 @@ where
 			));
 			Ok(())
 		})?;
+
+		// update the k_last value if fee_on is true
+		if fee_on {
+			let _ = LiquidityPoolLastK::<T>::try_mutate(lp_share_asset_id, |k| -> DispatchResult {
+				// update k to the product of the updated reserve_a and reserve_b
+				*k = U256::from(balance_0).mul(U256::from(balance_1))?;
+				Ok(())
+			});
+		}
+
 		Ok((amount_0, amount_1, liquidity))
 	}
 
@@ -685,6 +726,8 @@ where
 
 		ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
 
+		let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
+
 		// transfer lp tokens to dex
 		let pool_address = trading_pair.pool_address();
 		T::MultiCurrency::transfer(lp_share_asset_id, &who, &pool_address, liquidity, false)?;
@@ -699,6 +742,12 @@ where
 		let mut balance_0 = T::MultiCurrency::balance(token_a, &pool_address);
 		let mut balance_1 = T::MultiCurrency::balance(token_b, &pool_address);
 		let liquidity = T::MultiCurrency::balance(lp_share_asset_id, &pool_address);
+
+		// call mint_fee function here to collect network fees since the last collection and
+		// send it to the FeeTo account
+		let fee_on = Self::mint_fee(lp_share_asset_id, reserve_a, reserve_b)?;
+
+		// must read the storage here since total supply can update in mint_fee
 		let total_supply = T::MultiCurrency::total_issuance(lp_share_asset_id);
 
 		// amount0 = liquidity.mul(balance0) / _totalSupply;
@@ -739,6 +788,16 @@ where
 			));
 			Ok(())
 		})?;
+
+		// update the k_last value if fee_on is true
+		if fee_on {
+			let _ = LiquidityPoolLastK::<T>::try_mutate(lp_share_asset_id, |k| -> DispatchResult {
+				// update k to the product of the updated reserve_a and reserve_b
+				*k = U256::from(balance_0).mul(U256::from(balance_1))?;
+				Ok(())
+			});
+		}
+
 		Ok((amount_0, amount_1))
 	}
 
@@ -1090,5 +1149,49 @@ where
 		Self::_swap(&amounts, &path, &to)?;
 		Self::deposit_event(Event::Swap(who.clone(), path.to_vec(), amounts[0], amount_out, to));
 		Ok(amounts)
+	}
+
+	/// Send the network fee to the `FeeTo` account
+	/// This function is analogous to Uniswapv2 `_mintFee`
+	fn mint_fee(
+		lp_share_asset_id: AssetId,
+		reserve_a: Balance,
+		reserve_b: Balance,
+	) -> sp_std::result::Result<bool, DispatchError> {
+		let k_last = LiquidityPoolLastK::<T>::get(lp_share_asset_id);
+		if let Some(fee_to) = Self::fee_to() {
+			if !k_last.is_zero() {
+				let root_k = U256::from(reserve_a * reserve_b).integer_sqrt();
+				let root_k_last = k_last.integer_sqrt();
+
+				if root_k.gt(&root_k_last) {
+					// calculate the amount with the formula
+					// liquidity = total_supply * (sqrt(k)-sqrt(k_last))/(5*sqrt(k)+sqrt(k_last))
+					let total_supply =
+						U256::from(T::MultiCurrency::total_issuance(lp_share_asset_id));
+					let numerator = total_supply.mul(root_k.sub(root_k_last)?)?;
+					let denominator = root_k.mul(U256::from(5))?.add(root_k_last)?;
+					let liquidity = numerator.div(denominator)?;
+
+					if liquidity.gt(&U256::zero()) {
+						// mint lp tokens to the FeeTo account
+						T::MultiCurrency::mint_into(
+							lp_share_asset_id,
+							&fee_to,
+							liquidity.saturated_into(),
+						)?;
+					}
+				}
+			}
+			Ok(true)
+		} else if !k_last.is_zero() {
+			let _ = LiquidityPoolLastK::<T>::try_mutate(lp_share_asset_id, |k| -> DispatchResult {
+				*k = U256::zero();
+				Ok(())
+			});
+			Ok(false)
+		} else {
+			Ok(false)
+		}
 	}
 }
