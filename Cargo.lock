@@ -5060,6 +5060,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-precompiles-dex"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-assets",
+ "pallet-dex",
+ "pallet-evm",
+ "precompile-utils",
+ "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-evm-precompiles-erc1155"
 version = "2.0.0"
 dependencies = [
@@ -8150,6 +8169,7 @@ dependencies = [
  "pallet-evm-precompile-modexp",
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
+ "pallet-evm-precompiles-dex",
  "pallet-evm-precompiles-erc1155",
  "pallet-evm-precompiles-erc20",
  "pallet-evm-precompiles-erc721",
