@@ -1684,11 +1684,10 @@ fn whitelist_works_for_transfer_futurepass() {
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, FP_CREATION_RESERVE);
 
 			// pallet_futurepass::Call::transfer_futurepass works via proxy_extrinsic
-			let inner_call =
-				Box::new(MockCall::Futurepass(Call::transfer_futurepass {
-					current_owner: owner,
-					new_owner: Some(owner2),
-				}));
+			let inner_call = Box::new(MockCall::Futurepass(Call::transfer_futurepass {
+				current_owner: owner,
+				new_owner: Some(owner2),
+			}));
 			System::reset_events();
 			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
 			// assert event ProxyExecuted
@@ -1698,7 +1697,12 @@ fn whitelist_works_for_transfer_futurepass() {
 
 			// assert event FuturepassTransferred
 			System::assert_has_event(
-				Event::<Test>::FuturepassTransferred { old_owner: owner, new_owner: Some(owner2), futurepass }.into(),
+				Event::<Test>::FuturepassTransferred {
+					old_owner: owner,
+					new_owner: Some(owner2),
+					futurepass,
+				}
+				.into(),
 			);
 
 			//check the owner of futurepass
