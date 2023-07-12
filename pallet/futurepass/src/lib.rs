@@ -417,17 +417,30 @@ pub mod pallet {
 		/// futurepass.
 		///
 		/// Parameters:
+		/// - `current_owner`: The current owner of the futurepass.
 		/// - `new_owner`: The new account that will become the owner of the futurepass.
 		#[pallet::weight(T::WeightInfo::transfer_futurepass())]
 		#[transactional]
 		pub fn transfer_futurepass(
 			origin: OriginFor<T>,
+			current_owner: T::AccountId,
 			new_owner: Option<T::AccountId>,
 		) -> DispatchResult {
-			let owner = ensure_signed(origin)?;
+			let caller = ensure_signed(origin)?;
+			let mut futurepass;
 
-			// Get the current futurepass owner from the `Holders` storage mapping
-			let futurepass = Holders::<T>::take(&owner).ok_or(Error::<T>::NotFuturepassOwner)?;
+			if caller == current_owner {
+				// only succeed if the caller has a futurepass account
+				futurepass = Holders::<T>::take(&caller).ok_or(Error::<T>::NotFuturepassOwner)?;
+			} else {
+				// only succeed if the current_owner has a futurepass account which is equal to the
+				// caller, i.e only the futurepass(owner) can successfully call this
+				ensure!(
+					Holders::<T>::take(&current_owner) == Some(caller.clone()),
+					Error::<T>::NotFuturepassOwner
+				);
+				futurepass = caller.clone();
+			}
 
 			if let Some(ref new_owner) = new_owner {
 				// Ensure that the new owner does not already own a futurepass
@@ -437,13 +450,13 @@ pub mod pallet {
 				);
 
 				// Add the new owner as a proxy delegate with the most permissive type, i.e.,
-				T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
+				T::Proxy::add_delegate(&caller, &futurepass, &new_owner, &T::ProxyType::default())?;
 
 				// Iterate through the list of delegates and remove them, except for the new_owner
 				let delegates = T::Proxy::delegates(&futurepass);
 				for delegate in delegates.iter() {
 					if delegate.0 != *new_owner {
-						T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
+						T::Proxy::remove_delegate(&caller, &futurepass, &delegate.0)?;
 					}
 				}
 
@@ -451,11 +464,11 @@ pub mod pallet {
 				Holders::<T>::insert(new_owner, futurepass.clone());
 			} else {
 				// remove the account - which should remove all delegates
-				T::Proxy::remove_account(&owner, &futurepass)?;
+				T::Proxy::remove_account(&caller, &futurepass)?;
 			}
 
 			Self::deposit_event(Event::<T>::FuturepassTransferred {
-				old_owner: owner,
+				old_owner: current_owner,
 				new_owner,
 				futurepass,
 			});

@@ -530,7 +530,10 @@ where
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			Some(caller.into()).into(),
-			pallet_futurepass::Call::<Runtime>::transfer_futurepass { new_owner: None },
+			pallet_futurepass::Call::<Runtime>::transfer_futurepass {
+				current_owner: caller.into(),
+				new_owner: None,
+			},
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
@@ -560,6 +563,7 @@ where
 			handle,
 			Some(caller.into()).into(),
 			pallet_futurepass::Call::<Runtime>::transfer_futurepass {
+				current_owner: caller.into(),
 				new_owner: Some(new_owner.into()),
 			},
 		)?;
