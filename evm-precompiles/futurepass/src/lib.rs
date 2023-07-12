@@ -295,7 +295,8 @@ where
 			let sub_call_selector = &call_data.inner[..4];
 			if sub_call_selector ==
 				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
-				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4] ||
+				sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
 			{
 				let futurepass: H160 = handle.code_address();
 				let caller: H160 = handle.context().caller;
