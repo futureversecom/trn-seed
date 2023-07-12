@@ -427,7 +427,7 @@ pub mod pallet {
 			new_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let mut futurepass;
+			let futurepass;
 
 			if caller == current_owner {
 				// only succeed if the caller has a futurepass account

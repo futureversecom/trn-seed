@@ -860,7 +860,7 @@ fn transfer_futurepass_to_address_works() {
 			// the owner will get back the old reserve amount
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
-			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), Some(other)));
+			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), owner, Some(other)));
 			// assert event
 			System::assert_has_event(
 				Event::<Test>::FuturepassTransferred {
@@ -947,7 +947,7 @@ fn transfer_futurepass_to_none_works() {
 			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
 			// the owner will get back the old reserve amount
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
-			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), None));
+			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), owner, None));
 			// assert event
 			System::assert_has_event(
 				Event::<Test>::FuturepassTransferred {
@@ -1031,13 +1031,14 @@ fn transfer_futurepass_failures() {
 			assert_noop!(
 				Futurepass::transfer_futurepass(
 					Origin::signed(create_random()),
+					owner,
 					Some(create_random())
 				),
 				Error::<Test>::NotFuturepassOwner
 			);
 			// call transfer_futurepass for another futurepass owner should fail
 			assert_noop!(
-				Futurepass::transfer_futurepass(Origin::signed(owner), Some(owner2)),
+				Futurepass::transfer_futurepass(Origin::signed(owner), owner, Some(owner2)),
 				Error::<Test>::AccountAlreadyRegistered
 			);
 		});
