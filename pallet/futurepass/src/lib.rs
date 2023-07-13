@@ -427,19 +427,13 @@ pub mod pallet {
 			new_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
-			let futurepass;
 
-			if caller == current_owner {
-				// only succeed if the caller has a futurepass account
-				futurepass = Holders::<T>::take(&caller).ok_or(Error::<T>::NotFuturepassOwner)?;
-			} else {
-				// only succeed if the current_owner has a futurepass account which is equal to the
-				// caller, i.e only the futurepass(owner) can successfully call this
-				ensure!(
-					Holders::<T>::take(&current_owner) == Some(caller.clone()),
-					Error::<T>::NotFuturepassOwner
-				);
-				futurepass = caller.clone();
+			// only succeed if the current_owner has a futurepass account
+			let futurepass =
+				Holders::<T>::take(&current_owner).ok_or(Error::<T>::NotFuturepassOwner)?;
+			if caller != current_owner {
+				// if current owner is not the caller; then the caller must be futurepass itself
+				ensure!(futurepass == caller.clone(), Error::<T>::NotFuturepassOwner);
 			}
 
 			if let Some(ref new_owner) = new_owner {
