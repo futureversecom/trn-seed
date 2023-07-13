@@ -642,7 +642,8 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 			let sub_call_selector = &call.call_data.inner[..4];
 			if sub_call_selector ==
 				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
-				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4]
+				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4] ||
+				sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
 			{
 				return true
 			}
@@ -671,10 +672,12 @@ impl InstanceFilter<Call> for ProxyType {
 			// Whitelist currently includes
 			// pallet_futurepass::Call::register_delegate_with_signature,
 			// pallet_futurepass::Call::unregister_delegate
+			// pallet_futurepass::Call::transfer_futurepass
 			if !matches!(
 				c,
 				Call::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
+					Call::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
 			) {
 				return false
 			}
