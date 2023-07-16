@@ -20,6 +20,7 @@ import {
   NATIVE_TOKEN_ID,
   NodeProcess,
   assetIdToERC20ContractAddress,
+  finalizeTx,
   rpcs,
   startNode,
   typedefs,
@@ -30,15 +31,12 @@ const FEE_TOKEN_ASSET_ID = 1124;
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
 describe("Fee Preferences", function () {
-  const EMPTY_ACCT_PRIVATE_KEY = "0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589";
-
   let node: NodeProcess;
 
   let api: ApiPromise;
-  let provider: JsonRpcProvider;
   let alith: KeyringPair;
   let bob: KeyringPair;
-  let emptyAccount: KeyringPair;
+  let provider: JsonRpcProvider;
   let emptyAccountSigner: Wallet;
   let xrpToken: Contract;
   let feeToken: Contract;
@@ -47,21 +45,23 @@ describe("Fee Preferences", function () {
     node = await startNode();
 
     // Setup PolkadotJS rpc provider
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     const keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
-    emptyAccount = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
 
-    // Empty with regards to native balance only
-    const emptyAcct = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
+    // Setup JSON RPC provider
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    emptyAccountSigner = Wallet.createRandom().connect(provider);
+    xrpToken = new Contract(assetIdToERC20ContractAddress(NATIVE_TOKEN_ID), ERC20_ABI, emptyAccountSigner);
+    feeToken = new Contract(assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID), ERC20_ABI, emptyAccountSigner);
 
     // add liquidity for XRP<->token
     const txes = [
       api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
       api.tx.assets.mint(FEE_TOKEN_ASSET_ID, alith.address, 2_000_000_000_000_000),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, emptyAcct.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, emptyAccountSigner.address, 2_000_000_000_000_000),
       api.tx.dex.addLiquidity(
         FEE_TOKEN_ASSET_ID,
         GAS_TOKEN_ID,
@@ -73,20 +73,7 @@ describe("Fee Preferences", function () {
         null,
       ),
     ];
-    await new Promise<void>((resolve) => {
-      api.tx.utility.batch(txes).signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) {
-          console.log(`setup block hash: ${status.asInBlock}`);
-          resolve();
-        }
-      });
-    });
-
-    // Setup JSON RPC provider
-    provider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
-    emptyAccountSigner = new Wallet(EMPTY_ACCT_PRIVATE_KEY).connect(provider); // 'development' seed
-    xrpToken = new Contract(assetIdToERC20ContractAddress(NATIVE_TOKEN_ID), ERC20_ABI, emptyAccountSigner);
-    feeToken = new Contract(assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID), ERC20_ABI, emptyAccountSigner);
+    await finalizeTx(alith, api.tx.utility.batch(txes));
   });
 
   after(async () => await node.stop());
@@ -183,16 +170,13 @@ describe("Fee Preferences", function () {
     const futurepass = new Contract(futurepassAddress, FUTUREPASS_PRECOMPILE_ABI, owner);
 
     // mint fee tokens to owner (pay for fees) & FP (transfer tokens to bob)
-    await new Promise<void>((resolve) => {
-      api.tx.utility
-        .batch([
-          api.tx.assets.mint(FEE_TOKEN_ASSET_ID, owner.address, 2_000_000_000),
-          api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepass.address, 1),
-        ])
-        .signAndSend(alith, ({ status }) => {
-          if (status.isInBlock) resolve();
-        });
-    });
+    await finalizeTx(
+      alith,
+      api.tx.utility.batch([
+        api.tx.assets.mint(FEE_TOKEN_ASSET_ID, owner.address, 2_000_000_000),
+        api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepass.address, 1),
+      ]),
+    );
 
     // get token balances
     const [xrpBalance, tokenBalance, fpXRPBalance, fpTokenBalance] = await Promise.all([
