@@ -608,7 +608,7 @@ describe("Fee Preferences", function () {
     } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
 
     const eventData = await new Promise<Codec[] & IEventData>((resolve, reject) => {
-      return api.tx.feeProxy
+      api.tx.feeProxy
         .callWithFeePreferences(
           FEE_TOKEN_ASSET_ID,
           estimatedTokenTxCost.toString(),
@@ -624,12 +624,12 @@ describe("Fee Preferences", function () {
             reject(null);
           }
         });
-      expect(eventData).to.exist;
-      const [from, paymentAsset, maxPayment] = eventData;
-      expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
-      expect(from.toString()).to.equal(alith.address.toString());
-      expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
     });
+    expect(eventData).to.exist;
+    const [from, paymentAsset, maxPayment] = eventData;
+    expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
+    expect(from.toString()).to.equal(alith.address.toString());
+    expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
   });
 });
 
