@@ -260,8 +260,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -277,7 +277,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // legacy tx
       type: 0,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -311,8 +311,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -328,7 +328,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // eip1559 tx
       type: 2,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -363,8 +363,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -379,7 +379,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // legacy tx
       type: 0,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -412,8 +412,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -428,7 +428,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // eip1559 tx
       type: 2,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -469,7 +469,7 @@ describe("Fee Preferences", function () {
     const nonce = await emptyAccountSigner.getTransactionCount();
     const unsignedTx = {
       // legacy tx
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -503,7 +503,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // eip1559 tx
       type: 2,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
