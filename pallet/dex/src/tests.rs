@@ -1612,6 +1612,93 @@ fn query_with_trading_pair() {
 	});
 }
 
+#[test]
+fn set_fee_to() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
+		// the default value of FeeTo should be None
+		assert_eq!(Dex::fee_to().is_none(), true);
+
+		// normal user can not set FeeTo
+		assert_noop!(Dex::set_fee_to(Origin::signed(alice), Some(bob)), BadOrigin);
+
+		// change FeeTo with root user
+		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
+		assert_eq!(Dex::fee_to().unwrap(), bob);
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::SetFeeTo(Some(bob))));
+
+		// disable FeeTo with root user
+		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+		assert_eq!(Dex::fee_to().is_none(), true);
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::SetFeeTo(None)));
+	});
+}
+
+#[test]
+fn mint_fee() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			usdc,
+			weth,
+			to_eth(5),
+			to_eth(1),
+			to_eth(5),
+			to_eth(1),
+			None,
+			None,
+		));
+
+		// get the lp token id
+		let trading_pair = TradingPair::new(usdc, weth);
+		let lp_token = Dex::lp_token_id(trading_pair).unwrap();
+		let (reserve_a, reserve_b) = Dex::liquidity_pool(trading_pair);
+
+		// return false because FeeTo is None by default
+		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), false);
+
+		// set last_k value
+		let _ = LiquidityPoolLastK::<Test>::try_mutate(lp_token, |k| -> DispatchResult {
+			*k = U256::MAX;
+			Ok(())
+		});
+
+		// return false and last_k is set to zero
+		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), false);
+		assert_eq!(LiquidityPoolLastK::<Test>::get(lp_token), U256::zero());
+
+		// bob should not have any lp token
+		assert_eq!(AssetsExt::balance(lp_token, &bob), 0);
+		// set fee_to and last_k
+		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
+		let _ = LiquidityPoolLastK::<Test>::try_mutate(lp_token, |k| -> DispatchResult {
+			*k = U256::from(to_eth(2) * to_eth(2));
+			Ok(())
+		});
+		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), true);
+		// bob receives lp token after mint_fee is called
+		assert_eq!(AssetsExt::balance(lp_token, &bob), 40049349979288439);
+	});
+}
+
 // macro swap with exact supply
 // - `$name`: name of the test
 // - `$liquidity`: LP user adds liquidity with $liquidity[0] and $liquidity[1]

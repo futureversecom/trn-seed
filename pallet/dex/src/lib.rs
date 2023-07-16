@@ -180,7 +180,9 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
-		/// add provision success \[who, asset_id_0, contribution_0,
+		/// Set FeeTo account success. \[fee_to]
+		SetFeeTo(Option<T::AccountId>),
+		/// Add provision success. \[who, asset_id_0, contribution_0,
 		/// asset_id_1, contribution_1\]
 		AddProvision(T::AccountId, AssetId, Balance, AssetId, Balance),
 		/// Add liquidity success. \[who, asset_id_0, reserve_0_increment,
@@ -253,7 +255,9 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			FeeTo::<T>::put(fee_to);
+			FeeTo::<T>::put(fee_to.clone());
+
+			Self::deposit_event(Event::SetFeeTo(fee_to));
 
 			Ok(().into())
 		}
