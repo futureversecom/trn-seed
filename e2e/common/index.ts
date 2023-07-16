@@ -1,4 +1,5 @@
 import { ApiPromise } from "@polkadot/api";
+import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
 import { writeFileSync } from "fs";
@@ -474,6 +475,14 @@ export const saveGasCosts = (costs: { [key: string]: GasCosts }, filePath: strin
   // Save data to specified file path
   writeFileSync(join("./test", filePath), data, {
     flag: "w",
+  });
+};
+
+export const finalizeTx = (signer: KeyringPair, extrinsic: SubmittableExtrinsic<"promise">) => {
+  return new Promise<void>((resolve) => {
+    extrinsic.signAndSend(signer, ({ status }: any) => {
+      if (status.isInBlock) resolve();
+    });
   });
 };
 
