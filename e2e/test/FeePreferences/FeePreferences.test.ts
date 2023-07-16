@@ -96,8 +96,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -133,8 +133,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
