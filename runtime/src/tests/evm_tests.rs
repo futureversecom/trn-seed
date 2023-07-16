@@ -17,8 +17,8 @@ use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Origin, Runtime, TxFeePot, XrpCurrency,
-	EVM,
+	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Futurepass, Origin, Runtime, TxFeePot,
+	XrpCurrency, EVM,
 };
 use ethabi::Token;
 
@@ -216,6 +216,114 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 
 		// Check Bob has been transferred the correct amount
 		assert_eq!(AssetsExt::reducible_balance(payment_asset, &bob(), false), transfer_amount);
+	});
+}
+
+#[test]
+/// Test whether fee proxy can proxy futurepass proxy_extrinsic and validate futurepass pays fee in
+/// tokens
+fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
+	ExtBuilder::default().build().execute_with(|| {
+		let new_account = get_account_id_from_seed::<ecdsa::Public>("Im Broke");
+
+		// next minted asset id
+		let payment_asset = AssetsExt::next_asset_uuid().unwrap();
+
+		// create an asset
+		assert_ok!(AssetsExt::create_asset(
+			RawOrigin::Signed(alice()).into(),
+			b"Test".to_vec(),
+			b"Test".to_vec(),
+			6,
+			None,
+			None
+		));
+
+		// mint these assets into alice and new_account
+		assert_ok!(Assets::mint(
+			RawOrigin::Signed(alice()).into(),
+			payment_asset,
+			alice(),
+			10_000_000_000_000_000
+		));
+
+		// add liquidity to the dex, this will allow for exchange internally when the call is made
+		assert_ok!(Dex::add_liquidity(
+			RawOrigin::Signed(alice()).into(),
+			2,
+			payment_asset,
+			1_000_000_000_000,
+			10_000,
+			1,
+			1,
+			None,
+			None,
+		));
+
+		assert_ok!(Futurepass::create(Origin::signed(alice()), new_account));
+		let futurepass = pallet_futurepass::Holders::<Runtime>::get(&new_account).unwrap();
+
+		// mint payment assets into futurepass - for futurepass to pay for proxy_extrinsic
+		assert_ok!(Assets::mint(
+			RawOrigin::Signed(alice()).into(),
+			payment_asset,
+			futurepass,
+			10_000_000_000_000_000
+		));
+
+		// get balances of new account and futurepass - for comparison later
+		let caller_xrp_balance_before = XrpCurrency::balance(&new_account);
+		let caller_token_balance_before = AssetsExt::balance(payment_asset, &new_account);
+		let futurepass_xrp_balance_before = XrpCurrency::balance(&futurepass);
+		let futurepass_token_balance_before = AssetsExt::balance(payment_asset, &futurepass);
+
+		let inner_call = crate::Call::System(frame_system::Call::remark {
+			remark: b"Mischief Managed".to_vec(),
+		});
+		let proxy_extrinsic_call =
+			crate::Call::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+				futurepass,
+				call: Box::new(inner_call),
+			});
+
+		let max_payment: Balance = 10_000_000_000_000_000;
+		let fee_proxy_call =
+			crate::Call::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				payment_asset,
+				max_payment,
+				call: Box::new(proxy_extrinsic_call.clone()),
+			});
+
+		// call pre_dispatch, which hits OnChargeTransaction and exchanges the fee
+		let dispatch_info = fee_proxy_call.get_dispatch_info();
+		assert_ok!(<ChargeTransactionPayment<Runtime> as SignedExtension>::pre_dispatch(
+			ChargeTransactionPayment::from(0),
+			&new_account,
+			&fee_proxy_call,
+			&dispatch_info,
+			1,
+		));
+
+		// call.dispatch();
+		assert_ok!(FeeProxy::call_with_fee_preferences(
+			RawOrigin::Signed(new_account).into(),
+			payment_asset,
+			max_payment,
+			Box::new(proxy_extrinsic_call)
+		));
+
+		// get balances of new account and futurepass after feeproxy calls - for comparison
+		let caller_xrp_balance_after = XrpCurrency::balance(&new_account);
+		let caller_token_balance_after = AssetsExt::balance(payment_asset, &new_account);
+		let futurepass_xrp_balance_after = XrpCurrency::balance(&futurepass);
+		let futurepass_token_balance_after = AssetsExt::balance(payment_asset, &futurepass);
+
+		// vaidate futurepass should only have paid in tokens
+		assert_eq!(caller_xrp_balance_before, caller_xrp_balance_after);
+		assert_eq!(caller_token_balance_before, caller_token_balance_after);
+		assert_eq!(futurepass_xrp_balance_before, futurepass_xrp_balance_after);
+		assert_ne!(futurepass_token_balance_before, futurepass_token_balance_after);
+		assert!(futurepass_token_balance_before > futurepass_token_balance_after);
 	});
 }
 
