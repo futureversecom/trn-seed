@@ -703,9 +703,10 @@ where
 
 		// update the k_last value if fee_on is true
 		if fee_on {
+			let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
 			let _ = LiquidityPoolLastK::<T>::try_mutate(lp_share_asset_id, |k| -> DispatchResult {
 				// update k to the product of the updated reserve_a and reserve_b
-				*k = U256::from(balance_0).mul(U256::from(balance_1))?;
+				*k = U256::from(reserve_a).mul(U256::from(reserve_b))?;
 				Ok(())
 			});
 		}
@@ -806,9 +807,10 @@ where
 
 		// update the k_last value if fee_on is true
 		if fee_on {
+			let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
 			let _ = LiquidityPoolLastK::<T>::try_mutate(lp_share_asset_id, |k| -> DispatchResult {
 				// update k to the product of the updated reserve_a and reserve_b
-				*k = U256::from(balance_0).mul(U256::from(balance_1))?;
+				*k = U256::from(reserve_a).mul(U256::from(reserve_b))?;
 				Ok(())
 			});
 		}
@@ -1192,9 +1194,10 @@ where
 		reserve_b: Balance,
 	) -> sp_std::result::Result<bool, DispatchError> {
 		let k_last = LiquidityPoolLastK::<T>::get(lp_share_asset_id);
-		if let Some(fee_to) = Self::fee_to() {
+		if let Some(fee_to) = FeeTo::<T>::get() {
 			if !k_last.is_zero() {
-				let root_k = U256::from(reserve_a * reserve_b).integer_sqrt();
+				let root_k =
+					U256::from(reserve_a).saturating_mul(U256::from(reserve_b)).integer_sqrt();
 				let root_k_last = k_last.integer_sqrt();
 
 				if root_k.gt(&root_k_last) {
