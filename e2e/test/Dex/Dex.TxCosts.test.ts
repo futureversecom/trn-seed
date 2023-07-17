@@ -3,7 +3,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, Wallet, utils } from "ethers";
+import { BigNumber, Contract, Wallet, utils } from "ethers";
 import { ethers } from "hardhat";
 
 import {
@@ -12,11 +12,11 @@ import {
   DEX_PRECOMPILE_ABI,
   DEX_PRECOMPILE_ADDRESS,
   GAS_TOKEN_ID,
-  GasCosts,
   NodeProcess,
+  TxCosts,
   assetIdToERC20ContractAddress,
   getNextAssetId,
-  saveGasCosts,
+  saveTxGas,
   startNode,
   typedefs,
 } from "../../common";
@@ -43,7 +43,7 @@ describe("Dex Gas Estimation", function () {
   let uniswapV2Factory: UniswapV2Factory;
   let uniswapV2Router02: UniswapV2Router02;
 
-  const allCosts: { [key: string]: GasCosts } = {};
+  const allCosts: { [key: string]: TxCosts } = {};
 
   // Setup api instance
   before(async () => {
@@ -212,7 +212,7 @@ describe("Dex Gas Estimation", function () {
   });
 
   after(async () => {
-    saveGasCosts(allCosts, "Dex/GasCosts.md", "Dex Precompiles");
+    saveTxGas(allCosts, "Dex/TxCosts.md", "Dex Precompiles");
     await node.stop();
   });
 
@@ -276,9 +276,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["addLiquidity"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -341,9 +341,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["addLiquidityETH"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -394,9 +394,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["removeLiquidity"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -445,9 +445,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["removeLiquidityETH"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -493,9 +493,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["swapExactTokensForTokens"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -547,9 +547,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["swapExactTokensForETH"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -593,9 +593,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["swapExactETHForTokens"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -647,9 +647,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["swapTokensForExactTokens"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -701,9 +701,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["swapTokensForExactETH"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -763,9 +763,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["swapETHForExactTokens"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicScaled,
     };
   });
 
@@ -788,9 +788,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["quote"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic // No extrinsic
     };
   });
 
@@ -809,9 +809,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["getAmountOut"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -831,9 +831,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["getAmountsOut"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -853,9 +853,9 @@ describe("Dex Gas Estimation", function () {
 
     // Update all costs with gas info
     allCosts["getAmountsIn"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0,
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 });
