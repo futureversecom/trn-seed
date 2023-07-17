@@ -20,6 +20,7 @@ import {
   NATIVE_TOKEN_ID,
   NodeProcess,
   assetIdToERC20ContractAddress,
+  finalizeTx,
   rpcs,
   startNode,
   typedefs,
@@ -30,15 +31,12 @@ const FEE_TOKEN_ASSET_ID = 1124;
 // Call an EVM transaction with fee preferences for an account that has zero native token balance,
 // ensuring that the preferred asset with liquidity is spent instead
 describe("Fee Preferences", function () {
-  const EMPTY_ACCT_PRIVATE_KEY = "0xf8d74108dbe199c4a6e4ef457046db37c325ba3f709b14cabfa1885663e4c589";
-
   let node: NodeProcess;
 
   let api: ApiPromise;
-  let provider: JsonRpcProvider;
   let alith: KeyringPair;
   let bob: KeyringPair;
-  let emptyAccount: KeyringPair;
+  let provider: JsonRpcProvider;
   let emptyAccountSigner: Wallet;
   let xrpToken: Contract;
   let feeToken: Contract;
@@ -47,21 +45,23 @@ describe("Fee Preferences", function () {
     node = await startNode();
 
     // Setup PolkadotJS rpc provider
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs, rpc: rpcs });
     const keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
-    emptyAccount = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
 
-    // Empty with regards to native balance only
-    const emptyAcct = keyring.addFromSeed(hexToU8a(EMPTY_ACCT_PRIVATE_KEY));
+    // Setup JSON RPC provider
+    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    emptyAccountSigner = Wallet.createRandom().connect(provider);
+    xrpToken = new Contract(assetIdToERC20ContractAddress(NATIVE_TOKEN_ID), ERC20_ABI, emptyAccountSigner);
+    feeToken = new Contract(assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID), ERC20_ABI, emptyAccountSigner);
 
     // add liquidity for XRP<->token
     const txes = [
       api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
       api.tx.assets.mint(FEE_TOKEN_ASSET_ID, alith.address, 2_000_000_000_000_000),
-      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, emptyAcct.address, 2_000_000_000_000_000),
+      api.tx.assets.mint(FEE_TOKEN_ASSET_ID, emptyAccountSigner.address, 2_000_000_000_000_000),
       api.tx.dex.addLiquidity(
         FEE_TOKEN_ASSET_ID,
         GAS_TOKEN_ID,
@@ -73,20 +73,7 @@ describe("Fee Preferences", function () {
         null,
       ),
     ];
-    await new Promise<void>((resolve) => {
-      api.tx.utility.batch(txes).signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) {
-          console.log(`setup block hash: ${status.asInBlock}`);
-          resolve();
-        }
-      });
-    });
-
-    // Setup JSON RPC provider
-    provider = new JsonRpcProvider(`http://localhost:${node.httpPort}`);
-    emptyAccountSigner = new Wallet(EMPTY_ACCT_PRIVATE_KEY).connect(provider); // 'development' seed
-    xrpToken = new Contract(assetIdToERC20ContractAddress(NATIVE_TOKEN_ID), ERC20_ABI, emptyAccountSigner);
-    feeToken = new Contract(assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID), ERC20_ABI, emptyAccountSigner);
+    await finalizeTx(alith, api.tx.utility.batch(txes));
   });
 
   after(async () => await node.stop());
@@ -96,8 +83,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -133,8 +120,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -183,16 +170,13 @@ describe("Fee Preferences", function () {
     const futurepass = new Contract(futurepassAddress, FUTUREPASS_PRECOMPILE_ABI, owner);
 
     // mint fee tokens to owner (pay for fees) & FP (transfer tokens to bob)
-    await new Promise<void>((resolve) => {
-      api.tx.utility
-        .batch([
-          api.tx.assets.mint(FEE_TOKEN_ASSET_ID, owner.address, 2_000_000_000),
-          api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepass.address, 1),
-        ])
-        .signAndSend(alith, ({ status }) => {
-          if (status.isInBlock) resolve();
-        });
-    });
+    await finalizeTx(
+      alith,
+      api.tx.utility.batch([
+        api.tx.assets.mint(FEE_TOKEN_ASSET_ID, owner.address, 2_000_000_000),
+        api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepass.address, 1),
+      ]),
+    );
 
     // get token balances
     const [xrpBalance, tokenBalance, fpXRPBalance, fpTokenBalance] = await Promise.all([
@@ -260,8 +244,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -277,7 +261,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // legacy tx
       type: 0,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -311,8 +295,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -328,7 +312,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // eip1559 tx
       type: 2,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -363,8 +347,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -379,7 +363,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // legacy tx
       type: 0,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -412,8 +396,8 @@ describe("Fee Preferences", function () {
 
     // get token balances
     const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpToken.balanceOf(emptyAccount.address),
-      feeToken.balanceOf(emptyAccount.address),
+      xrpToken.balanceOf(emptyAccountSigner.address),
+      feeToken.balanceOf(emptyAccountSigner.address),
     ]);
 
     // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
@@ -428,7 +412,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // eip1559 tx
       type: 2,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -469,7 +453,7 @@ describe("Fee Preferences", function () {
     const nonce = await emptyAccountSigner.getTransactionCount();
     const unsignedTx = {
       // legacy tx
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -503,7 +487,7 @@ describe("Fee Preferences", function () {
     const unsignedTx = {
       // eip1559 tx
       type: 2,
-      from: emptyAccount.address,
+      from: emptyAccountSigner.address,
       to: FEE_PROXY_ADDRESS,
       nonce,
       data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
@@ -561,6 +545,50 @@ describe("Fee Preferences", function () {
     expect(error.reason).to.be.eq("insufficient funds for intrinsic transaction cost");
   });
 
+  it("Futurepass account pays fees in non-native token - using extrinsic", async () => {
+    // create futurepass for random user
+    const user = Wallet.createRandom().connect(provider);
+    const userKeyring = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(user.privateKey));
+    await finalizeTx(alith, api.tx.futurepass.create(user.address));
+    const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
+
+    // mint fee tokens to futurepass
+    await finalizeTx(alith, api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepassAddress, 2_000_000_000_000));
+
+    const eoaXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const eoaTokenBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const fpXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const fpTokenBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+
+    // console.table({ eoaXRPBalanceBefore, eoaTokenBalanceBefore, fpXRPBalanceBefore, fpTokenBalanceBefore });
+
+    const innerCall = api.tx.system.remark("sup");
+    const proxyExtrinsic = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
+    const feeproxiedCall = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, 1000000, proxyExtrinsic);
+    await finalizeTx(userKeyring, feeproxiedCall);
+
+    const eoaXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const eoaTokenBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const fpXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const fpTokenBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+
+    // console.table({ eoaXRPBalanceAfter, eoaTokenBalanceAfter, fpXRPBalanceAfter, fpTokenBalanceAfter });
+
+    // futurepass should only fee lose tokens
+    expect(eoaXRPBalanceBefore).to.be.eq(eoaXRPBalanceAfter);
+    expect(eoaTokenBalanceBefore).to.be.eq(eoaTokenBalanceAfter);
+    expect(fpXRPBalanceBefore).to.be.eq(fpXRPBalanceAfter);
+    expect(fpTokenBalanceAfter).to.be.lessThan(fpTokenBalanceBefore);
+  });
+
   it("Pays fees in non-native token with extrinsic - check maxPayment works fine", async () => {
     const erc20PrecompileAddress = assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID);
     const sender = alith.address;
@@ -608,7 +636,7 @@ describe("Fee Preferences", function () {
     } = await (api.rpc as any).dex.getAmountsIn(estimatedTotalGasCost, [FEE_TOKEN_ASSET_ID, GAS_TOKEN_ID]);
 
     const eventData = await new Promise<Codec[] & IEventData>((resolve, reject) => {
-      return api.tx.feeProxy
+      api.tx.feeProxy
         .callWithFeePreferences(
           FEE_TOKEN_ASSET_ID,
           estimatedTokenTxCost.toString(),
@@ -624,12 +652,12 @@ describe("Fee Preferences", function () {
             reject(null);
           }
         });
-      expect(eventData).to.exist;
-      const [from, paymentAsset, maxPayment] = eventData;
-      expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
-      expect(from.toString()).to.equal(alith.address.toString());
-      expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
     });
+    expect(eventData).to.exist;
+    const [from, paymentAsset, maxPayment] = eventData;
+    expect(paymentAsset.toString()).to.equal(FEE_TOKEN_ASSET_ID.toString());
+    expect(from.toString()).to.equal(alith.address.toString());
+    expect(maxPayment.toString()).to.equal(estimatedTokenTxCost.toString());
   });
 });
 

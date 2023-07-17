@@ -718,6 +718,7 @@ where
 	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
 	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
+	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as pallet_fee_proxy::Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<
