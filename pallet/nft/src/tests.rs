@@ -664,7 +664,7 @@ fn burn_fails_prechecks() {
 #[test]
 fn sell() {
 	let buyer = create_account(3);
-	let initial_balance = 11111_225;
+	let initial_balance = 11_111_225;
 
 	TestExt::default()
 		.with_balances(&[(buyer, initial_balance)])
@@ -1290,7 +1290,7 @@ fn buy() {
 
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
-				995
+				price - 5, // 0.5% of 1000
 			);
 		});
 }

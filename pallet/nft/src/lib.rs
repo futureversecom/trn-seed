@@ -126,7 +126,7 @@ pub mod pallet {
 			+ Mutate<Self::AccountId, AssetId = AssetId>
 			+ CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>;
-		// Percentage of sale price to charge for network fee
+		/// Percentage of sale price to charge for network fee
 		type NetworkFeePercentage: Get<Permill>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
