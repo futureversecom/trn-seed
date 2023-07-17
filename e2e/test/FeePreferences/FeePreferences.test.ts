@@ -545,6 +545,50 @@ describe("Fee Preferences", function () {
     expect(error.reason).to.be.eq("insufficient funds for intrinsic transaction cost");
   });
 
+  it("Futurepass account pays fees in non-native token - using extrinsic", async () => {
+    // create futurepass for random user
+    const user = Wallet.createRandom().connect(provider);
+    const userKeyring = new Keyring({ type: "ethereum" }).addFromSeed(hexToU8a(user.privateKey));
+    await finalizeTx(alith, api.tx.futurepass.create(user.address));
+    const futurepassAddress = (await api.query.futurepass.holders(user.address)).toString();
+
+    // mint fee tokens to futurepass
+    await finalizeTx(alith, api.tx.assets.mint(FEE_TOKEN_ASSET_ID, futurepassAddress, 2_000_000_000_000));
+
+    const eoaXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const eoaTokenBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const fpXRPBalanceBefore =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const fpTokenBalanceBefore =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+
+    // console.table({ eoaXRPBalanceBefore, eoaTokenBalanceBefore, fpXRPBalanceBefore, fpTokenBalanceBefore });
+
+    const innerCall = api.tx.system.remark("sup");
+    const proxyExtrinsic = api.tx.futurepass.proxyExtrinsic(futurepassAddress, innerCall);
+    const feeproxiedCall = api.tx.feeProxy.callWithFeePreferences(FEE_TOKEN_ASSET_ID, 1000000, proxyExtrinsic);
+    await finalizeTx(userKeyring, feeproxiedCall);
+
+    const eoaXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const eoaTokenBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, user.address)).toJSON() as any)?.balance ?? 0;
+    const fpXRPBalanceAfter =
+      ((await api.query.assets.account(GAS_TOKEN_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+    const fpTokenBalanceAfter =
+      ((await api.query.assets.account(FEE_TOKEN_ASSET_ID, futurepassAddress)).toJSON() as any)?.balance ?? 0;
+
+    // console.table({ eoaXRPBalanceAfter, eoaTokenBalanceAfter, fpXRPBalanceAfter, fpTokenBalanceAfter });
+
+    // futurepass should only fee lose tokens
+    expect(eoaXRPBalanceBefore).to.be.eq(eoaXRPBalanceAfter);
+    expect(eoaTokenBalanceBefore).to.be.eq(eoaTokenBalanceAfter);
+    expect(fpXRPBalanceBefore).to.be.eq(fpXRPBalanceAfter);
+    expect(fpTokenBalanceAfter).to.be.lessThan(fpTokenBalanceBefore);
+  });
+
   it("Pays fees in non-native token with extrinsic - check maxPayment works fine", async () => {
     const erc20PrecompileAddress = assetIdToERC20ContractAddress(FEE_TOKEN_ASSET_ID);
     const sender = alith.address;
