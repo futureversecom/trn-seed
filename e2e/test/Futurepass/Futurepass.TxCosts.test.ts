@@ -323,9 +323,11 @@ describe("Futurepass Precompile", function () {
     const owner2KeyRing = keyring.addFromSeed(hexToU8a(owner2.privateKey));
     balanceBefore = await owner2.getBalance();
     await new Promise<void>((resolve) => {
-      api.tx.futurepass.transferFuturepass(newOwner2.address).signAndSend(owner2KeyRing, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
+      api.tx.futurepass
+        .transferFuturepass(owner2.address, newOwner2.address)
+        .signAndSend(owner2KeyRing, ({ status }) => {
+          if (status.isInBlock) resolve();
+        });
     });
     balanceAfter = await owner2.getBalance();
 
