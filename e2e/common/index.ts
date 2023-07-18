@@ -1,7 +1,9 @@
+import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise } from "@polkadot/api";
 import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
+import { BigNumber } from "ethers";
 import { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
 import { join } from "path";
@@ -212,10 +214,10 @@ export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of del
 // Futurepass creation reserve amount
 export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
 
-export type GasCosts = {
-  Contract: number;
-  Precompile: number;
-  Extrinsic: number;
+export type TxCosts = {
+  Contract: BigNumber;
+  Precompile: BigNumber;
+  Extrinsic: BigNumber;
 };
 
 /** ABIs */
@@ -451,16 +453,16 @@ export const getSftCollectionPrecompileAddress = (collectionId: number) => {
 };
 
 /**
- * Saves gas cost to a markdown file
+ * Saves tx costs(gas to a markdown file
  * @returns
  * @param costs Dictionary of gas costs for different function calls
  * @param filePath The file path to save the output
  * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
  */
-export const saveGasCosts = (costs: { [key: string]: GasCosts }, filePath: string, header: string) => {
+export const saveTxGas = (costs: { [key: string]: TxCosts }, filePath: string, header: string) => {
   // Set string headers
-  let data: string = `## Generated gas prices for ${header}\n\n`;
-  data += "| Function Call | Contract gas | Precompile gas | Extrinsic gas |\n";
+  let data: string = `## Generated tx costs(Gas) for ${header}\n\n`;
+  data += "| Function Call | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |\n";
   data += "| :--- | :---: | :---: | :---: |\n";
 
   // Iterate through functions and add gas prices
@@ -485,6 +487,63 @@ export const finalizeTx = (signer: KeyringPair, extrinsic: SubmittableExtrinsic<
     });
   });
 };
+
+/**
+ * Saves tx costs(fees) to a markdown file
+ * @returns
+ * @param costs Dictionary of tx costs for different function calls
+ * @param filePath The file path to save the output
+ * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
+ */
+export const saveTxFees = (costs: { [key: string]: TxCosts }, filePath: string, header: string) => {
+  // Set string headers
+  let data: string = `\n\n## Generated tx costs(fees) for ${header}\n\n`;
+  data += "| Function Call | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |\n";
+  data += "| :--- | :---: | :---: | :---: |\n";
+
+  // Iterate through functions and add tx fees
+  for (const key in costs) {
+    const value = costs[key];
+    data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
+  }
+
+  // Prettify data
+  data = CliPrettify.prettify(data);
+
+  // Save data to specified file path
+  writeFileSync(join("./test", filePath), data, {
+    flag: "a",
+  });
+};
+
+/**
+ * Convert extrinsic fee to scaled gas
+ * @param provider Provider to get fee data
+ * @param fee Extrinsic fee
+ */
+export async function getScaledGasForExtrinsicFee(provider: JsonRpcProvider, fee: BigNumber) {
+  // NOTE - What we do here is not exactly correct. If you want to get the actual equivalent gas for an extrinsic fee,
+  // first need to get the weight by reversing substrate tx fee formula. Then use that weight to get the correct gas by
+  // reversing runtime weight to gas mapping. But this is rather complex in ts context as the substrate tx formula
+  // depends on many factors.
+  const feeData = await provider.getFeeData();
+  return fee.div(feeData.gasPrice!);
+}
+
+/**
+ * Converts a value in wei to 6 decimal places
+ * @param value
+ */
+export function weiTo6DP(value: BigNumber) {
+  const quotient = value.div(1000000000000n);
+  const remainder = value.mod(1000000000000n);
+
+  if (remainder.isZero()) {
+    return quotient;
+  } else {
+    return quotient.add(1n);
+  }
+}
 
 /**
  * createAssetUntil continously creates assets until asset with `assetId` exists

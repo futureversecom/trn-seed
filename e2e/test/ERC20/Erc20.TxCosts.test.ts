@@ -3,7 +3,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, Wallet } from "ethers";
+import { BigNumber, Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 
 import {
@@ -11,11 +11,13 @@ import {
   BOB_PRIVATE_KEY,
   ERC20_ABI,
   GAS_TOKEN_ID,
-  GasCosts,
   NATIVE_TOKEN_ID,
   NodeProcess,
+  TxCosts,
   assetIdToERC20ContractAddress,
-  saveGasCosts,
+  getScaledGasForExtrinsicFee,
+  saveTxFees,
+  saveTxGas,
   startNode,
   typedefs,
 } from "../../common";
@@ -33,7 +35,8 @@ describe("ERC20 Gas Estimates", function () {
   let alith: KeyringPair;
   let bob: KeyringPair;
 
-  const allCosts: { [key: string]: GasCosts } = {};
+  const allCosts: { [key: string]: TxCosts } = {};
+  const allTxFeeCosts: { [key: string]: TxCosts } = {};
 
   // Setup api instance
   before(async () => {
@@ -70,8 +73,8 @@ describe("ERC20 Gas Estimates", function () {
   });
 
   after(async () => {
-    saveGasCosts(allCosts, "ERC20/GasCosts.md", "ERC20 Precompiles");
-
+    saveTxGas(allCosts, "ERC20/TxCosts.md", "ERC20 Precompiles");
+    saveTxFees(allTxFeeCosts, "ERC20/TxCosts.md", "ERC20 Precompiles");
     await node.stop();
   });
 
@@ -86,9 +89,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["totalSupply"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -102,9 +105,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["balanceOf"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -122,9 +125,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["allowance"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -137,25 +140,43 @@ describe("ERC20 Gas Estimates", function () {
     const precompileGasEstimate = await erc20Precompile
       .connect(alithSigner)
       .estimateGas.approve(bobSigner.address, amount);
-
-    const balanceBefore = await alithSigner.getBalance();
+    // precompile fee cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc20Precompile.connect(alithSigner).approve(bobSigner.address, amount);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc20Contract.connect(alithSigner).approve(bobSigner.address, amount, { gasLimit: contractGasEstimate });
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
+    // Extrinsic cost
+    balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.assets.approveTransfer(NATIVE_TOKEN_ID, bobSigner.address, amount).signAndSend(alith, ({ status }) => {
         if (status.isInBlock) resolve();
       });
     });
-    const balanceAfter = await alithSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
-    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
-    // Update all costs with gas info
+    expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
+
+    // Update all costs
     allCosts["approval"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["approval"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 
@@ -170,25 +191,45 @@ describe("ERC20 Gas Estimates", function () {
     const precompileGasEstimate = await erc20Precompile
       .connect(alithSigner)
       .estimateGas.transfer(bobSigner.address, amount);
-
-    const balanceBefore = await alithSigner.getBalance();
+    // precompile fee cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc20Precompile.connect(alithSigner).transfer(bobSigner.address, amount);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc20Contract
+      .connect(alithSigner)
+      .transfer(bobSigner.address, amount, { gasLimit: contractGasEstimate });
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
+    // Extrinsic cost
+    balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.assets.transfer(NATIVE_TOKEN_ID, bobSigner.address, amount).signAndSend(alith, ({ status }) => {
         if (status.isInBlock) resolve();
       });
     });
-    const balanceAfter = await alithSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
-    // Update all costs with gas info
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
+
+    // Update all costs
     allCosts["transfer"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["transfer"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 
@@ -211,28 +252,47 @@ describe("ERC20 Gas Estimates", function () {
     const precompileGasEstimate = await erc20Precompile
       .connect(bobSigner)
       .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount);
-
-    const balanceBefore = await bobSigner.getBalance();
+    // precompile fee cost
+    let balanceBefore = await bobSigner.getBalance();
+    tx = await erc20Precompile.connect(bobSigner).transferFrom(alithSigner.address, bobSigner.address, amount / 2);
+    await tx.wait();
+    let balanceAfter = await bobSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await bobSigner.getBalance();
+    tx = await erc20Contract
+      .connect(bobSigner)
+      .transferFrom(alithSigner.address, bobSigner.address, amount, { gasLimit: contractGasEstimate });
+    await tx.wait();
+    balanceAfter = await bobSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
+    // Extrinsic cost
+    balanceBefore = await bobSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.assets
-        .transferApproved(NATIVE_TOKEN_ID, alithSigner.address, bobSigner.address, amount)
+        .transferApproved(NATIVE_TOKEN_ID, alithSigner.address, bobSigner.address, amount / 2)
         .signAndSend(bob, ({ status }) => {
           if (status.isInBlock) resolve();
         });
     });
-    const balanceAfter = await bobSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+    balanceAfter = await bobSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
-    // Update all costs with gas info
+    // Update all costs
     allCosts["transferFrom"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["transferFrom"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 
@@ -247,9 +307,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["name"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -263,9 +323,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["decimals"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -279,9 +339,9 @@ describe("ERC20 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["symbol"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 });
