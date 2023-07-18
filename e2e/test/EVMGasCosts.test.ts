@@ -116,14 +116,14 @@ describe("EVM gas costs", () => {
     expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(BASE_GAS_COST);
 
     // assert gas used
-    const totalGasPaid = receipt.effectiveGasPrice?.mul(BASE_GAS_COST);
-    const totalPaid = totalGasPaid.add(utils.parseEther("1"));
+    const totalFeePaid = receipt.effectiveGasPrice?.mul(BASE_GAS_COST);
+    const totalPaid = totalFeePaid.add(utils.parseEther("1"));
     const alithBalanceAfter = await alithSigner.getBalance();
     expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
     // assert XRP used
-    const xrpCost6DP = totalGasPaid.div(10 ** 12).toNumber();
-    const xrpCostScaled = +utils.formatEther(totalGasPaid);
+    const xrpCost6DP = totalFeePaid.div(10 ** 12).toNumber();
+    const xrpCostScaled = +utils.formatEther(totalFeePaid);
     expect(xrpCost6DP).to.eql(315000);
     expect(+xrpCostScaled.toFixed(3)).to.eql(0.315);
   });
