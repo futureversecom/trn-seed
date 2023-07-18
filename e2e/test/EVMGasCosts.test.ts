@@ -145,11 +145,11 @@ describe("EVM gas costs", () => {
     console.log("erc20Contract deployed to:", erc20Contract.address);
 
     // assert gas used
-    const FeePaidUpFornt = receipt.effectiveGasPrice?.mul(actualGasEstimate);
+    const FeePaidUpfront = receipt.effectiveGasPrice?.mul(actualGasEstimate);
     const actualCost = receipt.effectiveGasPrice?.mul(receipt.gasUsed);
     const refund = receipt.effectiveGasPrice?.mul(actualGasEstimate.sub(receipt.gasUsed));
-    expect(estimatedTxCost).to.eql(FeePaidUpFornt);
-    expect(actualCost).to.eql(FeePaidUpFornt?.sub(refund));
+    expect(estimatedTxCost).to.eql(FeePaidUpfront);
+    expect(actualCost).to.eql(FeePaidUpfront?.sub(refund));
     const alithBalanceAfter = await alithSigner.getBalance();
     expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(actualCost);
 
