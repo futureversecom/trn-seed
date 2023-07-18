@@ -102,14 +102,16 @@ describe("Futurepass Precompile", function () {
 
     const balanceBefore = await owner.getBalance();
     const tx = await futurepassRegistrar.connect(owner).create(owner.address);
-    await tx.wait();
+    const receipt = await tx.wait();
     const balanceAfter = await owner.getBalance();
     const actualCost = balanceBefore.sub(balanceAfter);
     const fees = await provider.getFeeData();
 
-    // Note: we charge the maxFeePerGas * gaslimit upfront and do not refund the extra atm. Hence, users are charged extra
-    const calculatedCost = precompileGasEstimate.mul(fees.maxFeePerGas!);
-    expect(weiTo6DP(actualCost)).to.equal(weiTo6DP(calculatedCost));
+    const effectiveFeePerGas = fees.lastBaseFeePerGas?.add(fees.maxPriorityFeePerGas!);
+    const calculatedCostFromGasEstimate = precompileGasEstimate.mul(effectiveFeePerGas!);
+    const calculatedCostFromActualGas = receipt.gasUsed.mul(effectiveFeePerGas!);
+    expect(weiTo6DP(actualCost)).to.equal(weiTo6DP(calculatedCostFromActualGas).sub(1)); // sub 1 drop to match the rounding
+    expect(weiTo6DP(actualCost)).to.lessThan(weiTo6DP(calculatedCostFromGasEstimate));
   });
 
   it("create futurepass tx costs", async () => {
