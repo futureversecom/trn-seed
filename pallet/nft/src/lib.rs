@@ -769,8 +769,10 @@ pub mod pallet {
 				);
 
 				// We can handle the network fee payout to the tx fee pot as well here
-				let amount_in_percentage = T::NetworkFeePercentage::get().mul(listing.fixed_price);
-				let network_fee = listing.fixed_price - amount_in_percentage;
+				// let amount_in_percentage =
+				// T::NetworkFeePercentage::get().mul(listing.fixed_price); let network_fee =
+				// listing.fixed_price - amount_in_percentage;
+				let network_fee = T::NetworkFeePercentage::get().mul(listing.fixed_price);
 
 				payouts.push((T::TxFeePotId::get().into_account_truncating(), network_fee));
 				// Make split transfer
