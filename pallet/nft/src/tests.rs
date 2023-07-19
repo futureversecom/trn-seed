@@ -12,7 +12,7 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, AssetsExt, Event as MockEvent, FeePotId, MaxTokensPerCollection,
+		create_account, has_event, AssetsExt, Event as MockEvent, FeePotId,MarketplaceNetworkFeePercentage, MaxTokensPerCollection,
 		NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 	},
 	Event as NftEvent,
@@ -1304,9 +1304,11 @@ fn buy() {
 fn listing_price_splits_royalties_and_network_fee() {
 	let buyer = create_account(5);
 	let price = 1_000_000;
+	let starting_balance = price * 2;
+	let entitlement_amount = Permill::from_float(0.25);
 
 	TestExt::default()
-		.with_balances(&[(buyer, price * 2)])
+		.with_balances(&[(buyer, starting_balance)])
 		.build()
 		.execute_with(|| {
 			let beneficiary_1 = create_account(11);
@@ -1314,7 +1316,7 @@ fn listing_price_splits_royalties_and_network_fee() {
 			let royalties_schedule = RoyaltiesSchedule {
 				entitlements: BoundedVec::truncate_from(vec![(
 					beneficiary_1,
-					Permill::from_float(0.25),
+					entitlement_amount,
 				)]),
 			};
 			let (collection_id, token_id, token_owner) =
@@ -1337,19 +1339,19 @@ fn listing_price_splits_royalties_and_network_fee() {
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				750000
+				price - entitlement_amount.mul(price)
 			);
 
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
-				250000
+				entitlement_amount.mul(price)
 			);
 
 			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
 
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
-				5000
+				MarketplaceNetworkFeePercentage::get().mul(price)
 			);
 		});
 }
