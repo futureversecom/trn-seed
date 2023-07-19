@@ -24,12 +24,14 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use core::ops::Mul;
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::ops::{Deref, Mul};
 use frame_support::{
 	ensure,
 	traits::{tokens::fungibles::Mutate, Get},
 	transactional, PalletId,
 };
+use scale_info::TypeInfo;
 use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
@@ -68,10 +70,45 @@ pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
+// type PalletId
+
+// /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
+// #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, TypeInfo)]
+// struct DebugPalletId
+
+// impl MaxEncodedLen for PalletId {}
+
+/// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
+#[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, TypeInfo)]
+pub struct PalletIdWithMaxLen(pub PalletId);
+
+impl MaxEncodedLen for PalletIdWithMaxLen {
+	fn max_encoded_len() -> usize {
+		// This is == the encoded length of the largest [u8; 4]
+		16
+	}
+}
+
+impl From<PalletId> for PalletIdWithMaxLen {
+	fn from(value: PalletId) -> Self {
+		PalletIdWithMaxLen(value)
+	}
+}
+
+// impl Deref for PalletIdWithMaxLen {
+// 	type Target = PalletId;
+
+// 	fn deref(&self) -> &Self::Target {
+// 		&self.0
+// 	}
+// }
+
+struct DebugPalletId;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer};
+	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer, PalletId};
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
@@ -113,7 +150,7 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		// The account which collects funds(aka the index fund)
 		#[pallet::constant]
-		type TxFeePotId: Get<PalletId>;
+		type DefaultTxFeePotId: Get<Option<PalletId>>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
@@ -145,6 +182,17 @@ pub mod pallet {
 		/// Interface for sending XLS20 mint requests
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
 	}
+
+	#[pallet::type_value]
+	pub fn DefaultTxFeePotId<T: Config>() -> Option<PalletIdWithMaxLen> {
+		T::DefaultTxFeePotId::get().map(|v| v.into())
+	}
+
+	/// The pallet id for the tx fee pot
+	#[pallet::storage]
+	#[pallet::getter(fn chain_id)]
+	pub type TxFeePotId<T> =
+		StorageValue<_, Option<PalletIdWithMaxLen>, ValueQuery, DefaultTxFeePotId<T>>;
 
 	/// Map from collection to its information
 	#[pallet::storage]
@@ -769,12 +817,12 @@ pub mod pallet {
 				);
 
 				// We can handle the network fee payout to the tx fee pot as well here
-				// let amount_in_percentage =
-				// T::NetworkFeePercentage::get().mul(listing.fixed_price); let network_fee =
-				// listing.fixed_price - amount_in_percentage;
 				let network_fee = T::NetworkFeePercentage::get().mul(listing.fixed_price);
 
-				payouts.push((T::TxFeePotId::get().into_account_truncating(), network_fee));
+				if let Some(tx_fee_pot_id) = TxFeePotId::<T>::get() {
+					payouts.push((tx_fee_pot_id.0.into_account_truncating(), network_fee));
+				}
+
 				// Make split transfer
 				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
 

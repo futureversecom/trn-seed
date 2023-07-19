@@ -30,6 +30,7 @@ use pallet_evm::{
 	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
 	Runner as RunnerT,
 };
+use pallet_nft::PalletIdWithMaxLen;
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
 use sp_api::impl_runtime_apis;
@@ -395,7 +396,9 @@ parameter_types! {
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const MintLimit: u32 = 1_000;
 	pub const MaxOffers: u32 = 100;
+	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
 }
+
 impl pallet_nft::Config for Runtime {
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
@@ -409,7 +412,7 @@ impl pallet_nft::Config for Runtime {
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
-	type TxFeePotId = TxFeePotId;
+	type DefaultTxFeePotId = DefaultTxFeePotId;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 }
