@@ -248,14 +248,14 @@ describe("ERC20 Gas Estimates", function () {
     // Note: if we use the full approved amount, the contract actual gas usage becomes lesser than the precompile.
     const contractGasEstimate = await erc20Contract
       .connect(bobSigner)
-      .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount/2);
+      .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount / 2);
     // Estimate precompile call
     const precompileGasEstimate = await erc20Precompile
       .connect(bobSigner)
-      .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount/2);
+      .estimateGas.transferFrom(alithSigner.address, bobSigner.address, amount / 2);
     // precompile fee cost
     let balanceBefore = await bobSigner.getBalance();
-    tx = await erc20Precompile.connect(bobSigner).transferFrom(alithSigner.address, bobSigner.address, amount/2);
+    tx = await erc20Precompile.connect(bobSigner).transferFrom(alithSigner.address, bobSigner.address, amount / 2);
     await tx.wait();
     let balanceAfter = await bobSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
@@ -263,7 +263,7 @@ describe("ERC20 Gas Estimates", function () {
     balanceBefore = await bobSigner.getBalance();
     tx = await erc20Contract
       .connect(bobSigner)
-      .transferFrom(alithSigner.address, bobSigner.address, amount/2, { gasLimit: contractGasEstimate });
+      .transferFrom(alithSigner.address, bobSigner.address, amount / 2, { gasLimit: contractGasEstimate });
     await tx.wait();
     balanceAfter = await bobSigner.getBalance();
     const contractFeeCost = balanceBefore.sub(balanceAfter);
@@ -271,7 +271,7 @@ describe("ERC20 Gas Estimates", function () {
     balanceBefore = await bobSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.assets
-        .transferApproved(NATIVE_TOKEN_ID, alithSigner.address, bobSigner.address, amount/2)
+        .transferApproved(NATIVE_TOKEN_ID, alithSigner.address, bobSigner.address, amount / 2)
         .signAndSend(bob, ({ status }) => {
           if (status.isInBlock) resolve();
         });
