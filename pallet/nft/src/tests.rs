@@ -14,7 +14,7 @@ use crate::{
 	mock::{
 		create_account, has_event, AssetsExt, Event as MockEvent, FeePotId,
 		MarketplaceNetworkFeePercentage, MaxTokensPerCollection, NativeAssetId, Nft, NftPalletId,
-		System, Test, TestExt,
+		System, Test, TestExt, XRP_ASSET_ID,
 	},
 	Event as NftEvent,
 };
@@ -1335,6 +1335,12 @@ fn listing_price_splits_royalties_and_network_fee() {
 			));
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+				starting_balance - price - MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				price - entitlement_amount.mul(price)
@@ -1349,6 +1355,130 @@ fn listing_price_splits_royalties_and_network_fee() {
 
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+		});
+}
+
+#[test]
+fn listing_price_splits_multiple_royalties_and_network_fee() {
+	let buyer = create_account(5);
+	let price = 1_000_000;
+	let starting_balance = price * 2;
+	let entitlement_amount = Permill::from_float(0.25);
+	let entitlement_amount_beneficiary_2 = Permill::from_float(0.5);
+
+	TestExt::default()
+		.with_balances(&[(buyer, starting_balance)])
+		.build()
+		.execute_with(|| {
+			let beneficiary_1 = create_account(11);
+			let beneficiary_2 = create_account(22);
+
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(beneficiary_1, entitlement_amount),
+					(beneficiary_2, entitlement_amount_beneficiary_2),
+				]),
+			};
+			let (collection_id, token_id, token_owner) =
+				setup_token_with_royalties(royalties_schedule.clone(), 2);
+
+			let listing_id = Nft::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Nft::sell(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				NativeAssetId::get(),
+				price,
+				None,
+				None
+			));
+
+			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+				starting_balance - price - MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+				price -
+					(entitlement_amount.mul(price) + entitlement_amount_beneficiary_2.mul(price))
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
+				entitlement_amount.mul(price)
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
+				entitlement_amount_beneficiary_2.mul(price)
+			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+		});
+}
+
+#[test]
+fn network_fee_royalties_split_is_respected_xrpl() {
+	let buyer = create_account(5);
+	let price = 1_000_000;
+	let starting_balance = price * 2;
+	let entitlement_amount = Permill::from_float(0.25);
+	let asset_used = XRP_ASSET_ID;
+
+	TestExt::default()
+		.with_xrp_balances(&[(buyer, starting_balance)])
+		.build()
+		.execute_with(|| {
+			let beneficiary_1 = create_account(11);
+
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(beneficiary_1, entitlement_amount)]),
+			};
+			let (collection_id, token_id, token_owner) =
+				setup_token_with_royalties(royalties_schedule.clone(), 2);
+
+			let listing_id = Nft::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Nft::sell(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				asset_used,
+				price,
+				None,
+				None
+			));
+
+			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
+			assert_eq!(
+				AssetsExt::reducible_balance(asset_used, &token_owner, false),
+				price - entitlement_amount.mul(price)
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(asset_used, &beneficiary_1, false),
+				entitlement_amount.mul(price)
+			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::reducible_balance(asset_used, &fee_pot_account, false),
 				MarketplaceNetworkFeePercentage::get().mul(price)
 			);
 		});
