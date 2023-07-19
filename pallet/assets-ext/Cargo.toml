@@ -31,6 +31,7 @@ sp-core = { git = "https://github.com/futureversecom/substrate", default-feature
 sp-io = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 pallet-evm = { git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
+
 [features]
 default = ["std"]
 std = [
