@@ -11,11 +11,11 @@
 
 use crate::{Call::call_with_fee_preferences, *};
 use frame_support::traits::IsSubType;
+use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
-use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf};
-
 use precompile_utils::{Address, ErcIdConversion};
 use seed_primitives::{AccountId, AssetId, Balance};
+use sp_runtime::traits::{DispatchInfoOf, PostDispatchInfoOf};
 
 impl<T> OnChargeTransaction<T> for Pallet<T>
 where
@@ -28,6 +28,7 @@ where
 		+ pallet_futurepass::Config,
 	<T as frame_system::Config>::Call: IsSubType<crate::Call<T>>,
 	<T as Config>::Call: IsSubType<pallet_evm::Call<T>>,
+	<T as Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<<<T as Config>::OnChargeTransaction as OnChargeTransaction<T>>::Balance>,
@@ -45,12 +46,24 @@ where
 		fee: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+		let mut who = who;
+
 		// Check whether this call has specified fee preferences
 		if let Some(call_with_fee_preferences { payment_asset, max_payment, call }) =
 			call.is_sub_type()
 		{
 			let mut total_fee: Balance = Balance::from(fee);
 			let native_asset = <T as Config>::FeeAssetId::get();
+
+			// if the inner call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a
+			// delegate of the FP(futurepass), we switch the gas payer to the FP
+			if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =
+				call.is_sub_type()
+			{
+				if <T as pallet_futurepass::Config>::Proxy::exists(futurepass, who, None) {
+					who = futurepass;
+				}
+			}
 
 			// Check if the inner call is an evm call. This will increase total gas to swap
 			// This is required as the fee value here does not take into account the max

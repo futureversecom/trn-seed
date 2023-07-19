@@ -860,7 +860,7 @@ fn transfer_futurepass_to_address_works() {
 			// the owner will get back the old reserve amount
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
-			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), Some(other)));
+			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), owner, Some(other)));
 			// assert event
 			System::assert_has_event(
 				Event::<Test>::FuturepassTransferred {
@@ -947,7 +947,7 @@ fn transfer_futurepass_to_none_works() {
 			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
 			// the owner will get back the old reserve amount
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 0);
-			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), None));
+			assert_ok!(Futurepass::transfer_futurepass(Origin::signed(owner), owner, None));
 			// assert event
 			System::assert_has_event(
 				Event::<Test>::FuturepassTransferred {
@@ -1031,13 +1031,14 @@ fn transfer_futurepass_failures() {
 			assert_noop!(
 				Futurepass::transfer_futurepass(
 					Origin::signed(create_random()),
+					owner,
 					Some(create_random())
 				),
 				Error::<Test>::NotFuturepassOwner
 			);
 			// call transfer_futurepass for another futurepass owner should fail
 			assert_noop!(
-				Futurepass::transfer_futurepass(Origin::signed(owner), Some(owner2)),
+				Futurepass::transfer_futurepass(Origin::signed(owner), owner, Some(owner2)),
 				Error::<Test>::AccountAlreadyRegistered
 			);
 		});
@@ -1657,6 +1658,56 @@ fn whitelist_works() {
 				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(proxy_type)),
 				false
 			);
+		});
+}
+
+#[test]
+fn whitelist_works_for_transfer_futurepass() {
+	let funder = create_account(1);
+	let endowed = [(funder, 1_000_000)];
+
+	TestExt::default()
+		.with_balances(&endowed)
+		.with_xrp_balances(&endowed)
+		.build()
+		.execute_with(|| {
+			let owner = create_account(2);
+			let owner2 = create_account(3);
+
+			// fund owner
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE);
+			// create FP for owner
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = Holders::<Test>::get(&owner).unwrap();
+
+			// fund futurepass with FP_CREATION_RESERVE
+			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &futurepass, FP_CREATION_RESERVE);
+
+			// pallet_futurepass::Call::transfer_futurepass works via proxy_extrinsic
+			let inner_call = Box::new(MockCall::Futurepass(Call::transfer_futurepass {
+				current_owner: owner,
+				new_owner: Some(owner2),
+			}));
+			System::reset_events();
+			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
+			// assert event ProxyExecuted
+			System::assert_has_event(
+				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),
+			);
+
+			// assert event FuturepassTransferred
+			System::assert_has_event(
+				Event::<Test>::FuturepassTransferred {
+					old_owner: owner,
+					new_owner: Some(owner2),
+					futurepass,
+				}
+				.into(),
+			);
+
+			//check the owner of futurepass
+			assert_eq!(Holders::<Test>::get(&owner2), Some(futurepass));
+			assert_eq!(Holders::<Test>::get(&owner), None);
 		});
 }
 

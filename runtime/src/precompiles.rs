@@ -14,6 +14,7 @@ use pallet_evm_precompile_blake2::Blake2F;
 use pallet_evm_precompile_modexp::Modexp;
 use pallet_evm_precompile_sha3fips::Sha3FIPS256;
 use pallet_evm_precompile_simple::{ECRecover, ECRecoverPublicKey, Identity, Ripemd160, Sha256};
+use pallet_evm_precompiles_dex::DexPrecompile;
 use pallet_evm_precompiles_erc1155::Erc1155PrecompileSet;
 use pallet_evm_precompiles_erc20::Erc20PrecompileSet;
 use pallet_evm_precompiles_erc721::Erc721PrecompileSet;
@@ -24,7 +25,7 @@ use pallet_evm_precompiles_peg::PegPrecompile;
 use pallet_evm_precompiles_sft::SftPrecompile;
 use precompile_utils::{
 	constants::{
-		ERC1155_PRECOMPILE_ADDRESS_PREFIX, ERC20_PRECOMPILE_ADDRESS_PREFIX,
+		DEX_PRECOMPILE, ERC1155_PRECOMPILE_ADDRESS_PREFIX, ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		ERC721_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX,
 		FUTUREPASS_REGISTRAR_PRECOMPILE, NFT_PRECOMPILE, PEG_PRECOMPILE, SFT_PRECOMPILE,
 	},
@@ -66,6 +67,7 @@ pub type FutureversePrecompiles<R> = PrecompileSetBuilder<
 				PrecompileAt<AddressU64<NFT_PRECOMPILE>, NftPrecompile<R>>,
 				PrecompileAt<AddressU64<SFT_PRECOMPILE>, SftPrecompile<R>>,
 				PrecompileAt<AddressU64<PEG_PRECOMPILE>, PegPrecompile<R>>,
+				PrecompileAt<AddressU64<DEX_PRECOMPILE>, DexPrecompile<R>>,
 				PrecompileAt<
 					AddressU64<FUTUREPASS_REGISTRAR_PRECOMPILE>,
 					FuturePassRegistrarPrecompile<R>,

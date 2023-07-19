@@ -13,13 +13,13 @@ pub use precompile_addresses::*;
 
 mod precompile_addresses {
 	/// Calls to contracts starting with this prefix will be shim'd to the Seed NFT module
-	/// via an ERC721 compliant interface (`Erc721PrecompileSet`)
+	/// via an IERC721 compliant interface (`Erc721PrecompileSet`)
 	pub const ERC721_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xAA; 4];
 	/// Calls to contracts starting with this prefix will be shim'd to the Seed SFT module
-	/// via an ERC1155 compliant interface (`Erc1155PrecompileSet`)
+	/// via an IERC1155 compliant interface (`Erc1155PrecompileSet`)
 	pub const ERC1155_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xBB; 4];
 	/// Calls to contracts starting with this prefix will be shim'd to the Seed AssetsExt module
-	/// via an ERC20 compliant interface (`Erc20PrecompileSet`)
+	/// via an IERC20 compliant interface (`Erc20PrecompileSet`)
 	pub const ERC20_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xCC; 4];
 	/// Calls to contracts starting with this prefix will be shim'd to the Futurepass module
 	pub const FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX: &[u8; 4] = &[0xFF; 4];
@@ -29,6 +29,9 @@ mod precompile_addresses {
 	pub const SFT_PRECOMPILE: u64 = 1731; // 0x06C3
 	/// Precompile address for peg precompile
 	pub const PEG_PRECOMPILE: u64 = 1939; // 0x0793
+	/// Precompile address for dex precompile; IUniswapV2Router01 compliant interface for
+	/// (`DexPrecompile`)
+	pub const DEX_PRECOMPILE: u64 = 56797; // 0xDDDD
 	/// The decoded location for the fee proxy function selector
 	/// 0x04BB = 00000100 10111011
 	pub const FEE_PROXY_ADDRESS: u64 = 1211; // 0x04BB

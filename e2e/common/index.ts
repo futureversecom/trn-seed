@@ -1,6 +1,9 @@
+import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise } from "@polkadot/api";
+import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
+import { BigNumber } from "ethers";
 import { writeFileSync } from "fs";
 import { CliPrettify } from "markdown-table-prettify";
 import { join } from "path";
@@ -202,16 +205,19 @@ export const FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS = "0x0000000000000000000000
 // Precompile address for peg precompile is 1939
 export const PEG_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000000793";
 
+// Precompile address for dex precompile
+export const DEX_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000DDDD";
+
 // Futurepass delegate reserve amount
 export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
 
 // Futurepass creation reserve amount
 export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
 
-export type GasCosts = {
-  Contract: number;
-  Precompile: number;
-  Extrinsic: number;
+export type TxCosts = {
+  Contract: BigNumber;
+  Precompile: BigNumber;
+  Extrinsic: BigNumber;
 };
 
 /** ABIs */
@@ -354,6 +360,31 @@ export const FUTUREPASS_PRECOMPILE_ABI = [
   ...OWNABLE_ABI,
 ];
 
+export const DEX_PRECOMPILE_ABI = [
+  // IUniswapV2Pair
+  "event Mint(address indexed sender, uint256 amount0, uint256 amount1)",
+  "event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to)",
+  "event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)",
+
+  // IUniswapV2Router01
+  "function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB, uint liquidity)",
+  "function addLiquidityETH(address token, uint amountTokenDesired, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external payable returns (uint amountToken, uint amountETH, uint liquidity)",
+  "function removeLiquidity(address tokenA, address tokenB, uint liquidity, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB)",
+  "function removeLiquidityETH(address token, uint liquidity, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external returns (uint amountToken, uint amountETH)",
+  "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+  "function swapTokensForExactTokens(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+  "function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)",
+  "function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+  "function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
+  "function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)",
+
+  "function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB)",
+  "function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut)",
+  "function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn)",
+  "function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts)",
+  "function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts)",
+];
+
 /** Functions */
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -385,8 +416,10 @@ interface EventMatchers {
 /**
  * gets the next asset id - to be created by `assetsExt.createAsset`
  */
-export const getNextAssetId = async (api: ApiPromise): Promise<number> => {
-  const nextAssetId = (await api.query.assetsExt.nextAssetId()).toString();
+export const getNextAssetId = async (api: ApiPromise, nextAssetId?: string | number): Promise<number> => {
+  if (!nextAssetId) {
+    nextAssetId = (await api.query.assetsExt.nextAssetId()).toString();
+  }
   const nextAssetIdBin = (+nextAssetId).toString(2).padStart(22, "0");
   const parachainIdBin = (100).toString(2).padStart(10, "0");
   const nextAssetUuid = parseInt(nextAssetIdBin + parachainIdBin, 2);
@@ -420,16 +453,16 @@ export const getSftCollectionPrecompileAddress = (collectionId: number) => {
 };
 
 /**
- * Saves gas cost to a markdown file
+ * Saves tx costs(gas to a markdown file
  * @returns
  * @param costs Dictionary of gas costs for different function calls
  * @param filePath The file path to save the output
  * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
  */
-export const saveGasCosts = (costs: { [key: string]: GasCosts }, filePath: string, header: string) => {
+export const saveTxGas = (costs: { [key: string]: TxCosts }, filePath: string, header: string) => {
   // Set string headers
-  let data: string = `## Generated gas prices for ${header}\n\n`;
-  data += "| Function Call | Contract gas | Precompile gas | Extrinsic gas |\n";
+  let data: string = `## Generated tx costs(Gas) for ${header}\n\n`;
+  data += "| Function Call | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |\n";
   data += "| :--- | :---: | :---: | :---: |\n";
 
   // Iterate through functions and add gas prices
@@ -446,6 +479,71 @@ export const saveGasCosts = (costs: { [key: string]: GasCosts }, filePath: strin
     flag: "w",
   });
 };
+
+export const finalizeTx = (signer: KeyringPair, extrinsic: SubmittableExtrinsic<"promise">) => {
+  return new Promise<void>((resolve) => {
+    extrinsic.signAndSend(signer, ({ status }: any) => {
+      if (status.isInBlock) resolve();
+    });
+  });
+};
+
+/**
+ * Saves tx costs(fees) to a markdown file
+ * @returns
+ * @param costs Dictionary of tx costs for different function calls
+ * @param filePath The file path to save the output
+ * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
+ */
+export const saveTxFees = (costs: { [key: string]: TxCosts }, filePath: string, header: string) => {
+  // Set string headers
+  let data: string = `\n\n## Generated tx costs(fees) for ${header}\n\n`;
+  data += "| Function Call | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |\n";
+  data += "| :--- | :---: | :---: | :---: |\n";
+
+  // Iterate through functions and add tx fees
+  for (const key in costs) {
+    const value = costs[key];
+    data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
+  }
+
+  // Prettify data
+  data = CliPrettify.prettify(data);
+
+  // Save data to specified file path
+  writeFileSync(join("./test", filePath), data, {
+    flag: "a",
+  });
+};
+
+/**
+ * Convert extrinsic fee to scaled gas
+ * @param provider Provider to get fee data
+ * @param fee Extrinsic fee
+ */
+export async function getScaledGasForExtrinsicFee(provider: JsonRpcProvider, fee: BigNumber) {
+  // NOTE - What we do here is not exactly correct. If you want to get the actual equivalent gas for an extrinsic fee,
+  // first need to get the weight by reversing substrate tx fee formula. Then use that weight to get the correct gas by
+  // reversing runtime weight to gas mapping. But this is rather complex in ts context as the substrate tx formula
+  // depends on many factors.
+  const feeData = await provider.getFeeData();
+  return fee.div(feeData.gasPrice!);
+}
+
+/**
+ * Converts a value in wei to 6 decimal places
+ * @param value
+ */
+export function weiTo6DP(value: BigNumber) {
+  const quotient = value.div(1000000000000n);
+  const remainder = value.mod(1000000000000n);
+
+  if (remainder.isZero()) {
+    return quotient;
+  } else {
+    return quotient.add(1n);
+  }
+}
 
 /**
  * createAssetUntil continously creates assets until asset with `assetId` exists
