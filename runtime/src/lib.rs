@@ -522,6 +522,7 @@ parameter_types! {
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
 	pub const LPTokenDecimals: u8 = 18;
+	pub const DefaultFeeTo: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
@@ -529,6 +530,7 @@ impl pallet_dex::Config for Runtime {
 	type LPTokenDecimals = LPTokenDecimals;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
+	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = weights::pallet_dex::WeightInfo<Runtime>;
 	type MultiCurrency = AssetsExt;
 }
@@ -1923,5 +1925,6 @@ mod benches {
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
+		[pallet_dex, Dex]
 	);
 }
