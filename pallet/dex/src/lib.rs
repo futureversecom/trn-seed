@@ -113,6 +113,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type LPTokenDecimals: Get<u8>;
 
+		/// The default FeeTo account
+		#[pallet::constant]
+		type DefaultFeeTo: Get<Option<PalletId>>;
+
 		/// Weight information for the extrinsic call in this module.
 		type WeightInfo: WeightInfo;
 
@@ -204,10 +208,18 @@ pub mod pallet {
 		ProvisioningToEnabled(TradingPair, Balance, Balance, Balance),
 	}
 
+	#[pallet::type_value]
+	pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId>
+	where
+		<T as frame_system::Config>::AccountId: From<H160>,
+	{
+		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
+	}
+
 	/// FeeTo account where network fees are deposited
 	#[pallet::storage]
 	#[pallet::getter(fn fee_to)]
-	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery>;
+	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn lp_token_id)]
