@@ -12,8 +12,9 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, AssetsExt, Event as MockEvent, FeePotId,MarketplaceNetworkFeePercentage, MaxTokensPerCollection,
-		NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
+		create_account, has_event, AssetsExt, Event as MockEvent, FeePotId,
+		MarketplaceNetworkFeePercentage, MaxTokensPerCollection, NativeAssetId, Nft, NftPalletId,
+		System, Test, TestExt,
 	},
 	Event as NftEvent,
 };
@@ -1314,10 +1315,7 @@ fn listing_price_splits_royalties_and_network_fee() {
 			let beneficiary_1 = create_account(11);
 
 			let royalties_schedule = RoyaltiesSchedule {
-				entitlements: BoundedVec::truncate_from(vec![(
-					beneficiary_1,
-					entitlement_amount,
-				)]),
+				entitlements: BoundedVec::truncate_from(vec![(beneficiary_1, entitlement_amount)]),
 			};
 			let (collection_id, token_id, token_owner) =
 				setup_token_with_royalties(royalties_schedule.clone(), 2);
