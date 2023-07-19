@@ -176,6 +176,7 @@ parameter_types! {
 	pub const StringLimit: u32 = 50;
 	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const DefaultTxFeePotId: Option<PalletId> = Some(FeePotId::get());
 }
 
 impl pallet_nft::Config for Test {
@@ -191,7 +192,7 @@ impl pallet_nft::Config for Test {
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
-	type TxFeePotId = FeePotId;
+	type DefaultTxFeePotId = DefaultTxFeePotId;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }

@@ -1290,7 +1290,7 @@ fn buy() {
 
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
-				price - 5, // 0.5% of 1000
+				5, // 0.5% of 1000
 			);
 		});
 }
@@ -1344,7 +1344,7 @@ fn listing_price_splits_royalties_and_network_fee() {
 
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
-				995000
+				5000
 			);
 		});
 }
@@ -1510,7 +1510,7 @@ fn sell_to_anybody() {
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 
 			// paid
-			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
+			assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 990);
 
 			// listing removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
@@ -1562,7 +1562,7 @@ fn buy_with_overcommitted_royalties() {
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 		assert!(bad_schedule.calculate_total_entitlement().is_zero());
 		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false), price);
-		assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
+		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 990);
 		assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 	})
 }
