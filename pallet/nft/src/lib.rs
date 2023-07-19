@@ -25,7 +25,7 @@
 //! number)
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::ops::{Deref, Mul};
+use core::ops::Mul;
 use frame_support::{
 	ensure,
 	traits::{tokens::fungibles::Mutate, Get},

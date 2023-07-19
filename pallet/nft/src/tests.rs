@@ -12,8 +12,8 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, Assets, AssetsExt, Event as MockEvent, FeePotId,
-		MaxTokensPerCollection, NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
+		create_account, has_event, AssetsExt, Event as MockEvent, FeePotId, MaxTokensPerCollection,
+		NativeAssetId, Nft, NftPalletId, System, Test, TestExt,
 	},
 	Event as NftEvent,
 };
@@ -719,6 +719,11 @@ fn sell() {
 			);
 
 			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				5, // 0.5% of 1000
+			);
 		})
 }
 
