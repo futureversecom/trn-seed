@@ -259,7 +259,7 @@ pub mod pallet {
 		/// - note: analogous to Uniswapv2 `setFeeTo`
 		///
 		/// - `fee_to`: the new account or None assigned to FeeTo.
-		#[pallet::weight(T::WeightInfo::swap_with_exact_supply())]
+		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		#[transactional]
 		pub fn set_fee_to(
 			origin: OriginFor<T>,
