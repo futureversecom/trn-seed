@@ -70,15 +70,8 @@ pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
-// type PalletId
-
-// /// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
-// #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, TypeInfo)]
-// struct DebugPalletId
-
-// impl MaxEncodedLen for PalletId {}
-
-/// A pallet identifier. These are per pallet and should be stored in a registry somewhere.
+/// A wrapper for PalletId which includes max encoded length for use in areas of the pallet which
+/// need it, such as storage
 #[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, TypeInfo)]
 pub struct PalletIdWithMaxLen(pub PalletId);
 
@@ -94,16 +87,6 @@ impl From<PalletId> for PalletIdWithMaxLen {
 		PalletIdWithMaxLen(value)
 	}
 }
-
-// impl Deref for PalletIdWithMaxLen {
-// 	type Target = PalletId;
-
-// 	fn deref(&self) -> &Self::Target {
-// 		&self.0
-// 	}
-// }
-
-struct DebugPalletId;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -148,7 +131,7 @@ pub mod pallet {
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		// The account which collects funds(aka the index fund)
+		/// The account which collects funds(aka the index fund)
 		#[pallet::constant]
 		type DefaultTxFeePotId: Get<Option<PalletId>>;
 		/// The maximum number of offers allowed on a collection
