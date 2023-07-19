@@ -1396,6 +1396,9 @@ fn multiple_swaps_with_multiple_lp() {
 		let danny: AccountId = create_account(4);
 		let elliot: AccountId = create_account(5);
 
+		// set FeeTo to None
+		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+
 		// create tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
 		let weth = AssetsExt::create(&alice, None).unwrap();
@@ -1620,8 +1623,9 @@ fn set_fee_to() {
 		let alice: AccountId = create_account(1);
 		let bob: AccountId = create_account(2);
 
-		// the default value of FeeTo should be None
-		assert_eq!(Dex::fee_to().is_none(), true);
+		// check the default value of FeeTo
+		let fee_pot = DefaultFeeTo::<Test>::get().map(|v| v.into());
+		assert_eq!(Dex::fee_to(), fee_pot);
 
 		// normal user can not set FeeTo
 		assert_noop!(Dex::set_fee_to(Origin::signed(alice), Some(bob)), BadOrigin);
@@ -1672,7 +1676,10 @@ fn mint_fee() {
 		let lp_token = Dex::lp_token_id(trading_pair).unwrap();
 		let (reserve_a, reserve_b) = Dex::liquidity_pool(trading_pair);
 
-		// return false because FeeTo is None by default
+		// set FeeTo to None
+		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+
+		// return false because FeeTo is None
 		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), false);
 
 		// set last_k value
