@@ -15,6 +15,7 @@ use frame_support::{assert_noop, assert_ok};
 use hex::encode;
 use mock::{Dex, Event as MockEvent, Origin, System, Test, TestExt};
 use seed_primitives::AccountId;
+use sp_arithmetic::helpers_128bit::sqrt;
 use sp_core::H160;
 use sp_runtime::{traits::BadOrigin, ArithmeticError, DispatchError};
 use std::str::FromStr;
@@ -1705,7 +1706,11 @@ fn mint_fee() {
 
 		// bob receives lp token after mint_fee is called
 		// expect value sqrt(5)*(sqrt(5) - 2)/(5*sqrt(5)+2)*10^18
-		assert_eq!(AssetsExt::balance(lp_token, &bob), 40049349979288439);
+		let k_last_sqrt = sqrt(to_eth(2) * to_eth(2));
+		let k_sqrt = sqrt(to_eth(5) * to_eth(1));
+		let total_supply = sqrt(to_eth(5) * to_eth(1));
+		let expected_value = total_supply * (k_sqrt - k_last_sqrt) / (5 * k_sqrt + k_last_sqrt);
+		assert_eq!(AssetsExt::balance(lp_token, &bob), expected_value);
 	});
 }
 
@@ -1765,6 +1770,9 @@ fn test_network_fee() {
 		assert_eq!(reserve_0, 6000000000000000000);
 		assert_eq!(reserve_1, 833750208437552110);
 
+		// total supply of lp token
+		let total_supply = AssetsExt::total_issuance(lp_token);
+
 		// remove liquidity to trigger mint_fee() function call
 		assert_ok!(Dex::remove_liquidity(
 			Origin::signed(alice),
@@ -1779,9 +1787,10 @@ fn test_network_fee() {
 
 		// fee_pot receives lp token
 		// expect value:
-		// sqrt(5)*(sqrt(6*0.833750208437552110)-sqrt(5))/(5*sqrt(5)+sqrt(6*0.833750208437552110))*
-		// 10^18
-		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), 93185031357431);
+		let k_sqrt = sqrt(reserve_0 * reserve_1);
+		let k_last_sqrt = sqrt(to_eth(5) * to_eth(1));
+		let expected_value = total_supply * (k_sqrt - k_last_sqrt) / (5 * k_sqrt + k_last_sqrt);
+		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), expected_value);
 	});
 }
 
