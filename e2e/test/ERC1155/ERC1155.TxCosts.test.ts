@@ -3,7 +3,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
-import { Contract, Wallet } from "ethers";
+import { BigNumber, Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
 
 import ERC1155Data from "../../artifacts/contracts/ERC1155.sol/ERC1155.json";
@@ -11,12 +11,14 @@ import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
   ERC1155_PRECOMPILE_ABI,
-  GasCosts,
   NodeProcess,
   SFT_PRECOMPILE_ABI,
   SFT_PRECOMPILE_ADDRESS,
+  TxCosts,
+  getScaledGasForExtrinsicFee,
   getSftCollectionPrecompileAddress,
-  saveGasCosts,
+  saveTxFees,
+  saveTxGas,
   startNode,
   typedefs,
 } from "../../common";
@@ -34,7 +36,8 @@ describe("ERC1155 Gas Estimates", function () {
   let collectionId: any;
   let alith: KeyringPair;
 
-  const allCosts: { [key: string]: GasCosts } = {};
+  const allCosts: { [key: string]: TxCosts } = {};
+  const allTxFeeCosts: { [key: string]: TxCosts } = {};
 
   // Setup api instance
   before(async () => {
@@ -51,7 +54,7 @@ describe("ERC1155 Gas Estimates", function () {
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
 
-    // Create SFT collection, bob is collection owner
+    // Create SFT collection, alice is collection owner
     collectionId = await api.query.nft.nextCollectionId();
     const erc1155PrecompileAddress = getSftCollectionPrecompileAddress(+collectionId);
 
@@ -66,9 +69,10 @@ describe("ERC1155 Gas Estimates", function () {
     // Create precompiles contract
     erc1155Precompile = new Contract(erc1155PrecompileAddress, ERC1155_PRECOMPILE_ABI, alithSigner);
 
+    // create token 1
     const tokenName = ethers.utils.hexlify(ethers.utils.toUtf8Bytes("MyToken"));
-    const tx2 = await erc1155Precompile.connect(alithSigner).createToken(tokenName, 1000, 0, alithSigner.address);
-    await tx2.wait();
+    const tx1 = await erc1155Precompile.connect(alithSigner).createToken(tokenName, 1000, 0, alithSigner.address);
+    await tx1.wait();
 
     // Deploy OpenZeppelin ERC1155 contract
     const factory = new ethers.ContractFactory(ERC1155Data.abi, ERC1155Data.bytecode, alithSigner);
@@ -79,8 +83,8 @@ describe("ERC1155 Gas Estimates", function () {
   });
 
   after(async () => {
-    saveGasCosts(allCosts, "ERC1155/GasCosts.md", "ERC1155 Precompiles");
-
+    saveTxGas(allCosts, "ERC1155/TxCosts.md", "ERC1155 Precompiles");
+    saveTxFees(allTxFeeCosts, "ERC1155/TxCosts.md", "ERC1155 Precompiles");
     await node.stop();
   });
 
@@ -94,9 +98,9 @@ describe("ERC1155 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["uri"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -112,9 +116,9 @@ describe("ERC1155 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["balanceOf"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -132,9 +136,9 @@ describe("ERC1155 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["balanceOfBatch"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -152,9 +156,9 @@ describe("ERC1155 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["setApprovalForAll"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -172,9 +176,9 @@ describe("ERC1155 Gas Estimates", function () {
 
     // Update all costs with gas info
     allCosts["isApprovedForAll"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: 0, // No extrinsic
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: BigNumber.from(0), // No extrinsic
     };
   });
 
@@ -189,26 +193,47 @@ describe("ERC1155 Gas Estimates", function () {
     const precompileGasEstimate = await erc1155Precompile
       .connect(alithSigner)
       .estimateGas.safeTransferFrom(alithSigner.address, bobSigner.address, 0, 10, callData);
+    // precompile call cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc1155Precompile
+      .connect(alithSigner)
+      .safeTransferFrom(alithSigner.address, bobSigner.address, 0, 10, callData);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract call cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc1155Contract
+      .connect(alithSigner)
+      .safeTransferFrom(alithSigner.address, bobSigner.address, 0, 10, callData);
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
-    const balanceBefore = await alithSigner.getBalance();
+    balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
-      api.tx.sft.transfer(collectionId, [[0, 10]], bobSigner.address).signAndSend(alith, ({ status }) => {
+      api.tx.sft.transfer(collectionId, [[1, 11]], bobSigner.address).signAndSend(alith, ({ status }) => {
         if (status.isInBlock) resolve();
       });
     });
-    const balanceAfter = await alithSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
-    // Update all costs with gas info
+    // Update all costs
     allCosts["safeTransferFrom"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["safeTransferFrom"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 
@@ -223,8 +248,24 @@ describe("ERC1155 Gas Estimates", function () {
     const precompileGasEstimate = await erc1155Precompile
       .connect(alithSigner)
       .estimateGas.safeBatchTransferFrom(alithSigner.address, bobSigner.address, [0, 0], [10, 12], callData);
+    // precompile fee cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc1155Precompile
+      .connect(alithSigner)
+      .safeBatchTransferFrom(alithSigner.address, bobSigner.address, [0, 0], [10, 12], callData);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc1155Contract
+      .connect(alithSigner)
+      .safeBatchTransferFrom(alithSigner.address, bobSigner.address, [0, 0], [10, 12], callData);
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
-    const balanceBefore = await alithSigner.getBalance();
+    balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.sft
         .transfer(
@@ -239,19 +280,24 @@ describe("ERC1155 Gas Estimates", function () {
           if (status.isInBlock) resolve();
         });
     });
-    const balanceAfter = await alithSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
     // Update all costs with gas info
     allCosts["safeBatchTransferFrom"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["safeBatchTransferFrom"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 
@@ -266,26 +312,43 @@ describe("ERC1155 Gas Estimates", function () {
     const precompileGasEstimate = await erc1155Precompile
       .connect(alithSigner)
       .estimateGas.mint(alithSigner.address, 0, 10);
+    // precompile fee cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc1155Precompile.connect(alithSigner).mint(alithSigner.address, 0, 10);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc1155Contract.connect(alithSigner).mint(alithSigner.address, 0, 10, callData);
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
-    const balanceBefore = await alithSigner.getBalance();
+    balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.sft.mint(collectionId, [[0, 10]], alithSigner.address).signAndSend(alith, ({ status }) => {
         if (status.isInBlock) resolve();
       });
     });
-    const balanceAfter = await alithSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
-    // Update all costs with gas info
+    // Update all costs
     allCosts["mint"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["mint"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 
@@ -300,8 +363,20 @@ describe("ERC1155 Gas Estimates", function () {
     const precompileGasEstimate = await erc1155Precompile
       .connect(alithSigner)
       .estimateGas.mintBatch(alithSigner.address, [0, 0], [10, 12]);
+    // precompile fee cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc1155Precompile.connect(alithSigner).mintBatch(alithSigner.address, [0, 0], [10, 12]);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc1155Contract.connect(alithSigner).mintBatch(alithSigner.address, [0, 0], [10, 12], callData);
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
-    const balanceBefore = await alithSigner.getBalance();
+    balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.sft
         .mint(
@@ -316,19 +391,24 @@ describe("ERC1155 Gas Estimates", function () {
           if (status.isInBlock) resolve();
         });
     });
-    const balanceAfter = await alithSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
-    // Update all costs with gas info
+    // Update all costs
     allCosts["mintBatch"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["mintBatch"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 
@@ -339,26 +419,43 @@ describe("ERC1155 Gas Estimates", function () {
     const precompileGasEstimate = await erc1155Precompile
       .connect(alithSigner)
       .estimateGas.burn(alithSigner.address, 0, 10);
+    // precompile fee cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc1155Precompile.connect(alithSigner).burn(alithSigner.address, 0, 10);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc1155Contract.connect(alithSigner).burn(alithSigner.address, 0, 10);
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
-    const balanceBefore = await alithSigner.getBalance();
+    balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.sft.burn(collectionId, [[0, 10]]).signAndSend(alith, ({ status }) => {
         if (status.isInBlock) resolve();
       });
     });
-    const balanceAfter = await alithSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
-    // Update all costs with gas info
+    // Update all costs
     allCosts["burn"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["burn"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 
@@ -371,8 +468,20 @@ describe("ERC1155 Gas Estimates", function () {
     const precompileGasEstimate = await erc1155Precompile
       .connect(alithSigner)
       .estimateGas.burnBatch(alithSigner.address, [0, 0], [10, 12]);
+    // precompile fee cost
+    let balanceBefore = await alithSigner.getBalance();
+    let tx = await erc1155Precompile.connect(alithSigner).burnBatch(alithSigner.address, [0, 0], [10, 12]);
+    await tx.wait();
+    let balanceAfter = await alithSigner.getBalance();
+    const precompileFeeCost = balanceBefore.sub(balanceAfter);
+    // Contract fee cost
+    balanceBefore = await alithSigner.getBalance();
+    tx = await erc1155Contract.connect(alithSigner).burnBatch(alithSigner.address, [0, 0], [10, 12]);
+    await tx.wait();
+    balanceAfter = await alithSigner.getBalance();
+    const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
-    const balanceBefore = await alithSigner.getBalance();
+    balanceBefore = await alithSigner.getBalance();
     await new Promise<void>((resolve) => {
       api.tx.sft
         .burn(collectionId, [
@@ -383,19 +492,24 @@ describe("ERC1155 Gas Estimates", function () {
           if (status.isInBlock) resolve();
         });
     });
-    const balanceAfter = await alithSigner.getBalance();
-    const extrinsicCost = balanceBefore.sub(balanceAfter);
-    const fees = await provider.getFeeData();
-    const extrinsicScaled = extrinsicCost.div(fees.gasPrice!);
+    balanceAfter = await alithSigner.getBalance();
+    const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+    const extrinsicGasScaled = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
 
     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    expect(extrinsicScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+    expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
 
-    // Update all costs with gas info
+    // Update all costs
     allCosts["burnBatch"] = {
-      Contract: contractGasEstimate.toNumber(),
-      Precompile: precompileGasEstimate.toNumber(),
-      Extrinsic: extrinsicScaled.toNumber(),
+      Contract: contractGasEstimate,
+      Precompile: precompileGasEstimate,
+      Extrinsic: extrinsicGasScaled,
+    };
+    allTxFeeCosts["burnBatch"] = {
+      Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+      Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
   });
 });

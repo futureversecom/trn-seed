@@ -10,11 +10,10 @@ import {
   ALITH_PRIVATE_KEY,
   BOB_PRIVATE_KEY,
   ERC1155_PRECOMPILE_ABI,
-  FUTUREPASS_PRECOMPILE_ABI,
   NodeProcess,
   SFT_PRECOMPILE_ABI,
   SFT_PRECOMPILE_ADDRESS,
-  getCollectionPrecompileAddress,
+  getSftCollectionPrecompileAddress,
   startNode,
   typedefs,
 } from "../../common";
@@ -107,7 +106,7 @@ describe("ERC1155 Precompile", function () {
 
     // Generate expected precompile address
     const collectionId = await api.query.nft.nextCollectionId();
-    const expectedPrecompileAddress = getCollectionPrecompileAddress(+collectionId);
+    const expectedPrecompileAddress = getSftCollectionPrecompileAddress(+collectionId);
 
     const initializeTx = await sftPrecompile
       .connect(bobSigner)

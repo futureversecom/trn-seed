@@ -16,7 +16,7 @@ use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{GasWeightMapping, Precompile};
 use pallet_sft::WeightInfo;
-use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
+use precompile_utils::{constants::ERC1155_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{
 	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, MAX_ENTITLEMENTS,
 };
@@ -165,7 +165,7 @@ where
 		match collection_id {
 			Ok(collection_id) => {
 				let precompile_address =
-					Runtime::runtime_id_to_evm_id(collection_id, ERC721_PRECOMPILE_ADDRESS_PREFIX);
+					Runtime::runtime_id_to_evm_id(collection_id, ERC1155_PRECOMPILE_ADDRESS_PREFIX);
 
 				log3(
 					handle.code_address(),

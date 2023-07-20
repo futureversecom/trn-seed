@@ -40,6 +40,9 @@ use seed_primitives::{AccountId, AccountId20, Balance, Index};
 pub const BASE_TX_GAS_COST: u128 = 21000;
 pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
 
+/// Default gas params in ethers
+pub const MAX_PRIORITY_FEE_PER_GAS: u128 = 1_500_000_000;
+
 /// The genesis block timestamp
 pub const INIT_TIMESTAMP: u64 = 30_000;
 /// A genesis block hash for the first mock block, useful for extrinsic signatures
@@ -306,6 +309,28 @@ impl TxBuilder {
 			nonce: U256::zero(),
 			max_priority_fee_per_gas: U256::zero(),
 			max_fee_per_gas: FeeControl::base_fee_per_gas(),
+			gas_limit: U256::from(BASE_TX_GAS_COST),
+			action,
+			value: U256::zero(),
+			input: vec![],
+			access_list: vec![],
+			odd_y_parity: false,
+			r: H256::zero(),
+			s: H256::zero(),
+		};
+		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
+
+		Self { transaction, origin }
+	}
+
+	pub fn ethers_default_gas() -> Self {
+		let action = ethereum::TransactionAction::Call(bob().into());
+		let transaction = ethereum::EIP1559Transaction {
+			chain_id: EVMChainId::get(),
+			nonce: U256::zero(),
+			max_priority_fee_per_gas: U256::from(MAX_PRIORITY_FEE_PER_GAS),
+			max_fee_per_gas: FeeControl::base_fee_per_gas() * 2 +
+				U256::from(MAX_PRIORITY_FEE_PER_GAS),
 			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action,
 			value: U256::zero(),

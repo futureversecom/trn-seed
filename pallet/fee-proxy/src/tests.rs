@@ -11,7 +11,7 @@
 
 use super::*;
 use crate::{
-	mock::{FeeProxy, Runner, System, Test, TestExt, XRP_ASSET_ID},
+	mock::{FeeProxy, Futurepass, Origin, Runner, System, Test, TestExt, XRP_ASSET_ID},
 	runner::*,
 };
 use ethabi::Token;
@@ -52,6 +52,44 @@ mod call_with_fee_preferences {
 
 			System::assert_has_event(
 				Event::CallWithFeePreferences { who: caller, payment_asset, max_payment }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn call_works_for_futurepass_proxy_extrinsic() {
+		TestExt::default().build().execute_with(|| {
+			let owner: AccountId = create_account(1);
+			let payment_asset: AssetId = 10;
+			let max_payment: Balance = 100;
+
+			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			let futurepass = pallet_futurepass::Holders::<Test>::get(&owner).unwrap();
+
+			let call = mock::Call::System(frame_system::Call::remark {
+				remark: b"Mischief Managed".to_vec(),
+			});
+			let proxy_call = mock::Call::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+				futurepass,
+				call: Box::new(call),
+			});
+
+			assert_ok!(FeeProxy::call_with_fee_preferences(
+				Some(owner).into(),
+				payment_asset,
+				max_payment,
+				Box::new(proxy_call)
+			));
+
+			// assert Futurepass event ProxyExecuted
+			System::assert_has_event(
+				pallet_futurepass::Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }
+					.into(),
+			);
+
+			// assert fee proxy event
+			System::assert_has_event(
+				Event::CallWithFeePreferences { who: owner, payment_asset, max_payment }.into(),
 			);
 		});
 	}
