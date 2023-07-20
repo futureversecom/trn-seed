@@ -27,8 +27,7 @@ use pallet_ethereum::{
 	TransactionAction,
 };
 use pallet_evm::{
-	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
-	Runner as RunnerT,
+	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -120,7 +119,9 @@ use staking::OnChainAccuracy;
 mod migrations;
 mod weights;
 
-use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
+use crate::impls::{
+	FutureverseEVMCurrencyAdapter, FutureverseEnsureAddressSame, OnNewAssetSubscription,
+};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use seed_primitives::BlakeTwo256Hash;
@@ -985,7 +986,7 @@ impl pallet_evm::Config for Runtime {
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
-	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>;
+	type OnChargeTransaction = FutureverseEVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	// internal EVM config
 	fn config() -> &'static EvmConfig {
