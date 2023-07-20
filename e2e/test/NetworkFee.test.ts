@@ -1,7 +1,6 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
-import axios from "axios";
 import { expect } from "chai";
 import { utils } from "ethers";
 
