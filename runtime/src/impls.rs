@@ -58,7 +58,7 @@ use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic, EVM, UPGRADE_FEE_AMOUNT,
+	UncheckedExtrinsic, EVM,
 };
 use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 

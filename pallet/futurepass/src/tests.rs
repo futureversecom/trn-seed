@@ -886,7 +886,11 @@ fn transfer_futurepass_to_address_works() {
 			// the owner will get back the old reserve amount
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_DELEGATE_RESERVE);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_DELEGATE_RESERVE);
-			assert_ok!(Futurepass::transfer_futurepass(RuntimeOrigin::signed(owner), owner, Some(other)));
+			assert_ok!(Futurepass::transfer_futurepass(
+				RuntimeOrigin::signed(owner),
+				owner,
+				Some(other)
+			));
 			// assert event
 			System::assert_has_event(
 				Event::<Test>::FuturepassTransferred {
