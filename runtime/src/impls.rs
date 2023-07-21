@@ -153,9 +153,9 @@ where
 		from: &AccountId,
 		to: &AccountId,
 		value: Self::Balance,
-		req: ExistenceRequirement,
+		_req: ExistenceRequirement,
 	) -> DispatchResult {
-		C::transfer(from, to, scale_wei_to_6dp(value), req)
+		C::transfer(from, to, scale_wei_to_6dp(value), ExistenceRequirement::KeepAlive)
 	}
 	fn ensure_can_withdraw(
 		who: &AccountId,
