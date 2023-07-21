@@ -142,9 +142,9 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
 
   // get docker ports - poll at 100ms delay
   const { httpPort, wsPort } = await new Promise<{ httpPort: string; wsPort: string }>((resolve, reject) => {
-    let pollCount = 0;
+    // let pollCount = 0;
     const interval = setInterval(async () => {
-      console.info(`getting ports for ${id} (${++pollCount})...`);
+      // console.info(`getting ports for ${id} (${++pollCount})...`);
       child.exec(`docker inspect ${id}`, (error, stdout, _) => {
         clearInterval(interval);
         if (error) {
@@ -162,7 +162,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
 
   const stop = () =>
     new Promise((resolve, reject) => {
-      console.info(`stopping docker container ${id}...`);
+      // console.info(`stopping docker container ${id}...`);
       child.exec(`docker stop ${id}`, (error, stdout, _) => {
         if (error) {
           console.error(`error stopping docker container ${id}`, error);
