@@ -52,7 +52,7 @@ describe("Futurepass Precompile", function () {
     node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -295,6 +295,10 @@ describe("Futurepass Precompile", function () {
       })
       .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
 
+    // ensure balances are not changed after failed tx
+    expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(0);
+    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(0);
+
     // owner should have paid the gas for the previous failed tx. get the new balance
     ownerBalanceBefore = await xrpERC20Precompile.balanceOf(owner.address);
 
@@ -462,7 +466,7 @@ describe("Futurepass Precompile", function () {
     const FuturepassFactory = await ethers.getContractFactory("CurrencyTester");
     const futurepassTester = await FuturepassFactory.connect(alithSigner).deploy();
     await futurepassTester.deployed();
-    console.log("CurrencyTester deployed to:", futurepassTester.address);
+    // console.log("CurrencyTester deployed to:", futurepassTester.address);
 
     const owner = Wallet.createRandom().connect(provider);
 
@@ -536,7 +540,7 @@ describe("Futurepass Precompile", function () {
     const FuturepassFactory = await ethers.getContractFactory("CurrencyTester");
     const futurepassTester = await FuturepassFactory.connect(alithSigner).deploy();
     await futurepassTester.deployed();
-    console.log("CurrencyTester deployed to:", futurepassTester.address);
+    // console.log("CurrencyTester deployed to:", futurepassTester.address);
 
     const owner = Wallet.createRandom().connect(provider);
 
