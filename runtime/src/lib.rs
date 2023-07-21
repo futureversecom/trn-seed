@@ -411,7 +411,7 @@ impl pallet_nft::Config for Runtime {
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
-	type DefaultTxFeePotId = DefaultTxFeePotId;
+	type DefaultFeeTo = DefaultTxFeePotId;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 }

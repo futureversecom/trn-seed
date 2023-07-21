@@ -70,24 +70,6 @@ pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
 
-/// A wrapper for PalletId which includes max encoded length for use in areas of the pallet which
-/// need it, such as storage
-#[derive(Clone, Copy, Eq, PartialEq, Encode, Decode, TypeInfo)]
-pub struct PalletIdWithMaxLen(pub PalletId);
-
-impl MaxEncodedLen for PalletIdWithMaxLen {
-	fn max_encoded_len() -> usize {
-		// This is == the encoded length of the largest [u8; 4]
-		16
-	}
-}
-
-impl From<PalletId> for PalletIdWithMaxLen {
-	fn from(value: PalletId) -> Self {
-		PalletIdWithMaxLen(value)
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
@@ -133,7 +115,7 @@ pub mod pallet {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 		/// The account which collects funds(aka the index fund)
 		#[pallet::constant]
-		type DefaultTxFeePotId: Get<Option<PalletId>>;
+		type DefaultFeeTo: Get<Option<PalletId>>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
@@ -167,15 +149,16 @@ pub mod pallet {
 	}
 
 	#[pallet::type_value]
-	pub fn DefaultTxFeePotId<T: Config>() -> Option<PalletIdWithMaxLen> {
-		T::DefaultTxFeePotId::get().map(|v| v.into())
+	// pub fn DefaultFeeTo<T: Config>() -> Option<PalletIdWithMaxLen> {
+		pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId> {
+		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
 	}
 
 	/// The pallet id for the tx fee pot
 	#[pallet::storage]
 	#[pallet::getter(fn chain_id)]
-	pub type TxFeePotId<T> =
-		StorageValue<_, Option<PalletIdWithMaxLen>, ValueQuery, DefaultTxFeePotId<T>>;
+	pub type FeeTo<T: Config> =
+		StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	/// Map from collection to its information
 	#[pallet::storage]
@@ -380,6 +363,7 @@ pub mod pallet {
 		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
+		SetFeeTo { account: Option<T::AccountId> }
 	}
 
 	#[pallet::error]
@@ -802,8 +786,8 @@ pub mod pallet {
 				// We can handle the network fee payout to the tx fee pot as well here
 				let network_fee = T::NetworkFeePercentage::get().mul(listing.fixed_price);
 
-				if let Some(tx_fee_pot_id) = TxFeePotId::<T>::get() {
-					payouts.push((tx_fee_pot_id.0.into_account_truncating(), network_fee));
+				if let Some(tx_fee_pot_id) = FeeTo::<T>::get() {
+					payouts.push((tx_fee_pot_id, network_fee));
 				}
 
 				// Make split transfer
@@ -1160,6 +1144,24 @@ pub mod pallet {
 					Ok(())
 				},
 			}
+		}
+
+		/// Set the `FeeTo` account. This operation requires root access.
+		///
+		/// - `fee_to`: the new account or None assigned to FeeTo.
+		#[pallet::weight(100000)]
+		#[transactional]
+		pub fn set_fee_to(
+			origin: OriginFor<T>,
+			fee_to: Option<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+
+			FeeTo::<T>::put(&fee_to);
+
+			Self::deposit_event(Event::SetFeeTo { account: fee_to });
+
+			Ok(().into())
 		}
 	}
 }
