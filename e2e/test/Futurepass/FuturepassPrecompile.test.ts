@@ -274,37 +274,13 @@ describe("Futurepass Precompile", function () {
     // create FP for owner
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
 
-    // Transfer funds to owner
+    // transfer funds to owner
     await fundEOA(alithSigner, owner.address);
-    const futurepassBalanceBefore = await xrpERC20Precompile.balanceOf(futurepassPrecompile.address);
-    let ownerBalanceBefore = await xrpERC20Precompile.balanceOf(owner.address);
+    const ownerBalanceBefore = await xrpERC20Precompile.balanceOf(owner.address);
 
     // ensure recipient and futurepass has zero balance
     expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(0);
-    expect(futurepassBalanceBefore).to.equal(0);
-
-    // proxy transfer of value from owner -> futurepass -> recipient
-    // NOTE: This call will be failed due to an arithmetic error that happens in the insider code.
-    // i.e 5_000_000 being interpretted as 4_999_999
-    // This means the FP need to have at least 1 drop more than the actual amount being transferred.
-    const amount = 5;
-    await futurepassPrecompile
-      .connect(owner)
-      .proxyCall(CALL_TYPE.Call, recipient.address, parseEther(amount), "0x", {
-        value: parseEther(amount),
-      })
-      .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
-
-    // ensure balances are not changed after failed tx
-    expect(await xrpERC20Precompile.balanceOf(recipient.address)).to.equal(0);
     expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(0);
-
-    // owner should have paid the gas for the previous failed tx. get the new balance
-    ownerBalanceBefore = await xrpERC20Precompile.balanceOf(owner.address);
-
-    // fund futurepass with 1 drop; assert balance
-    await fundAccount(api, alithKeyring, futurepassPrecompile.address, 1);
-    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(1);
 
     // proxy transfer of value from owner -> futurepass -> recipient
     const transferAmount = 5;
@@ -325,8 +301,8 @@ describe("Futurepass Precompile", function () {
     const recipientBalanceRes: any = (await api.query.assets.account(GAS_TOKEN_ID, recipient.address)).toJSON();
     expect(recipientBalanceRes.balance).to.equal(transferAmount * 1_000_000);
 
-    // check futurepass balance, should remain to 1 drop
-    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(1);
+    // check futurepass balance hasn't changed
+    expect(await xrpERC20Precompile.balanceOf(futurepassPrecompile.address)).to.equal(0);
 
     // ensure owner is charged the transfer amount + gas (not double the transfer amount)
     const ownerBalanceAfter = await xrpERC20Precompile.balanceOf(owner.address);
