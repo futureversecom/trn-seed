@@ -122,6 +122,8 @@ parameter_types! {
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
 	pub const LPTokenDecimals: u8 = 6;
+	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
+	pub const DefaultFeeTo: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl Config for Test {
 	type Event = Event;
@@ -129,6 +131,7 @@ impl Config for Test {
 	type TradingPathLimit = TradingPathLimit;
 	type DEXBurnPalletId = DEXBurnPalletId;
 	type LPTokenDecimals = LPTokenDecimals;
+	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = ();
 	type MultiCurrency = AssetsExt;
 }

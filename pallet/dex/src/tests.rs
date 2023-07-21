@@ -15,6 +15,7 @@ use frame_support::{assert_noop, assert_ok};
 use hex::encode;
 use mock::{Dex, Event as MockEvent, Origin, System, Test, TestExt};
 use seed_primitives::AccountId;
+use sp_arithmetic::helpers_128bit::sqrt;
 use sp_core::H160;
 use sp_runtime::{traits::BadOrigin, ArithmeticError, DispatchError};
 use std::str::FromStr;
@@ -1396,6 +1397,9 @@ fn multiple_swaps_with_multiple_lp() {
 		let danny: AccountId = create_account(4);
 		let elliot: AccountId = create_account(5);
 
+		// set FeeTo to None
+		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+
 		// create tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
 		let weth = AssetsExt::create(&alice, None).unwrap();
@@ -1609,6 +1613,184 @@ fn query_with_trading_pair() {
 		// query inputs
 		assert_eq!(Dex::get_liquidity(usdc, weth), (to_eth(5), to_eth(1)));
 		assert_eq!(Dex::get_liquidity(weth, usdc), (to_eth(1), to_eth(5)));
+	});
+}
+
+#[test]
+fn set_fee_to() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
+		// check the default value of FeeTo
+		let fee_pot = DefaultFeeTo::<Test>::get().map(|v| v.into());
+		assert_eq!(Dex::fee_to(), fee_pot);
+
+		// normal user can not set FeeTo
+		assert_noop!(Dex::set_fee_to(Origin::signed(alice), Some(bob)), BadOrigin);
+
+		// change FeeTo with root user
+		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
+		assert_eq!(Dex::fee_to().unwrap(), bob);
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::SetFeeTo(Some(bob))));
+
+		// disable FeeTo with root user
+		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+		assert_eq!(Dex::fee_to().is_none(), true);
+
+		System::assert_last_event(MockEvent::Dex(crate::Event::SetFeeTo(None)));
+	});
+}
+
+#[test]
+fn mint_fee() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			usdc,
+			weth,
+			to_eth(5),
+			to_eth(1),
+			to_eth(5),
+			to_eth(1),
+			None,
+			None,
+		));
+
+		// get the lp token id
+		let trading_pair = TradingPair::new(usdc, weth);
+		let lp_token = Dex::lp_token_id(trading_pair).unwrap();
+		let (reserve_a, reserve_b) = Dex::liquidity_pool(trading_pair);
+
+		// set FeeTo to None
+		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+
+		// return false because FeeTo is None
+		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), false);
+
+		// set last_k value
+		let _ = LiquidityPoolLastK::<Test>::try_mutate(lp_token, |k| -> DispatchResult {
+			*k = U256::MAX;
+			Ok(())
+		});
+
+		// return false and last_k is set to zero
+		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), false);
+		assert_eq!(LiquidityPoolLastK::<Test>::get(lp_token), U256::zero());
+
+		// bob should not have any lp token
+		assert_eq!(AssetsExt::balance(lp_token, &bob), 0);
+
+		// set fee_to and last_k
+		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
+		let _ = LiquidityPoolLastK::<Test>::try_mutate(lp_token, |k| -> DispatchResult {
+			*k = U256::from(to_eth(2) * to_eth(2));
+			Ok(())
+		});
+		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), true);
+
+		// bob receives lp token after mint_fee is called
+		// expect value sqrt(5)*(sqrt(5) - 2)/(5*sqrt(5)+2)*10^18
+		let k_last_sqrt = sqrt(to_eth(2) * to_eth(2));
+		let k_sqrt = sqrt(to_eth(5) * to_eth(1));
+		let total_supply = sqrt(to_eth(5) * to_eth(1));
+		let expected_value = total_supply * (k_sqrt - k_last_sqrt) / (5 * k_sqrt + k_last_sqrt);
+		assert_eq!(AssetsExt::balance(lp_token, &bob), expected_value);
+	});
+}
+
+#[test]
+fn test_network_fee() {
+	TestExt::default().build().execute_with(|| {
+		System::set_block_number(1);
+
+		let alice: AccountId = create_account(1);
+		let bob: AccountId = create_account(2);
+		let fee_pot: AccountId = create_account(3);
+
+		// create 2 tokens
+		let usdc = AssetsExt::create(&alice, None).unwrap();
+		let weth = AssetsExt::create(&bob, None).unwrap();
+
+		// set fee_to to fee_pot
+		assert_ok!(Dex::set_fee_to(Origin::root(), Some(fee_pot)));
+
+		// mint tokens to user
+		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
+		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
+		assert_ok!(AssetsExt::mint_into(usdc, &bob, to_eth(1)));
+
+		// add liquidity
+		assert_ok!(Dex::add_liquidity(
+			Origin::signed(alice),
+			usdc,
+			weth,
+			to_eth(5),
+			to_eth(1),
+			to_eth(5),
+			to_eth(1),
+			None,
+			None,
+		));
+
+		// get the lp token id
+		let trading_pair = TradingPair::new(usdc, weth);
+		let lp_token = Dex::lp_token_id(trading_pair).unwrap();
+
+		// fee_pot doesn't have lp token balance before swaps happening
+		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), 0);
+
+		// do swap
+		assert_ok!(Dex::swap_with_exact_supply(
+			Origin::signed(bob),
+			to_eth(1), // input usdc
+			0u128,     // min expected weth
+			vec![usdc, weth],
+			None,
+			None,
+		));
+
+		// new reserve_0 and reserve_1
+		let (reserve_0, reserve_1) = LiquidityPool::<Test>::get(trading_pair);
+		assert_eq!(reserve_0, 6000000000000000000);
+		assert_eq!(reserve_1, 833750208437552110);
+
+		// total supply of lp token
+		let total_supply = AssetsExt::total_issuance(lp_token);
+
+		// remove liquidity to trigger mint_fee() function call
+		assert_ok!(Dex::remove_liquidity(
+			Origin::signed(alice),
+			usdc,
+			weth,
+			AssetsExt::balance(lp_token, &alice),
+			0u128,
+			0u128,
+			None,
+			None,
+		));
+
+		// fee_pot receives lp token
+		// expect value:
+		let k_sqrt = sqrt(reserve_0 * reserve_1);
+		let k_last_sqrt = sqrt(to_eth(5) * to_eth(1));
+		let expected_value = total_supply * (k_sqrt - k_last_sqrt) / (5 * k_sqrt + k_last_sqrt);
+		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), expected_value);
 	});
 }
 
