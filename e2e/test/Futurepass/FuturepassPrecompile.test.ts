@@ -857,7 +857,7 @@ describe("Futurepass Precompile", function () {
     const ERC1155Factory = await ethers.getContractFactory("MockERC1155");
     const erc1155 = await ERC1155Factory.connect(alithSigner).deploy();
     await erc1155.deployed();
-    console.log("MockERC1155 deployed to:", erc1155.address);
+    // console.log("MockERC1155 deployed to:", erc1155.address);
 
     const owner = Wallet.createRandom().connect(provider);
 
