@@ -47,7 +47,10 @@ export function startNode(
   type: ConnectionType = (process.env.CONNECTION_TYPE as ConnectionType) ?? "docker",
   nodeOpts?: NodeOpts,
 ): Promise<NodeProcess> {
-  console.info(`Starting node with connection type: ${type}`);
+  console.info(`Starting node with connection type: ${type}...`);
+
+  // override global console.log to suppress output in CI
+  console.error = (...args: any[]) => {};
 
   const nodeOptions = nodeOpts ?? defaultOpts;
 
@@ -59,7 +62,7 @@ export function startNode(
       httpPort: nodeOptions.httpPort.toString() ?? "9933",
       wsPort: wsPortStr,
       wait: async () => {
-        await ApiPromise.create({ provider: new WsProvider(`ws://localhost:${wsPortStr}`) });
+        await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${wsPortStr}`) });
       },
       stop: () => Promise.resolve(),
     });
@@ -174,7 +177,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
     httpPort,
     wsPort,
     wait: async () => {
-      await ApiPromise.create({ provider: new WsProvider(`ws://localhost:${wsPort}`) });
+      await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${wsPort}`) });
     },
     stop,
   };
