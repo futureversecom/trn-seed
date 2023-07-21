@@ -267,7 +267,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 
-			FeeTo::<T>::put(fee_to.clone());
+			FeeTo::<T>::put(&fee_to);
 
 			Self::deposit_event(Event::SetFeeTo(fee_to));
 

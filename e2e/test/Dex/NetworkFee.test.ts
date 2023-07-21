@@ -4,12 +4,21 @@ import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { utils } from "ethers";
 
-import { ALITH_PRIVATE_KEY, BOB_PRIVATE_KEY, GAS_TOKEN_ID, NodeProcess, rpcs, startNode, typedefs } from "../common";
-
-const TOKEN_ID = 1124;
-const LP_TOKEN_ID = 2148;
+import {
+  ALITH_PRIVATE_KEY,
+  BOB_PRIVATE_KEY,
+  GAS_TOKEN_ID,
+  NodeProcess,
+  finalizeTx,
+  getNextAssetId,
+  rpcs,
+  startNode,
+  typedefs,
+} from "../../common";
 
 describe("NetworkFee", () => {
+  let TOKEN_ID: number;
+  let LP_TOKEN_ID: number;
   let node: NodeProcess;
   let api: ApiPromise;
   let alith: KeyringPair;
@@ -29,6 +38,8 @@ describe("NetworkFee", () => {
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
     bob = keyring.addFromSeed(hexToU8a(BOB_PRIVATE_KEY));
 
+    TOKEN_ID = await getNextAssetId(api);
+
     const txs = [
       api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address), // create asset
       api.tx.assets.mint(TOKEN_ID, alith.address, utils.parseEther("1000000").toString()),
@@ -45,43 +56,26 @@ describe("NetworkFee", () => {
       ),
     ];
 
-    await new Promise<void>((resolve, reject) => {
-      api.tx.utility
-        .batch(txs)
-        .signAndSend(alith, ({ status }) => {
-          if (status.isInBlock) {
-            console.log(`setup block hash: ${status.asInBlock}`);
-            resolve();
-          }
-        })
-        .catch((err) => reject(err));
-    });
+    await finalizeTx(alith, api.tx.utility.batch(txs));
 
-    console.log("done setting up dex liquidity.");
+    LP_TOKEN_ID = (await api.query.dex.tradingPairLPToken([GAS_TOKEN_ID, TOKEN_ID])).toJSON() as number;
   });
 
   after(async () => node.stop());
 
   it("test network fees", async () => {
     // set FeeTo to bob
-    await new Promise<void>((resolve) => {
-      api.tx.sudo.sudo(api.tx.dex.setFeeTo(bob.address)).signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-    });
+    await finalizeTx(alith, api.tx.sudo.sudo(api.tx.dex.setFeeTo(bob.address)));
 
     // get bob's lp balance
     const bobLPBalanceBefore =
       ((await api.query.assets.account(LP_TOKEN_ID, bob.address)).toJSON() as any)?.balance ?? 0;
 
     // alith makes a swap
-    await new Promise<void>((resolve) => {
-      api.tx.dex
-        .swapWithExactSupply(utils.parseEther("100").toString(), 0, [TOKEN_ID, GAS_TOKEN_ID], null, null)
-        .signAndSend(alith, ({ status }) => {
-          if (status.isInBlock) resolve();
-        });
-    });
+    await finalizeTx(
+      alith,
+      api.tx.dex.swapWithExactSupply(utils.parseEther("100").toString(), 0, [TOKEN_ID, GAS_TOKEN_ID], null, null),
+    );
 
     // get the last k value
     const lastK = (await api.query.dex.liquidityPoolLastK(LP_TOKEN_ID)).toJSON() as any;
@@ -91,11 +85,7 @@ describe("NetworkFee", () => {
     const kSqrt = Math.sqrt(reserves[0] * reserves[1]);
 
     // alith withdraws some LP tokens to trigger the network fee distribution
-    await new Promise<void>((resolve) => {
-      api.tx.dex.removeLiquidity(TOKEN_ID, GAS_TOKEN_ID, 3000000, 0, 0, null, null).signAndSend(alith, ({ status }) => {
-        if (status.isInBlock) resolve();
-      });
-    });
+    await finalizeTx(alith, api.tx.dex.removeLiquidity(TOKEN_ID, GAS_TOKEN_ID, 3000000, 0, 0, null, null));
 
     // get bob's lp balance after lp removal
     const bobLPBalanceAfter = ((await api.query.assets.account(LP_TOKEN_ID, bob.address)).toJSON() as any).balance;
