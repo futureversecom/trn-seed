@@ -1725,7 +1725,7 @@ fn whitelist_works_for_transfer_futurepass() {
 			// fund owner
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE);
 			// create FP for owner
-			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
 			let futurepass = Holders::<Test>::get(&owner).unwrap();
 
 			// fund futurepass with FP_CREATION_RESERVE
@@ -1737,7 +1737,11 @@ fn whitelist_works_for_transfer_futurepass() {
 				new_owner: Some(owner2),
 			}));
 			System::reset_events();
-			assert_ok!(Futurepass::proxy_extrinsic(Origin::signed(owner), futurepass, inner_call,));
+			assert_ok!(Futurepass::proxy_extrinsic(
+				RuntimeOrigin::signed(owner),
+				futurepass,
+				inner_call,
+			));
 			// assert event ProxyExecuted
 			System::assert_has_event(
 				Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }.into(),

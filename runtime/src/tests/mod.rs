@@ -44,10 +44,6 @@ use crate::{
 	RuntimeOrigin, SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
 	UncheckedExtrinsic, Weight, H256, U256,
 };
-use frame_support::{
-	traits::{fungibles::Inspect as _, GenesisBuild, Get},
-	weights::GetDispatchInfo,
-};
 use frame_system::RawOrigin;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
@@ -358,7 +354,8 @@ impl TxBuilder {
 			r: H256::zero(),
 			s: H256::zero(),
 		};
-		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
+		let origin =
+			RuntimeOrigin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
 
 		Self { transaction, origin }
 	}

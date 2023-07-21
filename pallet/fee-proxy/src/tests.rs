@@ -15,7 +15,7 @@
 
 use super::*;
 use crate::{
-	mock::{FeeProxy, Futurepass, Origin, Runner, System, Test, TestExt, XRP_ASSET_ID},
+	mock::{FeeProxy, Futurepass, Runner, RuntimeOrigin, System, Test, TestExt, XRP_ASSET_ID},
 	runner::*,
 };
 use ethabi::Token;
@@ -67,16 +67,17 @@ mod call_with_fee_preferences {
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
 
-			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
+			assert_ok!(Futurepass::create(RuntimeOrigin::signed(owner), owner));
 			let futurepass = pallet_futurepass::Holders::<Test>::get(&owner).unwrap();
 
-			let call = mock::Call::System(frame_system::Call::remark {
+			let call = mock::RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),
 			});
-			let proxy_call = mock::Call::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
-				futurepass,
-				call: Box::new(call),
-			});
+			let proxy_call =
+				mock::RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+					futurepass,
+					call: Box::new(call),
+				});
 
 			assert_ok!(FeeProxy::call_with_fee_preferences(
 				Some(owner).into(),
