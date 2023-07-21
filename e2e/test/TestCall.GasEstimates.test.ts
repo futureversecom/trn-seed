@@ -35,7 +35,7 @@ describe("TestCall", () => {
     // console.log("TestCallProxy deployed to:", testProxy.address);
   });
 
-  // after(async () => await node.stop());
+  after(async () => await node.stop());
 
   it("ensure TestCall contract bytecode is specific size for tests", async () => {
     // Note: Changing the TestCall contract will change the bytecode size - which will result in different gas estimates
