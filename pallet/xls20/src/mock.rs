@@ -159,7 +159,7 @@ parameter_types! {
 	pub const StringLimit: u32 = 50;
 	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
-	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
+	pub const DefaultFeeTo: Option<PalletId> = None;
 }
 
 impl pallet_nft::Config for Test {
