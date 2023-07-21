@@ -197,7 +197,7 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 		let offer_id = offer_builder::<T>(collection_id);
 	}: _(origin::<T>(&account::<T>("Alice")), offer_id)
-	
+
 	set_fee_to {
 		let fee_account = account::<T>("Alice");
 	}: _(RawOrigin::Root, Some(fee_account))

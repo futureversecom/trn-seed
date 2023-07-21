@@ -150,15 +150,14 @@ pub mod pallet {
 
 	#[pallet::type_value]
 	// pub fn DefaultFeeTo<T: Config>() -> Option<PalletIdWithMaxLen> {
-		pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId> {
+	pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId> {
 		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
 	}
 
 	/// The pallet id for the tx fee pot
 	#[pallet::storage]
 	#[pallet::getter(fn chain_id)]
-	pub type FeeTo<T: Config> =
-		StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
+	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	/// Map from collection to its information
 	#[pallet::storage]
@@ -263,11 +262,20 @@ pub mod pallet {
 			owner: T::AccountId,
 		},
 		/// A new owner was set
-		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
+		OwnerSet {
+			collection_id: CollectionUuid,
+			new_owner: T::AccountId,
+		},
 		/// Max issuance was set
-		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
+		MaxIssuanceSet {
+			collection_id: CollectionUuid,
+			max_issuance: TokenCount,
+		},
 		/// Base URI was set
-		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
+		BaseUriSet {
+			collection_id: CollectionUuid,
+			base_uri: Vec<u8>,
+		},
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -276,7 +284,10 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
-		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
+		Burn {
+			collection_id: CollectionUuid,
+			serial_number: SerialNumber,
+		},
 		/// A fixed price sale has been listed
 		FixedPriceSaleList {
 			collection_id: CollectionUuid,
@@ -358,12 +369,25 @@ pub mod pallet {
 			buyer: T::AccountId,
 		},
 		/// An offer has been cancelled
-		OfferCancel { offer_id: OfferId, token_id: TokenId },
+		OfferCancel {
+			offer_id: OfferId,
+			token_id: TokenId,
+		},
 		/// An offer has been accepted
-		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
+		OfferAccept {
+			offer_id: OfferId,
+			token_id: TokenId,
+			amount: Balance,
+			asset_id: AssetId,
+		},
 		/// Collection has been claimed
-		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
-		SetFeeTo { account: Option<T::AccountId> }
+		CollectionClaimed {
+			account: T::AccountId,
+			collection_id: CollectionUuid,
+		},
+		SetFeeTo {
+			account: Option<T::AccountId>,
+		},
 	}
 
 	#[pallet::error]
@@ -783,10 +807,9 @@ pub mod pallet {
 					listing.fixed_price,
 				);
 
-				// We can handle the network fee payout to the tx fee pot as well here
-				let network_fee = T::NetworkFeePercentage::get().mul(listing.fixed_price);
-
 				if let Some(tx_fee_pot_id) = FeeTo::<T>::get() {
+					// We can handle the network fee payout to the tx fee pot as well here
+					let network_fee = T::NetworkFeePercentage::get().mul(listing.fixed_price);
 					payouts.push((tx_fee_pot_id, network_fee));
 				}
 

@@ -1292,6 +1292,7 @@ fn buy() {
 				(0_u32, 1, vec![token_id.1])
 			);
 
+			// assert network fees accumulated
 			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
 
 			assert_eq!(
