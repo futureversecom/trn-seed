@@ -50,7 +50,8 @@ export function startNode(
   console.info(`Starting node with connection type: ${type}...`);
 
   // override global console.log to suppress output in CI
-  console.error = (...args: any[]) => {};
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  console.error = (..._args: any[]) => {};
 
   const nodeOptions = nodeOpts ?? defaultOpts;
 
