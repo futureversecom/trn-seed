@@ -104,5 +104,11 @@ describe("TestCall", () => {
     const receipt = await tx.wait();
     // gas estimates for payable (eth-forwarding) functions have a larger discrepancy in actual tx gas usage
     expect(receipt.gasUsed).to.eq(23_642);
+
+    // ensure TestCallProxy contract has no ether (all ether was forwarded to TestCall contract)
+    expect(await provider.getBalance(testProxy.address)).to.eq(0);
+
+    // ensure TestCall contract has 2 ether (1 ether from prev test, 1 from this test)
+    expect(await provider.getBalance(test.address)).to.eq(ethers.utils.parseEther("2"));
   });
 });
