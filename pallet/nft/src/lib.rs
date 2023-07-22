@@ -1179,11 +1179,8 @@ pub mod pallet {
 			fee_to: Option<T::AccountId>,
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
-
 			FeeTo::<T>::put(&fee_to);
-
 			Self::deposit_event(Event::SetFeeTo { account: fee_to });
-
 			Ok(().into())
 		}
 	}
