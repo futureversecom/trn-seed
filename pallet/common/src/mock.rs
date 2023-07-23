@@ -278,6 +278,7 @@ macro_rules! impl_pallet_dex_config {
 			pub const TradingPathLimit: u32 = 3;
 			pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
 			pub const LPTokenDecimals: u8 = 6;
+			pub const DefaultFeeTo: Option<PalletId> = None;
 		}
 
 		impl pallet_dex::Config for $test {
@@ -286,6 +287,7 @@ macro_rules! impl_pallet_dex_config {
 			type TradingPathLimit = TradingPathLimit;
 			type DEXBurnPalletId = DEXBurnPalletId;
 			type LPTokenDecimals = LPTokenDecimals;
+			type DefaultFeeTo = DefaultFeeTo;
 			type WeightInfo = ();
 			type MultiCurrency = AssetsExt;
 		}

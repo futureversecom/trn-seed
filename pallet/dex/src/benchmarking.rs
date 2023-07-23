@@ -99,6 +99,10 @@ benchmarks! {
 	disable_trading_pair {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
 	}: _(RawOrigin::Root, asset_id_1, asset_id_2)
+
+	set_fee_to {
+		let fee_account = account::<T>("Alice");
+	}: _(RawOrigin::Root, Some(fee_account))
 }
 
 impl_benchmark_test_suite!(Dex, crate::mock::new_test_ext(), crate::mock::Test,);
