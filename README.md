@@ -10,7 +10,7 @@ This repo contains runtimes for the Root Network Mainnet and Porcini (Testnet). 
 ## Building
 
 ### Build from source
-First install Rust. You may need to add Cargo's bin directory to your PATH environment variable. Restarting your computer will do this for you automatically.
+First install Rust. You may need to add Cargo's bin directory to your PATH environment variable.
 
 ```bash
 curl https://sh.rustup.rs -sSf | sh
