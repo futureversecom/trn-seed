@@ -101,8 +101,8 @@ where
 	) -> DispatchResult {
 		// used by evm
 		let keep_alive = match req {
-			ExistenceRequirement::KeepAlive => false,
-			ExistenceRequirement::AllowDeath => true,
+			ExistenceRequirement::KeepAlive => true,
+			ExistenceRequirement::AllowDeath => false,
 		};
 		<Pallet<T>>::transfer(U::get(), from, to, value, keep_alive).map(|_| ())
 	}
