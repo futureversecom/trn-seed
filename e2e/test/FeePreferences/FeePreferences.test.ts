@@ -470,9 +470,7 @@ describe("Fee Preferences", function () {
     // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.30-TRN/ts-tests/tests/test-transaction-cost.ts
     expect(error.code).to.be.eq("SERVER_ERROR");
     const body = JSON.parse(error.body);
-    expect(body.error.message).to.be.eq(
-      "submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))",
-    );
+    expect(body.error.message).to.be.eq("intrinsic gas too low");
   });
 
   it("Does not pay in non-native token with gasLimit 0 - eip1559 tx", async () => {
@@ -505,9 +503,7 @@ describe("Fee Preferences", function () {
     // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.30-TRN/ts-tests/tests/test-transaction-cost.ts
     expect(error.code).to.be.eq("SERVER_ERROR");
     const body = JSON.parse(error.body);
-    expect(body.error.message).to.be.eq(
-      "submit transaction to pool failed: InvalidTransaction(InvalidTransaction::Custom(3))",
-    );
+    expect(body.error.message).to.be.eq("intrinsic gas too low");
     expect(error.reason).to.be.eq("processing response error");
   });
 
