@@ -44,7 +44,7 @@ export interface NodeProcess {
  * Start a node given connection type
  */
 export function startNode(
-  type: ConnectionType = (process.env.CONNECTION_TYPE as ConnectionType) ?? "docker",
+  type: ConnectionType = (process.env.CONNECTION_TYPE as ConnectionType) ?? "local",
   nodeOpts?: NodeOpts,
 ): Promise<NodeProcess> {
   console.info(`Starting node with connection type: ${type}...`);

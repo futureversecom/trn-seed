@@ -96,7 +96,7 @@ impl<T: frame_system::Config> pallet_dex::WeightInfo for WeightInfo<T> {
 	}
 	// Storage: Dex FeeTo (r:0 w:1)
 	fn set_fee_to() -> Weight {
-		(12_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time((12_000_000 as u64))
+			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 }
