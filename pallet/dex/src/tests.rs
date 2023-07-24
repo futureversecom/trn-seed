@@ -1408,7 +1408,7 @@ fn multiple_swaps_with_multiple_lp() {
 		let elliot: AccountId = create_account(5);
 
 		// set FeeTo to None
-		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), None));
 
 		// create tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -1639,16 +1639,16 @@ fn set_fee_to() {
 		assert_eq!(Dex::fee_to(), fee_pot);
 
 		// normal user can not set FeeTo
-		assert_noop!(Dex::set_fee_to(Origin::signed(alice), Some(bob)), BadOrigin);
+		assert_noop!(Dex::set_fee_to(RuntimeOrigin::signed(alice), Some(bob)), BadOrigin);
 
 		// change FeeTo with root user
-		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(bob)));
 		assert_eq!(Dex::fee_to().unwrap(), bob);
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(Some(bob))));
 
 		// disable FeeTo with root user
-		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), None));
 		assert_eq!(Dex::fee_to().is_none(), true);
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(None)));
@@ -1671,7 +1671,7 @@ fn mint_fee() {
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
 		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(5),
@@ -1688,7 +1688,7 @@ fn mint_fee() {
 		let (reserve_a, reserve_b) = Dex::liquidity_pool(trading_pair);
 
 		// set FeeTo to None
-		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), None));
 
 		// return false because FeeTo is None
 		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), false);
@@ -1707,7 +1707,7 @@ fn mint_fee() {
 		assert_eq!(AssetsExt::balance(lp_token, &bob), 0);
 
 		// set fee_to and last_k
-		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(bob)));
 		let _ = LiquidityPoolLastK::<Test>::try_mutate(lp_token, |k| -> DispatchResult {
 			*k = U256::from(to_eth(2) * to_eth(2));
 			Ok(())
@@ -1738,7 +1738,7 @@ fn test_network_fee() {
 		let weth = AssetsExt::create(&bob, None).unwrap();
 
 		// set fee_to to fee_pot
-		assert_ok!(Dex::set_fee_to(Origin::root(), Some(fee_pot)));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(fee_pot)));
 
 		// mint tokens to user
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
@@ -1747,7 +1747,7 @@ fn test_network_fee() {
 
 		// add liquidity
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(5),
@@ -1767,7 +1767,7 @@ fn test_network_fee() {
 
 		// do swap
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // input usdc
 			0u128,     // min expected weth
 			vec![usdc, weth],
@@ -1785,7 +1785,7 @@ fn test_network_fee() {
 
 		// remove liquidity to trigger mint_fee() function call
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			AssetsExt::balance(lp_token, &alice),
