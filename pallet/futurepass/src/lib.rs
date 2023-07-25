@@ -55,12 +55,13 @@ where
 		delegate: &T::AccountId,
 		proxy_type: Option<T::ProxyType>,
 	) -> bool;
+	fn owner(futurepass: &T::AccountId) -> Option<T::AccountId>;
 	fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)>;
 	fn add_delegate(
 		funder: &T::AccountId,
 		futurepass: &T::AccountId,
 		delegate: &T::AccountId,
-		proxy_type: &T::ProxyType,
+		proxy_type: &u8,
 	) -> DispatchResult;
 	fn remove_delegate(
 		receiver: &T::AccountId,
@@ -134,7 +135,7 @@ pub mod pallet {
 			+ InstanceFilter<<Self as Config>::Call>
 			+ Default
 			+ MaxEncodedLen
-			+ TryInto<u8>;
+			+ Into<u8>;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
@@ -350,7 +351,7 @@ pub mod pallet {
 				};
 			ensure!(delegate_signer == delegate, Error::<T>::RegisterDelegateSignerMismatch);
 
-			T::Proxy::add_delegate(&caller, &futurepass, &delegate, &proxy_type)?;
+			T::Proxy::add_delegate(&caller, &futurepass, &delegate, &proxy_type.clone().into())?;
 			Self::deposit_event(Event::<T>::DelegateRegistered {
 				futurepass,
 				delegate,
@@ -448,7 +449,7 @@ pub mod pallet {
 				);
 
 				// Add the new owner as a proxy delegate with the most permissive type, i.e.,
-				T::Proxy::add_delegate(&caller, &futurepass, &new_owner, &T::ProxyType::default())?;
+				T::Proxy::add_delegate(&caller, &futurepass, &new_owner, &255)?; // owner is maxu8
 
 				// Iterate through the list of delegates and remove them, except for the new_owner
 				let delegates = T::Proxy::delegates(&futurepass);
@@ -668,7 +669,7 @@ where
 		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
 		let futurepass = Self::generate_futurepass_account();
 		Holders::<T>::set(&account, Some(futurepass.clone()));
-		T::Proxy::add_delegate(&funder, &futurepass, &account, &T::ProxyType::default())?;
+		T::Proxy::add_delegate(&funder, &futurepass, &account, &255)?; // owner is maxu8
 
 		Self::deposit_event(Event::<T>::FuturepassCreated {
 			futurepass: futurepass.clone(),
