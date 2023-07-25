@@ -122,6 +122,16 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 		pallet_proxy::Pallet::<Test>::find_proxy(futurepass, delegate, proxy_type).is_ok()
 	}
 
+	fn owner(futurepass: &AccountId) -> Option<AccountId> {
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Test>::get(futurepass);
+		proxy_definitions
+			.into_iter()
+			.map(|proxy_def| (proxy_def.delegate, proxy_def.proxy_type))
+			.filter(|(_, proxy_type)| proxy_type == &ProxyType::Owner)
+			.map(|(owner, _)| owner)
+			.next()
+	}
+
 	fn delegates(futurepass: &AccountId) -> Vec<(AccountId, ProxyType)> {
 		let (proxy_definitions, _) = pallet_proxy::Proxies::<Test>::get(futurepass);
 		proxy_definitions
@@ -137,7 +147,7 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 		funder: &AccountId,
 		futurepass: &AccountId,
 		delegate: &AccountId,
-		proxy_type: &ProxyType,
+		proxy_type: &u8,
 	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
@@ -151,8 +161,9 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 			extra_reserve_required,
 			ExistenceRequirement::KeepAlive,
 		)?;
+		let proxy_type = ProxyType::try_from(*proxy_type)?;
 
-		pallet_proxy::Pallet::<Test>::add_proxy_delegate(futurepass, *delegate, *proxy_type, 0)
+		pallet_proxy::Pallet::<Test>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)
 	}
 
 	/// Removing a delegate requires refunding the potential funder (who may have funded the
