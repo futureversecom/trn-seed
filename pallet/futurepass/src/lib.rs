@@ -1,18 +1,30 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
+// SPDX-License-Identifier: Apache-2.0
+// This file is part of Frontier.
+//
+// Copyright (c) 2022 Parity Technologies (UK) Ltd.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+// 	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// You may obtain a copy of the License at the root of this project source code
 
+//! # EVM chain ID pallet
+//!
+//! The pallet that stores the numeric Ethereum-style chain id in the runtime.
+//! It can simplify setting up multiple networks with different chain ID by configuring the
+//! chain spec without requiring changes to the runtime config.
+//!
+//! **NOTE**: we recommend that the production chains still use the const parameter type, as
+//! this extra storage access would imply some performance penalty.
+
+// Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
@@ -28,28 +40,26 @@ mod weights;
 
 use alloc::boxed::Box;
 use frame_support::{
+	dispatch::{DispatchClass, GetDispatchInfo},
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult, *},
 	traits::{Get, InstanceFilter, IsSubType, IsType},
 	transactional,
-	weights::{constants::RocksDbWeight, DispatchClass, GetDispatchInfo},
+	weights::constants::RocksDbWeight,
 };
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
+use seed_primitives::AccountId;
 use sp_core::H160;
-use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Dispatchable;
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::vec::Vec;
 pub use weights::WeightInfo;
 
 /// The logging target for this pallet
 #[allow(dead_code)]
 pub(crate) const LOG_TARGET: &str = "futurepass";
 
-pub trait ProxyProvider<T: Config>
-where
-	<T as frame_system::Config>::AccountId: From<H160>,
-{
+pub trait ProxyProvider<T: Config> {
 	fn exists(
 		futurepass: &T::AccountId,
 		delegate: &T::AccountId,
@@ -67,24 +77,14 @@ where
 		futurepass: &T::AccountId,
 		delegate: &T::AccountId,
 	) -> DispatchResult;
-	fn remove_account(receiver: &T::AccountId, futurepass: &T::AccountId) -> DispatchResult;
 	fn proxy_call(
 		caller: OriginFor<T>,
 		futurepass: T::AccountId,
-		call: <T as Config>::Call,
+		call: <T as Config>::RuntimeCall,
 	) -> DispatchResult;
 }
 
-pub trait FuturepassMigrator<T: frame_system::Config>
-where
-	<T as frame_system::Config>::AccountId: From<H160>,
-{
-	fn transfer_asset(
-		asset_id: seed_primitives::AssetId,
-		current_owner: &T::AccountId,
-		new_owner: &T::AccountId,
-	) -> DispatchResult;
-
+pub trait FuturepassMigrator<T: frame_system::Config> {
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,
@@ -103,25 +103,22 @@ pub mod pallet {
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config
-	where
-		<Self as frame_system::Config>::AccountId: From<H160>,
-	{
+	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The overarching event type.
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type Proxy: ProxyProvider<Self>;
 
 		/// The overarching call type.
-		type Call: Parameter
-			+ Dispatchable<Origin = Self::Origin>
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
-			+ IsType<<Self as frame_system::Config>::Call>;
+			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Allowed origins to ease transition to council governance
-		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
 		/// The instance filter determines whether a given call may be proxied under this type.
@@ -131,10 +128,9 @@ pub mod pallet {
 			+ Member
 			+ Ord
 			+ PartialOrd
-			+ InstanceFilter<<Self as Config>::Call>
+			+ InstanceFilter<<Self as Config>::RuntimeCall>
 			+ Default
-			+ MaxEncodedLen
-			+ TryInto<u8>;
+			+ MaxEncodedLen;
 
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
@@ -174,10 +170,7 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
-	pub enum Event<T: Config>
-	where
-		<T as frame_system::Config>::AccountId: From<H160>,
-	{
+	pub enum Event<T: Config> {
 		/// Futurepass creation
 		FuturepassCreated { futurepass: T::AccountId, delegate: T::AccountId },
 		/// Delegate registration to Futurepass account
@@ -191,7 +184,7 @@ pub mod pallet {
 		/// Futurepass transfer
 		FuturepassTransferred {
 			old_owner: T::AccountId,
-			new_owner: Option<T::AccountId>,
+			new_owner: T::AccountId,
 			futurepass: T::AccountId,
 		},
 		/// Futurepass set as default proxy
@@ -202,8 +195,7 @@ pub mod pallet {
 		FuturepassAssetsMigrated {
 			evm_futurepass: T::AccountId,
 			futurepass: T::AccountId,
-			assets: Vec<u32>,
-			collections: Vec<u32>,
+			collection_id: u32,
 		},
 		/// Updating Futurepass migrator account
 		FuturepassMigratorSet { migrator: T::AccountId },
@@ -225,30 +217,12 @@ pub mod pallet {
 		PermissionDenied,
 		/// Futurepass migrator admin account is not set
 		MigratorNotSet,
-		/// Invalid proxy type
-		InvalidProxyType,
-		/// ExpiredDeadline
-		ExpiredDeadline,
-		/// Invalid deadline
-		InvalidDeadline,
-		/// Invalid signature
-		InvalidSignature,
-		/// AccountParsingFailure
-		AccountParsingFailure,
-		/// RegisterDelegateSignerMismatch
-		RegisterDelegateSignerMismatch,
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> where
-		<T as frame_system::Config>::AccountId: From<H160>
-	{
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T>
 	where
-		<T as frame_system::Config>::AccountId: From<H160>,
+		T::AccountId: From<H160>,
 	{
 		/// Create a futurepass account for the delegator that is able to make calls on behalf of
 		/// futurepass.
@@ -257,6 +231,7 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `account`: The delegated account for the futurepass.
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::create())]
 		#[transactional]
 		pub fn create(origin: OriginFor<T>, account: T::AccountId) -> DispatchResult {
@@ -265,42 +240,30 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Register a delegator to an existing futurepass account given message parameters for a
-		/// respective signature. Note: Only futurepass owner account can add more delegates.
-		/// Note: The signer is recovered from signature given the message parameters (which is used
-		/// to reconstruct the message).
-		/// - You can assume the message is constructed like so:
-		/// ---
-		/// ```solidity
-		/// bytes32 message = keccak256(abi.encodePacked(futurepass, delegate, proxyType, deadline));
-		/// ethSignedMessage = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", message));
-		/// ```
-		/// ---
+		/// Register a delegator to an existing futurepass account.
+		/// Note: Only futurepass owner account can add more delegates.
 		///
 		/// The dispatch origin for this call must be _Signed_.
 		///
 		/// Parameters:
-		/// - `futurepass`: Futurepass account to register the account as delegate; 20 bytes.
-		/// - `delegate`: The delegated account for the futurepass; 20 bytes.
-		/// - `proxy_type`: Delegate permission level; 1 byte.
-		/// - `deadline`: Deadline for the signature; 4 bytes.
-		/// - `signature`: Signature of the message parameters.
+		/// - `futurepass`: Futurepass account to register the account as delegate.
+		/// - `proxy_type`: Delegate permission level
+		/// - `delegate`: The delegated account for the futurepass.
 		///
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(1)]
 		#[pallet::weight({
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
-			T::WeightInfo::register_delegate_with_signature(delegate_count)
+			T::WeightInfo::register_delegate(delegate_count)
 		})]
 		#[transactional]
-		pub fn register_delegate_with_signature(
+		pub fn register_delegate(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
 			delegate: T::AccountId,
 			proxy_type: T::ProxyType,
-			deadline: u32,
-			signature: [u8; 65],
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			let is_futurepass = caller == futurepass;
@@ -326,30 +289,6 @@ pub mod pallet {
 				Error::<T>::DelegateAlreadyExists
 			);
 
-			let deadline_block_number: T::BlockNumber = deadline.into();
-			ensure!(
-				deadline_block_number >= frame_system::Pallet::<T>::block_number(),
-				Error::<T>::ExpiredDeadline
-			);
-
-			let (_, eth_signed_msg) = Self::generate_add_delegate_eth_signed_message(
-				&futurepass,
-				&delegate,
-				&proxy_type,
-				&deadline,
-			)?;
-			let delegate_signer: T::AccountId =
-				match sp_io::crypto::secp256k1_ecdsa_recover(&signature, &eth_signed_msg) {
-					Ok(pubkey_bytes) => H160(
-						keccak_256(&pubkey_bytes)[12..]
-							.try_into()
-							.map_err(|_| Error::<T>::AccountParsingFailure)?,
-					)
-					.into(),
-					Err(_err) => Err(Error::<T>::InvalidSignature)?,
-				};
-			ensure!(delegate_signer == delegate, Error::<T>::RegisterDelegateSignerMismatch);
-
 			T::Proxy::add_delegate(&caller, &futurepass, &delegate, &proxy_type)?;
 			Self::deposit_event(Event::<T>::DelegateRegistered {
 				futurepass,
@@ -373,6 +312,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(2)]
 		#[pallet::weight({
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
 			T::WeightInfo::unregister_delegate(delegate_count)
@@ -386,8 +326,8 @@ pub mod pallet {
 			let caller = ensure_signed(origin)?;
 
 			// Check if the caller is the owner of the futurepass
-			let is_owner = Holders::<T>::get(&caller) == Some(futurepass.clone());
-			let unreg_owner = Holders::<T>::get(&delegate) == Some(futurepass.clone());
+			let is_owner = Holders::<T>::get(&caller) == Some(futurepass);
+			let unreg_owner = Holders::<T>::get(&delegate) == Some(futurepass);
 
 			// The owner can not be unregistered
 			ensure!(!unreg_owner, Error::<T>::OwnerCannotUnregister);
@@ -421,52 +361,38 @@ pub mod pallet {
 		/// futurepass.
 		///
 		/// Parameters:
-		/// - `current_owner`: The current owner of the futurepass.
 		/// - `new_owner`: The new account that will become the owner of the futurepass.
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::transfer_futurepass())]
 		#[transactional]
 		pub fn transfer_futurepass(
 			origin: OriginFor<T>,
-			current_owner: T::AccountId,
-			new_owner: Option<T::AccountId>,
+			new_owner: T::AccountId,
 		) -> DispatchResult {
-			let caller = ensure_signed(origin)?;
+			let owner = ensure_signed(origin)?;
 
-			// only succeed if the current_owner has a futurepass account
-			let futurepass =
-				Holders::<T>::take(&current_owner).ok_or(Error::<T>::NotFuturepassOwner)?;
-			if caller != current_owner {
-				// if current owner is not the caller; then the caller must be futurepass itself
-				ensure!(futurepass == caller.clone(), Error::<T>::NotFuturepassOwner);
-			}
+			// Get the current futurepass owner from the `Holders` storage mapping
+			let futurepass = Holders::<T>::take(&owner).ok_or(Error::<T>::NotFuturepassOwner)?;
 
-			if let Some(ref new_owner) = new_owner {
-				// Ensure that the new owner does not already own a futurepass
-				ensure!(
-					!Holders::<T>::contains_key(&new_owner),
-					Error::<T>::AccountAlreadyRegistered
-				);
+			// Ensure that the new owner does not already own a futurepass
+			ensure!(!Holders::<T>::contains_key(&new_owner), Error::<T>::AccountAlreadyRegistered);
 
-				// Add the new owner as a proxy delegate with the most permissive type, i.e.,
-				T::Proxy::add_delegate(&caller, &futurepass, &new_owner, &T::ProxyType::default())?;
+			// Add the new owner as a proxy delegate with the most permissive type, i.e.,
+			T::Proxy::add_delegate(&owner, &futurepass, &new_owner, &T::ProxyType::default())?;
 
-				// Iterate through the list of delegates and remove them, except for the new_owner
-				let delegates = T::Proxy::delegates(&futurepass);
-				for delegate in delegates.iter() {
-					if delegate.0 != *new_owner {
-						T::Proxy::remove_delegate(&caller, &futurepass, &delegate.0)?;
-					}
+			// Iterate through the list of delegates and remove them, except for the new_owner
+			let delegates = T::Proxy::delegates(&futurepass);
+			for delegate in delegates.iter() {
+				if delegate.0 != new_owner {
+					T::Proxy::remove_delegate(&owner, &futurepass, &delegate.0)?;
 				}
-
-				// Set the new owner as the owner of the futurepass
-				Holders::<T>::insert(new_owner, futurepass.clone());
-			} else {
-				// remove the account - which should remove all delegates
-				T::Proxy::remove_account(&caller, &futurepass)?;
 			}
+
+			// Set the new owner as the owner of the futurepass
+			Holders::<T>::insert(&new_owner, futurepass.clone());
 
 			Self::deposit_event(Event::<T>::FuturepassTransferred {
-				old_owner: current_owner,
+				old_owner: owner,
 				new_owner,
 				futurepass,
 			});
@@ -483,6 +409,7 @@ pub mod pallet {
 		/// # <weight>
 		/// Weight is a function of the number of proxies the user has.
 		/// # </weight>
+		#[pallet::call_index(4)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
 			let delegate_count = T::Proxy::delegates(&futurepass).len() as u32;
@@ -495,23 +422,9 @@ pub mod pallet {
 		pub fn proxy_extrinsic(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
-			call: Box<<T as Config>::Call>,
+			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
-
-			// restrict delegate access to whitelist
-			match call.is_sub_type() {
-				Some(Call::register_delegate_with_signature { .. }) |
-				Some(Call::unregister_delegate { .. }) |
-				Some(Call::transfer_futurepass { .. }) => {
-					ensure!(
-						Holders::<T>::get(&who.clone()) == Some(futurepass.clone()),
-						Error::<T>::NotFuturepassOwner
-					);
-				},
-				_ => {},
-			}
-
 			let result = T::Proxy::proxy_call(origin, futurepass, *call);
 			Self::deposit_event(Event::ProxyExecuted {
 				delegate: who,
@@ -526,13 +439,14 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `migrator`: The new account that will become the futurepass asset migrator.
+		#[pallet::call_index(5)]
 		#[pallet::weight((RocksDbWeight::get().writes(1), DispatchClass::Operational))]
 		pub fn set_futurepass_migrator(
 			origin: OriginFor<T>,
 			migrator: T::AccountId,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			MigrationAdmin::<T>::set(Some(migrator.clone()));
+			MigrationAdmin::<T>::set(Some(migrator));
 			Self::deposit_event(Event::FuturepassMigratorSet { migrator });
 			Ok(())
 		}
@@ -543,20 +457,19 @@ pub mod pallet {
 		/// Parameters:
 		/// - `owner` - The account ID of the owner of the EVM-based Futurepass.
 		/// - `evm_futurepass` - The account ID of the EVM-based Futurepass.
-		/// - `asset_ids` - A vector of asset IDs representing the assets to be migrated.
 		/// - `collection_ids` - A vector of collection IDs representing the NFTs collections to be
 		///   migrated.
 		///
 		/// # <weight>
 		/// Weight is a function of the number of collections migrated; not the tokens migrated.
 		/// # </weight>
+		#[pallet::call_index(6)]
 		#[pallet::weight((RocksDbWeight::get().writes(collection_ids.len() as u64), DispatchClass::Operational))]
 		#[transactional]
 		pub fn migrate_evm_futurepass(
 			origin: OriginFor<T>,
 			owner: T::AccountId,
 			evm_futurepass: T::AccountId,
-			asset_ids: Vec<u32>,
 			collection_ids: Vec<u32>,
 		) -> DispatchResult {
 			let admin = ensure_signed(origin)?;
@@ -568,27 +481,19 @@ pub mod pallet {
 			let futurepass = if Holders::<T>::contains_key(&owner) {
 				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
 			} else {
-				Self::do_create_futurepass(admin, owner.clone())?;
+				Self::do_create_futurepass(admin, owner)?;
 				Holders::<T>::get(&owner).ok_or(Error::<T>::NotFuturepassOwner)?
 			};
 
-			// transfer assets
-			for asset_id in asset_ids.iter() {
-				T::FuturepassMigrator::transfer_asset(*asset_id, &evm_futurepass, &futurepass)?;
-			}
-
 			// transfer nfts
-			for collection_id in collection_ids.iter() {
-				T::FuturepassMigrator::transfer_nfts(*collection_id, &evm_futurepass, &futurepass)?;
+			for collection_id in collection_ids.into_iter() {
+				T::FuturepassMigrator::transfer_nfts(collection_id, &evm_futurepass, &futurepass)?;
+				Self::deposit_event(Event::FuturepassAssetsMigrated {
+					evm_futurepass,
+					futurepass,
+					collection_id,
+				});
 			}
-
-			Self::deposit_event(Event::FuturepassAssetsMigrated {
-				evm_futurepass: evm_futurepass.clone(),
-				futurepass: futurepass.clone(),
-				assets: asset_ids,
-				collections: collection_ids,
-			});
-
 			Ok(())
 		}
 
@@ -623,10 +528,7 @@ pub mod pallet {
 	}
 }
 
-impl<T: Config> Pallet<T>
-where
-	<T as frame_system::Config>::AccountId: From<H160>,
-{
+impl<T: Config> Pallet<T> {
 	/// Generate the next Ethereum address (H160) with a custom prefix.
 	///
 	/// The Ethereum address will have a prefix of "FFFFFFFF" (8 hex digits) followed by the current
@@ -640,7 +542,10 @@ where
 	///
 	/// # Returns
 	/// - `T::AccountId`: A generated Ethereum address (H160) with the desired custom prefix.
-	fn generate_futurepass_account() -> T::AccountId {
+	fn generate_futurepass_account() -> T::AccountId
+	where
+		T::AccountId: From<H160>,
+	{
 		// Convert the futurepass_id to a byte array and increment the value
 		let futurepass_id_bytes = NextFuturepassId::<T>::mutate(|futurepass_id| {
 			let bytes = futurepass_id.to_be_bytes();
@@ -664,7 +569,10 @@ where
 	pub fn do_create_futurepass(
 		funder: T::AccountId,
 		account: T::AccountId,
-	) -> Result<T::AccountId, DispatchError> {
+	) -> Result<T::AccountId, DispatchError>
+	where
+		T::AccountId: From<sp_core::H160>,
+	{
 		ensure!(!Holders::<T>::contains_key(&account), Error::<T>::AccountAlreadyRegistered);
 		let futurepass = Self::generate_futurepass_account();
 		Holders::<T>::set(&account, Some(futurepass.clone()));
@@ -676,59 +584,9 @@ where
 		});
 		Ok(futurepass)
 	}
-
-	fn generate_add_delegate_eth_signed_message(
-		futurepass: &T::AccountId,
-		delegate: &T::AccountId,
-		proxy_type: &T::ProxyType,
-		deadline: &u32,
-	) -> Result<([u8; 32], [u8; 32]), DispatchError> {
-		let mut buffer = Vec::new(); // re-use buffer for encoding (performance)
-
-		futurepass.encode_to(&mut buffer);
-		let futurepass: [u8; 20] = H160::from_slice(&buffer[..]).into();
-		buffer.clear();
-
-		delegate.encode_to(&mut buffer);
-		let delegate: [u8; 20] = H160::from_slice(&buffer[..]).into();
-		buffer.clear();
-
-		proxy_type.encode_to(&mut buffer);
-		let proxy_type: [u8; 1] =
-			buffer[..].try_into().map_err(|_| Error::<T>::InvalidProxyType)?;
-		buffer.clear();
-
-		let deadline: [u8; 4] = deadline.to_be_bytes();
-
-		// create packed message - anologous to Solidity's abi.encodePacked
-		let mut packed_msg = Vec::new();
-		packed_msg.extend(&futurepass);
-		packed_msg.extend(&delegate);
-		packed_msg.extend(&proxy_type);
-		packed_msg.extend(&deadline);
-
-		#[cfg(test)]
-		println!("packed_msg: {:?}", hex::encode(&packed_msg));
-
-		let hashed_msg: [u8; 32] = keccak_256(&packed_msg);
-
-		#[cfg(test)]
-		println!("hashed_msg: {:?}", hex::encode(&hashed_msg));
-
-		let eth_signed_msg: [u8; 32] = keccak_256(
-			seed_primitives::ethereum_signed_message(hex::encode(hashed_msg).as_bytes()).as_ref(),
-		);
-		#[cfg(test)]
-		println!("ethereum_signed_message: {:?}", hex::encode(&eth_signed_msg));
-
-		Ok((hashed_msg, eth_signed_msg))
-	}
 }
 
-impl<T: Config> seed_pallet_common::AccountProxy<T::AccountId> for Pallet<T>
-where
-	<T as frame_system::Config>::AccountId: From<H160>,
-{
+impl<T: Config> seed_pallet_common::AccountProxy<T::AccountId> for Pallet<T> {
 	fn primary_proxy(who: &T::AccountId) -> Option<T::AccountId> {
 		<DefaultProxy<T>>::get(who)
 	}

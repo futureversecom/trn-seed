@@ -1,3 +1,2 @@
 substrate-interface
 xxhash
-pyyaml

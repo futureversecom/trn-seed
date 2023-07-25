@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,7 +13,8 @@ use super::*;
 use crate::mock::{Nft, Test, TestExt, TokenApprovals};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use seed_primitives::{AccountId, MetadataScheme, OriginChain, TokenId};
+use pallet_nft::OriginChain;
+use seed_primitives::{AccountId, MetadataScheme, TokenId};
 use sp_core::H160;
 
 pub fn create_account(seed: u64) -> AccountId {
@@ -35,7 +32,7 @@ pub struct TestData {
 fn prepare_test() -> TestData {
 	let alice = create_account(10);
 	let coll_owner = alice.clone();
-	let collection_name = BoundedVec::truncate_from("Hello".into());
+	let collection_name = "Hello".into();
 	let metadata_scheme = MetadataScheme::try_from(
 		b"ethereum://bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi/".as_slice(),
 	)
@@ -450,103 +447,5 @@ fn is_approved_or_owner_works() {
 		assert!(TokenApprovals::is_approved_or_owner(token_id, token_owner));
 		assert!(TokenApprovals::is_approved_or_owner(token_id, approved_for_all_account));
 		assert!(TokenApprovals::is_approved_or_owner(token_id, approved_account));
-	});
-}
-
-#[test]
-fn set_erc1155_approval_for_all() {
-	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = create_account(10);
-		let operator: AccountId = create_account(11);
-		let collection_id: CollectionUuid = 1;
-
-		// Set approval to true
-		assert_ok!(TokenApprovals::erc1155_approval_for_all(
-			None.into(),
-			caller,
-			operator,
-			collection_id,
-			true
-		));
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator)).unwrap()
-		);
-
-		// Remove approval
-		assert_ok!(TokenApprovals::erc1155_approval_for_all(
-			None.into(),
-			caller,
-			operator,
-			collection_id,
-			false
-		));
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator)).is_none()
-		);
-	});
-}
-
-#[test]
-fn set_erc1155_approval_for_all_multiple_approvals() {
-	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = create_account(10);
-		let operator_1: AccountId = create_account(11);
-		let operator_2: AccountId = create_account(12);
-		let operator_3: AccountId = create_account(13);
-		let collection_id: CollectionUuid = 1;
-
-		// Set approval to true for all three accounts
-		assert_ok!(TokenApprovals::erc1155_approval_for_all(
-			None.into(),
-			caller,
-			operator_1,
-			collection_id,
-			true
-		));
-		assert_ok!(TokenApprovals::erc1155_approval_for_all(
-			None.into(),
-			caller,
-			operator_2,
-			collection_id,
-			true
-		));
-		assert_ok!(TokenApprovals::erc1155_approval_for_all(
-			None.into(),
-			caller,
-			operator_3,
-			collection_id,
-			true
-		));
-
-		// Check storage
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator_1)).unwrap()
-		);
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator_2)).unwrap()
-		);
-		assert!(
-			TokenApprovals::erc1155_approvals_for_all(caller, (collection_id, operator_3)).unwrap()
-		);
-	});
-}
-
-#[test]
-fn set_erc1155_approval_for_all_caller_is_operator_should_fail() {
-	TestExt::default().build().execute_with(|| {
-		let caller: AccountId = create_account(10);
-		let collection_id: CollectionUuid = 1;
-
-		// Set approval to true
-		assert_noop!(
-			TokenApprovals::erc1155_approval_for_all(
-				None.into(),
-				caller,
-				caller,
-				collection_id,
-				true
-			),
-			Error::<Test>::CallerNotOperator
-		);
 	});
 }

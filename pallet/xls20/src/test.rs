@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,8 +12,8 @@
 #![cfg(test)]
 use super::*;
 use crate::mock::{
-	create_account, has_event, AssetsExt, Event as MockEvent, MaxTokensPerXls20Mint, Nft, System,
-	Test, TestExt, Xls20, Xls20PaymentAsset,
+	create_account, has_event, AssetsExt, MaxTokensPerXls20Mint, Nft, RuntimeEvent as MockEvent,
+	System, Test, TestExt, Xls20, Xls20PaymentAsset,
 };
 use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
 use frame_system::RawOrigin;
@@ -29,7 +25,7 @@ use sp_runtime::{BoundedVec, DispatchError::BadOrigin};
 // Returns the created `collection_id`
 fn setup_xls20_collection(owner: AccountId, xls_compatible: bool) -> CollectionUuid {
 	let collection_id = Nft::next_collection_uuid().unwrap();
-	let collection_name = BoundedVec::truncate_from(b"test-xls20-collection".to_vec());
+	let collection_name = b"test-xls20-collection".to_vec();
 	let metadata_scheme = MetadataScheme::try_from(b"https://example.com/".as_slice()).unwrap();
 	let cross_chain_compatibility = CrossChainCompatibility { xrpl: xls_compatible };
 	assert_ok!(Nft::create_collection(

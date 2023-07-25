@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -113,7 +109,7 @@ fn deposit_payment_with_ethereum_event_router_source_address_not_set() {
 		assert_noop!(
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
-				DbWeight::get().reads(1 as Weight),
+				DbWeight::get().reads(1),
 				EventRouterError::FailedProcessing(
 					DispatchError::Other("Invalid source address").into()
 				)
@@ -152,7 +148,7 @@ fn deposit_payment_with_ethereum_event_router_incorrect_source_address() {
 		assert_noop!(
 			MockEthereumEventRouter::route(&source, &destination, data.clone().as_slice()),
 			(
-				DbWeight::get().reads(1 as Weight),
+				DbWeight::get().reads(1),
 				EventRouterError::FailedProcessing(
 					DispatchError::Other("Invalid source address").into()
 				)
@@ -284,20 +280,19 @@ fn deposit_payment_with_delay() {
 		assert_eq!(AssetsExt::balance(SPENDING_ASSET_ID, &AccountId::from(beneficiary)), 0);
 
 		// Simulating block before with enough weight, payment shouldn't be removed
-		let delayed_payment_weight: Weight = DbWeight::get()
-			.reads(8 as Weight)
-			.saturating_add(DbWeight::get().writes(10 as Weight));
-		assert_eq!(Erc20Peg::on_initialize(payment_block - 1), DbWeight::get().reads(1 as Weight));
-		assert_eq!(Erc20Peg::on_idle(payment_block - 1, delayed_payment_weight * 2), 0);
+		let delayed_payment_weight: Weight =
+			DbWeight::get().reads(8).saturating_add(DbWeight::get().writes(10));
+		assert_eq!(Erc20Peg::on_initialize(payment_block - 1), DbWeight::get().reads(1));
+		assert_eq!(Erc20Peg::on_idle(payment_block - 1, delayed_payment_weight * 2), 0.into());
 
 		// Simulating not enough weight left in block, payment shouldn't be removed
 		assert_eq!(
 			Erc20Peg::on_initialize(payment_block),
-			DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)
+			DbWeight::get().reads(1) + DbWeight::get().writes(1)
 		);
 		assert_eq!(
 			Erc20Peg::on_idle(payment_block, delayed_payment_weight / 2),
-			DbWeight::get().reads(1 as Weight)
+			DbWeight::get().reads(1)
 		);
 
 		// Ensure payment isn't removed from storage after either of the above
@@ -309,10 +304,10 @@ fn deposit_payment_with_delay() {
 		);
 
 		// Try again next block with enough weight
-		assert_eq!(Erc20Peg::on_initialize(payment_block + 1), DbWeight::get().reads(1 as Weight));
+		assert_eq!(Erc20Peg::on_initialize(payment_block + 1), DbWeight::get().reads(1));
 		assert_eq!(
 			Erc20Peg::on_idle(payment_block + 1, delayed_payment_weight * 2),
-			delayed_payment_weight + DbWeight::get().reads(1 as Weight)
+			delayed_payment_weight + DbWeight::get().reads(1)
 		);
 
 		// Check payments removed from storage
@@ -359,9 +354,8 @@ fn withdraw_with_delay() {
 		let beneficiary: H160 = H160::from_slice(&hex!("a86e122EdbDcBA4bF24a2Abf89F5C230b37DF49d"));
 		let delay: u64 = 1000;
 		let _ = <Test as Config>::MultiCurrency::mint_into(asset_id, &account, amount);
-		let delayed_payment_weight: Weight = DbWeight::get()
-			.reads(8 as Weight)
-			.saturating_add(DbWeight::get().writes(10 as Weight));
+		let delayed_payment_weight: Weight =
+			DbWeight::get().reads(8).saturating_add(DbWeight::get().writes(10));
 
 		<AssetIdToErc20>::insert(asset_id, cennz_eth_address);
 		<Erc20ToAssetId>::insert(cennz_eth_address, asset_id);
@@ -395,11 +389,11 @@ fn withdraw_with_delay() {
 		assert_eq!(<NextDelayedPaymentId>::get(), delayed_payment_id + 1);
 		assert_eq!(
 			Erc20Peg::on_initialize(payment_block),
-			DbWeight::get().reads(1 as Weight) + DbWeight::get().writes(1 as Weight)
+			DbWeight::get().reads(1) + DbWeight::get().writes(1)
 		);
 		assert_eq!(
 			Erc20Peg::on_idle(payment_block, delayed_payment_weight * 2),
-			delayed_payment_weight + DbWeight::get().reads(1 as Weight)
+			delayed_payment_weight + DbWeight::get().reads(1)
 		);
 		// Payment should be removed from storage
 		assert_eq!(

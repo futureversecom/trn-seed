@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,21 +12,19 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use core::ops::Mul;
-use evm::backend::Basic;
-use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
+
 use frame_support::{
 	dispatch::{EncodeLike, RawOrigin},
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
-		fungibles,
-		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, Imbalance, InstanceFilter, IsSubType,
-		OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
+		tokens::{DepositConsequence, Fortitude, Preservation, Provenance, WithdrawConsequence},
+		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, IsSubType, OnUnbalanced,
+		SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
-use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
+use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
 use sp_core::{H160, U256};
@@ -44,12 +38,7 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-use precompile_utils::{
-	constants::{
-		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
-	},
-	keccak256, Address, ErcIdConversion,
-};
+use precompile_utils::{constants::FUTUREPASS_PRECOMPILE, Address, ErcIdConversion};
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
@@ -57,10 +46,10 @@ use seed_pallet_common::{
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic, EVM,
+	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
+	UncheckedExtrinsic,
 };
-use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
+use sp_runtime::traits::Dispatchable;
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -76,11 +65,6 @@ pub fn scale_wei_to_6dp(value: Balance) -> Balance {
 		// it is lost in this divide operation
 		quotient + 1
 	}
-}
-
-/// convert 6dp (XRP) to 18dp (wei)
-pub fn scale_6dp_to_wei(value: Balance) -> Balance {
-	value * XRP_UNIT_VALUE
 }
 
 /// Wraps spending currency (XRP) for use by the EVM
@@ -105,28 +89,40 @@ impl<C: Inspect<AccountId, Balance = Balance> + Currency<AccountId>> Inspect<Acc
 	/// Get the balance of `who`.
 	/// Scaled up so values match expectations of an 18dp asset
 	fn balance(who: &AccountId) -> Self::Balance {
-		Self::reducible_balance(who, false)
+		Self::reducible_balance(who, Preservation::Expendable, Fortitude::Polite)
 	}
 
 	/// Get the maximum amount that `who` can withdraw/transfer successfully.
 	/// Scaled up so values match expectations of an 18dp asset
 	/// keep_alive has been hardcoded to false to provide a similar experience to users coming
 	/// from Ethereum (Following POLA principles)
-	fn reducible_balance(who: &AccountId, _keep_alive: bool) -> Self::Balance {
+	fn reducible_balance(
+		who: &AccountId,
+		preservation: Preservation,
+		force: Fortitude,
+	) -> Self::Balance {
 		// Careful for overflow!
-		let raw = C::reducible_balance(who, false);
+		let raw = C::reducible_balance(who, preservation, force);
 		U256::from(raw).saturating_mul(U256::from(XRP_UNIT_VALUE)).saturated_into()
 	}
 
 	/// Returns `true` if the balance of `who` may be increased by `amount`.
-	fn can_deposit(who: &AccountId, amount: Self::Balance, mint: bool) -> DepositConsequence {
-		C::can_deposit(who, amount, mint)
+	fn can_deposit(
+		who: &AccountId,
+		amount: Self::Balance,
+		provenance: Provenance,
+	) -> DepositConsequence {
+		C::can_deposit(who, amount, provenance)
 	}
 
 	/// Returns `Failed` if the balance of `who` may not be decreased by `amount`, otherwise
 	/// the consequence.
 	fn can_withdraw(who: &AccountId, amount: Self::Balance) -> WithdrawConsequence<Self::Balance> {
 		C::can_withdraw(who, amount)
+	}
+
+	fn total_balance(who: &AccountId) -> Self::Balance {
+		<C as Inspect<AccountId>>::total_balance(who)
 	}
 }
 
@@ -311,14 +307,14 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for SlashImbalanc
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where
-	Call: From<LocalCall>,
+	RuntimeCall: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-		call: Call,
+		call: RuntimeCall,
 		public: <Signature as Verify>::Signer,
 		account: AccountId,
 		nonce: Index,
-	) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
+	) -> Option<(RuntimeCall, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
 		let tip = 0;
 		// take the biggest period possible.
 		let period =
@@ -406,7 +402,7 @@ impl EthereumEventRouterT for EthereumEventRouter {
 			)
 			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		} else {
-			Err((0, EventRouterError::NoReceiver))
+			Err((Weight::zero(), EventRouterError::NoReceiver))
 		}
 	}
 }
@@ -442,21 +438,7 @@ where
 	type Balance = Balance;
 
 	fn weight_to_fee(weight: &Weight) -> Balance {
-		M::get().mul(*weight as Balance)
-	}
-}
-
-pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
-
-impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
-	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
-		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY_ADDRESS);
-		// If we are not overriding with a fee preference, proceed with calculating a fee
-		if evm_config.transaction.to != Some(decoded_override_destination) {
-			// call default trait function instead
-			<() as fp_evm::HandleTxValidation<E>>::with_balance_for(evm_config, who)?
-		}
-		Ok(())
+		M::get().mul(weight.ref_time() as Balance)
 	}
 }
 
@@ -553,26 +535,10 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 		result
 	}
 
-	/// Removing futurepass refunds caller with reserved balance (deposits) of the futurepass.
-	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
-		let (_, old_deposit) = pallet_proxy::Proxies::<Runtime>::take(futurepass);
-		<pallet_balances::Pallet<Runtime> as ReservableCurrency<_>>::unreserve(
-			futurepass,
-			old_deposit,
-		);
-		<pallet_balances::Pallet<Runtime> as Currency<_>>::transfer(
-			futurepass,
-			receiver,
-			old_deposit,
-			ExistenceRequirement::AllowDeath,
-		)?;
-		Ok(())
-	}
-
 	fn proxy_call(
-		caller: <Runtime as frame_system::Config>::Origin,
+		caller: <Runtime as frame_system::Config>::RuntimeOrigin,
 		futurepass: AccountId,
-		call: Call,
+		call: RuntimeCall,
 	) -> DispatchResult {
 		let call = pallet_proxy::Call::<Runtime>::proxy {
 			real: futurepass.into(),
@@ -580,7 +546,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 			call: call.into(),
 		};
 
-		Call::dispatch(call.into(), caller).map_err(|e| e.error)?;
+		RuntimeCall::dispatch(call.into(), caller).map_err(|e| e.error)?;
 		Ok(())
 	}
 }
@@ -644,18 +610,17 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 		call: &pallet_evm_precompiles_futurepass::EvmSubCall,
 		_recipient_has_code: bool,
 	) -> bool {
-		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_REGISTRAR_PRECOMPILE) ||
-			call.to.0.as_bytes().starts_with(FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX)
-		{
+		if call.to.0 == H160::from_low_u64_be(FUTUREPASS_PRECOMPILE) {
 			// Whitelist for precompile side
-			let sub_call_selector = &call.call_data.inner[..4];
-			if sub_call_selector ==
-				&keccak256!("registerDelegateWithSignature(address,uint8,uint32,bytes)")[..4] ||
-				sub_call_selector == &keccak256!("unregisterDelegate(address)")[..4] ||
-				sub_call_selector == &keccak256!("transferOwnership(address)")[..4]
-			{
-				return true
-			}
+			// TODO - call.call_data is not clonable coz of ConstU32. i.e we use
+			// BoundedBytes<ConstU32<65536>> and when call.call_data.into_vec(), it moves out the
+			// call data which we need later in the function we should either change the type of
+			// call.call_data or fix it by other mean but for V1, this code is not functionally
+			// relevant. let sub_call_selector = &call.call_data.clone().into_vec()[..4];
+			// if sub_call_selector == &keccak256!("registerDelegate(address,address,uint8)")[..4]
+			// 	|| sub_call_selector == &keccak256!("unregisterDelegate(address,address)")[..4] {
+			// 	return true;
+			// }
 			return false
 		}
 		match self {
@@ -670,23 +635,20 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 }
 
 // substrate side proxy filter
-impl InstanceFilter<Call> for ProxyType {
-	fn filter(&self, c: &Call) -> bool {
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
 		// NOTE - any call for Proxy, Futurepass pallets can not be proxied except the Whitelist.
 		// this may seems extra restrictive than Proxy pallet. But if a delegate has permission to
 		// proxy a call of the proxy pallet, they should be able to call it directly in the pallet.
 		// This keeps the logic simple and avoids unnecessary loops
 		// TODO - implement the whitelist as a list that can be configured in the runtime.
-		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
-			// Whitelist currently includes
-			// pallet_futurepass::Call::register_delegate_with_signature,
+		if matches!(c, RuntimeCall::Proxy(..) | RuntimeCall::Futurepass(..)) {
+			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
 			// pallet_futurepass::Call::unregister_delegate
-			// pallet_futurepass::Call::transfer_futurepass
 			if !matches!(
 				c,
-				Call::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
+				RuntimeCall::Futurepass(pallet_futurepass::Call::register_delegate { .. }) |
+					RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
 			) {
 				return false
 			}
@@ -724,10 +686,9 @@ where
 		+ pallet_dex::Config
 		+ pallet_evm::Config
 		+ pallet_assets_ext::Config,
-	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
-	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
-	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
-	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_fee_proxy::Call<T>>,
+	<T as pallet_fee_proxy::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
 	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as pallet_fee_proxy::Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<
@@ -740,8 +701,8 @@ where
 
 	fn withdraw_fee(
 		who: &T::AccountId,
-		call: &<T as frame_system::Config>::Call,
-		info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
+		call: &<T as frame_system::Config>::RuntimeCall,
+		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		fee: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
@@ -762,8 +723,8 @@ where
 
 	fn correct_and_deposit_fee(
 		who: &T::AccountId,
-		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
-		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::Call>,
+		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		corrected_fee: Self::Balance,
 		tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,
@@ -785,25 +746,9 @@ where
 
 pub struct FuturepassMigrationProvider;
 
-impl<T: pallet_nft::Config + pallet_assets_ext::Config> pallet_futurepass::FuturepassMigrator<T>
+impl<T: pallet_nft::Config> pallet_futurepass::FuturepassMigrator<T>
 	for FuturepassMigrationProvider
-where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
-	fn transfer_asset(
-		asset_id: AssetId,
-		current_owner: &T::AccountId,
-		new_owner: &T::AccountId,
-	) -> DispatchResult {
-		let amount = <pallet_assets_ext::Pallet<T> as fungibles::Inspect<
-			<T as frame_system::Config>::AccountId,
-		>>::reducible_balance(asset_id, current_owner, false);
-		<pallet_assets_ext::Pallet<T> as fungibles::Transfer<
-			<T as frame_system::Config>::AccountId,
-		>>::transfer(asset_id, current_owner, new_owner, amount, false)?;
-		Ok(())
-	}
-
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,
@@ -828,117 +773,6 @@ where
 			new_owner,
 		)?;
 		Ok(())
-	}
-}
-
-/// Futureverse EVM currency adapter, mainly handles tx fees and associated 18DP(wei) to 6DP(XRP)
-/// conversion for fees.
-pub struct FutureverseEVMCurrencyAdapter<C, OU>(PhantomData<(C, OU)>);
-
-type NegativeImbalanceOf<C, T> =
-	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
-
-impl<T, C, OU> OnChargeEVMTransaction<T> for FutureverseEVMCurrencyAdapter<C, OU>
-where
-	T: pallet_evm::Config + pallet_assets_ext::Config,
-	C: Currency<<T as frame_system::Config>::AccountId>,
-	C::PositiveImbalance: Imbalance<
-		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-		Opposite = C::NegativeImbalance,
-	>,
-	C::NegativeImbalance: Imbalance<
-		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-		Opposite = C::PositiveImbalance,
-	>,
-	OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
-	U256: UniqueSaturatedInto<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance>,
-	C::Balance: From<u128>,
-	u128: From<C::Balance>,
-{
-	type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
-
-	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
-		if fee.is_zero() {
-			return Ok(None)
-		}
-		let account_id = T::AddressMapping::into_account_id(*who);
-		let imbalance = C::withdraw(
-			&account_id,
-			fee.unique_saturated_into(),
-			WithdrawReasons::FEE,
-			ExistenceRequirement::AllowDeath,
-		)
-		.map_err(|_| pallet_evm::Error::<T>::BalanceLow)?;
-		Ok(Some(imbalance)) // Imbalance returned here is 6DP
-	}
-
-	fn correct_and_deposit_fee(
-		who: &H160,
-		corrected_fee: U256,
-		base_fee: U256,
-		already_withdrawn: Self::LiquidityInfo,
-	) -> Self::LiquidityInfo {
-		if let Some(paid) = already_withdrawn {
-			let account_id = T::AddressMapping::into_account_id(*who);
-
-			// NOTE: Here paid is in 6DP and corrected_fee is in 18DP. Hence convert paid to 18DP
-			// before any calculation.
-			let paid_18dp: C::Balance = scale_6dp_to_wei(paid.peek().into()).into();
-
-			// Calculate how much refund we should return
-			let refund_amount = paid_18dp.saturating_sub(corrected_fee.unique_saturated_into());
-			// refund to the account that paid the fees. If this fails, the
-			// account might have dropped below the existential balance. In
-			// that case we don't refund anything.
-			let refund_imbalance = C::deposit_into_existing(&account_id, refund_amount)
-				.unwrap_or_else(|_| C::PositiveImbalance::zero());
-
-			// Make sure this works with 0 ExistentialDeposit
-			// https://github.com/paritytech/substrate/issues/10117
-			// If we tried to refund something, the account still empty and the ED is set to 0,
-			// we call `make_free_balance_be` with the refunded amount.
-			let refund_imbalance = if C::minimum_balance().is_zero() &&
-				refund_amount > C::Balance::zero() &&
-				C::total_balance(&account_id).is_zero()
-			{
-				// Known bug: Substrate tried to refund to a zeroed AccountData, but
-				// interpreted the account to not exist.
-				match C::make_free_balance_be(&account_id, refund_amount) {
-					SignedImbalance::Positive(p) => p,
-					_ => C::PositiveImbalance::zero(),
-				}
-			} else {
-				refund_imbalance
-			};
-
-			// merge the imbalance caused by paying the fees and refunding parts of it again.
-			let adjusted_paid = paid
-				.offset(refund_imbalance)
-				.same()
-				.unwrap_or_else(|_| C::NegativeImbalance::zero());
-
-			// base_fee is in 18DP, adjusted_paid is in 6DP. Hence we need to scale base_fee to 6DP
-			// before the split
-			let base_fee_6dp: C::Balance =
-				scale_wei_to_6dp(base_fee.unique_saturated_into().into()).into();
-
-			let (base_fee, tip) = adjusted_paid.split(base_fee_6dp);
-			// Handle base fee. Can be either burned, rationed, etc ...
-			OU::on_unbalanced(base_fee); // base_fee here is in 6DP
-			return Some(tip) // tip here is in 6DP
-		}
-		None
-	}
-
-	fn pay_priority_fee(tip: Self::LiquidityInfo) {
-		// Default Ethereum behaviour: issue the tip to the block author.
-		if let Some(tip) = tip {
-			let account_id = T::AddressMapping::into_account_id(EVM::find_author());
-			// tip is in 6DP. We should convert it to 18DP before passing it down to C, as another
-			// 18DP to 6DP conversion happening there.
-			let tip_18dp: C::Balance = scale_6dp_to_wei(tip.peek().into()).into();
-			let _ = C::deposit_into_existing(&account_id, tip_18dp);
-		}
 	}
 }
 

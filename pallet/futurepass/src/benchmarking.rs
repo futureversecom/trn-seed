@@ -1,18 +1,17 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// You may obtain a copy of the License at the root of this project source code
-
+// /* Copyright 2019-2021 Centrality Investments Limited
+// *
+// * Licensed under the LGPL, Version 3.0 (the "License");
+// * you may not use this file except in compliance with the License.
+// * Unless required by applicable law or agreed to in writing, software
+// * distributed under the License is distributed on an "AS IS" BASIS,
+// * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// * See the License for the specific language governing permissions and
+// * limitations under the License.
+// * You may obtain a copy of the License at the root of this project source code,
+// * or at:
+// * https://centrality.ai/licenses/gplv3.txt
+// * https://centrality.ai/licenses/lgplv3.txt
+// */
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
@@ -22,27 +21,20 @@ use crate::Pallet as Futurepass;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_support::{assert_ok, traits::fungibles::Mutate};
 use frame_system::RawOrigin;
-use hex_literal::hex;
 use sp_std::vec;
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event)
-where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
-{
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
 // fund account with ROOT & XRP
-pub fn fund<T: Config>(account: &T::AccountId)
-where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
-{
+pub fn fund<T: Config>(account: &T::AccountId) {
 	let root_asset_id: u32 = 1;
 	assert_ok!(T::MultiCurrency::mint_into(root_asset_id.into(), &account, 1_000_000u32.into()));
 }
 
 benchmarks! {
-	where_clause { where <T as frame_system::Config>::AccountId: From<sp_core::H160> }
+
 	create {
 		let caller: T::AccountId = whitelisted_caller();
 		let owner: T::AccountId = account("owner", 0, 0);
@@ -53,20 +45,16 @@ benchmarks! {
 		assert_eq!(Holders::<T>::get(owner).is_some(), true);
 	}
 
-	register_delegate_with_signature {
+	register_delegate {
 		let owner: T::AccountId = account("account", 0, 0);
 
 		fund::<T>(&owner);
 		assert_ok!(Futurepass::<T>::create(RawOrigin::Signed(owner.clone()).into(), owner.clone()));
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
-		let delegate: T::AccountId = H160::from_slice(&hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB")).into();
-		let proxy_type = T::ProxyType::default();
-		let deadline: u32 = 200;
 
-		// keccak256(abi.encodePacked(0xFfFFFFff00000000000000000000000000000001, 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB, 1, 200)
-		// cast wallet sign --private-key 0x7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c "a2c9ac848a21f14e5b065959d946c4eb82f384948eaa2799d3a6f162b5a0ac0a"
-		let signature: [u8; 65] = hex!("94d1780e44c250d6c87b062e4c2e329deeec176513361fcf006869429f4bdfda549256c203096e9c580b89abbc5c61829cb5eb29270e342a82e21456712d7d411b");
-	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), delegate.clone(), proxy_type.clone(), deadline, signature)
+		let delegate: T::AccountId = account("delegate", 0, 0);
+		let proxy_type = T::ProxyType::default();
+	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), delegate.clone(), proxy_type.clone())
 	verify {
 		assert!(T::Proxy::exists(&futurepass, &delegate, Some(proxy_type)));
 	}
@@ -77,15 +65,11 @@ benchmarks! {
 		fund::<T>(&owner);
 		assert_ok!(Futurepass::<T>::create(RawOrigin::Signed(owner.clone()).into(), owner.clone()));
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
-		let delegate: T::AccountId = H160::from_slice(&hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB")).into();
+
+		let delegate: T::AccountId = account("delegate", 0, 0);
 		let proxy_type = T::ProxyType::default();
-		let deadline: u32= 200;
 
-		// keccak256(abi.encodePacked(0xFfFFFFff00000000000000000000000000000001, 0x420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB, 1, 200)
-		// cast wallet sign --private-key 0x7e9c7ad85df5cdc88659f53e06fb2eb9bab3ebc59083a3190eaf2c730332529c "a2c9ac848a21f14e5b065959d946c4eb82f384948eaa2799d3a6f162b5a0ac0a"
-		let signature: [u8; 65] = hex!("94d1780e44c250d6c87b062e4c2e329deeec176513361fcf006869429f4bdfda549256c203096e9c580b89abbc5c61829cb5eb29270e342a82e21456712d7d411b");
-
-		assert_ok!(Futurepass::<T>::register_delegate_with_signature(RawOrigin::Signed(owner.clone()).into(), futurepass.clone(), delegate.clone(), proxy_type.clone(), deadline, signature));
+		assert_ok!(Futurepass::<T>::register_delegate(RawOrigin::Signed(owner.clone()).into(), futurepass.clone(), delegate.clone(), proxy_type.clone()));
 	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), delegate.clone())
 	verify {
 		assert!(!T::Proxy::exists(&futurepass, &delegate, Some(proxy_type)));
@@ -100,7 +84,7 @@ benchmarks! {
 		assert_ok!(Futurepass::<T>::create(RawOrigin::Signed(owner.clone()).into(), owner.clone()));
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
 
-	}: _(RawOrigin::Signed(owner.clone()), owner.clone(), Some(new_owner.clone()))
+	}: _(RawOrigin::Signed(owner), new_owner.clone())
 	verify {
 		assert_eq!(Holders::<T>::get(new_owner), Some(futurepass));
 	}
@@ -112,7 +96,7 @@ benchmarks! {
 		assert_ok!(Futurepass::<T>::create(RawOrigin::Signed(owner.clone()).into(), owner.clone()));
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
 
-		let call: <T as Config>::Call = frame_system::Call::<T>::remark { remark: vec![] }.into();
+		let call: <T as Config>::RuntimeCall = frame_system::Call::<T>::remark { remark: vec![] }.into();
 
 	}: _(RawOrigin::Signed(owner.clone()), futurepass.clone(), Box::new(call))
 	verify {

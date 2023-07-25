@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,16 +15,13 @@ extern crate alloc;
 use fp_evm::{PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_evm::{GasWeightMapping, Precompile};
-use pallet_nft::{CrossChainCompatibility, WeightInfo};
+use pallet_nft::{
+	CollectionNameType, CrossChainCompatibility, OriginChain, RoyaltiesSchedule, WeightInfo,
+};
 use precompile_utils::{constants::ERC721_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
-use seed_primitives::{
-	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, TokenCount, MAX_ENTITLEMENTS,
-};
+use seed_primitives::{CollectionUuid, MetadataScheme, TokenCount};
 use sp_core::{H160, U256};
-use sp_runtime::{
-	traits::{ConstU32, SaturatedConversion},
-	BoundedVec, Permill,
-};
+use sp_runtime::{traits::SaturatedConversion, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 /// Solidity selector of the InitializeCollection log, which is the Keccak of the Log signature.
@@ -58,9 +51,9 @@ where
 	Runtime::AccountId: From<H160> + Into<H160>,
 	Runtime: frame_system::Config + pallet_nft::Config + pallet_evm::Config,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_nft::Call<Runtime>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
 		let result = {
@@ -92,9 +85,9 @@ where
 	Runtime::AccountId: From<H160> + Into<H160>,
 	Runtime: frame_system::Config + pallet_nft::Config + pallet_evm::Config,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_nft::Call<Runtime>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn initialize_collection(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(7, 32)?;
@@ -115,11 +108,7 @@ where
 		// Parse owner
 		let collection_owner: H160 = collection_owner.into();
 		// Parse name
-		let name: BoundedVec<u8, <Runtime as pallet_nft::Config>::StringLimit> = name
-			.as_bytes()
-			.to_vec()
-			.try_into()
-			.map_err(|_| revert("NFT: Collection name exceeds the maximum length"))?;
+		let name: CollectionNameType = name.as_bytes().to_vec();
 
 		// Parse max issuance
 		// If max issuance is 0, we assume no max issuance is set
@@ -150,17 +139,11 @@ where
 		});
 		let royalties_schedule: Option<RoyaltiesSchedule<Runtime::AccountId>> =
 			if royalty_addresses.len() > 0 {
-				let entitlements_unbounded: Vec<(Runtime::AccountId, Permill)> = royalty_addresses
+				let entitlements = royalty_addresses
 					.into_iter()
 					.map(|address| H160::from(address).into())
 					.zip(royalty_entitlements)
 					.collect();
-				let entitlements: BoundedVec<
-					(Runtime::AccountId, Permill),
-					ConstU32<MAX_ENTITLEMENTS>,
-				> = BoundedVec::try_from(entitlements_unbounded)
-					.map_err(|_| revert("NFT: Too many royalty entitlements provided"))?;
-
 				Some(RoyaltiesSchedule { entitlements })
 			} else {
 				None

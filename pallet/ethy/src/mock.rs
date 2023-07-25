@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,10 +19,11 @@ use ethereum_types::U64;
 use frame_support::{
 	parameter_types,
 	storage::{StorageDoubleMap, StorageValue},
-	traits::{UnixTime, ValidatorSet as ValidatorSetT},
+	traits::{AsEnsureOriginWithArg, UnixTime, ValidatorSet as ValidatorSetT},
+	weights::Weight,
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureNever, EnsureRoot};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ByteArray, H160, H256, U256};
@@ -36,7 +33,7 @@ use sp_runtime::{
 	traits::{
 		BlakeTwo256, Convert, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify,
 	},
-	DispatchError, Percent,
+	DispatchError, Perbill, Percent,
 };
 
 use seed_pallet_common::{
@@ -63,7 +60,7 @@ pub const XRP_ASSET_ID: AssetId = 1;
 type BlockNumber = u64;
 pub type SessionIndex = u32;
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-pub type Extrinsic = TestXt<Call, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
@@ -80,6 +77,7 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>},
 	}
 );
 
@@ -90,17 +88,17 @@ impl frame_system::Config for TestRuntime {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = BlockNumber;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -135,8 +133,8 @@ impl Config for TestRuntime {
 	type FinalSessionTracker = MockFinalSessionTracker;
 	type NotarizationThreshold = NotarizationThreshold;
 	type UnixTime = MockUnixTime;
-	type Call = Call;
-	type Event = Event;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
 	type EpochDuration = EpochDuration;
 	type ChallengeBond = ChallengerBond;
 	type MultiCurrency = AssetsExt;
@@ -164,10 +162,11 @@ parameter_types! {
 	pub const AssetsStringLimit: u32 = 50;
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
+	pub const RemoveItemsLimit: u32 = 656;
 }
 
 impl pallet_assets::Config for TestRuntime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -181,6 +180,10 @@ impl pallet_assets::Config for TestRuntime {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = RemoveItemsLimit;
+	type AssetIdParameter = AssetId;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureNever<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
@@ -191,7 +194,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for TestRuntime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -206,7 +209,7 @@ parameter_types! {
 
 impl pallet_balances::Config for TestRuntime {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -216,21 +219,33 @@ impl pallet_balances::Config for TestRuntime {
 	type ReserveIdentifier = [u8; 8];
 }
 
+impl pallet_preimage::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = ();
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type BaseDeposit = ();
+	type ByteDeposit = ();
+}
+
 parameter_types! {
 	pub const MaxScheduledPerBlock: u32 = 50;
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+		frame_system::limits::BlockWeights::simple_max(
+			Weight::from_parts(2_000_000_000_000, u64::MAX),
+		).max_block;
 }
 impl pallet_scheduler::Config for TestRuntime {
-	type Event = Event;
-	type Origin = Origin;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
 	type PalletsOrigin = OriginCaller;
-	type Call = Call;
-	type MaximumWeight = ();
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type WeightInfo = ();
-	type PreimageProvider = ();
-	type NoPreimagePostponement = ();
+	type Preimages = Preimage;
 }
 
 /// Values in EthBlock that we store in mock storage
@@ -573,7 +588,7 @@ impl MockValidatorSet {
 pub struct MockEventRouter;
 impl EthereumEventRouter for MockEventRouter {
 	fn route(_source: &H160, _destination: &H160, _data: &[u8]) -> EventRouterResult {
-		Ok(1000)
+		Ok(1000.into())
 	}
 }
 
@@ -641,22 +656,22 @@ impl frame_system::offchain::SigningTypes for TestRuntime {
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
 where
-	Call: From<C>,
+	RuntimeCall: From<C>,
 {
-	type OverarchingCall = Call;
+	type OverarchingCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
 where
-	Call: From<LocalCall>,
+	RuntimeCall: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-		call: Call,
+		call: RuntimeCall,
 		_public: <Signature as Verify>::Signer,
 		_account: AccountId,
 		nonce: u64,
-	) -> Option<(Call, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
+	) -> Option<(RuntimeCall, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
 		Some((call, (nonce, ())))
 	}
 }
@@ -730,8 +745,10 @@ impl ExtBuilder {
 
 		if let Some(relayer) = self.relayer {
 			ext.execute_with(|| {
-				assert!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())).is_ok());
-				assert!(EthBridge::set_relayer(Origin::root(), relayer).is_ok());
+				assert!(
+					EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())).is_ok()
+				);
+				assert!(EthBridge::set_relayer(RuntimeOrigin::root(), relayer).is_ok());
 			});
 		}
 

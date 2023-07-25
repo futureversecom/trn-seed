@@ -1,18 +1,3 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// You may obtain a copy of the License at the root of this project source code
-
 #![cfg_attr(not(feature = "std"), no_std)]
 pub use pallet::*;
 
@@ -28,6 +13,17 @@ mod mock;
 #[cfg(test)]
 mod test;
 pub mod types;
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the LGPL, Version 3.0 (the "License");
+// you may not use this file except in compliance with the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 pub use types::*;
 
 mod weights;
@@ -50,14 +46,13 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Weight Info
 		type WeightInfo: WeightInfo;
 		/// Default values
@@ -81,6 +76,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_evm_base_fee())]
 		pub fn set_evm_base_fee(origin: OriginFor<T>, value: U256) -> DispatchResult {
 			ensure_root(origin)?;
@@ -91,6 +87,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_weight_multiplier())]
 		pub fn set_weight_multiplier(origin: OriginFor<T>, value: Perbill) -> DispatchResult {
 			ensure_root(origin)?;
@@ -105,11 +102,11 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	pub fn weight_to_fee(weight: &Weight) -> Balance {
-		Data::<T>::get().weight_multiplier.mul(*weight as Balance)
+		Data::<T>::get().weight_multiplier.mul(weight.ref_time() as Balance)
 	}
 
 	pub fn length_to_fee(weight: &Weight) -> Balance {
-		Data::<T>::get().length_multiplier.mul(*weight as Balance)
+		Data::<T>::get().length_multiplier.mul(weight.ref_time() as Balance)
 	}
 
 	pub fn base_fee_per_gas() -> U256 {

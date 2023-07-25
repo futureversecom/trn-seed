@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,17 +24,13 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use frame_support::{
-	ensure,
-	traits::{tokens::fungibles::Mutate, Get},
-	transactional, PalletId,
-};
+use frame_support::{ensure, traits::Get, transactional, PalletId};
 use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, ParachainId, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Saturating, Zero},
@@ -67,7 +59,7 @@ pub use types::*;
 pub const MAX_COLLECTION_NAME_LENGTH: u8 = 32;
 /// The maximum amount of listings to return
 pub const MAX_COLLECTION_LISTING_LIMIT: u16 = 100;
-/// The maximum amount of owned tokens to be returned by the RPC
+/// The maximum amount of listings to return
 pub const MAX_OWNED_TOKENS_LIMIT: u16 = 1000;
 /// The logging target for this module
 pub(crate) const LOG_TARGET: &str = "nft";
@@ -75,15 +67,15 @@ pub(crate) const LOG_TARGET: &str = "nft";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer};
+	use frame_support::{pallet_prelude::*, traits::fungibles::Mutate};
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::genesis_config]
@@ -114,7 +106,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
@@ -124,9 +116,8 @@ pub mod pallet {
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>;
+			+ Mutate<Self::AccountId, AssetId = AssetId, Balance = Balance>
+			+ CreateExt<AccountId = Self::AccountId>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -136,9 +127,6 @@ pub mod pallet {
 		type PalletId: Get<PalletId>;
 		/// The parachain_id being used by this parachain
 		type ParachainId: Get<ParachainId>;
-		/// The maximum length of a collection name, stored on-chain
-		#[pallet::constant]
-		type StringLimit: Get<u32>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: WeightInfo;
 		/// Interface for sending XLS20 mint requests
@@ -152,7 +140,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		CollectionUuid,
-		CollectionInformation<T::AccountId, T::MaxTokensPerCollection, T::StringLimit>,
+		CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
 	>;
 
 	/// The next available incrementing collection id
@@ -229,7 +217,7 @@ pub mod pallet {
 			max_issuance: Option<TokenCount>,
 			collection_owner: T::AccountId,
 			metadata_scheme: MetadataScheme,
-			name: Vec<u8>,
+			name: CollectionNameType,
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 			origin_chain: OriginChain,
 			compatibility: CrossChainCompatibility,
@@ -392,8 +380,6 @@ pub mod pallet {
 		NotSeller,
 		/// The caller owns the token and can't make an offer
 		IsTokenOwner,
-		/// The caller can not be the new owner
-		InvalidNewOwner,
 		/// Offer amount needs to be greater than 0
 		ZeroOffer,
 		/// The number of tokens have exceeded the max tokens allowed
@@ -427,12 +413,13 @@ pub mod pallet {
 			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
-			T::WeightInfo::buy() * removed_count as Weight
+			T::WeightInfo::buy() * removed_count as u64
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::claim_unowned_collection())]
 		/// Bridged collections from Ethereum will initially lack an owner. These collections will
 		/// be assigned to the pallet. This allows for claiming those collections assuming they were
@@ -462,6 +449,7 @@ pub mod pallet {
 
 		/// Set the owner of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_owner())]
 		pub fn set_owner(
 			origin: OriginFor<T>,
@@ -480,6 +468,7 @@ pub mod pallet {
 
 		/// Set the max issuance of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_max_issuance())]
 		pub fn set_max_issuance(
 			origin: OriginFor<T>,
@@ -497,6 +486,16 @@ pub mod pallet {
 				Error::<T>::InvalidMaxIssuance
 			);
 
+			match collection_info.max_issuance {
+				// cannot set - if already set
+				Some(_) => return Err(Error::<T>::InvalidMaxIssuance.into()),
+				// if not set, ensure that the max issuance is greater than the current issuance
+				None => ensure!(
+					collection_info.collection_issuance <= max_issuance,
+					Error::<T>::InvalidMaxIssuance
+				),
+			}
+
 			collection_info.max_issuance = Some(max_issuance);
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::MaxIssuanceSet { collection_id, max_issuance });
@@ -505,6 +504,7 @@ pub mod pallet {
 
 		/// Set the base URI of a collection
 		/// Caller must be the current collection owner
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::set_base_uri())]
 		pub fn set_base_uri(
 			origin: OriginFor<T>,
@@ -532,6 +532,7 @@ pub mod pallet {
 		/// `marketplace_account` - if specified, this account will be registered
 		/// `entitlement` - Permill, percentage of sales to go to the marketplace
 		/// If no marketplace is specified the caller will be registered
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::register_marketplace())]
 		pub fn register_marketplace(
 			origin: OriginFor<T>,
@@ -571,11 +572,12 @@ pub mod pallet {
 		/// `metadata_scheme` - The off-chain metadata referencing scheme for tokens in this
 		/// `royalties_schedule` - defacto royalties plan for secondary sales, this will
 		/// apply to all tokens in the collection by default.
+		#[pallet::call_index(5)]
 		#[pallet::weight(T::WeightInfo::create_collection())]
 		#[transactional]
 		pub fn create_collection(
 			origin: OriginFor<T>,
-			name: BoundedVec<u8, T::StringLimit>,
+			name: CollectionNameType,
 			initial_issuance: TokenCount,
 			max_issuance: Option<TokenCount>,
 			token_owner: Option<T::AccountId>,
@@ -606,6 +608,7 @@ pub mod pallet {
 		/// Caller must be the collection owner
 		/// -----------
 		/// Weight is O(N) where N is `quantity`
+		#[pallet::call_index(6)]
 		#[pallet::weight(T::WeightInfo::mint())]
 		#[transactional]
 		pub fn mint(
@@ -658,6 +661,7 @@ pub mod pallet {
 
 		/// Transfer ownership of an NFT
 		/// Caller must be the token owner
+		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::transfer())]
 		#[transactional]
 		pub fn transfer(
@@ -674,6 +678,7 @@ pub mod pallet {
 		/// Burn a token 🔥
 		///
 		/// Caller must be the token owner
+		#[pallet::call_index(8)]
 		#[pallet::weight(T::WeightInfo::burn())]
 		#[transactional]
 		pub fn burn(origin: OriginFor<T>, token_id: TokenId) -> DispatchResult {
@@ -694,6 +699,7 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
+		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::sell())]
 		#[transactional]
 		pub fn sell(
@@ -748,6 +754,7 @@ pub mod pallet {
 		}
 
 		/// Buy a token listing for its specified price
+		#[pallet::call_index(10)]
 		#[pallet::weight(T::WeightInfo::buy())]
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
@@ -800,6 +807,7 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
+		#[pallet::call_index(11)]
 		#[pallet::weight(T::WeightInfo::auction())]
 		#[transactional]
 		pub fn auction(
@@ -855,6 +863,7 @@ pub mod pallet {
 
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
+		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::bid())]
 		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
@@ -918,6 +927,7 @@ pub mod pallet {
 		/// Close a sale or auction returning tokens
 		/// Requires no successful bids have been made for an auction.
 		/// Caller must be the listed seller
+		#[pallet::call_index(13)]
 		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -968,6 +978,7 @@ pub mod pallet {
 		/// `listing_id` id of the fixed price listing
 		/// `new_price` new fixed price
 		/// Caller must be the token owner
+		#[pallet::call_index(14)]
 		#[pallet::weight(T::WeightInfo::update_fixed_price())]
 		pub fn update_fixed_price(
 			origin: OriginFor<T>,
@@ -1000,6 +1011,7 @@ pub mod pallet {
 		/// An offer can't be made on a token currently in an auction
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
+		#[pallet::call_index(15)]
 		#[pallet::weight(T::WeightInfo::make_simple_offer())]
 		#[transactional]
 		pub fn make_simple_offer(
@@ -1051,6 +1063,7 @@ pub mod pallet {
 
 		/// Cancels an offer on a token
 		/// Caller must be the offer buyer
+		#[pallet::call_index(16)]
 		#[pallet::weight(T::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -1076,6 +1089,7 @@ pub mod pallet {
 
 		/// Accepts an offer on a token
 		/// Caller must be token owner
+		#[pallet::call_index(17)]
 		#[pallet::weight(T::WeightInfo::accept_offer())]
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {

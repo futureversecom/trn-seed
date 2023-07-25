@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,8 +12,8 @@
 #![cfg(test)]
 
 use super::*;
-use frame_support::{construct_runtime, parameter_types};
-use frame_system::{limits, EnsureRoot};
+use frame_support::{construct_runtime, parameter_types, traits::AsEnsureOriginWithArg};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
@@ -39,16 +35,16 @@ parameter_types! {
 }
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = Index;
 	type BlockNumber = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type BlockHashCount = BlockHashCount;
 	type BlockLength = BlockLength;
 	type BlockWeights = ();
@@ -71,9 +67,10 @@ parameter_types! {
 	pub const AssetsStringLimit: u32 = 50;
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
+	  pub const RemoveItemsLimit: u32 = 656;
 }
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 
@@ -88,6 +85,10 @@ impl pallet_assets::Config for Test {
 	type Freezer = ();
 	type Extra = ();
 	type WeightInfo = ();
+	type RemoveItemsLimit = RemoveItemsLimit;
+	type AssetIdParameter = AssetId;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureNever<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
@@ -96,7 +97,7 @@ parameter_types! {
 impl pallet_balances::Config for Test {
 	type MaxLocks = ();
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -112,7 +113,7 @@ parameter_types! {
 	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
 }
 impl pallet_assets_ext::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -126,16 +127,13 @@ parameter_types! {
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
 	pub const LPTokenDecimals: u8 = 6;
-	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
-	pub const DefaultFeeTo: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type DEXBurnPalletId = DEXBurnPalletId;
 	type LPTokenDecimals = LPTokenDecimals;
-	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = ();
 	type MultiCurrency = AssetsExt;
 }

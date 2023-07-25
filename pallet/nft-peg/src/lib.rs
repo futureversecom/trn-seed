@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,12 +11,14 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::Encode;
 use core::fmt::Write;
 use ethabi::{ParamType, Token};
 use frame_support::{ensure, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;
+use pallet_nft::OriginChain;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
-use seed_primitives::{CollectionUuid, MetadataScheme, OriginChain, SerialNumber};
+use seed_primitives::{CollectionUuid, MetadataScheme, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
 use sp_std::{boxed::Box, vec::Vec};
@@ -45,12 +43,11 @@ pub mod pallet {
 	use seed_primitives::EthAddress;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_nft::Config {
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type PalletId: Get<PalletId>;
 		#[pallet::constant]
 		type DelayLength: Get<Self::BlockNumber>;
@@ -134,6 +131,7 @@ pub mod pallet {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160> + Into<sp_core::H160>,
 	{
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::NftPegWeightInfo::set_contract_address())]
 		pub fn set_contract_address(origin: OriginFor<T>, contract: H160) -> DispatchResult {
 			ensure_root(origin)?;
@@ -142,6 +140,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
 		#[transactional]
 		pub fn withdraw(
@@ -165,7 +164,7 @@ where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
 	fn decode_deposit_event(data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
-		let mut weight: Weight = 0;
+		let mut weight: Weight = Weight::zero();
 		let abi_decoded = match ethabi::decode(
 			&[
 				// Bit to predetermine which function to route to; unused here
@@ -204,7 +203,7 @@ where
 			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
 			let token_ids: Result<
 				Vec<BoundedVec<SerialNumber, T::MaxTokensPerMint>>,
-				(u64, DispatchError),
+				(Weight, DispatchError),
 			> = token_ids
 				.iter()
 				.map(|k| {
@@ -256,7 +255,7 @@ where
 
 	// TODO implement state sync feature for collection_owner, name and metadata
 	fn decode_state_sync_event(_data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
-		Err((0, Error::<T>::StateSyncDisabled.into()))
+		Err((Weight::zero(), Error::<T>::StateSyncDisabled.into()))
 	}
 
 	// Accept some representation of one or more tokens from an outside source, and create a
@@ -266,10 +265,10 @@ where
 		token_info: GroupedTokenInfo<T>,
 		destination: H160,
 	) -> Result<Weight, DispatchError> {
-		let mut weight: Weight = 0;
+		let mut weight: Weight = Weight::zero();
 
 		let destination: T::AccountId = destination.into();
-		let name = BoundedVec::truncate_from(b"bridged-collection".to_vec());
+		let name = "".encode();
 
 		for current_token in token_info.tokens.iter() {
 			// Assign collection owner to pallet. User can claim it later
@@ -400,7 +399,7 @@ where
 	type SourceAddress = GetContractAddress<T>;
 
 	fn on_event(_source: &H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
-		let weight = 0;
+		let weight = Weight::zero();
 
 		// Decode prefix from first 32 bytes of data
 		let prefix_decoded = match ethabi::decode(&[ParamType::Uint(32)], &data[..32]) {

@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,7 +16,12 @@ use ethabi::{ParamType, Token};
 use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage, ensure, log,
 	pallet_prelude::*,
-	traits::{fungibles, fungibles::Mutate, Get, IsType},
+	traits::{
+		fungibles,
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision},
+		Get, IsType,
+	},
 	transactional,
 	weights::constants::RocksDbWeight as DbWeight,
 	PalletId,
@@ -55,11 +56,10 @@ pub trait Config: frame_system::Config<AccountId = AccountId> {
 	type EthBridge: EthereumBridge;
 	/// Currency functions
 	type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-		+ fungibles::Inspect<Self::AccountId, AssetId = AssetId>
-		+ fungibles::Transfer<Self::AccountId, AssetId = AssetId, Balance = Balance>
+		+ fungibles::metadata::Inspect<Self::AccountId, AssetId = AssetId, Balance = Balance>
 		+ fungibles::Mutate<Self::AccountId>;
 	/// The overarching event type.
-	type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+	type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	/// Interface to generate weights
 	type WeightInfo: WeightInfo;
 }
@@ -149,37 +149,37 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
 
 		/// Check and process outstanding payments
 		fn on_initialize(now: T::BlockNumber) -> Weight {
-			let mut weight: Weight = DbWeight::get().reads(1 as Weight);
+			let mut weight: Weight = DbWeight::get().reads(1);
 			if DelayedPaymentSchedule::<T>::contains_key(now) {
 				ReadyBlocks::<T>::append(now);
-				weight = weight.saturating_add(DbWeight::get().writes(1 as Weight));
+				weight = weight.saturating_add(DbWeight::get().writes(1));
 			}
-			weight as Weight
+			weight
 		}
 
 		/// Check and process outstanding payments
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
-			let initial_read_cost = DbWeight::get().reads(1 as Weight);
+			let initial_read_cost = DbWeight::get().reads(1);
 			// Ensure we have enough weight to perform the initial read
-			if remaining_weight <= initial_read_cost {
-				return 0;
+			if remaining_weight.ref_time() <= initial_read_cost.ref_time() {
+				return Weight::zero();
 			}
 			// Check that there are blocks in ready_blocks
 			let ready_blocks_length = ReadyBlocks::<T>::decode_len();
 			if ready_blocks_length.is_none() || ready_blocks_length == Some(0) {
-				return 0;
+				return Weight::zero();
 			}
 
 			// Process as many payments as we can
-			let weight_each: Weight = DbWeight::get().reads(8 as Weight).saturating_add(DbWeight::get().writes(10 as Weight));
-			let max_payments = ((remaining_weight - initial_read_cost) / weight_each).saturated_into::<u8>();
+			let weight_each: Weight = DbWeight::get().reads(8).saturating_add(DbWeight::get().writes(10));
+			let max_payments = ((remaining_weight.ref_time() - initial_read_cost.ref_time()) / weight_each.ref_time()).saturated_into::<u8>();
 			let ready_blocks: Vec<T::BlockNumber> = Self::ready_blocks();
 			// Total payments processed in this block
 			let mut processed_payment_count: u8 = 0;
@@ -206,7 +206,7 @@ decl_module! {
 			}
 
 			ReadyBlocks::<T>::put(&ready_blocks[processed_block_count as usize..]);
-			initial_read_cost + weight_each * processed_payment_count as Weight
+			initial_read_cost + weight_each.saturating_mul(processed_payment_count.into())
 		}
 
 		/// Activate/deactivate deposits (root only)
@@ -289,7 +289,13 @@ impl<T: Config> Module<T> {
 				return match call_origin {
 					WithdrawCallOrigin::Runtime => {
 						// Delay the payment
-						let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
+						let _imbalance = T::MultiCurrency::burn_from(
+							asset_id,
+							&origin,
+							amount,
+							Precision::BestEffort,
+							Fortitude::Polite,
+						)?;
 						Self::delay_payment(delay, PendingPayment::Withdrawal(message));
 						Ok(None)
 					},
@@ -302,7 +308,13 @@ impl<T: Config> Module<T> {
 		};
 
 		// Process transfer or withdrawal of payment asset
-		let _imbalance = T::MultiCurrency::burn_from(asset_id, &origin, amount)?;
+		let _imbalance = T::MultiCurrency::burn_from(
+			asset_id,
+			&origin,
+			amount,
+			Precision::BestEffort,
+			Fortitude::Polite,
+		)?;
 		Self::process_withdrawal(message, asset_id)
 	}
 
@@ -485,7 +497,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			data,
 		) {
 			Ok(abi) => abi,
-			Err(_) => return Err((0, Error::<T>::InvalidAbiEncoding.into())),
+			Err(_) => return Err((Weight::zero(), Error::<T>::InvalidAbiEncoding.into())),
 		};
 
 		if let &[Token::Address(token_address), Token::Uint(amount), Token::Address(beneficiary)] =
@@ -495,8 +507,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			let amount: U256 = amount.into();
 			let beneficiary: H160 = beneficiary.into();
 			// The total weight of do_deposit assuming it reaches every path
-			let deposit_weight =
-				DbWeight::get().reads(6 as Weight) + DbWeight::get().writes(4 as Weight);
+			let deposit_weight = DbWeight::get().reads(6) + DbWeight::get().writes(4);
 			match Self::do_deposit(Erc20DepositEvent { token_address, amount, beneficiary }) {
 				Ok(_) => Ok(deposit_weight),
 				Err(e) => {
@@ -506,7 +517,7 @@ impl<T: Config> EthereumEventSubscriber for Module<T> {
 			}
 		} else {
 			// input data should be valid, we do not expect to fail here
-			Err((0, Error::<T>::InvalidAbiEncoding.into()))
+			Err((Weight::zero(), Error::<T>::InvalidAbiEncoding.into()))
 		}
 	}
 }

@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,7 +17,7 @@ pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
 	sp_runtime::traits::AccountIdConversion,
-	traits::{fungibles::Transfer, Get},
+	traits::{fungibles::Inspect, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
@@ -50,7 +46,7 @@ macro_rules! log {
 }
 
 /// Extended transfer functionality for assets
-pub trait TransferExt: Transfer<Self::AccountId> {
+pub trait TransferExt: Inspect<Self::AccountId> {
 	/// The ID type for an account in the system
 	type AccountId;
 	/// Perform a split transfer from `source` to many destinations
@@ -216,12 +212,9 @@ pub trait EthereumEventSubscriber {
 	/// Default implementation compares source with SourceAddress
 	fn verify_source(source: &H160) -> OnEventResult {
 		if source != &Self::SourceAddress::get() {
-			Err((
-				DbWeight::get().reads(1 as Weight),
-				DispatchError::Other("Invalid source address").into(),
-			))
+			Err((DbWeight::get().reads(1), DispatchError::Other("Invalid source address").into()))
 		} else {
-			Ok(DbWeight::get().reads(1 as Weight))
+			Ok(DbWeight::get().reads(1))
 		}
 	}
 

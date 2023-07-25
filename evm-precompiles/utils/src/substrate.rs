@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -50,20 +46,20 @@ pub struct RuntimeHelper<Runtime>(PhantomData<Runtime>);
 impl<Runtime> RuntimeHelper<Runtime>
 where
 	Runtime: pallet_evm::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
 {
 	/// Try to dispatch a Substrate call.
 	/// Return an error if there are not enough gas, or if the call fails.
 	/// If successful returns the used gas using the Runtime GasWeightMapping.
 	pub fn try_dispatch<Call>(
 		handle: &mut impl PrecompileHandle,
-		origin: <Runtime::Call as Dispatchable>::Origin,
+		origin: <Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin,
 		call: Call,
 	) -> Result<PostDispatchInfo, TryDispatchError>
 	where
-		Runtime::Call: From<Call>,
+		Runtime::RuntimeCall: From<Call>,
 	{
-		let call = Runtime::Call::from(call);
+		let call = Runtime::RuntimeCall::from(call);
 		let dispatch_info = call.get_dispatch_info();
 
 		// Make sure there is enough gas.
@@ -99,14 +95,16 @@ where
 	/// Cost of a Substrate DB write in gas.
 	pub fn db_write_gas_cost() -> u64 {
 		<Runtime as pallet_evm::Config>::GasWeightMapping::weight_to_gas(
-			<Runtime as frame_system::Config>::DbWeight::get().write,
+			<Runtime as frame_system::Config>::DbWeight::get()
+				.writes(<Runtime as frame_system::Config>::DbWeight::get().write),
 		)
 	}
 
 	/// Cost of a Substrate DB read in gas.
 	pub fn db_read_gas_cost() -> u64 {
 		<Runtime as pallet_evm::Config>::GasWeightMapping::weight_to_gas(
-			<Runtime as frame_system::Config>::DbWeight::get().read,
+			<Runtime as frame_system::Config>::DbWeight::get()
+				.reads(<Runtime as frame_system::Config>::DbWeight::get().read),
 		)
 	}
 }

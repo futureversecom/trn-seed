@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -41,7 +37,7 @@ use frame_support::{
 	decl_error, decl_event, decl_module, decl_storage,
 	pallet_prelude::*,
 	traits::{
-		fungibles::Transfer,
+		fungibles::Mutate,
 		schedule::{Anon, DispatchTime},
 		UnixTime, ValidatorSet as ValidatorSetT,
 	},
@@ -100,7 +96,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)
 	type BridgePalletId: Get<PalletId>;
 	/// The runtime call type.
-	type Call: From<Call<Self>>;
+	type RuntimeCall: From<Call<Self>>;
 	/// Bond required by challenger to make a challenge
 	type ChallengeBond: Get<Balance>;
 	// The duration in blocks of one epoch
@@ -110,7 +106,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
 	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// The runtime event type.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+	type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 	/// Handles routing received Ethereum events upon verification
 	type EventRouter: EthereumEventRouter;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
@@ -126,7 +122,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Max amount of new signers that can be set an in extrinsic
 	type MaxNewSigners: Get<u8>;
 	/// Handles a multi-currency fungible asset system
-	type MultiCurrency: Transfer<Self::AccountId> + Hold<AccountId = Self::AccountId>;
+	type MultiCurrency: Mutate<Self::AccountId> + Hold<AccountId = Self::AccountId>;
 	/// The native token asset Id (managed by pallet-balances)
 	type NativeAssetId: Get<AssetId>;
 	/// The threshold of notarizations required to approve an Ethereum event
@@ -134,7 +130,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Bond required for an account to act as relayer
 	type RelayerBond: Get<Balance>;
 	/// The Scheduler.
-	type Scheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
+	type Scheduler: Anon<Self::BlockNumber, <Self as Config>::RuntimeCall, Self::PalletsOrigin>;
 	/// Overarching type of all pallets origins.
 	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 	/// Returns the block timestamp
@@ -317,7 +313,7 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
@@ -327,7 +323,7 @@ decl_module! {
 		/// 2) Process any newly valid event claims (incoming)
 		/// 3) Process any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era) (outgoing)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			let mut consumed_weight = 0 as Weight;
+			let mut consumed_weight: Weight = Weight::zero();
 
 			// 1) Handle authority change
 			if Some(block_number) == Self::next_authority_change() {
@@ -377,10 +373,10 @@ decl_module! {
 			}
 
 			// 3) Try process delayed proofs
-			consumed_weight += DbWeight::get().reads(2 as Weight);
+			consumed_weight += DbWeight::get().reads(2);
 			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
-				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
+				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1) + max_delayed_events * DbWeight::get().writes(2));
 				for (event_proof_id, signing_request) in PendingEventProofs::iter().take(max_delayed_events as usize) {
 					Self::do_request_event_proof(event_proof_id, signing_request);
 					PendingEventProofs::remove(event_proof_id);
@@ -615,10 +611,10 @@ decl_module! {
 			// check a local key exists for a valid bridge notary
 			if let Some((active_key, authority_index)) = Self::find_active_ethy_key() {
 				// check enough validators have active notary keys
-				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0);
+				let supports = NotaryKeys::<T>::decode_len().unwrap_or(0) as u64;
 				let needed = T::NotarizationThreshold::get();
 				// TODO: check every session change not block
-				if Percent::from_rational(supports, T::AuthoritySet::validators().len()) < needed {
+				if Percent::from_rational(supports, T::AuthoritySet::validators().len() as u64) < needed {
 					log!(info, "💎 waiting for validator support to activate eth-bridge: {:?}/{:?}", supports, needed);
 					return;
 				}

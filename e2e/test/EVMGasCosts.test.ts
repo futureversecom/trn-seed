@@ -27,6 +27,7 @@ describe("EVM gas costs", () => {
   let provider: JsonRpcProvider;
   let alithSigner: Wallet;
   let bobSigner: Wallet;
+  let erc20Contract: MockERC20;
 
   before(async () => {
     node = await startNode();
@@ -116,27 +117,26 @@ describe("EVM gas costs", () => {
     expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(BASE_GAS_COST);
 
     // assert gas used
-    const totalFeePaid = receipt.effectiveGasPrice?.mul(BASE_GAS_COST);
-    const totalPaid = totalFeePaid.add(utils.parseEther("1"));
+    const totalPaid = receipt.effectiveGasPrice?.mul(BASE_GAS_COST).add(utils.parseEther("1"));
     const alithBalanceAfter = await alithSigner.getBalance();
     expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
     // assert XRP used
-    const xrpCost6DP = totalFeePaid.div(10 ** 12).toNumber();
-    const xrpCostScaled = +utils.formatEther(totalFeePaid);
+    const oneXRP6DP = 1_000_000,
+      oneXRPScaled = 1;
+    const xrpCost6DP = totalPaid.div(10 ** 12).toNumber() - oneXRP6DP; // subtract XRP sent
+    const xrpCostScaled = +utils.formatEther(totalPaid) - oneXRPScaled; // subtract XRP sent
     expect(xrpCost6DP).to.eql(315000);
     expect(+xrpCostScaled.toFixed(3)).to.eql(0.315);
   });
 
   it("gas cost for deploying erc20 contract", async () => {
     const fees = await provider.getFeeData();
-
     const alithBalanceBefore = await alithSigner.getBalance();
 
     const factory = new ethers.ContractFactory(MockERC20Data.abi, MockERC20Data.bytecode, alithSigner);
     const actualGasEstimate = await provider.estimateGas(factory.getDeployTransaction());
-    const estimatedTxCost = actualGasEstimate.mul(fees.gasPrice!);
-    const erc20Contract = (await factory.connect(alithSigner).deploy({
+    erc20Contract = (await factory.connect(alithSigner).deploy({
       gasLimit: actualGasEstimate,
       maxFeePerGas: fees.lastBaseFeePerGas!,
       maxPriorityFeePerGas: 0,
@@ -145,44 +145,27 @@ describe("EVM gas costs", () => {
     console.log("erc20Contract deployed to:", erc20Contract.address);
 
     // assert gas used
-    const FeePaidUpfront = receipt.effectiveGasPrice?.mul(actualGasEstimate);
-    const actualCost = receipt.effectiveGasPrice?.mul(receipt.gasUsed);
-    const refund = receipt.effectiveGasPrice?.mul(actualGasEstimate.sub(receipt.gasUsed));
-    expect(estimatedTxCost).to.eql(FeePaidUpfront);
-    expect(actualCost).to.eql(FeePaidUpfront?.sub(refund));
+    const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
     const alithBalanceAfter = await alithSigner.getBalance();
-    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(actualCost);
+    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
     // assert XRP used
-    const xrpCost6DP = actualCost.div(10 ** 12).toNumber();
-    const xrpCostScaled = +utils.formatEther(actualCost);
-    expect(xrpCost6DP).to.eql(51008760);
-    expect(+xrpCostScaled.toFixed(6)).to.eql(51.00876);
+    const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
+    const xrpCostScaled = +utils.formatEther(totalPaid);
+    expect(xrpCost6DP).to.be.greaterThanOrEqual(52_500_000).and.lessThanOrEqual(52_600_000);
+    expect(xrpCostScaled).to.be.greaterThanOrEqual(52.5).and.lessThanOrEqual(52.6);
   });
 
   it("gas cost for token mint", async () => {
     const fees = await provider.getFeeData();
-
-    //create deploy erc20 first
-    const factory = new ethers.ContractFactory(MockERC20Data.abi, MockERC20Data.bytecode, alithSigner);
-    const deployGasEstimate = await provider.estimateGas(factory.getDeployTransaction());
-    const erc20Contract = (await factory.connect(alithSigner).deploy({
-      gasLimit: deployGasEstimate,
-      maxFeePerGas: fees.lastBaseFeePerGas!,
-      maxPriorityFeePerGas: 0,
-    })) as MockERC20;
-    await erc20Contract.deployTransaction.wait();
-    console.log("erc20Contract deployed to:", erc20Contract.address);
-
-    // mint
     const alithBalanceBefore = await alithSigner.getBalance();
+
     const wantGasEstimateLower = 75_000,
       wantGasEstimateUpper = 75_500;
     const actualGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.mint(alithSigner.address, 1000, {
       maxFeePerGas: fees.lastBaseFeePerGas!,
       maxPriorityFeePerGas: 0,
     });
-    const estimatedTxCost = actualGasEstimate.mul(fees.gasPrice!);
     expect(actualGasEstimate.toNumber()).to.be.greaterThan(wantGasEstimateLower).and.lessThan(wantGasEstimateUpper);
 
     const tx = await erc20Contract.connect(alithSigner).mint(alithSigner.address, 1000, {
@@ -198,48 +181,19 @@ describe("EVM gas costs", () => {
     expect(receipt.gasUsed?.toNumber()).to.be.greaterThan(wantGasUsedLower).and.lessThan(wantGasUsedUpper);
     expect(receipt.cumulativeGasUsed?.toNumber()).to.be.greaterThan(wantGasUsedLower).and.lessThan(wantGasUsedUpper);
 
-    const feePaidUpFront = receipt.effectiveGasPrice?.mul(actualGasEstimate);
-    const actualFee = receipt.effectiveGasPrice?.mul(receipt.gasUsed);
-    const refund = receipt.effectiveGasPrice?.mul(actualGasEstimate.sub(receipt.gasUsed));
-    expect(estimatedTxCost).to.eql(feePaidUpFront);
-    expect(actualFee).to.eql(feePaidUpFront?.sub(refund));
+    const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
     const alithBalanceAfter = await alithSigner.getBalance();
-    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(actualFee);
+    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
     // assert XRP used
-    const xrpCost6DP = actualFee.div(10 ** 12).toNumber();
-    const xrpCostScaled = +utils.formatEther(actualFee);
-    expect(xrpCost6DP).to.eql(1068135);
-    expect(+xrpCostScaled.toFixed(6)).to.eql(1.068135);
+    const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
+    const xrpCostScaled = +utils.formatEther(totalPaid);
+    expect(xrpCost6DP).to.be.greaterThanOrEqual(1_125_000).and.lessThanOrEqual(1_135_000);
+    expect(xrpCostScaled).to.be.greaterThanOrEqual(1.125).and.lessThanOrEqual(1.135);
   });
 
   it("gas cost for token transfer", async () => {
     const fees = await provider.getFeeData();
-
-    //create deploy erc20 first
-    const factory = new ethers.ContractFactory(MockERC20Data.abi, MockERC20Data.bytecode, alithSigner);
-    const deployGasEstimate = await provider.estimateGas(factory.getDeployTransaction());
-    const erc20Contract = (await factory.connect(alithSigner).deploy({
-      gasLimit: deployGasEstimate,
-      maxFeePerGas: fees.lastBaseFeePerGas!,
-      maxPriorityFeePerGas: 0,
-    })) as MockERC20;
-    await erc20Contract.deployTransaction.wait();
-    console.log("erc20Contract deployed to:", erc20Contract.address);
-
-    // mint some tokens
-    const mintGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.mint(alithSigner.address, 1000, {
-      maxFeePerGas: fees.lastBaseFeePerGas!,
-      maxPriorityFeePerGas: 0,
-    });
-    const mintTx = await erc20Contract.connect(alithSigner).mint(alithSigner.address, 1000, {
-      gasLimit: mintGasEstimate,
-      maxFeePerGas: fees.lastBaseFeePerGas!,
-      maxPriorityFeePerGas: 0,
-    });
-    await mintTx.wait();
-
-    // transfer
     const alithBalanceBefore = await alithSigner.getBalance();
 
     const wantGasEstimateLower = 50_500,
@@ -248,7 +202,6 @@ describe("EVM gas costs", () => {
       maxFeePerGas: fees.lastBaseFeePerGas!,
       maxPriorityFeePerGas: 0,
     });
-    const estimatedTxCost = actualGasEstimate.mul(fees.gasPrice!);
     expect(actualGasEstimate.toNumber()).to.be.greaterThan(wantGasEstimateLower).and.lessThan(wantGasEstimateUpper);
 
     const tx = await erc20Contract.connect(alithSigner).transfer(bobSigner.address, 500, {
@@ -264,19 +217,15 @@ describe("EVM gas costs", () => {
     expect(receipt.gasUsed?.toNumber()).to.be.greaterThan(wantGasUsedLower).and.lessThan(wantGasUsedUpper);
     expect(receipt.cumulativeGasUsed?.toNumber()).to.be.greaterThan(wantGasUsedLower).and.lessThan(wantGasUsedUpper);
 
-    const feePaidUpFront = receipt.effectiveGasPrice?.mul(actualGasEstimate);
-    const actualFee = receipt.effectiveGasPrice?.mul(receipt.gasUsed);
-    const refund = receipt.effectiveGasPrice?.mul(actualGasEstimate.sub(receipt.gasUsed));
-    expect(estimatedTxCost).to.eql(feePaidUpFront);
-    expect(actualFee).to.eql(feePaidUpFront?.sub(refund));
+    const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
     const alithBalanceAfter = await alithSigner.getBalance();
-    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(actualFee);
+    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
     // assert XRP used
-    const xrpCost6DP = actualFee.div(10 ** 12).toNumber();
-    const xrpCostScaled = +utils.formatEther(actualFee);
-    expect(xrpCost6DP).to.eql(739425);
-    expect(+xrpCostScaled.toFixed(6)).to.eql(0.739425);
+    const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
+    const xrpCostScaled = +utils.formatEther(totalPaid);
+    expect(xrpCost6DP).to.be.greaterThanOrEqual(761_000).and.lessThanOrEqual(765_000);
+    expect(xrpCostScaled).to.be.greaterThanOrEqual(0.761).and.lessThanOrEqual(0.765);
   });
 
   it("gas cost for pre-compile token transfer", async () => {
@@ -297,7 +246,6 @@ describe("EVM gas costs", () => {
         maxFeePerGas: fees.lastBaseFeePerGas!,
         maxPriorityFeePerGas: 0,
       });
-    const estimatedTxCost = actualGasEstimate.mul(fees.gasPrice!);
     expect(actualGasEstimate.toNumber()).to.eql(wantGasEstimate);
 
     const tx = await erc20PrecompileContract.connect(alithSigner).transfer(bobSigner.address, 500, {
@@ -308,22 +256,18 @@ describe("EVM gas costs", () => {
     const receipt = await tx.wait();
 
     // assert gas used
-    const wantGasUsed = 22953;
+    const wantGasUsed = 22_953;
     expect(receipt.gasUsed?.toNumber()).to.eql(wantGasUsed);
     expect(receipt.cumulativeGasUsed?.toNumber()).to.eql(wantGasUsed);
 
-    const feePaidUpFront = receipt.effectiveGasPrice?.mul(actualGasEstimate);
-    const actualFee = receipt.effectiveGasPrice?.mul(receipt.gasUsed);
-    const refund = receipt.effectiveGasPrice?.mul(actualGasEstimate.sub(receipt.gasUsed));
-    expect(estimatedTxCost).to.eql(feePaidUpFront);
-    expect(actualFee).to.eql(feePaidUpFront?.sub(refund));
+    const totalPaid = receipt.effectiveGasPrice?.mul(actualGasEstimate);
     const alithBalanceAfter = await alithSigner.getBalance();
-    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(actualFee);
+    expect(alithBalanceBefore.sub(alithBalanceAfter)).to.eql(totalPaid);
 
     // assert XRP used
-    const xrpCost6DP = actualFee.div(10 ** 12).toNumber();
-    const xrpCostScaled = +utils.formatEther(actualFee);
-    expect(xrpCost6DP).to.eql(344295);
-    expect(+xrpCostScaled.toFixed(6)).to.eql(0.344295);
+    const xrpCost6DP = totalPaid.div(10 ** 12).toNumber();
+    const xrpCostScaled = +utils.formatEther(totalPaid);
+    expect(xrpCost6DP).to.eql(348_645);
+    expect(xrpCostScaled).to.eql(0.348645);
   });
 });

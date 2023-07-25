@@ -57,8 +57,7 @@ describe("Fee Preferences in low asset balance scenario", function () {
         100_000_000_000,
         100_000_000_000,
         100_000_000_000,
-        null,
-        null,
+        0,
       ),
     ];
     await new Promise<void>((resolve) => {

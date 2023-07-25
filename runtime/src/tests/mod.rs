@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -32,9 +28,9 @@ use sp_core::{
 use sp_runtime::{generic::Era, Perbill};
 
 use crate::{
-	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Origin, Runtime,
-	SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
-	UncheckedExtrinsic, H256, U256,
+	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Runtime,
+	RuntimeOrigin as Origin, SessionKeys, SignedExtra, StakerStatus, System, Timestamp,
+	TransactionAction, UncheckedExtrinsic, H256, U256,
 };
 use frame_support::traits::Get;
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
@@ -43,9 +39,6 @@ use seed_primitives::{AccountId, AccountId20, Balance, Index};
 /// Base gas used for an EVM transaction
 pub const BASE_TX_GAS_COST: u128 = 21000;
 pub const MINIMUM_XRP_TX_COST: u128 = 315_000;
-
-/// Default gas params in ethers
-pub const MAX_PRIORITY_FEE_PER_GAS: u128 = 1_500_000_000;
 
 /// The genesis block timestamp
 pub const INIT_TIMESTAMP: u64 = 30_000;
@@ -190,7 +183,6 @@ impl ExtBuilder {
 			// Ensure a test genesis hash exists in storage.
 			// This allows signed extrinsics to validate.
 			System::set_parent_hash(GENESIS_HASH.into());
-			Timestamp::set_timestamp(INIT_TIMESTAMP);
 		});
 
 		// OCW setup
@@ -313,28 +305,6 @@ impl TxBuilder {
 			nonce: U256::zero(),
 			max_priority_fee_per_gas: U256::zero(),
 			max_fee_per_gas: FeeControl::base_fee_per_gas(),
-			gas_limit: U256::from(BASE_TX_GAS_COST),
-			action,
-			value: U256::zero(),
-			input: vec![],
-			access_list: vec![],
-			odd_y_parity: false,
-			r: H256::zero(),
-			s: H256::zero(),
-		};
-		let origin = Origin::from(pallet_ethereum::RawOrigin::EthereumTransaction(bob().into()));
-
-		Self { transaction, origin }
-	}
-
-	pub fn ethers_default_gas() -> Self {
-		let action = ethereum::TransactionAction::Call(bob().into());
-		let transaction = ethereum::EIP1559Transaction {
-			chain_id: EVMChainId::get(),
-			nonce: U256::zero(),
-			max_priority_fee_per_gas: U256::from(MAX_PRIORITY_FEE_PER_GAS),
-			max_fee_per_gas: FeeControl::base_fee_per_gas() * 2 +
-				U256::from(MAX_PRIORITY_FEE_PER_GAS),
 			gas_limit: U256::from(BASE_TX_GAS_COST),
 			action,
 			value: U256::zero(),

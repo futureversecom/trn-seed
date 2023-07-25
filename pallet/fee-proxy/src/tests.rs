@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,7 +11,7 @@
 
 use super::*;
 use crate::{
-	mock::{FeeProxy, Futurepass, Origin, Runner, System, Test, TestExt, XRP_ASSET_ID},
+	mock::{FeeProxy, Runner, System, Test, TestExt, XRP_ASSET_ID},
 	runner::*,
 };
 use ethabi::Token;
@@ -43,7 +39,7 @@ mod call_with_fee_preferences {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
-			let call = mock::Call::System(frame_system::Call::remark {
+			let call = mock::RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),
 			});
 
@@ -61,50 +57,12 @@ mod call_with_fee_preferences {
 	}
 
 	#[test]
-	fn call_works_for_futurepass_proxy_extrinsic() {
-		TestExt::default().build().execute_with(|| {
-			let owner: AccountId = create_account(1);
-			let payment_asset: AssetId = 10;
-			let max_payment: Balance = 100;
-
-			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
-			let futurepass = pallet_futurepass::Holders::<Test>::get(&owner).unwrap();
-
-			let call = mock::Call::System(frame_system::Call::remark {
-				remark: b"Mischief Managed".to_vec(),
-			});
-			let proxy_call = mock::Call::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
-				futurepass,
-				call: Box::new(call),
-			});
-
-			assert_ok!(FeeProxy::call_with_fee_preferences(
-				Some(owner).into(),
-				payment_asset,
-				max_payment,
-				Box::new(proxy_call)
-			));
-
-			// assert Futurepass event ProxyExecuted
-			System::assert_has_event(
-				pallet_futurepass::Event::<Test>::ProxyExecuted { delegate: owner, result: Ok(()) }
-					.into(),
-			);
-
-			// assert fee proxy event
-			System::assert_has_event(
-				Event::CallWithFeePreferences { who: owner, payment_asset, max_payment }.into(),
-			);
-		});
-	}
-
-	#[test]
 	fn payment_asset_must_differ_from_fee_asset() {
 		TestExt::default().build().execute_with(|| {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = XRP_ASSET_ID;
 			let max_payment: Balance = 100;
-			let call = mock::Call::System(frame_system::Call::remark {
+			let call = mock::RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),
 			});
 
@@ -127,8 +85,9 @@ mod call_with_fee_preferences {
 			let caller: AccountId = create_account(1);
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
-			let call =
-				mock::Call::System(frame_system::Call::fill_block { ratio: Default::default() });
+			let call = mock::RuntimeCall::RootTesting(pallet_root_testing::Call::fill_block {
+				ratio: Default::default(),
+			});
 
 			// Test that the error returned is the error from the inner call. In this case it is
 			// BadOrigin as fill_block requires root. This is the easiest example to use without
@@ -152,11 +111,11 @@ mod call_with_fee_preferences {
 			let payment_asset: AssetId = 10;
 			let max_payment: Balance = 100;
 
-			let call_inner = mock::Call::System(frame_system::Call::remark {
+			let call_inner = mock::RuntimeCall::System(frame_system::Call::remark {
 				remark: b"Mischief Managed".to_vec(),
 			});
 
-			let call = mock::Call::FeeProxy(crate::Call::call_with_fee_preferences {
+			let call = mock::RuntimeCall::FeeProxy(crate::Call::call_with_fee_preferences {
 				payment_asset,
 				max_payment,
 				call: Box::new(call_inner),
@@ -271,34 +230,7 @@ mod get_fee_preferences_data {
 	use super::*;
 
 	#[test]
-	fn get_fee_preferences_data_works_legacy_tx() {
-		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let gas_price = U256::from(20000000000000u64);
-			let payment_asset_id: AssetId = 12;
-
-			let expected_path = vec![payment_asset_id, <Test as Config>::FeeAssetId::get()];
-			let expected_fee: U256 =
-				Runner::calculate_total_gas(gas_limit, Some(gas_price), None, None, false).unwrap();
-			let expected_fee_scaled: Balance = scale_wei_to_correct_decimals(expected_fee, 0);
-			assert_eq!(
-				get_fee_preferences_data::<Test, Test, crate::mock::Futurepass>(
-					gas_limit,
-					Some(gas_price),
-					None,
-					None,
-					payment_asset_id
-				),
-				Ok(FeePreferencesData {
-					total_fee_scaled: expected_fee_scaled,
-					path: expected_path
-				})
-			);
-		});
-	}
-
-	#[test]
-	fn get_fee_preferences_data_works_eip1559_tx() {
+	fn get_fee_preferences_data_works() {
 		TestExt::default().build().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
@@ -306,15 +238,12 @@ mod get_fee_preferences_data {
 
 			let expected_path = vec![payment_asset_id, <Test as Config>::FeeAssetId::get()];
 			let expected_fee: U256 =
-				Runner::calculate_total_gas(gas_limit, None, Some(max_fee_per_gas), None, false)
-					.unwrap();
+				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false).unwrap();
 			let expected_fee_scaled: Balance = scale_wei_to_correct_decimals(expected_fee, 0);
 			assert_eq!(
 				get_fee_preferences_data::<Test, Test, crate::mock::Futurepass>(
 					gas_limit,
-					None,
 					Some(max_fee_per_gas),
-					None,
 					payment_asset_id
 				),
 				Ok(FeePreferencesData {
@@ -331,53 +260,13 @@ mod calculate_total_gas {
 	use super::*;
 
 	#[test]
-	fn gas_price() {
-		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let gas_price = U256::from(20000000000000u64);
-			let (_base_fee, _weight) = <Test as pallet_evm::Config>::FeeCalculator::min_gas_price();
-
-			assert_eq!(
-				Runner::calculate_total_gas(gas_limit, Some(gas_price), None, None, false).unwrap(),
-				U256::from(2_000_000_000_000_000_000u64)
-			);
-		});
-	}
-
-	#[test]
-	fn max_fee_per_gas() {
+	fn calculate_total_gas_works() {
 		TestExt::default().build().execute_with(|| {
 			let gas_limit: u64 = 100000;
 			let max_fee_per_gas = U256::from(20000000000000u64);
 			let (_base_fee, _weight) = <Test as pallet_evm::Config>::FeeCalculator::min_gas_price();
 
-			assert_eq!(
-				Runner::calculate_total_gas(gas_limit, None, Some(max_fee_per_gas), None, false)
-					.unwrap(),
-				U256::from(2_000_000_000_000_000_000u64)
-			);
-		});
-	}
-
-	#[test]
-	fn max_priority_fee_per_gas_ignored() {
-		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::from(10000000000000u64);
-			let (_base_fee, _weight) = <Test as pallet_evm::Config>::FeeCalculator::min_gas_price();
-
-			assert_eq!(
-				Runner::calculate_total_gas(
-					gas_limit,
-					None,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-					false
-				)
-				.unwrap(),
-				U256::from(2_000_000_000_000_000_000u64)
-			);
+			assert_ok!(Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false));
 		});
 	}
 
@@ -387,23 +276,7 @@ mod calculate_total_gas {
 			let gas_limit = 100_000_u64;
 			let max_fee_per_gas = None;
 
-			assert_eq!(
-				Runner::calculate_total_gas(gas_limit, None, max_fee_per_gas, None, false).unwrap(),
-				U256::from(0)
-			);
-		});
-	}
-
-	#[test]
-	fn gas_price_too_large_should_fail() {
-		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let gas_price = U256::MAX;
-
-			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(gas_price), None, None, false),
-				FeePreferencesError::FeeOverflow
-			);
+			assert_ok!(Runner::calculate_total_gas(gas_limit, max_fee_per_gas, false));
 		});
 	}
 
@@ -414,7 +287,7 @@ mod calculate_total_gas {
 			let max_fee_per_gas = U256::MAX;
 
 			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, None, Some(max_fee_per_gas), None, false),
+				Runner::calculate_total_gas(gas_limit, Some(max_fee_per_gas), false),
 				FeePreferencesError::FeeOverflow
 			);
 		});

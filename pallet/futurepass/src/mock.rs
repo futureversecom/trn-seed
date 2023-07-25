@@ -1,28 +1,24 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// You may obtain a copy of the License at the root of this project source code
-
+/* Copyright 2019-2021 Centrality Investments Limited
+ *
+ * Licensed under the LGPL, Version 3.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ * You may obtain a copy of the License at the root of this project source code,
+ * or at:
+ *     https://centrality.ai/licenses/gplv3.txt
+ *     https://centrality.ai/licenses/lgplv3.txt
+ */
 use crate::{self as pallet_futurepass, *};
 use frame_support::{
 	parameter_types,
-	traits::{
-		fungibles::{Inspect, Transfer},
-		Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
-	},
+	traits::{AsEnsureOriginWithArg, Currency, ExistenceRequirement, InstanceFilter},
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureNever, EnsureRoot};
 use seed_pallet_common::*;
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
@@ -31,7 +27,7 @@ use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
 	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
 };
-use sp_core::{ecdsa, Pair, H160, H256};
+use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -72,17 +68,15 @@ impl_pallet_assets_ext_config!(Test);
 impl_pallet_fee_control_config!(Test);
 impl_pallet_dex_config!(Test);
 
-impl InstanceFilter<Call> for ProxyType {
-	fn filter(&self, c: &Call) -> bool {
-		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
-			// Whitelist currently includes
-			// pallet_futurepass::Call::register_delegate_with_signature,
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
+		if matches!(c, RuntimeCall::Proxy(..) | RuntimeCall::Futurepass(..)) {
+			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
 			// pallet_futurepass::Call::unregister_delegate
 			if !matches!(
 				c,
-				Call::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
+				RuntimeCall::Futurepass(pallet_futurepass::Call::register_delegate { .. }) |
+					RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
 			) {
 				return false
 			}
@@ -102,8 +96,8 @@ impl InstanceFilter<Call> for ProxyType {
 }
 
 impl pallet_proxy::Config for Test {
-	type Event = Event;
-	type Call = Call;
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
 
 	type ProxyType = ProxyType;
@@ -189,25 +183,10 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 		result
 	}
 
-	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
-		let (_, old_deposit) = pallet_proxy::Proxies::<Test>::take(futurepass);
-		<pallet_balances::Pallet<Test> as ReservableCurrency<_>>::unreserve(
-			futurepass,
-			old_deposit,
-		);
-		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
-			futurepass,
-			receiver,
-			old_deposit,
-			ExistenceRequirement::AllowDeath,
-		)?;
-		Ok(())
-	}
-
 	fn proxy_call(
-		caller: <Test as frame_system::Config>::Origin,
+		caller: <Test as frame_system::Config>::RuntimeOrigin,
 		futurepass: AccountId,
-		call: Call,
+		call: RuntimeCall,
 	) -> DispatchResult {
 		let call = pallet_proxy::Call::<Test>::proxy {
 			real: futurepass.into(),
@@ -215,7 +194,7 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 			call: call.into(),
 		};
 
-		Call::dispatch(call.into(), caller).map_err(|e| e.error)?;
+		RuntimeCall::dispatch(call.into(), caller).map_err(|e| e.error)?;
 		Ok(())
 	}
 }
@@ -226,9 +205,9 @@ parameter_types! {
 }
 
 impl crate::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Proxy = ProxyPalletProvider;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type ApproveOrigin = EnsureRoot<AccountId>;
 	type ProxyType = ProxyType;
 	type WeightInfo = ();
@@ -240,29 +219,7 @@ impl crate::Config for Test {
 
 pub struct MockMigrationProvider;
 
-impl<T: pallet_nft::Config + pallet_assets_ext::Config> crate::FuturepassMigrator<T>
-	for MockMigrationProvider
-where
-	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
-{
-	fn transfer_asset(
-		asset_id: AssetId,
-		current_owner: &T::AccountId,
-		new_owner: &T::AccountId,
-	) -> DispatchResult {
-		let amount = <pallet_assets_ext::Pallet<T> as Inspect<
-			<T as frame_system::Config>::AccountId,
-		>>::reducible_balance(asset_id, current_owner, false);
-		<pallet_assets_ext::Pallet<T> as Transfer<<T as frame_system::Config>::AccountId>>::transfer(
-			asset_id,
-			current_owner,
-			new_owner,
-			amount,
-			false,
-		)?;
-		Ok(())
-	}
-
+impl<T: pallet_nft::Config> crate::FuturepassMigrator<T> for MockMigrationProvider {
 	fn transfer_nfts(
 		collection_id: u32,
 		current_owner: &T::AccountId,
@@ -296,17 +253,11 @@ pub fn create_account(seed: u64) -> AccountId {
 pub fn create_random() -> AccountId {
 	AccountId::from(H160::random())
 }
-pub fn create_random_pair() -> (ecdsa::Pair, AccountId) {
-	let (pair, _) = ecdsa::Pair::generate();
-	let account: AccountId = pair.public().try_into().unwrap();
-	(pair, account)
-}
 
 #[derive(Default)]
 pub struct TestExt {
 	balances: Vec<(AccountId, Balance)>,
 	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
-	block_number: BlockNumber,
 }
 
 impl TestExt {
@@ -322,11 +273,6 @@ impl TestExt {
 			.into_iter()
 			.map(|(who, balance)| (MOCK_PAYMENT_ASSET_ID, who, balance))
 			.collect();
-		self
-	}
-	/// Configure block number
-	pub fn with_block_number(mut self, block_number: BlockNumber) -> Self {
-		self.block_number = block_number;
 		self
 	}
 
@@ -347,12 +293,8 @@ impl TestExt {
 				.unwrap();
 		}
 
-		let block_number = std::cmp::max(self.block_number, 1);
-
 		let mut ext: sp_io::TestExternalities = storage.into();
-		ext.execute_with(|| {
-			System::initialize(&block_number, &[0u8; 32].into(), &Default::default())
-		});
+		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
 		ext
 	}
 }

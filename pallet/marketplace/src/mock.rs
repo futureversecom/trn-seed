@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,10 +13,11 @@ use crate as pallet_marketplace;
 use frame_support::{
 	dispatch::DispatchResult,
 	parameter_types,
-	traits::{FindAuthor, GenesisBuild},
+	traits::{AsEnsureOriginWithArg, FindAuthor, GenesisBuild},
+	weights::Weight,
 	PalletId,
 };
-use frame_system::EnsureRoot;
+use frame_system::{EnsureNever, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
 use seed_pallet_common::*;
 use seed_primitives::{
@@ -56,7 +53,7 @@ frame_support::construct_runtime!(
 		Nft: pallet_nft,
 		EVM: pallet_evm,
 		FeeControl: pallet_fee_control,
-		TimestampPallet: pallet_timestamp,
+		Timestamp: pallet_timestamp,
 		Marketplace: pallet_marketplace,
 	}
 );
@@ -113,12 +110,11 @@ parameter_types! {
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const MintLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
-	pub const StringLimit: u32 = 50;
 }
 
 impl pallet_nft::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
@@ -127,13 +123,12 @@ impl pallet_nft::Config for Test {
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
-	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }
 
 impl crate::Config for Test {
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type WeightInfo = ();
 }
 

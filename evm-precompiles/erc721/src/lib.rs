@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,14 +13,14 @@
 extern crate alloc;
 
 use core::convert::TryFrom;
-use fp_evm::{PrecompileHandle, PrecompileOutput};
+use fp_evm::{IsPrecompileResult, PrecompileHandle, PrecompileOutput};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::OriginTrait,
 };
 use pallet_evm::{Context, ExitReason, PrecompileSet};
 use pallet_nft::traits::NFTExt;
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec};
 use sp_std::{marker::PhantomData, vec, vec::Vec};
 
@@ -123,13 +119,13 @@ where
 		+ frame_system::Config
 		+ pallet_token_approvals::Config
 		+ pallet_xls20::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>>
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_nft::Call<Runtime>>
 		+ From<pallet_xls20::Call<Runtime>>
 		+ From<pallet_token_approvals::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
 {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<EvmResult<PrecompileOutput>> {
 		// Convert target `address` into it's runtime NFT Id
@@ -199,14 +195,17 @@ where
 		None
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
 		if let Some(collection_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC721_PRECOMPILE_ADDRESS_PREFIX)
 		{
 			// Check whether the collection exists
-			pallet_nft::Pallet::<Runtime>::collection_exists(collection_id)
+			IsPrecompileResult::Answer {
+				is_precompile: pallet_nft::Pallet::<Runtime>::collection_exists(collection_id),
+				extra_cost: 0,
+			}
 		} else {
-			false
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 		}
 	}
 }
@@ -225,13 +224,13 @@ where
 		+ frame_system::Config
 		+ pallet_token_approvals::Config
 		+ pallet_xls20::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>>
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_nft::Call<Runtime>>
 		+ From<pallet_xls20::Call<Runtime>>
 		+ From<pallet_token_approvals::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
 {
 	/// Returns the Root address which owns the given token
 	/// An error is returned if the token doesn't exist
@@ -337,9 +336,14 @@ where
 			return Err(revert("ERC721: Caller not approved").into())
 		}
 
-		let serial_number = H256::from_low_u64_be(serial_number as u64);
-		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, serial_number, vec![])
-			.record(handle)?;
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER,
+			from,
+			to,
+			EvmDataWriter::new().write(serial_number).build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
@@ -416,8 +420,7 @@ where
 		// Check that caller is not a smart contract s.t. no code is inserted into
 		// pallet_evm::AccountCodes except if the caller is another precompile i.e. CallPermit
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let caller_code = pallet_evm::Pallet::<Runtime>::account_codes(to);
-		if !(caller_code.is_empty()) {
+		if !pallet_evm::Pallet::<Runtime>::is_account_empty(&to) {
 			// Setup input for onErc721Received call
 			let sub_context = Context {
 				address: to,
@@ -463,9 +466,14 @@ where
 			},
 		)?;
 
-		let serial_number = H256::from_low_u64_be(serial_number as u64);
-		log4(handle.code_address(), SELECTOR_LOG_TRANSFER, from, to, serial_number, vec![])
-			.record(handle)?;
+		log3(
+			handle.code_address(),
+			SELECTOR_LOG_TRANSFER,
+			from,
+			to,
+			EvmDataWriter::new().write(serial_number).build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed([]))
@@ -507,14 +515,12 @@ where
 			},
 		)?;
 
-		let serial_number = H256::from_low_u64_be(serial_number as u64);
-		log4(
+		log3(
 			handle.code_address(),
 			SELECTOR_LOG_APPROVAL,
 			handle.context().caller,
 			to,
-			serial_number,
-			vec![],
+			EvmDataWriter::new().write(serial_number).build(),
 		)
 		.record(handle)?;
 
@@ -730,14 +736,12 @@ where
 		)?;
 
 		for token_id in serial_number..(serial_number.saturating_add(quantity)) {
-			let token_id = H256::from_low_u64_be(token_id as u64);
-			log4(
+			log3(
 				handle.code_address(),
 				SELECTOR_LOG_TRANSFER,
 				EthAddress::zero(),
 				to,
-				token_id,
-				vec![],
+				EvmDataWriter::new().write(token_id).build(),
 			)
 			.record(handle)?;
 		}
@@ -868,8 +872,6 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
-
 		let origin = handle.context().caller;
 		let burn_account: H160 = H160::default();
 
@@ -884,12 +886,11 @@ where
 		)?;
 
 		// emit OwnershipTransferred(address,address) event
-		log3(
+		log2(
 			handle.code_address(),
 			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
 			origin,
-			burn_account,
-			vec![],
+			EvmDataWriter::new().write(Address::from(burn_account)).build(),
 		)
 		.record(handle)?;
 
@@ -901,7 +902,7 @@ where
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(1, 32)?;
 
 		// Parse input.
 		read_args!(handle, { new_owner: Address });
@@ -915,8 +916,13 @@ where
 			pallet_nft::Call::<Runtime>::set_owner { collection_id, new_owner: new_owner.into() },
 		)?;
 
-		log3(handle.code_address(), SELECTOR_LOG_OWNERSHIP_TRANSFERRED, origin, new_owner, vec![])
-			.record(handle)?;
+		log2(
+			handle.code_address(),
+			SELECTOR_LOG_OWNERSHIP_TRANSFERRED,
+			origin,
+			EvmDataWriter::new().write(Address::from(new_owner)).build(),
+		)
+		.record(handle)?;
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(true).build()))

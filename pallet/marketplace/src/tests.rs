@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,8 +11,8 @@
 
 use super::*;
 use crate::mock::{
-	create_account, AssetsExt, Event as MockEvent, Marketplace, NativeAssetId, Nft, NftPalletId,
-	System, Test, TestExt,
+	create_account, AssetsExt, Marketplace, NativeAssetId, Nft, NftPalletId,
+	RuntimeEvent as MockEvent, System, Test, TestExt,
 };
 use frame_support::assert_ok;
 use pallet_nft::{CrossChainCompatibility, Listings};
@@ -31,7 +27,7 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
-		BoundedVec::truncate_from(collection_name),
+		collection_name,
 		0,
 		None,
 		None,

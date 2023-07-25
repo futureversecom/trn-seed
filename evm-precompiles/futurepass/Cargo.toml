@@ -1,7 +1,7 @@
 [package]
 name = "pallet-evm-precompiles-futurepass"
 version = "2.0.0"
-authors = ["The Root Network Team"]
+authors = ["Centrality Developers <support@centrality.ai>"]
 edition = "2021"
 repository = "https://github.com/cennznet/cennznet"
 
@@ -13,16 +13,16 @@ seed-primitives = { path = "../../primitives", default-features = false }
 pallet-futurepass = { path = "../../pallet/futurepass", default-features = false }
 
 # Substrate
-frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-frame-support = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-sp-std = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
-pallet-proxy = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42", default-features = false }
+pallet-proxy = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.42", default-features = false }
 
 # Frontier
-fp-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-pallet-evm = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
+fp-evm = { default-features = false, git = "https://github.com/P-XYZ/frontier", branch = "polkadot-v0.9.42-TRN" }
+pallet-evm = { default-features = false, git = "https://github.com/P-XYZ/frontier", branch = "polkadot-v0.9.42-TRN" }
 
 [features]
 default = ["std"]

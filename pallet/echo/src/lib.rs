@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -55,13 +51,12 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The system event type
-		type Event: From<Event> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The EthereumBridge interface for sending messages to the bridge
 		type EthereumBridge: EthereumBridge;
 		/// This pallet's Id, used for deriving a sovereign account ID
@@ -103,6 +98,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Ping extrinsic sends an event to the bridge containing a message
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::ping())]
 		pub fn ping(origin: OriginFor<T>, destination: H160) -> DispatchResult {
 			let source: H160 = ensure_signed(origin)?.into();
@@ -146,7 +142,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 	fn verify_source(_source: &H160) -> OnEventResult {
 		// For testing purposes we don't require a verified source for the Echo pallet
 		// Can overwrite this method and simply return ok
-		Ok(0)
+		Ok(Weight::zero())
 	}
 
 	fn on_event(source: &H160, data: &[u8]) -> OnEventResult {
@@ -155,7 +151,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 			data,
 		) {
 			Ok(abi) => abi,
-			Err(_) => return Err((0, Error::<T>::InvalidAbiEncoding.into())),
+			Err(_) => return Err((Weight::zero(), Error::<T>::InvalidAbiEncoding.into())),
 		};
 
 		if let [Token::Uint(ping_or_pong), Token::Uint(session_id), Token::Address(destination)] =
@@ -174,7 +170,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 						source: *source,
 						data: data.to_vec(),
 					});
-					Ok(0)
+					Ok(Weight::zero())
 				},
 				PONG => {
 					// Ping was received from Ethereum
@@ -197,7 +193,7 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 						message.as_slice(),
 					) {
 						Ok(event_id) => event_id,
-						Err(e) => return Err((0, e)),
+						Err(e) => return Err((Weight::zero(), e)),
 					};
 
 					Self::deposit_event(Event::PongSent {
@@ -206,12 +202,12 @@ impl<T: Config> EthereumEventSubscriber for Pallet<T> {
 						destination,
 						event_proof_id,
 					});
-					Ok(0)
+					Ok(Weight::zero())
 				},
-				_ => Err((0, Error::<T>::InvalidParameter.into())),
+				_ => Err((Weight::zero(), Error::<T>::InvalidParameter.into())),
 			}
 		} else {
-			Ok(0)
+			Ok(Weight::zero())
 		}
 	}
 }

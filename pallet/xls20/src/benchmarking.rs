@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,7 +19,7 @@ use crate::Pallet as Xls20;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
-use seed_primitives::{nft::OriginChain, MetadataScheme};
+use pallet_nft::OriginChain;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -44,7 +40,7 @@ pub fn build_xls20_collection<T: Config>(
 	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 	let collection_id = T::NFTExt::do_create_collection(
 		caller.clone(),
-		BoundedVec::truncate_from("New Collection".encode()),
+		"New Collection".into(),
 		0,
 		None,
 		None,

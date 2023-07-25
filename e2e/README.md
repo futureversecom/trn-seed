@@ -35,7 +35,7 @@ cargo run -- --dev --unsafe-ws-external --unsafe-rpc-external --rpc-cors=all
   is persisted across runs; manual node restarts required)
 
 ```sh
-yarn hardhat test test/TestCall.GasEstimates.test.ts
+yarn hardhat test test/TestCallGasEstimates.test.ts
 ```
 
 #### TODO

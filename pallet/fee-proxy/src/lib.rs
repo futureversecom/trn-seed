@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,10 +19,9 @@
 pub use pallet::*;
 
 use frame_support::{
-	dispatch::Dispatchable,
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
 	traits::IsSubType,
-	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
 use seed_primitives::{AssetId, Balance};
@@ -52,24 +47,23 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
 		/// The overarching call type.
-		type Call: Parameter
-			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>;
 		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The caller origin, overarching type of all pallets origins.
 		type PalletsOrigin: Parameter
-			+ Into<<Self as frame_system::Config>::Origin>
-			+ IsType<<<Self as frame_system::Config>::Origin as frame_support::traits::OriginTrait>::PalletsOrigin>;
+			+ Into<<Self as frame_system::Config>::RuntimeOrigin>
+			+ IsType<<<Self as frame_system::Config>::RuntimeOrigin as frame_support::traits::OriginTrait>::PalletsOrigin>;
 		/// The native token asset Id (managed by pallet-balances)
 		#[pallet::constant]
 		type FeeAssetId: Get<AssetId>;
@@ -101,15 +95,16 @@ pub mod pallet {
 		///                OnChargeTransaction::withdraw_fee()
 		/// max_payment: The limit of how many tokens will be used to perform the exchange
 		/// call: The inner call to be performed after the exchange
+		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
-			(dispatch_info.weight.saturating_add(10_000), dispatch_info.class)
+			(dispatch_info.weight.saturating_add(Weight::from_parts(10_000, 0)), dispatch_info.class)
 		})]
 		pub fn call_with_fee_preferences(
 			origin: OriginFor<T>,
 			payment_asset: AssetId,
 			max_payment: Balance,
-			call: Box<<T as Config>::Call>,
+			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 

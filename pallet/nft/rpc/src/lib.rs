@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,7 +22,7 @@ use pallet_nft::Config;
 use seed_primitives::types::{BlockNumber, CollectionUuid, SerialNumber, TokenCount, TokenId};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::Block as BlockT;
 
 pub use pallet_nft_rpc_runtime_api::{self as runtime_api, NftApi as NftRuntimeApi};
 
@@ -76,15 +72,13 @@ where
 	) -> RpcResult<(SerialNumber, TokenCount, Vec<SerialNumber>)> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.owned_tokens(&at, collection_id, who, cursor, limit)
+		api.owned_tokens(best, collection_id, who, cursor, limit)
 			.map_err(|e| RpcError::to_call_error(e))
 	}
 
 	fn token_uri(&self, token_id: TokenId) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
 		let best = self.client.info().best_hash;
-		let at = BlockId::hash(best);
-		api.token_uri(&at, token_id).map_err(|e| RpcError::to_call_error(e))
+		api.token_uri(best, token_id).map_err(|e| RpcError::to_call_error(e))
 	}
 }

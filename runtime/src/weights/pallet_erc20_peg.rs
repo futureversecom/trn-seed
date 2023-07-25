@@ -33,13 +33,11 @@ pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_erc20_peg::WeightInfo for WeightInfo<T> {
 	// Storage: Erc20Peg DepositsActive (r:0 w:1)
 	fn activate_deposits() -> Weight {
-		(2_500_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_all(1u64)
 	}
 	// Storage: Erc20Peg WithdrawalsActive (r:0 w:1)
 	fn activate_withdrawals() -> Weight {
-		(2_412_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_all(1u64)
 	}
 	// Storage: Erc20Peg WithdrawalsActive (r:1 w:0)
 	// Storage: Erc20Peg AssetIdToErc20 (r:1 w:0)
@@ -53,23 +51,18 @@ impl<T: frame_system::Config> pallet_erc20_peg::WeightInfo for WeightInfo<T> {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn withdraw() -> Weight {
-		(42_406_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		Weight::from_all(1u64)
 	}
 	// Storage: Erc20Peg ContractAddress (r:0 w:1)
 	fn set_contract_address() -> Weight {
-		(8_079_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_all(1u64)
 	}
 	// Storage: Erc20Peg Erc20Meta (r:0 w:1)
 	fn set_erc20_meta() -> Weight {
-		(2_893_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_all(1u64)
 	}
 	// Storage: Erc20Peg PaymentDelay (r:0 w:1)
 	fn set_payment_delay() -> Weight {
-		(8_240_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_all(1u64)
 	}
 }

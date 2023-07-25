@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,14 +11,14 @@
 
 use crate::{self as pallet_fee_control, *};
 
-use frame_system::EnsureRoot;
+use frame_system::{EnsureNever, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever};
 pub use seed_primitives::types::{AccountId, Balance};
 use seed_primitives::AssetId;
 
 use frame_support::{
 	parameter_types,
-	traits::{FindAuthor, InstanceFilter},
+	traits::{AsEnsureOriginWithArg, FindAuthor, InstanceFilter},
 	weights::WeightToFee,
 	PalletId,
 };
@@ -54,6 +50,7 @@ frame_support::construct_runtime!(
 		FeeProxy: pallet_fee_proxy,
 		Dex: pallet_dex,
 		Evm: pallet_evm,
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Futurepass: pallet_futurepass,
 		MockPallet: mock_pallet::pallet,
 		FeeControl: pallet_fee_control,
@@ -80,7 +77,6 @@ pub mod mock_pallet {
 		use frame_support::pallet_prelude::*;
 		use frame_system::pallet_prelude::*;
 		#[pallet::pallet]
-		#[pallet::generate_store(pub(super) trait Store)]
 		pub struct Pallet<T>(_);
 
 		#[pallet::config]
@@ -106,11 +102,12 @@ pub mod mock_pallet {
 		}
 
 		// Some expected weight, given by a balances transfer
-		pub const WEIGHT: Weight = 0;
+		pub const WEIGHT: Weight = Weight::zero();
 
 		#[pallet::call]
 		impl<T: Config> Pallet<T> {
 			// For tests. Charge some expected fee amount
+			#[pallet::call_index(0)]
 			#[pallet::weight(WEIGHT)]
 			pub fn mock_charge_fee(_origin: OriginFor<T>) -> DispatchResult {
 				Ok(())

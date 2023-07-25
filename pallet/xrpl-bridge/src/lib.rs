@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,7 +15,8 @@ use frame_support::{
 	fail,
 	pallet_prelude::*,
 	traits::{
-		fungibles::{Inspect, Mutate, Transfer},
+		fungibles::{Inspect, Mutate},
+		tokens::{Fortitude, Precision},
 		UnixTime,
 	},
 	transactional,
@@ -76,17 +73,16 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type EthyAdapter: XrplBridgeToEthyAdapter<AuthorityId>;
 
 		type MultiCurrency: CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>
-			+ Inspect<Self::AccountId, AssetId = AssetId>
+			+ Inspect<Self::AccountId, AssetId = AssetId, Balance = Balance>
 			+ Mutate<Self::AccountId>;
 
 		/// Allowed origins to add/remove the relayers
-		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Weight information
 		type WeightInfo: WeightInfo;
@@ -184,7 +180,6 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
@@ -289,6 +284,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Submit xrp transaction
+		#[pallet::call_index(0)]
 		#[pallet::weight((T::WeightInfo::submit_transaction(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_transaction(
@@ -310,6 +306,7 @@ pub mod pallet {
 		}
 
 		/// Submit xrp transaction challenge
+		#[pallet::call_index(1)]
 		#[pallet::weight((T::WeightInfo::submit_challenge(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn submit_challenge(
@@ -322,6 +319,7 @@ pub mod pallet {
 		}
 
 		/// Withdraw xrp transaction
+		#[pallet::call_index(2)]
 		#[pallet::weight((T::WeightInfo::withdraw_xrp(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn withdraw_xrp(
@@ -334,6 +332,7 @@ pub mod pallet {
 		}
 
 		/// add a relayer
+		#[pallet::call_index(3)]
 		#[pallet::weight((T::WeightInfo::add_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn add_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
@@ -344,6 +343,7 @@ pub mod pallet {
 		}
 
 		/// remove a relayer
+		#[pallet::call_index(4)]
 		#[pallet::weight((T::WeightInfo::remove_relayer(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn remove_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
@@ -358,6 +358,7 @@ pub mod pallet {
 		}
 
 		/// Set the door tx fee amount
+		#[pallet::call_index(5)]
 		#[pallet::weight((<T as Config>::WeightInfo::set_door_tx_fee(), DispatchClass::Operational))]
 		pub fn set_door_tx_fee(origin: OriginFor<T>, fee: u64) -> DispatchResult {
 			ensure_root(origin)?;
@@ -366,6 +367,7 @@ pub mod pallet {
 		}
 
 		/// Set XRPL door address managed by this pallet
+		#[pallet::call_index(6)]
 		#[pallet::weight((T::WeightInfo::set_door_address(), DispatchClass::Operational))]
 		#[transactional]
 		pub fn set_door_address(
@@ -379,6 +381,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account ticket sequence params for the next allocation
+		#[pallet::call_index(7)]
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_next_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_next_allocation(
 			origin: OriginFor<T>,
@@ -410,6 +413,7 @@ pub mod pallet {
 		}
 
 		/// Set the door account current ticket sequence params for current allocation - force set
+		#[pallet::call_index(8)]
 		#[pallet::weight((T::WeightInfo::set_ticket_sequence_current_allocation(), DispatchClass::Operational))]
 		pub fn set_ticket_sequence_current_allocation(
 			origin: OriginFor<T>,
@@ -456,11 +460,11 @@ impl<T: Config> Pallet<T> {
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		let tx_items = match <ProcessXRPTransaction<T>>::take(n) {
-			None => return DbWeight::get().reads(2 as Weight),
+			None => return DbWeight::get().reads(2),
 			Some(v) => v,
 		};
-		let mut reads = 2 as Weight;
-		let mut writes = 0 as Weight;
+		let mut reads = 2;
+		let mut writes = 0;
 
 		let tx_details = tx_items
 			.iter()
@@ -506,12 +510,12 @@ impl<T: Config> Pallet<T> {
 	/// Prune settled transaction data from storage
 	/// if it was scheduled to do so at block `n`
 	pub fn clear_storages(n: T::BlockNumber) -> Weight {
-		let mut reads: Weight = 0;
-		let mut writes: Weight = 0;
+		let mut reads = 0;
+		let mut writes = 0;
 		reads += 1;
 		if <SettledXRPTransactionDetails<T>>::contains_key(n) {
 			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
-				writes += 1 + tx_hashes.len() as Weight;
+				writes += 1 + tx_hashes.len() as u64;
 				for tx_hash in tx_hashes {
 					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
 				}
@@ -562,8 +566,13 @@ impl<T: Config> Pallet<T> {
 
 		// the door address pays the tx fee on XRPL. Therefore the withdrawn amount must include the
 		// tx fee to maintain an accurate door balance
-		let _ =
-			T::MultiCurrency::burn_from(T::XrpAssetId::get(), &who, amount + tx_fee as Balance)?;
+		let _ = T::MultiCurrency::burn_from(
+			T::XrpAssetId::get(),
+			&who,
+			amount + tx_fee as Balance,
+			Precision::BestEffort,
+			Fortitude::Polite,
+		)?;
 
 		let ticket_sequence = Self::get_door_ticket_sequence()?;
 		let tx_data = XrpWithdrawTransaction {

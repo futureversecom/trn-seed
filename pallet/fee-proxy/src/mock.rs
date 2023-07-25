@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,11 +13,11 @@ use crate as pallet_fee_proxy;
 use crate::*;
 use frame_support::{
 	parameter_types,
-	traits::{FindAuthor, InstanceFilter},
+	traits::{AsEnsureOriginWithArg, FindAuthor, InstanceFilter},
 	weights::{ConstantMultiplier, WeightToFee},
 	PalletId,
 };
-use frame_system::{limits, EnsureRoot};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
 use precompile_utils::{Address, ErcIdConversion};
 use seed_pallet_common::*;
@@ -50,10 +46,11 @@ frame_support::construct_runtime!(
 		Dex: pallet_dex::{Pallet, Call, Storage, Event<T>},
 		AssetsExt: pallet_assets_ext::{Pallet, Call, Storage, Config<T>, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+		RootTesting: pallet_root_testing::{Pallet, Call, Storage},
 		Assets: pallet_assets::{Pallet, Call, Storage, Event<T>, Config<T>},
 		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 		Futurepass: pallet_futurepass,
 	}
 );
@@ -70,17 +67,17 @@ impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = BlockLength;
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -126,8 +123,8 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type Call = Call;
-	type Event = Event;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
 	type PalletsOrigin = OriginCaller;
 	type FeeAssetId = XrpAssetId;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
@@ -139,15 +136,13 @@ parameter_types! {
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burnaddr");
 	pub const LPTokenDecimals: u8 = 6;
-	pub const DefaultFeeTo: Option<PalletId> = None;
 }
 impl pallet_dex::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
 	type DEXBurnPalletId = DEXBurnPalletId;
 	type LPTokenDecimals = LPTokenDecimals;
-	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = ();
 	type MultiCurrency = AssetsExt;
 }
@@ -159,11 +154,12 @@ parameter_types! {
 	pub const AssetsStringLimit: u32 = 50;
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
+	pub const RemoveItemsLimit: u32 = 656;
 }
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -177,6 +173,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = RemoveItemsLimit;
+	type AssetIdParameter = AssetId;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureNever<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
@@ -187,7 +187,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -198,7 +198,7 @@ impl pallet_assets_ext::Config for Test {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -224,13 +224,13 @@ where
 	type Balance = Balance;
 
 	fn weight_to_fee(weight: &Weight) -> Balance {
-		M::get().mul(*weight as Balance)
+		M::get().mul(weight.ref_time() as Balance)
 	}
 }
 
 impl pallet_transaction_payment::Config for Test {
 	type OnChargeTransaction = FeeProxy;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type WeightToFee = PercentageOfWeight<WeightToFeeReduction>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ();
@@ -240,7 +240,7 @@ impl pallet_transaction_payment::Config for Test {
 pub struct FixedGasPrice;
 impl FeeCalculator for FixedGasPrice {
 	fn min_gas_price() -> (U256, Weight) {
-		(1.into(), 0u64)
+		(1.into(), 0u64.into())
 	}
 }
 
@@ -268,24 +268,33 @@ impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
 	}
 }
 
+parameter_types! {
+	  pub WeightPerGas: Weight = Weight::from_parts(1, 0);
+}
+
 impl pallet_evm::Config for Test {
 	type FeeCalculator = FixedGasPrice;
-	type GasWeightMapping = ();
+	type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
+	type WeightPerGas = WeightPerGas;
 	type BlockHashMapping = MockBlockHashMapping<Test>;
 	type CallOrigin = EnsureAddressNever<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
 	type AddressMapping = MockAddressMapping;
 	type Currency = Balances;
-	type Event = Event;
-	type Runner = pallet_evm::runner::stack::Runner<Self>;
+	type RuntimeEvent = RuntimeEvent;
 	type PrecompilesType = ();
 	type PrecompilesValue = ();
 	type ChainId = ();
 	type BlockGasLimit = ();
+	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type OnChargeTransaction = ();
+	type OnCreate = ();
 	type FindAuthor = FindAuthorTruncated;
-	type HandleTxValidation = ();
+	type Timestamp = Timestamp;
+	type WeightInfo = ();
 }
+
+impl pallet_root_testing::Config for Test {}
 
 parameter_types! {
 	pub const MinimumPeriod: u64 = 5;

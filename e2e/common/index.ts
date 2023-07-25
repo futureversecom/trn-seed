@@ -1,159 +1,12 @@
-import { JsonRpcProvider } from "@ethersproject/providers";
 import { ApiPromise } from "@polkadot/api";
-import { SubmittableExtrinsic } from "@polkadot/api/types";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
-import { BigNumber } from "ethers";
-import { writeFileSync } from "fs";
-import { CliPrettify } from "markdown-table-prettify";
-import { join } from "path";
 import web3 from "web3";
 
 export * from "./node";
 
 /** TYPEDEFS */
-export const rpcs = {
-  dex: {
-    quote: {
-      description: "Given some amount of an asset and pair reserves, returns an equivalent amount of the other asset",
-      params: [
-        {
-          name: "amountA",
-          type: "u128",
-        },
-        {
-          name: "reserveA",
-          type: "u128",
-        },
-        {
-          name: "reserveB",
-          type: "u128",
-        },
-      ],
-      type: "Json",
-    },
-    getAmountsOut: {
-      description: "Given an array of AssetIds, return amounts out for an amount in",
-      params: [
-        {
-          name: "amountIn",
-          type: "Balance",
-        },
-        {
-          name: "path",
-          type: "Vec<AssetId>",
-        },
-      ],
-      type: "Json",
-    },
-    getAmountsIn: {
-      description: "Given an array of AssetIds, return amounts in for an amount out",
-      params: [
-        {
-          name: "amountOut",
-          type: "Balance",
-        },
-        {
-          name: "path",
-          type: "Vec<AssetId>",
-        },
-      ],
-      type: "Json",
-    },
-    getLPTokenID: {
-      description: "Given two AssetIds, return liquidity token created for the pair",
-      params: [
-        {
-          name: "assetA",
-          type: "AssetId",
-        },
-        {
-          name: "assetB",
-          type: "AssetId",
-        },
-      ],
-      type: "Json",
-    },
-    getLiquidity: {
-      description: "Given two AssetIds, return liquidity",
-      params: [
-        {
-          name: "assetA",
-          type: "AssetId",
-        },
-        {
-          name: "assetB",
-          type: "AssetId",
-        },
-      ],
-      type: "Json",
-    },
-    getTradingPairStatus: {
-      description: "Given two AssetIds, return whether trading pair is enabled or disabled",
-      params: [
-        {
-          name: "assetA",
-          type: "AssetId",
-        },
-        {
-          name: "assetB",
-          type: "AssetId",
-        },
-      ],
-      type: "Text",
-    },
-  },
-  ethy: {
-    getEventProof: {
-      description: "Get ETH event proof for event Id",
-      params: [
-        {
-          name: "eventId",
-          type: "EventProofId",
-        },
-      ],
-      type: "Option<EthEventProofResponse>",
-    },
-    getXrplTxProof: {
-      description: "Get XRPL event proof for event Id",
-      params: [
-        {
-          name: "eventId",
-          type: "EventProofId",
-        },
-      ],
-      type: "Option<XrplEventProofResponse>",
-    },
-  },
-  nft: {
-    ownedTokens: {
-      description: "Get all NFTs owned by an account",
-      params: [
-        {
-          name: "collectionId",
-          type: "CollectionUuid",
-        },
-        {
-          name: "who",
-          type: "AccountId",
-        },
-        { name: "cursor", type: "SerialNumber" },
-        { name: "limit", type: "u16" },
-      ],
-      type: "Json",
-    },
-    tokenUri: {
-      description: "Get the URI of a token",
-      params: [
-        {
-          name: "tokenId",
-          type: "TokenId",
-        },
-      ],
-      type: "Json",
-    },
-  },
-};
+
 export const typedefs = {
   AccountId: "EthereumAccountId",
   AccountId20: "EthereumAccountId",
@@ -197,38 +50,13 @@ export const DEAD_ADDRESS = "0x000000000000000000000000000000000000DEAD";
 
 // Precompile address for nft precompile is 1721
 export const NFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006b9";
-// Precompile address for sft precompile is 1731
-export const SFT_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006c3";
-// Precompile address for futurepass registrar precompile is 65535
-export const FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
+// Precompile address for futurepass precompile is 65535
+export const FUTUREPASS_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000FFFF";
 
 // Precompile address for peg precompile is 1939
 export const PEG_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000000793";
 
-// Precompile address for dex precompile
-export const DEX_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000DDDD";
-
-// Futurepass delegate reserve amount
-export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
-
-// Futurepass creation reserve amount
-export const FP_CREATION_RESERVE = 148 + FP_DELEGATE_RESERVE; // ProxyDepositBase + ProxyDepositFactor * 1(num of delegates)
-
-export type TxCosts = {
-  Contract: BigNumber;
-  Precompile: BigNumber;
-  Extrinsic: BigNumber;
-};
-
 /** ABIs */
-
-const OWNABLE_ABI = [
-  "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)",
-
-  "function owner() public view returns (address)",
-  "function renounceOwnership()",
-  "function transferOwnership(address owner)",
-];
 
 export const FEE_PROXY_ABI = [
   "function callWithFeePreferences(address asset, uint128 maxPayment, address target, bytes input)",
@@ -243,19 +71,12 @@ export const ERC20_ABI = [
   "function name() public view returns (string memory)",
   "function symbol() public view returns (string memory)",
   "function decimals() public view returns (uint8)",
-  "function totalSupply() external view returns (uint256)",
   "function transfer(address who, uint256 amount)",
-  "function transferFrom(address from, address to, uint256 amount)",
 ];
 
 export const NFT_PRECOMPILE_ABI = [
   "event InitializeCollection(address indexed collectionOwner, address precompileAddress)",
   "function initializeCollection(address owner, bytes name, uint32 maxIssuance, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
-];
-
-export const SFT_PRECOMPILE_ABI = [
-  "event InitializeSftCollection(address indexed collectionOwner, address indexed precompileAddress)",
-  "function initializeCollection(address owner, bytes name, bytes metadataPath, address[] royaltyAddresses, uint32[] royaltyEntitlements) returns (address, uint32)",
 ];
 
 export const PEG_PRECOMPILE_ABI = [
@@ -267,8 +88,8 @@ export const PEG_PRECOMPILE_ABI = [
 
 export const ERC721_PRECOMPILE_ABI = [
   // ERC721
-  "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
-  "event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)",
+  "event Transfer(address indexed from, address indexed to, uint256 tokenId)",
+  "event Approval(address indexed owner, address indexed approved, uint256 tokenId)",
   "event ApprovalForAll(address indexed owner, address indexed operator, bool approved)",
 
   "function balanceOf(address who) public view returns (uint256)",
@@ -296,93 +117,25 @@ export const ERC721_PRECOMPILE_ABI = [
   "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
 
   // Ownable
-  ...OWNABLE_ABI,
-];
+  "event OwnershipTransferred(address indexed oldOwner, address newOwner)",
 
-export const ERC1155_PRECOMPILE_ABI = [
-  // ERC1155
-  "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",
-  "event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] balances)",
-  "event ApprovalForAll(address indexed account, address indexed operator, bool approved)",
-
-  "function balanceOf(address owner, uint256 id) external view returns (uint256)",
-  "function balanceOfBatch(address[] owners, uint256[] ids) external view returns (uint256[] memory)",
-  "function setApprovalForAll(address operator, bool approved) external",
-  "function isApprovedForAll(address account, address operator) external view returns (bool)",
-  "function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes calldata data) external",
-  "function safeBatchTransferFrom(address from, address to, uint256[] calldata ids, uint256[] calldata amounts, bytes calldata data) external",
-
-  // Burnable
-  "function burn(address account, uint256 id, uint256 value) external",
-  "function burnBatch(address account, uint256[] ids, uint256[] values) external",
-
-  // Supply
-  "function totalSupply(uint256 id) external view returns (uint256)",
-  "function exists(uint256 id) external view returns (bool)",
-
-  // Metadata
-  "function uri(uint256 id) external view returns (string memory)",
-
-  // TRN
-  "event TokenCreated(uint32 indexed serialNumber)",
-  "event MaxSupplyUpdated(uint128 indexed maxSupply)",
-  "event BaseURIUpdated(string baseURI)",
-
-  "function createToken(bytes name, uint128 initialIssuance, uint128 maxIssuance, address tokenOwner) external returns (uint32)",
-  "function mint(address owner, uint256 id, uint256 amount) external",
-  "function mintBatch(address owner, uint256[] ids, uint256[] amounts) external",
-  "function setMaxSupply(uint256 id, uint32 maxSupply) external",
-  "function setBaseURI(bytes baseURI) external",
-
-  // Ownable
-  ...OWNABLE_ABI,
-];
-
-export const FUTUREPASS_REGISTRAR_PRECOMPILE_ABI = [
-  "event FuturepassCreated(address indexed futurepass, address owner)",
-
-  "function futurepassOf(address owner) external view returns (address)",
-  "function create(address owner) external returns (address)",
+  "function owner() public view returns (address)",
+  "function renounceOwnership()",
+  "function transferOwnership(address owner)",
 ];
 
 export const FUTUREPASS_PRECOMPILE_ABI = [
-  "event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType)",
-  "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
-  "event Executed(uint8 indexed callType, address indexed target, uint256 indexed value, bytes4 data)",
-  "event ContractCreated(uint8 indexed callType, address indexed contractAddress, uint256 indexed value, bytes32 salt)",
+  "event FuturepassCreated(address indexed futurepass, address owner)",
+  // "event FuturepassDelegateRegistered(address indexed futurepass, address indexed delegate, uint8 proxyType)",
+  // "event FuturepassDelegateUnregistered(address indexed futurepass, address delegate)",
 
-  "function delegateType(address delegate) external view returns (uint8)",
-  "function registerDelegateWithSignature(address delegate, uint8 proxyType, uint32 deadline, bytes memory signature) external",
-  "function unregisterDelegate(address delegate) external",
-  "function proxyCall(uint8 callType, address callTo, uint256 value, bytes memory callData) external payable",
-
-  // Ownable
-  ...OWNABLE_ABI,
-];
-
-export const DEX_PRECOMPILE_ABI = [
-  // IUniswapV2Pair
-  "event Mint(address indexed sender, uint256 amount0, uint256 amount1)",
-  "event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to)",
-  "event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)",
-
-  // IUniswapV2Router01
-  "function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB, uint liquidity)",
-  "function addLiquidityETH(address token, uint amountTokenDesired, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external payable returns (uint amountToken, uint amountETH, uint liquidity)",
-  "function removeLiquidity(address tokenA, address tokenB, uint liquidity, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB)",
-  "function removeLiquidityETH(address token, uint liquidity, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external returns (uint amountToken, uint amountETH)",
-  "function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
-  "function swapTokensForExactTokens(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
-  "function swapExactETHForTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)",
-  "function swapTokensForExactETH(uint amountOut, uint amountInMax, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
-  "function swapExactTokensForETH(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)",
-  "function swapETHForExactTokens(uint amountOut, address[] calldata path, address to, uint deadline) external payable returns (uint[] memory amounts)",
-
-  "function quote(uint amountA, uint reserveA, uint reserveB) external pure returns (uint amountB)",
-  "function getAmountOut(uint amountIn, uint reserveIn, uint reserveOut) external pure returns (uint amountOut)",
-  "function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) external pure returns (uint amountIn)",
-  "function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts)",
-  "function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts)",
+  "function futurepassOf(address owner) external view returns (address)",
+  // "function isDelegate(address futurepass, address delegate) external view returns (bool)",
+  // "function delegateType(address futurepass, address delegate) external view returns (uint8)",
+  "function create(address owner) external returns (address)",
+  // "function registerDelegate(address futurepass, address delegate, uint8 proxyType) external",
+  // "function unregisterDelegate(address futurepass, address delegate) external",
+  // "function proxyCall(address futurepass, address callTo, uint8 callType, bytes memory callData) external payable",
 ];
 
 /** Functions */
@@ -392,11 +145,6 @@ export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve
 export const assetIdToERC20ContractAddress = (assetId: string | number): string => {
   const asset_id_hex = (+assetId).toString(16).padStart(8, "0");
   return web3.utils.toChecksumAddress(`0xCCCCCCCC${asset_id_hex}000000000000000000000000`);
-};
-
-export const collectionIdToERC721Address = (collectionId: string | number): string => {
-  const collection_id_hex = (+collectionId).toString(16).padStart(8, "0");
-  return web3.utils.toChecksumAddress(`0xAAAAAAAA${collection_id_hex}000000000000000000000000`);
 };
 
 /**
@@ -416,10 +164,8 @@ interface EventMatchers {
 /**
  * gets the next asset id - to be created by `assetsExt.createAsset`
  */
-export const getNextAssetId = async (api: ApiPromise, nextAssetId?: string | number): Promise<number> => {
-  if (!nextAssetId) {
-    nextAssetId = (await api.query.assetsExt.nextAssetId()).toString();
-  }
+export const getNextAssetId = async (api: ApiPromise): Promise<number> => {
+  const nextAssetId = (await api.query.assetsExt.nextAssetId()).toString();
   const nextAssetIdBin = (+nextAssetId).toString(2).padStart(22, "0");
   const parachainIdBin = (100).toString(2).padStart(10, "0");
   const nextAssetUuid = parseInt(nextAssetIdBin + parachainIdBin, 2);
@@ -438,112 +184,6 @@ export const getCollectionPrecompileAddress = (collectionId: number) => {
   const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
   return web3.utils.toChecksumAddress(`0xAAAAAAAA${collectionIdHex}000000000000000000000000`);
 };
-
-/**
- *
- * @param collectionId Converts collection id to precompile address (without parachain id)
- * @returns
- */
-export const getSftCollectionPrecompileAddress = (collectionId: number) => {
-  const collectionIdBin = (+collectionId).toString(2).padStart(22, "0");
-  const parachainIdBin = (100).toString(2).padStart(10, "0");
-  const collectionUuid = parseInt(collectionIdBin + parachainIdBin, 2);
-  const collectionIdHex = (+collectionUuid).toString(16).padStart(8, "0");
-  return web3.utils.toChecksumAddress(`0xBBBBBBBB${collectionIdHex}000000000000000000000000`);
-};
-
-/**
- * Saves tx costs(gas to a markdown file
- * @returns
- * @param costs Dictionary of gas costs for different function calls
- * @param filePath The file path to save the output
- * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
- */
-export const saveTxGas = (costs: { [key: string]: TxCosts }, filePath: string, header: string) => {
-  // Set string headers
-  let data: string = `## Generated tx costs(Gas) for ${header}\n\n`;
-  data += "| Function Call | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |\n";
-  data += "| :--- | :---: | :---: | :---: |\n";
-
-  // Iterate through functions and add gas prices
-  for (const key in costs) {
-    const value = costs[key];
-    data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
-  }
-
-  // Prettify data
-  data = CliPrettify.prettify(data);
-
-  // Save data to specified file path
-  writeFileSync(join("./test", filePath), data, {
-    flag: "w",
-  });
-};
-
-export const finalizeTx = (signer: KeyringPair, extrinsic: SubmittableExtrinsic<"promise">) => {
-  return new Promise<void>((resolve) => {
-    extrinsic.signAndSend(signer, ({ status }: any) => {
-      if (status.isInBlock) resolve();
-    });
-  });
-};
-
-/**
- * Saves tx costs(fees) to a markdown file
- * @returns
- * @param costs Dictionary of tx costs for different function calls
- * @param filePath The file path to save the output
- * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
- */
-export const saveTxFees = (costs: { [key: string]: TxCosts }, filePath: string, header: string) => {
-  // Set string headers
-  let data: string = `\n\n## Generated tx costs(fees) for ${header}\n\n`;
-  data += "| Function Call | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |\n";
-  data += "| :--- | :---: | :---: | :---: |\n";
-
-  // Iterate through functions and add tx fees
-  for (const key in costs) {
-    const value = costs[key];
-    data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
-  }
-
-  // Prettify data
-  data = CliPrettify.prettify(data);
-
-  // Save data to specified file path
-  writeFileSync(join("./test", filePath), data, {
-    flag: "a",
-  });
-};
-
-/**
- * Convert extrinsic fee to scaled gas
- * @param provider Provider to get fee data
- * @param fee Extrinsic fee
- */
-export async function getScaledGasForExtrinsicFee(provider: JsonRpcProvider, fee: BigNumber) {
-  // NOTE - What we do here is not exactly correct. If you want to get the actual equivalent gas for an extrinsic fee,
-  // first need to get the weight by reversing substrate tx fee formula. Then use that weight to get the correct gas by
-  // reversing runtime weight to gas mapping. But this is rather complex in ts context as the substrate tx formula
-  // depends on many factors.
-  const feeData = await provider.getFeeData();
-  return fee.div(feeData.gasPrice!);
-}
-
-/**
- * Converts a value in wei to 6 decimal places
- * @param value
- */
-export function weiTo6DP(value: BigNumber) {
-  const quotient = value.div(1000000000000n);
-  const remainder = value.mod(1000000000000n);
-
-  if (remainder.isZero()) {
-    return quotient;
-  } else {
-    return quotient.add(1n);
-  }
-}
 
 /**
  * createAssetUntil continously creates assets until asset with `assetId` exists

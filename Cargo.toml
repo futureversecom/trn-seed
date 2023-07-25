@@ -5,7 +5,7 @@ members = [
 	"pallet/*",
 	"runtime",
 	"runtime/constants",
-	"ethy-gadget",
+	# "ethy-gadget",
 	"evm-precompiles/*"
 ]
 
@@ -37,11 +37,10 @@ codegen-units = 1
 # substrate packages
 finality-grandpa = { opt-level = 3 }
 pallet-grandpa = { opt-level = 3 }
-sc-finality-grandpa = { opt-level = 3 }
+sc-consensus-grandpa = { opt-level = 3 }
 # end substrate packages
 aes = { opt-level = 3 }
 blake2 = { opt-level = 3 }
-blake2-rfc = { opt-level = 3 }
 blake2b_simd = { opt-level = 3 }
 blake2s_simd = { opt-level = 3 }
 chacha20poly1305 = { opt-level = 3 }

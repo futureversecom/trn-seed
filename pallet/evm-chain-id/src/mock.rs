@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -47,17 +43,17 @@ impl frame_system::Config for TestRuntime {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = BlockNumber;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -74,7 +70,7 @@ parameter_types! {
 	pub const DefaultChainId: u64 = 7672;
 }
 impl Config for TestRuntime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;
 	type DefaultChainId = DefaultChainId;
 	type WeightInfo = ();

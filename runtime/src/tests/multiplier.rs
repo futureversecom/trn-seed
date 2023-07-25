@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,8 +11,8 @@
 
 use super::*;
 use crate::{
-	AdjustmentVariable, MinimumMultiplier, Multiplier, RuntimeBlockWeights, TargetBlockFullness,
-	TargetedFeeAdjustment, Weight,
+	AdjustmentVariable, MaximumMultiplier, MinimumMultiplier, Multiplier, RuntimeBlockWeights,
+	TargetBlockFullness, TargetedFeeAdjustment, Weight,
 };
 use frame_support::weights::DispatchClass;
 use sp_runtime::{
@@ -25,29 +21,31 @@ use sp_runtime::{
 	FixedPointNumber,
 };
 
-fn max_normal() -> Weight {
+fn max_normal() -> u64 {
 	RuntimeBlockWeights::get()
 		.get(DispatchClass::Normal)
 		.max_total
 		.unwrap_or_else(|| RuntimeBlockWeights::get().max_block)
+		.ref_time()
 }
 
 fn min_multiplier() -> Multiplier {
 	MinimumMultiplier::get()
 }
 
-fn target() -> Weight {
+fn target() -> u64 {
 	TargetBlockFullness::get() * max_normal()
 }
 
 // update based on runtime impl.
 fn runtime_multiplier_update(fm: Multiplier) -> Multiplier {
 	TargetedFeeAdjustment::<
-			Runtime,
-			TargetBlockFullness,
-			AdjustmentVariable,
-			MinimumMultiplier,
-		>::convert(fm)
+		Runtime,
+		TargetBlockFullness,
+		AdjustmentVariable,
+		MinimumMultiplier,
+		MaximumMultiplier,
+	>::convert(fm)
 }
 
 // update based on reference impl.
@@ -60,7 +58,7 @@ fn truth_value_update(block_weight: Weight, previous: Multiplier) -> Multiplier 
 	// maximum tx weight
 	let m = max_normal() as f64;
 	// block weight always truncated to max weight
-	let block_weight = (block_weight as f64).min(m);
+	let block_weight = (block_weight.ref_time() as f64).min(m);
 	let v: f64 = AdjustmentVariable::get().to_float();
 
 	// Ideal saturation in terms of weight
@@ -100,9 +98,9 @@ fn truth_value_update_poc_works() {
 		(max_normal(), fm),
 	];
 	test_set.into_iter().for_each(|(w, fm)| {
-		run_with_system_weight(w, || {
+		run_with_system_weight(Weight::from_parts(w, 0), || {
 			assert_eq_error_rate!(
-				truth_value_update(w, fm),
+				truth_value_update(Weight::from_parts(w, 0), fm),
 				runtime_multiplier_update(fm),
 				// Error is only 1 in 100^18
 				Multiplier::from_inner(100),
@@ -115,7 +113,7 @@ fn truth_value_update_poc_works() {
 fn multiplier_can_grow_from_zero() {
 	// if the min is too small, then this will not change, and we are doomed forever.
 	// the weight is 1/100th bigger than target.
-	run_with_system_weight(target() * 101 / 100, || {
+	run_with_system_weight(Weight::from_parts(target() * 101 / 100, 0), || {
 		let next = runtime_multiplier_update(min_multiplier());
 		assert!(next > min_multiplier(), "{:?} !>= {:?}", next, min_multiplier());
 	})
@@ -124,7 +122,7 @@ fn multiplier_can_grow_from_zero() {
 #[test]
 fn multiplier_cannot_go_below_limit() {
 	// will not go any further below even if block is empty.
-	run_with_system_weight(0, || {
+	run_with_system_weight(Weight::zero(), || {
 		let next = runtime_multiplier_update(min_multiplier());
 		assert_eq!(next, min_multiplier());
 	})
@@ -132,7 +130,7 @@ fn multiplier_cannot_go_below_limit() {
 
 #[test]
 fn weight_mul_grow_on_big_block() {
-	run_with_system_weight(target() * 2, || {
+	run_with_system_weight(Weight::from_parts(target() * 2, 0), || {
 		let mut original = Multiplier::zero();
 		let mut next = Multiplier::default();
 
@@ -140,7 +138,7 @@ fn weight_mul_grow_on_big_block() {
 			next = runtime_multiplier_update(original);
 			assert_eq_error_rate!(
 				next,
-				truth_value_update(target() * 2, original),
+				truth_value_update(Weight::from_parts(target() * 2, 0), original),
 				Multiplier::from_inner(100),
 			);
 			// must always increase
@@ -152,7 +150,7 @@ fn weight_mul_grow_on_big_block() {
 
 #[test]
 fn weight_mul_decrease_on_small_block() {
-	run_with_system_weight(target() / 2, || {
+	run_with_system_weight(Weight::from_parts(target() / 2, 0), || {
 		let mut original = Multiplier::saturating_from_rational(1, 2);
 		let mut next;
 
@@ -167,27 +165,27 @@ fn weight_mul_decrease_on_small_block() {
 
 #[test]
 fn weight_to_fee_should_not_overflow_on_large_weights() {
-	let kb = 1024 as Weight;
+	let kb = 1024;
 	let mb = kb * kb;
 	let max_fm = Multiplier::saturating_from_integer(i128::MAX);
 
 	// check that for all values it can compute, correctly.
 	vec![
-		0,
-		1,
-		10,
-		1000,
-		kb,
-		10 * kb,
-		100 * kb,
-		mb,
-		10 * mb,
-		2147483647,
-		4294967295,
+		Weight::from_parts(0, 0),
+		Weight::from_parts(1, 0),
+		Weight::from_parts(10, 0),
+		Weight::from_parts(1000, 0),
+		Weight::from_parts(kb, 0),
+		Weight::from_parts(10 * kb, 0),
+		Weight::from_parts(100 * kb, 0),
+		Weight::from_parts(mb, 0),
+		Weight::from_parts(10 * mb, 0),
+		Weight::from_parts(2147483647, 0),
+		Weight::from_parts(4294967295, 0),
 		RuntimeBlockWeights::get().max_block / 2,
 		RuntimeBlockWeights::get().max_block,
-		Weight::max_value() / 2,
-		Weight::max_value(),
+		Weight::MAX / 2,
+		Weight::MAX,
 	]
 	.into_iter()
 	.for_each(|i| {
@@ -201,7 +199,7 @@ fn weight_to_fee_should_not_overflow_on_large_weights() {
 	// Some values that are all above the target and will cause an increase.
 	let t = target();
 	vec![t + 100, t * 2, t * 4].into_iter().for_each(|i| {
-		run_with_system_weight(i, || {
+		run_with_system_weight(Weight::from_parts(i, 0), || {
 			let fm = runtime_multiplier_update(max_fm);
 			// won't grow. The convert saturates everything.
 			assert_eq!(fm, max_fm);

@@ -6,11 +6,9 @@ edition = "2021"
 license = "GPL-3.0"
 
 [dependencies]
-sp-api = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-frame-system = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
-sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.42" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.42" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.42" }
 pallet-dex = { path = "../../", default-features = false }
 seed-primitives = { path = "../../../../primitives", default-features = false}
 

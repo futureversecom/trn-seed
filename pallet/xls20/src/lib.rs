@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,7 +20,7 @@
 use frame_support::{
 	ensure,
 	pallet_prelude::*,
-	traits::{fungibles::Transfer, Get},
+	traits::{fungibles::Mutate, Get},
 	transactional,
 };
 use frame_system::pallet_prelude::*;
@@ -60,18 +56,17 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Max amount of tokens that can be minted in a single XLS-20 mint request
 		type MaxTokensPerXls20Mint: Get<u32>;
 		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: Transfer<Self::AccountId, Balance = Balance, AssetId = AssetId>;
+		type MultiCurrency: Mutate<Self::AccountId, Balance = Balance, AssetId = AssetId>;
 		/// Interface to access weight values
 		type WeightInfo: WeightInfo;
 		/// NFT ownership interface
@@ -136,6 +131,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set the relayer address
+		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_relayer())]
 		pub fn set_relayer(origin: OriginFor<T>, relayer: T::AccountId) -> DispatchResult {
 			ensure_root(origin)?;
@@ -148,6 +144,7 @@ pub mod pallet {
 		/// This covers the additional costs incurred by the relayer for the following:
 		///  - Minting the token on XRPL
 		///  - Calling fulfill_xls20_mint on The Root Network
+		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_xls20_fee())]
 		pub fn set_xls20_fee(origin: OriginFor<T>, new_fee: Balance) -> DispatchResult {
 			ensure_root(origin)?;
@@ -159,6 +156,7 @@ pub mod pallet {
 		/// Enables XLS-20 compatibility on a collection
 		///  - Collection must not have any tokens minted
 		///  - Caller must be collection owner
+		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::enable_xls20_compatibility())]
 		pub fn enable_xls20_compatibility(
 			origin: OriginFor<T>,
@@ -171,6 +169,7 @@ pub mod pallet {
 		}
 
 		// Collection owners can re-request XLS-20 mints on tokens that have failed
+		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::re_request_xls20_mint())]
 		#[transactional]
 		pub fn re_request_xls20_mint(
@@ -213,6 +212,7 @@ pub mod pallet {
 		/// Submit XLS-20 token ids to The Root Network
 		/// Only callable by the trusted relayer account
 		/// Can apply multiple mappings from the same collection in one transaction
+		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::fulfill_xls20_mint())]
 		#[transactional]
 		pub fn fulfill_xls20_mint(
@@ -267,7 +267,7 @@ impl<T: Config> Pallet<T> {
 				who,
 				&relayer,
 				mint_fee,
-				false,
+				frame_support::traits::tokens::Preservation::Expendable,
 			)?;
 			Self::deposit_event(Event::<T>::Xls20MintFeePaid {
 				collection_owner: who.clone(),

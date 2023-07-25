@@ -48,21 +48,6 @@ describe("TxFeePot fees accruel", () => {
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
 
     xrpInitialIssuance = +(await api.query.balances.totalIssuance()).toString();
-
-    // common Test Contract deployment to be use by all the tests
-    const fees = await provider.getFeeData();
-    const factory = new ethers.ContractFactory(TestCallData.abi, TestCallData.bytecode, alithSigner);
-    const estimatedGas = await provider.estimateGas(factory.getDeployTransaction());
-
-    test = (await factory.connect(alithSigner).deploy({
-      gasLimit: estimatedGas,
-      maxFeePerGas: fees.lastBaseFeePerGas!,
-      maxPriorityFeePerGas: 0,
-    })) as TestCall;
-    await test.deployTransaction.wait();
-    console.log("TestCall deployed to:", test.address);
-
-    // record the fees now.
     accruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
   });
 
@@ -70,7 +55,6 @@ describe("TxFeePot fees accruel", () => {
 
   it("Contract creation transaction accrues base fee in TxFeePot", async () => {
     const fees = await provider.getFeeData();
-    accruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
 
     const factory = new ethers.ContractFactory(TestCallData.abi, TestCallData.bytecode, alithSigner);
     const estimatedGas = await provider.estimateGas(factory.getDeployTransaction());
@@ -83,19 +67,20 @@ describe("TxFeePot fees accruel", () => {
     const receipt = await test.deployTransaction.wait();
     console.log("TestCall deployed to:", test.address);
 
-    const feesFromContractDeployment = fees
-      .lastBaseFeePerGas!.mul(receipt.gasUsed)
+    const feesFromContractDeployment = receipt.effectiveGasPrice
+      ?.mul(estimatedGas)
       .div(10 ** 12)
       .toNumber();
     const currentAccruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
     expect(currentAccruedFees - accruedFees)
       .to.be.greaterThanOrEqual(feesFromContractDeployment)
       .and.lessThanOrEqual(feesFromContractDeployment + 1); // account for rounding errors
+
+    accruedFees = currentAccruedFees;
   });
 
   it("Contract call transaction accrues base fee in TxFeePot", async () => {
     const fees = await provider.getFeeData();
-    accruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
 
     const gasEstimate = await test.estimateGas.set(1, {
       maxFeePerGas: fees.lastBaseFeePerGas!,
@@ -108,20 +93,20 @@ describe("TxFeePot fees accruel", () => {
     });
     const receipt = await tx.wait();
 
-    const feesFromContractCall = fees
-      .lastBaseFeePerGas!.mul(receipt.gasUsed)
+    const feesFromContractCall = receipt.effectiveGasPrice
+      ?.mul(gasEstimate)
       .div(10 ** 12)
       .toNumber();
     const currentAccruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
     expect(currentAccruedFees - accruedFees)
       .to.be.greaterThanOrEqual(feesFromContractCall)
       .and.lessThanOrEqual(feesFromContractCall + 1); // account for rounding errors
+
+    accruedFees = currentAccruedFees;
   });
 
   // This should not exist here but the tests are failing without it :(
-  it("Extrinsic transactions accrue fee in TxFeePot", async () => {
-    accruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
-
+  it("Extrinsic transactions accrue base fee in TxFeePot", async () => {
     const tx = api.tx.assets.mint(
       // mint 1M tokens (18 decimals) to alith
       FIRST_ASSET_ID,
@@ -140,11 +125,12 @@ describe("TxFeePot fees accruel", () => {
     expect(currentAccruedFees - accruedFees)
       .to.be.greaterThan(feesFromExtrinsicLower)
       .and.lessThan(feesFromExtrinsicUpper);
+
+    accruedFees = currentAccruedFees;
   });
 
   it("Pre-compile contract transaction accrues base fee in TxFeePot", async () => {
     const fees = await provider.getFeeData();
-    accruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
 
     const erc20Token = FIRST_ASSET_ID.toString(16).padStart(8, "0");
     const erc20TokenAddress = web3.utils.toChecksumAddress(`0xCCCCCCCC${erc20Token}000000000000000000000000`);
@@ -158,14 +144,16 @@ describe("TxFeePot fees accruel", () => {
     });
     const receipt = await tx.wait();
 
-    const feesFromPrecompile = fees
-      .lastBaseFeePerGas!.mul(receipt.gasUsed)
+    const feesFromPrecompile = receipt.effectiveGasPrice
+      ?.mul(gasEstimate)
       .div(10 ** 12)
       .toNumber();
     const currentAccruedFees = +(await api.query.txFeePot.eraTxFees()).toString();
     expect(currentAccruedFees - accruedFees)
       .to.be.greaterThanOrEqual(feesFromPrecompile)
       .and.lessThanOrEqual(feesFromPrecompile + 1); // account for rounding errors
+
+    accruedFees = currentAccruedFees;
   });
 
   it("XRP total issuance remains unchanged", async () => {

@@ -13,7 +13,6 @@ pub mod pallet_futurepass;
 pub mod pallet_im_online;
 pub mod pallet_nft;
 pub mod pallet_nft_peg;
-pub mod pallet_sft;
 pub mod pallet_timestamp;
 pub mod pallet_token_approvals;
 pub mod pallet_utility;

@@ -1,17 +1,17 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
+
+mod dex;
+mod nft;
+mod xrpl_bridge;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
@@ -30,17 +30,27 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
+		nft::Upgrade::pre_upgrade()?;
+		xrpl_bridge::Upgrade::pre_upgrade()?;
+		dex::Upgrade::pre_upgrade()?;
+
 		Ok(())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let weight = Weight::from(0u32);
+		let mut weight = Weight::from_all(0);
+		weight += xrpl_bridge::Upgrade::on_runtime_upgrade();
+		weight += dex::Upgrade::on_runtime_upgrade();
 
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
+		nft::Upgrade::post_upgrade()?;
+		xrpl_bridge::Upgrade::post_upgrade()?;
+		dex::Upgrade::post_upgrade()?;
+
 		Ok(())
 	}
 }

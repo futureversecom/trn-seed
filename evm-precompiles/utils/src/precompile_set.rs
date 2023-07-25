@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,7 +14,7 @@
 //! default and must be disabled explicely throught type annotations.
 
 use crate::{revert, StatefulPrecompile};
-use fp_evm::{Precompile, PrecompileHandle, PrecompileResult, PrecompileSet};
+use fp_evm::{IsPrecompileResult, Precompile, PrecompileHandle, PrecompileResult, PrecompileSet};
 use frame_support::pallet_prelude::Get;
 use impl_trait_for_tuples::impl_for_tuples;
 use pallet_evm::AddressMapping;
@@ -113,7 +109,7 @@ pub trait PrecompileSetFragment {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult>;
 
 	/// Is the provided address a precompile in this fragment?
-	fn is_precompile(&self, address: H160) -> bool;
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult;
 
 	/// Return the list of addresses covered by this fragment.
 	fn used_addresses(&self) -> Vec<H160>;
@@ -191,8 +187,8 @@ where
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
-		address == A::get()
+	fn is_precompile(&self, address: H160, _: u64) -> IsPrecompileResult {
+		IsPrecompileResult::Answer { is_precompile: address == A::get(), extra_cost: 0 }
 	}
 
 	#[inline(always)]
@@ -278,8 +274,8 @@ where
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
-		address == A::get()
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
+		IsPrecompileResult::Answer { is_precompile: address == A::get(), extra_cost: 0 }
 	}
 
 	#[inline(always)]
@@ -319,8 +315,12 @@ where
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
 		let code_address = handle.code_address();
 
-		if !self.is_precompile(code_address) {
-			return None
+		if let IsPrecompileResult::Answer { is_precompile, .. } =
+			self.is_precompile(code_address, 0)
+		{
+			if !is_precompile {
+				return None
+			}
 		}
 
 		// Check DELEGATECALL config.
@@ -369,8 +369,16 @@ where
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
-		address.as_bytes().starts_with(A::get()) && self.precompile_set.is_precompile(address)
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
+		let is_precompile = match self.precompile_set.is_precompile(address, remaining_gas) {
+			IsPrecompileResult::Answer { is_precompile, .. } => is_precompile,
+			IsPrecompileResult::OutOfGas => false,
+		};
+
+		IsPrecompileResult::Answer {
+			is_precompile: address.as_bytes().starts_with(A::get()) && is_precompile,
+			extra_cost: 0,
+		}
 	}
 
 	#[inline(always)]
@@ -403,8 +411,8 @@ where
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
-		address == A::get()
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
+		IsPrecompileResult::Answer { is_precompile: address == A::get(), extra_cost: 0 }
 	}
 
 	#[inline(always)]
@@ -435,14 +443,12 @@ impl PrecompileSetFragment for Tuple {
 	}
 
 	#[inline(always)]
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
 		for_tuples!(#(
-			if self.Tuple.is_precompile(address) {
-				return true;
-			}
+			return self.Tuple.is_precompile(address, remaining_gas);
 		)*);
 
-		false
+		IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 	}
 
 	#[inline(always)]
@@ -488,11 +494,11 @@ where
 		}
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
 		if self.range.contains(&address) {
-			self.inner.is_precompile(address)
+			self.inner.is_precompile(address, remaining_gas)
 		} else {
-			false
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 		}
 	}
 
@@ -512,8 +518,8 @@ impl<R, P: PrecompileSetFragment> PrecompileSet for PrecompileSetBuilder<R, P> {
 		self.inner.execute(handle)
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
-		self.inner.is_precompile(address)
+	fn is_precompile(&self, address: H160, remaining_gas: u64) -> IsPrecompileResult {
+		self.inner.is_precompile(address, remaining_gas)
 	}
 }
 

@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -51,17 +47,17 @@ impl frame_system::Config for TestRuntime {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = BlockNumber;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -78,7 +74,7 @@ parameter_types! {
 	pub const MockEchoPalletId: PalletId = PalletId(*b"pingpong");
 }
 impl Config for TestRuntime {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type EthereumBridge = MockBridge;
 	type PalletId = MockEchoPalletId;
 	type WeightInfo = ();
@@ -144,7 +140,7 @@ impl EthereumEventRouterT for MockEthereumEventRouter {
 			)
 			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		} else {
-			Err((0, EventRouterError::NoReceiver))
+			Err((0.into(), EventRouterError::NoReceiver))
 		}
 	}
 }
@@ -171,7 +167,7 @@ pub(crate) fn has_event(event: crate::Event) -> bool {
 		.into_iter()
 		.map(|r| r.event)
 		// .filter_map(|e| if let Event::Nft(inner) = e { Some(inner) } else { None })
-		.find(|e| *e == Event::Echo(event.clone()))
+		.find(|e| *e == RuntimeEvent::Echo(event.clone()))
 		.is_some()
 }
 

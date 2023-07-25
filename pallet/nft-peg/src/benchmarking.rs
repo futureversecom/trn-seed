@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -65,7 +61,7 @@ benchmarks! {
 		assert_ok!(NftPeg::do_deposit(token_info, alice.clone().into()));
 
 		// Sanity Check
-		let collection_info: CollectionInformation<T::AccountId, T::MaxTokensPerCollection, T::StringLimit> = CollectionInfo::<T>::get(coll_id).expect("Collection exists");
+		let collection_info: CollectionInformation<T::AccountId, T::MaxTokensPerCollection> = CollectionInfo::<T>::get(coll_id).expect("Collection exists");
 		for serial_id in &serial_numbers {
 			assert!(collection_info.token_exists(*serial_id));
 		}

@@ -21,15 +21,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // Go to https://hardhat.org/config/ to learn more
 
 const config: HardhatUserConfig = {
-  solidity: {
-    version: "0.8.17",
-    // settings: {
-    //   optimizer: {
-    //     enabled: true,
-    //     runs: 200,
-    //   },
-    // },
-  },
+  solidity: "0.8.17",
   networks: {
     hardhat: {
       chainId: 1337,

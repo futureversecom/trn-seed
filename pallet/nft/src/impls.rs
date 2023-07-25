@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,8 +17,7 @@ use seed_pallet_common::{
 	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
 };
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId,
+	AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenCount, TokenId,
 };
 use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
 
@@ -113,10 +108,7 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::MarketplaceNotRegistered
 		);
 		if let Some(marketplace) = Self::registered_marketplaces(marketplace_id) {
-			royalties
-				.entitlements
-				.try_push((marketplace.account, marketplace.entitlement))
-				.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
+			royalties.entitlements.push((marketplace.account, marketplace.entitlement));
 		}
 		ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
 		Ok(royalties)
@@ -130,8 +122,6 @@ impl<T: Config> Pallet<T> {
 		current_owner: &T::AccountId,
 		new_owner: &T::AccountId,
 	) -> DispatchResult {
-		ensure!(current_owner != new_owner, Error::<T>::InvalidNewOwner);
-
 		CollectionInfo::<T>::try_mutate(collection_id, |maybe_collection_info| -> DispatchResult {
 			let collection_info =
 				maybe_collection_info.as_mut().ok_or(Error::<T>::NoCollectionFound)?;
@@ -148,10 +138,10 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 
-			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
 			collection_info
 				.add_user_tokens(new_owner, serial_numbers.clone())
 				.map_err(|e| Error::<T>::from(e))?;
+			collection_info.remove_user_tokens(current_owner, serial_numbers.clone());
 
 			for serial_number in serial_numbers.clone().iter() {
 				T::OnTransferSubscription::on_nft_transfer(&(collection_id, *serial_number));
@@ -176,7 +166,7 @@ impl<T: Config> Pallet<T> {
 		serial_numbers: Vec<SerialNumber>,
 	) -> Weight {
 		if serial_numbers.is_empty() {
-			return 0 as Weight
+			return Weight::zero()
 		};
 
 		let collection_info = match Self::collection_info(collection_id) {
@@ -209,8 +199,7 @@ impl<T: Config> Pallet<T> {
 			})
 			.collect::<Vec<SerialNumber>>();
 
-		let serial_numbers: Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, ()> =
-			BoundedVec::try_from(serial_numbers_trimmed);
+		let serial_numbers = BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
 				let _ = Self::do_mint(collection_id, collection_info, &owner, &serial_numbers);
@@ -236,11 +225,7 @@ impl<T: Config> Pallet<T> {
 	pub fn pre_mint(
 		who: &T::AccountId,
 		quantity: TokenCount,
-		collection_info: &CollectionInformation<
-			T::AccountId,
-			T::MaxTokensPerCollection,
-			T::StringLimit,
-		>,
+		collection_info: &CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
 	) -> Result<BoundedVec<SerialNumber, T::MaxTokensPerCollection>, DispatchError> {
 		// Quantity must be some
 		ensure!(quantity > Zero::zero(), Error::<T>::NoToken);
@@ -284,11 +269,7 @@ impl<T: Config> Pallet<T> {
 	/// Perform the mint operation and update storage accordingly.
 	pub(crate) fn do_mint(
 		collection_id: CollectionUuid,
-		collection_info: CollectionInformation<
-			T::AccountId,
-			T::MaxTokensPerCollection,
-			T::StringLimit,
-		>,
+		collection_info: CollectionInformation<T::AccountId, T::MaxTokensPerCollection>,
 		token_owner: &T::AccountId,
 		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 	) -> DispatchResult {
@@ -554,7 +535,7 @@ impl<T: Config> Pallet<T> {
 	/// Create the collection
 	pub fn do_create_collection(
 		owner: T::AccountId,
-		name: BoundedVec<u8, T::StringLimit>,
+		name: CollectionNameType,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<T::AccountId>,
@@ -577,7 +558,10 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Validate collection attributes
-		ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
+		ensure!(
+			!name.is_empty() && name.len() <= MAX_COLLECTION_NAME_LENGTH as usize,
+			Error::<T>::CollectionNameInvalid
+		);
 		ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
 		if let Some(royalties_schedule) = royalties_schedule.clone() {
 			ensure!(royalties_schedule.validate(), Error::<T>::RoyaltiesInvalid);
@@ -633,7 +617,7 @@ impl<T: Config> Pallet<T> {
 			max_issuance,
 			collection_owner: owner,
 			metadata_scheme,
-			name: name.into_inner(),
+			name,
 			royalties_schedule,
 			origin_chain,
 			compatibility: cross_chain_compatibility,
@@ -700,7 +684,6 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> NFTExt for Pallet<T> {
 	type AccountId = T::AccountId;
 	type MaxTokensPerCollection = T::MaxTokensPerCollection;
-	type StringLimit = T::StringLimit;
 
 	fn do_mint(
 		origin: Self::AccountId,
@@ -713,7 +696,7 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn do_create_collection(
 		owner: Self::AccountId,
-		name: BoundedVec<u8, Self::StringLimit>,
+		name: CollectionNameType,
 		initial_issuance: TokenCount,
 		max_issuance: Option<TokenCount>,
 		token_owner: Option<Self::AccountId>,
@@ -743,10 +726,8 @@ impl<T: Config> NFTExt for Pallet<T> {
 
 	fn get_collection_info(
 		collection_id: CollectionUuid,
-	) -> Result<
-		CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection, Self::StringLimit>,
-		DispatchError,
-	> {
+	) -> Result<CollectionInformation<Self::AccountId, Self::MaxTokensPerCollection>, DispatchError>
+	{
 		CollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound.into())
 	}
 
@@ -755,15 +736,5 @@ impl<T: Config> NFTExt for Pallet<T> {
 		collection_id: CollectionUuid,
 	) -> DispatchResult {
 		Self::enable_xls20_compatibility(who, collection_id)
-	}
-
-	fn next_collection_uuid() -> Result<CollectionUuid, DispatchError> {
-		Self::next_collection_uuid()
-	}
-
-	fn increment_collection_id() -> DispatchResult {
-		ensure!(<NextCollectionId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
-		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
-		Ok(())
 	}
 }

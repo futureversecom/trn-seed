@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,8 +10,12 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_xls20;
-use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
-use frame_system::{limits, EnsureRoot};
+use frame_support::{
+	parameter_types,
+	traits::{AsEnsureOriginWithArg, GenesisBuild},
+	PalletId,
+};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber};
 use seed_primitives::{AccountId, AssetId, Balance, TokenId};
 use sp_core::{H160, H256};
@@ -58,17 +58,17 @@ impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = BlockLength;
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -88,11 +88,12 @@ parameter_types! {
 	pub const AssetsStringLimit: u32 = 50;
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
+	pub const RemoveItemsLimit: u32 = 656;
 }
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -106,6 +107,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = RemoveItemsLimit;
+	type AssetIdParameter = AssetId;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureNever<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
@@ -115,7 +120,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -126,7 +131,7 @@ impl pallet_assets_ext::Config for Test {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -159,12 +164,11 @@ parameter_types! {
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const MintLimit: u32 = 100;
-	pub const StringLimit: u32 = 50;
 }
 
 impl pallet_nft::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
@@ -173,7 +177,6 @@ impl pallet_nft::Config for Test {
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
-	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = Xls20;
 }
@@ -182,7 +185,7 @@ parameter_types! {
 	pub const MaxTokensPerXls20Mint: u32 = 1000;
 }
 impl crate::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
@@ -232,7 +235,7 @@ pub(crate) fn has_event(event: crate::Event<Test>) -> bool {
 		.into_iter()
 		.map(|r| r.event)
 		// .filter_map(|e| if let Event::Nft(inner) = e { Some(inner) } else { None })
-		.find(|e| *e == Event::Xls20(event.clone()))
+		.find(|e| *e == RuntimeEvent::Xls20(event.clone()))
 		.is_some()
 }
 

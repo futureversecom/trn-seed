@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -133,7 +129,7 @@ fn submit_event() {
 
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		assert_ok!(EthBridge::submit_event(
-			Origin::signed(relayer.into()),
+			RuntimeOrigin::signed(relayer.into()),
 			tx_hash.clone(),
 			event_data.clone(),
 		));
@@ -152,7 +148,11 @@ fn submit_event_relayer_only() {
 	ExtBuilder::default().build().execute_with(|| {
 		let not_relayer = H160::from_low_u64_be(11);
 		assert_noop!(
-			EthBridge::submit_event(Origin::signed(not_relayer.into()), H256::default(), vec![]),
+			EthBridge::submit_event(
+				RuntimeOrigin::signed(not_relayer.into()),
+				H256::default(),
+				vec![]
+			),
 			Error::<TestRuntime>::NoPermission
 		);
 	});
@@ -166,7 +166,7 @@ fn submit_event_bad_encoding() {
 
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		assert_noop!(
-			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data),
+			EthBridge::submit_event(RuntimeOrigin::signed(relayer.into()), tx_hash, event_data),
 			Error::<TestRuntime>::InvalidClaim
 		);
 	});
@@ -185,13 +185,13 @@ fn submit_event_tracks_pending() {
 
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		assert_ok!(EthBridge::submit_event(
-			Origin::signed(relayer.into()),
+			RuntimeOrigin::signed(relayer.into()),
 			tx_hash.clone(),
 			event_data.clone(),
 		));
 
 		assert_noop!(
-			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data),
+			EthBridge::submit_event(RuntimeOrigin::signed(relayer.into()), tx_hash, event_data),
 			Error::<TestRuntime>::EventReplayPending
 		);
 	});
@@ -210,7 +210,7 @@ fn submit_event_tracks_completed() {
 
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		assert_ok!(EthBridge::submit_event(
-			Origin::signed(relayer.into()),
+			RuntimeOrigin::signed(relayer.into()),
 			tx_hash.clone(),
 			event_data.clone(),
 		));
@@ -220,7 +220,7 @@ fn submit_event_tracks_completed() {
 		EthBridge::on_initialize(process_at);
 
 		assert_noop!(
-			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data),
+			EthBridge::submit_event(RuntimeOrigin::signed(relayer.into()), tx_hash, event_data),
 			Error::<TestRuntime>::EventReplayProcessed
 		);
 	});
@@ -244,7 +244,7 @@ fn deposit_relayer_bond_works() {
 		.with_endowed_account(relayer, RelayerBond::get())
 		.build()
 		.execute_with(|| {
-			assert_ok!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())));
+			assert_ok!(EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())));
 			assert_eq!(
 				AssetsExt::hold_balance(&BridgePalletId::get(), &relayer.into(), &XRP_ASSET_ID),
 				RelayerBond::get()
@@ -252,7 +252,7 @@ fn deposit_relayer_bond_works() {
 
 			// Subsequent deposits should fail
 			assert_noop!(
-				EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())),
+				EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())),
 				Error::<TestRuntime>::CantBondRelayer
 			);
 
@@ -278,7 +278,7 @@ fn deposit_relayer_bond_no_balance_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Subsequent deposits should fail
 		assert_noop!(
-			EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())),
+			EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())),
 			pallet_balances::Error::<TestRuntime>::InsufficientBalance
 		);
 	});
@@ -293,16 +293,16 @@ fn withdraw_relayer_bond_works() {
 		.execute_with(|| {
 			// Withdraw with no bond set should fail
 			assert_noop!(
-				EthBridge::withdraw_relayer_bond(Origin::signed(relayer.into())),
+				EthBridge::withdraw_relayer_bond(RuntimeOrigin::signed(relayer.into())),
 				Error::<TestRuntime>::CantUnbondRelayer
 			);
 
 			// Submit bond
-			assert_ok!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())));
+			assert_ok!(EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())));
 			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), RelayerBond::get());
 
 			// Withdraw bond
-			assert_ok!(EthBridge::withdraw_relayer_bond(Origin::signed(relayer.into())));
+			assert_ok!(EthBridge::withdraw_relayer_bond(RuntimeOrigin::signed(relayer.into())));
 
 			// Check storage
 			assert_eq!(EthBridge::relayer_paid_bond(AccountId::from(relayer)), 0);
@@ -317,7 +317,7 @@ fn withdraw_active_relayer_bond_should_fail() {
 		.build()
 		.execute_with(|| {
 			// Submit bond
-			assert_ok!(EthBridge::deposit_relayer_bond(Origin::signed(relayer.into())));
+			assert_ok!(EthBridge::deposit_relayer_bond(RuntimeOrigin::signed(relayer.into())));
 
 			// Setting relayer should work
 			assert_ok!(EthBridge::set_relayer(
@@ -327,7 +327,7 @@ fn withdraw_active_relayer_bond_should_fail() {
 
 			// Withdraw bond
 			assert_noop!(
-				EthBridge::withdraw_relayer_bond(Origin::signed(relayer.into())),
+				EthBridge::withdraw_relayer_bond(RuntimeOrigin::signed(relayer.into())),
 				Error::<TestRuntime>::CantUnbondRelayer
 			);
 		});
@@ -349,19 +349,22 @@ fn submit_challenge() {
 		.execute_with(|| {
 			// No event claim should fail
 			assert_noop!(
-				EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id),
+				EthBridge::submit_challenge(RuntimeOrigin::signed(challenger.into()), event_id),
 				Error::<TestRuntime>::NoClaim
 			);
 
 			// Submit event
 			assert_ok!(EthBridge::submit_event(
-				Origin::signed(relayer.into()),
+				RuntimeOrigin::signed(relayer.into()),
 				tx_hash.clone(),
 				event_data.clone(),
 			));
 
 			// Submit challenge
-			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id));
+			assert_ok!(EthBridge::submit_challenge(
+				RuntimeOrigin::signed(challenger.into()),
+				event_id
+			));
 			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id]);
 			assert_eq!(
 				EthBridge::challenger_account(event_id),
@@ -374,7 +377,7 @@ fn submit_challenge() {
 
 			// Subsequent challenges on the same event_id should fail
 			assert_noop!(
-				EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id),
+				EthBridge::submit_challenge(RuntimeOrigin::signed(challenger.into()), event_id),
 				Error::<TestRuntime>::ClaimAlreadyChallenged
 			);
 		});
@@ -392,14 +395,14 @@ fn submit_challenge_no_balance_should_fail() {
 	ExtBuilder::default().relayer(relayer).build().execute_with(|| {
 		// Submit event
 		assert_ok!(EthBridge::submit_event(
-			Origin::signed(relayer.into()),
+			RuntimeOrigin::signed(relayer.into()),
 			tx_hash.clone(),
 			event_data.clone(),
 		));
 
 		// Submit challenge with no balance should fail
 		assert_noop!(
-			EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id),
+			EthBridge::submit_challenge(RuntimeOrigin::signed(challenger.into()), event_id),
 			pallet_balances::Error::<TestRuntime>::InsufficientBalance
 		);
 	});
@@ -435,7 +438,7 @@ fn handle_event_notarization_valid_claims() {
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
-				Origin::signed(relayer.into()),
+				RuntimeOrigin::signed(relayer.into()),
 				tx_hash_1.clone(),
 				event_data_1.clone(),
 			));
@@ -445,7 +448,7 @@ fn handle_event_notarization_valid_claims() {
 			);
 			// Submit Event 2
 			assert_ok!(EthBridge::submit_event(
-				Origin::signed(relayer.into()),
+				RuntimeOrigin::signed(relayer.into()),
 				tx_hash_2.clone(),
 				event_data_2.clone(),
 			));
@@ -455,9 +458,15 @@ fn handle_event_notarization_valid_claims() {
 			);
 
 			// Submit challenge 1
-			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			assert_ok!(EthBridge::submit_challenge(
+				RuntimeOrigin::signed(challenger.into()),
+				event_id_1
+			));
 			// Submit challenge 2
-			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_2));
+			assert_ok!(EthBridge::submit_challenge(
+				RuntimeOrigin::signed(challenger.into()),
+				event_id_2
+			));
 			// Check storage
 			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1, event_id_2]);
 			assert_eq!(
@@ -557,13 +566,16 @@ fn process_valid_challenged_event() {
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
-				Origin::signed(relayer.into()),
+				RuntimeOrigin::signed(relayer.into()),
 				tx_hash_1.clone(),
 				event_data_1.clone(),
 			));
 
 			// Submit challenge 1
-			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			assert_ok!(EthBridge::submit_challenge(
+				RuntimeOrigin::signed(challenger.into()),
+				event_id_1
+			));
 			assert_eq!(
 				EthBridge::challenger_account(event_id_1),
 				Some((AccountId::from(challenger), ChallengerBond::get()))
@@ -618,7 +630,7 @@ fn process_valid_challenged_event() {
 			// Weight returned should include the 1000 that we specified in our mock
 			assert_eq!(
 				EthBridge::on_initialize(process_at),
-				DbWeight::get().reads(2 as Weight) + 1000 as Weight
+				DbWeight::get().reads(2) + 1000.into()
 			);
 
 			// Storage should now be fully cleared
@@ -660,13 +672,16 @@ fn process_valid_challenged_event_delayed() {
 			let process_at_extended = process_at + EthBridge::challenge_period();
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
-				Origin::signed(relayer.into()),
+				RuntimeOrigin::signed(relayer.into()),
 				tx_hash_1.clone(),
 				event_data_1.clone(),
 			));
 
 			// Submit challenge 1
-			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			assert_ok!(EthBridge::submit_challenge(
+				RuntimeOrigin::signed(challenger.into()),
+				event_id_1
+			));
 
 			assert_eq!(
 				EthBridge::pending_claim_status(event_id_1),
@@ -677,7 +692,7 @@ fn process_valid_challenged_event_delayed() {
 
 			// Weight returned should not include the 1000 that we specified in our mock as a
 			// consensus has not been reached
-			assert_eq!(EthBridge::on_initialize(process_at), DbWeight::get().reads(2 as Weight));
+			assert_eq!(EthBridge::on_initialize(process_at), DbWeight::get().reads(2));
 
 			assert_eq!(EthBridge::messages_valid_at(process_at_extended), vec![event_id_1]);
 			assert!(EthBridge::messages_valid_at(process_at).is_empty());
@@ -710,7 +725,7 @@ fn process_valid_challenged_event_delayed() {
 			// Weight returned should include the 1000 that we specified in our mock
 			assert_eq!(
 				EthBridge::on_initialize(process_at_extended),
-				DbWeight::get().reads(2 as Weight) + 1000 as Weight
+				DbWeight::get().reads(2) + 1000.into()
 			);
 
 			// Storage should now be fully cleared
@@ -748,7 +763,7 @@ fn handle_event_notarization_invalid_claims() {
 
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
-				Origin::signed(relayer.into()),
+				RuntimeOrigin::signed(relayer.into()),
 				tx_hash_1.clone(),
 				event_data_1.clone(),
 			));
@@ -758,7 +773,10 @@ fn handle_event_notarization_invalid_claims() {
 			);
 
 			// Submit challenge 1
-			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			assert_ok!(EthBridge::submit_challenge(
+				RuntimeOrigin::signed(challenger.into()),
+				event_id_1
+			));
 
 			// Check storage
 			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
@@ -850,13 +868,16 @@ fn do_event_notarization_ocw_doesnt_change_storage() {
 		.execute_with(|| {
 			// Submit Event 1
 			assert_ok!(EthBridge::submit_event(
-				Origin::signed(relayer.into()),
+				RuntimeOrigin::signed(relayer.into()),
 				tx_hash_1.clone(),
 				event_data_1.clone(),
 			));
 
 			// Submit challenge 1
-			assert_ok!(EthBridge::submit_challenge(Origin::signed(challenger.into()), event_id_1));
+			assert_ok!(EthBridge::submit_challenge(
+				RuntimeOrigin::signed(challenger.into()),
+				event_id_1
+			));
 			// Check storage
 			assert_eq!(EthBridge::pending_claim_challenges(), vec![event_id_1]);
 
@@ -1317,7 +1338,7 @@ fn send_event() {
 		// On initialize does up to 2 reads to check for delayed proofs
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
-			DbWeight::get().reads(2 as Weight)
+			DbWeight::get().reads(2)
 		);
 	});
 }
@@ -1408,8 +1429,8 @@ fn delayed_event_proof() {
 		BridgePaused::kill();
 		// initialize pallet and initiate event proof
 		let max_delayed_events = EthBridge::delayed_event_proofs_per_block() as u64;
-		let expected_weight: Weight = DbWeight::get().reads(3 as Weight) +
-			DbWeight::get().writes(2 as Weight) * max_delayed_events;
+		let expected_weight: Weight =
+			DbWeight::get().reads(3) + DbWeight::get().writes(2) * max_delayed_events;
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
 			expected_weight
@@ -1455,8 +1476,7 @@ fn multiple_delayed_event_proof() {
 		// initialize pallet and initiate event proof
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
-			DbWeight::get().reads(3 as Weight) +
-				DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
+			DbWeight::get().reads(3) + DbWeight::get().writes(2) * max_delayed_events as u64
 		);
 
 		let mut removed_count = 0;
@@ -1477,8 +1497,7 @@ fn multiple_delayed_event_proof() {
 		// Now initialize next block and process the rest
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 2),
-			DbWeight::get().reads(3 as Weight) +
-				DbWeight::get().writes(2 as Weight) * max_delayed_events as u64
+			DbWeight::get().reads(3) + DbWeight::get().writes(2) * max_delayed_events as u64
 		);
 
 		let mut removed_count = 0;
@@ -1533,8 +1552,7 @@ fn set_delayed_event_proofs_per_block() {
 		// initialize pallet and initiate event proof
 		assert_eq!(
 			EthBridge::on_initialize(frame_system::Pallet::<TestRuntime>::block_number() + 1),
-			DbWeight::get().reads(3 as Weight) +
-				DbWeight::get().writes(2 as Weight) * new_max_delayed_events as u64
+			DbWeight::get().reads(3) + DbWeight::get().writes(2) * new_max_delayed_events as u64
 		);
 
 		for i in 0..new_max_delayed_events {
@@ -2140,7 +2158,7 @@ fn test_submit_event_replay_check() {
 		for i in 0..4 {
 			if i != 2 {
 				assert_ok!(EthBridge::submit_event(
-					Origin::signed(relayer.into()),
+					RuntimeOrigin::signed(relayer.into()),
 					tx_hash.clone(),
 					event_data[i].clone(),
 				));
@@ -2153,13 +2171,17 @@ fn test_submit_event_replay_check() {
 		assert_eq!(EthBridge::processed_message_ids(), vec![1, 3]);
 		// try to resubmit claim 0 again.
 		assert_noop!(
-			EthBridge::submit_event(Origin::signed(relayer.into()), tx_hash, event_data[0].clone()),
+			EthBridge::submit_event(
+				RuntimeOrigin::signed(relayer.into()),
+				tx_hash,
+				event_data[0].clone()
+			),
 			Error::<TestRuntime>::EventReplayProcessed
 		);
 
 		// submit claim 2 now
 		assert_ok!(EthBridge::submit_event(
-			Origin::signed(relayer.into()),
+			RuntimeOrigin::signed(relayer.into()),
 			tx_hash.clone(),
 			event_data[2].clone(),
 		));
@@ -2193,7 +2215,7 @@ fn set_bridge_paused_not_root_should_fail() {
 		let account = H160::from_low_u64_be(123);
 
 		assert_noop!(
-			EthBridge::set_bridge_paused(Origin::signed(account.into()), true),
+			EthBridge::set_bridge_paused(RuntimeOrigin::signed(account.into()), true),
 			DispatchError::BadOrigin
 		);
 	});
@@ -2236,7 +2258,7 @@ fn set_contract_address_not_root_should_fail() {
 		let ken = H160::from_low_u64_be(123);
 
 		assert_noop!(
-			EthBridge::set_contract_address(Origin::signed(ken.into()), new_bridge_address),
+			EthBridge::set_contract_address(RuntimeOrigin::signed(ken.into()), new_bridge_address),
 			DispatchError::BadOrigin
 		);
 	});
@@ -2248,7 +2270,7 @@ fn set_door_signers_fails() {
 		let caller = XrplAccountId::from_low_u64_be(1);
 		assert_noop!(
 			EthBridge::set_xrpl_door_signers(
-				Origin::signed(AccountId::from(caller)),
+				RuntimeOrigin::signed(AccountId::from(caller)),
 				(0..10).map(|i| AuthorityId::from_slice(&[i as u8; 33]).unwrap()).collect(),
 			),
 			BadOrigin
@@ -2260,7 +2282,7 @@ fn set_door_signers_fails() {
 fn set_door_signers() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_ok!(EthBridge::set_xrpl_door_signers(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			vec![
 				AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
 				AuthorityId::from_slice(&[2_u8; 33]).unwrap()

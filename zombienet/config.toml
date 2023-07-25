@@ -1,0 +1,53 @@
+[settings]
+timeout = 1000
+
+[relaychain]
+default_command = "./bin/polkadot"
+default_args = ["-l=parachain=debug,xcm=trace"]
+chain = "rococo-local"
+
+[[relaychain.nodes]]
+name = "alice"
+validator = true
+
+[[relaychain.nodes]]
+name = "bob"
+validator = true
+
+[[relaychain.nodes]]
+name = "charlie"
+validator = true
+
+[[parachains]]
+id = 2000
+chain = "local-v"
+cumulus_based = true
+
+[[parachains.collators]]
+name = "seed"
+command = "./../target/release/seed"
+rpc_port = 8545
+args = ["-l=xcm=trace"]
+
+[[parachains]]
+id = 3000
+chain = "dev"
+cumulus_based = true
+
+[[parachains.collators]]
+name = "plug"
+command = "../../plug/target/release/plug"
+rpc_port = 8545
+args = ["-l=xcm=trace"]
+
+[[hrmp_channels]]
+sender = 2000
+recipient = 3000
+max_capacity = 8
+max_message_size = 512
+
+[[hrmp_channels]]
+sender = 3000
+recipient = 2000
+max_capacity = 8
+max_message_size = 512

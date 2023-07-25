@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,11 +13,11 @@ use crate as pallet_nft;
 use frame_support::{
 	dispatch::DispatchResult,
 	parameter_types,
-	traits::{FindAuthor, GenesisBuild},
+	traits::{AsEnsureOriginWithArg, FindAuthor, GenesisBuild},
 	weights::Weight,
 	PalletId,
 };
-use frame_system::{limits, EnsureRoot};
+use frame_system::{limits, EnsureNever, EnsureRoot};
 use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, FeeCalculator};
 use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
 use seed_primitives::{
@@ -56,7 +52,7 @@ frame_support::construct_runtime!(
 		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
 		Nft: pallet_nft::{Pallet, Call, Storage, Event<T>},
 		EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
-		TimestampPallet: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 	}
 );
 
@@ -70,17 +66,17 @@ impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = BlockLength;
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -100,11 +96,12 @@ parameter_types! {
 	pub const AssetsStringLimit: u32 = 50;
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
+	pub const RemoveItemsLimit: u32 = 656;
 }
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -118,6 +115,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = RemoveItemsLimit;
+	type AssetIdParameter = AssetId;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureNever<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
@@ -127,7 +128,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -138,7 +139,7 @@ impl pallet_assets_ext::Config for Test {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -151,7 +152,7 @@ impl pallet_balances::Config for Test {
 pub struct FixedGasPrice;
 impl FeeCalculator for FixedGasPrice {
 	fn min_gas_price() -> (U256, Weight) {
-		(1.into(), 0u64)
+		(1.into(), 0u64.into())
 	}
 }
 
@@ -179,23 +180,30 @@ impl<Test> BlockHashMapping for MockBlockHashMapping<Test> {
 	}
 }
 
+parameter_types! {
+	  pub WeightPerGas: Weight = Weight::from_ref_time(1);
+}
+
 impl pallet_evm::Config for Test {
 	type FeeCalculator = FixedGasPrice;
-	type GasWeightMapping = ();
+	type GasWeightMapping = pallet_evm::FixedGasWeightMapping<Self>;
+	type WeightPerGas = WeightPerGas;
 	type BlockHashMapping = MockBlockHashMapping<Test>;
 	type CallOrigin = EnsureAddressNever<AccountId>;
 	type WithdrawOrigin = EnsureAddressNever<AccountId>;
 	type AddressMapping = MockAddressMapping;
 	type Currency = Balances;
-	type Event = Event;
-	type Runner = pallet_evm::runner::stack::Runner<Self>;
+	type RuntimeEvent = RuntimeEvent;
 	type PrecompilesType = ();
 	type PrecompilesValue = ();
 	type ChainId = ();
 	type BlockGasLimit = ();
+	type Runner = pallet_evm::runner::stack::Runner<Self>;
 	type OnChargeTransaction = ();
+	type OnCreate = ();
 	type FindAuthor = FindAuthorTruncated;
-	type HandleTxValidation = ();
+	type Timestamp = Timestamp;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -254,13 +262,11 @@ parameter_types! {
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const MintLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
-	#[derive(PartialEq, Debug)]
-	pub const StringLimit: u32 = 50;
 }
 
 impl crate::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
@@ -269,7 +275,6 @@ impl crate::Config for Test {
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
-	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }
@@ -328,7 +333,7 @@ pub(crate) fn has_event(event: crate::Event<Test>) -> bool {
 		.into_iter()
 		.map(|r| r.event)
 		// .filter_map(|e| if let Event::Nft(inner) = e { Some(inner) } else { None })
-		.find(|e| *e == Event::Nft(event.clone()))
+		.find(|e| *e == RuntimeEvent::Nft(event.clone()))
 		.is_some()
 }
 

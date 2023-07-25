@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,14 +12,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-use fp_evm::{PrecompileHandle, PrecompileOutput};
+use fp_evm::{IsPrecompileResult, PrecompileHandle, PrecompileOutput};
 use frame_support::{
-	dispatch::Dispatchable,
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::{
-		fungibles::{Inspect, InspectMetadata, Transfer},
+		fungibles::{metadata::Inspect as InspectMetadata, Inspect, Mutate},
+		tokens::{Fortitude, Preservation},
 		OriginTrait,
 	},
-	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use pallet_evm::PrecompileSet;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
@@ -74,11 +70,11 @@ where
 		+ frame_system::Config
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_token_approvals::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
 {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<EvmResult<PrecompileOutput>> {
 		let context = handle.context();
@@ -124,17 +120,20 @@ where
 		None
 	}
 
-	fn is_precompile(&self, address: H160) -> bool {
+	fn is_precompile(&self, address: H160, _remaining_gas: u64) -> IsPrecompileResult {
 		if let Some(asset_id) =
 			Runtime::evm_id_to_runtime_id(Address(address), ERC20_PRECOMPILE_ADDRESS_PREFIX)
 		{
 			// totaly supply `0` is a good enough check for asset existence
-			!<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::total_issuance(
-				asset_id,
-			)
-			.is_zero()
+			IsPrecompileResult::Answer {
+				is_precompile: !<pallet_assets_ext::Pallet<Runtime> as Inspect<
+					Runtime::AccountId,
+				>>::total_issuance(asset_id)
+				.is_zero(),
+				extra_cost: 0,
+			}
 		} else {
-			false
+			IsPrecompileResult::Answer { is_precompile: false, extra_cost: 0 }
 		}
 	}
 }
@@ -153,11 +152,11 @@ where
 		+ frame_system::Config
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>
 		+ pallet_token_approvals::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_token_approvals::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_token_approvals::Call<Runtime>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<AssetId, EvmId = Address>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
 {
 	fn total_supply(
 		asset_id: AssetId,
@@ -180,7 +179,7 @@ where
 		asset_id: AssetId,
 		handle: &mut impl PrecompileHandle,
 	) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Read input.
 		read_args!(handle, { owner: Address });
@@ -193,7 +192,8 @@ where
 			<pallet_assets_ext::Pallet<Runtime> as Inspect<Runtime::AccountId>>::reducible_balance(
 				asset_id,
 				&owner.into(),
-				false,
+				Preservation::Expendable,
+				Fortitude::Polite,
 			)
 			.into();
 
@@ -274,12 +274,12 @@ where
 		let amount: Balance = amount.saturated_into();
 
 		let origin: Runtime::AccountId = handle.context().caller.into();
-		let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
+		let _ = <pallet_assets_ext::Pallet<Runtime> as Mutate<Runtime::AccountId>>::transfer(
 			asset_id,
 			&origin,
 			&to.clone().into(),
 			amount,
-			false,
+			Preservation::Expendable,
 		)
 		.map_err(|e| revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e)))?;
 
@@ -333,12 +333,12 @@ where
 			)?;
 
 			// Transfer
-			let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
+			let _ = <pallet_assets_ext::Pallet<Runtime> as Mutate<Runtime::AccountId>>::transfer(
 				asset_id,
 				&from,
 				&to.clone(),
 				amount,
-				false,
+				Preservation::Expendable,
 			)
 			.map_err(|e| {
 				revert(alloc::format!("ERC20: Dispatched call failed with error: {:?}", e))
@@ -367,7 +367,7 @@ where
 					.write::<Bytes>(
 						<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 							Runtime::AccountId,
-						>>::name(&asset_id)
+						>>::name(asset_id)
 						.as_slice()
 						.into(),
 					)
@@ -389,7 +389,7 @@ where
 					.write::<Bytes>(
 						<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 							Runtime::AccountId,
-						>>::symbol(&asset_id)
+						>>::symbol(asset_id)
 						.as_slice()
 						.into(),
 					)
@@ -409,7 +409,7 @@ where
 			EvmDataWriter::new()
 				.write::<u8>(<pallet_assets_ext::Pallet<Runtime> as InspectMetadata<
 					Runtime::AccountId,
-				>>::decimals(&asset_id))
+				>>::decimals(asset_id))
 				.build(),
 		))
 	}

@@ -45,7 +45,7 @@ describe("Fee Preferences under low token pair liquidity", function () {
       api.tx.assetsExt.createAsset("test", "TEST", 18, 1, alith.address),
       api.tx.assets.mint(feeTokenAssetId, alith.address, 2_000_000_000_000_000),
       api.tx.assets.mint(feeTokenAssetId, emptyAcct.address, 2_000_000_000_000_000),
-      api.tx.dex.addLiquidity(feeTokenAssetId, GAS_TOKEN_ID, 100_000, 100_000, 100_000, 100_000, null, null),
+      api.tx.dex.addLiquidity(feeTokenAssetId, GAS_TOKEN_ID, 100_000, 100_000, 100_000, 100_000, 0),
     ];
     await new Promise<void>((resolve) => {
       api.tx.utility.batch(txes).signAndSend(alith, ({ status }) => {

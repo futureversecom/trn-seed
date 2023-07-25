@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,12 +27,13 @@ use prometheus::Registry;
 
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
-use seed_primitives::ethy::EthyApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::SyncCryptoStorePtr;
 use sp_runtime::traits::Block;
+
+use seed_primitives::ethy::EthyApi;
 
 mod error;
 mod gossip;
@@ -54,7 +51,6 @@ mod tests;
 
 pub use ethy_protocol_name::standard_name as protocol_standard_name;
 pub use keystore::EthyEcdsaToEthereum;
-pub use types::data_to_digest;
 
 pub(crate) mod ethy_protocol_name {
 	use sc_chain_spec::ChainSpec;

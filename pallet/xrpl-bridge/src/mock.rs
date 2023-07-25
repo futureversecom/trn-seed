@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,7 +11,7 @@
 
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{ConstU16, ConstU64},
+	traits::{AsEnsureOriginWithArg, ConstU16, ConstU64},
 	PalletId,
 };
 use frame_system as system;
@@ -32,6 +28,7 @@ use seed_primitives::{
 	ethy::{crypto::AuthorityId, EventProofId},
 	AccountId, AssetId, Balance, BlockNumber,
 };
+use system::EnsureNever;
 
 use crate as pallet_xrpl_bridge;
 
@@ -62,17 +59,17 @@ impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = BlockLength;
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = u64;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = ConstU64<250>;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -92,11 +89,12 @@ parameter_types! {
 	pub const AssetsStringLimit: u32 = 50;
 	pub const MetadataDepositBase: Balance = 1 * 68;
 	pub const MetadataDepositPerByte: Balance = 1;
+	pub const RemoveItemsLimit: u32 = 656;
 }
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -110,6 +108,10 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type WeightInfo = ();
 	type AssetAccountDeposit = AssetAccountDeposit;
+	type RemoveItemsLimit = RemoveItemsLimit;
+	type AssetIdParameter = AssetId;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureNever<AccountId>>;
+	type CallbackHandle = ();
 }
 
 parameter_types! {
@@ -118,7 +120,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -136,7 +138,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = XrpAssetId;
@@ -170,7 +172,7 @@ parameter_types! {
 }
 
 impl pallet_xrpl_bridge::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type EthyAdapter = MockEthyAdapter;
 	type MultiCurrency = AssetsExt;
 	type ApproveOrigin = EnsureRoot<Self::AccountId>;

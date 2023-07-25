@@ -5,4 +5,5 @@ target/
 node_modules/
 data
 penv/
-output/
+
+**/bin

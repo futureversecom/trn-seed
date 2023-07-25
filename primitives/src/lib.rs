@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,8 +25,9 @@ pub use nft::*;
 pub const XRP_HTTP_URI: [u8; 8] = *b"XRP_HTTP";
 
 pub mod types {
-	use crate::signature::EthereumSignature;
 	use sp_runtime::traits::{BlakeTwo256, IdentifyAccount, Verify};
+
+	use crate::EthereumSignature;
 
 	/// An index to a block.
 	pub type BlockNumber = u32;
@@ -57,8 +54,7 @@ pub mod types {
 	/// Digest item type.
 	pub type DigestItem = sp_runtime::generic::DigestItem;
 
-	// Babe consensus authority.
-	pub type BabeId = sp_consensus_babe::AuthorityId;
+	pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 
 	// Id used for identifying assets.
 	pub type AssetId = u32;
@@ -110,6 +106,8 @@ pub mod opaque {
 	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 	/// Opaque block type.
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+	/// A Block signed with a Justification
+	pub type SignedBlock = generic::SignedBlock<Block>;
 	/// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
 }

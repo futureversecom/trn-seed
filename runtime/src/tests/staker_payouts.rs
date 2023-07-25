@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,9 +25,9 @@ use seed_primitives::{Balance, BlockNumber};
 
 use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
-	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, System,
-	Timestamp, TxFeePot, XrpCurrency,
+	Balances, CheckedExtrinsic, ElectionProviderMultiPhase, EnableManualSeal, EpochDuration,
+	EthBridge, Executive, Runtime, RuntimeCall as Call, Scheduler, Session, SessionKeys,
+	SessionsPerEra, Staking, System, Timestamp, TxFeePot, XrpCurrency,
 };
 
 use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
@@ -44,6 +40,7 @@ use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTA
 /// in the function), and then finalize the block.
 fn run_to_block(n: BlockNumber) {
 	println!("call run to block: {:?}", n);
+	EnableManualSeal::set(&true);
 	Staking::on_finalize(System::block_number());
 	for b in (System::block_number() + 1)..=n {
 		println!(

@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,6 +13,8 @@ use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
 	traits::{
+		fungibles::Mutate,
+		tokens::{Fortitude, Precision, Preservation, Provenance},
 		Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
 		SignedImbalance, WithdrawReasons,
 	},
@@ -26,7 +24,7 @@ use sp_std::marker::PhantomData;
 
 use frame_support::traits::{
 	fungible,
-	fungibles::{self, Inspect, Transfer, Unbalanced},
+	fungibles::{self, Inspect, Unbalanced},
 	tokens::{DepositConsequence, WithdrawConsequence},
 };
 
@@ -59,20 +57,33 @@ where
 		<pallet_assets::Pallet<T>>::balance(U::get(), who)
 	}
 
-	fn reducible_balance(who: &T::AccountId, keep_alive: bool) -> Balance {
+	fn reducible_balance(
+		who: &T::AccountId,
+		preservation: Preservation,
+		force: Fortitude,
+	) -> Balance {
 		<pallet_assets::Pallet<T> as fungibles::Inspect<_>>::reducible_balance(
 			U::get(),
 			who,
-			keep_alive,
+			preservation,
+			force,
 		)
 	}
 
-	fn can_deposit(who: &T::AccountId, amount: Balance, mint: bool) -> DepositConsequence {
-		<pallet_assets::Pallet<T>>::can_deposit(U::get(), who, amount, mint)
+	fn can_deposit(
+		who: &T::AccountId,
+		amount: Self::Balance,
+		provenance: Provenance,
+	) -> DepositConsequence {
+		<pallet_assets::Pallet<T>>::can_deposit(U::get(), who, amount, provenance)
 	}
 
 	fn can_withdraw(who: &T::AccountId, amount: Balance) -> WithdrawConsequence<Balance> {
 		<pallet_assets::Pallet<T>>::can_withdraw(U::get(), who, amount)
+	}
+
+	fn total_balance(who: &T::AccountId) -> Self::Balance {
+		<pallet_assets::Pallet<T>>::total_balance(U::get(), who)
 	}
 }
 
@@ -86,7 +97,12 @@ where
 	type PositiveImbalance = imbalances::PositiveImbalance<T>;
 
 	fn free_balance(who: &T::AccountId) -> Self::Balance {
-		<pallet_assets::Pallet<T>>::reducible_balance(U::get(), who, false)
+		<pallet_assets::Pallet<T>>::reducible_balance(
+			U::get(),
+			who,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		)
 	}
 	fn total_issuance() -> Self::Balance {
 		<pallet_assets::Pallet<T>>::total_issuance(U::get())
@@ -104,11 +120,11 @@ where
 		req: ExistenceRequirement,
 	) -> DispatchResult {
 		// used by evm
-		let keep_alive = match req {
-			ExistenceRequirement::KeepAlive => true,
-			ExistenceRequirement::AllowDeath => false,
+		let _keep_alive = match req {
+			ExistenceRequirement::KeepAlive => false,
+			ExistenceRequirement::AllowDeath => true,
 		};
-		<Pallet<T>>::transfer(U::get(), from, to, value, keep_alive).map(|_| ())
+		<Pallet<T>>::transfer(U::get(), from, to, value, Preservation::Expendable).map(|_| ())
 	}
 	fn ensure_can_withdraw(
 		who: &T::AccountId,
@@ -133,7 +149,14 @@ where
 		_req: ExistenceRequirement,
 	) -> Result<Self::NegativeImbalance, DispatchError> {
 		// used by pallet-transaction payment & pallet-evm
-		<pallet_assets::Pallet<T>>::decrease_balance(U::get(), who, value)?;
+		<pallet_assets::Pallet<T>>::decrease_balance(
+			U::get(),
+			who,
+			value,
+			Precision::BestEffort,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		)?;
 
 		<Pallet<T>>::deposit_event(Event::InternalWithdraw {
 			asset_id: U::get(),
@@ -153,7 +176,7 @@ where
 		if value.is_zero() {
 			return Ok(PositiveImbalance::new(0, U::get()))
 		}
-		<pallet_assets::Pallet<T>>::increase_balance(U::get(), who, value)?;
+		<pallet_assets::Pallet<T>>::increase_balance(U::get(), who, value, Precision::BestEffort)?;
 		<Pallet<T>>::deposit_event(Event::InternalDeposit {
 			asset_id: U::get(),
 			who: who.clone(),

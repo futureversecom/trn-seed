@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,7 +10,9 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg(test)]
-use crate::mock::{EVMChainId, Event, Origin, System, TestExt, ALICE};
+use crate::mock::{
+	EVMChainId, RuntimeEvent as Event, RuntimeOrigin as Origin, System, TestExt, ALICE,
+};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 
 #[test]

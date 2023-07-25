@@ -1,73 +1,8 @@
-// Copyright 2022-2023 Futureverse Corporation Limited
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// You may obtain a copy of the License at the root of this project source code
+use std::path::PathBuf;
 
-use crate::custom_commands::VerifyProofSigSubCommand;
-use sc_cli::{Error, Result};
-
-#[allow(missing_docs)]
-#[derive(Debug, clap::Parser)]
-pub struct RunCmd {
-	#[allow(missing_docs)]
-	#[clap(flatten)]
-	pub base: sc_cli::RunCmd,
-
-	/// Maximum number of logs in a query (EVM).
-	#[clap(long, default_value = "10000")]
-	pub max_past_logs: u32,
-
-	/// Maximum fee history cache size (EVM).
-	#[clap(long, default_value = "2048")]
-	pub fee_history_limit: u64,
-
-	/// Ethereum JSON-RPC client endpoint
-	#[clap(
-		parse(try_from_str = parse_uri),
-		long = "eth-http",
-	)]
-	pub eth_http: Option<String>,
-
-	/// XRP JSON-RPC client endpoint
-	#[clap(
-		parse(try_from_str = parse_uri),
-		long = "xrp-http",
-	)]
-	pub xrp_http: Option<String>,
-}
-
-/// Parse HTTP `uri`
-fn parse_uri(uri: &str) -> Result<String> {
-	let _ = url::Url::parse(uri)
-		.map_err(|_| Error::Input("Invalid external HTTP URI provided".into()))?;
-	Ok(uri.into())
-}
-
-#[derive(Debug, clap::Parser)]
-pub struct Cli {
-	#[clap(subcommand)]
-	pub subcommand: Option<Subcommand>,
-
-	#[clap(flatten)]
-	pub run: RunCmd,
-}
-
+/// Sub-commands supported by the collator.
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommand {
-	/// Key management cli utilities
-	#[clap(subcommand)]
-	Key(sc_cli::KeySubcommand),
-
 	/// Build a chain specification.
 	BuildSpec(sc_cli::BuildSpecCmd),
 
@@ -83,29 +18,95 @@ pub enum Subcommand {
 	/// Import blocks.
 	ImportBlocks(sc_cli::ImportBlocksCmd),
 
-	/// Remove the whole chain.
-	PurgeChain(sc_cli::PurgeChainCmd),
-
 	/// Revert the chain to a previous state.
 	Revert(sc_cli::RevertCmd),
 
+	/// Remove the whole chain.
+	PurgeChain(cumulus_client_cli::PurgeChainCmd),
+
+	/// Export the genesis state of the parachain.
+	ExportGenesisState(cumulus_client_cli::ExportGenesisStateCommand),
+
+	/// Export the genesis wasm of the parachain.
+	ExportGenesisWasm(cumulus_client_cli::ExportGenesisWasmCommand),
+
 	/// Sub-commands concerned with benchmarking.
-	#[clap(subcommand)]
-	#[cfg(feature = "runtime-benchmarks")]
+	/// The pallet benchmarking moved to the `pallet` sub-command.
+	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
-	/// Try some command against runtime state.
+	/// Try some testing command against a specified runtime state.
 	#[cfg(feature = "try-runtime")]
 	TryRuntime(try_runtime_cli::TryRuntimeCmd),
 
-	/// Try some command against runtime state. Note: `try-runtime` feature must be enabled.
+	/// Errors since the binary was not build with `--features try-runtime`.
 	#[cfg(not(feature = "try-runtime"))]
 	TryRuntime,
+}
 
-	/// Db meta columns information.
-	ChainInfo(sc_cli::ChainInfoCmd),
+const AFTER_HELP_EXAMPLE: &str = color_print::cstr!(
+	r#"<bold><underline>Examples:</></>
+   <bold>parachain-template-node build-spec --disable-default-bootnode > plain-parachain-chainspec.json</>
+           Export a chainspec for a local testnet in json format.
+   <bold>parachain-template-node --chain plain-parachain-chainspec.json --tmp -- --chain rococo-local</>
+           Launch a full node with chain specification loaded from plain-parachain-chainspec.json.
+   <bold>parachain-template-node</>
+           Launch a full node with default parachain <italic>local-testnet</> and relay chain <italic>rococo-local</>.
+   <bold>parachain-template-node --collator</>
+           Launch a collator with default parachain <italic>local-testnet</> and relay chain <italic>rococo-local</>.
+ "#
+);
+#[derive(Debug, clap::Parser)]
+#[command(
+	propagate_version = true,
+	args_conflicts_with_subcommands = true,
+	subcommand_negates_reqs = true
+)]
+#[clap(after_help = AFTER_HELP_EXAMPLE)]
+pub struct Cli {
+	#[command(subcommand)]
+	pub subcommand: Option<Subcommand>,
 
-	/// verify proof signatures
-	#[clap(subcommand)]
-	VerifyProofSig(VerifyProofSigSubCommand),
+	#[command(flatten)]
+	pub run: cumulus_client_cli::RunCmd,
+
+	/// Disable automatic hardware benchmarks.
+	///
+	/// By default these benchmarks are automatically ran at startup and measure
+	/// the CPU speed, the memory bandwidth and the disk speed.
+	///
+	/// The results are then printed out in the logs, and also sent as part of
+	/// telemetry, if telemetry is enabled.
+	#[arg(long)]
+	pub no_hardware_benchmarks: bool,
+
+	/// Relay chain arguments
+	#[arg(raw = true)]
+	pub relay_chain_args: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct RelayChainCli {
+	/// The actual relay chain cli object.
+	pub base: polkadot_cli::RunCmd,
+
+	/// Optional chain id that should be passed to the relay chain.
+	pub chain_id: Option<String>,
+
+	/// The base path that should be used by the relay chain.
+	pub base_path: Option<PathBuf>,
+}
+
+impl RelayChainCli {
+	/// Parse the relay chain CLI parameters using the para chain `Configuration`.
+	#[allow(dead_code)]
+	pub fn new<'a>(
+		para_config: &sc_service::Configuration,
+		relay_chain_args: impl Iterator<Item = &'a String>,
+	) -> Self {
+		let extension = crate::chain_spec::Extensions::try_get(&*para_config.chain_spec);
+		let chain_id = extension.map(|e| e.relay_chain.clone());
+		let base_path = para_config.base_path.as_ref().map(|x| x.path().join("polkadot"));
+		Self { base_path, chain_id, base: clap::Parser::parse_from(relay_chain_args) }
+	}
 }

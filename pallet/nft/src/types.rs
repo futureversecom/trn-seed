@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,15 +13,19 @@
 
 use crate::Config;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use frame_support::{traits::Get, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound};
 use scale_info::TypeInfo;
 use seed_primitives::{
-	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId,
+	AssetId, Balance, BlockNumber, CollectionUuid, MetadataScheme, SerialNumber, TokenCount,
+	TokenId,
 };
-use sp_runtime::{BoundedVec, Permill};
+use sp_runtime::{BoundedVec, PerThing, Permill};
 use sp_std::{fmt::Debug, prelude::*};
+
+/// The max. number of entitlements any royalties schedule can have
+/// just a sensible upper bound
+pub(crate) const MAX_ENTITLEMENTS: usize = 8;
 
 // Time before auction ends that auction is extended if a bid is placed
 pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
@@ -33,15 +33,8 @@ pub const AUCTION_EXTENSION_PERIOD: BlockNumber = 40;
 /// OfferId type used to distinguish different offers on NFTs
 pub type OfferId = u64;
 
-/// Auto-incrementing Uint
-/// Uniquely identifies a registered marketplace
-pub type MarketplaceId = u32;
-
-/// Unique Id for a listing
-pub type ListingId = u128;
-
 /// Holds information relating to NFT offers
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub struct SimpleOffer<AccountId> {
 	pub token_id: TokenId,
 	pub asset_id: AssetId,
@@ -50,20 +43,25 @@ pub struct SimpleOffer<AccountId> {
 	pub marketplace_id: Option<MarketplaceId>,
 }
 
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub enum OfferType<AccountId> {
 	Simple(SimpleOffer<AccountId>),
 }
 
-#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
+/// Describes the chain that the bridged resource originated from
+pub enum OriginChain {
+	Ethereum,
+	Root,
+}
+
+#[derive(Decode, Encode, Debug, Clone, Copy, PartialEq, TypeInfo)]
 pub enum TokenOwnershipError {
 	TokenLimitExceeded,
 }
 
 /// Struct that represents the owned serial numbers within a collection of an individual account
-#[derive(
-	PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo, MaxEncodedLen,
-)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, Decode, Encode, CloneNoBound, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 #[scale_info(skip_type_params(MaxTokensPerCollection))]
 pub struct TokenOwnership<AccountId, MaxTokensPerCollection>
@@ -108,7 +106,7 @@ where
 /// Determines compatibility with external chains.
 /// If compatible with XRPL, XLS-20 tokens will be minted with every newly minted
 /// token on The Root Network
-#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy, MaxEncodedLen)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, TypeInfo, Copy)]
 pub struct CrossChainCompatibility {
 	/// This collection is compatible with the XLS-20 standard on XRPL
 	pub xrpl: bool,
@@ -121,21 +119,18 @@ impl Default for CrossChainCompatibility {
 }
 
 /// Information related to a specific collection
-#[derive(
-	PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo, MaxEncodedLen,
-)]
+#[derive(PartialEqNoBound, RuntimeDebugNoBound, CloneNoBound, Encode, Decode, TypeInfo)]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
-#[scale_info(skip_type_params(MaxTokensPerCollection, StringLimit))]
-pub struct CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
+#[scale_info(skip_type_params(MaxTokensPerCollection))]
+pub struct CollectionInformation<AccountId, MaxTokensPerCollection>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
-	StringLimit: Get<u32>,
 {
 	/// The owner of the collection
 	pub owner: AccountId,
 	/// A human friendly name
-	pub name: BoundedVec<u8, StringLimit>,
+	pub name: CollectionNameType,
 	/// Collection metadata reference scheme
 	pub metadata_scheme: MetadataScheme,
 	/// configured royalties schedule
@@ -155,12 +150,10 @@ where
 		BoundedVec<TokenOwnership<AccountId, MaxTokensPerCollection>, MaxTokensPerCollection>,
 }
 
-impl<AccountId, MaxTokensPerCollection, StringLimit>
-	CollectionInformation<AccountId, MaxTokensPerCollection, StringLimit>
+impl<AccountId, MaxTokensPerCollection> CollectionInformation<AccountId, MaxTokensPerCollection>
 where
 	AccountId: Debug + PartialEq + Clone,
 	MaxTokensPerCollection: Get<u32>,
-	StringLimit: Get<u32>,
 {
 	/// Check whether a token has been minted in a collection
 	pub fn token_exists(&self, serial_number: SerialNumber) -> bool {
@@ -247,14 +240,14 @@ where
 }
 
 /// Reason for an NFT being locked (un-transferrable)
-#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Clone, Eq, PartialEq, TypeInfo)]
 pub enum TokenLockReason {
 	/// Token is listed for sale
 	Listed(ListingId),
 }
 
 /// Reasons for an auction closure
-#[derive(Decode, Encode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, Eq, TypeInfo)]
 pub enum AuctionClosureReason {
 	/// Auction expired with no bids
 	ExpiredNoBids,
@@ -265,7 +258,7 @@ pub enum AuctionClosureReason {
 }
 
 /// Reason for a fixed price closure
-#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo, MaxEncodedLen)]
+#[derive(Decode, Encode, Debug, Clone, PartialEq, TypeInfo)]
 pub enum FixedPriceClosureReason {
 	/// Listing was cancelled by the vendor
 	VendorCancelled,
@@ -273,8 +266,46 @@ pub enum FixedPriceClosureReason {
 	Expired,
 }
 
+/// Describes the royalty scheme for secondary sales for an NFT collection/token
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
+pub struct RoyaltiesSchedule<AccountId> {
+	/// Entitlements on all secondary sales, (beneficiary, % of sale price)
+	pub entitlements: Vec<(AccountId, Permill)>,
+}
+
+impl<AccountId> RoyaltiesSchedule<AccountId> {
+	/// True if entitlements are within valid parameters
+	/// - not overcommitted (> 100%)
+	/// - < MAX_ENTITLEMENTS
+	pub fn validate(&self) -> bool {
+		!self.entitlements.is_empty() &&
+			self.entitlements.len() <= MAX_ENTITLEMENTS &&
+			self.entitlements
+				.iter()
+				.map(|(_who, share)| share.deconstruct() as u32)
+				.sum::<u32>() <= Permill::ACCURACY
+	}
+	/// Calculate the total % entitled for royalties
+	/// It will return `0` if the `entitlements` are overcommitted
+	pub fn calculate_total_entitlement(&self) -> Permill {
+		// if royalties are in a strange state
+		if !self.validate() {
+			return Permill::zero()
+		}
+		Permill::from_parts(
+			self.entitlements.iter().map(|(_who, share)| share.deconstruct()).sum::<u32>(),
+		)
+	}
+}
+
+impl<AccountId> Default for RoyaltiesSchedule<AccountId> {
+	fn default() -> Self {
+		Self { entitlements: vec![] }
+	}
+}
+
 /// Information about a marketplace
-#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(Debug, Clone, Default, Encode, Decode, PartialEq, Eq, TypeInfo)]
 pub struct Marketplace<AccountId> {
 	/// The marketplace account
 	pub account: AccountId,
@@ -283,7 +314,7 @@ pub struct Marketplace<AccountId> {
 }
 
 /// A type of NFT sale listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub enum Listing<T: Config> {
 	FixedPrice(FixedPriceListing<T>),
@@ -291,7 +322,7 @@ pub enum Listing<T: Config> {
 }
 
 /// Information about an auction listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct AuctionListing<T: Config> {
 	/// The asset to allow bids with
@@ -313,7 +344,7 @@ pub struct AuctionListing<T: Config> {
 }
 
 /// Information about a fixed price listing
-#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct FixedPriceListing<T: Config> {
 	/// The asset to allow bids with
@@ -334,4 +365,50 @@ pub struct FixedPriceListing<T: Config> {
 	pub royalties_schedule: RoyaltiesSchedule<T::AccountId>,
 	/// The marketplace this is being sold on
 	pub marketplace_id: Option<MarketplaceId>,
+}
+
+/// NFT collection moniker
+pub type CollectionNameType = Vec<u8>;
+
+/// Auto-incrementing Uint
+/// Uniquely identifies a registered marketplace
+pub type MarketplaceId = u32;
+
+/// Unique Id for a listing
+pub type ListingId = u128;
+
+#[cfg(test)]
+mod test {
+	use super::RoyaltiesSchedule;
+	use sp_runtime::Permill;
+
+	#[test]
+	fn valid_royalties_plan() {
+		assert!(RoyaltiesSchedule::<u32> { entitlements: vec![(1_u32, Permill::from_float(0.1))] }
+			.validate());
+
+		// explicitally specifying zero royalties is odd but fine
+		assert!(RoyaltiesSchedule::<u32> { entitlements: vec![(1_u32, Permill::from_float(0.0))] }
+			.validate());
+
+		let plan = RoyaltiesSchedule::<u32> {
+			entitlements: vec![
+				(1_u32, Permill::from_float(1.01)), // saturates at 100%
+			],
+		};
+		assert_eq!(plan.entitlements[0].1, Permill::one());
+		assert!(plan.validate());
+	}
+
+	#[test]
+	fn invalid_royalties_plan() {
+		// overcommits > 100% to royalties
+		assert!(!RoyaltiesSchedule::<u32> {
+			entitlements: vec![
+				(1_u32, Permill::from_float(0.2)),
+				(2_u32, Permill::from_float(0.81)),
+			],
+		}
+		.validate());
+	}
 }

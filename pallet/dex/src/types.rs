@@ -1,11 +1,7 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
+// Licensed under the LGPL, Version 3.0 (the "License");
 // you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -45,7 +41,10 @@ impl TradingPair {
 	/// Returns the pool address for this trading pair
 	/// Spec:
 	/// `0xdddddddd` + <8-byte-asset_a-padded> + `00000000` + `dddddddd` + <8-byte-asset_b-padded>
-	pub fn pool_address<AccountId: From<H160>>(&self) -> AccountId {
+	pub fn pool_address<T: crate::Config>(&self) -> T::AccountId
+	where
+		T::AccountId: From<H160>,
+	{
 		let asset_a_bytes = self.0.to_be_bytes();
 		let asset_b_bytes = self.1.to_be_bytes();
 
@@ -56,7 +55,7 @@ impl TradingPair {
 		address.extend_from_slice(&[0; 8]);
 
 		let h160_address: H160 = H160::from_slice(&address);
-		AccountId::from(h160_address)
+		T::AccountId::from(h160_address)
 	}
 }
 
