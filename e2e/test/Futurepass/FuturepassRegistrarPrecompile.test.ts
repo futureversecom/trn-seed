@@ -55,25 +55,6 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].args.owner).to.equal(owner);
 
     expect(await futurepassRegistrarProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
-  });
-
-  // Note: This testcase is included in futurepass substrate tests
-  it.skip("create futurepass succeeds for account with no balance", async () => {
-    const owner = Wallet.createRandom().address;
-    const tx = await futurepassRegistrarProxy.connect(alithSigner).create(owner);
-    const receipt = await tx.wait();
-
-    expect((receipt?.events as any)[0].event).to.equal("FuturepassCreated");
-    expect((receipt?.events as any)[0].args.owner).to.equal(owner);
-
-    expect(await futurepassRegistrarProxy.futurepassOf(owner)).to.equal((receipt?.events as any)[0].args.futurepass);
-  });
-
-  // Note: This testcase is included in futurepass substrate tests
-  it.skip("create futurepass fails - already existing account", async () => {
-    const owner = Wallet.createRandom().address;
-    const tx = await futurepassRegistrarProxy.connect(alithSigner).create(owner);
-    await tx.wait();
 
     // should fail upon creation of FP for same owner again
     await futurepassRegistrarProxy
