@@ -1,0 +1,26 @@
+name: Fork State
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Fork the current state and run runtime upgrade
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install podman
+        run: sudo apt install podman -y
+
+      - name: Create output folder
+        run: mkdir -p output
+
+      - name: Build image
+        run: podman build -t fork-state -f ./dockerimages/fork-state.Dockerfile .
+
+      - name: Run get-state
+        run: podman run --rm -v ./output:/output -t fork-state /bin/bash ./scripts/get_state.sh
