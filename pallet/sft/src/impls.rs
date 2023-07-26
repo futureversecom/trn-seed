@@ -316,6 +316,29 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Perform the set name operation
+	/// Caller must be collection owner
+	pub fn do_set_name(
+		who: T::AccountId,
+		collection_id: CollectionUuid,
+		collection_name: BoundedVec<u8, T::StringLimit>,
+	) -> DispatchResult {
+		let mut collection_info =
+			SftCollectionInfo::<T>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+		// Caller must be collection_owner
+		ensure!(collection_info.collection_owner == who, Error::<T>::NotCollectionOwner);
+
+		// Validate collection_name
+		ensure!(!collection_name.is_empty(), Error::<T>::NameInvalid);
+		ensure!(core::str::from_utf8(&collection_name).is_ok(), Error::<T>::NameInvalid);
+		collection_info.collection_name = collection_name.clone();
+
+		SftCollectionInfo::<T>::insert(collection_id, collection_info);
+
+		Self::deposit_event(Event::<T>::NameSet { collection_id, collection_name });
+		Ok(())
+	}
+
 	/// Unzips the bounded vec of tuples (SerialNumber, Balance)
 	/// into two bounded vecs of SerialNumber and Balance
 	fn unzip_serial_numbers(

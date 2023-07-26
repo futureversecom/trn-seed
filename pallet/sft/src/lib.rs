@@ -147,6 +147,8 @@ pub mod pallet {
 		MaxIssuanceSet { token_id: TokenId, max_issuance: Balance },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
+		/// Name was set
+		NameSet { collection_id: CollectionUuid, collection_name: BoundedVec<u8, T::StringLimit> },
 		/// A new token was created within a collection
 		TokenCreate {
 			token_id: TokenId,
@@ -347,6 +349,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_set_base_uri(who, collection_id, metadata_scheme)
+		}
+
+		/// Set the name of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_base_uri())]
+		pub fn set_name(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			collection_name: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_set_name(who, collection_id, collection_name)
 		}
 	}
 }
