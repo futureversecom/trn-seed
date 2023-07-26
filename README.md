@@ -69,12 +69,7 @@ cargo test
 ```
 ### Run E2E Tests
 
-Start the node, then run:
-
-```bash
-cd e2e
-yarn && yarn test
-```
+Refer to the instruction [here](./e2e)
 
 ### Formatting & Linting
 ```
