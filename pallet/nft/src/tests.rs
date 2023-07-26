@@ -793,6 +793,13 @@ fn sell_multiple() {
 		assert_eq!(Nft::token_locks(token_id).unwrap(), TokenLockReason::Listed(listing_id));
 		assert!(Nft::open_collection_listings(collection_id, listing_id).unwrap());
 
+		let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(
+				fee_pot_account,
+				MarketplaceNetworkFeePercentage::get(),
+			)]),
+		};
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
 			payment_asset: NativeAssetId::get(),
 			fixed_price: 1_000,
@@ -801,7 +808,7 @@ fn sell_multiple() {
 			collection_id,
 			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
 			seller: token_owner,
-			royalties_schedule: Default::default(),
+			royalties_schedule,
 			marketplace_id: None,
 		});
 
@@ -1010,6 +1017,13 @@ fn updates_fixed_price() {
 			new_price: 1_500,
 		}));
 
+		let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(
+				fee_pot_account,
+				MarketplaceNetworkFeePercentage::get(),
+			)]),
+		};
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
 			payment_asset: NativeAssetId::get(),
 			fixed_price: 1_500,
@@ -1018,7 +1032,7 @@ fn updates_fixed_price() {
 			seller: token_owner,
 			collection_id,
 			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
-			royalties_schedule: Default::default(),
+			royalties_schedule,
 			marketplace_id: None,
 		});
 
@@ -1185,12 +1199,14 @@ fn buy_with_marketplace_royalties() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
 				initial_balance_b1 + royalties_schedule.clone().entitlements[0].1 * sale_price
 			);
-			// token owner gets sale price less royalties
+			// token owner gets:
+			// sale_price - (marketplace_royalties + beneficiary_royalties + network_fee)
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				initial_balance_owner + sale_price -
 					marketplace_entitlement * sale_price -
-					royalties_schedule.clone().entitlements[0].1 * sale_price
+					royalties_schedule.clone().entitlements[0].1 * sale_price -
+					MarketplaceNetworkFeePercentage::get().mul(sale_price)
 			);
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 		});
@@ -1247,9 +1263,10 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 fn buy() {
 	let buyer = create_account(5);
 	let price = 1_000;
+	let starting_balance = price * 2;
 
 	TestExt::default()
-		.with_balances(&[(buyer, price * 2)])
+		.with_balances(&[(buyer, starting_balance)])
 		.build()
 		.execute_with(|| {
 			let (collection_id, token_id, token_owner) = setup_token();
@@ -1270,10 +1287,15 @@ fn buy() {
 			));
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
-			// no royalties, all proceeds to token owner
+			// no royalties, all proceeds to token owner minus network fee
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				price
+				price - MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+			// Buyer balance should be starting minus price (1000)
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+				starting_balance - price
 			);
 
 			// listing removed
@@ -1337,23 +1359,28 @@ fn listing_price_splits_royalties_and_network_fee() {
 
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 
+			// Buyer balance should be starting minus 1_000_000
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
-				starting_balance - price - MarketplaceNetworkFeePercentage::get().mul(price)
+				starting_balance - price
 			);
 
+			// Owner balance should be 1_000_000 minus 25.5% of 1_000_000
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				price - entitlement_amount.mul(price)
+				price -
+					entitlement_amount.mul(price) -
+					MarketplaceNetworkFeePercentage::get().mul(price)
 			);
 
+			// Beneficiary balance should be 25% of 1_000_000
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
 				entitlement_amount.mul(price)
 			);
 
 			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
-
+			// Network fee should be 0.5% of 1_000_000
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
 				MarketplaceNetworkFeePercentage::get().mul(price)
@@ -1403,13 +1430,15 @@ fn listing_price_splits_multiple_royalties_and_network_fee() {
 
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
-				starting_balance - price - MarketplaceNetworkFeePercentage::get().mul(price)
+				starting_balance - price
 			);
 
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				price -
-					(entitlement_amount.mul(price) + entitlement_amount_beneficiary_2.mul(price))
+					(entitlement_amount.mul(price) +
+						entitlement_amount_beneficiary_2.mul(price) +
+						MarketplaceNetworkFeePercentage::get().mul(price))
 			);
 
 			assert_eq!(
@@ -1468,7 +1497,9 @@ fn network_fee_royalties_split_is_respected_xrpl() {
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 			assert_eq!(
 				AssetsExt::reducible_balance(asset_used, &token_owner, false),
-				price - entitlement_amount.mul(price)
+				price -
+					entitlement_amount.mul(price) -
+					MarketplaceNetworkFeePercentage::get().mul(price)
 			);
 
 			assert_eq!(
@@ -1546,16 +1577,17 @@ fn buy_with_royalties() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
 				initial_balance_b2 + royalties_schedule.clone().entitlements[2].1 * sale_price
 			);
-			// token owner gets sale price less royalties
+			// token owner gets sale price - royalties - network fee
+			let network_fee = MarketplaceNetworkFeePercentage::get().mul(sale_price);
+			let royalties = royalties_schedule
+				.clone()
+				.entitlements
+				.into_iter()
+				.map(|(_, e)| e * sale_price)
+				.sum::<Balance>();
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				initial_balance_seller + sale_price -
-					royalties_schedule
-						.clone()
-						.entitlements
-						.into_iter()
-						.map(|(_, e)| e * sale_price)
-						.sum::<Balance>()
+				initial_balance_seller + sale_price - royalties - network_fee
 			);
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 
@@ -1646,7 +1678,7 @@ fn sell_to_anybody() {
 			assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 
 			// paid
-			assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 990);
+			assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 995);
 
 			// listing removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
@@ -1697,8 +1729,11 @@ fn buy_with_overcommitted_royalties() {
 
 		assert_ok!(Nft::buy(Some(buyer).into(), listing_id));
 		assert!(bad_schedule.calculate_total_entitlement().is_zero());
-		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false), price);
-		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 990);
+		assert_eq!(
+			AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+			price - MarketplaceNetworkFeePercentage::get().mul(price)
+		);
+		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 995);
 		assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 	})
 }
@@ -1885,10 +1920,10 @@ fn auction() {
 			// end auction
 			let _ = Nft::on_initialize(System::block_number() + AUCTION_EXTENSION_PERIOD as u64);
 
-			// no royalties, all proceeds to token owner
+			// no royalties, all proceeds to token owner minus network fees
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				winning_bid
+				winning_bid - MarketplaceNetworkFeePercentage::get().mul(winning_bid)
 			);
 			// bidder2 funds should be all gone (unreserved and transferred)
 			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &bidder_2, false).is_zero());
@@ -2010,15 +2045,16 @@ fn auction_royalty_payments() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
 				royalties_schedule.entitlements[2].1 * reserve_price
 			);
-			// token owner gets sale price less royalties
+			// token owner gets sale price - (royalties + network fee)
+			let royalties = royalties_schedule
+				.entitlements
+				.into_iter()
+				.map(|(_, e)| e * reserve_price)
+				.sum::<Balance>();
+			let network_fee = MarketplaceNetworkFeePercentage::get().mul(reserve_price);
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				reserve_price -
-					royalties_schedule
-						.entitlements
-						.into_iter()
-						.map(|(_, e)| e * reserve_price)
-						.sum::<Balance>()
+				reserve_price - (royalties + network_fee)
 			);
 			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &bidder, false).is_zero());
 			assert!(AssetsExt::hold_balance(&NftPalletId::get(), &bidder, &NativeAssetId::get())
@@ -2899,7 +2935,7 @@ fn accept_offer_multiple_offers() {
 				.is_zero());
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				offer_amount_2
+				offer_amount_2 - MarketplaceNetworkFeePercentage::get().mul(offer_amount_2)
 			);
 
 			// Accept first offer should fail as token_owner is no longer owner

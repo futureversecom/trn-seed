@@ -24,14 +24,11 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use codec::{Decode, Encode, MaxEncodedLen};
-use core::ops::Mul;
 use frame_support::{
 	ensure,
 	traits::{tokens::fungibles::Mutate, Get},
-	transactional, PalletId,
+	transactional,
 };
-use scale_info::TypeInfo;
 use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
 };
@@ -149,7 +146,6 @@ pub mod pallet {
 	}
 
 	#[pallet::type_value]
-	// pub fn DefaultFeeTo<T: Config>() -> Option<PalletIdWithMaxLen> {
 	pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId> {
 		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
 	}
@@ -801,17 +797,11 @@ pub mod pallet {
 
 				Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
 
-				let mut payouts = Self::calculate_royalty_payouts(
+				let payouts = Self::calculate_royalty_payouts(
 					listing.seller.clone(),
 					listing.royalties_schedule,
 					listing.fixed_price,
 				);
-
-				if let Some(tx_fee_pot_id) = FeeTo::<T>::get() {
-					// We can handle the network fee payout to the tx fee pot as well here
-					let network_fee = T::NetworkFeePercentage::get().mul(listing.fixed_price);
-					payouts.push((tx_fee_pot_id, network_fee));
-				}
 
 				// Make split transfer
 				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;

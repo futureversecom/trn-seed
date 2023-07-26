@@ -95,26 +95,37 @@ impl<T: Config> Pallet<T> {
 		collection_id: CollectionUuid,
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
+		// Get collection royalties portion
 		let mut royalties: RoyaltiesSchedule<T::AccountId> = Self::collection_info(collection_id)
 			.ok_or(Error::<T>::NoCollectionFound)?
 			.royalties_schedule
 			.unwrap_or_default();
 
-		let Some(marketplace_id) = marketplace_id else {
-			return Ok(royalties)
-		};
-
-		ensure!(
-			<RegisteredMarketplaces<T>>::contains_key(marketplace_id),
-			Error::<T>::MarketplaceNotRegistered
-		);
-		if let Some(marketplace) = Self::registered_marketplaces(marketplace_id) {
+		// Get network fee portion
+		if let Some(tx_fee_pot_id) = FeeTo::<T>::get() {
+			// We can handle the network fee payout to the tx fee pot as well here
+			let network_fee = T::NetworkFeePercentage::get();
 			royalties
 				.entitlements
-				.try_push((marketplace.account, marketplace.entitlement))
+				.try_push((tx_fee_pot_id, network_fee))
 				.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
 		}
+
+		// Get marketplace fee portion
+		if let Some(marketplace_id) = marketplace_id {
+			if let Some(marketplace) = <RegisteredMarketplaces<T>>::get(marketplace_id) {
+				royalties
+					.entitlements
+					.try_push((marketplace.account, marketplace.entitlement))
+					.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
+			} else {
+				return Err(Error::<T>::MarketplaceNotRegistered.into())
+			}
+		};
+
+		// Validate all royalties
 		ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
+
 		Ok(royalties)
 	}
 
