@@ -1586,7 +1586,7 @@ mod set_name {
 			let token_id = create_test_token(collection_owner, collection_owner, 1000);
 			let collection_name = bounded_string("test-collection");
 
-			// Set base uri fails because not collection owner
+			// Set name fails because not collection owner
 			assert_noop!(
 				Sft::set_name(Some(bob()).into(), token_id.0, collection_name),
 				Error::<Test>::NotCollectionOwner
