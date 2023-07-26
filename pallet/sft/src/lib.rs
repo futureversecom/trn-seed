@@ -353,7 +353,7 @@ pub mod pallet {
 
 		/// Set the name of a collection
 		/// Caller must be the current collection owner
-		#[pallet::weight(T::WeightInfo::set_base_uri())]
+		#[pallet::weight(T::WeightInfo::set_name())]
 		pub fn set_name(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
