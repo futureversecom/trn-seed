@@ -172,6 +172,18 @@ benchmarks! {
 		let collection = collection.unwrap();
 		assert_eq!(collection.metadata_scheme, metadata_scheme);
 	}
+
+	set_name {
+		let owner = account::<T>("Alice");
+		let id = build_collection::<T>(Some(owner.clone()));
+		let collection_name = bounded_string::<T>("Collection");
+	}: _(origin::<T>(&owner), id, collection_name.clone())
+	verify {
+		let collection = SftCollectionInfo::<T>::get(id);
+		assert!(collection.is_some());
+		let collection = collection.unwrap();
+		assert_eq!(collection.collection_name, collection_name);
+	}
 }
 
 impl_benchmark_test_suite!(Sft, crate::mock::new_test_ext(), crate::mock::Test,);
