@@ -258,20 +258,11 @@ pub mod pallet {
 			owner: T::AccountId,
 		},
 		/// A new owner was set
-		OwnerSet {
-			collection_id: CollectionUuid,
-			new_owner: T::AccountId,
-		},
+		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
-		MaxIssuanceSet {
-			collection_id: CollectionUuid,
-			max_issuance: TokenCount,
-		},
+		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
 		/// Base URI was set
-		BaseUriSet {
-			collection_id: CollectionUuid,
-			base_uri: Vec<u8>,
-		},
+		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -280,10 +271,7 @@ pub mod pallet {
 			new_owner: T::AccountId,
 		},
 		/// A token was burned
-		Burn {
-			collection_id: CollectionUuid,
-			serial_number: SerialNumber,
-		},
+		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
 		/// A fixed price sale has been listed
 		FixedPriceSaleList {
 			collection_id: CollectionUuid,
@@ -365,25 +353,13 @@ pub mod pallet {
 			buyer: T::AccountId,
 		},
 		/// An offer has been cancelled
-		OfferCancel {
-			offer_id: OfferId,
-			token_id: TokenId,
-		},
+		OfferCancel { offer_id: OfferId, token_id: TokenId },
 		/// An offer has been accepted
-		OfferAccept {
-			offer_id: OfferId,
-			token_id: TokenId,
-			amount: Balance,
-			asset_id: AssetId,
-		},
+		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
 		/// Collection has been claimed
-		CollectionClaimed {
-			account: T::AccountId,
-			collection_id: CollectionUuid,
-		},
-		SetFeeTo {
-			account: Option<T::AccountId>,
-		},
+		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
+		/// The netowrk fee has been updated
+		SetFeeTo { account: Option<T::AccountId> },
 	}
 
 	#[pallet::error]

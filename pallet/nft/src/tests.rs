@@ -18,6 +18,7 @@ use crate::{
 	},
 	Event as NftEvent,
 };
+use core::ops::Mul;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{fungibles::Inspect, OnInitialize},
