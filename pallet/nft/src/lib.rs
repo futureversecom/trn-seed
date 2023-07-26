@@ -253,6 +253,8 @@ pub mod pallet {
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
+		/// Name was set
+		NameSet { collection_id: CollectionUuid, name: BoundedVec<u8, T::StringLimit> },
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -1120,6 +1122,28 @@ pub mod pallet {
 					Ok(())
 				},
 			}
+		}
+
+		/// Set the name of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_base_uri())]
+		pub fn set_name(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			name: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
+			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+			collection_info.name = name.clone();
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::NameSet { collection_id, name });
+			Ok(())
 		}
 	}
 }
