@@ -78,7 +78,7 @@ yarn && yarn test
 
 ### Formatting & Linting
 ```
-make fmt
+cargo fmt
 ```
 
 ### Benchmarks
