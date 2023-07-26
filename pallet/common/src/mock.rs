@@ -191,7 +191,7 @@ macro_rules! impl_pallet_nft_config {
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 			pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
-			pub const DefaultFeeTo: Option<PalletId> = None;
+			pub const NftDefaultFeeTo: Option<PalletId> = None;
 		}
 
 		impl pallet_nft::Config for Test {
@@ -209,7 +209,7 @@ macro_rules! impl_pallet_nft_config {
 			type StringLimit = StringLimit;
 			type Xls20MintRequest = MockXls20MintRequest;
 			type WeightInfo = ();
-			type DefaultFeeTo = DefaultFeeTo;
+			type DefaultFeeTo = NftDefaultFeeTo;
 		}
 	};
 }
