@@ -1540,3 +1540,81 @@ mod set_base_uri {
 		});
 	}
 }
+
+mod set_name {
+	use super::*;
+
+	#[test]
+	fn set_name_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let collection_name = bounded_string("test-collection");
+
+			// Set name
+			assert_ok!(Sft::set_name(
+				Some(collection_owner).into(),
+				token_id.0,
+				collection_name.clone()
+			));
+
+			// Name is correct
+			let collection_info = SftCollectionInfo::<Test>::get(token_id.0).unwrap();
+			assert_eq!(collection_info.collection_name, collection_name);
+		});
+	}
+
+	#[test]
+	fn set_name_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let collection_id: u32 = 1;
+			let new_name = bounded_string("yeet");
+
+			// Call to unknown collection should fail
+			assert_noop!(
+				Sft::set_name(Some(collection_owner).into(), collection_id, new_name),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let collection_name = bounded_string("test-collection");
+
+			// Set name fails because not collection owner
+			assert_noop!(
+				Sft::set_name(Some(bob()).into(), token_id.0, collection_name),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_invalid_name_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+
+			// Calls with no name should fail
+			assert_noop!(
+				Sft::set_name(Some(collection_owner).into(), token_id.0, bounded_string("")),
+				Error::<Test>::NameInvalid
+			);
+
+			// non UTF-8 chars
+			assert_noop!(
+				Sft::set_name(
+					Some(collection_owner).into(),
+					token_id.0,
+					BoundedVec::truncate_from(vec![0xfe, 0xff])
+				),
+				Error::<Test>::NameInvalid
+			);
+		});
+	}
+}
