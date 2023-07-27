@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,8 +31,7 @@ use pallet_ethereum::{
 	TransactionAction,
 };
 use pallet_evm::{
-	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
-	Runner as RunnerT,
+	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -120,7 +123,9 @@ use staking::OnChainAccuracy;
 mod migrations;
 mod weights;
 
-use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
+use crate::impls::{
+	FutureverseEVMCurrencyAdapter, FutureverseEnsureAddressSame, OnNewAssetSubscription,
+};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use seed_primitives::BlakeTwo256Hash;
@@ -527,6 +532,7 @@ parameter_types! {
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
 	pub const LPTokenDecimals: u8 = 18;
+	pub const DefaultFeeTo: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
@@ -534,6 +540,7 @@ impl pallet_dex::Config for Runtime {
 	type LPTokenDecimals = LPTokenDecimals;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
+	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = weights::pallet_dex::WeightInfo<Runtime>;
 	type MultiCurrency = AssetsExt;
 }
@@ -990,7 +997,7 @@ impl pallet_evm::Config for Runtime {
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
-	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>;
+	type OnChargeTransaction = FutureverseEVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	// internal EVM config
 	fn config() -> &'static EvmConfig {
@@ -1928,5 +1935,6 @@ mod benches {
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
+		[pallet_dex, Dex]
 	);
 }

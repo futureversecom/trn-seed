@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,12 +25,12 @@ use frame_support::{
 		fungible::Inspect,
 		fungibles,
 		tokens::{DepositConsequence, WithdrawConsequence},
-		Currency, ExistenceRequirement, FindAuthor, InstanceFilter, IsSubType, OnUnbalanced,
-		ReservableCurrency, SignedImbalance, WithdrawReasons,
+		Currency, ExistenceRequirement, FindAuthor, Imbalance, InstanceFilter, IsSubType,
+		OnUnbalanced, ReservableCurrency, SignedImbalance, WithdrawReasons,
 	},
 	weights::WeightToFee,
 };
-use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin};
+use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
 use sp_core::{H160, U256};
@@ -54,9 +58,9 @@ use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
-	UncheckedExtrinsic,
+	UncheckedExtrinsic, EVM,
 };
-use sp_runtime::traits::Dispatchable;
+use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
 
 /// Constant factor for scaling CPAY to its smallest indivisible unit
 const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
@@ -72,6 +76,11 @@ pub fn scale_wei_to_6dp(value: Balance) -> Balance {
 		// it is lost in this divide operation
 		quotient + 1
 	}
+}
+
+/// convert 6dp (XRP) to 18dp (wei)
+pub fn scale_6dp_to_wei(value: Balance) -> Balance {
+	value * XRP_UNIT_VALUE
 }
 
 /// Wraps spending currency (XRP) for use by the EVM
@@ -819,6 +828,117 @@ where
 			new_owner,
 		)?;
 		Ok(())
+	}
+}
+
+/// Futureverse EVM currency adapter, mainly handles tx fees and associated 18DP(wei) to 6DP(XRP)
+/// conversion for fees.
+pub struct FutureverseEVMCurrencyAdapter<C, OU>(PhantomData<(C, OU)>);
+
+type NegativeImbalanceOf<C, T> =
+	<C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
+
+impl<T, C, OU> OnChargeEVMTransaction<T> for FutureverseEVMCurrencyAdapter<C, OU>
+where
+	T: pallet_evm::Config + pallet_assets_ext::Config,
+	C: Currency<<T as frame_system::Config>::AccountId>,
+	C::PositiveImbalance: Imbalance<
+		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+		Opposite = C::NegativeImbalance,
+	>,
+	C::NegativeImbalance: Imbalance<
+		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+		Opposite = C::PositiveImbalance,
+	>,
+	OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
+	U256: UniqueSaturatedInto<<C as Currency<<T as frame_system::Config>::AccountId>>::Balance>,
+	C::Balance: From<u128>,
+	u128: From<C::Balance>,
+{
+	type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
+
+	fn withdraw_fee(who: &H160, fee: U256) -> Result<Self::LiquidityInfo, pallet_evm::Error<T>> {
+		if fee.is_zero() {
+			return Ok(None)
+		}
+		let account_id = T::AddressMapping::into_account_id(*who);
+		let imbalance = C::withdraw(
+			&account_id,
+			fee.unique_saturated_into(),
+			WithdrawReasons::FEE,
+			ExistenceRequirement::AllowDeath,
+		)
+		.map_err(|_| pallet_evm::Error::<T>::BalanceLow)?;
+		Ok(Some(imbalance)) // Imbalance returned here is 6DP
+	}
+
+	fn correct_and_deposit_fee(
+		who: &H160,
+		corrected_fee: U256,
+		base_fee: U256,
+		already_withdrawn: Self::LiquidityInfo,
+	) -> Self::LiquidityInfo {
+		if let Some(paid) = already_withdrawn {
+			let account_id = T::AddressMapping::into_account_id(*who);
+
+			// NOTE: Here paid is in 6DP and corrected_fee is in 18DP. Hence convert paid to 18DP
+			// before any calculation.
+			let paid_18dp: C::Balance = scale_6dp_to_wei(paid.peek().into()).into();
+
+			// Calculate how much refund we should return
+			let refund_amount = paid_18dp.saturating_sub(corrected_fee.unique_saturated_into());
+			// refund to the account that paid the fees. If this fails, the
+			// account might have dropped below the existential balance. In
+			// that case we don't refund anything.
+			let refund_imbalance = C::deposit_into_existing(&account_id, refund_amount)
+				.unwrap_or_else(|_| C::PositiveImbalance::zero());
+
+			// Make sure this works with 0 ExistentialDeposit
+			// https://github.com/paritytech/substrate/issues/10117
+			// If we tried to refund something, the account still empty and the ED is set to 0,
+			// we call `make_free_balance_be` with the refunded amount.
+			let refund_imbalance = if C::minimum_balance().is_zero() &&
+				refund_amount > C::Balance::zero() &&
+				C::total_balance(&account_id).is_zero()
+			{
+				// Known bug: Substrate tried to refund to a zeroed AccountData, but
+				// interpreted the account to not exist.
+				match C::make_free_balance_be(&account_id, refund_amount) {
+					SignedImbalance::Positive(p) => p,
+					_ => C::PositiveImbalance::zero(),
+				}
+			} else {
+				refund_imbalance
+			};
+
+			// merge the imbalance caused by paying the fees and refunding parts of it again.
+			let adjusted_paid = paid
+				.offset(refund_imbalance)
+				.same()
+				.unwrap_or_else(|_| C::NegativeImbalance::zero());
+
+			// base_fee is in 18DP, adjusted_paid is in 6DP. Hence we need to scale base_fee to 6DP
+			// before the split
+			let base_fee_6dp: C::Balance =
+				scale_wei_to_6dp(base_fee.unique_saturated_into().into()).into();
+
+			let (base_fee, tip) = adjusted_paid.split(base_fee_6dp);
+			// Handle base fee. Can be either burned, rationed, etc ...
+			OU::on_unbalanced(base_fee); // base_fee here is in 6DP
+			return Some(tip) // tip here is in 6DP
+		}
+		None
+	}
+
+	fn pay_priority_fee(tip: Self::LiquidityInfo) {
+		// Default Ethereum behaviour: issue the tip to the block author.
+		if let Some(tip) = tip {
+			let account_id = T::AddressMapping::into_account_id(EVM::find_author());
+			// tip is in 6DP. We should convert it to 18DP before passing it down to C, as another
+			// 18DP to 6DP conversion happening there.
+			let tip_18dp: C::Balance = scale_6dp_to_wei(tip.peek().into()).into();
+			let _ = C::deposit_into_existing(&account_id, tip_18dp);
+		}
 	}
 }
 

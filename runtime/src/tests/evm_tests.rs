@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -12,13 +16,13 @@
 //! Integration tests for evm config
 #![cfg(test)]
 
-use super::{TxBuilder, BASE_TX_GAS_COST, MINIMUM_XRP_TX_COST};
+use super::{TxBuilder, BASE_TX_GAS_COST, MAX_PRIORITY_FEE_PER_GAS, MINIMUM_XRP_TX_COST};
 use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Futurepass, Origin, Runtime, TxFeePot,
-	XrpCurrency, EVM,
+	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Futurepass, Origin, Runtime, System,
+	TxFeePot, XrpCurrency, EVM,
 };
 use ethabi::Token;
 
@@ -28,11 +32,13 @@ use frame_support::{
 	traits::{fungible::Inspect, fungibles::Inspect as Inspects},
 };
 use frame_system::RawOrigin::Root;
+use hex_literal::hex;
 
+use crate::{constants::XRP_ASSET_ID, impls::scale_6dp_to_wei};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_client::chain_spec::get_account_id_from_seed;
-use seed_primitives::{AssetId, Balance};
+use seed_primitives::{AccountId, AssetId, Balance};
 use sp_core::{ecdsa, H160, H256, U256};
 use sp_runtime::{traits::SignedExtension, DispatchError::BadOrigin};
 
@@ -392,5 +398,81 @@ fn evm_base_fee_changes_transaction_fee() {
 		assert_eq!(new_change, original_change * 2);
 		assert_eq!(third_balance, original_balance - original_change - new_change);
 		assert!(new_change > original_change);
+	})
+}
+
+#[test]
+fn evm_extra_gas_refunded_and_miner_paid() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		let base_fee: u128 = FeeControl::base_fee_per_gas().as_u128();
+		let fee_pot_accout = TxFeePot::account_id();
+		let miner_account = AccountId::from(hex!("0000000000000000000000000000000000000000")); // miner is 0x0000000000000000000000000000000000000000
+
+		let bob_balance_before = XrpCurrency::balance(&bob());
+		let fee_pot_balance_before = XrpCurrency::balance(&fee_pot_accout);
+		let miner_balance_before = XrpCurrency::balance(&miner_account);
+		let (origin, tx) = TxBuilder::ethers_default_gas().origin(bob()).build();
+		assert_ok!(Ethereum::transact(origin, tx));
+		let bob_balance_after = XrpCurrency::balance(&bob());
+		let fee_pot_balance_after = XrpCurrency::balance(&fee_pot_accout);
+		let miner_balance_after = XrpCurrency::balance(&miner_account);
+
+		// calculations
+		let initial_withdraw_fee = BASE_TX_GAS_COST * (2 * base_fee + MAX_PRIORITY_FEE_PER_GAS);
+		let actual_fee = BASE_TX_GAS_COST * (base_fee + MAX_PRIORITY_FEE_PER_GAS);
+		let burned_fee = BASE_TX_GAS_COST * base_fee;
+		let refund_fee =
+			scale_wei_to_6dp(scale_6dp_to_wei(scale_wei_to_6dp(initial_withdraw_fee)) - actual_fee);
+		let priority_fee =
+			scale_wei_to_6dp(initial_withdraw_fee) - refund_fee - scale_wei_to_6dp(burned_fee);
+
+		// Check bob is only charged the actual fee
+		assert_eq!(
+			bob_balance_before - bob_balance_after,
+			scale_wei_to_6dp(initial_withdraw_fee) - refund_fee
+		);
+		// check the fee pot received the burned_fee
+		assert_eq!(fee_pot_balance_after - fee_pot_balance_before, scale_wei_to_6dp(burned_fee));
+		// check miner received the priority fee
+		assert_eq!(miner_balance_after - miner_balance_before, priority_fee);
+
+		// check events
+		// Initial fee withdraw
+		System::assert_has_event(
+			pallet_assets_ext::Event::<Runtime>::InternalWithdraw {
+				asset_id: XRP_ASSET_ID,
+				who: bob(),
+				amount: scale_wei_to_6dp(initial_withdraw_fee),
+			}
+			.into(),
+		);
+		// refund bob
+		System::assert_has_event(
+			pallet_assets_ext::Event::<Runtime>::InternalDeposit {
+				asset_id: XRP_ASSET_ID,
+				who: bob(),
+				amount: refund_fee,
+			}
+			.into(),
+		);
+		// burned fee to tx fee pot
+		System::assert_has_event(
+			pallet_assets_ext::Event::<Runtime>::InternalDeposit {
+				asset_id: XRP_ASSET_ID,
+				who: fee_pot_accout,
+				amount: scale_wei_to_6dp(burned_fee),
+			}
+			.into(),
+		);
+		// priority fee to the miner
+		System::assert_has_event(
+			pallet_assets_ext::Event::<Runtime>::InternalDeposit {
+				asset_id: XRP_ASSET_ID,
+				who: miner_account,
+				amount: priority_fee,
+			}
+			.into(),
+		);
 	})
 }

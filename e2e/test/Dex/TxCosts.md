@@ -16,7 +16,7 @@
 
 | Function Call            | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:-------------------------|:---------------------:|:-----------------------:|:----------------------:|
-| addLiquidity             |        5280565        |         3077464         |         420318         |
-| removeLiquidity          |        4573129        |         2213181         |         350197         |
-| swapExactTokensForTokens |        3617281        |         1613781         |         350130         |
-| swapTokensForExactTokens |        3622292        |         1615221         |         375130         |
+| addLiquidity             |        2261896        |         1479087         |         420318         |
+| removeLiquidity          |        1722772        |         1043234         |         350197         |
+| swapExactTokensForTokens |        1490489        |         804635          |         350130         |
+| swapTokensForExactTokens |        1492814        |         805655          |         375130         |
