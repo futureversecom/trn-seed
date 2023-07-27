@@ -15,7 +15,7 @@
 | symbol            |    25938     |     22388      |             0             |
 | tokenURI          |    25964     |     23242      |             0             |
 | owner             |    23728     |     22388      |             0             |
-| transferOwnership |    27323     |     27769      |           19835           |
+| transferOwnership |    27823     |     28447      |           19835           |
 | renounceOwnership |    28530     |     27653      |           19668           |
 
 
