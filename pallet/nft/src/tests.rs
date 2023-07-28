@@ -4116,3 +4116,103 @@ mod set_base_uri {
 		});
 	}
 }
+
+mod set_name {
+	use super::*;
+
+	#[test]
+	fn set_name_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let name = bounded_string("test-collection");
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				name.clone(),
+				0,
+				None,
+				None,
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+
+			// Sanity check
+			assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().name, name);
+
+			let new_name = bounded_string("yeet");
+			assert_ok!(Nft::set_name(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				new_name.clone()
+			));
+
+			// Storage updated
+			assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().name, new_name);
+
+			// Event thrown
+			assert!(has_event(Event::<Test>::NameSet { collection_id, name: new_name }));
+		});
+	}
+
+	#[test]
+	fn set_name_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = 1;
+			let new_name = bounded_string("yeet");
+
+			// Call to unknown collection should fail
+			assert_noop!(
+				Nft::set_name(RawOrigin::Signed(collection_owner).into(), collection_id, new_name),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_not_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let new_name = bounded_string("yeet");
+
+			// Call from not owner should fail
+			let bob = create_account(11);
+			assert_noop!(
+				Nft::set_name(RawOrigin::Signed(bob).into(), collection_id, new_name),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_invalid_name_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+
+			// Calls with no name should fail
+			assert_noop!(
+				Nft::set_name(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					bounded_string("")
+				),
+				Error::<Test>::CollectionNameInvalid
+			);
+
+			// non UTF-8 chars
+			assert_noop!(
+				Nft::set_name(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					BoundedVec::truncate_from(vec![0xfe, 0xff])
+				),
+				Error::<Test>::CollectionNameInvalid
+			);
+		});
+	}
+}

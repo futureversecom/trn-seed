@@ -132,6 +132,10 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, "https://example.com/tokens/".into())
 
+	set_name {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::truncate_from("New Name".encode()))
+
 	register_marketplace {
 	}: _(origin::<T>(&account::<T>("Alice")), None, Permill::zero())
 

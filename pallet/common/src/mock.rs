@@ -396,6 +396,9 @@ macro_rules! impl_pallet_futurepass_config {
 			) -> bool {
 				false
 			}
+			fn owner(futurepass: &T::AccountId) -> Option<T::AccountId> {
+				None
+			}
 			fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)> {
 				vec![]
 			}
@@ -403,7 +406,7 @@ macro_rules! impl_pallet_futurepass_config {
 				_: &T::AccountId,
 				futurepass: &T::AccountId,
 				delegate: &T::AccountId,
-				proxy_type: &T::ProxyType,
+				proxy_type: &u8,
 			) -> DispatchResult {
 				Ok(())
 			}
@@ -448,6 +451,7 @@ macro_rules! impl_pallet_futurepass_config {
 			NonTransfer = 2,
 			Governance = 3,
 			Staking = 4,
+			Owner = 255,
 		}
 
 		impl Default for ProxyType {
@@ -465,20 +469,21 @@ macro_rules! impl_pallet_futurepass_config {
 					2 => Ok(ProxyType::NonTransfer),
 					3 => Ok(ProxyType::Governance),
 					4 => Ok(ProxyType::Staking),
+					255 => Ok(ProxyType::Owner),
 					_ => Err("Invalid value for ProxyType"),
 				}
 			}
 		}
 
-		impl TryInto<u8> for ProxyType {
-			type Error = &'static str;
-			fn try_into(self) -> Result<u8, Self::Error> {
+		impl Into<u8> for ProxyType {
+			fn into(self) -> u8 {
 				match self {
-					ProxyType::NoPermission => Ok(0),
-					ProxyType::Any => Ok(1),
-					ProxyType::NonTransfer => Ok(2),
-					ProxyType::Governance => Ok(3),
-					ProxyType::Staking => Ok(4),
+					ProxyType::NoPermission => 0,
+					ProxyType::Any => 1,
+					ProxyType::NonTransfer => 2,
+					ProxyType::Governance => 3,
+					ProxyType::Staking => 4,
+					ProxyType::Owner => 255,
 				}
 			}
 		}
@@ -486,7 +491,7 @@ macro_rules! impl_pallet_futurepass_config {
 		impl InstanceFilter<Call> for ProxyType {
 			fn filter(&self, c: &Call) -> bool {
 				match self {
-					// only ProxyType::Any is used in V1
+					ProxyType::Owner => true,
 					ProxyType::Any => true,
 					// TODO - need to add allowed calls under this category in v2. allowing all for
 					// now.
@@ -500,8 +505,8 @@ macro_rules! impl_pallet_futurepass_config {
 			fn is_superset(&self, o: &Self) -> bool {
 				match (self, o) {
 					(x, y) if x == y => true,
-					(ProxyType::Any, _) => true,
-					(_, ProxyType::Any) => false,
+					(ProxyType::Owner, _) | (ProxyType::Any, _) => true,
+					(_, ProxyType::Owner) | (_, ProxyType::Any) => false,
 					_ => false,
 				}
 			}

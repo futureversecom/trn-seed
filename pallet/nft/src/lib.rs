@@ -31,7 +31,7 @@
 use frame_support::{
 	ensure,
 	traits::{tokens::fungibles::Mutate, Get},
-	transactional,
+	transactional, PalletId,
 };
 use seed_pallet_common::{
 	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
@@ -74,7 +74,7 @@ pub(crate) const LOG_TARGET: &str = "nft";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer, PalletId};
+	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer};
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
@@ -265,8 +265,12 @@ pub mod pallet {
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
+		/// The network fee receiver address has been updated
+		FeeToSet { account: Option<T::AccountId> },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
+		/// Name was set
+		NameSet { collection_id: CollectionUuid, name: BoundedVec<u8, T::StringLimit> },
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -362,8 +366,6 @@ pub mod pallet {
 		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
-		/// The netowrk fee has been updated
-		SetFeeTo { account: Option<T::AccountId> },
 	}
 
 	#[pallet::error]
@@ -782,7 +784,6 @@ pub mod pallet {
 					listing.royalties_schedule,
 					listing.fixed_price,
 				);
-
 				// Make split transfer
 				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
 
@@ -1139,6 +1140,28 @@ pub mod pallet {
 			}
 		}
 
+		/// Set the name of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_name())]
+		pub fn set_name(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			name: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
+			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+			collection_info.name = name.clone();
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::NameSet { collection_id, name });
+			Ok(())
+		}
+
 		/// Set the `FeeTo` account. This operation requires root access.
 		///
 		/// - `fee_to`: the new account or None assigned to FeeTo.
@@ -1150,7 +1173,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			FeeTo::<T>::put(&fee_to);
-			Self::deposit_event(Event::SetFeeTo { account: fee_to });
+			Self::deposit_event(Event::FeeToSet { account: fee_to });
 			Ok(().into())
 		}
 	}

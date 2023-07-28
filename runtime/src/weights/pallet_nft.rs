@@ -62,6 +62,12 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
+	// Storage: Nft CollectionInfo (r:1 w:1)
+	fn set_name() -> Weight {
+		(25_273_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(1 as Weight))
+			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
 	// Storage: Nft NextMarketplaceId (r:1 w:1)
 	// Storage: Nft RegisteredMarketplaces (r:0 w:1)
 	fn register_marketplace() -> Weight {
