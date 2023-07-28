@@ -1165,7 +1165,7 @@ pub mod pallet {
 		/// Set the `FeeTo` account. This operation requires root access.
 		///
 		/// - `fee_to`: the new account or None assigned to FeeTo.
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		#[transactional]
 		pub fn set_fee_to(
 			origin: OriginFor<T>,
