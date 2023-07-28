@@ -22,6 +22,7 @@ use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
+	Permill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -160,6 +161,9 @@ parameter_types! {
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const MintLimit: u32 = 100;
 	pub const StringLimit: u32 = 50;
+	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const DefaultFeeTo: Option<PalletId> = None;
 }
 
 impl pallet_nft::Config for Test {
@@ -169,6 +173,7 @@ impl pallet_nft::Config for Test {
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
 	type MultiCurrency = AssetsExt;
+	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
@@ -176,6 +181,7 @@ impl pallet_nft::Config for Test {
 	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = Xls20;
+	type DefaultFeeTo = DefaultFeeTo;
 }
 
 parameter_types! {

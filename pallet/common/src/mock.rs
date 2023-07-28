@@ -164,6 +164,8 @@ macro_rules! impl_pallet_assets_ext_config {
 #[macro_export]
 macro_rules! impl_pallet_nft_config {
 	($test:ident) => {
+		use sp_runtime::Permill;
+
 		pub struct MockXls20MintRequest;
 		impl Xls20MintRequest for MockXls20MintRequest {
 			type AccountId = AccountId;
@@ -191,6 +193,9 @@ macro_rules! impl_pallet_nft_config {
 			pub const MintLimit: u32 = 100;
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
+			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
+			pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+			pub const NftDefaultFeeTo: Option<PalletId> = None;
 		}
 
 		impl pallet_nft::Config for Test {
@@ -200,6 +205,7 @@ macro_rules! impl_pallet_nft_config {
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
 			type MultiCurrency = AssetsExt;
+			type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 			type OnTransferSubscription = MockTransferSubscriber;
 			type OnNewAssetSubscription = ();
 			type PalletId = NftPalletId;
@@ -207,6 +213,7 @@ macro_rules! impl_pallet_nft_config {
 			type StringLimit = StringLimit;
 			type Xls20MintRequest = MockXls20MintRequest;
 			type WeightInfo = ();
+			type DefaultFeeTo = NftDefaultFeeTo;
 		}
 	};
 }
