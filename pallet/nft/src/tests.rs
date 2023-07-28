@@ -3699,6 +3699,41 @@ fn create_xls20_collection_with_initial_issuance_fails() {
 	});
 }
 
+mod set_fee_to {
+	use super::*;
+
+	#[test]
+	fn set_fee_to_works() {
+		TestExt::default().build().execute_with(|| {
+			// Ensure default is correct
+			let default_fee_to: AccountId =
+				mock::DefaultFeeTo::get().unwrap().into_account_truncating();
+			assert_eq!(FeeTo::<Test>::get().unwrap(), default_fee_to);
+
+			// Change fee_to account
+			let new_fee_to = create_account(10);
+			assert_ok!(Nft::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to.clone())));
+
+			// Event thrown
+			assert!(has_event(Event::<Test>::SetFeeTo { account: Some(new_fee_to) }));
+			// Storage updated
+			assert_eq!(FeeTo::<Test>::get().unwrap(), new_fee_to);
+		});
+	}
+
+	#[test]
+	fn set_fee_to_not_root_fails() {
+		TestExt::default().build().execute_with(|| {
+			// Change fee_to account from not sudo should fail
+			let new_fee_to = create_account(10);
+			assert_noop!(
+				Nft::set_fee_to(Some(create_account(11)).into(), Some(new_fee_to)),
+				BadOrigin
+			);
+		});
+	}
+}
+
 mod set_max_issuance {
 	use super::*;
 
