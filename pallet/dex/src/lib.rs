@@ -189,7 +189,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		/// Set FeeTo account success. \[fee_to]
-		SetFeeTo(Option<T::AccountId>),
+		FeeToSet(Option<T::AccountId>),
 		/// Add provision success. \[who, asset_id_0, contribution_0,
 		/// asset_id_1, contribution_1\]
 		AddProvision(T::AccountId, AssetId, Balance, AssetId, Balance),
@@ -273,7 +273,7 @@ pub mod pallet {
 
 			FeeTo::<T>::put(&fee_to);
 
-			Self::deposit_event(Event::SetFeeTo(fee_to));
+			Self::deposit_event(Event::FeeToSet(fee_to));
 
 			Ok(().into())
 		}
