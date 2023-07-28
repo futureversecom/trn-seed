@@ -78,19 +78,21 @@ fn create_futurepass_by_owner() {
 			// fund owner
 			transfer_funds(MOCK_NATIVE_ASSET_ID, &funder, &owner, FP_CREATION_RESERVE);
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), FP_CREATION_RESERVE);
+
+			let futurepass_addr = AccountId::from(hex!("ffffffff00000000000000000000000000000001"));
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass_addr), None);
+
 			// create futurepass account
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
 			// assert event (account creation)
 			System::assert_has_event(
-				Event::<Test>::FuturepassCreated {
-					futurepass: AccountId::from(hex!("ffffffff00000000000000000000000000000001")),
-					delegate: owner,
-				}
-				.into(),
+				Event::<Test>::FuturepassCreated { futurepass: futurepass_addr, delegate: owner }
+					.into(),
 			);
 			// Check if the futurepass account is created and associated with the delegate account
 			let futurepass = Holders::<Test>::get(&owner).unwrap();
-			assert!(<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Any)));
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Owner)));
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner);
 
 			// try to create futurepass for the owner again should result error
 			assert_noop!(
@@ -130,7 +132,8 @@ fn create_futurepass_by_other() {
 			);
 			// Check if the futurepass account is created and associated with the owner account
 			let futurepass = Holders::<Test>::get(&owner).unwrap();
-			assert!(<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Any)));
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Owner)));
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner);
 
 			// check that FP_CREATION_RESERVE is paid by the caller(other)
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &other), 0);
@@ -163,6 +166,7 @@ fn register_delegate_by_owner_works() {
 				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
 				false
 			);
+			assert_ne!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), delegate);
 
 			// register delegate
 			// owner needs another FP_DELEGATE_RESERVE for this
@@ -196,6 +200,8 @@ fn register_delegate_by_owner_works() {
 
 			// check delegate is a proxy of futurepass
 			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner);
+			assert_ne!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), delegate);
 		});
 }
 
@@ -733,7 +739,7 @@ fn unregister_delegate_by_owner_itself_fails() {
 			// create FP
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
 			let futurepass = Holders::<Test>::get(&owner).unwrap();
-			assert!(<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Any)));
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Owner)));
 
 			// owner can not unregister by itself
 			assert_noop!(
@@ -821,7 +827,6 @@ fn transfer_futurepass_to_address_works() {
 			let owner = create_account(2);
 			let (signer, delegate) = create_random_pair();
 			let other = create_account(4);
-			let proxy_type = ProxyType::Any;
 			let deadline = 200;
 
 			// fund owner
@@ -834,13 +839,14 @@ fn transfer_futurepass_to_address_works() {
 			// create FP
 			assert_ok!(Futurepass::create(Origin::signed(owner), owner));
 			let futurepass = Holders::<Test>::get(&owner).unwrap();
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner);
 
 			let signature = signer
 				.sign_prehashed(
 					&Futurepass::generate_add_delegate_eth_signed_message(
 						&futurepass,
 						&delegate,
-						&proxy_type,
+						&ProxyType::Any,
 						&deadline,
 					)
 					.unwrap()
@@ -852,12 +858,12 @@ fn transfer_futurepass_to_address_works() {
 				Origin::signed(owner),
 				futurepass,
 				delegate,
-				proxy_type,
+				ProxyType::Any,
 				deadline,
 				signature,
 			));
 			// check delegate is a proxy of futurepass
-			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(proxy_type)));
+			assert!(<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)));
 
 			// transfer the ownership to other
 			// fund owner since it requires FP_DELEGATE_RESERVE to add new owner
@@ -877,15 +883,19 @@ fn transfer_futurepass_to_address_works() {
 			// owner should be other now
 			assert_eq!(Holders::<Test>::get(&other), Some(futurepass));
 			assert_eq!(Holders::<Test>::get(&owner), None);
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), other);
 			// only the new owner(i.e other) should be a delegate
-			assert!(<Test as Config>::Proxy::exists(&futurepass, &other, Some(proxy_type)));
 			assert_eq!(
-				<Test as Config>::Proxy::exists(&futurepass, &owner, Some(proxy_type)),
-				false
+				<Test as Config>::Proxy::exists(&futurepass, &other, Some(ProxyType::Owner)),
+				true
 			);
 			assert_eq!(
-				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(proxy_type)),
-				false
+				<Test as Config>::Proxy::exists(&futurepass, &owner, Some(ProxyType::Owner)),
+				false,
+			);
+			assert_eq!(
+				<Test as Config>::Proxy::exists(&futurepass, &delegate, Some(ProxyType::Any)),
+				false,
 			);
 			// caller(the owner) should receive the reserved balance diff
 			assert_eq!(AssetsExt::balance(MOCK_NATIVE_ASSET_ID, &owner), 2 * FP_DELEGATE_RESERVE);
@@ -962,6 +972,7 @@ fn transfer_futurepass_to_none_works() {
 				.into(),
 			);
 			assert_eq!(Holders::<Test>::get(&owner), None);
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass), None);
 			assert_eq!(
 				<Test as Config>::Proxy::exists(&futurepass, &owner, Some(proxy_type)),
 				false
@@ -1712,6 +1723,7 @@ fn whitelist_works_for_transfer_futurepass() {
 			//check the owner of futurepass
 			assert_eq!(Holders::<Test>::get(&owner2), Some(futurepass));
 			assert_eq!(Holders::<Test>::get(&owner), None);
+			assert_eq!(<Test as Config>::Proxy::owner(&futurepass).unwrap(), owner2);
 		});
 }
 

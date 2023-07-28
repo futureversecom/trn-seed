@@ -1080,8 +1080,7 @@ describe("Futurepass Precompile", function () {
       .catch((err: any) => expect(err.message).contains("cannot estimate gas"));
   });
 
-  // TODO: introduce functionality
-  it.skip("Ownable - owner() function", async () => {
+  it("Ownable - owner() function", async () => {
     const owner = Wallet.createRandom().connect(provider);
 
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
@@ -1100,7 +1099,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].args.newOwner).to.equal(ethers.constants.AddressZero);
 
     // ensure ownership is now zero address
-    // expect(await futurepassPrecompile.owner()).to.equal(ethers.constants.AddressZero); // TODO
+    expect(await futurepassPrecompile.owner()).to.equal(ethers.constants.AddressZero);
   });
 
   it("Ownable - transferOwnership() function", async () => {
@@ -1108,11 +1107,7 @@ describe("Futurepass Precompile", function () {
     const newOwner = Wallet.createRandom();
 
     const futurepassPrecompile = await createFuturepass(owner, owner.address);
-
-    // add newOwner as delegate // TODO: introduce this after fixing delegate -> owner bug
-    // let tx = await futurepassPrecompile.connect(owner).registerDelegateWithSignature(newOwner.address, PROXY_TYPE.Any);
-    // await tx.wait();
-    // expect(await futurepassPrecompile.owner()).to.equal(owner.address); // TODO
+    expect(await futurepassPrecompile.owner()).to.equal(owner.address);
 
     const tx = await futurepassPrecompile.connect(owner).transferOwnership(newOwner.address);
     const receipt = await tx.wait();
@@ -1121,7 +1116,7 @@ describe("Futurepass Precompile", function () {
     expect((receipt?.events as any)[0].args.newOwner).to.equal(newOwner.address);
 
     // ensure ownership is now new owner
-    // expect(await futurepassPrecompile.owner()).to.equal(newOwner.address); // TODO
+    expect(await futurepassPrecompile.owner()).to.equal(newOwner.address);
   });
 });
 
