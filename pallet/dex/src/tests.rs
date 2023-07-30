@@ -1639,13 +1639,13 @@ fn set_fee_to() {
 		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
 		assert_eq!(Dex::fee_to().unwrap(), bob);
 
-		System::assert_last_event(MockEvent::Dex(crate::Event::SetFeeTo(Some(bob))));
+		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(Some(bob))));
 
 		// disable FeeTo with root user
 		assert_ok!(Dex::set_fee_to(Origin::root(), None));
 		assert_eq!(Dex::fee_to().is_none(), true);
 
-		System::assert_last_event(MockEvent::Dex(crate::Event::SetFeeTo(None)));
+		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(None)));
 	});
 }
 

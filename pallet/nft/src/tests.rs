@@ -3715,7 +3715,7 @@ mod set_fee_to {
 			assert_ok!(Nft::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to.clone())));
 
 			// Event thrown
-			assert!(has_event(Event::<Test>::SetFeeTo { account: Some(new_fee_to) }));
+			assert!(has_event(Event::<Test>::FeeToSet { account: Some(new_fee_to) }));
 			// Storage updated
 			assert_eq!(FeeTo::<Test>::get().unwrap(), new_fee_to);
 		});

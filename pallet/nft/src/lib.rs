@@ -266,7 +266,7 @@ pub mod pallet {
 		/// Max issuance was set
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
 		/// The network fee receiver address has been updated
-		SetFeeTo { account: Option<T::AccountId> },
+		FeeToSet { account: Option<T::AccountId> },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// Name was set
@@ -1165,7 +1165,7 @@ pub mod pallet {
 		/// Set the `FeeTo` account. This operation requires root access.
 		///
 		/// - `fee_to`: the new account or None assigned to FeeTo.
-		#[pallet::weight(100000)]
+		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		#[transactional]
 		pub fn set_fee_to(
 			origin: OriginFor<T>,
@@ -1173,7 +1173,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			ensure_root(origin)?;
 			FeeTo::<T>::put(&fee_to);
-			Self::deposit_event(Event::SetFeeTo { account: fee_to });
+			Self::deposit_event(Event::FeeToSet { account: fee_to });
 			Ok(().into())
 		}
 	}
