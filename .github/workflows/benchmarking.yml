@@ -4,9 +4,6 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request:
-    branches:
-      - main
   issue_comment:
     types: [created]
 
@@ -16,7 +13,8 @@ permissions:
 
 jobs:
   benchmark:
-    if: ${{ github.event.issue.pull_request && contains(fromJson('["MEMBER", "OWNER"]'), github.event.comment.author_association) && startsWith(github.event.comment.body, '/bench') }}
+    # if: ${{ github.event.issue.pull_request && contains(fromJson('["MEMBER", "OWNER"]'), github.event.comment.author_association) && startsWith(github.event.comment.body, '/bench') }}
+    if: github.event.issue.pull_request != '' && startsWith(github.event.comment.body, '/bench')
     runs-on: [seed-builder]
     steps:
       - uses: actions/github-script@v6
