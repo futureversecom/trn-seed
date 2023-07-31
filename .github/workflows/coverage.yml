@@ -7,9 +7,9 @@ on:
   push:
     branches:
     - main
-  # issue_comment:
-  #   types:
-  #   - created
+  issue_comment:
+    types:
+    - created
 
 jobs:
   coverage:
