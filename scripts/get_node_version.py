@@ -228,48 +228,14 @@ def main():
     print(
         f"Connected to remote chain: Url: {url}, Chain Name: {chain_name}, Hash: {hash}")
 
-    #node_version = determine_node_version(substrate, hash)
-    #print(f"Node version: {node_version}")
+    node_version = determine_node_version(substrate, hash)
+    print(f"Node version: {node_version}")
 
     if not os.path.exists('./output'):
         os.mkdir('./output')
         print("Created output directory: ./output")
 
-    #tag_switch = maybe_do_tag_switch(tag_switch, node_version)
-
-    print("Fetching storage keys... ", end=None)
-    keys = fetch_storage_keys(hash, url)
-    print(f"Fetched {len(keys)} keys")
-
-    print("Fetching storage values... ", end=None)
-    forked_storage = fetch_storage_values(hash, keys, url)
-    print(f"Fetched {len(forked_storage)} values")
-
-    print('Building node')
-    cmd = 'cargo build --release --locked --features try-runtime'
-    subprocess.run(cmd, shell=True, text=True, check=True)
-
-    # Create Chain Snapshot
-    # print('Creating Chain Snapshot')
-    # cmd = f'./target/release/seed try-runtime on-runtime-upgrade live -s {SNAPSHOT} -u {URL}'
-    # subprocess.run(cmd, shell=True, text=True, check=True)
-
-    print('Creating Dev Chain Specification. location: ./output/fork.json')
-    cmd = f'./target/release/seed build-spec --chain dev --raw --disable-default-bootnode > {FORK_SPEC}'
-    subprocess.run(cmd, shell=True, text=True, check=True)
-
-    print('Populating Dev Specification. location: ./output/fork.json')
-    populate_dev_chain(substrate, forked_storage, chain_name)
-
-    if tag_switch is not None:
-        (original_branch, use_stash) = tag_switch
-        if original_branch is not None:
-            cmd = f'git checkout {original_branch}'
-            subprocess.run(cmd, shell=True, text=True, check=True)
-
-        if use_stash:
-            subprocess.run(
-                'git stash pop', shell=True, text=True, check=True)
+    tag_switch = maybe_do_tag_switch(tag_switch, node_version)
 
     print("Success :)")
 
