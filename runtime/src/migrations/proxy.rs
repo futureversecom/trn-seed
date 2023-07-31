@@ -14,11 +14,12 @@ use frame_support::traits::OnRuntimeUpgrade;
 use pallet_futurepass::Holders;
 use pallet_proxy::Proxies;
 use seed_primitives::AccountId20;
+use sp_std::vec::Vec;
 
 pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
+	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		Ok(v1::pre_upgrade()?)
 	}
 
@@ -31,7 +32,7 @@ impl OnRuntimeUpgrade for Upgrade {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade() -> Result<(), &'static str> {
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
 		Ok(v1::post_upgrade()?)
 	}
 }
@@ -43,9 +44,9 @@ pub mod v1 {
 	use pallet_futurepass::ProxyProvider;
 
 	#[cfg(feature = "try-runtime")]
-	pub fn pre_upgrade() -> Result<(), &'static str> {
+	pub fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		log::info!(target: "Migration", "Proxy: Upgrade to v1 Pre Upgrade.");
-
+		let data = Vec::new();
 		// validate first futurepass account should not have an owner
 		if let Some((_owner, first_futurepass)) = Holders::<Runtime>::iter().next() {
 			assert_eq!(
@@ -54,7 +55,7 @@ pub mod v1 {
 			);
 		}
 
-		Ok(())
+		Ok(data)
 	}
 
 	pub fn migrate<T: pallet_proxy::Config + pallet_futurepass::Config>() -> Weight
