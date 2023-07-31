@@ -61,7 +61,7 @@ pub mod v1 {
 	where
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
-		let mut weight = 0;
+		let mut weight: Weight = Weight::from(Weight::from_ref_time(0u64));
 
 		Map::iter::<Holders<Runtime>, _, _>().iter().for_each(|(owner, fp)| {
 			// 2 reads; 1 read for key-value pair in Holders and 1 read for key-value pair in
