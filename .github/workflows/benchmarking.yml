@@ -14,7 +14,7 @@ permissions:
 jobs:
   benchmark:
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/bench') }}
-    runs-on: [seed-builder]
+    runs-on: [linux, seed-builder]
     steps:
       - uses: actions/github-script@v6
         name: Get PR branch
