@@ -10,6 +10,7 @@ jobs:
     name: Benchmark
     if: ${{ github.event.issue.pull_request && contains(fromJson('["MEMBER", "OWNER"]'), github.event.comment.author_association) && startsWith(github.event.comment.body, '/bench ') }}
     runs-on: [seed-builder]
+    if: ${{ github.event.issue.pull_request && contains(fromJson('["MEMBER", "OWNER"]'), github.event.comment.author_association) && startsWith(github.event.comment.body, '/bench') }}
     steps:
       - uses: actions/github-script@v6
         name: Get PR branch
@@ -36,15 +37,11 @@ jobs:
         with:
           result-encoding: string
           script: |
-            const [, , cmd, ...args] = context.payload.comment.body.split(/\W+/)
-            switch (cmd) {
-              case 'pallet': {
-                const [_, pallet] = args
-                return `./scripts/run_benchmarks.sh -p ${pallet}`
-              }
-              default:
-                return `./scripts/run_benchmarks.sh`
+            const [cmd, type, pallet] = context.payload.comment.body.split(/\W+/)
+            if (type === 'pallet') {
+              return `./scripts/run_benchmarks.sh -p ${pallet}`
             }
+            return './scripts/run_benchmarks.sh'
       - uses: actions/github-script@v6
         name: Post comment
         id: comment
@@ -109,3 +106,4 @@ jobs:
               </details>
               `
             })
+
