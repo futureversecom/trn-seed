@@ -128,7 +128,9 @@ impl<T: Config> Pallet<T> {
 		};
 
 		// Validate all royalties
-		ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
+		if !royalties.entitlements.is_empty() {
+			ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
+		}
 
 		Ok(royalties)
 	}

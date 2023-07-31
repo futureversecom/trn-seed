@@ -734,6 +734,50 @@ fn sell() {
 }
 
 #[test]
+fn sell_with_empty_royalties() {
+	let buyer = create_account(3);
+	let initial_balance = 11_111_225;
+
+	TestExt::default()
+		.with_balances(&[(buyer, initial_balance)])
+		.build()
+		.execute_with(|| {
+			let collection_owner = create_account(1);
+			let quantity = 5;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+
+			assert_ok!(Nft::create_collection(
+				Some(collection_owner).into(),
+				bounded_string("test-collection"),
+				quantity,
+				None,
+				None,
+				MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+
+			// Remove fee to account so there are no royalties on listed token
+			// i.e. 100% of sale price goes to seller
+			assert_ok!(Nft::set_fee_to(RawOrigin::Root.into(), None));
+
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+				BoundedVec::try_from(vec![1, 3, 4]).unwrap();
+
+			assert_ok!(Nft::sell(
+				Some(collection_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				None,
+				NativeAssetId::get(),
+				1_000,
+				None,
+				None,
+			));
+		})
+}
+
+#[test]
 fn sell_multiple_fails() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
