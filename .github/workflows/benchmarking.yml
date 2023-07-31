@@ -6,6 +6,7 @@ concurrency:
 on:
   issue_comment:
     types: [created]
+  workflow_dispatch:
 
 permissions:
   pull-requests: write
