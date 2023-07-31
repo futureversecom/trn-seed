@@ -1,0 +1,41 @@
+
+name: Run Benchmarks
+
+on: 
+  workflow_dispatch:
+    inputs:
+      branch_name:
+        description: 'Branch Name'
+        required: true
+      pallet_names:
+        description: 'Pallet Names'
+        required: false
+
+jobs:
+  benchmark:
+    runs-on: [seed-builder]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.inputs.branch_name }}
+        fetch-depth: 0
+
+    - name: Run Benchmark Script
+      run: |
+        PALLET_NAMES=${{ github.event.inputs.pallet_names }}
+        if [[ -z "$PALLET_NAMES" ]]; then
+          ./scripts/run_benchmarks.sh
+        else
+          ./scripts/run_benchmarks.sh -p $PALLET_NAMES
+        fi
+
+    - name: Commit
+      run: |
+        git config user.email "seed-ci@futureverse.com"
+        git config user.name "Seed Github Action Bot"
+        git add .
+        git commit -m '${{github.event.comment.body}}' --allow-empty
+        git push origin HEAD:${{ github.event.inputs.branch_name }}
+
