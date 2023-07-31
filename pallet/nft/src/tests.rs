@@ -16,7 +16,7 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, AssetsExt, MarketplaceNetworkFeePercentage,
+		create_account, has_event, AssetsExt, FeePotId, MarketplaceNetworkFeePercentage,
 		MaxTokensPerCollection, NativeAssetId, Nft, NftPalletId, RuntimeEvent as MockEvent, System,
 		Test, TestExt, XRP_ASSET_ID,
 	},
