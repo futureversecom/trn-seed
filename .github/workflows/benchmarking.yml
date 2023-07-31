@@ -24,7 +24,7 @@ jobs:
         id: issue
         with:
           script: |
-            const pr = context.payload.issue.number
+            const pr = context.payload.pull_request.number
             const data = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
