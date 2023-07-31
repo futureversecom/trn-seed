@@ -7,7 +7,7 @@ inputs_arguments() {
     setup   REST help:usage -- "Usage: ./scripts/run_benchmark.sh [options]... [arguments]..." ''
     msg -- 'Options:'
     param   TEMPLATE_PATH           --template      init:="./scripts/pallet_template.hbs"   -- "Specifies template location"
-    param   OUTPUT_FOLDER       -o  --output        init:="./output"                        -- "Folder where all the weight files will be stored"
+    param   OUTPUT_FOLDER       -o  --output        init:="./runtime/src/weights"                        -- "Folder where all the weight files will be stored"
     param   PALLETS             -p  --pallets       init:="*"                               -- "List of pallets that need to be bechmarked. Default is all. Example: -p \"pallet_nft pallet_echo\""
     param   STEPS               -s  --steps         init:=50                                -- "How many steps to do. Default is 50"
     param   REPEAT              -r  --repeat        init:=20                                -- "How many repeats to do. Default is 20"
@@ -55,8 +55,8 @@ run_benchmark() {
 
 benchmark() {
     echo "[+] Benchmarking $PALLET";
-    
-    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$2" $1 2>&1 )
+    WEIGHT_FILENAME=$(echo $2 | tr '-' '_');
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$WEIGHT_FILENAME" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
         echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
@@ -91,6 +91,27 @@ populate_pallet_list() {
         # Pallets without automatic benchmarking
         "pallet_babe"   "pallet_grandpa"
         "pallet_mmr"    "pallet_offences"
+        # pallet taking too long!
+        "pallet_assets"
+        "frame_benchmarking"
+		"pallet_election_provider_multi_phase"
+		"pallet_dex_weights"
+		"pallet_echo_weights"
+		"pallet_im_online"
+        "pallet_dex_weights"
+        "pallet_echo_weights"
+        "pallet_erc20_peg_weights"
+        "pallet_evm_chain_id_weights"
+        "pallet_fee_control_weights"
+        "pallet_futurepass_weights"
+        "pallet_nft_peg_weights"
+        "pallet_nft_weights"
+        "pallet_proxy"
+        "pallet_recovery"
+        "pallet_sft_weights"
+        "pallet_token_approvals_weights"
+        "pallet_xls20_weights"
+        "pallet_xrpl_bridge_weights"
     )
     
     CUSTOM_PALLETS=()
@@ -119,3 +140,4 @@ cargo build --release --locked --features=runtime-benchmarks
 
 populate_pallet_list
 run_benchmark
+
