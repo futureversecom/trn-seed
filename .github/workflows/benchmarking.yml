@@ -46,10 +46,12 @@ jobs:
         with:
           result-encoding: string
           script: |
-            const [cmd, type, pallet] = context.payload.comment.body.split(/\W+/)
-            if (type === 'pallet') {
-              return `./scripts/run_benchmarks.sh -p ${pallet}`
-            }
+            if [[ -z context.payload.comment.body ]]; then
+              const [cmd, type, pallet] = context.payload.comment.body.split(/\W+/)
+              if (type === 'pallet') {
+                return './scripts/run_benchmarks.sh -p ${pallet}'
+              }
+            end
             return './scripts/run_benchmarks.sh'
       - uses: actions/github-script@v6
         name: Post comment
