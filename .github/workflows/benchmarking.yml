@@ -8,9 +8,8 @@ permissions:
 jobs:
   benchmark:
     name: Benchmark
-    if: ${{ github.event.issue.pull_request && contains(fromJson('["MEMBER", "OWNER"]'), github.event.comment.author_association) && startsWith(github.event.comment.body, '/bench ') }}
-    runs-on: [seed-builder]
     if: ${{ github.event.issue.pull_request && contains(fromJson('["MEMBER", "OWNER"]'), github.event.comment.author_association) && startsWith(github.event.comment.body, '/bench') }}
+    runs-on: [seed-builder]
     steps:
       - uses: actions/github-script@v6
         name: Get PR branch
