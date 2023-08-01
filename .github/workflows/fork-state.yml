@@ -13,7 +13,7 @@ env:
 
 jobs:
   build:
-    if: startsWith(github.event.comment.body, '/get_state')
+    # if: startsWith(github.event.comment.body, '/get_state')
     runs-on: ubuntu-latest
     name: Fork the current state and run runtime upgrade
     steps:
