@@ -91,7 +91,7 @@ def xxh6464(x):
     return "0x{}{}".format(o1.hex(), o2.hex())
 
 
-def list_of_prefixes_to_migrate(substrate):
+def list_of_prefixes_to_migrate(module_list):
     # Importing these modules will cause the chain to not work correctly
     skip_modules = ['System', 'Session', 'Babe', 'Grandpa',
                     'GrandpaFinality', 'FinalityTracker', 'Authorship']
@@ -99,8 +99,6 @@ def list_of_prefixes_to_migrate(substrate):
     # We definitely want to keep System.Account data and the Runtime :)
     enabled_prefixes = [
         '0x26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9', '0x3a636f6465']
-
-    module_list = substrate.get_metadata_modules()
 
     for module in module_list:
         name = module['name']
@@ -117,7 +115,7 @@ def allowed_to_migrate(key: str, allow_list):
     return False
 
 
-def populate_dev_chain(substrate, forked_storage, chain_name):
+def populate_dev_chain(module_list, forked_storage, chain_name):
     # Read base chain specification. This will be populated with new storage.
     with open(FORK_SPEC) as in_file:
         base_chain = json.load(in_file)
@@ -125,7 +123,7 @@ def populate_dev_chain(substrate, forked_storage, chain_name):
 
     base_chain['name'] = chain_name + " Fork"
 
-    allowed_prefixes: list[str] = list_of_prefixes_to_migrate(substrate)
+    allowed_prefixes: list[str] = list_of_prefixes_to_migrate(module_list)
 
     # Dev Sudo Key
     sudo_key_prefix = "0x5c0d1176a568c1f92944340dbfed9e9c530ebca703c85910e7164cb7d1c9e47b"
@@ -171,52 +169,6 @@ def connect_to_remote_chain(url) -> SubstrateInterface:
     return (substrate, chain_name)
 
 
-def determine_node_version(substrate: SubstrateInterface, hash: str) -> str:
-    client_version = substrate.rpc_request('system_version', None)[
-        'result'].split('.')[0]
-    runtime_version = substrate.rpc_request(method='state_getRuntimeVersion', params=[hash])[
-        'result']['specVersion']
-
-    version = f'v{client_version}.{runtime_version}.0'
-    all_tags = subprocess.run(
-        'git tag', shell=True, text=True, check=True, capture_output=True).stdout
-    all_tags = all_tags.splitlines()
-
-    # If the version is not found then we need to do some magic
-    if version not in all_tags:
-        version = ''
-        for tag in all_tags:
-            sub_strings = tag.split('.')
-            if (sub_strings[1] == f'{runtime_version}'):
-                version = tag
-
-    if version == '':
-        print("Wasn't able to find the correct tag")
-        exit(1)
-
-    return version
-
-
-def maybe_do_tag_switch(tag_switch, node_version):
-    if not tag_switch:
-        return None
-
-    current_branch = subprocess.run(
-        'git branch --show-current', shell=True, text=True, check=True, capture_output=True)
-
-    use_stash = False
-    not_committed_changed = subprocess.run(
-        'git status --porcelain', shell=True, text=True, check=True, capture_output=True).stdout
-    if len(not_committed_changed) > 0:
-        use_stash = True
-        subprocess.run(
-            'git stash', shell=True, text=True, check=True, capture_output=True)
-
-    cmd = f'git checkout {node_version}'
-    subprocess.run(cmd, shell=True, text=True, check=True)
-
-    return (current_branch.stdout, use_stash)
-
 
 def main():
     configuration = read_configuration_file()
@@ -227,15 +179,14 @@ def main():
         'at') is not None else substrate.block_hash
     print(
         f"Connected to remote chain: Url: {url}, Chain Name: {chain_name}, Hash: {hash}")
+	
 
-    node_version = determine_node_version(substrate, hash)
-    print(f"Node version: {node_version}")
+    module_list = substrate.get_metadata_modules()
+    print(f"Metadata modules of this chain: {module_list}")
 
     if not os.path.exists('./output'):
         os.mkdir('./output')
         print("Created output directory: ./output")
-
-    tag_switch = maybe_do_tag_switch(tag_switch, node_version)
 
     print("Fetching storage keys... ", end=None)
     keys = fetch_storage_keys(hash, url)
@@ -259,17 +210,7 @@ def main():
     subprocess.run(cmd, shell=True, text=True, check=True)
 
     print('Populating Dev Specification. location: ./output/fork.json')
-    populate_dev_chain(substrate, forked_storage, chain_name)
-
-    if tag_switch is not None:
-        (original_branch, use_stash) = tag_switch
-        if original_branch is not None:
-            cmd = f'git checkout {original_branch}'
-            subprocess.run(cmd, shell=True, text=True, check=True)
-
-        if use_stash:
-            subprocess.run(
-                'git stash pop', shell=True, text=True, check=True)
+    populate_dev_chain(module_list, forked_storage, chain_name)
 
     print("Success :)")
 

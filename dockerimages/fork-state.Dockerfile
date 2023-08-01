@@ -11,9 +11,10 @@ RUN apt update -y && \
 # Install the right toolchain
 RUN rustup show
 
-# Start the script
+# Install dependencies
 RUN pip install -r ./scripts/requirements.txt
 
-RUN python3 ./scripts/get_state.py --config ./scripts/networks/porcini.yaml
+# Start the script
+RUN python3 ./scripts/get_and_build_state.py --config ./scripts/networks/porcini.yaml
 
 VOLUME ["/output"]

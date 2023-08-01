@@ -1,6 +1,8 @@
 name: Fork State
 
 on:
+  issue_comment:
+    types: [created]
   workflow_dispatch:
 
 env:
@@ -8,19 +10,27 @@ env:
 
 jobs:
   build:
+    if: startsWith(github.event.comment.body, '/get_state')
     runs-on: ubuntu-latest
     name: Fork the current state and run runtime upgrade
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install podman
-        run: sudo apt install podman -y
+      - name: Install podman and python3
+        run: sudo apt install podman python3 python3-pip python3-venv -y
 
       - name: Create output folder
         run: mkdir -p output
 
+      - name: Check out the correct version
+        run: |
+          python3 -m venv ./scripts/penv
+          source ./scripts/penv/bin/activate
+          pip install -r ./scripts/requirements.txt
+          python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml
+
       - name: Build image
         run: podman build -t fork-state -f ./dockerimages/fork-state.Dockerfile .
 
-      - name: Run get-state
-        run: podman run --rm -v ./output:/output -t fork-state /bin/bash ./scripts/get_state.sh
+      #- name: Run get-state
+      #  run: podman run --rm -v ./output:/output -t fork-state /bin/bash ./scripts/get_state.sh
