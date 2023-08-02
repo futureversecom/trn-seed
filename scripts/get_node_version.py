@@ -184,6 +184,8 @@ def determine_node_version(substrate: SubstrateInterface, hash: str) -> str:
         'git tag', shell=True, text=True, check=True, capture_output=True).stdout
     all_tags = all_tags.splitlines()
 
+    print(f'tags {all_tags}')
+
     # If the version is not found then we need to do some magic
     if version not in all_tags:
         version = ''
