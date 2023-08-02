@@ -54,6 +54,7 @@ run_benchmark() {
 }
 
 benchmark() {
+    set -x
     echo "[+] Benchmarking $PALLET";
     WEIGHT_FILENAME=$(echo $2 | tr '-' '_');
     OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$WEIGHT_FILENAME" $1 2>&1 )
@@ -89,13 +90,15 @@ populate_pallet_list() {
         # Helper pallets
         "pallet_election_provider_support_benchmarking"
         # Pallets without automatic benchmarking
-        "pallet_babe"   "pallet_grandpa"
-        "pallet_mmr"    "pallet_offences"
+        "pallet_babe"
+        "pallet_grandpa"
+        "pallet_mmr"
+        "pallet_offences"
         # pallet taking too long!
         "pallet_assets"
         "frame_benchmarking"
-		"pallet_election_provider_multi_phase"
-		"pallet_dex_weights"
+        "pallet_election_provider_multi_phase"
+        "pallet_dex_weights"
 		"pallet_echo_weights"
 		"pallet_im_online"
         "pallet_dex_weights"
@@ -135,8 +138,8 @@ eval "$(getoptions inputs_arguments - "$0") exit 1"
 
 ERR_FILE="$OUTPUT_FOLDER/benchmarking_errors.txt"
 
-echo "Building the Seed client in Release mode"
-cargo build --release --locked --features=runtime-benchmarks
+# echo "Building the Seed client in Release mode"
+# cargo build --release --locked --features=runtime-benchmarks
 
 populate_pallet_list
 run_benchmark
