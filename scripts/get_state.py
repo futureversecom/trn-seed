@@ -177,8 +177,6 @@ def determine_node_version(substrate: SubstrateInterface, hash: str) -> str:
     runtime_version = substrate.rpc_request(method='state_getRuntimeVersion', params=[hash])[
         'result']['specVersion']
 
-    print(f'version is v{client_version}.{runtime_version}.0')
-
     version = f'v{client_version}.{runtime_version}.0'
     all_tags = subprocess.run(
         'git tag', shell=True, text=True, check=True, capture_output=True).stdout
