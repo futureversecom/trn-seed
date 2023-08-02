@@ -187,12 +187,12 @@ def determine_node_version(substrate: SubstrateInterface, hash: str) -> str:
     print(f'tags {all_tags}')
 
     # If the version is not found then we need to do some magic
-    if version not in all_tags:
-        version = ''
-        for tag in all_tags:
-            sub_strings = tag.split('.')
-            if (sub_strings[1] == f'{runtime_version}'):
-                version = tag
+    #if version not in all_tags:
+    #    version = ''
+    #    for tag in all_tags:
+    #        sub_strings = tag.split('.')
+    #        if (sub_strings[1] == f'{runtime_version}'):
+    #            version = tag
 
     if version == '':
         print("Wasn't able to find the correct tag")
