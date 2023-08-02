@@ -9,6 +9,7 @@ inputs_arguments() {
     param   TEMPLATE_PATH           --template      init:="./scripts/pallet_template.hbs"   -- "Specifies template location"
     param   OUTPUT_FOLDER       -o  --output        init:="./runtime/src/weights"                        -- "Folder where all the weight files will be stored"
     param   PALLETS             -p  --pallets       init:="*"                               -- "List of pallets that need to be bechmarked. Default is all. Example: -p \"pallet_nft pallet_echo\""
+    flag    SKIP_BUILD          -S  --skip-build                                            -- "Skips the build process if set"
     param   STEPS               -s  --steps         init:=50                                -- "How many steps to do. Default is 50"
     param   REPEAT              -r  --repeat        init:=20                                -- "How many repeats to do. Default is 20"
     flag    USE_TEMPLATE        -t                                                          -- "If set then the template will be used to generate the weight files"
@@ -138,8 +139,13 @@ eval "$(getoptions inputs_arguments - "$0") exit 1"
 
 ERR_FILE="$OUTPUT_FOLDER/benchmarking_errors.txt"
 
-# echo "Building the Seed client in Release mode"
-# cargo build --release --locked --features=runtime-benchmarks
+
+if [ "$SKIP_BUILD" != "1" ]; then
+    echo "Building the Seed client in Release mode"
+    cargo build --release --locked --features=runtime-benchmarks
+else
+    echo "Skipping building seed client..."
+fi
 
 populate_pallet_list
 run_benchmark
