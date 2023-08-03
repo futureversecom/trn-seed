@@ -29,6 +29,19 @@ jobs:
           ref: ${{ github.event.inputs.branch }}
           fetch-depth: 0
 
+      # - name: Install toolchain
+      #   uses: actions-rs/toolchain@v1
+      #   with:
+      #     profile: minimal
+      #     toolchain: nightly-2023-04-15
+      #     components: rustfmq
+      #     target: wasm32-unknown-unknown
+      #     default: true
+
+      # Rust required to run benchmarks; use from CI machine
+      - name: Install toolchain
+        run: rustup show
+
       - name: Run benchmarks
         run: |
           PALLET_INPUT=${{ github.event.inputs.pallets }}
