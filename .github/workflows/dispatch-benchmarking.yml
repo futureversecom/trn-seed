@@ -16,7 +16,7 @@ on:
         description: 'Branch name'
         required: true
       pallets:
-        description: 'Space-separated list of pallet names'
+        description: 'Space-separated list of pallet names (runs all if left empty)'
         required: false
 
 jobs:
