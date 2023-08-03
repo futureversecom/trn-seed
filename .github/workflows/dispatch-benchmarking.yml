@@ -13,10 +13,10 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch name'
+        description: 'Branch name; do not use `main`'
         required: true
       pallets:
-        description: 'Space-separated list of pallet names (runs all if left empty)'
+        description: 'Space-separated list of pallet names; e.g. `pallet-futurepass pallet-dex`; runs all if left empty'
         required: false
 
 jobs:
