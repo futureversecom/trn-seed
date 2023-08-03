@@ -1,41 +1,63 @@
 
-name: Run Benchmarks
+name: Dispatch Benchmarks
 
-on: 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: write
+
+on:
   workflow_dispatch:
     inputs:
-      branch_name:
-        description: 'Branch Name'
+      branch:
+        description: 'Branch name'
         required: true
-      pallet_names:
-        description: 'Pallet Names'
+      pallets:
+        description: 'Space-separated list of pallet names'
         required: false
 
 jobs:
-  benchmark:
+  benchmarks:
     runs-on: [seed-builder]
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.inputs.branch_name }}
-        fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
 
-    - name: Run Benchmark Script
-      run: |
-        PALLET_NAMES=${{ github.event.inputs.pallet_names }}
-        if [[ -z "$PALLET_NAMES" ]]; then
-          ./scripts/run_benchmarks.sh
-        else
-          ./scripts/run_benchmarks.sh -p $PALLET_NAMES
-        fi
+      - name: Run benchmarks
+        run: |
+          PALLET_INPUT=${{ github.event.inputs.pallets }}
+          if [ -z "$PALLET_INPUT" ]
+          then
+            ./scripts/run_benchmarks.sh
+          else
+            IFS=' ' read -ra PALLET_ARRAY <<< "$PALLET_INPUT"
+            PALLET_ARGS=""
+            for i in "${PALLET_ARRAY[@]}"; do
+              PALLET_ARGS+="-p $i "
+            done
+            ./scripts/run_benchmarks.sh $PALLET_ARGS
+          fi
 
-    - name: Commit
-      run: |
-        git config user.email "seed-ci@futureverse.com"
-        git config user.name "Seed Github Action Bot"
-        git add .
-        git commit -m '${{github.event.comment.body}}' --allow-empty
-        git push origin HEAD:${{ github.event.inputs.branch_name }}
+      - name: Display changes
+        run: git status
+
+      - name: Setup Git and Commit to branch
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          PALLET_INPUT=${{ github.event.inputs.pallets }}
+          git add -A
+          if [ -z "$PALLET_INPUT" ]
+          then
+            git commit -m "Update all benchmarks on ${{ github.event.inputs.branch }}"
+          else
+            git commit -m "Update benchmarks for $PALLET_INPUT on ${{ github.event.inputs.branch }}"
+          fi
+          git push origin ${{ github.event.inputs.branch }}
 
