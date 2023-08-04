@@ -33,7 +33,7 @@ run_benchmark() {
     
     for PALLET in "${PALLETS[@]}"; do
         if is_pallet_excluded; then
-            echo "[ ] Skipping pallet $PALLET";
+            echo -e "[ ] Skipping pallet $PALLET\n";
             continue
         fi
         
@@ -45,23 +45,38 @@ run_benchmark() {
             TEMPLATE_ARG="--template $TEMPLATE_PATH";
         fi
         
-        benchmark "$TEMPLATE_ARG" "$FILE_NAME"
+        benchmark_runtime "$TEMPLATE_ARG" "$FILE_NAME"
         
         if is_custom_pallet && [ ! "$USE_TEMPLATE" = "1" ]; then
-            benchmark "--template $TEMPLATE_PATH" "$TEMPLATE_NAME"
+            benchmark_pallet "--template $TEMPLATE_PATH" "$TEMPLATE_NAME"
         fi
+
+        echo ""
         
     done
 }
 
-benchmark() {
-    set -x
-    echo "[+] Benchmarking $PALLET";
+benchmark_runtime() {
+    echo "[+][runtime] Benchmarking $PALLET";
+
     WEIGHT_FILENAME=$(echo $2 | tr '-' '_');
     OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$WEIGHT_FILENAME" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
-        echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+        echo "[-][runtime] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+    fi
+}
+
+benchmark_pallet() {
+    echo "[+][pallet] Benchmarking $PALLET";
+
+    # remove the 'pallet_' prefix and replace any underscores with dashes
+    PALLET_FOLDER="./pallet/$(echo ${PALLET#pallet_} | tr '_' '-')/src"
+
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$PALLET_FOLDER/weights.rs" $1 2>&1 )
+    if [ $? -ne 0 ]; then
+        echo "$OUTPUT" >> "$ERR_FILE"
+        echo "[-][pallet] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
     fi
 }
 
@@ -95,27 +110,17 @@ populate_pallet_list() {
         "pallet_grandpa"
         "pallet_mmr"
         "pallet_offences"
-        # pallet taking too long!
-        "pallet_assets"
         "frame_benchmarking"
+
+        # TODO: fix this; pallet bench taking too long!
+        "pallet_assets"
         "pallet_election_provider_multi_phase"
-        "pallet_dex_weights"
-        "pallet_echo_weights"
         "pallet_im_online"
-        "pallet_dex_weights"
-        "pallet_echo_weights"
-        "pallet_erc20_peg_weights"
-        "pallet_evm_chain_id_weights"
-        "pallet_fee_control_weights"
-        "pallet_futurepass_weights"
-        "pallet_nft_peg_weights"
-        "pallet_nft_weights"
-        "pallet_proxy"
-        "pallet_recovery"
-        "pallet_sft_weights"
-        "pallet_token_approvals_weights"
-        "pallet_xls20_weights"
-        "pallet_xrpl_bridge_weights"
+
+        # RUNTIME WEIGHT FAILURES
+        "pallet_scheduler"
+        "pallet_session"
+        "pallet_staking"
     )
     
     CUSTOM_PALLETS=()
@@ -137,8 +142,8 @@ populate_pallet_list() {
 
 eval "$(getoptions inputs_arguments - "$0") exit 1"
 
-ERR_FILE="$OUTPUT_FOLDER/benchmarking_errors.txt"
-
+mkdir -p "$OUTPUT_FOLDER"
+ERR_FILE="./benchmarking_errors.txt"
 
 if [ "$SKIP_BUILD" != "1" ]; then
     echo "Building the Seed client in Release mode"
