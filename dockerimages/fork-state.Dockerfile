@@ -17,4 +17,7 @@ RUN pip install -r ./scripts/requirements.txt
 # Start the script
 RUN python3 ./scripts/get_and_build_state.py --config ./scripts/networks/porcini.yaml
 
+# Copy binary
+RUN cp ./target/release/seed ./output/binary
+
 VOLUME ["/output"]
