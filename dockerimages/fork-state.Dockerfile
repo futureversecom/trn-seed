@@ -3,6 +3,7 @@ FROM docker.io/library/rust:1.67.0-bullseye as builder
 # Copy local files to workdir
 ADD . ./workdir
 WORKDIR "/workdir"
+ARG network=porcini
 
 # This installs all dependencies that we need.
 RUN apt update -y && \
@@ -15,7 +16,7 @@ RUN rustup show
 RUN pip install -r ./scripts/requirements.txt
 
 # Start the script
-RUN python3 ./scripts/get_and_build_state.py --config ./scripts/networks/porcini.yaml
+RUN python3 ./scripts/get_and_build_state.py --config ./scripts/networks/${network}.yaml
 
 # Copy binary
 RUN cp ./target/release/seed ./output/binary

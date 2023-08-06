@@ -4,9 +4,20 @@ on:
   pull_request:
     branches:
       - main
-  issue_comment:
-    types: [created]
   workflow_dispatch:
+    inputs:
+      network:
+        type: choice
+        description: "The network to be forked"
+        options:
+          - porcini
+          - root
+        required: true
+      runtime-upgrade:
+        type: boolean
+        description: "Whether to execute runtime upgrade test"
+        default: false
+        required: true
 
 env:
   REGISTRY: "ghcr.io"
@@ -14,7 +25,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  fork-state:
     runs-on: [seed-builder]
     name: Fork the current state and run runtime upgrade
     permissions:
@@ -39,7 +50,7 @@ jobs:
       #    python3 -m venv ./scripts/penv
       #    source ./scripts/penv/bin/activate
       #    pip install -r ./scripts/requirements.txt
-      #    python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml
+      #    python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
 
       - name: Build 🛠 & Publish 🐳
         # build and tag an image with commit hash and 'latest', additionally:
@@ -55,7 +66,7 @@ jobs:
           echo "github ref: $GITHUB_REF"
           echo "release tag(?): $RELEASE_TAG"
 
-          docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile .
+          docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
 
           docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
           docker push "$REGISTRY/$IMAGE_NAME:latest"
@@ -72,3 +83,16 @@ jobs:
           fi
           # clean up images
           docker image prune --filter label=stage=build -f
+
+  poll-service-status:
+    runs-on: [ubuntu-latest]
+    name: Poll the service status on Kubernetes till the service is up
+    steps:
+      - name: Fetch the service status
+        uses: nick-fields/retry@v2
+        with:
+          timeout_seconds: 300
+          max_attempts: 15
+          retry_wait_seconds: 20
+          retry_on: error
+          command: curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"1","method":"state_getRuntimeVersion"}' http://localhost:9933
