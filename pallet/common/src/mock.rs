@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -160,6 +164,8 @@ macro_rules! impl_pallet_assets_ext_config {
 #[macro_export]
 macro_rules! impl_pallet_nft_config {
 	($test:ident) => {
+		use sp_runtime::Permill;
+
 		pub struct MockXls20MintRequest;
 		impl Xls20MintRequest for MockXls20MintRequest {
 			type AccountId = AccountId;
@@ -187,6 +193,9 @@ macro_rules! impl_pallet_nft_config {
 			pub const MintLimit: u32 = 100;
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
+			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
+			pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+			pub const NftDefaultFeeTo: Option<PalletId> = None;
 		}
 
 		impl pallet_nft::Config for Test {
@@ -196,6 +205,7 @@ macro_rules! impl_pallet_nft_config {
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
 			type MultiCurrency = AssetsExt;
+			type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 			type OnTransferSubscription = MockTransferSubscriber;
 			type OnNewAssetSubscription = ();
 			type PalletId = NftPalletId;
@@ -203,6 +213,7 @@ macro_rules! impl_pallet_nft_config {
 			type StringLimit = StringLimit;
 			type Xls20MintRequest = MockXls20MintRequest;
 			type WeightInfo = ();
+			type DefaultFeeTo = NftDefaultFeeTo;
 		}
 	};
 }
@@ -385,6 +396,9 @@ macro_rules! impl_pallet_futurepass_config {
 			) -> bool {
 				false
 			}
+			fn owner(futurepass: &T::AccountId) -> Option<T::AccountId> {
+				None
+			}
 			fn delegates(futurepass: &T::AccountId) -> Vec<(T::AccountId, T::ProxyType)> {
 				vec![]
 			}
@@ -392,7 +406,7 @@ macro_rules! impl_pallet_futurepass_config {
 				_: &T::AccountId,
 				futurepass: &T::AccountId,
 				delegate: &T::AccountId,
-				proxy_type: &T::ProxyType,
+				proxy_type: &u8,
 			) -> DispatchResult {
 				Ok(())
 			}
@@ -437,6 +451,7 @@ macro_rules! impl_pallet_futurepass_config {
 			NonTransfer = 2,
 			Governance = 3,
 			Staking = 4,
+			Owner = 255,
 		}
 
 		impl Default for ProxyType {
@@ -454,20 +469,21 @@ macro_rules! impl_pallet_futurepass_config {
 					2 => Ok(ProxyType::NonTransfer),
 					3 => Ok(ProxyType::Governance),
 					4 => Ok(ProxyType::Staking),
+					255 => Ok(ProxyType::Owner),
 					_ => Err("Invalid value for ProxyType"),
 				}
 			}
 		}
 
-		impl TryInto<u8> for ProxyType {
-			type Error = &'static str;
-			fn try_into(self) -> Result<u8, Self::Error> {
+		impl Into<u8> for ProxyType {
+			fn into(self) -> u8 {
 				match self {
-					ProxyType::NoPermission => Ok(0),
-					ProxyType::Any => Ok(1),
-					ProxyType::NonTransfer => Ok(2),
-					ProxyType::Governance => Ok(3),
-					ProxyType::Staking => Ok(4),
+					ProxyType::NoPermission => 0,
+					ProxyType::Any => 1,
+					ProxyType::NonTransfer => 2,
+					ProxyType::Governance => 3,
+					ProxyType::Staking => 4,
+					ProxyType::Owner => 255,
 				}
 			}
 		}
@@ -475,7 +491,7 @@ macro_rules! impl_pallet_futurepass_config {
 		impl InstanceFilter<Call> for ProxyType {
 			fn filter(&self, c: &Call) -> bool {
 				match self {
-					// only ProxyType::Any is used in V1
+					ProxyType::Owner => true,
 					ProxyType::Any => true,
 					// TODO - need to add allowed calls under this category in v2. allowing all for
 					// now.
@@ -489,8 +505,8 @@ macro_rules! impl_pallet_futurepass_config {
 			fn is_superset(&self, o: &Self) -> bool {
 				match (self, o) {
 					(x, y) if x == y => true,
-					(ProxyType::Any, _) => true,
-					(_, ProxyType::Any) => false,
+					(ProxyType::Owner, _) | (ProxyType::Any, _) => true,
+					(_, ProxyType::Owner) | (_, ProxyType::Any) => false,
 					_ => false,
 				}
 			}

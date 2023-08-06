@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -128,6 +132,10 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, "https://example.com/tokens/".into())
 
+	set_name {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::truncate_from("New Name".encode()))
+
 	register_marketplace {
 	}: _(origin::<T>(&account::<T>("Alice")), None, Permill::zero())
 
@@ -197,6 +205,10 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 		let offer_id = offer_builder::<T>(collection_id);
 	}: _(origin::<T>(&account::<T>("Alice")), offer_id)
+
+	set_fee_to {
+		let fee_account = account::<T>("Alice");
+	}: _(RawOrigin::Root, Some(fee_account))
 }
 
 impl_benchmark_test_suite!(Nft, crate::mock::new_test_ext(), crate::mock::Test,);

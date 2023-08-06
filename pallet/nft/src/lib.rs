@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -41,7 +45,6 @@ use sp_runtime::{
 	DispatchResult, PerThing, Permill,
 };
 use sp_std::prelude::*;
-
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -111,6 +114,9 @@ pub mod pallet {
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// The account which collects funds(aka the index fund)
+		#[pallet::constant]
+		type DefaultFeeTo: Get<Option<PalletId>>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
@@ -123,6 +129,8 @@ pub mod pallet {
 			+ Mutate<Self::AccountId, AssetId = AssetId>
 			+ CreateExt<AccountId = Self::AccountId>
 			+ Transfer<Self::AccountId, Balance = Balance>;
+		/// Percentage of sale price to charge for network fee
+		type NetworkFeePercentage: Get<Permill>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -140,6 +148,16 @@ pub mod pallet {
 		/// Interface for sending XLS20 mint requests
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
 	}
+
+	#[pallet::type_value]
+	pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId> {
+		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
+	}
+
+	/// The pallet id for the tx fee pot
+	#[pallet::storage]
+	#[pallet::getter(fn chain_id)]
+	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	/// Map from collection to its information
 	#[pallet::storage]
@@ -247,8 +265,12 @@ pub mod pallet {
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
+		/// The network fee receiver address has been updated
+		FeeToSet { account: Option<T::AccountId> },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
+		/// Name was set
+		NameSet { collection_id: CollectionUuid, name: BoundedVec<u8, T::StringLimit> },
 		/// A token was transferred
 		Transfer {
 			previous_owner: T::AccountId,
@@ -1116,6 +1138,43 @@ pub mod pallet {
 					Ok(())
 				},
 			}
+		}
+
+		/// Set the name of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_name())]
+		pub fn set_name(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			name: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			let mut collection_info =
+				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
+
+			ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);
+			ensure!(core::str::from_utf8(&name).is_ok(), Error::<T>::CollectionNameInvalid);
+			collection_info.name = name.clone();
+
+			<CollectionInfo<T>>::insert(collection_id, collection_info);
+			Self::deposit_event(Event::<T>::NameSet { collection_id, name });
+			Ok(())
+		}
+
+		/// Set the `FeeTo` account. This operation requires root access.
+		///
+		/// - `fee_to`: the new account or None assigned to FeeTo.
+		#[pallet::weight(T::WeightInfo::set_fee_to())]
+		#[transactional]
+		pub fn set_fee_to(
+			origin: OriginFor<T>,
+			fee_to: Option<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			ensure_root(origin)?;
+			FeeTo::<T>::put(&fee_to);
+			Self::deposit_event(Event::FeeToSet { account: fee_to });
+			Ok(().into())
 		}
 	}
 }

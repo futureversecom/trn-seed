@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -185,7 +189,7 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<H160>,
 	{
 		/// Set FeeTo account success. \[fee_to]
-		SetFeeTo(Option<T::AccountId>),
+		FeeToSet(Option<T::AccountId>),
 		/// Add provision success. \[who, asset_id_0, contribution_0,
 		/// asset_id_1, contribution_1\]
 		AddProvision(T::AccountId, AssetId, Balance, AssetId, Balance),
@@ -269,7 +273,7 @@ pub mod pallet {
 
 			FeeTo::<T>::put(&fee_to);
 
-			Self::deposit_event(Event::SetFeeTo(fee_to));
+			Self::deposit_event(Event::FeeToSet(fee_to));
 
 			Ok(().into())
 		}

@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -143,6 +147,8 @@ pub mod pallet {
 		MaxIssuanceSet { token_id: TokenId, max_issuance: Balance },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
+		/// Name was set
+		NameSet { collection_id: CollectionUuid, collection_name: BoundedVec<u8, T::StringLimit> },
 		/// A new token was created within a collection
 		TokenCreate {
 			token_id: TokenId,
@@ -343,6 +349,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_set_base_uri(who, collection_id, metadata_scheme)
+		}
+
+		/// Set the name of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_name())]
+		pub fn set_name(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			collection_name: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_set_name(who, collection_id, collection_name)
 		}
 	}
 }

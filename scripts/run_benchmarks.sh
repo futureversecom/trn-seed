@@ -7,8 +7,9 @@ inputs_arguments() {
     setup   REST help:usage -- "Usage: ./scripts/run_benchmark.sh [options]... [arguments]..." ''
     msg -- 'Options:'
     param   TEMPLATE_PATH           --template      init:="./scripts/pallet_template.hbs"   -- "Specifies template location"
-    param   OUTPUT_FOLDER       -o  --output        init:="./output"                        -- "Folder where all the weight files will be stored"
+    param   OUTPUT_FOLDER       -o  --output        init:="./runtime/src/weights"                        -- "Folder where all the weight files will be stored"
     param   PALLETS             -p  --pallets       init:="*"                               -- "List of pallets that need to be bechmarked. Default is all. Example: -p \"pallet_nft pallet_echo\""
+    flag    SKIP_BUILD          -S  --skip-build                                            -- "Skips the build process if set"
     param   STEPS               -s  --steps         init:=50                                -- "How many steps to do. Default is 50"
     param   REPEAT              -r  --repeat        init:=20                                -- "How many repeats to do. Default is 20"
     flag    USE_TEMPLATE        -t                                                          -- "If set then the template will be used to generate the weight files"
@@ -32,7 +33,7 @@ run_benchmark() {
     
     for PALLET in "${PALLETS[@]}"; do
         if is_pallet_excluded; then
-            echo "[ ] Skipping pallet $PALLET";
+            echo -e "[ ] Skipping pallet $PALLET\n";
             continue
         fi
         
@@ -44,22 +45,38 @@ run_benchmark() {
             TEMPLATE_ARG="--template $TEMPLATE_PATH";
         fi
         
-        benchmark "$TEMPLATE_ARG" "$FILE_NAME"
+        benchmark_runtime "$TEMPLATE_ARG" "$FILE_NAME"
         
         if is_custom_pallet && [ ! "$USE_TEMPLATE" = "1" ]; then
-            benchmark "--template $TEMPLATE_PATH" "$TEMPLATE_NAME"
+            benchmark_pallet "--template $TEMPLATE_PATH" "$TEMPLATE_NAME"
         fi
+
+        echo ""
         
     done
 }
 
-benchmark() {
-    echo "[+] Benchmarking $PALLET";
-    
-    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$2" $1 2>&1 )
+benchmark_runtime() {
+    echo "[+][runtime] Benchmarking $PALLET";
+
+    WEIGHT_FILENAME=$(echo $2 | tr '-' '_');
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$OUTPUT_FOLDER/$WEIGHT_FILENAME" $1 2>&1 )
     if [ $? -ne 0 ]; then
         echo "$OUTPUT" >> "$ERR_FILE"
-        echo "[-] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+        echo "[-][runtime] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
+    fi
+}
+
+benchmark_pallet() {
+    echo "[+][pallet] Benchmarking $PALLET";
+
+    # remove the 'pallet_' prefix and replace any underscores with dashes
+    PALLET_FOLDER="./pallet/$(echo ${PALLET#pallet_} | tr '_' '-')/src"
+
+    OUTPUT=$($BINARY_LOCATION benchmark pallet --chain=dev --steps=$STEPS --repeat=$REPEAT --pallet="$PALLET" --extrinsic="*" --execution=wasm --wasm-execution=compiled --heap-pages=4096 --output "$PALLET_FOLDER/weights.rs" $1 2>&1 )
+    if [ $? -ne 0 ]; then
+        echo "$OUTPUT" >> "$ERR_FILE"
+        echo "[-][pallet] Failed to benchmark $PALLET. Error written to $ERR_FILE; continuing..."
     fi
 }
 
@@ -89,8 +106,21 @@ populate_pallet_list() {
         # Helper pallets
         "pallet_election_provider_support_benchmarking"
         # Pallets without automatic benchmarking
-        "pallet_babe"   "pallet_grandpa"
-        "pallet_mmr"    "pallet_offences"
+        "pallet_babe"
+        "pallet_grandpa"
+        "pallet_mmr"
+        "pallet_offences"
+        "frame_benchmarking"
+
+        # TODO: fix this; pallet bench taking too long!
+        "pallet_assets"
+        "pallet_election_provider_multi_phase"
+        "pallet_im_online"
+
+        # RUNTIME WEIGHT FAILURES
+        "pallet_scheduler"
+        "pallet_session"
+        "pallet_staking"
     )
     
     CUSTOM_PALLETS=()
@@ -112,10 +142,16 @@ populate_pallet_list() {
 
 eval "$(getoptions inputs_arguments - "$0") exit 1"
 
-ERR_FILE="$OUTPUT_FOLDER/benchmarking_errors.txt"
+mkdir -p "$OUTPUT_FOLDER"
+ERR_FILE="./benchmarking_errors.txt"
 
-echo "Building the Seed client in Release mode"
-cargo build --release --locked --features=runtime-benchmarks
+if [ "$SKIP_BUILD" != "1" ]; then
+    echo "Building the Seed client in Release mode"
+    cargo build --release --locked --features=runtime-benchmarks
+else
+    echo "Skipping building seed client..."
+fi
 
 populate_pallet_list
 run_benchmark
+

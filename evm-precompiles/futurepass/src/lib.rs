@@ -1,3 +1,18 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(dead_code)]
 extern crate alloc;
@@ -8,6 +23,7 @@ use frame_support::{
 	ensure,
 };
 use pallet_evm::{ExitReason, PrecompileFailure, PrecompileSet, Runner};
+use pallet_futurepass::ProxyProvider;
 use precompile_utils::{
 	constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, data::Bytes32PostPad, get_selector, prelude::*,
 };
@@ -77,8 +93,7 @@ pub enum Action {
 	UnRegisterDelegate = "unregisterDelegate(address)",
 	ProxyCall = "proxyCall(uint8,address,uint256,bytes)",
 	// Ownable - https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
-	// Owner = "owner()", // TODO: support this once we have a more optimal way to retrieve the
-	// owner
+	Owner = "owner()",
 	RenounceOwnership = "renounceOwnership()",
 	TransferOwnership = "transferOwnership(address)",
 }
@@ -127,7 +142,7 @@ where
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
 		From<Option<Runtime::AccountId>>,
 	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
-	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
+	<Runtime as pallet_proxy::Config>::ProxyType: Into<u8>,
 {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<PrecompileResult> {
 		let result = {
@@ -151,7 +166,7 @@ where
 				Action::UnRegisterDelegate => Self::unregister_delegate(handle),
 				Action::ProxyCall => Self::proxy_call(handle),
 				// Ownable
-				// Action::Owner => Self::owner(futurepass, handle),
+				Action::Owner => Self::owner(handle),
 				Action::RenounceOwnership => Self::renounce_ownership(handle),
 				Action::TransferOwnership => Self::transfer_ownership(handle),
 			}
@@ -185,7 +200,7 @@ where
 	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin:
 		From<Option<Runtime::AccountId>>,
 	<Runtime as pallet_futurepass::Config>::ProxyType: TryFrom<u8>,
-	<Runtime as pallet_proxy::Config>::ProxyType: TryInto<u8>,
+	<Runtime as pallet_proxy::Config>::ProxyType: Into<u8>,
 {
 	fn delegate_type(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		read_args!(handle, { delegate: Address });
@@ -503,22 +518,16 @@ where
 		}
 	}
 
-	// fn owner(
-	// 	futurepass: Address,
-	// 	handle: &mut impl PrecompileHandle,
-	// ) -> EvmResult<PrecompileOutput> {
-	// 	let futurepass: H160 = futurepass.into();
+	fn owner(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		let futurepass = handle.code_address();
 
-	// 	handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-	// 	let owner = pallet_proxy::Pallet::<Runtime>::proxies::<AccountId>(futurepass.into())
-	// 		.0
-	// 		.into_iter()
-	// 		.last()
-	// 		.map(|pd| pd.delegate.into())
-	// 		.unwrap_or(H160::default());
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		let owner: H160 = <Runtime as pallet_futurepass::Config>::Proxy::owner(&futurepass.into())
+			.map(|owner: Runtime::AccountId| owner.into())
+			.unwrap_or(H160::default());
 
-	// 	Ok(succeed(EvmDataWriter::new().write(Address::from(owner)).build()))
-	// }
+		Ok(succeed(EvmDataWriter::new().write(Address::from(owner)).build()))
+	}
 
 	fn renounce_ownership(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;

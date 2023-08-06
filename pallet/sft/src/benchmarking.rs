@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -167,6 +171,18 @@ benchmarks! {
 		assert!(collection.is_some());
 		let collection = collection.unwrap();
 		assert_eq!(collection.metadata_scheme, metadata_scheme);
+	}
+
+	set_name {
+		let owner = account::<T>("Alice");
+		let id = build_collection::<T>(Some(owner.clone()));
+		let collection_name = bounded_string::<T>("Collection");
+	}: _(origin::<T>(&owner), id, collection_name.clone())
+	verify {
+		let collection = SftCollectionInfo::<T>::get(id);
+		assert!(collection.is_some());
+		let collection = collection.unwrap();
+		assert_eq!(collection.collection_name, collection_name);
 	}
 }
 
