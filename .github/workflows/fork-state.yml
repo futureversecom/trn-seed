@@ -45,8 +45,15 @@ jobs:
       - name: Create output folder
         run: mkdir -p output
 
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
       - name: Check out the correct version
         run: |
+          python3 -m venv ./scripts/penv
+          source ./scripts/penv/bin/activate
           pip install -r ./scripts/requirements.txt
           python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
 
