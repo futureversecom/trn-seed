@@ -171,7 +171,7 @@ def connect_to_remote_chain(url) -> SubstrateInterface:
     return (substrate, chain_name)
 
 
-def determine_node_version(substrate: SubstrateInterface, hash: str) -> str:
+def determine_node_version(substrate: SubstrateInterface, hash: str) -> (str, str):
     client_version = substrate.rpc_request('system_version', None)[
         'result'].split('.')[0]
     runtime_version = substrate.rpc_request(method='state_getRuntimeVersion', params=[hash])[
@@ -194,7 +194,52 @@ def determine_node_version(substrate: SubstrateInterface, hash: str) -> str:
         print("Wasn't able to find the correct tag")
         exit(1)
 
-    return version
+    # Check if there are newer releases
+    latest_tag = all_tags[-1]
+    latest_tag_splitted = latest_tag.split('.')
+    latest_tag_splitted[0].replace('v', '')
+    debug_version = version.split('.')[-1]
+    if latest_tag_splitted[0] > client_version:
+        return (version, latest_tag)
+    elif latest_tag_splitted[0] == client_version and latest_tag_splitted[1] > runtime_version:
+        return (version, latest_tag)
+    elif latest_tag_splitted[0] == client_version and latest_tag_splitted[1] == runtime_version and latest_tag_splitted[2] > debug_version:
+        return (version, latest_tag)
+    else:
+        return (version, None)
+
+
+def build_runtime_upgrade_wasm(latest_tag):
+    if not latest_tag:
+        return None
+
+    current_branch = subprocess.run(
+        'git branch --show-current', shell=True, text=True, check=True, capture_output=True)
+
+    use_stash = False
+    not_committed_changed = subprocess.run(
+        'git status --porcelain', shell=True, text=True, check=True, capture_output=True).stdout
+    if len(not_committed_changed) > 0:
+        use_stash = True
+        subprocess.run(
+            'git stash', shell=True, text=True, check=True, capture_output=True)
+
+    cmd = f'git checkout {latest_tag}'
+    subprocess.run(cmd, shell=True, text=True, check=True)
+
+    # Build the runtime upgrade wasm
+    subprocess.run('cargo build --release --package seed-runtime',
+                   shell=True, text=True, check=True, capture_output=True)
+
+    # Copy wasm to output
+    subprocess.run('cp target/release/wbuild/seed-runtime/*.wasm ./output/',
+                   shell=True, text=True, check=True, capture_output=True)
+
+    # TODO (remove later) Copy scripts
+    subprocess.run('cp scripts/*.py ./output/',
+                   shell=True, text=True, check=True, capture_output=True)
+
+    return (current_branch.stdout, use_stash)
 
 
 def maybe_do_tag_switch(tag_switch, node_version):
@@ -215,6 +260,10 @@ def maybe_do_tag_switch(tag_switch, node_version):
     cmd = f'git checkout {node_version}'
     subprocess.run(cmd, shell=True, text=True, check=True)
 
+    # TODO (remove later) Copy scripts
+    subprocess.run('cp ./output/*.py ./scripts/',
+                   shell=True, text=True, check=True, capture_output=True)
+
     return (current_branch.stdout, use_stash)
 
 
@@ -228,12 +277,14 @@ def main():
     print(
         f"Connected to remote chain: Url: {url}, Chain Name: {chain_name}, Hash: {hash}")
 
-    node_version = determine_node_version(substrate, hash)
+    (node_version, latest_tag) = determine_node_version(substrate, hash)
     print(f"Node version: {node_version}")
 
     if not os.path.exists('./output'):
         os.mkdir('./output')
         print("Created output directory: ./output")
+
+    build_runtime = build_runtime_upgrade_wasm(latest_tag)
 
     tag_switch = maybe_do_tag_switch(tag_switch, node_version)
 

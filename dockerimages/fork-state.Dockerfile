@@ -20,5 +20,3 @@ RUN python3 ./scripts/get_and_build_state.py --config ./scripts/networks/${netwo
 
 # Copy binary
 RUN cp ./target/release/seed ./output/binary
-
-VOLUME ["/output"]

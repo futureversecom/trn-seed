@@ -45,12 +45,12 @@ jobs:
       - name: Create output folder
         run: mkdir -p output
 
-      #- name: Check out the correct version
-      #  run: |
-      #    python3 -m venv ./scripts/penv
-      #    source ./scripts/penv/bin/activate
-      #    pip install -r ./scripts/requirements.txt
-      #    python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
+      - name: Check out the correct version
+        run: |
+          python3 -m venv ./scripts/penv
+          source ./scripts/penv/bin/activate
+          pip install -r ./scripts/requirements.txt
+          python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
 
       - name: Build 🛠 & Publish 🐳
         # build and tag an image with commit hash and 'latest', additionally:
@@ -84,15 +84,15 @@ jobs:
           # clean up images
           docker image prune --filter label=stage=build -f
 
-  poll-service-status:
-    runs-on: [ubuntu-latest]
-    name: Poll the service status on Kubernetes till the service is up
-    steps:
-      - name: Fetch the service status
-        uses: nick-fields/retry@v2
-        with:
-          timeout_seconds: 300
-          max_attempts: 15
-          retry_wait_seconds: 20
-          retry_on: error
-          command: curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"1","method":"state_getRuntimeVersion"}' http://localhost:9933
+  #poll-service-status:
+  #  runs-on: [ubuntu-latest]
+  #  name: Poll the service status on Kubernetes till the service is up
+  #  steps:
+  #    - name: Fetch the service status
+  #      uses: nick-fields/retry@v2
+  #      with:
+  #        timeout_seconds: 300
+  #        max_attempts: 15
+  #        retry_wait_seconds: 20
+  #        retry_on: error
+  #        command: curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"1","method":"state_getRuntimeVersion"}' http://localhost:9933
