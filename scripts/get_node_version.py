@@ -213,6 +213,10 @@ def build_runtime_upgrade_wasm(latest_tag):
     if not latest_tag:
         return None
 
+    # TODO (remove later) Copy scripts
+    subprocess.run('cp scripts/*.py ./output/ && cp dockerimages/fork-state.Dockerfile ./output/',
+                   shell=True, text=True, check=True, capture_output=True)
+
     current_branch = subprocess.run(
         'git branch --show-current', shell=True, text=True, check=True, capture_output=True)
 
@@ -233,10 +237,6 @@ def build_runtime_upgrade_wasm(latest_tag):
 
     # Copy wasm to output
     subprocess.run('cp target/release/wbuild/seed-runtime/*.wasm ./output/',
-                   shell=True, text=True, check=True, capture_output=True)
-
-    # TODO (remove later) Copy scripts
-    subprocess.run('cp scripts/*.py ./output/ && cp dockerimages/fork-state.Dockerfile ./output/',
                    shell=True, text=True, check=True, capture_output=True)
 
     return (current_branch.stdout, use_stash)
