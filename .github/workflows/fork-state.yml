@@ -55,7 +55,8 @@ jobs:
           python3 -m venv ./scripts/penv
           source ./scripts/penv/bin/activate
           pip install -r ./scripts/requirements.txt
-          python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
+          python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml
+        #  python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
 
       - name: Build 🛠 & Publish 🐳
         # build and tag an image with commit hash and 'latest', additionally:
