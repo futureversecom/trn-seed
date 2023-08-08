@@ -18,10 +18,11 @@ use crate::mock::{
 	create_account, AssetsExt, Event as MockEvent, Marketplace, NativeAssetId, Nft, NftPalletId,
 	System, Test, TestExt,
 };
-use frame_support::assert_ok;
-use pallet_nft::{CrossChainCompatibility, Listings};
+use frame_support::{assert_noop, assert_ok};
+use frame_system::RawOrigin;
+use pallet_nft::{CrossChainCompatibility, FeeTo, Listings};
 use seed_primitives::{AccountId, MetadataScheme, TokenId};
-use sp_runtime::{BoundedVec, Permill};
+use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
 // Create an NFT collection
 // Returns the created `collection_id`
@@ -281,4 +282,31 @@ fn accept_offer_works() {
 			assert_ok!(Marketplace::accept_offer(Some(token_owner).into(), offer_id));
 			assert!(Nft::token_offers(token_id).is_none());
 		});
+}
+
+mod set_fee_to {
+	use super::*;
+
+	#[test]
+	fn set_fee_to_works() {
+		let new_fee_to = create_account(13);
+
+		TestExt::default().build().execute_with(|| {
+			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), new_fee_to.into()));
+
+			assert_eq!(FeeTo::<Test>::get().unwrap(), new_fee_to);
+		});
+	}
+
+	#[test]
+	fn set_fee_to_not_root_fails() {
+		TestExt::default().build().execute_with(|| {
+			let new_fee_to = create_account(10);
+
+			assert_noop!(
+				Marketplace::set_fee_to(Some(create_account(11)).into(), Some(new_fee_to)),
+				BadOrigin
+			);
+		});
+	}
 }
