@@ -29,11 +29,17 @@ async function main() {
     console.log("Proposal status:", status.type);
 
     if (status.isInBlock) {
-      console.error("You have just upgraded your chain");
+      events.forEach(function (e) {
+        e.event.data.forEach(function (d) {
+          if (d.err) {
+            print(d.err.module.error);
+          }
+        });
+      });
 
+      console.log("You have just upgraded your chain");
       console.log("Included at block hash", status.asInBlock.toHex());
       console.log("Events:");
-
       console.log(JSON.stringify(events, null, 2));
     } else if (status.isFinalized) {
       console.log("Finalized block hash", status.asFinalized.toHex());

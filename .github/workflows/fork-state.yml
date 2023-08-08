@@ -117,10 +117,8 @@ jobs:
         run: "npm install -g yarn"
       - name: "Install ts-node"
         run: |
-          npm install ts-node -g 
-          npm install ts-node --save-dev
-          npm install typescript -g 
-          npm install typescript --save-dev
+          npm install -g ts-node
+          npm install -g typescript
       - name: "Install the dependencies"
         run: "yarn install --immutable --prefer-offline"
       - name: Do runtime upgrade
