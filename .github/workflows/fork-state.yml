@@ -93,6 +93,7 @@ jobs:
 
   poll-service-status:
     runs-on: [seed-builder]
+    needs: fork-state
     name: Poll the service status on Kubernetes till the service is up
     steps:
       - name: Wait till the Kubernetes runner reacts
