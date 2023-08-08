@@ -91,15 +91,19 @@ jobs:
           # clean up images
           docker image prune --filter label=stage=build -f
 
-  #poll-service-status:
-  #  runs-on: [ubuntu-latest]
-  #  name: Poll the service status on Kubernetes till the service is up
-  #  steps:
-  #    - name: Fetch the service status
-  #      uses: nick-fields/retry@v2
-  #      with:
-  #        timeout_seconds: 300
-  #        max_attempts: 15
-  #        retry_wait_seconds: 20
-  #        retry_on: error
-  #        command: curl -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":"1","method":"state_getRuntimeVersion"}' http://localhost:9933
+  poll-service-status:
+    runs-on: [seed-builder]
+    name: Poll the service status on Kubernetes till the service is up
+    steps:
+      - name: Wait till the Kubernetes runner reacts
+        run: sleep 10s
+        shell: bash
+      - name: Fetch the service status
+        uses: nev7n/wait_for_response@v1
+        with:
+          url: "https://forkednet.au.cicd.rootnet.app/"
+          responseCode: 405
+          timeout: 300
+          interval: 20
+      #- name: Do runtime upgrade
+      #  run: npm run
