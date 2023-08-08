@@ -25,13 +25,13 @@ async function main() {
     console.log("Proposal status:", status.type);
 
     if (status.isInBlock) {
-      events.forEach(function (e) {
-        e.event.data.forEach(function (d) {
-          if (d.err) {
-            print(d.err.module.error);
-          }
-        });
-      });
+      //events.forEach(function (e) {
+      //  e.event.data.forEach(function (d) {
+      //    if (d) {
+      //      console.log(d);
+      //    }
+      //  });
+      //});
 
       console.log("You have just upgraded your chain");
       console.log("Included at block hash", status.asInBlock.toHex());

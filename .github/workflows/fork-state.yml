@@ -91,15 +91,15 @@ jobs:
           # clean up images
           docker image prune --filter label=stage=build -f
 
-  poll-service-status:
+  runtime-upgrade:
     runs-on: [seed-builder]
-    # TODO for test
-    #needs: fork-state
+    needs: fork-state
     defaults:
       run:
         working-directory: ./e2e
     name: Poll the service status on Kubernetes till the service is up
     steps:
+      - uses: actions/checkout@v3
       - name: Wait till the Kubernetes runner reacts
         run: sleep 10s
         shell: bash
