@@ -1,12 +1,8 @@
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
-import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
+import { readFileSync } from "fs";
 
 import { ALITH_PRIVATE_KEY, rpcs, typedefs } from "../common";
-
-// Import the API & Provider and some utility functions
-
-const fs = require("fs");
 
 async function main() {
   // Initialise the provider to connect to the dev node
@@ -19,7 +15,7 @@ async function main() {
   const alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
   // Retrieve the runtime to upgrade
-  const code = fs.readFileSync("../output/seed_runtime.compact.compressed.wasm").toString("hex");
+  const code = readFileSync("../output/seed_runtime.compact.compressed.wasm").toString("hex");
   const proposal = api.tx.system.setCode(`0x${code}`);
 
   console.log(`Upgrading from ${alith.address}, ${code.length / 2} bytes`);
