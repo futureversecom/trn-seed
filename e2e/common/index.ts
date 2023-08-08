@@ -5,9 +5,10 @@ import { KeyringPair } from "@polkadot/keyring/types";
 import { AnyJson } from "@polkadot/types/types";
 import { BigNumber } from "ethers";
 import { writeFileSync } from "fs";
-import { CliPrettify } from "markdown-table-prettify";
 import { join } from "path";
 import web3 from "web3";
+
+const prettify = require("markdown-table-prettify");
 
 export * from "./node";
 
@@ -472,7 +473,7 @@ export const saveTxGas = (costs: { [key: string]: TxCosts }, filePath: string, h
   }
 
   // Prettify data
-  data = CliPrettify.prettify(data);
+  data = prettify.CliPrettify.prettify(data);
 
   // Save data to specified file path
   writeFileSync(join("./test", filePath), data, {
@@ -508,7 +509,7 @@ export const saveTxFees = (costs: { [key: string]: TxCosts }, filePath: string, 
   }
 
   // Prettify data
-  data = CliPrettify.prettify(data);
+  data = prettify.CliPrettify.prettify(data);
 
   // Save data to specified file path
   writeFileSync(join("./test", filePath), data, {
