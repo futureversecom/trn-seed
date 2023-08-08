@@ -2,17 +2,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from "@polkadot/keyring/types";
 import { hexToU8a } from "@polkadot/util";
 
-import {
-  ALITH_PRIVATE_KEY,
-  BOB_PRIVATE_KEY,
-  GAS_TOKEN_ID,
-  NodeProcess,
-  finalizeTx,
-  getNextAssetId,
-  rpcs,
-  startNode,
-  typedefs,
-} from "../common";
+import { ALITH_PRIVATE_KEY, rpcs, typedefs } from "../common";
 
 // Import the API & Provider and some utility functions
 

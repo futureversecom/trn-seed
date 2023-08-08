@@ -109,5 +109,15 @@ jobs:
           responseCode: 405
           timeout: 300
           interval: 20
+      - name: "Install Node.js"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "lts/*"
+      - name: "Install yarn globally"
+        run: "npm install -g yarn"
+      - name: "Install ts-node"
+        run: "npm install -g ts-node"
+      - name: "Install the dependencies"
+        run: "yarn install --immutable --prefer-offline"
       - name: Do runtime upgrade
         run: npx ts-node ci/runtime-upgrade.ts
