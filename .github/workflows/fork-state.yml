@@ -93,7 +93,8 @@ jobs:
 
   poll-service-status:
     runs-on: [seed-builder]
-    needs: fork-state
+    # TODO for test
+    #needs: fork-state
     defaults:
       run:
         working-directory: ./e2e
