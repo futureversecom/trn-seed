@@ -55,7 +55,8 @@ jobs:
           python3 -m venv ./scripts/penv
           source ./scripts/penv/bin/activate
           pip install -r ./scripts/requirements.txt
-          python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml
+          UPGRADE_FLAG=$(if [ ${{ github.event.inputs.runtime-upgrade }} ]; then echo "--upgrade"; else echo "--no-upgrade"; fi)
+          python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml $UPGRADE_FLAG
         #  python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
 
       - name: Build 🛠 & Publish 🐳
@@ -91,15 +92,11 @@ jobs:
           # clean up images
           docker image prune --filter label=stage=build -f
 
-  runtime-upgrade:
+  poll-service-status:
     runs-on: [seed-builder]
     needs: fork-state
-    defaults:
-      run:
-        working-directory: ./e2e
     name: Poll the service status on Kubernetes till the service is up
     steps:
-      - uses: actions/checkout@v3
       - name: Wait till the Kubernetes runner reacts
         run: sleep 10s
         shell: bash
@@ -110,6 +107,17 @@ jobs:
           responseCode: 405
           timeout: 300
           interval: 20
+
+  runtime-upgrade:
+    if: ${{ github.event.inputs.runtime-upgrade }}
+    runs-on: [seed-builder]
+    needs: poll-service-status
+    defaults:
+      run:
+        working-directory: ./e2e
+    name: Do the runtime upgrade
+    steps:
+      - uses: actions/checkout@v3
       - name: "Install Node.js"
         uses: "actions/setup-node@v3"
         with:

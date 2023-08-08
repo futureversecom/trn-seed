@@ -152,15 +152,19 @@ def populate_dev_chain(substrate, forked_storage, chain_name):
         json.dump(base_chain, outfile, indent=2)
 
 
-def read_configuration_file():
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', '-c')
+    parser.add_argument('--upgrade', '-u', default=False,
+                        action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     f = open(args.config, "r")
     configuration = yaml.safe_load(f)
 
-    return configuration
+    is_upgrade = args.upgrade
+
+    return (configuration, is_upgrade)
 
 
 def connect_to_remote_chain(url) -> SubstrateInterface:
@@ -171,7 +175,7 @@ def connect_to_remote_chain(url) -> SubstrateInterface:
     return (substrate, chain_name)
 
 
-def determine_node_version(substrate: SubstrateInterface, hash: str) -> (str, str):
+def determine_node_version(substrate: SubstrateInterface, hash: str):
     client_version = substrate.rpc_request('system_version', None)[
         'result'].split('.')[0]
     runtime_version = substrate.rpc_request(method='state_getRuntimeVersion', params=[hash])[
@@ -209,8 +213,8 @@ def determine_node_version(substrate: SubstrateInterface, hash: str) -> (str, st
         return (version, None)
 
 
-def build_runtime_upgrade_wasm(latest_tag):
-    if not latest_tag:
+def build_runtime_upgrade_wasm(latest_tag, is_upgrade):
+    if not (latest_tag and is_upgrade):
         return None
 
     # TODO (remove later) Copy scripts
@@ -268,7 +272,7 @@ def maybe_do_tag_switch(tag_switch, node_version):
 
 
 def main():
-    configuration = read_configuration_file()
+    (configuration, is_upgrade) = parse_args()
     url, tag_switch = configuration['endpoint'], configuration['tag_switch']
 
     (substrate, chain_name) = connect_to_remote_chain(url)
@@ -284,7 +288,7 @@ def main():
         os.mkdir('./output')
         print("Created output directory: ./output")
 
-    build_runtime = build_runtime_upgrade_wasm(latest_tag)
+    build_runtime = build_runtime_upgrade_wasm(latest_tag, is_upgrade)
 
     tag_switch = maybe_do_tag_switch(tag_switch, node_version)
 
