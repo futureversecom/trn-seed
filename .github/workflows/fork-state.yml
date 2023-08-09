@@ -1,9 +1,6 @@
 name: Fork State
 
 on:
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       network:
@@ -56,8 +53,8 @@ jobs:
           source ./scripts/penv/bin/activate
           pip install -r ./scripts/requirements.txt
           UPGRADE_FLAG=$(if [ ${{ github.event.inputs.runtime-upgrade }} ]; then echo "--upgrade"; else echo "--no-upgrade"; fi)
-          python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml $UPGRADE_FLAG
-        #  python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
+          python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml $UPGRADE_FLAG
+        #  python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml $UPGRADE_FLAG
 
       - name: Upload wasm as artifact
         if: ${{ github.event.inputs.runtime-upgrade }}
@@ -81,8 +78,8 @@ jobs:
           echo "github ref: $GITHUB_REF"
           echo "release tag(?): $RELEASE_TAG"
 
-          # docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
-          docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=porcini .
+          docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
+          # docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=porcini .
 
           docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
           docker push "$REGISTRY/$IMAGE_NAME:latest"
