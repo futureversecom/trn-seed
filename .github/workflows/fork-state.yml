@@ -114,7 +114,7 @@ jobs:
     needs: poll-service-status
     defaults:
       run:
-        working-directory: ./e2e
+        working-directory: ./ci-scripts/runtime-upgrade
     name: Do the runtime upgrade
     steps:
       - uses: actions/checkout@v3
@@ -131,4 +131,4 @@ jobs:
       - name: "Install the dependencies"
         run: "yarn install --immutable --prefer-offline"
       - name: Do runtime upgrade
-        run: npx ts-node ci/runtime-upgrade.ts
+        run: npx ts-node runtime-upgrade.ts
