@@ -3,7 +3,7 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2023-08-09, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `Surangas-MacBook-Pro.local`, CPU: `<UNKNOWN>`
+//! HOSTNAME: `ubu501270`, CPU: `13th Gen Intel(R) Core(TM) i9-13900K`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
@@ -13,7 +13,7 @@
 // --chain=dev
 // --steps=50
 // --repeat=20
-// --pallet=pallet_futurepass
+// --pallet=pallet-futurepass
 // --extrinsic=*
 // --execution=wasm
 // --wasm-execution=compiled
@@ -36,7 +36,7 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 	// Storage: Proxy Proxies (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
 	fn create() -> Weight {
-		(52_000_000 as Weight)
+		(40_604_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(4 as Weight))
 	}
@@ -45,9 +45,9 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn register_delegate_with_signature(p: u32, ) -> Weight {
-		(81_779_000 as Weight)
-			// Standard Error: 15_000
-			.saturating_add((285_000 as Weight).saturating_mul(p as Weight))
+		(61_120_000 as Weight)
+			// Standard Error: 3_000
+			.saturating_add((104_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
@@ -56,9 +56,9 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn unregister_delegate(p: u32, ) -> Weight {
-		(47_005_000 as Weight)
-			// Standard Error: 6_000
-			.saturating_add((179_000 as Weight).saturating_mul(p as Weight))
+		(39_133_000 as Weight)
+			// Standard Error: 3_000
+			.saturating_add((113_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
 	}
@@ -67,18 +67,18 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 	// Storage: System Account (r:2 w:2)
 	/// The range of component `p` is `[1, 31]`.
 	fn transfer_futurepass(p: u32, ) -> Weight {
-		(37_066_000 as Weight)
-			// Standard Error: 34_000
-			.saturating_add((22_627_000 as Weight).saturating_mul(p as Weight))
+		(34_404_000 as Weight)
+			// Standard Error: 13_000
+			.saturating_add((18_878_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().reads(5 as Weight))
 			.saturating_add(T::DbWeight::get().writes(5 as Weight))
 	}
 	// Storage: Proxy Proxies (r:1 w:0)
 	/// The range of component `p` is `[1, 31]`.
 	fn proxy_extrinsic(p: u32, ) -> Weight {
-		(17_738_000 as Weight)
-			// Standard Error: 3_000
-			.saturating_add((46_000 as Weight).saturating_mul(p as Weight))
+		(13_794_000 as Weight)
+			// Standard Error: 1_000
+			.saturating_add((36_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 	}
 }
