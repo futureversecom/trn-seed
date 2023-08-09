@@ -94,11 +94,13 @@ benchmarks! {
 	}
 
 	unregister_delegate {
-		let owner: T::AccountId = account("owner", 0, 0);
+		let p in 1 .. (32 - 1);
 
+		let owner: T::AccountId = account("owner", 0, 0);
 		fund::<T>(&owner);
 		assert_ok!(Futurepass::<T>::create(RawOrigin::Signed(owner.clone()).into(), owner.clone()));
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
+		add_delegates::<T>(p-1, futurepass.clone(), Some(owner.clone()))?;
 		let delegate: T::AccountId = H160::from_slice(&hex!("420aC537F1a4f78d4Dfb3A71e902be0E3d480AFB")).into();
 		let proxy_type = T::ProxyType::default();
 		let deadline: u32= 200;
@@ -128,11 +130,13 @@ benchmarks! {
 	}
 
 	proxy_extrinsic {
-		let owner: T::AccountId = account("owner", 0, 0);
+		let p in 1 .. (32 - 1);
 
+		let owner: T::AccountId = account("owner", 0, 0);
 		fund::<T>(&owner);
 		assert_ok!(Futurepass::<T>::create(RawOrigin::Signed(owner.clone()).into(), owner.clone()));
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
+		add_delegates::<T>(p-1, futurepass.clone(), Some(owner.clone()))?;
 
 		let call: <T as Config>::Call = frame_system::Call::<T>::remark { remark: vec![] }.into();
 
