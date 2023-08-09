@@ -65,7 +65,7 @@ jobs:
         with:
           name: runtime-wasm
           path: ./output/seed_runtime.compact.compressed.wasm
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
       - name: Build 🛠 & Publish 🐳
         # build and tag an image with commit hash and 'latest', additionally:
