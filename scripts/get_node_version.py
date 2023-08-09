@@ -217,10 +217,6 @@ def build_runtime_upgrade_wasm(latest_tag, is_upgrade):
     if not (latest_tag and is_upgrade):
         return None
 
-    # TODO (remove later) Copy scripts
-    subprocess.run('cp scripts/*.py ./output/ && cp dockerimages/fork-state.Dockerfile ./output/',
-                   shell=True, text=True, check=True, capture_output=True)
-
     current_branch = subprocess.run(
         'git branch --show-current', shell=True, text=True, check=True, capture_output=True)
 
@@ -249,6 +245,10 @@ def build_runtime_upgrade_wasm(latest_tag, is_upgrade):
 def maybe_do_tag_switch(tag_switch, node_version):
     if not tag_switch:
         return None
+
+    # TODO (remove later) Copy scripts
+    subprocess.run('cp scripts/*.py ./output/ && cp dockerimages/fork-state.Dockerfile ./output/',
+                   shell=True, text=True, check=True, capture_output=True)
 
     current_branch = subprocess.run(
         'git branch --show-current', shell=True, text=True, check=True, capture_output=True)

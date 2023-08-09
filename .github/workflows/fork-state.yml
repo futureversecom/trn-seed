@@ -59,6 +59,14 @@ jobs:
           python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml $UPGRADE_FLAG
         #  python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml
 
+      - name: Upload wasm as artifact
+        if: ${{ github.event.inputs.runtime-upgrade }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: runtime-wasm
+          path: ./output/seed_runtime.compact.compressed.wasm
+          if-no-files-found: ignore
+
       - name: Build 🛠 & Publish 🐳
         # build and tag an image with commit hash and 'latest', additionally:
         # if the commit is tagged, tag the image also e.g. 1.0.0
@@ -118,6 +126,10 @@ jobs:
     name: Do the runtime upgrade
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: runtime-wasm
+          path: ./
       - name: "Install Node.js"
         uses: "actions/setup-node@v3"
         with:
