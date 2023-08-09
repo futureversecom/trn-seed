@@ -116,13 +116,15 @@ benchmarks! {
 	}
 
 	transfer_futurepass {
+		let p in 1 .. (32 - 1);
+
 		let owner: T::AccountId = account("owner", 0, 0);
 		let new_owner: T::AccountId = account("new-owner", 0, 0);
-
 		fund::<T>(&owner);
 		fund::<T>(&new_owner);
 		assert_ok!(Futurepass::<T>::create(RawOrigin::Signed(owner.clone()).into(), owner.clone()));
 		let futurepass: T::AccountId = Holders::<T>::get(&owner).unwrap();
+		add_delegates::<T>(p-1, futurepass.clone(), Some(owner.clone()))?;
 
 	}: _(RawOrigin::Signed(owner.clone()), owner.clone(), Some(new_owner.clone()))
 	verify {
