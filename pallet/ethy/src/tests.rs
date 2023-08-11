@@ -2249,7 +2249,11 @@ fn set_door_signers_fails() {
 		assert_noop!(
 			EthBridge::set_xrpl_door_signers(
 				Origin::signed(AccountId::from(caller)),
-				(0..10).map(|i| AuthorityId::from_slice(&[i as u8; 33]).unwrap()).collect(),
+				vec![(AuthorityId::from_slice(&[1_u8; 33]).unwrap(), true)] /* (0..10).map(|i|
+				                                                             * AuthorityId::from_slice(&
+				                                                             * [i as u8; 33]).
+				                                                             * unwrap()).collect(),
+				                                                             * */
 			),
 			BadOrigin
 		);
@@ -2262,8 +2266,8 @@ fn set_door_signers() {
 		assert_ok!(EthBridge::set_xrpl_door_signers(
 			Origin::root(),
 			vec![
-				AuthorityId::from_slice(&[1_u8; 33]).unwrap(),
-				AuthorityId::from_slice(&[2_u8; 33]).unwrap()
+				(AuthorityId::from_slice(&[1_u8; 33]).unwrap(), true),
+				(AuthorityId::from_slice(&[2_u8; 33]).unwrap(), false)
 			],
 		));
 	});
