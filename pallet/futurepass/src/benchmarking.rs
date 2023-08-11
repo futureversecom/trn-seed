@@ -54,7 +54,7 @@ where
 		T::Proxy::add_delegate(
 			&caller,
 			&futurepass,
-			&account::<T::AccountId>("trarget", i, 0),
+			&account::<T::AccountId>("target", i, 0),
 			&T::ProxyType::default().into(),
 		)?;
 	}
