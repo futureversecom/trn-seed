@@ -14,12 +14,12 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{Config, Pallet};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::BoundedVec;
 use scale_info::TypeInfo;
-use seed_primitives::SerialNumber;
+use seed_primitives::{BlockNumber, CollectionUuid, SerialNumber};
 use sp_core::H160;
-use sp_runtime::traits::Get;
+use sp_runtime::{traits::Get, RuntimeDebug};
 use sp_std::{marker::PhantomData, vec::Vec};
 
 #[derive(Debug, PartialEq, Clone, Encode, Decode, TypeInfo)]
@@ -29,6 +29,17 @@ pub struct TokenInfo<T: Config> {
 	pub token_address: H160,
 	// The ids of the tokens belonging to the contract
 	pub token_ids: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
+}
+
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct RoadBlockedTokens<T: Config> {
+	pub block_number: BlockNumber,
+	pub collection_id: CollectionUuid,
+	pub serial_numbers: BoundedVec<
+		BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
+		T::MaxCollectionsPerWithdraw,
+	>,
 }
 
 pub struct GroupedTokenInfo<T: Config> {

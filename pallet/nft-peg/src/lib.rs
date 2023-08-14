@@ -17,15 +17,13 @@
 
 use core::fmt::Write;
 use ethabi::{ParamType, Token};
-use frame_support::{
-	ensure, pallet_prelude::*, traits::Get, weights::Weight, BoundedVec, PalletId,
-};
+use frame_support::{ensure, traits::Get, weights::Weight, BoundedVec, PalletId};
 pub use pallet::*;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
 use seed_primitives::{CollectionUuid, MetadataScheme, OriginChain, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
-use sp_std::{boxed::Box, vec::Vec};
+use sp_std::{boxed::Box, vec, vec::Vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -38,12 +36,6 @@ mod weights;
 
 pub use types::*;
 pub use weights::WeightInfo;
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct BlockedNfts<T: Config> {
-	pub collection_id: CollectionUuid,
-	pub serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
-}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -87,11 +79,16 @@ pub mod pallet {
 	pub type RootNftToErc721<T: Config> =
 		StorageMap<_, Twox64Concat, CollectionUuid, EthAddress, OptionQuery>;
 
-	// Map account id to stuck NFTs
+	// Map account id to blocked tokens
 	#[pallet::storage]
-	#[pallet::getter(fn road_block)]
-	pub type RoadBlock<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, BlockedNfts<T>, OptionQuery>;
+	#[pallet::getter(fn road_blocked)]
+	pub type RoadBlocked<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		BoundedVec<RoadBlockedTokens<T>, T::MaxRoadBlocked>,
+		OptionQuery,
+	>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -106,7 +103,6 @@ pub mod pallet {
 		/// No collection info exists
 		NoCollectionFound,
 		/// No mapped token was stored for bridging the token back to the bridged chain
-		/// chain(Should not happen)
 		NoMappedTokenExists,
 		/// Tried to bridge a token that originates from Root, which is not yet supported
 		NoPermissionToBridge,
@@ -169,6 +165,15 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_withdrawal(who, collection_ids, serial_numbers, destination)?;
+			Ok(())
+		}
+
+		// TODO: weight
+		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
+		#[transactional]
+		pub fn rescue_blocked_nfts(origin: OriginFor<T>, destination: H160) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_rescue_blocked_nfts(who, destination)?;
 			Ok(())
 		}
 	}
@@ -403,6 +408,23 @@ where
 			destination,
 		});
 		Ok(event_proof_id)
+	}
+
+	fn do_rescue_blocked_nfts(who: T::AccountId, destination: H160) -> Result<(), DispatchError> {
+		let road_blocked = RoadBlocked::<T>::get(&who).ok_or(Error::<T>::NoMappedTokenExists)?;
+
+		for blocked in road_blocked.iter() {
+			Self::do_withdrawal(
+				who.clone(),
+				vec![blocked.collection_id].try_into().unwrap(),
+				blocked.serial_numbers.clone(),
+				destination,
+			)?;
+		}
+
+		RoadBlocked::<T>::remove(&who);
+
+		Ok(())
 	}
 }
 

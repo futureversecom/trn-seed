@@ -243,11 +243,20 @@ impl<T: Config> Pallet<T> {
 
 					T::DbWeight::get().reads_writes(1, 1)
 				} else {
-					Self::deposit_event(Event::<T>::BridgedMintFail {
+					Self::deposit_event(Event::<T>::TokensBlocked {
 						collection_id,
 						serial_numbers,
 						owner: owner.clone(),
 					});
+
+					// RoadBlocked::<T>::add(
+					// 	owner,
+					// 	RoadBlockedTokens {
+					// 		block_number: <frame_system::Pallet<T>>::block_number(),
+					// 		collection_id,
+					// 		serial_numbers,
+					// 	},
+					// )?;
 
 					T::DbWeight::get().reads(1)
 				}

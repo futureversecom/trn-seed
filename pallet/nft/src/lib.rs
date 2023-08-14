@@ -261,8 +261,8 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			owner: T::AccountId,
 		},
-		/// Token(s) failed to bridge
-		BridgedMintFail {
+		/// Token(s) blocked from bridging
+		TokensBlocked {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			owner: T::AccountId,
