@@ -261,6 +261,12 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			owner: T::AccountId,
 		},
+		/// Token(s) failed to bridge
+		BridgedMintFail {
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
+			owner: T::AccountId,
+		},
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
@@ -429,6 +435,8 @@ pub mod pallet {
 		MaxIssuanceReached,
 		/// Attemped to mint a token that was bridged from a different chain
 		AttemptedMintOnBridgedToken,
+		/// Failed to mint a token that was bridged from a different chain
+		FailedMintOnBridgedToken,
 		/// Cannot claim already claimed collections
 		CannotClaimNonClaimableCollections,
 		/// Initial issuance on XLS-20 compatible collections must be zero

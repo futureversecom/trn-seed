@@ -17,7 +17,9 @@
 
 use core::fmt::Write;
 use ethabi::{ParamType, Token};
-use frame_support::{ensure, traits::Get, weights::Weight, BoundedVec, PalletId};
+use frame_support::{
+	ensure, pallet_prelude::*, traits::Get, weights::Weight, BoundedVec, PalletId,
+};
 pub use pallet::*;
 use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
 use seed_primitives::{CollectionUuid, MetadataScheme, OriginChain, SerialNumber};
@@ -36,6 +38,12 @@ mod weights;
 
 pub use types::*;
 pub use weights::WeightInfo;
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct BlockedNfts<T: Config> {
+	pub collection_id: CollectionUuid,
+	pub serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -78,6 +86,12 @@ pub mod pallet {
 	#[pallet::getter(fn root_to_eth_nft)]
 	pub type RootNftToErc721<T: Config> =
 		StorageMap<_, Twox64Concat, CollectionUuid, EthAddress, OptionQuery>;
+
+	// Map account id to stuck NFTs
+	#[pallet::storage]
+	#[pallet::getter(fn road_block)]
+	pub type RoadBlock<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, BlockedNfts<T>, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {

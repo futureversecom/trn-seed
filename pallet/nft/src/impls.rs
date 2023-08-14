@@ -24,7 +24,9 @@ use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
 	TokenCount, TokenId,
 };
-use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
+use sp_runtime::{
+	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
+};
 
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
@@ -226,19 +228,29 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-				let _ = Self::do_mint(collection_id, collection_info, &owner, &serial_numbers);
+				let mint = Self::do_mint(collection_id, collection_info, owner, &serial_numbers);
 
-				// throw event, listing all serial numbers minted from bridging
-				// SerialNumbers will never exceed the limit denoted by nft_peg::MaxTokensPerMint
-				// Which is set to 50 in the runtime, so this event is safe to list all bridged
-				// serial_numbers
-				Self::deposit_event(Event::<T>::BridgedMint {
-					collection_id,
-					serial_numbers: serial_numbers.clone(),
-					owner: owner.clone(),
-				});
+				if mint.is_ok() {
+					// throw event, listing all serial numbers minted from bridging
+					// SerialNumbers will never exceed the limit denoted by
+					// nft_peg::MaxTokensPerMint Which is set to 50 in the runtime, so this event is
+					// safe to list all bridged serial_numbers
+					Self::deposit_event(Event::<T>::BridgedMint {
+						collection_id,
+						serial_numbers,
+						owner: owner.clone(),
+					});
 
-				T::DbWeight::get().reads_writes(1, 1)
+					T::DbWeight::get().reads_writes(1, 1)
+				} else {
+					Self::deposit_event(Event::<T>::BridgedMintFail {
+						collection_id,
+						serial_numbers,
+						owner: owner.clone(),
+					});
+
+					T::DbWeight::get().reads(1)
+				}
 			},
 			_ => T::DbWeight::get().reads(1),
 		}
@@ -310,7 +322,12 @@ impl<T: Config> Pallet<T> {
 		new_collection_info.collection_issuance = new_collection_info
 			.collection_issuance
 			.checked_add(serial_numbers.len().saturated_into())
-			.ok_or(Error::<T>::TokenLimitExceeded)?;
+			.ok_or(ArithmeticError::Overflow)?;
+
+		ensure!(
+			new_collection_info.collection_issuance <= T::MaxTokensPerCollection::get(),
+			Error::<T>::TokenLimitExceeded
+		);
 
 		new_collection_info
 			.add_user_tokens(&token_owner, serial_numbers.clone())
