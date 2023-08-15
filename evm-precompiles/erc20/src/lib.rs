@@ -25,7 +25,8 @@ use frame_support::{
 	},
 	weights::{GetDispatchInfo, PostDispatchInfo},
 };
-use pallet_evm::PrecompileSet;
+use pallet_assets::WeightInfo;
+use pallet_evm::{GasWeightMapping, PrecompileSet};
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
 use seed_primitives::{AssetId, Balance};
 use sp_core::{H160, U256};

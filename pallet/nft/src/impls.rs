@@ -312,6 +312,11 @@ impl<T: Config> Pallet<T> {
 			.checked_add(serial_numbers.len().saturated_into())
 			.ok_or(Error::<T>::TokenLimitExceeded)?;
 
+		ensure!(
+			new_collection_info.collection_issuance <= T::MaxTokensPerCollection::get(),
+			Error::<T>::TokenLimitExceeded
+		);
+
 		new_collection_info
 			.add_user_tokens(&token_owner, serial_numbers.clone())
 			.map_err(|e| Error::<T>::from(e))?;

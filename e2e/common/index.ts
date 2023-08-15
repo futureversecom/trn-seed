@@ -219,6 +219,16 @@ export type TxCosts = {
   Precompile: BigNumber;
   Extrinsic: BigNumber;
 };
+export type EvmEstimates = {
+  Contract: {
+    estimate: BigNumber,
+    actual: BigNumber
+  };
+  Precompile: {
+    estimate: BigNumber,
+    actual: BigNumber
+  };
+};
 
 /** ABIs */
 
@@ -294,6 +304,8 @@ export const ERC721_PRECOMPILE_ABI = [
   "function setMaxSupply(uint32 maxSupply)",
   "function setBaseURI(bytes baseURI)",
   "function ownedTokens(address who, uint16 limit, uint32 cursor) public view returns (uint32, uint32, uint32[] memory)",
+
+  "function gasTester()",
 
   // Ownable
   ...OWNABLE_ABI,
@@ -505,6 +517,37 @@ export const saveTxFees = (costs: { [key: string]: TxCosts }, filePath: string, 
   for (const key in costs) {
     const value = costs[key];
     data += `| ${key} | ${value.Contract} | ${value.Precompile} | ${value.Extrinsic} |\n`;
+  }
+
+  // Prettify data
+  data = CliPrettify.prettify(data);
+
+  // Save data to specified file path
+  writeFileSync(join("./test", filePath), data, {
+    flag: "a",
+  });
+};
+
+/**
+ * Saves tx costs(fees) to a markdown file
+ * @returns
+ * @param costs Dictionary of tx costs for different function calls
+ * @param filePath The file path to save the output
+ * @param header The header for the generated output, i.e. "ERC1155 Precompiles"
+ */
+export const saveTxEstimates = (costs: { [key: string]: EvmEstimates }, filePath: string, header: string) => {
+  // Set string headers
+  let data: string = `\n\n## Generated tx estimates vs gas used for ${header}\n\n`;
+  data += "| Function Call | Contract estimate | Contract actual | Diff | Precompile estimate | Precompile actual | Diff |\n";
+  data += "| :--- | :---: | :---: | :---: | :---: | :---: | :---: |\n";
+
+  // Iterate through functions and add tx fees
+  for (const key in costs) {
+    const value = costs[key];
+    const contractDiff = value.Contract.estimate.sub(value.Contract.actual);
+    const precompileDiff = value.Precompile.estimate.sub(value.Precompile.actual);
+    data += `| ${key} | ${value.Contract.estimate} | ${value.Contract.actual} | ${contractDiff} | `;
+    data += `${value.Precompile.estimate} | ${value.Precompile.actual} | ${precompileDiff} |\n`;
   }
 
   // Prettify data

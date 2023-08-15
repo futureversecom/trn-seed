@@ -93,6 +93,7 @@ pub enum Action {
 	// XLS-20 extensions
 	EnableXls20Compatibility = "enableXls20Compatibility()",
 	ReRequestXls20Mint = "reRequestXls20Mint(uint32[])",
+	GasTester = "gasTester()",
 }
 
 /// The following distribution has been decided for the precompiles
@@ -190,6 +191,7 @@ where
 							Self::enable_xls20_compatibility(collection_id, handle),
 						Action::ReRequestXls20Mint =>
 							Self::re_request_xls20_mint(collection_id, handle),
+						Action::GasTester => Self::gas_tester(handle),
 						_ => return Some(Err(revert("ERC721: Function not implemented").into())),
 					}
 				};
@@ -311,6 +313,8 @@ where
 			return Err(revert("ERC721: Expected token id <= 2^32").into())
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost().saturating_mul(100))?;
 
 		// Check approvals/ ownership
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3))?;
@@ -922,6 +926,13 @@ where
 		Ok(succeed(EvmDataWriter::new().write(true).build()))
 	}
 
+	fn gas_tester(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost().saturating_mul(1000))?;
+
+		// Build output.
+		Ok(succeed([]))
+	}
+
 	fn enable_xls20_compatibility(
 		collection_id: CollectionUuid,
 		handle: &mut impl PrecompileHandle,
@@ -973,6 +984,7 @@ where
 			Some(origin.into()).into(),
 			pallet_xls20::Call::<Runtime>::re_request_xls20_mint {
 				collection_id,
+
 				serial_numbers: serial_numbers.clone(),
 			},
 		)?;

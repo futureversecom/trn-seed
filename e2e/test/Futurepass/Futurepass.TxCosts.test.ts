@@ -22,7 +22,7 @@ import {
   saveTxGas,
   startNode,
   typedefs,
-  weiTo6DP,
+  weiTo6DP, EvmEstimates, saveTxEstimates,
 } from "../../common";
 
 const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
@@ -42,7 +42,7 @@ const PROXY_TYPE = {
 };
 
 describe("Futurepass Precompile", function () {
-  let node: NodeProcess;
+  // let node: NodeProcess;
 
   let api: ApiPromise;
   let provider: JsonRpcProvider;
@@ -53,12 +53,13 @@ describe("Futurepass Precompile", function () {
 
   const allTxGasCosts: { [key: string]: TxCosts } = {};
   const allTxFeeCosts: { [key: string]: TxCosts } = {};
+  const allEstimates: { [key: string]: EvmEstimates } = {};
 
   before(async () => {
-    node = await startNode();
+    // node = await startNode();
 
     // Substrate variables
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://localhost:9944`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -67,7 +68,7 @@ describe("Futurepass Precompile", function () {
     alithKeyring = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
     // Ethereum variables
-    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:9933`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider);
 
     futurepassRegistrar = new Contract(
@@ -78,9 +79,11 @@ describe("Futurepass Precompile", function () {
   });
 
   after(async () => {
-    await node.stop();
+    // await node.stop();
     saveTxGas(allTxGasCosts, "Futurepass/TxCosts.md", "Futurepass Precompiles");
     saveTxFees(allTxFeeCosts, "Futurepass/TxCosts.md", "Futurepass Precompiles");
+    saveTxEstimates(allEstimates, "Futurepass/TxCosts.md", "Futurepass Precompiles");
+
   });
 
   async function createFuturepass(caller: Wallet, address: string) {
@@ -120,10 +123,10 @@ describe("Futurepass Precompile", function () {
     await fundAccount(api, alithKeyring, owner.address);
 
     // precompile
-    const precompileGasCost = await futurepassRegistrar.estimateGas.create(owner.address);
+    const precompileGasEstimate = await futurepassRegistrar.estimateGas.create(owner.address);
     let balanceBefore = await owner.getBalance();
     const tx = await futurepassRegistrar.connect(owner).create(owner.address);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await owner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
@@ -143,13 +146,23 @@ describe("Futurepass Precompile", function () {
     // Update all costs
     allTxGasCosts["create"] = {
       Contract: BigNumber.from(0), // no contract
-      Precompile: precompileGasCost, // convert to XRP Drops(6)
+      Precompile: precompileGasEstimate, // convert to XRP Drops(6)
       Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
     };
     allTxFeeCosts["create"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+    };
+    allEstimates["create"] = {
+      Contract: {
+        estimate: BigNumber.from(0),
+        actual: BigNumber.from(0)
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
     };
   });
 
@@ -173,7 +186,7 @@ describe("Futurepass Precompile", function () {
     // eip191 sign message using delegate
     const signature = await delegate.signMessage(message);
 
-    const precompileGasCost = await fp1.estimateGas.registerDelegateWithSignature(
+    const precompileGasEstimate = await fp1.estimateGas.registerDelegateWithSignature(
       delegate.address,
       PROXY_TYPE.Any,
       deadline,
@@ -183,7 +196,7 @@ describe("Futurepass Precompile", function () {
     const tx = await fp1
       .connect(owner1)
       .registerDelegateWithSignature(delegate.address, PROXY_TYPE.Any, deadline, signature);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await owner1.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
@@ -212,18 +225,28 @@ describe("Futurepass Precompile", function () {
     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
     const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-    expect(extrinsicGasCost).to.be.lessThan(precompileGasCost);
+    expect(extrinsicGasCost).to.be.lessThan(precompileGasEstimate);
 
     // Update all costs
     allTxGasCosts["registerDelegateWithSignature"] = {
       Contract: BigNumber.from(0), // no contract
-      Precompile: precompileGasCost, // convert to XRP Drops(6)
+      Precompile: precompileGasEstimate, // convert to XRP Drops(6)
       Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
     };
     allTxFeeCosts["registerDelegateWithSignature"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+    };
+    allEstimates["registerDelegateWithSignature"] = {
+      Contract: {
+        estimate: BigNumber.from(0),
+        actual: BigNumber.from(0)
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
     };
   });
 
@@ -269,10 +292,10 @@ describe("Futurepass Precompile", function () {
     expect(await fp2.delegateType(delegate.address)).to.equal(PROXY_TYPE.Any);
 
     // precompile approach
-    const precompileGasCost = await fp1.estimateGas.unregisterDelegate(delegate.address);
+    const precompileGasEstimate = await fp1.estimateGas.unregisterDelegate(delegate.address);
     let balanceBefore = await owner1.getBalance();
     tx = await fp1.connect(owner1).unregisterDelegate(delegate.address);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await owner1.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
@@ -289,18 +312,28 @@ describe("Futurepass Precompile", function () {
     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
     const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-    expect(extrinsicGasCost).to.be.lessThan(precompileGasCost);
+    expect(extrinsicGasCost).to.be.lessThan(precompileGasEstimate);
 
     // Update all costs
     allTxGasCosts["unregisterDelegate"] = {
       Contract: BigNumber.from(0), // no contract
-      Precompile: precompileGasCost, // convert to XRP Drops(6)
+      Precompile: precompileGasEstimate, // convert to XRP Drops(6)
       Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
     };
     allTxFeeCosts["unregisterDelegate"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+    };
+    allEstimates["unregisterDelegate"] = {
+      Contract: {
+        estimate: BigNumber.from(0),
+        actual: BigNumber.from(0)
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
     };
   });
 
@@ -314,10 +347,10 @@ describe("Futurepass Precompile", function () {
     await createFuturepass(owner2, owner2.address);
 
     // precompile approach
-    const precompileGasCost = await fp1.estimateGas.transferOwnership(newOwner1.address);
+    const precompileGasEstimate = await fp1.estimateGas.transferOwnership(newOwner1.address);
     let balanceBefore = await owner1.getBalance();
     const tx = await fp1.connect(owner1).transferOwnership(newOwner1.address);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await owner1.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
@@ -336,18 +369,28 @@ describe("Futurepass Precompile", function () {
     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
     const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-    expect(extrinsicGasCost).to.be.lessThan(precompileGasCost);
+    expect(extrinsicGasCost).to.be.lessThan(precompileGasEstimate);
 
     // Update all costs
     allTxGasCosts["transferOwnership"] = {
       Contract: BigNumber.from(0), // no contract
-      Precompile: precompileGasCost, // convert to XRP Drops(6)
+      Precompile: precompileGasEstimate, // convert to XRP Drops(6)
       Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
     };
     allTxFeeCosts["transferOwnership"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+    };
+    allEstimates["transferOwnership"] = {
+      Contract: {
+        estimate: BigNumber.from(0),
+        actual: BigNumber.from(0)
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
     };
   });
 
@@ -365,7 +408,7 @@ describe("Futurepass Precompile", function () {
     await fundAccount(api, alithKeyring, fp2.address);
 
     // precompile approach
-    const precompileGasCost = await fp1.estimateGas.proxyCall(
+    const precompileGasEstimate = await fp1.estimateGas.proxyCall(
       CALL_TYPE.Call,
       recipient.address,
       parseEther(transferAmount),
@@ -373,7 +416,7 @@ describe("Futurepass Precompile", function () {
     );
     let balanceBefore = await owner1.getBalance();
     const tx = await fp1.connect(owner1).proxyCall(CALL_TYPE.Call, recipient.address, parseEther(transferAmount), "0x");
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await owner1.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
     let recipientBalance = await provider.getBalance(recipient.address);
@@ -396,18 +439,28 @@ describe("Futurepass Precompile", function () {
     const extrinsicFeeCost = balanceBefore.sub(balanceAfter).sub(parseEther(transferAmount));
     const extrinsicGasCost = await getScaledGasForExtrinsicFee(provider, extrinsicFeeCost);
     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-    expect(extrinsicGasCost).to.be.lessThan(precompileGasCost);
+    expect(extrinsicGasCost).to.be.lessThan(precompileGasEstimate);
 
     // Update all costs
     allTxGasCosts["proxyCall"] = {
       Contract: BigNumber.from(0), // no contract
-      Precompile: precompileGasCost, // convert to XRP Drops(6)
+      Precompile: precompileGasEstimate, // convert to XRP Drops(6)
       Extrinsic: extrinsicGasCost, // convert to XRP Drops(6)
     };
     allTxFeeCosts["proxyCall"] = {
       Contract: BigNumber.from(0), // no contract
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+    };
+    allEstimates["proxyCall"] = {
+      Contract: {
+        estimate: BigNumber.from(0),
+        actual: BigNumber.from(0)
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
     };
   });
 });

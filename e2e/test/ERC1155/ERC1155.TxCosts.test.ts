@@ -20,11 +20,11 @@ import {
   saveTxFees,
   saveTxGas,
   startNode,
-  typedefs,
+  typedefs, saveTxEstimates, EvmEstimates,
 } from "../../common";
 
 describe("ERC1155 Gas Estimates", function () {
-  let node: NodeProcess;
+  // let node: NodeProcess;
 
   let provider: JsonRpcProvider;
   let api: ApiPromise;
@@ -38,19 +38,20 @@ describe("ERC1155 Gas Estimates", function () {
 
   const allCosts: { [key: string]: TxCosts } = {};
   const allTxFeeCosts: { [key: string]: TxCosts } = {};
+  const allEstimates: { [key: string]: EvmEstimates } = {};
 
   // Setup api instance
   before(async () => {
-    node = await startNode();
+    // node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://localhost:9944`);
 
     // Setup Root api instance and keyring
     api = await ApiPromise.create({ provider: wsProvider, types: typedefs });
     const keyring = new Keyring({ type: "ethereum" });
     alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
-    provider = new JsonRpcProvider(`http://127.0.0.1:${node.httpPort}`);
+    provider = new JsonRpcProvider(`http://127.0.0.1:9933`);
     alithSigner = new Wallet(ALITH_PRIVATE_KEY).connect(provider); // 'development' seed
     bobSigner = new Wallet(BOB_PRIVATE_KEY).connect(provider);
 
@@ -85,7 +86,8 @@ describe("ERC1155 Gas Estimates", function () {
   after(async () => {
     saveTxGas(allCosts, "ERC1155/TxCosts.md", "ERC1155 Precompiles");
     saveTxFees(allTxFeeCosts, "ERC1155/TxCosts.md", "ERC1155 Precompiles");
-    await node.stop();
+    saveTxEstimates(allEstimates, "ERC1155/TxCosts.md", "ERC1155 Precompiles");
+    // await node.stop();
   });
 
   it("uri gas estimates", async () => {
@@ -198,7 +200,7 @@ describe("ERC1155 Gas Estimates", function () {
     let tx = await erc1155Precompile
       .connect(alithSigner)
       .safeTransferFrom(alithSigner.address, bobSigner.address, 0, 10, callData);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
     // Contract call cost
@@ -206,7 +208,7 @@ describe("ERC1155 Gas Estimates", function () {
     tx = await erc1155Contract
       .connect(alithSigner)
       .safeTransferFrom(alithSigner.address, bobSigner.address, 0, 10, callData);
-    await tx.wait();
+    const contractReceipt = await tx.wait();
     balanceAfter = await alithSigner.getBalance();
     const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
@@ -235,6 +237,16 @@ describe("ERC1155 Gas Estimates", function () {
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
+    allEstimates["safeTransferFrom"] = {
+      Contract: {
+        estimate: contractGasEstimate,
+        actual: contractReceipt.gasUsed
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
+    };
   });
 
   it("safeBatchTransferFrom gas estimates", async () => {
@@ -253,7 +265,7 @@ describe("ERC1155 Gas Estimates", function () {
     let tx = await erc1155Precompile
       .connect(alithSigner)
       .safeBatchTransferFrom(alithSigner.address, bobSigner.address, [0, 0], [10, 12], callData);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
     // Contract fee cost
@@ -261,7 +273,7 @@ describe("ERC1155 Gas Estimates", function () {
     tx = await erc1155Contract
       .connect(alithSigner)
       .safeBatchTransferFrom(alithSigner.address, bobSigner.address, [0, 0], [10, 12], callData);
-    await tx.wait();
+    const contractReceipt = await tx.wait();
     balanceAfter = await alithSigner.getBalance();
     const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
@@ -299,6 +311,16 @@ describe("ERC1155 Gas Estimates", function () {
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
+    allEstimates["safeBatchTransferFrom"] = {
+      Contract: {
+        estimate: contractGasEstimate,
+        actual: contractReceipt.gasUsed
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
+    };
   });
 
   it("mint gas estimates", async () => {
@@ -315,13 +337,13 @@ describe("ERC1155 Gas Estimates", function () {
     // precompile fee cost
     let balanceBefore = await alithSigner.getBalance();
     let tx = await erc1155Precompile.connect(alithSigner).mint(alithSigner.address, 0, 10);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
     // Contract fee cost
     balanceBefore = await alithSigner.getBalance();
     tx = await erc1155Contract.connect(alithSigner).mint(alithSigner.address, 0, 10, callData);
-    await tx.wait();
+    const contractReceipt = await tx.wait();
     balanceAfter = await alithSigner.getBalance();
     const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
@@ -350,6 +372,16 @@ describe("ERC1155 Gas Estimates", function () {
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
+    allEstimates["mint"] = {
+      Contract: {
+        estimate: contractGasEstimate,
+        actual: contractReceipt.gasUsed
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
+    };
   });
 
   it("mintBatch gas estimates", async () => {
@@ -366,13 +398,13 @@ describe("ERC1155 Gas Estimates", function () {
     // precompile fee cost
     let balanceBefore = await alithSigner.getBalance();
     let tx = await erc1155Precompile.connect(alithSigner).mintBatch(alithSigner.address, [0, 0], [10, 12]);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
     // Contract fee cost
     balanceBefore = await alithSigner.getBalance();
     tx = await erc1155Contract.connect(alithSigner).mintBatch(alithSigner.address, [0, 0], [10, 12], callData);
-    await tx.wait();
+    const contractReceipt = await tx.wait();
     balanceAfter = await alithSigner.getBalance();
     const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
@@ -410,6 +442,16 @@ describe("ERC1155 Gas Estimates", function () {
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
+    allEstimates["mintBatch"] = {
+      Contract: {
+        estimate: contractGasEstimate,
+        actual: contractReceipt.gasUsed
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
+    };
   });
 
   it("burn gas estimates", async () => {
@@ -422,13 +464,13 @@ describe("ERC1155 Gas Estimates", function () {
     // precompile fee cost
     let balanceBefore = await alithSigner.getBalance();
     let tx = await erc1155Precompile.connect(alithSigner).burn(alithSigner.address, 0, 10);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
     // Contract fee cost
     balanceBefore = await alithSigner.getBalance();
     tx = await erc1155Contract.connect(alithSigner).burn(alithSigner.address, 0, 10);
-    await tx.wait();
+    const contractReceipt = await tx.wait();
     balanceAfter = await alithSigner.getBalance();
     const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
@@ -457,6 +499,16 @@ describe("ERC1155 Gas Estimates", function () {
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
     };
+    allEstimates["burn"] = {
+      Contract: {
+        estimate: contractGasEstimate,
+        actual: contractReceipt.gasUsed
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
+    };
   });
 
   it("burnBatch gas estimates", async () => {
@@ -471,13 +523,13 @@ describe("ERC1155 Gas Estimates", function () {
     // precompile fee cost
     let balanceBefore = await alithSigner.getBalance();
     let tx = await erc1155Precompile.connect(alithSigner).burnBatch(alithSigner.address, [0, 0], [10, 12]);
-    await tx.wait();
+    const precompileReceipt = await tx.wait();
     let balanceAfter = await alithSigner.getBalance();
     const precompileFeeCost = balanceBefore.sub(balanceAfter);
     // Contract fee cost
     balanceBefore = await alithSigner.getBalance();
     tx = await erc1155Contract.connect(alithSigner).burnBatch(alithSigner.address, [0, 0], [10, 12]);
-    await tx.wait();
+    const contractReceipt = await tx.wait();
     balanceAfter = await alithSigner.getBalance();
     const contractFeeCost = balanceBefore.sub(balanceAfter);
     // Perform extrinsic call and calculate gas based on difference in balance
@@ -510,6 +562,16 @@ describe("ERC1155 Gas Estimates", function () {
       Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
       Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+    };
+    allEstimates["burnBatch"] = {
+      Contract: {
+        estimate: contractGasEstimate,
+        actual: contractReceipt.gasUsed
+      },
+      Precompile: {
+        estimate: precompileGasEstimate,
+        actual: precompileReceipt.gasUsed
+      }
     };
   });
 });
