@@ -19,7 +19,7 @@ use frame_support::BoundedVec;
 use scale_info::TypeInfo;
 use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::H160;
-use sp_runtime::{traits::Get, RuntimeDebug};
+use sp_runtime::traits::Get;
 use sp_std::{marker::PhantomData, vec::Vec};
 
 #[derive(Debug, PartialEq, Clone, Encode, Decode, TypeInfo)]
@@ -33,12 +33,11 @@ pub struct TokenInfo<T: Config> {
 
 pub type RoadBlockId = u32;
 
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct RoadBlockedTokens<T: Config> {
-	pub destination_address: T::AccountId,
-	pub block_number: T::BlockNumber,
 	pub collection_id: CollectionUuid,
+	pub destination_address: T::AccountId,
 	pub serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
 }
 

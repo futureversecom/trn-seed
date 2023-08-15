@@ -128,13 +128,7 @@ pub mod pallet {
 			owner: T::AccountId,
 		},
 		/// Bridged ERC721 tokens were unable to be minted
-		ERC721Blocked {
-			road_block_id: RoadBlockId,
-			destination_address: T::AccountId,
-			block_number: T::BlockNumber,
-			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
-		},
+		ERC721Blocked { road_block_id: RoadBlockId, destination_address: T::AccountId },
 		/// An ERC721 withdraw was made
 		Erc721Withdraw {
 			origin: T::AccountId,
@@ -358,14 +352,14 @@ where
 				Ok(mint_weight) => {
 					weight = weight.saturating_add(mint_weight);
 				},
-				// If minting fails, add the tokens to the road blocked list
+				// If mint fails, add tokens to `RoadBlocked`
 				Err((mint_weight, err)) => {
 					weight = weight.saturating_add(mint_weight);
 
 					let road_block_id = Self::next_road_block_id();
-					let block_number = <frame_system::Pallet<T>>::block_number();
 
-					// Rebound to `MaxSerialsPerWithdraw`
+					// Rebound to `MaxSerialsPerWithdraw` - this shouldn't fail as
+					// it is the same as `MaxTokensPerMint`
 					let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
 						BoundedVec::try_from(serial_numbers)
 							.map_err(|_| (weight, Error::<T>::ExceedsMaxVecLength.into()))?;
@@ -373,20 +367,17 @@ where
 					<RoadBlocked<T>>::insert(
 						road_block_id,
 						RoadBlockedTokens {
-							destination_address: destination.clone(),
-							block_number,
 							collection_id,
-							serial_numbers: serial_numbers.clone(),
+							serial_numbers,
+							destination_address: destination.clone(),
 						},
 					);
 					<NextRoadBlockId<T>>::mutate(|i| *i += 1);
 
+					// Throw event with values necessary to rescue tokens
 					Self::deposit_event(Event::<T>::ERC721Blocked {
 						road_block_id,
 						destination_address: destination,
-						block_number,
-						collection_id,
-						serial_numbers,
 					});
 
 					weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
@@ -472,8 +463,7 @@ where
 		road_block_id: RoadBlockId,
 		destination: H160,
 	) -> Result<(), DispatchError> {
-		let road_blocked =
-			<RoadBlocked<T>>::get(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;
+		let road_blocked = Self::road_blocked(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;
 
 		ensure!(who == road_blocked.destination_address, Error::<T>::NoPermissionToBridge);
 
