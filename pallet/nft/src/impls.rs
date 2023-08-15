@@ -189,14 +189,14 @@ impl<T: Config> Pallet<T> {
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-	) -> Weight {
+	) -> Result<Weight, (Weight, DispatchError)> {
 		if serial_numbers.is_empty() {
-			return 0 as Weight
+			return Ok(0 as Weight)
 		};
 
 		let collection_info = match Self::collection_info(collection_id) {
 			Some(info) => info,
-			None => return T::DbWeight::get().reads(1),
+			None => return Ok(T::DbWeight::get().reads(1)),
 		};
 
 		// remove duplicates from serial_numbers
@@ -241,27 +241,12 @@ impl<T: Config> Pallet<T> {
 						owner: owner.clone(),
 					});
 
-					T::DbWeight::get().reads_writes(1, 1)
+					Ok(T::DbWeight::get().reads_writes(1, 1))
 				} else {
-					Self::deposit_event(Event::<T>::TokensBlocked {
-						collection_id,
-						serial_numbers,
-						owner: owner.clone(),
-					});
-
-					// RoadBlocked::<T>::add(
-					// 	owner,
-					// 	RoadBlockedTokens {
-					// 		block_number: <frame_system::Pallet<T>>::block_number(),
-					// 		collection_id,
-					// 		serial_numbers,
-					// 	},
-					// )?;
-
-					T::DbWeight::get().reads(1)
+					Err((T::DbWeight::get().reads(1), (Error::<T>::TokensBlocked).into()))
 				}
 			},
-			_ => T::DbWeight::get().reads(1),
+			_ => Ok(T::DbWeight::get().reads(1)),
 		}
 	}
 

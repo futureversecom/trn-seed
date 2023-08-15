@@ -61,6 +61,7 @@ pub mod pallet {
 		type NftPegWeightInfo: WeightInfo;
 		type MaxCollectionsPerWithdraw: Get<u32>;
 		type MaxSerialsPerWithdraw: Get<u32>;
+		type MaxRoadBlocked: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -261,8 +262,8 @@ where
 			let token_information =
 				GroupedTokenInfo::new(token_ids, token_addresses, destination.clone().into());
 
-			let do_deposit_weight =
-				Self::do_deposit(token_information, *destination).map_err(|err| (weight, err))?;
+			let do_deposit_weight = Self::do_deposit(token_information, *destination)
+				.map_err(|(deposit_weight, err)| (weight.saturating_add(deposit_weight), err))?;
 
 			weight = T::DbWeight::get().writes(1).saturating_add(do_deposit_weight);
 
@@ -284,7 +285,7 @@ where
 	fn do_deposit(
 		token_info: GroupedTokenInfo<T>,
 		destination: H160,
-	) -> Result<Weight, DispatchError> {
+	) -> Result<Weight, (Weight, DispatchError)> {
 		let mut weight: Weight = 0;
 
 		let destination: T::AccountId = destination.into();
@@ -305,7 +306,7 @@ where
 							.expect("Not written");
 						let metadata_scheme =
 							MetadataScheme::try_from(h160_addr.inner().clone().as_slice())
-								.map_err(|_| Error::<T>::ExceedsMaxVecLength)?;
+								.map_err(|_| (weight, (Error::<T>::ExceedsMaxVecLength).into()))?;
 						// Collection doesn't exist, create a new collection
 						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 							collection_owner_account,
@@ -317,7 +318,8 @@ where
 							None,
 							OriginChain::Ethereum,
 							sp_std::default::Default::default(),
-						)?;
+						)
+						.map_err(|err| (weight, err))?;
 
 						// Populate both mappings, building the relationship between the bridged
 						// chain token, and this chain's token
@@ -331,11 +333,35 @@ where
 				};
 
 			// Mint the tokens
-			let mint_weight = pallet_nft::Pallet::<T>::mint_bridged_token(
+			let mint_result = pallet_nft::Pallet::<T>::mint_bridged_token(
 				&destination,
 				collection_id,
 				current_token.token_ids.clone().into_inner(),
 			);
+
+			match mint_result {
+				Ok(mint_weight) => {
+					weight = weight.saturating_add(mint_weight);
+				},
+				// If minting fails, add the tokens to the road blocked list
+				Err((mint_weight, err)) => {
+					let mut road_blocked = RoadBlocked::<T>::get(&destination).unwrap_or_default();
+
+					road_blocked.push(RoadBlockedTokens {
+						block_number: frame_system::Pallet::<T>::block_number(),
+						collection_id,
+						serial_numbers: current_token.token_ids.clone(),
+					});
+
+					RoadBlocked::<T>::insert(&destination, road_blocked);
+
+					weight = weight
+						.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+						.saturating_add(mint_weight);
+
+					return Err((weight, err))
+				},
+			}
 
 			// Throw event, listing all bridged tokens minted
 			Self::deposit_event(Event::<T>::Erc721Mint {
@@ -343,8 +369,7 @@ where
 				serial_numbers: current_token.token_ids.clone(),
 				owner: destination.clone(),
 			});
-			weight =
-				weight.saturating_add(T::DbWeight::get().writes(2)).saturating_add(mint_weight);
+			weight = weight.saturating_add(T::DbWeight::get().writes(2));
 		}
 
 		Self::deposit_event(Event::<T>::Erc721Deposit { destination });

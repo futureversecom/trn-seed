@@ -261,12 +261,6 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
 			owner: T::AccountId,
 		},
-		/// Token(s) blocked from bridging
-		TokensBlocked {
-			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-			owner: T::AccountId,
-		},
 		/// A new owner was set
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
@@ -443,6 +437,8 @@ pub mod pallet {
 		InitialIssuanceNotZero,
 		/// Total issuance of collection must be zero to add xls20 compatibility
 		CollectionIssuanceNotZero,
+		/// Token(s) blocked from bridging
+		TokensBlocked,
 	}
 
 	#[pallet::hooks]

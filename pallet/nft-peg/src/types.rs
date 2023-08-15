@@ -34,12 +34,9 @@ pub struct TokenInfo<T: Config> {
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct RoadBlockedTokens<T: Config> {
-	pub block_number: BlockNumber,
+	pub block_number: T::BlockNumber,
 	pub collection_id: CollectionUuid,
-	pub serial_numbers: BoundedVec<
-		BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
-		T::MaxCollectionsPerWithdraw,
-	>,
+	pub serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 }
 
 pub struct GroupedTokenInfo<T: Config> {
