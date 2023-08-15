@@ -48,6 +48,8 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
+	// TODO: REMOVE
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -63,7 +65,10 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub type CurrentValidatorIterKey<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
+	pub type CurrentValidatorIterRawKey<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+	#[pallet::storage]
+	pub type PayoutPeriod<T: Config> = StorageValue<_, u128, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -80,39 +85,46 @@ pub mod pallet {
 			let active_era = pallet_staking::ActiveEra::<T>::get();
 			let mut consumed_weight = 0;
 
-			// if let Some(active_era_info) = active_era {
-			// 	// Previous era information is static, compared to current era which may change.
-			// 	// Thus it's safe to query over the period of the current era
-			// 	let previous_era = active_era_info.index - 1;
+			if let Some(active_era_info) = active_era {
+				// 	// Previous era information is static, compared to current era which may change.
+				// 	// Thus it's safe to query over the period of the current era
+				let previous_era = active_era_info.index - 1;
 
-			// 	// Iteration control over multiple blocks. We can only iterate one validator per
-			// 	// block.
-			// 	let current_validator_iter = {
-			// 		if let Some(current_validator_i) = CurrentValidatorIterKey::<T>::get() {
-			// 			pallet_staking::ErasValidatorReward::<T>::iter_keys_from(
-			// 				current_validator_i,
-			// 			)
-			// 			.next()
-			// 		} else {
-			// 			// Not started; need to get first validator
-			// 			let current_validator_index =
-			// 				pallet_staking::ErasValidatorReward::<T>::iter_keys().nth(0).next();
-			// 			CurrentValidatorIterKey::<T>::set(current_validator_index);
-			// 			Some(current_validator_index)
-			// 			// log::info!("Current validator: {:?}", current_validator_i);
-			// 		}
-			// 	};
+				// 	// Iteration control over multiple blocks. We can only iterate one validator per
+				// 	// block.
+				let current_validator_iter = {
+					if let Some(current_validator_i) = CurrentValidatorIterRawKey::<T>::get() {
+						let validator = pallet_staking::ErasValidatorReward::<T>::iter_keys_from(
+							current_validator_i,
+						)
+						.next()
+						.unwrap();
+						pallet_staking::ErasValidatorReward::<T>::hashed_key_for(validator)
+					} else {
+						// Not started; need to get first validator
+						let current_validator_index =
+							pallet_staking::ErasValidatorReward::<T>::iter_keys().next().unwrap();
 
-			// 	pallet_staking::ErasStakers::<T>::get(previous_era, current_validator_iter);
-			// 	// pallet_staking::ErasStakersClipped::<T>::get();
-			// 	// pallet_staking::ErasValidatorReward::<T>::get();
-			// 	// pallet_staking::ErasRewardPoints::<T>::get();
-			// 	// pallet_staking::ErasTotalStake::<T>::get();
-			// 	// pallet_staking::HistoryDepth::<T>::get();
-			// 	// pallet_staking::CurrentEra::<T>::get();
-			// 	// pallet_staking::Bonded::<T>::get();
-			// 	// pallet_staking::Ledger::<T>::get();
-			// }
+						let raw_key = pallet_staking::ErasValidatorReward::<T>::hashed_key_for(
+							current_validator_index,
+						);
+						CurrentValidatorIterRawKey::<T>::set(Some(raw_key.clone()));
+						raw_key
+						// log::info!("Current validator: {:?}", current_validator_i);
+					}
+				};
+
+				// pallet_staking::ErasStakers::<T>::get(previous_era, current_validator_iter);
+				// pallet_staking::ErasStakersClipped::<T>::get();
+				// pallet_staking::ErasValidatorReward::<T>::get();
+				// pallet_staking::ErasRewardPoints::<T>::get();
+				// pallet_staking::ErasTotalStake::<T>::get();
+				// pallet_staking::HistoryDepth::<T>::get();
+				// pallet_staking::CurrentEra::<T>::get();
+				// pallet_staking::Bonded::<T>::get();
+				// pallet_staking::Ledger::<T>::get();
+			}
+
 			consumed_weight
 		}
 	}
@@ -120,7 +132,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(10000000)]
-		pub fn do_thing(origin: OriginFor<T>, destination: H160) -> DispatchResult {
+		pub fn payout_stakers(origin: OriginFor<T>, payout_period_id: u128) -> DispatchResult {
 			Ok(())
 		}
 	}
