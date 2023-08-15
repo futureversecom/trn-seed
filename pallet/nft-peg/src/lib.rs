@@ -61,7 +61,6 @@ pub mod pallet {
 		type NftPegWeightInfo: WeightInfo;
 		type MaxCollectionsPerWithdraw: Get<u32>;
 		type MaxSerialsPerWithdraw: Get<u32>;
-		type MaxRoadBlocked: Get<u32>;
 	}
 
 	#[pallet::storage]
@@ -333,7 +332,7 @@ where
 			let mint_result = pallet_nft::Pallet::<T>::mint_bridged_token(
 				&destination,
 				collection_id,
-				serial_numbers,
+				serial_numbers.clone(),
 			);
 
 			match mint_result {
@@ -344,7 +343,7 @@ where
 				Err((mint_weight, err)) => {
 					weight = weight.saturating_add(mint_weight);
 
-					if let Some(mut road_blocked) = RoadBlocked::<T>::get(&destination) {
+					if let Some(road_blocked) = RoadBlocked::<T>::get(&destination) {
 						if road_blocked.block_numbers.len() >=
 							T::MaxCollectionsPerWithdraw::get() as usize - 1
 						{
@@ -355,28 +354,41 @@ where
 							BoundedVec::try_from(serial_numbers)
 								.map_err(|_| (weight, (Error::<T>::ExceedsMaxTokens).into()))?;
 
-						road_blocked.block_numbers.push(frame_system::Pallet::<T>::block_number());
-						road_blocked.collection_ids.push(collection_id);
-						road_blocked.serial_numbers.push(serial_numbers);
+						let mut block_numbers = road_blocked.block_numbers.to_vec();
+						block_numbers.push(frame_system::Pallet::<T>::block_number());
 
-						RoadBlocked::<T>::insert(&destination, road_blocked);
+						let mut collection_ids = road_blocked.collection_ids.to_vec();
+						collection_ids.push(collection_id);
+
+						let mut serial_numbers_vec = road_blocked.serial_numbers.to_vec();
+						serial_numbers_vec.push(serial_numbers);
+
+						RoadBlocked::<T>::insert(
+							&destination,
+							RoadBlockedTokens {
+								block_numbers: BoundedVec::try_from(block_numbers).unwrap(),
+								collection_ids: BoundedVec::try_from(collection_ids).unwrap(),
+								serial_numbers: BoundedVec::try_from(serial_numbers_vec).unwrap(),
+							},
+						);
 					} else {
 						let block_numbers: Vec<T::BlockNumber> =
 							vec![frame_system::Pallet::<T>::block_number()];
 
 						let collection_ids: Vec<CollectionUuid> = vec![collection_id];
 
-						let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
-							BoundedVec::try_from(serial_numbers).unwrap();
+						let serial_numbers: Vec<
+							BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
+						> = vec![BoundedVec::try_from(serial_numbers).unwrap()];
 
-						let road_blocked = RoadBlockedTokens {
-							block_numbers: BoundedVec::try_from(block_numbers.clone()).unwrap(),
-							collection_ids: BoundedVec::try_from(collection_ids.clone()).unwrap(),
-							serial_numbers: BoundedVec::try_from(vec![serial_numbers.clone()])
-								.unwrap(),
-						};
-
-						RoadBlocked::<T>::insert(&destination, road_blocked);
+						RoadBlocked::<T>::insert(
+							&destination,
+							RoadBlockedTokens {
+								block_numbers: BoundedVec::try_from(block_numbers).unwrap(),
+								collection_ids: BoundedVec::try_from(collection_ids).unwrap(),
+								serial_numbers: BoundedVec::try_from(serial_numbers).unwrap(),
+							},
+						);
 					}
 
 					weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
@@ -458,23 +470,18 @@ where
 	}
 
 	fn do_rescue_blocked_nfts(who: T::AccountId, destination: H160) -> Result<(), DispatchError> {
-		let road_blocked = RoadBlocked::<T>::get(&who).ok_or(Error::<T>::NoMappedTokenExists)?;
+		let key: T::AccountId = destination.into();
 
-		for blocked in road_blocked.iter() {
-			let collection_ids: BoundedVec<CollectionUuid, T::MaxCollectionsPerWithdraw> =
-				BoundedVec::try_from(blocked.collection_id.into())
-					.map_err(|_| (Error::<T>::ExceedsMaxVecLength).into())?;
+		let road_blocked = RoadBlocked::<T>::get(&key).ok_or(Error::<T>::NoMappedTokenExists)?;
 
-			let serial_numbers: BoundedVec<
-				BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
-				T::MaxCollectionsPerWithdraw,
-			> = BoundedVec::try_from(blocked.serial_numbers.try_into().unwrap())
-				.map_err(|_| (Error::<T>::ExceedsMaxVecLength).into())?;
+		Self::do_withdrawal(
+			who,
+			road_blocked.collection_ids,
+			road_blocked.serial_numbers,
+			destination,
+		)?;
 
-			Self::do_withdrawal(who.clone(), collection_ids, serial_numbers, destination)?;
-		}
-
-		RoadBlocked::<T>::remove(&who);
+		RoadBlocked::<T>::remove(&key);
 
 		Ok(())
 	}

@@ -1060,7 +1060,6 @@ parameter_types! {
 	pub const MaxIdsPerMultipleMint: u32 = 50;
 	pub const MaxCollectionsPerWithdraw: u32 = 10;
 	pub const MaxSerialsPerWithdraw: u32 = 50;
-	pub const MaxRoadBlocked: u32 = 5;
 }
 
 impl pallet_nft_peg::Config for Runtime {
@@ -1073,7 +1072,6 @@ impl pallet_nft_peg::Config for Runtime {
 	type NftPegWeightInfo = weights::pallet_nft_peg::WeightInfo<Runtime>;
 	type MaxCollectionsPerWithdraw = MaxCollectionsPerWithdraw;
 	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
-	type MaxRoadBlocked = MaxRoadBlocked;
 }
 
 pub struct FeeControlDefaultValues;
