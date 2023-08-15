@@ -79,11 +79,16 @@ pub mod pallet {
 	pub type RootNftToErc721<T: Config> =
 		StorageMap<_, Twox64Concat, CollectionUuid, EthAddress, OptionQuery>;
 
-	// Map account id to blocked tokens
+	// Map RoadBlock ID to blocked tokens
 	#[pallet::storage]
 	#[pallet::getter(fn road_blocked)]
 	pub type RoadBlocked<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, RoadBlockedTokens<T>, OptionQuery>;
+		StorageMap<_, Twox64Concat, RoadBlockId, RoadBlockedTokens<T>, OptionQuery>;
+
+	/// The next available RoadBlock ID
+	#[pallet::storage]
+	#[pallet::getter(fn next_road_block_id)]
+	pub type NextRoadBlockId<T> = StorageValue<_, RoadBlockId, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -107,6 +112,8 @@ pub mod pallet {
 		TokenListLengthMismatch,
 		/// The length of the given vec exceeds the maximal allowed length limit
 		ExceedsMaxVecLength,
+		/// No road block exists for the given id
+		NoRoadBlockFound,
 	}
 
 	#[pallet::event]
@@ -119,6 +126,14 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 			owner: T::AccountId,
+		},
+		/// Bridged ERC721 tokens were unable to be minted
+		ERC721Blocked {
+			road_block_id: RoadBlockId,
+			destination_address: T::AccountId,
+			block_number: T::BlockNumber,
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
 		},
 		/// An ERC721 withdraw was made
 		Erc721Withdraw {
@@ -166,9 +181,13 @@ pub mod pallet {
 		// TODO: weight
 		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
 		#[transactional]
-		pub fn rescue_blocked_nfts(origin: OriginFor<T>, destination: H160) -> DispatchResult {
+		pub fn rescue_blocked_nfts(
+			origin: OriginFor<T>,
+			road_block_id: RoadBlockId,
+			destination: H160,
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_rescue_blocked_nfts(who, destination)?;
+			Self::do_rescue_blocked_nfts(who, road_block_id, destination)?;
 			Ok(())
 		}
 	}
@@ -343,55 +362,34 @@ where
 				Err((mint_weight, err)) => {
 					weight = weight.saturating_add(mint_weight);
 
-					if let Some(road_blocked) = RoadBlocked::<T>::get(&destination) {
-						if road_blocked.block_numbers.len() >=
-							T::MaxCollectionsPerWithdraw::get() as usize - 1
-						{
-							return Err((weight, err))
-						}
+					let road_block_id = Self::next_road_block_id();
+					let block_number = <frame_system::Pallet<T>>::block_number();
 
-						let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
-							BoundedVec::try_from(serial_numbers)
-								.map_err(|_| (weight, (Error::<T>::ExceedsMaxTokens).into()))?;
+					// Rebound to `MaxSerialsPerWithdraw`
+					let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
+						BoundedVec::try_from(serial_numbers)
+							.map_err(|_| (weight, Error::<T>::ExceedsMaxVecLength.into()))?;
 
-						let mut block_numbers = road_blocked.block_numbers.to_vec();
-						block_numbers.push(frame_system::Pallet::<T>::block_number());
+					<RoadBlocked<T>>::insert(
+						road_block_id,
+						RoadBlockedTokens {
+							destination_address: destination.clone(),
+							block_number,
+							collection_id,
+							serial_numbers: serial_numbers.clone(),
+						},
+					);
+					<NextRoadBlockId<T>>::mutate(|i| *i += 1);
 
-						let mut collection_ids = road_blocked.collection_ids.to_vec();
-						collection_ids.push(collection_id);
+					Self::deposit_event(Event::<T>::ERC721Blocked {
+						road_block_id,
+						destination_address: destination,
+						block_number,
+						collection_id,
+						serial_numbers,
+					});
 
-						let mut serial_numbers_vec = road_blocked.serial_numbers.to_vec();
-						serial_numbers_vec.push(serial_numbers);
-
-						RoadBlocked::<T>::insert(
-							&destination,
-							RoadBlockedTokens {
-								block_numbers: BoundedVec::try_from(block_numbers).unwrap(),
-								collection_ids: BoundedVec::try_from(collection_ids).unwrap(),
-								serial_numbers: BoundedVec::try_from(serial_numbers_vec).unwrap(),
-							},
-						);
-					} else {
-						let block_numbers: Vec<T::BlockNumber> =
-							vec![frame_system::Pallet::<T>::block_number()];
-
-						let collection_ids: Vec<CollectionUuid> = vec![collection_id];
-
-						let serial_numbers: Vec<
-							BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
-						> = vec![BoundedVec::try_from(serial_numbers).unwrap()];
-
-						RoadBlocked::<T>::insert(
-							&destination,
-							RoadBlockedTokens {
-								block_numbers: BoundedVec::try_from(block_numbers).unwrap(),
-								collection_ids: BoundedVec::try_from(collection_ids).unwrap(),
-								serial_numbers: BoundedVec::try_from(serial_numbers).unwrap(),
-							},
-						);
-					}
-
-					weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+					weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
 
 					return Err((weight, err))
 				},
@@ -469,19 +467,24 @@ where
 		Ok(event_proof_id)
 	}
 
-	fn do_rescue_blocked_nfts(who: T::AccountId, destination: H160) -> Result<(), DispatchError> {
-		let key: T::AccountId = destination.into();
+	fn do_rescue_blocked_nfts(
+		who: T::AccountId,
+		road_block_id: RoadBlockId,
+		destination: H160,
+	) -> Result<(), DispatchError> {
+		let road_blocked =
+			<RoadBlocked<T>>::get(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;
 
-		let road_blocked = RoadBlocked::<T>::get(&key).ok_or(Error::<T>::NoMappedTokenExists)?;
+		ensure!(who == road_blocked.destination_address, Error::<T>::NoPermissionToBridge);
 
 		Self::do_withdrawal(
 			who,
-			road_blocked.collection_ids,
-			road_blocked.serial_numbers,
+			BoundedVec::try_from(vec![road_blocked.collection_id]).unwrap(),
+			BoundedVec::try_from(vec![road_blocked.serial_numbers]).unwrap(),
 			destination,
 		)?;
 
-		RoadBlocked::<T>::remove(&key);
+		<RoadBlocked<T>>::remove(road_block_id);
 
 		Ok(())
 	}

@@ -1057,8 +1057,9 @@ parameter_types! {
 	pub const NftPegPalletId: PalletId = PalletId(*b"rn/nftpg");
 	pub const DelayLength: BlockNumber = 5;
 	pub const MaxAddresses: u32 = 10;
-	pub const MaxIdsPerMultipleMint: u32 = 50;
 	pub const MaxCollectionsPerWithdraw: u32 = 10;
+	// These values must be the same
+	pub const MaxIdsPerMultipleMint: u32 = 50;
 	pub const MaxSerialsPerWithdraw: u32 = 50;
 }
 
