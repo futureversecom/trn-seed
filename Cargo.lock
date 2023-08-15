@@ -5681,6 +5681,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-payouts"
+version = "1.0.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-staking",
+ "parity-scale-codec",
+ "scale-info",
+ "seed-pallet-common",
+ "seed-primitives",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-sudo"
 version = "4.0.0-dev"
 source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
@@ -8229,6 +8247,7 @@ dependencies = [
  "pallet-sft",
  "pallet-sft-rpc-runtime-api",
  "pallet-staking",
+ "pallet-staking-payouts",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-token-approvals",

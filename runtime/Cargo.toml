@@ -89,6 +89,7 @@ pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
 pallet-sft = { path = "../pallet/sft", default-features = false }
 pallet-sft-rpc-runtime-api = { path = "../pallet/sft/rpc/runtime-api", default-features = false }
+pallet-staking-payouts = { path = "../pallet/staking-payouts", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
@@ -152,6 +153,7 @@ std = [
 	"pallet-recovery/std",
 	"pallet-session/std",
 	"pallet-staking/std",
+	"pallet-staking-payouts/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
@@ -232,6 +234,7 @@ try-runtime = [
 	"pallet-assets/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-staking/try-runtime",
+	"pallet-staking-payouts/try-runtime",
 	"pallet-offences/try-runtime",
 	"pallet-session/try-runtime",
 	"pallet-grandpa/try-runtime",
@@ -274,6 +277,7 @@ runtime-benchmarks = [
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
+	"pallet-staking-payouts/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
