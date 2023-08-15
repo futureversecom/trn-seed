@@ -17,7 +17,7 @@ use crate::{Config, Pallet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::BoundedVec;
 use scale_info::TypeInfo;
-use seed_primitives::{BlockNumber, CollectionUuid, SerialNumber};
+use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::H160;
 use sp_runtime::{traits::Get, RuntimeDebug};
 use sp_std::{marker::PhantomData, vec::Vec};
@@ -34,9 +34,12 @@ pub struct TokenInfo<T: Config> {
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct RoadBlockedTokens<T: Config> {
-	pub block_number: T::BlockNumber,
-	pub collection_id: CollectionUuid,
-	pub serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
+	pub block_numbers: BoundedVec<T::BlockNumber, T::MaxCollectionsPerWithdraw>,
+	pub collection_ids: BoundedVec<CollectionUuid, T::MaxCollectionsPerWithdraw>,
+	pub serial_numbers: BoundedVec<
+		BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
+		T::MaxCollectionsPerWithdraw,
+	>,
 }
 
 pub struct GroupedTokenInfo<T: Config> {

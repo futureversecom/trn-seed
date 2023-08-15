@@ -83,13 +83,8 @@ pub mod pallet {
 	// Map account id to blocked tokens
 	#[pallet::storage]
 	#[pallet::getter(fn road_blocked)]
-	pub type RoadBlocked<T: Config> = StorageMap<
-		_,
-		Twox64Concat,
-		T::AccountId,
-		BoundedVec<RoadBlockedTokens<T>, T::MaxRoadBlocked>,
-		OptionQuery,
-	>;
+	pub type RoadBlocked<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, RoadBlockedTokens<T>, OptionQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -332,11 +327,13 @@ where
 					},
 				};
 
+			let serial_numbers = current_token.token_ids.clone().into_inner();
+
 			// Mint the tokens
 			let mint_result = pallet_nft::Pallet::<T>::mint_bridged_token(
 				&destination,
 				collection_id,
-				current_token.token_ids.clone().into_inner(),
+				serial_numbers,
 			);
 
 			match mint_result {
@@ -345,19 +342,44 @@ where
 				},
 				// If minting fails, add the tokens to the road blocked list
 				Err((mint_weight, err)) => {
-					let mut road_blocked = RoadBlocked::<T>::get(&destination).unwrap_or_default();
+					weight = weight.saturating_add(mint_weight);
 
-					road_blocked.push(RoadBlockedTokens {
-						block_number: frame_system::Pallet::<T>::block_number(),
-						collection_id,
-						serial_numbers: current_token.token_ids.clone(),
-					});
+					if let Some(mut road_blocked) = RoadBlocked::<T>::get(&destination) {
+						if road_blocked.block_numbers.len() >=
+							T::MaxCollectionsPerWithdraw::get() as usize - 1
+						{
+							return Err((weight, err))
+						}
 
-					RoadBlocked::<T>::insert(&destination, road_blocked);
+						let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
+							BoundedVec::try_from(serial_numbers)
+								.map_err(|_| (weight, (Error::<T>::ExceedsMaxTokens).into()))?;
 
-					weight = weight
-						.saturating_add(T::DbWeight::get().reads_writes(1, 1))
-						.saturating_add(mint_weight);
+						road_blocked.block_numbers.push(frame_system::Pallet::<T>::block_number());
+						road_blocked.collection_ids.push(collection_id);
+						road_blocked.serial_numbers.push(serial_numbers);
+
+						RoadBlocked::<T>::insert(&destination, road_blocked);
+					} else {
+						let block_numbers: Vec<T::BlockNumber> =
+							vec![frame_system::Pallet::<T>::block_number()];
+
+						let collection_ids: Vec<CollectionUuid> = vec![collection_id];
+
+						let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
+							BoundedVec::try_from(serial_numbers).unwrap();
+
+						let road_blocked = RoadBlockedTokens {
+							block_numbers: BoundedVec::try_from(block_numbers.clone()).unwrap(),
+							collection_ids: BoundedVec::try_from(collection_ids.clone()).unwrap(),
+							serial_numbers: BoundedVec::try_from(vec![serial_numbers.clone()])
+								.unwrap(),
+						};
+
+						RoadBlocked::<T>::insert(&destination, road_blocked);
+					}
+
+					weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
 					return Err((weight, err))
 				},
@@ -439,12 +461,17 @@ where
 		let road_blocked = RoadBlocked::<T>::get(&who).ok_or(Error::<T>::NoMappedTokenExists)?;
 
 		for blocked in road_blocked.iter() {
-			Self::do_withdrawal(
-				who.clone(),
-				vec![blocked.collection_id].try_into().unwrap(),
-				blocked.serial_numbers.clone(),
-				destination,
-			)?;
+			let collection_ids: BoundedVec<CollectionUuid, T::MaxCollectionsPerWithdraw> =
+				BoundedVec::try_from(blocked.collection_id.into())
+					.map_err(|_| (Error::<T>::ExceedsMaxVecLength).into())?;
+
+			let serial_numbers: BoundedVec<
+				BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
+				T::MaxCollectionsPerWithdraw,
+			> = BoundedVec::try_from(blocked.serial_numbers.try_into().unwrap())
+				.map_err(|_| (Error::<T>::ExceedsMaxVecLength).into())?;
+
+			Self::do_withdrawal(who.clone(), collection_ids, serial_numbers, destination)?;
 		}
 
 		RoadBlocked::<T>::remove(&who);
