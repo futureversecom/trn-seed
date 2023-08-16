@@ -19,13 +19,11 @@
 
 use super::*;
 
-use crate::Pallet as NftPeg;
+use crate::{EthToRootNft, Pallet as NftPeg, RootNftToErc721};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use pallet_nft::{
-	CollectionInfo, CollectionInformation, CrossChainCompatibility, Pallet as Nft, TokenOwnership,
-};
+use pallet_nft::{CollectionInfo, CollectionInformation, CrossChainCompatibility, Pallet as Nft};
 use seed_primitives::MetadataScheme;
 use sp_std::vec;
 
@@ -43,12 +41,6 @@ pub fn bound_serial_numbers<T: Config>(
 ) -> BoundedVec<BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>, T::MaxCollectionsPerWithdraw> {
 	let inner_serials = BoundedVec::truncate_from(serial_numbers);
 	BoundedVec::truncate_from(vec![inner_serials])
-}
-
-pub fn mock_owned_tokens<T: Config>(
-) -> BoundedVec<TokenOwnership<T::AccountId, T::MaxTokensPerCollection>, T::MaxTokensPerCollection>
-{
-	BoundedVec::truncate_from(vec![])
 }
 
 benchmarks! {
@@ -90,16 +82,15 @@ benchmarks! {
 		let alice = account::<T>("Alice");
 		let token = account::<T>("Token");
 
+		let road_block_id = NftPeg::<T>::next_road_block_id();
+
 		let serial_numbers = vec![1_000_000_001_u32, 1_000_000_002_u32];
-		let bounded_serial_numbers = bound_serial_numbers::<T>(serial_numbers.clone());
 		let token_1 = TokenInfo::<T>{token_address: token.clone().into(), token_ids: serial_numbers.clone().try_into().unwrap()};
 		let token_info = GroupedTokenInfo::<T>{tokens: vec![token_1], destination: alice.clone()};
 		let collection_id = Nft::<T>::next_collection_uuid().unwrap();
 
 		let collection_name = BoundedVec::truncate_from("test-collection".as_bytes().to_vec());
 		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
-
-		let road_block_id = NftPeg::<T>::next_road_block_id();
 
 		let collection_info = CollectionInformation {
 			owner: alice.clone(),
@@ -111,22 +102,18 @@ benchmarks! {
 			next_serial_number: 1_000_000_001_u32,
 			collection_issuance: 1_000_000_000_u32,
 			cross_chain_compatibility: CrossChainCompatibility::default(),
-			owned_tokens: mock_owned_tokens::<T>(),
+			owned_tokens: BoundedVec::truncate_from(vec![]),
 		};
 
-		pallet_nft::CollectionInfo::<T>::insert(collection_id, collection_info);
-		crate::EthToRootNft::<T>::insert(token.clone().into(), collection_id);
-		crate::RootNftToErc721::<T>::insert(collection_id, token.clone().into());
+		CollectionInfo::<T>::insert(collection_id, collection_info);
+		EthToRootNft::<T>::insert(token.clone().into(), collection_id);
+		RootNftToErc721::<T>::insert(collection_id, token.clone().into());
 
 		let (_, err) =
 			NftPeg::do_deposit(token_info, alice.clone().into()).unwrap_err();
+		// Check road block was hit
 		assert_eq!(err, pallet_nft::Error::<T>::TokensBlocked.into());
 
-		let road_blocked = NftPeg::<T>::road_blocked(road_block_id).unwrap();
-
-		assert_eq!(road_blocked.collection_id, collection_id);
-		assert_eq!(road_blocked.serial_numbers, serial_numbers);
-		assert_eq!(road_blocked.destination_address, alice.clone());
 	}: _(origin::<T>(&alice), road_block_id, alice.clone().into())
 	verify {
 		let road_blocked = NftPeg::<T>::road_blocked(road_block_id);

@@ -174,6 +174,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Withdraw blocked tokens, must be called by the destination defined in `RoadBlocked`
 		#[pallet::weight(T::NftPegWeightInfo::rescue_blocked_nfts())]
 		#[transactional]
 		pub fn rescue_blocked_nfts(
@@ -433,14 +434,14 @@ where
 					Self::road_blocked(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;
 
 				for serial_number in &road_blocked.serial_numbers {
-					current_serial_numbers.push(Token::Uint(U256::from(serial_number.clone())));
+					current_serial_numbers.push(Token::Uint(U256::from(*serial_number)));
 				}
 
 				<RoadBlocked<T>>::remove(road_block_id);
 			} else {
 				for serial_number in &serial_numbers[idx] {
-					pallet_nft::Pallet::<T>::do_burn(&who, collection_id.clone(), *serial_number)?;
-					current_serial_numbers.push(Token::Uint(U256::from(serial_number.clone())));
+					pallet_nft::Pallet::<T>::do_burn(&who, *collection_id, *serial_number)?;
+					current_serial_numbers.push(Token::Uint(U256::from(*serial_number)));
 				}
 			}
 
