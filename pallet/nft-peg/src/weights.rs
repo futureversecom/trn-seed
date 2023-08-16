@@ -72,7 +72,7 @@ impl WeightInfo for () {
 	// Storage: System Digest (r:1 w:1)
 	fn rescue_blocked_nfts() -> Weight {
 		(40_000_000 as Weight)
-			.saturating_add(RocksDbWeight::DbWeight::get().reads(9 as Weight))
-			.saturating_add(RocksDbWeight::DbWeight::get().writes(3 as Weight))
+			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
 	}
 }
