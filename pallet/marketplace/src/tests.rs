@@ -15,16 +15,24 @@
 
 use super::*;
 use crate::mock::{
-	create_account, AssetsExt, Event as MockEvent, Marketplace, MarketplacePalletId,
-	MaxTokensPerCollection, MaxTokensPerListing, NativeAssetId, Nft, System, Test, TestExt,
+	create_account, AssetsExt, Event as MockEvent, FeePotId, Marketplace,
+	MarketplaceNetworkFeePercentage, MarketplacePalletId, MaxTokensPerCollection,
+	MaxTokensPerListing, NativeAssetId, Nft, System, Test, TestExt, XRP_ASSET_ID,
 };
+use core::ops::Mul;
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{fungibles::Inspect, OnInitialize},
 };
+use frame_system::RawOrigin;
 use pallet_nft::CrossChainCompatibility;
 use seed_primitives::{AccountId, MetadataScheme, RoyaltiesSchedule, TokenCount, TokenId};
-use sp_runtime::{traits::Zero, BoundedVec, Permill};
+use sp_runtime::{
+	traits::{AccountIdConversion, Zero},
+	BoundedVec,
+	DispatchError::BadOrigin,
+	Permill,
+};
 
 // Create an NFT collection
 // Returns the created `collection_id`
@@ -134,7 +142,7 @@ pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as pallet_nft::Config>
 #[test]
 fn sell() {
 	let buyer = create_account(3);
-	let initial_balance = 1_000;
+	let initial_balance = 11_111_225;
 
 	TestExt::default()
 		.with_balances(&[(buyer, initial_balance)])
@@ -187,6 +195,56 @@ fn sell() {
 				Nft::token_balance_of(&buyer, collection_id),
 				serial_numbers.len() as TokenCount
 			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				5, // 0.5% of 1000
+			);
+		})
+}
+
+#[test]
+fn sell_with_empty_royalties() {
+	let buyer = create_account(3);
+	let initial_balance = 11_111_225;
+
+	TestExt::default()
+		.with_balances(&[(buyer, initial_balance)])
+		.build()
+		.execute_with(|| {
+			let collection_owner = create_account(1);
+			let quantity = 5;
+			let collection_id = Nft::next_collection_uuid().unwrap();
+
+			assert_ok!(Nft::create_collection(
+				Some(collection_owner).into(),
+				bounded_string("test-collection"),
+				quantity,
+				None,
+				None,
+				MetadataScheme::try_from(b"https://example.com/metadata".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+
+			// Remove fee to account so there are no royalties on listed token
+			// i.e. 100% of sale price goes to seller
+			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), None));
+
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![1, 3, 4]).unwrap();
+
+			assert_ok!(Marketplace::sell_nft(
+				Some(collection_owner).into(),
+				collection_id,
+				serial_numbers.clone(),
+				None,
+				NativeAssetId::get(),
+				1_000,
+				None,
+				None,
+			));
 		})
 }
 
@@ -249,6 +307,13 @@ fn sell_multiple() {
 		assert_eq!(Nft::token_locks(token_id).unwrap(), TokenLockReason::Listed(listing_id));
 		assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
 
+		let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(
+				fee_pot_account,
+				MarketplaceNetworkFeePercentage::get(),
+			)]),
+		};
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
 			payment_asset: NativeAssetId::get(),
 			fixed_price: 1_000,
@@ -257,7 +322,7 @@ fn sell_multiple() {
 			collection_id,
 			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
 			seller: token_owner,
-			royalties_schedule: Default::default(),
+			royalties_schedule,
 			marketplace_id: None,
 		});
 
@@ -444,7 +509,199 @@ fn sell_closes_on_schedule() {
 }
 
 #[test]
-fn updates_fixed_price() {
+fn listing_price_splits_royalties_and_network_fee() {
+	let buyer = create_account(5);
+	let price = 1_000_000;
+	let starting_balance = price * 2;
+	let entitlement_amount = Permill::from_float(0.25);
+
+	TestExt::default()
+		.with_balances(&[(buyer, starting_balance)])
+		.build()
+		.execute_with(|| {
+			let beneficiary_1 = create_account(11);
+
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(beneficiary_1, entitlement_amount)]),
+			};
+			let (collection_id, token_id, token_owner) =
+				setup_token_with_royalties(royalties_schedule.clone(), 2);
+
+			let listing_id = Marketplace::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Marketplace::sell_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				NativeAssetId::get(),
+				price,
+				None,
+				None
+			));
+
+			assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+
+			// Buyer balance should be starting minus 1_000_000
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+				starting_balance - price
+			);
+
+			// Owner balance should be 1_000_000 minus 25.5% of 1_000_000
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+				price -
+					entitlement_amount.mul(price) -
+					MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+
+			// Beneficiary balance should be 25% of 1_000_000
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
+				entitlement_amount.mul(price)
+			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+			// Network fee should be 0.5% of 1_000_000
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+		});
+}
+
+#[test]
+fn listing_price_splits_multiple_royalties_and_network_fee() {
+	let buyer = create_account(5);
+	let price = 1_000_000;
+	let starting_balance = price * 2;
+	let entitlement_amount = Permill::from_float(0.25);
+	let entitlement_amount_beneficiary_2 = Permill::from_float(0.5);
+
+	TestExt::default()
+		.with_balances(&[(buyer, starting_balance)])
+		.build()
+		.execute_with(|| {
+			let beneficiary_1 = create_account(11);
+			let beneficiary_2 = create_account(22);
+
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![
+					(beneficiary_1, entitlement_amount),
+					(beneficiary_2, entitlement_amount_beneficiary_2),
+				]),
+			};
+			let (collection_id, token_id, token_owner) =
+				setup_token_with_royalties(royalties_schedule.clone(), 2);
+
+			let listing_id = Marketplace::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Marketplace::sell_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				NativeAssetId::get(),
+				price,
+				None,
+				None
+			));
+
+			assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+				starting_balance - price
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+				price -
+					(entitlement_amount.mul(price) +
+						entitlement_amount_beneficiary_2.mul(price) +
+						MarketplaceNetworkFeePercentage::get().mul(price))
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
+				entitlement_amount.mul(price)
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
+				entitlement_amount_beneficiary_2.mul(price)
+			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+		});
+}
+
+#[test]
+fn network_fee_royalties_split_is_respected_xrpl() {
+	let buyer = create_account(5);
+	let price = 1_000_000;
+	let starting_balance = price * 2;
+	let entitlement_amount = Permill::from_float(0.25);
+	let asset_used = XRP_ASSET_ID;
+
+	TestExt::default()
+		.with_xrp_balances(&[(buyer, starting_balance)])
+		.build()
+		.execute_with(|| {
+			let beneficiary_1 = create_account(11);
+
+			let royalties_schedule = RoyaltiesSchedule {
+				entitlements: BoundedVec::truncate_from(vec![(beneficiary_1, entitlement_amount)]),
+			};
+			let (collection_id, token_id, token_owner) =
+				setup_token_with_royalties(royalties_schedule.clone(), 2);
+
+			let listing_id = Marketplace::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Marketplace::sell_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				asset_used,
+				price,
+				None,
+				None
+			));
+
+			assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+			assert_eq!(
+				AssetsExt::reducible_balance(asset_used, &token_owner, false),
+				price -
+					entitlement_amount.mul(price) -
+					MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+
+			assert_eq!(
+				AssetsExt::reducible_balance(asset_used, &beneficiary_1, false),
+				entitlement_amount.mul(price)
+			);
+
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::reducible_balance(asset_used, &fee_pot_account, false),
+				MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+		});
+}
+
+#[test]
+fn update_fixed_price() {
 	TestExt::default().build().execute_with(|| {
 		let (collection_id, token_id, token_owner) = setup_token();
 		let listing_id = Marketplace::next_listing_id();
@@ -471,6 +728,13 @@ fn updates_fixed_price() {
 			},
 		));
 
+		let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+		let royalties_schedule = RoyaltiesSchedule {
+			entitlements: BoundedVec::truncate_from(vec![(
+				fee_pot_account,
+				MarketplaceNetworkFeePercentage::get(),
+			)]),
+		};
 		let expected = Listing::<Test>::FixedPrice(FixedPriceListing::<Test> {
 			payment_asset: NativeAssetId::get(),
 			fixed_price: 1_500,
@@ -479,7 +743,7 @@ fn updates_fixed_price() {
 			seller: token_owner,
 			collection_id,
 			serial_numbers: BoundedVec::try_from(vec![token_id.1]).unwrap(),
-			royalties_schedule: Default::default(),
+			royalties_schedule,
 			marketplace_id: None,
 		});
 
@@ -646,12 +910,14 @@ fn buy_with_marketplace_royalties() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_1, false),
 				initial_balance_b1 + royalties_schedule.clone().entitlements[0].1 * sale_price
 			);
-			// token owner gets sale price less royalties
+			// token owner gets:
+			// sale_price - (marketplace_royalties + beneficiary_royalties + network_fee)
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
 				initial_balance_owner + sale_price -
 					marketplace_entitlement * sale_price -
-					royalties_schedule.clone().entitlements[0].1 * sale_price
+					royalties_schedule.clone().entitlements[0].1 * sale_price -
+					MarketplaceNetworkFeePercentage::get().mul(sale_price)
 			);
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 		});
@@ -708,42 +974,65 @@ fn list_with_invalid_marketplace_royalties_should_fail() {
 fn buy() {
 	let buyer = create_account(5);
 	let price = 1_000;
+	let starting_balance = price * 2;
 
-	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
-		let (collection_id, token_id, token_owner) = setup_token();
-		let buyer = create_account(5);
+	TestExt::default()
+		.with_balances(&[(buyer, starting_balance)])
+		.build()
+		.execute_with(|| {
+			let (collection_id, token_id, token_owner) = setup_token();
+			let buyer = create_account(5);
 
-		let listing_id = Marketplace::next_listing_id();
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
-			BoundedVec::try_from(vec![token_id.1]).unwrap();
-		assert_ok!(Marketplace::sell_nft(
-			Some(token_owner).into(),
-			collection_id,
-			serial_numbers,
-			Some(buyer),
-			NativeAssetId::get(),
-			price,
-			None,
-			None
-		));
+			let listing_id = Marketplace::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Marketplace::sell_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				Some(buyer),
+				NativeAssetId::get(),
+				price,
+				None,
+				None
+			));
 
-		assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
-		// no royalties, all proceeds to token owner
-		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false), price);
+			assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+			// no royalties, all proceeds to token owner minus network fee
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+				price - MarketplaceNetworkFeePercentage::get().mul(price)
+			);
+			// Buyer balance should be starting minus price (1000)
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false),
+				starting_balance - price
+			);
 
-		// listing removed
-		assert!(Listings::<Test>::get(listing_id).is_none());
-		assert!(Marketplace::listing_end_schedule(
-			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-			listing_id
-		)
-		.is_none());
+			// listing removed
+			assert!(Listings::<Test>::get(listing_id).is_none());
+			assert!(Marketplace::listing_end_schedule(
+				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				listing_id
+			)
+			.is_none());
 
-		// ownership changed
-		assert!(Nft::token_locks(&token_id).is_none());
-		assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
-		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, 1, vec![token_id.1]));
-	});
+			// ownership changed
+			assert!(Nft::token_locks(&token_id).is_none());
+			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
+			assert_eq!(
+				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
+				(0_u32, 1, vec![token_id.1])
+			);
+
+			// assert network fees accumulated
+			let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
+
+			assert_eq!(
+				AssetsExt::reducible_balance(NativeAssetId::get(), &fee_pot_account, false),
+				5, // 0.5% of 1000
+			);
+		});
 }
 
 #[test]
@@ -807,16 +1096,17 @@ fn buy_with_royalties() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
 				initial_balance_b2 + royalties_schedule.clone().entitlements[2].1 * sale_price
 			);
-			// token owner gets sale price less royalties
+			// token owner gets sale price - royalties - network fee
+			let network_fee = MarketplaceNetworkFeePercentage::get().mul(sale_price);
+			let royalties = royalties_schedule
+				.clone()
+				.entitlements
+				.into_iter()
+				.map(|(_, e)| e * sale_price)
+				.sum::<Balance>();
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				initial_balance_seller + sale_price -
-					royalties_schedule
-						.clone()
-						.entitlements
-						.into_iter()
-						.map(|(_, e)| e * sale_price)
-						.sum::<Balance>()
+				initial_balance_seller + sale_price - royalties - network_fee
 			);
 			assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 
@@ -886,47 +1176,53 @@ fn buy_fails_prechecks() {
 fn sell_to_anybody() {
 	let buyer = create_account(5);
 	let price = 1_000;
-	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
-		let (collection_id, token_id, token_owner) = setup_token();
+	TestExt::default()
+		.with_balances(&[(buyer, price + 995)])
+		.build()
+		.execute_with(|| {
+			let (collection_id, token_id, token_owner) = setup_token();
 
-		let price = 1_000;
-		let listing_id = Marketplace::next_listing_id();
-		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
-			BoundedVec::try_from(vec![token_id.1]).unwrap();
-		assert_ok!(Marketplace::sell_nft(
-			Some(token_owner).into(),
-			collection_id,
-			serial_numbers,
-			None,
-			NativeAssetId::get(),
-			price,
-			None,
-			None
-		));
+			let price = 1_000;
+			let listing_id = Marketplace::next_listing_id();
+			let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerListing> =
+				BoundedVec::try_from(vec![token_id.1]).unwrap();
+			assert_ok!(Marketplace::sell_nft(
+				Some(token_owner).into(),
+				collection_id,
+				serial_numbers,
+				None,
+				NativeAssetId::get(),
+				price,
+				None,
+				None
+			));
 
-		assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
+			assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
 
-		// paid
-		assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
+			// paid
+			assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 995);
 
-		// listing removed
-		assert!(Listings::<Test>::get(listing_id).is_none());
-		assert!(Marketplace::listing_end_schedule(
-			System::block_number() + <Test as Config>::DefaultListingDuration::get(),
-			listing_id
-		)
-		.is_none());
+			// listing removed
+			assert!(Listings::<Test>::get(listing_id).is_none());
+			assert!(Marketplace::listing_end_schedule(
+				System::block_number() + <Test as Config>::DefaultListingDuration::get(),
+				listing_id
+			)
+			.is_none());
 
-		// ownership changed
-		assert_eq!(Nft::owned_tokens(collection_id, &buyer, 0, 1000), (0_u32, 1, vec![token_id.1]));
-	});
+			// ownership changed
+			assert_eq!(
+				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
+				(0_u32, 1, vec![token_id.1])
+			);
+		});
 }
 
 #[test]
 fn buy_with_overcommitted_royalties() {
 	let buyer = create_account(5);
 	let price = 1_000;
-	TestExt::default().with_balances(&[(buyer, price)]).build().execute_with(|| {
+	TestExt::default().with_balances(&[(buyer, 1995)]).build().execute_with(|| {
 		// royalties are > 100% total which could create funds out of nothing
 		// in this case, default to 0 royalties.
 		// royalty schedules should not make it into storage but we protect against it anyway
@@ -955,8 +1251,11 @@ fn buy_with_overcommitted_royalties() {
 
 		assert_ok!(Marketplace::buy(Some(buyer).into(), listing_id));
 		assert!(bad_schedule.calculate_total_entitlement().is_zero());
-		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false), price);
-		assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false).is_zero());
+		assert_eq!(
+			AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
+			price - MarketplaceNetworkFeePercentage::get().mul(price)
+		);
+		assert_eq!(AssetsExt::reducible_balance(NativeAssetId::get(), &buyer, false), 995);
 		assert_eq!(AssetsExt::total_issuance(NativeAssetId::get()), presale_issuance);
 	})
 }
@@ -1152,10 +1451,10 @@ fn auction() {
 				System::block_number() + AUCTION_EXTENSION_PERIOD as u64,
 			);
 
-			// no royalties, all proceeds to token owner
+			// no royalties, all proceeds to token owner minus network fees
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				winning_bid
+				winning_bid - MarketplaceNetworkFeePercentage::get().mul(winning_bid)
 			);
 			// bidder2 funds should be all gone (unreserved and transferred)
 			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &bidder_2, false).is_zero());
@@ -1285,15 +1584,16 @@ fn auction_royalty_payments() {
 				AssetsExt::reducible_balance(NativeAssetId::get(), &beneficiary_2, false),
 				royalties_schedule.entitlements[2].1 * reserve_price
 			);
-			// token owner gets sale price less royalties
+			// token owner gets sale price - (royalties + network fee)
+			let royalties = royalties_schedule
+				.entitlements
+				.into_iter()
+				.map(|(_, e)| e * reserve_price)
+				.sum::<Balance>();
+			let network_fee = MarketplaceNetworkFeePercentage::get().mul(reserve_price);
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				reserve_price -
-					royalties_schedule
-						.entitlements
-						.into_iter()
-						.map(|(_, e)| e * reserve_price)
-						.sum::<Balance>()
+				reserve_price - (royalties + network_fee)
 			);
 			assert!(AssetsExt::reducible_balance(NativeAssetId::get(), &bidder, false).is_zero());
 			assert!(AssetsExt::hold_balance(
@@ -1980,7 +2280,7 @@ fn accept_offer_multiple_offers() {
 			.is_zero());
 			assert_eq!(
 				AssetsExt::reducible_balance(NativeAssetId::get(), &token_owner, false),
-				offer_amount_2
+				offer_amount_2 - MarketplaceNetworkFeePercentage::get().mul(offer_amount_2)
 			);
 
 			// Accept first offer should fail as token_owner is no longer owner
@@ -2061,31 +2361,39 @@ fn accept_offer_not_token_owner_should_fail() {
 		});
 }
 
-// TODO do this
-//
-// mod set_fee_to {
-// 	use super::*;
-//
-// 	#[test]
-// 	fn set_fee_to_works() {
-// 		let new_fee_to = create_account(13);
-//
-// 		TestExt::default().build().execute_with(|| {
-// 			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), new_fee_to.into()));
-//
-// 			assert_eq!(FeeTo::<Test>::get().unwrap(), new_fee_to);
-// 		});
-// 	}
-//
-// 	#[test]
-// 	fn set_fee_to_not_root_fails() {
-// 		TestExt::default().build().execute_with(|| {
-// 			let new_fee_to = create_account(10);
-//
-// 			assert_noop!(
-// 				Marketplace::set_fee_to(Some(create_account(11)).into(), Some(new_fee_to)),
-// 				BadOrigin
-// 			);
-// 		});
-// 	}
-// }
+mod set_fee_to {
+	use super::*;
+
+	#[test]
+	fn set_fee_to_works() {
+		TestExt::default().build().execute_with(|| {
+			// Ensure default is correct
+			let default_fee_to: AccountId =
+				mock::DefaultFeeTo::get().unwrap().into_account_truncating();
+			assert_eq!(FeeTo::<Test>::get().unwrap(), default_fee_to);
+
+			// Change fee_to account
+			let new_fee_to = create_account(10);
+			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to.clone())));
+
+			// Event thrown
+			System::assert_last_event(MockEvent::Marketplace(Event::<Test>::FeeToSet {
+				account: Some(new_fee_to),
+			}));
+			// Storage updated
+			assert_eq!(FeeTo::<Test>::get().unwrap(), new_fee_to);
+		});
+	}
+
+	#[test]
+	fn set_fee_to_not_root_fails() {
+		TestExt::default().build().execute_with(|| {
+			// Change fee_to account from not sudo should fail
+			let new_fee_to = create_account(10);
+			assert_noop!(
+				Marketplace::set_fee_to(Some(create_account(11)).into(), Some(new_fee_to)),
+				BadOrigin
+			);
+		});
+	}
+}

@@ -83,7 +83,6 @@ impl pallet_nft::Config for Test {
 	type Event = Event;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
@@ -91,7 +90,6 @@ impl pallet_nft::Config for Test {
 	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = Xls20;
-	type DefaultFeeTo = DefaultFeeTo;
 }
 
 parameter_types! {

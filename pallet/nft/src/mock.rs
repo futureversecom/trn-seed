@@ -31,7 +31,7 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId, Permill,
+	ConsensusEngineId,
 };
 use std::marker::PhantomData;
 
@@ -254,22 +254,17 @@ parameter_types! {
 	pub const MintLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const StringLimit: u32 = 50;
-	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
-	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
-	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
 }
 
 impl crate::Config for Test {
 	type Event = Event;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
-	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }

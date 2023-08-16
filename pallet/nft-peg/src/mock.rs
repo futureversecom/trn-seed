@@ -184,12 +184,10 @@ impl pallet_nft::Config for Test {
 	type Event = Event;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = ();
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
-	type DefaultFeeTo = DefaultFeeTo;
 	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;

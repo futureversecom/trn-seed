@@ -395,21 +395,17 @@ parameter_types! {
 	pub const CollectionNameStringLimit: u32 = 50;
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
-	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const MintLimit: u32 = 1_000;
-	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl pallet_nft::Config for Runtime {
 	type Event = Event;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
-	type DefaultFeeTo = DefaultTxFeePotId;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 }
@@ -420,17 +416,21 @@ parameter_types! {
 	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const MaxTokensPerListing: u32 = 1000;
 	pub const MaxOffers: u32 = 100;
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl pallet_marketplace::Config for Runtime {
-	type Event = Event;
 	type Call = Call;
 	type DefaultListingDuration = DefaultListingDuration;
-	type MaxOffers = MaxOffers;
+	type Event = Event;
+	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
-	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type NFTExt = Nft;
 	type PalletId = MarketplacePalletId;
+	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
+	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type MaxTokensPerListing = MaxTokensPerListing;
+	type MaxOffers = MaxOffers;
 }
 
 parameter_types! {

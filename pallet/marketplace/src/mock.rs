@@ -24,7 +24,7 @@ use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId, Permill,
+	Permill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -62,15 +62,19 @@ parameter_types! {
 	pub const DefaultListingDuration: u64 = 5;
 	pub const MaxOffers: u32 = 10;
 	pub const MaxTokensPerListing: u32 = 100;
+	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 }
 
 impl crate::Config for Test {
 	type Call = Call;
 	type DefaultListingDuration = DefaultListingDuration;
 	type Event = Event;
+	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
 	type PalletId = MarketplacePalletId;
+	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type WeightInfo = ();
 	type MaxTokensPerListing = MaxTokensPerListing;
 	type MaxOffers = MaxOffers;

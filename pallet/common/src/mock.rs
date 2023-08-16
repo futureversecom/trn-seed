@@ -189,15 +189,12 @@ macro_rules! impl_pallet_nft_config {
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
-			pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
-			pub const NftDefaultFeeTo: Option<PalletId> = None;
 		}
 
 		impl pallet_nft::Config for Test {
 			type Event = Event;
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
-			type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 			type OnTransferSubscription = MockTransferSubscriber;
 			type OnNewAssetSubscription = ();
 			type PalletId = NftPalletId;
@@ -205,7 +202,6 @@ macro_rules! impl_pallet_nft_config {
 			type Xls20MintRequest = MockXls20MintRequest;
 			type WeightInfo = ();
 			type StringLimit = StringLimit;
-			type DefaultFeeTo = NftDefaultFeeTo;
 		}
 	};
 }
@@ -218,6 +214,8 @@ macro_rules! impl_pallet_marketplace_config {
 			pub const DefaultListingDuration: u64 = 5;
 			pub const MaxOffers: u32 = 10;
 			pub const MaxTokensPerListing: u32 = 100;
+			pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+			pub const MarketplaceDefaultFeeTo: Option<PalletId> = None;
 		}
 
 		impl pallet_marketplace::Config for Test {
@@ -226,10 +224,12 @@ macro_rules! impl_pallet_marketplace_config {
 			type Event = Event;
 			type MultiCurrency = AssetsExt;
 			type NFTExt = Nft;
+			type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 			type PalletId = MarketplacePalletId;
 			type WeightInfo = ();
 			type MaxTokensPerListing = MaxTokensPerListing;
 			type MaxOffers = MaxOffers;
+			type DefaultFeeTo = MarketplaceDefaultFeeTo;
 		}
 	};
 }

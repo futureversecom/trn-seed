@@ -53,6 +53,7 @@ pub mod pallet {
 	use super::{DispatchResult, *};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::traits::AccountIdConversion;
 
 	/// The current storage version.
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
@@ -94,6 +95,9 @@ pub mod pallet {
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// The default account which collects network fees from marketplace sales
+		#[pallet::constant]
+		type DefaultFeeTo: Get<Option<PalletId>>;
 		/// Handles a multi-currency fungible asset system
 		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
 			+ Hold<AccountId = Self::AccountId>
@@ -105,12 +109,19 @@ pub mod pallet {
 		/// This pallet's Id, used for deriving a sovereign account ID
 		#[pallet::constant]
 		type PalletId: Get<PalletId>;
+		/// Percentage of sale price to charge for network fee
+		type NetworkFeePercentage: Get<Permill>;
 		/// Provides the public call to weight mapping
 		type WeightInfo: NftWeightInfo;
 		/// Max tokens that can be sold in one listing
 		type MaxTokensPerListing: Get<u32>;
 		/// The maximum number of offers allowed on a collection
 		type MaxOffers: Get<u32>;
+	}
+
+	#[pallet::type_value]
+	pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId> {
+		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
 	}
 
 	/// The next available marketplace id
@@ -167,6 +178,10 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn next_offer_id)]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
+
+	/// The pallet id for the tx fee pot
+	#[pallet::storage]
+	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -255,6 +270,8 @@ pub mod pallet {
 		OfferCancel { offer_id: OfferId, token_id: TokenId },
 		/// An offer has been accepted
 		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
+		/// The network fee receiver address has been updated
+		FeeToSet { account: Option<T::AccountId> },
 	}
 
 	#[pallet::error]
@@ -322,7 +339,7 @@ pub mod pallet {
 		/// `marketplace_account` - if specified, this account will be registered
 		/// `entitlement` - Permill, percentage of sales to go to the marketplace
 		/// If no marketplace is specified the caller will be registered
-		#[pallet::weight(<T as Config>::WeightInfo::register_marketplace())]
+		#[pallet::weight(T::WeightInfo::register_marketplace())]
 		pub fn register_marketplace(
 			origin: OriginFor<T>,
 			marketplace_account: Option<T::AccountId>,
@@ -341,7 +358,7 @@ pub mod pallet {
 		/// `fixed_price` ask price
 		/// `duration` listing duration time in blocks from now
 		/// Caller must be the token owner
-		#[pallet::weight(<T as Config>::WeightInfo::sell())]
+		#[pallet::weight(T::WeightInfo::sell())]
 		pub fn sell_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -370,7 +387,7 @@ pub mod pallet {
 		/// `listing_id` id of the fixed price listing
 		/// `new_price` new fixed price
 		/// Caller must be the token owner
-		#[pallet::weight(<T as Config>::WeightInfo::update_fixed_price())]
+		#[pallet::weight(T::WeightInfo::update_fixed_price())]
 		pub fn update_fixed_price(
 			origin: OriginFor<T>,
 			listing_id: ListingId,
@@ -381,7 +398,7 @@ pub mod pallet {
 		}
 
 		/// Buy a token listing for its specified price
-		#[pallet::weight(<T as Config>::WeightInfo::buy())]
+		#[pallet::weight(T::WeightInfo::buy())]
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -396,7 +413,7 @@ pub mod pallet {
 		/// - `payment_asset` fungible asset Id to receive payment with
 		/// - `reserve_price` winning bid must be over this threshold
 		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[pallet::weight(<T as Config>::WeightInfo::auction())]
+		#[pallet::weight(T::WeightInfo::auction())]
 		pub fn auction_nft(
 			origin: OriginFor<T>,
 			collection_id: CollectionUuid,
@@ -420,7 +437,7 @@ pub mod pallet {
 
 		/// Place a bid on an open auction
 		/// - `amount` to bid (in the seller's requested payment asset)
-		#[pallet::weight(<T as Config>::WeightInfo::bid())]
+		#[pallet::weight(T::WeightInfo::bid())]
 		#[transactional]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -430,7 +447,7 @@ pub mod pallet {
 		/// Close a sale or auction returning tokens
 		/// Requires no successful bids have been made for an auction.
 		/// Caller must be the listed seller
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_sale())]
+		#[pallet::weight(T::WeightInfo::cancel_sale())]
 		#[transactional]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
@@ -442,7 +459,7 @@ pub mod pallet {
 		/// An offer can't be made on a token currently in an auction
 		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
 		/// offer)
-		#[pallet::weight(<T as Config>::WeightInfo::make_simple_offer())]
+		#[pallet::weight(T::WeightInfo::make_simple_offer())]
 		#[transactional]
 		pub fn make_simple_offer(
 			origin: OriginFor<T>,
@@ -457,7 +474,7 @@ pub mod pallet {
 
 		/// Cancels an offer on a token
 		/// Caller must be the offer buyer
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_offer())]
+		#[pallet::weight(T::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_cancel_offer(who, offer_id)
@@ -465,19 +482,19 @@ pub mod pallet {
 
 		/// Accepts an offer on a token
 		/// Caller must be token owner
-		#[pallet::weight(<T as Config>::WeightInfo::accept_offer())]
+		#[pallet::weight(T::WeightInfo::accept_offer())]
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_accept_offer(who, offer_id)
 		}
 
-		/// Set the `FeeTo` account. This operation requires root access.
-		#[pallet::weight(<T as Config>::WeightInfo::set_fee_to())]
+		/// Set the `FeeTo` account
+		/// This operation requires root access
+		#[pallet::weight(T::WeightInfo::set_fee_to())]
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			// TODO TODO TODO TODO TODO
-			Ok(())
+			ensure_root(origin)?;
+			Self::do_set_fee_to(fee_to)
 		}
 	}
 }

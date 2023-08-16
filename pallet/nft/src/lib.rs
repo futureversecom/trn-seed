@@ -36,7 +36,7 @@ use seed_primitives::{
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
-	DispatchResult, Permill,
+	DispatchResult,
 };
 use sp_std::prelude::*;
 
@@ -103,15 +103,10 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-		/// The account which collects funds(aka the index fund)
-		#[pallet::constant]
-		type DefaultFeeTo: Get<Option<PalletId>>;
 		/// Max tokens that a collection can contain
 		type MaxTokensPerCollection: Get<u32>;
 		/// Max quantity of NFTs that can be minted in one transaction
 		type MintLimit: Get<u32>;
-		/// Percentage of sale price to charge for network fee
-		type NetworkFeePercentage: Get<Permill>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -129,16 +124,6 @@ pub mod pallet {
 		/// Interface for sending XLS20 mint requests
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
 	}
-
-	#[pallet::type_value]
-	pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId> {
-		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
-	}
-
-	/// The pallet id for the tx fee pot
-	#[pallet::storage]
-	#[pallet::getter(fn chain_id)]
-	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	/// Map from collection to its information
 	#[pallet::storage]
@@ -191,8 +176,6 @@ pub mod pallet {
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
-		/// The network fee receiver address has been updated
-		FeeToSet { account: Option<T::AccountId> },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// Name was set
@@ -519,21 +502,6 @@ pub mod pallet {
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::NameSet { collection_id, name });
 			Ok(())
-		}
-
-		/// Set the `FeeTo` account. This operation requires root access.
-		///
-		/// - `fee_to`: the new account or None assigned to FeeTo.
-		#[pallet::weight(T::WeightInfo::set_fee_to())]
-		#[transactional]
-		pub fn set_fee_to(
-			origin: OriginFor<T>,
-			fee_to: Option<T::AccountId>,
-		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
-			FeeTo::<T>::put(&fee_to);
-			Self::deposit_event(Event::FeeToSet { account: fee_to });
-			Ok(().into())
 		}
 	}
 }
