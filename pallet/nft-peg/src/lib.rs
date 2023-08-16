@@ -114,6 +114,8 @@ pub mod pallet {
 		ExceedsMaxVecLength,
 		/// No road block exists for the given id
 		NoRoadBlockFound,
+		/// The rescue must be called by the destination address
+		NotRoadBlockDestination,
 	}
 
 	#[pallet::event]
@@ -168,7 +170,7 @@ pub mod pallet {
 			destination: H160,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_withdrawal(who, collection_ids, serial_numbers, destination)?;
+			Self::do_withdrawal(who, collection_ids, serial_numbers, destination, None)?;
 			Ok(())
 		}
 
@@ -409,6 +411,7 @@ where
 		>,
 		// Ethereum address to deposit the tokens into
 		destination: H160,
+		road_block_id: Option<RoadBlockId>,
 	) -> Result<u64, DispatchError> {
 		ensure!(collection_ids.len() == serial_numbers.len(), Error::<T>::TokenListLengthMismatch);
 		let mut source_collection_ids = Vec::with_capacity(collection_ids.len());
@@ -426,9 +429,20 @@ where
 
 			let mut current_serial_numbers = Vec::with_capacity(serial_numbers[idx].len());
 
-			for serial_number in &serial_numbers[idx] {
-				pallet_nft::Pallet::<T>::do_burn(&who, collection_id.clone(), *serial_number)?;
-				current_serial_numbers.push(Token::Uint(U256::from(serial_number.clone())));
+			if let Some(road_block_id) = road_block_id {
+				let road_blocked =
+					Self::road_blocked(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;
+
+				for serial_number in &road_blocked.serial_numbers {
+					current_serial_numbers.push(Token::Uint(U256::from(serial_number.clone())));
+				}
+
+				<RoadBlocked<T>>::remove(road_block_id);
+			} else {
+				for serial_number in &serial_numbers[idx] {
+					pallet_nft::Pallet::<T>::do_burn(&who, collection_id.clone(), *serial_number)?;
+					current_serial_numbers.push(Token::Uint(U256::from(serial_number.clone())));
+				}
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
@@ -465,16 +479,15 @@ where
 	) -> Result<(), DispatchError> {
 		let road_blocked = Self::road_blocked(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;
 
-		ensure!(who == road_blocked.destination_address, Error::<T>::NoPermissionToBridge);
+		ensure!(road_blocked.destination_address == who, Error::<T>::NotRoadBlockDestination);
 
 		Self::do_withdrawal(
 			who,
 			BoundedVec::try_from(vec![road_blocked.collection_id]).unwrap(),
 			BoundedVec::try_from(vec![road_blocked.serial_numbers]).unwrap(),
 			destination,
+			Some(road_block_id),
 		)?;
-
-		<RoadBlocked<T>>::remove(road_block_id);
 
 		Ok(())
 	}

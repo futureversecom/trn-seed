@@ -55,6 +55,32 @@ impl Default for TestVals {
 	}
 }
 
+fn deposit_max_tokens(owner: AccountId) {
+	let test_vals = TestVals::default();
+
+	let token_addresses =
+		BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
+
+	for i in 0..200 {
+		let mut token_ids = vec![];
+		for n in 1..51 {
+			token_ids.push((i * 50) + n);
+		}
+
+		let token_ids =
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
+				vec![
+					BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_ids).unwrap()
+				],
+			)
+			.unwrap();
+
+		let token_information = GroupedTokenInfo::new(token_ids, token_addresses.clone(), owner);
+
+		assert_ok!(Pallet::<Test>::do_deposit(token_information, owner.into()));
+	}
+}
+
 #[test]
 fn event_handler_decodes_correctly() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -375,26 +401,12 @@ fn do_deposit_adds_to_road_block_on_fail() {
 		let collection_id = Nft::next_collection_uuid().unwrap();
 
 		let collection_owner = create_account(1);
-		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
-		let collection_name = BoundedVec::truncate_from("test-collection".as_bytes().to_vec());
 
-		assert_ok!(Nft::create_collection(
-			Some(collection_owner).into(),
-			collection_name,
-			999,
-			None,
-			None,
-			metadata_scheme,
-			None,
-			pallet_nft::CrossChainCompatibility::default(),
-		));
-
-		for _ in 1..10 {
-			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1_000, None));
-		}
+		deposit_max_tokens(collection_owner);
 
 		EthToRootNft::<Test>::insert(test_vals.token_address, collection_id);
 
+		// Attempt to deposit tokens that exceed limit
 		let token_ids =
 			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
 				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![
@@ -410,10 +422,10 @@ fn do_deposit_adds_to_road_block_on_fail() {
 		let token_information =
 			GroupedTokenInfo::new(token_ids.clone(), token_addresses, test_vals.destination.into());
 
-		match Pallet::<Test>::do_deposit(token_information, test_vals.destination) {
-			Ok(_) => (),
-			Err((_, err)) => assert_eq!(err, (pallet_nft::Error::<Test>::TokensBlocked).into()),
-		}
+		let (_, err) =
+			Pallet::<Test>::do_deposit(token_information, test_vals.destination).unwrap_err();
+
+		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
 
 		assert!(has_event(crate::Event::<Test>::ERC721Blocked {
 			road_block_id,
@@ -425,5 +437,42 @@ fn do_deposit_adds_to_road_block_on_fail() {
 		assert_eq!(road_blocked.collection_id, collection_id);
 		assert_eq!(road_blocked.serial_numbers, token_ids[0].clone());
 		assert_eq!(road_blocked.destination_address, test_vals.destination.into());
+	})
+}
+
+#[test]
+fn rescue_blocked_nfts() {
+	ExtBuilder::default().build().execute_with(|| {
+		let test_vals = TestVals::default();
+		let road_block_id = NftPeg::next_road_block_id();
+
+		let collection_owner = create_account(1);
+
+		deposit_max_tokens(collection_owner);
+
+		let token_addresses =
+			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
+
+		let token_ids =
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
+				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![
+					10_000_u32, 10_001_u32,
+				])
+				.unwrap()],
+			)
+			.unwrap();
+
+		let token_information = GroupedTokenInfo::new(token_ids, token_addresses, collection_owner);
+
+		let (_, err) =
+			Pallet::<Test>::do_deposit(token_information, collection_owner.into()).unwrap_err();
+
+		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
+
+		assert_ok!(Pallet::<Test>::rescue_blocked_nfts(
+			Some(collection_owner).into(),
+			road_block_id,
+			collection_owner.into()
+		));
 	})
 }
