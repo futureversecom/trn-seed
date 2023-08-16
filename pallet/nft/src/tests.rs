@@ -776,7 +776,6 @@ fn token_uri_construction() {
 	});
 }
 
-
 #[test]
 fn transfer_to_signer_address() {
 	TestExt::default().build().execute_with(|| {

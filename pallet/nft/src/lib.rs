@@ -36,7 +36,7 @@ use seed_primitives::{
 };
 use sp_runtime::{
 	traits::{AccountIdConversion, One, Zero},
-	DispatchResult,
+	DispatchResult, Permill,
 };
 use sp_std::prelude::*;
 

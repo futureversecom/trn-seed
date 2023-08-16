@@ -164,8 +164,6 @@ macro_rules! impl_pallet_assets_ext_config {
 #[macro_export]
 macro_rules! impl_pallet_nft_config {
 	($test:ident) => {
-		use sp_runtime::Permill;
-
 		pub struct MockXls20MintRequest;
 		impl Xls20MintRequest for MockXls20MintRequest {
 			type AccountId = AccountId;

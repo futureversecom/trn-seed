@@ -475,9 +475,8 @@ pub mod pallet {
 		/// Set the `FeeTo` account. This operation requires root access.
 		#[pallet::weight(<T as Config>::WeightInfo::set_fee_to())]
 		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
-			let call = pallet_nft::Call::<T>::set_fee_to { fee_to };
-			let call = <T as Config>::Call::from(call);
-			call.dispatch(origin).map_err(|err| err.error)?;
+			let who = ensure_signed(origin)?;
+			// TODO TODO TODO TODO TODO
 			Ok(())
 		}
 	}
