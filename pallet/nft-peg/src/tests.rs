@@ -476,3 +476,44 @@ fn rescue_blocked_nfts() {
 		));
 	})
 }
+
+#[test]
+fn rescue_blocked_nfts_fails_if_called_by_wrong_account() {
+	ExtBuilder::default().build().execute_with(|| {
+		let test_vals = TestVals::default();
+		let road_block_id = NftPeg::next_road_block_id();
+
+		let collection_owner = create_account(1);
+		let not_destination = create_account(2);
+
+		deposit_max_tokens(collection_owner);
+
+		let token_addresses =
+			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
+
+		let token_ids =
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
+				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![
+					10_000_u32, 10_001_u32,
+				])
+				.unwrap()],
+			)
+			.unwrap();
+
+		let token_information = GroupedTokenInfo::new(token_ids, token_addresses, collection_owner);
+
+		let (_, err) =
+			Pallet::<Test>::do_deposit(token_information, collection_owner.into()).unwrap_err();
+
+		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
+
+		assert_noop!(
+			Pallet::<Test>::rescue_blocked_nfts(
+				Some(not_destination).into(),
+				road_block_id,
+				not_destination.into()
+			),
+			Error::<Test>::NotRoadBlockDestination
+		);
+	})
+}
