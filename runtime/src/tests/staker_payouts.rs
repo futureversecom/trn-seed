@@ -23,6 +23,7 @@ use frame_support::{
 use sp_runtime::traits::Zero;
 use sp_staking::{EraIndex, SessionIndex};
 
+use frame_election_provider_support::SortedListProvider;
 use seed_client::chain_spec::authority_keys_from_seed;
 use seed_pallet_common::FinalSessionTracker;
 use seed_primitives::{Balance, BlockNumber};
@@ -30,8 +31,8 @@ use seed_primitives::{Balance, BlockNumber};
 use crate::{
 	constants::{MILLISECS_PER_BLOCK, ONE_XRP},
 	Balances, Call, CheckedExtrinsic, ElectionProviderMultiPhase, EpochDuration, EthBridge,
-	Executive, Runtime, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, System,
-	Timestamp, TxFeePot, XrpCurrency,
+	Executive, Runtime, Scheduler, Session, SessionKeys, SessionsPerEra, Staking, StakingPayouts,
+	System, Timestamp, TxFeePot, XrpCurrency,
 };
 
 use super::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder, INIT_TIMESTAMP};
@@ -247,5 +248,32 @@ fn staking_final_session_tracking_ethy() {
 		let scheduled_block: BlockNumber = System::block_number() + 75_u32;
 		Scheduler::on_initialize(scheduled_block.into());
 		assert!(EthBridge::notary_keys().into_iter().find(|x| x == &new_keys.ethy).is_some());
+	});
+}
+
+#[test]
+fn new_payouts_tracking() {
+	ExtBuilder::default().build().execute_with(|| {
+		assert_eq!(pallet_staking_payouts::CurrentValidatorIter::<Runtime>::get(), None);
+
+		StakingPayouts::on_initialize(1);
+
+		let v = pallet_staking::UseNominatorsAndValidatorsMap::<Runtime>::iter().next().unwrap();
+		assert_eq!(pallet_staking_payouts::CurrentValidatorIter::<Runtime>::get(), Some(v));
+
+		StakingPayouts::on_initialize(2);
+
+		let v = pallet_staking::UseNominatorsAndValidatorsMap::<Runtime>::iter_from(&v)
+			.unwrap()
+			.next()
+			.unwrap();
+		assert_eq!(pallet_staking_payouts::CurrentValidatorIter::<Runtime>::get(), Some(v));
+
+		StakingPayouts::on_initialize(3);
+
+		let v = pallet_staking::UseNominatorsAndValidatorsMap::<Runtime>::iter_from(&v)
+			.unwrap()
+			.next();
+		assert_eq!(v, None);
 	});
 }
