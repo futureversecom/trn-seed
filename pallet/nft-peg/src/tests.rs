@@ -366,3 +366,64 @@ fn do_withdraw_invalid_token_length_should_fail() {
 		);
 	});
 }
+
+#[test]
+fn do_deposit_adds_to_road_block_on_fail() {
+	ExtBuilder::default().build().execute_with(|| {
+		let test_vals = TestVals::default();
+		let road_block_id = NftPeg::next_road_block_id();
+		let collection_id = Nft::next_collection_uuid().unwrap();
+
+		let collection_owner = create_account(1);
+		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
+		let collection_name = BoundedVec::truncate_from("test-collection".as_bytes().to_vec());
+
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			collection_name,
+			999,
+			None,
+			None,
+			metadata_scheme,
+			None,
+			pallet_nft::CrossChainCompatibility::default(),
+		));
+
+		for _ in 1..10 {
+			assert_ok!(Nft::mint(Some(collection_owner).into(), collection_id, 1_000, None));
+		}
+
+		EthToRootNft::<Test>::insert(test_vals.token_address, collection_id);
+
+		let token_ids =
+			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
+				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![
+					10_000_u32, 10_001_u32,
+				])
+				.unwrap()],
+			)
+			.unwrap();
+
+		let token_addresses =
+			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
+
+		let token_information =
+			GroupedTokenInfo::new(token_ids.clone(), token_addresses, test_vals.destination.into());
+
+		match Pallet::<Test>::do_deposit(token_information, test_vals.destination) {
+			Ok(_) => (),
+			Err((_, err)) => assert_eq!(err, (pallet_nft::Error::<Test>::TokensBlocked).into()),
+		}
+
+		assert!(has_event(crate::Event::<Test>::ERC721Blocked {
+			road_block_id,
+			destination_address: test_vals.destination.into()
+		}));
+
+		let road_blocked = Pallet::<Test>::road_blocked(road_block_id).unwrap();
+
+		assert_eq!(road_blocked.collection_id, collection_id);
+		assert_eq!(road_blocked.serial_numbers, token_ids[0].clone());
+		assert_eq!(road_blocked.destination_address, test_vals.destination.into());
+	})
+}
