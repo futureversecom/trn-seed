@@ -18,10 +18,16 @@
 pub use pallet::*;
 
 use frame_election_provider_support::SortedListProvider;
-use frame_support::{pallet_prelude::*, traits::Currency};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{Currency, Imbalance, OnUnbalanced},
+};
 use frame_system::pallet_prelude::*;
 use seed_primitives::AccountId;
-use sp_runtime::Perbill;
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	Perbill,
+};
 use sp_staking::EraIndex;
 use sp_std::prelude::*;
 
@@ -38,7 +44,6 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::storage::hashed;
 	use pallet_staking::{UseNominatorsAndValidatorsMap, WeightInfo};
 
 	#[pallet::pallet]
@@ -49,10 +54,11 @@ pub mod pallet {
 
 	// When thinking about the currency type, consider that this is a custom Currency implementation
 	// for multiple assets
-	type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+	pub type BalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
+	type PositiveImbalanceOf<T> = <<T as pallet_staking::Config>::Currency as Currency<
 		<T as frame_system::Config>::AccountId,
 	>>::PositiveImbalance;
-	type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+	type NegativeImbalanceOf<T> = <<T as pallet_staking::Config>::Currency as Currency<
 		<T as frame_system::Config>::AccountId,
 	>>::NegativeImbalance;
 
@@ -61,6 +67,15 @@ pub mod pallet {
 		/// The system event type
 		type Event: From<Event> + IsType<<Self as frame_system::Config>::Event>;
 
+		type CurrencyBalance: sp_runtime::traits::AtLeast32BitUnsigned
+			+ codec::FullCodec
+			+ Copy
+			+ MaybeSerializeDeserialize
+			+ sp_std::fmt::Debug
+			+ Default
+			+ From<u64>
+			+ TypeInfo
+			+ MaxEncodedLen;
 		// type Currency: LockableCurrency<
 		// 	Self::AccountId,
 		// 	Moment = Self::BlockNumber,
@@ -82,14 +97,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PayoutPeriod<T: Config> = StorageValue<_, u128, ValueQuery>;
 
+	#[pallet::storage]
+	pub type AccumulatedRewards<T: Config> = StorageDoubleMap<
+		_,
+		Identity,
+		T::AccountId,
+		Blake2_128Concat,
+		EraIndex,
+		BalanceOf<T>,
+		OptionQuery,
+	>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {
-		DidThing,
-	}
+	pub enum Event {}
 
 	#[pallet::error]
 	pub enum Error<T> {
+		AlreadyClaimed,
 		InvalidEraToReward,
 		NotController,
 		NotStash,
@@ -99,7 +124,7 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: T::BlockNumber) -> u64 {
 			let active_era = pallet_staking::ActiveEra::<T>::get();
-			let mut consumed_weight = 0;
+			let consumed_weight = 0;
 
 			if let Some(active_era_info) = active_era {
 				// Previous era information is static, compared to current era which may change.
@@ -128,16 +153,6 @@ pub mod pallet {
 					let payout_period = PayoutPeriod::<T>::get();
 
 					Self::do_payout_stakers(validator, payout_period, previous_era);
-					// // Try perform queries
-					// pallet_staking::ErasStakers::<T>::get(previous_era, validator);
-					// pallet_staking::ErasStakersClipped::<T>::get(previous_era, validator);
-					// pallet_staking::ErasValidatorReward::<T>::get(previous_era);
-					// pallet_staking::ErasRewardPoints::<T>::get(previous_era);
-					// pallet_staking::ErasTotalStake::<T>::get(previous_era);
-					// pallet_staking::Pallet::<T>::history_depth();
-					// pallet_staking::CurrentEra::<T>::get();
-					// pallet_staking::Bonded::<T>::get(validator);
-					// pallet_staking::Ledger::<T>::get(validator);
 				}
 			}
 
@@ -154,6 +169,7 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		// Same logic as pallet_stakers payout, except stores and accumulates the payouts
 		pub(super) fn do_payout_stakers(
 			validator_stash: T::AccountId,
 			// era: EraIndex,
@@ -172,7 +188,7 @@ pub mod pallet {
 			let controller =
 				pallet_staking::Bonded::<T>::get(&validator_stash).ok_or_else(|| {
 					// Error::<T>::NotStash.
-					// with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+					// with_weight(::WeightInfo::payout_stakers_alive_staked(0))
 					Error::<T>::NotStash
 				})?;
 			let mut ledger =
@@ -181,16 +197,20 @@ pub mod pallet {
 			// Check this one
 			ledger
 				.claimed_rewards
-				.retain(|&x| x >= current_era.saturating_sub(history_depth));
+				// TODO: Is previous era okay here?
+				.retain(|&x| x >= previous_era.saturating_sub(history_depth));
 
-			match ledger.claimed_rewards.binary_search(&era) {
+			// Is previous era okay here?
+			match ledger.claimed_rewards.binary_search(&previous_era) {
 				Ok(_) =>
-					return Err(Error::<T>::AlreadyClaimed
-						.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))),
-				Err(pos) => ledger.claimed_rewards.insert(pos, era),
+				// return Err(Error::<T>::AlreadyClaimed
+				// 	.with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))),
+					return Err(Error::<T>::AlreadyClaimed.into()),
+				Err(pos) => ledger.claimed_rewards.insert(pos, previous_era),
 			}
 
-			let exposure = pallet_staking::ErasStakersClipped::<T>::get(&era, &ledger.stash);
+			let exposure =
+				pallet_staking::ErasStakersClipped::<T>::get(&previous_era, &ledger.stash);
 
 			// Input data seems good, no errors allowed after this point
 
@@ -204,7 +224,7 @@ pub mod pallet {
 			// Then look at the validator, figure out the proportion of their reward
 			// which goes to them and each of their nominators.
 
-			let era_reward_points = pallet_staking::ErasRewardPoints::get(&era);
+			let era_reward_points = pallet_staking::ErasRewardPoints::<T>::get(&previous_era);
 			let total_reward_points = era_reward_points.total;
 
 			let validator_reward_points = era_reward_points
@@ -215,7 +235,7 @@ pub mod pallet {
 
 			// Nothing to do if they have no reward points.
 			if validator_reward_points.is_zero() {
-				return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into())
+				return Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(0)).into())
 			}
 
 			// This is the fraction of the total reward that the validator and the
@@ -239,11 +259,11 @@ pub mod pallet {
 
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 			// We can now make total validator payout:
-			if let Some(imbalance) = Self::make_payout(
+			if let Some(imbalance) = Self::accumulate_payouts(
 				&ledger.stash,
 				validator_staking_payout + validator_commission_payout,
+				&previous_era,
 			) {
-				Self::deposit_event(Event::<T>::Rewarded(ledger.stash, imbalance.peek()));
 				total_imbalance.subsume(imbalance);
 			}
 
@@ -261,18 +281,39 @@ pub mod pallet {
 				let nominator_reward: BalanceOf<T> =
 					nominator_exposure_part * validator_leftover_payout;
 				// We can now make nominator payout:
-				if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
+				if let Some(imbalance) =
+					Self::accumulate_payouts(&nominator.who, nominator_reward, &previous_era)
+				{
 					// Note: this logic does not count payouts for `RewardDestination::None`.
 					nominator_payout_count += 1;
-					let e = Event::<T>::Rewarded(nominator.who.clone(), imbalance.peek());
-					Self::deposit_event(e);
 					total_imbalance.subsume(imbalance);
 				}
 			}
 
 			T::Reward::on_unbalanced(total_imbalance);
 			debug_assert!(nominator_payout_count <= T::MaxNominatorRewardedPerValidator::get());
-			Ok(Some(T::WeightInfo::payout_stakers_alive_staked(nominator_payout_count)).into())
+			Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(nominator_payout_count))
+				.into())
+		}
+
+		// Store the current payouts, accumulating any payouts for the account from the previous era
+		fn accumulate_payouts(
+			who: &T::AccountId,
+			amt: <T as pallet_staking::Config>::CurrencyBalance,
+			previous_era: &EraIndex,
+		) -> Option<PositiveImbalanceOf<T>> {
+			// TODO: Clean up unwrap
+			let current_era = pallet_staking::CurrentEra::<T>::get().unwrap();
+
+			if let Some(previous_payout) = AccumulatedRewards::<T>::get(who, previous_era) {
+				let payout = amt.saturating_add(previous_payout);
+				AccumulatedRewards::<T>::insert(&who, current_era, payout);
+			} else {
+				AccumulatedRewards::<T>::insert(&who, current_era, amt);
+			};
+
+			// TODO: change
+			None
 		}
 	}
 }

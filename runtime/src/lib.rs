@@ -1158,6 +1158,8 @@ impl pallet_futurepass::Config for Runtime {
 
 impl pallet_staking_payouts::Config for Runtime {
 	type Event = Event;
+	type Currency = DualStakingCurrency;
+	type CurrencyBalance = Balance;
 	type WeightInfo = ();
 }
 
