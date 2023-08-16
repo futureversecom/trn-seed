@@ -2249,11 +2249,7 @@ fn set_door_signers_fails() {
 		assert_noop!(
 			EthBridge::set_xrpl_door_signers(
 				Origin::signed(AccountId::from(caller)),
-				vec![(AuthorityId::from_slice(&[1_u8; 33]).unwrap(), true)] /* (0..10).map(|i|
-				                                                             * AuthorityId::from_slice(&
-				                                                             * [i as u8; 33]).
-				                                                             * unwrap()).collect(),
-				                                                             * */
+				vec![(AuthorityId::from_slice(&[1_u8; 33]).unwrap(), true)]
 			),
 			BadOrigin
 		);
