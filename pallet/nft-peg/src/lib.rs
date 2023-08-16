@@ -174,8 +174,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		// TODO: weight
-		#[pallet::weight(T::NftPegWeightInfo::withdraw())]
+		#[pallet::weight(T::NftPegWeightInfo::rescue_blocked_nfts())]
 		#[transactional]
 		pub fn rescue_blocked_nfts(
 			origin: OriginFor<T>,
