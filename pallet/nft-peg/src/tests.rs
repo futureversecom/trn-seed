@@ -404,8 +404,6 @@ fn do_deposit_adds_to_road_block_on_fail() {
 
 		deposit_max_tokens(collection_owner);
 
-		EthToRootNft::<Test>::insert(test_vals.token_address, collection_id);
-
 		// Attempt to deposit tokens that exceed limit
 		let token_ids =
 			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
