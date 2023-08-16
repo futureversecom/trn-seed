@@ -1473,6 +1473,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_sft_rpc_runtime_api::SftApi<Block, Runtime> for Runtime {
+		fn token_uri(token_id: TokenId) -> Vec<u8> {
+			Sft::token_uri(token_id)
+		}
+	}
+
 	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
 		fn chain_id() -> u64 {
 			<Runtime as pallet_evm::Config>::ChainId::get()
