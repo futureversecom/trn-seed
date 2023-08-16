@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -101,8 +105,8 @@ where
 	) -> DispatchResult {
 		// used by evm
 		let keep_alive = match req {
-			ExistenceRequirement::KeepAlive => false,
-			ExistenceRequirement::AllowDeath => true,
+			ExistenceRequirement::KeepAlive => true,
+			ExistenceRequirement::AllowDeath => false,
 		};
 		<Pallet<T>>::transfer(U::get(), from, to, value, keep_alive).map(|_| ())
 	}

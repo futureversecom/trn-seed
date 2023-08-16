@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -9,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod dex;
+mod proxy;
 mod nft;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
@@ -19,7 +23,7 @@ use frame_support::{
 		move_storage_from_pallet, put_storage_value, storage_key_iter, take_storage_value,
 	},
 	storage::storage_prefix,
-	traits::{OnRuntimeUpgrade},
+	traits::OnRuntimeUpgrade,
 	weights::Weight,
 	ReversibleStorageHasher,
 };
@@ -29,6 +33,7 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
+		proxy::Upgrade::pre_upgrade()?;
 		nft::Upgrade::pre_upgrade()?;
 
 		Ok(())
@@ -36,13 +41,16 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
+		weight += proxy::Upgrade::on_runtime_upgrade();
 		weight += nft::Upgrade::on_runtime_upgrade();
+
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
 		nft::Upgrade::post_upgrade()?;
+		proxy::Upgrade::post_upgrade()?;
 
 		Ok(())
 	}

@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -81,6 +85,18 @@ pub mod pallet {
 		Twox64Concat,
 		T::AccountId,
 		Balance,
+	>;
+
+	// Accounts with transfer approval for an SFT collection of another account
+	#[pallet::storage]
+	#[pallet::getter(fn erc1155_approvals_for_all)]
+	pub type ERC1155ApprovalsForAll<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		T::AccountId,
+		Twox64Concat,
+		(CollectionUuid, T::AccountId),
+		bool,
 	>;
 
 	#[pallet::error]
@@ -208,6 +224,30 @@ pub mod pallet {
 				);
 			} else {
 				ERC721ApprovalsForAll::<T>::remove(caller, (collection_uuid, operator_account));
+			}
+			Ok(())
+		}
+
+		/// Set approval for an account (or contract) to transfer any tokens from an SFT collection
+		/// mapping(address => mapping(address => bool)) private _operatorApprovals;
+		#[pallet::weight(T::WeightInfo::erc1155_approval_for_all())]
+		pub fn erc1155_approval_for_all(
+			origin: OriginFor<T>,
+			caller: T::AccountId,
+			operator_account: T::AccountId,
+			collection_uuid: CollectionUuid,
+			approved: bool,
+		) -> DispatchResult {
+			let _ = ensure_none(origin)?;
+			ensure!(caller != operator_account, Error::<T>::CallerNotOperator);
+			if approved {
+				ERC1155ApprovalsForAll::<T>::insert(
+					caller,
+					(collection_uuid, operator_account),
+					true,
+				);
+			} else {
+				ERC1155ApprovalsForAll::<T>::remove(caller, (collection_uuid, operator_account));
 			}
 			Ok(())
 		}

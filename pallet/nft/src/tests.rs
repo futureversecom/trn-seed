@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -431,6 +435,7 @@ fn transfer_fails_prechecks() {
 		let collection_owner = create_account(1);
 		let collection_id = Nft::next_collection_uuid().unwrap();
 		let token_owner = create_account(2);
+		let new_owner = create_account(3);
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![0]).unwrap();
 
@@ -440,7 +445,7 @@ fn transfer_fails_prechecks() {
 				Some(token_owner).into(),
 				collection_id,
 				serial_numbers.clone(),
-				token_owner
+				new_owner
 			),
 			Error::<Test>::NoCollectionFound,
 		);
@@ -456,13 +461,12 @@ fn transfer_fails_prechecks() {
 			CrossChainCompatibility::default(),
 		));
 
-		let not_the_owner = create_account(3);
 		assert_noop!(
 			Nft::transfer(
-				Some(not_the_owner).into(),
+				Some(new_owner).into(),
 				collection_id,
 				serial_numbers.clone(),
-				not_the_owner
+				token_owner
 			),
 			Error::<Test>::NotTokenOwner,
 		);
@@ -470,7 +474,7 @@ fn transfer_fails_prechecks() {
 		// cannot transfer while listed
 		<TokenLocks<Test>>::insert((collection_id, 0), TokenLockReason::Listed(1));
 		assert_noop!(
-			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner),
+			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, new_owner),
 			Error::<Test>::TokenLocked,
 		);
 	});
@@ -772,6 +776,42 @@ fn token_uri_construction() {
 	});
 }
 
+
+#[test]
+fn transfer_to_signer_address() {
+	TestExt::default().build().execute_with(|| {
+		let collection_owner = create_account(1);
+		let collection_id = Nft::next_collection_uuid().unwrap();
+		let token_owner = create_account(2);
+		let initial_quantity: u32 = 3;
+
+		// Mint 3 tokens
+		assert_ok!(Nft::create_collection(
+			Some(collection_owner).into(),
+			bounded_string("test-collection"),
+			initial_quantity,
+			None,
+			Some(token_owner),
+			MetadataScheme::try_from(b"<CID>".as_slice()).unwrap(),
+			None,
+			CrossChainCompatibility::default(),
+		));
+
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
+
+		// Transfer 2 tokens to signer address
+		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
+			BoundedVec::try_from(vec![0, 1]).unwrap();
+		assert_noop!(
+			Nft::transfer(Some(token_owner).into(), collection_id, serial_numbers, token_owner),
+			Error::<Test>::InvalidNewOwner
+		);
+
+		// Check storage remains the same
+		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), initial_quantity);
+	});
+}
+
 #[test]
 fn transfer_changes_token_balance() {
 	TestExt::default().build().execute_with(|| {
@@ -781,7 +821,7 @@ fn transfer_changes_token_balance() {
 		let new_owner = create_account(3);
 		let initial_quantity: u32 = 1;
 
-		// Mint 1 token
+		// Mint token
 		assert_ok!(Nft::create_collection(
 			Some(collection_owner).into(),
 			bounded_string("test-collection"),
@@ -1419,6 +1459,41 @@ fn create_xls20_collection_with_initial_issuance_fails() {
 	});
 }
 
+mod set_fee_to {
+	use super::*;
+
+	#[test]
+	fn set_fee_to_works() {
+		TestExt::default().build().execute_with(|| {
+			// Ensure default is correct
+			let default_fee_to: AccountId =
+				mock::DefaultFeeTo::get().unwrap().into_account_truncating();
+			assert_eq!(FeeTo::<Test>::get().unwrap(), default_fee_to);
+
+			// Change fee_to account
+			let new_fee_to = create_account(10);
+			assert_ok!(Nft::set_fee_to(RawOrigin::Root.into(), Some(new_fee_to.clone())));
+
+			// Event thrown
+			assert!(has_event(Event::<Test>::FeeToSet { account: Some(new_fee_to) }));
+			// Storage updated
+			assert_eq!(FeeTo::<Test>::get().unwrap(), new_fee_to);
+		});
+	}
+
+	#[test]
+	fn set_fee_to_not_root_fails() {
+		TestExt::default().build().execute_with(|| {
+			// Change fee_to account from not sudo should fail
+			let new_fee_to = create_account(10);
+			assert_noop!(
+				Nft::set_fee_to(Some(create_account(11)).into(), Some(new_fee_to)),
+				BadOrigin
+			);
+		});
+	}
+}
+
 mod set_max_issuance {
 	use super::*;
 
@@ -1832,6 +1907,106 @@ mod set_base_uri {
 					vec![0; 2000]
 				),
 				Error::<Test>::InvalidMetadataPath
+			);
+		});
+	}
+}
+
+mod set_name {
+	use super::*;
+
+	#[test]
+	fn set_name_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = Nft::next_collection_uuid().unwrap();
+			let name = bounded_string("test-collection");
+
+			// Setup collection with no Max issuance
+			assert_ok!(Nft::create_collection(
+				RawOrigin::Signed(collection_owner).into(),
+				name.clone(),
+				0,
+				None,
+				None,
+				MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap(),
+				None,
+				CrossChainCompatibility::default(),
+			));
+
+			// Sanity check
+			assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().name, name);
+
+			let new_name = bounded_string("yeet");
+			assert_ok!(Nft::set_name(
+				RawOrigin::Signed(collection_owner).into(),
+				collection_id,
+				new_name.clone()
+			));
+
+			// Storage updated
+			assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().name, new_name);
+
+			// Event thrown
+			assert!(has_event(Event::<Test>::NameSet { collection_id, name: new_name }));
+		});
+	}
+
+	#[test]
+	fn set_name_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = 1;
+			let new_name = bounded_string("yeet");
+
+			// Call to unknown collection should fail
+			assert_noop!(
+				Nft::set_name(RawOrigin::Signed(collection_owner).into(), collection_id, new_name),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_not_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+			let new_name = bounded_string("yeet");
+
+			// Call from not owner should fail
+			let bob = create_account(11);
+			assert_noop!(
+				Nft::set_name(RawOrigin::Signed(bob).into(), collection_id, new_name),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_invalid_name_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = create_account(10);
+			let collection_id = setup_collection(collection_owner);
+
+			// Calls with no name should fail
+			assert_noop!(
+				Nft::set_name(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					bounded_string("")
+				),
+				Error::<Test>::CollectionNameInvalid
+			);
+
+			// non UTF-8 chars
+			assert_noop!(
+				Nft::set_name(
+					RawOrigin::Signed(collection_owner).into(),
+					collection_id,
+					BoundedVec::truncate_from(vec![0xfe, 0xff])
+				),
+				Error::<Test>::CollectionNameInvalid
 			);
 		});
 	}

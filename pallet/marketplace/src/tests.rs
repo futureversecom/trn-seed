@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,7 +33,7 @@ fn setup_collection(owner: AccountId) -> CollectionUuid {
 	let metadata_scheme = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 	assert_ok!(Nft::create_collection(
 		Some(owner).into(),
-		collection_name,
+		BoundedVec::truncate_from(collection_name),
 		0,
 		None,
 		None,
@@ -2054,4 +2058,31 @@ fn accept_offer_not_token_owner_should_fail() {
 				Error::<Test>::NotTokenOwner
 			);
 		});
+}
+
+mod set_fee_to {
+	use super::*;
+
+	#[test]
+	fn set_fee_to_works() {
+		let new_fee_to = create_account(13);
+
+		TestExt::default().build().execute_with(|| {
+			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), new_fee_to.into()));
+
+			assert_eq!(FeeTo::<Test>::get().unwrap(), new_fee_to);
+		});
+	}
+
+	#[test]
+	fn set_fee_to_not_root_fails() {
+		TestExt::default().build().execute_with(|| {
+			let new_fee_to = create_account(10);
+
+			assert_noop!(
+				Marketplace::set_fee_to(Some(create_account(11)).into(), Some(new_fee_to)),
+				BadOrigin
+			);
+		});
+	}
 }

@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -119,7 +123,6 @@ pub mod pallet {
 		SftTokenInformation<T::AccountId, T::StringLimit, T::MaxOwnersPerSftToken>,
 	>;
 
-	// TODO Remove Events not being used
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -145,8 +148,10 @@ pub mod pallet {
 		MaxIssuanceSet { token_id: TokenId, max_issuance: Balance },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, metadata_scheme: MetadataScheme },
+		/// Name was set
+		NameSet { collection_id: CollectionUuid, collection_name: BoundedVec<u8, T::StringLimit> },
 		/// A new token was created within a collection
-		TokenCreated {
+		TokenCreate {
 			token_id: TokenId,
 			initial_issuance: Balance,
 			max_issuance: Option<Balance>,
@@ -178,8 +183,6 @@ pub mod pallet {
 		NoToken,
 		/// Origin is not the collection owner and is not permitted to perform the operation
 		NotCollectionOwner,
-		/// The maximum number of offers on this token has been reached
-		MaxOffersReached,
 		/// Total royalties would exceed 100% of sale or an empty vec is supplied
 		RoyaltiesInvalid,
 		/// The collection does not exist
@@ -191,6 +194,8 @@ pub mod pallet {
 		/// Max issuance needs to be greater than 0 and initial_issuance
 		/// Cannot exceed MaxTokensPerCollection
 		InvalidMaxIssuance,
+		/// Caller can not be the new owner
+		InvalidNewOwner,
 		/// The max issuance has already been set and can't be changed
 		MaxIssuanceAlreadySet,
 		/// The collection max issuance has been reached and no more tokens can be minted
@@ -225,14 +230,15 @@ pub mod pallet {
 			royalties_schedule: Option<RoyaltiesSchedule<T::AccountId>>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_create_collection(
-				who,
+			let owner = collection_owner.unwrap_or(who);
+			let _ = Self::do_create_collection(
+				owner,
 				collection_name,
-				collection_owner,
 				metadata_scheme,
 				royalties_schedule,
 				OriginChain::Root,
-			)
+			)?;
+			Ok(())
 		}
 
 		/// Create additional tokens for an existing collection
@@ -249,14 +255,15 @@ pub mod pallet {
 			token_owner: Option<T::AccountId>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_create_token(
+			let _ = Self::do_create_token(
 				who,
 				collection_id,
 				token_name,
 				initial_issuance,
 				max_issuance,
 				token_owner,
-			)
+			)?;
+			Ok(())
 		}
 
 		/// Mints some balances into some serial numbers for an account
@@ -343,6 +350,18 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_set_base_uri(who, collection_id, metadata_scheme)
+		}
+
+		/// Set the name of a collection
+		/// Caller must be the current collection owner
+		#[pallet::weight(T::WeightInfo::set_name())]
+		pub fn set_name(
+			origin: OriginFor<T>,
+			collection_id: CollectionUuid,
+			collection_name: BoundedVec<u8, T::StringLimit>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_set_name(who, collection_id, collection_name)
 		}
 	}
 }

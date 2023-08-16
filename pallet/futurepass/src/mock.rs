@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -14,7 +18,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungibles::{Inspect, Transfer},
-		Currency, ExistenceRequirement, InstanceFilter,
+		Currency, ExistenceRequirement, InstanceFilter, ReservableCurrency,
 	},
 	PalletId,
 };
@@ -27,7 +31,7 @@ use seed_runtime::{
 	impls::{ProxyPalletProvider, ProxyType},
 	AnnouncementDepositBase, AnnouncementDepositFactor, ProxyDepositBase, ProxyDepositFactor,
 };
-use sp_core::{H160, H256};
+use sp_core::{ecdsa, Pair, H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -71,12 +75,14 @@ impl_pallet_dex_config!(Test);
 impl InstanceFilter<Call> for ProxyType {
 	fn filter(&self, c: &Call) -> bool {
 		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
-			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
+			// Whitelist currently includes
+			// pallet_futurepass::Call::register_delegate_with_signature,
 			// pallet_futurepass::Call::unregister_delegate
 			if !matches!(
 				c,
-				Call::Futurepass(pallet_futurepass::Call::register_delegate { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. })
+				Call::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
+					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
+					Call::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
 			) {
 				return false
 			}
@@ -116,6 +122,16 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 		pallet_proxy::Pallet::<Test>::find_proxy(futurepass, delegate, proxy_type).is_ok()
 	}
 
+	fn owner(futurepass: &AccountId) -> Option<AccountId> {
+		let (proxy_definitions, _) = pallet_proxy::Proxies::<Test>::get(futurepass);
+		proxy_definitions
+			.into_iter()
+			.map(|proxy_def| (proxy_def.delegate, proxy_def.proxy_type))
+			.filter(|(_, proxy_type)| proxy_type == &ProxyType::Owner)
+			.map(|(owner, _)| owner)
+			.next()
+	}
+
 	fn delegates(futurepass: &AccountId) -> Vec<(AccountId, ProxyType)> {
 		let (proxy_definitions, _) = pallet_proxy::Proxies::<Test>::get(futurepass);
 		proxy_definitions
@@ -131,7 +147,7 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 		funder: &AccountId,
 		futurepass: &AccountId,
 		delegate: &AccountId,
-		proxy_type: &ProxyType,
+		proxy_type: &u8,
 	) -> DispatchResult {
 		// pay cost for proxy creation; transfer funds/deposit from delegator to FP account (which
 		// executes proxy creation)
@@ -145,8 +161,9 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 			extra_reserve_required,
 			ExistenceRequirement::KeepAlive,
 		)?;
+		let proxy_type = ProxyType::try_from(*proxy_type)?;
 
-		pallet_proxy::Pallet::<Test>::add_proxy_delegate(futurepass, *delegate, *proxy_type, 0)
+		pallet_proxy::Pallet::<Test>::add_proxy_delegate(futurepass, *delegate, proxy_type, 0)
 	}
 
 	/// Removing a delegate requires refunding the potential funder (who may have funded the
@@ -181,6 +198,21 @@ impl pallet_futurepass::ProxyProvider<Test> for ProxyPalletProvider {
 			)?;
 		}
 		result
+	}
+
+	fn remove_account(receiver: &AccountId, futurepass: &AccountId) -> DispatchResult {
+		let (_, old_deposit) = pallet_proxy::Proxies::<Test>::take(futurepass);
+		<pallet_balances::Pallet<Test> as ReservableCurrency<_>>::unreserve(
+			futurepass,
+			old_deposit,
+		);
+		<pallet_balances::Pallet<Test> as Currency<_>>::transfer(
+			futurepass,
+			receiver,
+			old_deposit,
+			ExistenceRequirement::AllowDeath,
+		)?;
+		Ok(())
 	}
 
 	fn proxy_call(
@@ -275,11 +307,17 @@ pub fn create_account(seed: u64) -> AccountId {
 pub fn create_random() -> AccountId {
 	AccountId::from(H160::random())
 }
+pub fn create_random_pair() -> (ecdsa::Pair, AccountId) {
+	let (pair, _) = ecdsa::Pair::generate();
+	let account: AccountId = pair.public().try_into().unwrap();
+	(pair, account)
+}
 
 #[derive(Default)]
 pub struct TestExt {
 	balances: Vec<(AccountId, Balance)>,
 	xrp_balances: Vec<(AssetId, AccountId, Balance)>,
+	block_number: BlockNumber,
 }
 
 impl TestExt {
@@ -295,6 +333,11 @@ impl TestExt {
 			.into_iter()
 			.map(|(who, balance)| (MOCK_PAYMENT_ASSET_ID, who, balance))
 			.collect();
+		self
+	}
+	/// Configure block number
+	pub fn with_block_number(mut self, block_number: BlockNumber) -> Self {
+		self.block_number = block_number;
 		self
 	}
 
@@ -315,8 +358,12 @@ impl TestExt {
 				.unwrap();
 		}
 
+		let block_number = std::cmp::max(self.block_number, 1);
+
 		let mut ext: sp_io::TestExternalities = storage.into();
-		ext.execute_with(|| System::initialize(&1, &[0u8; 32].into(), &Default::default()));
+		ext.execute_with(|| {
+			System::initialize(&block_number, &[0u8; 32].into(), &Default::default())
+		});
 		ext
 	}
 }

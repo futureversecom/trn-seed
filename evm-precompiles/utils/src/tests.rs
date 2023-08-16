@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -142,13 +146,13 @@ fn read_selector() {
 }
 
 #[test]
-#[should_panic(expected = "to correctly parse U256")]
 fn read_u256_too_short() {
 	let value = U256::from(42);
 	let writer_output = EvmDataWriter::new().write(value).build();
 
 	let mut reader = EvmDataReader::new(&writer_output[0..31]);
-	let _: U256 = reader.read().expect("to correctly parse U256");
+	let result: Result<U256, _> = reader.read().map_err(|_| "to correctly parse U256");
+	assert_eq!(result.unwrap_err().to_string(), "to correctly parse U256");
 }
 
 #[test]
@@ -187,7 +191,6 @@ fn read_h256() {
 }
 
 #[test]
-#[should_panic(expected = "to correctly parse H256")]
 fn read_h256_too_short() {
 	let mut raw = [0u8; 32];
 	raw[0] = 42;
@@ -197,7 +200,8 @@ fn read_h256_too_short() {
 	let writer_output = EvmDataWriter::new().write(value).build();
 
 	let mut reader = EvmDataReader::new(&writer_output[0..31]);
-	let _: H256 = reader.read().expect("to correctly parse H256");
+	let result: Result<H256, _> = reader.read().map_err(|_| "to correctly parse H256");
+	assert_eq!(result.unwrap_err().to_string(), "to correctly parse H256");
 }
 
 #[test]

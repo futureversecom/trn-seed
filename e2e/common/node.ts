@@ -47,7 +47,11 @@ export function startNode(
   type: ConnectionType = (process.env.CONNECTION_TYPE as ConnectionType) ?? "docker",
   nodeOpts?: NodeOpts,
 ): Promise<NodeProcess> {
-  console.info(`Starting node with connection type: ${type}`);
+  console.info(`Starting node with connection type: ${type}...`);
+
+  // override global console.log to suppress output in CI
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  console.error = (..._args: any[]) => {};
 
   const nodeOptions = nodeOpts ?? defaultOpts;
 
@@ -59,7 +63,7 @@ export function startNode(
       httpPort: nodeOptions.httpPort.toString() ?? "9933",
       wsPort: wsPortStr,
       wait: async () => {
-        await ApiPromise.create({ provider: new WsProvider(`ws://localhost:${wsPortStr}`) });
+        await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${wsPortStr}`) });
       },
       stop: () => Promise.resolve(),
     });
@@ -138,9 +142,9 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
 
   // get docker ports - poll at 100ms delay
   const { httpPort, wsPort } = await new Promise<{ httpPort: string; wsPort: string }>((resolve, reject) => {
-    let pollCount = 0;
+    // let pollCount = 0;
     const interval = setInterval(async () => {
-      console.info(`getting ports for ${id} (${++pollCount})...`);
+      // console.info(`getting ports for ${id} (${++pollCount})...`);
       child.exec(`docker inspect ${id}`, (error, stdout, _) => {
         clearInterval(interval);
         if (error) {
@@ -158,7 +162,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
 
   const stop = () =>
     new Promise((resolve, reject) => {
-      console.info(`stopping docker container ${id}...`);
+      // console.info(`stopping docker container ${id}...`);
       child.exec(`docker stop ${id}`, (error, stdout, _) => {
         if (error) {
           console.error(`error stopping docker container ${id}`, error);
@@ -174,7 +178,7 @@ async function startStandaloneDockerNode(nodeOpts: NodeOpts): Promise<NodeProces
     httpPort,
     wsPort,
     wait: async () => {
-      await ApiPromise.create({ provider: new WsProvider(`ws://localhost:${wsPort}`) });
+      await ApiPromise.create({ provider: new WsProvider(`ws://127.0.0.1:${wsPort}`) });
     },
     stop,
   };

@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,7 +17,7 @@ use crate as pallet_sft;
 use crate::Config;
 use frame_support::{dispatch::DispatchResult, parameter_types, PalletId};
 use frame_system::EnsureRoot;
-use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest, *};
+use seed_pallet_common::*;
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
 };
@@ -21,6 +25,7 @@ use sp_core::H256;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
+	Permill,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;

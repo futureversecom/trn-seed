@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -20,6 +24,7 @@ use codec::Encode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{assert_ok, BoundedVec};
 use frame_system::RawOrigin;
+use sp_runtime::Permill;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -67,6 +72,10 @@ benchmarks! {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), collection_id, "https://example.com/tokens/".into())
 
+	set_name {
+		let collection_id = build_collection::<T>(None);
+	}: _(origin::<T>(&account::<T>("Alice")), collection_id, BoundedVec::truncate_from("New Name".encode()))
+
 	create_collection {
 		let metadata = MetadataScheme::try_from(b"https://google.com/".as_slice()).unwrap();
 		let ccc = CrossChainCompatibility { xrpl: false };
@@ -84,6 +93,10 @@ benchmarks! {
 	burn {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), TokenId::from((collection_id, 0)))
+
+	set_fee_to {
+		let fee_account = account::<T>("Alice");
+	}: _(RawOrigin::Root, Some(fee_account))
 }
 
 impl_benchmark_test_suite!(Nft, crate::mock::new_test_ext(), crate::mock::Test,);

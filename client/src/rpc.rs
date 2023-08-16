@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -170,6 +174,7 @@ where
 	C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
 	C::Api: pallet_dex_rpc::DexRuntimeApi<Block, Runtime>,
 	C::Api: pallet_nft_rpc::NftRuntimeApi<Block, AccountId, Runtime>,
+	C::Api: pallet_sft_rpc::SftRuntimeApi<Block, Runtime>,
 	P: TransactionPool<Block = Block> + 'static,
 	SC: SelectChain<Block> + 'static,
 {
@@ -179,6 +184,7 @@ where
 	};
 	use pallet_dex_rpc::{Dex, DexApiServer};
 	use pallet_nft_rpc::{Nft, NftApiServer};
+	use pallet_sft_rpc::{Sft, SftApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 	use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
@@ -251,6 +257,7 @@ where
 	// The Root Network RPCs
 	io.merge(Dex::new(client.clone()).into_rpc())?;
 	io.merge(Nft::new(client.clone()).into_rpc())?;
+	io.merge(Sft::new(client.clone()).into_rpc())?;
 
 	// Ethereum compatible RPCs
 	io.merge(

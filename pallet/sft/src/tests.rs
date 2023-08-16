@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -359,13 +363,44 @@ mod create_token {
 			);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::TokenCreated {
+			System::assert_last_event(Event::Sft(crate::Event::TokenCreate {
 				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: Some(max_issuance),
 				token_name,
 				token_owner,
 			}));
+		});
+	}
+
+	#[test]
+	fn do_create_token_returns_serial() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let collection_id = create_test_collection(collection_owner);
+			let token_name = bounded_string("my-token");
+
+			let serial_number = Sft::do_create_token(
+				collection_owner,
+				collection_id,
+				token_name.clone(),
+				0,
+				None,
+				None,
+			)
+			.unwrap();
+			assert_eq!(serial_number, 0);
+
+			let serial_number = Sft::do_create_token(
+				collection_owner,
+				collection_id,
+				token_name.clone(),
+				0,
+				None,
+				None,
+			)
+			.unwrap();
+			assert_eq!(serial_number, 1);
 		});
 	}
 
@@ -398,7 +433,7 @@ mod create_token {
 			assert_eq!(TokenInfo::<Test>::get((collection_id, 0)).unwrap(), expected_token_info);
 
 			// Event emitted
-			System::assert_last_event(Event::Sft(crate::Event::TokenCreated {
+			System::assert_last_event(Event::Sft(crate::Event::TokenCreate {
 				token_id: (collection_id, 0),
 				initial_issuance,
 				max_issuance: None,
@@ -1130,6 +1165,26 @@ mod transfer {
 			);
 		});
 	}
+
+	#[test]
+	fn transfer_new_owner_is_signer_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let (collection_id, serial_number) = token_id;
+
+			// Second serial number does not exist so should fail
+			assert_noop!(
+				Sft::transfer(
+					Some(collection_owner).into(),
+					collection_id,
+					bounded_combined(vec![serial_number, 12], vec![100, 10]),
+					collection_owner,
+				),
+				Error::<Test>::InvalidNewOwner
+			);
+		});
+	}
 }
 
 mod burn {
@@ -1481,6 +1536,84 @@ mod set_base_uri {
 			assert_noop!(
 				Sft::set_base_uri(Some(bob()).into(), token_id.0, metadata_scheme.clone()),
 				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+}
+
+mod set_name {
+	use super::*;
+
+	#[test]
+	fn set_name_works() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let collection_name = bounded_string("test-collection");
+
+			// Set name
+			assert_ok!(Sft::set_name(
+				Some(collection_owner).into(),
+				token_id.0,
+				collection_name.clone()
+			));
+
+			// Name is correct
+			let collection_info = SftCollectionInfo::<Test>::get(token_id.0).unwrap();
+			assert_eq!(collection_info.collection_name, collection_name);
+		});
+	}
+
+	#[test]
+	fn set_name_no_collection_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let collection_id: u32 = 1;
+			let new_name = bounded_string("yeet");
+
+			// Call to unknown collection should fail
+			assert_noop!(
+				Sft::set_name(Some(collection_owner).into(), collection_id, new_name),
+				Error::<Test>::NoCollectionFound
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_not_collection_owner_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+			let collection_name = bounded_string("test-collection");
+
+			// Set name fails because not collection owner
+			assert_noop!(
+				Sft::set_name(Some(bob()).into(), token_id.0, collection_name),
+				Error::<Test>::NotCollectionOwner
+			);
+		});
+	}
+
+	#[test]
+	fn set_name_invalid_name_fails() {
+		TestExt::default().build().execute_with(|| {
+			let collection_owner = alice();
+			let token_id = create_test_token(collection_owner, collection_owner, 1000);
+
+			// Calls with no name should fail
+			assert_noop!(
+				Sft::set_name(Some(collection_owner).into(), token_id.0, bounded_string("")),
+				Error::<Test>::NameInvalid
+			);
+
+			// non UTF-8 chars
+			assert_noop!(
+				Sft::set_name(
+					Some(collection_owner).into(),
+					token_id.0,
+					BoundedVec::truncate_from(vec![0xfe, 0xff])
+				),
+				Error::<Test>::NameInvalid
 			);
 		});
 	}

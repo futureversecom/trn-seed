@@ -1,6 +1,6 @@
 [package]
 name = "seed-client"
-version = "2.0.0"
+version = "3.0.0"
 authors = ["The Root Network Team"]
 edition = "2021"
 publish = false
@@ -22,6 +22,8 @@ futures = "0.3.25"
 clap = { version = "3.2.22", features = ["derive"] }
 url = "2.3.1"
 hex-literal = "0.3.4"
+hex = "0.4"
+libsecp256k1 = { version = "0.6.0" }
 
 sc-cli = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
@@ -85,6 +87,7 @@ seed-primitives = { path = "../primitives" }
 seed-runtime = { path = "../runtime" }
 pallet-dex-rpc = { path = "../pallet/dex/rpc" }
 pallet-nft-rpc = { path = "../pallet/nft/rpc" }
+pallet-sft-rpc = { path = "../pallet/sft/rpc" }
 
 # Diagnostics
 log = "0.4.0"

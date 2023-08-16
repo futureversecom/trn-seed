@@ -69,10 +69,14 @@ pallet-evm-precompile-simple = { default-features = false, git = "https://github
 pallet-evm-precompile-sha3fips = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 precompile-utils = { path = "../evm-precompiles/utils", default-features = false }
 pallet-evm-precompiles-erc721 = { path = "../evm-precompiles/erc721", default-features = false }
+pallet-evm-precompiles-erc1155 = { path = "../evm-precompiles/erc1155", default-features = false }
 pallet-evm-precompiles-erc20 = { path = "../evm-precompiles/erc20", default-features = false }
 pallet-evm-precompiles-nft = { path = "../evm-precompiles/nft", default-features = false }
+pallet-evm-precompiles-sft = { path = "../evm-precompiles/sft", default-features = false }
 pallet-evm-precompiles-peg = { path = "../evm-precompiles/peg", default-features = false }
+pallet-evm-precompiles-dex = { path = "../evm-precompiles/dex", default-features = false }
 pallet-evm-precompiles-futurepass = { path = "../evm-precompiles/futurepass", default-features = false }
+pallet-evm-precompiles-futurepass-registrar = { path = "../evm-precompiles/futurepass_registrar", default-features = false }
 rustc-hex = { version = "2.1.0", default-features = false }
 
 pallet-assets-ext = { path = "../pallet/assets-ext", default-features = false }
@@ -84,6 +88,7 @@ pallet-fee-proxy = { path = "../pallet/fee-proxy", default-features = false }
 pallet-nft = { path = "../pallet/nft", default-features = false }
 pallet-nft-rpc-runtime-api = { path = "../pallet/nft/rpc/runtime-api", default-features = false }
 pallet-sft = { path = "../pallet/sft", default-features = false }
+pallet-sft-rpc-runtime-api = { path = "../pallet/sft/rpc/runtime-api", default-features = false }
 pallet-token-approvals = { path = "../pallet/token-approvals", default-features = false }
 pallet-tx-fee-pot = { path = "../pallet/tx-fee-pot", default-features = false }
 pallet-xrpl-bridge = { path = "../pallet/xrpl-bridge", default-features = false }
@@ -175,6 +180,7 @@ std = [
 	"pallet-nft/std",
 	"pallet-nft-rpc-runtime-api/std",
 	"pallet-sft/std",
+	"pallet-sft-rpc-runtime-api/std",
 	"pallet-xrpl-bridge/std",
 	"pallet-tx-fee-pot/std",
 	"pallet-token-approvals/std",
@@ -194,10 +200,14 @@ std = [
 	"pallet-evm-precompile-simple/std",
 	"pallet-evm-precompile-sha3fips/std",
 	"pallet-evm-precompiles-erc721/std",
+	"pallet-evm-precompiles-erc1155/std",
 	"pallet-evm-precompiles-erc20/std",
 	"pallet-evm-precompiles-nft/std",
+	"pallet-evm-precompiles-sft/std",
 	"pallet-evm-precompiles-peg/std",
+	"pallet-evm-precompiles-dex/std",
 	"pallet-evm-precompiles-futurepass/std",
+	"pallet-evm-precompiles-futurepass-registrar/std",
 	"pallet-fee-control/std",
 	"precompile-utils/std",
 	"rustc-hex/std",

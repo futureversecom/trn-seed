@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -95,8 +99,16 @@ pub fn dev_config() -> Result<ChainSpec, String> {
 				vec![
 					get_account_id_from_seed::<ecdsa::Public>("Alice"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob"),
+					get_account_id_from_seed::<ecdsa::Public>("Charlie"),
+					get_account_id_from_seed::<ecdsa::Public>("Dave"),
+					get_account_id_from_seed::<ecdsa::Public>("Eve"),
+					get_account_id_from_seed::<ecdsa::Public>("Ferdie"),
 					get_account_id_from_seed::<ecdsa::Public>("Alice//stash"),
 					get_account_id_from_seed::<ecdsa::Public>("Bob//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Charlie//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Dave//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Eve//stash"),
+					get_account_id_from_seed::<ecdsa::Public>("Ferdie//stash"),
 					AccountId::from(hex!("f24FF3a9CF04c71Dbc94D0b566f7A27B94566cac")), // Alith
 					AccountId::from(hex!("3Cd0A705a2DC65e5b1E1205896BaA2be8A07c6e0")), // Baltathar
 					AccountId::from(hex!("798d4Ba9baf0064Ec19eB4F0a1a45785ae9D6DFc")), // Charleth

@@ -15,7 +15,7 @@ import {
   NodeProcess,
   startNode,
   typedefs,
-} from "../common";
+} from "../../common";
 
 // NFT Collection information
 const name = "test-collection";
@@ -515,7 +515,7 @@ describe("ERC721 Precompile", function () {
     const transferOwnership = await erc721Precompile.connect(bobSigner).transferOwnership(alithSigner.address);
     let receipt = await transferOwnership.wait();
     expect((receipt?.events as any)[0].event).to.equal("OwnershipTransferred");
-    expect((receipt?.events as any)[0].args.oldOwner).to.equal(bobSigner.address);
+    expect((receipt?.events as any)[0].args.previousOwner).to.equal(bobSigner.address);
     expect((receipt?.events as any)[0].args.newOwner).to.equal(alithSigner.address);
 
     // Check ownership is now alith
@@ -525,7 +525,7 @@ describe("ERC721 Precompile", function () {
     const renounceOwnership = await erc721Precompile.connect(alithSigner).renounceOwnership();
     receipt = await renounceOwnership.wait();
     expect((receipt?.events as any)[0].event).to.equal("OwnershipTransferred");
-    expect((receipt?.events as any)[0].args.oldOwner).to.equal(alithSigner.address);
+    expect((receipt?.events as any)[0].args.previousOwner).to.equal(alithSigner.address);
     expect((receipt?.events as any)[0].args.newOwner).to.equal(constants.AddressZero);
 
     // Check ownership is now zero address

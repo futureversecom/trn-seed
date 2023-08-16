@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,7 +31,7 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId,
+	ConsensusEngineId, Permill,
 };
 use std::marker::PhantomData;
 
@@ -250,17 +254,22 @@ parameter_types! {
 	pub const MintLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const StringLimit: u32 = 50;
+	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
 }
 
 impl crate::Config for Test {
 	type Event = Event;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
+	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
+	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }

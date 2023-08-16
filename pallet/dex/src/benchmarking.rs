@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -61,7 +65,8 @@ where
 		Balance::from(200_000u32),
 		Balance::from(1_000u32),
 		Balance::from(1_000u32),
-		Balance::from(100u32),
+		None,
+		None,
 	));
 
 	(asset_id_1, asset_id_2)
@@ -72,19 +77,19 @@ benchmarks! {
 	swap_with_exact_supply {
 		let alice = account::<T>("Alice");
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
-	}: _(origin::<T>(&alice), Balance::from(100u32), Balance::from(10u32), vec![asset_id_1, asset_id_2])
+	}: _(origin::<T>(&alice), Balance::from(100u32), Balance::from(10u32), vec![asset_id_1, asset_id_2], None, None)
 
 	swap_with_exact_target {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
-	}: _(origin::<T>(&account::<T>("Alice")), Balance::from(100u32), Balance::from(120u32), vec![asset_id_1, asset_id_2])
+	}: _(origin::<T>(&account::<T>("Alice")), Balance::from(100u32), Balance::from(120u32), vec![asset_id_1, asset_id_2], None, None)
 
 	add_liquidity {
 		let (asset_id_1, asset_id_2) = (mint_asset::<T>(), mint_asset::<T>());
-	}: _(origin::<T>(&account::<T>("Alice")), asset_id_1, asset_id_2, Balance::from(100000u32), Balance::from(200000u32), Balance::from(1000u32), Balance::from(1000u32), Balance::from(100u32))
+	}: _(origin::<T>(&account::<T>("Alice")), asset_id_1, asset_id_2, Balance::from(100000u32), Balance::from(200000u32), Balance::from(1000u32), Balance::from(1000u32), None, None)
 
 	remove_liquidity {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
-	}: _(origin::<T>(&account::<T>("Alice")), asset_id_1, asset_id_2, Balance::from(100u32), Balance::from(10u32), Balance::from(10u32))
+	}: _(origin::<T>(&account::<T>("Alice")), asset_id_1, asset_id_2, Balance::from(100u32), Balance::from(10u32), Balance::from(10u32), None, None)
 
 	reenable_trading_pair {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
@@ -94,6 +99,10 @@ benchmarks! {
 	disable_trading_pair {
 		let (asset_id_1, asset_id_2) = build_liquidity::<T>();
 	}: _(RawOrigin::Root, asset_id_1, asset_id_2)
+
+	set_fee_to {
+		let fee_account = account::<T>("Alice");
+	}: _(RawOrigin::Root, Some(fee_account))
 }
 
 impl_benchmark_test_suite!(Dex, crate::mock::new_test_ext(), crate::mock::Test,);

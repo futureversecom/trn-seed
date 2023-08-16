@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -57,6 +61,15 @@ pub fn encoded_revert(output: impl AsRef<[u8]>) -> Vec<u8> {
 #[must_use]
 pub fn succeed(output: impl AsRef<[u8]>) -> PrecompileOutput {
 	PrecompileOutput { exit_status: ExitSucceed::Returned, output: output.as_ref().to_owned() }
+}
+
+/// returns the first four bytes or zero if less than four bytes
+pub fn get_selector(call_data: &[u8]) -> [u8; 4] {
+	if call_data.len() < 4 {
+		return [0_u8; 4]
+	}
+
+	call_data[0..4].try_into().unwrap_or_default()
 }
 
 /// Alias for Result returning an EVM precompile error.

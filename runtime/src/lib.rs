@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,8 +31,7 @@ use pallet_ethereum::{
 	TransactionAction,
 };
 use pallet_evm::{
-	Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressNever, EvmConfig, FeeCalculator,
-	Runner as RunnerT,
+	Account as EVMAccount, EnsureAddressNever, EvmConfig, FeeCalculator, Runner as RunnerT,
 };
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
@@ -120,7 +123,9 @@ use staking::OnChainAccuracy;
 mod migrations;
 mod weights;
 
-use crate::impls::{FutureverseEnsureAddressSame, OnNewAssetSubscription};
+use crate::impls::{
+	FutureverseEVMCurrencyAdapter, FutureverseEnsureAddressSame, OnNewAssetSubscription,
+};
 
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use seed_primitives::BlakeTwo256Hash;
@@ -140,10 +145,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("root"),
 	impl_name: create_runtime_str!("root"),
 	authoring_version: 1,
-	spec_version: 35,
+	spec_version: 40,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
-	transaction_version: 1,
+	transaction_version: 3,
 	state_version: 0,
 };
 
@@ -221,6 +226,10 @@ impl frame_support::traits::Contains<Call> for CallFilter {
 				}
 				true
 			},
+			// Payouts are restricted until a new staking payout system is implemented
+			Call::Staking(pallet_staking::Call::payout_stakers { .. }) => false,
+			// Disable Proxy::add_proxy
+			Call::Proxy(pallet_proxy::Call::add_proxy { .. }) => false,
 			_ => true,
 		}
 	}
@@ -386,17 +395,22 @@ parameter_types! {
 	pub const CollectionNameStringLimit: u32 = 50;
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const MintLimit: u32 = 1_000;
+	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl pallet_nft::Config for Runtime {
 	type Event = Event;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
+	type MultiCurrency = AssetsExt;
+	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
+	type DefaultFeeTo = DefaultTxFeePotId;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 }
@@ -526,6 +540,7 @@ parameter_types! {
 	pub const TradingPathLimit: u32 = 3;
 	pub const DEXBurnPalletId: PalletId = PalletId(*b"burn/dex");
 	pub const LPTokenDecimals: u8 = 18;
+	pub const DefaultFeeTo: Option<PalletId> = Some(TxFeePotId::get());
 }
 impl pallet_dex::Config for Runtime {
 	type Event = Event;
@@ -533,6 +548,7 @@ impl pallet_dex::Config for Runtime {
 	type LPTokenDecimals = LPTokenDecimals;
 	type GetExchangeFee = GetExchangeFee;
 	type TradingPathLimit = TradingPathLimit;
+	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = weights::pallet_dex::WeightInfo<Runtime>;
 	type MultiCurrency = AssetsExt;
 }
@@ -989,7 +1005,7 @@ impl pallet_evm::Config for Runtime {
 	type PrecompilesValue = PrecompilesValue;
 	type ChainId = EVMChainId;
 	type BlockGasLimit = BlockGasLimit;
-	type OnChargeTransaction = EVMCurrencyAdapter<Self::Currency, TxFeePot>;
+	type OnChargeTransaction = FutureverseEVMCurrencyAdapter<Self::Currency, TxFeePot>;
 	type FindAuthor = EthereumFindAuthor<Babe>;
 	// internal EVM config
 	fn config() -> &'static EvmConfig {
@@ -1464,6 +1480,12 @@ impl_runtime_apis! {
 		}
 	}
 
+	impl pallet_sft_rpc_runtime_api::SftApi<Block, Runtime> for Runtime {
+		fn token_uri(token_id: TokenId) -> Vec<u8> {
+			Sft::token_uri(token_id)
+		}
+	}
+
 	impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
 		fn chain_id() -> u64 {
 			<Runtime as pallet_evm::Config>::ChainId::get()
@@ -1741,10 +1763,18 @@ fn transaction_asset_check(
 	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY_ADDRESS));
 
 	if action == fee_proxy {
-		let (input, gas_limit, max_fee_per_gas) = match eth_tx {
-			EthereumTransaction::Legacy(t) => (t.input, t.gas_limit, None),
-			EthereumTransaction::EIP2930(t) => (t.input, t.gas_limit, None),
-			EthereumTransaction::EIP1559(t) => (t.input, t.gas_limit, Some(t.max_fee_per_gas)),
+		let (input, gas_limit, gas_price, max_fee_per_gas, max_priority_fee_per_gas) = match eth_tx
+		{
+			EthereumTransaction::Legacy(t) => (t.input, t.gas_limit, Some(t.gas_price), None, None),
+			EthereumTransaction::EIP2930(t) =>
+				(t.input, t.gas_limit, Some(t.gas_price), None, None),
+			EthereumTransaction::EIP1559(t) => (
+				t.input,
+				t.gas_limit,
+				None,
+				Some(t.max_fee_per_gas),
+				Some(t.max_priority_fee_per_gas),
+			),
 		};
 
 		let (payment_asset_id, max_payment, _target, _input) =
@@ -1764,7 +1794,9 @@ fn transaction_asset_check(
 		let FeePreferencesData { path, total_fee_scaled } =
 			get_fee_preferences_data::<Runtime, Runtime, Futurepass>(
 				gas_limit.as_u64(),
+				gas_price,
 				max_fee_per_gas,
+				max_priority_fee_per_gas,
 				payment_asset_id,
 			)?;
 
@@ -1917,5 +1949,6 @@ mod benches {
 		[pallet_token_approvals, TokenApprovals]
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
+		[pallet_dex, Dex]
 	);
 }

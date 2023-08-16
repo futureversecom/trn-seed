@@ -1,7 +1,11 @@
 // Copyright 2022-2023 Futureverse Corporation Limited
 //
-// Licensed under the LGPL, Version 3.0 (the "License");
+// Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -79,13 +83,24 @@ impl Into<Vec<u8>> for Bytes {
 /// Same as `Bytes` but with an additional length bound on read.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BoundedBytes<S> {
-	inner: Vec<u8>,
+	pub inner: Vec<u8>,
 	_phantom: PhantomData<S>,
 }
 
 impl<S> BoundedBytes<S> {
 	pub fn into_vec(self) -> Vec<u8> {
 		self.inner
+	}
+}
+
+/// The `bytes<X>` type of Solidity. X can be any number less than 32
+/// This will post pad the value with zeros upto a total of 32 bytes
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Bytes32PostPad(pub Vec<u8>);
+
+impl From<&[u8]> for Bytes32PostPad {
+	fn from(a: &[u8]) -> Self {
+		Self(a.to_owned())
 	}
 }
 
@@ -537,6 +552,28 @@ impl<S: Get<u32>> EvmData for BoundedBytes<S> {
 
 	fn has_static_size() -> bool {
 		false
+	}
+}
+
+impl EvmData for Bytes32PostPad {
+	fn read(reader: &mut EvmDataReader) -> MayRevert<Self> {
+		let range = reader.move_cursor(32)?;
+		let data = reader
+			.input
+			.get(range)
+			.ok_or_else(|| RevertReason::read_out_of_bounds("bytes32"))?;
+
+		Ok(Bytes32PostPad::from(data))
+	}
+
+	fn write(writer: &mut EvmDataWriter, value: Self) {
+		let mut value = value.0;
+		value.resize(32, 0_u8);
+		writer.data.extend_from_slice(value.as_slice());
+	}
+
+	fn has_static_size() -> bool {
+		true
 	}
 }
 
