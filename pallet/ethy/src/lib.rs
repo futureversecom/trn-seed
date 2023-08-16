@@ -396,8 +396,8 @@ decl_module! {
 			ensure_root(origin)?;
 			ensure!((new_signers.len() as u8) < T::MaxNewSigners::get(), Error::<T>::MaxNewSignersExceeded);
 
-			for new_signer in &new_signers {
-				XrplDoorSigners::<T>::insert(&new_signer.0, &new_signer.1);
+			for new_signer in new_signers {
+				XrplDoorSigners::<T>::insert(new_signer.0, new_signer.1);
 			}
 
 
