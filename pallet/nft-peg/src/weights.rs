@@ -61,7 +61,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(16 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
 	}
-	// Storage: NftPeg RoadBlocked (r:1 w:1)
+	// Storage: NftPeg BlockedTokens (r:1 w:1)
 	// Storage: Nft CollectionInfo (r:1 w:0)
 	// Storage: NftPeg RootNftToErc721 (r:1 w:0)
 	// Storage: NftPeg ContractAddress (r:1 w:0)

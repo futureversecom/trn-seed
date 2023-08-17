@@ -31,8 +31,10 @@ pub struct TokenInfo<T: Config> {
 	pub token_ids: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 }
 
+/// Unique id to distinguish tokens that failed to mint
 pub type BlockedMintId = u32;
 
+/// Information regarding tokens that failed to mint
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct BlockedTokenInfo<T: Config> {

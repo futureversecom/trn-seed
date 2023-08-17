@@ -356,7 +356,7 @@ fn do_withdraw_invalid_token_length_should_fail() {
 }
 
 #[test]
-fn do_deposit_adds_to_road_block_on_fail() {
+fn do_deposit_adds_to_blocked_on_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
 		let blocked_mint_id = NftPeg::next_blocked_mint_id();
@@ -382,11 +382,11 @@ fn do_deposit_adds_to_road_block_on_fail() {
 			destination_address: test_vals.destination.into()
 		}));
 
-		let road_blocked = Pallet::<Test>::blocked_tokens(blocked_mint_id).unwrap();
+		let blocked = Pallet::<Test>::blocked_tokens(blocked_mint_id).unwrap();
 
-		assert_eq!(road_blocked.collection_id, collection_id);
-		assert_eq!(road_blocked.serial_numbers, serial_numbers);
-		assert_eq!(road_blocked.destination_address, test_vals.destination.into());
+		assert_eq!(blocked.collection_id, collection_id);
+		assert_eq!(blocked.serial_numbers, serial_numbers);
+		assert_eq!(blocked.destination_address, test_vals.destination.into());
 	})
 }
 

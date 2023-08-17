@@ -179,7 +179,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Withdraw blocked tokens, must be called by the destination defined in `RoadBlocked`
+		/// Withdraw blocked tokens, must be called by the destination defined in `BlockedTokens`
 		#[pallet::weight(T::NftPegWeightInfo::reclaim_blocked_nfts())]
 		#[transactional]
 		pub fn reclaim_blocked_nfts(
@@ -359,7 +359,7 @@ where
 				Ok(mint_weight) => {
 					weight = weight.saturating_add(mint_weight);
 				},
-				// If mint fails, add tokens to `RoadBlocked`
+				// If mint fails, add tokens to `BlockedTokens`
 				Err((mint_weight, err)) => {
 					weight = weight.saturating_add(mint_weight);
 

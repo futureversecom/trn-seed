@@ -54,7 +54,7 @@ impl<T: frame_system::Config> pallet_nft_peg::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(16 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
-	// Storage: NftPeg RoadBlocked (r:1 w:1)
+	// Storage: NftPeg BlockedTokens (r:1 w:1)
 	// Storage: Nft CollectionInfo (r:1 w:0)
 	// Storage: NftPeg RootNftToErc721 (r:1 w:0)
 	// Storage: NftPeg ContractAddress (r:1 w:0)
