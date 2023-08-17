@@ -130,7 +130,12 @@ pub mod pallet {
 			owner: T::AccountId,
 		},
 		/// Bridged ERC721 tokens were unable to be minted due to collection limit being reached
-		ERC721Blocked { road_block_id: BlockedMintId, destination_address: T::AccountId },
+		ERC721Blocked {
+			road_block_id: BlockedMintId,
+			destination_address: T::AccountId,
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
+		},
 		/// An ERC721 withdraw was made
 		Erc721Withdraw {
 			origin: T::AccountId,
@@ -370,7 +375,7 @@ where
 						road_block_id,
 						BlockedTokenInfo {
 							collection_id,
-							serial_numbers,
+							serial_numbers: serial_numbers.clone(),
 							destination_address: destination.clone(),
 						},
 					);
@@ -379,6 +384,8 @@ where
 					// Throw event with values necessary to rescue tokens
 					Self::deposit_event(Event::<T>::ERC721Blocked {
 						road_block_id,
+						collection_id,
+						serial_numbers,
 						destination_address: destination,
 					});
 
