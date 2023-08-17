@@ -79,16 +79,16 @@ pub mod pallet {
 	pub type RootNftToErc721<T: Config> =
 		StorageMap<_, Twox64Concat, CollectionUuid, EthAddress, OptionQuery>;
 
-	// Map RoadBlock ID to blocked tokens
+	// Map BlockedMintId to tokens
 	#[pallet::storage]
 	#[pallet::getter(fn blocked_tokens)]
 	pub type BlockedTokens<T: Config> =
 		StorageMap<_, Twox64Concat, BlockedMintId, BlockedTokenInfo<T>, OptionQuery>;
 
-	/// The next available RoadBlock ID
+	/// The next available BlockedMintId
 	#[pallet::storage]
 	#[pallet::getter(fn next_blocked_mint_id)]
-	pub type NextTokenBlockId<T> = StorageValue<_, BlockedMintId, ValueQuery>;
+	pub type NextBlockedMintId<T> = StorageValue<_, BlockedMintId, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -378,7 +378,7 @@ where
 							destination_address: destination.clone(),
 						},
 					);
-					<NextTokenBlockId<T>>::mutate(|i| *i += 1);
+					<NextBlockedMintId<T>>::mutate(|i| *i += 1);
 
 					// Throw event with values necessary to reclaim tokens
 					Self::deposit_event(Event::<T>::ERC721Blocked {

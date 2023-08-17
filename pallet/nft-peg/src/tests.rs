@@ -373,7 +373,7 @@ fn do_deposit_adds_to_road_block_on_fail() {
 		let (_, err) =
 			Pallet::<Test>::do_deposit(token_information, test_vals.destination).unwrap_err();
 
-		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
+		assert_eq!(err, pallet_nft::Error::<Test>::BlockedMint.into());
 
 		assert!(has_event(crate::Event::<Test>::ERC721Blocked {
 			blocked_mint_id,
@@ -405,7 +405,7 @@ fn reclaim_blocked_nfts() {
 		let (_, err) =
 			Pallet::<Test>::do_deposit(token_information, collection_owner.into()).unwrap_err();
 
-		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
+		assert_eq!(err, pallet_nft::Error::<Test>::BlockedMint.into());
 
 		assert_ok!(Pallet::<Test>::reclaim_blocked_nfts(
 			Some(collection_owner).into(),
@@ -431,7 +431,7 @@ fn reclaim_blocked_nfts_called_by_wrong_account_should_fail() {
 		let (_, err) =
 			Pallet::<Test>::do_deposit(token_information, collection_owner.into()).unwrap_err();
 
-		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
+		assert_eq!(err, pallet_nft::Error::<Test>::BlockedMint.into());
 
 		assert_noop!(
 			Pallet::<Test>::reclaim_blocked_nfts(

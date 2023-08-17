@@ -437,8 +437,8 @@ pub mod pallet {
 		InitialIssuanceNotZero,
 		/// Total issuance of collection must be zero to add xls20 compatibility
 		CollectionIssuanceNotZero,
-		/// Token(s) blocked from bridging
-		TokensBlocked,
+		/// Token(s) blocked from minting during the bridging process
+		BlockedMint,
 	}
 
 	#[pallet::hooks]

@@ -112,7 +112,7 @@ benchmarks! {
 		let (_, err) =
 			NftPeg::do_deposit(token_info, alice.clone().into()).unwrap_err();
 		// Check tokens were blocked
-		assert_eq!(err, pallet_nft::Error::<T>::TokensBlocked.into());
+		assert_eq!(err, pallet_nft::Error::<T>::BlockedMint.into());
 
 	}: _(origin::<T>(&alice), blocked_mint_id, alice.clone().into())
 	verify {

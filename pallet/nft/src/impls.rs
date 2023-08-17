@@ -243,7 +243,7 @@ impl<T: Config> Pallet<T> {
 
 					Ok(T::DbWeight::get().reads_writes(1, 1))
 				} else {
-					Err((T::DbWeight::get().reads(1), (Error::<T>::TokensBlocked).into()))
+					Err((T::DbWeight::get().reads(1), (Error::<T>::BlockedMint).into()))
 				}
 			},
 			_ => Ok(T::DbWeight::get().reads(1)),
