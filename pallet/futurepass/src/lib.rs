@@ -424,7 +424,18 @@ pub mod pallet {
 		/// Parameters:
 		/// - `current_owner`: The current owner of the futurepass.
 		/// - `new_owner`: The new account that will become the owner of the futurepass.
-		#[pallet::weight(T::WeightInfo::transfer_futurepass())]
+		/// # <weight>
+		/// Weight is a function of the number of proxies the user has.
+		/// # </weight>
+		#[pallet::weight({
+			match Holders::<T>::get(current_owner) {
+				Some(futurepass) => {
+					let delegate_count = T::Proxy::delegates(& futurepass).len() as u32;
+					T::WeightInfo::transfer_futurepass(delegate_count)
+				},
+				None => T::WeightInfo::transfer_futurepass(0) // should have passed max value here
+			}
+		})]
 		#[transactional]
 		pub fn transfer_futurepass(
 			origin: OriginFor<T>,
