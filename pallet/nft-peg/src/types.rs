@@ -31,11 +31,11 @@ pub struct TokenInfo<T: Config> {
 	pub token_ids: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 }
 
-pub type RoadBlockId = u32;
+pub type BlockedMintId = u32;
 
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
-pub struct RoadBlockedTokens<T: Config> {
+pub struct BlockedTokenInfo<T: Config> {
 	pub collection_id: CollectionUuid,
 	pub destination_address: T::AccountId,
 	pub serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,

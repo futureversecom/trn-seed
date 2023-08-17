@@ -82,13 +82,13 @@ pub mod pallet {
 	// Map RoadBlock ID to blocked tokens
 	#[pallet::storage]
 	#[pallet::getter(fn road_blocked)]
-	pub type RoadBlocked<T: Config> =
-		StorageMap<_, Twox64Concat, RoadBlockId, RoadBlockedTokens<T>, OptionQuery>;
+	pub type BlockedTokens<T: Config> =
+		StorageMap<_, Twox64Concat, BlockedMintId, BlockedTokenInfo<T>, OptionQuery>;
 
 	/// The next available RoadBlock ID
 	#[pallet::storage]
 	#[pallet::getter(fn next_road_block_id)]
-	pub type NextRoadBlockId<T> = StorageValue<_, RoadBlockId, ValueQuery>;
+	pub type NextTokenBlockId<T> = StorageValue<_, BlockedMintId, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -129,8 +129,8 @@ pub mod pallet {
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 			owner: T::AccountId,
 		},
-		/// Bridged ERC721 tokens were unable to be minted
-		ERC721Blocked { road_block_id: RoadBlockId, destination_address: T::AccountId },
+		/// Bridged ERC721 tokens were unable to be minted due to collection limit being reached
+		ERC721Blocked { road_block_id: BlockedMintId, destination_address: T::AccountId },
 		/// An ERC721 withdraw was made
 		Erc721Withdraw {
 			origin: T::AccountId,
@@ -175,15 +175,15 @@ pub mod pallet {
 		}
 
 		/// Withdraw blocked tokens, must be called by the destination defined in `RoadBlocked`
-		#[pallet::weight(T::NftPegWeightInfo::rescue_blocked_nfts())]
+		#[pallet::weight(T::NftPegWeightInfo::reclaim_blocked_nfts())]
 		#[transactional]
-		pub fn rescue_blocked_nfts(
+		pub fn reclaim_blocked_nfts(
 			origin: OriginFor<T>,
-			road_block_id: RoadBlockId,
+			road_block_id: BlockedMintId,
 			destination: H160,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_rescue_blocked_nfts(who, road_block_id, destination)?;
+			Self::do_reclaim_blocked_nfts(who, road_block_id, destination)?;
 			Ok(())
 		}
 	}
@@ -366,15 +366,15 @@ where
 						BoundedVec::try_from(serial_numbers)
 							.map_err(|_| (weight, Error::<T>::ExceedsMaxVecLength.into()))?;
 
-					<RoadBlocked<T>>::insert(
+					<BlockedTokens<T>>::insert(
 						road_block_id,
-						RoadBlockedTokens {
+						BlockedTokenInfo {
 							collection_id,
 							serial_numbers,
 							destination_address: destination.clone(),
 						},
 					);
-					<NextRoadBlockId<T>>::mutate(|i| *i += 1);
+					<NextTokenBlockId<T>>::mutate(|i| *i += 1);
 
 					// Throw event with values necessary to rescue tokens
 					Self::deposit_event(Event::<T>::ERC721Blocked {
@@ -411,7 +411,7 @@ where
 		>,
 		// Ethereum address to deposit the tokens into
 		destination: H160,
-		road_block_id: Option<RoadBlockId>,
+		road_block_id: Option<BlockedMintId>,
 	) -> Result<u64, DispatchError> {
 		ensure!(collection_ids.len() == serial_numbers.len(), Error::<T>::TokenListLengthMismatch);
 		let mut source_collection_ids = Vec::with_capacity(collection_ids.len());
@@ -437,7 +437,7 @@ where
 					current_serial_numbers.push(Token::Uint(U256::from(*serial_number)));
 				}
 
-				<RoadBlocked<T>>::remove(road_block_id);
+				<BlockedTokens<T>>::remove(road_block_id);
 			} else {
 				for serial_number in &serial_numbers[idx] {
 					pallet_nft::Pallet::<T>::do_burn(&who, *collection_id, *serial_number)?;
@@ -472,9 +472,9 @@ where
 		Ok(event_proof_id)
 	}
 
-	fn do_rescue_blocked_nfts(
+	fn do_reclaim_blocked_nfts(
 		who: T::AccountId,
-		road_block_id: RoadBlockId,
+		road_block_id: BlockedMintId,
 		destination: H160,
 	) -> Result<(), DispatchError> {
 		let road_blocked = Self::road_blocked(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;

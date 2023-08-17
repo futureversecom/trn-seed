@@ -78,7 +78,7 @@ benchmarks! {
 		}
 	}
 
-	rescue_blocked_nfts {
+	reclaim_blocked_nfts {
 		let alice = account::<T>("Alice");
 		let token = account::<T>("Token");
 
