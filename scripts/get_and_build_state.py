@@ -169,7 +169,6 @@ def connect_to_remote_chain(url) -> SubstrateInterface:
     return (substrate, chain_name)
 
 
-
 def main():
     configuration = read_configuration_file()
     url, tag_switch = configuration['endpoint'], configuration['tag_switch']
@@ -179,14 +178,9 @@ def main():
         'at') is not None else substrate.block_hash
     print(
         f"Connected to remote chain: Url: {url}, Chain Name: {chain_name}, Hash: {hash}")
-	
 
     module_list = substrate.get_metadata_modules()
     print(f"Metadata modules of this chain: {module_list}")
-
-    if not os.path.exists('./output'):
-        os.mkdir('./output')
-        print("Created output directory: ./output")
 
     print("Fetching storage keys... ", end=None)
     keys = fetch_storage_keys(hash, url)

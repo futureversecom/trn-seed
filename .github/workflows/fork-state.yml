@@ -51,7 +51,7 @@ jobs:
           python3 -m venv ./scripts/penv
           source ./scripts/penv/bin/activate
           pip install -r ./scripts/requirements.txt
-          python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml --release-candidate ${{ github.event.inputs.release-candidate-branch }}
+          python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml --branch ${{ github.event.inputs.release-candidate-branch }}
         #  python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml $UPGRADE_FLAG
 
       - name: Upload wasm as artifact
@@ -112,7 +112,7 @@ jobs:
           interval: 20
 
   runtime-upgrade:
-    if: ${{ github.event.inputs.runtime-upgrade }}
+    if: ${{ github.event.inputs.release-candidate-branch }}
     runs-on: [seed-builder]
     needs: poll-service-status
     defaults:
