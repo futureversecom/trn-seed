@@ -82,7 +82,7 @@ benchmarks! {
 		let alice = account::<T>("Alice");
 		let token = account::<T>("Token");
 
-		let road_block_id = NftPeg::<T>::next_road_block_id();
+		let blocked_mint_id = NftPeg::<T>::next_blocked_mint_id();
 
 		let serial_numbers = vec![1_000_000_001_u32, 1_000_000_002_u32];
 		let token_1 = TokenInfo::<T>{token_address: token.clone().into(), token_ids: serial_numbers.clone().try_into().unwrap()};
@@ -111,13 +111,13 @@ benchmarks! {
 
 		let (_, err) =
 			NftPeg::do_deposit(token_info, alice.clone().into()).unwrap_err();
-		// Check road block was hit
+		// Check tokens were blocked
 		assert_eq!(err, pallet_nft::Error::<T>::TokensBlocked.into());
 
-	}: _(origin::<T>(&alice), road_block_id, alice.clone().into())
+	}: _(origin::<T>(&alice), blocked_mint_id, alice.clone().into())
 	verify {
-		let road_blocked = NftPeg::<T>::road_blocked(road_block_id);
-		assert!(road_blocked.is_none());
+		let blocked_tokens = NftPeg::<T>::blocked_tokens(blocked_mint_id);
+		assert!(blocked_tokens.is_none());
 	}
 }
 
