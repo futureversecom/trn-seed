@@ -10,6 +10,22 @@ import yaml
 
 FORK_SPEC, RAW_STORAGE = "./output/fork.json", "./output/raw_storage.json"
 
+def fetch_paged_storage_keys(substrate, prefix, hash, start_key, prev_keys):
+    if prev_keys is None:
+        keys = []
+    else:
+        keys = prev_keys
+
+    rpc_result = substrate.rpc_request(method='state_getKeysPaged', params={
+        "prefix": prefix, "count": 1000, "start_key": start_key, "at": hash, })['result']
+
+    if rpc_result:
+        keys += rpc_result
+
+    if len(rpc_result) == 1000:
+        return fetch_paged_storage_keys(substrate, prefix, hash, rpc_result[-1], keys)
+
+    return keys
 
 def fetch_storage_keys_task(hash, keys, prefixes, lock, url):
     substrate = SubstrateInterface(url=url)
@@ -27,9 +43,7 @@ def fetch_storage_keys_task(hash, keys, prefixes, lock, url):
         prefix = prefixes.pop()
         lock.release()
 
-        rpc_result = substrate.rpc_request(method='state_getKeys', params={
-            "prefix": prefix, "at": hash})['result']
-
+        rpc_result = fetch_paged_storage_keys(substrate, prefix, hash, None, None)
 
 def fetch_storage_keys(hash, url):
     keys = []
