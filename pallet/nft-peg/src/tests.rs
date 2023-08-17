@@ -59,7 +59,7 @@ fn deposit_max_tokens(owner: AccountId) {
 	let test_vals = TestVals::default();
 
 	let token_addresses =
-		BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
+		BoundedVec::<H160, MaxAddresses>::truncate_from(vec![test_vals.token_address]);
 
 	for i in 0..200 {
 		let mut token_ids = vec![];
@@ -68,17 +68,31 @@ fn deposit_max_tokens(owner: AccountId) {
 		}
 
 		let token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![
-					BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_ids).unwrap()
-				],
-			)
-			.unwrap();
+		    BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::truncate_from(
+			    vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::truncate_from(token_ids)],
+		    );
 
 		let token_information = GroupedTokenInfo::new(token_ids, token_addresses.clone(), owner);
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, owner.into()));
 	}
+}
+
+fn mock_token_information(
+	destination: AccountId,
+	serial_numbers: Vec<SerialNumber>,
+) -> GroupedTokenInfo<Test> {
+	let test_vals = TestVals::default();
+
+	let token_addresses =
+		BoundedVec::<H160, MaxAddresses>::truncate_from(vec![test_vals.token_address]);
+
+	let token_ids =
+		BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::truncate_from(
+			vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::truncate_from(serial_numbers)],
+		);
+
+	GroupedTokenInfo::<Test>::new(token_ids, token_addresses, destination)
 }
 
 #[test]
@@ -138,26 +152,18 @@ fn decode_deposit_event_errs_too_many_addresses() {
 #[test]
 fn do_deposit_creates_tokens_and_collection() {
 	ExtBuilder::default().build().execute_with(|| {
-		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 		let test_vals = TestVals::default();
-		let token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![1_u32])
-					.unwrap()],
-			)
-			.unwrap();
+		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
-		let token_addresses =
-			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
-
+		let serial_numbers = vec![1_u32];
 		let token_information =
-			GroupedTokenInfo::new(token_ids.clone(), token_addresses, test_vals.destination.into());
+			mock_token_information(test_vals.destination.into(), serial_numbers.clone());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
-			serial_numbers: token_ids[0].clone(),
 			owner: test_vals.destination.into(),
+			serial_numbers: BoundedVec::truncate_from(serial_numbers),
 		}));
 
 		assert_eq!(
@@ -192,27 +198,15 @@ fn do_deposit_works_with_existing_bridged_collection() {
 		let test_vals = TestVals::default();
 		let expected_collection_id = Nft::next_collection_uuid().unwrap();
 
-		let token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![1_u32])
-					.unwrap()],
-			)
-			.unwrap();
-
-		let token_addresses =
-			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
-
-		let token_information = GroupedTokenInfo::new(
-			token_ids.clone(),
-			token_addresses.clone(),
-			test_vals.destination.into(),
-		);
+		let serial_numbers = vec![1_u32];
+		let token_information =
+			mock_token_information(test_vals.destination.into(), serial_numbers.clone());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
-			serial_numbers: token_ids[0].clone(),
 			owner: test_vals.destination.into(),
+			serial_numbers: BoundedVec::truncate_from(serial_numbers),
 		}));
 
 		assert_eq!(
@@ -230,22 +224,16 @@ fn do_deposit_works_with_existing_bridged_collection() {
 			1
 		);
 
-		let new_token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![2_u32])
-					.unwrap()],
-			)
-			.unwrap();
-
+		let new_serial_numbers = vec![2_u32];
 		let token_information =
-			GroupedTokenInfo::new(new_token_ids, token_addresses, test_vals.destination.into());
+			mock_token_information(test_vals.destination.into(), new_serial_numbers.clone());
 
 		// When bridged tokens are sent for existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
-			serial_numbers: token_ids[0].clone(),
 			owner: test_vals.destination.into(),
+			serial_numbers: BoundedVec::truncate_from(new_serial_numbers),
 		}));
 
 		assert_eq!(
@@ -273,28 +261,14 @@ fn handles_duplicated_tokens_sent() {
 		let token_set = vec![0, 1, 2, 3, 4];
 		let token_set_duplicates = vec![4, 5, 6, 7]; // One duplicate token
 
-		let token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![
-					BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_set).unwrap()
-				],
-			)
-			.unwrap();
-
-		let token_addresses =
-			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
-
-		let token_information = GroupedTokenInfo::new(
-			token_ids.clone(),
-			token_addresses.clone(),
-			test_vals.destination.into(),
-		);
+		let token_information =
+			mock_token_information(test_vals.destination.into(), token_set.clone());
 
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
-			serial_numbers: token_ids[0].clone(),
 			owner: test_vals.destination.into(),
+			serial_numbers: BoundedVec::truncate_from(token_set),
 		}));
 
 		assert_eq!(
@@ -312,27 +286,15 @@ fn handles_duplicated_tokens_sent() {
 			5
 		);
 
-		let new_token_ids = BoundedVec::<
-			BoundedVec<SerialNumber, MaxIdsPerMultipleMint>,
-			MaxAddresses,
-		>::try_from(vec![
-			BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(token_set_duplicates)
-				.unwrap(),
-		])
-		.unwrap();
-
-		let token_information = GroupedTokenInfo::new(
-			new_token_ids.clone(),
-			token_addresses,
-			test_vals.destination.into(),
-		);
+		let token_information =
+			mock_token_information(test_vals.destination.into(), token_set_duplicates.clone());
 
 		// When bridged tokens are sent for existing collection
 		assert_ok!(Pallet::<Test>::do_deposit(token_information, test_vals.destination));
 		assert!(has_event(crate::Event::<Test>::Erc721Mint {
 			collection_id: expected_collection_id,
-			serial_numbers: new_token_ids[0].clone(),
 			owner: test_vals.destination.into(),
+			serial_numbers: BoundedVec::truncate_from(token_set_duplicates),
 		}));
 
 		assert_eq!(
@@ -405,20 +367,8 @@ fn do_deposit_adds_to_road_block_on_fail() {
 		deposit_max_tokens(collection_owner);
 
 		// Attempt to deposit tokens that exceed limit
-		let token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![
-					10_000_u32, 10_001_u32,
-				])
-				.unwrap()],
-			)
-			.unwrap();
-
-		let token_addresses =
-			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
-
-		let token_information =
-			GroupedTokenInfo::new(token_ids.clone(), token_addresses, test_vals.destination.into());
+		let serial_numbers = vec![10_001_u32, 10_002_u32];
+		let token_information = mock_token_information(collection_owner, serial_numbers.clone());
 
 		let (_, err) =
 			Pallet::<Test>::do_deposit(token_information, test_vals.destination).unwrap_err();
@@ -427,47 +377,37 @@ fn do_deposit_adds_to_road_block_on_fail() {
 
 		assert!(has_event(crate::Event::<Test>::ERC721Blocked {
 			road_block_id,
+			collection_id,
+			serial_numbers: BoundedVec::truncate_from(serial_numbers.clone()),
 			destination_address: test_vals.destination.into()
 		}));
 
 		let road_blocked = Pallet::<Test>::road_blocked(road_block_id).unwrap();
 
 		assert_eq!(road_blocked.collection_id, collection_id);
-		assert_eq!(road_blocked.serial_numbers, token_ids[0].clone());
+		assert_eq!(road_blocked.serial_numbers, serial_numbers);
 		assert_eq!(road_blocked.destination_address, test_vals.destination.into());
 	})
 }
 
 #[test]
-fn rescue_blocked_nfts() {
+fn reclaim_blocked_nfts() {
 	ExtBuilder::default().build().execute_with(|| {
-		let test_vals = TestVals::default();
 		let road_block_id = NftPeg::next_road_block_id();
 
 		let collection_owner = create_account(1);
 
 		deposit_max_tokens(collection_owner);
 
-		let token_addresses =
-			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
-
-		let token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![
-					10_000_u32, 10_001_u32,
-				])
-				.unwrap()],
-			)
-			.unwrap();
-
-		let token_information = GroupedTokenInfo::new(token_ids, token_addresses, collection_owner);
+		let token_information =
+			mock_token_information(collection_owner, vec![10_001_u32, 10_002_u32]);
 
 		let (_, err) =
 			Pallet::<Test>::do_deposit(token_information, collection_owner.into()).unwrap_err();
 
 		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
 
-		assert_ok!(Pallet::<Test>::rescue_blocked_nfts(
+		assert_ok!(Pallet::<Test>::reclaim_blocked_nfts(
 			Some(collection_owner).into(),
 			road_block_id,
 			collection_owner.into()
@@ -476,9 +416,8 @@ fn rescue_blocked_nfts() {
 }
 
 #[test]
-fn rescue_blocked_nfts_fails_if_called_by_wrong_account() {
+fn reclaim_blocked_nfts_called_by_wrong_account_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let test_vals = TestVals::default();
 		let road_block_id = NftPeg::next_road_block_id();
 
 		let collection_owner = create_account(1);
@@ -486,19 +425,8 @@ fn rescue_blocked_nfts_fails_if_called_by_wrong_account() {
 
 		deposit_max_tokens(collection_owner);
 
-		let token_addresses =
-			BoundedVec::<H160, MaxAddresses>::try_from(vec![test_vals.token_address]).unwrap();
-
-		let token_ids =
-			BoundedVec::<BoundedVec<SerialNumber, MaxIdsPerMultipleMint>, MaxAddresses>::try_from(
-				vec![BoundedVec::<SerialNumber, MaxIdsPerMultipleMint>::try_from(vec![
-					10_000_u32, 10_001_u32,
-				])
-				.unwrap()],
-			)
-			.unwrap();
-
-		let token_information = GroupedTokenInfo::new(token_ids, token_addresses, collection_owner);
+		let token_information =
+			mock_token_information(collection_owner, vec![10_001_u32, 10_002_u32]);
 
 		let (_, err) =
 			Pallet::<Test>::do_deposit(token_information, collection_owner.into()).unwrap_err();
@@ -506,7 +434,7 @@ fn rescue_blocked_nfts_fails_if_called_by_wrong_account() {
 		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
 
 		assert_noop!(
-			Pallet::<Test>::rescue_blocked_nfts(
+			Pallet::<Test>::reclaim_blocked_nfts(
 				Some(not_destination).into(),
 				road_block_id,
 				not_destination.into()
