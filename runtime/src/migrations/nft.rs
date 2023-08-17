@@ -26,17 +26,18 @@ impl OnRuntimeUpgrade for Upgrade {
 	fn on_runtime_upgrade() -> Weight {
 		let current = Nft::current_storage_version();
 		let onchain = Nft::on_chain_storage_version();
-		log::info!(target: "Migration", "Nft: Running migration with current storage version {current:?} / onchain {onchain:?}");
+		log::info!(target: "Migration", "Nft: Running migration with current storage version {current:?} / on-chain {onchain:?}");
 
-		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads_writes(2, 0);
+		let mut weight = <Runtime as frame_system::Config>::DbWeight::get().reads(2);
 
 		if onchain == 5 {
-			log::info!(target: "Migration", "Nft: Migrating from onchain version 5 to onchain version 6.");
+			log::info!(target: "Migration", "Nft: Migrating from on-chain version 5 to on-chain version 6.");
 			weight += v6::migrate::<Runtime>();
 
-			log::info!(target: "Migration", "Nft: Migration successfully finished.");
 			StorageVersion::new(6).put::<Nft>();
 			StorageVersion::new(1).put::<Marketplace>();
+
+			log::info!(target: "Migration", "Nft: Migration successfully finished.");
 		} else {
 			log::info!(target: "Migration", "Nft: No migration was done. If you are seeing this message, it means that you forgot to remove old existing migration code. Don't panic, it's not a big deal just don't forget it next time :)");
 		}
@@ -52,6 +53,7 @@ impl OnRuntimeUpgrade for Upgrade {
 }
 
 #[allow(dead_code)]
+#[allow(unused_imports)]
 pub mod v6 {
 	use super::*;
 	use crate::migrations::{Map, Value};
@@ -68,7 +70,7 @@ pub mod v6 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn pre_upgrade() -> Result<(), &'static str> {
-		log::info!(target: "Migration", "Nft: Upgrade to v5 Pre Upgrade.");
+		log::info!(target: "Migration", "Nft: Upgrade to v6 Pre Upgrade.");
 		let onchain = Nft::on_chain_storage_version();
 		// Return OK(()) if upgrade has already been done
 		if onchain == 6 {
@@ -81,7 +83,7 @@ pub mod v6 {
 
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade() -> Result<(), &'static str> {
-		log::info!(target: "Migration", "Nft: Upgrade to v5 Post Upgrade.");
+		log::info!(target: "Migration", "Nft: Upgrade to v6 Post Upgrade.");
 
 		let current = Nft::current_storage_version();
 		let onchain = Nft::on_chain_storage_version();

@@ -428,7 +428,7 @@ impl pallet_marketplace::Config for Runtime {
 	type NFTExt = Nft;
 	type PalletId = MarketplacePalletId;
 	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
-	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_marketplace::WeightInfo<Runtime>;
 	type MaxTokensPerListing = MaxTokensPerListing;
 	type MaxOffers = MaxOffers;
 }

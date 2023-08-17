@@ -93,10 +93,6 @@ benchmarks! {
 	burn {
 		let collection_id = build_collection::<T>(None);
 	}: _(origin::<T>(&account::<T>("Alice")), TokenId::from((collection_id, 0)))
-
-	set_fee_to {
-		let fee_account = account::<T>("Alice");
-	}: _(RawOrigin::Root, Some(fee_account))
 }
 
 impl_benchmark_test_suite!(Nft, crate::mock::new_test_ext(), crate::mock::Test,);

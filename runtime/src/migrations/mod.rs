@@ -33,7 +33,6 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<(), &'static str> {
-		proxy::Upgrade::pre_upgrade()?;
 		nft::Upgrade::pre_upgrade()?;
 
 		Ok(())
@@ -41,7 +40,6 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from(0u32);
-		weight += proxy::Upgrade::on_runtime_upgrade();
 		weight += nft::Upgrade::on_runtime_upgrade();
 
 		weight
@@ -50,7 +48,6 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade() -> Result<(), &'static str> {
 		nft::Upgrade::post_upgrade()?;
-		proxy::Upgrade::post_upgrade()?;
 
 		Ok(())
 	}

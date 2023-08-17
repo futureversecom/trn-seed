@@ -68,13 +68,6 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
-	// Storage: Nft NextMarketplaceId (r:1 w:1)
-	// Storage: Nft RegisteredMarketplaces (r:0 w:1)
-	fn register_marketplace() -> Weight {
-		(39_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
 	// Storage: Nft NextCollectionId (r:1 w:1)
 	// Storage: EVM AccountCodes (r:1 w:1)
 	// Storage: Futurepass DefaultProxy (r:1 w:0)
@@ -106,112 +99,5 @@ impl<T: frame_system::Config> pallet_nft::WeightInfo for WeightInfo<T> {
 		(50_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Nft NextListingId (r:1 w:1)
-	// Storage: Nft TokenLocks (r:1 w:1)
-	// Storage: Nft Listings (r:0 w:1)
-	// Storage: Nft ListingEndSchedule (r:0 w:1)
-	// Storage: Nft OpenCollectionListings (r:0 w:1)
-	fn sell() -> Weight {
-		(76_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
-	}
-	// Storage: Nft Listings (r:1 w:1)
-	// Storage: Nft FeeTo (r:1 w:0)
-	// Storage: Assets Asset (r:1 w:1)
-	// Storage: Assets Account (r:2 w:2)
-	// Storage: Nft CollectionInfo (r:1 w:1)
-	// Storage: TokenApprovals ERC721Approvals (r:0 w:1)
-	// Storage: Nft TokenLocks (r:0 w:1)
-	// Storage: Nft ListingEndSchedule (r:0 w:1)
-	// Storage: Nft OpenCollectionListings (r:0 w:1)
-	fn buy() -> Weight {
-		(145_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(9 as Weight))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Nft NextListingId (r:1 w:1)
-	// Storage: Nft TokenLocks (r:1 w:1)
-	// Storage: Nft Listings (r:0 w:1)
-	// Storage: Nft ListingEndSchedule (r:0 w:1)
-	// Storage: Nft OpenCollectionListings (r:0 w:1)
-	fn auction() -> Weight {
-		(77_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
-	}
-	// Storage: Nft Listings (r:1 w:1)
-	// Storage: Nft ListingWinningBid (r:1 w:1)
-	// Storage: AssetsExt Holds (r:1 w:1)
-	// Storage: Assets Asset (r:1 w:1)
-	// Storage: Assets Account (r:2 w:2)
-	// Storage: System Account (r:2 w:2)
-	// Storage: Nft ListingEndSchedule (r:0 w:2)
-	fn bid() -> Weight {
-		(158_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(10 as Weight))
-	}
-	// Storage: Nft Listings (r:1 w:1)
-	// Storage: Nft TokenLocks (r:0 w:1)
-	// Storage: Nft ListingEndSchedule (r:0 w:1)
-	// Storage: Nft OpenCollectionListings (r:0 w:1)
-	fn cancel_sale() -> Weight {
-		(61_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-	}
-	// Storage: Nft Listings (r:1 w:1)
-	fn update_fixed_price() -> Weight {
-		(42_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: Nft NextOfferId (r:1 w:1)
-	// Storage: Nft TokenLocks (r:1 w:0)
-	// Storage: AssetsExt Holds (r:1 w:1)
-	// Storage: Assets Asset (r:1 w:1)
-	// Storage: Assets Account (r:2 w:2)
-	// Storage: System Account (r:1 w:1)
-	// Storage: Nft TokenOffers (r:1 w:1)
-	// Storage: Nft Offers (r:0 w:1)
-	fn make_simple_offer() -> Weight {
-		(151_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(9 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
-	}
-	// Storage: Nft Offers (r:1 w:1)
-	// Storage: AssetsExt Holds (r:1 w:1)
-	// Storage: Assets Asset (r:1 w:1)
-	// Storage: Assets Account (r:2 w:2)
-	// Storage: System Account (r:1 w:1)
-	// Storage: Nft TokenOffers (r:1 w:1)
-	fn cancel_offer() -> Weight {
-		(137_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
-	}
-	// Storage: Nft Offers (r:1 w:1)
-	// Storage: Nft TokenLocks (r:1 w:0)
-	// Storage: Nft CollectionInfo (r:1 w:1)
-	// Storage: AssetsExt Holds (r:1 w:1)
-	// Storage: Assets Asset (r:1 w:1)
-	// Storage: Assets Account (r:2 w:2)
-	// Storage: System Account (r:1 w:1)
-	// Storage: Nft TokenOffers (r:1 w:1)
-	// Storage: TokenApprovals ERC721Approvals (r:0 w:1)
-	fn accept_offer() -> Weight {
-		(183_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(9 as Weight))
-			.saturating_add(T::DbWeight::get().writes(9 as Weight))
-	}
-	// Storage: Nft FeeTo (r:0 w:1)
-	fn set_fee_to() -> Weight {
-		(33_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 }

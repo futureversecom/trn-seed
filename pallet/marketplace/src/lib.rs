@@ -29,12 +29,14 @@ use frame_support::{
 	weights::{GetDispatchInfo, PostDispatchInfo},
 	PalletId,
 };
-use pallet_nft::{traits::NFTExt, weights::WeightInfo as NftWeightInfo};
+pub use pallet::*;
+use pallet_nft::traits::NFTExt;
 use seed_pallet_common::{CreateExt, Hold, TransferExt};
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, ListingId, SerialNumber, TokenId, TokenLockReason,
 };
 use sp_runtime::{DispatchResult, Permill};
+use sp_std::vec::Vec;
 
 mod benchmarking;
 mod impls;
@@ -43,11 +45,10 @@ pub mod mock;
 #[cfg(test)]
 mod tests;
 pub mod types;
-
 use types::*;
+mod weights;
+pub use weights::WeightInfo;
 
-pub use pallet::*;
-use sp_std::vec::Vec;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
@@ -112,7 +113,7 @@ pub mod pallet {
 		/// Percentage of sale price to charge for network fee
 		type NetworkFeePercentage: Get<Permill>;
 		/// Provides the public call to weight mapping
-		type WeightInfo: NftWeightInfo;
+		type WeightInfo: WeightInfo;
 		/// Max tokens that can be sold in one listing
 		type MaxTokensPerListing: Get<u32>;
 		/// The maximum number of offers allowed on a collection
