@@ -63,7 +63,7 @@ impl<T: frame_system::Config> pallet_nft_peg::WeightInfo for WeightInfo<T> {
 	// Storage: EthBridge NotarySetId (r:1 w:0)
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
-	fn rescue_blocked_nfts() -> Weight {
+	fn reclaim_blocked_nfts() -> Weight {
 		(40_000_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(9 as Weight))
 			.saturating_add(T::DbWeight::get().writes(3 as Weight))
