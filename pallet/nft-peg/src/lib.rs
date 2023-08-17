@@ -81,13 +81,13 @@ pub mod pallet {
 
 	// Map RoadBlock ID to blocked tokens
 	#[pallet::storage]
-	#[pallet::getter(fn road_blocked)]
+	#[pallet::getter(fn blocked_tokens)]
 	pub type BlockedTokens<T: Config> =
 		StorageMap<_, Twox64Concat, BlockedMintId, BlockedTokenInfo<T>, OptionQuery>;
 
 	/// The next available RoadBlock ID
 	#[pallet::storage]
-	#[pallet::getter(fn next_road_block_id)]
+	#[pallet::getter(fn next_blocked_mint_id)]
 	pub type NextTokenBlockId<T> = StorageValue<_, BlockedMintId, ValueQuery>;
 
 	#[pallet::error]
@@ -112,10 +112,10 @@ pub mod pallet {
 		TokenListLengthMismatch,
 		/// The length of the given vec exceeds the maximal allowed length limit
 		ExceedsMaxVecLength,
-		/// No road block exists for the given id
-		NoRoadBlockFound,
-		/// The claim must be called by the destination address
-		NotRoadBlockDestination,
+		/// No blocked tokens for the given id
+		NoBlockedTokensFound,
+		/// Blocked tokens can only be reclaimed by the destination address
+		NotBlockedTokenDestination,
 	}
 
 	#[pallet::event]
@@ -131,7 +131,7 @@ pub mod pallet {
 		},
 		/// Bridged ERC721 tokens were unable to be minted due to collection limit being reached
 		ERC721Blocked {
-			road_block_id: BlockedMintId,
+			blocked_mint_id: BlockedMintId,
 			destination_address: T::AccountId,
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
@@ -184,11 +184,11 @@ pub mod pallet {
 		#[transactional]
 		pub fn reclaim_blocked_nfts(
 			origin: OriginFor<T>,
-			road_block_id: BlockedMintId,
+			blocked_mint_id: BlockedMintId,
 			destination: H160,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_reclaim_blocked_nfts(who, road_block_id, destination)?;
+			Self::do_reclaim_blocked_nfts(who, blocked_mint_id, destination)?;
 			Ok(())
 		}
 	}
@@ -363,7 +363,7 @@ where
 				Err((mint_weight, err)) => {
 					weight = weight.saturating_add(mint_weight);
 
-					let road_block_id = Self::next_road_block_id();
+					let blocked_mint_id = Self::next_blocked_mint_id();
 
 					// Rebound to `MaxSerialsPerWithdraw` - this shouldn't fail as
 					// it is the same as `MaxTokensPerMint`
@@ -371,7 +371,7 @@ where
 						BoundedVec::truncate_from(serial_numbers);
 
 					<BlockedTokens<T>>::insert(
-						road_block_id,
+						blocked_mint_id,
 						BlockedTokenInfo {
 							collection_id,
 							serial_numbers: serial_numbers.clone(),
@@ -382,7 +382,7 @@ where
 
 					// Throw event with values necessary to reclaim tokens
 					Self::deposit_event(Event::<T>::ERC721Blocked {
-						road_block_id,
+						blocked_mint_id,
 						collection_id,
 						serial_numbers,
 						destination_address: destination,
@@ -417,7 +417,7 @@ where
 		>,
 		// Ethereum address to deposit the tokens into
 		destination: H160,
-		road_block_id: Option<BlockedMintId>,
+		blocked_mint_id: Option<BlockedMintId>,
 	) -> Result<u64, DispatchError> {
 		ensure!(collection_ids.len() == serial_numbers.len(), Error::<T>::TokenListLengthMismatch);
 		let mut source_collection_ids = Vec::with_capacity(collection_ids.len());
@@ -435,15 +435,15 @@ where
 
 			let mut current_serial_numbers = Vec::with_capacity(serial_numbers[idx].len());
 
-			if let Some(road_block_id) = road_block_id {
-				let road_blocked =
-					Self::road_blocked(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;
+			if let Some(blocked_mint_id) = blocked_mint_id {
+				let blocked_tokens = Self::blocked_tokens(blocked_mint_id)
+					.ok_or(Error::<T>::NoBlockedTokensFound)?;
 
-				for serial_number in &road_blocked.serial_numbers {
+				for serial_number in &blocked_tokens.serial_numbers {
 					current_serial_numbers.push(Token::Uint(U256::from(*serial_number)));
 				}
 
-				<BlockedTokens<T>>::remove(road_block_id);
+				<BlockedTokens<T>>::remove(blocked_mint_id);
 			} else {
 				for serial_number in &serial_numbers[idx] {
 					pallet_nft::Pallet::<T>::do_burn(&who, *collection_id, *serial_number)?;
@@ -480,19 +480,20 @@ where
 
 	fn do_reclaim_blocked_nfts(
 		who: T::AccountId,
-		road_block_id: BlockedMintId,
+		blocked_mint_id: BlockedMintId,
 		destination: H160,
 	) -> Result<(), DispatchError> {
-		let road_blocked = Self::road_blocked(road_block_id).ok_or(Error::<T>::NoRoadBlockFound)?;
+		let blocked_tokens =
+			Self::blocked_tokens(blocked_mint_id).ok_or(Error::<T>::NoBlockedTokensFound)?;
 
-		ensure!(road_blocked.destination_address == who, Error::<T>::NotRoadBlockDestination);
+		ensure!(blocked_tokens.destination_address == who, Error::<T>::NotBlockedTokenDestination);
 
 		Self::do_withdrawal(
 			who,
-			BoundedVec::truncate_from(vec![road_blocked.collection_id]),
-			BoundedVec::truncate_from(vec![road_blocked.serial_numbers]),
+			BoundedVec::truncate_from(vec![blocked_tokens.collection_id]),
+			BoundedVec::truncate_from(vec![blocked_tokens.serial_numbers]),
 			destination,
-			Some(road_block_id),
+			Some(blocked_mint_id),
 		)?;
 
 		Ok(())

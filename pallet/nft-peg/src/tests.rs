@@ -359,7 +359,7 @@ fn do_withdraw_invalid_token_length_should_fail() {
 fn do_deposit_adds_to_road_block_on_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
-		let road_block_id = NftPeg::next_road_block_id();
+		let blocked_mint_id = NftPeg::next_blocked_mint_id();
 		let collection_id = Nft::next_collection_uuid().unwrap();
 
 		let collection_owner = create_account(1);
@@ -376,13 +376,13 @@ fn do_deposit_adds_to_road_block_on_fail() {
 		assert_eq!(err, pallet_nft::Error::<Test>::TokensBlocked.into());
 
 		assert!(has_event(crate::Event::<Test>::ERC721Blocked {
-			road_block_id,
+			blocked_mint_id,
 			collection_id,
 			serial_numbers: BoundedVec::truncate_from(serial_numbers.clone()),
 			destination_address: test_vals.destination.into()
 		}));
 
-		let road_blocked = Pallet::<Test>::road_blocked(road_block_id).unwrap();
+		let road_blocked = Pallet::<Test>::blocked_tokens(blocked_mint_id).unwrap();
 
 		assert_eq!(road_blocked.collection_id, collection_id);
 		assert_eq!(road_blocked.serial_numbers, serial_numbers);
@@ -393,7 +393,7 @@ fn do_deposit_adds_to_road_block_on_fail() {
 #[test]
 fn reclaim_blocked_nfts() {
 	ExtBuilder::default().build().execute_with(|| {
-		let road_block_id = NftPeg::next_road_block_id();
+		let blocked_mint_id = NftPeg::next_blocked_mint_id();
 
 		let collection_owner = create_account(1);
 
@@ -409,7 +409,7 @@ fn reclaim_blocked_nfts() {
 
 		assert_ok!(Pallet::<Test>::reclaim_blocked_nfts(
 			Some(collection_owner).into(),
-			road_block_id,
+			blocked_mint_id,
 			collection_owner.into()
 		));
 	})
@@ -418,7 +418,7 @@ fn reclaim_blocked_nfts() {
 #[test]
 fn reclaim_blocked_nfts_called_by_wrong_account_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let road_block_id = NftPeg::next_road_block_id();
+		let blocked_mint_id = NftPeg::next_blocked_mint_id();
 
 		let collection_owner = create_account(1);
 		let not_destination = create_account(2);
@@ -436,10 +436,10 @@ fn reclaim_blocked_nfts_called_by_wrong_account_should_fail() {
 		assert_noop!(
 			Pallet::<Test>::reclaim_blocked_nfts(
 				Some(not_destination).into(),
-				road_block_id,
+				blocked_mint_id,
 				not_destination.into()
 			),
-			Error::<Test>::NotRoadBlockDestination
+			Error::<Test>::NotBlockedTokenDestination
 		);
 	})
 }
