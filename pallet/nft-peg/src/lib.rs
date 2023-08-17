@@ -114,7 +114,7 @@ pub mod pallet {
 		ExceedsMaxVecLength,
 		/// No road block exists for the given id
 		NoRoadBlockFound,
-		/// The rescue must be called by the destination address
+		/// The claim must be called by the destination address
 		NotRoadBlockDestination,
 	}
 
@@ -380,7 +380,7 @@ where
 					);
 					<NextTokenBlockId<T>>::mutate(|i| *i += 1);
 
-					// Throw event with values necessary to rescue tokens
+					// Throw event with values necessary to reclaim tokens
 					Self::deposit_event(Event::<T>::ERC721Blocked {
 						road_block_id,
 						collection_id,
