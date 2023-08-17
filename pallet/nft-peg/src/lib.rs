@@ -368,8 +368,7 @@ where
 					// Rebound to `MaxSerialsPerWithdraw` - this shouldn't fail as
 					// it is the same as `MaxTokensPerMint`
 					let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
-						BoundedVec::try_from(serial_numbers)
-							.map_err(|_| (weight, Error::<T>::ExceedsMaxVecLength.into()))?;
+						BoundedVec::truncate_from(serial_numbers);
 
 					<BlockedTokens<T>>::insert(
 						road_block_id,
@@ -490,8 +489,8 @@ where
 
 		Self::do_withdrawal(
 			who,
-			BoundedVec::try_from(vec![road_blocked.collection_id]).unwrap(),
-			BoundedVec::try_from(vec![road_blocked.serial_numbers]).unwrap(),
+			BoundedVec::truncate_from(vec![road_blocked.collection_id]),
+			BoundedVec::truncate_from(vec![road_blocked.serial_numbers]),
 			destination,
 			Some(road_block_id),
 		)?;
