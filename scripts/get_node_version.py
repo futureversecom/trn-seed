@@ -198,23 +198,11 @@ def determine_node_version(substrate: SubstrateInterface, hash: str):
         print("Wasn't able to find the correct tag")
         exit(1)
 
-    # Check if there are newer releases
-    latest_tag = all_tags[-1]
-    latest_tag_splitted = latest_tag.split('.')
-    latest_tag_splitted[0].replace('v', '')
-    debug_version = version.split('.')[-1]
-    if latest_tag_splitted[0] > client_version:
-        return (version, latest_tag)
-    elif latest_tag_splitted[0] == client_version and latest_tag_splitted[1] > runtime_version:
-        return (version, latest_tag)
-    elif latest_tag_splitted[0] == client_version and latest_tag_splitted[1] == runtime_version and latest_tag_splitted[2] > debug_version:
-        return (version, latest_tag)
-    else:
-        return (version, None)
+    return version
 
 
-def build_runtime_upgrade_wasm(latest_tag, is_upgrade):
-    if not (latest_tag and is_upgrade):
+def build_runtime_upgrade_wasm(release_candidate):
+    if not release_candidate:
         return None
 
     current_branch = subprocess.run(
@@ -228,7 +216,7 @@ def build_runtime_upgrade_wasm(latest_tag, is_upgrade):
         subprocess.run(
             'git stash', shell=True, text=True, check=True, capture_output=True)
 
-    cmd = f'git checkout {latest_tag}'
+    cmd = f'git checkout {release_candidate}'
     subprocess.run(cmd, shell=True, text=True, check=True)
 
     # Build the runtime upgrade wasm
@@ -272,7 +260,7 @@ def maybe_do_tag_switch(tag_switch, node_version):
 
 
 def main():
-    (configuration, is_upgrade) = parse_args()
+    (configuration, release_candidate) = parse_args()
     url, tag_switch = configuration['endpoint'], configuration['tag_switch']
 
     (substrate, chain_name) = connect_to_remote_chain(url)
@@ -281,14 +269,14 @@ def main():
     print(
         f"Connected to remote chain: Url: {url}, Chain Name: {chain_name}, Hash: {hash}")
 
-    (node_version, latest_tag) = determine_node_version(substrate, hash)
+    node_version = determine_node_version(substrate, hash)
     print(f"Node version: {node_version}")
 
     if not os.path.exists('./output'):
         os.mkdir('./output')
         print("Created output directory: ./output")
 
-    build_runtime = build_runtime_upgrade_wasm(latest_tag, is_upgrade)
+    build_runtime = build_runtime_upgrade_wasm(release_candidate)
 
     tag_switch = maybe_do_tag_switch(tag_switch, node_version)
 
