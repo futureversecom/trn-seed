@@ -154,9 +154,11 @@ def populate_dev_chain(substrate, forked_storage, chain_name):
     # Let's change the sudo key to be Alith :)
     base_storage[sudo_key_prefix] = sudo_key
 
+    ## commenting this since it does not make sense to do the previous runtime upgrade on
+    ## already migrated data.
     # Delete System.LastRuntimeUpgrade to ensure that the on_runtime_upgrade event is triggered
-    base_storage.pop(
-        '0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8')
+    # base_storage.pop(
+    #     '0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8')
 
     # To prevent the validator set from changing mid-test, set Staking.ForceEra to ForceNone ('0x02')
     base_storage['0x5f3e4907f716ac89b6347d15ececedcaf7dad0317324aecae8744b87fc95f2f3'] = '0x02'
