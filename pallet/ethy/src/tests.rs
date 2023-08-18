@@ -2510,6 +2510,10 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 				(AuthorityId::from_slice(&[3_u8; 33]).unwrap(), true)
 			],
 		));
+		assert_eq!(
+			EthBridge::notary_xrpl_keys(),
+			vec![AuthorityId::from_slice(&[1_u8; 33]).unwrap()]
+		);
 
 		assert_eq!(EthBridge::xrpl_notary_set_proof_id(), 0);
 		let eth_proof_id = EthBridge::next_event_proof_id();
