@@ -1156,10 +1156,16 @@ impl pallet_futurepass::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 }
 
+parameter_types! {
+	// Payout period is 90 eras
+	pub const PayoutPeriodLength: u128 = 90;
+}
+
 impl pallet_staking_payouts::Config for Runtime {
 	type Event = Event;
 	type Currency = DualStakingCurrency;
 	type CurrencyBalance = Balance;
+	type PayoutPeriodLength = PayoutPeriodLength;
 	type WeightInfo = ();
 }
 

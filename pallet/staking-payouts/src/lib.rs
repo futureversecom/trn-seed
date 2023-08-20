@@ -76,41 +76,54 @@ pub mod pallet {
 			+ From<u64>
 			+ TypeInfo
 			+ MaxEncodedLen;
-		// type Currency: LockableCurrency<
-		// 	Self::AccountId,
-		// 	Moment = Self::BlockNumber,
-		// 	Balance = Self::CurrencyBalance,
-		// >;
-
 		type Currency: Currency<Self::AccountId>;
-
-		/// Interface to access weight values
+		type PayoutPeriodLength: Get<u128>;
 		type WeightInfo: WeightInfo;
 	}
 
-	#[pallet::storage]
-	pub type CurrentValidatorIterRawKey<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+	#[derive(Debug, PartialEq, Clone, Encode, Decode, TypeInfo)]
+	#[scale_info(skip_type_params(T))]
+	/// Accumulated payout information, not specific to any token
+	/// TODO: Need to get staking information to ensure that this represents balance queries on the
+	/// index token
+	pub struct AccumulatedPayoutInfo<T: pallet_staking::Config> {
+		/// Payout for this validator
+		payout_amount: T::CurrencyBalance,
+		/// List of nominators nominating this validator, and their payouts
+		// nominators: Vec<(T::AccountId, u128)>
+		nominators: Vec<(T::AccountId, T::CurrencyBalance)>,
+	}
+
+	/// Unique identifier for payout periods
+	pub type PayoutPeriodId = u128;
 
 	#[pallet::storage]
+	/// Storage for tracking a validator id solely for iterating through the validator list
+	/// block-by-block
 	pub type CurrentValidatorIter<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::storage]
-	pub type PayoutPeriod<T: Config> = StorageValue<_, u128, ValueQuery>;
+	pub type CurrentPayoutPeriod<T: Config> = StorageValue<_, PayoutPeriodId, ValueQuery>;
 
 	#[pallet::storage]
-	pub type AccumulatedRewards<T: Config> = StorageDoubleMap<
+	pub type AccumulatedRewardsList<T: Config> = StorageDoubleMap<
 		_,
 		Identity,
+		// Validator id
 		T::AccountId,
 		Blake2_128Concat,
-		EraIndex,
-		BalanceOf<T>,
+		// Current payout period
+		PayoutPeriodId,
+		// This validator's payout, and the list of payouts for its nominators
+		AccumulatedPayoutInfo<T>,
 		OptionQuery,
 	>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event {}
+	pub enum Event {
+		DidThing,
+	}
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -118,6 +131,7 @@ pub mod pallet {
 		InvalidEraToReward,
 		NotController,
 		NotStash,
+		TooEarly,
 	}
 
 	#[pallet::hooks]
@@ -150,9 +164,15 @@ pub mod pallet {
 				CurrentValidatorIter::<T>::set(validator);
 
 				if let Some(validator) = validator {
-					let payout_period = PayoutPeriod::<T>::get();
+					let mut payout_period = CurrentPayoutPeriod::<T>::get();
 
-					Self::do_payout_stakers(validator, payout_period, previous_era);
+					// We need to increment payout period as we go
+					if payout_period % T::PayoutPeriodLength::get() == 0 {
+						payout_period = payout_period.saturating_add(1);
+						CurrentPayoutPeriod::<T>::set(payout_period);
+					}
+
+					Self::accumulate_payouts(validator, payout_period, previous_era);
 				}
 			}
 
@@ -169,8 +189,23 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
+		// Get the accumulated data for a validator and its nominators for the given payout period,
+		// also clearing any data associated with that period
+		pub fn take_accumulated_payouts_staker(
+			validator_stash: T::AccountId,
+			payout_period: u128,
+		) -> Result<AccumulatedPayoutInfo<T>, Error<T>> {
+			ensure!(CurrentPayoutPeriod::<T>::get() >= payout_period, Error::<T>::TooEarly);
+			let rewards = AccumulatedRewardsList::<T>::take(validator_stash, payout_period);
+
+			// TODO: check any remaining values to remove
+
+			// Likely already claimed. Maybe edge case for unacummulated rewards
+			rewards.ok_or(Error::<T>::AlreadyClaimed)
+		}
+
 		// Same logic as pallet_stakers payout, except stores and accumulates the payouts
-		pub(super) fn do_payout_stakers(
+		pub(super) fn accumulate_payouts(
 			validator_stash: T::AccountId,
 			// era: EraIndex,
 			payout_period: u128,
@@ -211,8 +246,6 @@ pub mod pallet {
 
 			let exposure =
 				pallet_staking::ErasStakersClipped::<T>::get(&previous_era, &ledger.stash);
-
-			// Input data seems good, no errors allowed after this point
 
 			// Check this one
 			pallet_staking::Ledger::<T>::insert(&controller, &ledger);
@@ -259,10 +292,11 @@ pub mod pallet {
 
 			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 			// We can now make total validator payout:
-			if let Some(imbalance) = Self::accumulate_payouts(
+			if let Some(imbalance) = Self::do_accumulate_payouts(
 				&ledger.stash,
 				validator_staking_payout + validator_commission_payout,
-				&previous_era,
+				// &previous_era,
+				None,
 			) {
 				total_imbalance.subsume(imbalance);
 			}
@@ -282,8 +316,13 @@ pub mod pallet {
 					nominator_exposure_part * validator_leftover_payout;
 				// We can now make nominator payout:
 				if let Some(imbalance) =
-					Self::accumulate_payouts(&nominator.who, nominator_reward, &previous_era)
-				{
+					// Self::do_accumulate_payouts(&nominator.who, nominator_reward,
+					// &previous_era, &ledger.stash)
+					Self::do_accumulate_payouts(
+						&nominator.who,
+						nominator_reward,
+						Some(&ledger.stash),
+					) {
 					// Note: this logic does not count payouts for `RewardDestination::None`.
 					nominator_payout_count += 1;
 					total_imbalance.subsume(imbalance);
@@ -297,22 +336,57 @@ pub mod pallet {
 		}
 
 		// Store the current payouts, accumulating any payouts for the account from the previous era
-		fn accumulate_payouts(
+		fn do_accumulate_payouts(
 			who: &T::AccountId,
 			amt: <T as pallet_staking::Config>::CurrencyBalance,
-			previous_era: &EraIndex,
+			// payout_period: &PayoutPeriodId,
+			nominating: Option<&T::AccountId>,
 		) -> Option<PositiveImbalanceOf<T>> {
 			// TODO: Clean up unwrap
 			let current_era = pallet_staking::CurrentEra::<T>::get().unwrap();
+			let payout_period = CurrentPayoutPeriod::<T>::get();
 
-			if let Some(previous_payout) = AccumulatedRewards::<T>::get(who, previous_era) {
-				let payout = amt.saturating_add(previous_payout);
-				AccumulatedRewards::<T>::insert(&who, current_era, payout);
+			// If we are nominating, we must work with the payouts tracking according to the
+			// validator we are nominating
+			let account_to_check = nominating.unwrap_or(who);
+
+			// If there is a payout existing, we need to accumulate any existing accumulated payouts
+			// for previous eras
+			if let Some(current_payout) =
+				AccumulatedRewardsList::<T>::get(account_to_check, payout_period)
+			{
+				// If we are a nominator, add us to the list of nominator accumulated rewards
+				if nominating.is_some() {
+					// TODO: needs to be .find()
+					current_payout.nominators.iter().map(|w| {
+						if w.0 == *who {
+							w.1.saturating_add(amt);
+						}
+						w
+					});
+
+					AccumulatedRewardsList::<T>::insert(
+						account_to_check,
+						payout_period,
+						current_payout,
+					);
+				} else {
+					// Else, we are a validator and simply add the accumulation
+					current_payout.payout_amount.saturating_add(amt);
+					AccumulatedRewardsList::<T>::insert(
+						account_to_check,
+						payout_period,
+						current_payout,
+					);
+				}
 			} else {
-				AccumulatedRewards::<T>::insert(&who, current_era, amt);
+				// Else, we are initializing the payouts for the payout period
+				let nominators = if nominating.is_some() { vec![(*who, amt)] } else { vec![] };
+				let payout_info = AccumulatedPayoutInfo { payout_amount: amt, nominators };
+				AccumulatedRewardsList::<T>::insert(account_to_check, payout_period, payout_info);
 			};
 
-			// TODO: change
+			// TODO: change. Need to get imbalance
 			None
 		}
 	}
