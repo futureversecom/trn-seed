@@ -50,7 +50,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_nft::Config {
 		/// The overarching call type.
-		type RuntimeCall: Parameter
+		type Call: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<pallet_nft::Call<Self>>;
@@ -73,7 +73,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let call =
 				pallet_nft::Call::<T>::register_marketplace { marketplace_account, entitlement };
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -107,7 +107,7 @@ pub mod pallet {
 				duration,
 				marketplace_id,
 			};
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -124,7 +124,7 @@ pub mod pallet {
 			new_price: Balance,
 		) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::update_fixed_price { listing_id, new_price };
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -133,7 +133,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::buy())]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::buy { listing_id };
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -164,7 +164,7 @@ pub mod pallet {
 				duration,
 				marketplace_id,
 			};
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -174,7 +174,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::bid())]
 		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::bid { listing_id, amount };
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -185,7 +185,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_sale())]
 		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::cancel_sale { listing_id };
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -209,7 +209,7 @@ pub mod pallet {
 				asset_id,
 				marketplace_id,
 			};
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -219,7 +219,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::cancel_offer { offer_id };
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}
@@ -229,7 +229,7 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::accept_offer())]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::accept_offer { offer_id };
-			let call = <T as Config>::RuntimeCall::from(call);
+			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())
 		}

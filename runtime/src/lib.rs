@@ -423,7 +423,7 @@ impl pallet_nft::Config for Runtime {
 }
 
 impl pallet_marketplace::Config for Runtime {
-	type RuntimeCall = RuntimeCall;
+	type Call = RuntimeCall;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 }
 
