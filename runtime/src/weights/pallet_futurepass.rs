@@ -67,7 +67,7 @@ impl<T: frame_system::Config> pallet_futurepass::WeightInfo for WeightInfo<T> {
 	fn transfer_futurepass(p: u32, ) -> Weight {
 		Weight::from_ref_time(34_404_000 as u64)
 			// Standard Error: 13_000
-			.saturating_add((18_878_000 as Weight).saturating_mul(p as u64))
+			.saturating_add(Weight::from_ref_time(18_878_000 as u64).saturating_mul(p as u64))
 			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(5 as u64))
 	}
