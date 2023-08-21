@@ -15,12 +15,8 @@
 
 #![cfg(test)]
 use super::*;
-use crate::mock::{
-	has_event, test_storage::NextEventProofId, Echo, ExtBuilder, MockEthereumEventRouter,
-	TestRuntime,
-};
+use crate::mock::{ExtBuilder, TestRuntime};
 use frame_support::{assert_ok, storage::StorageValue};
-use seed_pallet_common::EthereumEventRouter;
 use seed_primitives::AccountId;
 use sp_core::H160;
 use sp_runtime::traits::AccountIdConversion;
