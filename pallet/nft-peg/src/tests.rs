@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{mock::*, *};
+use crate::{mock::*, EthToRootNft, NextBlockedMintId, RootNftToErc721, *};
 use frame_support::{assert_noop, assert_ok, traits::Hooks};
 use hex_literal::hex;
 use seed_primitives::{AccountId, MetadataScheme};
@@ -167,11 +167,11 @@ fn do_deposit_creates_tokens_and_collection() {
 		}));
 
 		assert_eq!(
-			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			EthToRootNft::<Test>::get(test_vals.token_address),
 			Some(expected_collection_id)
 		);
 		assert_eq!(
-			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			RootNftToErc721::<Test>::get(expected_collection_id),
 			Some(test_vals.token_address)
 		);
 		assert_eq!(Nft::collection_exists(expected_collection_id), true);
@@ -210,11 +210,11 @@ fn do_deposit_works_with_existing_bridged_collection() {
 		}));
 
 		assert_eq!(
-			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			EthToRootNft::<Test>::get(test_vals.token_address),
 			Some(expected_collection_id)
 		);
 		assert_eq!(
-			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			RootNftToErc721::<Test>::get(expected_collection_id),
 			Some(test_vals.token_address)
 		);
 		Nft::collection_exists(expected_collection_id);
@@ -237,11 +237,11 @@ fn do_deposit_works_with_existing_bridged_collection() {
 		}));
 
 		assert_eq!(
-			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			EthToRootNft::<Test>::get(test_vals.token_address),
 			Some(expected_collection_id)
 		);
 		assert_eq!(
-			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			RootNftToErc721::<Test>::get(expected_collection_id),
 			Some(test_vals.token_address)
 		);
 		// Then balance should now be 2 as another token was deposited
@@ -272,11 +272,11 @@ fn handles_duplicated_tokens_sent() {
 		}));
 
 		assert_eq!(
-			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			EthToRootNft::<Test>::get(test_vals.token_address),
 			Some(expected_collection_id)
 		);
 		assert_eq!(
-			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			RootNftToErc721::<Test>::get(expected_collection_id),
 			Some(test_vals.token_address)
 		);
 		Nft::collection_exists(expected_collection_id);
@@ -298,11 +298,11 @@ fn handles_duplicated_tokens_sent() {
 		}));
 
 		assert_eq!(
-			Pallet::<Test>::eth_to_root_nft(test_vals.token_address),
+			EthToRootNft::<Test>::get(test_vals.token_address),
 			Some(expected_collection_id)
 		);
 		assert_eq!(
-			Pallet::<Test>::root_to_eth_nft(expected_collection_id),
+			RootNftToErc721::<Test>::get(expected_collection_id),
 			Some(test_vals.token_address)
 		);
 
@@ -359,7 +359,7 @@ fn do_withdraw_invalid_token_length_should_fail() {
 fn do_deposit_adds_to_blocked_on_fail() {
 	ExtBuilder::default().build().execute_with(|| {
 		let test_vals = TestVals::default();
-		let blocked_mint_id = NftPeg::next_blocked_mint_id();
+		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 		let collection_id = Nft::next_collection_uuid().unwrap();
 
 		let collection_owner = create_account(1);
@@ -382,7 +382,9 @@ fn do_deposit_adds_to_blocked_on_fail() {
 			destination_address: test_vals.destination.into()
 		}));
 
-		let blocked = Pallet::<Test>::blocked_tokens(blocked_mint_id).unwrap();
+		let blocked =
+			<pallet::Pallet<mock::Test> as pallet::Store>::BlockedTokens::get(blocked_mint_id)
+				.unwrap();
 
 		assert_eq!(blocked.collection_id, collection_id);
 		assert_eq!(blocked.serial_numbers, serial_numbers);
@@ -393,7 +395,7 @@ fn do_deposit_adds_to_blocked_on_fail() {
 #[test]
 fn reclaim_blocked_nfts() {
 	ExtBuilder::default().build().execute_with(|| {
-		let blocked_mint_id = NftPeg::next_blocked_mint_id();
+		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 
 		let collection_owner = create_account(1);
 
@@ -418,7 +420,7 @@ fn reclaim_blocked_nfts() {
 #[test]
 fn reclaim_blocked_nfts_called_by_wrong_account_should_fail() {
 	ExtBuilder::default().build().execute_with(|| {
-		let blocked_mint_id = NftPeg::next_blocked_mint_id();
+		let blocked_mint_id = NextBlockedMintId::<Test>::get();
 
 		let collection_owner = create_account(1);
 		let not_destination = create_account(2);

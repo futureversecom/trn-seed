@@ -13,7 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{Config, Pallet};
+use crate::{Config, ContractAddress};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::BoundedVec;
 use scale_info::TypeInfo;
@@ -68,7 +68,7 @@ pub struct GetContractAddress<T>(PhantomData<T>);
 
 impl<T: Config> Get<H160> for GetContractAddress<T> {
 	fn get() -> H160 {
-		Pallet::<T>::contract_address()
+		ContractAddress::<T>::get()
 	}
 }
 

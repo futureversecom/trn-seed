@@ -64,30 +64,25 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn contract_address)]
 	pub type ContractAddress<T: Config> = StorageValue<_, EthAddress, ValueQuery>;
 
 	// Map Ethereum contract address to Root collection id
 	#[pallet::storage]
-	#[pallet::getter(fn eth_to_root_nft)]
 	pub type EthToRootNft<T: Config> =
 		StorageMap<_, Twox64Concat, EthAddress, CollectionUuid, OptionQuery>;
 
 	// Map Root collection id to Ethereum contract address
 	#[pallet::storage]
-	#[pallet::getter(fn root_to_eth_nft)]
 	pub type RootNftToErc721<T: Config> =
 		StorageMap<_, Twox64Concat, CollectionUuid, EthAddress, OptionQuery>;
 
 	// Map BlockedMintId to tokens
 	#[pallet::storage]
-	#[pallet::getter(fn blocked_tokens)]
 	pub type BlockedTokens<T: Config> =
 		StorageMap<_, Twox64Concat, BlockedMintId, BlockedTokenInfo<T>, OptionQuery>;
 
 	/// The next available BlockedMintId
 	#[pallet::storage]
-	#[pallet::getter(fn next_blocked_mint_id)]
 	pub type NextBlockedMintId<T> = StorageValue<_, BlockedMintId, ValueQuery>;
 
 	#[pallet::error]
@@ -312,7 +307,7 @@ where
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
 			let collection_id: CollectionUuid =
-				match Self::eth_to_root_nft(current_token.token_address) {
+				match EthToRootNft::<T>::get(current_token.token_address) {
 					Some(collection_id) => collection_id,
 					None => {
 						let mut h160_addr = sp_std::Writer::default();
@@ -363,7 +358,7 @@ where
 				Err((mint_weight, err)) => {
 					weight = weight.saturating_add(mint_weight);
 
-					let blocked_mint_id = Self::next_blocked_mint_id();
+					let blocked_mint_id = NextBlockedMintId::<T>::get();
 
 					// Rebound to `MaxSerialsPerWithdraw` - this shouldn't fail as
 					// it is the same as `MaxTokensPerMint`
@@ -436,7 +431,7 @@ where
 			let mut current_serial_numbers = Vec::with_capacity(serial_numbers[idx].len());
 
 			if let Some(blocked_mint_id) = blocked_mint_id {
-				let blocked_tokens = Self::blocked_tokens(blocked_mint_id)
+				let blocked_tokens = BlockedTokens::<T>::get(blocked_mint_id)
 					.ok_or(Error::<T>::NoBlockedTokensFound)?;
 
 				for serial_number in &blocked_tokens.serial_numbers {
@@ -452,8 +447,8 @@ where
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
-			let token_address = Pallet::<T>::root_to_eth_nft(collection_id)
-				.ok_or(Error::<T>::NoMappedTokenExists)?;
+			let token_address =
+				RootNftToErc721::<T>::get(collection_id).ok_or(Error::<T>::NoMappedTokenExists)?;
 			source_collection_ids.push(Token::Address(token_address));
 			source_serial_numbers.push(Token::Array(current_serial_numbers));
 		}
@@ -467,7 +462,7 @@ where
 		]);
 
 		let event_proof_id =
-			T::EthBridge::send_event(&source, &Pallet::<T>::contract_address(), &message)?;
+			T::EthBridge::send_event(&source, &ContractAddress::<T>::get(), &message)?;
 
 		Self::deposit_event(Event::<T>::Erc721Withdraw {
 			origin: who,
@@ -484,7 +479,7 @@ where
 		destination: H160,
 	) -> Result<(), DispatchError> {
 		let blocked_tokens =
-			Self::blocked_tokens(blocked_mint_id).ok_or(Error::<T>::NoBlockedTokensFound)?;
+			BlockedTokens::<T>::get(blocked_mint_id).ok_or(Error::<T>::NoBlockedTokensFound)?;
 
 		ensure!(blocked_tokens.destination_address == who, Error::<T>::NotBlockedTokenDestination);
 

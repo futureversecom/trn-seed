@@ -19,7 +19,7 @@
 
 use super::*;
 
-use crate::{EthToRootNft, Pallet as NftPeg, RootNftToErc721};
+use crate::{BlockedTokens, EthToRootNft, NextBlockedMintId, Pallet as NftPeg, RootNftToErc721};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
@@ -82,7 +82,7 @@ benchmarks! {
 		let alice = account::<T>("Alice");
 		let token = account::<T>("Token");
 
-		let blocked_mint_id = NftPeg::<T>::next_blocked_mint_id();
+		let blocked_mint_id = NextBlockedMintId::<T>::get();
 
 		let serial_numbers = vec![1_000_000_001_u32, 1_000_000_002_u32];
 		let token_1 = TokenInfo::<T>{token_address: token.clone().into(), token_ids: serial_numbers.clone().try_into().unwrap()};
@@ -116,7 +116,7 @@ benchmarks! {
 
 	}: _(origin::<T>(&alice), blocked_mint_id, alice.clone().into())
 	verify {
-		let blocked_tokens = NftPeg::<T>::blocked_tokens(blocked_mint_id);
+		let blocked_tokens = BlockedTokens::<T>::get(blocked_mint_id);
 		assert!(blocked_tokens.is_none());
 	}
 }
