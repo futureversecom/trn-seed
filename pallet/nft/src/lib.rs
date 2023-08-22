@@ -160,7 +160,6 @@ pub mod pallet {
 
 	/// Map from collection to its information
 	#[pallet::storage]
-	#[pallet::getter(fn collection_info)]
 	pub type CollectionInfo<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
@@ -491,7 +490,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
-				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 			collection_info.owner = new_owner.clone();
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
@@ -509,7 +508,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
-				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(!max_issuance.is_zero(), Error::<T>::InvalidMaxIssuance);
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 			ensure!(collection_info.max_issuance.is_none(), Error::<T>::MaxIssuanceAlreadySet);
@@ -534,7 +533,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
-				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
 			collection_info.metadata_scheme = base_uri
@@ -640,7 +639,7 @@ pub mod pallet {
 			ensure!(quantity <= T::MintLimit::get(), Error::<T>::MintLimitExceeded);
 
 			let mut collection_info =
-				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 			// Perform pre mint checks
 			let serial_numbers = Self::pre_mint(&who, quantity, &collection_info)?;
@@ -1033,7 +1032,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
 			let collection_info =
-				Self::collection_info(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
+				<CollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
 			let offer_id = Self::next_offer_id();
 			ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
@@ -1153,7 +1152,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let mut collection_info =
-				Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+				<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(collection_info.is_collection_owner(&who), Error::<T>::NotCollectionOwner);
 
 			ensure!(!name.is_empty(), Error::<T>::CollectionNameInvalid);

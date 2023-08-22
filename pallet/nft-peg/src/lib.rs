@@ -420,7 +420,7 @@ where
 		let mut source_serial_numbers = Vec::with_capacity(collection_ids.len());
 
 		for (idx, collection_id) in (&collection_ids).into_iter().enumerate() {
-			let collection_info = pallet_nft::Pallet::<T>::collection_info(collection_id)
+			let collection_info = <pallet_nft::CollectionInfo<T>>::get(collection_id)
 				.ok_or(Error::<T>::NoCollectionFound)?;
 
 			// At the time of writing, only Ethereum-originated NFTs can be bridged back.

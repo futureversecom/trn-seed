@@ -46,7 +46,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns number of tokens owned by an account in a collection
 	/// Used by the ERC721 precompile for balance_of
 	pub fn token_balance_of(who: &T::AccountId, collection_id: CollectionUuid) -> TokenCount {
-		match Self::collection_info(collection_id) {
+		match <CollectionInfo<T>>::get(collection_id) {
 			Some(collection_info) => {
 				let serial_numbers: Vec<SerialNumber> = collection_info
 					.owned_tokens
@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
 	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721
 	/// metadata token_uri)
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
-		let collection_info = Self::collection_info(token_id.0);
+		let collection_info = <CollectionInfo<T>>::get(token_id.0);
 		if collection_info.is_none() {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
@@ -102,10 +102,11 @@ impl<T: Config> Pallet<T> {
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
 		// Get collection royalties portion
-		let mut royalties: RoyaltiesSchedule<T::AccountId> = Self::collection_info(collection_id)
-			.ok_or(Error::<T>::NoCollectionFound)?
-			.royalties_schedule
-			.unwrap_or_default();
+		let mut royalties: RoyaltiesSchedule<T::AccountId> =
+			<CollectionInfo<T>>::get(collection_id)
+				.ok_or(Error::<T>::NoCollectionFound)?
+				.royalties_schedule
+				.unwrap_or_default();
 
 		// Get network fee portion
 		if let Some(tx_fee_pot_id) = FeeTo::<T>::get() {
@@ -194,7 +195,7 @@ impl<T: Config> Pallet<T> {
 			return Ok(0 as Weight)
 		};
 
-		let collection_info = match Self::collection_info(collection_id) {
+		let collection_info = match <CollectionInfo<T>>::get(collection_id) {
 			Some(info) => info,
 			None => return Ok(T::DbWeight::get().reads(1)),
 		};
@@ -342,7 +343,7 @@ impl<T: Config> Pallet<T> {
 		cursor: SerialNumber,
 		limit: u16,
 	) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
-		let collection_info = match Self::collection_info(collection_id) {
+		let collection_info = match <CollectionInfo<T>>::get(collection_id) {
 			Some(info) => info,
 			None => return (Default::default(), Default::default(), Default::default()),
 		};
@@ -529,7 +530,7 @@ impl<T: Config> Pallet<T> {
 		listing_id: ListingId,
 	) -> DispatchResult {
 		let collection_info =
-			Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 		// Check whether token is locked and that owner owns each token
 		for serial_number in serial_numbers.iter() {

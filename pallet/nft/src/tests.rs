@@ -20,7 +20,7 @@ use crate::{
 		MarketplaceNetworkFeePercentage, MaxTokensPerCollection, NativeAssetId, Nft, NftPalletId,
 		System, Test, TestExt, XRP_ASSET_ID,
 	},
-	Event as NftEvent,
+	CollectionInfo, Event as NftEvent,
 };
 use core::ops::Mul;
 use frame_support::{
@@ -319,7 +319,7 @@ fn create_collection() {
 			expected_info.cross_chain_compatibility.clone(),
 		));
 
-		assert_eq!(Nft::collection_info(collection_id).unwrap(), expected_info);
+		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap(), expected_info);
 
 		// EVM pallet should have account code for collection
 		assert!(!pallet_evm::Pallet::<Test>::is_account_empty(
@@ -340,9 +340,12 @@ fn create_collection() {
 		}));
 
 		// check token ownership
-		assert_eq!(Nft::collection_info(collection_id).unwrap().collection_issuance, quantity);
 		assert_eq!(
-			Nft::collection_info(collection_id).unwrap().royalties_schedule,
+			CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance,
+			quantity
+		);
+		assert_eq!(
+			CollectionInfo::<Test>::get(collection_id).unwrap().royalties_schedule,
 			Some(royalties_schedule)
 		);
 		// We minted collection token 1, next collection token id is 2
@@ -372,7 +375,7 @@ fn create_collection() {
 		}));
 		assert_eq!(Nft::token_balance_of(&(new_owner), collection_id), 3);
 		assert_eq!(
-			Nft::collection_info(collection_id).unwrap().next_serial_number,
+			CollectionInfo::<Test>::get(collection_id).unwrap().next_serial_number,
 			quantity + additional_quantity
 		);
 
@@ -385,7 +388,7 @@ fn create_collection() {
 			(0_u32, 3, vec![5, 6, 7])
 		);
 		assert_eq!(
-			Nft::collection_info(collection_id).unwrap().collection_issuance,
+			CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance,
 			quantity + additional_quantity
 		);
 	});
@@ -512,7 +515,9 @@ fn transfer() {
 
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 0);
 		assert_eq!(Nft::token_balance_of(&new_owner, collection_id), 1);
-		assert!(Nft::collection_info(collection_id).unwrap().is_token_owner(&new_owner, 0));
+		assert!(CollectionInfo::<Test>::get(collection_id)
+			.unwrap()
+			.is_token_owner(&new_owner, 0));
 	});
 }
 
@@ -607,7 +612,7 @@ fn burn() {
 		assert_ok!(Nft::burn(Some(token_owner).into(), (collection_id, 2)));
 		assert!(has_event(Event::<Test>::Burn { collection_id, serial_number: 2 }));
 
-		assert_eq!(Nft::collection_info(collection_id).unwrap().collection_issuance, 0);
+		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 0);
 		assert_eq!(
 			Nft::owned_tokens(collection_id, &token_owner, 0, 1000),
 			(0_u32, 0_u32, vec![].into())
@@ -2409,7 +2414,7 @@ fn mint_over_max_issuance_should_fail() {
 			CrossChainCompatibility::default(),
 		));
 		assert_eq!(
-			Nft::collection_info(collection_id).unwrap().collection_issuance,
+			CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance,
 			initial_issuance
 		);
 
@@ -2422,7 +2427,7 @@ fn mint_over_max_issuance_should_fail() {
 			owner: token_owner,
 		}));
 		assert_eq!(
-			Nft::collection_info(collection_id).unwrap().collection_issuance,
+			CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance,
 			initial_issuance + 3
 		);
 
@@ -3317,13 +3322,13 @@ fn mints_multiple_specified_tokens_by_id() {
 
 		// Ownership checks
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), token_ids.len() as u32);
-		let collection_info = Nft::collection_info(collection_id).unwrap();
+		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 		token_ids.iter().for_each(|&serial_number| {
 			assert!(collection_info.is_token_owner(&token_owner, serial_number));
 		});
 
 		// Next serial number should be 0, origin chain is Ethereum so we don't count this
-		assert_eq!(Nft::collection_info(collection_id).unwrap().next_serial_number, 0);
+		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().next_serial_number, 0);
 	});
 }
 
@@ -3359,13 +3364,13 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		// We expect the token balance to be 5 as that is the number of unique token_ids in the vec
 		assert_eq!(Nft::token_balance_of(&token_owner, collection_id), 5);
 
-		let collection_info = Nft::collection_info(collection_id).unwrap();
+		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 		token_ids.iter().for_each(|&serial_number| {
 			assert!(collection_info.is_token_owner(&token_owner, serial_number));
 		});
 
 		// Collection issuance should be 5 to indicate the 5 unique tokens
-		assert_eq!(Nft::collection_info(collection_id).unwrap().collection_issuance, 5_u32);
+		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 5_u32);
 		// Other owner shouldn't have any tokens
 		assert_eq!(Nft::token_balance_of(&other_owner, collection_id), 0);
 
@@ -3374,11 +3379,11 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		Nft::mint_bridged_token(&other_owner, collection_id, token_ids.clone());
 
 		// Collection issuance should now be 8 to indicate the 3 additional unique tokens
-		assert_eq!(Nft::collection_info(collection_id).unwrap().collection_issuance, 8_u32);
+		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 8_u32);
 		// We expect the token balance to be 3
 		assert_eq!(Nft::token_balance_of(&other_owner, collection_id), 3);
 
-		let collection_info = Nft::collection_info(collection_id).unwrap();
+		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 		vec![3000, 40005, 1234].iter().for_each(|&serial_number| {
 			assert!(collection_info.is_token_owner(&other_owner, serial_number));
 		});
@@ -3404,7 +3409,7 @@ fn token_exists_works() {
 			CrossChainCompatibility::default(),
 		));
 
-		let collection_info = Nft::collection_info(collection_id).unwrap();
+		let collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 
 		// Check that the tokens exist
 		for serial_number in 0..quantity {
@@ -3461,7 +3466,7 @@ fn add_user_tokens_works() {
 		let token_owner = create_account(2);
 		let tokens: Vec<SerialNumber> = vec![0, 1, 2, 3, 900, 1000, 101010101];
 		let collection_id = setup_collection(collection_owner);
-		let mut collection_info = Nft::collection_info(collection_id).unwrap();
+		let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 		let expected_owned_tokens: OwnedTokens = BoundedVec::default();
 		// Initially, owned tokens should be empty
 		assert_eq!(collection_info.owned_tokens, expected_owned_tokens);
@@ -3505,7 +3510,7 @@ fn add_user_tokens_over_token_limit_should_fail() {
 		let token_owner = create_account(2);
 		let token_owner_2 = create_account(3);
 		let collection_id = setup_collection(collection_owner);
-		let mut collection_info = Nft::collection_info(collection_id).unwrap();
+		let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 		let max = mock::MaxTokensPerCollection::get();
 
 		// Add tokens to token_owner
@@ -3538,7 +3543,7 @@ fn add_user_tokens_over_user_limit_should_fail() {
 	TestExt::default().build().execute_with(|| {
 		let collection_owner = create_account(1);
 		let collection_id = setup_collection(collection_owner);
-		let mut collection_info = Nft::collection_info(collection_id).unwrap();
+		let mut collection_info = CollectionInfo::<Test>::get(collection_id).unwrap();
 		let max = mock::MaxTokensPerCollection::get();
 		let serial_numbers: BoundedVec<SerialNumber, MaxTokensPerCollection> =
 			BoundedVec::try_from(vec![100]).unwrap();
@@ -3701,7 +3706,7 @@ fn create_xls20_collection_works() {
 
 		// Check storage is correct
 		assert_eq!(
-			Nft::collection_info(collection_id).unwrap(),
+			CollectionInfo::<Test>::get(collection_id).unwrap(),
 			CollectionInformation {
 				owner: collection_owner,
 				name: collection_name,
