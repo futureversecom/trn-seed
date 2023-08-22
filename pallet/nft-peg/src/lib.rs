@@ -363,7 +363,8 @@ where
 					// Rebound to `MaxSerialsPerWithdraw` - this shouldn't fail as
 					// it is the same as `MaxTokensPerMint`
 					let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
-						BoundedVec::truncate_from(serial_numbers);
+						BoundedVec::try_from(serial_numbers)
+							.map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))?;
 
 					<BlockedTokens<T>>::insert(
 						blocked_mint_id,
