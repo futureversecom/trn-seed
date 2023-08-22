@@ -739,9 +739,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.82"
+version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "305fe645edc1442a0fa8b6726ba61d422798d37a52e12eaecf4b022ebbb88f01"
+checksum = "f1174fb0b6ec23863f8b971027804a42614e347eafb0a95bf0b12cdae21fc4d0"
 dependencies = [
  "jobserver",
  "libc",
@@ -870,7 +870,7 @@ dependencies = [
  "bitflags 1.3.2",
  "clap_derive",
  "clap_lex",
- "indexmap",
+ "indexmap 1.9.3",
  "once_cell",
  "strsim",
  "termcolor",
@@ -1491,7 +1491,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c24f403d068ad0b359e577a77f92392118be3f3c927538f2bb544a5ecd828c6"
 dependencies = [
  "curve25519-dalek 3.2.0",
- "hashbrown",
+ "hashbrown 0.12.3",
  "hex",
  "rand_core 0.6.4",
  "sha2 0.9.9",
@@ -1571,6 +1571,12 @@ name = "environmental"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e48c92028aaa870e83d51c64e5d4e0b6981b360c522198c23959f219a4e1b15b"
+
+[[package]]
+name = "equivalent"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5443807d6dff69373d433ab9ef5378ad8df50ca6298caf15de6e52e24aaf54d5"
 
 [[package]]
 name = "errno"
@@ -1747,26 +1753,6 @@ checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
 name = "evm"
-version = "0.35.0"
-source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
-dependencies = [
- "auto_impl",
- "environmental",
- "ethereum",
- "evm-core 0.35.0",
- "evm-gasometer 0.35.0",
- "evm-runtime 0.35.0",
- "log",
- "parity-scale-codec",
- "primitive-types",
- "rlp",
- "scale-info",
- "serde",
- "sha3 0.10.8",
-]
-
-[[package]]
-name = "evm"
 version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d388bbd18050623b996cc4ba0643971e2978693ad56ca8b7603080cfa5eaf738"
@@ -1774,9 +1760,9 @@ dependencies = [
  "auto_impl",
  "environmental",
  "ethereum",
- "evm-core 0.36.0",
- "evm-gasometer 0.36.0",
- "evm-runtime 0.36.0",
+ "evm-core",
+ "evm-gasometer",
+ "evm-runtime",
  "log",
  "parity-scale-codec",
  "primitive-types",
@@ -1784,17 +1770,6 @@ dependencies = [
  "scale-info",
  "serde",
  "sha3 0.10.8",
-]
-
-[[package]]
-name = "evm-core"
-version = "0.35.0"
-source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
-dependencies = [
- "parity-scale-codec",
- "primitive-types",
- "scale-info",
- "serde",
 ]
 
 [[package]]
@@ -1811,37 +1786,14 @@ dependencies = [
 
 [[package]]
 name = "evm-gasometer"
-version = "0.35.0"
-source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
-dependencies = [
- "environmental",
- "evm-core 0.35.0",
- "evm-runtime 0.35.0",
- "primitive-types",
-]
-
-[[package]]
-name = "evm-gasometer"
 version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "170a27b6e49b8279016afffcdc6ebae9225d5acff3a546ad8589929b091e7ac5"
 dependencies = [
  "environmental",
- "evm-core 0.36.0",
- "evm-runtime 0.36.0",
+ "evm-core",
+ "evm-runtime",
  "primitive-types",
-]
-
-[[package]]
-name = "evm-runtime"
-version = "0.35.0"
-source = "git+https://github.com/futureversecom/evm?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
-dependencies = [
- "auto_impl",
- "environmental",
- "evm-core 0.35.0",
- "primitive-types",
- "sha3 0.10.8",
 ]
 
 [[package]]
@@ -1852,7 +1804,7 @@ checksum = "4d48c2545a02e3a4d1a5184a96af11037334dce947b6bdb389b3503b3a6f8dcd"
 dependencies = [
  "auto_impl",
  "environmental",
- "evm-core 0.36.0",
+ "evm-core",
  "primitive-types",
  "sha3 0.10.8",
 ]
@@ -1954,11 +1906,11 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30
 dependencies = [
  "ethereum",
  "ethereum-types",
- "evm 0.36.0",
+ "evm",
  "fc-db",
  "fc-rpc-core",
  "fp-ethereum",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-evm",
  "fp-rpc",
  "fp-storage",
  "futures",
@@ -2138,8 +2090,8 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30
 dependencies = [
  "ethereum",
  "ethereum-types",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
  "num_enum",
  "parity-scale-codec",
  "sp-core",
@@ -2151,8 +2103,8 @@ name = "fp-evm"
 version = "3.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#73b5306aef2fb7ca6a91e9811ce63c6c18c9e790"
 dependencies = [
- "evm 0.36.0",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "evm",
+ "frame-support",
  "parity-scale-codec",
  "serde",
  "sp-core",
@@ -2166,7 +2118,7 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30
 dependencies = [
  "ethereum",
  "ethereum-types",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-evm",
  "parity-scale-codec",
  "scale-info",
  "sp-api",
@@ -2182,7 +2134,7 @@ version = "1.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#73b5306aef2fb7ca6a91e9811ce63c6c18c9e790"
 dependencies = [
  "ethereum",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
  "parity-scale-codec",
  "parity-util-mem",
  "scale-info",
@@ -2202,32 +2154,10 @@ dependencies = [
 [[package]]
 name = "frame-benchmarking"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "linregress",
- "log",
- "parity-scale-codec",
- "paste",
- "scale-info",
- "serde",
- "sp-api 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-application-crypto 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime-interface 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-storage 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
-]
-
-[[package]]
-name = "frame-benchmarking"
-version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "linregress",
  "log",
  "parity-scale-codec",
@@ -2254,9 +2184,9 @@ dependencies = [
  "chrono",
  "clap",
  "comfy-table",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "gethostname",
  "handlebars",
  "hash-db",
@@ -2312,8 +2242,8 @@ version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
  "frame-election-provider-solution-type",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-arithmetic",
@@ -2327,8 +2257,8 @@ name = "frame-executive"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "frame-try-runtime",
  "parity-scale-codec",
  "scale-info",
@@ -2354,41 +2284,11 @@ dependencies = [
 [[package]]
 name = "frame-support"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "bitflags",
- "frame-metadata",
- "frame-support-procedural 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "impl-trait-for-tuples",
- "k256",
- "log",
- "once_cell",
- "parity-scale-codec",
- "paste",
- "scale-info",
- "serde",
- "smallvec",
- "sp-arithmetic 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-core-hashing-proc-macro 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-inherents 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-staking 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-state-machine 0.12.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-tracing 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "tt-call",
-]
-
-[[package]]
-name = "frame-support"
-version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
  "bitflags 1.3.2",
  "frame-metadata",
- "frame-support-procedural 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support-procedural",
  "impl-trait-for-tuples",
  "k256",
  "log",
@@ -2405,7 +2305,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-runtime",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-state-machine",
  "sp-std",
  "sp-tracing",
@@ -2416,23 +2316,11 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "Inflector",
- "frame-support-procedural-tools 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "frame-support-procedural"
-version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
  "Inflector",
  "cfg-expr",
- "frame-support-procedural-tools 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support-procedural-tools",
  "itertools",
  "proc-macro2",
  "quote",
@@ -2442,32 +2330,10 @@ dependencies = [
 [[package]]
 name = "frame-support-procedural-tools"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "frame-support-procedural-tools-derive 3.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "frame-support-procedural-tools"
-version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support-procedural-tools-derive 3.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support-procedural-tools-derive",
  "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "frame-support-procedural-tools-derive"
-version = "3.0.0"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
@@ -2486,26 +2352,9 @@ dependencies = [
 [[package]]
 name = "frame-system"
 version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "log",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-io 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-version 5.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
-]
-
-[[package]]
-name = "frame-system"
-version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -2523,9 +2372,9 @@ name = "frame-system-benchmarking"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -2547,7 +2396,7 @@ name = "frame-try-runtime"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
  "parity-scale-codec",
  "sp-api",
  "sp-runtime",
@@ -2789,7 +2638,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "22030e2c5a68ec659fde1e949a745124b48e6fa8b045b7ed5bd1fe4ccc5c4e5d"
 dependencies = [
  "fallible-iterator",
- "indexmap",
+ "indexmap 1.9.3",
  "stable_deref_trait",
 ]
 
@@ -2843,9 +2692,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.3.20"
+version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "97ec8491ebaf99c8eaa73058b045fe58073cd6be7f596ac993ced0b0a0c01049"
+checksum = "91fc23aa11be92976ef4729127f1a74adf36d8436f7816b185d18df956790833"
 dependencies = [
  "bytes",
  "fnv",
@@ -2853,7 +2702,7 @@ dependencies = [
  "futures-sink",
  "futures-util",
  "http",
- "indexmap",
+ "indexmap 1.9.3",
  "slab",
  "tokio",
  "tokio-util",
@@ -2897,6 +2746,12 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 dependencies = [
  "ahash",
 ]
+
+[[package]]
+name = "hashbrown"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
 
 [[package]]
 name = "heck"
@@ -3190,8 +3045,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.12.3",
  "serde",
+]
+
+[[package]]
+name = "indexmap"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5477fe2230a79769d8dc68e0eabf5437907c0457a5614a9e8dddb67f65eb65d"
+dependencies = [
+ "equivalent",
+ "hashbrown 0.14.0",
 ]
 
 [[package]]
@@ -4268,7 +4133,7 @@ version = "0.7.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e999beba7b6e8345721bd280141ed958096a2e4abdf74f67ff4ce49b4b54e47a"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -4277,7 +4142,7 @@ version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6e8aaa3f231bb4bd57b84b2d5dc3ae7f350265df8aa96492e0bc394a1571909"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.12.3",
 ]
 
 [[package]]
@@ -4398,7 +4263,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6566c70c1016f525ced45d7b7f97730a2bafb037c788211d0c186ef5b2189f0a"
 dependencies = [
  "hash-db",
- "hashbrown",
+ "hashbrown 0.12.3",
  "parity-util-mem",
 ]
 
@@ -4811,8 +4676,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "21158b2c33aa6d4561f1c0a6ea283ca92bc54802a93b263e910746d679a7eb53"
 dependencies = [
  "crc32fast",
- "hashbrown",
- "indexmap",
+ "hashbrown 0.12.3",
+ "indexmap 1.9.3",
  "memchr",
 ]
 
@@ -4865,36 +4730,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "packed_simd_2"
-version = "0.3.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1914cd452d8fccd6f9db48147b29fd4ae05bea9dc5d9ad578509f72415de282"
-dependencies = [
- "cfg-if",
- "libm 0.1.4",
-]
-
-[[package]]
-name = "pallet-assets"
-version = "4.0.0-dev"
-source = "git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27#8eff668a42325aeb4433eace1604f4d286a6ec05"
-dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime 6.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
-]
-
-[[package]]
 name = "pallet-assets"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-runtime",
@@ -4905,13 +4747,13 @@ dependencies = [
 name = "pallet-assets-ext"
 version = "1.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
  "pallet-balances",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-evm",
+ "pallet-timestamp",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -4928,8 +4770,8 @@ name = "pallet-authorship"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
@@ -4943,13 +4785,13 @@ name = "pallet-babe"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-authorship",
  "pallet-session",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-application-crypto",
@@ -4958,7 +4800,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -4967,10 +4809,10 @@ name = "pallet-bags-list"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-balances",
  "parity-scale-codec",
@@ -4987,9 +4829,9 @@ name = "pallet-balances"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -5002,9 +4844,9 @@ name = "pallet-base-fee"
 version = "1.0.0"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#73b5306aef2fb7ca6a91e9811ce63c6c18c9e790"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -5016,11 +4858,11 @@ dependencies = [
 name = "pallet-dex"
 version = "0.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "parity-scale-codec",
@@ -5039,7 +4881,7 @@ dependencies = [
 name = "pallet-dex-rpc"
 version = "0.0.1"
 dependencies = [
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-system",
  "jsonrpsee",
  "pallet-dex",
  "pallet-dex-rpc-runtime-api",
@@ -5056,7 +4898,7 @@ dependencies = [
 name = "pallet-dex-rpc-runtime-api"
 version = "0.0.1"
 dependencies = [
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-system",
  "pallet-dex",
  "seed-primitives",
  "sp-api",
@@ -5070,9 +4912,9 @@ name = "pallet-echo"
 version = "1.0.0"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -5088,10 +4930,10 @@ name = "pallet-election-provider-multi-phase"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-election-provider-support-benchmarking",
  "parity-scale-codec",
@@ -5112,9 +4954,9 @@ name = "pallet-election-provider-support-benchmarking"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
  "frame-election-provider-support",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-system",
  "parity-scale-codec",
  "sp-npos-elections",
  "sp-runtime",
@@ -5125,12 +4967,12 @@ name = "pallet-erc20-peg"
 version = "2.0.1"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "log",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-nft",
@@ -5152,17 +4994,17 @@ source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30
 dependencies = [
  "ethereum",
  "ethereum-types",
- "evm 0.36.0",
+ "evm",
  "fp-consensus",
  "fp-ethereum",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-evm",
  "fp-rpc",
  "fp-self-contained",
  "fp-storage",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
+ "pallet-evm",
+ "pallet-timestamp",
  "parity-scale-codec",
  "rlp",
  "scale-info",
@@ -5178,11 +5020,11 @@ version = "1.0.1"
 dependencies = [
  "ethabi",
  "ethereum-types",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.3.4",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-scheduler",
@@ -5208,14 +5050,14 @@ version = "6.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#73b5306aef2fb7ca6a91e9811ce63c6c18c9e790"
 dependencies = [
  "environmental",
- "evm 0.36.0",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "evm",
+ "fp-evm",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "log",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
  "rlp",
@@ -5231,9 +5073,9 @@ dependencies = [
 name = "pallet-evm-chain-id"
 version = "1.0.0-dev"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -5248,7 +5090,7 @@ name = "pallet-evm-precompile-blake2"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#73b5306aef2fb7ca6a91e9811ce63c6c18c9e790"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-evm",
 ]
 
 [[package]]
@@ -5256,7 +5098,7 @@ name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#73b5306aef2fb7ca6a91e9811ce63c6c18c9e790"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-evm",
  "num",
 ]
 
@@ -5265,7 +5107,7 @@ name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#73b5306aef2fb7ca6a91e9811ce63c6c18c9e790"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-evm",
  "tiny-keccak",
 ]
 
@@ -5274,7 +5116,7 @@ name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
 source = "git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN#73b5306aef2fb7ca6a91e9811ce63c6c18c9e790"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "fp-evm",
  "ripemd",
  "sp-io",
 ]
@@ -5283,13 +5125,13 @@ dependencies = [
 name = "pallet-evm-precompiles-dex"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
- "frame-system 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
- "pallet-assets 4.0.0-dev (git+https://github.com/futureversecom/substrate?branch=polkadot-v0.9.27)",
+ "pallet-assets",
  "pallet-dex",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.27-TRN)",
+ "pallet-evm",
  "precompile-utils",
  "scale-info",
  "seed-primitives",
@@ -5303,11 +5145,11 @@ name = "pallet-evm-precompiles-erc1155"
 version = "2.0.0"
 dependencies = [
  "ethereum-types",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-nft",
  "pallet-sft",
  "pallet-token-approvals",
@@ -5325,13 +5167,13 @@ dependencies = [
 name = "pallet-evm-precompiles-erc20"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-token-approvals",
  "parity-scale-codec",
  "precompile-utils",
@@ -5347,11 +5189,11 @@ dependencies = [
 name = "pallet-evm-precompiles-erc721"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-nft",
  "pallet-token-approvals",
  "pallet-xls20",
@@ -5369,11 +5211,11 @@ dependencies = [
 name = "pallet-evm-precompiles-futurepass"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-futurepass",
  "pallet-proxy",
  "precompile-utils",
@@ -5388,11 +5230,11 @@ dependencies = [
 name = "pallet-evm-precompiles-futurepass-registrar"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-futurepass",
  "pallet-proxy",
  "precompile-utils",
@@ -5407,11 +5249,11 @@ dependencies = [
 name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-nft",
  "precompile-utils",
  "scale-info",
@@ -5425,12 +5267,12 @@ dependencies = [
 name = "pallet-evm-precompiles-peg"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
  "pallet-erc20-peg",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-nft-peg",
  "precompile-utils",
  "scale-info",
@@ -5444,11 +5286,11 @@ dependencies = [
 name = "pallet-evm-precompiles-sft"
 version = "2.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "num_enum",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-sft",
  "precompile-utils",
  "scale-info",
@@ -5462,18 +5304,18 @@ dependencies = [
 name = "pallet-fee-control"
 version = "1.0.0"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-dex",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-fee-proxy",
  "pallet-futurepass",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "precompile-utils",
@@ -5491,17 +5333,17 @@ name = "pallet-fee-proxy"
 version = "0.1.0"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-dex",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-futurepass",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "precompile-utils",
@@ -5518,23 +5360,23 @@ dependencies = [
 name = "pallet-futurepass"
 version = "1.0.0-dev"
 dependencies = [
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "fp-evm",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.3.4",
  "log",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-dex",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-fee-control",
  "pallet-fee-proxy",
  "pallet-nft",
  "pallet-proxy",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "precompile-utils",
@@ -5554,9 +5396,9 @@ name = "pallet-grandpa"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-authorship",
  "pallet-session",
@@ -5568,7 +5410,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -5577,9 +5419,9 @@ name = "pallet-im-online"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-authorship",
  "parity-scale-codec",
@@ -5588,7 +5430,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -5596,17 +5438,17 @@ dependencies = [
 name = "pallet-marketplace"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-fee-control",
  "pallet-nft",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -5623,16 +5465,16 @@ dependencies = [
 name = "pallet-nft"
 version = "2.2.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex",
  "log",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-evm",
+ "pallet-timestamp",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -5651,12 +5493,12 @@ name = "pallet-nft-peg"
 version = "2.0.1"
 dependencies = [
  "ethabi",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "log",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-nft",
@@ -5707,15 +5549,15 @@ name = "pallet-nomination-pools"
 version = "1.0.0"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -5724,15 +5566,15 @@ name = "pallet-offences"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
  "serde",
  "sp-runtime",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -5741,9 +5583,9 @@ name = "pallet-proxy"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-io",
@@ -5756,9 +5598,9 @@ name = "pallet-recovery"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-io",
@@ -5771,9 +5613,9 @@ name = "pallet-scheduler"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -5787,18 +5629,18 @@ name = "pallet-session"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "log",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-std",
  "sp-trie",
 ]
@@ -5808,9 +5650,9 @@ name = "pallet-session-benchmarking"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "pallet-session",
  "pallet-staking",
  "rand 0.7.3",
@@ -5823,16 +5665,16 @@ dependencies = [
 name = "pallet-sft"
 version = "2.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-nft",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "precompile-utils",
  "scale-info",
@@ -5882,10 +5724,10 @@ name = "pallet-staking"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
  "frame-election-provider-support",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "log",
  "pallet-authorship",
  "pallet-session",
@@ -5896,7 +5738,7 @@ dependencies = [
  "sp-application-crypto",
  "sp-io",
  "sp-runtime",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -5905,8 +5747,8 @@ name = "pallet-sudo"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-io",
@@ -5919,9 +5761,9 @@ name = "pallet-timestamp"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "log",
  "parity-scale-codec",
  "scale-info",
@@ -5929,18 +5771,18 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "sp-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-timestamp",
 ]
 
 [[package]]
 name = "pallet-token-approvals"
 version = "2.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-nft",
@@ -5960,8 +5802,8 @@ name = "pallet-transaction-payment"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -6001,8 +5843,8 @@ dependencies = [
 name = "pallet-tx-fee-pot"
 version = "0.0.1"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-staking",
@@ -6021,9 +5863,9 @@ name = "pallet-utility"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
@@ -6036,10 +5878,10 @@ dependencies = [
 name = "pallet-xls20"
 version = "1.0.0"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
  "pallet-nft",
@@ -6057,15 +5899,15 @@ dependencies = [
 name = "pallet-xrpl-bridge"
 version = "0.0.1"
 dependencies = [
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "hex-literal 0.3.4",
  "log",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -6139,7 +5981,7 @@ checksum = "c32561d248d352148124f036cac253a644685a21dc9fea383eb4907d7bd35a8f"
 dependencies = [
  "cfg-if",
  "ethereum-types",
- "hashbrown",
+ "hashbrown 0.12.3",
  "impl-trait-for-tuples",
  "lru 0.7.8",
  "parity-util-mem-derive",
@@ -6226,7 +6068,7 @@ dependencies = [
  "libc",
  "redox_syscall 0.3.5",
  "smallvec",
- "windows-targets 0.48.3",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -6311,12 +6153,12 @@ dependencies = [
 
 [[package]]
 name = "petgraph"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dd7d28ee937e54fe3080c91faa1c3a46c06de6252988a7f4592ba2310ef22a4"
+checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
 dependencies = [
  "fixedbitset",
- "indexmap",
+ "indexmap 2.0.0",
 ]
 
 [[package]]
@@ -6436,16 +6278,16 @@ name = "precompile-utils"
 version = "0.1.0"
 dependencies = [
  "affix",
- "evm 0.36.0",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "evm",
+ "fp-evm",
+ "frame-support",
+ "frame-system",
  "hex",
  "hex-literal 0.3.4",
  "impl-trait-for-tuples",
  "log",
  "num_enum",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "parity-scale-codec",
  "precompile-utils-macro",
  "sha3 0.10.8",
@@ -8416,9 +8258,9 @@ dependencies = [
  "fp-consensus",
  "fp-rpc",
  "fp-storage",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
  "frame-benchmarking-cli",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-system",
  "frame-try-runtime",
  "futures",
  "hex",
@@ -8464,7 +8306,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore",
  "sp-runtime",
- "sp-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-timestamp",
  "sp-transaction-storage-proof",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
@@ -8476,7 +8318,7 @@ dependencies = [
 name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",
@@ -8516,22 +8358,22 @@ version = "0.1.0"
 dependencies = [
  "ethabi",
  "ethereum",
- "evm 0.36.0",
- "fp-evm 3.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "evm",
+ "fp-evm",
  "fp-rpc",
  "fp-self-contained",
- "frame-benchmarking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-benchmarking",
  "frame-election-provider-support",
  "frame-executive",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex",
  "hex-literal 0.3.4",
  "log",
- "pallet-assets 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-assets",
  "pallet-assets-ext",
  "pallet-authorship",
  "pallet-babe",
@@ -8546,7 +8388,7 @@ dependencies = [
  "pallet-erc20-peg",
  "pallet-ethereum",
  "pallet-ethy",
- "pallet-evm 6.0.0-dev (git+https://github.com/futureversecom/frontier?branch=polkadot-v0.9.30-TRN)",
+ "pallet-evm",
  "pallet-evm-chain-id",
  "pallet-evm-precompile-blake2",
  "pallet-evm-precompile-modexp",
@@ -8581,7 +8423,7 @@ dependencies = [
  "pallet-sft-rpc-runtime-api",
  "pallet-staking",
  "pallet-sudo",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "pallet-token-approvals",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
@@ -8611,7 +8453,7 @@ dependencies = [
  "sp-offchain",
  "sp-runtime",
  "sp-session",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-staking",
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
@@ -8656,18 +8498,18 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.183"
+version = "1.0.185"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32ac8da02677876d532745a130fc9d8e6edfa81a269b107c5b00829b91d8eb3c"
+checksum = "be9b6f69f1dfd54c3b568ffa45c310d6973a5e5148fd40cf515acaf38cf5bc31"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.183"
+version = "1.0.185"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aafe972d60b0b9bee71a91b92fee2d4fb3c9d7e8f6b179aa99f27203d99a4816"
+checksum = "dc59dfdcbad1437773485e0367fea4b090a2e0a16d9ffc46af47764536a298ec"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8834,9 +8676,9 @@ dependencies = [
 
 [[package]]
 name = "similar-asserts"
-version = "1.4.2"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbf644ad016b75129f01a34a355dcb8d66a5bc803e417c7a77cc5d5ee9fa0f18"
+checksum = "e041bb827d1bfca18f213411d51b665309f1afb37a04a5d1464530e13779fc0f"
 dependencies = [
  "console",
  "similar",
@@ -9056,7 +8898,7 @@ dependencies = [
  "sp-inherents",
  "sp-runtime",
  "sp-std",
- "sp-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-timestamp",
 ]
 
 [[package]]
@@ -9079,7 +8921,7 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std",
- "sp-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-timestamp",
 ]
 
 [[package]]
@@ -9093,7 +8935,7 @@ dependencies = [
  "sp-arithmetic",
  "sp-runtime",
  "sp-std",
- "sp-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "sp-timestamp",
 ]
 
 [[package]]
@@ -9554,7 +9396,7 @@ source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3
 dependencies = [
  "ahash",
  "hash-db",
- "hashbrown",
+ "hashbrown 0.12.3",
  "lazy_static",
  "lru 0.7.8",
  "memory-db",
@@ -9828,13 +9670,13 @@ dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
  "cfg-if",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "frame-support",
+ "frame-system",
  "frame-system-rpc-runtime-api",
  "log",
  "memory-db",
  "pallet-babe",
- "pallet-timestamp 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
+ "pallet-timestamp",
  "parity-scale-codec",
  "parity-util-mem",
  "sc-service",
@@ -9975,9 +9817,9 @@ checksum = "9d0e916b1148c8e263850e1ebcbd046f333e0683c724876bb0da63ea4373dc8a"
 
 [[package]]
 name = "tempfile"
-version = "3.7.1"
+version = "3.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc02fddf48964c42031a0b3fe0428320ecf3a73c401040fc0096f97794310651"
+checksum = "cb94d2f3cc536af71caac6b6fcebf65860b347e7ce0cc9ebe8f70d3e521054ef"
 dependencies = [
  "cfg-if",
  "fastrand 2.0.0",
@@ -10287,7 +10129,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "004e1e8f92535694b4cb1444dc5a8073ecf0815e3357f729638b9f8fc4062908"
 dependencies = [
  "hash-db",
- "hashbrown",
+ "hashbrown 0.12.3",
  "log",
  "rustc-hex",
  "smallvec",
@@ -10431,9 +10273,9 @@ dependencies = [
 
 [[package]]
 name = "unicase"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50f37be617794602aabbeee0be4f259dc1778fabe05e2d67ee8f79326d5cb4f6"
+checksum = "f7d2d4dafb69621809a81864c9c1b864479e1235c0dd4e199924b9742439ed89"
 dependencies = [
  "version_check",
 ]
@@ -10729,7 +10571,7 @@ version = "0.89.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab5d3e08b13876f96dd55608d03cd4883a0545884932d5adf11925876c96daef"
 dependencies = [
- "indexmap",
+ "indexmap 1.9.3",
 ]
 
 [[package]]
@@ -10741,7 +10583,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "cfg-if",
- "indexmap",
+ "indexmap 1.9.3",
  "libc",
  "log",
  "object 0.29.0",
@@ -10819,7 +10661,7 @@ dependencies = [
  "anyhow",
  "cranelift-entity",
  "gimli 0.26.2",
- "indexmap",
+ "indexmap 1.9.3",
  "log",
  "object 0.29.0",
  "serde",
@@ -10874,7 +10716,7 @@ dependencies = [
  "anyhow",
  "cc",
  "cfg-if",
- "indexmap",
+ "indexmap 1.9.3",
  "libc",
  "log",
  "mach",
@@ -10998,7 +10840,7 @@ version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e686886bc078bc1b0b600cac0147aadb815089b6e4da64016cbd754b6342700f"
 dependencies = [
- "windows-targets 0.48.3",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -11044,7 +10886,7 @@ version = "0.48.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "677d2418bec65e3338edb076e806bc1ec15693c5d0104683f2efe857f61056a9"
 dependencies = [
- "windows-targets 0.48.3",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -11064,17 +10906,17 @@ dependencies = [
 
 [[package]]
 name = "windows-targets"
-version = "0.48.3"
+version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27f51fb4c64f8b770a823c043c7fad036323e1c48f55287b7bbb7987b2fcdf3b"
+checksum = "9a2fa6e2155d7247be68c096456083145c183cbbbc2764150dda45a87197940c"
 dependencies = [
- "windows_aarch64_gnullvm 0.48.3",
- "windows_aarch64_msvc 0.48.3",
- "windows_i686_gnu 0.48.3",
- "windows_i686_msvc 0.48.3",
- "windows_x86_64_gnu 0.48.3",
- "windows_x86_64_gnullvm 0.48.3",
- "windows_x86_64_msvc 0.48.3",
+ "windows_aarch64_gnullvm 0.48.5",
+ "windows_aarch64_msvc 0.48.5",
+ "windows_i686_gnu 0.48.5",
+ "windows_i686_msvc 0.48.5",
+ "windows_x86_64_gnu 0.48.5",
+ "windows_x86_64_gnullvm 0.48.5",
+ "windows_x86_64_msvc 0.48.5",
 ]
 
 [[package]]
@@ -11085,9 +10927,9 @@ checksum = "597a5118570b68bc08d8d59125332c54f1ba9d9adeedeef5b99b02ba2b0698f8"
 
 [[package]]
 name = "windows_aarch64_gnullvm"
-version = "0.48.3"
+version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fde1bb55ae4ce76a597a8566d82c57432bc69c039449d61572a7a353da28f68c"
+checksum = "2b38e32f0abccf9987a4e3079dfb67dcd799fb61361e53e2882c3cbaf0d905d8"
 
 [[package]]
 name = "windows_aarch64_msvc"
@@ -11109,9 +10951,9 @@ checksum = "e08e8864a60f06ef0d0ff4ba04124db8b0fb3be5776a5cd47641e942e58c4d43"
 
 [[package]]
 name = "windows_aarch64_msvc"
-version = "0.48.3"
+version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1513e8d48365a78adad7322fd6b5e4c4e99d92a69db8df2d435b25b1f1f286d4"
+checksum = "dc35310971f3b2dbbf3f0690a219f40e2d9afcf64f9ab7cc1be722937c26b4bc"
 
 [[package]]
 name = "windows_i686_gnu"
@@ -11133,9 +10975,9 @@ checksum = "c61d927d8da41da96a81f029489353e68739737d3beca43145c8afec9a31a84f"
 
 [[package]]
 name = "windows_i686_gnu"
-version = "0.48.3"
+version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60587c0265d2b842298f5858e1a5d79d146f9ee0c37be5782e92a6eb5e1d7a83"
+checksum = "a75915e7def60c94dcef72200b9a8e58e5091744960da64ec734a6c6e9b3743e"
 
 [[package]]
 name = "windows_i686_msvc"
@@ -11157,9 +10999,9 @@ checksum = "44d840b6ec649f480a41c8d80f9c65108b92d89345dd94027bfe06ac444d1060"
 
 [[package]]
 name = "windows_i686_msvc"
-version = "0.48.3"
+version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "224fe0e0ffff5d2ea6a29f82026c8f43870038a0ffc247aa95a52b47df381ac4"
+checksum = "8f55c233f70c4b27f66c523580f78f1004e8b5a8b659e05a4eb49d4166cca406"
 
 [[package]]
 name = "windows_x86_64_gnu"
@@ -11181,9 +11023,9 @@ checksum = "8de912b8b8feb55c064867cf047dda097f92d51efad5b491dfb98f6bbb70cb36"
 
 [[package]]
 name = "windows_x86_64_gnu"
-version = "0.48.3"
+version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62fc52a0f50a088de499712cbc012df7ebd94e2d6eb948435449d76a6287e7ad"
+checksum = "53d40abd2583d23e4718fddf1ebec84dbff8381c07cae67ff7768bbf19c6718e"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
@@ -11193,9 +11035,9 @@ checksum = "26d41b46a36d453748aedef1486d5c7a85db22e56aff34643984ea85514e94a3"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
-version = "0.48.3"
+version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2093925509d91ea3d69bcd20238f4c2ecdb1a29d3c281d026a09705d0dd35f3d"
+checksum = "0b7b52767868a23d5bab768e390dc5f5c55825b6d30b86c844ff2dc7414044cc"
 
 [[package]]
 name = "windows_x86_64_msvc"
@@ -11217,9 +11059,9 @@ checksum = "9aec5da331524158c6d1a4ac0ab1541149c0b9505fde06423b02f5ef0106b9f0"
 
 [[package]]
 name = "windows_x86_64_msvc"
-version = "0.48.3"
+version = "0.48.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6ade45bc8bf02ae2aa34a9d54ba660a1a58204da34ba793c00d83ca3730b5f1"
+checksum = "ed94fce61571a4006852b7389a063ab983c02eb1bb37b47f8272ce92d06d9538"
 
 [[package]]
 name = "winreg"
@@ -11276,7 +11118,7 @@ name = "xrpl-codec-utils"
 version = "0.1.0"
 source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.8#864e947a4fc1140f3bd24413d2b8d7924fcd22fe"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.12.3",
  "lazy_static",
  "proc-macro2",
  "quote",
@@ -11289,7 +11131,7 @@ name = "xrpl-codec-utils"
 version = "0.1.0"
 source = "git+https://github.com/futureversecom/xrpl-tx-codec?rev=0.0.9#1d67a2a63b47ecb0322dbce0a50ecb5198547623"
 dependencies = [
- "hashbrown",
+ "hashbrown 0.12.3",
  "lazy_static",
  "proc-macro2",
  "quote",
