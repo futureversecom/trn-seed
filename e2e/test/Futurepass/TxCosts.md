@@ -2,10 +2,10 @@
 
 | Function Call                 | Contract gas | Precompile gas | (Extrinsic fee/Gas price) |
 |:------------------------------|:------------:|:--------------:|:-------------------------:|
-| create                        |      0       |     42815      |           19005           |
-| registerDelegateWithSignature |      0       |     43044      |           34005           |
-| unregisterDelegate            |      0       |     37143      |           22337           |
-| transferOwnership             |      0       |     46053      |           22506           |
+| create                        |      0       |     44178      |           19172           |
+| registerDelegateWithSignature |      0       |     45087      |           34005           |
+| unregisterDelegate            |      0       |     42706      |           22338           |
+| transferOwnership             |      0       |     50925      |           22508           |
 | proxyCall                     |      0       |     65694      |           23507           |
 
 
@@ -13,8 +13,8 @@
 
 | Function Call                 | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:------------------------------|:---------------------:|:-----------------------:|:----------------------:|
-| create                        |           0           |         603705          |         285083         |
-| registerDelegateWithSignature |           0           |         608940          |         510075         |
-| unregisterDelegate            |           0           |         554260          |         335069         |
-| transferOwnership             |           0           |         677737          |         337602         |
-| proxyCall                     |           0           |         899654          |         352610         |
+| create                        |           0           |         634878          |         287591         |
+| registerDelegateWithSignature |           0           |         655640          |         510088         |
+| unregisterDelegate            |           0           |         601200          |         335082         |
+| transferOwnership             |           0           |         743504          |         337620         |
+| proxyCall                     |           0           |         899654          |         352619         |
