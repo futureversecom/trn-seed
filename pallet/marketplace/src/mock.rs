@@ -139,7 +139,7 @@ impl pallet_nft::Config for Test {
 }
 
 impl crate::Config for Test {
-	type RuntimeCall = RuntimeCall;
+	type Call = RuntimeCall;
 	type WeightInfo = ();
 }
 
