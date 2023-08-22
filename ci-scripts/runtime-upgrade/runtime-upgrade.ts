@@ -16,9 +16,7 @@ async function main() {
   const alith = keyring.addFromSeed(hexToU8a(ALITH_PRIVATE_KEY));
 
   // Retrieve the runtime to upgrade
-  const code = readFileSync("./seed_runtime.compact.compressed.wasm").toString(
-    "hex"
-  );
+  const code = readFileSync("./runtime-wasm").toString("hex");
   const proposal = api.tx.system.setCode(`0x${code}`);
 
   console.log(`Upgrading from ${alith.address}, ${code.length / 2} bytes`);
