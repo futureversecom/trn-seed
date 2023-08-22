@@ -124,6 +124,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: runtime-wasm
+          path: runtime-wasm
       - name: Display structure of downloaded files
         run: ls -R
       - name: "Install Node.js"
