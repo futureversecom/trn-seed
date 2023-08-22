@@ -156,7 +156,6 @@ pub mod pallet {
 
 	/// The pallet id for the tx fee pot
 	#[pallet::storage]
-	#[pallet::getter(fn chain_id)]
 	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
 
 	/// Map from collection to its information
