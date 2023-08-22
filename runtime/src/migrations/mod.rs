@@ -13,8 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod proxy;
-
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -33,20 +31,17 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		let data = Vec::new();
-		proxy::Upgrade::pre_upgrade()?;
 		Ok(data)
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from(Weight::from_ref_time(0u64));
-		weight += proxy::Upgrade::on_runtime_upgrade();
+		let weight = Weight::from(Weight::from_ref_time(0u64));
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-		let data = Vec::new();
-		proxy::Upgrade::post_upgrade(data)?;
+		let _data = Vec::new();
 		Ok(())
 	}
 }
