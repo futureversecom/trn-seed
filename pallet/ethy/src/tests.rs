@@ -2530,7 +2530,7 @@ fn notary_xrpl_keys_removed_request_for_xrpl_proof() {
 		NextNotaryKeys::<TestRuntime>::put(&next_keys);
 
 		assert_ok!(EthBridge::set_xrpl_door_signers(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			vec![
 				(AuthorityId::from_slice(&[1_u8; 33]).unwrap(), true),
 				(AuthorityId::from_slice(&[2_u8; 33]).unwrap(), false),
