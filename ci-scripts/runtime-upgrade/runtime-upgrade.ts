@@ -29,23 +29,33 @@ async function main() {
     .signAndSend(alith, ({ events = [], status }) => {
       console.log("Proposal status:", status.type);
 
+      let errorOccurred = false;
       if (status.isInBlock) {
+        // Check if error happens during the upgrade
         events.forEach(function (e) {
           e.event.data.forEach(function (d) {
-            if (d) {
-              console.log(d);
+            if (d.toString().indexOf("err") >= 0) {
+              console.error("Error occurs during the runtime upgrade. ");
+              console.error("Error details: ");
+              console.error(d.toHuman());
+              errorOccurred = true;
             }
           });
         });
 
-        console.log("You have just upgraded your chain");
         console.log("Included at block hash", status.asInBlock.toHex());
-        console.log("Events:");
-        console.log(JSON.stringify(events, null, 2));
+        //console.log("Events:");
+        //console.log(JSON.stringify(events, null, 2));
       } else if (status.isFinalized) {
         console.log("Finalized block hash", status.asFinalized.toHex());
 
-        process.exit(0);
+        if (!errorOccurred) {
+          console.log("Runtime upgrade failed. Please check the error log.");
+          process.exit(-1);
+        } else {
+          console.log("You have just upgraded your chain");
+          process.exit(0);
+        }
       }
     });
 }
