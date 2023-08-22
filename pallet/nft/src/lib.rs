@@ -173,17 +173,14 @@ pub mod pallet {
 
 	/// Map from a token to lock status if any
 	#[pallet::storage]
-	#[pallet::getter(fn token_locks)]
 	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
 
 	/// The next available marketplace id
 	#[pallet::storage]
-	#[pallet::getter(fn next_marketplace_id)]
 	pub type NextMarketplaceId<T> = StorageValue<_, MarketplaceId, ValueQuery>;
 
 	/// Map from marketplace account_id to royalties schedule
 	#[pallet::storage]
-	#[pallet::getter(fn registered_marketplaces)]
 	pub type RegisteredMarketplaces<T: Config> =
 		StorageMap<_, Twox64Concat, MarketplaceId, Marketplace<T::AccountId>>;
 
@@ -193,42 +190,35 @@ pub mod pallet {
 
 	/// The next available listing Id
 	#[pallet::storage]
-	#[pallet::getter(fn next_listing_id)]
 	pub type NextListingId<T> = StorageValue<_, ListingId, ValueQuery>;
 
 	/// Map from collection to any open listings
 	#[pallet::storage]
-	#[pallet::getter(fn open_collection_listings)]
 	pub type OpenCollectionListings<T> =
 		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, ListingId, bool>;
 
 	/// Winning bids on open listings.
 	#[pallet::storage]
-	#[pallet::getter(fn listing_winning_bid)]
 	pub type ListingWinningBid<T: Config> =
 		StorageMap<_, Twox64Concat, ListingId, (T::AccountId, Balance)>;
 
 	/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is
 	/// scheduled to close.
 	#[pallet::storage]
-	#[pallet::getter(fn listing_end_schedule)]
 	pub type ListingEndSchedule<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, T::BlockNumber, Twox64Concat, ListingId, bool>;
 
 	/// Map from offer_id to the information related to the offer
 	#[pallet::storage]
-	#[pallet::getter(fn offers)]
 	pub type Offers<T: Config> = StorageMap<_, Twox64Concat, OfferId, OfferType<T::AccountId>>;
 
 	/// Maps from token_id to a vector of offer_ids on that token
 	#[pallet::storage]
-	#[pallet::getter(fn token_offers)]
 	pub type TokenOffers<T: Config> =
 		StorageMap<_, Twox64Concat, TokenId, BoundedVec<OfferId, T::MaxOffers>>;
 
 	/// The next available offer_id
 	#[pallet::storage]
-	#[pallet::getter(fn next_offer_id)]
 	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
 
 	#[pallet::event]
@@ -564,7 +554,7 @@ pub mod pallet {
 				Error::<T>::RoyaltiesInvalid
 			);
 			let marketplace_account = marketplace_account.unwrap_or(who);
-			let marketplace_id = Self::next_marketplace_id();
+			let marketplace_id = <NextMarketplaceId<T>>::get();
 			let marketplace = Marketplace { account: marketplace_account.clone(), entitlement };
 			let next_marketplace_id = <NextMarketplaceId<T>>::get();
 			ensure!(
@@ -731,7 +721,7 @@ pub mod pallet {
 			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
 			let royalties_schedule =
 				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
-			let listing_id = Self::next_listing_id();
+			let listing_id = <NextListingId<T>>::get();
 
 			// use the first token's collection as representative of the bundle
 			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &who, listing_id)?;
@@ -838,7 +828,7 @@ pub mod pallet {
 			let royalties_schedule =
 				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
 
-			let listing_id = Self::next_listing_id();
+			let listing_id = <NextListingId<T>>::get();
 			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &who, listing_id)?;
@@ -885,7 +875,7 @@ pub mod pallet {
 				_ => return Err(Error::<T>::NotForAuction.into()),
 			};
 
-			if let Some(current_bid) = Self::listing_winning_bid(listing_id) {
+			if let Some(current_bid) = <ListingWinningBid<T>>::get(listing_id) {
 				ensure!(amount > current_bid.1, Error::<T>::BidTooLow);
 			} else {
 				// first bid
@@ -963,7 +953,7 @@ pub mod pallet {
 				Listing::<T>::Auction(auction) => {
 					ensure!(auction.seller == who, Error::<T>::NotSeller);
 					ensure!(
-						Self::listing_winning_bid(listing_id).is_none(),
+						<ListingWinningBid<T>>::get(listing_id).is_none(),
 						Error::<T>::TokenLocked
 					);
 					Listings::<T>::remove(listing_id);
@@ -1034,11 +1024,11 @@ pub mod pallet {
 			let collection_info =
 				<CollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
 			ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
-			let offer_id = Self::next_offer_id();
+			let offer_id = <NextOfferId<T>>::get();
 			ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
 
 			// ensure the token_id is not currently in an auction
-			if let Some(TokenLockReason::Listed(listing_id)) = Self::token_locks(token_id) {
+			if let Some(TokenLockReason::Listed(listing_id)) = <TokenLocks<T>>::get(token_id) {
 				match Listings::<T>::get(listing_id) {
 					Some(Listing::<T>::Auction(_)) => return Err(Error::<T>::TokenOnAuction.into()),
 					None | Some(Listing::<T>::FixedPrice(_)) => (),
@@ -1074,7 +1064,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::cancel_offer())]
 		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
+			let offer_type = <Offers<T>>::get(offer_id).ok_or(Error::<T>::InvalidOffer)?;
 			match offer_type {
 				OfferType::Simple(offer) => {
 					ensure!(offer.buyer == who, Error::<T>::NotBuyer);
@@ -1100,14 +1090,14 @@ pub mod pallet {
 		#[transactional]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let offer_type = Self::offers(offer_id).ok_or(Error::<T>::InvalidOffer)?;
+			let offer_type = <Offers<T>>::get(offer_id).ok_or(Error::<T>::InvalidOffer)?;
 			match offer_type {
 				OfferType::Simple(offer) => {
 					let (collection_id, serial_number) = offer.token_id;
 
 					// Check whether token is listed for fixed price sale
 					if let Some(TokenLockReason::Listed(listing_id)) =
-						Self::token_locks(offer.token_id)
+						<TokenLocks<T>>::get(offer.token_id)
 					{
 						if let Some(listing) = <Listings<T>>::get(listing_id) {
 							Self::remove_listing(listing, listing_id);
