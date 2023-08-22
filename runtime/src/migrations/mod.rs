@@ -41,7 +41,6 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-		let _data = Vec::new();
 		Ok(())
 	}
 }
