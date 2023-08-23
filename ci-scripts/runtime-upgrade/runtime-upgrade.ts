@@ -24,12 +24,12 @@ async function main() {
   console.log(`Upgrading from ${alith.address}, ${code.length / 2} bytes`);
 
   // Perform the actual chain upgrade via the sudo module
+  let errorOccurred = false;
   api.tx.sudo
     .sudoUncheckedWeight(proposal, 0)
     .signAndSend(alith, ({ events = [], status }) => {
       console.log("Proposal status:", status.type);
 
-      let errorOccurred = false;
       if (status.isInBlock) {
         // Check if error happens during the upgrade
         events.forEach(function (e) {
@@ -44,18 +44,15 @@ async function main() {
         });
 
         console.log("Included at block hash", status.asInBlock.toHex());
-        //console.log("Events:");
-        //console.log(JSON.stringify(events, null, 2));
       } else if (status.isFinalized) {
         console.log("Finalized block hash", status.asFinalized.toHex());
-      }
-
-      if (errorOccurred) {
-        console.log("Runtime upgrade failed. Please check the error log.");
-        process.exit(-1);
-      } else {
-        console.log("You have just upgraded your chain");
-        process.exit(0);
+        if (errorOccurred) {
+          throw new Error(
+            "Runtime upgrade failed. Please check the error log."
+          );
+        } else {
+          console.log("You have just upgraded your chain");
+        }
       }
     });
 }
