@@ -18,18 +18,7 @@
 pub use pallet::*;
 
 use frame_election_provider_support::SortedListProvider;
-use frame_support::{
-	pallet_prelude::*,
-	traits::{Currency, Imbalance, OnUnbalanced},
-};
 use frame_system::pallet_prelude::*;
-use seed_primitives::AccountId;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	Perbill,
-};
-use sp_staking::EraIndex;
-use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -44,14 +33,24 @@ pub use weights::WeightInfo;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use pallet_staking::{UseNominatorsAndValidatorsMap, WeightInfo};
+	use frame_support::{
+		pallet_prelude::*,
+		traits::{Currency, Imbalance, OnUnbalanced},
+	};
+	use pallet_staking::WeightInfo;
+	use seed_primitives::AccountId;
+	use sp_runtime::{
+		traits::{Saturating, Zero},
+		Perbill,
+	};
+	use sp_std::{boxed::Box, vec, vec::Vec};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
 	// TODO: REMOVE
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
-
+	use sp_staking::EraIndex;
 	// When thinking about the currency type, consider that this is a custom Currency implementation
 	// for multiple assets
 	pub type BalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
@@ -131,7 +130,28 @@ pub mod pallet {
 		InvalidEraToReward,
 		NotController,
 		NotStash,
+		NoValidatorToIterate,
 		TooEarly,
+	}
+
+	// Control iteration through validators. This is just `UseNominatorsAndValidatorsMap` of
+	// pallet_staking, but without nominators
+	pub struct UseValidatorsMap<T>(sp_std::marker::PhantomData<T>);
+	impl<T: Config> UseValidatorsMap<T> {
+		fn iter() -> Box<dyn Iterator<Item = T::AccountId>> {
+			Box::new(pallet_staking::Validators::<T>::iter().map(|(v, _)| v))
+		}
+		fn iter_from(
+			start: &T::AccountId,
+		) -> Result<Box<dyn Iterator<Item = T::AccountId>>, Error<T>> {
+			if pallet_staking::Validators::<T>::contains_key(start) {
+				let start_key = pallet_staking::Validators::<T>::hashed_key_for(start);
+				Ok(Box::new(pallet_staking::Validators::<T>::iter_from(start_key).map(|(n, _)| n)))
+			} else {
+				// Err(())
+				Err(Error::<T>::NoValidatorToIterate)
+			}
+		}
 	}
 
 	#[pallet::hooks]
@@ -151,13 +171,13 @@ pub mod pallet {
 				let validator = {
 					// If already started iterating through for current  era
 					if let Some(current_validator_i) = CurrentValidatorIter::<T>::get() {
-						UseNominatorsAndValidatorsMap::<T>::iter_from(&current_validator_i)
+						UseValidatorsMap::<T>::iter_from(&current_validator_i)
 							// TODO: Unwrap
 							.unwrap()
 							.next()
 					} else {
 						// Not started; need to get first validator
-						UseNominatorsAndValidatorsMap::<T>::iter().next()
+						UseValidatorsMap::<T>::iter().next()
 					}
 				};
 
@@ -177,14 +197,6 @@ pub mod pallet {
 			}
 
 			consumed_weight
-		}
-	}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		#[pallet::weight(10000000)]
-		pub fn payout_stakers(origin: OriginFor<T>, payout_period_id: u128) -> DispatchResult {
-			Ok(())
 		}
 	}
 
@@ -295,7 +307,6 @@ pub mod pallet {
 			if let Some(imbalance) = Self::do_accumulate_payouts(
 				&ledger.stash,
 				validator_staking_payout + validator_commission_payout,
-				// &previous_era,
 				None,
 			) {
 				total_imbalance.subsume(imbalance);
@@ -315,14 +326,11 @@ pub mod pallet {
 				let nominator_reward: BalanceOf<T> =
 					nominator_exposure_part * validator_leftover_payout;
 				// We can now make nominator payout:
-				if let Some(imbalance) =
-					// Self::do_accumulate_payouts(&nominator.who, nominator_reward,
-					// &previous_era, &ledger.stash)
-					Self::do_accumulate_payouts(
-						&nominator.who,
-						nominator_reward,
-						Some(&ledger.stash),
-					) {
+				if let Some(imbalance) = Self::do_accumulate_payouts(
+					&nominator.who,
+					nominator_reward,
+					Some(&ledger.stash),
+				) {
 					// Note: this logic does not count payouts for `RewardDestination::None`.
 					nominator_payout_count += 1;
 					total_imbalance.subsume(imbalance);
@@ -339,7 +347,6 @@ pub mod pallet {
 		fn do_accumulate_payouts(
 			who: &T::AccountId,
 			amt: <T as pallet_staking::Config>::CurrencyBalance,
-			// payout_period: &PayoutPeriodId,
 			nominating: Option<&T::AccountId>,
 		) -> Option<PositiveImbalanceOf<T>> {
 			// TODO: Clean up unwrap
