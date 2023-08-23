@@ -1206,7 +1206,7 @@ construct_runtime! {
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
 		Marketplace: pallet_marketplace::{Pallet, Call} = 44,
-		StakingPayouts: pallet_staking_payouts::{Pallet, Call, Event} = 45,
+		StakingPayouts: pallet_staking_payouts::{Pallet, Event} = 45,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,

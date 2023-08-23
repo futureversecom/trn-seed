@@ -15,13 +15,26 @@
 
 #![cfg(test)]
 use super::*;
-use crate::mock::{ExtBuilder, TestRuntime};
-use frame_support::{assert_ok, storage::StorageValue};
-use seed_primitives::AccountId;
+use crate::mock::{ExtBuilder, StakingPayout, System, TestRuntime};
+use frame_support::{assert_ok, storage::StorageValue, traits::Hooks};
+use seed_primitives::{AccountId, AccountId20};
 use sp_core::H160;
 use sp_runtime::traits::AccountIdConversion;
+
+fn alice() -> AccountId {
+	AccountId20([1; 20])
+}
 
 #[test]
 fn payout_period_id_increments() {
 	ExtBuilder::default().build().execute_with(|| {});
+}
+
+#[test]
+fn iterates_per_block_validators() {
+	ExtBuilder::default().build().execute_with(|| {
+		let block = System::block_number();
+		StakingPayout::on_initialize(block);
+		assert_eq!(CurrentValidatorIter::<TestRuntime>::get(), Some(alice()));
+	});
 }

@@ -69,7 +69,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		Assets: pallet_assets,
 		Staking: pallet_staking::{Pallet, Call, Storage, Event<T>},
-		StakingPayout: pallet_staking_payouts::{Pallet, Call, Storage, Event},
+		StakingPayout: pallet_staking_payouts::{Pallet, Storage, Event},
 		AssetsExt: pallet_assets_ext,
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
