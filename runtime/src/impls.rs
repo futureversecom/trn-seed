@@ -30,6 +30,8 @@ use frame_support::{
 	},
 	weights::WeightToFee,
 };
+use frame_system::{ensure_root, EnsureRoot};
+use frame_system::pallet_prelude::OriginFor;
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
@@ -43,7 +45,7 @@ use sp_runtime::{
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
-
+use seed_pallet_common::MaintenanceCheck;
 use precompile_utils::{
 	constants::{
 		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
@@ -55,6 +57,7 @@ use seed_pallet_common::{
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
+use pallet_maintenance_mode::MaintenanceChecker;
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
@@ -737,7 +740,8 @@ where
 		+ pallet_fee_proxy::Config
 		+ pallet_dex::Config
 		+ pallet_evm::Config
-		+ pallet_assets_ext::Config,
+		+ pallet_assets_ext::Config
+		+ pallet_maintenance_mode::Config,
 	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
 	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
@@ -760,6 +764,13 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		let mut who = who;
+
+		// let test = info::
+		if !<MaintenanceChecker<T>>::can_execute(who) {
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+		}
+
+
 		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
 		// of the FP(futurepass), we switch the gas payer to the FP
 		if let Some(pallet_futurepass::Call::proxy_extrinsic { futurepass, .. }) =

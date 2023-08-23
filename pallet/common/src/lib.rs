@@ -352,3 +352,8 @@ pub trait Xls20MintRequest {
 pub trait AccountProxy<AccountId> {
 	fn primary_proxy(who: &AccountId) -> Option<AccountId>;
 }
+
+pub trait MaintenanceCheck<AccountId> {
+	/// Checks whether the call can be executed
+	fn can_execute(signer: &AccountId) -> bool;
+}
