@@ -38,6 +38,9 @@ async function main() {
               console.error("Error occurs during the runtime upgrade. ");
               console.error("Error details: ");
               console.error(d.toHuman());
+              console.log(
+                "Info: More details of error codes can be found here: https://wiki.polkadot.network/docs/maintain-errors#error-table"
+              );
               errorOccurred = true;
             }
           });
@@ -48,7 +51,7 @@ async function main() {
         console.log("Finalized block hash", status.asFinalized.toHex());
         if (errorOccurred) {
           throw new Error(
-            "Runtime upgrade failed. Please check the error log."
+            "Runtime upgrade failed. Please check the error log above."
           );
         } else {
           console.log("You have just upgraded your chain");
