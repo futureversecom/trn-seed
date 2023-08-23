@@ -158,29 +158,36 @@ where
 		signer: &<T as frame_system::Config>::AccountId,
 		call: &<T as frame_system::Config>::Call,
 	) -> bool {
+		let pallet_name = call.get_call_metadata().pallet_name;
+
+		// Check whether this is a sudo call, we want to enable all sudo calls
+		// Regardless of maintenance mode
+		// This check is needed here in case we accidentally block the sudo account
+		if pallet_name == "Sudo" {
+			return true
+		}
+
+		// Check if we are in maintenance mode
+		if <MaintenanceModeActive<T>>::get() {
+			return false
+		}
+
+		return !BlockedAccounts::<T>::contains_key(signer)
+	}
+
+	fn call_paused(call: &<T as frame_system::Config>::Call) -> bool {
 		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
 
 		// Check whether this is a sudo call, we want to enable all sudo calls
 		// Regardless of maintenance mode
 		if pallet_name == "Sudo" {
-			return true
+			return false
 		}
 
-		match <MaintenanceModeActive<T>>::get() {
-			true => return false,
-			false => {
-				// Check whether the account is blocked
-				let account_blocked = BlockedAccounts::<T>::contains_key(signer);
-
-				// TODO separate call list to own trait and call from CallFilter
-				// Check whether the call is blocked
-				let call_blocked = BlockedCalls::<T>::contains_key((
-					pallet_name.to_ascii_lowercase().as_bytes(),
-					function_name.to_ascii_lowercase().as_bytes(),
-				));
-
-				return !account_blocked && !call_blocked
-			},
-		}
+		// Check whether call is blocked
+		BlockedCalls::<T>::contains_key((
+			pallet_name.to_ascii_lowercase().as_bytes(),
+			function_name.to_ascii_lowercase().as_bytes(),
+		))
 	}
 }

@@ -363,4 +363,7 @@ where
 {
 	/// Checks whether the call can be executed
 	fn can_execute(signer: &T::AccountId, call: &<T as frame_system::Config>::Call) -> bool;
+
+	/// Checks whether the call is paused
+	fn call_paused(call: &<T as frame_system::Config>::Call) -> bool;
 }

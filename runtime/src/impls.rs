@@ -766,7 +766,8 @@ where
 		let mut who = who;
 
 		if !<MaintenanceChecker<T>>::can_execute(who, call) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+			// TODO Better error
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
 		}
 
 		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate

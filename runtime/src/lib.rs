@@ -35,6 +35,7 @@ use pallet_evm::{
 };
 use pallet_staking::RewardDestination;
 use pallet_transaction_payment::{Multiplier, TargetedFeeAdjustment};
+use seed_pallet_common::MaintenanceCheck;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
@@ -218,13 +219,13 @@ parameter_types! {
 /// Filters to prevent specific transactions from executing
 pub enum CallFilter {}
 
+// TODO Move to maintenance mode pallet
 impl frame_support::traits::Contains<Call> for CallFilter {
 	fn contains(call: &Call) -> bool {
-		// TODO Use this instead for call
-		// let is_paused = pallet_maintenance_mode::MaintenanceChecker::<Runtime>::is_paused(call);
-		// if is_paused {
-		// 	return false;
-		// }
+		// Check whether this call has been paused by the maintenance_mode pallet
+		if pallet_maintenance_mode::MaintenanceChecker::<Runtime>::call_paused(call) {
+			return false
+		}
 
 		match call {
 			// Prevent asset `create` transactions from executing
@@ -699,19 +700,19 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type MaxWeight = OffchainSolutionWeightLimit;
 	type Solution = NposCompactSolution16;
 	type MaxVotesPerVoter = <
-	<Self as pallet_election_provider_multi_phase::Config>::DataProvider
-	as
-	frame_election_provider_support::ElectionDataProvider
-	>::MaxVotesPerVoter;
+    <Self as pallet_election_provider_multi_phase::Config>::DataProvider
+    as
+    frame_election_provider_support::ElectionDataProvider
+    >::MaxVotesPerVoter;
 
 	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
 	// weight estimate function is wired to this call's weight.
 	fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
 		<
-		<Self as pallet_election_provider_multi_phase::Config>::WeightInfo
-		as
-		pallet_election_provider_multi_phase::WeightInfo
-		>::submit_unsigned(v, t, a, d)
+        <Self as pallet_election_provider_multi_phase::Config>::WeightInfo
+        as
+        pallet_election_provider_multi_phase::WeightInfo
+        >::submit_unsigned(v, t, a, d)
 	}
 }
 
