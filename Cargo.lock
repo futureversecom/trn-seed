@@ -8143,6 +8143,7 @@ name = "seed-pallet-common"
 version = "1.0.0"
 dependencies = [
  "frame-support",
+ "frame-system",
  "impl-trait-for-tuples",
  "parity-scale-codec",
  "scale-info",

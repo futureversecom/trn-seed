@@ -19,7 +19,7 @@ use core::ops::Mul;
 use evm::backend::Basic;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
-	dispatch::{EncodeLike, RawOrigin},
+	dispatch::{EncodeLike, GetCallMetadata, RawOrigin},
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,
@@ -30,11 +30,22 @@ use frame_support::{
 	},
 	weights::WeightToFee,
 };
-use frame_system::{ensure_root, EnsureRoot};
-use frame_system::pallet_prelude::OriginFor;
+use frame_system::{ensure_root, pallet_prelude::OriginFor, EnsureRoot};
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use pallet_futurepass::ProxyProvider;
+use pallet_maintenance_mode::MaintenanceChecker;
 use pallet_transaction_payment::OnChargeTransaction;
+use precompile_utils::{
+	constants::{
+		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
+	},
+	keccak256, Address, ErcIdConversion,
+};
+use seed_pallet_common::{
+	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
+	EventRouterResult, FinalSessionTracker, MaintenanceCheck, OnNewAssetSubscriber,
+};
+use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -45,19 +56,6 @@ use sp_runtime::{
 	ConsensusEngineId, Permill,
 };
 use sp_std::{marker::PhantomData, prelude::*};
-use seed_pallet_common::MaintenanceCheck;
-use precompile_utils::{
-	constants::{
-		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
-	},
-	keccak256, Address, ErcIdConversion,
-};
-use seed_pallet_common::{
-	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
-};
-use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
-use pallet_maintenance_mode::MaintenanceChecker;
 
 use crate::{
 	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
@@ -211,6 +209,7 @@ where
 
 /// Find block author formatted for ethereum compat
 pub struct EthereumFindAuthor<F>(PhantomData<F>);
+
 impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	fn find_author<'a, I>(digests: I) -> Option<H160>
 	where
@@ -744,6 +743,7 @@ where
 		+ pallet_maintenance_mode::Config,
 	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
+	<T as frame_system::Config>::Call: GetCallMetadata,
 	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
 	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
 	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
@@ -765,11 +765,9 @@ where
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		let mut who = who;
 
-		// let test = info::
-		if !<MaintenanceChecker<T>>::can_execute(who) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+		if !<MaintenanceChecker<T>>::can_execute(who, call) {
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
 		}
-
 
 		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
 		// of the FP(futurepass), we switch the gas payer to the FP

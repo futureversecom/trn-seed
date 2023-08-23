@@ -19,7 +19,7 @@
 use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
-	dispatch::{DispatchError, DispatchResult},
+	dispatch::{DispatchError, DispatchResult, GetCallMetadata},
 	sp_runtime::traits::AccountIdConversion,
 	traits::{fungibles::Transfer, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
@@ -160,8 +160,10 @@ pub enum EventRouterError {
 	/// Message had no configured receiver (check destination address)
 	NoReceiver,
 }
+
 /// Event router result with consumed weight
 pub type EventRouterResult = Result<Weight, (Weight, EventRouterError)>;
+
 /// Routes verified Ethereum messages to handler pallets
 ///
 /// ```ignore
@@ -191,6 +193,7 @@ pub trait EthereumEventRouter {
 
 /// Result of processing an event by an `EthereumEventSubscriber`
 pub type OnEventResult = Result<Weight, (Weight, DispatchError)>;
+
 /// Handle verified Ethereum events (implemented by handler pallet)
 pub trait EthereumEventSubscriber {
 	/// The destination address of this subscriber (doubles as the source address for sent messages)
@@ -276,6 +279,7 @@ pub enum EthCallFailure {
 	/// Failure due to some internal reason
 	Internal,
 }
+
 /// Verifies correctness of state on Ethereum i.e. by issuing `eth_call`s
 pub trait EthCallOracle {
 	/// EVM address type
@@ -353,7 +357,10 @@ pub trait AccountProxy<AccountId> {
 	fn primary_proxy(who: &AccountId) -> Option<AccountId>;
 }
 
-pub trait MaintenanceCheck<AccountId> {
+pub trait MaintenanceCheck<T: frame_system::Config>
+where
+	<T as frame_system::Config>::Call: GetCallMetadata,
+{
 	/// Checks whether the call can be executed
-	fn can_execute(signer: &AccountId) -> bool;
+	fn can_execute(signer: &T::AccountId, call: &<T as frame_system::Config>::Call) -> bool;
 }
