@@ -48,14 +48,14 @@ async function main() {
         //console.log(JSON.stringify(events, null, 2));
       } else if (status.isFinalized) {
         console.log("Finalized block hash", status.asFinalized.toHex());
+      }
 
-        if (!errorOccurred) {
-          console.log("Runtime upgrade failed. Please check the error log.");
-          process.exit(-1);
-        } else {
-          console.log("You have just upgraded your chain");
-          process.exit(0);
-        }
+      if (errorOccurred) {
+        console.log("Runtime upgrade failed. Please check the error log.");
+        process.exit(-1);
+      } else {
+        console.log("You have just upgraded your chain");
+        process.exit(0);
       }
     });
 }
