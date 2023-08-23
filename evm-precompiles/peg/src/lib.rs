@@ -243,6 +243,7 @@ where
 			collection_ids,
 			serial_numbers.clone(),
 			beneficiary,
+			None,
 		);
 
 		// Handle error case

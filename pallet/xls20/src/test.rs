@@ -21,7 +21,7 @@ use crate::mock::{
 };
 use frame_support::{assert_noop, assert_ok, traits::fungibles::Inspect};
 use frame_system::RawOrigin;
-use pallet_nft::CrossChainCompatibility;
+use pallet_nft::{CollectionInfo, CrossChainCompatibility};
 use seed_primitives::{AccountId, MetadataScheme};
 use sp_runtime::{BoundedVec, DispatchError::BadOrigin};
 
@@ -742,7 +742,7 @@ fn enable_xls20_compatibility_works() {
 
 		// XLS-20 compatibility disabled
 		assert_eq!(
-			Nft::collection_info(collection_id).unwrap().cross_chain_compatibility,
+			CollectionInfo::<Test>::get(collection_id).unwrap().cross_chain_compatibility,
 			CrossChainCompatibility { xrpl: false },
 		);
 
@@ -759,7 +759,7 @@ fn enable_xls20_compatibility_works() {
 
 		// XLS-20 compatibility now enabled
 		assert_eq!(
-			Nft::collection_info(collection_id).unwrap().cross_chain_compatibility,
+			CollectionInfo::<Test>::get(collection_id).unwrap().cross_chain_compatibility,
 			CrossChainCompatibility { xrpl: true },
 		);
 	});

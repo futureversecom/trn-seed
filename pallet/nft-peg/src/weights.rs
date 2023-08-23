@@ -33,6 +33,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn set_contract_address() -> Weight;
 	fn withdraw() -> Weight;
+    fn reclaim_blocked_nfts() -> Weight;
 }
 
 // For backwards compatibility and tests
@@ -59,5 +60,19 @@ impl WeightInfo for () {
 		(61_153_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(16 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(10 as Weight))
+	}
+	// Storage: NftPeg BlockedTokens (r:1 w:1)
+	// Storage: Nft CollectionInfo (r:1 w:0)
+	// Storage: NftPeg RootNftToErc721 (r:1 w:0)
+	// Storage: NftPeg ContractAddress (r:1 w:0)
+	// Storage: EthBridge NextEventProofId (r:1 w:1)
+	// Storage: EthBridge NotaryKeys (r:1 w:0)
+	// Storage: EthBridge NotarySetId (r:1 w:0)
+	// Storage: EthBridge BridgePaused (r:1 w:0)
+	// Storage: System Digest (r:1 w:1)
+	fn reclaim_blocked_nfts() -> Weight {
+		(40_000_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
 	}
 }
