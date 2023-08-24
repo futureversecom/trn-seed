@@ -54,4 +54,18 @@ impl<T: frame_system::Config> pallet_nft_peg::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(16 as Weight))
 			.saturating_add(T::DbWeight::get().writes(10 as Weight))
 	}
+	// Storage: NftPeg BlockedTokens (r:1 w:1)
+	// Storage: Nft CollectionInfo (r:1 w:0)
+	// Storage: NftPeg RootNftToErc721 (r:1 w:0)
+	// Storage: NftPeg ContractAddress (r:1 w:0)
+	// Storage: EthBridge NextEventProofId (r:1 w:1)
+	// Storage: EthBridge NotaryKeys (r:1 w:0)
+	// Storage: EthBridge NotarySetId (r:1 w:0)
+	// Storage: EthBridge BridgePaused (r:1 w:0)
+	// Storage: System Digest (r:1 w:1)
+	fn reclaim_blocked_nfts() -> Weight {
+		(40_000_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(9 as Weight))
+			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+	}
 }

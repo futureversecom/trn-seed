@@ -13,11 +13,11 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{Config, Pallet};
-use codec::{Decode, Encode};
+use crate::{Config, ContractAddress};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::BoundedVec;
 use scale_info::TypeInfo;
-use seed_primitives::SerialNumber;
+use seed_primitives::{CollectionUuid, SerialNumber};
 use sp_core::H160;
 use sp_runtime::traits::Get;
 use sp_std::{marker::PhantomData, vec::Vec};
@@ -29,6 +29,18 @@ pub struct TokenInfo<T: Config> {
 	pub token_address: H160,
 	// The ids of the tokens belonging to the contract
 	pub token_ids: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
+}
+
+/// Unique id to distinguish tokens that failed to mint
+pub type BlockedMintId = u32;
+
+/// Information regarding tokens that failed to mint
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[scale_info(skip_type_params(T))]
+pub struct BlockedTokenInfo<T: Config> {
+	pub collection_id: CollectionUuid,
+	pub destination_address: T::AccountId,
+	pub serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
 }
 
 pub struct GroupedTokenInfo<T: Config> {
@@ -56,7 +68,7 @@ pub struct GetContractAddress<T>(PhantomData<T>);
 
 impl<T: Config> Get<H160> for GetContractAddress<T> {
 	fn get() -> H160 {
-		Pallet::<T>::contract_address()
+		ContractAddress::<T>::get()
 	}
 }
 

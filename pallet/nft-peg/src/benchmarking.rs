@@ -19,11 +19,12 @@
 
 use super::*;
 
-use crate::Pallet as NftPeg;
+use crate::{BlockedTokens, EthToRootNft, NextBlockedMintId, Pallet as NftPeg, RootNftToErc721};
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use pallet_nft::{CollectionInfo, CollectionInformation, Pallet as Nft};
+use pallet_nft::{CollectionInfo, CollectionInformation, CrossChainCompatibility, Pallet as Nft};
+use seed_primitives::MetadataScheme;
 use sp_std::vec;
 
 /// This is a helper function to get an account.
@@ -77,6 +78,47 @@ benchmarks! {
 		}
 	}
 
+	reclaim_blocked_nfts {
+		let alice = account::<T>("Alice");
+		let token = account::<T>("Token");
+
+		let blocked_mint_id = NextBlockedMintId::<T>::get();
+
+		let serial_numbers = vec![1_000_000_001_u32, 1_000_000_002_u32];
+		let token_1 = TokenInfo::<T>{token_address: token.clone().into(), token_ids: serial_numbers.clone().try_into().unwrap()};
+		let token_info = GroupedTokenInfo::<T>{tokens: vec![token_1], destination: alice.clone()};
+		let collection_id = Nft::<T>::next_collection_uuid().unwrap();
+
+		let collection_name = BoundedVec::truncate_from("test-collection".as_bytes().to_vec());
+		let metadata_scheme = MetadataScheme::try_from(b"<CID>".as_slice()).unwrap();
+
+		let collection_info = CollectionInformation {
+			owner: alice.clone(),
+			name: collection_name.clone(),
+			metadata_scheme: metadata_scheme.clone(),
+			royalties_schedule: None,
+			max_issuance: None,
+			origin_chain: OriginChain::Ethereum,
+			next_serial_number: 1_000_000_001_u32,
+			collection_issuance: 1_000_000_000_u32,
+			cross_chain_compatibility: CrossChainCompatibility::default(),
+			owned_tokens: BoundedVec::truncate_from(vec![]),
+		};
+
+		CollectionInfo::<T>::insert(collection_id, collection_info);
+		EthToRootNft::<T>::insert(token.clone().into(), collection_id);
+		RootNftToErc721::<T>::insert(collection_id, token.clone().into());
+
+		let (_, err) =
+			NftPeg::do_deposit(token_info, alice.clone().into()).unwrap_err();
+		// Check tokens were blocked
+		assert_eq!(err, pallet_nft::Error::<T>::BlockedMint.into());
+
+	}: _(origin::<T>(&alice), blocked_mint_id, alice.clone().into())
+	verify {
+		let blocked_tokens = BlockedTokens::<T>::get(blocked_mint_id);
+		assert!(blocked_tokens.is_none());
+	}
 }
 
 impl_benchmark_test_suite!(NftPeg, crate::mock::new_test_ext(), crate::mock::Test,);
