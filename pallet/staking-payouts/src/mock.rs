@@ -25,7 +25,8 @@ use frame_support::{
 use frame_system::EnsureRoot;
 
 use codec::{Decode, Encode};
-use pallet_staking::{Bonded, ErasStakers, Nominators, StakerStatus, Validators};
+use pallet_session::SessionHandler;
+use pallet_staking::{Bonded, ErasStakers, Nominators, StakerStatus, StashOf, Validators};
 use seed_pallet_common::{
 	impl_pallet_assets_config, EthereumBridge, EthereumEventRouter as EthereumEventRouterT,
 	EthereumEventSubscriber, EventRouterError, EventRouterResult,
@@ -39,7 +40,7 @@ use sp_core::{ecdsa, H160, H256};
 use sp_npos_elections::VoteWeight;
 use sp_runtime::{
 	testing::{Header, UintAuthorityId},
-	traits::{BlakeTwo256, ConstU128, ConstU64, IdentityLookup, Zero},
+	traits::{BlakeTwo256, ConstU128, ConstU64, IdentityLookup, OpaqueKeys, Zero},
 	DispatchError, Perbill, SaturatedConversion,
 };
 
@@ -50,6 +51,24 @@ pub type BlockNumber = u64;
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
+fn public_to_uint_auth_key_helper(public: sp_core::ecdsa::Public) -> UintAuthorityId {
+	// For tests, should be a fake public key with uniform vector of one number, so just grab one of
+	// them
+	UintAuthorityId(public.0[0].into())
+}
+
+fn account_to_uint_auth_key_helper(account_id: AccountId20) -> UintAuthorityId {
+	// For tests, should be a fake account with uniform vector of one number, so just grab one of
+	// them
+	UintAuthorityId(account_id.0[0].into())
+}
+
+fn account_to_public_helper(account_id: AccountId20) -> sp_core::ecdsa::Public {
+	// For tests, should be a fake account with uniform vector of one number, so just grab one of
+	// them
+	sp_core::ecdsa::Public([account_id.0[0]; 33])
+}
+
 impl pallet_balances::Config for TestRuntime {
 	type MaxLocks = ();
 	type MaxReserves = ();
@@ -57,7 +76,7 @@ impl pallet_balances::Config for TestRuntime {
 	type Balance = Balance;
 	type Event = Event;
 	type DustRemoval = ();
-	type ExistentialDeposit = ConstU128<10>;
+	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
 }
@@ -85,6 +104,7 @@ frame_support::construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		Historical: pallet_session::historical::{Pallet, Storage},
 		BagsList: pallet_bags_list::{Pallet, Call, Storage, Event<T>},
 		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 	}
@@ -120,13 +140,39 @@ impl sp_runtime::BoundToRuntimeAppPublic for TestSessionHandler {
 
 sp_runtime::impl_opaque_keys! {
 	pub struct SessionKeys {
+		// pub other: OtherSessionHandler,
 		pub other: TestSessionHandler,
 	}
 }
 
+// impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
+// 	type Public = UintAuthorityId;
+// }
+
+// pub struct OtherSessionHandler;
+// impl OneSessionHandler<AccountId> for OtherSessionHandler {
+// 	type Key = UintAuthorityId;
+
+// 	fn on_genesis_session<'a, I: 'a>(_: I)
+// 	where
+// 		I: Iterator<Item = (&'a AccountId, Self::Key)>,
+// 		AccountId: 'a,
+// 	{
+// 	}
+
+// 	fn on_new_session<'a, I: 'a>(_: bool, _: I, _: I)
+// 	where
+// 		I: Iterator<Item = (&'a AccountId, Self::Key)>,
+// 		AccountId: 'a,
+// 	{
+// 	}
+
+// 	fn on_disabled(_validator_index: u32) {}
+// }
+
 pub struct TestSessionHandler;
 impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
-	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[];
+	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[sp_core::testing::ECDSA];
 
 	fn on_genesis_session<Ks: sp_runtime::traits::OpaqueKeys>(_validators: &[(AccountId, Ks)]) {}
 
@@ -145,12 +191,25 @@ impl pallet_session::Config for TestRuntime {
 	type Keys = SessionKeys;
 	type ShouldEndSession = pallet_session::PeriodicSessions<(), ()>;
 	type NextSessionRotation = pallet_session::PeriodicSessions<(), ()>;
+	// type SessionHandler = (OtherSessionHandler,);
 	type SessionHandler = TestSessionHandler;
 	type Event = Event;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<TestRuntime>;
 	type WeightInfo = ();
 }
+
+// impl pallet_session::Config for TestRuntime {
+// 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<TestRuntime, Staking>;
+// 	type Keys = SessionKeys;
+// 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+// 	type SessionHandler = (OtherSessionHandler,);
+// 	type Event = Event;
+// 	type ValidatorId = AccountId;
+// 	type ValidatorIdOf = StashOf<TestRuntime>;
+// 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+// 	type WeightInfo = ();
+// }
 
 pub const ROOT_ASSET_ID: AssetId = 1;
 pub const XRP_ASSET_ID: AssetId = 2;
@@ -357,7 +416,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 10;
+	pub const ExistentialDeposit: u128 = 1;
 }
 
 parameter_types! {
@@ -368,96 +427,6 @@ parameter_types! {
 	pub static Period: BlockNumber = 5;
 	pub static Offset: BlockNumber = 0;
 }
-
-// fn alice() -> AccountId {
-// 	AccountId20([1; 20])
-// }
-
-// fn bob() -> AccountId {
-// 	AccountId20([2; 20])
-// }
-
-// fn charlie() -> AccountId {
-// 	AccountId20([3; 20])
-// }
-
-// fn dave() -> AccountId {
-// 	AccountId20([4; 20])
-// }
-
-// fn eve() -> AccountId {
-// 	AccountId20([5; 20])
-// }
-
-// fn ferdie() -> AccountId {
-// 	AccountId20([5; 20])
-// }
-
-// fn controller_one() -> AccountId {
-// 	AccountId20([6; 20])
-// }
-
-// fn controller_two() -> AccountId {
-// 	AccountId20([6; 20])
-// }
-
-// fn controller_three() -> AccountId {
-// 	AccountId20([6; 20])
-// }
-
-// fn controller_four() -> AccountId {
-// 	AccountId20([7; 20])
-// }
-
-// fn controller_five() -> AccountId {
-// 	AccountId20([8; 20])
-// }
-
-// fn stash_one() -> AccountId {
-// 	AccountId20([9; 20])
-// }
-
-// fn stash_two() -> AccountId {
-// 	AccountId20([10; 20])
-// }
-
-// fn stash_three() -> AccountId {
-// 	AccountId20([11; 20])
-// }
-
-// fn stash_four() -> AccountId {
-// 	AccountId20([12; 20])
-// }
-
-// fn stash_five() -> AccountId {
-// 	AccountId20([13; 20])
-// }
-
-// fn nominator_one() -> AccountId {
-// 	AccountId20([14; 20])
-// }
-// fn nominator_two() -> AccountId {
-// 	AccountId20([15; 20])
-// }
-
-// fn aux_account_one() -> AccountId {
-// 	AccountId20([14; 20])
-// }
-// fn aux_account_two() -> AccountId {
-// 	AccountId20([16; 20])
-// }
-// fn aux_account_one() -> AccountId {
-// 	AccountId20([14; 20])
-// }
-// fn aux_account_two() -> AccountId {
-// 	AccountId20([16; 20])
-// }
-// fn aux_account_three() -> AccountId {
-// 	AccountId20([14; 20])
-// }
-// fn aux_account_four() -> AccountId {
-// 	AccountId20([16; 20])
-// }
 
 pub struct ExtBuilder {
 	nominate: bool,
@@ -507,19 +476,11 @@ impl ExtBuilder {
 		self
 	}
 
-	// pub fn slash_defer_duration(self, eras: EraIndex) -> Self {
-	// 	SlashDeferDuration::get().with(|v| *v.borrow_mut() = eras);
-	// 	self
-	// }
-
 	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
 		self.invulnerables = invulnerables;
 		self
 	}
-	// pub fn session_per_era(self, length: SessionIndex) -> Self {
-	// 	SessionsPerEra::get().with(|v| *v.borrow_mut() = length);
-	// 	self
-	// }
+
 	pub fn period(self, length: BlockNumber) -> Self {
 		PERIOD.with(|v| *v.borrow_mut() = length);
 		self
@@ -637,8 +598,12 @@ impl ExtBuilder {
 		}
 		.assimilate_storage(&mut storage);
 
+		log::info!("Here1 ");
+
 		let mut stakers = vec![];
 		if self.has_stakers {
+			log::info!("Here2 ");
+
 			stakers = vec![
 				// (stash, ctrl, stake, status)
 				// these two will be elected in the default test where we elect 2.
@@ -671,6 +636,8 @@ impl ExtBuilder {
 			];
 			// optionally add a nominator
 			if self.nominate {
+				log::info!("Here3 ");
+
 				stakers.push((
 					nominator_one,
 					nominator_two,
@@ -680,6 +647,8 @@ impl ExtBuilder {
 			}
 			// replace any of the status if needed.
 			self.status.into_iter().for_each(|(stash, status)| {
+				log::info!("Here4 ");
+
 				let (_, _, _, ref mut prev_status) = stakers
 					.iter_mut()
 					.find(|s| s.0 == stash)
@@ -689,6 +658,8 @@ impl ExtBuilder {
 
 			// replaced any of the stakes if needed.
 			self.stakes.into_iter().for_each(|(stash, stake)| {
+				log::info!("Here5 ");
+
 				let (_, _, ref mut prev_stake, _) = stakers
 					.iter_mut()
 					.find(|s| s.0 == stash)
@@ -713,30 +684,33 @@ impl ExtBuilder {
 
 		let _ = pallet_session::GenesisConfig::<TestRuntime> {
 			keys: if self.has_stakers {
+				log::info!("Here6 ");
+
 				// set the keys for the first session.
 				stakers
 					.into_iter()
 					.map(|(id, ..)| {
 						let id_encoded = id.encode();
 
-						(
-							id,
-							id,
-							SessionKeys { other: Decode::decode(&mut &id_encoded[..]).unwrap() },
-						)
+						// Sample the (only) number from the account to use for a conversion to a
+						// similarly fake public key
+						let v = [id.0[0]; 33];
+
+						// May need sp app crypto instead of core
+						// sp_application_crypto::ecdsa
+						let p = ecdsa::Public(v);
+
+						(id, id, SessionKeys { other: account_to_public_helper(id).into() })
 					})
 					.collect()
 			} else {
+				log::info!("Here7 ");
+
 				// set some dummy validators in genesis.
 				(0..self.validator_count as u64)
 					.map(|id| {
 						let id = AccountId20([id.try_into().unwrap(); 20]);
-						let id_encoded = id.encode();
-						(
-							id,
-							id,
-							SessionKeys { other: Decode::decode(&mut &id_encoded[..]).unwrap() },
-						)
+						(id, id, SessionKeys { other: account_to_public_helper(id).into() })
 					})
 					.collect()
 
@@ -748,6 +722,8 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::from(storage);
 
 		if self.initialize_first_session {
+			log::info!("Here8 ");
+
 			// We consider all test to start after timestamp is initialized This must be ensured by
 			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
 			// session length is 1, then it is already triggered.
@@ -761,6 +737,7 @@ impl ExtBuilder {
 
 		ext
 	}
+
 	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
 		let mut ext = self.build();
 		ext.execute_with(test);
