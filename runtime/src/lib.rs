@@ -499,6 +499,22 @@ impl pallet_scheduler::Config for Runtime {
 	type NoPreimagePostponement = ();
 }
 
+parameter_types! {
+	pub const PreimageMaxSize: u32 = 4096 * 1024;
+	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
+	pub const PreimageByteDeposit: Balance = deposit(0, 1);
+}
+
+impl pallet_preimage::Config for Runtime {
+	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type MaxSize = PreimageMaxSize;
+	type BaseDeposit = PreimageBaseDeposit;
+	type ByteDeposit = PreimageByteDeposit;
+}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -1185,6 +1201,7 @@ construct_runtime! {
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
 		Utility: pallet_utility::{Pallet, Call, Event} = 4,
 		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
 
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
@@ -1969,6 +1986,7 @@ mod benches {
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_recovery, Recovery]
 		[pallet_proxy, Proxy]
+		[pallet_preimage, Preimage]
 		// Local
 		[pallet_nft, Nft]
 		[pallet_sft, Sft]
