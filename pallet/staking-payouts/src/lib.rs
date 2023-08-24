@@ -17,7 +17,6 @@
 
 pub use pallet::*;
 
-use frame_election_provider_support::SortedListProvider;
 use frame_system::pallet_prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]

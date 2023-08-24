@@ -37,6 +37,9 @@ pallet-balances = { git = "https://github.com/futureversecom/substrate", branch 
 pallet-assets = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-session = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 pallet-timestamp = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+pallet-bags-list = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-npos-elections = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
+sp-application-crypto = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 [features]
 default = ["std"]

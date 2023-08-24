@@ -13,11 +13,19 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{self as pallet_staking_payouts, Config};
+use crate::{self as pallet_staking_payouts, BalanceOf, Config};
+use _feps::SortedListProvider;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
-use frame_support::{parameter_types, storage::StorageValue, PalletId};
+use frame_support::{
+	parameter_types,
+	storage::StorageValue,
+	traits::{Currency, GenesisBuild, Hooks, OnInitialize, OneSessionHandler},
+	PalletId,
+};
 use frame_system::EnsureRoot;
 
+use codec::{Decode, Encode};
+use pallet_staking::{Bonded, ErasStakers, Nominators, StakerStatus, Validators};
 use seed_pallet_common::{
 	impl_pallet_assets_config, EthereumBridge, EthereumEventRouter as EthereumEventRouterT,
 	EthereumEventSubscriber, EventRouterError, EventRouterResult,
@@ -26,13 +34,17 @@ use seed_pallet_common::{
 use seed_pallet_common::{
 	impl_pallet_assets_ext_config, impl_pallet_balance_config, impl_pallet_timestamp_config,
 };
-use seed_primitives::{ethy::EventProofId, AccountId, AssetId, Balance};
-use sp_core::{H160, H256};
+use seed_primitives::{ethy::EventProofId, AccountId, AccountId20, AssetId, Balance};
+use sp_core::{ecdsa, H160, H256};
+use sp_npos_elections::VoteWeight;
 use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, ConstU128, ConstU64, IdentityLookup},
+	testing::{Header, UintAuthorityId},
+	traits::{BlakeTwo256, ConstU128, ConstU64, IdentityLookup, Zero},
 	DispatchError, Perbill, SaturatedConversion,
 };
+
+use sp_staking::{EraIndex, SessionIndex};
+use sp_std::collections::btree_map::BTreeMap;
 
 pub type BlockNumber = u64;
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -73,17 +85,42 @@ frame_support::construct_runtime!(
 		AssetsExt: pallet_assets_ext,
 		TxFeePot: pallet_tx_fee_pot::{Pallet, Storage},
 		Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+		BagsList: pallet_bags_list::{Pallet, Call, Storage, Event<T>},
+		Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 	}
 );
+
+const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
+	[10, 20, 30, 40, 50, 60, 1_000, 2_000, 10_000];
+
+parameter_types! {
+	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
+	// pub static MaxNominations: u32 = 16;
+	pub static RewardOnUnbalanceWasCalled: bool = false;
+	pub static LedgerSlashPerEra: (BalanceOf<TestRuntime>, BTreeMap<EraIndex, BalanceOf<TestRuntime>>) = (Zero::zero(), BTreeMap::new());
+}
+
+impl pallet_bags_list::Config for TestRuntime {
+	type Event = Event;
+	type WeightInfo = ();
+	type ScoreProvider = Staking;
+	type BagThresholds = BagThresholds;
+	type Score = VoteWeight;
+}
 
 impl pallet_session::historical::Config for TestRuntime {
 	type FullIdentification = pallet_staking::Exposure<AccountId, Balance>;
 	type FullIdentificationOf = pallet_staking::ExposureOf<TestRuntime>;
 }
 
+impl sp_runtime::BoundToRuntimeAppPublic for TestSessionHandler {
+	// type Public = UintAuthorityId;
+	type Public = sp_application_crypto::ecdsa::AppPublic;
+}
+
 sp_runtime::impl_opaque_keys! {
 	pub struct SessionKeys {
-		pub foo: sp_runtime::testing::UintAuthorityId,
+		pub other: TestSessionHandler,
 	}
 }
 
@@ -155,6 +192,7 @@ impl frame_system::Config for TestRuntime {
 }
 
 pub const MILLISECS_PER_BLOCK: u64 = 4_000;
+pub const INIT_TIMESTAMP: u64 = 30_000;
 
 // Time is measured by number of blocks.
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
@@ -275,7 +313,8 @@ impl pallet_staking::Config for TestRuntime {
 	type NextNewSession = Session;
 	type ElectionProvider = onchain::UnboundedExecution<OnChainSeqPhragmen>;
 	type GenesisElectionProvider = onchain::UnboundedExecution<OnChainSeqPhragmen>;
-	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+	// type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
+	type VoterList = BagsList;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type BenchmarkingConfig = pallet_staking::TestBenchmarkingConfig;
 	type OnStakerSlash = ();
@@ -308,22 +347,6 @@ pub(crate) mod test_storage {
 	}
 }
 
-#[derive(Clone, Copy, Default)]
-pub struct ExtBuilder;
-
-impl ExtBuilder {
-	pub fn build(self) -> sp_io::TestExternalities {
-		let mut ext: sp_io::TestExternalities = frame_system::GenesisConfig::default()
-			.build_storage::<TestRuntime>()
-			.unwrap()
-			.into();
-
-		ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1));
-
-		ext
-	}
-}
-
 #[allow(dead_code)]
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
@@ -332,3 +355,516 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
+
+parameter_types! {
+	pub const ExistentialDeposit: u128 = 10;
+}
+
+parameter_types! {
+	pub BlockWeights: frame_system::limits::BlockWeights =
+		frame_system::limits::BlockWeights::simple_max(
+			frame_support::weights::constants::WEIGHT_PER_SECOND * 2
+		);
+	pub static Period: BlockNumber = 5;
+	pub static Offset: BlockNumber = 0;
+}
+
+// fn alice() -> AccountId {
+// 	AccountId20([1; 20])
+// }
+
+// fn bob() -> AccountId {
+// 	AccountId20([2; 20])
+// }
+
+// fn charlie() -> AccountId {
+// 	AccountId20([3; 20])
+// }
+
+// fn dave() -> AccountId {
+// 	AccountId20([4; 20])
+// }
+
+// fn eve() -> AccountId {
+// 	AccountId20([5; 20])
+// }
+
+// fn ferdie() -> AccountId {
+// 	AccountId20([5; 20])
+// }
+
+// fn controller_one() -> AccountId {
+// 	AccountId20([6; 20])
+// }
+
+// fn controller_two() -> AccountId {
+// 	AccountId20([6; 20])
+// }
+
+// fn controller_three() -> AccountId {
+// 	AccountId20([6; 20])
+// }
+
+// fn controller_four() -> AccountId {
+// 	AccountId20([7; 20])
+// }
+
+// fn controller_five() -> AccountId {
+// 	AccountId20([8; 20])
+// }
+
+// fn stash_one() -> AccountId {
+// 	AccountId20([9; 20])
+// }
+
+// fn stash_two() -> AccountId {
+// 	AccountId20([10; 20])
+// }
+
+// fn stash_three() -> AccountId {
+// 	AccountId20([11; 20])
+// }
+
+// fn stash_four() -> AccountId {
+// 	AccountId20([12; 20])
+// }
+
+// fn stash_five() -> AccountId {
+// 	AccountId20([13; 20])
+// }
+
+// fn nominator_one() -> AccountId {
+// 	AccountId20([14; 20])
+// }
+// fn nominator_two() -> AccountId {
+// 	AccountId20([15; 20])
+// }
+
+// fn aux_account_one() -> AccountId {
+// 	AccountId20([14; 20])
+// }
+// fn aux_account_two() -> AccountId {
+// 	AccountId20([16; 20])
+// }
+// fn aux_account_one() -> AccountId {
+// 	AccountId20([14; 20])
+// }
+// fn aux_account_two() -> AccountId {
+// 	AccountId20([16; 20])
+// }
+// fn aux_account_three() -> AccountId {
+// 	AccountId20([14; 20])
+// }
+// fn aux_account_four() -> AccountId {
+// 	AccountId20([16; 20])
+// }
+
+pub struct ExtBuilder {
+	nominate: bool,
+	validator_count: u32,
+	minimum_validator_count: u32,
+	invulnerables: Vec<AccountId>,
+	has_stakers: bool,
+	initialize_first_session: bool,
+	pub min_nominator_bond: Balance,
+	min_validator_bond: Balance,
+	balance_factor: Balance,
+	status: BTreeMap<AccountId, StakerStatus<AccountId>>,
+	stakes: BTreeMap<AccountId, Balance>,
+	stakers: Vec<(AccountId, AccountId, Balance, StakerStatus<AccountId>)>,
+}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		Self {
+			nominate: true,
+			validator_count: 2,
+			minimum_validator_count: 0,
+			balance_factor: 1,
+			invulnerables: vec![],
+			has_stakers: true,
+			initialize_first_session: true,
+			min_nominator_bond: ExistentialDeposit::get(),
+			min_validator_bond: ExistentialDeposit::get(),
+			status: Default::default(),
+			stakes: Default::default(),
+			stakers: Default::default(),
+		}
+	}
+}
+
+impl ExtBuilder {
+	pub fn nominate(mut self, nominate: bool) -> Self {
+		self.nominate = nominate;
+		self
+	}
+	pub fn validator_count(mut self, count: u32) -> Self {
+		self.validator_count = count;
+		self
+	}
+	pub fn minimum_validator_count(mut self, count: u32) -> Self {
+		self.minimum_validator_count = count;
+		self
+	}
+
+	// pub fn slash_defer_duration(self, eras: EraIndex) -> Self {
+	// 	SlashDeferDuration::get().with(|v| *v.borrow_mut() = eras);
+	// 	self
+	// }
+
+	pub fn invulnerables(mut self, invulnerables: Vec<AccountId>) -> Self {
+		self.invulnerables = invulnerables;
+		self
+	}
+	// pub fn session_per_era(self, length: SessionIndex) -> Self {
+	// 	SessionsPerEra::get().with(|v| *v.borrow_mut() = length);
+	// 	self
+	// }
+	pub fn period(self, length: BlockNumber) -> Self {
+		PERIOD.with(|v| *v.borrow_mut() = length);
+		self
+	}
+	pub fn has_stakers(mut self, has: bool) -> Self {
+		self.has_stakers = has;
+		self
+	}
+	pub fn initialize_first_session(mut self, init: bool) -> Self {
+		self.initialize_first_session = init;
+		self
+	}
+	pub fn offset(self, offset: BlockNumber) -> Self {
+		OFFSET.with(|v| *v.borrow_mut() = offset);
+		self
+	}
+	pub fn min_nominator_bond(mut self, amount: Balance) -> Self {
+		self.min_nominator_bond = amount;
+		self
+	}
+	pub fn min_validator_bond(mut self, amount: Balance) -> Self {
+		self.min_validator_bond = amount;
+		self
+	}
+	pub fn set_status(mut self, who: AccountId, status: StakerStatus<AccountId>) -> Self {
+		self.status.insert(who, status);
+		self
+	}
+	pub fn set_stake(mut self, who: AccountId, stake: Balance) -> Self {
+		self.stakes.insert(who, stake);
+		self
+	}
+	pub fn add_staker(
+		mut self,
+		stash: AccountId,
+		ctrl: AccountId,
+		stake: Balance,
+		status: StakerStatus<AccountId>,
+	) -> Self {
+		self.stakers.push((stash, ctrl, stake, status));
+		self
+	}
+	pub fn balance_factor(mut self, factor: Balance) -> Self {
+		self.balance_factor = factor;
+		self
+	}
+
+	pub(crate) fn validator_controllers() -> Vec<AccountId> {
+		Session::validators()
+			.into_iter()
+			.map(|s| Staking::bonded(&s).expect("no controller for validator"))
+			.collect()
+	}
+
+	pub fn build(self) -> sp_io::TestExternalities {
+		let mut storage =
+			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+
+		let alice = AccountId20([1; 20]);
+		let bob = AccountId20([2; 20]);
+		let charlie = AccountId20([3; 20]);
+		let dave = AccountId20([4; 20]);
+		let controller_one = AccountId20([5; 20]);
+		let controller_two = AccountId20([6; 20]);
+		let controller_three = AccountId20([7; 20]);
+		let controller_four = AccountId20([8; 20]);
+		let controller_five = AccountId20([9; 20]);
+		let stash_one = AccountId20([10; 20]);
+		let stash_two = AccountId20([11; 20]);
+		let stash_three = AccountId20([12; 20]);
+		let stash_four = AccountId20([13; 20]);
+		let stash_five = AccountId20([14; 20]);
+		let nominator_one = AccountId20([15; 20]);
+		let nominator_two = AccountId20([16; 20]);
+		let aux_account_one = AccountId20([17; 20]);
+		let aux_account_two = AccountId20([18; 20]);
+		let aux_account_three = AccountId20([19; 20]);
+		let aux_account_four = AccountId20([20; 20]);
+		let aux_account_five = AccountId20([21; 20]);
+		let aux_account_six = AccountId20([22; 20]);
+		let account_other = AccountId20([23; 20]);
+
+		let _ = pallet_balances::GenesisConfig::<TestRuntime> {
+			balances: vec![
+				// (1, 10 * self.balance_factor),
+				(alice, 10 * self.balance_factor),
+				(bob, 20 * self.balance_factor),
+				(charlie, 300 * self.balance_factor),
+				(dave, 400 * self.balance_factor),
+				// controllers
+				(controller_one, self.balance_factor),
+				(controller_two, self.balance_factor),
+				(controller_three, self.balance_factor),
+				(controller_four, self.balance_factor),
+				(controller_five, self.balance_factor),
+				// stashes
+				(stash_one, self.balance_factor * 1000),
+				(stash_two, self.balance_factor * 2000),
+				(stash_three, self.balance_factor * 2000),
+				(stash_four, self.balance_factor * 2000),
+				(stash_five, self.balance_factor * 2000),
+				// optional nominator
+				(nominator_one, self.balance_factor * 2000),
+				(nominator_two, self.balance_factor * 2000),
+				// aux accounts
+				(aux_account_one, self.balance_factor),
+				(aux_account_two, self.balance_factor * 2000),
+				(aux_account_three, self.balance_factor),
+				(aux_account_four, self.balance_factor * 2000),
+				(aux_account_five, self.balance_factor),
+				(aux_account_six, self.balance_factor * 2000),
+				// This allows us to have a total_payout different from 0.
+				(account_other, 1_000_000_000_000),
+			],
+		}
+		.assimilate_storage(&mut storage);
+
+		let mut stakers = vec![];
+		if self.has_stakers {
+			stakers = vec![
+				// (stash, ctrl, stake, status)
+				// these two will be elected in the default test where we elect 2.
+				(
+					stash_one,
+					controller_one,
+					self.balance_factor * 1000,
+					StakerStatus::<AccountId>::Validator,
+				),
+				(
+					stash_two,
+					controller_two,
+					self.balance_factor * 1000,
+					StakerStatus::<AccountId>::Validator,
+				),
+				// a loser validator
+				(
+					stash_three,
+					controller_three,
+					self.balance_factor * 500,
+					StakerStatus::<AccountId>::Validator,
+				),
+				// an idle validator
+				(
+					stash_four,
+					controller_four,
+					self.balance_factor * 1000,
+					StakerStatus::<AccountId>::Idle,
+				),
+			];
+			// optionally add a nominator
+			if self.nominate {
+				stakers.push((
+					nominator_one,
+					nominator_two,
+					self.balance_factor * 500,
+					StakerStatus::<AccountId>::Nominator(vec![stash_one, stash_two]),
+				))
+			}
+			// replace any of the status if needed.
+			self.status.into_iter().for_each(|(stash, status)| {
+				let (_, _, _, ref mut prev_status) = stakers
+					.iter_mut()
+					.find(|s| s.0 == stash)
+					.expect("set_status staker should exist; qed");
+				*prev_status = status;
+			});
+
+			// replaced any of the stakes if needed.
+			self.stakes.into_iter().for_each(|(stash, stake)| {
+				let (_, _, ref mut prev_stake, _) = stakers
+					.iter_mut()
+					.find(|s| s.0 == stash)
+					.expect("set_stake staker should exits; qed.");
+				*prev_stake = stake;
+			});
+			// extend stakers if needed.
+			stakers.extend(self.stakers)
+		}
+
+		let _ = pallet_staking::GenesisConfig::<TestRuntime> {
+			stakers: stakers.clone(),
+			validator_count: self.validator_count,
+			minimum_validator_count: self.minimum_validator_count,
+			invulnerables: self.invulnerables,
+			slash_reward_fraction: Perbill::from_percent(10),
+			min_nominator_bond: self.min_nominator_bond,
+			min_validator_bond: self.min_validator_bond,
+			..Default::default()
+		}
+		.assimilate_storage(&mut storage);
+
+		let _ = pallet_session::GenesisConfig::<TestRuntime> {
+			keys: if self.has_stakers {
+				// set the keys for the first session.
+				stakers
+					.into_iter()
+					.map(|(id, ..)| {
+						let id_encoded = id.encode();
+
+						(
+							id,
+							id,
+							SessionKeys { other: Decode::decode(&mut &id_encoded[..]).unwrap() },
+						)
+					})
+					.collect()
+			} else {
+				// set some dummy validators in genesis.
+				(0..self.validator_count as u64)
+					.map(|id| {
+						let id = AccountId20([id.try_into().unwrap(); 20]);
+						let id_encoded = id.encode();
+						(
+							id,
+							id,
+							SessionKeys { other: Decode::decode(&mut &id_encoded[..]).unwrap() },
+						)
+					})
+					.collect()
+
+				// self.stakers.iter().map
+			},
+		}
+		.assimilate_storage(&mut storage);
+
+		let mut ext = sp_io::TestExternalities::from(storage);
+
+		if self.initialize_first_session {
+			// We consider all test to start after timestamp is initialized This must be ensured by
+			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
+			// session length is 1, then it is already triggered.
+			ext.execute_with(|| {
+				System::set_block_number(1);
+				<Session as Hooks<u64>>::on_initialize(1);
+				<Staking as Hooks<u64>>::on_initialize(1);
+				Timestamp::set_timestamp(INIT_TIMESTAMP);
+			});
+		}
+
+		ext
+	}
+	pub fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		let mut ext = self.build();
+		ext.execute_with(test);
+		ext.execute_with(post_conditions);
+	}
+}
+
+fn post_conditions() {
+	check_nominators();
+	check_exposures();
+	check_ledgers();
+	check_count();
+}
+
+fn check_count() {
+	let nominator_count = Nominators::<TestRuntime>::iter_keys().count() as u32;
+	let validator_count = Validators::<TestRuntime>::iter().count() as u32;
+	assert_eq!(nominator_count, Nominators::<TestRuntime>::count());
+	assert_eq!(validator_count, Validators::<TestRuntime>::count());
+
+	// the voters that the `VoterList` list is storing for us.
+	let external_voters = <TestRuntime as pallet_staking::Config>::VoterList::count();
+	assert_eq!(external_voters, nominator_count + validator_count);
+}
+
+fn check_ledgers() {
+	// check the ledger of all stakers.
+	// Bonded::<TestRuntime>::iter().for_each(|(_, ctrl)| assert_ledger_consistent(ctrl))
+}
+
+fn check_exposures() {
+	// a check per validator to ensure the exposure struct is always sane.
+	let era = Staking::active_era().unwrap();
+	ErasStakers::<TestRuntime>::iter_prefix_values(era.index).for_each(|expo| {
+		assert_eq!(
+			expo.total as u128,
+			expo.own as u128 + expo.others.iter().map(|e| e.value as u128).sum::<u128>(),
+			"wrong total exposure.",
+		);
+	})
+}
+
+fn check_nominators() {
+	// a check per nominator to ensure their entire stake is correctly distributed. Will only kick-
+	// in if the nomination was submitted before the current era.
+	let era = Staking::active_era().unwrap();
+	<Nominators<TestRuntime>>::iter()
+		.filter_map(
+			|(nominator, nomination)| {
+				if nomination.submitted_in > era.index {
+					Some(nominator)
+				} else {
+					None
+				}
+			},
+		)
+		.for_each(|nominator| {
+			// must be bonded.
+			assert_is_stash(nominator);
+			let mut sum = 0;
+			Session::validators()
+				.iter()
+				.map(|v| Staking::eras_stakers(era.index, v))
+				.for_each(|e| {
+					let individual =
+						e.others.iter().filter(|e| e.who == nominator).collect::<Vec<_>>();
+					let len = individual.len();
+					match len {
+						0 => { /* not supporting this validator at all. */ },
+						1 => sum += individual[0].value,
+						_ => panic!("nominator cannot back a validator more than once."),
+					};
+				});
+
+			let nominator_stake = Staking::slashable_balance_of(&nominator);
+			// a nominator cannot over-spend.
+			assert!(
+				nominator_stake >= sum,
+				"failed: Nominator({}) stake({}) >= sum divided({})",
+				nominator,
+				nominator_stake,
+				sum,
+			);
+
+			let diff = nominator_stake - sum;
+			assert!(diff < 100);
+		});
+}
+
+fn assert_is_stash(acc: AccountId) {
+	assert!(Staking::bonded(&acc).is_some(), "Not a stash.");
+}
+
+// We cannot use this because of visibility of UnlockChunk::balance. We need to check if it is okay
+// to omit this check fn assert_ledger_consistent(ctrl: AccountId) {
+// 	// ensures ledger.total == ledger.active + sum(ledger.unlocking).
+// 	let ledger = Staking::ledger(ctrl).expect("Not a controller.");
+// 	let real_total: Balance = ledger.unlocking.iter().fold(ledger.active, |a, c| a + c.value);
+// 	assert_eq!(real_total, ledger.total);
+// 	assert!(
+// 		ledger.active >= Balances::minimum_balance() || ledger.active == 0,
+// 		"{}: active ledger amount ({}) must be greater than ED {}",
+// 		ctrl,
+// 		ledger.active,
+// 		Balances::minimum_balance()
+// 	);
+// }
