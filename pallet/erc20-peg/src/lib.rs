@@ -169,7 +169,6 @@ decl_module! {
 		fn on_idle(_now: T::BlockNumber, remaining_weight: Weight) -> Weight {
 			let initial_read_cost = DbWeight::get().reads(1u64);
 			// Ensure we have enough weight to perform the initial read
-			// TODO Is it all_lte or any_lte?
 			if remaining_weight.all_lte(initial_read_cost) {
 				return Weight::zero();
 			}

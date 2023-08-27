@@ -486,9 +486,8 @@ pub mod pallet {
 			Ok(())
 		}
 
-		///TODO!
 		/// Dispatch the given call through Futurepass account. Transaction fees will be paid by the
-		/// Futurepass The dispatch origin for this call must be _Signed_
+		/// Futurepass. The dispatch origin for this call must be _Signed_
 		///
 		/// Parameters:
 		/// - `futurepass`: The Futurepass account though which the call is dispatched
