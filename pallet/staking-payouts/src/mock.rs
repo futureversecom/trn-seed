@@ -17,20 +17,20 @@ use crate::{self as pallet_staking_payouts, BalanceOf, Config};
 use _feps::SortedListProvider;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
 use frame_support::{
-	parameter_types,
+	assert_ok, parameter_types,
 	storage::StorageValue,
-	traits::{Currency, GenesisBuild, Hooks, OnInitialize, OneSessionHandler},
+	traits::{Currency, GenesisBuild, Get, Hooks, OnInitialize, OneSessionHandler},
 	PalletId,
 };
 use frame_system::EnsureRoot;
 
 use codec::{Decode, Encode};
 use pallet_session::SessionHandler;
-use pallet_staking::{Bonded, ErasStakers, Nominators, StakerStatus, StashOf, Validators};
-use seed_pallet_common::{
-	impl_pallet_assets_config, EthereumBridge, EthereumEventRouter as EthereumEventRouterT,
-	EthereumEventSubscriber, EventRouterError, EventRouterResult,
+use pallet_staking::{
+	Bonded, EraPayout, ErasStakers, Nominators, RewardDestination, StakerStatus, StashOf,
+	ValidatorPrefs, Validators,
 };
+use seed_pallet_common::{impl_pallet_assets_config, EventRouterError, EventRouterResult};
 
 use seed_pallet_common::{
 	impl_pallet_assets_ext_config, impl_pallet_balance_config, impl_pallet_timestamp_config,
@@ -46,27 +46,171 @@ use sp_runtime::{
 
 use sp_staking::{EraIndex, SessionIndex};
 use sp_std::collections::btree_map::BTreeMap;
+use test_accounts::*;
 
 pub type BlockNumber = u64;
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
-fn public_to_uint_auth_key_helper(public: sp_core::ecdsa::Public) -> UintAuthorityId {
+pub const BLOCK_TIME: u64 = 4000;
+
+pub mod test_accounts {
+	use seed_primitives::AccountId20;
+
+	pub const ALICE: AccountId20 = AccountId20([1; 20]);
+	pub const BOB: AccountId20 = AccountId20([2; 20]);
+	pub const CHARLIE: AccountId20 = AccountId20([3; 20]);
+	pub const DAVE: AccountId20 = AccountId20([4; 20]);
+	pub const CONTROLLER_ONE: AccountId20 = AccountId20([5; 20]);
+	pub const CONTROLLER_TWO: AccountId20 = AccountId20([6; 20]);
+	pub const CONTROLLER_THREE: AccountId20 = AccountId20([7; 20]);
+	pub const CONTROLLER_FOUR: AccountId20 = AccountId20([8; 20]);
+	pub const CONTROLLER_FIVE: AccountId20 = AccountId20([9; 20]);
+	pub const STASH_ONE: AccountId20 = AccountId20([10; 20]);
+	pub const STASH_TWO: AccountId20 = AccountId20([11; 20]);
+	pub const STASH_THREE: AccountId20 = AccountId20([12; 20]);
+	pub const STASH_FOUR: AccountId20 = AccountId20([13; 20]);
+	pub const STASH_FIVE: AccountId20 = AccountId20([14; 20]);
+	pub const NOMINATOR_ONE: AccountId20 = AccountId20([15; 20]);
+	pub const NOMINATOR_TWO: AccountId20 = AccountId20([16; 20]);
+	pub const AUX_ACCOUNT_ONE: AccountId20 = AccountId20([17; 20]);
+	pub const AUX_ACCOUNT_TWO: AccountId20 = AccountId20([18; 20]);
+	pub const AUX_ACCOUNT_THREE: AccountId20 = AccountId20([19; 20]);
+	pub const AUX_ACCOUNT_FOUR: AccountId20 = AccountId20([20; 20]);
+	pub const AUX_ACCOUNT_FIVE: AccountId20 = AccountId20([21; 20]);
+	pub const AUX_ACCOUNT_SIX: AccountId20 = AccountId20([22; 20]);
+	pub const ACCOUNT_OTHER: AccountId20 = AccountId20([23; 20]);
+}
+
+fn mock_public_to_uint_auth_key_helper(public: sp_core::ecdsa::Public) -> UintAuthorityId {
 	// For tests, should be a fake public key with uniform vector of one number, so just grab one of
 	// them
 	UintAuthorityId(public.0[0].into())
 }
 
-fn account_to_uint_auth_key_helper(account_id: AccountId20) -> UintAuthorityId {
+fn mock_account_to_uint_auth_key_helper(account_id: AccountId20) -> UintAuthorityId {
 	// For tests, should be a fake account with uniform vector of one number, so just grab one of
 	// them
 	UintAuthorityId(account_id.0[0].into())
 }
 
-fn account_to_public_helper(account_id: AccountId20) -> sp_core::ecdsa::Public {
+fn mock_account_to_public_helper(account_id: AccountId20) -> sp_core::ecdsa::Public {
 	// For tests, should be a fake account with uniform vector of one number, so just grab one of
 	// them
 	sp_core::ecdsa::Public([account_id.0[0]; 33])
+}
+
+pub(crate) fn active_era() -> EraIndex {
+	Staking::active_era().unwrap().index
+}
+
+pub(crate) fn current_era() -> EraIndex {
+	Staking::current_era().unwrap()
+}
+
+pub(crate) fn bond(stash: AccountId, ctrl: AccountId, val: Balance) {
+	let _ = Balances::make_free_balance_be(&stash, val);
+	let _ = Balances::make_free_balance_be(&ctrl, val);
+	assert_ok!(Staking::bond(Origin::signed(stash), ctrl, val, RewardDestination::Controller));
+}
+
+pub(crate) fn bond_validator(stash: AccountId, ctrl: AccountId, val: Balance) {
+	bond(stash, ctrl, val);
+	assert_ok!(Staking::validate(Origin::signed(ctrl), ValidatorPrefs::default()));
+	// assert_ok!(Session::set_keys(Origin::signed(ctrl), SessionKeys { other: ctrl.into() },
+	// vec![]));
+	assert_ok!(Session::set_keys(
+		Origin::signed(ctrl),
+		SessionKeys { other: mock_account_to_public_helper(ctrl).into() },
+		vec![]
+	));
+}
+
+pub(crate) fn bond_nominator(
+	stash: AccountId,
+	ctrl: AccountId,
+	val: Balance,
+	target: Vec<AccountId>,
+) {
+	bond(stash, ctrl, val);
+	assert_ok!(Staking::nominate(Origin::signed(ctrl), target));
+}
+
+/// Time it takes to finish a session.
+///
+/// Note, if you see `time_per_session() - BLOCK_TIME`, it is fine. This is because we set the
+/// timestamp after on_initialize, so the timestamp is always one block old.
+pub(crate) fn time_per_session() -> u64 {
+	Period::get() * BLOCK_TIME
+}
+
+/// Time it takes to finish an era.
+///
+/// Note, if you see `time_per_era() - BLOCK_TIME`, it is fine. This is because we set the
+/// timestamp after on_initialize, so the timestamp is always one block old.
+pub(crate) fn time_per_era() -> u64 {
+	time_per_session() * SessionsPerEra::get() as u64
+}
+
+/// Time that will be calculated for the reward per era.
+pub(crate) fn reward_time_per_era() -> u64 {
+	time_per_era() - BLOCK_TIME
+}
+
+/// Progress to the given block, triggering session and era changes as we progress.
+///
+/// This will finalize the previous block, initialize up to the given block, essentially simulating
+/// a block import/propose process where we first initialize the block, then execute some stuff (not
+/// in the function), and then finalize the block.
+pub(crate) fn run_to_block(n: BlockNumber) {
+	Staking::on_finalize(System::block_number());
+	for b in (System::block_number() + 1)..=n {
+		System::set_block_number(b);
+		<Session as Hooks<u64>>::on_initialize(b);
+		<Staking as Hooks<u64>>::on_initialize(b);
+		<StakingPayout as Hooks<u64>>::on_initialize(b);
+		Timestamp::set_timestamp(System::block_number() * BLOCK_TIME + INIT_TIMESTAMP);
+		if b != n {
+			Staking::on_finalize(System::block_number());
+		}
+	}
+}
+
+/// Progresses from the current block number (whatever that may be) to the `P * session_index + 1`.
+pub(crate) fn start_session(session_index: SessionIndex) {
+	let end: u64 = if Offset::get().is_zero() {
+		(session_index as u64) * Period::get()
+	} else {
+		Offset::get() + (session_index.saturating_sub(1) as u64) * Period::get()
+	};
+	run_to_block(end);
+	// // session must have progressed properly.
+	assert_eq!(
+		Session::current_index(),
+		session_index,
+		"current session index = {}, expected = {}",
+		Session::current_index(),
+		session_index,
+	);
+}
+
+/// Progress until the given era.
+pub(crate) fn start_active_era(era_index: EraIndex) {
+	start_session((era_index * <SessionsPerEra as Get<u32>>::get()).into());
+	assert_eq!(active_era(), era_index);
+	// One way or another, current_era must have changed before the active era, so they must
+	// match at this point.
+	assert_eq!(current_era(), active_era());
+}
+
+pub(crate) fn current_total_payout_for_duration(duration: u64) -> Balance {
+	let (payout, _rest) = <TestRuntime as pallet_staking::Config>::EraPayout::era_payout(
+		Staking::eras_total_stake(active_era()),
+		Balances::total_issuance(),
+		duration,
+	);
+	assert!(payout > 0);
+	payout
 }
 
 impl pallet_balances::Config for TestRuntime {
@@ -145,31 +289,6 @@ sp_runtime::impl_opaque_keys! {
 	}
 }
 
-// impl sp_runtime::BoundToRuntimeAppPublic for OtherSessionHandler {
-// 	type Public = UintAuthorityId;
-// }
-
-// pub struct OtherSessionHandler;
-// impl OneSessionHandler<AccountId> for OtherSessionHandler {
-// 	type Key = UintAuthorityId;
-
-// 	fn on_genesis_session<'a, I: 'a>(_: I)
-// 	where
-// 		I: Iterator<Item = (&'a AccountId, Self::Key)>,
-// 		AccountId: 'a,
-// 	{
-// 	}
-
-// 	fn on_new_session<'a, I: 'a>(_: bool, _: I, _: I)
-// 	where
-// 		I: Iterator<Item = (&'a AccountId, Self::Key)>,
-// 		AccountId: 'a,
-// 	{
-// 	}
-
-// 	fn on_disabled(_validator_index: u32) {}
-// }
-
 pub struct TestSessionHandler;
 impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
 	const KEY_TYPE_IDS: &'static [sp_runtime::KeyTypeId] = &[sp_core::testing::ECDSA];
@@ -189,27 +308,14 @@ impl pallet_session::SessionHandler<AccountId> for TestSessionHandler {
 impl pallet_session::Config for TestRuntime {
 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<TestRuntime, Staking>;
 	type Keys = SessionKeys;
-	type ShouldEndSession = pallet_session::PeriodicSessions<(), ()>;
-	type NextSessionRotation = pallet_session::PeriodicSessions<(), ()>;
-	// type SessionHandler = (OtherSessionHandler,);
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
 	type SessionHandler = TestSessionHandler;
 	type Event = Event;
 	type ValidatorId = AccountId;
 	type ValidatorIdOf = pallet_staking::StashOf<TestRuntime>;
 	type WeightInfo = ();
 }
-
-// impl pallet_session::Config for TestRuntime {
-// 	type SessionManager = pallet_session::historical::NoteHistoricalRoot<TestRuntime, Staking>;
-// 	type Keys = SessionKeys;
-// 	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-// 	type SessionHandler = (OtherSessionHandler,);
-// 	type Event = Event;
-// 	type ValidatorId = AccountId;
-// 	type ValidatorIdOf = StashOf<TestRuntime>;
-// 	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
-// 	type WeightInfo = ();
-// }
 
 pub const ROOT_ASSET_ID: AssetId = 1;
 pub const XRP_ASSET_ID: AssetId = 2;
@@ -298,7 +404,7 @@ generate_solution_type!(
 
 parameter_types! {
 	// Six sessions in an era (24 hours).
-	pub const SessionsPerEra: sp_staking::SessionIndex = SessionsPerEra::get();
+	pub const SessionsPerEra: sp_staking::SessionIndex = 6;
 	// 28 eras for unbonding (28 days).
 	pub const BondingDuration: sp_staking::EraIndex = 28;
 	pub const SlashDeferDuration: sp_staking::EraIndex = 27;
@@ -539,127 +645,93 @@ impl ExtBuilder {
 		let mut storage =
 			frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
 
-		let alice = AccountId20([1; 20]);
-		let bob = AccountId20([2; 20]);
-		let charlie = AccountId20([3; 20]);
-		let dave = AccountId20([4; 20]);
-		let controller_one = AccountId20([5; 20]);
-		let controller_two = AccountId20([6; 20]);
-		let controller_three = AccountId20([7; 20]);
-		let controller_four = AccountId20([8; 20]);
-		let controller_five = AccountId20([9; 20]);
-		let stash_one = AccountId20([10; 20]);
-		let stash_two = AccountId20([11; 20]);
-		let stash_three = AccountId20([12; 20]);
-		let stash_four = AccountId20([13; 20]);
-		let stash_five = AccountId20([14; 20]);
-		let nominator_one = AccountId20([15; 20]);
-		let nominator_two = AccountId20([16; 20]);
-		let aux_account_one = AccountId20([17; 20]);
-		let aux_account_two = AccountId20([18; 20]);
-		let aux_account_three = AccountId20([19; 20]);
-		let aux_account_four = AccountId20([20; 20]);
-		let aux_account_five = AccountId20([21; 20]);
-		let aux_account_six = AccountId20([22; 20]);
-		let account_other = AccountId20([23; 20]);
-
 		let _ = pallet_balances::GenesisConfig::<TestRuntime> {
 			balances: vec![
 				// (1, 10 * self.balance_factor),
-				(alice, 10 * self.balance_factor),
-				(bob, 20 * self.balance_factor),
-				(charlie, 300 * self.balance_factor),
-				(dave, 400 * self.balance_factor),
+				(ALICE, 10 * self.balance_factor),
+				(BOB, 20 * self.balance_factor),
+				(CHARLIE, 300 * self.balance_factor),
+				(DAVE, 400 * self.balance_factor),
 				// controllers
-				(controller_one, self.balance_factor),
-				(controller_two, self.balance_factor),
-				(controller_three, self.balance_factor),
-				(controller_four, self.balance_factor),
-				(controller_five, self.balance_factor),
+				(CONTROLLER_ONE, self.balance_factor),
+				(CONTROLLER_TWO, self.balance_factor),
+				(CONTROLLER_THREE, self.balance_factor),
+				(CONTROLLER_FOUR, self.balance_factor),
+				(CONTROLLER_FIVE, self.balance_factor),
 				// stashes
-				(stash_one, self.balance_factor * 1000),
-				(stash_two, self.balance_factor * 2000),
-				(stash_three, self.balance_factor * 2000),
-				(stash_four, self.balance_factor * 2000),
-				(stash_five, self.balance_factor * 2000),
+				(STASH_ONE, self.balance_factor * 1000),
+				(STASH_TWO, self.balance_factor * 2000),
+				(STASH_THREE, self.balance_factor * 2000),
+				(STASH_FOUR, self.balance_factor * 2000),
+				(STASH_FIVE, self.balance_factor * 2000),
 				// optional nominator
-				(nominator_one, self.balance_factor * 2000),
-				(nominator_two, self.balance_factor * 2000),
+				(NOMINATOR_ONE, self.balance_factor * 2000),
+				(NOMINATOR_TWO, self.balance_factor * 2000),
 				// aux accounts
-				(aux_account_one, self.balance_factor),
-				(aux_account_two, self.balance_factor * 2000),
-				(aux_account_three, self.balance_factor),
-				(aux_account_four, self.balance_factor * 2000),
-				(aux_account_five, self.balance_factor),
-				(aux_account_six, self.balance_factor * 2000),
+				(AUX_ACCOUNT_ONE, self.balance_factor),
+				(AUX_ACCOUNT_TWO, self.balance_factor * 2000),
+				(AUX_ACCOUNT_THREE, self.balance_factor),
+				(AUX_ACCOUNT_FOUR, self.balance_factor * 2000),
+				(AUX_ACCOUNT_FIVE, self.balance_factor),
+				(AUX_ACCOUNT_SIX, self.balance_factor * 2000),
 				// This allows us to have a total_payout different from 0.
-				(account_other, 1_000_000_000_000),
+				(ACCOUNT_OTHER, 1_000_000_000_000),
 			],
 		}
 		.assimilate_storage(&mut storage);
 
-		log::info!("Here1 ");
-
 		let mut stakers = vec![];
 		if self.has_stakers {
-			log::info!("Here2 ");
-
 			stakers = vec![
 				// (stash, ctrl, stake, status)
 				// these two will be elected in the default test where we elect 2.
 				(
-					stash_one,
-					controller_one,
+					STASH_ONE,
+					CONTROLLER_ONE,
 					self.balance_factor * 1000,
 					StakerStatus::<AccountId>::Validator,
 				),
 				(
-					stash_two,
-					controller_two,
+					STASH_TWO,
+					CONTROLLER_TWO,
 					self.balance_factor * 1000,
 					StakerStatus::<AccountId>::Validator,
 				),
 				// a loser validator
 				(
-					stash_three,
-					controller_three,
+					STASH_THREE,
+					CONTROLLER_THREE,
 					self.balance_factor * 500,
 					StakerStatus::<AccountId>::Validator,
 				),
 				// an idle validator
 				(
-					stash_four,
-					controller_four,
+					STASH_FOUR,
+					CONTROLLER_FOUR,
 					self.balance_factor * 1000,
 					StakerStatus::<AccountId>::Idle,
 				),
 			];
 			// optionally add a nominator
 			if self.nominate {
-				log::info!("Here3 ");
-
 				stakers.push((
-					nominator_one,
-					nominator_two,
+					NOMINATOR_ONE,
+					NOMINATOR_TWO,
 					self.balance_factor * 500,
-					StakerStatus::<AccountId>::Nominator(vec![stash_one, stash_two]),
+					StakerStatus::<AccountId>::Nominator(vec![STASH_ONE, STASH_TWO]),
 				))
 			}
 			// replace any of the status if needed.
 			self.status.into_iter().for_each(|(stash, status)| {
-				log::info!("Here4 ");
-
 				let (_, _, _, ref mut prev_status) = stakers
 					.iter_mut()
-					.find(|s| s.0 == stash)
+					.find(|s| s.to_owned().0 == stash)
 					.expect("set_status staker should exist; qed");
 				*prev_status = status;
 			});
 
 			// replaced any of the stakes if needed.
 			self.stakes.into_iter().for_each(|(stash, stake)| {
-				log::info!("Here5 ");
-
 				let (_, _, ref mut prev_stake, _) = stakers
 					.iter_mut()
 					.find(|s| s.0 == stash)
@@ -684,8 +756,6 @@ impl ExtBuilder {
 
 		let _ = pallet_session::GenesisConfig::<TestRuntime> {
 			keys: if self.has_stakers {
-				log::info!("Here6 ");
-
 				// set the keys for the first session.
 				stakers
 					.into_iter()
@@ -700,17 +770,15 @@ impl ExtBuilder {
 						// sp_application_crypto::ecdsa
 						let p = ecdsa::Public(v);
 
-						(id, id, SessionKeys { other: account_to_public_helper(id).into() })
+						(id, id, SessionKeys { other: mock_account_to_public_helper(id).into() })
 					})
 					.collect()
 			} else {
-				log::info!("Here7 ");
-
 				// set some dummy validators in genesis.
 				(0..self.validator_count as u64)
 					.map(|id| {
 						let id = AccountId20([id.try_into().unwrap(); 20]);
-						(id, id, SessionKeys { other: account_to_public_helper(id).into() })
+						(id, id, SessionKeys { other: mock_account_to_public_helper(id).into() })
 					})
 					.collect()
 
@@ -722,8 +790,6 @@ impl ExtBuilder {
 		let mut ext = sp_io::TestExternalities::from(storage);
 
 		if self.initialize_first_session {
-			log::info!("Here8 ");
-
 			// We consider all test to start after timestamp is initialized This must be ensured by
 			// having `timestamp::on_initialize` called before `staking::on_initialize`. Also, if
 			// session length is 1, then it is already triggered.

@@ -156,14 +156,16 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: T::BlockNumber) -> u64 {
-			let active_era = pallet_staking::ActiveEra::<T>::get();
+			// TODO: Decide between active and current
+			// let active_era = pallet_staking::ActiveEra::<T>::get();
+			let current_era = pallet_staking::CurrentEra::<T>::get();
 			let consumed_weight = 0;
 
-			if let Some(active_era_info) = active_era {
+			if let Some(current_era) = current_era {
 				// Previous era information is static, compared to current era which may change.
 				// Thus it's safe to query over the period of the current era
 				// let previous_era = active_era_info.index - 1;
-				let previous_era = active_era_info.index.saturating_sub(1);
+				let previous_era = current_era.saturating_sub(1);
 
 				// Iteration control over multiple blocks. We can only iterate one validator per
 				// block.
