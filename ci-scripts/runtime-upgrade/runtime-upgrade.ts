@@ -25,39 +25,40 @@ async function main() {
 
   // Perform the actual chain upgrade via the sudo module
   let errorOccurred = false;
-  api.tx.sudo
-    .sudoUncheckedWeight(proposal, 0)
-    .signAndSend(alith, ({ events = [], status }) => {
-      console.log("Proposal status:", status.type);
 
-      if (status.isInBlock) {
-        // Check if error happens during the upgrade
-        events.forEach(function (e) {
-          e.event.data.forEach(function (d) {
-            if (d.toString().indexOf("err") >= 0) {
-              console.error("Error occurs during the runtime upgrade. ");
-              console.error("Error details: ");
-              console.error(d.toHuman());
-              console.log(
-                "Info: More details of error codes can be found here: https://wiki.polkadot.network/docs/maintain-errors#error-table"
-              );
-              errorOccurred = true;
-            }
+  return new Promise<void>(async (resolve, reject) => {
+    api.tx.sudo
+      .sudoUncheckedWeight(proposal, 0)
+      .signAndSend(alith, ({ events = [], status }) => {
+        console.log("Proposal status:", status.type);
+
+        if (status.isInBlock) {
+          console.log("Included at block hash", status.asInBlock.toHex());
+          // Check if error happens during the upgrade
+          events.forEach(function (e) {
+            e.event.data.forEach(function (d) {
+              if (d.toString().indexOf("err") >= 0) {
+                console.error("Error occurs during the runtime upgrade. ");
+                console.error("Error details: ");
+                console.error(d.toHuman());
+                console.log(
+                  "Info: More details of error codes can be found here: https://wiki.polkadot.network/docs/maintain-errors#error-table"
+                );
+                errorOccurred = true;
+              }
+            });
           });
-        });
-
-        console.log("Included at block hash", status.asInBlock.toHex());
-      } else if (status.isFinalized) {
-        console.log("Finalized block hash", status.asFinalized.toHex());
-        if (errorOccurred) {
-          throw new Error(
-            "Runtime upgrade failed. Please check the error log above."
-          );
-        } else {
-          console.log("You have just upgraded your chain");
+        } else if (status.isFinalized) {
+          console.log("Finalized block hash", status.asFinalized.toHex());
+          if (errorOccurred) {
+            reject("Runtime upgrade failed. Please check the error log above.");
+          } else {
+            console.log("You have just upgraded your chain");
+            resolve();
+          }
         }
-      }
-    });
+      });
+  });
 }
 
 main().catch((error) => {
