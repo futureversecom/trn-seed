@@ -15,6 +15,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 
 sp-core = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 sp-std = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
+sp-runtime = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 frame-support = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 frame-system = { git = "https://github.com/futureversecom/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 frame-benchmarking = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
@@ -33,6 +34,7 @@ std = [
     "seed-pallet-common/std",
     "sp-core/std",
     "sp-std/std",
+    "sp-runtime/std",
     "frame-support/std",
     "frame-system/std",
 ]

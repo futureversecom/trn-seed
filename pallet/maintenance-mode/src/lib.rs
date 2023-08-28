@@ -27,7 +27,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::MaintenanceCheck;
-use sp_std::prelude::*;
+use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
+use sp_std::{fmt::Debug, prelude::*};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -64,8 +65,12 @@ pub mod pallet {
 	/// Map from call to blocked status
 	/// map (PalletNameBytes, FunctionNameBytes) => bool
 	#[pallet::storage]
-	#[pallet::getter(fn paused_transactions)]
 	pub type BlockedCalls<T: Config> = StorageMap<_, Twox64Concat, (Vec<u8>, Vec<u8>), bool>;
+
+	/// Map from pallet to blocked status
+	/// map PalletNameBytes => bool
+	#[pallet::storage]
+	pub type BlockedPallets<T: Config> = StorageMap<_, Twox64Concat, Vec<u8>, bool>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -80,6 +85,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// This account is not authorized to execute this transaction
 		NotAuthorized,
+		/// The chain is in maintenance mode
+		MaintenanceMode,
 	}
 
 	#[pallet::call]
@@ -131,24 +138,54 @@ pub mod pallet {
 			// 	Error::<T>::CannotPause
 			// );
 
-			let pallet_name = pallet_name.to_ascii_lowercase();
-			let function_name = function_name.to_ascii_lowercase();
+			let pallet_name = pallet_name.to_ascii_lowercase().replace("_", "");
+			let function_name = function_name.to_ascii_lowercase().replace("_", "");
 			match blocked {
 				true => BlockedCalls::<T>::insert((pallet_name, function_name), true),
 				false => BlockedCalls::<T>::remove((pallet_name, function_name)),
 			}
-			// println!("{:?}", call.metadata());
-			// match blocked {
-			// 	true => BlockedCalls::<T>::insert(&call, true),
-			// 	false => BlockedCalls::<T>::remove(&call),
-			// }
 
 			Ok(())
 		}
+
+		/// Blocks an entire pallets calls from being executed
+		#[pallet::weight(1000)]
+		pub fn block_pallet(
+			origin: OriginFor<T>,
+			pallet_name: Vec<u8>,
+			blocked: bool,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			// not allowed to pause calls of this pallet to ensure safe
+			// let pallet_name_string = sp_std::str::from_utf8(&pallet_name).map_err(|_|
+			// Error::<T>::InvalidCharacter)?; ensure!(
+			// 	pallet_name_string != <Self as PalletInfoAccess>::name(),
+			// 	Error::<T>::CannotPause
+			// );
+
+			let pallet_name = pallet_name.to_ascii_lowercase();
+			match blocked {
+				true => BlockedPallets::<T>::insert(pallet_name, true),
+				false => BlockedPallets::<T>::remove(pallet_name),
+			}
+
+			Ok(())
+		}
+
+		// TODO Block by precompile address
 	}
 }
 
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct MaintenanceChecker<T>(sp_std::marker::PhantomData<T>);
+
+impl<T: Config> MaintenanceChecker<T> {
+	pub fn new() -> Self {
+		Self(Default::default())
+	}
+}
 
 impl<T: frame_system::Config + Config> MaintenanceCheck<T> for MaintenanceChecker<T>
 where
@@ -158,21 +195,23 @@ where
 		signer: &<T as frame_system::Config>::AccountId,
 		call: &<T as frame_system::Config>::Call,
 	) -> bool {
-		let pallet_name = call.get_call_metadata().pallet_name;
-
-		// Check whether this is a sudo call, we want to enable all sudo calls
-		// Regardless of maintenance mode
-		// This check is needed here in case we accidentally block the sudo account
-		if pallet_name == "Sudo" {
-			return true
-		}
-
-		// Check if we are in maintenance mode
-		if <MaintenanceModeActive<T>>::get() {
-			return false
-		}
-
-		return !BlockedAccounts::<T>::contains_key(signer)
+		return true
+		//
+		// let pallet_name = call.get_call_metadata().pallet_name;
+		//
+		// // Check whether this is a sudo call, we want to enable all sudo calls
+		// // Regardless of maintenance mode
+		// // This check is needed here in case we accidentally block the sudo account
+		// if pallet_name == "Sudo" {
+		// 	return true
+		// }
+		//
+		// // Check if we are in maintenance mode
+		// if <MaintenanceModeActive<T>>::get() {
+		// 	return false
+		// }
+		//
+		// return !BlockedAccounts::<T>::contains_key(signer)
 	}
 
 	fn call_paused(call: &<T as frame_system::Config>::Call) -> bool {
@@ -184,10 +223,72 @@ where
 			return false
 		}
 
+		let pallet_name = pallet_name.to_ascii_lowercase().replace("_", "");
+		let function_name = function_name.to_ascii_lowercase().replace("_", "");
+
 		// Check whether call is blocked
-		BlockedCalls::<T>::contains_key((
-			pallet_name.to_ascii_lowercase().as_bytes(),
-			function_name.to_ascii_lowercase().as_bytes(),
-		))
+		if BlockedCalls::<T>::contains_key((pallet_name.as_bytes(), function_name.as_bytes())) {
+			return true
+		}
+
+		// Check whether pallet is blocked
+		if BlockedPallets::<T>::contains_key(pallet_name.as_bytes()) {
+			return true
+		}
+
+		return false
+	}
+}
+
+impl<T: Config + Send + Sync + Debug> SignedExtension for MaintenanceChecker<T>
+where
+	<T as Config>::Call: GetCallMetadata,
+{
+	const IDENTIFIER: &'static str = "CheckMaintenanceMode";
+	type AccountId = T::AccountId;
+	type Call = <T as Config>::Call;
+	type AdditionalSigned = ();
+	type Pre = ();
+
+	fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+		Ok(())
+	}
+
+	fn validate(
+		&self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		_info: &DispatchInfoOf<Self::Call>,
+		_len: usize,
+	) -> TransactionValidity {
+		let pallet_name = call.get_call_metadata().pallet_name;
+
+		// Check whether this is a sudo call, we want to enable all sudo calls
+		// Regardless of maintenance mode
+		// This check is needed here in case we accidentally block the sudo account
+		if pallet_name == "Sudo" {
+			return Ok(ValidTransaction::default())
+		}
+
+		// Check if we are in maintenance mode
+		if <MaintenanceModeActive<T>>::get() {
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1)))
+		}
+
+		if BlockedAccounts::<T>::contains_key(who) {
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1)))
+		}
+
+		Ok(ValidTransaction::default())
+	}
+
+	fn pre_dispatch(
+		self,
+		who: &Self::AccountId,
+		call: &Self::Call,
+		info: &DispatchInfoOf<Self::Call>,
+		len: usize,
+	) -> Result<Self::Pre, TransactionValidityError> {
+		self.validate(who, call, info, len).map(|_| ())
 	}
 }
