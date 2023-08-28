@@ -94,7 +94,7 @@ pub use pallet_staking::{Forcing, StakerStatus};
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
-
+pub use seed_pallet_common::EVMFeeConfig;
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
@@ -1131,27 +1131,10 @@ impl pallet_nft_peg::Config for Runtime {
 	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
 }
 
-pub struct FeeControlDefaultValues;
-
-impl pallet_fee_control::DefaultValues for FeeControlDefaultValues {
-	fn evm_base_fee_per_gas() -> U256 {
-		// Floor network base fee per gas
-		// 0.000015 XRP per gas, 15000 GWEI
-		U256::from(15_000_000_000_000u128)
-	}
-	fn weight_multiplier() -> Perbill {
-		Perbill::from_parts(125)
-	}
-
-	fn length_multiplier() -> Balance {
-		Balance::from(2_500u32)
-	}
-}
-
 impl pallet_fee_control::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
-	type DefaultValues = FeeControlDefaultValues;
+	type EVMFeeConfig = ();
 }
 
 parameter_types! {
