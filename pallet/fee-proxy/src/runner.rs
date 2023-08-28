@@ -21,7 +21,7 @@ use pallet_evm::{
 	Runner as RunnerT, RunnerError,
 };
 use precompile_utils::{
-	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_PROXY_ADDRESS},
+	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_FUNCTION_SELECTOR_DEPRECATED, FEE_PROXY_ADDRESS},
 	Address as EthAddress, ErcIdConversion,
 };
 use seed_pallet_common::{log, utils::scale_wei_to_correct_decimals, AccountProxy, EVMFeeConfig};
@@ -130,7 +130,10 @@ where
 		input: Vec<u8>,
 	) -> Result<(AssetId, Balance, H160, Vec<u8>), FeePreferencesError> {
 		ensure!(input.len() >= 4, FeePreferencesError::InvalidInputArguments);
-		ensure!(input[..4] == FEE_FUNCTION_SELECTOR, FeePreferencesError::InvalidFunctionSelector);
+		ensure!(
+			input[..4] == FEE_FUNCTION_SELECTOR_DEPRECATED || input[..4] == FEE_FUNCTION_SELECTOR,
+			FeePreferencesError::InvalidFunctionSelector,
+		);
 
 		let types =
 			[ParamType::Address, ParamType::Uint(128), ParamType::Address, ParamType::Bytes];
