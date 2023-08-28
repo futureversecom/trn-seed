@@ -39,6 +39,10 @@ type Block = frame_system::mocking::MockBlock<Test>;
 pub const XRP_ASSET_ID: AssetId = 1;
 pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
 
+pub fn create_account(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
+
 frame_support::construct_runtime!(
 	pub enum Test where
 		Block = Block,
@@ -173,7 +177,7 @@ parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
-	pub const MintLimit: u32 = 100;
+	pub const MintLimit: u32 = 1_000;
 	pub const StringLimit: u32 = 50;
 	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);

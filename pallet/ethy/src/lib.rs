@@ -392,13 +392,15 @@ decl_module! {
 
 		#[weight = DbWeight::get().writes(new_signers.len() as u64).saturating_add(DbWeight::get().reads_writes(4, 3))]
 		/// Set new XRPL door signers
-		pub fn set_xrpl_door_signers(origin, new_signers: Vec<T::EthyId>) {
+		pub fn set_xrpl_door_signers(origin, new_signers: Vec<(T::EthyId, bool)>) {
 			ensure_root(origin)?;
 			ensure!((new_signers.len() as u8) < T::MaxNewSigners::get(), Error::<T>::MaxNewSignersExceeded);
 
-			for new_signer in new_signers.iter() {
-				XrplDoorSigners::<T>::insert(new_signer, true);
+			for new_signer in new_signers {
+				XrplDoorSigners::<T>::insert(new_signer.0, new_signer.1);
 			}
+
+
 			Self::update_xrpl_notary_keys(&Self::notary_keys());
 			Self::deposit_event(Event::<T>::XrplDoorSignersSet);
 		}
