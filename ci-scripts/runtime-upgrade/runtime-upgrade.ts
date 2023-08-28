@@ -17,7 +17,7 @@ async function main() {
 
   // Retrieve the runtime to upgrade
   const code = readFileSync(
-    "./runtime-wasm/seed_runtime.compact.compressed.wasm"
+    "../../runtime-wasm/seed_runtime.compact.compressed.wasm"
   ).toString("hex");
   const proposal = api.tx.system.setCode(`0x${code}`);
 
