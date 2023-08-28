@@ -86,9 +86,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge BridgePaused (r:1 w:0)
 	// Storage: System Digest (r:1 w:1)
 	fn reclaim_blocked_nfts() -> Weight {
-		(40_000_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(40_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(9 as u64))
+			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
 }
 
@@ -113,6 +113,12 @@ impl WeightInfo for () {
 		Weight::from_ref_time(163_082_000 as u64)
 			.saturating_add(RocksDbWeight::get().reads(11 as u64))
 			.saturating_add(RocksDbWeight::get().writes(6 as u64))
+	}
+
+	fn reclaim_blocked_nfts() -> Weight {
+		Weight::from_ref_time(40_000_000 as u64)
+			.saturating_add(RocksDbWeight::get().reads(9 as u64))
+			.saturating_add(RocksDbWeight::get().writes(3 as u64))
 	}
 }
 
