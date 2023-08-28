@@ -18,6 +18,7 @@ pub use pallet::*;
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
+use seed_pallet_common::EVMFeeConfig;
 use seed_primitives::Balance;
 use sp_core::U256;
 use sp_runtime::Perbill;
@@ -27,8 +28,6 @@ use core::ops::Mul;
 mod mock;
 #[cfg(test)]
 mod test;
-pub mod types;
-pub use types::*;
 
 mod weights;
 pub use weights::WeightInfo;
@@ -60,16 +59,16 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Weight Info
 		type WeightInfo: WeightInfo;
-		/// Default values
-		type DefaultValues: DefaultValues;
+		/// Default EVM fee values
+		type EVMFeeConfig: seed_pallet_common::EVMFeeConfig;
 	}
 
 	#[pallet::type_value]
 	pub fn DefaultFeeConfig<T: Config>() -> FeeConfig {
 		FeeConfig {
-			evm_base_fee_per_gas: T::DefaultValues::evm_base_fee_per_gas(),
-			weight_multiplier: T::DefaultValues::weight_multiplier(),
-			length_multiplier: T::DefaultValues::length_multiplier(),
+			evm_base_fee_per_gas: T::EVMFeeConfig::evm_base_fee_per_gas(),
+			weight_multiplier: T::EVMFeeConfig::weight_multiplier(),
+			length_multiplier: T::EVMFeeConfig::length_multiplier(),
 		}
 	}
 
@@ -114,6 +113,20 @@ impl<T: Config> Pallet<T> {
 
 	pub fn base_fee_per_gas() -> U256 {
 		Data::<T>::get().evm_base_fee_per_gas
+	}
+}
+
+impl<T: Config> seed_pallet_common::EVMFeeConfig for Pallet<T> {
+	fn evm_base_fee_per_gas() -> U256 {
+		Self::base_fee_per_gas()
+	}
+
+	fn weight_multiplier() -> Perbill {
+		Data::<T>::get().weight_multiplier
+	}
+
+	fn length_multiplier() -> Balance {
+		Data::<T>::get().length_multiplier
 	}
 }
 
