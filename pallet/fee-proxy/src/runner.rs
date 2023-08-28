@@ -24,7 +24,7 @@ use precompile_utils::{
 	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_PROXY_ADDRESS},
 	Address as EthAddress, ErcIdConversion,
 };
-use seed_pallet_common::{log, AccountProxy};
+use seed_pallet_common::{log, utils::scale_wei_to_correct_decimals, AccountProxy, EVMFeeConfig};
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
@@ -72,20 +72,6 @@ impl From<FeePreferencesError> for TransactionValidityError {
 			FeePreferencesError::FeeExceedsMaxPayment =>
 				TransactionValidityError::Invalid(InvalidTransaction::Payment),
 		}
-	}
-}
-
-/// Convert 18dp wei values to correct dp equivalents
-/// fractional amounts < `CPAY_UNIT_VALUE` are rounded up by adding 1 / 0.000001 cpay
-pub(crate) fn scale_wei_to_correct_decimals(value: U256, decimals: u8) -> u128 {
-	let unit_value = U256::from(10).pow(U256::from(18) - U256::from(decimals));
-	let (quotient, remainder) = (value / unit_value, value % unit_value);
-	if remainder == U256::from(0) {
-		quotient.as_u128()
-	} else {
-		// if value has a fractional part < CPAY unit value
-		// it is lost in this divide operation
-		(quotient + 1).as_u128()
 	}
 }
 
