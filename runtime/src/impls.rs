@@ -880,7 +880,10 @@ where
 			WithdrawReasons::FEE,
 			ExistenceRequirement::AllowDeath,
 		)
-		.map_err(|_| pallet_evm::Error::<T>::BalanceLow)?;
+		.map_err(|e| {
+			log::error!(target: "assets", "failed to withdraw fee {:?}; amount (XRP): {}", e, fee.as_u128());
+			pallet_evm::Error::<T>::BalanceLow
+		})?;
 		Ok(Some(imbalance)) // Imbalance returned here is 6DP
 	}
 
