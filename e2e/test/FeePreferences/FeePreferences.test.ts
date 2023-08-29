@@ -133,44 +133,6 @@ describe("Fee Preferences", function () {
     expect(error.message).contains("InvalidTransaction(InvalidTransaction::Call)");
   });
 
-  it.skip("Pays fees in non-native token - legacy tx", async () => {
-    const fees = await provider.getFeeData();
-
-    // get token balances
-    const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpERC20Precompile.balanceOf(emptyAccountSigner.address),
-      feeToken.balanceOf(emptyAccountSigner.address),
-    ]);
-
-    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
-    const transferAmount = 1;
-    const iface = new utils.Interface(ERC20_ABI);
-    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
-    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
-    const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
-    const estimatedTokenTxCost = await getAmountIn(provider, gasEstimate, FEE_TOKEN_ASSET_ID);
-    const tx = await feeProxy
-      .connect(emptyAccountSigner)
-      .callWithFeePreferences(feeToken.address, estimatedTokenTxCost, feeToken.address, transferInput, {
-        type: 0,
-        gasLimit: gasEstimate,
-        gasPrice: fees.gasPrice!,
-      });
-    await tx.wait();
-
-    // check updated balances
-    const [xrpBalanceUpdated, tokenBalanceUpdated] = await Promise.all([
-      xrpERC20Precompile.balanceOf(emptyAccountSigner.address),
-      feeToken.balanceOf(emptyAccountSigner.address),
-    ]);
-    // verify XRP balance has not changed (payment made in non-native token)
-    expect(xrpBalanceUpdated.sub(xrpBalance).toString()).to.equal("0");
-    // verify fee token was paid for fees
-    expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance);
-
-    expect(tokenBalance.sub(tokenBalanceUpdated)).to.equal(estimatedTokenTxCost + transferAmount);
-  });
-
   it("Pays fees in non-native token - maxFeePerGas (MIN)", async () => {
     const fees = await provider.getFeeData();
 
@@ -512,57 +474,6 @@ describe("Fee Preferences", function () {
     expect(tokenBalance.sub(tokenBalanceUpdated)).to.equal(tokenCost);
   });
 
-  it.skip("Pays fees in non-native token via legacy type 0 tx object", async () => {
-    const fees = await provider.getFeeData();
-
-    // get token balances
-    const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpERC20Precompile.balanceOf(emptyAccountSigner.address),
-      feeToken.balanceOf(emptyAccountSigner.address),
-    ]);
-
-    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
-    const transferAmount = 1;
-    const iface = new utils.Interface(ERC20_ABI);
-    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
-
-    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
-    const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
-    const estimatedTokenTxCost = await getAmountIn(provider, gasEstimate, FEE_TOKEN_ASSET_ID);
-    const nonce = await emptyAccountSigner.getTransactionCount();
-
-    const unsignedTx = {
-      // legacy tx
-      type: 0,
-      from: emptyAccountSigner.address,
-      to: FEE_PROXY_ADDRESS,
-      nonce,
-      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
-        feeToken.address,
-        estimatedTokenTxCost,
-        feeToken.address,
-        transferInput,
-      ]),
-      gasLimit: gasEstimate,
-      gasPrice: fees.gasPrice!,
-    };
-
-    await emptyAccountSigner.signTransaction(unsignedTx);
-    const tx = await emptyAccountSigner.sendTransaction(unsignedTx);
-    await tx.wait();
-    // check updated balances
-    const [xrpBalanceUpdated, tokenBalanceUpdated] = await Promise.all([
-      xrpERC20Precompile.balanceOf(emptyAccountSigner.address),
-      feeToken.balanceOf(emptyAccountSigner.address),
-    ]);
-    // verify XRP balance has not changed (payment made in non-native token)
-    expect(xrpBalanceUpdated.sub(xrpBalance).toString()).to.equal("0");
-    // Verify fee token was paid for fees
-    expect(tokenBalanceUpdated).to.be.lessThan(tokenBalance);
-
-    expect(tokenBalance.sub(tokenBalanceUpdated)).to.equal(estimatedTokenTxCost + transferAmount);
-  });
-
   it("Pays fees in non-native token via eip1559 type 2 tx object", async () => {
     const fees = await provider.getFeeData();
 
@@ -613,88 +524,6 @@ describe("Fee Preferences", function () {
     // verify XRP balance has not changed (payment made in non-native token)
     expect(xrpBalanceUpdated.sub(xrpBalance)).to.equal(refundAmountXRP);
     expect(tokenBalance.sub(tokenBalanceUpdated)).to.equal(tokenCost + transferAmount);
-  });
-
-  it.skip("Does not pay in non-native token if max fee payment is insufficient - for legacy type 0 tx", async () => {
-    const fees = await provider.getFeeData();
-
-    // get token balances
-    const [xrpBalance, tokenBalance] = await Promise.all([
-      xrpERC20Precompile.balanceOf(emptyAccountSigner.address),
-      feeToken.balanceOf(emptyAccountSigner.address),
-    ]);
-
-    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
-    const transferAmount = 1;
-    const iface = new utils.Interface(ERC20_ABI);
-    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
-
-    const maxFeePaymentInToken = 1; // <-- insufficient payment
-    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
-    const gasEstimate = await feeToken.estimateGas.transfer(bob.address, transferAmount);
-    const nonce = await emptyAccountSigner.getTransactionCount();
-    const unsignedTx = {
-      // legacy tx
-      type: 0,
-      from: emptyAccountSigner.address,
-      to: FEE_PROXY_ADDRESS,
-      nonce,
-      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
-        feeToken.address,
-        maxFeePaymentInToken,
-        feeToken.address,
-        transferInput,
-      ]),
-      gasLimit: gasEstimate,
-      gasPrice: fees.gasPrice!,
-    };
-
-    const error = await emptyAccountSigner.sendTransaction(unsignedTx).catch((e) => e);
-    expect(error.code).to.be.eq("INSUFFICIENT_FUNDS");
-    expect(error.reason).to.be.eq("insufficient funds for intrinsic transaction cost");
-
-    // check updated balances
-    const [xrpBalanceUpdated, tokenBalanceUpdated] = await Promise.all([
-      xrpERC20Precompile.balanceOf(emptyAccountSigner.address),
-      feeToken.balanceOf(emptyAccountSigner.address),
-    ]);
-
-    // verify XRP balance has not changed (payment made in non-native token)
-    expect(xrpBalanceUpdated).to.equal(xrpBalance);
-    expect(tokenBalanceUpdated).to.equal(tokenBalance);
-  });
-
-  it.skip("Does not pay fees in non-native token with gasLimit 0 - legacy tx", async () => {
-    const fees = await provider.getFeeData();
-
-    // call `transfer` on erc20 token - via `callWithFeePreferences` precompile function
-    const transferAmount = 1;
-    const iface = new utils.Interface(ERC20_ABI);
-    const transferInput = iface.encodeFunctionData("transfer", [bob.address, transferAmount]);
-
-    const maxFeePaymentInToken = 10_000_000_000;
-    const feeProxy = new Contract(FEE_PROXY_ADDRESS, FEE_PROXY_ABI, emptyAccountSigner);
-    const nonce = await emptyAccountSigner.getTransactionCount();
-    const unsignedTx = {
-      // legacy tx
-      from: emptyAccountSigner.address,
-      to: FEE_PROXY_ADDRESS,
-      nonce,
-      data: feeProxy.interface.encodeFunctionData("callWithFeePreferences", [
-        feeToken.address,
-        maxFeePaymentInToken,
-        feeToken.address,
-        transferInput,
-      ]),
-      gasLimit: 0,
-      gasPrice: fees.gasPrice!,
-    };
-
-    const error = await emptyAccountSigner.sendTransaction(unsignedTx).catch((e) => e);
-    // See expected behavior for gasLimit === 0 https://github.com/futureversecom/frontier/blob/polkadot-v0.9.30-TRN/ts-tests/tests/test-transaction-cost.ts
-    expect(error.code).to.be.eq("SERVER_ERROR");
-    const body = JSON.parse(error.body);
-    expect(body.error.message).to.be.eq("intrinsic gas too low");
   });
 
   it("Futurepass account pays fees in non-native token - using extrinsic", async () => {
