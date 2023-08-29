@@ -26,9 +26,10 @@ use frame_support::{
 	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::MaintenanceCheck;
+use seed_pallet_common::{MaintenanceCheck, MaintenanceCheckEVM};
+use sp_core::H160;
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
-use sp_std::{fmt::Debug, prelude::*};
+use sp_std::{fmt::Debug, prelude::*, vec::Vec};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -62,6 +63,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type BlockedAccounts<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, bool>;
 
+	/// Map from EVM target address to blocked status
+	#[pallet::storage]
+	pub type BlockedEVMAddresses<T: Config> = StorageMap<_, Twox64Concat, H160, bool>;
+
 	/// Map from call to blocked status
 	/// map (PalletNameBytes, FunctionNameBytes) => bool
 	#[pallet::storage]
@@ -84,9 +89,9 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		/// This account is not authorized to execute this transaction
-		NotAuthorized,
-		/// The chain is in maintenance mode
-		MaintenanceMode,
+		AccountBlocked,
+		/// This call is disabled as the chain is in maintenance mode
+		MaintenanceModeActive,
 	}
 
 	#[pallet::call]
@@ -121,6 +126,25 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Blocks an account from transacting on the network
+		#[pallet::weight(1000)]
+		pub fn block_evm_target(
+			origin: OriginFor<T>,
+			target_address: H160,
+			blocked: bool,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+
+			match blocked {
+				true => BlockedEVMAddresses::<T>::insert(&target_address, true),
+				false => BlockedEVMAddresses::<T>::remove(&target_address),
+			}
+
+			// Self::deposit_event(Event::AccountBlocked { target_address, blocked });
+
+			Ok(())
+		}
+
 		/// Blocks a call from being executed
 		#[pallet::weight(1000)]
 		pub fn block_call(
@@ -138,8 +162,8 @@ pub mod pallet {
 			// 	Error::<T>::CannotPause
 			// );
 
-			let pallet_name = pallet_name.to_ascii_lowercase().replace("_", "");
-			let function_name = function_name.to_ascii_lowercase().replace("_", "");
+			let pallet_name = pallet_name.to_ascii_lowercase();
+			let function_name = function_name.to_ascii_lowercase();
 			match blocked {
 				true => BlockedCalls::<T>::insert((pallet_name, function_name), true),
 				false => BlockedCalls::<T>::remove((pallet_name, function_name)),
@@ -191,29 +215,6 @@ impl<T: frame_system::Config + Config> MaintenanceCheck<T> for MaintenanceChecke
 where
 	<T as frame_system::Config>::Call: GetCallMetadata,
 {
-	fn can_execute(
-		signer: &<T as frame_system::Config>::AccountId,
-		call: &<T as frame_system::Config>::Call,
-	) -> bool {
-		return true
-		//
-		// let pallet_name = call.get_call_metadata().pallet_name;
-		//
-		// // Check whether this is a sudo call, we want to enable all sudo calls
-		// // Regardless of maintenance mode
-		// // This check is needed here in case we accidentally block the sudo account
-		// if pallet_name == "Sudo" {
-		// 	return true
-		// }
-		//
-		// // Check if we are in maintenance mode
-		// if <MaintenanceModeActive<T>>::get() {
-		// 	return false
-		// }
-		//
-		// return !BlockedAccounts::<T>::contains_key(signer)
-	}
-
 	fn call_paused(call: &<T as frame_system::Config>::Call) -> bool {
 		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
 
@@ -223,8 +224,8 @@ where
 			return false
 		}
 
-		let pallet_name = pallet_name.to_ascii_lowercase().replace("_", "");
-		let function_name = function_name.to_ascii_lowercase().replace("_", "");
+		let pallet_name = pallet_name.to_ascii_lowercase();
+		let function_name = function_name.to_ascii_lowercase();
 
 		// Check whether call is blocked
 		if BlockedCalls::<T>::contains_key((pallet_name.as_bytes(), function_name.as_bytes())) {
@@ -237,6 +238,29 @@ where
 		}
 
 		return false
+	}
+}
+
+impl<T: frame_system::Config + Config> MaintenanceCheckEVM<T> for MaintenanceChecker<T> {
+	// TODO move to new trait so we can satisfy the needs of the fee proxy pallet (Without
+	// GetCallMetadata)
+	fn validate_evm_transaction(
+		signer: &<T as frame_system::Config>::AccountId,
+		target: &H160,
+	) -> bool {
+		// Check if we are in maintenance mode
+		if MaintenanceModeActive::<T>::get() {
+			return false
+		}
+
+		if BlockedEVMAddresses::<T>::contains_key(target) {
+			return false
+		}
+
+		if BlockedAccounts::<T>::contains_key(signer) {
+			return false
+		}
+		return true
 	}
 }
 

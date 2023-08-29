@@ -361,9 +361,15 @@ pub trait MaintenanceCheck<T: frame_system::Config>
 where
 	<T as frame_system::Config>::Call: GetCallMetadata,
 {
-	/// Checks whether the call can be executed
-	fn can_execute(signer: &T::AccountId, call: &<T as frame_system::Config>::Call) -> bool;
-
 	/// Checks whether the call is paused
 	fn call_paused(call: &<T as frame_system::Config>::Call) -> bool;
+}
+
+pub trait MaintenanceCheckEVM<T: frame_system::Config> {
+	/// Checks whether an ethereum transaction can be executed
+	/// returns true if the transaction is valid
+	fn validate_evm_transaction(
+		signer: &<T as frame_system::Config>::AccountId,
+		target: &H160,
+	) -> bool;
 }

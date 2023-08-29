@@ -11,6 +11,24 @@ import yaml
 FORK_SPEC, RAW_STORAGE = "./output/fork.json", "./output/raw_storage.json"
 
 
+def fetch_paged_storage_keys(substrate, prefix, hash, start_key, prev_keys):
+    if prev_keys is None:
+        keys = []
+    else:
+        keys = prev_keys
+
+    rpc_result = substrate.rpc_request(method='state_getKeysPaged', params={
+        "prefix": prefix, "count": 1000, "start_key": start_key, "at": hash, })['result']
+
+    if rpc_result:
+        keys += rpc_result
+
+    if len(rpc_result) == 1000:
+        return fetch_paged_storage_keys(substrate, prefix, hash, rpc_result[-1], keys)
+
+    return keys
+
+
 def fetch_storage_keys_task(hash, keys, prefixes, lock, url):
     substrate = SubstrateInterface(url=url)
     rpc_result = []
@@ -27,8 +45,7 @@ def fetch_storage_keys_task(hash, keys, prefixes, lock, url):
         prefix = prefixes.pop()
         lock.release()
 
-        rpc_result = substrate.rpc_request(method='state_getKeys', params={
-            "prefix": prefix, "at": hash})['result']
+        rpc_result = fetch_paged_storage_keys(substrate, prefix, hash, None, None)
 
 
 def fetch_storage_keys(hash, url):
@@ -141,8 +158,8 @@ def populate_dev_chain(substrate, forked_storage, chain_name):
     base_storage[sudo_key_prefix] = sudo_key
 
     # Delete System.LastRuntimeUpgrade to ensure that the on_runtime_upgrade event is triggered
-    base_storage.pop(
-        '0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8')
+    # base_storage.pop(
+    #     '0x26aa394eea5630e07c48ae0c9558cef7f9cce9c888469bb1a0dceaa129672ef8')
 
     # To prevent the validator set from changing mid-test, set Staking.ForceEra to ForceNone ('0x02')
     base_storage['0x5f3e4907f716ac89b6347d15ececedcaf7dad0317324aecae8744b87fc95f2f3'] = '0x02'

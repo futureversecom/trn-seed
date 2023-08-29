@@ -33,7 +33,6 @@ use frame_support::{
 use frame_system::{ensure_root, pallet_prelude::OriginFor, EnsureRoot};
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use pallet_futurepass::ProxyProvider;
-use pallet_maintenance_mode::MaintenanceChecker;
 use pallet_transaction_payment::OnChargeTransaction;
 use precompile_utils::{
 	constants::{
@@ -765,11 +764,6 @@ where
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
 		let mut who = who;
-
-		if !<MaintenanceChecker<T>>::can_execute(who, call) {
-			// TODO Better error
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::BadSigner))
-		}
 
 		// if the call is pallet_futurepass::Call::proxy_extrinsic(), and the caller is a delegate
 		// of the FP(futurepass), we switch the gas payer to the FP

@@ -15,7 +15,7 @@
 
 use crate::Config;
 use ethabi::{ParamType, Token};
-use frame_support::{ensure, traits::fungibles::InspectMetadata};
+use frame_support::{dispatch::GetCallMetadata, ensure, traits::fungibles::InspectMetadata};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -24,7 +24,7 @@ use precompile_utils::{
 	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_PROXY_ADDRESS},
 	Address as EthAddress, ErcIdConversion,
 };
-use seed_pallet_common::{log, AccountProxy};
+use seed_pallet_common::{log, AccountProxy, MaintenanceCheckEVM};
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
@@ -220,6 +220,7 @@ where
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
 	P: AccountProxy<AccountId>,
+	<T as frame_system::Config>::Call: GetCallMetadata,
 {
 	type Error = pallet_evm::Error<T>;
 
@@ -277,6 +278,13 @@ where
 			target = futurepass.into();
 		}
 
+		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
+
+		if <T as Config>::MaintenanceChecker::validate_evm_transaction(&account, &target) == false {
+			// TODO use error from pallet
+			return Err(RunnerError { error: Self::Error::WithdrawFailed, weight: 0 })
+		}
+
 		// These values may change if we are using the fee_preferences precompile
 		let mut input = input;
 
@@ -301,8 +309,6 @@ where
 				)
 				.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
 
-			let account =
-				<T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 			if total_fee_scaled > 0 {
 				// total_fee_scaled is 0 when user doesnt have gas asset currency
 				pallet_dex::Pallet::<T>::do_swap_with_exact_target(
