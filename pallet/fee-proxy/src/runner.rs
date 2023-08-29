@@ -21,7 +21,10 @@ use pallet_evm::{
 	Runner as RunnerT, RunnerError,
 };
 use precompile_utils::{
-	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_FUNCTION_SELECTOR_DEPRECATED, FEE_PROXY_ADDRESS},
+	constants::{
+		ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_FUNCTION_SELECTOR_DEPRECATED,
+		FEE_PROXY_ADDRESS,
+	},
 	Address as EthAddress, ErcIdConversion,
 };
 use seed_pallet_common::{log, utils::scale_wei_to_correct_decimals, AccountProxy, EVMFeeConfig};
@@ -80,11 +83,12 @@ impl From<FeePreferencesError> for TransactionValidityError {
 pub struct FeePreferencesData {
 	pub path: Vec<u32>,
 	pub total_fee_scaled: u128,
+	pub max_fee_scaled: u128,
 }
 
 pub fn get_fee_preferences_data<T, U, P>(
 	gas_limit: u64,
-	gas_price: Option<U256>,
+	base_fee_per_gas: U256,
 	max_fee_per_gas: Option<U256>,
 	max_priority_fee_per_gas: Option<U256>,
 	payment_asset_id: u32,
@@ -94,21 +98,21 @@ where
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	P: AccountProxy<AccountId>,
 {
-	let total_fee = FeePreferencesRunner::<T, U, P>::calculate_total_gas(
+	let (total_fee, max_fee) = FeePreferencesRunner::<T, U, P>::calculate_total_gas(
 		gas_limit,
-		gas_price,
+		base_fee_per_gas,
 		max_fee_per_gas,
 		max_priority_fee_per_gas,
-		false,
 	)?;
 
 	let gas_token_asset_id = <T as Config>::FeeAssetId::get();
 	let decimals =
 		<pallet_assets_ext::Pallet<T> as InspectMetadata<AccountId>>::decimals(&gas_token_asset_id);
 	let total_fee_scaled = scale_wei_to_correct_decimals(total_fee, decimals);
+	let max_fee_scaled = scale_wei_to_correct_decimals(max_fee, decimals);
 
 	let path = vec![payment_asset_id, gas_token_asset_id];
-	Ok(FeePreferencesData { total_fee_scaled, path })
+	Ok(FeePreferencesData { total_fee_scaled, max_fee_scaled, path })
 }
 
 /// seed implementation of the evm runner which handles the case where users are attempting
@@ -160,43 +164,38 @@ where
 		}
 	}
 
-	// Calculate gas price for transaction to use for exchanging asset into gas-token currency
+	// Calculate gas price for transaction to use for exchanging asset into gas-token currency using
+	// eip1559
 	pub fn calculate_total_gas(
 		gas_limit: u64,
-		gas_price: Option<U256>,
+		base_fee_per_gas: U256,
 		max_fee_per_gas: Option<U256>,
 		max_priority_fee_per_gas: Option<U256>,
-		is_transactional: bool,
-	) -> Result<U256, FeePreferencesError> {
-		// Handle type 0/1 transactions
-		if let Some(gas_price) = gas_price {
-			let total_fee = gas_price
-				.checked_mul(U256::from(gas_limit))
-				.ok_or(FeePreferencesError::FeeOverflow)?;
-			return Ok(total_fee)
-		}
-
-		// Handle type 2 transactions (EIP1559)
-		let (max_fee_per_gas, max_priority_fee_per_gas): (U256, U256) =
-			match (max_fee_per_gas, max_priority_fee_per_gas, is_transactional) {
-				// ignore priority fee, it becomes more expensive than legacy transactions
-				(Some(max_fee_per_gas), _, _) => (max_fee_per_gas, Default::default()),
-				(None, _, _) => (Default::default(), Default::default()),
-			};
-
-		// After eip-1559 we make sure the account can pay both the evm execution and priority
-		// fees.
-		let total_fee = max_fee_per_gas
-			.checked_mul(U256::from(gas_limit))
-			.ok_or(FeePreferencesError::FeeOverflow)?
-			.checked_add(
-				max_priority_fee_per_gas
-					.checked_mul(U256::from(gas_limit))
+	) -> Result<(U256, U256), FeePreferencesError> {
+		// fee = gas_limit * (base_fee_per_gas + max_priority_fee_per_gas)
+		let total_fee = U256::from(gas_limit)
+			.checked_mul(
+				base_fee_per_gas
+					.checked_add(max_priority_fee_per_gas.unwrap_or_default())
 					.ok_or(FeePreferencesError::FeeOverflow)?,
 			)
 			.ok_or(FeePreferencesError::FeeOverflow)?;
 
-		Ok(total_fee)
+		// max_fee = gas_limit * ((2 * base_fee_per_gas) + max_priority_fee_per_gas)
+		let max_fee = max_fee_per_gas
+			.unwrap_or(
+				base_fee_per_gas
+					.checked_mul(U256::from(2))
+					.ok_or(FeePreferencesError::FeeOverflow)?
+					.checked_add(max_priority_fee_per_gas.unwrap_or_default())
+					.ok_or(FeePreferencesError::FeeOverflow)?,
+			)
+			.checked_mul(U256::from(gas_limit))
+			.ok_or(FeePreferencesError::FeeOverflow)?;
+
+		ensure!(total_fee <= max_fee, FeePreferencesError::FeeExceedsMaxPayment);
+
+		Ok((total_fee, max_fee))
 	}
 }
 
@@ -273,48 +272,63 @@ where
 		if target == H160::from_low_u64_be(FEE_PROXY_ADDRESS) {
 			let (_, weight) = T::FeeCalculator::min_gas_price();
 
-			let (payment_asset_id, max_payment, new_target, new_input) = Self::decode_input(input)
+			let (payment_asset_id, _max_payment, new_target, new_input) = Self::decode_input(input)
 				.map_err(|err| RunnerError { error: err.into(), weight })?;
 
 			// set input and target to new input and actual target for passthrough
 			input = new_input;
 			target = new_target;
 
-			let FeePreferencesData { path, total_fee_scaled } =
+			let base_fee_per_gas = <T as Config>::EVMBaseFeeProvider::evm_base_fee_per_gas();
+			let FeePreferencesData { path, total_fee_scaled, max_fee_scaled } =
 				get_fee_preferences_data::<T, U, P>(
 					gas_limit,
-					None,
+					base_fee_per_gas,
 					max_fee_per_gas,
 					max_priority_fee_per_gas,
 					payment_asset_id,
 				)
 				.map_err(|_| RunnerError { error: Self::Error::FeeOverflow, weight })?;
 
+			let max_payment_tokens = {
+				let amounts_in =
+					pallet_dex::Pallet::<T>::get_amounts_in(max_fee_scaled, &path) // [token, xrp]
+						.map_err(|_| RunnerError { error: Self::Error::Undefined, weight })?;
+				amounts_in[0]
+			};
+
+			let final_fee = {
+				// account for rounding up for XRP below 1 drip when scaling fees
+				if (max_fee_scaled - total_fee_scaled) == 1 {
+					max_fee_scaled
+				} else {
+					total_fee_scaled
+				}
+			};
+
 			let account =
 				<T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
-			if total_fee_scaled > 0 {
-				// total_fee_scaled is 0 when user doesnt have gas asset currency
-				pallet_dex::Pallet::<T>::do_swap_with_exact_target(
-					&account,
-					total_fee_scaled,
-					max_payment,
-					&path,
-					account.clone(),
-					None,
-				)
-				.map_err(|err| {
-					log!(
-							error,
-							"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
-							payment_asset_id,
-							max_payment,
-							total_fee_scaled,
-							err,
-							path
-						);
-					RunnerError { error: Self::Error::WithdrawFailed, weight }
-				})?;
-			}
+
+			pallet_dex::Pallet::<T>::do_swap_with_exact_supply(
+				&account,
+				max_payment_tokens,
+				final_fee,
+				&path,
+				account.clone(),
+				None,
+			)
+			.map_err(|err| {
+				log!(
+					error,
+					"⛽️ swapping {:?} (max {:?} units) for fee {:?} units failed: {:?} path: {:?}",
+					payment_asset_id,
+					max_payment_tokens,
+					final_fee,
+					err,
+					path
+				);
+				RunnerError { error: Self::Error::WithdrawFailed, weight }
+			})?;
 		}
 
 		// continue with the call - with fees payable in gas asset currency - via dex swap
