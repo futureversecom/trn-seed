@@ -22,7 +22,9 @@ use ethabi::Token;
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
 use precompile_utils::{
-	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_FUNCTION_SELECTOR_DEPRECATED},
+	constants::{
+		ERC20_PRECOMPILE_ADDRESS_PREFIX, FEE_FUNCTION_SELECTOR, FEE_FUNCTION_SELECTOR_DEPRECATED,
+	},
 	ErcIdConversion,
 };
 use seed_primitives::{AccountId, AssetId, Balance};
@@ -308,55 +310,38 @@ mod get_fee_preferences_data {
 	use super::*;
 
 	#[test]
-	fn get_fee_preferences_data_works_legacy_tx() {
+	fn get_fee_preferences_data_works() {
 		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let gas_price = U256::from(20000000000000u64);
+			let gas_limit: u64 = 100;
+			let base_fee_per_gas: U256 = 200.into();
+			let max_fee_per_gas: U256 = 300.into();
 			let payment_asset_id: AssetId = 12;
 
 			let expected_path = vec![payment_asset_id, <Test as Config>::FeeAssetId::get()];
-			let expected_fee: U256 =
-				Runner::calculate_total_gas(gas_limit, Some(gas_price), None, None, false).unwrap();
-			let expected_fee_scaled: Balance = scale_wei_to_correct_decimals(expected_fee, 0);
+			let (expected_fee, max_fee) = Runner::calculate_total_gas(
+				gas_limit,
+				base_fee_per_gas,
+				Some(max_fee_per_gas),
+				None,
+			)
+			.unwrap();
+
+			let expected_fee_scaled: Balance =
+				seed_pallet_common::utils::scale_wei_to_correct_decimals(expected_fee, 0);
+			let max_fee_scaled: Balance =
+				seed_pallet_common::utils::scale_wei_to_correct_decimals(max_fee, 0);
 			assert_eq!(
 				get_fee_preferences_data::<Test, Test, crate::mock::Futurepass>(
 					gas_limit,
-					Some(gas_price),
-					None,
-					None,
-					payment_asset_id
-				),
-				Ok(FeePreferencesData {
-					total_fee_scaled: expected_fee_scaled,
-					path: expected_path
-				})
-			);
-		});
-	}
-
-	#[test]
-	fn get_fee_preferences_data_works_eip1559_tx() {
-		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let payment_asset_id: AssetId = 12;
-
-			let expected_path = vec![payment_asset_id, <Test as Config>::FeeAssetId::get()];
-			let expected_fee: U256 =
-				Runner::calculate_total_gas(gas_limit, None, Some(max_fee_per_gas), None, false)
-					.unwrap();
-			let expected_fee_scaled: Balance = scale_wei_to_correct_decimals(expected_fee, 0);
-			assert_eq!(
-				get_fee_preferences_data::<Test, Test, crate::mock::Futurepass>(
-					gas_limit,
-					None,
+					base_fee_per_gas,
 					Some(max_fee_per_gas),
 					None,
 					payment_asset_id
 				),
 				Ok(FeePreferencesData {
 					total_fee_scaled: expected_fee_scaled,
-					path: expected_path
+					path: expected_path,
+					max_fee_scaled,
 				})
 			);
 		});
@@ -368,90 +353,94 @@ mod calculate_total_gas {
 	use super::*;
 
 	#[test]
-	fn gas_price() {
+	fn base_fee_only() {
 		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let gas_price = U256::from(20000000000000u64);
-			let (_base_fee, _weight) = <Test as pallet_evm::Config>::FeeCalculator::min_gas_price();
+			let gas_limit: u64 = 100;
+			let base_fee_per_gas: U256 = 200.into();
 
-			assert_eq!(
-				Runner::calculate_total_gas(gas_limit, Some(gas_price), None, None, false).unwrap(),
-				U256::from(2_000_000_000_000_000_000u64)
-			);
+			let (total_fee, max_fee) =
+				Runner::calculate_total_gas(gas_limit, base_fee_per_gas, None, None).unwrap();
+
+			assert_eq!(total_fee, U256::from(20_000));
+			assert_eq!(max_fee, U256::from(40_000));
 		});
 	}
 
 	#[test]
 	fn max_fee_per_gas() {
 		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let (_base_fee, _weight) = <Test as pallet_evm::Config>::FeeCalculator::min_gas_price();
+			let gas_limit: u64 = 100;
+			let base_fee_per_gas: U256 = 200.into();
+			let max_fee_per_gas: U256 = 300.into();
 
-			assert_eq!(
-				Runner::calculate_total_gas(gas_limit, None, Some(max_fee_per_gas), None, false)
-					.unwrap(),
-				U256::from(2_000_000_000_000_000_000u64)
-			);
+			let (total_fee, max_fee) = Runner::calculate_total_gas(
+				gas_limit,
+				base_fee_per_gas,
+				Some(max_fee_per_gas),
+				None,
+			)
+			.unwrap();
+
+			assert_eq!(total_fee, U256::from(20_000));
+			assert_eq!(max_fee, U256::from(30_000));
 		});
 	}
 
 	#[test]
-	fn max_priority_fee_per_gas_ignored() {
+	fn max_priority_fee_per_gas() {
 		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let max_fee_per_gas = U256::from(20000000000000u64);
-			let max_priority_fee_per_gas = U256::from(10000000000000u64);
-			let (_base_fee, _weight) = <Test as pallet_evm::Config>::FeeCalculator::min_gas_price();
+			let gas_limit: u64 = 100;
+			let base_fee_per_gas: U256 = 200.into();
+			let max_priority_fee_per_gas: U256 = 50.into();
 
-			assert_eq!(
-				Runner::calculate_total_gas(
-					gas_limit,
-					None,
-					Some(max_fee_per_gas),
-					Some(max_priority_fee_per_gas),
-					false
-				)
-				.unwrap(),
-				U256::from(2_000_000_000_000_000_000u64)
-			);
+			let (total_fee, max_fee) = Runner::calculate_total_gas(
+				gas_limit,
+				base_fee_per_gas,
+				None,
+				Some(max_priority_fee_per_gas),
+			)
+			.unwrap();
+
+			assert_eq!(total_fee, U256::from(25_000));
+			assert_eq!(max_fee, U256::from(45000));
 		});
 	}
 
 	#[test]
-	fn no_max_fee_ok() {
+	fn max_fee_per_gas_with_max_priority_fee_per_gas() {
 		TestExt::default().build().execute_with(|| {
-			let gas_limit = 100_000_u64;
-			let max_fee_per_gas = None;
+			let gas_limit: u64 = 100;
+			let base_fee_per_gas: U256 = 200.into();
+			let max_fee_per_gas: U256 = 300.into();
+			let max_priority_fee_per_gas: U256 = 50.into();
 
-			assert_eq!(
-				Runner::calculate_total_gas(gas_limit, None, max_fee_per_gas, None, false).unwrap(),
-				U256::from(0)
-			);
+			let (total_fee, max_fee) = Runner::calculate_total_gas(
+				gas_limit,
+				base_fee_per_gas,
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+			)
+			.unwrap();
+
+			assert_eq!(total_fee, U256::from(25_000));
+			assert_eq!(max_fee, U256::from(30_000));
 		});
 	}
 
 	#[test]
-	fn gas_price_too_large_should_fail() {
+	fn max_fee_per_gas_too_large_should_fail() {
 		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
-			let gas_price = U256::MAX;
-
-			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, Some(gas_price), None, None, false),
-				FeePreferencesError::FeeOverflow
-			);
-		});
-	}
-
-	#[test]
-	fn max_fee_too_large_should_fail() {
-		TestExt::default().build().execute_with(|| {
-			let gas_limit: u64 = 100000;
+			let gas_limit: u64 = 100;
+			let base_fee_per_gas: U256 = 200.into();
 			let max_fee_per_gas = U256::MAX;
 
 			assert_noop!(
-				Runner::calculate_total_gas(gas_limit, None, Some(max_fee_per_gas), None, false),
+				Runner::calculate_total_gas(
+					gas_limit,
+					base_fee_per_gas,
+					Some(max_fee_per_gas),
+					None
+				),
 				FeePreferencesError::FeeOverflow
 			);
 		});
