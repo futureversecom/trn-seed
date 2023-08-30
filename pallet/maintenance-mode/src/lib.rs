@@ -21,8 +21,6 @@ pub use pallet::*;
 use frame_support::{
 	dispatch::{CallMetadata, Dispatchable, GetCallMetadata},
 	pallet_prelude::*,
-	sp_runtime::{traits::One, SaturatedConversion},
-	traits::IsSubType,
 	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
@@ -30,6 +28,11 @@ use seed_pallet_common::{MaintenanceCheck, MaintenanceCheckEVM};
 use sp_core::H160;
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 use sp_std::{fmt::Debug, prelude::*, vec::Vec};
+
+#[cfg(test)]
+mod mock;
+#[cfg(test)]
+mod test;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -84,6 +87,12 @@ pub mod pallet {
 		MaintenanceModeActivated { active: bool },
 		/// An account was blocked
 		AccountBlocked { account: T::AccountId, blocked: bool },
+		/// An account was blocked
+		EVMTargetBlocked { target_address: H160, blocked: bool },
+		/// An account was blocked
+		CallBlocked { pallet_name: Vec<u8>, call_name: Vec<u8>, blocked: bool },
+		/// An account was blocked
+		PalletBlocked { pallet_name: Vec<u8>, blocked: bool },
 	}
 
 	#[pallet::error]
@@ -92,6 +101,12 @@ pub mod pallet {
 		AccountBlocked,
 		/// This call is disabled as the chain is in maintenance mode
 		MaintenanceModeActive,
+		/// The pallet name is not valid utf-8 characters
+		InvalidPalletName,
+		/// The call name is not valid utf-8 characters
+		InvalidCallName,
+		/// This pallet or call cannot be blocked
+		CannotBlock,
 	}
 
 	#[pallet::call]
@@ -140,7 +155,7 @@ pub mod pallet {
 				false => BlockedEVMAddresses::<T>::remove(&target_address),
 			}
 
-			// Self::deposit_event(Event::AccountBlocked { target_address, blocked });
+			Self::deposit_event(Event::EVMTargetBlocked { target_address, blocked });
 
 			Ok(())
 		}
@@ -150,24 +165,31 @@ pub mod pallet {
 		pub fn block_call(
 			origin: OriginFor<T>,
 			pallet_name: Vec<u8>,
-			function_name: Vec<u8>,
+			call_name: Vec<u8>,
 			blocked: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			// not allowed to pause calls of this pallet to ensure safe
-			// let pallet_name_string = sp_std::str::from_utf8(&pallet_name).map_err(|_|
-			// Error::<T>::InvalidCharacter)?; ensure!(
-			// 	pallet_name_string != <Self as PalletInfoAccess>::name(),
-			// 	Error::<T>::CannotPause
-			// );
-
+			// Validate pallet name
 			let pallet_name = pallet_name.to_ascii_lowercase();
-			let function_name = function_name.to_ascii_lowercase();
+			let pallet_name_string =
+				core::str::from_utf8(&pallet_name).map_err(|_| Error::<T>::InvalidPalletName)?;
+			// Ensure this pallet cannot be blocked
+			ensure!(
+				pallet_name_string != <Self as PalletInfoAccess>::name().to_ascii_lowercase(),
+				Error::<T>::CannotBlock
+			);
+
+			// Validate call name
+			let call_name = call_name.to_ascii_lowercase();
+			let _ = core::str::from_utf8(&call_name).map_err(|_| Error::<T>::InvalidCallName)?;
+
 			match blocked {
-				true => BlockedCalls::<T>::insert((pallet_name, function_name), true),
-				false => BlockedCalls::<T>::remove((pallet_name, function_name)),
+				true => BlockedCalls::<T>::insert((&pallet_name, &call_name), true),
+				false => BlockedCalls::<T>::remove((&pallet_name, &call_name)),
 			}
+
+			Self::deposit_event(Event::CallBlocked { pallet_name, call_name, blocked });
 
 			Ok(())
 		}
@@ -181,23 +203,25 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			// not allowed to pause calls of this pallet to ensure safe
-			// let pallet_name_string = sp_std::str::from_utf8(&pallet_name).map_err(|_|
-			// Error::<T>::InvalidCharacter)?; ensure!(
-			// 	pallet_name_string != <Self as PalletInfoAccess>::name(),
-			// 	Error::<T>::CannotPause
-			// );
-
+			// Validate pallet name
 			let pallet_name = pallet_name.to_ascii_lowercase();
+			let pallet_name_string =
+				core::str::from_utf8(&pallet_name).map_err(|_| Error::<T>::InvalidPalletName)?;
+			// Ensure this pallet cannot be blocked
+			ensure!(
+				pallet_name_string != <Self as PalletInfoAccess>::name().to_ascii_lowercase(),
+				Error::<T>::CannotBlock
+			);
+
 			match blocked {
-				true => BlockedPallets::<T>::insert(pallet_name, true),
-				false => BlockedPallets::<T>::remove(pallet_name),
+				true => BlockedPallets::<T>::insert(&pallet_name, true),
+				false => BlockedPallets::<T>::remove(&pallet_name),
 			}
+
+			Self::deposit_event(Event::PalletBlocked { pallet_name, blocked });
 
 			Ok(())
 		}
-
-		// TODO Block by precompile address
 	}
 }
 

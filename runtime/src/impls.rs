@@ -30,7 +30,6 @@ use frame_support::{
 	},
 	weights::WeightToFee,
 };
-use frame_system::{ensure_root, pallet_prelude::OriginFor, EnsureRoot};
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
@@ -42,7 +41,7 @@ use precompile_utils::{
 };
 use seed_pallet_common::{
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker, MaintenanceCheck, OnNewAssetSubscriber,
+	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
 use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 use sp_core::{H160, U256};
