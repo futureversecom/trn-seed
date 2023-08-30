@@ -125,8 +125,6 @@ jobs:
         with:
           name: runtime-wasm
           path: runtime-wasm
-      - name: Display structure of downloaded files
-        run: ls -R
       - name: "Install Node.js"
         uses: "actions/setup-node@v3"
         with:
