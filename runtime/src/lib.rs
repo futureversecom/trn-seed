@@ -1158,7 +1158,7 @@ impl pallet_futurepass::Config for Runtime {
 
 parameter_types! {
 	// Payout period is 90 eras
-	pub const PayoutPeriodLength: u128 = 90;
+	pub const PayoutPeriodLength: u32 = 90;
 }
 
 impl pallet_staking_payouts::Config for Runtime {

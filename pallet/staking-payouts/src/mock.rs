@@ -487,7 +487,7 @@ impl pallet_staking::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub const PayoutPeriodLength: u128 = 90;
+	pub const PayoutPeriodLength: u32 = 90;
 
 }
 impl Config for TestRuntime {
