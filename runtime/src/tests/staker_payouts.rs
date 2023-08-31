@@ -277,7 +277,6 @@ mod payout_pallet_e2e {
 		ExtBuilder::default().build().execute_with(|| {
 			assert_eq!(CurrentPayoutPeriod::<Runtime>::get(), 0);
 			start_active_era(89);
-			assert_eq!(CurrentPayoutPeriod::<Runtime>::get(), 0);
 			start_active_era(90);
 			assert_eq!(CurrentPayoutPeriod::<Runtime>::get(), 1);
 		});

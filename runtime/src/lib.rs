@@ -100,6 +100,9 @@ pub use seed_primitives::{
 
 mod bag_thresholds;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod runtime_benchmarking;
+
 pub mod constants;
 use constants::{
 	deposit, RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES,
@@ -130,8 +133,9 @@ use crate::impls::{
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use seed_primitives::BlakeTwo256Hash;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+#[cfg(any(feature = "runtime-benchmarks", test))]
+pub mod tests;
 
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
@@ -1711,6 +1715,11 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as BaselineBench;
 
+			#[cfg(feature = "runtime-benchmarks")]
+			// use runtime_benchmarking::pallet_staking_payouts::Pallet as StakingPayoutsBenchmarks;
+			use runtime_benchmarking::pallet_staking_payouts::pallet::Pallet as StakingPayoutsBenchmarks;
+
+
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
 
@@ -1732,10 +1741,16 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as BaselineBench;
 
+			#[cfg(feature = "runtime-benchmarks")]
+			use runtime_benchmarking::pallet_staking_payouts::pallet::Pallet as StakingPayoutsBenchmarks;
+
 			impl pallet_session_benchmarking::Config for Runtime {}
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl frame_benchmarking::baseline::Config for Runtime {}
+
+			#[cfg(feature = "runtime-benchmarks")]
+			impl runtime_benchmarking::pallet_staking_payouts::pallet::Config for Runtime {}
 
 			// We took this from the substrate examples as the configurations are pretty close.
 			let whitelist: Vec<TrackedStorageKey> = vec![
@@ -1956,5 +1971,6 @@ mod benches {
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
 		[pallet_dex, Dex]
+		[pallet_staking_payouts_benchmarking, StakingPayoutsBenchmarks::<Runtime>]
 	);
 }

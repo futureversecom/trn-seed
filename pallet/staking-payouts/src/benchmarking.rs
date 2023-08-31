@@ -16,10 +16,11 @@
 use super::*;
 
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
+use frame_support::traits::OnInitialize;
 use frame_system::RawOrigin;
 
 #[allow(unused_imports)]
-use crate::Pallet as Echo;
+use crate::Pallet as StakingPayouts;
 
 /// This is a helper function to get an account.
 pub fn account<T: Config>(name: &'static str) -> T::AccountId {
@@ -30,17 +31,16 @@ pub fn origin<T: Config>(acc: &T::AccountId) -> RawOrigin<T::AccountId> {
 	RawOrigin::Signed(acc.clone())
 }
 
-benchmarks! {
-	ping {
-		let alice = account::<T>("Alice");
-		let destination = account::<T>("Bob").into();
+// benchmarks! {
+// 	// 	let alice = account::<T>("Alice");
+// 	// 	let destination = account::<T>("Bob").into();
 
-		let expected_session_id = NextSessionId::<T>::get() + 1;
-	}: _(origin::<T>(&alice), destination)
-	verify {
-		let actual_session_id = NextSessionId::<T>::get();
-		assert_eq!(actual_session_id, expected_session_id);
-	}
-}
+// 	// 	let expected_session_id = NextSessionId::<T>::get() + 1;
+// 	// }: on_initialize(1)
+// 	on_initialize_external {
+// 		// let block_number: T::BlockNumber = T::BlockNumber(1);
+// 		start_active_era(2);
+// 	}: { StakingPayouts::<T>::on_initialize(1u32.into()) }
+// }
 
-impl_benchmark_test_suite!(Echo, crate::mock::new_test_ext(), crate::mock::TestRuntime,);
+impl_benchmark_test_suite!(StakingPayouts, crate::mock::new_test_ext(), crate::mock::TestRuntime,);
