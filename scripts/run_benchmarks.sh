@@ -118,7 +118,6 @@ populate_pallet_list() {
         "pallet_im_online"
 
         # RUNTIME WEIGHT FAILURES
-        "pallet_scheduler"
         "pallet_session"
         "pallet_staking"
     )

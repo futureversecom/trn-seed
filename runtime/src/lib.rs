@@ -484,6 +484,7 @@ parameter_types! {
 	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
 		RuntimeBlockWeights::get().max_block;
 	pub const MaxScheduledPerBlock: u32 = 50;
+	pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 impl pallet_scheduler::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -494,9 +495,25 @@ impl pallet_scheduler::Config for Runtime {
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
-	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
-	type PreimageProvider = ();
-	type NoPreimagePostponement = ();
+	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
+	type PreimageProvider = Preimage;
+	type NoPreimagePostponement = NoPreimagePostponement;
+}
+
+parameter_types! {
+	pub const PreimageMaxSize: u32 = 4096 * 1024;
+	pub const PreimageBaseDeposit: Balance = deposit(2, 64);
+	pub const PreimageByteDeposit: Balance = deposit(0, 1);
+}
+
+impl pallet_preimage::Config for Runtime {
+	type WeightInfo = weights::pallet_preimage::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type MaxSize = PreimageMaxSize;
+	type BaseDeposit = PreimageBaseDeposit;
+	type ByteDeposit = PreimageByteDeposit;
 }
 
 impl pallet_utility::Config for Runtime {
@@ -1185,6 +1202,7 @@ construct_runtime! {
 		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 3,
 		Utility: pallet_utility::{Pallet, Call, Event} = 4,
 		Recovery: pallet_recovery::{Pallet, Call, Storage, Event<T>} = 33,
+		Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 45,
 
 		// Monetary
 		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 5,
@@ -1969,6 +1987,7 @@ mod benches {
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]
 		[pallet_recovery, Recovery]
 		[pallet_proxy, Proxy]
+		[pallet_preimage, Preimage]
 		// Local
 		[pallet_nft, Nft]
 		[pallet_sft, Sft]
