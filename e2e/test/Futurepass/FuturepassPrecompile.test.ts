@@ -463,7 +463,7 @@ describe("Futurepass Precompile", function () {
       .proxyCall(CALL_TYPE.StaticCall, futurepassTester.address, parseEther(15), "0x", {
         value: parseEther(15),
       })
-      .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
+      .catch((err: any) => expect(err.message).contains("transaction may fail or may require manual gas limit"));
     expect(await xrpERC20Precompile.balanceOf(futurepassTester.address)).to.equal(0);
 
     // proxy transfer of value from futurepass to contract succeeds if call
@@ -839,7 +839,7 @@ describe("Futurepass Precompile", function () {
     await futurepassPrecompile
       .connect(owner)
       .proxyCall(CALL_TYPE.StaticCall, erc721.address, ethers.constants.Zero, transferFromCallData)
-      .catch((err: any) => expect(err.message).contains("gas required exceeds allowance"));
+      .catch((err: any) => expect(err.message).contains("transaction may fail or may require manual gas limit"));
 
     // proxy transfer of value from futurepass to contract succeeds since this is call
     tx = await futurepassPrecompile

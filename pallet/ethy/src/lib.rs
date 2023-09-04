@@ -100,7 +100,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// The pallet bridge address (destination for incoming messages, source for outgoing)
 	type BridgePalletId: Get<PalletId>;
 	/// The runtime call type.
-	type Call: From<Call<Self>>;
+	type RuntimeCall: From<Call<Self>>;
 	/// Bond required by challenger to make a challenge
 	type ChallengeBond: Get<Balance>;
 	// The duration in blocks of one epoch
@@ -110,7 +110,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Provides an api for Ethereum JSON-RPC request/responses to the bridged ethereum network
 	type EthereumRpcClient: BridgeEthereumRpcApi;
 	/// The runtime event type.
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+	type RuntimeEvent: From<Event<Self>> + Into<<Self as frame_system::Config>::RuntimeEvent>;
 	/// Handles routing received Ethereum events upon verification
 	type EventRouter: EthereumEventRouter;
 	/// The identifier type for an authority in this module (i.e. active validator session key)
@@ -134,7 +134,7 @@ pub trait Config: frame_system::Config + CreateSignedTransaction<Call<Self>> {
 	/// Bond required for an account to act as relayer
 	type RelayerBond: Get<Balance>;
 	/// The Scheduler.
-	type Scheduler: Anon<Self::BlockNumber, <Self as Config>::Call, Self::PalletsOrigin>;
+	type Scheduler: Anon<Self::BlockNumber, <Self as Config>::RuntimeCall, Self::PalletsOrigin>;
 	/// Overarching type of all pallets origins.
 	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 	/// Returns the block timestamp
@@ -317,7 +317,7 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Config> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin {
 		type Error = Error<T>;
 
 		fn deposit_event() = default;
@@ -327,7 +327,7 @@ decl_module! {
 		/// 2) Process any newly valid event claims (incoming)
 		/// 3) Process any deferred event proofs that were submitted while the bridge was paused (should only happen on the first few blocks in a new era) (outgoing)
 		fn on_initialize(block_number: T::BlockNumber) -> Weight {
-			let mut consumed_weight = 0 as Weight;
+			let mut consumed_weight = Weight::zero();
 
 			// 1) Handle authority change
 			if Some(block_number) == Self::next_authority_change() {
@@ -377,10 +377,11 @@ decl_module! {
 			}
 
 			// 3) Try process delayed proofs
-			consumed_weight += DbWeight::get().reads(2 as Weight);
+			consumed_weight += DbWeight::get().reads(2u64);
 			if PendingEventProofs::iter().next().is_some() && !Self::bridge_paused() {
 				let max_delayed_events = Self::delayed_event_proofs_per_block();
-				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1 as Weight) + max_delayed_events as Weight * DbWeight::get().writes(2 as Weight));
+				consumed_weight = consumed_weight.saturating_add(DbWeight::get().reads(1u64));
+				consumed_weight = consumed_weight.saturating_add(DbWeight::get().writes(2u64).mul(max_delayed_events as u64));
 				for (event_proof_id, signing_request) in PendingEventProofs::iter().take(max_delayed_events as usize) {
 					Self::do_request_event_proof(event_proof_id, signing_request);
 					PendingEventProofs::remove(event_proof_id);

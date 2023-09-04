@@ -13,8 +13,6 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-mod proxy;
-
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -31,20 +29,18 @@ use sp_std::vec::Vec;
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
-		proxy::Upgrade::pre_upgrade()?;
-		Ok(())
+	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+		let data = Vec::new();
+		Ok(data)
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from(0u32);
-		weight += proxy::Upgrade::on_runtime_upgrade();
+		let weight = Weight::from(Weight::from_ref_time(0u64));
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade() -> Result<(), &'static str> {
-		proxy::Upgrade::post_upgrade()?;
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
 		Ok(())
 	}
 }
@@ -608,7 +604,7 @@ mod remote_tests {
 		ext.execute_with(|| {
 			AllMigrations::pre_upgrade().unwrap();
 			AllMigrations::on_runtime_upgrade();
-			AllMigrations::post_upgrade().unwrap();
+			AllMigrations::post_upgrade(vec![]).unwrap();
 		});
 	}
 }
