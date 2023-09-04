@@ -77,13 +77,13 @@ mod block_account {
 		TestExt::default().build().execute_with(|| {
 			let blocked_account = create_account(2);
 			// Enable maintenance mode
-			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), None);
+			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), false);
 			assert_ok!(MaintenanceMode::block_account(
 				RawOrigin::Root.into(),
 				blocked_account,
 				true
 			));
-			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), Some(true));
+			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), true);
 
 			// Verify event
 			System::assert_last_event(Event::MaintenanceMode(crate::Event::AccountBlocked {
@@ -97,7 +97,33 @@ mod block_account {
 				blocked_account,
 				false
 			));
-			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), None);
+			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), false);
+		});
+	}
+
+	#[test]
+	fn block_account_updatesasfasf_storage() {
+		TestExt::default().build().execute_with(|| {
+			let blocked_account = create_account(2);
+			// Enable maintenance mode
+			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), false);
+			assert_ok!(MaintenanceMode::block_account(
+				RawOrigin::Root.into(),
+				blocked_account,
+				true
+			));
+			assert_ok!(MaintenanceMode::block_account(
+				RawOrigin::Root.into(),
+				blocked_account,
+				true
+			));
+			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), true);
+
+			// Verify event
+			System::assert_last_event(Event::MaintenanceMode(crate::Event::AccountBlocked {
+				account: blocked_account,
+				blocked: true,
+			}));
 		});
 	}
 
@@ -125,13 +151,13 @@ mod block_evm_target {
 			let blocked_target = H160::from_low_u64_be(2);
 
 			// Enable maintenance mode
-			assert_eq!(BlockedEVMAddresses::<Test>::get(blocked_target), None);
+			assert_eq!(BlockedEVMAddresses::<Test>::get(blocked_target), false);
 			assert_ok!(MaintenanceMode::block_evm_target(
 				RawOrigin::Root.into(),
 				blocked_target,
 				true
 			));
-			assert_eq!(BlockedEVMAddresses::<Test>::get(blocked_target), Some(true));
+			assert_eq!(BlockedEVMAddresses::<Test>::get(blocked_target), true);
 
 			// Verify event
 			System::assert_last_event(Event::MaintenanceMode(crate::Event::EVMTargetBlocked {
@@ -145,7 +171,7 @@ mod block_evm_target {
 				blocked_target,
 				false
 			));
-			assert_eq!(BlockedEVMAddresses::<Test>::get(blocked_target), None);
+			assert_eq!(BlockedEVMAddresses::<Test>::get(blocked_target), false);
 		});
 	}
 
@@ -176,14 +202,14 @@ mod block_call {
 			let blocked_call = bounded_string("transfer");
 
 			// Enable maintenance mode
-			assert_eq!(BlockedCalls::<Test>::get((&blocked_pallet, &blocked_call)), None);
+			assert_eq!(BlockedCalls::<Test>::get((&blocked_pallet, &blocked_call)), false);
 			assert_ok!(MaintenanceMode::block_call(
 				RawOrigin::Root.into(),
 				blocked_pallet.clone(),
 				blocked_call.clone(),
 				true
 			));
-			assert_eq!(BlockedCalls::<Test>::get((&blocked_pallet, &blocked_call)), Some(true));
+			assert_eq!(BlockedCalls::<Test>::get((&blocked_pallet, &blocked_call)), true);
 
 			// Verify event
 			System::assert_last_event(Event::MaintenanceMode(crate::Event::CallBlocked {
@@ -199,7 +225,7 @@ mod block_call {
 				blocked_call.clone(),
 				false
 			));
-			assert_eq!(BlockedCalls::<Test>::get((&blocked_pallet, &blocked_call)), None);
+			assert_eq!(BlockedCalls::<Test>::get((&blocked_pallet, &blocked_call)), false);
 		});
 	}
 
@@ -339,7 +365,7 @@ mod block_call {
 
 			let expected_pallet = bounded_string("assets");
 			let expected_call = bounded_string("transfer");
-			assert_eq!(BlockedCalls::<Test>::get((&expected_pallet, &expected_call)), Some(true));
+			assert_eq!(BlockedCalls::<Test>::get((&expected_pallet, &expected_call)), true);
 
 			// Try with balances pallet
 			let blocked_pallet = bounded_string("Balances");
@@ -355,7 +381,7 @@ mod block_call {
 
 			let expected_pallet = bounded_string("balances");
 			let expected_call = bounded_string("transfer");
-			assert_eq!(BlockedCalls::<Test>::get((&expected_pallet, &expected_call)), Some(true));
+			assert_eq!(BlockedCalls::<Test>::get((&expected_pallet, &expected_call)), true);
 		});
 	}
 }
@@ -370,13 +396,13 @@ mod block_pallet {
 			let blocked_pallet = bounded_string("assets");
 
 			// Enable maintenance mode
-			assert_eq!(BlockedPallets::<Test>::get(&blocked_pallet), None);
+			assert_eq!(BlockedPallets::<Test>::get(&blocked_pallet), false);
 			assert_ok!(MaintenanceMode::block_pallet(
 				RawOrigin::Root.into(),
 				blocked_pallet.clone(),
 				true
 			));
-			assert_eq!(BlockedPallets::<Test>::get(&blocked_pallet), Some(true));
+			assert_eq!(BlockedPallets::<Test>::get(&blocked_pallet), true);
 
 			// Verify event
 			System::assert_last_event(Event::MaintenanceMode(crate::Event::PalletBlocked {
@@ -390,7 +416,7 @@ mod block_pallet {
 				blocked_pallet.clone(),
 				false
 			));
-			assert_eq!(BlockedPallets::<Test>::get(&blocked_pallet), None);
+			assert_eq!(BlockedPallets::<Test>::get(&blocked_pallet), false);
 		});
 	}
 
@@ -465,7 +491,7 @@ mod block_pallet {
 			),);
 
 			let expected_pallet = bounded_string("assets");
-			assert_eq!(BlockedPallets::<Test>::get(&expected_pallet), Some(true));
+			assert_eq!(BlockedPallets::<Test>::get(&expected_pallet), true);
 
 			// Try with balances pallet
 			let blocked_pallet = bounded_string("Balances");
@@ -478,7 +504,7 @@ mod block_pallet {
 			),);
 
 			let expected_pallet = bounded_string("balances");
-			assert_eq!(BlockedPallets::<Test>::get(&expected_pallet), Some(true));
+			assert_eq!(BlockedPallets::<Test>::get(&expected_pallet), true);
 		});
 	}
 }

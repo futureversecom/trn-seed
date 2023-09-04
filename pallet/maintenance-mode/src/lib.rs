@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 //! # Pallet Maintenance Mode
+//! TODO Write description
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
@@ -40,7 +41,6 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
-	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -62,17 +62,18 @@ pub mod pallet {
 		// type WeightInfo: WeightInfo;
 	}
 
-	/// Whether maintenance mode is currently active
+	/// Determines whether maintenance mode is currently active
 	#[pallet::storage]
 	pub type MaintenanceModeActive<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// Map from account to blocked status
 	#[pallet::storage]
-	pub type BlockedAccounts<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, bool>;
+	pub type BlockedAccounts<T: Config> =
+		StorageMap<_, Twox64Concat, T::AccountId, bool, ValueQuery>;
 
 	/// Map from EVM target address to blocked status
 	#[pallet::storage]
-	pub type BlockedEVMAddresses<T: Config> = StorageMap<_, Twox64Concat, H160, bool>;
+	pub type BlockedEVMAddresses<T: Config> = StorageMap<_, Twox64Concat, H160, bool, ValueQuery>;
 
 	/// Map from call to blocked status
 	/// map (PalletNameBytes, FunctionNameBytes) => bool
@@ -82,13 +83,14 @@ pub mod pallet {
 		Twox64Concat,
 		(BoundedVec<u8, T::StringLimit>, BoundedVec<u8, T::StringLimit>),
 		bool,
+		ValueQuery,
 	>;
 
 	/// Map from pallet to blocked status
 	/// map PalletNameBytes => bool
 	#[pallet::storage]
 	pub type BlockedPallets<T: Config> =
-		StorageMap<_, Twox64Concat, BoundedVec<u8, T::StringLimit>, bool>;
+		StorageMap<_, Twox64Concat, BoundedVec<u8, T::StringLimit>, bool, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
