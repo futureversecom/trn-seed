@@ -27,7 +27,7 @@ use frame_system::pallet_prelude::*;
 use seed_pallet_common::{MaintenanceCheck, MaintenanceCheckEVM};
 use sp_core::H160;
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
-use sp_std::{fmt::Debug, prelude::*, vec::Vec};
+use sp_std::{fmt::Debug, prelude::*};
 
 #[cfg(test)]
 mod mock;
@@ -54,6 +54,10 @@ pub mod pallet {
 		/// The system event type
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
+		/// The maximum length of a pallet or call name, stored on-chain
+		#[pallet::constant]
+		type StringLimit: Get<u32>;
+
 		// Interface to access weight values
 		// type WeightInfo: WeightInfo;
 	}
@@ -73,12 +77,18 @@ pub mod pallet {
 	/// Map from call to blocked status
 	/// map (PalletNameBytes, FunctionNameBytes) => bool
 	#[pallet::storage]
-	pub type BlockedCalls<T: Config> = StorageMap<_, Twox64Concat, (Vec<u8>, Vec<u8>), bool>;
+	pub type BlockedCalls<T: Config> = StorageMap<
+		_,
+		Twox64Concat,
+		(BoundedVec<u8, T::StringLimit>, BoundedVec<u8, T::StringLimit>),
+		bool,
+	>;
 
 	/// Map from pallet to blocked status
 	/// map PalletNameBytes => bool
 	#[pallet::storage]
-	pub type BlockedPallets<T: Config> = StorageMap<_, Twox64Concat, Vec<u8>, bool>;
+	pub type BlockedPallets<T: Config> =
+		StorageMap<_, Twox64Concat, BoundedVec<u8, T::StringLimit>, bool>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
@@ -90,9 +100,13 @@ pub mod pallet {
 		/// An account was blocked
 		EVMTargetBlocked { target_address: H160, blocked: bool },
 		/// An account was blocked
-		CallBlocked { pallet_name: Vec<u8>, call_name: Vec<u8>, blocked: bool },
+		CallBlocked {
+			pallet_name: BoundedVec<u8, T::StringLimit>,
+			call_name: BoundedVec<u8, T::StringLimit>,
+			blocked: bool,
+		},
 		/// An account was blocked
-		PalletBlocked { pallet_name: Vec<u8>, blocked: bool },
+		PalletBlocked { pallet_name: BoundedVec<u8, T::StringLimit>, blocked: bool },
 	}
 
 	#[pallet::error]
@@ -164,15 +178,15 @@ pub mod pallet {
 		#[pallet::weight(1000)]
 		pub fn block_call(
 			origin: OriginFor<T>,
-			pallet_name: Vec<u8>,
-			call_name: Vec<u8>,
+			pallet_name: BoundedVec<u8, T::StringLimit>,
+			call_name: BoundedVec<u8, T::StringLimit>,
 			blocked: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Validate pallet name
 			ensure!(!pallet_name.is_empty(), Error::<T>::InvalidPalletName);
-			let pallet_name = pallet_name.to_ascii_lowercase();
+			let pallet_name = BoundedVec::truncate_from(pallet_name.to_ascii_lowercase());
 			let pallet_name_string =
 				core::str::from_utf8(&pallet_name).map_err(|_| Error::<T>::InvalidPalletName)?;
 			// Ensure this pallet cannot be blocked
@@ -183,7 +197,7 @@ pub mod pallet {
 
 			// Validate call name
 			ensure!(!call_name.is_empty(), Error::<T>::InvalidCallName);
-			let call_name = call_name.to_ascii_lowercase();
+			let call_name = BoundedVec::truncate_from(call_name.to_ascii_lowercase());
 			let _ = core::str::from_utf8(&call_name).map_err(|_| Error::<T>::InvalidCallName)?;
 
 			match blocked {
@@ -200,14 +214,14 @@ pub mod pallet {
 		#[pallet::weight(1000)]
 		pub fn block_pallet(
 			origin: OriginFor<T>,
-			pallet_name: Vec<u8>,
+			pallet_name: BoundedVec<u8, T::StringLimit>,
 			blocked: bool,
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
 			// Validate pallet name
 			ensure!(!pallet_name.is_empty(), Error::<T>::InvalidPalletName);
-			let pallet_name = pallet_name.to_ascii_lowercase();
+			let pallet_name = BoundedVec::truncate_from(pallet_name.to_ascii_lowercase());
 			let pallet_name_string =
 				core::str::from_utf8(&pallet_name).map_err(|_| Error::<T>::InvalidPalletName)?;
 			// Ensure this pallet cannot be blocked
@@ -251,16 +265,17 @@ where
 			return false
 		}
 
-		let pallet_name = pallet_name.to_ascii_lowercase();
-		let function_name = function_name.to_ascii_lowercase();
+		let pallet_name = BoundedVec::truncate_from(pallet_name.as_bytes().to_ascii_lowercase());
+		let function_name =
+			BoundedVec::truncate_from(function_name.as_bytes().to_ascii_lowercase());
 
 		// Check whether call is blocked
-		if BlockedCalls::<T>::contains_key((pallet_name.as_bytes(), function_name.as_bytes())) {
+		if BlockedCalls::<T>::contains_key((pallet_name.clone(), function_name)) {
 			return true
 		}
 
 		// Check whether pallet is blocked
-		if BlockedPallets::<T>::contains_key(pallet_name.as_bytes()) {
+		if BlockedPallets::<T>::contains_key(pallet_name) {
 			return true
 		}
 

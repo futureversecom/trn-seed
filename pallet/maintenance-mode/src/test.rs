@@ -21,12 +21,17 @@
 
 use crate::{
 	mock::{create_account, Event, MaintenanceMode, System, Test, TestExt},
-	BlockedAccounts, BlockedCalls, BlockedEVMAddresses, BlockedPallets, MaintenanceModeActive,
+	BlockedAccounts, BlockedCalls, BlockedEVMAddresses, BlockedPallets, Config,
+	MaintenanceModeActive,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_core::H160;
-use sp_runtime::traits::BadOrigin;
+use sp_runtime::{traits::BadOrigin, BoundedVec};
+
+pub fn bounded_string(name: &str) -> BoundedVec<u8, <Test as Config>::StringLimit> {
+	BoundedVec::truncate_from(name.as_bytes().to_vec())
+}
 
 mod enable_maintenance_mode {
 	use super::*;
@@ -162,12 +167,13 @@ mod block_evm_target {
 mod block_call {
 	use super::*;
 	use crate::Error;
+	use sp_runtime::BoundedVec;
 
 	#[test]
 	fn block_call_updates_storage() {
 		TestExt::default().build().execute_with(|| {
-			let blocked_pallet = b"assets".to_vec();
-			let blocked_call = b"transfer".to_vec();
+			let blocked_pallet = bounded_string("assets");
+			let blocked_call = bounded_string("transfer");
 
 			// Enable maintenance mode
 			assert_eq!(BlockedCalls::<Test>::get((&blocked_pallet, &blocked_call)), None);
@@ -201,8 +207,8 @@ mod block_call {
 	fn block_call_not_sudo_fails() {
 		TestExt::default().build().execute_with(|| {
 			let signer = create_account(1);
-			let blocked_pallet = b"assets".to_vec();
-			let blocked_call = b"transfer".to_vec();
+			let blocked_pallet = bounded_string("assets");
+			let blocked_call = bounded_string("transfer");
 
 			// Block call should fail as not root
 			assert_noop!(
@@ -220,8 +226,8 @@ mod block_call {
 	#[test]
 	fn block_maintenance_mode_pallet_call_fails() {
 		TestExt::default().build().execute_with(|| {
-			let blocked_pallet = b"MaintenanceMode".to_vec();
-			let blocked_call = b"block_call".to_vec();
+			let blocked_pallet = bounded_string("MaintenanceMode");
+			let blocked_call = bounded_string("block_call");
 
 			// Block call should fail as pallet is maintenance mode
 			assert_noop!(
@@ -235,8 +241,8 @@ mod block_call {
 			);
 
 			// Check it fails, even if passing in lowercase pallet name
-			let blocked_pallet = b"maintenancemode".to_vec();
-			let blocked_call = b"block_pallet".to_vec();
+			let blocked_pallet = bounded_string("maintenancemode");
+			let blocked_call = bounded_string("block_pallet");
 
 			assert_noop!(
 				MaintenanceMode::block_call(
@@ -254,8 +260,8 @@ mod block_call {
 	fn block_call_invalid_pallet_name_fails() {
 		TestExt::default().build().execute_with(|| {
 			// Invalid pallet name
-			let blocked_pallet = vec![0xfe, 0xff];
-			let blocked_call = b"block_call".to_vec();
+			let blocked_pallet = BoundedVec::truncate_from(vec![0xfe, 0xff]);
+			let blocked_call = bounded_string("block_call");
 
 			// Block call should fail with invalid pallet name
 			assert_noop!(
@@ -269,7 +275,7 @@ mod block_call {
 			);
 
 			// Empty pallet name
-			let blocked_pallet = vec![];
+			let blocked_pallet = BoundedVec::truncate_from(vec![]);
 
 			// Block call should fail with empty pallet name
 			assert_noop!(
@@ -287,8 +293,8 @@ mod block_call {
 	#[test]
 	fn block_call_invalid_call_name_fails() {
 		TestExt::default().build().execute_with(|| {
-			let blocked_pallet = b"Assets".to_vec();
-			let blocked_call = vec![0xfe, 0xff];
+			let blocked_pallet = bounded_string("Assets");
+			let blocked_call = BoundedVec::truncate_from(vec![0xfe, 0xff]);
 
 			// block_call should fail with invalid call name
 			assert_noop!(
@@ -302,7 +308,7 @@ mod block_call {
 			);
 
 			// Empty call name
-			let blocked_call = vec![];
+			let blocked_call = BoundedVec::truncate_from(vec![]);
 
 			// Block call should fail with empty call name
 			assert_noop!(
@@ -320,8 +326,8 @@ mod block_call {
 	#[test]
 	fn block_call_stores_lowercase_names() {
 		TestExt::default().build().execute_with(|| {
-			let blocked_pallet = b"ASSETS".to_vec();
-			let blocked_call = b"TRANSFER".to_vec();
+			let blocked_pallet = bounded_string("ASSETS");
+			let blocked_call = bounded_string("TRANSFER");
 
 			// Enable maintenance mode
 			assert_ok!(MaintenanceMode::block_call(
@@ -331,13 +337,13 @@ mod block_call {
 				true
 			),);
 
-			let expected_pallet = b"assets".to_vec();
-			let expected_call = b"transfer".to_vec();
+			let expected_pallet = bounded_string("assets");
+			let expected_call = bounded_string("transfer");
 			assert_eq!(BlockedCalls::<Test>::get((&expected_pallet, &expected_call)), Some(true));
 
 			// Try with balances pallet
-			let blocked_pallet = b"Balances".to_vec();
-			let blocked_call = b"Transfer".to_vec();
+			let blocked_pallet = bounded_string("Balances");
+			let blocked_call = bounded_string("Transfer");
 
 			// Enable maintenance mode
 			assert_ok!(MaintenanceMode::block_call(
@@ -347,8 +353,8 @@ mod block_call {
 				true
 			),);
 
-			let expected_pallet = b"balances".to_vec();
-			let expected_call = b"transfer".to_vec();
+			let expected_pallet = bounded_string("balances");
+			let expected_call = bounded_string("transfer");
 			assert_eq!(BlockedCalls::<Test>::get((&expected_pallet, &expected_call)), Some(true));
 		});
 	}
@@ -361,7 +367,7 @@ mod block_pallet {
 	#[test]
 	fn block_pallet_updates_storage() {
 		TestExt::default().build().execute_with(|| {
-			let blocked_pallet = b"assets".to_vec();
+			let blocked_pallet = bounded_string("assets");
 
 			// Enable maintenance mode
 			assert_eq!(BlockedPallets::<Test>::get(&blocked_pallet), None);
@@ -392,7 +398,7 @@ mod block_pallet {
 	fn block_pallet_not_sudo_fails() {
 		TestExt::default().build().execute_with(|| {
 			let signer = create_account(1);
-			let blocked_pallet = b"assets".to_vec();
+			let blocked_pallet = bounded_string("assets");
 
 			// Block call should fail as not root
 			assert_noop!(
@@ -405,7 +411,7 @@ mod block_pallet {
 	#[test]
 	fn block_maintenance_mode_pallet_fails() {
 		TestExt::default().build().execute_with(|| {
-			let blocked_pallet = b"MaintenanceMode".to_vec();
+			let blocked_pallet = bounded_string("MaintenanceMode");
 
 			// Block call should fail as pallet is maintenance mode
 			assert_noop!(
@@ -414,7 +420,7 @@ mod block_pallet {
 			);
 
 			// Check it fails, even if passing in lowercase pallet name
-			let blocked_pallet = b"maintenancemode".to_vec();
+			let blocked_pallet = bounded_string("maintenancemode");
 
 			assert_noop!(
 				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),
@@ -427,7 +433,7 @@ mod block_pallet {
 	fn block_pallet_invalid_pallet_name_fails() {
 		TestExt::default().build().execute_with(|| {
 			// Invalid pallet name
-			let blocked_pallet = vec![0xfe, 0xff];
+			let blocked_pallet = BoundedVec::truncate_from(vec![0xfe, 0xff]);
 
 			// Block call should fail with invalid pallet name
 			assert_noop!(
@@ -436,7 +442,7 @@ mod block_pallet {
 			);
 
 			// Empty pallet name
-			let blocked_pallet = vec![];
+			let blocked_pallet = BoundedVec::truncate_from(vec![]);
 
 			// Block call should fail with empty pallet name
 			assert_noop!(
@@ -449,7 +455,7 @@ mod block_pallet {
 	#[test]
 	fn block_pallet_stores_lowercase_names() {
 		TestExt::default().build().execute_with(|| {
-			let blocked_pallet = b"ASSETS".to_vec();
+			let blocked_pallet = bounded_string("ASSETS");
 
 			// Enable maintenance mode
 			assert_ok!(MaintenanceMode::block_pallet(
@@ -458,11 +464,11 @@ mod block_pallet {
 				true
 			),);
 
-			let expected_pallet = b"assets".to_vec();
+			let expected_pallet = bounded_string("assets");
 			assert_eq!(BlockedPallets::<Test>::get(&expected_pallet), Some(true));
 
 			// Try with balances pallet
-			let blocked_pallet = b"Balances".to_vec();
+			let blocked_pallet = bounded_string("Balances");
 
 			// Enable maintenance mode
 			assert_ok!(MaintenanceMode::block_pallet(
@@ -471,7 +477,7 @@ mod block_pallet {
 				true
 			),);
 
-			let expected_pallet = b"balances".to_vec();
+			let expected_pallet = bounded_string("balances");
 			assert_eq!(BlockedPallets::<Test>::get(&expected_pallet), Some(true));
 		});
 	}

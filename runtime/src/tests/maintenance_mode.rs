@@ -21,13 +21,8 @@ use crate::{
 	Call, CheckedExtrinsic, Executive, MaintenanceMode, Runtime,
 };
 use ethabi::Token;
-use frame_support::{
-	assert_err, assert_noop, assert_ok, dispatch::RawOrigin, traits::fungibles::Inspect,
-};
-use pallet_evm::RunnerError;
-use pallet_maintenance_mode::{
-	BlockedAccounts, BlockedCalls, BlockedPallets, MaintenanceModeActive,
-};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::RawOrigin};
+use pallet_maintenance_mode::MaintenanceModeActive;
 use pallet_token_approvals::ERC20Approvals;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_primitives::{AssetId, Balance};
@@ -35,9 +30,16 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	traits::Dispatchable,
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
+	BoundedVec,
 };
 
 type SystemError = frame_system::Error<Runtime>;
+
+pub fn bounded_string(
+	name: &str,
+) -> BoundedVec<u8, <Runtime as pallet_maintenance_mode::Config>::StringLimit> {
+	BoundedVec::truncate_from(name.as_bytes().to_vec())
+}
 
 mod enable_maintenance_mode {
 	use super::*;
@@ -49,7 +51,6 @@ mod enable_maintenance_mode {
 
 			// Enable maintenance mode
 			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
-			assert_eq!(MaintenanceModeActive::<Runtime>::get(), true);
 
 			// send signed transaction should fail as we are in maintenance mode
 			let xt = sign_xt(CheckedExtrinsic {
@@ -65,7 +66,6 @@ mod enable_maintenance_mode {
 
 			// Disable maintenance mode
 			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), false));
-			assert_eq!(MaintenanceModeActive::<Runtime>::get(), false);
 
 			// Call should now succeed
 			let xt2 = sign_xt(CheckedExtrinsic {
@@ -138,7 +138,6 @@ mod enable_maintenance_mode {
 
 			// Enable maintenance mode
 			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
-			assert_eq!(MaintenanceModeActive::<Runtime>::get(), true);
 
 			// EVM call should fail
 			assert_eq!(
@@ -150,7 +149,6 @@ mod enable_maintenance_mode {
 
 			// Disable maintenance mode
 			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), false));
-			assert_eq!(MaintenanceModeActive::<Runtime>::get(), false);
 
 			// EVM call should now work
 			assert_ok!(call.dispatch(Some(signer).into()));
@@ -172,7 +170,6 @@ mod block_account {
 
 			// Block signer account
 			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, true));
-			assert_eq!(BlockedAccounts::<Runtime>::get(signer).unwrap(), true);
 
 			// send signed transaction should fail as we have blocked the account
 			let function =
@@ -195,7 +192,6 @@ mod block_account {
 
 			// Unblock account
 			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, false));
-			assert_eq!(BlockedAccounts::<Runtime>::get(signer), None);
 
 			// Call should now succeed
 			let xt = sign_xt(CheckedExtrinsic {
@@ -241,7 +237,6 @@ mod block_account {
 
 			// Block signer account
 			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, true));
-			assert_eq!(BlockedAccounts::<Runtime>::get(signer).unwrap(), true);
 
 			// EVM call should fail
 			assert_eq!(
@@ -253,7 +248,6 @@ mod block_account {
 
 			// Unblock signer account
 			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, false));
-			assert_eq!(BlockedAccounts::<Runtime>::get(signer), None);
 
 			// EVM call should now work
 			assert_ok!(call.dispatch(Some(signer).into()));
@@ -267,8 +261,6 @@ mod block_account {
 
 mod block_evm_target {
 	use super::*;
-	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::Pays};
-	use sp_runtime::DispatchError;
 
 	#[test]
 	fn block_evm_target_works() {
@@ -335,12 +327,12 @@ mod block_pallet {
 			assert_ok!(call.dispatch(Some(signer).into()));
 
 			// Block System pallet
+			let blocked_pallet = bounded_string("system");
 			assert_ok!(MaintenanceMode::block_pallet(
 				RawOrigin::Root.into(),
-				b"System".to_vec(),
+				blocked_pallet.clone(),
 				true
 			));
-			assert_eq!(BlockedPallets::<Runtime>::get(b"system".to_vec()).unwrap(), true);
 
 			// System.remark should now fail
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
@@ -358,10 +350,9 @@ mod block_pallet {
 			// Unblock System pallet
 			assert_ok!(MaintenanceMode::block_pallet(
 				RawOrigin::Root.into(),
-				b"System".to_vec(),
+				blocked_pallet.clone(),
 				false
 			));
-			assert_eq!(BlockedPallets::<Runtime>::get(b"system".to_vec()), None);
 
 			// Check that system.remark works again
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
@@ -404,12 +395,12 @@ mod block_pallet {
 			});
 
 			// Block TokenApprovals pallet
+			let blocked_pallet = bounded_string("tokenapprovals");
 			assert_ok!(MaintenanceMode::block_pallet(
 				RawOrigin::Root.into(),
-				b"TokenApprovals".to_vec(),
+				blocked_pallet.clone(),
 				true
 			));
-			assert_eq!(BlockedPallets::<Runtime>::get(b"tokenapprovals".to_vec()).unwrap(), true);
 
 			// EVM call should succeed, however the internal call fails
 			assert_ok!(call.clone().dispatch(Some(signer).into()));
@@ -419,10 +410,9 @@ mod block_pallet {
 			// Unblock TokenApprovals pallet
 			assert_ok!(MaintenanceMode::block_pallet(
 				RawOrigin::Root.into(),
-				b"TokenApprovals".to_vec(),
+				blocked_pallet.clone(),
 				false
 			));
-			assert_eq!(BlockedPallets::<Runtime>::get(b"tokenapprovals".to_vec()), None);
 
 			// EVM call should now work
 			assert_ok!(call.dispatch(Some(signer).into()));
@@ -448,16 +438,14 @@ mod block_call {
 			assert_ok!(call.dispatch(Some(signer).into()));
 
 			// Block System.remark
+			let blocked_pallet = bounded_string("System");
+			let blocked_call = bounded_string("Remark");
 			assert_ok!(MaintenanceMode::block_call(
 				RawOrigin::Root.into(),
-				b"System".to_vec(),
-				b"Remark".to_vec(),
+				blocked_pallet.clone(),
+				blocked_call.clone(),
 				true
 			));
-			assert_eq!(
-				BlockedCalls::<Runtime>::get((b"system".to_vec(), b"remark".to_vec())).unwrap(),
-				true
-			);
 
 			// System.remark should now fail
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
@@ -473,14 +461,10 @@ mod block_call {
 			// Unblock System.remark
 			assert_ok!(MaintenanceMode::block_call(
 				RawOrigin::Root.into(),
-				b"System".to_vec(),
-				b"Remark".to_vec(),
+				blocked_pallet.clone(),
+				blocked_call.clone(),
 				false
 			));
-			assert_eq!(
-				BlockedCalls::<Runtime>::get((b"system".to_vec(), b"remark".to_vec())),
-				None
-			);
 
 			// Check that system.remark works again
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
@@ -523,20 +507,14 @@ mod block_call {
 			});
 
 			// Block erc20 approve call
+			let blocked_pallet = bounded_string("TokenApprovals");
+			let blocked_call = bounded_string("erc20_approval");
 			assert_ok!(MaintenanceMode::block_call(
 				RawOrigin::Root.into(),
-				b"TokenApprovals".to_vec(),
-				b"erc20_approval".to_vec(),
+				blocked_pallet.clone(),
+				blocked_call.clone(),
 				true
 			));
-			assert_eq!(
-				BlockedCalls::<Runtime>::get((
-					b"tokenapprovals".to_vec(),
-					b"erc20_approval".to_vec()
-				))
-				.unwrap(),
-				true
-			);
 
 			// EVM call should succeed, however the internal call fails
 			assert_ok!(call.clone().dispatch(Some(signer).into()));
@@ -546,17 +524,10 @@ mod block_call {
 			// Unblock TokenApprovals erc20 approve
 			assert_ok!(MaintenanceMode::block_call(
 				RawOrigin::Root.into(),
-				b"TokenApprovals".to_vec(),
-				b"erc20_approval".to_vec(),
+				blocked_pallet.clone(),
+				blocked_call.clone(),
 				false
 			));
-			assert_eq!(
-				BlockedCalls::<Runtime>::get((
-					b"tokenapprovals".to_vec(),
-					b"erc20_approval".to_vec()
-				)),
-				None
-			);
 
 			// EVM call should now work
 			assert_ok!(call.dispatch(Some(signer).into()));

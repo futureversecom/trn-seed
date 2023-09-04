@@ -1183,6 +1183,7 @@ impl pallet_futurepass::Config for Runtime {
 impl pallet_maintenance_mode::Config for Runtime {
 	type Call = Call;
 	type Event = Event;
+	type StringLimit = AssetsStringLimit;
 }
 
 construct_runtime! {

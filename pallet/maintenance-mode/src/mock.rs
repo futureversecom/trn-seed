@@ -53,6 +53,7 @@ impl_pallet_assets_ext_config!(Test);
 impl pallet_maintenance_mode::Config for Test {
 	type Call = Call;
 	type Event = Event;
+	type StringLimit = AssetsStringLimit;
 }
 
 #[derive(Default)]
