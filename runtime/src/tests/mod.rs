@@ -20,6 +20,7 @@
 mod evm_fees;
 mod evm_gas_costs;
 mod evm_tests;
+mod maintenance_mode;
 mod multiplier;
 mod staker_payouts;
 
@@ -151,6 +152,10 @@ impl ExtBuilder {
 			.assimilate_storage(&mut t)
 			.unwrap();
 
+		pallet_sudo::GenesisConfig::<Runtime> { key: Some(self.root_account) }
+			.assimilate_storage(&mut t)
+			.unwrap();
+
 		// staking setup
 		let invulnerables = if self.invulnerable { stashes } else { vec![] };
 		pallet_staking::GenesisConfig::<Runtime> {
@@ -227,6 +232,7 @@ pub fn signed_extra(nonce: Index, tip: Balance) -> SignedExtra {
 		frame_system::CheckEra::from(Era::Immortal),
 		frame_system::CheckNonce::from(nonce),
 		frame_system::CheckWeight::new(),
+		pallet_maintenance_mode::MaintenanceChecker::<Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::from(tip),
 	)
 }

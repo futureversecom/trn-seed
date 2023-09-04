@@ -1,0 +1,671 @@
+// Copyright 2022-2023 Futureverse Corporation Limited
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// You may obtain a copy of the License at the root of this project source code
+
+//! Integration tests for maintenance mode pallet.
+#![cfg(test)]
+
+use crate::{
+	tests::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder},
+	Call, CheckedExtrinsic, Executive, MaintenanceMode, Runtime,
+};
+use ethabi::Token;
+use frame_support::{
+	assert_err, assert_noop, assert_ok, dispatch::RawOrigin, traits::fungibles::Inspect,
+};
+use pallet_evm::RunnerError;
+use pallet_maintenance_mode::{
+	BlockedAccounts, BlockedCalls, BlockedPallets, MaintenanceModeActive,
+};
+use pallet_token_approvals::ERC20Approvals;
+use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
+use seed_primitives::{AssetId, Balance};
+use sp_core::{H160, H256, U256};
+use sp_runtime::{
+	traits::Dispatchable,
+	transaction_validity::{InvalidTransaction, TransactionValidityError},
+};
+
+type SystemError = frame_system::Error<Runtime>;
+
+mod enable_maintenance_mode {
+	use super::*;
+
+	#[test]
+	fn enable_maintenance_mode_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = bob();
+
+			// Enable maintenance mode
+			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
+			assert_eq!(MaintenanceModeActive::<Runtime>::get(), true);
+
+			// send signed transaction should fail as we are in maintenance mode
+			let xt = sign_xt(CheckedExtrinsic {
+				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(0, 0)),
+				function: Call::System(frame_system::Call::remark {
+					remark: b"hello blocked chain".to_vec(),
+				}),
+			});
+			assert_err!(
+				Executive::apply_extrinsic(xt),
+				TransactionValidityError::Invalid(InvalidTransaction::Custom(1))
+			);
+
+			// Disable maintenance mode
+			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), false));
+			assert_eq!(MaintenanceModeActive::<Runtime>::get(), false);
+
+			// Call should now succeed
+			let xt2 = sign_xt(CheckedExtrinsic {
+				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(1, 0)),
+				function: Call::System(frame_system::Call::remark {
+					remark: b"hello unblocked chain".to_vec(),
+				}),
+			});
+			assert_ok!(Executive::apply_extrinsic(xt2));
+		});
+	}
+
+	#[test]
+	fn maintenance_mode_can_be_disabled_by_sudo() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+
+			// Enable maintenance mode by calling extrinsic directly
+			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
+			assert_eq!(MaintenanceModeActive::<Runtime>::get(), true);
+
+			// Send signed tx to disable maintenance mode
+			let call =
+				Call::MaintenanceMode(pallet_maintenance_mode::Call::enable_maintenance_mode {
+					enabled: false,
+				});
+			let xt2 = sign_xt(CheckedExtrinsic {
+				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(0, 0)),
+				function: Call::Sudo(pallet_sudo::Call::sudo { call: Box::new(call) }),
+			});
+			assert_ok!(Executive::apply_extrinsic(xt2));
+
+			// Maintenance mode disabled
+			assert_eq!(MaintenanceModeActive::<Runtime>::get(), false);
+		});
+	}
+
+	#[test]
+	fn maintenance_mode_works_with_evm() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+			let payment_asset: AssetId = 2;
+			let target: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+				payment_asset,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.into();
+
+			// Setup input for an erc20 approve
+			let mut input: Vec<u8> = [0x09, 0x5e, 0xa7, 0xb3].to_vec();
+			let approve_amount: Balance = 12345;
+			input.append(&mut ethabi::encode(&[
+				Token::Address(bob().into()),
+				Token::Uint(approve_amount.into()),
+			]));
+
+			// Setup inner EVM.call call
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let call = crate::Call::EVM(pallet_evm::Call::call {
+				source: signer.into(),
+				target,
+				input,
+				value: U256::default(),
+				gas_limit: 50_000,
+				max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+				max_priority_fee_per_gas: None,
+				nonce: None,
+				access_list,
+			});
+
+			// Enable maintenance mode
+			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), true));
+			assert_eq!(MaintenanceModeActive::<Runtime>::get(), true);
+
+			// EVM call should fail
+			assert_eq!(
+				call.clone().dispatch(Some(signer).into()).unwrap_err().error,
+				pallet_evm::Error::<Runtime>::WithdrawFailed.into()
+			);
+			// The storage should not have been updated in TokenApprovals pallet
+			assert_eq!(ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()), None);
+
+			// Disable maintenance mode
+			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), false));
+			assert_eq!(MaintenanceModeActive::<Runtime>::get(), false);
+
+			// EVM call should now work
+			assert_ok!(call.dispatch(Some(signer).into()));
+			assert_eq!(
+				ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()),
+				Some(approve_amount)
+			);
+		});
+	}
+}
+
+mod block_account {
+	use super::*;
+
+	#[test]
+	fn block_account_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+
+			// Block signer account
+			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, true));
+			assert_eq!(BlockedAccounts::<Runtime>::get(signer).unwrap(), true);
+
+			// send signed transaction should fail as we have blocked the account
+			let function =
+				Call::System(frame_system::Call::remark { remark: b"hello chain".to_vec() });
+			let xt = sign_xt(CheckedExtrinsic {
+				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(0, 0)),
+				function: function.clone(),
+			});
+			assert_err!(
+				Executive::apply_extrinsic(xt),
+				TransactionValidityError::Invalid(InvalidTransaction::Custom(1))
+			);
+
+			// A non blocked account should still be able to make the call
+			let xt = sign_xt(CheckedExtrinsic {
+				signed: fp_self_contained::CheckedSignature::Signed(bob(), signed_extra(0, 0)),
+				function: function.clone(),
+			});
+			assert_ok!(Executive::apply_extrinsic(xt),);
+
+			// Unblock account
+			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, false));
+			assert_eq!(BlockedAccounts::<Runtime>::get(signer), None);
+
+			// Call should now succeed
+			let xt = sign_xt(CheckedExtrinsic {
+				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(1, 0)),
+				function,
+			});
+			assert_ok!(Executive::apply_extrinsic(xt));
+		});
+	}
+
+	#[test]
+	fn block_account_works_with_evm() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+			let payment_asset: AssetId = 2;
+			let target: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+				payment_asset,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.into();
+
+			// Setup input for an erc20 approve
+			let mut input: Vec<u8> = [0x09, 0x5e, 0xa7, 0xb3].to_vec();
+			let approve_amount: Balance = 12345;
+			input.append(&mut ethabi::encode(&[
+				Token::Address(bob().into()),
+				Token::Uint(approve_amount.into()),
+			]));
+
+			// Setup inner EVM.call call
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let call = crate::Call::EVM(pallet_evm::Call::call {
+				source: signer.into(),
+				target,
+				input,
+				value: U256::default(),
+				gas_limit: 50_000,
+				max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+				max_priority_fee_per_gas: None,
+				nonce: None,
+				access_list,
+			});
+
+			// Block signer account
+			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, true));
+			assert_eq!(BlockedAccounts::<Runtime>::get(signer).unwrap(), true);
+
+			// EVM call should fail
+			assert_eq!(
+				call.clone().dispatch(Some(signer).into()).unwrap_err().error,
+				pallet_evm::Error::<Runtime>::WithdrawFailed.into()
+			);
+			// The storage should not have been updated in TokenApprovals pallet
+			assert_eq!(ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()), None);
+
+			// Unblock signer account
+			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, false));
+			assert_eq!(BlockedAccounts::<Runtime>::get(signer), None);
+
+			// EVM call should now work
+			assert_ok!(call.dispatch(Some(signer).into()));
+			assert_eq!(
+				ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()),
+				Some(approve_amount)
+			);
+		});
+	}
+}
+
+mod block_evm_target {
+	use super::*;
+	use frame_support::{dispatch::PostDispatchInfo, pallet_prelude::Pays};
+	use sp_runtime::DispatchError;
+
+	#[test]
+	fn block_evm_target_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+
+			let payment_asset: AssetId = 2;
+			let target: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+				payment_asset,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.into();
+
+			// Block the precompile address
+			assert_ok!(MaintenanceMode::block_evm_target(RawOrigin::Root.into(), target, true));
+
+			// Setup input for an erc20 transfer to Bob
+			let mut input: Vec<u8> = [0xa9, 0x05, 0x9c, 0xbb].to_vec();
+			let transfer_amount: Balance = 12345;
+			input.append(&mut ethabi::encode(&[
+				Token::Address(bob().into()),
+				Token::Uint(transfer_amount.into()),
+			]));
+			// Setup inner EVM.call call
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let call = crate::Call::EVM(pallet_evm::Call::call {
+				source: signer.into(),
+				target,
+				input,
+				value: U256::default(),
+				gas_limit: 50_000,
+				max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+				max_priority_fee_per_gas: None,
+				nonce: None,
+				access_list,
+			});
+
+			// EVM call should fail
+			assert_eq!(
+				call.clone().dispatch(Some(signer).into()).unwrap_err().error,
+				pallet_evm::Error::<Runtime>::WithdrawFailed.into()
+			);
+
+			// Unblock the precompile address
+			assert_ok!(MaintenanceMode::block_evm_target(RawOrigin::Root.into(), target, false));
+
+			// EVM call should now work
+			assert_ok!(call.dispatch(Some(signer).into()));
+		});
+	}
+}
+
+mod block_pallet {
+	use super::*;
+
+	#[test]
+	fn block_pallet_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = bob();
+
+			// Check that system.remark works
+			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_ok!(call.dispatch(Some(signer).into()));
+
+			// Block System pallet
+			assert_ok!(MaintenanceMode::block_pallet(
+				RawOrigin::Root.into(),
+				b"System".to_vec(),
+				true
+			));
+			assert_eq!(BlockedPallets::<Runtime>::get(b"system".to_vec()).unwrap(), true);
+
+			// System.remark should now fail
+			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_noop!(call.dispatch(Some(signer).into()), SystemError::CallFiltered);
+
+			// Call to other pallet should still work
+			let call = pallet_marketplace::Call::<Runtime>::register_marketplace {
+				marketplace_account: None,
+				entitlement: Default::default(),
+			};
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_ok!(call.dispatch(Some(signer).into()));
+
+			// Unblock System pallet
+			assert_ok!(MaintenanceMode::block_pallet(
+				RawOrigin::Root.into(),
+				b"System".to_vec(),
+				false
+			));
+			assert_eq!(BlockedPallets::<Runtime>::get(b"system".to_vec()), None);
+
+			// Check that system.remark works again
+			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_ok!(call.dispatch(Some(signer).into()));
+		});
+	}
+
+	#[test]
+	fn block_pallet_works_with_evm() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+			let payment_asset: AssetId = 2;
+			let target: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+				payment_asset,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.into();
+
+			// Setup input for an erc20 approve
+			let mut input: Vec<u8> = [0x09, 0x5e, 0xa7, 0xb3].to_vec();
+			let approve_amount: Balance = 12345;
+			input.append(&mut ethabi::encode(&[
+				Token::Address(bob().into()),
+				Token::Uint(approve_amount.into()),
+			]));
+
+			// Setup inner EVM.call call
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let call = crate::Call::EVM(pallet_evm::Call::call {
+				source: signer.into(),
+				target,
+				input,
+				value: U256::default(),
+				gas_limit: 50_000,
+				max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+				max_priority_fee_per_gas: None,
+				nonce: None,
+				access_list,
+			});
+
+			// Block TokenApprovals pallet
+			assert_ok!(MaintenanceMode::block_pallet(
+				RawOrigin::Root.into(),
+				b"TokenApprovals".to_vec(),
+				true
+			));
+			assert_eq!(BlockedPallets::<Runtime>::get(b"tokenapprovals".to_vec()).unwrap(), true);
+
+			// EVM call should succeed, however the internal call fails
+			assert_ok!(call.clone().dispatch(Some(signer).into()));
+			// The storage should not have been updated in TokenApprovals pallet
+			assert_eq!(ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()), None);
+
+			// Unblock TokenApprovals pallet
+			assert_ok!(MaintenanceMode::block_pallet(
+				RawOrigin::Root.into(),
+				b"TokenApprovals".to_vec(),
+				false
+			));
+			assert_eq!(BlockedPallets::<Runtime>::get(b"tokenapprovals".to_vec()), None);
+
+			// EVM call should now work
+			assert_ok!(call.dispatch(Some(signer).into()));
+			assert_eq!(
+				ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()),
+				Some(approve_amount)
+			);
+		});
+	}
+}
+
+mod block_call {
+	use super::*;
+
+	#[test]
+	fn block_call_works() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = bob();
+
+			// Check that system.remark works
+			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_ok!(call.dispatch(Some(signer).into()));
+
+			// Block System.remark
+			assert_ok!(MaintenanceMode::block_call(
+				RawOrigin::Root.into(),
+				b"System".to_vec(),
+				b"Remark".to_vec(),
+				true
+			));
+			assert_eq!(
+				BlockedCalls::<Runtime>::get((b"system".to_vec(), b"remark".to_vec())).unwrap(),
+				true
+			);
+
+			// System.remark should now fail
+			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_noop!(call.dispatch(Some(signer).into()), SystemError::CallFiltered);
+
+			// System.remark_with_event should still work
+			let call =
+				frame_system::Call::<Runtime>::remark_with_event { remark: vec![0, 1, 2, 3] };
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_ok!(call.dispatch(Some(signer).into()));
+
+			// Unblock System.remark
+			assert_ok!(MaintenanceMode::block_call(
+				RawOrigin::Root.into(),
+				b"System".to_vec(),
+				b"Remark".to_vec(),
+				false
+			));
+			assert_eq!(
+				BlockedCalls::<Runtime>::get((b"system".to_vec(), b"remark".to_vec())),
+				None
+			);
+
+			// Check that system.remark works again
+			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_ok!(call.dispatch(Some(signer).into()));
+		});
+	}
+
+	#[test]
+	fn block_call_works_with_evm() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+			let payment_asset: AssetId = 2;
+			let target: H160 = <Runtime as ErcIdConversion<AssetId>>::runtime_id_to_evm_id(
+				payment_asset,
+				ERC20_PRECOMPILE_ADDRESS_PREFIX,
+			)
+			.into();
+
+			// Setup input for an erc20 approve
+			let mut input: Vec<u8> = [0x09, 0x5e, 0xa7, 0xb3].to_vec();
+			let approve_amount: Balance = 12345;
+			input.append(&mut ethabi::encode(&[
+				Token::Address(bob().into()),
+				Token::Uint(approve_amount.into()),
+			]));
+
+			// Setup inner EVM.call call
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let call = crate::Call::EVM(pallet_evm::Call::call {
+				source: signer.into(),
+				target,
+				input,
+				value: U256::default(),
+				gas_limit: 50_000,
+				max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+				max_priority_fee_per_gas: None,
+				nonce: None,
+				access_list,
+			});
+
+			// Block erc20 approve call
+			assert_ok!(MaintenanceMode::block_call(
+				RawOrigin::Root.into(),
+				b"TokenApprovals".to_vec(),
+				b"erc20_approval".to_vec(),
+				true
+			));
+			assert_eq!(
+				BlockedCalls::<Runtime>::get((
+					b"tokenapprovals".to_vec(),
+					b"erc20_approval".to_vec()
+				))
+				.unwrap(),
+				true
+			);
+
+			// EVM call should succeed, however the internal call fails
+			assert_ok!(call.clone().dispatch(Some(signer).into()));
+			// The storage should not have been updated in TokenApprovals pallet
+			assert_eq!(ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()), None);
+
+			// Unblock TokenApprovals erc20 approve
+			assert_ok!(MaintenanceMode::block_call(
+				RawOrigin::Root.into(),
+				b"TokenApprovals".to_vec(),
+				b"erc20_approval".to_vec(),
+				false
+			));
+			assert_eq!(
+				BlockedCalls::<Runtime>::get((
+					b"tokenapprovals".to_vec(),
+					b"erc20_approval".to_vec()
+				)),
+				None
+			);
+
+			// EVM call should now work
+			assert_ok!(call.dispatch(Some(signer).into()));
+			assert_eq!(
+				ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()),
+				Some(approve_amount)
+			);
+		});
+	}
+}
+
+mod filtered_calls {
+	use super::*;
+	use pallet_staking::RewardDestination;
+
+	#[test]
+	fn pallet_assets_create_fails() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+
+			let call = pallet_assets::Call::<Runtime>::create {
+				id: 1,
+				admin: signer.clone(),
+				min_balance: Default::default(),
+			};
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_noop!(
+				call.dispatch(RawOrigin::Signed(signer).into()),
+				SystemError::CallFiltered
+			);
+		});
+	}
+
+	#[test]
+	fn pallet_xrpl_bridge_submit_challenge_fails() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+
+			let call = pallet_xrpl_bridge::Call::<Runtime>::submit_challenge {
+				transaction_hash: Default::default(),
+			};
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_noop!(
+				call.dispatch(RawOrigin::Signed(signer).into()),
+				SystemError::CallFiltered
+			);
+		});
+	}
+
+	#[test]
+	fn pallet_staking_bond_fails() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = charlie();
+
+			// Call with RewardDestination::Staked gets filtered
+			let call = pallet_staking::Call::<Runtime>::bond {
+				controller: Default::default(),
+				value: Default::default(),
+				payee: RewardDestination::Staked,
+			};
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_noop!(
+				call.dispatch(RawOrigin::Signed(signer).into()),
+				SystemError::CallFiltered
+			);
+
+			// Call with RewardDestination::Controller succeeds
+			let call = pallet_staking::Call::<Runtime>::bond {
+				controller: Default::default(),
+				value: 12,
+				payee: RewardDestination::Controller,
+			};
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_ok!(call.dispatch(RawOrigin::Signed(signer).into()));
+		});
+	}
+
+	#[test]
+	fn pallet_staking_payout_stakers_fails() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = charlie();
+
+			let call = pallet_staking::Call::<Runtime>::payout_stakers {
+				validator_stash: alice(),
+				era: Default::default(),
+			};
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_noop!(
+				call.dispatch(RawOrigin::Signed(signer).into()),
+				SystemError::CallFiltered
+			);
+		});
+	}
+
+	#[test]
+	fn pallet_proxy_add_proxy_fails() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = charlie();
+
+			let call = pallet_proxy::Call::<Runtime>::add_proxy {
+				delegate: alice(),
+				proxy_type: Default::default(),
+				delay: Default::default(),
+			};
+			let call = <Runtime as frame_system::Config>::Call::from(call);
+			assert_noop!(
+				call.dispatch(RawOrigin::Signed(signer).into()),
+				SystemError::CallFiltered
+			);
+		});
+	}
+}

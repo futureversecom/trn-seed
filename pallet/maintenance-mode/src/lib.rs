@@ -84,7 +84,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Maintenance mode was activated
-		MaintenanceModeActivated { active: bool },
+		MaintenanceModeActivated { enabled: bool },
 		/// An account was blocked
 		AccountBlocked { account: T::AccountId, blocked: bool },
 		/// An account was blocked
@@ -113,12 +113,12 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Enable maintenance mode which prevents all non sudo calls
 		#[pallet::weight(1000)]
-		pub fn enable_maintenance_mode(origin: OriginFor<T>, active: bool) -> DispatchResult {
+		pub fn enable_maintenance_mode(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
 			ensure_root(origin)?;
 
-			MaintenanceModeActive::<T>::put(active);
+			MaintenanceModeActive::<T>::put(enabled);
 
-			Self::deposit_event(Event::MaintenanceModeActivated { active });
+			Self::deposit_event(Event::MaintenanceModeActivated { enabled });
 			Ok(())
 		}
 
@@ -171,6 +171,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Validate pallet name
+			ensure!(!pallet_name.is_empty(), Error::<T>::InvalidPalletName);
 			let pallet_name = pallet_name.to_ascii_lowercase();
 			let pallet_name_string =
 				core::str::from_utf8(&pallet_name).map_err(|_| Error::<T>::InvalidPalletName)?;
@@ -181,6 +182,7 @@ pub mod pallet {
 			);
 
 			// Validate call name
+			ensure!(!call_name.is_empty(), Error::<T>::InvalidCallName);
 			let call_name = call_name.to_ascii_lowercase();
 			let _ = core::str::from_utf8(&call_name).map_err(|_| Error::<T>::InvalidCallName)?;
 
@@ -204,6 +206,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			// Validate pallet name
+			ensure!(!pallet_name.is_empty(), Error::<T>::InvalidPalletName);
 			let pallet_name = pallet_name.to_ascii_lowercase();
 			let pallet_name_string =
 				core::str::from_utf8(&pallet_name).map_err(|_| Error::<T>::InvalidPalletName)?;
@@ -266,8 +269,6 @@ where
 }
 
 impl<T: frame_system::Config + Config> MaintenanceCheckEVM<T> for MaintenanceChecker<T> {
-	// TODO move to new trait so we can satisfy the needs of the fee proxy pallet (Without
-	// GetCallMetadata)
 	fn validate_evm_transaction(
 		signer: &<T as frame_system::Config>::AccountId,
 		target: &H160,
