@@ -53,12 +53,14 @@ impl OnRuntimeUpgrade for Upgrade {
 pub mod v1 {
 	use super::*;
 	use crate::Vec;
-	use codec::Encode;
-	use frame_support::{
-		dispatch::EncodeLike, migration, Blake2_128Concat, StorageHasher, Twox64Concat,
-	};
+	use frame_support::{dispatch::EncodeLike, migration, StorageHasher, Twox64Concat};
 	use pallet_futurepass::Holders;
 	use sp_io::hashing::twox_128;
+
+	#[cfg(feature = "try-runtime")]
+	use codec::Encode;
+	#[cfg(feature = "try-runtime")]
+	use frame_support::Blake2_128Concat;
 
 	const MODULE_PREFIX: &[u8] = b"Futurepass";
 	const STORAGE_ITEM_NAME: &[u8] = b"Holders";
@@ -193,19 +195,21 @@ pub mod v1 {
 		#[test]
 		fn migration_test() {
 			new_test_ext().execute_with(|| {
-				let alice = seed_primitives::AccountId20::from(hex_literal::hex!("25451A4de12dcCc2D166922fA938E900fCc4ED24"));
-				let alice_futurepass = seed_primitives::AccountId20([255; 20]);
+				let bob = seed_primitives::AccountId20::from(hex_literal::hex!("25451A4de12dcCc2D166922fA938E900fCc4ED24"));
+				let bob_futurepass = seed_primitives::AccountId20([255; 20]);
 
-				// simulate the storage key for the alice account using legacy hashing algorithm
-				// (twox64concat) this is analogous to `Holders::<Runtime>::insert(alice,
-				// alice_futurepass);` - using the old hashing algorithm ^ we cannot do this as that
+				// simulate the storage key for the bob account using legacy hashing algorithm
+				// (twox64concat) this is analogous to `Holders::<Runtime>::insert(bob,
+				// bob_futurepass);` - using the old hashing algorithm ^ we cannot do this as that
 				// will store the item with the new hashing algorithm (blake2_128concat)
 				let storage_location_twox64concat =
-					generate_storage_key::<Twox64Concat>(&alice.encode());
-				let storage_key_hex = hex::encode(&storage_location_twox64concat);
-				assert_eq!(storage_key_hex, "0x");
-				
-				sp_io::storage::set(&storage_location_twox64concat, &alice_futurepass.encode());
+					generate_storage_key::<Twox64Concat>(&bob.encode());
+				assert_eq!(
+					hex::encode(&storage_location_twox64concat),
+					"f87116ea87fb5ad5ef31218b9eb2d0f5410831cea04b01ca98929af04f2caf29864aab6abdc56c6625451a4de12dccc2d166922fa938e900fcc4ed24",
+				);
+
+				sp_io::storage::set(&storage_location_twox64concat, &bob_futurepass.encode());
 
 				// validate pre-upgrade checks pass
 				Upgrade::pre_upgrade().unwrap();
