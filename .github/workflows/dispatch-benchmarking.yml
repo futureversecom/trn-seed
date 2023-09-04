@@ -21,7 +21,7 @@ on:
 
 jobs:
   benchmarks:
-    runs-on: [seed-builder]
+    runs-on: [bench-runner]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
