@@ -22,10 +22,7 @@
 //! per sale.
 //! Also allows for offers on these tokens, which can be accepted by the owner of the token.
 
-use frame_support::{
-	dispatch::Dispatchable,
-	weights::{GetDispatchInfo, PostDispatchInfo},
-};
+use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_nft::{weights::WeightInfo as NftWeightInfo, ListingId, MarketplaceId, OfferId};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{DispatchResult, Permill};
@@ -54,7 +51,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_nft::Config {
 		/// The overarching call type.
 		type Call: Parameter
-			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<pallet_nft::Call<Self>>;
 		/// Provides the public call to weight mapping

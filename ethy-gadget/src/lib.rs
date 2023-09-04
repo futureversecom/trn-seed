@@ -30,6 +30,7 @@ use log::debug;
 use prometheus::Registry;
 
 use sc_client_api::{Backend, BlockchainEvents, Finalizer};
+use sc_network::ProtocolName;
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork};
 use seed_primitives::ethy::EthyApi;
 use sp_api::ProvideRuntimeApi;
@@ -58,29 +59,30 @@ pub use types::data_to_digest;
 
 pub(crate) mod ethy_protocol_name {
 	use sc_chain_spec::ChainSpec;
+	use sc_network::ProtocolName;
 
-	const NAME: &str = "/ethy/1";
+	pub const NAME: &'static str = "/ethy/1";
 	/// Name of the notifications protocol used by Ethy.
 	///
 	/// Must be registered towards the networking in order for Ethy to properly function.
 	pub fn standard_name<Hash: AsRef<[u8]>>(
 		genesis_hash: &Hash,
 		chain_spec: &Box<dyn ChainSpec>,
-	) -> std::borrow::Cow<'static, str> {
+	) -> ProtocolName {
 		let chain_prefix = match chain_spec.fork_id() {
 			Some(fork_id) => format!("/{}/{}", hex::encode(genesis_hash), fork_id),
 			None => format!("/{}", hex::encode(genesis_hash)),
 		};
-		format!("{}{}", chain_prefix, NAME).into()
+		ProtocolName::OnHeap(format!("{}{}", chain_prefix, NAME).into())
 	}
 }
 
 /// Returns the configuration value to put in
 /// [`sc_network::config::NetworkConfiguration::extra_sets`].
 pub fn ethy_peers_set_config(
-	protocol_name: std::borrow::Cow<'static, str>,
-) -> sc_network::config::NonDefaultSetConfig {
-	let mut cfg = sc_network::config::NonDefaultSetConfig::new(protocol_name, 1024 * 1024);
+	protocol_name: ProtocolName,
+) -> sc_network_common::config::NonDefaultSetConfig {
+	let mut cfg = sc_network_common::config::NonDefaultSetConfig::new(protocol_name, 1024 * 1024);
 	cfg.allow_non_reserved(25, 25);
 	cfg
 }
@@ -137,7 +139,7 @@ where
 	/// Prometheus metric registry
 	pub prometheus_registry: Option<Registry>,
 	/// Chain specific Ethy protocol name. See [`ethy_protocol_name::standard_name`].
-	pub protocol_name: std::borrow::Cow<'static, str>,
+	pub protocol_name: ProtocolName,
 	pub _phantom: std::marker::PhantomData<B>,
 }
 

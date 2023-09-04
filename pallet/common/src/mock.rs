@@ -46,17 +46,17 @@ macro_rules! impl_frame_system_config {
 			type BlockWeights = ();
 			type BlockLength = ();
 			type BaseCallFilter = frame_support::traits::Everything;
-			type Origin = Origin;
+			type RuntimeOrigin = RuntimeOrigin;
 			type Index = u64;
 			type BlockNumber = BlockNumber;
-			type Call = Call;
+			type RuntimeCall = RuntimeCall;
 			type Hash = H256;
 			type Hashing = BlakeTwo256;
 			type AccountId = AccountId;
 			type Lookup = IdentityLookup<Self::AccountId>;
 			type Header = Header;
 			type BlockHashCount = BlockHashCount;
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type DbWeight = ();
 			type Version = ();
 			type PalletInfo = PalletInfo;
@@ -80,7 +80,7 @@ macro_rules! impl_pallet_balance_config {
 
 		impl pallet_balances::Config for $test {
 			type Balance = Balance;
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type DustRemoval = ();
 			type ExistentialDeposit = ();
 			type AccountStore = System;
@@ -121,7 +121,7 @@ macro_rules! impl_pallet_assets_config {
 		}
 
 		impl pallet_assets::Config for $test {
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type Balance = Balance;
 			type AssetId = AssetId;
 			type Currency = Balances;
@@ -150,7 +150,7 @@ macro_rules! impl_pallet_assets_ext_config {
 		}
 
 		impl pallet_assets_ext::Config for $test {
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type ParachainId = TestParachainId;
 			type MaxHolds = MaxHolds;
 			type NativeAssetId = NativeAssetId;
@@ -200,7 +200,7 @@ macro_rules! impl_pallet_nft_config {
 
 		impl pallet_nft::Config for Test {
 			type DefaultListingDuration = DefaultListingDuration;
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type MaxOffers = MaxOffers;
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
@@ -222,7 +222,7 @@ macro_rules! impl_pallet_nft_config {
 macro_rules! impl_pallet_fee_control_config {
 	($test:ident) => {
 		impl pallet_fee_control::Config for $test {
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type WeightInfo = ();
 			type DefaultValues = ();
 		}
@@ -256,15 +256,25 @@ macro_rules! impl_pallet_evm_config {
 			}
 		}
 
+		pub struct FixedGasWeightMapping;
+		impl GasWeightMapping for FixedGasWeightMapping {
+			fn gas_to_weight(_gas: u64, _without_base_weight: bool) -> Weight {
+				Weight::zero()
+			}
+			fn weight_to_gas(_weight: Weight) -> u64 {
+				0u64
+			}
+		}
+
 		impl pallet_evm::Config for $test {
 			type FeeCalculator = FeeControl;
-			type GasWeightMapping = ();
+			type GasWeightMapping = FixedGasWeightMapping;
 			type BlockHashMapping = MockBlockHashMapping<$test>;
 			type CallOrigin = EnsureAddressNever<AccountId>;
 			type WithdrawOrigin = EnsureAddressNever<AccountId>;
 			type AddressMapping = MockAddressMapping;
 			type Currency = Balances;
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type Runner = pallet_evm::runner::stack::Runner<Self>;
 			type PrecompilesType = ();
 			type PrecompilesValue = ();
@@ -273,6 +283,7 @@ macro_rules! impl_pallet_evm_config {
 			type OnChargeTransaction = ();
 			type FindAuthor = FindAuthorTruncated;
 			type HandleTxValidation = ();
+			type WeightPerGas = ();
 		}
 	};
 }
@@ -289,7 +300,7 @@ macro_rules! impl_pallet_dex_config {
 		}
 
 		impl pallet_dex::Config for $test {
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type GetExchangeFee = GetExchangeFee;
 			type TradingPathLimit = TradingPathLimit;
 			type DEXBurnPalletId = DEXBurnPalletId;
@@ -336,8 +347,8 @@ macro_rules! impl_pallet_fee_proxy_config {
 		pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Test, XrpAssetId>;
 
 		impl pallet_fee_proxy::Config for $test {
-			type Call = Call;
-			type Event = Event;
+			type RuntimeCall = RuntimeCall;
+			type RuntimeEvent = RuntimeEvent;
 			type PalletsOrigin = OriginCaller;
 			type FeeAssetId = XrpAssetId;
 			type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
@@ -371,7 +382,7 @@ macro_rules! impl_pallet_transaction_payment_config {
 
 		impl pallet_transaction_payment::Config for $test {
 			type OnChargeTransaction = FeeProxy;
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type WeightToFee = FeeControlWeightToFee;
 			type LengthToFee = FeeControlLengthToFee;
 			type FeeMultiplierUpdate = ();
@@ -424,9 +435,9 @@ macro_rules! impl_pallet_futurepass_config {
 				Ok(())
 			}
 			fn proxy_call(
-				caller: T::Origin,
+				caller: T::RuntimeOrigin,
 				futurepass: T::AccountId,
-				call: <T as pallet_futurepass::Config>::Call,
+				call: <T as pallet_futurepass::Config>::RuntimeCall,
 			) -> DispatchResult {
 				Ok(())
 			}
@@ -488,8 +499,8 @@ macro_rules! impl_pallet_futurepass_config {
 			}
 		}
 
-		impl InstanceFilter<Call> for ProxyType {
-			fn filter(&self, c: &Call) -> bool {
+		impl InstanceFilter<RuntimeCall> for ProxyType {
+			fn filter(&self, c: &RuntimeCall) -> bool {
 				match self {
 					ProxyType::Owner => true,
 					ProxyType::Any => true,
@@ -535,9 +546,9 @@ macro_rules! impl_pallet_futurepass_config {
 		}
 
 		impl pallet_futurepass::Config for $test {
-			type Event = Event;
+			type RuntimeEvent = RuntimeEvent;
 			type Proxy = MockProxyProvider;
-			type Call = Call;
+			type RuntimeCall = RuntimeCall;
 			type ApproveOrigin = EnsureRoot<AccountId>;
 			type ProxyType = ProxyType;
 			type WeightInfo = ();
@@ -571,8 +582,8 @@ macro_rules! impl_pallet_proxy_config {
 		}
 
 		impl pallet_proxy::Config for Test {
-			type Event = Event;
-			type Call = Call;
+			type RuntimeEvent = RuntimeEvent;
+			type RuntimeCall = RuntimeCall;
 			type Currency = Balances;
 
 			type ProxyType = ProxyType;

@@ -242,14 +242,12 @@ describe("EVM gas costs", () => {
     // transfer
     const alithBalanceBefore = await alithSigner.getBalance();
 
-    const wantGasEstimateLower = 50_500,
-      wantGasEstimateUpper = 51_000;
     const actualGasEstimate = await erc20Contract.connect(alithSigner).estimateGas.transfer(bobSigner.address, 500, {
       maxFeePerGas: fees.lastBaseFeePerGas!,
       maxPriorityFeePerGas: 0,
     });
     const estimatedTxCost = actualGasEstimate.mul(fees.gasPrice!);
-    expect(actualGasEstimate.toNumber()).to.be.greaterThan(wantGasEstimateLower).and.lessThan(wantGasEstimateUpper);
+    expect(actualGasEstimate.toNumber()).to.equal(52707);
 
     const tx = await erc20Contract.connect(alithSigner).transfer(bobSigner.address, 500, {
       gasLimit: actualGasEstimate,
@@ -259,10 +257,8 @@ describe("EVM gas costs", () => {
     const receipt = await tx.wait();
 
     // assert gas used
-    const wantGasUsedLower = 49_000,
-      wantGasUsedUpper = 49_500;
-    expect(receipt.gasUsed?.toNumber()).to.be.greaterThan(wantGasUsedLower).and.lessThan(wantGasUsedUpper);
-    expect(receipt.cumulativeGasUsed?.toNumber()).to.be.greaterThan(wantGasUsedLower).and.lessThan(wantGasUsedUpper);
+    expect(receipt.gasUsed?.toNumber()).to.equal(52095);
+    expect(receipt.cumulativeGasUsed?.toNumber()).to.be.greaterThanOrEqual(52095);
 
     const feePaidUpFront = receipt.effectiveGasPrice?.mul(actualGasEstimate);
     const actualFee = receipt.effectiveGasPrice?.mul(receipt.gasUsed);
@@ -275,8 +271,8 @@ describe("EVM gas costs", () => {
     // assert XRP used
     const xrpCost6DP = actualFee.div(10 ** 12).toNumber();
     const xrpCostScaled = +utils.formatEther(actualFee);
-    expect(xrpCost6DP).to.eql(739425);
-    expect(+xrpCostScaled.toFixed(6)).to.eql(0.739425);
+    expect(xrpCost6DP).to.eql(781425);
+    expect(+xrpCostScaled.toFixed(6)).to.eql(0.781425);
   });
 
   it("gas cost for pre-compile token transfer", async () => {
