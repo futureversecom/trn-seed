@@ -141,7 +141,7 @@ pub mod v1 {
 		)
 		.drain()
 		{
-			log::info!(target: "🛠️ Migration", "Futurepass: Migrating account {key:?} with value {value:?} from twox64concat to blake2_128concat");
+			// log::info!(target: "🛠️ Migration", "Futurepass: Migrating account {key:?} with value {value:?} from twox64concat to blake2_128concat");
 			Holders::<Runtime>::insert(key, value);
 
 			// 1 read for reading the key/value from the drain
@@ -193,6 +193,27 @@ pub mod v1 {
 		use crate::migrations::tests::new_test_ext;
 
 		#[test]
+		fn storage_key_test() {
+			new_test_ext().execute_with(|| {
+				let bob = seed_primitives::AccountId20::from(hex_literal::hex!("25451A4de12dcCc2D166922fA938E900fCc4ED24"));
+
+				let storage_location_twox64concat =
+					generate_storage_key::<Twox64Concat>(&bob.encode());
+				assert_eq!(
+					hex::encode(&storage_location_twox64concat),
+					"f87116ea87fb5ad5ef31218b9eb2d0f5410831cea04b01ca98929af04f2caf29864aab6abdc56c6625451a4de12dccc2d166922fa938e900fcc4ed24",
+				);
+
+				let storage_location_blake2_128concat =
+					generate_storage_key::<Blake2_128Concat>(&bob.encode());
+				assert_eq!(
+					hex::encode(&storage_location_blake2_128concat),
+					"f87116ea87fb5ad5ef31218b9eb2d0f5410831cea04b01ca98929af04f2caf297967b3a70b6512ff5cca5be992f2399a25451a4de12dccc2d166922fa938e900fcc4ed24",
+				);
+			});
+		}
+
+		#[test]
 		fn migration_test() {
 			new_test_ext().execute_with(|| {
 				let bob = seed_primitives::AccountId20::from(hex_literal::hex!("25451A4de12dcCc2D166922fA938E900fCc4ED24"));
@@ -204,11 +225,6 @@ pub mod v1 {
 				// will store the item with the new hashing algorithm (blake2_128concat)
 				let storage_location_twox64concat =
 					generate_storage_key::<Twox64Concat>(&bob.encode());
-				assert_eq!(
-					hex::encode(&storage_location_twox64concat),
-					"f87116ea87fb5ad5ef31218b9eb2d0f5410831cea04b01ca98929af04f2caf29864aab6abdc56c6625451a4de12dccc2d166922fa938e900fcc4ed24",
-				);
-
 				sp_io::storage::set(&storage_location_twox64concat, &bob_futurepass.encode());
 
 				// validate pre-upgrade checks pass
