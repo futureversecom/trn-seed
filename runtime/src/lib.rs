@@ -1184,6 +1184,7 @@ impl pallet_maintenance_mode::Config for Runtime {
 	type Call = Call;
 	type Event = Event;
 	type StringLimit = AssetsStringLimit;
+	type WeightInfo = weights::pallet_maintenance_mode::WeightInfo<Self>;
 }
 
 construct_runtime! {
@@ -1974,5 +1975,6 @@ mod benches {
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
 		[pallet_dex, Dex]
+		[pallet_maintenance_mode, MaintenanceMode]
 	);
 }

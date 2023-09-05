@@ -8096,6 +8096,7 @@ dependencies = [
  "libsecp256k1 0.6.0",
  "log",
  "pallet-dex-rpc",
+ "pallet-maintenance-mode",
  "pallet-nft-rpc",
  "pallet-sft-rpc",
  "pallet-transaction-payment",

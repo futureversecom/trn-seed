@@ -25,11 +25,11 @@ hex-literal = "0.3.4"
 hex = "0.4"
 libsecp256k1 = { version = "0.6.0" }
 
-sc-cli = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
+sc-cli = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"], branch = "polkadot-v0.9.27" }
 sp-core = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-network = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-sc-executor = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
-sc-service = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"] , branch = "polkadot-v0.9.27" }
+sc-executor = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"], branch = "polkadot-v0.9.27" }
+sc-service = { git = "https://github.com/futureversecom/substrate", features = ["wasmtime"], branch = "polkadot-v0.9.27" }
 sc-telemetry = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sc-transaction-pool = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
@@ -53,13 +53,13 @@ sp-keyring = { git = "https://github.com/futureversecom/substrate", branch = "po
 sp-keystore = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 sp-transaction-storage-proof = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 frame-system = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
-pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate" , branch = "polkadot-v0.9.27" }
+pallet-transaction-payment = { git = "https://github.com/futureversecom/substrate", branch = "polkadot-v0.9.27" }
 
 # Frontier
 fc-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 fc-db = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 fc-mapping-sync = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
-fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN", features = [ "rpc_binary_search_estimate" ] }
+fc-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN", features = ["rpc_binary_search_estimate"] }
 fc-rpc-core = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 fp-consensus = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
 fp-rpc = { default-features = false, git = "https://github.com/futureversecom/frontier", branch = "polkadot-v0.9.27-TRN" }
@@ -85,6 +85,7 @@ ethy-gadget = { path = "../ethy-gadget" }
 ethy-gadget-rpc = { path = "../ethy-gadget/rpc" }
 seed-primitives = { path = "../primitives" }
 seed-runtime = { path = "../runtime" }
+pallet-maintenance-mode = { path = "../pallet/maintenance-mode" }
 pallet-dex-rpc = { path = "../pallet/dex/rpc" }
 pallet-nft-rpc = { path = "../pallet/nft/rpc" }
 pallet-sft-rpc = { path = "../pallet/sft/rpc" }

@@ -35,6 +35,12 @@ mod mock;
 #[cfg(test)]
 mod test;
 
+// #[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+mod weights;
+
+pub use weights::WeightInfo;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -59,7 +65,7 @@ pub mod pallet {
 		type StringLimit: Get<u32>;
 
 		// Interface to access weight values
-		// type WeightInfo: WeightInfo;
+		type WeightInfo: WeightInfo;
 	}
 
 	/// Determines whether maintenance mode is currently active
@@ -128,7 +134,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Enable maintenance mode which prevents all non sudo calls
-		#[pallet::weight(1000)]
+		#[pallet::weight(T::WeightInfo::enable_maintenance_mode())]
 		pub fn enable_maintenance_mode(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -139,7 +145,7 @@ pub mod pallet {
 		}
 
 		/// Blocks an account from transacting on the network
-		#[pallet::weight(1000)]
+		#[pallet::weight(T::WeightInfo::block_account())]
 		pub fn block_account(
 			origin: OriginFor<T>,
 			account: T::AccountId,
@@ -158,7 +164,7 @@ pub mod pallet {
 		}
 
 		/// Blocks an account from transacting on the network
-		#[pallet::weight(1000)]
+		#[pallet::weight(T::WeightInfo::block_evm_target())]
 		pub fn block_evm_target(
 			origin: OriginFor<T>,
 			target_address: H160,
@@ -177,7 +183,7 @@ pub mod pallet {
 		}
 
 		/// Blocks a call from being executed
-		#[pallet::weight(1000)]
+		#[pallet::weight(T::WeightInfo::block_call())]
 		pub fn block_call(
 			origin: OriginFor<T>,
 			pallet_name: BoundedVec<u8, T::StringLimit>,
@@ -213,7 +219,7 @@ pub mod pallet {
 		}
 
 		/// Blocks an entire pallets calls from being executed
-		#[pallet::weight(1000)]
+		#[pallet::weight(T::WeightInfo::block_pallet())]
 		pub fn block_pallet(
 			origin: OriginFor<T>,
 			pallet_name: BoundedVec<u8, T::StringLimit>,
