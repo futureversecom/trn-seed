@@ -15,7 +15,8 @@
 
 use super::*;
 use crate::mock::{
-	new_test_ext, AssetsExt, Origin, System, Test, XRPLBridge, XrpAssetId, XrpTxChallengePeriod,
+	new_test_ext, AssetsExt, RuntimeOrigin, System, Test, XRPLBridge, XrpAssetId,
+	XrpTxChallengePeriod,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
 use seed_primitives::{AccountId, Balance};
@@ -59,7 +60,7 @@ fn submit_transaction(
 		address: H160::from_slice(account_address),
 	};
 	assert_ok!(XRPLBridge::submit_transaction(
-		Origin::signed(relayer),
+		RuntimeOrigin::signed(relayer),
 		ledger_index,
 		XrplTxHash::from_slice(transaction_hash),
 		transaction,
@@ -74,9 +75,9 @@ fn submit_transaction_replay() {
 		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
 		let transaction =
 			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
-		assert_ok!(XRPLBridge::add_relayer(Origin::root(), relayer));
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 		assert_ok!(XRPLBridge::submit_transaction(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			1,
 			XrplTxHash::from_slice(transaction_hash),
 			transaction.clone(),
@@ -84,7 +85,7 @@ fn submit_transaction_replay() {
 		));
 		assert_noop!(
 			XRPLBridge::submit_transaction(
-				Origin::signed(relayer),
+				RuntimeOrigin::signed(relayer),
 				1,
 				XrplTxHash::from_slice(transaction_hash),
 				transaction,
@@ -130,7 +131,7 @@ fn adding_more_transactions_than_the_limit_returns_error() {
 		};
 
 		let err = XRPLBridge::submit_transaction(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			100,
 			XrplTxHash::from_slice(transaction_hash),
 			transaction,
@@ -158,7 +159,7 @@ fn process_transaction_challenge_works() {
 		XRPLBridge::initialize_relayer(&vec![relayer]);
 		submit_transaction(relayer, 1_000_000, transaction_hash, tx_address, 1);
 		assert_ok!(XRPLBridge::submit_challenge(
-			Origin::signed(challenger),
+			RuntimeOrigin::signed(challenger),
 			XrplTxHash::from_slice(transaction_hash),
 		));
 		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
@@ -179,7 +180,7 @@ fn set_door_tx_fee_works() {
 		// Only root can sign this tx, this should fail
 		let account = AccountId::from(H160::from_slice(b"6490B68F1116BFE87DDC"));
 		assert_noop!(
-			XRPLBridge::set_door_tx_fee(Origin::signed(account), 0),
+			XRPLBridge::set_door_tx_fee(RuntimeOrigin::signed(account), 0),
 			DispatchError::BadOrigin
 		);
 	});
@@ -199,7 +200,7 @@ fn withdraw_request_works() {
 
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			1_u32,
 			1_u32,
 			200_u32
@@ -207,24 +208,24 @@ fn withdraw_request_works() {
 
 		// door address unset
 		assert_noop!(
-			XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination),
+			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination),
 			Error::<Test>::DoorAddressNotSet
 		);
-		assert_ok!(XRPLBridge::set_door_address(Origin::root(), door));
+		assert_ok!(XRPLBridge::set_door_address(RuntimeOrigin::root(), door));
 
 		// Withdraw half of available xrp
-		assert_ok!(XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination));
+		assert_ok!(XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination));
 		let xrp_balance = xrp_balance_of(account_address);
 		assert_eq!(xrp_balance, 1000);
 
 		// Withdraw second half
-		assert_ok!(XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination));
+		assert_ok!(XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination));
 		let xrp_balance = xrp_balance_of(account_address);
 		assert_eq!(xrp_balance, 0);
 
 		// No xrp left to withdraw, should fail
 		assert_noop!(
-			XRPLBridge::withdraw_xrp(Origin::signed(account), 1, destination),
+			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1, destination),
 			ArithmeticError::Underflow
 		);
 	})
@@ -245,16 +246,19 @@ fn withdraw_request_works_with_door_fee() {
 
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			1_u32,
 			1_u32,
 			200_u32
 		));
 		// set door address
-		assert_ok!(XRPLBridge::set_door_address(Origin::root(), b"6490B68F1116BFE87DDC".into()));
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			b"6490B68F1116BFE87DDC".into()
+		));
 
 		assert_ok!(XRPLBridge::withdraw_xrp(
-			Origin::signed(account),
+			RuntimeOrigin::signed(account),
 			withdraw_amount.into(),
 			destination
 		));
@@ -267,7 +271,7 @@ fn withdraw_request_works_with_door_fee() {
 		let initial_xrp_balance = xrp_balance_of(account_address);
 		let withdraw_amount: u64 = 800;
 		assert_ok!(XRPLBridge::withdraw_xrp(
-			Origin::signed(account),
+			RuntimeOrigin::signed(account),
 			withdraw_amount.into(),
 			destination
 		));
@@ -279,7 +283,7 @@ fn withdraw_request_works_with_door_fee() {
 		// No funds left to withdraw
 		assert_eq!(xrp_balance, 0);
 		assert_noop!(
-			XRPLBridge::withdraw_xrp(Origin::signed(account), 1, destination),
+			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1, destination),
 			ArithmeticError::Underflow
 		);
 	})
@@ -291,12 +295,15 @@ fn withdraw_request_burn_fails() {
 		// For this test we will set the door_tx_fee to 0 so we can ensure the Underflow is due to
 		// the withdraw logic, not the door_tx_fee
 		assert_ok!(XRPLBridge::set_door_tx_fee(frame_system::RawOrigin::Root.into(), 0_u64));
-		assert_ok!(XRPLBridge::set_door_address(Origin::root(), b"6490B68F1116BFE87DDC".into()));
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			b"6490B68F1116BFE87DDC".into()
+		));
 
 		let account = create_account(b"6490B68F1116BFE87DDC");
 		let destination = XrplAccountId::from_slice(b"6490B68F1116BFE87DDD");
 		assert_noop!(
-			XRPLBridge::withdraw_xrp(Origin::signed(account), 1000, destination),
+			XRPLBridge::withdraw_xrp(RuntimeOrigin::signed(account), 1000, destination),
 			ArithmeticError::Underflow
 		);
 	})
@@ -306,7 +313,10 @@ fn withdraw_request_burn_fails() {
 fn set_door_address_success() {
 	new_test_ext().execute_with(|| {
 		let xprl_door_address = b"6490B68F1116BFE87DDD";
-		assert_ok!(XRPLBridge::set_door_address(Origin::root(), H160::from(xprl_door_address)));
+		assert_ok!(XRPLBridge::set_door_address(
+			RuntimeOrigin::root(),
+			H160::from(xprl_door_address)
+		));
 		assert_eq!(XRPLBridge::door_address(), Some(H160::from_slice(xprl_door_address)));
 	})
 }
@@ -318,7 +328,7 @@ fn set_door_address_fail() {
 		let caller = XrplAccountId::from_low_u64_be(1);
 		assert_noop!(
 			XRPLBridge::set_door_address(
-				Origin::signed(AccountId::from(caller)),
+				RuntimeOrigin::signed(AccountId::from(caller)),
 				H160::from(xprl_door_address)
 			),
 			BadOrigin
@@ -362,7 +372,7 @@ fn get_door_ticket_sequence_success_at_start() {
 	new_test_ext().execute_with(|| {
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			1_u32,
 			1_u32,
 			200_u32
@@ -387,7 +397,7 @@ fn get_door_ticket_sequence_success_at_start_if_initial_params_not_set() {
 
 		// set the params for next round
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			3_u32, // start ticket sequence next round
 			2_u32, // ticket sequence bucket size next round
 		));
@@ -418,7 +428,7 @@ fn get_door_ticket_sequence_success_over_next_round() {
 
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			1_u32,
 			1_u32,
 			2_u32
@@ -428,14 +438,14 @@ fn get_door_ticket_sequence_success_over_next_round() {
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(2));
 		// need to set the next ticket params on or before the last of current
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			3_u32, // start ticket sequence next round
 			2_u32, // ticket sequence bucket size next round
 		));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(3));
 		assert_eq!(XRPLBridge::get_door_ticket_sequence(), Ok(4));
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			10_u32, // start ticket sequence next round
 			10_u32, // ticket sequence bucket size next round
 		));
@@ -452,7 +462,7 @@ fn get_door_ticket_sequence_success_force_set_current_round() {
 
 		// set initial ticket sequence params
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			1_u32,
 			1_u32,
 			10_u32
@@ -462,7 +472,7 @@ fn get_door_ticket_sequence_success_force_set_current_round() {
 
 		// force set current values to (current=5 start=5, bucket_size=2)
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			5_u32,
 			5_u32,
 			3_u32
@@ -473,7 +483,7 @@ fn get_door_ticket_sequence_success_force_set_current_round() {
 
 		// need to set the next ticket params on or before the last of current
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			11_u32, // start ticket sequence next round
 			2_u32,  // ticket sequence bucket size next round
 		));
@@ -500,7 +510,7 @@ fn get_door_ticket_sequence_check_events_emitted() {
 
 		// set the params for next round
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			3_u32, // start ticket sequence next round
 			3_u32, // ticket sequence bucket size next round
 		));
@@ -528,7 +538,7 @@ fn get_door_ticket_sequence_check_events_emitted() {
 
 		// set the params for next round
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			10_u32, // start ticket sequence next round
 			5_u32,  // ticket sequence bucket size next round
 		));
@@ -546,7 +556,7 @@ fn set_ticket_sequence_current_allocation_success() {
 		// set initial ticket sequence params
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			1_u32,
 			1_u32,
 			200_u32
@@ -565,7 +575,7 @@ fn set_ticket_sequence_current_allocation_success() {
 		// Force set the current param set
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			10_u32,
 			1_u32,
 			200_u32
@@ -592,7 +602,7 @@ fn set_ticket_sequence_current_allocation_failure() {
 		// set initial ticket sequence params - success
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			1_u32,
 			1_u32,
 			200_u32
@@ -612,7 +622,7 @@ fn set_ticket_sequence_current_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
-				Origin::root(),
+				RuntimeOrigin::root(),
 				10_u32,
 				10_u32,
 				0_u32
@@ -627,7 +637,7 @@ fn set_ticket_sequence_current_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
-				Origin::root(),
+				RuntimeOrigin::root(),
 				2_u32,
 				1_u32,
 				200_u32
@@ -640,7 +650,7 @@ fn set_ticket_sequence_current_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
-				Origin::root(),
+				RuntimeOrigin::root(),
 				10_u32,
 				0_u32,
 				200_u32
@@ -655,7 +665,7 @@ fn set_ticket_sequence_current_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_current_allocation(
-				Origin::signed(relayer),
+				RuntimeOrigin::signed(relayer),
 				10_u32,
 				1_u32,
 				200_u32
@@ -666,7 +676,7 @@ fn set_ticket_sequence_current_allocation_failure() {
 		// Force set the same valid params set, with root
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			10_u32,
 			1_u32,
 			200_u32
@@ -687,7 +697,7 @@ fn set_ticket_sequence_next_allocation_success() {
 		// no initial ticket sequence params, start setting the params for next allocation
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			1_u32,
 			200_u32
 		));
@@ -709,7 +719,7 @@ fn set_ticket_sequence_next_allocation_success() {
 		// Force update the current param set
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			10_u32,
 			1_u32,
 			12_u32
@@ -727,7 +737,7 @@ fn set_ticket_sequence_next_allocation_success() {
 		// set the next params
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			15_u32,
 			10_u32
 		));
@@ -759,7 +769,7 @@ fn set_ticket_sequence_next_allocation_failure() {
 		// set initial ticket sequence params - success
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_current_allocation(
-			Origin::root(),
+			RuntimeOrigin::root(),
 			1_u32,
 			1_u32,
 			5_u32
@@ -778,7 +788,11 @@ fn set_ticket_sequence_next_allocation_failure() {
 		// set the next param set with ticket_bucket_size = 0
 		System::reset_events();
 		assert_noop!(
-			XRPLBridge::set_ticket_sequence_next_allocation(Origin::signed(relayer), 10_u32, 0_u32),
+			XRPLBridge::set_ticket_sequence_next_allocation(
+				RuntimeOrigin::signed(relayer),
+				10_u32,
+				0_u32
+			),
 			Error::<Test>::NextTicketSequenceParamsInvalid
 		);
 
@@ -789,7 +803,7 @@ fn set_ticket_sequence_next_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
-				Origin::signed(relayer),
+				RuntimeOrigin::signed(relayer),
 				1_u32,
 				200_u32
 			),
@@ -800,7 +814,7 @@ fn set_ticket_sequence_next_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
-				Origin::signed(relayer),
+				RuntimeOrigin::signed(relayer),
 				0_u32,
 				200_u32
 			),
@@ -814,7 +828,7 @@ fn set_ticket_sequence_next_allocation_failure() {
 		System::reset_events();
 		assert_noop!(
 			XRPLBridge::set_ticket_sequence_next_allocation(
-				Origin::signed(create_account(b"6490B68F1116BFE87DDE")),
+				RuntimeOrigin::signed(create_account(b"6490B68F1116BFE87DDE")),
 				10_u32,
 				200_u32
 			),
@@ -824,7 +838,7 @@ fn set_ticket_sequence_next_allocation_failure() {
 		// same valid params set, with relayer
 		System::reset_events();
 		assert_ok!(XRPLBridge::set_ticket_sequence_next_allocation(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			10_u32,
 			200_u32
 		));
@@ -860,7 +874,7 @@ fn process_xrp_tx_success() {
 			address: H160::from_slice(account_address),
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			1_000_000,
 			XrplTxHash::from_slice(transaction_hash),
 			payment_tx,
@@ -896,7 +910,7 @@ fn process_xrp_tx_not_supported_transaction() {
 			currency_id: H256::random(),
 		};
 		assert_ok!(XRPLBridge::submit_transaction(
-			Origin::signed(relayer),
+			RuntimeOrigin::signed(relayer),
 			1_000_000,
 			XrplTxHash::from_slice(transaction_hash),
 			currency_payment_tx,
@@ -929,7 +943,7 @@ fn process_xrp_tx_processing_failed() {
 				address: H160::from_slice(account_address),
 			};
 			assert_ok!(XRPLBridge::submit_transaction(
-				Origin::signed(relayer),
+				RuntimeOrigin::signed(relayer),
 				1_000_000,
 				XrplTxHash::from_slice(transaction_hash),
 				payment_tx,
@@ -958,7 +972,7 @@ fn process_xrp_tx_processing_failed() {
 				address: H160::from_slice(account_address),
 			};
 			assert_ok!(XRPLBridge::submit_transaction(
-				Origin::signed(relayer),
+				RuntimeOrigin::signed(relayer),
 				1_000_001,
 				XrplTxHash::from_slice(transaction_hash2),
 				payment_tx,

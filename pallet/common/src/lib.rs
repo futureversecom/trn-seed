@@ -178,7 +178,7 @@ pub type EventRouterResult = Result<Weight, (Weight, EventRouterError)>;
 /// 			A::Destination => A::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
 /// 			B::Destination => B::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
 /// 			C::Destination => C::on_event(source, data).map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err))),
-/// 			 _ => Err((0, EventRouterError::NoReceiver)),
+/// 			 _ => Err((Weight::zero(), EventRouterError::NoReceiver)),
 /// 		}
 /// 	}
 /// }
@@ -220,11 +220,11 @@ pub trait EthereumEventSubscriber {
 	fn verify_source(source: &H160) -> OnEventResult {
 		if source != &Self::SourceAddress::get() {
 			Err((
-				DbWeight::get().reads(1 as Weight),
+				DbWeight::get().reads(1u64),
 				DispatchError::Other("Invalid source address").into(),
 			))
 		} else {
-			Ok(DbWeight::get().reads(1 as Weight))
+			Ok(DbWeight::get().reads(1u64))
 		}
 	}
 

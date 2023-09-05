@@ -24,7 +24,9 @@ use seed_primitives::{
 	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
 	TokenCount, TokenId,
 };
-use sp_runtime::{traits::Zero, BoundedVec, DispatchError, DispatchResult, SaturatedConversion};
+use sp_runtime::{
+	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
+};
 
 impl<T: Config> Pallet<T> {
 	/// Returns the CollectionUuid unique across parachains
@@ -44,7 +46,7 @@ impl<T: Config> Pallet<T> {
 	/// Returns number of tokens owned by an account in a collection
 	/// Used by the ERC721 precompile for balance_of
 	pub fn token_balance_of(who: &T::AccountId, collection_id: CollectionUuid) -> TokenCount {
-		match Self::collection_info(collection_id) {
+		match <CollectionInfo<T>>::get(collection_id) {
 			Some(collection_info) => {
 				let serial_numbers: Vec<SerialNumber> = collection_info
 					.owned_tokens
@@ -61,7 +63,7 @@ impl<T: Config> Pallet<T> {
 	/// Construct & return the full metadata URI for a given `token_id` (analogous to ERC721
 	/// metadata token_uri)
 	pub fn token_uri(token_id: TokenId) -> Vec<u8> {
-		let collection_info = Self::collection_info(token_id.0);
+		let collection_info = <CollectionInfo<T>>::get(token_id.0);
 		if collection_info.is_none() {
 			// should not happen
 			log!(warn, "🃏 Unexpected empty metadata scheme: {:?}", token_id);
@@ -100,10 +102,11 @@ impl<T: Config> Pallet<T> {
 		marketplace_id: Option<MarketplaceId>,
 	) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
 		// Get collection royalties portion
-		let mut royalties: RoyaltiesSchedule<T::AccountId> = Self::collection_info(collection_id)
-			.ok_or(Error::<T>::NoCollectionFound)?
-			.royalties_schedule
-			.unwrap_or_default();
+		let mut royalties: RoyaltiesSchedule<T::AccountId> =
+			<CollectionInfo<T>>::get(collection_id)
+				.ok_or(Error::<T>::NoCollectionFound)?
+				.royalties_schedule
+				.unwrap_or_default();
 
 		// Get network fee portion
 		if let Some(tx_fee_pot_id) = FeeTo::<T>::get() {
@@ -187,14 +190,14 @@ impl<T: Config> Pallet<T> {
 		owner: &T::AccountId,
 		collection_id: CollectionUuid,
 		serial_numbers: Vec<SerialNumber>,
-	) -> Weight {
+	) -> Result<Weight, (Weight, DispatchError)> {
 		if serial_numbers.is_empty() {
-			return 0 as Weight
+			return Ok(Weight::zero())
 		};
 
-		let collection_info = match Self::collection_info(collection_id) {
+		let collection_info = match <CollectionInfo<T>>::get(collection_id) {
 			Some(info) => info,
-			None => return T::DbWeight::get().reads(1),
+			None => return Ok(T::DbWeight::get().reads(1)),
 		};
 
 		// remove duplicates from serial_numbers
@@ -226,21 +229,25 @@ impl<T: Config> Pallet<T> {
 			BoundedVec::try_from(serial_numbers_trimmed);
 		match serial_numbers {
 			Ok(serial_numbers) => {
-				let _ = Self::do_mint(collection_id, collection_info, &owner, &serial_numbers);
+				let mint = Self::do_mint(collection_id, collection_info, owner, &serial_numbers);
 
-				// throw event, listing all serial numbers minted from bridging
-				// SerialNumbers will never exceed the limit denoted by nft_peg::MaxTokensPerMint
-				// Which is set to 50 in the runtime, so this event is safe to list all bridged
-				// serial_numbers
-				Self::deposit_event(Event::<T>::BridgedMint {
-					collection_id,
-					serial_numbers: serial_numbers.clone(),
-					owner: owner.clone(),
-				});
+				if mint.is_ok() {
+					// throw event, listing all serial numbers minted from bridging
+					// SerialNumbers will never exceed the limit denoted by
+					// nft_peg::MaxTokensPerMint Which is set to 50 in the runtime, so this event is
+					// safe to list all bridged serial_numbers
+					Self::deposit_event(Event::<T>::BridgedMint {
+						collection_id,
+						serial_numbers,
+						owner: owner.clone(),
+					});
 
-				T::DbWeight::get().reads_writes(1, 1)
+					Ok(T::DbWeight::get().reads_writes(1, 1))
+				} else {
+					Err((T::DbWeight::get().reads(1), (Error::<T>::BlockedMint).into()))
+				}
 			},
-			_ => T::DbWeight::get().reads(1),
+			_ => Ok(T::DbWeight::get().reads(1)),
 		}
 	}
 
@@ -310,7 +317,12 @@ impl<T: Config> Pallet<T> {
 		new_collection_info.collection_issuance = new_collection_info
 			.collection_issuance
 			.checked_add(serial_numbers.len().saturated_into())
-			.ok_or(Error::<T>::TokenLimitExceeded)?;
+			.ok_or(ArithmeticError::Overflow)?;
+
+		ensure!(
+			new_collection_info.collection_issuance <= T::MaxTokensPerCollection::get(),
+			Error::<T>::TokenLimitExceeded
+		);
 
 		new_collection_info
 			.add_user_tokens(&token_owner, serial_numbers.clone())
@@ -331,7 +343,7 @@ impl<T: Config> Pallet<T> {
 		cursor: SerialNumber,
 		limit: u16,
 	) -> (SerialNumber, TokenCount, Vec<SerialNumber>) {
-		let collection_info = match Self::collection_info(collection_id) {
+		let collection_info = match <CollectionInfo<T>>::get(collection_id) {
 			Some(info) => info,
 			None => return (Default::default(), Default::default(), Default::default()),
 		};
@@ -518,7 +530,7 @@ impl<T: Config> Pallet<T> {
 		listing_id: ListingId,
 	) -> DispatchResult {
 		let collection_info =
-			Self::collection_info(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
+			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
 
 		// Check whether token is locked and that owner owns each token
 		for serial_number in serial_numbers.iter() {

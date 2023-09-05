@@ -16,7 +16,7 @@
 //! Some configurable implementations as associated type for the substrate runtime.
 
 use core::ops::Mul;
-use evm::backend::Basic;
+use evm::backend::Basic as Account;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
 	dispatch::{EncodeLike, GetCallMetadata, RawOrigin},
@@ -33,17 +33,6 @@ use frame_support::{
 use pallet_evm::{AddressMapping as AddressMappingT, EnsureAddressOrigin, OnChargeEVMTransaction};
 use pallet_futurepass::ProxyProvider;
 use pallet_transaction_payment::OnChargeTransaction;
-use precompile_utils::{
-	constants::{
-		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
-	},
-	keccak256, Address, ErcIdConversion,
-};
-use seed_pallet_common::{
-	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
-	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
-};
-use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
 use sp_core::{H160, U256};
 use sp_runtime::{
 	generic::{Era, SignedPayload},
@@ -55,8 +44,20 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
+use precompile_utils::{
+	constants::{
+		FEE_PROXY_ADDRESS, FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX, FUTUREPASS_REGISTRAR_PRECOMPILE,
+	},
+	keccak256, Address, ErcIdConversion,
+};
+use seed_pallet_common::{
+	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
+	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
+};
+use seed_primitives::{AccountId, AssetId, Balance, Index, Signature};
+
 use crate::{
-	BlockHashCount, Call, Runtime, Session, SessionsPerEra, SlashPotId, Staking, System,
+	BlockHashCount, Runtime, RuntimeCall, Session, SessionsPerEra, SlashPotId, Staking, System,
 	UncheckedExtrinsic, EVM,
 };
 use sp_runtime::traits::{Dispatchable, Saturating, UniqueSaturatedInto};
@@ -207,7 +208,6 @@ where
 
 /// Find block author formatted for ethereum compat
 pub struct EthereumFindAuthor<F>(PhantomData<F>);
-
 impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 	fn find_author<'a, I>(digests: I) -> Option<H160>
 	where
@@ -311,14 +311,14 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<Runtime>> for SlashImbalanc
 /// format of the chain.
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
 where
-	Call: From<LocalCall>,
+	RuntimeCall: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-		call: Call,
+		call: RuntimeCall,
 		public: <Signature as Verify>::Signer,
 		account: AccountId,
 		nonce: Index,
-	) -> Option<(Call, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
+	) -> Option<(RuntimeCall, <UncheckedExtrinsic as Extrinsic>::SignaturePayload)> {
 		let tip = 0;
 		// take the biggest period possible.
 		let period =
@@ -407,7 +407,7 @@ impl EthereumEventRouterT for EthereumEventRouter {
 			)
 			.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		} else {
-			Err((0, EventRouterError::NoReceiver))
+			Err((Weight::zero(), EventRouterError::NoReceiver))
 		}
 	}
 }
@@ -443,14 +443,14 @@ where
 	type Balance = Balance;
 
 	fn weight_to_fee(weight: &Weight) -> Balance {
-		M::get().mul(*weight as Balance)
+		M::get().mul(weight.ref_time() as Balance)
 	}
 }
 
 pub struct HandleTxValidation<E: From<InvalidEvmTransactionError>>(PhantomData<E>);
 
 impl<E: From<InvalidEvmTransactionError>> fp_evm::HandleTxValidation<E> for HandleTxValidation<E> {
-	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Basic) -> Result<(), E> {
+	fn with_balance_for(evm_config: &CheckEvmTransaction<E>, who: &Account) -> Result<(), E> {
 		let decoded_override_destination = H160::from_low_u64_be(FEE_PROXY_ADDRESS);
 		// If we are not overriding with a fee preference, proceed with calculating a fee
 		if evm_config.transaction.to != Some(decoded_override_destination) {
@@ -582,9 +582,9 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 	}
 
 	fn proxy_call(
-		caller: <Runtime as frame_system::Config>::Origin,
+		caller: <Runtime as frame_system::Config>::RuntimeOrigin,
 		futurepass: AccountId,
-		call: Call,
+		call: RuntimeCall,
 	) -> DispatchResult {
 		let call = pallet_proxy::Call::<Runtime>::proxy {
 			real: futurepass.into(),
@@ -592,7 +592,7 @@ impl pallet_futurepass::ProxyProvider<Runtime> for ProxyPalletProvider {
 			call: call.into(),
 		};
 
-		Call::dispatch(call.into(), caller).map_err(|e| e.error)?;
+		RuntimeCall::dispatch(call.into(), caller).map_err(|e| e.error)?;
 		Ok(())
 	}
 }
@@ -685,23 +685,23 @@ impl pallet_evm_precompiles_futurepass::EvmProxyCallFilter for ProxyType {
 }
 
 // substrate side proxy filter
-impl InstanceFilter<Call> for ProxyType {
-	fn filter(&self, c: &Call) -> bool {
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
 		// NOTE - any call for Proxy, Futurepass pallets can not be proxied except the Whitelist.
 		// this may seems extra restrictive than Proxy pallet. But if a delegate has permission to
 		// proxy a call of the proxy pallet, they should be able to call it directly in the pallet.
 		// This keeps the logic simple and avoids unnecessary loops
 		// TODO - implement the whitelist as a list that can be configured in the runtime.
-		if matches!(c, Call::Proxy(..) | Call::Futurepass(..)) {
-			// Whitelist currently includes
-			// pallet_futurepass::Call::register_delegate_with_signature,
+		if matches!(c, RuntimeCall::Proxy(..) | RuntimeCall::Futurepass(..)) {
+			// Whitelist currently includes pallet_futurepass::Call::register_delegate,
 			// pallet_futurepass::Call::unregister_delegate
 			// pallet_futurepass::Call::transfer_futurepass
 			if !matches!(
 				c,
-				Call::Futurepass(pallet_futurepass::Call::register_delegate_with_signature { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
-					Call::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
+				RuntimeCall::Futurepass(
+					pallet_futurepass::Call::register_delegate_with_signature { .. }
+				) | RuntimeCall::Futurepass(pallet_futurepass::Call::unregister_delegate { .. }) |
+					RuntimeCall::Futurepass(pallet_futurepass::Call::transfer_futurepass { .. })
 			) {
 				return false
 			}
@@ -739,12 +739,14 @@ where
 		+ pallet_dex::Config
 		+ pallet_evm::Config
 		+ pallet_assets_ext::Config
-		+ pallet_maintenance_mode::Config,
-	<T as frame_system::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
-	<T as frame_system::Config>::Call: IsSubType<pallet_fee_proxy::Call<T>>,
-	<T as frame_system::Config>::Call: GetCallMetadata,
-	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_evm::Call<T>>,
-	<T as pallet_fee_proxy::Config>::Call: IsSubType<pallet_futurepass::Call<T>>,
+		+ pallet_sudo::Config,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<frame_system::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_fee_proxy::Call<T>>,
+	<T as pallet_fee_proxy::Config>::RuntimeCall: IsSubType<pallet_evm::Call<T>>,
+	<T as pallet_fee_proxy::Config>::RuntimeCall: IsSubType<pallet_futurepass::Call<T>>,
+	<T as frame_system::Config>::RuntimeCall: IsSubType<pallet_sudo::Call<T>>,
+	<T as pallet_sudo::Config>::RuntimeCall: IsSubType<frame_system::Call<T>>,
 	<T as pallet_fee_proxy::Config>::OnChargeTransaction: OnChargeTransaction<T>,
 	<T as pallet_fee_proxy::Config>::ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>,
 	Balance: From<
@@ -757,8 +759,8 @@ where
 
 	fn withdraw_fee(
 		who: &T::AccountId,
-		call: &<T as frame_system::Config>::Call,
-		info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
+		call: &<T as frame_system::Config>::RuntimeCall,
+		info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		fee: Self::Balance,
 		tip: Self::Balance,
 	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
@@ -780,8 +782,8 @@ where
 
 	fn correct_and_deposit_fee(
 		who: &T::AccountId,
-		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::Call>,
-		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::Call>,
+		dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
 		corrected_fee: Self::Balance,
 		tip: Self::Balance,
 		already_withdrawn: Self::LiquidityInfo,

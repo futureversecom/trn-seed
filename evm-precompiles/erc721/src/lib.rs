@@ -123,13 +123,13 @@ where
 		+ frame_system::Config
 		+ pallet_token_approvals::Config
 		+ pallet_xls20::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>>
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_nft::Call<Runtime>>
 		+ From<pallet_xls20::Call<Runtime>>
 		+ From<pallet_token_approvals::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
 {
 	fn execute(&self, handle: &mut impl PrecompileHandle) -> Option<EvmResult<PrecompileOutput>> {
 		// Convert target `address` into it's runtime NFT Id
@@ -225,13 +225,13 @@ where
 		+ frame_system::Config
 		+ pallet_token_approvals::Config
 		+ pallet_xls20::Config,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_nft::Call<Runtime>>
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_nft::Call<Runtime>>
 		+ From<pallet_xls20::Call<Runtime>>
 		+ From<pallet_token_approvals::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	<<Runtime as frame_system::Config>::Call as Dispatchable>::Origin: OriginTrait,
+	<<Runtime as frame_system::Config>::RuntimeCall as Dispatchable>::RuntimeOrigin: OriginTrait,
 {
 	/// Returns the Root address which owns the given token
 	/// An error is returned if the token doesn't exist
@@ -612,7 +612,7 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+		match pallet_nft::CollectionInfo::<Runtime>::get(collection_id) {
 			Some(collection_info) => Ok(succeed(
 				EvmDataWriter::new()
 					.write::<Bytes>(collection_info.name.as_slice().into())
@@ -631,7 +631,7 @@ where
 
 		// Build output.
 		// TODO: Returns same as name
-		match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+		match pallet_nft::CollectionInfo::<Runtime>::get(collection_id) {
 			Some(collection_info) => Ok(succeed(
 				EvmDataWriter::new()
 					.write::<Bytes>(collection_info.name.as_slice().into())
@@ -676,7 +676,7 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+		match pallet_nft::CollectionInfo::<Runtime>::get(collection_id) {
 			Some(collection_info) => Ok(succeed(
 				EvmDataWriter::new()
 					.write::<U256>(collection_info.collection_issuance.into())
@@ -713,7 +713,7 @@ where
 		// emit transfer events - quantity times
 		// reference impl: https://github.com/chiru-labs/ERC721A/blob/1843596cf863557fcd3bf0105222a7c29690af5c/contracts/ERC721A.sol#L789
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-		let serial_number = match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+		let serial_number = match pallet_nft::CollectionInfo::<Runtime>::get(collection_id) {
 			Some(collection_info) => collection_info.next_serial_number,
 			None => return Err(revert("Collection does not exist").into()),
 		};
@@ -853,7 +853,7 @@ where
 	) -> EvmResult<PrecompileOutput> {
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 
-		match pallet_nft::Pallet::<Runtime>::collection_info(collection_id) {
+		match pallet_nft::CollectionInfo::<Runtime>::get(collection_id) {
 			Some(collection_info) => Ok(succeed(
 				EvmDataWriter::new()
 					.write(Address::from(Into::<H160>::into(collection_info.owner)))

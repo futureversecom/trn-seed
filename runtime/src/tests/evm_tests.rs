@@ -21,8 +21,8 @@ use crate::{
 	constants::ONE_XRP,
 	impls::scale_wei_to_6dp,
 	tests::{alice, bob, charlie, ExtBuilder},
-	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Futurepass, Origin, Runtime, System,
-	TxFeePot, XrpCurrency, EVM,
+	Assets, AssetsExt, Dex, Ethereum, FeeControl, FeeProxy, Futurepass, Runtime, RuntimeOrigin,
+	System, TxFeePot, XrpCurrency, EVM,
 };
 use ethabi::Token;
 
@@ -83,7 +83,7 @@ fn evm_transfer_transaction_uses_xrp() {
 fn evm_call_success_by_any_address() {
 	ExtBuilder::default().build().execute_with(|| {
 		let result = EVM::call(
-			Origin::signed(charlie()),
+			RuntimeOrigin::signed(charlie()),
 			charlie().into(),
 			bob().into(),
 			Vec::new(),
@@ -102,7 +102,7 @@ fn evm_call_success_by_any_address() {
 fn evm_call_fail_by_origin_mismatch() {
 	ExtBuilder::default().build().execute_with(|| {
 		let result = EVM::call(
-			Origin::signed(alice()),
+			RuntimeOrigin::signed(alice()),
 			charlie().into(),
 			bob().into(),
 			Vec::new(),
@@ -182,7 +182,7 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		]));
 		// Setup inner EVM.call call
 		let access_list: Vec<(H160, Vec<H256>)> = vec![];
-		let inner_call = crate::Call::EVM(pallet_evm::Call::call {
+		let inner_call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
 			source: new_account.into(),
 			target,
 			input,
@@ -195,11 +195,12 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		});
 
 		let max_payment: Balance = 10_000_000_000_000_000;
-		let call = crate::Call::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
-			payment_asset,
-			max_payment,
-			call: Box::new(inner_call.clone()),
-		});
+		let call =
+			crate::RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+				payment_asset,
+				max_payment,
+				call: Box::new(inner_call.clone()),
+			});
 
 		let dispatch_info = call.get_dispatch_info();
 
@@ -266,7 +267,7 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 			None,
 		));
 
-		assert_ok!(Futurepass::create(Origin::signed(alice()), new_account));
+		assert_ok!(Futurepass::create(RuntimeOrigin::signed(alice()), new_account));
 		let futurepass = pallet_futurepass::Holders::<Runtime>::get(&new_account).unwrap();
 
 		// mint payment assets into futurepass - for futurepass to pay for proxy_extrinsic
@@ -283,18 +284,18 @@ fn call_with_fee_preferences_futurepass_proxy_extrinsic() {
 		let futurepass_xrp_balance_before = XrpCurrency::balance(&futurepass);
 		let futurepass_token_balance_before = AssetsExt::balance(payment_asset, &futurepass);
 
-		let inner_call = crate::Call::System(frame_system::Call::remark {
+		let inner_call = crate::RuntimeCall::System(frame_system::Call::remark {
 			remark: b"Mischief Managed".to_vec(),
 		});
 		let proxy_extrinsic_call =
-			crate::Call::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
+			crate::RuntimeCall::Futurepass(pallet_futurepass::Call::proxy_extrinsic {
 				futurepass,
 				call: Box::new(inner_call),
 			});
 
 		let max_payment: Balance = 10_000_000_000_000_000;
 		let fee_proxy_call =
-			crate::Call::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
+			crate::RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
 				payment_asset,
 				max_payment,
 				call: Box::new(proxy_extrinsic_call.clone()),
@@ -437,22 +438,16 @@ fn evm_extra_gas_refunded_and_miner_paid() {
 		// check miner received the priority fee
 		assert_eq!(miner_balance_after - miner_balance_before, priority_fee);
 
+		println!("events: {:?}", System::events());
 		// check events
-		// Initial fee withdraw
+		// Note that after https://github.com/paritytech/frontier/pull/857, initial withdrawal has become
+		// based on (base fee + priority fee) rather than max fee per gas. Hence no refunds in this
+		// test scenario Initial fee withdraw
 		System::assert_has_event(
 			pallet_assets_ext::Event::<Runtime>::InternalWithdraw {
 				asset_id: XRP_ASSET_ID,
 				who: bob(),
-				amount: scale_wei_to_6dp(initial_withdraw_fee),
-			}
-			.into(),
-		);
-		// refund bob
-		System::assert_has_event(
-			pallet_assets_ext::Event::<Runtime>::InternalDeposit {
-				asset_id: XRP_ASSET_ID,
-				who: bob(),
-				amount: refund_fee,
+				amount: scale_wei_to_6dp(actual_fee),
 			}
 			.into(),
 		);

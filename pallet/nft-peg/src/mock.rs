@@ -39,6 +39,10 @@ type Block = frame_system::mocking::MockBlock<Test>;
 pub const XRP_ASSET_ID: AssetId = 1;
 pub const SPENDING_ASSET_ID: AssetId = XRP_ASSET_ID;
 
+pub fn create_account(seed: u64) -> AccountId {
+	AccountId::from(H160::from_low_u64_be(seed))
+}
+
 frame_support::construct_runtime!(
 	pub enum Test where
 		Block = Block,
@@ -64,17 +68,17 @@ impl frame_system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type BaseCallFilter = frame_support::traits::Everything;
-	type Origin = Origin;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Index = u64;
 	type BlockNumber = BlockNumber;
-	type Call = Call;
+	type RuntimeCall = RuntimeCall;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = AccountId;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type BlockHashCount = BlockHashCount;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DbWeight = ();
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -98,7 +102,7 @@ parameter_types! {
 pub type AssetsForceOrigin = EnsureRoot<AccountId>;
 
 impl pallet_assets::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetId;
 	type Currency = Balances;
@@ -121,7 +125,7 @@ parameter_types! {
 }
 
 impl pallet_assets_ext::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type ParachainId = TestParachainId;
 	type MaxHolds = MaxHolds;
 	type NativeAssetId = NativeAssetId;
@@ -136,7 +140,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Test {
 	type Balance = Balance;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ();
 	type AccountStore = System;
@@ -176,7 +180,7 @@ parameter_types! {
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
-	pub const MintLimit: u32 = 100;
+	pub const MintLimit: u32 = 1_000;
 	pub const StringLimit: u32 = 50;
 	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
 	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
@@ -185,7 +189,7 @@ parameter_types! {
 
 impl pallet_nft::Config for Test {
 	type DefaultListingDuration = DefaultListingDuration;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
@@ -211,7 +215,7 @@ parameter_types! {
 }
 
 impl pallet_nft_peg::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type PalletId = NftPegPalletId;
 	type DelayLength = DelayLength;
 	type MaxAddresses = MaxAddresses;
@@ -248,7 +252,7 @@ impl EthereumEventRouterT for MockEthereumEventRouter {
 			<pallet_nft_peg::Pallet<Test> as EthereumEventSubscriber>::process_event(source, data)
 				.map_err(|(w, err)| (w, EventRouterError::FailedProcessing(err)))
 		} else {
-			Err((0, EventRouterError::NoReceiver))
+			Err((Weight::zero(), EventRouterError::NoReceiver))
 		}
 	}
 }
@@ -258,7 +262,7 @@ pub(crate) fn has_event(event: crate::Event<Test>) -> bool {
 	System::events()
 		.into_iter()
 		.map(|r| r.event)
-		.find(|e| *e == Event::NftPeg(event.clone()))
+		.find(|e| *e == RuntimeEvent::NftPeg(event.clone()))
 		.is_some()
 }
 
