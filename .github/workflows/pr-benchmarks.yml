@@ -14,8 +14,7 @@ permissions:
 jobs:
   benchmark:
     if: ${{ github.event.issue.pull_request && contains(fromJson('["MEMBER", "OWNER"]'), github.event.comment.author_association) && startsWith(github.event.comment.body, '/bench') }}
-    runs-on: [seed-builder]
-      # runs-on: [ubuntu-latest]
+    runs-on: [benchmark]
     steps:
       - name: Get PR information
         id: pr_info
