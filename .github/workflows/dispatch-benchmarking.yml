@@ -21,7 +21,7 @@ on:
 
 jobs:
   benchmarks:
-    runs-on: [bench-runner]
+    runs-on: [benchmark]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
