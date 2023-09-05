@@ -94,7 +94,7 @@ pub use pallet_staking::{Forcing, StakerStatus};
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
-pub use seed_pallet_common::EVMFeeConfig;
+pub use seed_pallet_common::FeeConfig;
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
@@ -1135,7 +1135,7 @@ impl pallet_nft_peg::Config for Runtime {
 impl pallet_fee_control::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
-	type EVMFeeConfig = ();
+	type FeeConfig = ();
 }
 
 parameter_types! {

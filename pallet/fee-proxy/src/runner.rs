@@ -27,7 +27,7 @@ use precompile_utils::{
 	},
 	Address as EthAddress, ErcIdConversion,
 };
-use seed_pallet_common::{log, utils::scale_wei_to_correct_decimals, AccountProxy, EVMFeeConfig};
+use seed_pallet_common::{log, utils::scale_wei_to_correct_decimals, AccountProxy, FeeConfig};
 use seed_primitives::{AccountId, AssetId, Balance};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{

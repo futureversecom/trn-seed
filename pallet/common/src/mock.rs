@@ -240,7 +240,7 @@ macro_rules! impl_pallet_fee_control_config {
 		impl pallet_fee_control::Config for $test {
 			type RuntimeEvent = RuntimeEvent;
 			type WeightInfo = ();
-			type EVMFeeConfig = ();
+			type FeeConfig = ();
 		}
 	};
 }

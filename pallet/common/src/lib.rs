@@ -348,13 +348,13 @@ pub trait Xls20MintRequest {
 	) -> DispatchResult;
 }
 
-pub trait EVMFeeConfig {
+pub trait FeeConfig {
 	fn evm_base_fee_per_gas() -> U256;
 	fn weight_multiplier() -> Perbill;
 	fn length_multiplier() -> Balance;
 }
 
-impl EVMFeeConfig for () {
+impl FeeConfig for () {
 	fn evm_base_fee_per_gas() -> U256 {
 		// Floor network base fee per gas
 		// 0.000015 XRP per gas, 15000 GWEI

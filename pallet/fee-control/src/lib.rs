@@ -18,7 +18,7 @@ pub use pallet::*;
 
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::EVMFeeConfig;
+use seed_pallet_common::FeeConfig;
 use seed_primitives::Balance;
 use sp_core::U256;
 use sp_runtime::Perbill;
@@ -36,7 +36,7 @@ pub use weights::WeightInfo;
 mod benchmarking;
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub struct FeeConfig {
+pub struct FeeControlFeeConfig {
 	pub evm_base_fee_per_gas: U256,
 	pub weight_multiplier: Perbill,
 	pub length_multiplier: Balance,
@@ -60,20 +60,20 @@ pub mod pallet {
 		/// Weight Info
 		type WeightInfo: WeightInfo;
 		/// Default EVM fee values
-		type EVMFeeConfig: seed_pallet_common::EVMFeeConfig;
+		type FeeConfig: FeeConfig;
 	}
 
 	#[pallet::type_value]
-	pub fn DefaultFeeConfig<T: Config>() -> FeeConfig {
-		FeeConfig {
-			evm_base_fee_per_gas: T::EVMFeeConfig::evm_base_fee_per_gas(),
-			weight_multiplier: T::EVMFeeConfig::weight_multiplier(),
-			length_multiplier: T::EVMFeeConfig::length_multiplier(),
+	pub fn DefaultFeeConfig<T: Config>() -> FeeControlFeeConfig {
+		FeeControlFeeConfig {
+			evm_base_fee_per_gas: T::FeeConfig::evm_base_fee_per_gas(),
+			weight_multiplier: T::FeeConfig::weight_multiplier(),
+			length_multiplier: T::FeeConfig::length_multiplier(),
 		}
 	}
 
 	#[pallet::storage]
-	pub type Data<T> = StorageValue<_, FeeConfig, ValueQuery, DefaultFeeConfig<T>>;
+	pub type Data<T> = StorageValue<_, FeeControlFeeConfig, ValueQuery, DefaultFeeConfig<T>>;
 
 	#[pallet::event]
 	pub enum Event<T> {}
@@ -116,7 +116,7 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> seed_pallet_common::EVMFeeConfig for Pallet<T> {
+impl<T: Config> FeeConfig for Pallet<T> {
 	fn evm_base_fee_per_gas() -> U256 {
 		Self::base_fee_per_gas()
 	}
