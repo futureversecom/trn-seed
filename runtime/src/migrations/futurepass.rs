@@ -18,7 +18,7 @@ use frame_support::{
 pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
+	fn pre_upgrade() -> Result<crate::Vec<u8>, &'static str> {
 		Ok(v1::pre_upgrade()?)
 	}
 
@@ -44,7 +44,7 @@ impl OnRuntimeUpgrade for Upgrade {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade() -> Result<(), &'static str> {
+	fn post_upgrade(_state: crate::Vec<u8>) -> Result<(), &'static str> {
 		Ok(v1::post_upgrade()?)
 	}
 }
@@ -84,13 +84,13 @@ pub mod v1 {
 	/// - validate value is retrievable from the key via using twoxconcat hashing algorithm
 	/// - validate value is not retrievable from the key using black2_128concat hashing algorithm
 	#[cfg(feature = "try-runtime")]
-	pub fn pre_upgrade() -> Result<(), &'static str> {
+	pub fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		log::info!(target: "🛠️ Migration", "Futurepass: Upgrade to v1 Pre Upgrade.");
 
 		let onchain = Futurepass::on_chain_storage_version();
 		// return early if upgrade has already been done
 		if onchain == 1 {
-			return Ok(())
+			return Ok(crate::Vec::new())
 		}
 		assert_eq!(onchain, 0);
 
@@ -126,7 +126,7 @@ pub mod v1 {
 			return Err("🛑 Futurepass: Value found for the key using blake2_128concat hashing algorithm in pre-upgrade check");
 		}
 
-		Ok(())
+		Ok(crate::Vec::new())
 	}
 
 	pub fn migrate<T: pallet_futurepass::Config>() -> Weight
@@ -134,7 +134,7 @@ pub mod v1 {
 		<T as frame_system::Config>::AccountId:
 			From<sp_core::H160> + EncodeLike<seed_primitives::AccountId>,
 	{
-		let mut weight = 0;
+		let mut weight = Weight::from_ref_time(0u64);
 		for (key, value) in migration::storage_key_iter::<T::AccountId, T::AccountId, Twox64Concat>(
 			MODULE_PREFIX,
 			STORAGE_ITEM_NAME,
@@ -228,13 +228,13 @@ pub mod v1 {
 				sp_io::storage::set(&storage_location_twox64concat, &bob_futurepass.encode());
 
 				// validate pre-upgrade checks pass
-				Upgrade::pre_upgrade().unwrap();
+				let state_data = Upgrade::pre_upgrade().unwrap();
 
 				// perform runtime upgrade
 				Upgrade::on_runtime_upgrade();
 
 				// validate post-upgrade checks pass
-				Upgrade::post_upgrade().unwrap();
+				Upgrade::post_upgrade(state_data).unwrap();
 			});
 		}
 	}
