@@ -19,6 +19,7 @@
 
 use super::*;
 
+use crate::Pallet as MaintenanceMode;
 use frame_benchmarking::{account as bench_account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use sp_runtime::BoundedVec;
