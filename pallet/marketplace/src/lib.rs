@@ -23,10 +23,9 @@
 //! Also allows for offers on these tokens, which can be accepted by the owner of the token.
 
 use frame_support::{
-	dispatch::Dispatchable,
+	dispatch::{GetDispatchInfo, Dispatchable, PostDispatchInfo},
 	traits::fungibles::{Mutate, Transfer},
 	transactional,
-	weights::{GetDispatchInfo, PostDispatchInfo},
 	PalletId,
 };
 pub use pallet::*;
@@ -88,14 +87,14 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The overarching call type.
-		type Call: Parameter
+		type RuntimeCall: Parameter
 			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo;
 		/// Default auction / sale length in blocks
 		#[pallet::constant]
 		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The default account which collects network fees from marketplace sales
 		#[pallet::constant]
 		type DefaultFeeTo: Get<Option<PalletId>>;
@@ -329,7 +328,7 @@ pub mod pallet {
 			// https://github.com/cennznet/cennznet/issues/444
 			let removed_count = Self::close_listings_at(now);
 			// 'buy' weight is comparable to successful closure of an auction
-			<T as Config>::WeightInfo::buy() * removed_count as Weight
+			<T as Config>::WeightInfo::buy().mul(removed_count as u64)
 		}
 	}
 

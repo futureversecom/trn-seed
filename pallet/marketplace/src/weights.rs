@@ -51,14 +51,15 @@ pub trait WeightInfo {
     fn set_fee_to() -> Weight;
 }
 
-// For backwards compatibility and tests
-impl WeightInfo for () {
+/// Weights for pallet_assets_ext using the Substrate node and recommended hardware.
+pub struct SubstrateWeight<T>(PhantomData<T>);
+impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     // Storage: Marketplace NextMarketplaceId (r:1 w:1)
     // Storage: Marketplace RegisteredMarketplaces (r:0 w:1)
     fn register_marketplace() -> Weight {
-        (48_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(1 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+        Weight::from_ref_time(48_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(1 as u64))
+            .saturating_add(T::DbWeight::get().writes(2 as u64))
     }
     // Storage: Nft CollectionInfo (r:1 w:0)
     // Storage: Marketplace NextListingId (r:1 w:1)
@@ -67,9 +68,9 @@ impl WeightInfo for () {
     // Storage: Marketplace ListingEndSchedule (r:0 w:1)
     // Storage: Marketplace OpenCollectionListings (r:0 w:1)
     fn sell() -> Weight {
-        (85_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(85_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(3 as u64))
+            .saturating_add(T::DbWeight::get().writes(5 as u64))
     }
     // Storage: Marketplace Listings (r:1 w:1)
     // Storage: Marketplace FeeTo (r:1 w:0)
@@ -81,9 +82,9 @@ impl WeightInfo for () {
     // Storage: Marketplace ListingEndSchedule (r:0 w:1)
     // Storage: Marketplace OpenCollectionListings (r:0 w:1)
     fn buy() -> Weight {
-        (148_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(6 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(9 as Weight))
+        Weight::from_ref_time(148_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(6 as u64))
+            .saturating_add(T::DbWeight::get().writes(9 as u64))
     }
     // Storage: Nft CollectionInfo (r:1 w:0)
     // Storage: Marketplace NextListingId (r:1 w:1)
@@ -92,9 +93,9 @@ impl WeightInfo for () {
     // Storage: Marketplace ListingEndSchedule (r:0 w:1)
     // Storage: Marketplace OpenCollectionListings (r:0 w:1)
     fn auction() -> Weight {
-        (93_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(5 as Weight))
+        Weight::from_ref_time(93_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(3 as u64))
+            .saturating_add(T::DbWeight::get().writes(5 as u64))
     }
     // Storage: Marketplace Listings (r:1 w:1)
     // Storage: Marketplace ListingWinningBid (r:1 w:1)
@@ -104,24 +105,24 @@ impl WeightInfo for () {
     // Storage: System Account (r:2 w:2)
     // Storage: Marketplace ListingEndSchedule (r:0 w:2)
     fn bid() -> Weight {
-        (183_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(8 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(10 as Weight))
+        Weight::from_ref_time(183_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(8 as u64))
+            .saturating_add(T::DbWeight::get().writes(10 as u64))
     }
     // Storage: Marketplace Listings (r:1 w:1)
     // Storage: Nft TokenLocks (r:0 w:1)
     // Storage: Marketplace ListingEndSchedule (r:0 w:1)
     // Storage: Marketplace OpenCollectionListings (r:0 w:1)
     fn cancel_sale() -> Weight {
-        (57_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(1 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(4 as Weight))
+        Weight::from_ref_time(57_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(1 as u64))
+            .saturating_add(T::DbWeight::get().writes(4 as u64))
     }
     // Storage: Marketplace Listings (r:1 w:1)
     fn update_fixed_price() -> Weight {
-        (48_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(1 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(48_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(1 as u64))
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
     }
     // Storage: Nft CollectionInfo (r:1 w:0)
     // Storage: Marketplace NextOfferId (r:1 w:1)
@@ -133,9 +134,9 @@ impl WeightInfo for () {
     // Storage: Marketplace TokenOffers (r:1 w:1)
     // Storage: Marketplace Offers (r:0 w:1)
     fn make_simple_offer() -> Weight {
-        (172_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(9 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(8 as Weight))
+        Weight::from_ref_time(172_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(9 as u64))
+            .saturating_add(T::DbWeight::get().writes(8 as u64))
     }
     // Storage: Marketplace Offers (r:1 w:1)
     // Storage: AssetsExt Holds (r:1 w:1)
@@ -144,9 +145,9 @@ impl WeightInfo for () {
     // Storage: System Account (r:1 w:1)
     // Storage: Marketplace TokenOffers (r:1 w:1)
     fn cancel_offer() -> Weight {
-        (132_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(7 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(7 as Weight))
+        Weight::from_ref_time(132_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(7 as u64))
+            .saturating_add(T::DbWeight::get().writes(7 as u64))
     }
     // Storage: Marketplace Offers (r:1 w:1)
     // Storage: Nft TokenLocks (r:1 w:0)
@@ -158,13 +159,131 @@ impl WeightInfo for () {
     // Storage: Marketplace TokenOffers (r:1 w:1)
     // Storage: TokenApprovals ERC721Approvals (r:0 w:1)
     fn accept_offer() -> Weight {
-        (185_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(9 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(9 as Weight))
+        Weight::from_ref_time(185_000_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(9 as u64))
+            .saturating_add(T::DbWeight::get().writes(9 as u64))
     }
     // Storage: Marketplace FeeTo (r:0 w:1)
     fn set_fee_to() -> Weight {
-        (32_000_000 as Weight)
-            .saturating_add(RocksDbWeight::get().writes(1 as Weight))
+        Weight::from_ref_time(32_000_000 as u64)
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+}
+
+// For backwards compatibility and tests
+impl WeightInfo for () {
+    // Storage: Marketplace NextMarketplaceId (r:1 w:1)
+    // Storage: Marketplace RegisteredMarketplaces (r:0 w:1)
+    fn register_marketplace() -> Weight {
+        Weight::from_ref_time(48_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+    }
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: Marketplace NextListingId (r:1 w:1)
+    // Storage: Nft TokenLocks (r:1 w:1)
+    // Storage: Marketplace Listings (r:0 w:1)
+    // Storage: Marketplace ListingEndSchedule (r:0 w:1)
+    // Storage: Marketplace OpenCollectionListings (r:0 w:1)
+    fn sell() -> Weight {
+        Weight::from_ref_time(85_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(3 as u64))
+            .saturating_add(RocksDbWeight::get().writes(5 as u64))
+    }
+    // Storage: Marketplace Listings (r:1 w:1)
+    // Storage: Marketplace FeeTo (r:1 w:0)
+    // Storage: Assets Asset (r:1 w:1)
+    // Storage: Assets Account (r:2 w:2)
+    // Storage: Nft CollectionInfo (r:1 w:1)
+    // Storage: TokenApprovals ERC721Approvals (r:0 w:1)
+    // Storage: Nft TokenLocks (r:0 w:1)
+    // Storage: Marketplace ListingEndSchedule (r:0 w:1)
+    // Storage: Marketplace OpenCollectionListings (r:0 w:1)
+    fn buy() -> Weight {
+        Weight::from_ref_time(148_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(6 as u64))
+            .saturating_add(RocksDbWeight::get().writes(9 as u64))
+    }
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: Marketplace NextListingId (r:1 w:1)
+    // Storage: Nft TokenLocks (r:1 w:1)
+    // Storage: Marketplace Listings (r:0 w:1)
+    // Storage: Marketplace ListingEndSchedule (r:0 w:1)
+    // Storage: Marketplace OpenCollectionListings (r:0 w:1)
+    fn auction() -> Weight {
+        Weight::from_ref_time(93_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(3 as u64))
+            .saturating_add(RocksDbWeight::get().writes(5 as u64))
+    }
+    // Storage: Marketplace Listings (r:1 w:1)
+    // Storage: Marketplace ListingWinningBid (r:1 w:1)
+    // Storage: AssetsExt Holds (r:1 w:1)
+    // Storage: Assets Asset (r:1 w:1)
+    // Storage: Assets Account (r:2 w:2)
+    // Storage: System Account (r:2 w:2)
+    // Storage: Marketplace ListingEndSchedule (r:0 w:2)
+    fn bid() -> Weight {
+        Weight::from_ref_time(183_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(8 as u64))
+            .saturating_add(RocksDbWeight::get().writes(10 as u64))
+    }
+    // Storage: Marketplace Listings (r:1 w:1)
+    // Storage: Nft TokenLocks (r:0 w:1)
+    // Storage: Marketplace ListingEndSchedule (r:0 w:1)
+    // Storage: Marketplace OpenCollectionListings (r:0 w:1)
+    fn cancel_sale() -> Weight {
+        Weight::from_ref_time(57_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(4 as u64))
+    }
+    // Storage: Marketplace Listings (r:1 w:1)
+    fn update_fixed_price() -> Weight {
+        Weight::from_ref_time(48_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: Marketplace NextOfferId (r:1 w:1)
+    // Storage: Nft TokenLocks (r:1 w:0)
+    // Storage: AssetsExt Holds (r:1 w:1)
+    // Storage: Assets Asset (r:1 w:1)
+    // Storage: Assets Account (r:2 w:2)
+    // Storage: System Account (r:1 w:1)
+    // Storage: Marketplace TokenOffers (r:1 w:1)
+    // Storage: Marketplace Offers (r:0 w:1)
+    fn make_simple_offer() -> Weight {
+        Weight::from_ref_time(172_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(9 as u64))
+            .saturating_add(RocksDbWeight::get().writes(8 as u64))
+    }
+    // Storage: Marketplace Offers (r:1 w:1)
+    // Storage: AssetsExt Holds (r:1 w:1)
+    // Storage: Assets Asset (r:1 w:1)
+    // Storage: Assets Account (r:2 w:2)
+    // Storage: System Account (r:1 w:1)
+    // Storage: Marketplace TokenOffers (r:1 w:1)
+    fn cancel_offer() -> Weight {
+        Weight::from_ref_time(132_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(7 as u64))
+            .saturating_add(RocksDbWeight::get().writes(7 as u64))
+    }
+    // Storage: Marketplace Offers (r:1 w:1)
+    // Storage: Nft TokenLocks (r:1 w:0)
+    // Storage: Nft CollectionInfo (r:1 w:1)
+    // Storage: AssetsExt Holds (r:1 w:1)
+    // Storage: Assets Asset (r:1 w:1)
+    // Storage: Assets Account (r:2 w:2)
+    // Storage: System Account (r:1 w:1)
+    // Storage: Marketplace TokenOffers (r:1 w:1)
+    // Storage: TokenApprovals ERC721Approvals (r:0 w:1)
+    fn accept_offer() -> Weight {
+        Weight::from_ref_time(185_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(9 as u64))
+            .saturating_add(RocksDbWeight::get().writes(9 as u64))
+    }
+    // Storage: Marketplace FeeTo (r:0 w:1)
+    fn set_fee_to() -> Weight {
+        Weight::from_ref_time(32_000_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
     }
 }

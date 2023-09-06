@@ -39,7 +39,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from_ref_time(0u32);
+		let mut weight = Weight::from_ref_time(0_u64);
 		weight += nft::Upgrade::on_runtime_upgrade();
 
 		weight

@@ -25,7 +25,7 @@ use frame_support::{
 	traits::{fungibles::Inspect, OnInitialize},
 };
 use frame_system::RawOrigin;
-use pallet_nft::CrossChainCompatibility;
+use pallet_nft::{CrossChainCompatibility, TokenLocks};
 use seed_primitives::{AccountId, MetadataScheme, RoyaltiesSchedule, TokenCount, TokenId};
 use sp_runtime::{
 	traits::{AccountIdConversion, Zero},
@@ -180,7 +180,7 @@ fn sell() {
 
 			for serial_number in serial_numbers.iter() {
 				assert_eq!(
-					Nft::token_locks((collection_id, serial_number)).unwrap(),
+					TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
 					TokenLockReason::Listed(listing_id)
 				);
 			}
@@ -304,7 +304,7 @@ fn sell_multiple() {
 			seller: token_owner,
 		}));
 
-		assert_eq!(Nft::token_locks(token_id).unwrap(), TokenLockReason::Listed(listing_id));
+		assert_eq!(TokenLocks::<Test>::get(token_id).unwrap(), TokenLockReason::Listed(listing_id));
 		assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
 
 		let fee_pot_account: AccountId = FeePotId::get().into_account_truncating();
@@ -1018,7 +1018,7 @@ fn buy() {
 			.is_none());
 
 			// ownership changed
-			assert!(Nft::token_locks(&token_id).is_none());
+			assert!(TokenLocks::<Test>::get(&token_id).is_none());
 			assert!(Marketplace::open_collection_listings(collection_id, listing_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &buyer, 0, 1000),
@@ -1347,7 +1347,7 @@ fn auction_bundle() {
 		assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
 		for serial_number in serial_numbers.iter() {
 			assert_eq!(
-				Nft::token_locks((collection_id, serial_number)).unwrap(),
+				TokenLocks::<Test>::get((collection_id, serial_number)).unwrap(),
 				TokenLockReason::Listed(listing_id)
 			);
 		}
@@ -1414,7 +1414,7 @@ fn auction() {
 				Some(1),
 				None,
 			));
-			assert_eq!(Nft::token_locks(&token_id).unwrap(), TokenLockReason::Listed(listing_id));
+			assert_eq!(TokenLocks::<Test>::get(&token_id).unwrap(), TokenLockReason::Listed(listing_id));
 			assert_eq!(Marketplace::next_listing_id(), listing_id + 1);
 			assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
 
@@ -1471,7 +1471,7 @@ fn auction() {
 			);
 
 			// ownership changed
-			assert!(Nft::token_locks(&token_id).is_none());
+			assert!(TokenLocks::<Test>::get(&token_id).is_none());
 			assert_eq!(
 				Nft::owned_tokens(collection_id, &bidder_2, 0, 1000),
 				(0_u32, 1, vec![token_id.1])
@@ -1981,7 +1981,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 			));
 			// Sanity check
 			assert!(Listings::<Test>::get(listing_id).is_some());
-			assert!(Nft::token_locks(token_id).is_some());
+			assert!(TokenLocks::<Test>::get(token_id).is_some());
 
 			let (offer_id, _) = make_new_simple_offer(offer_amount, token_id, buyer, None);
 			// Check funds have been locked
@@ -1998,7 +1998,7 @@ fn make_simple_offer_on_fixed_price_listing() {
 
 			// Check that fixed price listing and locks are now removed
 			assert!(Listings::<Test>::get(listing_id).is_none());
-			assert!(Nft::token_locks(token_id).is_none());
+			assert!(TokenLocks::<Test>::get(token_id).is_none());
 			// Check offer storage has been removed
 			assert!(Marketplace::token_offers(token_id).is_none());
 			assert!(Marketplace::offers(offer_id).is_none());

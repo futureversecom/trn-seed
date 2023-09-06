@@ -16,9 +16,8 @@
 use crate as pallet_marketplace;
 use frame_support::{
 	dispatch::DispatchResult,
-	pallet_prelude::Weight,
 	parameter_types,
-	traits::{FindAuthor, GenesisBuild},
+	traits::GenesisBuild,
 	PalletId,
 };
 use frame_system::EnsureRoot;
@@ -73,7 +72,7 @@ parameter_types! {
 }
 
 impl crate::Config for Test {
-	type Call = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type DefaultListingDuration = DefaultListingDuration;
 	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeeTo = DefaultFeeTo;

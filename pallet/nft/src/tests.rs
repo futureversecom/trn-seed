@@ -16,11 +16,10 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, Event as MockEvent, MaxTokensPerCollection, Nft, System, Test,
+		create_account, has_event, RuntimeEvent as MockEvent, MaxTokensPerCollection, Nft, System, Test,
 		TestExt,
 	},
-	CollectionInfo, Event as NftEvent, ListingEndSchedule, ListingWinningBid, NextListingId,
-	NextMarketplaceId, NextOfferId, Offers, OpenCollectionListings, TokenLocks, TokenOffers,
+	CollectionInfo, Event as NftEvent, TokenLocks
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -1027,7 +1026,7 @@ fn mints_multiple_specified_tokens_by_id() {
 		));
 
 		// Do mint with Ethereum as origin chain
-		Nft::mint_bridged_token(&token_owner, collection_id, token_ids.clone());
+		let _ = Nft::mint_bridged_token(&token_owner, collection_id, token_ids.clone());
 
 		// Event is thrown
 		assert!(has_event(Event::<Test>::BridgedMint {
@@ -1069,12 +1068,12 @@ fn mint_duplicate_token_id_should_fail_silently() {
 		));
 
 		// Do mint with Ethereum as origin chain
-		Nft::mint_bridged_token(&token_owner, collection_id, token_ids.clone());
+		let _ = Nft::mint_bridged_token(&token_owner, collection_id, token_ids.clone());
 		// Minting to another account_id should still succeed, but the token balance of this account
 		// will be 0. This is because the tokens are already minted and each token will be silently
 		// skipped
 		let other_owner = create_account(4);
-		Nft::mint_bridged_token(&other_owner, collection_id, token_ids.clone());
+		let _ = Nft::mint_bridged_token(&other_owner, collection_id, token_ids.clone());
 
 		// Ownership checks
 		// We expect the token balance to be 5 as that is the number of unique token_ids in the vec
@@ -1092,7 +1091,7 @@ fn mint_duplicate_token_id_should_fail_silently() {
 
 		// Now try with 3 more unique tokens
 		let token_ids: Vec<SerialNumber> = vec![0, 2, 3000, 40005, 5, 1234, 9, 1000];
-		Nft::mint_bridged_token(&other_owner, collection_id, token_ids.clone());
+		let _ = Nft::mint_bridged_token(&other_owner, collection_id, token_ids.clone());
 
 		// Collection issuance should now be 8 to indicate the 3 additional unique tokens
 		assert_eq!(CollectionInfo::<Test>::get(collection_id).unwrap().collection_issuance, 8_u32);
