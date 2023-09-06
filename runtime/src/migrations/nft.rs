@@ -18,9 +18,9 @@ use frame_support::{
 pub struct Upgrade;
 impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
+	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		v6::pre_upgrade()?;
-		Ok(())
+		Ok(Vec::new())
 	}
 
 	fn on_runtime_upgrade() -> Weight {
@@ -46,7 +46,7 @@ impl OnRuntimeUpgrade for Upgrade {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade() -> Result<(), &'static str> {
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
 		v6::post_upgrade()?;
 		Ok(())
 	}

@@ -32,8 +32,7 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-		let data = Vec::new();
-		nft::Upgrade::pre_upgrade()?;
+		let data = nft::Upgrade::pre_upgrade()?;
 
 		Ok(data)
 	}
@@ -46,8 +45,8 @@ impl OnRuntimeUpgrade for AllMigrations {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
-		nft::Upgrade::post_upgrade()?;
+	fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
+		nft::Upgrade::post_upgrade(state)?;
 
 		Ok(())
 	}
