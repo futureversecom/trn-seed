@@ -141,7 +141,8 @@ pub mod v1 {
 		)
 		.drain()
 		{
-			// log::info!(target: "🛠️ Migration", "Futurepass: Migrating account {key:?} with value {value:?} from twox64concat to blake2_128concat");
+			// log::info!(target: "🛠️ Migration", "Futurepass: Migrating account {key:?} with value
+			// {value:?} from twox64concat to blake2_128concat");
 			Holders::<Runtime>::insert(key, value);
 
 			// 1 read for reading the key/value from the drain
@@ -216,7 +217,9 @@ pub mod v1 {
 		#[test]
 		fn migration_test() {
 			new_test_ext().execute_with(|| {
-				let bob = seed_primitives::AccountId20::from(hex_literal::hex!("25451A4de12dcCc2D166922fA938E900fCc4ED24"));
+				let bob = seed_primitives::AccountId20::from(hex_literal::hex!(
+					"25451A4de12dcCc2D166922fA938E900fCc4ED24"
+				));
 				let bob_futurepass = seed_primitives::AccountId20([255; 20]);
 
 				// simulate the storage key for the bob account using legacy hashing algorithm
