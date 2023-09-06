@@ -797,6 +797,10 @@ impl pallet_staking::Config for Runtime {
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type BenchmarkingConfig = staking::StakingBenchmarkConfig;
 	type OnStakerSlash = ();
+
+	// Longer payout period encompassing eras
+	type PayoutPeriodLength = PayoutPeriodLength;
+
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1165,13 +1169,11 @@ parameter_types! {
 	pub const PayoutPeriodLength: u32 = 90;
 }
 
-impl pallet_staking_payouts::Config for Runtime {
-	type Event = Event;
-	type Currency = DualStakingCurrency;
-	type CurrencyBalance = Balance;
-	type PayoutPeriodLength = PayoutPeriodLength;
-	type WeightInfo = ();
-}
+// impl pallet_staking_payouts::Config for Runtime {
+// 	type Event = Event;
+
+// 	type WeightInfo = ();
+// }
 
 construct_runtime! {
 	pub enum Runtime where
@@ -1210,7 +1212,7 @@ construct_runtime! {
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
 		Marketplace: pallet_marketplace::{Pallet, Call} = 44,
-		StakingPayouts: pallet_staking_payouts::{Pallet, Event} = 45,
+		// StakingPayouts: pallet_staking_payouts::{Pallet, Event} = 45,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
