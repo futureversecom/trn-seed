@@ -1199,8 +1199,8 @@ impl pallet_futurepass::Config for Runtime {
 }
 
 impl pallet_maintenance_mode::Config for Runtime {
-	type Call = Call;
-	type Event = Event;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
 	type StringLimit = AssetsStringLimit;
 	type WeightInfo = weights::pallet_maintenance_mode::WeightInfo<Self>;
 }
@@ -1243,7 +1243,7 @@ construct_runtime! {
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
 		Marketplace: pallet_marketplace::{Pallet, Call} = 44,
-		MaintenanceMode: pallet_maintenance_mode::{Pallet, Call, Storage, Event<T>} = 45,
+		MaintenanceMode: pallet_maintenance_mode::{Pallet, Call, Storage, Event<T>} = 46,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,

@@ -51,8 +51,8 @@ impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 
 impl pallet_maintenance_mode::Config for Test {
-	type Call = Call;
-	type Event = Event;
+	type RuntimeCall = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
 	type StringLimit = AssetsStringLimit;
 	type WeightInfo = ();
 }

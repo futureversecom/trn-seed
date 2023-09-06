@@ -25,28 +25,23 @@ mod multiplier;
 mod staker_payouts;
 
 use frame_support::{
-	dispatch::GetDispatchInfo,
 	traits::{fungibles::Inspect as _, GenesisBuild, Get},
 };
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
-	traits::ReadRuntimeVersionExt,
 	Encode, Pair,
 };
 use sp_runtime::{
 	generic::Era,
-	traits::{Dispatchable, SignedExtension},
 	Perbill,
 };
 
 use crate::{
 	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Runtime,
 	RuntimeOrigin, SessionKeys, SignedExtra, StakerStatus, System, Timestamp, TransactionAction,
-	UncheckedExtrinsic, Weight, H256, U256,
+	UncheckedExtrinsic, H256, U256,
 };
-use frame_system::RawOrigin;
-use pallet_transaction_payment::ChargeTransactionPayment;
 use seed_client::chain_spec::{authority_keys_from_seed, get_account_id_from_seed, AuthorityKeys};
 use seed_primitives::{AccountId, AccountId20, Balance, Index};
 

@@ -20,9 +20,8 @@
 pub use pallet::*;
 
 use frame_support::{
-	dispatch::{CallMetadata, Dispatchable, GetCallMetadata},
+	dispatch::{CallMetadata, Dispatchable, GetCallMetadata, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
-	weights::{GetDispatchInfo, PostDispatchInfo},
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{MaintenanceCheck, MaintenanceCheckEVM};
@@ -52,13 +51,13 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching call type.
-		type Call: Parameter
-			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>;
 
-		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		/// The overarching event type
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The maximum length of a pallet or call name, stored on-chain
 		#[pallet::constant]
@@ -262,9 +261,9 @@ impl<T: Config> MaintenanceChecker<T> {
 
 impl<T: frame_system::Config + Config> MaintenanceCheck<T> for MaintenanceChecker<T>
 where
-	<T as frame_system::Config>::Call: GetCallMetadata,
+	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
-	fn call_paused(call: &<T as frame_system::Config>::Call) -> bool {
+	fn call_paused(call: &<T as frame_system::Config>::RuntimeCall) -> bool {
 		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
 
 		// Check whether this is a sudo call, we want to enable all sudo calls
@@ -314,11 +313,11 @@ impl<T: frame_system::Config + Config> MaintenanceCheckEVM<T> for MaintenanceChe
 
 impl<T: Config + Send + Sync + Debug> SignedExtension for MaintenanceChecker<T>
 where
-	<T as Config>::Call: GetCallMetadata,
+	<T as Config>::RuntimeCall: GetCallMetadata,
 {
 	const IDENTIFIER: &'static str = "CheckMaintenanceMode";
 	type AccountId = T::AccountId;
-	type Call = <T as Config>::Call;
+	type Call = <T as Config>::RuntimeCall;
 	type AdditionalSigned = ();
 	type Pre = ();
 

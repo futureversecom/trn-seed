@@ -15,7 +15,8 @@
 
 use crate::Config;
 use ethabi::{ParamType, Token};
-use frame_support::{dispatch::GetCallMetadata, ensure, traits::fungibles::InspectMetadata};
+use frame_support::{ensure, traits::fungibles::InspectMetadata};
+use frame_support::dispatch::Weight;
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -220,7 +221,6 @@ where
 	U: ErcIdConversion<AssetId, EvmId = EthAddress>,
 	pallet_evm::BalanceOf<T>: TryFrom<U256> + Into<U256>,
 	P: AccountProxy<AccountId>,
-	<T as frame_system::Config>::Call: GetCallMetadata,
 {
 	type Error = pallet_evm::Error<T>;
 
@@ -282,7 +282,7 @@ where
 
 		if <T as Config>::MaintenanceChecker::validate_evm_transaction(&account, &target) == false {
 			// TODO use error from pallet
-			return Err(RunnerError { error: Self::Error::WithdrawFailed, weight: 0 })
+			return Err(RunnerError { error: Self::Error::WithdrawFailed, weight: Weight::default() })
 		}
 
 		// These values may change if we are using the fee_preferences precompile

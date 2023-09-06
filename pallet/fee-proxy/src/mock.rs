@@ -134,6 +134,7 @@ impl Config for Test {
 	type FeeAssetId = XrpAssetId;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
 	type ErcIdConversion = Self;
+	type MaintenanceChecker = ();
 }
 
 parameter_types! {

@@ -20,7 +20,7 @@
 #![cfg(test)]
 
 use crate::{
-	mock::{create_account, Event, MaintenanceMode, System, Test, TestExt},
+	mock::{create_account, RuntimeEvent, MaintenanceMode, System, Test, TestExt},
 	BlockedAccounts, BlockedCalls, BlockedEVMAddresses, BlockedPallets, Config,
 	MaintenanceModeActive,
 };
@@ -45,7 +45,7 @@ mod enable_maintenance_mode {
 			assert_eq!(MaintenanceModeActive::<Test>::get(), true);
 
 			// Verify event
-			System::assert_last_event(Event::MaintenanceMode(
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(
 				crate::Event::MaintenanceModeActivated { enabled: true },
 			));
 
@@ -86,7 +86,7 @@ mod block_account {
 			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), true);
 
 			// Verify event
-			System::assert_last_event(Event::MaintenanceMode(crate::Event::AccountBlocked {
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(crate::Event::AccountBlocked {
 				account: blocked_account,
 				blocked: true,
 			}));
@@ -120,7 +120,7 @@ mod block_account {
 			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), true);
 
 			// Verify event
-			System::assert_last_event(Event::MaintenanceMode(crate::Event::AccountBlocked {
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(crate::Event::AccountBlocked {
 				account: blocked_account,
 				blocked: true,
 			}));
@@ -160,7 +160,7 @@ mod block_evm_target {
 			assert_eq!(BlockedEVMAddresses::<Test>::get(blocked_target), true);
 
 			// Verify event
-			System::assert_last_event(Event::MaintenanceMode(crate::Event::EVMTargetBlocked {
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(crate::Event::EVMTargetBlocked {
 				target_address: blocked_target,
 				blocked: true,
 			}));
@@ -212,7 +212,7 @@ mod block_call {
 			assert_eq!(BlockedCalls::<Test>::get((&blocked_pallet, &blocked_call)), true);
 
 			// Verify event
-			System::assert_last_event(Event::MaintenanceMode(crate::Event::CallBlocked {
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(crate::Event::CallBlocked {
 				pallet_name: blocked_pallet.clone(),
 				call_name: blocked_call.clone(),
 				blocked: true,
@@ -405,7 +405,7 @@ mod block_pallet {
 			assert_eq!(BlockedPallets::<Test>::get(&blocked_pallet), true);
 
 			// Verify event
-			System::assert_last_event(Event::MaintenanceMode(crate::Event::PalletBlocked {
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(crate::Event::PalletBlocked {
 				pallet_name: blocked_pallet.clone(),
 				blocked: true,
 			}));

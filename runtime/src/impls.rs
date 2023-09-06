@@ -19,7 +19,7 @@ use core::ops::Mul;
 use evm::backend::Basic as Account;
 use fp_evm::{CheckEvmTransaction, InvalidEvmTransactionError};
 use frame_support::{
-	dispatch::{EncodeLike, GetCallMetadata, RawOrigin},
+	dispatch::{EncodeLike, RawOrigin},
 	pallet_prelude::*,
 	traits::{
 		fungible::Inspect,

@@ -18,7 +18,7 @@
 
 use crate::{
 	tests::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder},
-	Call, CheckedExtrinsic, Executive, MaintenanceMode, Runtime,
+	RuntimeCall, CheckedExtrinsic, Executive, MaintenanceMode, Runtime,
 };
 use ethabi::Token;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::RawOrigin};
@@ -55,7 +55,7 @@ mod enable_maintenance_mode {
 			// send signed transaction should fail as we are in maintenance mode
 			let xt = sign_xt(CheckedExtrinsic {
 				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(0, 0)),
-				function: Call::System(frame_system::Call::remark {
+				function: RuntimeCall::System(frame_system::Call::remark {
 					remark: b"hello blocked chain".to_vec(),
 				}),
 			});
@@ -67,10 +67,10 @@ mod enable_maintenance_mode {
 			// Disable maintenance mode
 			assert_ok!(MaintenanceMode::enable_maintenance_mode(RawOrigin::Root.into(), false));
 
-			// Call should now succeed
+			// RuntimeCall should now succeed
 			let xt2 = sign_xt(CheckedExtrinsic {
 				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(1, 0)),
-				function: Call::System(frame_system::Call::remark {
+				function: RuntimeCall::System(frame_system::Call::remark {
 					remark: b"hello unblocked chain".to_vec(),
 				}),
 			});
@@ -89,12 +89,12 @@ mod enable_maintenance_mode {
 
 			// Send signed tx to disable maintenance mode
 			let call =
-				Call::MaintenanceMode(pallet_maintenance_mode::Call::enable_maintenance_mode {
+				RuntimeCall::MaintenanceMode(pallet_maintenance_mode::Call::enable_maintenance_mode {
 					enabled: false,
 				});
 			let xt2 = sign_xt(CheckedExtrinsic {
 				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(0, 0)),
-				function: Call::Sudo(pallet_sudo::Call::sudo { call: Box::new(call) }),
+				function: RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: Box::new(call) }),
 			});
 			assert_ok!(Executive::apply_extrinsic(xt2));
 
@@ -124,7 +124,7 @@ mod enable_maintenance_mode {
 
 			// Setup inner EVM.call call
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let call = crate::Call::EVM(pallet_evm::Call::call {
+			let call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
 				source: signer.into(),
 				target,
 				input,
@@ -173,7 +173,7 @@ mod block_account {
 
 			// send signed transaction should fail as we have blocked the account
 			let function =
-				Call::System(frame_system::Call::remark { remark: b"hello chain".to_vec() });
+				RuntimeCall::System(frame_system::Call::remark { remark: b"hello chain".to_vec() });
 			let xt = sign_xt(CheckedExtrinsic {
 				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(0, 0)),
 				function: function.clone(),
@@ -193,7 +193,7 @@ mod block_account {
 			// Unblock account
 			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, false));
 
-			// Call should now succeed
+			// RuntimeCall should now succeed
 			let xt = sign_xt(CheckedExtrinsic {
 				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(1, 0)),
 				function,
@@ -223,7 +223,7 @@ mod block_account {
 
 			// Setup inner EVM.call call
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let call = crate::Call::EVM(pallet_evm::Call::call {
+			let call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
 				source: signer.into(),
 				target,
 				input,
@@ -286,7 +286,7 @@ mod block_evm_target {
 			]));
 			// Setup inner EVM.call call
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let call = crate::Call::EVM(pallet_evm::Call::call {
+			let call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
 				source: signer.into(),
 				target,
 				input,
@@ -323,7 +323,7 @@ mod block_pallet {
 
 			// Check that system.remark works
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_ok!(call.dispatch(Some(signer).into()));
 
 			// Block System pallet
@@ -336,15 +336,15 @@ mod block_pallet {
 
 			// System.remark should now fail
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_noop!(call.dispatch(Some(signer).into()), SystemError::CallFiltered);
 
-			// Call to other pallet should still work
+			// RuntimeCall to other pallet should still work
 			let call = pallet_marketplace::Call::<Runtime>::register_marketplace {
 				marketplace_account: None,
 				entitlement: Default::default(),
 			};
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_ok!(call.dispatch(Some(signer).into()));
 
 			// Unblock System pallet
@@ -356,7 +356,7 @@ mod block_pallet {
 
 			// Check that system.remark works again
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_ok!(call.dispatch(Some(signer).into()));
 		});
 	}
@@ -382,7 +382,7 @@ mod block_pallet {
 
 			// Setup inner EVM.call call
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let call = crate::Call::EVM(pallet_evm::Call::call {
+			let call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
 				source: signer.into(),
 				target,
 				input,
@@ -434,7 +434,7 @@ mod block_call {
 
 			// Check that system.remark works
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_ok!(call.dispatch(Some(signer).into()));
 
 			// Block System.remark
@@ -449,13 +449,13 @@ mod block_call {
 
 			// System.remark should now fail
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_noop!(call.dispatch(Some(signer).into()), SystemError::CallFiltered);
 
 			// System.remark_with_event should still work
 			let call =
 				frame_system::Call::<Runtime>::remark_with_event { remark: vec![0, 1, 2, 3] };
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_ok!(call.dispatch(Some(signer).into()));
 
 			// Unblock System.remark
@@ -468,7 +468,7 @@ mod block_call {
 
 			// Check that system.remark works again
 			let call = frame_system::Call::<Runtime>::remark { remark: vec![0, 1, 2, 3] };
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_ok!(call.dispatch(Some(signer).into()));
 		});
 	}
@@ -494,7 +494,7 @@ mod block_call {
 
 			// Setup inner EVM.call call
 			let access_list: Vec<(H160, Vec<H256>)> = vec![];
-			let call = crate::Call::EVM(pallet_evm::Call::call {
+			let call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
 				source: signer.into(),
 				target,
 				input,
@@ -553,7 +553,7 @@ mod filtered_calls {
 				admin: signer.clone(),
 				min_balance: Default::default(),
 			};
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_noop!(
 				call.dispatch(RawOrigin::Signed(signer).into()),
 				SystemError::CallFiltered
@@ -569,7 +569,7 @@ mod filtered_calls {
 			let call = pallet_xrpl_bridge::Call::<Runtime>::submit_challenge {
 				transaction_hash: Default::default(),
 			};
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_noop!(
 				call.dispatch(RawOrigin::Signed(signer).into()),
 				SystemError::CallFiltered
@@ -582,25 +582,25 @@ mod filtered_calls {
 		ExtBuilder::default().build().execute_with(|| {
 			let signer = charlie();
 
-			// Call with RewardDestination::Staked gets filtered
+			// RuntimeCall with RewardDestination::Staked gets filtered
 			let call = pallet_staking::Call::<Runtime>::bond {
 				controller: Default::default(),
 				value: Default::default(),
 				payee: RewardDestination::Staked,
 			};
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_noop!(
 				call.dispatch(RawOrigin::Signed(signer).into()),
 				SystemError::CallFiltered
 			);
 
-			// Call with RewardDestination::Controller succeeds
+			// RuntimeCall with RewardDestination::Controller succeeds
 			let call = pallet_staking::Call::<Runtime>::bond {
 				controller: Default::default(),
 				value: 12,
 				payee: RewardDestination::Controller,
 			};
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_ok!(call.dispatch(RawOrigin::Signed(signer).into()));
 		});
 	}
@@ -614,7 +614,7 @@ mod filtered_calls {
 				validator_stash: alice(),
 				era: Default::default(),
 			};
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_noop!(
 				call.dispatch(RawOrigin::Signed(signer).into()),
 				SystemError::CallFiltered
@@ -632,7 +632,7 @@ mod filtered_calls {
 				proxy_type: Default::default(),
 				delay: Default::default(),
 			};
-			let call = <Runtime as frame_system::Config>::Call::from(call);
+			let call = <Runtime as frame_system::Config>::RuntimeCall::from(call);
 			assert_noop!(
 				call.dispatch(RawOrigin::Signed(signer).into()),
 				SystemError::CallFiltered

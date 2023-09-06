@@ -359,10 +359,10 @@ pub trait AccountProxy<AccountId> {
 
 pub trait MaintenanceCheck<T: frame_system::Config>
 where
-	<T as frame_system::Config>::Call: GetCallMetadata,
+	<T as frame_system::Config>::RuntimeCall: GetCallMetadata,
 {
 	/// Checks whether the call is paused
-	fn call_paused(call: &<T as frame_system::Config>::Call) -> bool;
+	fn call_paused(call: &<T as frame_system::Config>::RuntimeCall) -> bool;
 }
 
 pub trait MaintenanceCheckEVM<T: frame_system::Config> {
@@ -372,4 +372,13 @@ pub trait MaintenanceCheckEVM<T: frame_system::Config> {
 		signer: &<T as frame_system::Config>::AccountId,
 		target: &H160,
 	) -> bool;
+}
+
+impl<T: frame_system::Config> MaintenanceCheckEVM<T> for () {
+	fn validate_evm_transaction(
+		_signer: &<T as frame_system::Config>::AccountId,
+		_target: &H160,
+	) -> bool {
+		true
+	}
 }
