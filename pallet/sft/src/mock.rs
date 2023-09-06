@@ -70,7 +70,7 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;
 	type OnTransferSubscription = MockTransferSubscriber;

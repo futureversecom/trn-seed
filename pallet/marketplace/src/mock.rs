@@ -14,7 +14,13 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_marketplace;
-use frame_support::{dispatch::DispatchResult, parameter_types, traits::GenesisBuild, PalletId};
+use frame_support::{
+	dispatch::DispatchResult,
+	pallet_prelude::Weight,
+	parameter_types,
+	traits::{FindAuthor, GenesisBuild},
+	PalletId,
+};
 use frame_system::EnsureRoot;
 use seed_pallet_common::*;
 use seed_primitives::{
@@ -67,9 +73,9 @@ parameter_types! {
 }
 
 impl crate::Config for Test {
-	type Call = Call;
+	type Call = RuntimeCall;
 	type DefaultListingDuration = DefaultListingDuration;
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type DefaultFeeTo = DefaultFeeTo;
 	type MultiCurrency = AssetsExt;
 	type NFTExt = Nft;

@@ -89,7 +89,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config<AccountId = AccountId> {
 		/// The overarching call type.
 		type Call: Parameter
-			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo;
 		/// Default auction / sale length in blocks
 		#[pallet::constant]

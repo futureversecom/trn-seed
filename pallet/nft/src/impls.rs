@@ -126,7 +126,7 @@ impl<T: Config> Pallet<T> {
 		serial_numbers: Vec<SerialNumber>,
 	) -> Result<Weight, (Weight, DispatchError)> {
 		if serial_numbers.is_empty() {
-			return Ok(0 as Weight)
+			return Ok(Weight::zero())
 		};
 
 		let collection_info = match <CollectionInfo<T>>::get(collection_id) {

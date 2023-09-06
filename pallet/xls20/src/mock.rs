@@ -80,7 +80,7 @@ parameter_types! {
 }
 
 impl pallet_nft::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
 	type OnTransferSubscription = MockTransferSubscriber;
@@ -96,7 +96,7 @@ parameter_types! {
 	pub const MaxTokensPerXls20Mint: u32 = 1000;
 }
 impl crate::Config for Test {
-	type Event = Event;
+	type RuntimeEvent = RuntimeEvent;
 	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
 	type MultiCurrency = AssetsExt;
 	type WeightInfo = ();
@@ -146,7 +146,7 @@ pub(crate) fn has_event(event: crate::Event<Test>) -> bool {
 		.into_iter()
 		.map(|r| r.event)
 		// .filter_map(|e| if let Event::Nft(inner) = e { Some(inner) } else { None })
-		.find(|e| *e == Event::Xls20(event.clone()))
+		.find(|e| *e == RuntimeEvent::Xls20(event.clone()))
 		.is_some()
 }
 

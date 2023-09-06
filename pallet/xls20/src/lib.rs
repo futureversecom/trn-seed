@@ -67,7 +67,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The system event type
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Max amount of tokens that can be minted in a single XLS-20 mint request
 		type MaxTokensPerXls20Mint: Get<u32>;
 		/// Handles a multi-currency fungible asset system

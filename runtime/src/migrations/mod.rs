@@ -31,21 +31,22 @@ use sp_std::vec::Vec;
 pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<(), &'static str> {
+	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+		let data = Vec::new();
 		nft::Upgrade::pre_upgrade()?;
 
-		Ok(())
+		Ok(data)
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let mut weight = Weight::from(0u32);
+		let mut weight = Weight::from_ref_time(0u32);
 		weight += nft::Upgrade::on_runtime_upgrade();
 
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade() -> Result<(), &'static str> {
+	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
 		nft::Upgrade::post_upgrade()?;
 
 		Ok(())
@@ -611,7 +612,7 @@ mod remote_tests {
 		ext.execute_with(|| {
 			AllMigrations::pre_upgrade().unwrap();
 			AllMigrations::on_runtime_upgrade();
-			AllMigrations::post_upgrade().unwrap();
+			AllMigrations::post_upgrade(vec![]).unwrap();
 		});
 	}
 }

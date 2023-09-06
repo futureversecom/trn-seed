@@ -94,9 +94,9 @@ where
 		+ pallet_evm::Config
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_dex::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_dex::Call<Runtime>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn execute(handle: &mut impl PrecompileHandle) -> PrecompileResult {
 		let result = {
@@ -157,9 +157,9 @@ where
 		+ pallet_evm::Config
 		+ pallet_assets::Config<AssetId = AssetId, Balance = Balance>,
 	Runtime: ErcIdConversion<CollectionUuid, EvmId = Address>,
-	Runtime::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
-	Runtime::Call: From<pallet_dex::Call<Runtime>>,
-	<Runtime::Call as Dispatchable>::Origin: From<Option<Runtime::AccountId>>,
+	Runtime::RuntimeCall: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo,
+	Runtime::RuntimeCall: From<pallet_dex::Call<Runtime>>,
+	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn add_liquidity(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
 		handle.record_log_costs_manual(3, 32)?;

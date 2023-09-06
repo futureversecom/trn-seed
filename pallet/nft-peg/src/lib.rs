@@ -50,7 +50,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_nft::Config {
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type PalletId: Get<PalletId>;
 		#[pallet::constant]
 		type DelayLength: Get<Self::BlockNumber>;
@@ -194,7 +194,7 @@ where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
 	fn decode_deposit_event(data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
-		let mut weight: Weight = 0;
+		let mut weight = Weight::zero();
 		let abi_decoded = match ethabi::decode(
 			&[
 				// Bit to predetermine which function to route to; unused here
@@ -231,45 +231,42 @@ where
 					.map_err(|_| (weight, Error::<T>::InvalidAbiEncoding.into()))?;
 
 			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
-			let token_ids: Result<
-				Vec<BoundedVec<SerialNumber, T::MaxTokensPerMint>>,
-				(u64, DispatchError),
-			> = token_ids
-				.iter()
-				.map(|k| {
-					if let Token::Array(token_ids) = k {
-						let new: Vec<SerialNumber> = token_ids
-							.iter()
-							.filter_map(|j| {
-								if let Token::Uint(token_id) = j {
-									let token_id: SerialNumber = (*token_id).saturated_into();
-									Some(token_id.clone())
-								} else {
-									None
-								}
-							})
-							.collect();
-						BoundedVec::try_from(new)
-							.map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))
-					} else {
-						Err((weight, Error::<T>::ExceedsMaxTokens.into()))
-					}
-				})
-				.collect();
-
-			let token_ids: BoundedVec<
+			let mut new_token_ids: BoundedVec<
 				BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 				T::MaxAddresses,
-			> = BoundedVec::try_from(token_ids?)
-				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
+			> = BoundedVec::default();
+
+			for token_id in token_ids.iter() {
+				let Token::Array(token) = token_id else {
+					return Err((weight, Error::<T>::ExceedsMaxTokens.into()));
+				};
+
+				let vec: Vec<SerialNumber> = token
+					.iter()
+					.filter_map(|j| {
+						if let Token::Uint(token_id) = j {
+							let token_id: SerialNumber = (*token_id).saturated_into();
+							Some(token_id.clone())
+						} else {
+							None
+						}
+					})
+					.collect();
+
+				let vec = BoundedVec::try_from(vec)
+					.map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))?;
+				new_token_ids
+					.try_push(vec)
+					.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
+			}
 
 			ensure!(
-				token_addresses.len() == token_ids.len(),
+				token_addresses.len() == new_token_ids.len(),
 				(weight, Error::<T>::TokenListLengthMismatch.into())
 			);
 
 			let token_information =
-				GroupedTokenInfo::new(token_ids, token_addresses, destination.clone().into());
+				GroupedTokenInfo::new(new_token_ids, token_addresses, destination.clone().into());
 
 			let do_deposit_weight = Self::do_deposit(token_information, *destination)
 				.map_err(|(deposit_weight, err)| (weight.saturating_add(deposit_weight), err))?;
@@ -285,7 +282,7 @@ where
 
 	// TODO implement state sync feature for collection_owner, name and metadata
 	fn decode_state_sync_event(_data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
-		Err((0, Error::<T>::StateSyncDisabled.into()))
+		Err((Weight::zero(), Error::<T>::StateSyncDisabled.into()))
 	}
 
 	// Accept some representation of one or more tokens from an outside source, and create a
@@ -295,7 +292,7 @@ where
 		token_info: GroupedTokenInfo<T>,
 		destination: H160,
 	) -> Result<Weight, (Weight, DispatchError)> {
-		let mut weight: Weight = 0;
+		let mut weight = Weight::zero();
 
 		let destination: T::AccountId = destination.into();
 		let name = BoundedVec::truncate_from(b"bridged-collection".to_vec());
@@ -504,7 +501,7 @@ where
 	type SourceAddress = GetContractAddress<T>;
 
 	fn on_event(_source: &H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
-		let weight = 0;
+		let weight = Weight::zero();
 
 		// Decode prefix from first 32 bytes of data
 		let prefix_decoded = match ethabi::decode(&[ParamType::Uint(32)], &data[..32]) {
