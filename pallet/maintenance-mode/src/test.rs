@@ -20,7 +20,7 @@
 #![cfg(test)]
 
 use crate::{
-	mock::{create_account, RuntimeEvent, MaintenanceMode, System, Test, TestExt},
+	mock::{create_account, MaintenanceMode, RuntimeEvent, System, Test, TestExt},
 	BlockedAccounts, BlockedCalls, BlockedEVMAddresses, BlockedPallets, Config,
 	MaintenanceModeActive,
 };
@@ -86,10 +86,9 @@ mod block_account {
 			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), true);
 
 			// Verify event
-			System::assert_last_event(RuntimeEvent::MaintenanceMode(crate::Event::AccountBlocked {
-				account: blocked_account,
-				blocked: true,
-			}));
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(
+				crate::Event::AccountBlocked { account: blocked_account, blocked: true },
+			));
 
 			// Disable maintenance mode
 			assert_ok!(MaintenanceMode::block_account(
@@ -120,10 +119,9 @@ mod block_account {
 			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), true);
 
 			// Verify event
-			System::assert_last_event(RuntimeEvent::MaintenanceMode(crate::Event::AccountBlocked {
-				account: blocked_account,
-				blocked: true,
-			}));
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(
+				crate::Event::AccountBlocked { account: blocked_account, blocked: true },
+			));
 		});
 	}
 
@@ -160,10 +158,9 @@ mod block_evm_target {
 			assert_eq!(BlockedEVMAddresses::<Test>::get(blocked_target), true);
 
 			// Verify event
-			System::assert_last_event(RuntimeEvent::MaintenanceMode(crate::Event::EVMTargetBlocked {
-				target_address: blocked_target,
-				blocked: true,
-			}));
+			System::assert_last_event(RuntimeEvent::MaintenanceMode(
+				crate::Event::EVMTargetBlocked { target_address: blocked_target, blocked: true },
+			));
 
 			// Disable maintenance mode
 			assert_ok!(MaintenanceMode::block_evm_target(

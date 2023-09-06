@@ -18,7 +18,7 @@
 
 use crate::{
 	tests::{alice, bob, charlie, sign_xt, signed_extra, ExtBuilder},
-	RuntimeCall, CheckedExtrinsic, Executive, MaintenanceMode, Runtime,
+	CheckedExtrinsic, Executive, MaintenanceMode, Runtime, RuntimeCall,
 };
 use ethabi::Token;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::RawOrigin};
@@ -88,10 +88,9 @@ mod enable_maintenance_mode {
 			assert_eq!(MaintenanceModeActive::<Runtime>::get(), true);
 
 			// Send signed tx to disable maintenance mode
-			let call =
-				RuntimeCall::MaintenanceMode(pallet_maintenance_mode::Call::enable_maintenance_mode {
-					enabled: false,
-				});
+			let call = RuntimeCall::MaintenanceMode(
+				pallet_maintenance_mode::Call::enable_maintenance_mode { enabled: false },
+			);
 			let xt2 = sign_xt(CheckedExtrinsic {
 				signed: fp_self_contained::CheckedSignature::Signed(signer, signed_extra(0, 0)),
 				function: RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: Box::new(call) }),

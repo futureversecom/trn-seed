@@ -15,8 +15,7 @@
 
 use crate::Config;
 use ethabi::{ParamType, Token};
-use frame_support::{ensure, traits::fungibles::InspectMetadata};
-use frame_support::dispatch::Weight;
+use frame_support::{dispatch::Weight, ensure, traits::fungibles::InspectMetadata};
 use pallet_evm::{
 	runner::stack::Runner, AddressMapping, CallInfo, CreateInfo, EvmConfig, FeeCalculator,
 	Runner as RunnerT, RunnerError,
@@ -282,7 +281,10 @@ where
 
 		if <T as Config>::MaintenanceChecker::validate_evm_transaction(&account, &target) == false {
 			// TODO use error from pallet
-			return Err(RunnerError { error: Self::Error::WithdrawFailed, weight: Weight::default() })
+			return Err(RunnerError {
+				error: Self::Error::WithdrawFailed,
+				weight: Weight::default(),
+			})
 		}
 
 		// These values may change if we are using the fee_preferences precompile

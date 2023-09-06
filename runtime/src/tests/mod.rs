@@ -24,18 +24,13 @@ mod maintenance_mode;
 mod multiplier;
 mod staker_payouts;
 
-use frame_support::{
-	traits::{fungibles::Inspect as _, GenesisBuild, Get},
-};
+use frame_support::traits::{fungibles::Inspect as _, GenesisBuild, Get};
 use sp_core::{
 	ecdsa,
 	offchain::{testing, OffchainDbExt, OffchainWorkerExt, TransactionPoolExt},
 	Encode, Pair,
 };
-use sp_runtime::{
-	generic::Era,
-	Perbill,
-};
+use sp_runtime::{generic::Era, Perbill};
 
 use crate::{
 	constants::*, AssetsExt, Balances, CheckedExtrinsic, EVMChainId, FeeControl, Runtime,
