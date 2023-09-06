@@ -16,10 +16,10 @@
 use super::*;
 use crate::{
 	mock::{
-		create_account, has_event, RuntimeEvent as MockEvent, MaxTokensPerCollection, Nft, System, Test,
-		TestExt,
+		create_account, has_event, MaxTokensPerCollection, Nft, RuntimeEvent as MockEvent, System,
+		Test, TestExt,
 	},
-	CollectionInfo, Event as NftEvent, TokenLocks
+	CollectionInfo, Event as NftEvent, TokenLocks,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;

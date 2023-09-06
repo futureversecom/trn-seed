@@ -23,10 +23,9 @@
 //! Also allows for offers on these tokens, which can be accepted by the owner of the token.
 
 use frame_support::{
-	dispatch::{GetDispatchInfo, Dispatchable, PostDispatchInfo},
+	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::fungibles::{Mutate, Transfer},
-	transactional,
-	PalletId,
+	transactional, PalletId,
 };
 pub use pallet::*;
 use pallet_nft::traits::NFTExt;

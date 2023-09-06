@@ -14,12 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_marketplace;
-use frame_support::{
-	dispatch::DispatchResult,
-	parameter_types,
-	traits::GenesisBuild,
-	PalletId,
-};
+use frame_support::{dispatch::DispatchResult, parameter_types, traits::GenesisBuild, PalletId};
 use frame_system::EnsureRoot;
 use seed_pallet_common::*;
 use seed_primitives::{

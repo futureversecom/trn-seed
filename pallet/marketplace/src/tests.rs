@@ -15,9 +15,9 @@
 
 use super::*;
 use crate::mock::{
-	create_account, AssetsExt, RuntimeEvent as MockEvent, FeePotId, Marketplace,
-	MarketplaceNetworkFeePercentage, MarketplacePalletId, MaxTokensPerCollection,
-	MaxTokensPerListing, NativeAssetId, Nft, System, Test, TestExt, XRP_ASSET_ID,
+	create_account, AssetsExt, FeePotId, Marketplace, MarketplaceNetworkFeePercentage,
+	MarketplacePalletId, MaxTokensPerCollection, MaxTokensPerListing, NativeAssetId, Nft,
+	RuntimeEvent as MockEvent, System, Test, TestExt, XRP_ASSET_ID,
 };
 use core::ops::Mul;
 use frame_support::{
@@ -1414,7 +1414,10 @@ fn auction() {
 				Some(1),
 				None,
 			));
-			assert_eq!(TokenLocks::<Test>::get(&token_id).unwrap(), TokenLockReason::Listed(listing_id));
+			assert_eq!(
+				TokenLocks::<Test>::get(&token_id).unwrap(),
+				TokenLockReason::Listed(listing_id)
+			);
 			assert_eq!(Marketplace::next_listing_id(), listing_id + 1);
 			assert!(Marketplace::open_collection_listings(collection_id, listing_id).unwrap());
 
