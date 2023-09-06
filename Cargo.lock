@@ -5670,7 +5670,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "pallet-session",
- "pallet-staking",
+ "pallet-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30)",
  "rand 0.7.3",
  "sp-runtime",
  "sp-session",
@@ -5738,6 +5738,36 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "pallet-bags-list",
+ "pallet-balances",
+ "pallet-session",
+ "pallet-staking-reward-curve",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rand_chacha 0.2.2",
+ "scale-info",
+ "serde",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "sp-tracing",
+ "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-staking"
+version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
 dependencies = [
  "frame-benchmarking",
@@ -5756,6 +5786,17 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-staking-reward-curve"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -5863,7 +5904,7 @@ dependencies = [
  "frame-system",
  "pallet-assets-ext",
  "pallet-balances",
- "pallet-staking",
+ "pallet-staking 4.0.0-dev",
  "parity-scale-codec",
  "scale-info",
  "seed-pallet-common",
@@ -8438,7 +8479,7 @@ dependencies = [
  "pallet-session-benchmarking",
  "pallet-sft",
  "pallet-sft-rpc-runtime-api",
- "pallet-staking",
+ "pallet-staking 4.0.0-dev",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-token-approvals",
@@ -9740,6 +9781,27 @@ dependencies = [
  "sp-runtime",
  "substrate-test-client",
  "substrate-test-runtime",
+]
+
+[[package]]
+name = "substrate-test-utils"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
+dependencies = [
+ "futures",
+ "substrate-test-utils-derive",
+ "tokio",
+]
+
+[[package]]
+name = "substrate-test-utils-derive"
+version = "0.10.0-dev"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.30#a3ed0119c45cdd0d571ad34e5b3ee7518c8cef8d"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]

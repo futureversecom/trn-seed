@@ -1738,6 +1738,9 @@ impl_runtime_apis! {
 		}
 	}
 
+	// #[cfg(feature = "runtime-benchmarks")]
+	// impl pallet_staking::pallet::pallet::Config<BlockNumber> for Runtime {}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (
@@ -1776,7 +1779,8 @@ impl_runtime_apis! {
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as BaselineBench;
 
-			impl pallet_session_benchmarking::Config for Runtime {}
+			// impl pallet_session_benchmarking::Config for Runtime {}
+			
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl frame_benchmarking::baseline::Config for Runtime {}
@@ -1981,7 +1985,8 @@ mod benches {
 		[pallet_staking, Staking]
 		[pallet_grandpa, Grandpa]
 		[pallet_im_online, ImOnline]
-		[pallet_session, SessionBench::<Runtime>]
+		// TODO: Now we have to roll our own pallet_session benchmarking 🙃
+		// [pallet_session, SessionBench::<Runtime>]
 		[pallet_bags_list, VoterList]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[pallet_election_provider_support_benchmarking, EPSBench::<Runtime>]

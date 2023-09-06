@@ -31,7 +31,7 @@ pallet-recovery = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-scheduler = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-preimage = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
-pallet-staking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
+pallet-staking = { path = "../pallet/staking", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30", default-features = false }
