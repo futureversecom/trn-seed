@@ -80,8 +80,8 @@ jobs:
           echo "github ref: $GITHUB_REF"
           echo "release tag(?): $RELEASE_TAG"
 
+          DOCKER_BUILDKIT=1
           docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
-          # docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=porcini .
 
           docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
           docker push "$REGISTRY/$IMAGE_NAME:latest"
