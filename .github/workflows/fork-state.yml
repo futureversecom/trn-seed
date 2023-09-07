@@ -21,7 +21,7 @@ on:
 
 env:
   REGISTRY: "ghcr.io"
-  IMAGE_NAME: "futureversecom/fork-state"
+  IMAGE_NAME: "futureversecom/fork-state-${{ github.event.inputs.network }}"
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -80,6 +80,7 @@ jobs:
           echo "github ref: $GITHUB_REF"
           echo "release tag(?): $RELEASE_TAG"
 
+          # set DOCKER_BUILDKIT to use fork-state.Dockerfile.dockerignore
           DOCKER_BUILDKIT=1
           docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
 
