@@ -22,10 +22,7 @@
 //! per sale.
 //! Also allows for offers on these tokens, which can be accepted by the owner of the token.
 
-use frame_support::{
-	dispatch::Dispatchable,
-	weights::{GetDispatchInfo, PostDispatchInfo},
-};
+use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
 use pallet_nft::{weights::WeightInfo as NftWeightInfo, ListingId, MarketplaceId, OfferId};
 use seed_primitives::{AssetId, Balance, CollectionUuid, SerialNumber, TokenId};
 use sp_runtime::{DispatchResult, Permill};
@@ -54,7 +51,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config + pallet_nft::Config {
 		/// The overarching call type.
 		type Call: Parameter
-			+ Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
 			+ GetDispatchInfo
 			+ From<pallet_nft::Call<Self>>;
 		/// Provides the public call to weight mapping
@@ -232,6 +229,15 @@ pub mod pallet {
 		#[pallet::weight(<T as Config>::WeightInfo::accept_offer())]
 		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
 			let call = pallet_nft::Call::<T>::accept_offer { offer_id };
+			let call = <T as Config>::Call::from(call);
+			call.dispatch(origin).map_err(|err| err.error)?;
+			Ok(())
+		}
+
+		/// Set the `FeeTo` account. This operation requires root access.
+		#[pallet::weight(<T as Config>::WeightInfo::set_fee_to())]
+		pub fn set_fee_to(origin: OriginFor<T>, fee_to: Option<T::AccountId>) -> DispatchResult {
+			let call = pallet_nft::Call::<T>::set_fee_to { fee_to };
 			let call = <T as Config>::Call::from(call);
 			call.dispatch(origin).map_err(|err| err.error)?;
 			Ok(())

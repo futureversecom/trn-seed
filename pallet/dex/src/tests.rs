@@ -17,7 +17,7 @@ use super::*;
 use crate::mock::AssetsExt;
 use frame_support::{assert_noop, assert_ok};
 use hex::encode;
-use mock::{Dex, Event as MockEvent, Origin, System, Test, TestExt};
+use mock::{Dex, RuntimeEvent as MockEvent, RuntimeOrigin, System, Test, TestExt};
 use seed_primitives::AccountId;
 use sp_arithmetic::helpers_128bit::sqrt;
 use sp_core::H160;
@@ -47,11 +47,14 @@ fn disable_trading_pair() {
 		let weth = AssetsExt::create(&alice, None).unwrap();
 
 		// normal user can not disable trading_pair
-		assert_noop!(Dex::disable_trading_pair(Origin::signed(alice), usdc, weth), BadOrigin);
+		assert_noop!(
+			Dex::disable_trading_pair(RuntimeOrigin::signed(alice), usdc, weth),
+			BadOrigin
+		);
 
 		// lp token must exist
 		assert_noop!(
-			Dex::disable_trading_pair(Origin::root(), usdc, weth),
+			Dex::disable_trading_pair(RuntimeOrigin::root(), usdc, weth),
 			Error::<Test>::LiquidityProviderTokenNotCreated
 		);
 
@@ -63,7 +66,7 @@ fn disable_trading_pair() {
 		);
 
 		// disable trading pair successful
-		assert_ok!(Dex::disable_trading_pair(Origin::root(), usdc, weth));
+		assert_ok!(Dex::disable_trading_pair(RuntimeOrigin::root(), usdc, weth));
 		System::assert_last_event(MockEvent::Dex(crate::Event::DisableTradingPair(
 			TradingPair::new(usdc, weth),
 		)));
@@ -74,7 +77,7 @@ fn disable_trading_pair() {
 
 		// disabling trading pair will fail if already disabled
 		assert_noop!(
-			Dex::disable_trading_pair(Origin::root(), usdc, weth),
+			Dex::disable_trading_pair(RuntimeOrigin::root(), usdc, weth),
 			Error::<Test>::MustBeEnabled,
 		);
 	});
@@ -92,11 +95,14 @@ fn reenable_trading_pair() {
 		let weth = AssetsExt::create(&alice, None).unwrap();
 
 		// normal user can not enable trading_pair
-		assert_noop!(Dex::reenable_trading_pair(Origin::signed(alice), usdc, weth), BadOrigin);
+		assert_noop!(
+			Dex::reenable_trading_pair(RuntimeOrigin::signed(alice), usdc, weth),
+			BadOrigin
+		);
 
 		// lp token must exist
 		assert_noop!(
-			Dex::reenable_trading_pair(Origin::root(), usdc, weth),
+			Dex::reenable_trading_pair(RuntimeOrigin::root(), usdc, weth),
 			Error::<Test>::LiquidityProviderTokenNotCreated
 		);
 
@@ -112,7 +118,7 @@ fn reenable_trading_pair() {
 
 		// re-enabling should fail for not-enabled trading pair
 		assert_noop!(
-			Dex::reenable_trading_pair(Origin::root(), usdc, weth),
+			Dex::reenable_trading_pair(RuntimeOrigin::root(), usdc, weth),
 			Error::<Test>::MustBeNotEnabled,
 		);
 
@@ -123,7 +129,7 @@ fn reenable_trading_pair() {
 		);
 
 		// a disabled trading pair can be re-enabled
-		assert_ok!(Dex::reenable_trading_pair(Origin::root(), usdc, weth));
+		assert_ok!(Dex::reenable_trading_pair(RuntimeOrigin::root(), usdc, weth));
 		assert_eq!(
 			Dex::trading_pair_statuses(TradingPair::new(usdc, weth)),
 			TradingPairStatus::Enabled
@@ -134,7 +140,7 @@ fn reenable_trading_pair() {
 
 		// cannot enable again
 		assert_noop!(
-			Dex::reenable_trading_pair(Origin::root(), weth, usdc),
+			Dex::reenable_trading_pair(RuntimeOrigin::root(), weth, usdc),
 			Error::<Test>::MustBeNotEnabled
 		);
 	});
@@ -306,7 +312,7 @@ fn add_liquidity() {
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(1)));
 		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(1),
@@ -339,7 +345,7 @@ fn add_liquidity() {
 
 		// add liquidity from alice to charlie
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(1),
@@ -390,7 +396,7 @@ fn add_liquidity() {
 		// add liquidity to new user fails - as the deadline has been missed
 		assert_noop!(
 			Dex::add_liquidity(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				usdc,
 				weth,
 				to_eth(2),
@@ -405,7 +411,7 @@ fn add_liquidity() {
 
 		// add liquidity to new user succeeds - as the deadline meets
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			usdc,
 			weth,
 			to_eth(2),
@@ -438,7 +444,7 @@ fn add_liquidity() {
 		// user cannot add liquidity to disabled pair
 		assert_noop!(
 			Dex::add_liquidity(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				usdc,
 				weth,
 				2_000_000_000_000u128,
@@ -470,7 +476,7 @@ fn add_shared_liquidity() {
 		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
 		// add liquidity <usdc-weth>
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(1),
@@ -508,7 +514,7 @@ fn add_shared_liquidity() {
 		// add liquidity to new user succeeds
 		// add liquidity <usdc-asto>
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			usdc,
 			asto,
 			to_eth(2),
@@ -542,7 +548,7 @@ fn add_shared_liquidity() {
 
 		// swap <usdc/weth>
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // input usdc
 			0u128,     // min expected weth
 			vec![usdc, weth],
@@ -586,7 +592,7 @@ fn add_shared_liquidity() {
 
 		// swap <usdc/asto>
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // input usdc
 			0u128,     // min expected asto
 			vec![usdc, asto],
@@ -671,7 +677,7 @@ fn add_liquidity_issue_15() {
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(10)));
 		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(10)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(1),
@@ -683,7 +689,7 @@ fn add_liquidity_issue_15() {
 		));
 
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(2),
@@ -718,7 +724,7 @@ fn remove_liquidity_simple() {
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(2)));
 		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(2)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(2),
@@ -737,7 +743,7 @@ fn remove_liquidity_simple() {
 		// providing all-1 LP token shares should fail - deadline is in the past
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(alice),
+				RuntimeOrigin::signed(alice),
 				usdc,
 				weth,
 				1_999_999_999_999_999_000u128, // all lp -1 to retrieve input tokens
@@ -751,7 +757,7 @@ fn remove_liquidity_simple() {
 
 		// providing all-1 LP token shares should succeed
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			1_999_999_999_999_999_000u128, // all lp -1 to retrieve input tokens
@@ -797,7 +803,7 @@ fn remove_liquidity_full() {
 		// fails if no LP tokens withdrawn
 		assert_eq!(
 			Dex::remove_liquidity(
-				Origin::signed(alice),
+				RuntimeOrigin::signed(alice),
 				usdc,
 				weth,
 				0u128,
@@ -813,7 +819,7 @@ fn remove_liquidity_full() {
 		// remove liquidity fails if LP token doesnt exist
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(alice),
+				RuntimeOrigin::signed(alice),
 				usdc,
 				weth,
 				1u128,
@@ -837,7 +843,7 @@ fn remove_liquidity_full() {
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(2)));
 		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(2)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(2),
@@ -855,7 +861,7 @@ fn remove_liquidity_full() {
 		// remove liquidity fails if user expects more balance of a token than they have
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(alice),
+				RuntimeOrigin::signed(alice),
 				usdc,
 				weth,
 				1u128,
@@ -869,7 +875,7 @@ fn remove_liquidity_full() {
 
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(alice),
+				RuntimeOrigin::signed(alice),
 				usdc,
 				weth,
 				1u128,
@@ -883,7 +889,7 @@ fn remove_liquidity_full() {
 
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(alice),
+				RuntimeOrigin::signed(alice),
 				usdc,
 				weth,
 				100u128, // provided LP token shares too low to retrieve input tokens
@@ -897,7 +903,7 @@ fn remove_liquidity_full() {
 
 		// providing all-1 LP token shares should succeed
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			1_999_999_999_999_999_000u128 - 1, // all lp -1 to retrieve input tokens
@@ -933,7 +939,7 @@ fn remove_liquidity_full() {
 		// can still successfully remove liquidity if trading pair is disabled
 		// remove last lp token remaining
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			1,
@@ -972,7 +978,7 @@ fn swap_with_exact_supply() {
 
 		// provide liquidity - note: differing amount of input tokens - ratio 1:2
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			weth,
 			usdc,
 			to_eth(1),
@@ -988,7 +994,7 @@ fn swap_with_exact_supply() {
 		// swap should fail if the deadline is in the past
 		assert_noop!(
 			Dex::swap_with_exact_supply(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				to_eth(1), // input weth <- insufficient balance
 				10u128,    // expected usdc
 				vec![weth, usdc],
@@ -1001,7 +1007,7 @@ fn swap_with_exact_supply() {
 		// swap should fail if user does not have sufficient balance of input tokens
 		assert_noop!(
 			Dex::swap_with_exact_supply(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				to_eth(1), // input weth <- insufficient balance
 				10u128,    // expected usdc
 				vec![weth, usdc],
@@ -1018,7 +1024,7 @@ fn swap_with_exact_supply() {
 		// swap should fail if user expects more output tokens than they can get
 		assert_noop!(
 			Dex::swap_with_exact_supply(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				to_eth(1), // input weth
 				to_eth(1), // min expected usdc <- too much
 				vec![weth, usdc],
@@ -1031,7 +1037,7 @@ fn swap_with_exact_supply() {
 		// swap succeeds if user has sufficient balance of input tokens
 		// and min expected output tokens are provided
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // input weth
 			0u128,     // min expected usdc
 			vec![weth, usdc],
@@ -1065,7 +1071,7 @@ fn swap_with_exact_supply() {
 
 		// user b swaps again with same params
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // input weth
 			10u128,    // min expected usdc
 			vec![weth, usdc],
@@ -1093,7 +1099,7 @@ fn swap_with_exact_supply() {
 
 		// user bob swaps again with recipient charlie
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // input weth
 			10u128,    // min expected usdc
 			vec![weth, usdc],
@@ -1136,7 +1142,7 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 
 		// provide liquidity (a-b)
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			a,
 			b,
 			100_000_000u128,
@@ -1149,7 +1155,7 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 
 		// provide liquidity (b-c)
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			b,
 			c,
 			100_000_000u128,
@@ -1167,7 +1173,7 @@ fn perform_multiple_pair_swap_with_exact_supply() {
 
 		// swap with exact supply ( path a->b->c )
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			50_000u128, // input a
 			1u128,      // expect c
 			vec![a, b, c],
@@ -1227,7 +1233,7 @@ fn swap_with_exact_target() {
 
 		// provide liquidity - note: differing amount of input tokens - ratio 2:1
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			weth,
 			usdc,
 			to_eth(8),
@@ -1241,7 +1247,7 @@ fn swap_with_exact_target() {
 		// swap should fail if user does not have sufficient balance of input tokens
 		assert_noop!(
 			Dex::swap_with_exact_target(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				10u128,                // expected usdc
 				1_000_000_000_000u128, // max input weth <- insufficient balance
 				vec![weth, usdc],
@@ -1257,7 +1263,7 @@ fn swap_with_exact_target() {
 		// swap should fail if eqiuvalent tokens asked for are not available
 		assert_noop!(
 			Dex::swap_with_exact_target(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				to_eth(4), // expected <- too much
 				to_eth(4), // max input weth willing to give
 				vec![weth, usdc],
@@ -1270,7 +1276,7 @@ fn swap_with_exact_target() {
 		// fails if too much output tokens are expected
 		assert_noop!(
 			Dex::swap_with_exact_target(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				to_eth(1) / 2,
 				to_eth(1), // max input weth willing to give
 				vec![weth, usdc],
@@ -1283,7 +1289,7 @@ fn swap_with_exact_target() {
 		// swap should fail if the deadline is in the past
 		assert_noop!(
 			Dex::swap_with_exact_target(
-				Origin::signed(bob),
+				RuntimeOrigin::signed(bob),
 				to_eth(1), // want usdc
 				to_eth(5), // max input weth willing to give
 				vec![weth, usdc],
@@ -1296,7 +1302,7 @@ fn swap_with_exact_target() {
 		// swap succeeds if user has sufficient balance of input tokens
 		// and expected output tokens are provided
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // want usdc
 			to_eth(5), // max input weth willing to give
 			vec![weth, usdc],
@@ -1326,7 +1332,7 @@ fn swap_with_exact_target() {
 
 		// user b swaps again with same params
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // want usdc
 			to_eth(6), // max input weth willing to give
 			vec![weth, usdc],
@@ -1360,7 +1366,7 @@ fn swap_with_exact_target() {
 
 		// user bob swaps again with recipient charlie
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1),  // want usdc
 			to_eth(20), // max input weth willing to give
 			vec![weth, usdc],
@@ -1402,7 +1408,7 @@ fn multiple_swaps_with_multiple_lp() {
 		let elliot: AccountId = create_account(5);
 
 		// set FeeTo to None
-		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), None));
 
 		// create tokens
 		let usdc = AssetsExt::create(&alice, None).unwrap();
@@ -1430,7 +1436,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// alice provides liquidity for USDC/WETH pair - in ratio 1:3
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(10),
@@ -1443,7 +1449,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// bob provides liquidity for USDC/WETH pair - in ratio 1:3
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			usdc,
 			weth,
 			to_eth(10),
@@ -1462,7 +1468,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// charlie swaps 5 USDC for WETH
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(charlie),
+			RuntimeOrigin::signed(charlie),
 			to_eth(5), // max input weth willing to give
 			0u128,
 			vec![usdc, weth],
@@ -1474,7 +1480,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// elliot swaps x USDC for 5 WETH
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(elliot),
+			RuntimeOrigin::signed(elliot),
 			to_eth(5), // exact want amount of weth
 			to_eth(5),
 			vec![usdc, weth],
@@ -1490,7 +1496,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// charlie provides liquidity for USDC/WETH pair - in different ratio
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(charlie),
+			RuntimeOrigin::signed(charlie),
 			usdc,
 			weth,
 			to_eth(2),
@@ -1504,7 +1510,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// danny swaps x USDC for 2 WETH
 		assert_ok!(Dex::swap_with_exact_target(
-			Origin::signed(danny),
+			RuntimeOrigin::signed(danny),
 			to_eth(2), // exact want amount of weth
 			to_eth(2),
 			vec![usdc, weth],
@@ -1517,7 +1523,7 @@ fn multiple_swaps_with_multiple_lp() {
 		// elliot fails to remove any liquidity (he has none)
 		assert_noop!(
 			Dex::remove_liquidity(
-				Origin::signed(elliot),
+				RuntimeOrigin::signed(elliot),
 				usdc,
 				weth,
 				AssetsExt::balance(lp_usdc_weth, &elliot),
@@ -1532,7 +1538,7 @@ fn multiple_swaps_with_multiple_lp() {
 		assert_eq!(AssetsExt::balance(lp_usdc_weth, &charlie), 2_482_001_869_909_090_520_u128);
 		// charlie removes all his liquidity
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(charlie),
+			RuntimeOrigin::signed(charlie),
 			usdc,
 			weth,
 			AssetsExt::balance(lp_usdc_weth, &charlie),
@@ -1547,7 +1553,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// alice removes all her liquidity
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			AssetsExt::balance(lp_usdc_weth, &alice),
@@ -1562,7 +1568,7 @@ fn multiple_swaps_with_multiple_lp() {
 
 		// bob removes all his liquidity
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			usdc,
 			weth,
 			AssetsExt::balance(lp_usdc_weth, &bob),
@@ -1592,7 +1598,7 @@ fn query_with_trading_pair() {
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
 		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(5),
@@ -1633,16 +1639,16 @@ fn set_fee_to() {
 		assert_eq!(Dex::fee_to(), fee_pot);
 
 		// normal user can not set FeeTo
-		assert_noop!(Dex::set_fee_to(Origin::signed(alice), Some(bob)), BadOrigin);
+		assert_noop!(Dex::set_fee_to(RuntimeOrigin::signed(alice), Some(bob)), BadOrigin);
 
 		// change FeeTo with root user
-		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(bob)));
 		assert_eq!(Dex::fee_to().unwrap(), bob);
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(Some(bob))));
 
 		// disable FeeTo with root user
-		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), None));
 		assert_eq!(Dex::fee_to().is_none(), true);
 
 		System::assert_last_event(MockEvent::Dex(crate::Event::FeeToSet(None)));
@@ -1665,7 +1671,7 @@ fn mint_fee() {
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
 		assert_ok!(AssetsExt::mint_into(weth, &alice, to_eth(1)));
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(5),
@@ -1682,7 +1688,7 @@ fn mint_fee() {
 		let (reserve_a, reserve_b) = Dex::liquidity_pool(trading_pair);
 
 		// set FeeTo to None
-		assert_ok!(Dex::set_fee_to(Origin::root(), None));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), None));
 
 		// return false because FeeTo is None
 		assert_eq!(Dex::mint_fee(lp_token, reserve_a, reserve_b).unwrap(), false);
@@ -1701,7 +1707,7 @@ fn mint_fee() {
 		assert_eq!(AssetsExt::balance(lp_token, &bob), 0);
 
 		// set fee_to and last_k
-		assert_ok!(Dex::set_fee_to(Origin::root(), Some(bob)));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(bob)));
 		let _ = LiquidityPoolLastK::<Test>::try_mutate(lp_token, |k| -> DispatchResult {
 			*k = U256::from(to_eth(2) * to_eth(2));
 			Ok(())
@@ -1732,7 +1738,7 @@ fn test_network_fee() {
 		let weth = AssetsExt::create(&bob, None).unwrap();
 
 		// set fee_to to fee_pot
-		assert_ok!(Dex::set_fee_to(Origin::root(), Some(fee_pot)));
+		assert_ok!(Dex::set_fee_to(RuntimeOrigin::root(), Some(fee_pot)));
 
 		// mint tokens to user
 		assert_ok!(AssetsExt::mint_into(usdc, &alice, to_eth(5)));
@@ -1741,7 +1747,7 @@ fn test_network_fee() {
 
 		// add liquidity
 		assert_ok!(Dex::add_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			to_eth(5),
@@ -1761,7 +1767,7 @@ fn test_network_fee() {
 
 		// do swap
 		assert_ok!(Dex::swap_with_exact_supply(
-			Origin::signed(bob),
+			RuntimeOrigin::signed(bob),
 			to_eth(1), // input usdc
 			0u128,     // min expected weth
 			vec![usdc, weth],
@@ -1779,7 +1785,7 @@ fn test_network_fee() {
 
 		// remove liquidity to trigger mint_fee() function call
 		assert_ok!(Dex::remove_liquidity(
-			Origin::signed(alice),
+			RuntimeOrigin::signed(alice),
 			usdc,
 			weth,
 			AssetsExt::balance(lp_token, &alice),
@@ -1832,7 +1838,7 @@ macro_rules! swap_with_exact_supply_multi {
 
 				// add liquidity
 				assert_ok!(Dex::add_liquidity(
-					Origin::signed(alice),
+					RuntimeOrigin::signed(alice),
 					token_0,
 					token_1,
 					lp_amount_token_1,
@@ -1851,7 +1857,7 @@ macro_rules! swap_with_exact_supply_multi {
 				match result {
 					Ok(amount_out) => {
 						assert_ok!(Dex::swap_with_exact_supply(
-							Origin::signed(bob),
+							RuntimeOrigin::signed(bob),
 							$amount_in,
 							$amount_out_min,
 							vec![token_0, token_1],
@@ -1865,7 +1871,7 @@ macro_rules! swap_with_exact_supply_multi {
 					Err(err) => {
 						assert_noop!(
 							Dex::swap_with_exact_supply(
-								Origin::signed(bob),
+								RuntimeOrigin::signed(bob),
 								$amount_in,
 								$amount_out_min,
 								vec![token_0, token_1],
@@ -1947,7 +1953,7 @@ macro_rules! swap_with_exact_target_multi {
 
 				// add liquidity
 				assert_ok!(Dex::add_liquidity(
-					Origin::signed(alice),
+					RuntimeOrigin::signed(alice),
 					token_0,
 					token_1,
 					lp_amount_token_1,
@@ -1966,7 +1972,7 @@ macro_rules! swap_with_exact_target_multi {
 				match result {
 					Ok(amount_in) => {
 						assert_ok!(Dex::swap_with_exact_target(
-							Origin::signed(bob),
+							RuntimeOrigin::signed(bob),
 							$amount_out,
 							$amount_in_max,
 							vec![token_0, token_1],
@@ -1980,7 +1986,7 @@ macro_rules! swap_with_exact_target_multi {
 					Err(err) => {
 						assert_noop!(
 							Dex::swap_with_exact_target(
-								Origin::signed(bob),
+								RuntimeOrigin::signed(bob),
 								$amount_out,
 								$amount_in_max,
 								vec![token_0, token_1],

@@ -66,7 +66,7 @@ pub struct EthyDeps {
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
 	/// BABE protocol config.
-	pub babe_config: sc_consensus_babe::Config,
+	pub babe_config: sc_consensus_babe::BabeConfiguration,
 	/// BABE pending epoch changes.
 	pub shared_epoch_changes: SharedEpochChanges<Block, sc_consensus_babe::Epoch>,
 	/// The keystore that manages the keys of the node.
@@ -174,6 +174,7 @@ where
 	C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
 	C::Api: pallet_dex_rpc::DexRuntimeApi<Block, Runtime>,
 	C::Api: pallet_nft_rpc::NftRuntimeApi<Block, AccountId, Runtime>,
+	C::Api: pallet_sft_rpc::SftRuntimeApi<Block, Runtime>,
 	P: TransactionPool<Block = Block> + 'static,
 	SC: SelectChain<Block> + 'static,
 {
@@ -183,6 +184,7 @@ where
 	};
 	use pallet_dex_rpc::{Dex, DexApiServer};
 	use pallet_nft_rpc::{Nft, NftApiServer};
+	use pallet_sft_rpc::{Sft, SftApiServer};
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 	use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
@@ -255,6 +257,7 @@ where
 	// The Root Network RPCs
 	io.merge(Dex::new(client.clone()).into_rpc())?;
 	io.merge(Nft::new(client.clone()).into_rpc())?;
+	io.merge(Sft::new(client.clone()).into_rpc())?;
 
 	// Ethereum compatible RPCs
 	io.merge(

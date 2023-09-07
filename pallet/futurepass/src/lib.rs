@@ -28,11 +28,12 @@ mod weights;
 
 use alloc::boxed::Box;
 use frame_support::{
+	dispatch::GetDispatchInfo,
 	ensure,
 	pallet_prelude::{DispatchError, DispatchResult, *},
-	traits::{Get, InstanceFilter, IsSubType, IsType},
+	traits::{InstanceFilter, IsSubType, IsType},
 	transactional,
-	weights::{constants::RocksDbWeight, DispatchClass, GetDispatchInfo},
+	weights::constants::RocksDbWeight,
 };
 use frame_system::pallet_prelude::*;
 use precompile_utils::constants::FUTUREPASS_PRECOMPILE_ADDRESS_PREFIX;
@@ -72,7 +73,7 @@ where
 	fn proxy_call(
 		caller: OriginFor<T>,
 		futurepass: T::AccountId,
-		call: <T as Config>::Call,
+		call: <T as Config>::RuntimeCall,
 	) -> DispatchResult;
 }
 
@@ -109,20 +110,20 @@ pub mod pallet {
 		<Self as frame_system::Config>::AccountId: From<H160>,
 	{
 		/// The overarching event type.
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		type Proxy: ProxyProvider<Self>;
 
 		/// The overarching call type.
-		type Call: Parameter
-			+ Dispatchable<Origin = Self::Origin>
+		type RuntimeCall: Parameter
+			+ Dispatchable<RuntimeOrigin = Self::RuntimeOrigin>
 			+ GetDispatchInfo
 			+ From<frame_system::Call<Self>>
 			+ IsSubType<Call<Self>>
-			+ IsType<<Self as frame_system::Config>::Call>;
+			+ IsType<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Allowed origins to ease transition to council governance
-		type ApproveOrigin: EnsureOrigin<Self::Origin>;
+		type ApproveOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// A kind of proxy; specified with the proxy and passed in to the `IsProxyable` filter.
 		/// The instance filter determines whether a given call may be proxied under this type.
@@ -132,7 +133,7 @@ pub mod pallet {
 			+ Member
 			+ Ord
 			+ PartialOrd
-			+ InstanceFilter<<Self as Config>::Call>
+			+ InstanceFilter<<Self as Config>::RuntimeCall>
 			+ Default
 			+ MaxEncodedLen
 			+ Into<u8>;
@@ -424,7 +425,18 @@ pub mod pallet {
 		/// Parameters:
 		/// - `current_owner`: The current owner of the futurepass.
 		/// - `new_owner`: The new account that will become the owner of the futurepass.
-		#[pallet::weight(T::WeightInfo::transfer_futurepass())]
+		/// # <weight>
+		/// Weight is a function of the number of proxies the user has.
+		/// # </weight>
+		#[pallet::weight({
+			match Holders::<T>::get(current_owner) {
+				Some(futurepass) => {
+					let delegate_count = T::Proxy::delegates(& futurepass).len() as u32;
+					T::WeightInfo::transfer_futurepass(delegate_count)
+				},
+				None => T::WeightInfo::transfer_futurepass(0) // should have passed max value here
+			}
+		})]
 		#[transactional]
 		pub fn transfer_futurepass(
 			origin: OriginFor<T>,
@@ -475,7 +487,7 @@ pub mod pallet {
 		}
 
 		/// Dispatch the given call through Futurepass account. Transaction fees will be paid by the
-		/// Futurepass The dispatch origin for this call must be _Signed_
+		/// Futurepass. The dispatch origin for this call must be _Signed_
 		///
 		/// Parameters:
 		/// - `futurepass`: The Futurepass account though which the call is dispatched
@@ -496,7 +508,7 @@ pub mod pallet {
 		pub fn proxy_extrinsic(
 			origin: OriginFor<T>,
 			futurepass: T::AccountId,
-			call: Box<<T as Config>::Call>,
+			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin.clone())?;
 

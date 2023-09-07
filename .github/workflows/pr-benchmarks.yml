@@ -1,0 +1,126 @@
+name: PR Benchmarks
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  benchmark:
+    if: ${{ github.event.issue.pull_request && contains(fromJson('["MEMBER", "OWNER"]'), github.event.comment.author_association) && startsWith(github.event.comment.body, '/bench') }}
+    runs-on: [benchmark]
+    steps:
+      - name: Get PR information
+        id: pr_info
+        uses: actions/github-script@v6
+        with:
+          result-encoding: string
+          debug: true
+          script: |
+            const issue_number = context.issue.number;
+            const { data } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: issue_number,
+            });
+            return data.head.ref;
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ steps.pr_info.outputs.result }}
+          fetch-depth: 0
+
+      - uses: actions/github-script@v6
+        name: Prepare command
+        id: command
+        with:
+          result-encoding: string
+          script: |
+            const commentBody = `${{ github.event.comment.body }}`
+            let [ cmd, pallets ] = commentBody.split(/ /);
+            if (pallets) {
+              return `./scripts/run_benchmarks.sh -p ${pallets}`
+            }
+            return './scripts/run_benchmarks.sh'
+
+      - uses: actions/github-script@v6
+        name: Post comment
+        id: comment
+        with:
+          script: |
+            const issue_number = `${{ github.event.issue.number }}`
+            const data = await github.rest.issues.createComment({
+              issue_number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `
+              **Request**: \`${{ github.event.comment.body }}\`
+              **Command**: \`${{ steps.command.outputs.result }}\`
+
+              Running...
+              `
+            })
+            return data.data.id
+
+      # - name: Install toolchain
+      #   uses: actions-rs/toolchain@v1
+      #   with:
+      #     profile: minimal
+      #     toolchain: nightly-2023-04-15
+      #     components: rustfmq
+      #     target: wasm32-unknown-unknown
+      #     default: true
+      
+      # Rust required to run benchmarks; use from CI machine
+      - name: Install toolchain
+        run: rustup show
+
+      - name: Run benchmarks
+        run: ${{ steps.command.outputs.result }} > ${{ runner.temp }}/out.txt
+
+      - name: Commit and Push
+        run: |
+          git config user.email "seed-ci@futureverse.com"
+          git config user.name "Seed Github Action Bot"
+          git add -A
+          git commit -m '${{ steps.command.outputs.result }}' --allow-empty
+          git push origin HEAD:${{ steps.pr_info.outputs.result }}
+     
+      # NodeJS required for github script below
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16.x
+
+      - name: Update comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs')
+            const id = `${{ steps.comment.outputs.result }}`
+            const body = fs.readFileSync('${{ runner.temp }}/out.txt').toString()
+            github.rest.issues.updateComment({
+              comment_id: id,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `
+              **Request**: \`${{ github.event.comment.body }}\`
+              **Command**: \`${{ steps.command.outputs.result }}\`
+
+              <details>
+              <summary>Results</summary>
+
+              \`\`\`
+              ${body.trim()}
+              \`\`\`
+              </details>
+              `
+            })
+

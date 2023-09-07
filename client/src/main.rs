@@ -19,13 +19,11 @@
 mod chain_spec;
 #[macro_use]
 mod service;
+mod benchmarking;
 mod cli;
 mod command;
 mod custom_commands;
 mod rpc;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 
 fn main() -> sc_cli::Result<()> {
 	command::run()

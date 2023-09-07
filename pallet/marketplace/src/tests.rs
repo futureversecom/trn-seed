@@ -15,13 +15,17 @@
 
 use super::*;
 use crate::mock::{
-	create_account, AssetsExt, Event as MockEvent, Marketplace, NativeAssetId, Nft, NftPalletId,
-	System, Test, TestExt,
+	create_account, AssetsExt, Marketplace, NativeAssetId, Nft, NftPalletId,
+	RuntimeEvent as MockEvent, System, Test, TestExt,
 };
-use frame_support::assert_ok;
-use pallet_nft::{CrossChainCompatibility, Listings};
+use frame_support::{assert_noop, assert_ok};
+use frame_system::RawOrigin;
+use pallet_nft::{
+	CrossChainCompatibility, FeeTo, Listings, NextListingId, NextMarketplaceId, NextOfferId,
+	TokenOffers,
+};
 use seed_primitives::{AccountId, MetadataScheme, TokenId};
-use sp_runtime::{BoundedVec, Permill};
+use sp_runtime::{BoundedVec, DispatchError::BadOrigin, Permill};
 
 // Create an NFT collection
 // Returns the created `collection_id`
@@ -57,20 +61,20 @@ fn setup_token() -> (CollectionUuid, TokenId, AccountId) {
 fn register_marketplace_works() {
 	TestExt::default().build().execute_with(|| {
 		let account = create_account(1);
-		let marketplace_id = Nft::next_marketplace_id();
+		let marketplace_id = NextMarketplaceId::<Test>::get();
 		assert_ok!(Marketplace::register_marketplace(
 			Some(account).into(),
 			None,
 			Permill::from_parts(0)
 		));
-		assert_eq!(Nft::next_marketplace_id(), marketplace_id + 1);
+		assert_eq!(NextMarketplaceId::<Test>::get(), marketplace_id + 1);
 	});
 }
 
 #[test]
 fn sell_nft_works() {
 	TestExt::default().build().execute_with(|| {
-		let listing_id = Nft::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let (collection_id, token_id, token_owner) = setup_token();
 		let serial_numbers = BoundedVec::truncate_from(vec![token_id.1]);
 		assert_ok!(Marketplace::sell_nft(
@@ -83,14 +87,14 @@ fn sell_nft_works() {
 			None,
 			None,
 		));
-		assert_eq!(Nft::next_listing_id(), listing_id + 1);
+		assert_eq!(NextListingId::<Test>::get(), listing_id + 1);
 	});
 }
 
 #[test]
 fn update_fixed_price_works() {
 	TestExt::default().build().execute_with(|| {
-		let listing_id = Nft::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let (collection_id, token_id, token_owner) = setup_token();
 		let serial_numbers = BoundedVec::truncate_from(vec![token_id.1]);
 		assert_ok!(Marketplace::sell_nft(
@@ -118,7 +122,7 @@ fn update_fixed_price_works() {
 #[test]
 fn buy_works() {
 	TestExt::default().build().execute_with(|| {
-		let listing_id = Nft::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let (collection_id, token_id, token_owner) = setup_token();
 		let serial_numbers = BoundedVec::truncate_from(vec![token_id.1]);
 		assert_ok!(Marketplace::sell_nft(
@@ -141,7 +145,7 @@ fn buy_works() {
 #[test]
 fn auction_nft_works() {
 	TestExt::default().build().execute_with(|| {
-		let listing_id = Nft::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let (collection_id, token_id, token_owner) = setup_token();
 		let serial_numbers = BoundedVec::truncate_from(vec![token_id.1]);
 		assert_ok!(Marketplace::auction_nft(
@@ -154,7 +158,7 @@ fn auction_nft_works() {
 			None,
 		));
 
-		assert_eq!(Nft::next_listing_id(), listing_id + 1);
+		assert_eq!(NextListingId::<Test>::get(), listing_id + 1);
 	});
 }
 
@@ -167,7 +171,7 @@ fn bid_works() {
 		.with_balances(&[(bidder, bid_price)])
 		.build()
 		.execute_with(|| {
-			let listing_id = Nft::next_listing_id();
+			let listing_id = NextListingId::<Test>::get();
 			let (collection_id, token_id, token_owner) = setup_token();
 			let serial_numbers = BoundedVec::truncate_from(vec![token_id.1]);
 			assert_ok!(Marketplace::auction_nft(
@@ -192,7 +196,7 @@ fn bid_works() {
 #[test]
 fn cancel_sale_works() {
 	TestExt::default().build().execute_with(|| {
-		let listing_id = Nft::next_listing_id();
+		let listing_id = NextListingId::<Test>::get();
 		let (collection_id, token_id, token_owner) = setup_token();
 		let serial_numbers = BoundedVec::truncate_from(vec![token_id.1]);
 		assert_ok!(Marketplace::auction_nft(
@@ -219,7 +223,7 @@ fn make_simple_offer_works() {
 		.with_balances(&[(buyer, offer_price)])
 		.build()
 		.execute_with(|| {
-			let offer_id = Nft::next_offer_id();
+			let offer_id = NextOfferId::<Test>::get();
 			let (_, token_id, _) = setup_token();
 			assert_ok!(Marketplace::make_simple_offer(
 				Some(buyer).into(),
@@ -229,7 +233,7 @@ fn make_simple_offer_works() {
 				None
 			));
 
-			assert_eq!(Nft::next_offer_id(), offer_id + 1);
+			assert_eq!(NextOfferId::<Test>::get(), offer_id + 1);
 		});
 }
 
@@ -242,7 +246,7 @@ fn cancel_offer_works() {
 		.with_balances(&[(buyer, offer_price)])
 		.build()
 		.execute_with(|| {
-			let offer_id = Nft::next_offer_id();
+			let offer_id = NextOfferId::<Test>::get();
 			let (_, token_id, _) = setup_token();
 			assert_ok!(Marketplace::make_simple_offer(
 				Some(buyer).into(),
@@ -252,9 +256,9 @@ fn cancel_offer_works() {
 				None
 			));
 
-			assert!(Nft::token_offers(token_id).is_some());
+			assert!(TokenOffers::<Test>::get(token_id).is_some());
 			assert_ok!(Marketplace::cancel_offer(Some(buyer).into(), offer_id));
-			assert!(Nft::token_offers(token_id).is_none());
+			assert!(TokenOffers::<Test>::get(token_id).is_none());
 		});
 }
 
@@ -267,7 +271,7 @@ fn accept_offer_works() {
 		.with_balances(&[(buyer, offer_price)])
 		.build()
 		.execute_with(|| {
-			let offer_id = Nft::next_offer_id();
+			let offer_id = NextOfferId::<Test>::get();
 			let (_, token_id, token_owner) = setup_token();
 			assert_ok!(Marketplace::make_simple_offer(
 				Some(buyer).into(),
@@ -277,8 +281,35 @@ fn accept_offer_works() {
 				None
 			));
 
-			assert!(Nft::token_offers(token_id).is_some());
+			assert!(TokenOffers::<Test>::get(token_id).is_some());
 			assert_ok!(Marketplace::accept_offer(Some(token_owner).into(), offer_id));
-			assert!(Nft::token_offers(token_id).is_none());
+			assert!(TokenOffers::<Test>::get(token_id).is_none());
 		});
+}
+
+mod set_fee_to {
+	use super::*;
+
+	#[test]
+	fn set_fee_to_works() {
+		let new_fee_to = create_account(13);
+
+		TestExt::default().build().execute_with(|| {
+			assert_ok!(Marketplace::set_fee_to(RawOrigin::Root.into(), new_fee_to.into()));
+
+			assert_eq!(FeeTo::<Test>::get().unwrap(), new_fee_to);
+		});
+	}
+
+	#[test]
+	fn set_fee_to_not_root_fails() {
+		TestExt::default().build().execute_with(|| {
+			let new_fee_to = create_account(10);
+
+			assert_noop!(
+				Marketplace::set_fee_to(Some(create_account(11)).into(), Some(new_fee_to)),
+				BadOrigin
+			);
+		});
+	}
 }

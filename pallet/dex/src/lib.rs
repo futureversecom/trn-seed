@@ -96,7 +96,7 @@ pub mod pallet {
 	where
 		<Self as frame_system::Config>::AccountId: From<H160>,
 	{
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Trading fee rate
 		/// The first item of the tuple is the numerator of the fee rate, second
 		/// item is the denominator, fee_rate = numerator / denominator,

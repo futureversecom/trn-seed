@@ -1,0 +1,25 @@
+[package]
+name = "pallet-sft-rpc-runtime-api"
+version = "2.2.0"
+authors = ["The Root Network Team"]
+edition = "2021"
+license = "GPL-3.0"
+
+[dependencies]
+codec = { version = "3.0.0", package = "parity-scale-codec", default-features = false, features = ["derive"] }
+sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.30" }
+pallet-sft = { path = "../../../sft", default-features = false }
+seed-primitives = { path = "../../../../primitives", default-features = false}
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"pallet-sft/std",
+	"sp-api/std",
+	"codec/std",
+	"sp-std/std",
+	"seed-primitives/std",
+]

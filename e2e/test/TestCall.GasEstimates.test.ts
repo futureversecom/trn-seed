@@ -60,20 +60,20 @@ describe("TestCall", () => {
   // dependent on TestCall:set()
   it("TestCallProxy:set() estimates 31_479 gas and uses 29_357 gas", async () => {
     const gas = await testProxy.estimateGas.set(2);
-    expect(gas).to.eq(31_479);
+    expect(gas).to.eq(32_791);
     const tx = await testProxy.set(2, { gasLimit: gas });
     const receipt = await tx.wait();
-    expect(receipt.gasUsed).to.eq(29_357);
+    expect(receipt.gasUsed).to.eq(32_157);
   });
 
   // dependent on TestCall:set()
   // dependent on TestCallProxy:set()
   it("TestCallProxy:setWithAddress() estimates 28_355 gas and uses 27_923 gas", async () => {
     const gas = await testProxy.estimateGas.setWithAddress(test.address, 3);
-    expect(gas).to.eq(28_355);
+    expect(gas).to.eq(32_120);
     const tx = await testProxy.setWithAddress(test.address, 3, { gasLimit: gas });
     const receipt = await tx.wait();
-    expect(receipt.gasUsed).to.eq(27_923);
+    expect(receipt.gasUsed).to.eq(30_723);
   });
 
   // dependent on TestCall:set()
@@ -99,11 +99,11 @@ describe("TestCall", () => {
   // dependent on TestCall:deposit()
   it("TestCallProxy:deposit() estimates 39_705 gas and uses 23_642 gas", async () => {
     const gas = await testProxy.estimateGas.deposit({ value: ethers.utils.parseEther("1") });
-    expect(gas).to.eq(39_705);
+    expect(gas).to.eq(38_424);
     const tx = await test.deposit({ gasLimit: gas, value: ethers.utils.parseEther("1") });
     const receipt = await tx.wait();
     // gas estimates for payable (eth-forwarding) functions have a larger discrepancy in actual tx gas usage
-    expect(receipt.gasUsed).to.eq(23_642);
+    expect(receipt.gasUsed).to.eq(26_442);
 
     // ensure TestCallProxy contract has no ether (all ether was forwarded to TestCall contract)
     expect(await provider.getBalance(testProxy.address)).to.eq(0);

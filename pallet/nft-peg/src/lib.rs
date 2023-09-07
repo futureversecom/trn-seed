@@ -23,7 +23,7 @@ use seed_pallet_common::{EthereumBridge, EthereumEventSubscriber};
 use seed_primitives::{CollectionUuid, MetadataScheme, OriginChain, SerialNumber};
 use sp_core::{H160, U256};
 use sp_runtime::{traits::AccountIdConversion, DispatchError, SaturatedConversion};
-use sp_std::{boxed::Box, vec::Vec};
+use sp_std::{boxed::Box, vec, vec::Vec};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -50,7 +50,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + pallet_nft::Config {
-		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type PalletId: Get<PalletId>;
 		#[pallet::constant]
 		type DelayLength: Get<Self::BlockNumber>;
@@ -64,20 +64,26 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn contract_address)]
 	pub type ContractAddress<T: Config> = StorageValue<_, EthAddress, ValueQuery>;
 
 	// Map Ethereum contract address to Root collection id
 	#[pallet::storage]
-	#[pallet::getter(fn eth_to_root_nft)]
 	pub type EthToRootNft<T: Config> =
 		StorageMap<_, Twox64Concat, EthAddress, CollectionUuid, OptionQuery>;
 
 	// Map Root collection id to Ethereum contract address
 	#[pallet::storage]
-	#[pallet::getter(fn root_to_eth_nft)]
 	pub type RootNftToErc721<T: Config> =
 		StorageMap<_, Twox64Concat, CollectionUuid, EthAddress, OptionQuery>;
+
+	// Map BlockedMintId to tokens
+	#[pallet::storage]
+	pub type BlockedTokens<T: Config> =
+		StorageMap<_, Twox64Concat, BlockedMintId, BlockedTokenInfo<T>, OptionQuery>;
+
+	/// The next available BlockedMintId
+	#[pallet::storage]
+	pub type NextBlockedMintId<T> = StorageValue<_, BlockedMintId, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -92,7 +98,6 @@ pub mod pallet {
 		/// No collection info exists
 		NoCollectionFound,
 		/// No mapped token was stored for bridging the token back to the bridged chain
-		/// chain(Should not happen)
 		NoMappedTokenExists,
 		/// Tried to bridge a token that originates from Root, which is not yet supported
 		NoPermissionToBridge,
@@ -102,6 +107,10 @@ pub mod pallet {
 		TokenListLengthMismatch,
 		/// The length of the given vec exceeds the maximal allowed length limit
 		ExceedsMaxVecLength,
+		/// No blocked tokens for the given id
+		NoBlockedTokensFound,
+		/// Blocked tokens can only be reclaimed by the destination address
+		NotBlockedTokenDestination,
 	}
 
 	#[pallet::event]
@@ -114,6 +123,13 @@ pub mod pallet {
 			collection_id: CollectionUuid,
 			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 			owner: T::AccountId,
+		},
+		/// Bridged ERC721 tokens were unable to be minted due to collection limit being reached
+		ERC721Blocked {
+			blocked_mint_id: BlockedMintId,
+			destination_address: T::AccountId,
+			collection_id: CollectionUuid,
+			serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw>,
 		},
 		/// An ERC721 withdraw was made
 		Erc721Withdraw {
@@ -154,7 +170,20 @@ pub mod pallet {
 			destination: H160,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_withdrawal(who, collection_ids, serial_numbers, destination)?;
+			Self::do_withdrawal(who, collection_ids, serial_numbers, destination, None)?;
+			Ok(())
+		}
+
+		/// Withdraw blocked tokens, must be called by the destination defined in `BlockedTokens`
+		#[pallet::weight(T::NftPegWeightInfo::reclaim_blocked_nfts())]
+		#[transactional]
+		pub fn reclaim_blocked_nfts(
+			origin: OriginFor<T>,
+			blocked_mint_id: BlockedMintId,
+			destination: H160,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			Self::do_reclaim_blocked_nfts(who, blocked_mint_id, destination)?;
 			Ok(())
 		}
 	}
@@ -165,7 +194,7 @@ where
 	<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 {
 	fn decode_deposit_event(data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
-		let mut weight: Weight = 0;
+		let mut weight = Weight::zero();
 		let abi_decoded = match ethabi::decode(
 			&[
 				// Bit to predetermine which function to route to; unused here
@@ -202,48 +231,45 @@ where
 					.map_err(|_| (weight, Error::<T>::InvalidAbiEncoding.into()))?;
 
 			// Turn nested ethabi Tokens Vec into Nested BoundedVec of root types
-			let token_ids: Result<
-				Vec<BoundedVec<SerialNumber, T::MaxTokensPerMint>>,
-				(u64, DispatchError),
-			> = token_ids
-				.iter()
-				.map(|k| {
-					if let Token::Array(token_ids) = k {
-						let new: Vec<SerialNumber> = token_ids
-							.iter()
-							.filter_map(|j| {
-								if let Token::Uint(token_id) = j {
-									let token_id: SerialNumber = (*token_id).saturated_into();
-									Some(token_id.clone())
-								} else {
-									None
-								}
-							})
-							.collect();
-						BoundedVec::try_from(new)
-							.map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))
-					} else {
-						Err((weight, Error::<T>::ExceedsMaxTokens.into()))
-					}
-				})
-				.collect();
-
-			let token_ids: BoundedVec<
+			let mut new_token_ids: BoundedVec<
 				BoundedVec<SerialNumber, T::MaxTokensPerMint>,
 				T::MaxAddresses,
-			> = BoundedVec::try_from(token_ids?)
-				.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
+			> = BoundedVec::default();
+
+			for token_id in token_ids.iter() {
+				let Token::Array(token) = token_id else {
+					return Err((weight, Error::<T>::ExceedsMaxTokens.into()));
+				};
+
+				let vec: Vec<SerialNumber> = token
+					.iter()
+					.filter_map(|j| {
+						if let Token::Uint(token_id) = j {
+							let token_id: SerialNumber = (*token_id).saturated_into();
+							Some(token_id.clone())
+						} else {
+							None
+						}
+					})
+					.collect();
+
+				let vec = BoundedVec::try_from(vec)
+					.map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))?;
+				new_token_ids
+					.try_push(vec)
+					.map_err(|_| (weight, Error::<T>::ExceedsMaxAddresses.into()))?;
+			}
 
 			ensure!(
-				token_addresses.len() == token_ids.len(),
+				token_addresses.len() == new_token_ids.len(),
 				(weight, Error::<T>::TokenListLengthMismatch.into())
 			);
 
 			let token_information =
-				GroupedTokenInfo::new(token_ids, token_addresses, destination.clone().into());
+				GroupedTokenInfo::new(new_token_ids, token_addresses, destination.clone().into());
 
-			let do_deposit_weight =
-				Self::do_deposit(token_information, *destination).map_err(|err| (weight, err))?;
+			let do_deposit_weight = Self::do_deposit(token_information, *destination)
+				.map_err(|(deposit_weight, err)| (weight.saturating_add(deposit_weight), err))?;
 
 			weight = T::DbWeight::get().writes(1).saturating_add(do_deposit_weight);
 
@@ -256,7 +282,7 @@ where
 
 	// TODO implement state sync feature for collection_owner, name and metadata
 	fn decode_state_sync_event(_data: &[u8]) -> Result<Weight, (Weight, DispatchError)> {
-		Err((0, Error::<T>::StateSyncDisabled.into()))
+		Err((Weight::zero(), Error::<T>::StateSyncDisabled.into()))
 	}
 
 	// Accept some representation of one or more tokens from an outside source, and create a
@@ -265,8 +291,8 @@ where
 	fn do_deposit(
 		token_info: GroupedTokenInfo<T>,
 		destination: H160,
-	) -> Result<Weight, DispatchError> {
-		let mut weight: Weight = 0;
+	) -> Result<Weight, (Weight, DispatchError)> {
+		let mut weight = Weight::zero();
 
 		let destination: T::AccountId = destination.into();
 		let name = BoundedVec::truncate_from(b"bridged-collection".to_vec());
@@ -278,7 +304,7 @@ where
 			// Check if incoming collection is in CollectionMapping, if not, create as
 			// new collection along with its Eth > Root mapping
 			let collection_id: CollectionUuid =
-				match Self::eth_to_root_nft(current_token.token_address) {
+				match EthToRootNft::<T>::get(current_token.token_address) {
 					Some(collection_id) => collection_id,
 					None => {
 						let mut h160_addr = sp_std::Writer::default();
@@ -286,7 +312,7 @@ where
 							.expect("Not written");
 						let metadata_scheme =
 							MetadataScheme::try_from(h160_addr.inner().clone().as_slice())
-								.map_err(|_| Error::<T>::ExceedsMaxVecLength)?;
+								.map_err(|_| (weight, (Error::<T>::ExceedsMaxVecLength).into()))?;
 						// Collection doesn't exist, create a new collection
 						let new_collection_id = pallet_nft::Pallet::<T>::do_create_collection(
 							collection_owner_account,
@@ -298,7 +324,8 @@ where
 							None,
 							OriginChain::Ethereum,
 							sp_std::default::Default::default(),
-						)?;
+						)
+						.map_err(|err| (weight, err))?;
 
 						// Populate both mappings, building the relationship between the bridged
 						// chain token, and this chain's token
@@ -311,12 +338,54 @@ where
 					},
 				};
 
+			let serial_numbers = current_token.token_ids.clone().into_inner();
+
 			// Mint the tokens
-			let mint_weight = pallet_nft::Pallet::<T>::mint_bridged_token(
+			let mint_result = pallet_nft::Pallet::<T>::mint_bridged_token(
 				&destination,
 				collection_id,
-				current_token.token_ids.clone().into_inner(),
+				serial_numbers.clone(),
 			);
+
+			match mint_result {
+				Ok(mint_weight) => {
+					weight = weight.saturating_add(mint_weight);
+				},
+				// If mint fails, add tokens to `BlockedTokens`
+				Err((mint_weight, err)) => {
+					weight = weight.saturating_add(mint_weight);
+
+					let blocked_mint_id = NextBlockedMintId::<T>::get();
+
+					// Rebound to `MaxSerialsPerWithdraw` - this shouldn't fail as
+					// it is the same as `MaxTokensPerMint`
+					let serial_numbers: BoundedVec<SerialNumber, T::MaxSerialsPerWithdraw> =
+						BoundedVec::try_from(serial_numbers)
+							.map_err(|_| (weight, Error::<T>::ExceedsMaxTokens.into()))?;
+
+					<BlockedTokens<T>>::insert(
+						blocked_mint_id,
+						BlockedTokenInfo {
+							collection_id,
+							serial_numbers: serial_numbers.clone(),
+							destination_address: destination.clone(),
+						},
+					);
+					<NextBlockedMintId<T>>::mutate(|i| *i += 1);
+
+					// Throw event with values necessary to reclaim tokens
+					Self::deposit_event(Event::<T>::ERC721Blocked {
+						blocked_mint_id,
+						collection_id,
+						serial_numbers,
+						destination_address: destination,
+					});
+
+					weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
+
+					return Err((weight, err))
+				},
+			}
 
 			// Throw event, listing all bridged tokens minted
 			Self::deposit_event(Event::<T>::Erc721Mint {
@@ -324,8 +393,7 @@ where
 				serial_numbers: current_token.token_ids.clone(),
 				owner: destination.clone(),
 			});
-			weight =
-				weight.saturating_add(T::DbWeight::get().writes(2)).saturating_add(mint_weight);
+			weight = weight.saturating_add(T::DbWeight::get().writes(2));
 		}
 
 		Self::deposit_event(Event::<T>::Erc721Deposit { destination });
@@ -342,13 +410,14 @@ where
 		>,
 		// Ethereum address to deposit the tokens into
 		destination: H160,
+		blocked_mint_id: Option<BlockedMintId>,
 	) -> Result<u64, DispatchError> {
 		ensure!(collection_ids.len() == serial_numbers.len(), Error::<T>::TokenListLengthMismatch);
 		let mut source_collection_ids = Vec::with_capacity(collection_ids.len());
 		let mut source_serial_numbers = Vec::with_capacity(collection_ids.len());
 
 		for (idx, collection_id) in (&collection_ids).into_iter().enumerate() {
-			let collection_info = pallet_nft::Pallet::<T>::collection_info(collection_id)
+			let collection_info = <pallet_nft::CollectionInfo<T>>::get(collection_id)
 				.ok_or(Error::<T>::NoCollectionFound)?;
 
 			// At the time of writing, only Ethereum-originated NFTs can be bridged back.
@@ -359,14 +428,25 @@ where
 
 			let mut current_serial_numbers = Vec::with_capacity(serial_numbers[idx].len());
 
-			for serial_number in &serial_numbers[idx] {
-				pallet_nft::Pallet::<T>::do_burn(&who, collection_id.clone(), *serial_number)?;
-				current_serial_numbers.push(Token::Uint(U256::from(serial_number.clone())));
+			if let Some(blocked_mint_id) = blocked_mint_id {
+				let blocked_tokens = BlockedTokens::<T>::get(blocked_mint_id)
+					.ok_or(Error::<T>::NoBlockedTokensFound)?;
+
+				for serial_number in &blocked_tokens.serial_numbers {
+					current_serial_numbers.push(Token::Uint(U256::from(*serial_number)));
+				}
+
+				<BlockedTokens<T>>::remove(blocked_mint_id);
+			} else {
+				for serial_number in &serial_numbers[idx] {
+					pallet_nft::Pallet::<T>::do_burn(&who, *collection_id, *serial_number)?;
+					current_serial_numbers.push(Token::Uint(U256::from(*serial_number)));
+				}
 			}
 
 			// Lookup the source chain token id for this token and remove it from the mapping
-			let token_address = Pallet::<T>::root_to_eth_nft(collection_id)
-				.ok_or(Error::<T>::NoMappedTokenExists)?;
+			let token_address =
+				RootNftToErc721::<T>::get(collection_id).ok_or(Error::<T>::NoMappedTokenExists)?;
 			source_collection_ids.push(Token::Address(token_address));
 			source_serial_numbers.push(Token::Array(current_serial_numbers));
 		}
@@ -380,7 +460,7 @@ where
 		]);
 
 		let event_proof_id =
-			T::EthBridge::send_event(&source, &Pallet::<T>::contract_address(), &message)?;
+			T::EthBridge::send_event(&source, &ContractAddress::<T>::get(), &message)?;
 
 		Self::deposit_event(Event::<T>::Erc721Withdraw {
 			origin: who,
@@ -389,6 +469,27 @@ where
 			destination,
 		});
 		Ok(event_proof_id)
+	}
+
+	fn do_reclaim_blocked_nfts(
+		who: T::AccountId,
+		blocked_mint_id: BlockedMintId,
+		destination: H160,
+	) -> Result<(), DispatchError> {
+		let blocked_tokens =
+			BlockedTokens::<T>::get(blocked_mint_id).ok_or(Error::<T>::NoBlockedTokensFound)?;
+
+		ensure!(blocked_tokens.destination_address == who, Error::<T>::NotBlockedTokenDestination);
+
+		Self::do_withdrawal(
+			who,
+			BoundedVec::truncate_from(vec![blocked_tokens.collection_id]),
+			BoundedVec::truncate_from(vec![blocked_tokens.serial_numbers]),
+			destination,
+			Some(blocked_mint_id),
+		)?;
+
+		Ok(())
 	}
 }
 
@@ -400,7 +501,7 @@ where
 	type SourceAddress = GetContractAddress<T>;
 
 	fn on_event(_source: &H160, data: &[u8]) -> seed_pallet_common::OnEventResult {
-		let weight = 0;
+		let weight = Weight::zero();
 
 		// Decode prefix from first 32 bytes of data
 		let prefix_decoded = match ethabi::decode(&[ParamType::Uint(32)], &data[..32]) {

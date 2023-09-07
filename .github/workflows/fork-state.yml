@@ -1,0 +1,141 @@
+name: Fork State
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        type: choice
+        description: "The network to be forked"
+        options:
+          - porcini
+          - root
+        required: true
+      release-candidate-branch:
+        type: string
+        description: "The release candidate branch for runtime upgrade. Leave it empty if runtime upgrade is not required"
+        required: true
+
+env:
+  REGISTRY: "ghcr.io"
+  IMAGE_NAME: "futureversecom/fork-state"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fork-state:
+    runs-on: [seed-builder]
+    name: Fork the current state and run runtime upgrade
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: ghcr.io login
+        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create output folder
+        run: mkdir -p output
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Check out the correct version
+        run: |
+          python3 -m venv ./scripts/penv
+          source ./scripts/penv/bin/activate
+          pip install -r ./scripts/requirements.txt
+          python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml --branch ${{ github.event.inputs.release-candidate-branch }}
+        #  python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml $UPGRADE_FLAG
+
+      - name: Upload wasm as artifact
+        if: ${{ github.event.inputs.release-candidate-branch }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: runtime-wasm
+          path: ./output/seed_runtime.compact.compressed.wasm
+          if-no-files-found: warn
+
+      - name: Build 🛠 & Publish 🐳
+        # build and tag an image with commit hash and 'latest', additionally:
+        # if the commit is tagged, tag the image also e.g. 1.0.0
+        # if the branch name is release/x.x.x tag the image
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          echo "commit hash: $COMMIT_HASH"
+          COMMIT_TAG=$((git describe --exact-match --tags HEAD) || true)
+          echo "commit tag(?): $COMMIT_TAG"
+          RELEASE_TAG=$(echo -n $GITHUB_REF | grep -oP '(?<=release/).*' || true)
+
+          echo "github ref: $GITHUB_REF"
+          echo "release tag(?): $RELEASE_TAG"
+
+          docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
+          # docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=porcini .
+
+          docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
+          docker push "$REGISTRY/$IMAGE_NAME:latest"
+
+          # commit was tagged
+          if [ -n "$COMMIT_TAG" ]; then
+            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$COMMIT_TAG"
+            docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_TAG"
+          fi
+          # branch is a release branch
+          if [ -n "$RELEASE_TAG" ]; then
+            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
+            docker push "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
+          fi
+          # clean up images
+          docker image prune --filter label=stage=build -f
+
+  poll-service-status:
+    runs-on: [seed-builder]
+    needs: fork-state
+    name: Poll the service status on Kubernetes till the service is up
+    steps:
+      - name: Wait till the Kubernetes runner reacts
+        run: sleep 10s
+        shell: bash
+      - name: Fetch the service status
+        uses: nev7n/wait_for_response@v1
+        with:
+          url: "https://forkednet.au.cicd.rootnet.app/"
+          responseCode: 405
+          timeout: 300
+          interval: 20
+
+  runtime-upgrade:
+    if: ${{ github.event.inputs.release-candidate-branch }}
+    runs-on: [seed-builder]
+    needs: poll-service-status
+    defaults:
+      run:
+        working-directory: ./ci-scripts/runtime-upgrade
+    name: Do the runtime upgrade
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: runtime-wasm
+          path: runtime-wasm
+      - name: "Install Node.js"
+        uses: "actions/setup-node@v3"
+        with:
+          node-version: "lts/*"
+      - name: "Install yarn globally"
+        run: "npm install -g yarn"
+      - name: "Install ts-node"
+        run: |
+          npm install -g ts-node
+          npm install -g typescript
+      - name: "Install the dependencies"
+        run: "yarn install --immutable --prefer-offline"
+      - name: Do runtime upgrade
+        run: npx ts-node runtime-upgrade.ts

@@ -1,0 +1,11 @@
+{
+	"name": "runtime-upgrade",
+	"version": "1.0.0",
+	"main": "runtime-upgrade.ts",
+	"license": "MIT",
+	"dependencies": {
+		"@polkadot/api": "^10.9.1",
+		"@polkadot/types": "^10.9.1",
+		"@polkadot/util": "^12.3.2"
+	}
+}

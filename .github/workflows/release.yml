@@ -8,7 +8,7 @@ env:
 
 jobs:
   release-to-github:
-    runs-on: [ubuntu-latest]
+    runs-on: [seed-builder]
     steps:
       - name: Check out
         uses: actions/checkout@v3
