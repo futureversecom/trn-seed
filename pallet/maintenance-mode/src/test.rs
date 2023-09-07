@@ -280,6 +280,39 @@ mod block_call {
 	}
 
 	#[test]
+	fn block_sudo_pallet_call_fails() {
+		TestExt::default().build().execute_with(|| {
+			let blocked_pallet = bounded_string("Sudo");
+			let blocked_call = bounded_string("sudo");
+
+			// Block call should fail as pallet is sudo
+			assert_noop!(
+				MaintenanceMode::block_call(
+					RawOrigin::Root.into(),
+					blocked_pallet.clone(),
+					blocked_call.clone(),
+					true
+				),
+				Error::<Test>::CannotBlock
+			);
+
+			// Check it fails, even if passing in lowercase pallet name
+			let blocked_pallet = bounded_string("sudo");
+			let blocked_call = bounded_string("sudo_as");
+
+			assert_noop!(
+				MaintenanceMode::block_call(
+					RawOrigin::Root.into(),
+					blocked_pallet.clone(),
+					blocked_call.clone(),
+					true
+				),
+				Error::<Test>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
 	fn block_call_invalid_pallet_name_fails() {
 		TestExt::default().build().execute_with(|| {
 			// Invalid pallet name
@@ -444,6 +477,27 @@ mod block_pallet {
 
 			// Check it fails, even if passing in lowercase pallet name
 			let blocked_pallet = bounded_string("maintenancemode");
+
+			assert_noop!(
+				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),
+				Error::<Test>::CannotBlock
+			);
+		});
+	}
+
+	#[test]
+	fn block_sudo_pallet_fails() {
+		TestExt::default().build().execute_with(|| {
+			let blocked_pallet = bounded_string("Sudo");
+
+			// Block call should fail as pallet is sudo
+			assert_noop!(
+				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),
+				Error::<Test>::CannotBlock
+			);
+
+			// Check it fails, even if passing in lowercase pallet name
+			let blocked_pallet = bounded_string("sudo");
 
 			assert_noop!(
 				MaintenanceMode::block_pallet(RawOrigin::Root.into(), blocked_pallet.clone(), true),

@@ -65,6 +65,9 @@ pub mod pallet {
 
 		// Interface to access weight values
 		type WeightInfo: WeightInfo;
+
+		// The sudo pallet to prevent blocking of sudo calls
+		type SudoPallet: PalletInfoAccess;
 	}
 
 	/// Determines whether maintenance mode is currently active
@@ -201,6 +204,11 @@ pub mod pallet {
 				pallet_name_string != <Self as PalletInfoAccess>::name().to_ascii_lowercase(),
 				Error::<T>::CannotBlock
 			);
+			// Ensure the sudo pallet cannot be blocked
+			ensure!(
+				pallet_name_string != T::SudoPallet::name().to_ascii_lowercase(),
+				Error::<T>::CannotBlock
+			);
 
 			// Validate call name
 			ensure!(!call_name.is_empty(), Error::<T>::InvalidCallName);
@@ -236,6 +244,11 @@ pub mod pallet {
 				pallet_name_string != <Self as PalletInfoAccess>::name().to_ascii_lowercase(),
 				Error::<T>::CannotBlock
 			);
+			// Ensure the sudo pallet cannot be blocked
+			ensure!(
+				pallet_name_string != T::SudoPallet::name().to_ascii_lowercase(),
+				Error::<T>::CannotBlock
+			);
 
 			match blocked {
 				true => BlockedPallets::<T>::insert(&pallet_name, true),
@@ -268,7 +281,7 @@ where
 
 		// Check whether this is a sudo call, we want to enable all sudo calls
 		// Regardless of maintenance mode
-		if pallet_name == "Sudo" {
+		if pallet_name == <T as Config>::SudoPallet::name() {
 			return false
 		}
 
@@ -337,7 +350,7 @@ where
 		// Check whether this is a sudo call, we want to enable all sudo calls
 		// Regardless of maintenance mode
 		// This check is needed here in case we accidentally block the sudo account
-		if pallet_name == "Sudo" {
+		if pallet_name == <T as Config>::SudoPallet::name() {
 			return Ok(ValidTransaction::default())
 		}
 

@@ -42,6 +42,7 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
 		MaintenanceMode: pallet_maintenance_mode,
+		Sudo: pallet_sudo,
 	}
 );
 
@@ -50,11 +51,18 @@ impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
 
+// Implement the sudo module's `Config` on the Test runtime.
+impl pallet_sudo::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+}
+
 impl pallet_maintenance_mode::Config for Test {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type StringLimit = AssetsStringLimit;
 	type WeightInfo = ();
+	type SudoPallet = Sudo;
 }
 
 #[derive(Default)]
