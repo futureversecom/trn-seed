@@ -14,8 +14,10 @@ use frame_support::{
 	dispatch::GetStorageVersion,
 	traits::{OnRuntimeUpgrade, StorageVersion},
 };
+use sp_std::vec::Vec;
 
 pub struct Upgrade;
+
 impl OnRuntimeUpgrade for Upgrade {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
@@ -147,6 +149,7 @@ pub mod v6 {
 
 		<Runtime as frame_system::Config>::DbWeight::get().writes(10_u64)
 	}
+
 	#[cfg(test)]
 	mod tests {
 		use super::*;
@@ -300,7 +303,7 @@ pub mod v6 {
 					Some(listing)
 				);
 				assert_eq!(
-					Value::unsafe_storage_get::<ListingId>(b"Marketplace", b"NextListingId",),
+					Value::unsafe_storage_get::<ListingId>(b"Marketplace", b"NextListingId"),
 					Some(next_listing_id)
 				);
 				assert_eq!(
@@ -338,11 +341,11 @@ pub mod v6 {
 				assert_eq!(
 					Map::unsafe_storage_get::<
 						BoundedVec<OfferId, <Runtime as pallet_marketplace::Config>::MaxOffers>,
-					>(b"Marketplace", b"TokenOffers", &token_offers_key,),
+					>(b"Marketplace", b"TokenOffers", &token_offers_key),
 					Some(token_offers)
 				);
 				assert_eq!(
-					Value::unsafe_storage_get::<OfferId>(b"Marketplace", b"NextOfferId",),
+					Value::unsafe_storage_get::<OfferId>(b"Marketplace", b"NextOfferId"),
 					Some(next_offer_id)
 				);
 
