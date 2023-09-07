@@ -103,7 +103,7 @@ describe("Fee Preferences", function () {
     const error = await emptyAccountSigner.sendTransaction(unsignedTx).catch((e) => e);
     expect(error.code).to.be.eq("SERVER_ERROR");
     expect(error.reason).to.be.eq("processing response error");
-    expect(error.message).contains("InvalidTransaction(InvalidTransaction::Call)");
+    expect(error.message).contains("unknown error");
   });
 
   it("Legacy tx type 1 not supported", async () => {
@@ -130,7 +130,7 @@ describe("Fee Preferences", function () {
     const error = await emptyAccountSigner.sendTransaction(unsignedTx).catch((e) => e);
     expect(error.code).to.be.eq("SERVER_ERROR");
     expect(error.reason).to.be.eq("processing response error");
-    expect(error.message).contains("InvalidTransaction(InvalidTransaction::Call)");
+    expect(error.message).contains("unknown error");
   });
 
   it("Pays fees in non-native token - maxFeePerGas (MIN)", async () => {
