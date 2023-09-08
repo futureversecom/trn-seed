@@ -11,11 +11,11 @@ on:
       - completed
     branches:
       - "release/*"
-      - "release-test"  # TODO: remove this before merging PR
   push:
     branches:
       - "main"
       - "release/*"
+      - "release-test"  # TODO: remove this before merging PR
     paths:
       - "**.rs"
       - "**.ts"
