@@ -12,6 +12,9 @@ ADD . ./workdir
 WORKDIR "/workdir"
 ARG network=porcini
 
+# TODO: remove - check if git dir is available
+RUN ls -la .git
+
 # Install dependencies
 RUN pip install -r ./scripts/requirements.txt
 
