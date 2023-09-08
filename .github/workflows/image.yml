@@ -89,8 +89,6 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
 
       - name: ghcr.io login
         uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
