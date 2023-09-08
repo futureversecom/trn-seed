@@ -102,12 +102,53 @@ jobs:
       - name: Build 🛠 & Publish 🐳
         run: |
           COMMIT_HASH=$(git rev-parse --short HEAD)
-          TAG_NAME=${FORK_STATE_IMAGE_NAME}-root
+          NETWORK="root"
+          TAG_NAME=${FORK_STATE_IMAGE_NAME}-${NETWORK}
 
-          # set DOCKER_BUILDKIT to use fork-state.Dockerfile.dockerignore
+          # remove git from .dockerignore (script switches git branches/tags)
           sed -i '/git$/d' .dockerignore
+
+          # use DOCKER_BUILDKIT
           DOCKER_BUILDKIT=1
-          docker build -t "$REGISTRY/$TAG_NAME:latest" -t "$REGISTRY/$TAG_NAME:$COMMIT_HASH" -f ./dockerimages/fork-state.Dockerfile --build-arg network="root" .
+          docker build -t "$REGISTRY/$TAG_NAME:latest" -t "$REGISTRY/$TAG_NAME:$COMMIT_HASH" -f ./dockerimages/fork-state.Dockerfile --build-arg network=$NETWORK .
+
+          docker push "$REGISTRY/$TAG_NAME:latest"
+          docker push "$REGISTRY/$TAG_NAME:$COMMIT_HASH"
+
+          # clean up images
+          docker image prune --filter label=stage=build -f
+
+  build-porcini-fork-image:
+    if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'release-test')
+    # only run if release branch CI build passes or its a push to main
+    runs-on: [seed-builder]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: ghcr.io login
+        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build 🛠 & Publish 🐳
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          NETWORK="porcini"
+          TAG_NAME=${FORK_STATE_IMAGE_NAME}-${NETWORK}
+
+          # remove git from .dockerignore (script switches git branches/tags)
+          sed -i '/git$/d' .dockerignore
+
+          # use DOCKER_BUILDKIT
+          DOCKER_BUILDKIT=1
+          docker build -t "$REGISTRY/$TAG_NAME:latest" -t "$REGISTRY/$TAG_NAME:$COMMIT_HASH" -f ./dockerimages/fork-state.Dockerfile --build-arg network=$NETWORK .
 
           docker push "$REGISTRY/$TAG_NAME:latest"
           docker push "$REGISTRY/$TAG_NAME:$COMMIT_HASH"
