@@ -105,6 +105,7 @@ jobs:
           TAG_NAME=${FORK_STATE_IMAGE_NAME}-root
 
           # set DOCKER_BUILDKIT to use fork-state.Dockerfile.dockerignore
+          sed -i '/git$/d' .dockerignore
           DOCKER_BUILDKIT=1
           docker build -t "$REGISTRY/$TAG_NAME:latest" -t "$REGISTRY/$TAG_NAME:$COMMIT_HASH" -f ./dockerimages/fork-state.Dockerfile --build-arg network="root" .
 
