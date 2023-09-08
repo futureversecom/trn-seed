@@ -42,9 +42,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create output folder
-        run: mkdir -p output
-
       - name: Set up Python 3.9
         uses: actions/setup-python@v4
         with:
