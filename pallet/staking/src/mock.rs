@@ -213,6 +213,7 @@ parameter_types! {
 	pub const BondingDuration: EraIndex = 3;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &I_NPOS;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(75);
+	pub const PayoutPeriodLength: u32 = 90;
 }
 
 parameter_types! {
@@ -278,8 +279,7 @@ impl<T: Config> sp_staking::OnStakerSlash<AccountId, Balance> for OnStakerSlashM
 	}
 }
 
-// impl crate::pallet::pallet::Config for Test {
-	impl crate::pallet::Config for Test {
+impl crate::pallet::pallet::Config for Test {
 	type MaxNominations = MaxNominations;
 	type Currency = Balances;
 	type CurrencyBalance = <Self as pallet_balances::Config>::Balance;
@@ -308,6 +308,7 @@ impl<T: Config> sp_staking::OnStakerSlash<AccountId, Balance> for OnStakerSlashM
 	type OnStakerSlash = OnStakerSlashMock<Test>;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type PayoutPeriodLength = PayoutPeriodLength;
 }
 
 pub(crate) type StakingCall = crate::Call<Test>;

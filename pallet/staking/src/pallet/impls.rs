@@ -489,7 +489,6 @@ impl<T: Config> Pallet<T> {
 				},
 				_ => (),
 			}
-
 			Self::deposit_event(Event::StakingElectionFailed);
 			return None
 		}
@@ -904,6 +903,206 @@ impl<T: Config> Pallet<T> {
 			DispatchClass::Mandatory,
 		);
 	}
+
+		// 	Same logic as pallet_stakers payout, except stores and accumulates the payouts
+		pub fn accumulate_payouts(
+			validator_stash: T::AccountId,
+			previous_era: EraIndex,
+		) -> DispatchResultWithPostInfo {
+			let history_depth = T::HistoryDepth::get();
+
+			// Note: if era has no reward to be claimed, era may be future. better not to update
+			// `ledger.claimed_rewards` in this case.
+			let era_payout = ErasValidatorReward::<T>::get(previous_era)
+				// TODO: :Determine weight
+				// .ok_or_else(|| Error::<T>::InvalidEraToReward.with_weight(100000))?;
+				.ok_or_else(|| Error::<T>::InvalidEraToReward)?;
+
+			let controller =
+				Bonded::<T>::get(&validator_stash).ok_or_else(|| {
+					// Error::<T>::NotStash.
+					// with_weight(::WeightInfo::payout_stakers_alive_staked(0))
+					Error::<T>::NotStash
+				})?;
+
+			let mut ledger =
+				Ledger::<T>::get(&controller).ok_or(Error::<T>::NotController)?;
+
+			// Check this one
+			ledger
+				.claimed_rewards
+				// TODO: Is previous era okay here?
+				.retain(|&x| x >= previous_era.saturating_sub(history_depth));
+		
+
+			// Is previous era okay here?
+			match ledger.claimed_rewards.binary_search(&previous_era) {
+				// match ledger.clone().claimed_rewards.binary_search(&previous_era) {
+				Ok(_) =>
+				// return Err(Error::<T>::AlreadyClaimed
+				// 	.with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))),
+					return Err(Error::<T>::AlreadyClaimed.into()),
+				// TODO: remove unwrap
+				Err(pos) => ledger.claimed_rewards.try_insert(pos, previous_era).unwrap(),
+			}
+
+			let exposure =
+				ErasStakersClipped::<T>::get(&previous_era, &ledger.stash);
+
+			// Check this one
+			Ledger::<T>::insert(&controller, &ledger);
+
+			// Get Era reward points. It has TOTAL and INDIVIDUAL
+			// Find the fraction of the era reward that belongs to the validator
+			// Take that fraction of the eras rewards to split to nominator and validator
+			//
+			// Then look at the validator, figure out the proportion of their reward
+			// which goes to them and each of their nominators.
+			let era_reward_points = ErasRewardPoints::<T>::get(&previous_era);
+			let total_reward_points = era_reward_points.total;
+
+			let validator_reward_points = era_reward_points
+				.individual
+				.get(&ledger.stash)
+				.copied()
+				.unwrap_or_else(Zero::zero);
+
+			// Nothing to do if they have no reward points.
+			if validator_reward_points.is_zero() {
+				return Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(0)).into())
+			}
+
+			// This is the fraction of the total reward that the validator and the
+			// nominators will get.
+			let validator_total_reward_part =
+				Perbill::from_rational(validator_reward_points, total_reward_points);
+
+			// This is how much validator + nominators are entitled to.
+			let validator_total_payout = validator_total_reward_part * era_payout;
+
+			let validator_prefs =
+				Pallet::<T>::eras_validator_prefs(&previous_era, &validator_stash);
+			// Validator first gets a cut off the top.
+			let validator_commission = validator_prefs.commission;
+			let validator_commission_payout = validator_commission * validator_total_payout;
+
+			let validator_leftover_payout = validator_total_payout - validator_commission_payout;
+			// Now let's calculate how this is split to the validator.
+			let validator_exposure_part = Perbill::from_rational(exposure.own, exposure.total);
+			let validator_staking_payout = validator_exposure_part * validator_leftover_payout;
+
+			let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
+
+			// We can now make total validator payout:
+			if let Some(imbalance) = Self::do_accumulate_payouts(
+				&ledger.stash,
+				validator_staking_payout + validator_commission_payout,
+				None,
+			) {
+				total_imbalance.subsume(imbalance);
+			}
+
+			// Track the number of payout ops to nominators. Note:
+			// `WeightInfo::payout_stakers_alive_staked` always assumes at least a validator is paid
+			// out, so we do not need to count their payout op.
+			let mut nominator_payout_count: u32 = 0;
+
+			// Lets now calculate how this is split to the nominators.
+			// Reward only the clipped exposures. Note this is not necessarily sorted.
+			for nominator in exposure.others.iter() {
+				let nominator_exposure_part =
+					Perbill::from_rational(nominator.value, exposure.total);
+
+				let nominator_reward: BalanceOf<T> =
+					nominator_exposure_part * validator_leftover_payout;
+				// We can now make nominator payout:
+				if let Some(imbalance) = Self::do_accumulate_payouts(
+					&nominator.who,
+					nominator_reward,
+					Some(&ledger.stash),
+				) {
+					// Note: this logic does not count payouts for `RewardDestination::None`.
+					nominator_payout_count += 1;
+					total_imbalance.subsume(imbalance);
+				}
+			}
+
+			T::Reward::on_unbalanced(total_imbalance);
+			debug_assert!(nominator_payout_count <= T::MaxNominatorRewardedPerValidator::get());
+			ProcessedEras::<T>::insert(previous_era, true);
+			Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(nominator_payout_count))
+				.into())
+		}
+
+			// 	// Store the current payouts, accumulating any payouts for the account from the previous era
+			fn do_accumulate_payouts(
+				who: &T::AccountId,
+				amt: <T as Config>::CurrencyBalance,
+				nominating: Option<&T::AccountId>,
+			) -> Option<PositiveImbalanceOf<T>> {
+				// TODO: Clean up unwrap
+				let payout_period = CurrentPayoutPeriod::<T>::get();
+	
+				// If we are nominating, we must work with the payouts tracking according to the
+				// validator we are nominating
+				let account_to_check = nominating.unwrap_or(&who);
+	
+				// If there is a payout existing, we need to accumulate any existing accumulated payouts
+				// for previous eras
+	
+				if let Some(current_payout) =
+					AccumulatedRewardsList::<T>::get(account_to_check, payout_period)
+				{
+					// If we are a nominator, add us to the list of nominator accumulated rewards
+					if nominating.is_some() {
+						// TODO: needs to be .find()
+						current_payout.nominators.iter().map(|w| {
+							if w.0 == who.clone() {
+								w.1.saturating_add(amt);
+							}
+							w
+						});
+	
+						AccumulatedRewardsList::<T>::insert(
+							account_to_check,
+							payout_period,
+							current_payout,
+						);
+					} else {
+						// Else, we are a validator and simply add the accumulation
+						current_payout.payout_amount.saturating_add(amt);
+						AccumulatedRewardsList::<T>::insert(
+							account_to_check,
+							payout_period,
+							current_payout,
+						);
+					}
+				} else {
+					// Else, we are initializing the payouts for the payout period
+					let nominators = if nominating.is_some() { vec![(who.clone(), amt)] } else { vec![] };
+					let payout_info = AccumulatedPayoutInfo { payout_amount: amt, nominators };
+					AccumulatedRewardsList::<T>::insert(account_to_check, payout_period, payout_info);
+				};
+	
+				// TODO: change. Need to get imbalance
+				None
+			}
+	
+		// Get the accumulated data for a validator and its nominators for the given payout period,
+		// also clearing any data associated with that period
+		pub fn take_accumulated_payouts_staker(
+			validator_stash: T::AccountId,
+			payout_period: u128,
+		) -> Result<AccumulatedPayoutInfo<T>, Error<T>> {
+			ensure!(CurrentPayoutPeriod::<T>::get() >= payout_period, Error::<T>::TooEarly);
+			let rewards = AccumulatedRewardsList::<T>::take(validator_stash, payout_period);
+
+			// TODO: check any remaining values to remove
+
+			// Likely already claimed. Maybe edge case for unacummulated rewards
+			rewards.ok_or(Error::<T>::AlreadyClaimed)
+		}
+
 }
 
 impl<T: Config> ElectionDataProvider for Pallet<T> {

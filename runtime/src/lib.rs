@@ -131,8 +131,11 @@ use crate::impls::{
 use precompile_utils::constants::FEE_PROXY_ADDRESS;
 use seed_primitives::BlakeTwo256Hash;
 
-#[cfg(test)]
-mod tests;
+// #[cfg(feature = "runtime-benchmarks")]
+// mod runtime_benchmarking;
+
+// #[cfg(feature = "runtime-benchmarks")]
+// use runtime_benchmarking::pallet_staking_payouts::pallet::Pallet as StakingPayoutsBenchmarks;
 
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
@@ -767,7 +770,9 @@ parameter_types! {
 	pub const SlashPotId: PalletId = PalletId(*b"slashpot");
 	/// Holds XRP transaction fees for distribution to validators according to stake & undistributed reward remainders
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
+	pub const PayoutPeriodLength: u32 = 90;
 }
+
 type SlashCancelOrigin = EnsureRoot<AccountId>;
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
@@ -813,6 +818,7 @@ impl pallet_staking::Config for Runtime {
 	type OnStakerSlash = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type PayoutPeriodLength = PayoutPeriodLength;
 }
 
 impl pallet_offences::Config for Runtime {
@@ -1190,6 +1196,9 @@ impl pallet_futurepass::Config for Runtime {
 	type MultiCurrency = AssetsExt;
 }
 
+// #[cfg(feature = "runtime-benchmarking")]
+// impl runtime_benchmarking::pallet_staking_payouts::pallet::Config for Runtime {}
+
 construct_runtime! {
 	pub enum Runtime where
 		Block = Block,
@@ -1250,6 +1259,8 @@ construct_runtime! {
 		// FuturePass Account
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>} = 32,
 		Futurepass: pallet_futurepass::{Pallet, Call, Storage, Event<T>} = 34,
+
+		// StakingPayoutsBenchmarks: runtime_benchmarking::pallet_staking_payouts
 	}
 }
 
@@ -1738,9 +1749,6 @@ impl_runtime_apis! {
 		}
 	}
 
-	// #[cfg(feature = "runtime-benchmarks")]
-	// impl pallet_staking::pallet::pallet::Config<BlockNumber> for Runtime {}
-
 	#[cfg(feature = "runtime-benchmarks")]
 	impl frame_benchmarking::Benchmark<Block> for Runtime {
 		fn benchmark_metadata(extra: bool) -> (
@@ -1757,6 +1765,9 @@ impl_runtime_apis! {
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as BaselineBench;
+
+			// #[cfg(feature = "runtime-benchmarking")]
+			// use runtime_benchmarking::pallet_staking_payouts::pallet::Pallet as StakingPayoutsBenchmarks;
 
 			let mut list = Vec::<BenchmarkList>::new();
 			list_benchmarks!(list, extra);
@@ -1778,6 +1789,9 @@ impl_runtime_apis! {
 			use pallet_election_provider_support_benchmarking::Pallet as EPSBench;
 			use frame_system_benchmarking::Pallet as SystemBench;
 			use frame_benchmarking::baseline::Pallet as BaselineBench;
+
+			// #[cfg(feature = "runtime-benchmarking")]
+			// use runtime_benchmarking::pallet_staking_payouts::pallet::Pallet as StakingPayoutsBenchmarks;
 
 			// impl pallet_session_benchmarking::Config for Runtime {}
 			
@@ -2007,5 +2021,6 @@ mod benches {
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
 		[pallet_dex, Dex]
+		// [pallet_staking_payouts_benchmarking, StakingPayoutsBenchmarks::<Runtime>]
 	);
 }

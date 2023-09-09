@@ -60,6 +60,7 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(crate) trait Store)]
+	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
 	/// Possible operations on the configuration values of this pallet.
@@ -91,7 +92,8 @@ pub mod pallet {
 			+ Default
 			+ From<u64>
 			+ TypeInfo
-			+ MaxEncodedLen;
+			+ MaxEncodedLen +
+			From<u128>;
 		/// Time used for computing era duration.
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
@@ -260,6 +262,8 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		type PayoutPeriodLength: Get<u32>;
 	}
 
 	/// The ideal number of staking participants.
@@ -563,6 +567,59 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
+	// Extended payout period storage items
+	#[derive(Debug, PartialEq, Clone, Encode, Decode, TypeInfo, Eq)]
+	#[scale_info(skip_type_params(T))]
+	/// Accumulated payout information, not specific to any token
+	/// TODO: Need to get staking information to ensure that this represents balance queries on the
+	/// index token
+	pub struct AccumulatedPayoutInfo<T: Config> {
+		/// Payout for this validator
+		pub payout_amount: T::CurrencyBalance,
+		/// List of nominators nominating this validator, and their payouts
+		// nominators: Vec<(T::AccountId, u128)>
+		pub nominators: Vec<(T::AccountId, T::CurrencyBalance)>,
+	}
+
+	impl<T: Config> AccumulatedPayoutInfo<T> {
+		pub fn new(
+			payout_amount: T::CurrencyBalance,
+			nominators: Vec<(T::AccountId, T::CurrencyBalance)>,
+		) -> Self {
+			AccumulatedPayoutInfo { payout_amount, nominators }
+		}
+	}
+
+	/// Unique identifier for payout periods
+	pub type PayoutPeriodId = u128;
+
+	#[pallet::storage]
+	/// Storage for tracking a validator id solely for iterating through the validator list
+	/// block-by-block
+	pub type CurrentValidatorIter<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+
+	#[pallet::storage]
+	pub type CurrentPayoutPeriod<T: Config> = StorageValue<_, PayoutPeriodId, ValueQuery>;
+
+	#[pallet::storage]
+	/// Eras which were already processed
+	pub type ProcessedEras<T: Config> = StorageMap<_, Blake2_128Concat, EraIndex, bool, ValueQuery>;
+
+	#[pallet::storage]
+	pub type AccumulatedRewardsList<T: Config> = StorageDoubleMap<
+		_,
+		Identity,
+		// Validator id
+		T::AccountId,
+		Blake2_128Concat,
+		// Current payout period
+		PayoutPeriodId,
+		// This validator's payout, and the list of payouts for its nominators
+		AccumulatedPayoutInfo<T>,
+		OptionQuery,
+	>;
+	
+
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub validator_count: u32,
@@ -692,6 +749,9 @@ pub mod pallet {
 		PayoutStarted { era_index: EraIndex, validator_stash: T::AccountId },
 		/// A validator has set their preferences.
 		ValidatorPrefsSet { stash: T::AccountId, prefs: ValidatorPrefs },
+
+		// New payouts event
+		OnInitializeErr(Vec<u8>),
 	}
 
 	#[pallet::error]
@@ -750,13 +810,66 @@ pub mod pallet {
 		CommissionTooLow,
 		/// Some bound is not met.
 		BoundNotMet,
+		// Variants for new payouts:
+		NoValidatorToIterate,
+		TooEarly,
 	}
+
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// just return the weight of the on_finalize.
-			T::DbWeight::get().reads(1)
+		fn on_initialize(now: T::BlockNumber) -> Weight {
+			// TODO: Decide between active and current
+			let active_era = ActiveEra::<T>::get();
+			let consumed_weight = Weight::from_ref_time(0);
+
+			if let Some(active_era) = active_era {
+				// Previous era information is static, compared to current era which may change.
+				// Thus it's safe to query over the period of the current era
+
+				// Cannot check previous era if there are none
+				if active_era.index == 0 {
+					return consumed_weight
+				};
+				let previous_era = active_era.index.saturating_sub(1);
+
+				// If already processed, no need to re-do work
+				if ProcessedEras::<T>::get(previous_era) {
+					return consumed_weight
+				};
+
+				// Iteration control over multiple blocks. We can only iterate one validator per
+				// block.
+				let validator = {
+					// If already started iterating through for current  era
+					if let Some(current_validator_i) = CurrentValidatorIter::<T>::get() {
+						UseValidatorsMap::<T>::iter_from(&current_validator_i)
+							// TODO: Unwrap
+							.unwrap()
+							.next()
+					} else {
+						// Not started; need to get first validator
+						UseValidatorsMap::<T>::iter().next()
+					}
+				};
+
+				CurrentValidatorIter::<T>::set(validator.clone());
+
+				if let Some(validator) = validator.clone() {
+					let mut payout_period = CurrentPayoutPeriod::<T>::get();
+
+					// We need to increment payout period as we go
+					if active_era.index % T::PayoutPeriodLength::get() == 0 {
+						payout_period = payout_period.saturating_add(1);
+						CurrentPayoutPeriod::<T>::set(payout_period);
+					}
+
+					Self::accumulate_payouts(validator, previous_era)
+						.map_err(|e| Self::deposit_event(Event::OnInitializeErr(e.encode())));
+				}
+			}
+
+			consumed_weight.into()
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {

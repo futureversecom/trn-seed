@@ -26,8 +26,9 @@ use frame_election_provider_support::SortedListProvider;
 use frame_support::{
 	dispatch::UnfilteredDispatchable,
 	pallet_prelude::*,
-	traits::{Currency, CurrencyToVote, Get, Imbalance},
+	traits::{Currency, CurrencyToVote, Get, Imbalance, OnInitialize},
 };
+use frame_system::{Pallet as System};
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent,
@@ -214,6 +215,23 @@ impl<T: Config> ListScenario<T> {
 const USER_SEED: u32 = 999666;
 
 benchmarks! {
+	where_clause { where T::BlockNumber: From<u32> }
+
+	on_initialize {
+		let v in 1 .. 10;
+		let n in 1 .. 100;
+
+		create_validators_with_nominators_for_era::<T>(
+			v,
+			n,
+			<T as Config>::MaxNominations::get() as usize,
+			false,
+			None,
+		)?;
+
+		let block_number: T::BlockNumber = System::<T>::block_number();
+	}: { <Staking::<T> as OnInitialize<T::BlockNumber>>::on_initialize(block_number) }
+
 	bond {
 		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
 		let controller = create_funded_user::<T>("controller", USER_SEED, 100);

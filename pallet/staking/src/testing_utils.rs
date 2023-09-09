@@ -78,6 +78,8 @@ pub fn create_stash_controller<T: Config>(
 ) -> Result<(T::AccountId, T::AccountId), &'static str> {
 	let stash = create_funded_user::<T>("stash", n, balance_factor);
 	let controller = create_funded_user::<T>("controller", n, balance_factor);
+	// Providers doesn't seem to initially be > 0
+	<frame_system::Pallet<T>>::inc_providers(&stash);
 	let controller_lookup = T::Lookup::unlookup(controller.clone());
 	let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(

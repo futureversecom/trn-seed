@@ -5624,3 +5624,115 @@ fn reducing_max_unlocking_chunks_abrupt() {
 		MaxUnlockingChunks::set(2);
 	})
 }
+
+#[test]
+fn tracks_processed_payout_periods() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_eq!(CurrentPayoutPeriod::<Test>::get(), 0);
+		start_active_era(89);
+		start_active_era(90);
+		assert_eq!(CurrentPayoutPeriod::<Test>::get(), 1);
+	});
+}
+
+#[test]
+fn new_payouts_validator_tracking() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Initial state - if not in an era, we are not going to start iterating through any
+		// validators
+		Validators::<Test>::iter().for_each(|(_, _)| {
+			run_to_block(System::block_number() + 1);
+			assert_eq!(CurrentValidatorIter::<Test>::get(), None);
+		});
+
+		// Start the era
+		start_active_era(1);
+
+		let mut validators = Validators::<Test>::iter();
+		// First validator after new era
+		assert_eq!(CurrentValidatorIter::<Test>::get(), Some(validators.next().unwrap().0));
+
+		validators.for_each(|(validator, _)| {
+			run_to_block(System::block_number() + 1);
+			assert_eq!(CurrentValidatorIter::<Test>::get(), Some(validator));
+		});
+
+		// Following current_era + validators.len(), no more iteration or validator tracking
+		// occurs
+		run_to_block(System::block_number() + 1);
+		assert_eq!(CurrentValidatorIter::<Test>::get(), None);
+
+		// Still the pallet will not iterate through validators if the session increments
+		advance_session();
+		assert_eq!(CurrentValidatorIter::<Test>::get(), None);
+
+		// Once the new era begins, validator iteration restarts
+		start_active_era(2);
+
+		let mut validators = Validators::<Test>::iter();
+		// First validator after new era
+		assert_eq!(CurrentValidatorIter::<Test>::get(), Some(validators.next().unwrap().0));
+
+		validators.for_each(|(validator, _)| {
+			run_to_block(System::block_number() + 1);
+			assert_eq!(CurrentValidatorIter::<Test>::get(), Some(validator));
+		});
+	});
+}
+
+#[test]
+fn payouts_accumulate() {
+	ExtBuilder::default().build_and_execute(|| {
+		let payout_period = CurrentPayoutPeriod::<Test>::get();
+		let era = 2;
+		// Start the era
+		start_active_era(era);
+
+		let mut individual = BTreeMap::new();
+
+		Validators::<Test>::iter().for_each(|(validator, _)| {
+			Staking::reward_by_ids([(validator, 420000)]);
+
+			// For assertion
+			individual.insert(validator, 420000);
+
+			// Sanity check we can assume the stash is the controller for these tests
+			assert_eq!(
+				Ledger::<Test>::get(validator).unwrap().stash,
+				validator
+			);
+		});
+		let era_p = EraRewardPoints { total: 840000, individual };
+		let era_reward_points = ErasRewardPoints::<Test>::get(era);
+		// Sanity check we added mock reward points successfully
+		assert_eq!(era_reward_points, era_p);
+
+		// One more sanity check for each validator's reward points
+		Validators::<Test>::iter().for_each(|(validator, _)| {
+			let validator_reward_points = era_reward_points
+				.individual
+				.get(&validator)
+				.copied()
+				.unwrap_or_else(Zero::zero);
+			assert_eq!(validator_reward_points.is_zero(), false);
+		});
+
+		// Go to next era
+		let era = era + 1;
+		start_active_era(era);
+
+		let mut validators = Validators::<Test>::iter();
+		let validator = validators.next().map(|v| v.0).unwrap();
+
+		// Already accumulated when we ran start active era
+		assert!(AccumulatedRewardsList::<Test>::get(validator, payout_period).is_some());
+
+		let validator2 = validators.next().map(|v| v.0).unwrap();
+		assert!(AccumulatedRewardsList::<Test>::get(validator2, payout_period).is_none());
+		// Accumulation hasn't happened yet for the next validator.
+		// TODO: Still need to understand why this works for accumulate_directly, but not
+		// `run_to_block`
+		assert_ok!(Pallet::<Test>::accumulate_payouts(validator2, era - 1));
+		assert!(AccumulatedRewardsList::<Test>::get(validator2, payout_period).is_some());
+	});
+}
