@@ -213,6 +213,14 @@ pub mod pallet {
 		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
 
 	#[pallet::storage]
+	/// Last pruned XRPL ledger index
+	pub type LastPrunedLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::storage]
+	/// XRPL transactions submission window width in ledger indexes
+	pub type SubmissionWindowWidth<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
 	/// Challenge received for a transaction mapped by hash, will be cleared when validator
 	/// validates
