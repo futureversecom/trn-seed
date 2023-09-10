@@ -82,7 +82,6 @@ jobs:
 
   build-root-fork-image:
     if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'release-test')
-    # only run if release branch CI build passes or its a push to main
     runs-on: [seed-builder]
     permissions:
       contents: read
@@ -99,6 +98,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Check out the correct version
+        run: |
+          python3 -m venv ./scripts/penv
+          source ./scripts/penv/bin/activate
+          pip install -r ./scripts/requirements.txt
+          python3 ./scripts/get_node_version.py --config ./scripts/networks/root.yaml
+
       - name: Build 🛠 & Publish 🐳
         run: |
           COMMIT_HASH=$(git rev-parse --short HEAD)
@@ -106,7 +117,7 @@ jobs:
           TAG_NAME=${FORK_STATE_IMAGE_NAME}-${NETWORK}
 
           # remove git from .dockerignore (script switches git branches/tags)
-          sed -i '/git$/d' .dockerignore
+          # sed -i '/git$/d' .dockerignore
 
           # use DOCKER_BUILDKIT
           DOCKER_BUILDKIT=1
@@ -120,7 +131,6 @@ jobs:
 
   build-porcini-fork-image:
     if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'release-test')
-    # only run if release branch CI build passes or its a push to main
     runs-on: [seed-builder]
     permissions:
       contents: read
