@@ -208,9 +208,13 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
-	/// Settled xrp transactions stored as history for a specific period
+	/// Settled xrp transactions stored against XRPL ledger index
 	pub type SettledXRPTransactionDetails<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
+		StorageMap<_, Twox64Concat, u32, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
+
+	#[pallet::storage]
+	/// Highest settled XRPL ledger index
+	pub type HighestSettledLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
 	/// Last pruned XRPL ledger index
