@@ -179,7 +179,7 @@ pub mod pallet {
 	{
 		fn on_initialize(n: T::BlockNumber) -> Weight {
 			let weights = Self::process_xrp_tx(n);
-			weights + Self::clear_storages(n)
+			weights + Self::clear_storages()
 		}
 	}
 
@@ -501,14 +501,19 @@ impl<T: Config> Pallet<T> {
 				},
 			}
 
-			let clear_block_number =
-				<frame_system::Pallet<T>>::block_number() + T::ClearTxPeriod::get().into();
+			// Add to SettledXRPTransactionDetails
 			<SettledXRPTransactionDetails<T>>::try_append(
-				&clear_block_number,
+				ledger_index as u32,
 				transaction_hash.clone(),
 			).expect("Should not happen since both ProcessXRPTransaction and SettledXRPTransactionDetails have the same limit");
-			writes += 2;
-			reads += 2;
+
+			// Update HighestSettledLedgerIndex
+			if <HighestSettledLedgerIndex<T>>::get() < ledger_index as u32 {
+				<HighestSettledLedgerIndex<T>>::put(ledger_index as u32);
+			}
+
+			writes += 3;
+			reads += 3;
 			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
 		}
 
@@ -516,19 +521,29 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Prune settled transaction data from storage
-	/// if it was scheduled to do so at block `n`
-	pub fn clear_storages(n: T::BlockNumber) -> Weight {
+	pub fn clear_storages() -> Weight {
 		let mut reads = 0u64;
 		let mut writes = 0u64;
-		reads += 1;
-		if <SettledXRPTransactionDetails<T>>::contains_key(n) {
-			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
+		reads += 3;
+		let start = LastPrunedLedgerIndex::<T>::get();
+		let end =
+			HighestSettledLedgerIndex::<T>::get().saturating_sub(SubmissionWindowWidth::<T>::get());
+
+		for ledger_index in start..end {
+			reads += 1;
+			if !SettledXRPTransactionDetails::<T>::contains_key(ledger_index) {
+				continue
+			}
+			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(ledger_index) {
 				writes += 1 + tx_hashes.len() as u64;
 				for tx_hash in tx_hashes {
 					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
 				}
 			}
 		}
+
+		writes += 1;
+		LastPrunedLedgerIndex::<T>::put(end);
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
