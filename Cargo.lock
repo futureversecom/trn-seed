@@ -5246,6 +5246,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-evm-precompiles-marketplace"
+version = "2.0.0"
+dependencies = [
+ "fp-evm",
+ "frame-support",
+ "frame-system",
+ "num_enum",
+ "pallet-assets",
+ "pallet-erc20-peg",
+ "pallet-evm",
+ "pallet-marketplace",
+ "pallet-nft",
+ "precompile-utils",
+ "scale-info",
+ "seed-primitives",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-evm-precompiles-nft"
 version = "2.0.0"
 dependencies = [

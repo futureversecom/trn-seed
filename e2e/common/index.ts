@@ -208,6 +208,9 @@ export const PEG_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000079
 // Precompile address for dex precompile
 export const DEX_PRECOMPILE_ADDRESS = "0x000000000000000000000000000000000000DDDD";
 
+// Precompile address for marketplace precompile
+export const MARKETPLACE_PRECOMPILE_ADDRESS = "0x00000000000000000000000000000000000006CD";
+
 // Futurepass delegate reserve amount
 export const FP_DELEGATE_RESERVE = 126 * 1; // ProxyDepositFactor * 1(num of delegates)
 
