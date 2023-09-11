@@ -317,7 +317,7 @@ pub mod pallet {
 			ensure!(active_relayer, Error::<T>::NotPermitted);
 			// Check within the submission window
 			ensure!(
-				LastPrunedLedgerIndex::<T>::get().gt(&(ledger_index as u32)),
+				LastPrunedLedgerIndex::<T>::get().le(&(ledger_index as u32)),
 				Error::<T>::OutSideSubmissionWindow
 			);
 			// If within the submission window, check against ProcessXRPTransactionDetails
