@@ -137,6 +137,8 @@ pub mod pallet {
 		TicketSequenceParamsInvalid,
 		/// Cannot process more transactions at that block
 		CannotProcessMoreTransactionsAtThatBlock,
+		/// Transaction submitted is outside the submission window
+		OutSideSubmissionWindow,
 	}
 
 	#[pallet::event]
@@ -313,6 +315,12 @@ pub mod pallet {
 			let relayer = ensure_signed(origin)?;
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
+			// Check within the submission window
+			ensure!(
+				LastPrunedLedgerIndex::<T>::get().gt(&(ledger_index as u32)),
+				Error::<T>::OutSideSubmissionWindow
+			);
+			// If within the submission window, check against ProcessXRPTransactionDetails
 			ensure!(
 				Self::process_xrp_transaction_details(transaction_hash).is_none(),
 				Error::<T>::TxReplay
