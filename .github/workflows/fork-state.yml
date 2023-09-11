@@ -43,11 +43,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python 3.9
+        if: ${{ github.event.inputs.runtime-upgrade }}
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
 
       - name: Check out the correct version
+        if: ${{ github.event.inputs.runtime-upgrade }}
         run: |
           python3 -m venv ./scripts/penv
           source ./scripts/penv/bin/activate
@@ -63,7 +65,7 @@ jobs:
           path: ./output/seed_runtime.compact.compressed.wasm
           if-no-files-found: warn
 
-      - name: Build 🛠 & Publish 🐳
+      - name: Pull ⏬, Tag 🏷️ & Re-Publish 🐳
         # build and tag an image with commit hash and 'latest', additionally:
         # if the commit is tagged, tag the image also e.g. 1.0.0
         # if the branch name is release/x.x.x tag the image
@@ -77,9 +79,11 @@ jobs:
           echo "github ref: $GITHUB_REF"
           echo "release tag(?): $RELEASE_TAG"
 
-          # set DOCKER_BUILDKIT to use fork-state.Dockerfile.dockerignore
-          DOCKER_BUILDKIT=1
-          docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
+          # pull down relevant release state-fork image to re-tag
+          RELEASE_STATE_IMAGE_NAME="ghcr.io/futureversecom/fork-release-state-${{ github.event.inputs.network }}"
+          docker pull $RELEASE_STATE_IMAGE_NAME
+          docker tag $RELEASE_STATE_IMAGE_NAME "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
+          docker tag $RELEASE_STATE_IMAGE_NAME "$REGISTRY/$IMAGE_NAME":latest
 
           docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
           docker push "$REGISTRY/$IMAGE_NAME:latest"
