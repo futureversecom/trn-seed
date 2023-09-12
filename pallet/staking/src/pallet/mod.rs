@@ -92,8 +92,8 @@ pub mod pallet {
 			+ Default
 			+ From<u64>
 			+ TypeInfo
-			+ MaxEncodedLen +
-			From<u128>;
+			+ MaxEncodedLen
+			+ From<u128>;
 		/// Time used for computing era duration.
 		///
 		/// It is guaranteed to start being called from the first `on_finalize`. Thus value at
@@ -598,8 +598,17 @@ pub mod pallet {
 	/// block-by-block
 	pub type CurrentValidatorIter<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
+	#[derive(Encode, Decode, Default, PartialEq, PartialOrd, RuntimeDebug, TypeInfo)]
+	pub struct PayoutPeriodInfo {
+		/// Index of this payout period
+		pub index: u128,
+		/// Last era in which an update of the payout period id occurred, to avoid re-updates
+		/// during one era
+		last_era_updated_at: EraIndex,
+	}
+
 	#[pallet::storage]
-	pub type CurrentPayoutPeriod<T: Config> = StorageValue<_, PayoutPeriodId, ValueQuery>;
+	pub type CurrentPayoutPeriod<T: Config> = StorageValue<_, PayoutPeriodInfo, ValueQuery>;
 
 	#[pallet::storage]
 	/// Eras which were already processed
@@ -618,7 +627,6 @@ pub mod pallet {
 		AccumulatedPayoutInfo<T>,
 		OptionQuery,
 	>;
-	
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -719,36 +727,68 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// The era payout has been set; the first balance is the validator-payout; the second is
 		/// the remainder from the maximum amount of reward.
-		EraPaid { era_index: EraIndex, validator_payout: BalanceOf<T>, remainder: BalanceOf<T> },
+		EraPaid {
+			era_index: EraIndex,
+			validator_payout: BalanceOf<T>,
+			remainder: BalanceOf<T>,
+		},
 		/// The nominator has been rewarded by this amount.
-		Rewarded { stash: T::AccountId, amount: BalanceOf<T> },
+		Rewarded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// One staker (and potentially its nominators) has been slashed by the given amount.
-		Slashed { staker: T::AccountId, amount: BalanceOf<T> },
+		Slashed {
+			staker: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// An old slashing report from a prior era was discarded because it could
 		/// not be processed.
-		OldSlashingReportDiscarded { session_index: SessionIndex },
+		OldSlashingReportDiscarded {
+			session_index: SessionIndex,
+		},
 		/// A new set of stakers was elected.
 		StakersElected,
 		/// An account has bonded this amount. \[stash, amount\]
 		///
 		/// NOTE: This event is only emitted when funds are bonded via a dispatchable. Notably,
 		/// it will not be emitted for staking rewards when they are added to stake.
-		Bonded { stash: T::AccountId, amount: BalanceOf<T> },
+		Bonded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// An account has unbonded this amount.
-		Unbonded { stash: T::AccountId, amount: BalanceOf<T> },
+		Unbonded {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
 		/// from the unlocking queue.
-		Withdrawn { stash: T::AccountId, amount: BalanceOf<T> },
+		Withdrawn {
+			stash: T::AccountId,
+			amount: BalanceOf<T>,
+		},
 		/// A nominator has been kicked from a validator.
-		Kicked { nominator: T::AccountId, stash: T::AccountId },
+		Kicked {
+			nominator: T::AccountId,
+			stash: T::AccountId,
+		},
 		/// The election failed. No new era is planned.
 		StakingElectionFailed,
 		/// An account has stopped participating as either a validator or nominator.
-		Chilled { stash: T::AccountId },
+		Chilled {
+			stash: T::AccountId,
+		},
 		/// The stakers' rewards are getting paid.
-		PayoutStarted { era_index: EraIndex, validator_stash: T::AccountId },
+		PayoutStarted {
+			era_index: EraIndex,
+			validator_stash: T::AccountId,
+		},
 		/// A validator has set their preferences.
-		ValidatorPrefsSet { stash: T::AccountId, prefs: ValidatorPrefs },
+		ValidatorPrefsSet {
+			stash: T::AccountId,
+			prefs: ValidatorPrefs,
+		},
 
 		// New payouts event
 		OnInitializeErr(Vec<u8>),
@@ -815,13 +855,12 @@ pub mod pallet {
 		TooEarly,
 	}
 
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(now: T::BlockNumber) -> Weight {
 			// TODO: Decide between active and current
 			let active_era = ActiveEra::<T>::get();
-			let consumed_weight = Weight::from_ref_time(0);
+			let consumed_weight = Weight::from_ref_time(1);
 
 			if let Some(active_era) = active_era {
 				// Previous era information is static, compared to current era which may change.
@@ -840,33 +879,34 @@ pub mod pallet {
 
 				// Iteration control over multiple blocks. We can only iterate one validator per
 				// block.
-				let validator = {
-					// If already started iterating through for current  era
-					if let Some(current_validator_i) = CurrentValidatorIter::<T>::get() {
-						UseValidatorsMap::<T>::iter_from(&current_validator_i)
-							// TODO: Unwrap
-							.unwrap()
-							.next()
-					} else {
-						// Not started; need to get first validator
-						UseValidatorsMap::<T>::iter().next()
-					}
-				};
+				if let Some((validator_idx, validator)) = Self::get_validator_iter() {
+					let payout_period_info = CurrentPayoutPeriod::<T>::get();
 
-				CurrentValidatorIter::<T>::set(validator.clone());
-
-				if let Some(validator) = validator.clone() {
-					let mut payout_period = CurrentPayoutPeriod::<T>::get();
-
-					// We need to increment payout period as we go
-					if active_era.index % T::PayoutPeriodLength::get() == 0 {
-						payout_period = payout_period.saturating_add(1);
-						CurrentPayoutPeriod::<T>::set(payout_period);
+					// We need to increment payout period as we go. We'll only update it if we've
+					// surpassed the length of a payout period, and if we have not already updated
+					// once during this era
+					if active_era.index % T::PayoutPeriodLength::get() == 0 &&
+						active_era.index != payout_period_info.last_era_updated_at
+					{
+						let index = payout_period_info.index.saturating_add(1);
+						CurrentPayoutPeriod::<T>::set(PayoutPeriodInfo {
+							index,
+							last_era_updated_at: active_era.index,
+						});
 					}
 
-					Self::accumulate_payouts(validator, previous_era)
+					Self::accumulate_payouts(validator.clone(), previous_era)
 						.map_err(|e| Self::deposit_event(Event::OnInitializeErr(e.encode())));
-				}
+
+					// If done accumulating payouts for all validators, we are done processing for
+					// this era
+					if validator_idx == (Validators::<T>::count() as usize) {
+						ProcessedEras::<T>::insert(previous_era, true);
+					}
+					CurrentValidatorIter::<T>::set(Some(validator));
+				} else {
+					return consumed_weight
+				};
 			}
 
 			consumed_weight.into()
@@ -1532,39 +1572,6 @@ pub mod pallet {
 
 			<Self as Store>::UnappliedSlashes::insert(&era, &unapplied);
 			Ok(())
-		}
-
-		/// Pay out all the stakers behind a single validator for a single era.
-		///
-		/// - `validator_stash` is the stash account of the validator. Their nominators, up to
-		///   `T::MaxNominatorRewardedPerValidator`, will also receive their rewards.
-		/// - `era` may be any era between `[current_era - history_depth; current_era]`.
-		///
-		/// The origin of this call must be _Signed_. Any account can call this function, even if
-		/// it is not one of the stakers.
-		///
-		/// # <weight>
-		/// - Time complexity: at most O(MaxNominatorRewardedPerValidator).
-		/// - Contains a limited number of reads and writes.
-		/// -----------
-		/// N is the Number of payouts for the validator (including the validator)
-		/// Weight:
-		/// - Reward Destination Staked: O(N)
-		/// - Reward Destination Controller (Creating): O(N)
-		///
-		///   NOTE: weights are assuming that payouts are made to alive stash account (Staked).
-		///   Paying even a dead controller is cheaper weight-wise. We don't do any refunds here.
-		/// # </weight>
-		#[pallet::weight(T::WeightInfo::payout_stakers_alive_staked(
-			T::MaxNominatorRewardedPerValidator::get()
-		))]
-		pub fn payout_stakers(
-			origin: OriginFor<T>,
-			validator_stash: T::AccountId,
-			era: EraIndex,
-		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?;
-			Self::do_payout_stakers(validator_stash, era)
 		}
 
 		/// Rebond a portion of the stash scheduled to be unlocked.

@@ -230,8 +230,6 @@ impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 				}
 				true
 			},
-			// Payouts are restricted until a new staking payout system is implemented
-			RuntimeCall::Staking(pallet_staking::Call::payout_stakers { .. }) => false,
 			// Disable Proxy::add_proxy
 			RuntimeCall::Proxy(pallet_proxy::Call::add_proxy { .. }) => false,
 			_ => true,
@@ -817,7 +815,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = staking::StakingBenchmarkConfig;
 	type OnStakerSlash = ();
 	type WeightInfo = pallet_staking::weights::SubstrateWeight<Runtime>;
-	type HistoryDepth = frame_support::traits::ConstU32<84>;
+	type HistoryDepth = frame_support::traits::ConstU32<91>;
 	type PayoutPeriodLength = PayoutPeriodLength;
 }
 
@@ -1794,7 +1792,7 @@ impl_runtime_apis! {
 			// use runtime_benchmarking::pallet_staking_payouts::pallet::Pallet as StakingPayoutsBenchmarks;
 
 			// impl pallet_session_benchmarking::Config for Runtime {}
-			
+
 			impl pallet_election_provider_support_benchmarking::Config for Runtime {}
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl frame_benchmarking::baseline::Config for Runtime {}

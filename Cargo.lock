@@ -5739,6 +5739,7 @@ dependencies = [
 name = "pallet-staking"
 version = "4.0.0-dev"
 dependencies = [
+ "env_logger 0.10.0",
  "frame-benchmarking",
  "frame-election-provider-support",
  "frame-support",

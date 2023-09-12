@@ -237,7 +237,7 @@ const THRESHOLDS: [sp_npos_elections::VoteWeight; 9] =
 parameter_types! {
 	pub static BagThresholds: &'static [sp_npos_elections::VoteWeight] = &THRESHOLDS;
 	pub static MaxNominations: u32 = 16;
-	pub static HistoryDepth: u32 = 80;
+	pub static HistoryDepth: u32 = 91;
 	pub static MaxUnlockingChunks: u32 = 32;
 	pub static RewardOnUnbalanceWasCalled: bool = false;
 	pub static LedgerSlashPerEra: (BalanceOf<Test>, BTreeMap<EraIndex, BalanceOf<Test>>) = (Zero::zero(), BTreeMap::new());
@@ -860,7 +860,7 @@ pub(crate) fn make_all_reward_payment(era: EraIndex) {
 	// reward validators
 	for validator_controller in validators_with_reward.iter().filter_map(Staking::bonded) {
 		let ledger = <Ledger<Test>>::get(&validator_controller).unwrap();
-		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), ledger.stash, era));
+		assert_ok!(Staking::accumulate_payouts(ledger.stash, era));
 	}
 }
 

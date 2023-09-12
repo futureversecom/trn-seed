@@ -28,7 +28,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{Currency, CurrencyToVote, Get, Imbalance, OnInitialize},
 };
-use frame_system::{Pallet as System};
+use frame_system::Pallet as System;
 use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, TrailingZeroInput, Zero},
 	Perbill, Percent,

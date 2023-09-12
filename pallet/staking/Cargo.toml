@@ -46,6 +46,7 @@ substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 rand_chacha = { version = "0.2" }
+env_logger = "0.10.0"
 
 [features]
 default = ["std"]
