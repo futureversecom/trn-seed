@@ -1,6 +1,7 @@
 version: '3'
 services:
   bootnode:
+    # image: ghcr.io/futureversecom/fork-release-state-porcini
     image: ghcr.io/futureversecom/fork-release-state-root
     command: 
       - "/output/binary"
@@ -15,6 +16,7 @@ services:
       - "--node-key=0000000000000000000000000000000000000000000000000000000000000001"
 
   validator1:
+    # image: ghcr.io/futureversecom/fork-release-state-porcini
     image: ghcr.io/futureversecom/fork-release-state-root
     command: 
       - "/output/binary"
@@ -33,6 +35,7 @@ services:
       - 9944:9944
 
   validator2:
+    # image: ghcr.io/futureversecom/fork-release-state-porcini
     image: ghcr.io/futureversecom/fork-release-state-root
     command: 
       - "/output/binary"
