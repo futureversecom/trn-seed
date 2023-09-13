@@ -1,86 +1,49 @@
-version: "3"
+version: '3'
 services:
-  root-validator:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./node-data:/node-data
-    command:
-      - --chain
-      - root
-      - --validator
-      - -d
-      - /node-data
-      - --telemetry-url
-      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
-      - --name
-      - RootValidator
+  bootnode:
+    image: ghcr.io/futureversecom/fork-release-state-root
+    command: 
+      - "/output/binary"
+      - "--chain=/output/fork.json"
+      - "--name=bootnode"
+      - "--validator"
+      - "--alice"
+      - "--tmp"
+      - "--unsafe-ws-external"
+      - "--unsafe-rpc-external"
+      - "--rpc-cors=all"
+      - "--node-key=0000000000000000000000000000000000000000000000000000000000000001"
+
+  validator1:
+    image: ghcr.io/futureversecom/fork-release-state-root
+    command: 
+      - "/output/binary"
+      - "--chain=/output/fork.json"
+      - "--name=validator1"
+      - "--validator"
+      - "--bob"
+      - "--tmp"
+      - "--unsafe-ws-external"
+      - "--unsafe-rpc-external"
+      - "--rpc-cors=all"
+      - "--bootnodes=/dns/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
+    depends_on:
+      - bootnode
     ports:
-      - "9933:9933"
-      - "9944:9944"
-      - "30333:30333"
-  root-validator-archive:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./node-data:/node-data
-    command:
-      - --chain
-      - root
-      - --validator
-      - --pruning
-      - archive
-      - -d
-      - /node-data
-      - --telemetry-url
-      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
-      - --name
-      - RootValidator
-    ports:
-      - "9933:9933"
-      - "9944:9944"
-      - "30333:30333"
-  porcini-validator:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./node-data:/node-data
-    command:
-      - --chain
-      - porcini
-      - --validator
-      - -d
-      - /node-data
-      - --telemetry-url
-      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
-      - --name
-      - PorciniValidator
-    ports:
-      - "9933:9933"
-      - "9944:9944"
-      - "30333:30333"
-  porcini-validator-archive:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    volumes:
-      - ./node-data:/node-data
-    command:
-      - --chain
-      - porcini
-      - --validator
-      - --pruning
-      - archive
-      - -d
-      - /node-data
-      - --telemetry-url
-      - "wss://telemetry.cicd.rootnet.app:9443/submit 0"
-      - --name
-      - PorciniValidator
-    ports:
-      - "9933:9933"
-      - "9944:9944"
-      - "30333:30333"
+      - 9944:9944
+
+  validator2:
+    image: ghcr.io/futureversecom/fork-release-state-root
+    command: 
+      - "/output/binary"
+      - "--chain=/output/fork.json"
+      - "--name=validator2"
+      - "--validator"
+      - "--charlie"
+      - "--tmp"
+      - "--unsafe-ws-external"
+      - "--unsafe-rpc-external"
+      - "--rpc-cors=all"
+      - "--bootnodes=/dns/bootnode/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
+    depends_on:
+      - bootnode
