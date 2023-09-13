@@ -490,6 +490,9 @@ impl<T: Config> Pallet<T> {
 		reads += tx_items.len() as u64 * 2;
 		let tx_details = tx_details.filter_map(|x| Some((x.0, x.1?)));
 
+		reads += 1;
+		let mut highest_settled_ledger_index = HighestSettledLedgerIndex::<T>::get();
+
 		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
 			match tx.transaction {
 				XrplTxData::Payment { amount, address } => {
@@ -516,14 +519,17 @@ impl<T: Config> Pallet<T> {
 			).expect("Should not happen since both ProcessXRPTransaction and SettledXRPTransactionDetails have the same limit");
 
 			// Update HighestSettledLedgerIndex
-			if <HighestSettledLedgerIndex<T>>::get() < ledger_index as u32 {
-				<HighestSettledLedgerIndex<T>>::put(ledger_index as u32);
+			if highest_settled_ledger_index < ledger_index as u32 {
+				highest_settled_ledger_index = ledger_index as u32;
 			}
 
-			writes += 3;
-			reads += 3;
+			writes += 2;
+			reads += 2;
 			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
 		}
+
+		writes += 1;
+		HighestSettledLedgerIndex::<T>::put(highest_settled_ledger_index);
 
 		DbWeight::get().reads_writes(reads, writes)
 	}
