@@ -280,7 +280,6 @@ where
 		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 
 		if <T as Config>::MaintenanceChecker::validate_evm_transaction(&account, &target) == false {
-			// TODO use error from pallet
 			return Err(RunnerError {
 				error: Self::Error::WithdrawFailed,
 				weight: Weight::default(),

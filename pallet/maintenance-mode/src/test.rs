@@ -101,31 +101,6 @@ mod block_account {
 	}
 
 	#[test]
-	fn block_account_updatesasfasf_storage() {
-		TestExt::default().build().execute_with(|| {
-			let blocked_account = create_account(2);
-			// Enable maintenance mode
-			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), false);
-			assert_ok!(MaintenanceMode::block_account(
-				RawOrigin::Root.into(),
-				blocked_account,
-				true
-			));
-			assert_ok!(MaintenanceMode::block_account(
-				RawOrigin::Root.into(),
-				blocked_account,
-				true
-			));
-			assert_eq!(BlockedAccounts::<Test>::get(blocked_account), true);
-
-			// Verify event
-			System::assert_last_event(RuntimeEvent::MaintenanceMode(
-				crate::Event::AccountBlocked { account: blocked_account, blocked: true },
-			));
-		});
-	}
-
-	#[test]
 	fn block_account_not_sudo_fails() {
 		TestExt::default().build().execute_with(|| {
 			let signer = create_account(1);

@@ -14,7 +14,8 @@
 // You may obtain a copy of the License at the root of this project source code
 
 //! # Pallet Maintenance Mode
-//! TODO Write description
+//! This pallet allows us to pause the chain entirely by enabling maintenance mode or by
+//! restricting certain accounts, calls, EVM targets, or pallets from being executed.
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
