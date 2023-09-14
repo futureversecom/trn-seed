@@ -2,7 +2,7 @@ version: '3'
 services:
   bootnode:
     # image: ghcr.io/futureversecom/fork-release-state-porcini
-    image: ghcr.io/futureversecom/fork-release-state-root
+    pull_policy: always
     command: 
       - "/output/binary"
       - "--chain=/output/fork.json"
@@ -17,7 +17,7 @@ services:
 
   validator1:
     # image: ghcr.io/futureversecom/fork-release-state-porcini
-    image: ghcr.io/futureversecom/fork-release-state-root
+    pull_policy: always
     command: 
       - "/output/binary"
       - "--chain=/output/fork.json"
@@ -36,7 +36,7 @@ services:
 
   validator2:
     # image: ghcr.io/futureversecom/fork-release-state-porcini
-    image: ghcr.io/futureversecom/fork-release-state-root
+    pull_policy: always
     command: 
       - "/output/binary"
       - "--chain=/output/fork.json"
