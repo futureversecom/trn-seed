@@ -26,10 +26,7 @@ ARG network=porcini
 
 # install deps & start script to switch branches & build the node with `runtime-benchmarks` flag and get state
 RUN pip install -r ./scripts/requirements.txt
-# RUN python3 ./scripts/get_state.py --config ./scripts/networks/${network}.yaml
-
-RUN cargo build --release --locked
-RUN mkdir ouput/
+RUN python3 ./scripts/get_state.py --config ./scripts/networks/${network}.yaml
 
 # copy binary
 RUN cp ./target/release/seed ./output/binary
