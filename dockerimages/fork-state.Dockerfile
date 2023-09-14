@@ -1,4 +1,4 @@
-FROM docker.io/library/rust:1.67.0-bullseye as builder
+FROM --platform=linux/amd64 docker.io/library/rust:1.67.0-bullseye as builder
 
 RUN apt update -y && apt install -y \
 	build-essential \
@@ -26,7 +26,10 @@ ARG network=porcini
 
 # install deps & start script to switch branches & build the node with `runtime-benchmarks` flag and get state
 RUN pip install -r ./scripts/requirements.txt
-RUN python3 ./scripts/get_state.py --config ./scripts/networks/${network}.yaml
+# RUN python3 ./scripts/get_state.py --config ./scripts/networks/${network}.yaml
+
+RUN cargo build --release --locked
+RUN mkdir ouput/
 
 # copy binary
 RUN cp ./target/release/seed ./output/binary
@@ -35,7 +38,7 @@ RUN cp ./target/release/seed ./output/binary
 # Multistage build
 # ==============================================================================
 
-FROM docker.io/library/debian:bullseye-slim AS run
+FROM --platform=linux/amd64 docker.io/library/debian:bullseye-slim AS run
 
 LABEL maintainer="support@centrality.ai"
 LABEL org.opencontainers.image.source=https://github.com/futureversecom/seed
