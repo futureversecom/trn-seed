@@ -314,8 +314,6 @@ where
 		}
 		let serial_number: SerialNumber = serial_number.saturated_into();
 
-		handle.record_cost(RuntimeHelper::<Runtime>::db_write_gas_cost().saturating_mul(100))?;
-
 		// Check approvals/ ownership
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost().saturating_mul(3))?;
 		if pallet_token_approvals::Pallet::<Runtime>::is_approved_or_owner(

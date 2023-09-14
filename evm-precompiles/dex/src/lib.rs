@@ -17,7 +17,7 @@
 extern crate alloc;
 
 use fp_evm::{PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult};
-use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo};
+use frame_support::dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo, Weight};
 use pallet_dex::WeightInfo;
 use pallet_evm::{GasWeightMapping, Precompile};
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, prelude::*};
@@ -162,7 +162,7 @@ where
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn add_liquidity(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(3, 32)?;
+		// handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(

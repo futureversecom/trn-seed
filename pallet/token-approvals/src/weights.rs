@@ -48,92 +48,93 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_token_approvals.
 pub trait WeightInfo {
-	fn erc721_approval() -> Weight;
-	fn erc721_remove_approval() -> Weight;
-	fn erc20_approval() -> Weight;
-	fn erc20_update_approval() -> Weight;
-	fn erc721_approval_for_all() -> Weight;
-	fn erc1155_approval_for_all() -> Weight;
+    fn erc721_approval() -> Weight;
+    fn erc721_remove_approval() -> Weight;
+    fn erc20_approval() -> Weight;
+    fn erc20_update_approval() -> Weight;
+    fn erc721_approval_for_all() -> Weight;
+    fn erc1155_approval_for_all() -> Weight;
 }
 
 /// Weights for pallet_token_approvals using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
+
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: TokenApprovals ERC721ApprovalsForAll (r:1 w:0)
-	// Storage: TokenApprovals ERC721Approvals (r:0 w:1)
-	fn erc721_approval() -> Weight {
-		Weight::from_ref_time(45_007_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC721Approvals (r:1 w:1)
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	fn erc721_remove_approval() -> Weight {
-		Weight::from_ref_time(46_522_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(2 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC20Approvals (r:0 w:1)
-	fn erc20_approval() -> Weight {
-		Weight::from_ref_time(22_924_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC20Approvals (r:1 w:1)
-	fn erc20_update_approval() -> Weight {
-		Weight::from_ref_time(34_282_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(1 as u64))
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC721ApprovalsForAll (r:0 w:1)
-	fn erc721_approval_for_all() -> Weight {
-		Weight::from_ref_time(22_738_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)
-	fn erc1155_approval_for_all() -> Weight {
-		Weight::from_ref_time(22_512_000 as u64)
-			.saturating_add(T::DbWeight::get().writes(1 as u64))
-	}
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: TokenApprovals ERC721ApprovalsForAll (r:1 w:0)
+    // Storage: TokenApprovals ERC721Approvals (r:0 w:1)
+    fn erc721_approval() -> Weight {
+        Weight::from_ref_time(45_007_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(2 as u64))
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC721Approvals (r:1 w:1)
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    fn erc721_remove_approval() -> Weight {
+        Weight::from_ref_time(46_522_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(2 as u64))
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC20Approvals (r:0 w:1)
+    fn erc20_approval() -> Weight {
+        Weight::from_ref_time(22_924_000 as u64)
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC20Approvals (r:1 w:1)
+    fn erc20_update_approval() -> Weight {
+        Weight::from_ref_time(34_282_000 as u64)
+            .saturating_add(T::DbWeight::get().reads(1 as u64))
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC721ApprovalsForAll (r:0 w:1)
+    fn erc721_approval_for_all() -> Weight {
+        Weight::from_ref_time(3_014_303_000 as u64)
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)
+    fn erc1155_approval_for_all() -> Weight {
+        Weight::from_ref_time(22_512_000 as u64)
+            .saturating_add(T::DbWeight::get().writes(1 as u64))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	// Storage: TokenApprovals ERC721ApprovalsForAll (r:1 w:0)
-	// Storage: TokenApprovals ERC721Approvals (r:0 w:1)
-	fn erc721_approval() -> Weight {
-		Weight::from_ref_time(45_007_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC721Approvals (r:1 w:1)
-	// Storage: Nft CollectionInfo (r:1 w:0)
-	fn erc721_remove_approval() -> Weight {
-		Weight::from_ref_time(46_522_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(2 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC20Approvals (r:0 w:1)
-	fn erc20_approval() -> Weight {
-		Weight::from_ref_time(22_924_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC20Approvals (r:1 w:1)
-	fn erc20_update_approval() -> Weight {
-		Weight::from_ref_time(34_282_000 as u64)
-			.saturating_add(RocksDbWeight::get().reads(1 as u64))
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC721ApprovalsForAll (r:0 w:1)
-	fn erc721_approval_for_all() -> Weight {
-		Weight::from_ref_time(22_738_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
-	// Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)
-	fn erc1155_approval_for_all() -> Weight {
-		Weight::from_ref_time(22_512_000 as u64)
-			.saturating_add(RocksDbWeight::get().writes(1 as u64))
-	}
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    // Storage: TokenApprovals ERC721ApprovalsForAll (r:1 w:0)
+    // Storage: TokenApprovals ERC721Approvals (r:0 w:1)
+    fn erc721_approval() -> Weight {
+        Weight::from_ref_time(45_007_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(2 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC721Approvals (r:1 w:1)
+    // Storage: Nft CollectionInfo (r:1 w:0)
+    fn erc721_remove_approval() -> Weight {
+        Weight::from_ref_time(46_522_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(2 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC20Approvals (r:0 w:1)
+    fn erc20_approval() -> Weight {
+        Weight::from_ref_time(22_924_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC20Approvals (r:1 w:1)
+    fn erc20_update_approval() -> Weight {
+        Weight::from_ref_time(34_282_000 as u64)
+            .saturating_add(RocksDbWeight::get().reads(1 as u64))
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC721ApprovalsForAll (r:0 w:1)
+    fn erc721_approval_for_all() -> Weight {
+        Weight::from_ref_time(3_014_303_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
+    // Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)
+    fn erc1155_approval_for_all() -> Weight {
+        Weight::from_ref_time(22_512_000 as u64)
+            .saturating_add(RocksDbWeight::get().writes(1 as u64))
+    }
 }
 
