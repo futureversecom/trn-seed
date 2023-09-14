@@ -180,8 +180,10 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		fn on_initialize(n: T::BlockNumber) -> Weight {
+			let submission_window_end = HighestSettledLedgerIndex::<T>::get()
+				.saturating_sub(SubmissionWindowWidth::<T>::get());
 			let weights = Self::process_xrp_tx(n);
-			weights + Self::clear_storages()
+			weights + Self::clear_storages(submission_window_end)
 		}
 	}
 
@@ -217,10 +219,6 @@ pub mod pallet {
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
 	pub type HighestSettledLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
-
-	#[pallet::storage]
-	/// Last pruned XRPL ledger index
-	pub type LastPrunedLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
 	/// XRPL transactions submission window width in ledger indexes
@@ -316,8 +314,10 @@ pub mod pallet {
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
 			// Check within the submission window
+			let submission_window_end = HighestSettledLedgerIndex::<T>::get()
+				.saturating_sub(SubmissionWindowWidth::<T>::get());
 			ensure!(
-				LastPrunedLedgerIndex::<T>::get().le(&(ledger_index as u32)),
+				(ledger_index as u32).ge(&submission_window_end),
 				Error::<T>::OutSideSubmissionWindow
 			);
 			// If within the submission window, check against ProcessXRPTransactionDetails
@@ -535,15 +535,15 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Prune settled transaction data from storage
-	pub fn clear_storages() -> Weight {
+	pub fn clear_storages(end_ledger_index: u32) -> Weight {
 		let mut reads = 0u64;
 		let mut writes = 0u64;
-		reads += 3;
-		let start = LastPrunedLedgerIndex::<T>::get();
-		let end =
+		reads += 2;
+		let previous_end = end_ledger_index;
+		let current_end =
 			HighestSettledLedgerIndex::<T>::get().saturating_sub(SubmissionWindowWidth::<T>::get());
 
-		for ledger_index in start..end {
+		for ledger_index in previous_end..current_end {
 			reads += 1;
 			if !SettledXRPTransactionDetails::<T>::contains_key(ledger_index) {
 				continue
@@ -556,8 +556,6 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		writes += 1;
-		LastPrunedLedgerIndex::<T>::put(end);
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
