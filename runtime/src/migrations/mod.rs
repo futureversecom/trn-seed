@@ -36,7 +36,7 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		let data = nft::Upgrade::pre_upgrade()?;
-		futurepass::Upgrade::pre_upgrade()?;
+		let _ = futurepass::Upgrade::pre_upgrade()?;
 		Ok(data)
 	}
 
@@ -49,8 +49,8 @@ impl OnRuntimeUpgrade for AllMigrations {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
-		nft::Upgrade::post_upgrade(state)?;
-		futurepass::Upgrade::post_upgrade()?;
+		nft::Upgrade::post_upgrade(state.clone())?;
+		futurepass::Upgrade::post_upgrade(state)?;
 		Ok(())
 	}
 }
