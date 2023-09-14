@@ -44,7 +44,7 @@ pub mod mock;
 mod tests;
 pub mod types;
 use types::*;
-mod weights;
+pub mod weights;
 pub use weights::WeightInfo;
 
 #[frame_support::pallet]
