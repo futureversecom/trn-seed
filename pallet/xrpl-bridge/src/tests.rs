@@ -78,8 +78,10 @@ fn submit_transaction_replay_within_submission_window() {
 		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
 
 		// Set replay protection data
-		LastPrunedLedgerIndex::<Test>::put(1);
+		HighestSettledLedgerIndex::<Test>::put(10);
+		SubmissionWindowWidth::<Test>::put(8);
 
+		// test the submission window end
 		assert_ok!(XRPLBridge::submit_transaction(
 			RuntimeOrigin::signed(relayer),
 			2,
@@ -92,10 +94,37 @@ fn submit_transaction_replay_within_submission_window() {
 				RuntimeOrigin::signed(relayer),
 				2,
 				XrplTxHash::from_slice(transaction_hash),
-				transaction,
+				transaction.clone(),
 				1234
 			),
 			Error::<Test>::TxReplay
+		);
+	});
+}
+
+#[test]
+fn submit_transaction_outside_submission_window() {
+	new_test_ext().execute_with(|| {
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		let transaction_hash = b"6490B68F1116BFE87DDDAD4C5482D1514F9CA8B9B5B5BFD3CF81D8E68745317B";
+		let transaction =
+			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		// Set replay protection data
+		HighestSettledLedgerIndex::<Test>::put(10);
+		SubmissionWindowWidth::<Test>::put(5);
+
+		let submission_window_end = 10 - 5;
+		assert_noop!(
+			XRPLBridge::submit_transaction(
+				RuntimeOrigin::signed(relayer),
+				submission_window_end - 1,
+				XrplTxHash::from_slice(transaction_hash),
+				transaction,
+				1234
+			),
+			Error::<Test>::OutSideSubmissionWindow
 		);
 	});
 }
