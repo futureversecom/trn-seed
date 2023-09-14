@@ -174,9 +174,6 @@ impl Xls20MintRequest for MockXls20MintRequest {
 
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
-	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
@@ -188,19 +185,14 @@ parameter_types! {
 }
 
 impl pallet_nft::Config for Test {
-	type DefaultListingDuration = DefaultListingDuration;
 	type RuntimeEvent = RuntimeEvent;
-	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type MultiCurrency = AssetsExt;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = ();
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
-	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }

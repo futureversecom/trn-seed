@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "256"]
 //! # SFT Module

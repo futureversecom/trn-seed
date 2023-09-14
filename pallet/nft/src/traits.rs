@@ -14,11 +14,14 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use frame_support::traits::Get;
-use seed_primitives::{CollectionUuid, MetadataScheme, TokenCount, TokenId};
+use seed_primitives::{
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
+	TokenId, TokenLockReason,
+};
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
-use sp_std::fmt::Debug;
+use sp_std::{fmt::Debug, vec::Vec};
 
-use crate::{CollectionInformation, OriginChain, RoyaltiesSchedule};
+use crate::CollectionInformation;
 
 pub trait NFTExt {
 	type AccountId: Debug + PartialEq + Clone;
@@ -30,6 +33,13 @@ pub trait NFTExt {
 		collection_id: CollectionUuid,
 		quantity: TokenCount,
 		token_owner: Option<Self::AccountId>,
+	) -> DispatchResult;
+
+	fn do_transfer(
+		origin: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+		new_owner: Self::AccountId,
 	) -> DispatchResult;
 
 	fn do_create_collection(
@@ -60,4 +70,8 @@ pub trait NFTExt {
 	fn next_collection_uuid() -> Result<CollectionUuid, DispatchError>;
 
 	fn increment_collection_id() -> DispatchResult;
+
+	fn get_token_lock(token_id: TokenId) -> Option<TokenLockReason>;
+
+	fn set_token_lock(token_id: TokenId, lock_reason: Option<TokenLockReason>) -> DispatchResult;
 }

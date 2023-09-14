@@ -28,23 +28,18 @@
 //!  Individual tokens within a collection. Globally identifiable by a tuple of (collection, serial
 //! number)
 
-use frame_support::{
-	ensure,
-	traits::{tokens::fungibles::Mutate, Get},
-	transactional, PalletId,
-};
-use seed_pallet_common::{
-	CreateExt, Hold, OnNewAssetSubscriber, OnTransferSubscriber, TransferExt, Xls20MintRequest,
-};
+use frame_support::{ensure, traits::Get, transactional, PalletId};
+use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber, Xls20MintRequest};
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule,
-	SerialNumber, TokenCount, TokenId,
+	CollectionUuid, MetadataScheme, OriginChain, ParachainId, RoyaltiesSchedule, SerialNumber,
+	TokenCount, TokenId, TokenLockReason,
 };
 use sp_runtime::{
-	traits::{AccountIdConversion, One, Saturating, Zero},
-	DispatchResult, PerThing, Permill,
+	traits::{AccountIdConversion, One, Zero},
+	DispatchResult,
 };
 use sp_std::prelude::*;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -74,7 +69,7 @@ pub(crate) const LOG_TARGET: &str = "nft";
 #[frame_support::pallet]
 pub mod pallet {
 	use super::{DispatchResult, *};
-	use frame_support::{pallet_prelude::*, traits::fungibles::Transfer};
+	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	/// The current storage version.
@@ -101,36 +96,17 @@ pub mod pallet {
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
 			NextCollectionId::<T>::put(1_u32);
-			NextMarketplaceId::<T>::put(1 as MarketplaceId);
-			NextListingId::<T>::put(1 as ListingId);
-			NextOfferId::<T>::put(1 as OfferId);
 		}
 	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// Default auction / sale length in blocks
-		#[pallet::constant]
-		type DefaultListingDuration: Get<Self::BlockNumber>;
 		/// The system event type
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// The account which collects funds(aka the index fund)
-		#[pallet::constant]
-		type DefaultFeeTo: Get<Option<PalletId>>;
-		/// The maximum number of offers allowed on a collection
-		type MaxOffers: Get<u32>;
 		/// Max tokens that a collection can contain
 		type MaxTokensPerCollection: Get<u32>;
 		/// Max quantity of NFTs that can be minted in one transaction
 		type MintLimit: Get<u32>;
-		/// Handles a multi-currency fungible asset system
-		type MultiCurrency: TransferExt<AccountId = Self::AccountId>
-			+ Hold<AccountId = Self::AccountId>
-			+ Mutate<Self::AccountId, AssetId = AssetId>
-			+ CreateExt<AccountId = Self::AccountId>
-			+ Transfer<Self::AccountId, Balance = Balance>;
-		/// Percentage of sale price to charge for network fee
-		type NetworkFeePercentage: Get<Permill>;
 		/// Handler for when an NFT has been transferred
 		type OnTransferSubscription: OnTransferSubscriber;
 		/// Handler for when an NFT collection has been created
@@ -149,15 +125,6 @@ pub mod pallet {
 		type Xls20MintRequest: Xls20MintRequest<AccountId = Self::AccountId>;
 	}
 
-	#[pallet::type_value]
-	pub fn DefaultFeeTo<T: Config>() -> Option<T::AccountId> {
-		T::DefaultFeeTo::get().map(|v| v.into_account_truncating())
-	}
-
-	/// The pallet id for the tx fee pot
-	#[pallet::storage]
-	pub type FeeTo<T: Config> = StorageValue<_, Option<T::AccountId>, ValueQuery, DefaultFeeTo<T>>;
-
 	/// Map from collection to its information
 	#[pallet::storage]
 	pub type CollectionInfo<T: Config> = StorageMap<
@@ -174,52 +141,6 @@ pub mod pallet {
 	/// Map from a token to lock status if any
 	#[pallet::storage]
 	pub type TokenLocks<T> = StorageMap<_, Twox64Concat, TokenId, TokenLockReason>;
-
-	/// The next available marketplace id
-	#[pallet::storage]
-	pub type NextMarketplaceId<T> = StorageValue<_, MarketplaceId, ValueQuery>;
-
-	/// Map from marketplace account_id to royalties schedule
-	#[pallet::storage]
-	pub type RegisteredMarketplaces<T: Config> =
-		StorageMap<_, Twox64Concat, MarketplaceId, Marketplace<T::AccountId>>;
-
-	/// NFT sale/auction listings keyed by listing id
-	#[pallet::storage]
-	pub type Listings<T: Config> = StorageMap<_, Twox64Concat, ListingId, Listing<T>>;
-
-	/// The next available listing Id
-	#[pallet::storage]
-	pub type NextListingId<T> = StorageValue<_, ListingId, ValueQuery>;
-
-	/// Map from collection to any open listings
-	#[pallet::storage]
-	pub type OpenCollectionListings<T> =
-		StorageDoubleMap<_, Twox64Concat, CollectionUuid, Twox64Concat, ListingId, bool>;
-
-	/// Winning bids on open listings.
-	#[pallet::storage]
-	pub type ListingWinningBid<T: Config> =
-		StorageMap<_, Twox64Concat, ListingId, (T::AccountId, Balance)>;
-
-	/// Block numbers where listings will close. Value is `true` if at block number `listing_id` is
-	/// scheduled to close.
-	#[pallet::storage]
-	pub type ListingEndSchedule<T: Config> =
-		StorageDoubleMap<_, Twox64Concat, T::BlockNumber, Twox64Concat, ListingId, bool>;
-
-	/// Map from offer_id to the information related to the offer
-	#[pallet::storage]
-	pub type Offers<T: Config> = StorageMap<_, Twox64Concat, OfferId, OfferType<T::AccountId>>;
-
-	/// Maps from token_id to a vector of offer_ids on that token
-	#[pallet::storage]
-	pub type TokenOffers<T: Config> =
-		StorageMap<_, Twox64Concat, TokenId, BoundedVec<OfferId, T::MaxOffers>>;
-
-	/// The next available offer_id
-	#[pallet::storage]
-	pub type NextOfferId<T> = StorageValue<_, OfferId, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -253,8 +174,6 @@ pub mod pallet {
 		OwnerSet { collection_id: CollectionUuid, new_owner: T::AccountId },
 		/// Max issuance was set
 		MaxIssuanceSet { collection_id: CollectionUuid, max_issuance: TokenCount },
-		/// The network fee receiver address has been updated
-		FeeToSet { account: Option<T::AccountId> },
 		/// Base URI was set
 		BaseUriSet { collection_id: CollectionUuid, base_uri: Vec<u8> },
 		/// Name was set
@@ -268,90 +187,6 @@ pub mod pallet {
 		},
 		/// A token was burned
 		Burn { collection_id: CollectionUuid, serial_number: SerialNumber },
-		/// A fixed price sale has been listed
-		FixedPriceSaleList {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
-			listing_id: ListingId,
-			marketplace_id: Option<MarketplaceId>,
-			price: Balance,
-			payment_asset: AssetId,
-			seller: T::AccountId,
-		},
-		/// A fixed price sale has completed
-		FixedPriceSaleComplete {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
-			listing_id: ListingId,
-			price: Balance,
-			payment_asset: AssetId,
-			buyer: T::AccountId,
-			seller: T::AccountId,
-		},
-		/// A fixed price sale has closed without selling
-		FixedPriceSaleClose {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
-			listing_id: ListingId,
-			reason: FixedPriceClosureReason,
-		},
-		/// A fixed price sale has had its price updated
-		FixedPriceSalePriceUpdate {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
-			listing_id: ListingId,
-			new_price: Balance,
-		},
-		/// An auction has opened
-		AuctionOpen {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
-			payment_asset: AssetId,
-			reserve_price: Balance,
-			listing_id: ListingId,
-			marketplace_id: Option<MarketplaceId>,
-			seller: T::AccountId,
-		},
-		/// An auction has sold
-		AuctionSold {
-			collection_id: CollectionUuid,
-			listing_id: ListingId,
-			payment_asset: AssetId,
-			hammer_price: Balance,
-			winner: T::AccountId,
-		},
-		/// An auction has closed without selling
-		AuctionClose {
-			collection_id: CollectionUuid,
-			listing_id: ListingId,
-			reason: AuctionClosureReason,
-		},
-		/// A new highest bid was placed
-		Bid {
-			collection_id: CollectionUuid,
-			serial_numbers: Vec<SerialNumber>,
-			listing_id: ListingId,
-			amount: Balance,
-			bidder: T::AccountId,
-		},
-		/// An account has been registered as a marketplace
-		MarketplaceRegister {
-			account: T::AccountId,
-			entitlement: Permill,
-			marketplace_id: MarketplaceId,
-		},
-		/// An offer has been made on an NFT
-		Offer {
-			offer_id: OfferId,
-			amount: Balance,
-			asset_id: AssetId,
-			marketplace_id: Option<MarketplaceId>,
-			buyer: T::AccountId,
-		},
-		/// An offer has been cancelled
-		OfferCancel { offer_id: OfferId, token_id: TokenId },
-		/// An offer has been accepted
-		OfferAccept { offer_id: OfferId, token_id: TokenId, amount: Balance, asset_id: AssetId },
 		/// Collection has been claimed
 		CollectionClaimed { account: T::AccountId, collection_id: CollectionUuid },
 	}
@@ -427,18 +262,6 @@ pub mod pallet {
 		CollectionIssuanceNotZero,
 		/// Token(s) blocked from minting during the bridging process
 		BlockedMint,
-	}
-
-	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Check and close all expired listings
-		fn on_initialize(now: T::BlockNumber) -> Weight {
-			// TODO: this is unbounded and could become costly
-			// https://github.com/cennznet/cennznet/issues/444
-			let removed_count = Self::close_listings_at(now);
-			// 'buy' weight is comparable to successful closure of an auction
-			T::WeightInfo::buy().mul(removed_count as u64)
-		}
 	}
 
 	#[pallet::call]
@@ -534,40 +357,6 @@ pub mod pallet {
 
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::BaseUriSet { collection_id, base_uri });
-			Ok(())
-		}
-
-		/// Flag an account as a marketplace
-		///
-		/// `marketplace_account` - if specified, this account will be registered
-		/// `entitlement` - Permill, percentage of sales to go to the marketplace
-		/// If no marketplace is specified the caller will be registered
-		#[pallet::weight(T::WeightInfo::register_marketplace())]
-		pub fn register_marketplace(
-			origin: OriginFor<T>,
-			marketplace_account: Option<T::AccountId>,
-			entitlement: Permill,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			ensure!(
-				entitlement.deconstruct() as u32 <= Permill::ACCURACY,
-				Error::<T>::RoyaltiesInvalid
-			);
-			let marketplace_account = marketplace_account.unwrap_or(who);
-			let marketplace_id = <NextMarketplaceId<T>>::get();
-			let marketplace = Marketplace { account: marketplace_account.clone(), entitlement };
-			let next_marketplace_id = <NextMarketplaceId<T>>::get();
-			ensure!(
-				next_marketplace_id.checked_add(One::one()).is_some(),
-				Error::<T>::NoAvailableIds
-			);
-			<RegisteredMarketplaces<T>>::insert(&marketplace_id, marketplace);
-			Self::deposit_event(Event::<T>::MarketplaceRegister {
-				account: marketplace_account,
-				entitlement,
-				marketplace_id,
-			});
-			<NextMarketplaceId<T>>::mutate(|i| *i += 1);
 			Ok(())
 		}
 
@@ -695,443 +484,6 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Sell a bundle of tokens at a fixed price
-		/// - Tokens must be from the same collection
-		/// - Tokens with individual royalties schedules cannot be sold with this method
-		///
-		/// `buyer` optionally, the account to receive the NFT. If unspecified, then any account may
-		/// purchase `asset_id` fungible asset Id to receive as payment for the NFT
-		/// `fixed_price` ask price
-		/// `duration` listing duration time in blocks from now
-		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::sell())]
-		#[transactional]
-		pub fn sell(
-			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-			buyer: Option<T::AccountId>,
-			payment_asset: AssetId,
-			fixed_price: Balance,
-			duration: Option<T::BlockNumber>,
-			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
-			let royalties_schedule =
-				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
-			let listing_id = <NextListingId<T>>::get();
-
-			// use the first token's collection as representative of the bundle
-			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &who, listing_id)?;
-
-			let listing_end_block = <frame_system::Pallet<T>>::block_number()
-				.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
-			let listing = Listing::<T>::FixedPrice(FixedPriceListing::<T> {
-				payment_asset,
-				fixed_price,
-				close: listing_end_block,
-				collection_id,
-				serial_numbers: serial_numbers.clone(),
-				buyer: buyer.clone(),
-				seller: who.clone(),
-				royalties_schedule,
-				marketplace_id,
-			});
-
-			<ListingEndSchedule<T>>::insert(listing_end_block, listing_id, true);
-			<OpenCollectionListings<T>>::insert(collection_id, listing_id, true);
-			<Listings<T>>::insert(listing_id, listing);
-			<NextListingId<T>>::mutate(|i| *i += 1);
-
-			Self::deposit_event(Event::<T>::FixedPriceSaleList {
-				collection_id,
-				serial_numbers: serial_numbers.into_inner(),
-				listing_id,
-				marketplace_id,
-				price: fixed_price,
-				payment_asset,
-				seller: who,
-			});
-			Ok(())
-		}
-
-		/// Buy a token listing for its specified price
-		#[pallet::weight(T::WeightInfo::buy())]
-		#[transactional]
-		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			if let Some(Listing::FixedPrice(listing)) = Listings::<T>::get(listing_id) {
-				// if buyer is specified in the listing, then `who` must be buyer
-				if let Some(buyer) = &listing.buyer {
-					ensure!(&who == buyer, Error::<T>::NotBuyer);
-				}
-
-				Self::remove_listing(Listing::FixedPrice(listing.clone()), listing_id);
-
-				let payouts = Self::calculate_royalty_payouts(
-					listing.seller.clone(),
-					listing.royalties_schedule,
-					listing.fixed_price,
-				);
-				// Make split transfer
-				T::MultiCurrency::split_transfer(&who, listing.payment_asset, payouts.as_slice())?;
-
-				// Transfer the tokens
-				let _ = Self::do_transfer(
-					listing.collection_id,
-					listing.serial_numbers.clone(),
-					&listing.seller,
-					&who,
-				)?;
-
-				Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
-					collection_id: listing.collection_id,
-					serial_numbers: listing.serial_numbers.into_inner(),
-					listing_id,
-					price: listing.fixed_price,
-					payment_asset: listing.payment_asset,
-					buyer: who,
-					seller: listing.seller,
-				});
-			} else {
-				return Err(Error::<T>::NotForFixedPriceSale.into())
-			}
-			Ok(())
-		}
-
-		/// Auction a bundle of tokens on the open market to the highest bidder
-		/// - Tokens must be from the same collection
-		/// - Tokens with individual royalties schedules cannot be sold in bundles
-		///
-		/// Caller must be the token owner
-		/// - `payment_asset` fungible asset Id to receive payment with
-		/// - `reserve_price` winning bid must be over this threshold
-		/// - `duration` length of the auction (in blocks), uses default duration if unspecified
-		#[pallet::weight(T::WeightInfo::auction())]
-		#[transactional]
-		pub fn auction(
-			origin: OriginFor<T>,
-			collection_id: CollectionUuid,
-			serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-			payment_asset: AssetId,
-			reserve_price: Balance,
-			duration: Option<T::BlockNumber>,
-			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			ensure!(!serial_numbers.is_empty(), Error::<T>::NoToken);
-
-			let royalties_schedule =
-				Self::calculate_bundle_royalties(collection_id, marketplace_id)?;
-
-			let listing_id = <NextListingId<T>>::get();
-			ensure!(listing_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
-
-			Self::lock_tokens_for_listing(collection_id, &serial_numbers, &who, listing_id)?;
-
-			let listing_end_block = <frame_system::Pallet<T>>::block_number()
-				.saturating_add(duration.unwrap_or_else(T::DefaultListingDuration::get));
-			let listing = Listing::<T>::Auction(AuctionListing::<T> {
-				payment_asset,
-				reserve_price,
-				close: listing_end_block,
-				collection_id,
-				serial_numbers: serial_numbers.clone(),
-				seller: who.clone(),
-				royalties_schedule,
-				marketplace_id,
-			});
-
-			<ListingEndSchedule<T>>::insert(listing_end_block, listing_id, true);
-			<OpenCollectionListings<T>>::insert(collection_id, listing_id, true);
-			<Listings<T>>::insert(listing_id, listing);
-			<NextListingId<T>>::mutate(|i| *i += 1);
-
-			Self::deposit_event(Event::<T>::AuctionOpen {
-				collection_id,
-				serial_numbers: serial_numbers.into_inner(),
-				payment_asset,
-				reserve_price,
-				listing_id,
-				marketplace_id,
-				seller: who,
-			});
-			Ok(())
-		}
-
-		/// Place a bid on an open auction
-		/// - `amount` to bid (in the seller's requested payment asset)
-		#[pallet::weight(T::WeightInfo::bid())]
-		#[transactional]
-		pub fn bid(origin: OriginFor<T>, listing_id: ListingId, amount: Balance) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			let mut listing = match Listings::<T>::get(listing_id) {
-				Some(Listing::Auction(listing)) => listing,
-				_ => return Err(Error::<T>::NotForAuction.into()),
-			};
-
-			if let Some(current_bid) = <ListingWinningBid<T>>::get(listing_id) {
-				ensure!(amount > current_bid.1, Error::<T>::BidTooLow);
-			} else {
-				// first bid
-				ensure!(amount >= listing.reserve_price, Error::<T>::BidTooLow);
-			}
-
-			// try lock funds
-			T::MultiCurrency::place_hold(T::PalletId::get(), &who, listing.payment_asset, amount)?;
-
-			<ListingWinningBid<T>>::try_mutate(
-				listing_id,
-				|maybe_current_bid| -> DispatchResult {
-					if let Some(current_bid) = maybe_current_bid {
-						// replace old bid
-						let _ = T::MultiCurrency::release_hold(
-							T::PalletId::get(),
-							&current_bid.0,
-							listing.payment_asset,
-							current_bid.1,
-						)?;
-					}
-					*maybe_current_bid = Some((who.clone(), amount));
-					Ok(())
-				},
-			)?;
-
-			// Auto extend auction if bid is made within certain amount of time of auction
-			// duration
-			let listing_end_block = listing.close;
-			let current_block = <frame_system::Pallet<T>>::block_number();
-			let blocks_till_close = listing_end_block - current_block;
-			let new_closing_block = current_block + T::BlockNumber::from(AUCTION_EXTENSION_PERIOD);
-			if blocks_till_close <= T::BlockNumber::from(AUCTION_EXTENSION_PERIOD) {
-				ListingEndSchedule::<T>::remove(listing_end_block, listing_id);
-				ListingEndSchedule::<T>::insert(new_closing_block, listing_id, true);
-				listing.close = new_closing_block;
-				Listings::<T>::insert(listing_id, Listing::Auction(listing.clone()));
-			}
-
-			Self::deposit_event(Event::<T>::Bid {
-				collection_id: listing.collection_id,
-				serial_numbers: listing.serial_numbers.into_inner(),
-				listing_id,
-				amount,
-				bidder: who,
-			});
-			Ok(())
-		}
-
-		/// Close a sale or auction returning tokens
-		/// Requires no successful bids have been made for an auction.
-		/// Caller must be the listed seller
-		#[pallet::weight(T::WeightInfo::cancel_sale())]
-		pub fn cancel_sale(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let listing = Listings::<T>::get(listing_id).ok_or(Error::<T>::TokenNotListed)?;
-
-			match listing {
-				Listing::<T>::FixedPrice(sale) => {
-					ensure!(sale.seller == who, Error::<T>::NotSeller);
-					Listings::<T>::remove(listing_id);
-					ListingEndSchedule::<T>::remove(sale.close, listing_id);
-					for serial_number in sale.serial_numbers.iter() {
-						<TokenLocks<T>>::remove((sale.collection_id, serial_number));
-					}
-					<OpenCollectionListings<T>>::remove(sale.collection_id, listing_id);
-
-					Self::deposit_event(Event::<T>::FixedPriceSaleClose {
-						collection_id: sale.collection_id,
-						serial_numbers: sale.serial_numbers.into_inner(),
-						listing_id,
-						reason: FixedPriceClosureReason::VendorCancelled,
-					});
-				},
-				Listing::<T>::Auction(auction) => {
-					ensure!(auction.seller == who, Error::<T>::NotSeller);
-					ensure!(
-						<ListingWinningBid<T>>::get(listing_id).is_none(),
-						Error::<T>::TokenLocked
-					);
-					Listings::<T>::remove(listing_id);
-					ListingEndSchedule::<T>::remove(auction.close, listing_id);
-					for serial_number in auction.serial_numbers.iter() {
-						<TokenLocks<T>>::remove((auction.collection_id, serial_number));
-					}
-					<OpenCollectionListings<T>>::remove(auction.collection_id, listing_id);
-
-					Self::deposit_event(Event::<T>::AuctionClose {
-						collection_id: auction.collection_id,
-						listing_id,
-						reason: AuctionClosureReason::VendorCancelled,
-					});
-				},
-			}
-			Ok(())
-		}
-
-		/// Update fixed price for a single token sale
-		///
-		/// `listing_id` id of the fixed price listing
-		/// `new_price` new fixed price
-		/// Caller must be the token owner
-		#[pallet::weight(T::WeightInfo::update_fixed_price())]
-		pub fn update_fixed_price(
-			origin: OriginFor<T>,
-			listing_id: ListingId,
-			new_price: Balance,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-
-			match Listings::<T>::get(listing_id) {
-				Some(Listing::<T>::FixedPrice(mut sale)) => {
-					ensure!(sale.seller == who, Error::<T>::NotSeller);
-
-					sale.fixed_price = new_price;
-
-					<Listings<T>>::insert(listing_id, Listing::<T>::FixedPrice(sale.clone()));
-					Self::deposit_event(Event::<T>::FixedPriceSalePriceUpdate {
-						collection_id: sale.collection_id,
-						serial_numbers: sale.serial_numbers.into_inner(),
-						listing_id,
-						new_price,
-					});
-					Ok(())
-				},
-				_ => Err(Error::<T>::NotForFixedPriceSale.into()),
-			}
-		}
-
-		/// Create an offer on a token
-		/// Locks funds until offer is accepted, rejected or cancelled
-		/// An offer can't be made on a token currently in an auction
-		/// (This follows the behaviour of Opensea and forces the buyer to bid rather than create an
-		/// offer)
-		#[pallet::weight(T::WeightInfo::make_simple_offer())]
-		#[transactional]
-		pub fn make_simple_offer(
-			origin: OriginFor<T>,
-			token_id: TokenId,
-			amount: Balance,
-			asset_id: AssetId,
-			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
-			let collection_info =
-				<CollectionInfo<T>>::get(token_id.0).ok_or(Error::<T>::NoCollectionFound)?;
-			ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
-			let offer_id = <NextOfferId<T>>::get();
-			ensure!(offer_id.checked_add(One::one()).is_some(), Error::<T>::NoAvailableIds);
-
-			// ensure the token_id is not currently in an auction
-			if let Some(TokenLockReason::Listed(listing_id)) = <TokenLocks<T>>::get(token_id) {
-				match Listings::<T>::get(listing_id) {
-					Some(Listing::<T>::Auction(_)) => return Err(Error::<T>::TokenOnAuction.into()),
-					None | Some(Listing::<T>::FixedPrice(_)) => (),
-				}
-			}
-
-			// try lock funds
-			T::MultiCurrency::place_hold(T::PalletId::get(), &who, asset_id, amount)?;
-			<TokenOffers<T>>::try_append(token_id, offer_id)
-				.map_err(|_| Error::<T>::MaxOffersReached)?;
-			let new_offer = OfferType::<T::AccountId>::Simple(SimpleOffer {
-				token_id,
-				asset_id,
-				amount,
-				buyer: who.clone(),
-				marketplace_id,
-			});
-			<Offers<T>>::insert(offer_id, new_offer);
-			<NextOfferId<T>>::mutate(|i| *i += 1);
-
-			Self::deposit_event(Event::<T>::Offer {
-				offer_id,
-				amount,
-				asset_id,
-				marketplace_id,
-				buyer: who,
-			});
-			Ok(())
-		}
-
-		/// Cancels an offer on a token
-		/// Caller must be the offer buyer
-		#[pallet::weight(T::WeightInfo::cancel_offer())]
-		pub fn cancel_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let offer_type = <Offers<T>>::get(offer_id).ok_or(Error::<T>::InvalidOffer)?;
-			match offer_type {
-				OfferType::Simple(offer) => {
-					ensure!(offer.buyer == who, Error::<T>::NotBuyer);
-					T::MultiCurrency::release_hold(
-						T::PalletId::get(),
-						&who,
-						offer.asset_id,
-						offer.amount,
-					)?;
-					let _ = Self::remove_offer(offer_id, offer.token_id)?;
-					Self::deposit_event(Event::<T>::OfferCancel {
-						offer_id,
-						token_id: offer.token_id,
-					});
-					Ok(())
-				},
-			}
-		}
-
-		/// Accepts an offer on a token
-		/// Caller must be token owner
-		#[pallet::weight(T::WeightInfo::accept_offer())]
-		#[transactional]
-		pub fn accept_offer(origin: OriginFor<T>, offer_id: OfferId) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			let offer_type = <Offers<T>>::get(offer_id).ok_or(Error::<T>::InvalidOffer)?;
-			match offer_type {
-				OfferType::Simple(offer) => {
-					let (collection_id, serial_number) = offer.token_id;
-
-					// Check whether token is listed for fixed price sale
-					if let Some(TokenLockReason::Listed(listing_id)) =
-						<TokenLocks<T>>::get(offer.token_id)
-					{
-						if let Some(listing) = <Listings<T>>::get(listing_id) {
-							Self::remove_listing(listing, listing_id);
-						}
-					}
-
-					let royalties_schedule =
-						Self::calculate_bundle_royalties(collection_id, offer.marketplace_id)?;
-					let serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection> =
-						BoundedVec::try_from(vec![serial_number])
-							.map_err(|_| Error::<T>::TokenLimitExceeded)?;
-
-					Self::process_payment_and_transfer(
-						&offer.buyer,
-						&who,
-						offer.asset_id,
-						collection_id,
-						serial_numbers,
-						offer.amount,
-						royalties_schedule,
-					)?;
-
-					let _ = Self::remove_offer(offer_id, offer.token_id)?;
-					Self::deposit_event(Event::<T>::OfferAccept {
-						offer_id,
-						token_id: offer.token_id,
-						amount: offer.amount,
-						asset_id: offer.asset_id,
-					});
-					Ok(())
-				},
-			}
-		}
-
 		/// Set the name of a collection
 		/// Caller must be the current collection owner
 		#[pallet::weight(T::WeightInfo::set_name())]
@@ -1152,21 +504,6 @@ pub mod pallet {
 			<CollectionInfo<T>>::insert(collection_id, collection_info);
 			Self::deposit_event(Event::<T>::NameSet { collection_id, name });
 			Ok(())
-		}
-
-		/// Set the `FeeTo` account. This operation requires root access.
-		///
-		/// - `fee_to`: the new account or None assigned to FeeTo.
-		#[pallet::weight(T::WeightInfo::set_fee_to())]
-		#[transactional]
-		pub fn set_fee_to(
-			origin: OriginFor<T>,
-			fee_to: Option<T::AccountId>,
-		) -> DispatchResultWithPostInfo {
-			ensure_root(origin)?;
-			FeeTo::<T>::put(&fee_to);
-			Self::deposit_event(Event::FeeToSet { account: fee_to });
-			Ok(().into())
 		}
 	}
 }

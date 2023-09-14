@@ -14,15 +14,13 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate::{traits::NFTExt, *};
-use frame_support::{ensure, traits::Get, transactional, weights::Weight};
+use frame_support::{ensure, traits::Get, weights::Weight};
 use frame_system::RawOrigin;
 use precompile_utils::constants::ERC721_PRECOMPILE_ADDRESS_PREFIX;
-use seed_pallet_common::{
-	log, utils::next_asset_uuid, Hold, OnNewAssetSubscriber, OnTransferSubscriber,
-};
+use seed_pallet_common::{log, utils::next_asset_uuid, OnNewAssetSubscriber, OnTransferSubscriber};
 use seed_primitives::{
-	AssetId, Balance, CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber,
-	TokenCount, TokenId,
+	CollectionUuid, MetadataScheme, OriginChain, RoyaltiesSchedule, SerialNumber, TokenCount,
+	TokenId,
 };
 use sp_runtime::{
 	traits::Zero, ArithmeticError, BoundedVec, DispatchError, DispatchResult, SaturatedConversion,
@@ -72,70 +70,6 @@ impl<T: Config> Pallet<T> {
 
 		let collection_info = collection_info.unwrap();
 		collection_info.metadata_scheme.construct_token_uri(token_id.1)
-	}
-
-	/// Removes an offer, cleaning storage if it's the last offer for the token
-	pub(crate) fn remove_offer(offer_id: OfferId, token_id: TokenId) -> DispatchResult {
-		Offers::<T>::remove(offer_id);
-		TokenOffers::<T>::try_mutate(token_id, |maybe_offers| -> DispatchResult {
-			if let Some(offers) = maybe_offers {
-				let pos =
-					offers.binary_search(&offer_id).map_err(|_| Error::<T>::NoAvailableIds)?;
-				offers.remove(pos);
-
-				if offers.is_empty() {
-					*maybe_offers = None;
-				}
-			}
-			Ok(())
-		})?;
-		Ok(())
-	}
-
-	/// Check royalties will be respected on all tokens if placed into a bundle sale.
-	/// We're ok iff, all tokens in the bundle are from the:
-	/// 1) same collection
-	/// Although possible, we do not support:
-	/// 3) different collection, no royalties allowed
-	pub(crate) fn calculate_bundle_royalties(
-		collection_id: CollectionUuid,
-		marketplace_id: Option<MarketplaceId>,
-	) -> Result<RoyaltiesSchedule<T::AccountId>, Error<T>> {
-		// Get collection royalties portion
-		let mut royalties: RoyaltiesSchedule<T::AccountId> =
-			<CollectionInfo<T>>::get(collection_id)
-				.ok_or(Error::<T>::NoCollectionFound)?
-				.royalties_schedule
-				.unwrap_or_default();
-
-		// Get network fee portion
-		if let Some(tx_fee_pot_id) = FeeTo::<T>::get() {
-			// We can handle the network fee payout to the tx fee pot as well here
-			let network_fee = T::NetworkFeePercentage::get();
-			royalties
-				.entitlements
-				.try_push((tx_fee_pot_id, network_fee))
-				.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
-		}
-
-		// Get marketplace fee portion
-		if let Some(marketplace_id) = marketplace_id {
-			if let Some(marketplace) = <RegisteredMarketplaces<T>>::get(marketplace_id) {
-				royalties
-					.entitlements
-					.try_push((marketplace.account, marketplace.entitlement))
-					.map_err(|_| Error::<T>::RoyaltiesInvalid)?;
-			} else {
-				return Err(Error::<T>::MarketplaceNotRegistered.into())
-			}
-		};
-
-		// Validate all royalties
-		if !royalties.entitlements.is_empty() {
-			ensure!(royalties.validate(), Error::<T>::RoyaltiesInvalid);
-		}
-
-		Ok(royalties)
 	}
 
 	/// Transfer the given token from `current_owner` to `new_owner`
@@ -391,191 +325,6 @@ impl<T: Config> Pallet<T> {
 		(new_cursor, total_owned, response)
 	}
 
-	/// Close all listings scheduled to close at this block `now`, ensuring payments and ownerships
-	/// changes are made for winning bids Metadata for listings will be removed from storage
-	/// Returns the number of listings removed
-	pub(crate) fn close_listings_at(now: T::BlockNumber) -> u32 {
-		let mut removed = 0_u32;
-		for (listing_id, _) in ListingEndSchedule::<T>::drain_prefix(now).into_iter() {
-			let Some(listing_outer) = Listings::<T>::get(listing_id) else {
-				continue
-			};
-			match listing_outer.clone() {
-				Listing::FixedPrice(listing) => {
-					Self::remove_listing(listing_outer, listing_id);
-					Self::deposit_event(Event::<T>::FixedPriceSaleClose {
-						collection_id: listing.collection_id,
-						serial_numbers: listing.serial_numbers.into_inner(),
-						listing_id,
-						reason: FixedPriceClosureReason::Expired,
-					});
-					removed += 1;
-				},
-				Listing::Auction(listing) => {
-					Self::remove_listing(listing_outer, listing_id);
-					Self::process_auction_closure(listing, listing_id);
-					removed += 1;
-				},
-			}
-		}
-		removed
-	}
-
-	/// Removes a listing and its metadata from storage and releases locks on tokens
-	pub(crate) fn remove_listing(listing: Listing<T>, listing_id: ListingId) {
-		let (serial_numbers, collection_id) = match listing {
-			Listing::FixedPrice(listing) => {
-				ListingEndSchedule::<T>::remove(listing.close, listing_id);
-				(listing.serial_numbers, listing.collection_id)
-			},
-			Listing::Auction(listing) => {
-				ListingEndSchedule::<T>::remove(listing.close, listing_id);
-				(listing.serial_numbers, listing.collection_id)
-			},
-		};
-
-		OpenCollectionListings::<T>::remove(collection_id, listing_id);
-		for serial_number in serial_numbers.iter() {
-			TokenLocks::<T>::remove((collection_id, *serial_number));
-		}
-		<Listings<T>>::remove(listing_id);
-	}
-
-	/// Process an auction once complete. Releasing the hold to the winner
-	fn process_auction_closure(listing: AuctionListing<T>, listing_id: ListingId) {
-		// Check if there was a winning bid
-		let winning_bid = ListingWinningBid::<T>::take(listing_id);
-		let Some((winner, hammer_price)) = winning_bid else {
-			// normal closure, no acceptable bids
-			// listing metadata is removed by now.
-			Self::deposit_event(Event::<T>::AuctionClose {
-				collection_id: listing.collection_id,
-				listing_id,
-				reason: AuctionClosureReason::ExpiredNoBids,
-			});
-			return
-		};
-
-		// Process the winning bid
-		if let Err(err) = Self::process_payment_and_transfer(
-			&winner,
-			&listing.seller,
-			listing.payment_asset,
-			listing.collection_id,
-			listing.serial_numbers,
-			hammer_price,
-			listing.royalties_schedule,
-		) {
-			// auction settlement failed despite our prior validations.
-			// release winning bid funds
-			log!(error, "🃏 auction settlement failed: {:?}", err);
-			let release_hold = T::MultiCurrency::release_hold(
-				T::PalletId::get(),
-				&winner,
-				listing.payment_asset,
-				hammer_price,
-			);
-			if release_hold.is_err() {
-				// This shouldn't happen
-				log!(error, "🃏 releasing hold failed");
-			}
-
-			// listing metadata is removed by now.
-			Self::deposit_event(Event::<T>::AuctionClose {
-				collection_id: listing.collection_id,
-				listing_id,
-				reason: AuctionClosureReason::SettlementFailed,
-			});
-		} else {
-			// auction settlement success
-			Self::deposit_event(Event::<T>::AuctionSold {
-				collection_id: listing.collection_id,
-				listing_id,
-				payment_asset: listing.payment_asset,
-				hammer_price,
-				winner,
-			});
-		}
-	}
-
-	/// Settle an auction listing or accepted offer
-	/// (guaranteed to be atomic).
-	/// - transfer funds from winning bidder to entitled royalty accounts and seller
-	/// - transfer ownership to the winning bidder
-	#[transactional]
-	pub(crate) fn process_payment_and_transfer(
-		buyer: &T::AccountId,
-		seller: &T::AccountId,
-		asset_id: AssetId,
-		collection_id: CollectionUuid,
-		serial_numbers: BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-		amount: Balance,
-		royalties_schedule: RoyaltiesSchedule<T::AccountId>,
-	) -> DispatchResult {
-		let payouts = Self::calculate_royalty_payouts(seller.clone(), royalties_schedule, amount);
-		// spend hold and split to royalty accounts
-		T::MultiCurrency::spend_hold(T::PalletId::get(), &buyer, asset_id, &payouts)?;
-
-		// Transfer each token
-		Self::do_transfer(collection_id, serial_numbers, seller, buyer)
-	}
-
-	/// Locks a group of tokens before listing for sale
-	/// Throws an error if owner does not own all tokens
-	#[transactional]
-	pub(crate) fn lock_tokens_for_listing(
-		collection_id: CollectionUuid,
-		serial_numbers: &BoundedVec<SerialNumber, T::MaxTokensPerCollection>,
-		owner: &T::AccountId,
-		listing_id: ListingId,
-	) -> DispatchResult {
-		let collection_info =
-			<CollectionInfo<T>>::get(collection_id).ok_or(Error::<T>::NoCollectionFound)?;
-
-		// Check whether token is locked and that owner owns each token
-		for serial_number in serial_numbers.iter() {
-			ensure!(
-				!<TokenLocks<T>>::contains_key((collection_id, serial_number)),
-				Error::<T>::TokenLocked
-			);
-			ensure!(
-				collection_info.is_token_owner(owner, *serial_number),
-				Error::<T>::NotTokenOwner
-			);
-		}
-
-		// Insert locks for tokens
-		for serial_number in serial_numbers.iter() {
-			<TokenLocks<T>>::insert(
-				(collection_id, serial_number),
-				TokenLockReason::Listed(listing_id),
-			);
-		}
-		Ok(())
-	}
-
-	/// Calculates payout splits for an amount over seller and royalty schedule
-	pub(crate) fn calculate_royalty_payouts(
-		seller: T::AccountId,
-		royalties_schedule: RoyaltiesSchedule<T::AccountId>,
-		amount: Balance,
-	) -> Vec<(T::AccountId, Balance)> {
-		let mut for_seller = amount;
-		let mut payouts: Vec<(T::AccountId, Balance)> = vec![];
-
-		// Calculate royalty split
-		if !royalties_schedule.calculate_total_entitlement().is_zero() {
-			let entitlements = royalties_schedule.entitlements.clone();
-			for (who, entitlement) in entitlements.into_iter() {
-				let royalty: Balance = entitlement * amount;
-				for_seller -= royalty;
-				payouts.push((who, royalty));
-			}
-		}
-		payouts.push((seller, for_seller));
-		payouts
-	}
-
 	/// Create the collection
 	pub fn do_create_collection(
 		owner: T::AccountId,
@@ -716,7 +465,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// The account ID of the auctions pot.
+	/// The account ID of the NFT pallet.
 	pub fn account_id() -> T::AccountId {
 		T::PalletId::get().into_account_truncating()
 	}
@@ -734,6 +483,17 @@ impl<T: Config> NFTExt for Pallet<T> {
 		token_owner: Option<Self::AccountId>,
 	) -> DispatchResult {
 		Self::mint(RawOrigin::Signed(origin).into(), collection_id, quantity, token_owner)
+	}
+
+	fn do_transfer(
+		origin: Self::AccountId,
+		collection_id: CollectionUuid,
+		serial_numbers: Vec<SerialNumber>,
+		new_owner: Self::AccountId,
+	) -> DispatchResult {
+		let bounded_serials =
+			BoundedVec::try_from(serial_numbers).map_err(|_| Error::<T>::TokenLimitExceeded)?;
+		Self::transfer(RawOrigin::Signed(origin).into(), collection_id, bounded_serials, new_owner)
 	}
 
 	fn do_create_collection(
@@ -789,6 +549,23 @@ impl<T: Config> NFTExt for Pallet<T> {
 	fn increment_collection_id() -> DispatchResult {
 		ensure!(<NextCollectionId<T>>::get().checked_add(1).is_some(), Error::<T>::NoAvailableIds);
 		<NextCollectionId<T>>::mutate(|i| *i += u32::one());
+		Ok(())
+	}
+
+	fn get_token_lock(token_id: TokenId) -> Option<TokenLockReason> {
+		<TokenLocks<T>>::get(token_id)
+	}
+
+	fn set_token_lock(token_id: TokenId, lock_reason: Option<TokenLockReason>) -> DispatchResult {
+		match lock_reason {
+			Some(reason) => {
+				ensure!(!<TokenLocks<T>>::contains_key(token_id), Error::<T>::TokenLocked);
+				<TokenLocks<T>>::insert(token_id, reason);
+			},
+			None => {
+				<TokenLocks<T>>::remove(token_id);
+			},
+		}
 		Ok(())
 	}
 }

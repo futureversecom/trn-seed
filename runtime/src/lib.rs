@@ -90,9 +90,11 @@ pub use sp_runtime::BuildStorage;
 // Export for chain_specs
 #[cfg(feature = "std")]
 pub use pallet_staking::{Forcing, StakerStatus};
+
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
+
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
@@ -102,6 +104,7 @@ pub use seed_primitives::{
 mod bag_thresholds;
 
 pub mod constants;
+
 use constants::{
 	deposit, RootAssetId, XrpAssetId, DAYS, EPOCH_DURATION_IN_SLOTS, MILLISECS_PER_BLOCK, MINUTES,
 	ONE_ROOT, ONE_XRP, PRIMARY_PROBABILITY, SESSIONS_PER_ERA, SLOT_DURATION,
@@ -109,6 +112,7 @@ use constants::{
 
 // Implementations of some helper traits passed into runtime modules as associated types.
 pub mod impls;
+
 use impls::{
 	AddressMapping, EthereumEventRouter, EthereumFindAuthor, EvmCurrencyScaler, HandleTxValidation,
 	SlashImbalanceHandler, StakingSessionTracker,
@@ -116,9 +120,11 @@ use impls::{
 use pallet_fee_proxy::{get_fee_preferences_data, FeePreferencesData, FeePreferencesRunner};
 
 pub mod precompiles;
+
 use precompiles::FutureversePrecompiles;
 
 mod staking;
+
 use staking::OnChainAccuracy;
 
 mod migrations;
@@ -212,6 +218,7 @@ parameter_types! {
 
 /// Filters to prevent specific transactions from executing
 pub enum CallFilter {}
+
 impl frame_support::traits::Contains<RuntimeCall> for CallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
 		match call {
@@ -303,6 +310,7 @@ parameter_types! {
 }
 
 pub struct FeeControlWeightToFee;
+
 impl frame_support::weights::WeightToFee for FeeControlWeightToFee {
 	type Balance = Balance;
 
@@ -312,6 +320,7 @@ impl frame_support::weights::WeightToFee for FeeControlWeightToFee {
 }
 
 pub struct FeeControlLengthToFee;
+
 impl frame_support::weights::WeightToFee for FeeControlLengthToFee {
 	type Balance = Balance;
 
@@ -394,37 +403,44 @@ impl pallet_assets_ext::Config for Runtime {
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const CollectionNameStringLimit: u32 = 50;
-	/// How long listings are open for by default
-	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
-	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const MintLimit: u32 = 1_000;
-	pub const MaxOffers: u32 = 100;
-	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
 }
-
 impl pallet_nft::Config for Runtime {
-	type DefaultListingDuration = DefaultListingDuration;
 	type RuntimeEvent = RuntimeEvent;
-	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type MultiCurrency = AssetsExt;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
-	type DefaultFeeTo = DefaultTxFeePotId;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 }
 
+parameter_types! {
+	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
+	/// How long listings are open for by default
+	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
+	pub const MaxTokensPerListing: u32 = 1000;
+	pub const MaxOffers: u32 = 100;
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
+}
 impl pallet_marketplace::Config for Runtime {
-	type Call = RuntimeCall;
-	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
+	type RuntimeCall = RuntimeCall;
+	type DefaultListingDuration = DefaultListingDuration;
+	type RuntimeEvent = RuntimeEvent;
+	type DefaultFeeTo = DefaultFeeTo;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type PalletId = MarketplacePalletId;
+	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
+	type WeightInfo = weights::pallet_marketplace::WeightInfo<Runtime>;
+	type MaxTokensPerListing = MaxTokensPerListing;
+	type MaxOffers = MaxOffers;
 }
 
 parameter_types! {
@@ -668,6 +684,7 @@ generate_solution_type!(
 	>(16)
 );
 pub struct OnChainSeqPhragmen;
+
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
 	type Solver = SequentialPhragmen<AccountId, OnChainAccuracy>;
@@ -700,19 +717,19 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type MaxWeight = OffchainSolutionWeightLimit;
 	type Solution = NposCompactSolution16;
 	type MaxVotesPerVoter = <
-		<Self as pallet_election_provider_multi_phase::Config>::DataProvider
-		as
-		frame_election_provider_support::ElectionDataProvider
-	>::MaxVotesPerVoter;
+    <Self as pallet_election_provider_multi_phase::Config>::DataProvider
+    as
+    frame_election_provider_support::ElectionDataProvider
+    >::MaxVotesPerVoter;
 
 	// The unsigned submissions have to respect the weight of the submit_unsigned call, thus their
 	// weight estimate function is wired to this call's weight.
 	fn solution_weight(v: u32, t: u32, a: u32, d: u32) -> Weight {
 		<
-			<Self as pallet_election_provider_multi_phase::Config>::WeightInfo
-			as
-			pallet_election_provider_multi_phase::WeightInfo
-		>::submit_unsigned(v, t, a, d)
+        <Self as pallet_election_provider_multi_phase::Config>::WeightInfo
+        as
+        pallet_election_provider_multi_phase::WeightInfo
+        >::submit_unsigned(v, t, a, d)
 	}
 }
 
@@ -732,7 +749,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 		<Self::MinerConfig as pallet_election_provider_multi_phase::MinerConfig>::MaxWeight;
 	type MinerConfig = Self;
 	type SlashHandler = SlashImbalanceHandler;
-	type RewardHandler = (); // nothing to do upon rewards
+	type RewardHandler = ();
+	// nothing to do upon rewards
 	type BetterUnsignedThreshold = BetterUnsignedThreshold;
 	type BetterSignedThreshold = ();
 	type OffchainRepeat = OffchainRepeat;
@@ -769,6 +787,7 @@ parameter_types! {
 	pub const TxFeePotId: PalletId = PalletId(*b"txfeepot");
 }
 type SlashCancelOrigin = EnsureRoot<AccountId>;
+
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
 	type Currency = DualStakingCurrency;
@@ -841,6 +860,7 @@ impl pallet_im_online::Config for Runtime {
 	type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
 	type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
 }
+
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
 	RuntimeCall: From<C>,
@@ -1012,6 +1032,7 @@ const fn seed_london() -> EvmConfig {
 	c.gas_transaction_create = 2_000_000;
 	c
 }
+
 pub static SEED_EVM_CONFIG: EvmConfig = seed_london();
 
 impl pallet_evm::Config for Runtime {
@@ -1045,6 +1066,7 @@ impl pallet_ethereum::Config for Runtime {
 }
 
 pub struct TransactionConverter;
+
 impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
 	fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> UncheckedExtrinsic {
 		UncheckedExtrinsic::new_unsigned(
@@ -1109,6 +1131,7 @@ impl pallet_nft_peg::Config for Runtime {
 }
 
 pub struct FeeControlDefaultValues;
+
 impl pallet_fee_control::DefaultValues for FeeControlDefaultValues {
 	fn evm_base_fee_per_gas() -> U256 {
 		// Floor network base fee per gas
@@ -1227,7 +1250,7 @@ construct_runtime! {
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
-		Marketplace: pallet_marketplace::{Pallet, Call} = 44,
+		Marketplace: pallet_marketplace::{Pallet, Call, Storage, Event<T>} = 44,
 
 		// Election pallet. Only works with staking
 		ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Pallet, Call, Storage, Event<T>, ValidateUnsigned} = 22,
@@ -2002,5 +2025,6 @@ mod benches {
 		[pallet_xls20, Xls20]
 		[pallet_futurepass, Futurepass]
 		[pallet_dex, Dex]
+		[pallet_marketplace, Marketplace]
 	);
 }

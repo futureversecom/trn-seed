@@ -14,15 +14,8 @@
 // You may obtain a copy of the License at the root of this project source code
 
 use crate as pallet_marketplace;
-use frame_support::{
-	dispatch::DispatchResult,
-	pallet_prelude::Weight,
-	parameter_types,
-	traits::{FindAuthor, GenesisBuild},
-	PalletId,
-};
+use frame_support::{dispatch::DispatchResult, parameter_types, traits::GenesisBuild, PalletId};
 use frame_system::EnsureRoot;
-use pallet_evm::{AddressMapping, BlockHashMapping, EnsureAddressNever, GasWeightMapping};
 use seed_pallet_common::*;
 use seed_primitives::{
 	AccountId, AssetId, Balance, CollectionUuid, MetadataScheme, SerialNumber, TokenId,
@@ -31,9 +24,8 @@ use sp_core::{H160, H256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId, Permill,
+	Permill,
 };
-use std::marker::PhantomData;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -55,9 +47,6 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets,
 		AssetsExt: pallet_assets_ext,
 		Nft: pallet_nft,
-		EVM: pallet_evm,
-		FeeControl: pallet_fee_control,
-		TimestampPallet: pallet_timestamp,
 		Marketplace: pallet_marketplace,
 	}
 );
@@ -66,81 +55,29 @@ impl_frame_system_config!(Test);
 impl_pallet_balance_config!(Test);
 impl_pallet_assets_config!(Test);
 impl_pallet_assets_ext_config!(Test);
-impl_pallet_evm_config!(Test);
-impl_pallet_fee_control_config!(Test);
-impl_pallet_timestamp_config!(Test);
-
-pub struct MockTransferSubscriber;
-impl OnTransferSubscriber for MockTransferSubscriber {
-	fn on_nft_transfer(_token_id: &TokenId) {}
-}
-
-pub struct MockNewAssetSubscription;
-
-impl<RuntimeId> OnNewAssetSubscriber<RuntimeId> for MockNewAssetSubscription
-where
-	RuntimeId: From<u32> + Into<u32>,
-{
-	fn on_asset_create(runtime_id: RuntimeId, _precompile_address_prefix: &[u8; 4]) {
-		// Mock address without conversion
-		let address = H160::from_low_u64_be(runtime_id.into().into());
-		pallet_evm::Pallet::<Test>::create_account(
-			address.into(),
-			b"TRN Asset Precompile".to_vec(),
-		);
-	}
-}
-
-pub struct MockXls20MintRequest;
-
-impl Xls20MintRequest for MockXls20MintRequest {
-	type AccountId = AccountId;
-
-	fn request_xls20_mint(
-		_who: &Self::AccountId,
-		_collection_id: CollectionUuid,
-		_serial_numbers: Vec<SerialNumber>,
-		_metadata_scheme: MetadataScheme,
-	) -> DispatchResult {
-		Ok(())
-	}
-}
+impl_pallet_nft_config!(Test);
 
 parameter_types! {
-	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
+	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
 	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
 	pub const MaxOffers: u32 = 10;
-	pub const MaxTokensPerCollection: u32 = 10_000;
-	pub const MintLimit: u32 = 5000;
-	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
-	pub const StringLimit: u32 = 50;
-	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
-	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const MaxTokensPerListing: u32 = 100;
 	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
-}
-
-impl pallet_nft::Config for Test {
-	type DefaultListingDuration = DefaultListingDuration;
-	type RuntimeEvent = RuntimeEvent;
-	type MaxOffers = MaxOffers;
-	type MaxTokensPerCollection = MaxTokensPerCollection;
-	type MintLimit = MintLimit;
-	type MultiCurrency = AssetsExt;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
-	type OnTransferSubscription = MockTransferSubscriber;
-	type OnNewAssetSubscription = MockNewAssetSubscription;
-	type PalletId = NftPalletId;
-	type ParachainId = TestParachainId;
-	type StringLimit = StringLimit;
-	type DefaultFeeTo = DefaultFeeTo;
-	type WeightInfo = ();
-	type Xls20MintRequest = MockXls20MintRequest;
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 }
 
 impl crate::Config for Test {
-	type Call = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
+	type DefaultListingDuration = DefaultListingDuration;
+	type RuntimeEvent = RuntimeEvent;
+	type DefaultFeeTo = DefaultFeeTo;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type PalletId = MarketplacePalletId;
+	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type WeightInfo = ();
+	type MaxTokensPerListing = MaxTokensPerListing;
+	type MaxOffers = MaxOffers;
 }
 
 #[derive(Default)]
@@ -189,4 +126,13 @@ impl TestExt {
 
 		ext
 	}
+}
+
+#[allow(dead_code)]
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }
