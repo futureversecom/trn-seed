@@ -113,6 +113,9 @@ pub mod pallet {
 		/// single block in the temporary storage and the maximum number of XRPL transactions that
 		/// can be stored in the settled transaction details storage for each block.
 		type XRPTransactionLimit: Get<u32>;
+
+		/// Maximum XRPL transactions within a single ledger
+		type XRPLTransactionLimitPerLedger: Get<u32>;
 	}
 
 	#[pallet::error]
@@ -139,6 +142,8 @@ pub mod pallet {
 		CannotProcessMoreTransactionsAtThatBlock,
 		/// Transaction submitted is outside the submission window
 		OutSideSubmissionWindow,
+		/// Too Many transactions per ledger
+		TooManyTransactionsPerLedger,
 	}
 
 	#[pallet::event]
@@ -214,7 +219,7 @@ pub mod pallet {
 	#[pallet::getter(fn settled_xrp_transaction_details)]
 	/// Settled xrp transactions stored against XRPL ledger index
 	pub type SettledXRPTransactionDetails<T: Config> =
-		StorageMap<_, Twox64Concat, u32, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
+		StorageMap<_, Twox64Concat, u32, BoundedVec<XrplTxHash, T::XRPLTransactionLimitPerLedger>>;
 
 	#[pallet::storage]
 	/// Highest settled XRPL ledger index
@@ -461,6 +466,33 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		#[pallet::weight(T::WeightInfo::set_ticket_sequence_current_allocation())]
+		#[transactional]
+		pub fn reset_settled_xrpl_tx_data(
+			origin: OriginFor<T>,
+			highest_settled_ledger_index: u32,
+			submission_window_width: u32,
+			settled_tx_data: Option<Vec<(XrplTxHash, u32, XrpTransaction, T::AccountId)>>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			HighestSettledLedgerIndex::<T>::put(highest_settled_ledger_index);
+			SubmissionWindowWidth::<T>::put(submission_window_width);
+
+			if let Some(settled_txs) = settled_tx_data {
+				for (xrpl_tx_hash, ledger_index, tx, account) in settled_txs {
+					<ProcessXRPTransactionDetails<T>>::insert(
+						xrpl_tx_hash,
+						(ledger_index as LedgerIndex, tx, account),
+					);
+
+					<SettledXRPTransactionDetails<T>>::try_append(ledger_index, xrpl_tx_hash)
+						.map_err(|_| Error::<T>::TooManyTransactionsPerLedger)?;
+				}
+			}
+
+			Ok(())
+		}
 	}
 }
 
@@ -516,7 +548,8 @@ impl<T: Config> Pallet<T> {
 			<SettledXRPTransactionDetails<T>>::try_append(
 				ledger_index as u32,
 				transaction_hash.clone(),
-			).expect("Should not happen since both ProcessXRPTransaction and SettledXRPTransactionDetails have the same limit");
+			)
+			.expect("Should not happen since XRPLTransactionLimitPerLedger >= XRPTransactionLimit");
 
 			// Update HighestSettledLedgerIndex
 			if highest_settled_ledger_index < ledger_index as u32 {
