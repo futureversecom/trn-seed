@@ -370,35 +370,101 @@ fn set_door_address_fail() {
 	})
 }
 
-// #[test]
-// fn clear_storages() {
-// 	new_test_ext().execute_with(|| {
-// 		let process_block = 5;
-// 		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
-// 		let tx_hash_2 = XrplTxHash::from_low_u64_be(123);
-//
-// 		// <ProcessXRPTransaction<Test>>::append(process_block,tx_hash_1);
-// 		// <ProcessXRPTransaction<Test>>::append(process_block,tx_hash_2);
-// 		<SettledXRPTransactionDetails<Test>>::try_append(process_block, tx_hash_1).unwrap();
-// 		<SettledXRPTransactionDetails<Test>>::try_append(process_block, tx_hash_2).unwrap();
-//
-// 		let account: AccountId = [1_u8; 20].into();
-// 		<ProcessXRPTransactionDetails<Test>>::insert(
-// 			tx_hash_1,
-// 			(2 as LedgerIndex, XrpTransaction::default(), account),
-// 		);
-// 		<ProcessXRPTransactionDetails<Test>>::insert(
-// 			tx_hash_2,
-// 			(2 as LedgerIndex, XrpTransaction::default(), account),
-// 		);
-//
-// 		XRPLBridge::on_initialize();
-//
-// 		assert!(<SettledXRPTransactionDetails<Test>>::get(process_block).is_none());
-// 		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_none());
-// 		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
-// 	});
-// }
+#[test]
+fn settle_new_higher_ledger_index_brings_submission_window_forward() {
+	new_test_ext().execute_with(|| {
+		let relayer = create_account(b"6490B68F1116BFE87DDD");
+		assert_ok!(XRPLBridge::add_relayer(RuntimeOrigin::root(), relayer));
+
+		let tx_hash_1 = XrplTxHash::from_low_u64_be(123);
+		let tx_hash_2 = XrplTxHash::from_low_u64_be(124);
+		let tx_hash_3 = XrplTxHash::from_low_u64_be(125);
+
+		// Set replay protection data
+		let current_highest_settled_ledger_index = 8;
+		HighestSettledLedgerIndex::<Test>::put(current_highest_settled_ledger_index);
+		SubmissionWindowWidth::<Test>::put(5);
+
+		let current_submission_window_end = 8 - 5;
+		let ledger_index = 5;
+
+		// Add settled tx data within the window
+		<SettledXRPTransactionDetails<Test>>::try_append(2, tx_hash_1).unwrap();
+		<SettledXRPTransactionDetails<Test>>::try_append(current_submission_window_end, tx_hash_2)
+			.unwrap();
+		let account: AccountId = [1_u8; 20].into();
+		<ProcessXRPTransactionDetails<Test>>::insert(
+			tx_hash_1,
+			(2 as LedgerIndex, XrpTransaction::default(), account),
+		);
+		<ProcessXRPTransactionDetails<Test>>::insert(
+			tx_hash_2,
+			(current_submission_window_end as LedgerIndex, XrpTransaction::default(), account),
+		);
+
+		//Submit higher leder index
+		let new_transaction =
+			XrplTxData::Payment { amount: 1000 as Balance, address: H160::from_low_u64_be(555) };
+		let new_highest = current_highest_settled_ledger_index + 1;
+		assert_ok!(XRPLBridge::submit_transaction(
+			RuntimeOrigin::signed(relayer),
+			new_highest as u64,
+			tx_hash_3,
+			new_transaction.clone(),
+			1234
+		));
+
+		XRPLBridge::on_initialize(XrpTxChallengePeriod::get() as u64);
+		System::set_block_number(XrpTxChallengePeriod::get() as u64);
+
+		// data outside the previous submission window end will not be cleaned in this iteration.
+		// Ideally it should have been cleaned by now.
+		assert!(<SettledXRPTransactionDetails<Test>>::get(2).is_some());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_1).is_some());
+
+		// data from current_submission_window_end to new submission window end shuld be cleaned
+		assert!(<SettledXRPTransactionDetails<Test>>::get(current_submission_window_end).is_none());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_2).is_none());
+
+		// new data should be added
+		assert!(<SettledXRPTransactionDetails<Test>>::get(new_highest).is_some());
+		assert!(<ProcessXRPTransactionDetails<Test>>::get(tx_hash_3).is_some());
+
+		// Try to replay data outside submission window now
+		assert_noop!(
+			XRPLBridge::submit_transaction(
+				RuntimeOrigin::signed(relayer),
+				2,
+				tx_hash_1,
+				XrplTxData::default(),
+				1234
+			),
+			Error::<Test>::OutSideSubmissionWindow
+		);
+		assert_noop!(
+			XRPLBridge::submit_transaction(
+				RuntimeOrigin::signed(relayer),
+				current_submission_window_end as LedgerIndex,
+				tx_hash_2,
+				XrplTxData::default(),
+				1234
+			),
+			Error::<Test>::OutSideSubmissionWindow
+		);
+
+		// Try to replay data inside submission window now
+		assert_noop!(
+			XRPLBridge::submit_transaction(
+				RuntimeOrigin::signed(relayer),
+				new_highest as LedgerIndex,
+				tx_hash_3,
+				new_transaction,
+				1234
+			),
+			Error::<Test>::TxReplay
+		);
+	});
+}
 
 #[test]
 fn get_door_ticket_sequence_success_at_start() {
