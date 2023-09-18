@@ -24,6 +24,7 @@ use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use seed_primitives::Balance;
 use sp_core::U256;
+use sp_runtime::traits::One;
 
 benchmarks! {
 	set_evm_base_fee {
