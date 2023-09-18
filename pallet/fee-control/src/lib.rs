@@ -14,6 +14,7 @@
 // You may obtain a copy of the License at the root of this project source code
 
 #![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
 
 use frame_support::pallet_prelude::*;
@@ -23,14 +24,17 @@ use sp_core::U256;
 use sp_runtime::Perbill;
 
 use core::ops::Mul;
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod test;
 pub mod types;
+
 pub use types::*;
 
 mod weights;
+
 pub use weights::WeightInfo;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -50,7 +54,7 @@ pub mod pallet {
 	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
+	#[pallet::generate_store(pub (super) trait Store)]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
@@ -96,6 +100,16 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Data::<T>::mutate(|x| {
 				x.weight_multiplier = value;
+			});
+
+			Ok(())
+		}
+
+		#[pallet::weight(T::WeightInfo::set_weight_multiplier())]
+		pub fn set_length_multiplier(origin: OriginFor<T>, value: Balance) -> DispatchResult {
+			ensure_root(origin)?;
+			Data::<T>::mutate(|x| {
+				x.length_multiplier = value;
 			});
 
 			Ok(())
