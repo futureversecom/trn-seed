@@ -274,6 +274,9 @@ where
 		let amount: Balance = amount.saturated_into();
 
 		let origin: Runtime::AccountId = handle.context().caller.into();
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
+		))?;
 		let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
 			asset_id,
 			&origin,
@@ -314,10 +317,10 @@ where
 			let to: Runtime::AccountId = to.into();
 			let caller: Runtime::AccountId = handle.context().caller.into();
 
-			handle.record_cost(
-				RuntimeHelper::<Runtime>::db_read_gas_cost() +
-					RuntimeHelper::<Runtime>::db_write_gas_cost(),
-			)?;
+			// handle.record_cost(
+			// 	RuntimeHelper::<Runtime>::db_read_gas_cost() +
+			// 		RuntimeHelper::<Runtime>::db_write_gas_cost(),
+			// )?;
 
 			// Update approval balance,
 			// will error if no approval exists or approval is of insufficient amount
@@ -332,6 +335,9 @@ where
 				},
 			)?;
 
+			handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+				<Runtime as pallet_assets::Config>::WeightInfo::transfer(),
+			))?;
 			// Transfer
 			let _ = <pallet_assets_ext::Pallet<Runtime> as Transfer<Runtime::AccountId>>::transfer(
 				asset_id,

@@ -59,7 +59,7 @@ impl<T: frame_system::Config> pallet_token_approvals::WeightInfo for WeightInfo<
     }
     // Storage: TokenApprovals ERC721ApprovalsForAll (r:0 w:1)
     fn erc721_approval_for_all() -> Weight {
-        Weight::from_ref_time(3_014_303_000 as u64)
+        Weight::from_ref_time(22_738_000 as u64)
             .saturating_add(T::DbWeight::get().writes(1 as u64))
     }
     // Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)

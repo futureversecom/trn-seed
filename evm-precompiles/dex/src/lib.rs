@@ -162,7 +162,7 @@ where
 	<Runtime::RuntimeCall as Dispatchable>::RuntimeOrigin: From<Option<Runtime::AccountId>>,
 {
 	fn add_liquidity(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		// handle.record_log_costs_manual(3, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(

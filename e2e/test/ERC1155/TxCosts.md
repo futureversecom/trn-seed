@@ -7,24 +7,24 @@
 | balanceOfBatch        |    32585     |     24106      |             0             |
 | setApprovalForAll     |    47025     |     27563      |             0             |
 | isApprovedForAll      |    26076     |     23184      |             0             |
-| safeTransferFrom      |    59163     |     32322      |           23335           |
-| safeBatchTransferFrom |    50205     |     32716      |           26668           |
-| mint                  |    33152     |     32020      |           23502           |
-| mintBatch             |    42210     |     32407      |           26835           |
-| burn                  |    32581     |     27731      |           20002           |
-| burnBatch             |    38043     |     32004      |           23335           |
+| safeTransferFrom      |    59163     |     32322      |           25180           |
+| safeBatchTransferFrom |    50205     |     32716      |           28514           |
+| mint                  |    33152     |     32020      |           25549           |
+| mintBatch             |    42210     |     32407      |           28883           |
+| burn                  |    32581     |     27731      |           21859           |
+| burnBatch             |    38043     |     32004      |           25192           |
 
 
 ## Generated tx costs(fees) for ERC1155 Precompiles
 
 | Function Call         | Contract cost (Drops) | Precompile cost (Drops) | Extrinsic cost (Drops) |
 |:----------------------|:---------------------:|:-----------------------:|:----------------------:|
-| safeTransferFrom      |        880468         |         467386          |         350034         |
-| safeBatchTransferFrom |        728112         |         479987          |         400034         |
-| mint                  |        493954         |         457695          |         352538         |
-| mintBatch             |        589858         |         470117          |         402538         |
-| burn                  |        475652         |         412796          |         300034         |
-| burnBatch             |        569231         |         457185          |         350034         |
+| safeTransferFrom      |        440278         |         233716          |         188856         |
+| safeBatchTransferFrom |        364092         |         240017          |         213856         |
+| mint                  |        247001         |         228870          |         191623         |
+| mintBatch             |        294958         |         235082          |         216623         |
+| burn                  |        237850         |         206418          |         163945         |
+| burnBatch             |        284644         |         228615          |         188945         |
 
 
 ## Generated tx estimates vs gas used for ERC1155 Precompiles

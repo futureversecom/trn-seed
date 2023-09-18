@@ -228,32 +228,32 @@ describe("Dex Gas Estimation", function () {
 
     it("addLiquidity gas estimates", async () => {
         // Estimate contract call
-        // const contractGasEstimate = await uniswapV2Router02
-        //     .connect(owner)
-        //     .estimateGas.addLiquidity(
-        //         alpha.address,
-        //         beta.address,
-        //         utils.parseEther("1000"),
-        //         utils.parseEther("250"),
-        //         utils.parseEther("1000"),
-        //         utils.parseEther("250"),
-        //         owner.address,
-        //         ethers.constants.MaxUint256,
-        //     );
-        //
-        // // Estimate precompile call
-        // const precompileGasEstimate = await dexPrecompile
-        //     .connect(alithSigner)
-        //     .estimateGas.addLiquidity(
-        //         alpha.address,
-        //         beta.address,
-        //         utils.parseEther("1000").toString(),
-        //         utils.parseEther("250").toString(),
-        //         utils.parseEther("1000").toString(),
-        //         utils.parseEther("250").toString(),
-        //         alithSigner.address,
-        //         20000,
-        //     );
+        const contractGasEstimate = await uniswapV2Router02
+            .connect(owner)
+            .estimateGas.addLiquidity(
+                alpha.address,
+                beta.address,
+                utils.parseEther("1000"),
+                utils.parseEther("250"),
+                utils.parseEther("1000"),
+                utils.parseEther("250"),
+                owner.address,
+                ethers.constants.MaxUint256,
+            );
+
+        // Estimate precompile call
+        const precompileGasEstimate = await dexPrecompile
+            .connect(alithSigner)
+            .estimateGas.addLiquidity(
+                alpha.address,
+                beta.address,
+                utils.parseEther("1000").toString(),
+                utils.parseEther("250").toString(),
+                utils.parseEther("1000").toString(),
+                utils.parseEther("250").toString(),
+                alithSigner.address,
+                20000,
+            );
 
         // precompile fee cost
         let balanceBefore = await alithSigner.getBalance();
@@ -275,23 +275,23 @@ describe("Dex Gas Estimation", function () {
         const precompileFeeCost = balanceBefore.sub(balanceAfter);
 
         // Contract fee cost
-        // balanceBefore = await owner.getBalance();
-        // tx = await uniswapV2Router02
-        //     .connect(owner)
-        //     .addLiquidity(
-        //         alpha.address,
-        //         beta.address,
-        //         utils.parseEther("1000"),
-        //         utils.parseEther("250"),
-        //         utils.parseEther("1000"),
-        //         utils.parseEther("250"),
-        //         owner.address,
-        //         ethers.constants.MaxUint256,
-        //         {gasLimit: contractGasEstimate},
-        //     );
-        // const contractReceipt = await tx.wait();
-        // balanceAfter = await owner.getBalance();
-        // const contractFeeCost = balanceBefore.sub(balanceAfter);
+        balanceBefore = await owner.getBalance();
+        tx = await uniswapV2Router02
+            .connect(owner)
+            .addLiquidity(
+                alpha.address,
+                beta.address,
+                utils.parseEther("1000"),
+                utils.parseEther("250"),
+                utils.parseEther("1000"),
+                utils.parseEther("250"),
+                owner.address,
+                ethers.constants.MaxUint256,
+                {gasLimit: contractGasEstimate},
+            );
+        const contractReceipt = await tx.wait();
+        balanceAfter = await owner.getBalance();
+        const contractFeeCost = balanceBefore.sub(balanceAfter);
 
         // Extrinsic cost
         balanceBefore = await alithSigner.getBalance();
@@ -311,8 +311,8 @@ describe("Dex Gas Estimation", function () {
                     if (status.isInBlock) resolve();
                 });
         });
-        // balanceAfter = await alithSigner.getBalance();
-        // const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+        balanceAfter = await alithSigner.getBalance();
+        const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
         // const extrinsicGasScaled = await getScaledGasForExtrinsicFee(jsonProvider, extrinsicFeeCost);
 
         // expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
@@ -325,11 +325,11 @@ describe("Dex Gas Estimation", function () {
         //     Precompile: precompileGasEstimate,
         //     Extrinsic: extrinsicGasScaled,
         // };
-        // allTxFeeCosts["addLiquidity"] = {
-        //     Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-        //     Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-        //     Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-        // };
+        allTxFeeCosts["addLiquidity"] = {
+            Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+            Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+            Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+        };
         // allEstimates["addLiquidity"] = {
         //     Contract: {
         //         estimate: contractGasEstimate,
@@ -407,118 +407,118 @@ describe("Dex Gas Estimation", function () {
     //     };
     // });
     //
-    // // dependent on 'addLiquidity gas estimates' test
-    // it("removeLiquidity gas estimates", async () => {
-    //     console.log("Estimating contract remove Liquidity gas");
-    //     // Estimate contract call
-    //     const contractGasEstimate = await uniswapV2Router02
-    //         .connect(owner)
-    //         .estimateGas.removeLiquidity(
-    //             alpha.address,
-    //             beta.address,
-    //             utils.parseEther("100").toString(),
-    //             0,
-    //             0,
-    //             owner.address,
-    //             ethers.constants.MaxUint256,
-    //         );
-    //
-    //     console.log(`contract estimate: ${contractGasEstimate}`);
-    //
-    //     await new Promise(r => setTimeout(r, 600));
-    //
-    //     // Estimate precompile call
-    //     const precompileGasEstimate = await dexPrecompile
-    //         .connect(alithSigner)
-    //         .estimateGas.removeLiquidity(
-    //             alpha.address,
-    //             beta.address,
-    //             utils.parseEther("100").toString(),
-    //             0,
-    //             0,
-    //             alithSigner.address,
-    //             20000,
-    //         );
-    //     console.log(`precompile estimate: ${precompileGasEstimate}`);
-    //
-    //     await new Promise(r => setTimeout(r, 600));
-    //
-    //     // precompile fee cost
-    //     let balanceBefore = await alithSigner.getBalance();
-    //     let tx = await dexPrecompile
-    //         .connect(alithSigner)
-    //         .removeLiquidity(
-    //             alpha.address,
-    //             beta.address,
-    //             utils.parseEther("100").toString(),
-    //             0,
-    //             0,
-    //             alithSigner.address,
-    //             20000,
-    //         );
-    //     const precompileReceipt = await tx.wait();
-    //
-    //     console.log(`Precompile actual ${precompileReceipt.gasUsed}`);
-    //     let balanceAfter = await alithSigner.getBalance();
-    //     const precompileFeeCost = balanceBefore.sub(balanceAfter);
-    //
-    //     // Contract fee cost
-    //     balanceBefore = await owner.getBalance();
-    //     tx = await uniswapV2Router02
-    //         .connect(owner)
-    //         .removeLiquidity(
-    //             alpha.address,
-    //             beta.address,
-    //             utils.parseEther("100").toString(),
-    //             0,
-    //             0,
-    //             owner.address,
-    //             ethers.constants.MaxUint256,
-    //             {gasLimit: contractGasEstimate},
-    //         );
-    //     const contractReceipt = await tx.wait();
-    //     balanceAfter = await owner.getBalance();
-    //     const contractFeeCost = balanceBefore.sub(balanceAfter);
-    //
-    //     // Extrinsic cost
-    //     balanceBefore = await alithSigner.getBalance();
-    //     await new Promise<void>((resolve) => {
-    //         api.tx.dex
-    //             .removeLiquidity(TOKEN_ID_1, TOKEN_ID_2, utils.parseEther("100").toString(), 0, 0, alithSigner.address, 20000)
-    //             .signAndSend(alith, ({status}) => {
-    //                 if (status.isInBlock) resolve();
-    //             });
-    //     });
-    //     balanceAfter = await alithSigner.getBalance();
-    //     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
-    //     const extrinsicGasScaled = await getScaledGasForExtrinsicFee(jsonProvider, extrinsicFeeCost);
-    //
-    //     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    //     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
-    //     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-    //
-    //     // Update all costs
-    //     allCosts["removeLiquidity"] = {
-    //         Contract: contractGasEstimate,
-    //         Precompile: precompileGasEstimate,
-    //         Extrinsic: extrinsicGasScaled,
-    //     };
-    //     allTxFeeCosts["removeLiquidity"] = {
-    //         Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //         Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //         Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //     };
-    //     allEstimates["removeLiquidity"] = {
-    //         Contract: {
-    //             estimate: contractGasEstimate,
-    //             actual: contractReceipt.gasUsed
-    //         },
-    //         Precompile: {
-    //             estimate: precompileGasEstimate,
-    //             actual: precompileReceipt.gasUsed
-    //         }
-    //     };
-    // });
+    // dependent on 'addLiquidity gas estimates' test
+    it("removeLiquidity gas estimates", async () => {
+        console.log("Estimating contract remove Liquidity gas");
+        // Estimate contract call
+        const contractGasEstimate = await uniswapV2Router02
+            .connect(owner)
+            .estimateGas.removeLiquidity(
+                alpha.address,
+                beta.address,
+                utils.parseEther("100").toString(),
+                0,
+                0,
+                owner.address,
+                ethers.constants.MaxUint256,
+            );
+
+        console.log(`contract estimate: ${contractGasEstimate}`);
+
+        await new Promise(r => setTimeout(r, 600));
+
+        // Estimate precompile call
+        const precompileGasEstimate = await dexPrecompile
+            .connect(alithSigner)
+            .estimateGas.removeLiquidity(
+                alpha.address,
+                beta.address,
+                utils.parseEther("100").toString(),
+                0,
+                0,
+                alithSigner.address,
+                20000,
+            );
+        console.log(`precompile estimate: ${precompileGasEstimate}`);
+
+        await new Promise(r => setTimeout(r, 600));
+
+        // precompile fee cost
+        let balanceBefore = await alithSigner.getBalance();
+        let tx = await dexPrecompile
+            .connect(alithSigner)
+            .removeLiquidity(
+                alpha.address,
+                beta.address,
+                utils.parseEther("100").toString(),
+                0,
+                0,
+                alithSigner.address,
+                20000,
+            );
+        const precompileReceipt = await tx.wait();
+
+        console.log(`Precompile actual ${precompileReceipt.gasUsed}`);
+        let balanceAfter = await alithSigner.getBalance();
+        const precompileFeeCost = balanceBefore.sub(balanceAfter);
+
+        // Contract fee cost
+        balanceBefore = await owner.getBalance();
+        tx = await uniswapV2Router02
+            .connect(owner)
+            .removeLiquidity(
+                alpha.address,
+                beta.address,
+                utils.parseEther("100").toString(),
+                0,
+                0,
+                owner.address,
+                ethers.constants.MaxUint256,
+                {gasLimit: contractGasEstimate},
+            );
+        const contractReceipt = await tx.wait();
+        balanceAfter = await owner.getBalance();
+        const contractFeeCost = balanceBefore.sub(balanceAfter);
+
+        // Extrinsic cost
+        balanceBefore = await alithSigner.getBalance();
+        await new Promise<void>((resolve) => {
+            api.tx.dex
+                .removeLiquidity(TOKEN_ID_1, TOKEN_ID_2, utils.parseEther("100").toString(), 0, 0, alithSigner.address, 20000)
+                .signAndSend(alith, ({status}) => {
+                    if (status.isInBlock) resolve();
+                });
+        });
+        balanceAfter = await alithSigner.getBalance();
+        const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+        const extrinsicGasScaled = await getScaledGasForExtrinsicFee(jsonProvider, extrinsicFeeCost);
+
+        expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+        expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+        expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
+
+        // Update all costs
+        allCosts["removeLiquidity"] = {
+            Contract: contractGasEstimate,
+            Precompile: precompileGasEstimate,
+            Extrinsic: extrinsicGasScaled,
+        };
+        allTxFeeCosts["removeLiquidity"] = {
+            Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+            Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+            Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+        };
+        allEstimates["removeLiquidity"] = {
+            Contract: {
+                estimate: contractGasEstimate,
+                actual: contractReceipt.gasUsed
+            },
+            Precompile: {
+                estimate: precompileGasEstimate,
+                actual: precompileReceipt.gasUsed
+            }
+        };
+    });
     //
     // // TODO
     // it.skip("removeLiquidityETH gas estimates", async () => {
@@ -571,94 +571,94 @@ describe("Dex Gas Estimation", function () {
     //     };
     // });
     //
-    // // dependent on 'addLiquidity gas estimates' test
-    // it("swapExactTokensForTokens gas estimates", async () => {
-    //     // Estimate contract call
-    //     const contractGasEstimate = await uniswapV2Router02
-    //         .connect(owner)
-    //         .estimateGas.swapExactTokensForTokens(
-    //             utils.parseEther("100"),
-    //             0,
-    //             [alpha.address, beta.address],
-    //             user.address,
-    //             ethers.constants.MaxUint256,
-    //         );
-    //
-    //     // Estimate precompile call
-    //     const precompileGasEstimate = await dexPrecompile
-    //         .connect(alithSigner)
-    //         .estimateGas.swapExactTokensForTokens(
-    //             utils.parseEther("100"),
-    //             0,
-    //             [alpha.address, beta.address],
-    //             bobSigner.address,
-    //             20000,
-    //         );
-    //
-    //     // precompile fee cost
-    //     let balanceBefore = await alithSigner.getBalance();
-    //     let tx = await dexPrecompile
-    //         .connect(alithSigner)
-    //         .swapExactTokensForTokens(utils.parseEther("100"), 0, [alpha.address, beta.address], bobSigner.address, 20000);
-    //     const precompileReceipt = await tx.wait();
-    //     let balanceAfter = await alithSigner.getBalance();
-    //     const precompileFeeCost = balanceBefore.sub(balanceAfter);
-    //
-    //     // Contract fee cost
-    //     balanceBefore = await owner.getBalance();
-    //     tx = await uniswapV2Router02
-    //         .connect(owner)
-    //         .swapExactTokensForTokens(
-    //             utils.parseEther("100"),
-    //             0,
-    //             [alpha.address, beta.address],
-    //             user.address,
-    //             ethers.constants.MaxUint256,
-    //             {gasLimit: contractGasEstimate},
-    //         );
-    //     const contractReceipt = await tx.wait();
-    //     balanceAfter = await owner.getBalance();
-    //     const contractFeeCost = balanceBefore.sub(balanceAfter);
-    //
-    //     // Extrinsic cost
-    //     balanceBefore = await alithSigner.getBalance();
-    //     await new Promise<void>((resolve) => {
-    //         api.tx.dex
-    //             .swapWithExactSupply(utils.parseEther("100").toString(), 0, [TOKEN_ID_1, TOKEN_ID_2], bobSigner.address, 20000)
-    //             .signAndSend(alith, ({status}) => {
-    //                 if (status.isInBlock) resolve();
-    //             });
-    //     });
-    //     balanceAfter = await alithSigner.getBalance();
-    //     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
-    //     const extrinsicGasScaled = await getScaledGasForExtrinsicFee(jsonProvider, extrinsicFeeCost);
-    //
-    //     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    //     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
-    //     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-    //
-    //     // Update all costs
-    //     allCosts["swapExactTokensForTokens"] = {
-    //         Contract: contractGasEstimate,
-    //         Precompile: precompileGasEstimate,
-    //         Extrinsic: extrinsicGasScaled,
-    //     };
-    //     allTxFeeCosts["swapExactTokensForTokens"] = {
-    //         Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //         Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //         Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //     };
-    //     allEstimates["swapExactTokensForTokens"] = {
-    //         Contract: {
-    //             estimate: contractGasEstimate,
-    //             actual: contractReceipt.gasUsed
-    //         },
-    //         Precompile: {
-    //             estimate: precompileGasEstimate,
-    //             actual: precompileReceipt.gasUsed
-    //         }
-    //     };
-    // });
+    // dependent on 'addLiquidity gas estimates' test
+    it("swapExactTokensForTokens gas estimates", async () => {
+        // Estimate contract call
+        const contractGasEstimate = await uniswapV2Router02
+            .connect(owner)
+            .estimateGas.swapExactTokensForTokens(
+                utils.parseEther("100"),
+                0,
+                [alpha.address, beta.address],
+                user.address,
+                ethers.constants.MaxUint256,
+            );
+
+        // Estimate precompile call
+        const precompileGasEstimate = await dexPrecompile
+            .connect(alithSigner)
+            .estimateGas.swapExactTokensForTokens(
+                utils.parseEther("100"),
+                0,
+                [alpha.address, beta.address],
+                bobSigner.address,
+                20000,
+            );
+
+        // precompile fee cost
+        let balanceBefore = await alithSigner.getBalance();
+        let tx = await dexPrecompile
+            .connect(alithSigner)
+            .swapExactTokensForTokens(utils.parseEther("100"), 0, [alpha.address, beta.address], bobSigner.address, 20000);
+        const precompileReceipt = await tx.wait();
+        let balanceAfter = await alithSigner.getBalance();
+        const precompileFeeCost = balanceBefore.sub(balanceAfter);
+
+        // Contract fee cost
+        balanceBefore = await owner.getBalance();
+        tx = await uniswapV2Router02
+            .connect(owner)
+            .swapExactTokensForTokens(
+                utils.parseEther("100"),
+                0,
+                [alpha.address, beta.address],
+                user.address,
+                ethers.constants.MaxUint256,
+                {gasLimit: contractGasEstimate},
+            );
+        const contractReceipt = await tx.wait();
+        balanceAfter = await owner.getBalance();
+        const contractFeeCost = balanceBefore.sub(balanceAfter);
+
+        // Extrinsic cost
+        balanceBefore = await alithSigner.getBalance();
+        await new Promise<void>((resolve) => {
+            api.tx.dex
+                .swapWithExactSupply(utils.parseEther("100").toString(), 0, [TOKEN_ID_1, TOKEN_ID_2], bobSigner.address, 20000)
+                .signAndSend(alith, ({status}) => {
+                    if (status.isInBlock) resolve();
+                });
+        });
+        balanceAfter = await alithSigner.getBalance();
+        const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+        const extrinsicGasScaled = await getScaledGasForExtrinsicFee(jsonProvider, extrinsicFeeCost);
+
+        expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+        expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+        expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
+
+        // Update all costs
+        allCosts["swapExactTokensForTokens"] = {
+            Contract: contractGasEstimate,
+            Precompile: precompileGasEstimate,
+            Extrinsic: extrinsicGasScaled,
+        };
+        allTxFeeCosts["swapExactTokensForTokens"] = {
+            Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+            Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+            Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+        };
+        allEstimates["swapExactTokensForTokens"] = {
+            Contract: {
+                estimate: contractGasEstimate,
+                actual: contractReceipt.gasUsed
+            },
+            Precompile: {
+                estimate: precompileGasEstimate,
+                actual: precompileReceipt.gasUsed
+            }
+        };
+    });
     //
     // // TODO
     // it.skip("swapExactTokensForETH gas estimates", async () => {
@@ -760,106 +760,106 @@ describe("Dex Gas Estimation", function () {
     //     };
     // });
     //
-    // // dependent on 'addLiquidity gas estimates' test
-    // it("swapTokensForExactTokens gas estimates", async () => {
-    //     // Estimate contract call
-    //     const contractGasEstimate = await uniswapV2Router02
-    //         .connect(owner)
-    //         .estimateGas.swapTokensForExactTokens(
-    //             utils.parseEther("100"),
-    //             utils.parseEther("10000"),
-    //             [alpha.address, beta.address],
-    //             user.address,
-    //             ethers.constants.MaxUint256,
-    //         );
-    //
-    //     // Estimate precompile call
-    //     const precompileGasEstimate = await dexPrecompile
-    //         .connect(alithSigner)
-    //         .estimateGas.swapTokensForExactTokens(
-    //             utils.parseEther("100"),
-    //             utils.parseEther("10000"),
-    //             [alpha.address, beta.address],
-    //             bobSigner.address,
-    //             20000,
-    //         );
-    //
-    //     // precompile fee cost
-    //     let balanceBefore = await alithSigner.getBalance();
-    //     let tx = await dexPrecompile
-    //         .connect(alithSigner)
-    //         .swapTokensForExactTokens(
-    //             utils.parseEther("100"),
-    //             utils.parseEther("10000"),
-    //             [alpha.address, beta.address],
-    //             bobSigner.address,
-    //             20000,
-    //         );
-    //     const precompileReceipt = await tx.wait();
-    //     let balanceAfter = await alithSigner.getBalance();
-    //     const precompileFeeCost = balanceBefore.sub(balanceAfter);
-    //
-    //     // Contract fee cost
-    //     balanceBefore = await owner.getBalance();
-    //     tx = await uniswapV2Router02
-    //         .connect(owner)
-    //         .swapTokensForExactTokens(
-    //             utils.parseEther("100"),
-    //             utils.parseEther("10000"),
-    //             [alpha.address, beta.address],
-    //             user.address,
-    //             ethers.constants.MaxUint256,
-    //             {gasLimit: contractGasEstimate},
-    //         );
-    //     const contractReceipt = await tx.wait();
-    //     balanceAfter = await owner.getBalance();
-    //     const contractFeeCost = balanceBefore.sub(balanceAfter);
-    //
-    //     // Extrinsic cost
-    //     balanceBefore = await alithSigner.getBalance();
-    //     await new Promise<void>((resolve) => {
-    //         api.tx.dex
-    //             .swapWithExactTarget(
-    //                 utils.parseEther("100").toString(),
-    //                 utils.parseEther("10000").toString(),
-    //                 [TOKEN_ID_1, TOKEN_ID_2],
-    //                 bobSigner.address,
-    //                 20000,
-    //             )
-    //             .signAndSend(alith, ({status}) => {
-    //                 if (status.isInBlock) resolve();
-    //             });
-    //     });
-    //     balanceAfter = await alithSigner.getBalance();
-    //     const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
-    //     const extrinsicGasScaled = await getScaledGasForExtrinsicFee(jsonProvider, extrinsicFeeCost);
-    //
-    //     expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
-    //     expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
-    //     expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
-    //
-    //     // Update all costs
-    //     allCosts["swapTokensForExactTokens"] = {
-    //         Contract: contractGasEstimate,
-    //         Precompile: precompileGasEstimate,
-    //         Extrinsic: extrinsicGasScaled,
-    //     };
-    //     allTxFeeCosts["swapTokensForExactTokens"] = {
-    //         Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //         Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //         Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
-    //     };
-    //     allEstimates["swapTokensForExactTokens"] = {
-    //         Contract: {
-    //             estimate: contractGasEstimate,
-    //             actual: contractReceipt.gasUsed
-    //         },
-    //         Precompile: {
-    //             estimate: precompileGasEstimate,
-    //             actual: precompileReceipt.gasUsed
-    //         }
-    //     };
-    // });
+    // dependent on 'addLiquidity gas estimates' test
+    it("swapTokensForExactTokens gas estimates", async () => {
+        // Estimate contract call
+        const contractGasEstimate = await uniswapV2Router02
+            .connect(owner)
+            .estimateGas.swapTokensForExactTokens(
+                utils.parseEther("100"),
+                utils.parseEther("10000"),
+                [alpha.address, beta.address],
+                user.address,
+                ethers.constants.MaxUint256,
+            );
+
+        // Estimate precompile call
+        const precompileGasEstimate = await dexPrecompile
+            .connect(alithSigner)
+            .estimateGas.swapTokensForExactTokens(
+                utils.parseEther("100"),
+                utils.parseEther("10000"),
+                [alpha.address, beta.address],
+                bobSigner.address,
+                20000,
+            );
+
+        // precompile fee cost
+        let balanceBefore = await alithSigner.getBalance();
+        let tx = await dexPrecompile
+            .connect(alithSigner)
+            .swapTokensForExactTokens(
+                utils.parseEther("100"),
+                utils.parseEther("10000"),
+                [alpha.address, beta.address],
+                bobSigner.address,
+                20000,
+            );
+        const precompileReceipt = await tx.wait();
+        let balanceAfter = await alithSigner.getBalance();
+        const precompileFeeCost = balanceBefore.sub(balanceAfter);
+
+        // Contract fee cost
+        balanceBefore = await owner.getBalance();
+        tx = await uniswapV2Router02
+            .connect(owner)
+            .swapTokensForExactTokens(
+                utils.parseEther("100"),
+                utils.parseEther("10000"),
+                [alpha.address, beta.address],
+                user.address,
+                ethers.constants.MaxUint256,
+                {gasLimit: contractGasEstimate},
+            );
+        const contractReceipt = await tx.wait();
+        balanceAfter = await owner.getBalance();
+        const contractFeeCost = balanceBefore.sub(balanceAfter);
+
+        // Extrinsic cost
+        balanceBefore = await alithSigner.getBalance();
+        await new Promise<void>((resolve) => {
+            api.tx.dex
+                .swapWithExactTarget(
+                    utils.parseEther("100").toString(),
+                    utils.parseEther("10000").toString(),
+                    [TOKEN_ID_1, TOKEN_ID_2],
+                    bobSigner.address,
+                    20000,
+                )
+                .signAndSend(alith, ({status}) => {
+                    if (status.isInBlock) resolve();
+                });
+        });
+        balanceAfter = await alithSigner.getBalance();
+        const extrinsicFeeCost = balanceBefore.sub(balanceAfter);
+        const extrinsicGasScaled = await getScaledGasForExtrinsicFee(jsonProvider, extrinsicFeeCost);
+
+        expect(precompileGasEstimate).to.be.lessThan(contractGasEstimate);
+        expect(extrinsicGasScaled).to.be.lessThan(precompileGasEstimate);
+        expect(extrinsicFeeCost).to.be.lessThan(precompileFeeCost);
+
+        // Update all costs
+        allCosts["swapTokensForExactTokens"] = {
+            Contract: contractGasEstimate,
+            Precompile: precompileGasEstimate,
+            Extrinsic: extrinsicGasScaled,
+        };
+        allTxFeeCosts["swapTokensForExactTokens"] = {
+            Contract: contractFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+            Precompile: precompileFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+            Extrinsic: extrinsicFeeCost.div(1000000000000n), // convert to XRP Drops(6)
+        };
+        allEstimates["swapTokensForExactTokens"] = {
+            Contract: {
+                estimate: contractGasEstimate,
+                actual: contractReceipt.gasUsed
+            },
+            Precompile: {
+                estimate: precompileGasEstimate,
+                actual: precompileReceipt.gasUsed
+            }
+        };
+    });
     //
     // // TODO
     // it.skip("swapTokensForExactETH gas estimates", async () => {

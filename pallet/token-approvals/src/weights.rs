@@ -88,7 +88,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     }
     // Storage: TokenApprovals ERC721ApprovalsForAll (r:0 w:1)
     fn erc721_approval_for_all() -> Weight {
-        Weight::from_ref_time(3_014_303_000 as u64)
+        Weight::from_ref_time(22_738_000 as u64)
             .saturating_add(T::DbWeight::get().writes(1 as u64))
     }
     // Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)
@@ -128,7 +128,7 @@ impl WeightInfo for () {
     }
     // Storage: TokenApprovals ERC721ApprovalsForAll (r:0 w:1)
     fn erc721_approval_for_all() -> Weight {
-        Weight::from_ref_time(3_014_303_000 as u64)
+        Weight::from_ref_time(22_738_000 as u64)
             .saturating_add(RocksDbWeight::get().writes(1 as u64))
     }
     // Storage: TokenApprovals ERC1155ApprovalsForAll (r:0 w:1)
