@@ -99,10 +99,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type ChallengePeriod: Get<u32>;
 
-		/// Clear Period to wait for a transaction to be cleared from settled storages
-		#[pallet::constant]
-		type ClearTxPeriod: Get<u32>;
-
 		/// Unix time
 		type UnixTime: UnixTime;
 
@@ -211,7 +207,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
 	/// Stores submitted transactions from XRPL waiting to be processed
-	/// Transactions will be cleared `ClearTxPeriod` blocks after processing
+	/// Transactions will be cleared according to the submission window after processing
 	pub type ProcessXRPTransactionDetails<T: Config> =
 		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 

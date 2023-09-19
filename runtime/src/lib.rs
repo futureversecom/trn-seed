@@ -525,7 +525,6 @@ impl pallet_utility::Config for Runtime {
 
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
-	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	/// % threshold to emit event TicketSequenceThresholdReached
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 	/// NOTE - XRPTransactionLimitPerLedger should be more than or equal to XRPTransactionLimit
@@ -541,7 +540,6 @@ impl pallet_xrpl_bridge::Config for Runtime {
 	type WeightInfo = weights::pallet_xrpl_bridge::WeightInfo<Runtime>;
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
-	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = Timestamp;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
