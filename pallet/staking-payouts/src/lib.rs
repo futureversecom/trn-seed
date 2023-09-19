@@ -33,16 +33,19 @@ pub use weights::WeightInfo;
 pub mod pallet {
 	use super::*;
 	use frame_support::{
-		pallet_prelude::*,
-		traits::{Currency, Imbalance, OnUnbalanced},
+		pallet_prelude::{DispatchResult, *},
+		traits::{Currency, Imbalance, OnUnbalanced, UnfilteredDispatchable},
+		transactional,
 	};
-	use pallet_staking::{ActiveEra, WeightInfo};
-	use seed_primitives::AccountId;
+	use pallet_staking::WeightInfo;
+	use seed_primitives::{AccountId, Balance, BlockNumber};
+	use sp_core::U256;
 	use sp_runtime::{
-		traits::{Saturating, Zero},
+		traits::{StaticLookup, Zero},
 		Perbill,
 	};
 	use sp_std::{boxed::Box, vec, vec::Vec};
+	use std::ops::{Div, Mul};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -52,13 +55,17 @@ pub mod pallet {
 	use sp_staking::EraIndex;
 	// When thinking about the currency type, consider that this is a custom Currency implementation
 	// for multiple assets
+	type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 	pub type BalanceOf<T> = <T as pallet_staking::Config>::CurrencyBalance;
 	type PositiveImbalanceOf<T> = <<T as pallet_staking::Config>::Currency as Currency<
 		<T as frame_system::Config>::AccountId,
 	>>::PositiveImbalance;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config<AccountId = AccountId> + pallet_staking::Config {
+	pub trait Config:
+		frame_system::Config<AccountId = AccountId, BlockNumber = BlockNumber>
+		+ pallet_staking::Config<CurrencyBalance = Balance>
+	{
 		/// The system event type
 		type Event: From<Event> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -101,6 +108,20 @@ pub mod pallet {
 	/// Unique identifier for payout periods
 	pub type PayoutPeriodId = u128;
 
+	#[derive(Debug, PartialEq, Clone, Encode, Decode, TypeInfo, Eq)]
+	#[scale_info(skip_type_params(T))]
+	/// Staking payout information, bonding rewards regardless of nominating
+	pub struct StakingPayoutInfo {
+		/// Last bonding status
+		pub last_bonding: Balance,
+		/// Block height when last time staking points are updated
+		pub last_block_height: BlockNumber,
+		/// Staking points
+		pub staking_points: U256,
+		/// Flag to indicate if the calculation of current payout period is finalized
+		pub is_finalized: bool,
+	}
+
 	#[pallet::storage]
 	/// Storage for tracking a validator id solely for iterating through the validator list
 	/// block-by-block
@@ -127,6 +148,24 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
+	#[pallet::storage]
+	pub type StakingRewardsList<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		// Current payout period
+		PayoutPeriodId,
+		Identity,
+		// Validator id
+		T::AccountId,
+		// This validator's payout, and the list of payouts for its nominators
+		StakingPayoutInfo,
+		OptionQuery,
+	>;
+
+	#[pallet::storage]
+	pub type StakingRewardPerPoint<T: Config> =
+		StorageMap<_, Blake2_128Concat, PayoutPeriodId, BalanceOf<T>, OptionQuery>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event {
@@ -142,6 +181,9 @@ pub mod pallet {
 		NotStash,
 		NoValidatorToIterate,
 		TooEarly,
+		StakingRewardsNotCalculated,
+		StakingRewardsAlreadyCalculated,
+		StakingPointsCalculationUnfinished,
 	}
 
 	// Control iteration through validators. This is just `UseNominatorsAndValidatorsMap` of
@@ -218,6 +260,42 @@ pub mod pallet {
 			}
 
 			consumed_weight
+		}
+	}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T>
+	where
+		T: pallet_staking::Config,
+	{
+		/// The bond extrinsic call wrapper
+		/// - In the implementation the bond extrinsic in pallet-staking is called.
+		/// - In addition, the bonding payout is calculated
+		#[pallet::weight(100)]
+		#[transactional]
+		pub fn bond(
+			origin: OriginFor<T>,
+			controller: AccountIdLookupOf<T>,
+			#[pallet::compact] value: BalanceOf<T>,
+			payee: pallet_staking::RewardDestination<T::AccountId>,
+		) -> DispatchResultWithPostInfo {
+			let call = pallet_staking::Call::<T>::bond { controller, value, payee };
+			call.dispatch_bypass_filter(origin).map_err(|err| err.error)?;
+			Ok(().into())
+		}
+
+		/// The bond_extra extrinsic call wrapper
+		/// - In the implementation the bond_extra extrinsic in pallet-staking is called
+		/// - In addition, the bonding payout is calculated
+		#[pallet::weight(100)]
+		#[transactional]
+		pub fn bond_extra(
+			origin: OriginFor<T>,
+			#[pallet::compact] max_additional: BalanceOf<T>,
+		) -> DispatchResultWithPostInfo {
+			let call = pallet_staking::Call::<T>::bond_extra { max_additional };
+			call.dispatch_bypass_filter(origin).map_err(|err| err.error)?;
+			Ok(().into())
 		}
 	}
 
@@ -415,6 +493,115 @@ pub mod pallet {
 
 			// TODO: change. Need to get imbalance
 			None
+		}
+
+		pub fn update_staking_points(
+			controller: T::AccountId,
+			bonding_amount: BalanceOf<T>,
+		) -> DispatchResult {
+			let current_period = CurrentPayoutPeriod::<T>::get();
+
+			if !StakingRewardsList::<T>::contains_key(current_period, &controller) {
+				// first time bonding
+				let staking_reward = StakingPayoutInfo {
+					last_bonding: bonding_amount,
+					last_block_height: frame_system::Pallet::<T>::block_number(),
+					staking_points: U256::zero(),
+					is_finalized: false,
+				};
+
+				// insert the initiated staking payout info to the storage
+				StakingRewardsList::<T>::insert(current_period, controller, staking_reward);
+				Ok(())
+			} else {
+				// update the staking payout info
+				StakingRewardsList::<T>::mutate(current_period, controller, |reward_info| {
+					if let Some(staking_reward) = reward_info {
+						let current_block = frame_system::Pallet::<T>::block_number();
+						// update the staking points
+						staking_reward.staking_points += U256::from(staking_reward.last_bonding) *
+							(U256::from(current_block - staking_reward.last_block_height));
+						// update the last bonding amount and block height
+						staking_reward.last_bonding = bonding_amount;
+						staking_reward.last_block_height = current_block;
+						Ok(())
+					} else {
+						Err(Error::<T>::NotController)
+					}
+				})?;
+				Ok(())
+			}
+		}
+
+		pub fn calculate_staking_payout(total_staking_rewards: BalanceOf<T>) -> DispatchResult {
+			let current_period = CurrentPayoutPeriod::<T>::get();
+
+			ensure!(
+				StakingRewardPerPoint::<T>::get(current_period).is_none(),
+				Error::<T>::StakingRewardsAlreadyCalculated
+			);
+
+			// finalize all ongoing staking points calculations
+			Self::finalize_staking_points_calculation(current_period)?;
+
+			let mut total_staking_points = U256::zero();
+
+			StakingRewardsList::<T>::iter_prefix_values(current_period)
+				.for_each(|iter| total_staking_points += iter.staking_points);
+
+			// calculate the reward per staking point in this payout period
+			let reward_per_staking_point: Balance =
+				U256::from(total_staking_rewards).div(total_staking_points).as_u128();
+
+			StakingRewardPerPoint::<T>::insert(current_period, reward_per_staking_point);
+			Ok(())
+		}
+
+		fn finalize_staking_points_calculation(current_period: PayoutPeriodId) -> DispatchResult {
+			// TODO: should we pass the last block number of this payout period as a parameter?
+			let current_block = frame_system::Pallet::<T>::block_number();
+
+			StakingRewardsList::<T>::iter_prefix(current_period).for_each(|iter| {
+				// update the staking payout info
+				StakingRewardsList::<T>::mutate(current_period, iter.0, |reward_info| {
+					if let Some(staking_reward) = reward_info {
+						// update the staking points
+						staking_reward.staking_points += U256::from(staking_reward.last_bonding)
+							.mul(U256::from(current_block - staking_reward.last_block_height));
+						// update the block height
+						staking_reward.last_block_height = current_block;
+						// set is_finalized as true
+						staking_reward.is_finalized = true;
+					}
+				});
+			});
+
+			Ok(())
+		}
+
+		pub fn get_total_payout_per_controller(
+			controller: T::AccountId,
+		) -> Result<Balance, Error<T>> {
+			let current_period = CurrentPayoutPeriod::<T>::get();
+
+			let reward_info = StakingRewardsList::<T>::get(current_period, &controller);
+
+			// ensure the controller exists
+			if let Some(staking_reward) = reward_info {
+				// ensure the staking point calculation is finalized
+				ensure!(
+					staking_reward.is_finalized,
+					Error::<T>::StakingPointsCalculationUnfinished
+				);
+
+				if let Some(reward_per_point) = StakingRewardPerPoint::<T>::get(current_period) {
+					Ok(staking_reward.staking_points.mul(U256::from(reward_per_point)).as_u128())
+				} else {
+					Err(Error::<T>::StakingRewardsNotCalculated)
+				}
+			} else {
+				Err(Error::<T>::NotController)
+			}
 		}
 	}
 }
