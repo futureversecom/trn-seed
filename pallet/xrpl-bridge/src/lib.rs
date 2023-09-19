@@ -467,7 +467,13 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight(T::WeightInfo::set_ticket_sequence_current_allocation())]
+		#[pallet::weight({
+			let settled_tx_data_length = match settled_tx_data {
+				Some(items) => items.len(),
+				_ => 0,
+			};
+			T::WeightInfo::reset_settled_xrpl_tx_data(settled_tx_data_length as u32)
+		})]
 		#[transactional]
 		pub fn reset_settled_xrpl_tx_data(
 			origin: OriginFor<T>,
