@@ -67,13 +67,11 @@ jobs:
           path: ./output/seed_runtime.compact.compressed.wasm
           if-no-files-found: warn
 
-      - name: Trigger K8s deployment 🐳
+      - name: Deploy cluster 🐳
         run: |
-          # Get the release image (latest)
-          RELEASE_STATE_IMAGE_NAME="ghcr.io/futureversecom/fork-release-state-${{ github.event.inputs.network }}"
-          
-          # TODO: trigger k8s deployment from this image (PR request)
-          pwd
+          export NETWORK=${{ github.event.inputs.network }}
+
+          docker compose up -d
 
   poll-service-status:
     runs-on: [dev-box]
