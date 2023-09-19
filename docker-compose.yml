@@ -32,7 +32,7 @@ services:
     depends_on:
       - bootnode
     ports:
-      - 9944:9944
+      - 80:9944
 
   validator2:
     image: "ghcr.io/futureversecom/fork-release-state-${NETWORK:-root}"

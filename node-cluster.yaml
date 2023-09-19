@@ -1,0 +1,241 @@
+# k3d cluster create test --servers 1 --api-port=6443 -p "9944:80@loadbalancer"
+---
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: traefik-ingress
+  annotations:
+    # ingress.kubernetes.io/ssl-redirect: "false"
+  # namespace: default
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: seed-svc
+            port:
+              number: 80 # remove this
+              # number: 9944
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: seed-svc
+  # namespace: default
+spec:
+  selector:
+    app: seed
+  ports:
+  # - name: http
+  #   port: 9933
+  #   targetPort: 9933
+  - name: websocket
+    port: 80 # remove this
+    # port: 9944
+    targetPort: 9944
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: seed
+  labels:
+    app: seed
+  # namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seed
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: seed
+    spec:
+      containers:
+        # - name: whoami
+        #   image: traefik/whoami
+        #   ports:
+        #   - name: web
+        #     containerPort: 80
+
+        - name: bootnode
+          image: zeeshans/seed:live-state-root
+          imagePullPolicy: Always
+          args:
+            - /output/binary
+            - --chain=/output/fork.json
+            - --name=bootnode
+            - --validator
+            - --alice
+            - --tmp
+            - --unsafe-ws-external
+            - --unsafe-rpc-external
+            - --rpc-cors=all
+            - --node-key=0000000000000000000000000000000000000000000000000000000000000001
+          ports:
+            - containerPort: 9933
+            - containerPort: 9944
+            - containerPort: 30333
+
+        - name: validator1
+          image: zeeshans/seed:live-state-root
+          imagePullPolicy: Always
+          args:
+            - /output/binary
+            - --chain=/output/fork.json
+            - --name=validator1
+            - --validator
+            - --bob
+            - --tmp
+            - --unsafe-ws-external
+            - --unsafe-rpc-external
+            - --rpc-cors=all
+            - --bootnodes=/dns/localhost/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+          ports:
+            - containerPort: 9933
+            - containerPort: 9944
+
+        - name: validator2
+          image: zeeshans/seed:live-state-root
+          imagePullPolicy: Always
+          args:
+            - /output/binary
+            - --chain=/output/fork.json
+            - --name=validator2
+            - --validator
+            - --charlie
+            - --tmp
+            - --unsafe-ws-external
+            - --unsafe-rpc-external
+            - --rpc-cors=all
+            - --bootnodes=/dns/localhost/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+          ports:
+            - containerPort: 9933
+            - containerPort: 9944
+
+---
+
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: traefik
+#   labels:
+#     app: traefik
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: traefik
+#   template:
+#     metadata:
+#       labels:
+#         app: traefik
+#     spec:
+#       containers:
+#       - name: traefik
+#         image: traefik:v2.5
+#         args:
+#         - "--api.insecure=true"
+#         - "--providers.kubernetesingress"
+#         ports:
+#         - name: web
+#           containerPort: 80
+#         - name: admin
+#           containerPort: 8080
+
+# ---
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: traefik
+# spec:
+#   ports:
+#   - name: web
+#     port: 80
+#     targetPort: 80
+#   - name: admin
+#     port: 8080
+#     targetPort: 8080
+#   selector:
+#     app: traefik
+
+# ---
+
+# ---
+
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: whoami-ingress
+#   annotations:
+#     kubernetes.io/ingress.class: traefik
+# spec:
+#   rules:
+#   - http:
+#       paths:
+#       - path: /abc
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: whoami-svc
+#             port:
+#               number: 80
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: whoami-svc
+#             port:
+#               number: 9933
+
+# ---
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: whoami-svc
+# spec:
+#   ports:
+#   - name: web-1
+#     port: 9933
+#     targetPort: 80
+#   - name: web-2
+#     port: 80
+#     targetPort: 80
+#   selector:
+#     app: whoami
+
+# ---
+
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: whoami
+#   labels:
+#     app: whoami
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: whoami
+#   template:
+#     metadata:
+#       labels:
+#         app: whoami
+#     spec:
+#       containers:
+#       - name: whoami
+#         image: traefik/whoami
+#         ports:
+#         - name: web
+#           containerPort: 80
