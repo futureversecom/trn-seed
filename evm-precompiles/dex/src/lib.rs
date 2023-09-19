@@ -76,6 +76,7 @@ pub enum Action {
 	GetAmountsOut = "getAmountsOut(uint256,address[])",
 	GetAmountsIn = "getAmountsIn(uint256,address[])",
 }
+// let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
 
 /// Provides access to the Dex pallet
 pub struct DexPrecompile<Runtime>(PhantomData<Runtime>);
@@ -481,6 +482,8 @@ where
 			)
 			.record(handle)?;
 		}
+
+		//Swap(T::AccountId, Vec<AssetId>, Balance, Balance, T::AccountId),
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(amounts).build()))

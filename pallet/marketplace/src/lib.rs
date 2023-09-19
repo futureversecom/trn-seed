@@ -21,7 +21,11 @@
 //! Allows users to buy or sell tokens, register as a marketplace and distribute royalties
 //! per sale.
 //! Also allows for offers on these tokens, which can be accepted by the owner of the token.
-
+//use sp_runtime::{
+// 	traits::{AccountIdConversion, Zero},
+// 	ArithmeticError, DispatchError, DispatchResult, FixedU128, RuntimeDebug, SaturatedConversion,
+// };
+// use sp_std::{cmp::min, convert::TryInto, prelude::*, vec};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::fungibles::{Mutate, Transfer},
@@ -343,9 +347,10 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			marketplace_account: Option<T::AccountId>,
 			entitlement: Permill,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_register_marketplace(who, marketplace_account, entitlement)
+			Self::do_register_marketplace(who, marketplace_account, entitlement)?;
+			Ok(().into())
 		}
 
 		/// Sell a bundle of tokens at a fixed price
@@ -367,7 +372,7 @@ pub mod pallet {
 			fixed_price: Balance,
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::do_sell_nft(
 				who,
@@ -378,7 +383,8 @@ pub mod pallet {
 				fixed_price,
 				duration,
 				marketplace_id,
-			)
+			)?;
+			Ok(().into())
 		}
 
 		/// Update fixed price for a single token sale
@@ -421,7 +427,7 @@ pub mod pallet {
 			reserve_price: Balance,
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 			Self::do_auction_nft(
 				who,
@@ -431,7 +437,8 @@ pub mod pallet {
 				reserve_price,
 				duration,
 				marketplace_id,
-			)
+			)?;
+			Ok(().into())
 		}
 
 		/// Place a bid on an open auction
@@ -466,9 +473,10 @@ pub mod pallet {
 			amount: Balance,
 			asset_id: AssetId,
 			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
-			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)
+			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)?;
+			Ok(().into())
 		}
 
 		/// Cancels an offer on a token
