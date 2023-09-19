@@ -71,6 +71,7 @@ jobs:
         run: |
           export NETWORK=${{ github.event.inputs.network }}
 
+          docker compose down --remove-orphans
           docker compose up -d
 
   poll-service-status:
