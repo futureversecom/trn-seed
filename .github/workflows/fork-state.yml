@@ -10,14 +10,18 @@ on:
           - porcini
           - root
         required: true
+      runtime-upgrade:
+        type: boolean
+        description: "Whether to enable runtime upgrade."
+        required: true
       release-candidate-branch:
         type: string
-        description: "The release candidate branch for runtime upgrade. Leave it empty if runtime upgrade is not required"
-        required: true
+        description: "The release candidate branch for runtime upgrade."
+        required: false
 
 env:
   REGISTRY: "ghcr.io"
-  IMAGE_NAME: "futureversecom/fork-state"
+  IMAGE_NAME: "futureversecom/fork-state-${{ github.event.inputs.network }}"
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -51,11 +55,11 @@ jobs:
           python3 -m venv ./scripts/penv
           source ./scripts/penv/bin/activate
           pip install -r ./scripts/requirements.txt
-          python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml --branch ${{ github.event.inputs.release-candidate-branch }}
-        #  python3 ./scripts/get_node_version.py  --config ./scripts/networks/porcini.yaml $UPGRADE_FLAG
+          UPGRADE_FLAG=$(if [ ${{ github.event.inputs.runtime-upgrade }} ]; then echo "--branch ${{ github.event.inputs.release-candidate-branch }}"; else echo ""; fi)
+          python3 ./scripts/get_node_version.py  --config ./scripts/networks/${{ github.event.inputs.network }}.yaml $UPGRADE_FLAG
 
       - name: Upload wasm as artifact
-        if: ${{ github.event.inputs.release-candidate-branch }}
+        if: ${{ github.event.inputs.runtime-upgrade }}
         uses: actions/upload-artifact@v3
         with:
           name: runtime-wasm
@@ -76,8 +80,9 @@ jobs:
           echo "github ref: $GITHUB_REF"
           echo "release tag(?): $RELEASE_TAG"
 
+          # set DOCKER_BUILDKIT to use fork-state.Dockerfile.dockerignore
+          DOCKER_BUILDKIT=1
           docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
-          # docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=porcini .
 
           docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
           docker push "$REGISTRY/$IMAGE_NAME:latest"
@@ -112,7 +117,7 @@ jobs:
           interval: 20
 
   runtime-upgrade:
-    if: ${{ github.event.inputs.release-candidate-branch }}
+    if: ${{ github.event.inputs.runtime-upgrade }}
     runs-on: [seed-builder]
     needs: poll-service-status
     defaults:

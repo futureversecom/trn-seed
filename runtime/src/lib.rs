@@ -409,37 +409,44 @@ impl pallet_assets_ext::Config for Runtime {
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const CollectionNameStringLimit: u32 = 50;
-	/// How long listings are open for by default
-	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
 	pub const WorldId: seed_primitives::ParachainId = 100;
 	pub const MaxTokensPerCollection: u32 = 1_000_000;
-	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
 	pub const MintLimit: u32 = 1_000;
-	pub const MaxOffers: u32 = 100;
-	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
 }
-
 impl pallet_nft::Config for Runtime {
-	type DefaultListingDuration = DefaultListingDuration;
 	type RuntimeEvent = RuntimeEvent;
-	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type MultiCurrency = AssetsExt;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = TokenApprovals;
 	type OnNewAssetSubscription = OnNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = WorldId;
 	type StringLimit = CollectionNameStringLimit;
-	type DefaultFeeTo = DefaultTxFeePotId;
 	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
 	type Xls20MintRequest = Xls20;
 }
 
+parameter_types! {
+	pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
+	/// How long listings are open for by default
+	pub const DefaultListingDuration: BlockNumber = DAYS * 3;
+	pub const MaxTokensPerListing: u32 = 1000;
+	pub const MaxOffers: u32 = 100;
+	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+	pub const DefaultTxFeePotId: Option<PalletId> = Some(TxFeePotId::get());
+}
 impl pallet_marketplace::Config for Runtime {
-	type Call = RuntimeCall;
-	type WeightInfo = weights::pallet_nft::WeightInfo<Runtime>;
+	type RuntimeCall = RuntimeCall;
+	type DefaultListingDuration = DefaultListingDuration;
+	type RuntimeEvent = RuntimeEvent;
+	type DefaultFeeTo = DefaultFeeTo;
+	type MultiCurrency = AssetsExt;
+	type NFTExt = Nft;
+	type PalletId = MarketplacePalletId;
+	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
+	type WeightInfo = weights::pallet_marketplace::WeightInfo<Runtime>;
+	type MaxTokensPerListing = MaxTokensPerListing;
+	type MaxOffers = MaxOffers;
 }
 
 parameter_types! {
@@ -1258,7 +1265,7 @@ construct_runtime! {
 		TokenApprovals: pallet_token_approvals::{Pallet, Call, Storage} = 19,
 		Historical: pallet_session::historical::{Pallet} = 20,
 		Echo: pallet_echo::{Pallet, Call, Storage, Event} = 21,
-		Marketplace: pallet_marketplace::{Pallet, Call} = 44,
+		Marketplace: pallet_marketplace::{Pallet, Call, Storage, Event<T>} = 44,
 		MaintenanceMode: pallet_maintenance_mode::{Pallet, Call, Storage, Event<T>} = 46,
 
 		// Election pallet. Only works with staking
@@ -2038,5 +2045,6 @@ mod benches {
 		[pallet_futurepass, Futurepass]
 		[pallet_dex, Dex]
 		[pallet_maintenance_mode, MaintenanceMode]
+		[pallet_marketplace, Marketplace]
 	);
 }

@@ -15,8 +15,8 @@
 
 use crate as pallet_xls20;
 use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
-use frame_system::{limits, EnsureRoot};
-use seed_pallet_common::{OnNewAssetSubscriber, OnTransferSubscriber};
+use frame_system::EnsureRoot;
+use seed_pallet_common::*;
 use seed_primitives::{AccountId, AssetId, Balance, TokenId};
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -40,102 +40,19 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		Assets: pallet_assets::{Pallet, Storage, Config<T>, Event<T>},
-		AssetsExt: pallet_assets_ext::{Pallet, Storage, Event<T>},
-		Nft: pallet_nft::{Pallet, Call, Storage, Event<T>},
-		Xls20: pallet_xls20::{Pallet, Call, Storage, Event<T>},
+		System: frame_system,
+		Balances: pallet_balances,
+		Assets: pallet_assets,
+		AssetsExt: pallet_assets_ext,
+		Nft: pallet_nft,
+		Xls20: pallet_xls20
 	}
 );
 
-parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
-	pub const MaxReserves: u32 = 50;
-}
-
-impl frame_system::Config for Test {
-	type BlockWeights = ();
-	type BlockLength = BlockLength;
-	type BaseCallFilter = frame_support::traits::Everything;
-	type RuntimeOrigin = RuntimeOrigin;
-	type Index = u64;
-	type BlockNumber = u64;
-	type RuntimeCall = RuntimeCall;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type BlockHashCount = BlockHashCount;
-	type RuntimeEvent = RuntimeEvent;
-	type DbWeight = ();
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<Balance>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ();
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
-}
-
-parameter_types! {
-	pub const AssetDeposit: Balance = 1_000_000;
-	pub const AssetAccountDeposit: Balance = 16;
-	pub const ApprovalDeposit: Balance = 1;
-	pub const AssetsStringLimit: u32 = 50;
-	pub const MetadataDepositBase: Balance = 1 * 68;
-	pub const MetadataDepositPerByte: Balance = 1;
-}
-pub type AssetsForceOrigin = EnsureRoot<AccountId>;
-
-impl pallet_assets::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = AssetId;
-	type Currency = Balances;
-	type ForceOrigin = AssetsForceOrigin;
-	type AssetDeposit = AssetDeposit;
-	type MetadataDepositBase = MetadataDepositBase;
-	type MetadataDepositPerByte = MetadataDepositPerByte;
-	type ApprovalDeposit = ApprovalDeposit;
-	type StringLimit = AssetsStringLimit;
-	type Freezer = ();
-	type Extra = ();
-	type WeightInfo = ();
-	type AssetAccountDeposit = AssetAccountDeposit;
-}
-
-parameter_types! {
-	pub const NativeAssetId: AssetId = 1;
-	pub const AssetsExtPalletId: PalletId = PalletId(*b"assetext");
-	pub const MaxHolds: u32 = 16;
-}
-
-impl pallet_assets_ext::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ParachainId = TestParachainId;
-	type MaxHolds = MaxHolds;
-	type NativeAssetId = NativeAssetId;
-	type OnNewAssetSubscription = ();
-	type PalletId = AssetsExtPalletId;
-	type WeightInfo = ();
-}
-
-impl pallet_balances::Config for Test {
-	type Balance = Balance;
-	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
-	type ExistentialDeposit = ();
-	type AccountStore = System;
-	type MaxLocks = ();
-	type WeightInfo = ();
-	type MaxReserves = MaxReserves;
-	type ReserveIdentifier = [u8; 8];
-}
+impl_frame_system_config!(Test);
+impl_pallet_balance_config!(Test);
+impl_pallet_assets_config!(Test);
+impl_pallet_assets_ext_config!(Test);
 
 pub struct MockTransferSubscriber;
 impl OnTransferSubscriber for MockTransferSubscriber {
@@ -153,10 +70,6 @@ where
 
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
-	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
-	pub const MaxOffers: u32 = 10;
-	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
 	pub const MintLimit: u32 = 100;
@@ -167,13 +80,9 @@ parameter_types! {
 }
 
 impl pallet_nft::Config for Test {
-	type DefaultListingDuration = DefaultListingDuration;
 	type RuntimeEvent = RuntimeEvent;
-	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type MultiCurrency = AssetsExt;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
@@ -181,7 +90,6 @@ impl pallet_nft::Config for Test {
 	type StringLimit = StringLimit;
 	type WeightInfo = ();
 	type Xls20MintRequest = Xls20;
-	type DefaultFeeTo = DefaultFeeTo;
 }
 
 parameter_types! {
@@ -191,8 +99,8 @@ impl crate::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type MaxTokensPerXls20Mint = MaxTokensPerXls20Mint;
 	type MultiCurrency = AssetsExt;
-	type NFTExt = Nft;
 	type WeightInfo = ();
+	type NFTExt = Nft;
 	type Xls20PaymentAsset = Xls20PaymentAsset;
 }
 

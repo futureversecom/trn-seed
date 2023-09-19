@@ -13,6 +13,8 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+mod nft;
+
 use codec::{Decode, Encode, FullCodec, FullEncode};
 use frame_support::{
 	migration::{
@@ -30,17 +32,22 @@ pub struct AllMigrations;
 impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-		let data = Vec::new();
+		let data = nft::Upgrade::pre_upgrade()?;
+
 		Ok(data)
 	}
 
 	fn on_runtime_upgrade() -> Weight {
-		let weight = Weight::from(Weight::from_ref_time(0u64));
+		let mut weight = Weight::from_ref_time(0_u64);
+		weight += nft::Upgrade::on_runtime_upgrade();
+
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(_state: Vec<u8>) -> Result<(), &'static str> {
+	fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
+		nft::Upgrade::post_upgrade(state)?;
+
 		Ok(())
 	}
 }
@@ -162,7 +169,7 @@ impl Value {
 	/// # Usage
 	///
 	/// let (module, item) = (b"MyPallet", b"MyStorageName");
-	/// Value::unsafe_storage_put(module, item, 100u32);
+	/// Value::unsafe_storage_get(module, item);
 	#[allow(dead_code)]
 	pub fn unsafe_storage_get<T>(module: &[u8], item: &[u8]) -> Option<T>
 	where

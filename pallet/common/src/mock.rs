@@ -164,8 +164,6 @@ macro_rules! impl_pallet_assets_ext_config {
 #[macro_export]
 macro_rules! impl_pallet_nft_config {
 	($test:ident) => {
-		use sp_runtime::Permill;
-
 		pub struct MockXls20MintRequest;
 		impl Xls20MintRequest for MockXls20MintRequest {
 			type AccountId = AccountId;
@@ -186,34 +184,52 @@ macro_rules! impl_pallet_nft_config {
 
 		parameter_types! {
 			pub const NftPalletId: PalletId = PalletId(*b"nftokens");
-			pub const DefaultListingDuration: u64 = 5;
-			pub const MaxAttributeLength: u8 = 140;
-			pub const MaxOffers: u32 = 10;
 			pub const MaxTokensPerCollection: u32 = 10_000;
 			pub const MintLimit: u32 = 100;
 			pub const Xls20PaymentAsset: AssetId = 2;
 			pub const StringLimit: u32 = 50;
 			pub const FeePotId: PalletId = PalletId(*b"txfeepot");
-			pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
-			pub const NftDefaultFeeTo: Option<PalletId> = None;
 		}
 
 		impl pallet_nft::Config for Test {
-			type DefaultListingDuration = DefaultListingDuration;
 			type RuntimeEvent = RuntimeEvent;
-			type MaxOffers = MaxOffers;
 			type MaxTokensPerCollection = MaxTokensPerCollection;
 			type MintLimit = MintLimit;
-			type MultiCurrency = AssetsExt;
-			type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 			type OnTransferSubscription = MockTransferSubscriber;
 			type OnNewAssetSubscription = ();
 			type PalletId = NftPalletId;
 			type ParachainId = TestParachainId;
-			type StringLimit = StringLimit;
 			type Xls20MintRequest = MockXls20MintRequest;
 			type WeightInfo = ();
-			type DefaultFeeTo = NftDefaultFeeTo;
+			type StringLimit = StringLimit;
+		}
+	};
+}
+
+#[macro_export]
+macro_rules! impl_pallet_marketplace_config {
+	($test:ident) => {
+		parameter_types! {
+			pub const MarketplacePalletId: PalletId = PalletId(*b"marketpl");
+			pub const DefaultListingDuration: u64 = 5;
+			pub const MaxOffers: u32 = 10;
+			pub const MaxTokensPerListing: u32 = 100;
+			pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
+			pub const MarketplaceDefaultFeeTo: Option<PalletId> = None;
+		}
+
+		impl pallet_marketplace::Config for Test {
+			type RuntimeCall = RuntimeCall;
+			type DefaultListingDuration = DefaultListingDuration;
+			type RuntimeEvent = RuntimeEvent;
+			type MultiCurrency = AssetsExt;
+			type NFTExt = Nft;
+			type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
+			type PalletId = MarketplacePalletId;
+			type WeightInfo = ();
+			type MaxTokensPerListing = MaxTokensPerListing;
+			type MaxOffers = MaxOffers;
+			type DefaultFeeTo = MarketplaceDefaultFeeTo;
 		}
 	};
 }

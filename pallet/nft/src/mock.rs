@@ -33,7 +33,7 @@ use sp_core::{H160, H256, U256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	ConsensusEngineId, Permill,
+	ConsensusEngineId,
 };
 use std::marker::PhantomData;
 
@@ -260,33 +260,23 @@ impl Xls20MintRequest for MockXls20MintRequest {
 parameter_types! {
 	pub const NftPalletId: PalletId = PalletId(*b"nftokens");
 	pub const DefaultListingDuration: u64 = 5;
-	pub const MaxAttributeLength: u8 = 140;
 	pub const MaxOffers: u32 = 10;
 	pub const TestParachainId: u32 = 100;
 	pub const MaxTokensPerCollection: u32 = 10_000;
 	pub const MintLimit: u32 = 5000;
 	pub const Xls20PaymentAsset: AssetId = XRP_ASSET_ID;
-	#[derive(PartialEq, Debug)]
 	pub const StringLimit: u32 = 50;
-	pub const FeePotId: PalletId = PalletId(*b"txfeepot");
-	pub const MarketplaceNetworkFeePercentage: Permill = Permill::from_perthousand(5);
-	pub const DefaultFeeTo: Option<PalletId> = Some(FeePotId::get());
 }
 
 impl crate::Config for Test {
-	type DefaultListingDuration = DefaultListingDuration;
 	type RuntimeEvent = RuntimeEvent;
-	type MaxOffers = MaxOffers;
 	type MaxTokensPerCollection = MaxTokensPerCollection;
 	type MintLimit = MintLimit;
-	type MultiCurrency = AssetsExt;
-	type NetworkFeePercentage = MarketplaceNetworkFeePercentage;
 	type OnTransferSubscription = MockTransferSubscriber;
 	type OnNewAssetSubscription = MockNewAssetSubscription;
 	type PalletId = NftPalletId;
 	type ParachainId = TestParachainId;
 	type StringLimit = StringLimit;
-	type DefaultFeeTo = DefaultFeeTo;
 	type WeightInfo = ();
 	type Xls20MintRequest = MockXls20MintRequest;
 }
