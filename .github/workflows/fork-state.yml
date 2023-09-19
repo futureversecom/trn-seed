@@ -18,6 +18,9 @@ on:
         type: string
         description: "The release candidate branch for runtime upgrade."
         required: false
+  push: # TODO remove this
+    branches:
+      - "release-test"
 
 env:
   REGISTRY: "ghcr.io"
@@ -25,7 +28,7 @@ env:
 
 jobs:
   fork-state:
-    runs-on: [seed-builder]
+    runs-on: [dev-box]
     name: Fork the current state and run runtime upgrade
     permissions:
       contents: read
@@ -70,9 +73,10 @@ jobs:
           RELEASE_STATE_IMAGE_NAME="ghcr.io/futureversecom/fork-release-state-${{ github.event.inputs.network }}"
           
           # TODO: trigger k8s deployment from this image (PR request)
+          pwd
 
   poll-service-status:
-    runs-on: [seed-builder]
+    runs-on: [dev-box]
     needs: fork-state
     name: Poll the service status on Kubernetes till the service is up
     steps:
@@ -89,7 +93,7 @@ jobs:
 
   runtime-upgrade:
     if: ${{ github.event.inputs.runtime-upgrade }}
-    runs-on: [seed-builder]
+    runs-on: [dev-box]
     needs: poll-service-status
     defaults:
       run:
