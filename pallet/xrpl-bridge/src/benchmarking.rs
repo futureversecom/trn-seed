@@ -154,6 +154,35 @@ benchmarks! {
 		let actual_param = DoorTicketSequenceParams::<T>::get();
 		assert_eq!(actual_param, expected_param);
 	}
+
+	reset_settled_xrpl_tx_data {
+		let i in 0..256;
+		let alice = account::<T>("Alice");
+		let mut settled_data = Vec::default();
+
+		for j in 0..i {
+			let ledger_index = j;
+			let transaction_hash: XrplTxHash = [j as u8; 64].into();
+			let timestamp = 100;
+			let transaction = XrpTransaction { transaction_hash, transaction: XrplTxData::Xls20, timestamp } ;
+			settled_data.push((transaction_hash, ledger_index, transaction, alice.clone()));
+		}
+
+		// Submission window related data
+		let highest_settled_ledger_index = i + 1;
+		let submission_window_width = i;
+
+	}: _(RawOrigin::Root, highest_settled_ledger_index, submission_window_width, Some(settled_data) )
+	verify {
+		assert_eq!(HighestSettledLedgerIndex::<T>::get(), highest_settled_ledger_index);
+		assert_eq!(SubmissionWindowWidth::<T>::get(), submission_window_width);
+
+		//check all the settled tx details are added to the storage
+		for j in 0..i {
+			assert_eq!(ProcessXRPTransactionDetails::<T>::get(XrplTxHash::from([j as u8; 64])).is_some(), true);
+			assert_eq!(SettledXRPTransactionDetails::<T>::get(j).is_some(), true);
+		}
+	}
 }
 
 impl_benchmark_test_suite!(XrplBridge, crate::mock::new_test_ext_benchmark(), crate::mock::Test);
