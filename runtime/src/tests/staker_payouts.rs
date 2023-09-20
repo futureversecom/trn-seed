@@ -217,7 +217,7 @@ fn era_payout_does_not_carry_over() {
 				alice(),
 				era_index as u32
 			));
-			assert_eq!(alice_balance + era_payout, XrpCurrency::balance(&alice()));
+			assert_eq!(alice_balance + era_payout, Balances::balance(&alice()));
 			alice_balance += era_payout;
 		}
 

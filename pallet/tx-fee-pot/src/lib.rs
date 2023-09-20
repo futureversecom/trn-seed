@@ -87,15 +87,13 @@ impl<T: Config> Pallet<T> {
 /// Alias for pallet-assets-ext NegativeImbalance
 type FeeNegativeImbalanceOf<T> = pallet_assets_ext::NegativeImbalance<T>;
 /// Alias for pallet-balances PositiveImbalance
-type FeePositiveImbalanceOf<T> = pallet_assets_ext::PositiveImbalance<T>;
+type FeePositiveImbalanceOf<T> = pallet_balances::PositiveImbalance<T>;
 /// Alias for pallet-balances NegativeImbalance
 type StakeNegativeImbalanceOf<T> = pallet_balances::NegativeImbalance<T>;
 
-/// Handles imbalances of transaction fee amounts for the transaction fee pot, used to payout
-/// stakers
-
-/// On era reward payouts, offset minted tokens from the tx fee pot to maintain total issuance
-/// staking pallet calls this to notify it minted `total_rewarded`
+// In our current implementation we have filtered the payout_stakers call so this will never
+// be triggered. We have decided to keep the TxFeePot in the case this is overlooked
+// to prevent unwanted changes in Root token issuance
 impl<T: Config> OnUnbalanced<FeePositiveImbalanceOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(total_rewarded: FeePositiveImbalanceOf<T>) {
 		// burn `amount` from TxFeePot, reducing total issuance immediately
