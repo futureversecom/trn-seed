@@ -19,6 +19,7 @@ extern crate alloc;
 use fp_evm::{PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileResult};
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
+	ensure,
 	serde::__private::de::Content::U32,
 	traits::OriginTrait,
 };
@@ -184,6 +185,10 @@ where
 			};
 
 		let entitlement: u32 = entitlement.saturated_into();
+		ensure!(
+			entitlement <= u32::MAX.into(),
+			revert("Marketplace: Expected entitlement <= 2^32")
+		);
 		let entitlement: Permill = Permill::from_parts(entitlement);
 		let caller: Runtime::AccountId = handle.context().caller.into();
 		let marketplace_id = pallet_marketplace::Pallet::<Runtime>::do_register_marketplace(
@@ -194,6 +199,10 @@ where
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
 
 		let marketplace_id = H256::from_low_u64_be(marketplace_id as u64);
 
@@ -297,7 +306,6 @@ where
 
 		// Build output.
 		Ok(succeed(EvmDataWriter::new().write(listing_id).build()))
-
 	}
 
 	fn update_fixed_price(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
