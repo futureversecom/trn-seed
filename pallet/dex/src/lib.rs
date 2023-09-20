@@ -665,11 +665,6 @@ where
 		let amount_0 = balance_0.sub(reserve_a)?;
 		let amount_1 = balance_1.sub(reserve_b)?;
 
-		// call mint_fee function here to collect network fees since the last collection and
-		// send it to the FeeTo account
-		let fee_on = Self::mint_fee(lp_share_asset_id, reserve_a, reserve_b)?;
-
-		// must read the storage here since total supply can update in mint_fee
 		let total_supply = U256::from(T::MultiCurrency::total_issuance(lp_share_asset_id));
 
 		let liquidity: Balance = if total_supply.is_zero() {
@@ -717,8 +712,8 @@ where
 			Ok(())
 		})?;
 
-		// update the k_last value if fee_on is true
-		if fee_on {
+		// update the k_last value if FeeTo is set
+		if FeeTo::<T>::get().is_some() {
 			let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
 			let _ = LiquidityPoolLastK::<T>::try_mutate(lp_share_asset_id, |k| -> DispatchResult {
 				// update k to the product of the updated reserve_a and reserve_b
@@ -775,11 +770,6 @@ where
 		let mut balance_1 = T::MultiCurrency::balance(token_b, &pool_address);
 		let liquidity = T::MultiCurrency::balance(lp_share_asset_id, &pool_address);
 
-		// call mint_fee function here to collect network fees since the last collection and
-		// send it to the FeeTo account
-		let fee_on = Self::mint_fee(lp_share_asset_id, reserve_a, reserve_b)?;
-
-		// must read the storage here since total supply can update in mint_fee
 		let total_supply = T::MultiCurrency::total_issuance(lp_share_asset_id);
 
 		// amount0 = liquidity.mul(balance0) / _totalSupply;
@@ -821,8 +811,8 @@ where
 			Ok(())
 		})?;
 
-		// update the k_last value if fee_on is true
-		if fee_on {
+		// update the k_last value if FeeTo is set
+		if FeeTo::<T>::get().is_some() {
 			let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
 			let _ = LiquidityPoolLastK::<T>::try_mutate(lp_share_asset_id, |k| -> DispatchResult {
 				// update k to the product of the updated reserve_a and reserve_b
@@ -1122,6 +1112,32 @@ where
 					Ok(())
 				},
 			);
+
+			// check if FeeTo is Some before doing the network fee related calculation
+			if FeeTo::<T>::get().is_some() {
+				// get the lp shared asset id
+				let lp_share_asset_id =
+					Self::lp_token_id(trading_pair).ok_or(Error::<T>::InvalidAssetId)?;
+
+				// get the updated reserve values of the trading pair
+				let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
+
+				// call mint_fee function here to collect network fees since the last collection and
+				// send it to the FeeTo account
+				let fee_on = Self::mint_fee(lp_share_asset_id, reserve_a, reserve_b)?;
+
+				// update the k_last value if fee_on is true
+				if fee_on {
+					let _ = LiquidityPoolLastK::<T>::try_mutate(
+						lp_share_asset_id,
+						|k| -> DispatchResult {
+							// update k to the product of the updated reserve_a and reserve_b
+							*k = U256::from(reserve_a).mul(U256::from(reserve_b))?;
+							Ok(())
+						},
+					);
+				}
+			}
 
 			res.push((amount_0_in, amount_1_in, amount_0_out, amount_1_out));
 
