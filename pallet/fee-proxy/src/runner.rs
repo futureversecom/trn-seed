@@ -279,13 +279,6 @@ where
 
 		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
 
-		if <T as Config>::MaintenanceChecker::validate_evm_transaction(&account, &target) == false {
-			return Err(RunnerError {
-				error: Self::Error::WithdrawFailed,
-				weight: Weight::default(),
-			})
-		}
-
 		// These values may change if we are using the fee_preferences precompile
 		let mut input = input;
 

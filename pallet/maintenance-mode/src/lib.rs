@@ -263,6 +263,35 @@ pub mod pallet {
 	}
 }
 
+impl<T: Config> Pallet<T> {
+	pub fn validate_evm_call(
+		signer: &<T as frame_system::Config>::AccountId,
+		target: &H160,
+	) -> bool {
+		if BlockedEVMAddresses::<T>::contains_key(target) {
+			return false
+		}
+		Self::validate_evm_account(signer)
+	}
+
+	pub fn validate_evm_create(signer: &<T as frame_system::Config>::AccountId) -> bool {
+		Self::validate_evm_account(signer)
+	}
+
+	fn validate_evm_account(signer: &<T as frame_system::Config>::AccountId) -> bool {
+		// Check if we are in maintenance mode
+		if MaintenanceModeActive::<T>::get() {
+			return false
+		}
+
+		if BlockedAccounts::<T>::contains_key(signer) {
+			return false
+		}
+
+		return true
+	}
+}
+
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct MaintenanceChecker<T>(sp_std::marker::PhantomData<T>);
