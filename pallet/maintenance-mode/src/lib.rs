@@ -35,7 +35,7 @@ mod mock;
 #[cfg(test)]
 mod test;
 
-// #[cfg(feature = "runtime-benchmarks")]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 mod weights;
 
@@ -361,7 +361,7 @@ where
 		}
 
 		if BlockedAccounts::<T>::contains_key(who) {
-			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(1)))
+			return Err(TransactionValidityError::Invalid(InvalidTransaction::Custom(2)))
 		}
 
 		Ok(ValidTransaction::default())
