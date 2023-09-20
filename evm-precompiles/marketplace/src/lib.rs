@@ -40,12 +40,8 @@ use seed_primitives::{
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
+use std::u128;
 
-//Self::deposit_event(Event::<T>::MarketplaceRegister {
-// 			account: marketplace_account,
-// 			entitlement,
-// 			marketplace_id,
-// 		});
 /// Solidity selector of the Marketplace register log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_MARKETPLACE_REGISTER: [u8; 32] =
 	keccak256!("MarketplaceRegister(address,uint256,uint256)");
@@ -87,13 +83,13 @@ fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileF
 #[derive(Debug, PartialEq)]
 pub enum Action {
 	RegisterMarketplace = "registerMarketplace(address,U256)",
-	SellNft = "sellNft(address,address,uint256[],address,address,uint256,uint256,uint256)",
-	UpdateFixedPrice = "updateFixedPrice(uint256,uint256)",
-	Buy = "buy(uint256)",
+	SellNft = "sellNft(address,address,uint256[],address,address,uint256,uint256,uint32)",
+	UpdateFixedPrice = "updateFixedPrice(uint128,uint256)",
+	Buy = "buy(uint128)",
 	AuctionNft = "auctionNft(address,uint256[],address,uint256,uint256,uint256)",
-	Bid = "bid(uint256,uint256)",
-	CancelSale = "cancelSale(uint256)",
-	MakeSimpleOffer = "makeSimpleOffer(uint256,uint256,address,uint256)",
+	Bid = "bid(uint128,uint256)",
+	CancelSale = "cancelSale(uint128)",
+	MakeSimpleOffer = "makeSimpleOffer(uint256,uint32,address,uint32)",
 	CancelOffer = "cancelOffer(uint64)",
 	AcceptOffer = "acceptOffer(uint64)",
 }
@@ -209,11 +205,7 @@ where
 		log3(
 			handle.code_address(),
 			SELECTOR_LOG_MARKETPLACE_REGISTER,
-			// marketplace_account.into(),
 			handle.context().caller,
-			// <H160 as Into<Address>>::into(marketplace_account.into()),
-
-			// H256::from(entitlement),
 			marketplace_id,
 			vec![],
 		)
@@ -274,6 +266,10 @@ where
 		let buyer: Option<Runtime::AccountId> =
 			if buyer == H160::default() { None } else { Some(buyer.into()) };
 		let marketplace_id: u32 = marketplace_id.saturated_into();
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
 		let marketplace_id: Option<u32> =
 			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
 
@@ -291,6 +287,10 @@ where
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
+		ensure!(
+			listing_id <= u128::MAX.into(),
+			revert("Marketplace: Expected listing id <= 2^128")
+		);
 
 		let listing_id = H256::from_low_u64_be(listing_id as u64);
 		let fixed_price = H256::from_low_u64_be(fixed_price as u64);
@@ -320,8 +320,12 @@ where
 			}
 		);
 		let listing_id: u128 = listing_id.saturated_into();
+		ensure!(
+			listing_id <= u128::MAX.into(),
+			revert("Marketplace: Expected listing id <= 2^128")
+		);
+
 		let new_price: Balance = new_price.saturated_into();
-		//Self::do_update_fixed_price(who, listing_id, new_price)
 		let caller: Runtime::AccountId = handle.context().caller.into();
 		let _ = pallet_marketplace::Pallet::<Runtime>::do_update_fixed_price(
 			caller, listing_id, new_price,
@@ -361,6 +365,10 @@ where
 		// Parse input.
 		read_args!(handle, { listing_id: U256 });
 		let listing_id: u128 = listing_id.saturated_into();
+		ensure!(
+			listing_id <= u128::MAX.into(),
+			revert("Marketplace: Expected listing id <= 2^128")
+		);
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			None.into(),
@@ -393,7 +401,7 @@ where
 	}
 
 	fn auction_nft(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(4, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -408,6 +416,10 @@ where
 			}
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
 		let reserve_price: Balance = reserve_price.saturated_into();
 		let collection_id: CollectionUuid =
@@ -416,6 +428,10 @@ where
 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
 			)
 			.ok_or_else(|| revert("MARKETPLACE: Invalid collection address"))?;
+		ensure!(
+			collection_id <= u32::MAX.into(),
+			revert("Marketplace: Expected collection id <= 2^32")
+		);
 		let serials_unbounded = serial_numbers
 			.into_iter()
 			.map(|serial_number| {
@@ -488,6 +504,10 @@ where
 		);
 
 		let listing_id: u128 = listing_id.saturated_into();
+		ensure!(
+			listing_id <= u128::MAX.into(),
+			revert("Marketplace: Expected listing id <= 2^128")
+		);
 		let amount: Balance = amount.saturated_into();
 
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -518,6 +538,10 @@ where
 		let caller: Runtime::AccountId = handle.context().caller.into();
 
 		let listing_id: u128 = listing_id.saturated_into();
+		ensure!(
+			listing_id <= u128::MAX.into(),
+			revert("Marketplace: Expected listing id <= 2^128")
+		);
 		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id);
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
@@ -558,7 +582,7 @@ where
 	}
 
 	fn make_simple_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(2, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(
@@ -572,6 +596,10 @@ where
 			}
 		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
 		let marketplace_id: Option<u32> =
 			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
 
@@ -582,7 +610,15 @@ where
 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
 			)
 			.ok_or_else(|| revert("MARKETPLACE: Invalid collection address"))?;
+		ensure!(
+			collection_id <= u32::MAX.into(),
+			revert("Marketplace: Expected collection_id <= 2^32")
+		);
 		let serial_number: SerialNumber = serial_number.saturated_into();
+		ensure!(
+			serial_number <= u32::MAX.into(),
+			revert("Marketplace: Expected serial_number <= 2^32")
+		);
 		let token_id: TokenId = (collection_id, serial_number);
 		// Parse asset_id
 		let asset_id: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
@@ -590,6 +626,7 @@ where
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		)
 		.ok_or_else(|| revert("MARKETPLACE: Invalid asset address"))?;
+		ensure!(asset_id <= u32::MAX.into(), revert("Marketplace: Expected asset_id <= 2^32"));
 
 		let caller: Runtime::AccountId = handle.context().caller.into(); // caller is the buyer
 		let offer_id = pallet_marketplace::Pallet::<Runtime>::do_make_simple_offer(
@@ -618,12 +655,13 @@ where
 	}
 
 	fn cancel_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(2, 32)?;
 
 		// Parse input.
 		read_args!(handle, { offer_id: U256 });
 
 		let offer_id: OfferId = offer_id.saturated_into();
+		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
 
 		// Return either the approved account or zero address if no account is approved
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -645,12 +683,13 @@ where
 	}
 
 	fn accept_offer(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
-		handle.record_log_costs_manual(1, 32)?;
+		handle.record_log_costs_manual(3, 32)?;
 
 		// Parse input.
 		read_args!(handle, { offer_id: U256 });
 
 		let offer_id: OfferId = offer_id.saturated_into();
+		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
 
 		// Return either the approved account or zero address if no account is approved
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
