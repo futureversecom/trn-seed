@@ -164,9 +164,9 @@ pub const DAYS: BlockNumber = HOURS * 24;
 
 parameter_types! {
 	pub const XrpTxChallengePeriod: u32 = 10 * MINUTES;
-	pub const XrpClearTxPeriod: u32 = 10 * DAYS;
 	pub const TicketSequenceThreshold: Percent = Percent::from_percent(66_u8);
 	pub const XRPTransactionLimit: u32 = 10;
+	pub const XRPLTransactionLimitPerLedger: u32 = 10;
 }
 
 impl pallet_xrpl_bridge::Config for Test {
@@ -177,10 +177,10 @@ impl pallet_xrpl_bridge::Config for Test {
 	type WeightInfo = ();
 	type XrpAssetId = XrpAssetId;
 	type ChallengePeriod = XrpTxChallengePeriod;
-	type ClearTxPeriod = XrpClearTxPeriod;
 	type UnixTime = TimestampPallet;
 	type TicketSequenceThreshold = TicketSequenceThreshold;
 	type XRPTransactionLimit = XRPTransactionLimit;
+	type XRPLTransactionLimitPerLedger = XRPLTransactionLimitPerLedger;
 }
 
 pub struct MockEthyAdapter;

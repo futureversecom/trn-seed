@@ -1762,8 +1762,15 @@ fn test_network_fee() {
 		let trading_pair = TradingPair::new(usdc, weth);
 		let lp_token = Dex::lp_token_id(trading_pair).unwrap();
 
+		// the last k value should be updated as the product of the initial reserve values
+		let (reserve_0_init, reserve_1_init) = LiquidityPool::<Test>::get(trading_pair);
+		assert_eq!(Dex::liquidity_pool_last_k(lp_token), (reserve_0_init * reserve_1_init).into());
+
 		// fee_pot doesn't have lp token balance before swaps happening
 		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), 0);
+
+		// current total supply of lp token
+		let total_supply = AssetsExt::total_issuance(lp_token);
 
 		// do swap
 		assert_ok!(Dex::swap_with_exact_supply(
@@ -1780,8 +1787,12 @@ fn test_network_fee() {
 		assert_eq!(reserve_0, 6000000000000000000);
 		assert_eq!(reserve_1, 833750208437552110);
 
-		// total supply of lp token
-		let total_supply = AssetsExt::total_issuance(lp_token);
+		// fee_pot receives lp token
+		// expect value:
+		let k_sqrt = sqrt(reserve_0 * reserve_1);
+		let k_last_sqrt = sqrt(to_eth(5) * to_eth(1));
+		let expected_value = total_supply * (k_sqrt - k_last_sqrt) / (5 * k_sqrt + k_last_sqrt);
+		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), expected_value);
 
 		// remove liquidity to trigger mint_fee() function call
 		assert_ok!(Dex::remove_liquidity(
@@ -1795,12 +1806,9 @@ fn test_network_fee() {
 			None,
 		));
 
-		// fee_pot receives lp token
-		// expect value:
-		let k_sqrt = sqrt(reserve_0 * reserve_1);
-		let k_last_sqrt = sqrt(to_eth(5) * to_eth(1));
-		let expected_value = total_supply * (k_sqrt - k_last_sqrt) / (5 * k_sqrt + k_last_sqrt);
-		assert_eq!(AssetsExt::balance(lp_token, &fee_pot), expected_value);
+		// the last k value should be updated after remove_liquidity is called
+		let (reserve_0_new, reserve_1_new) = LiquidityPool::<Test>::get(trading_pair);
+		assert_eq!(Dex::liquidity_pool_last_k(lp_token), (reserve_0_new * reserve_1_new).into());
 	});
 }
 
