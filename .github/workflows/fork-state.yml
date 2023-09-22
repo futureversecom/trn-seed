@@ -18,9 +18,6 @@ on:
         type: string
         description: "The release candidate branch for runtime upgrade."
         required: false
-  push: # TODO remove this
-    branches:
-      - "release-test"
 
 env:
   REGISTRY: "ghcr.io"
