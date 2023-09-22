@@ -85,7 +85,7 @@ jobs:
       - name: Fetch the service status
         uses: nev7n/wait_for_response@v1
         with:
-          url: "https://forkednet.au.cicd.rootnet.app/"
+          url: "https://devnet.cicd.rootnet.app:9933/"
           responseCode: 405
           timeout: 300
           interval: 20
