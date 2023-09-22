@@ -69,6 +69,9 @@ pub mod pallet {
 
 		// The sudo pallet to prevent blocking of sudo calls
 		type SudoPallet: PalletInfoAccess;
+
+		// The sudo pallet to prevent blocking of sudo calls
+		type TimestampPallet: PalletInfoAccess;
 	}
 
 	/// Determines whether maintenance mode is currently active
@@ -210,6 +213,11 @@ pub mod pallet {
 				pallet_name_string != T::SudoPallet::name().to_ascii_lowercase(),
 				Error::<T>::CannotBlock
 			);
+			// Ensure the timestamp pallet cannot be blocked
+			ensure!(
+				pallet_name_string != T::TimestampPallet::name().to_ascii_lowercase(),
+				Error::<T>::CannotBlock
+			);
 
 			// Validate call name
 			ensure!(!call_name.is_empty(), Error::<T>::InvalidCallName);
@@ -250,6 +258,11 @@ pub mod pallet {
 				pallet_name_string != T::SudoPallet::name().to_ascii_lowercase(),
 				Error::<T>::CannotBlock
 			);
+			// Ensure the timestamp pallet cannot be blocked
+			ensure!(
+				pallet_name_string != T::TimestampPallet::name().to_ascii_lowercase(),
+				Error::<T>::CannotBlock
+			);
 
 			match blocked {
 				true => BlockedPallets::<T>::insert(&pallet_name, true),
@@ -260,35 +273,6 @@ pub mod pallet {
 
 			Ok(())
 		}
-	}
-}
-
-impl<T: Config> Pallet<T> {
-	pub fn validate_evm_call(
-		signer: &<T as frame_system::Config>::AccountId,
-		target: &H160,
-	) -> bool {
-		if BlockedEVMAddresses::<T>::contains_key(target) {
-			return false
-		}
-		Self::validate_evm_account(signer)
-	}
-
-	pub fn validate_evm_create(signer: &<T as frame_system::Config>::AccountId) -> bool {
-		Self::validate_evm_account(signer)
-	}
-
-	fn validate_evm_account(signer: &<T as frame_system::Config>::AccountId) -> bool {
-		// Check if we are in maintenance mode
-		if MaintenanceModeActive::<T>::get() {
-			return false
-		}
-
-		if BlockedAccounts::<T>::contains_key(signer) {
-			return false
-		}
-
-		return true
 	}
 }
 
@@ -334,19 +318,25 @@ where
 }
 
 impl<T: frame_system::Config + Config> MaintenanceCheckEVM<T> for MaintenanceChecker<T> {
-	fn validate_evm_transaction(
-		signer: &<T as frame_system::Config>::AccountId,
-		target: &H160,
-	) -> bool {
+	fn validate_evm_call(signer: &<T as frame_system::Config>::AccountId, target: &H160) -> bool {
 		// Check if we are in maintenance mode
 		if MaintenanceModeActive::<T>::get() {
 			return false
 		}
-
+		if BlockedAccounts::<T>::contains_key(signer) {
+			return false
+		}
 		if BlockedEVMAddresses::<T>::contains_key(target) {
 			return false
 		}
+		return true
+	}
 
+	fn validate_evm_create(signer: &<T as frame_system::Config>::AccountId) -> bool {
+		// Check if we are in maintenance mode
+		if MaintenanceModeActive::<T>::get() {
+			return false
+		}
 		if BlockedAccounts::<T>::contains_key(signer) {
 			return false
 		}

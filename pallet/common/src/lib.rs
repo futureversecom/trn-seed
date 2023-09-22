@@ -25,6 +25,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
+use frame_system::Config;
 use scale_info::TypeInfo;
 use sp_core::H160;
 use sp_std::{fmt::Debug, vec::Vec};
@@ -368,17 +369,18 @@ where
 pub trait MaintenanceCheckEVM<T: frame_system::Config> {
 	/// Checks whether an ethereum transaction can be executed
 	/// returns true if the transaction is valid
-	fn validate_evm_transaction(
-		signer: &<T as frame_system::Config>::AccountId,
-		target: &H160,
-	) -> bool;
+	fn validate_evm_call(signer: &<T as frame_system::Config>::AccountId, target: &H160) -> bool;
+	/// Checks whether an ethereum transaction can be executed
+	/// returns true if the transaction is valid
+	fn validate_evm_create(signer: &<T as frame_system::Config>::AccountId) -> bool;
 }
 
 impl<T: frame_system::Config> MaintenanceCheckEVM<T> for () {
-	fn validate_evm_transaction(
-		_signer: &<T as frame_system::Config>::AccountId,
-		_target: &H160,
-	) -> bool {
+	fn validate_evm_call(_signer: &<T as frame_system::Config>::AccountId, _target: &H160) -> bool {
+		true
+	}
+
+	fn validate_evm_create(_signer: &<T as Config>::AccountId) -> bool {
 		true
 	}
 }

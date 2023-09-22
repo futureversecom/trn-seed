@@ -179,7 +179,7 @@ mod block_account {
 			});
 			assert_err!(
 				Executive::apply_extrinsic(xt),
-				TransactionValidityError::Invalid(InvalidTransaction::Custom(1))
+				TransactionValidityError::Invalid(InvalidTransaction::Custom(2))
 			);
 
 			// A non blocked account should still be able to make the call
@@ -202,7 +202,7 @@ mod block_account {
 	}
 
 	#[test]
-	fn block_account_works_with_evm() {
+	fn block_account_works_with_evm_call() {
 		ExtBuilder::default().build().execute_with(|| {
 			let signer = alice();
 			let payment_asset: AssetId = 2;
@@ -254,6 +254,83 @@ mod block_account {
 				ERC20Approvals::<Runtime>::get((&signer, payment_asset), bob()),
 				Some(approve_amount)
 			);
+		});
+	}
+
+	#[test]
+	fn block_account_works_with_evm_create() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+
+			// Setup empty init value
+			let init: Vec<u8> = vec![];
+
+			// Setup inner EVM.create call
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let call = crate::RuntimeCall::EVM(pallet_evm::Call::create {
+				source: signer.into(),
+				init,
+				value: U256::default(),
+				gas_limit: 5_000_000,
+				max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+				max_priority_fee_per_gas: None,
+				nonce: None,
+				access_list,
+			});
+
+			// Block signer account
+			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, true));
+
+			// EVM call should fail
+			assert_eq!(
+				call.clone().dispatch(Some(signer).into()).unwrap_err().error,
+				pallet_evm::Error::<Runtime>::WithdrawFailed.into()
+			);
+
+			// Unblock signer account
+			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, false));
+
+			// EVM create should now work
+			assert_ok!(call.dispatch(Some(signer).into()));
+		});
+	}
+
+	#[test]
+	fn block_account_works_with_evm_create2() {
+		ExtBuilder::default().build().execute_with(|| {
+			let signer = alice();
+
+			// Setup empty init value
+			let init: Vec<u8> = vec![];
+
+			// Setup inner EVM.create call
+			let access_list: Vec<(H160, Vec<H256>)> = vec![];
+			let call = crate::RuntimeCall::EVM(pallet_evm::Call::create2 {
+				source: signer.into(),
+				init,
+				salt: H256::default(),
+				value: U256::default(),
+				gas_limit: 5_000_000,
+				max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+				max_priority_fee_per_gas: None,
+				nonce: None,
+				access_list,
+			});
+
+			// Block signer account
+			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, true));
+
+			// EVM call should fail
+			assert_eq!(
+				call.clone().dispatch(Some(signer).into()).unwrap_err().error,
+				pallet_evm::Error::<Runtime>::WithdrawFailed.into()
+			);
+
+			// Unblock signer account
+			assert_ok!(MaintenanceMode::block_account(RawOrigin::Root.into(), signer, false));
+
+			// EVM create should now work
+			assert_ok!(call.dispatch(Some(signer).into()));
 		});
 	}
 }

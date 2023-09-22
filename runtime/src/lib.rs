@@ -1226,6 +1226,7 @@ impl pallet_maintenance_mode::Config for Runtime {
 	type StringLimit = AssetsStringLimit;
 	type WeightInfo = weights::pallet_maintenance_mode::WeightInfo<Self>;
 	type SudoPallet = Sudo;
+	type TimestampPallet = Timestamp;
 }
 
 construct_runtime! {
@@ -1983,20 +1984,6 @@ fn validate_self_contained_inner(
 
 		let extra_validation =
 			SignedExtra::validate_unsigned(call, &call.get_dispatch_info(), input_len)?;
-
-		// Validate Call or Create transaction with maintenance mode pallet
-		match action {
-			TransactionAction::Call(target) => {
-				if pallet_maintenance_mode::validate_evm_call(&account, &target) == false {
-					return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment))
-				}
-			},
-			TransactionAction::Create => {
-				if pallet_maintenance_mode::validate_evm_create(&account) == false {
-					return Err(TransactionValidityError::Invalid(InvalidTransaction::Payment))
-				}
-			},
-		}
 
 		// Perform tx submitter asset balance checks required for fee proxying
 		match call.clone() {

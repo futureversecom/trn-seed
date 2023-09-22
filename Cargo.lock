@@ -5444,6 +5444,7 @@ dependencies = [
  "pallet-assets",
  "pallet-assets-ext",
  "pallet-balances",
+ "pallet-ethereum",
  "pallet-sudo",
  "parity-scale-codec",
  "scale-info",

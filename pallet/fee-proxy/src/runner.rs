@@ -277,7 +277,16 @@ where
 			target = futurepass.into();
 		}
 
+		// Verify that the chain is not in maintenance mode,
+		// the signer account is not blocked,
+		// And the target address is not blocked
 		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
+		if <T as Config>::MaintenanceChecker::validate_evm_call(&account, &target) == false {
+			return Err(RunnerError {
+				error: Self::Error::WithdrawFailed,
+				weight: Weight::default(),
+			})
+		}
 
 		// These values may change if we are using the fee_preferences precompile
 		let mut input = input;
@@ -360,6 +369,15 @@ where
 	) -> Result<CreateInfo, RunnerError<Self::Error>> {
 		// @todo check source, proxy request if needed
 
+		// Verify that the chain is not in maintenance mode, and the signer account is not blocked
+		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
+		if <T as Config>::MaintenanceChecker::validate_evm_create(&account) == false {
+			return Err(RunnerError {
+				error: Self::Error::WithdrawFailed,
+				weight: Weight::default(),
+			})
+		}
+
 		<Runner<T> as RunnerT<T>>::create(
 			source,
 			init,
@@ -390,6 +408,15 @@ where
 		config: &EvmConfig,
 	) -> Result<CreateInfo, RunnerError<Self::Error>> {
 		// @todo check source, proxy request if needed
+
+		// Verify that the chain is not in maintenance mode, and the signer account is not blocked
+		let account = <T as pallet_evm::Config>::AddressMapping::into_account_id(source.clone());
+		if <T as Config>::MaintenanceChecker::validate_evm_create(&account) == false {
+			return Err(RunnerError {
+				error: Self::Error::WithdrawFailed,
+				weight: Weight::default(),
+			})
+		}
 
 		<Runner<T> as RunnerT<T>>::create2(
 			source,
