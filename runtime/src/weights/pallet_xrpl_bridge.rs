@@ -13,7 +13,7 @@
 // --chain=dev
 // --steps=50
 // --repeat=20
-// --pallet=pallet_xrpl_bridge
+// --pallet=pallet-xrpl-bridge
 // --extrinsic=*
 // --execution=wasm
 // --wasm-execution=compiled
@@ -32,16 +32,18 @@ use sp_std::marker::PhantomData;
 pub struct WeightInfo<T>(PhantomData<T>);
 impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 	// Storage: XRPLBridge Relayer (r:1 w:0)
+	// Storage: XRPLBridge HighestSettledLedgerIndex (r:1 w:0)
+	// Storage: XRPLBridge SubmissionWindowWidth (r:1 w:0)
 	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:1 w:1)
 	// Storage: XRPLBridge ProcessXRPTransaction (r:1 w:1)
 	fn submit_transaction() -> Weight {
-		Weight::from_ref_time(74_133_000 as u64)
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
+		Weight::from_ref_time(77_253_000 as u64)
+			.saturating_add(T::DbWeight::get().reads(5 as u64))
 			.saturating_add(T::DbWeight::get().writes(2 as u64))
 	}
 	// Storage: XRPLBridge ChallengeXRPTransactionList (r:0 w:1)
 	fn submit_challenge() -> Weight {
-		Weight::from_ref_time(19_504_000 as u64)
+		Weight::from_ref_time(19_668_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:1 w:0)
@@ -56,29 +58,29 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 	// Storage: System Digest (r:1 w:1)
 	// Storage: XRPLBridge TicketSequenceThresholdReachedEmitted (r:0 w:1)
 	fn withdraw_xrp() -> Weight {
-		Weight::from_ref_time(153_091_000 as u64)
+		Weight::from_ref_time(151_314_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(10 as u64))
 			.saturating_add(T::DbWeight::get().writes(8 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:0 w:1)
 	fn add_relayer() -> Weight {
-		Weight::from_ref_time(44_460_000 as u64)
+		Weight::from_ref_time(45_426_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:1 w:1)
 	fn remove_relayer() -> Weight {
-		Weight::from_ref_time(56_137_000 as u64)
+		Weight::from_ref_time(56_024_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(1 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorTxFee (r:0 w:1)
 	fn set_door_tx_fee() -> Weight {
-		Weight::from_ref_time(15_491_000 as u64)
+		Weight::from_ref_time(15_240_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge DoorAddress (r:0 w:1)
 	fn set_door_address() -> Weight {
-		Weight::from_ref_time(44_191_000 as u64)
+		Weight::from_ref_time(43_177_000 as u64)
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
 	// Storage: XRPLBridge Relayer (r:1 w:0)
@@ -86,7 +88,7 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 	// Storage: XRPLBridge DoorTicketSequenceParams (r:1 w:0)
 	// Storage: XRPLBridge DoorTicketSequenceParamsNext (r:0 w:1)
 	fn set_ticket_sequence_next_allocation() -> Weight {
-		Weight::from_ref_time(56_505_000 as u64)
+		Weight::from_ref_time(55_596_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(1 as u64))
 	}
@@ -94,8 +96,21 @@ impl<T: frame_system::Config> pallet_xrpl_bridge::WeightInfo for WeightInfo<T> {
 	// Storage: XRPLBridge DoorTicketSequenceParams (r:1 w:1)
 	// Storage: XRPLBridge TicketSequenceThresholdReachedEmitted (r:0 w:1)
 	fn set_ticket_sequence_current_allocation() -> Weight {
-		Weight::from_ref_time(52_520_000 as u64)
+		Weight::from_ref_time(51_718_000 as u64)
 			.saturating_add(T::DbWeight::get().reads(2 as u64))
 			.saturating_add(T::DbWeight::get().writes(3 as u64))
+	}
+	// Storage: XRPLBridge SubmissionWindowWidth (r:0 w:1)
+	// Storage: XRPLBridge HighestSettledLedgerIndex (r:0 w:1)
+	// Storage: XRPLBridge SettledXRPTransactionDetails (r:5 w:5)
+	// Storage: XRPLBridge ProcessXRPTransactionDetails (r:0 w:5)
+	/// The range of component `i` is `[0, 256]`.
+	fn reset_settled_xrpl_tx_data(i: u32, ) -> Weight {
+		Weight::from_ref_time(20_501_000 as u64)
+			// Standard Error: 6_843
+			.saturating_add(Weight::from_ref_time(9_726_232 as u64).saturating_mul(i as u64))
+			.saturating_add(T::DbWeight::get().reads((1 as u64).saturating_mul(i as u64)))
+			.saturating_add(T::DbWeight::get().writes(2 as u64))
+			.saturating_add(T::DbWeight::get().writes((2 as u64).saturating_mul(i as u64)))
 	}
 }
