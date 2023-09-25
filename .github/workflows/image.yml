@@ -22,7 +22,6 @@ on:
       - "release/*"
   push:
     branches:
-      - "main"
       - "release/*"
     paths:
       - "**.rs"
