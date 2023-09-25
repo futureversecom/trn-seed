@@ -143,10 +143,6 @@ mod tests;
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
 
-/// Dual currency implementation mapped to ROOT & XRP for staking
-// pub type DualStakingCurrency =
-// 	pallet_assets_ext::DualStakingCurrency<Runtime, XrpCurrency, Balances>;
-
 /// This runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
