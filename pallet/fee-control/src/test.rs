@@ -13,7 +13,11 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
-use crate::{mock::*, Data};
+use super::Event;
+use crate::{
+	mock::{RuntimeEvent as MockEvent, *},
+	Data,
+};
 use frame_support::{
 	assert_ok,
 	dispatch::{DispatchClass, GetDispatchInfo},
@@ -111,6 +115,10 @@ fn set_evm_base_fee_works() {
 		assert_ok!(FeeControl::set_evm_base_fee(RawOrigin::Root.into(), new_value));
 
 		assert_eq!(Data::<Test>::get().evm_base_fee_per_gas, new_value);
+
+		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::EvmBaseFeeSet {
+			base_fee: new_value,
+		}));
 	});
 }
 
@@ -121,6 +129,10 @@ fn set_weight_multiplier_works() {
 		assert_ok!(FeeControl::set_weight_multiplier(RawOrigin::Root.into(), new_value));
 
 		assert_eq!(Data::<Test>::get().weight_multiplier, new_value);
+
+		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::WeightMultiplierSet {
+			weight_multiplier: new_value,
+		}));
 	});
 }
 
@@ -131,5 +143,9 @@ fn set_length_multiplier_works() {
 		assert_ok!(FeeControl::set_length_multiplier(RawOrigin::Root.into(), new_value));
 
 		assert_eq!(Data::<Test>::get().length_multiplier, new_value);
+
+		System::assert_last_event(MockEvent::FeeControl(Event::<Test>::LengthMultiplierSet {
+			length_multiplier: new_value,
+		}));
 	});
 }

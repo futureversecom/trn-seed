@@ -81,7 +81,15 @@ pub mod pallet {
 	pub type Data<T> = StorageValue<_, FeeConfig, ValueQuery, DefaultFeeConfig<T>>;
 
 	#[pallet::event]
-	pub enum Event<T> {}
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
+	pub enum Event<T> {
+		/// The EVM base fee has been set to `base_fee`
+		EvmBaseFeeSet { base_fee: U256 },
+		/// The weight multiplier has been set to `weight_multiplier`
+		WeightMultiplierSet { weight_multiplier: Perbill },
+		/// The length multiplier has been set to `length_multiplier`
+		LengthMultiplierSet { length_multiplier: Balance },
+	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -92,6 +100,7 @@ pub mod pallet {
 				x.evm_base_fee_per_gas = value;
 			});
 
+			Self::deposit_event(Event::<T>::EvmBaseFeeSet { base_fee: value });
 			Ok(())
 		}
 
@@ -102,6 +111,7 @@ pub mod pallet {
 				x.weight_multiplier = value;
 			});
 
+			Self::deposit_event(Event::<T>::WeightMultiplierSet { weight_multiplier: value });
 			Ok(())
 		}
 
@@ -112,6 +122,7 @@ pub mod pallet {
 				x.length_multiplier = value;
 			});
 
+			Self::deposit_event(Event::<T>::LengthMultiplierSet { length_multiplier: value });
 			Ok(())
 		}
 	}
