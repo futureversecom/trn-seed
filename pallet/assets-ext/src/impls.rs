@@ -16,10 +16,7 @@
 use frame_support::{
 	ensure,
 	pallet_prelude::DispatchResult,
-	traits::{
-		Currency, ExistenceRequirement, Get, Imbalance, LockIdentifier, LockableCurrency,
-		SignedImbalance, WithdrawReasons,
-	},
+	traits::{Currency, ExistenceRequirement, Get, SignedImbalance, WithdrawReasons},
 };
 use sp_runtime::{traits::Zero, DispatchError};
 use sp_std::marker::PhantomData;

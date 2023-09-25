@@ -75,7 +75,6 @@ pub use frame_support::{
 	},
 	PalletId, StorageValue,
 };
-use frame_support::traits::OnUnbalanced;
 
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
@@ -143,6 +142,7 @@ mod tests;
 
 /// Currency implementation mapped to XRP
 pub type XrpCurrency = pallet_assets_ext::AssetCurrency<Runtime, XrpAssetId>;
+
 /// Dual currency implementation mapped to ROOT & XRP for staking
 // pub type DualStakingCurrency =
 // 	pallet_assets_ext::DualStakingCurrency<Runtime, XrpCurrency, Balances>;
@@ -798,8 +798,8 @@ impl pallet_staking::Config for Runtime {
 	// For root network it is the balance of the tx fee pot
 	type EraPayout = TxFeePot;
 	type RuntimeEvent = RuntimeEvent;
-	// In our current implementation we have filtered the payout_stakers call so this Reward will never
-	// be triggered. We have decided to keep the TxFeePot in the case this is overlooked
+	// In our current implementation we have filtered the payout_stakers call so this Reward will
+	// never be triggered. We have decided to keep the TxFeePot in the case this is overlooked
 	// to prevent unwanted changes in Root token issuance
 	type Reward = TxFeePot;
 	// Handles any era reward amount indivisible among stakers at end of an era.
@@ -1301,11 +1301,13 @@ pub type CheckedExtrinsic =
 	fp_self_contained::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra, H160>;
 
 pub struct StakingMigrationV11OldPallet;
+
 impl Get<&'static str> for StakingMigrationV11OldPallet {
 	fn get() -> &'static str {
 		"VoterList"
 	}
 }
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
