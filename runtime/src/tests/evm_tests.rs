@@ -39,7 +39,7 @@ use pallet_transaction_payment::ChargeTransactionPayment;
 use precompile_utils::{constants::ERC20_PRECOMPILE_ADDRESS_PREFIX, ErcIdConversion};
 use seed_client::chain_spec::get_account_id_from_seed;
 use seed_primitives::{AccountId, AssetId, Balance};
-use sp_core::{ecdsa, H160, H256, U256};
+use sp_core::{ecdsa, H160, U256};
 use sp_runtime::{traits::SignedExtension, DispatchError::BadOrigin};
 
 #[test]
@@ -157,10 +157,10 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		// Add liquidity to the dex, this will allow for exchange internally when the call is made
 		assert_ok!(Dex::add_liquidity(
 			RawOrigin::Signed(alice()).into(),
-			2,
+			XRP_ASSET_ID,
 			payment_asset,
 			1_000_000_000_000,
-			10_000,
+			1_000_000_000_000,
 			1,
 			1,
 			None,
@@ -175,26 +175,27 @@ fn fee_proxy_call_evm_with_fee_preferences() {
 		.into();
 
 		// Setup input for an erc20 transfer to Bob
+		// transfer(address,uint256)
 		let mut input: Vec<u8> = [0xa9, 0x05, 0x9c, 0xbb].to_vec();
 		input.append(&mut ethabi::encode(&[
 			Token::Address(bob().into()),
 			Token::Uint(transfer_amount.into()),
 		]));
 		// Setup inner EVM.call call
-		let access_list: Vec<(H160, Vec<H256>)> = vec![];
+		let (gas_limit, max_fee_per_gas) = (50_000_u128, 15_000_000_000_000_u128);
 		let inner_call = crate::RuntimeCall::EVM(pallet_evm::Call::call {
 			source: new_account.into(),
 			target,
 			input,
 			value: U256::default(),
-			gas_limit: 50_000,
-			max_fee_per_gas: U256::from(1_600_000_000_000_000_u64),
+			gas_limit: gas_limit as u64,
+			max_fee_per_gas: U256::from(max_fee_per_gas),
 			max_priority_fee_per_gas: None,
 			nonce: None,
-			access_list,
+			access_list: vec![],
 		});
 
-		let max_payment: Balance = 10_000_000_000_000_000;
+		let max_payment = scale_wei_to_6dp(gas_limit * max_fee_per_gas * 2);
 		let call =
 			crate::RuntimeCall::FeeProxy(pallet_fee_proxy::Call::call_with_fee_preferences {
 				payment_asset,

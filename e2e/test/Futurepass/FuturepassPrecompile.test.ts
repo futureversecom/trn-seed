@@ -5,7 +5,6 @@ import { hexToU8a } from "@polkadot/util";
 import { expect } from "chai";
 import { BigNumber, Contract, Wallet } from "ethers";
 import { ethers } from "hardhat";
-import web3 from "web3";
 
 import MockCreateContract from "../../artifacts/contracts/FuturepassIntegrator.sol/CreateTester.json";
 import MockCreatePayableContract from "../../artifacts/contracts/FuturepassIntegrator.sol/CreateTesterPayable.json";
@@ -18,11 +17,10 @@ import {
   FUTUREPASS_REGISTRAR_PRECOMPILE_ADDRESS,
   GAS_TOKEN_ID,
   NodeProcess,
+  XRP_PRECOMPILE_ADDRESS,
   startNode,
   typedefs,
 } from "../../common";
-
-const XRP_PRECOMPILE_ADDRESS = web3.utils.toChecksumAddress("0xCCCCCCCC00000002000000000000000000000000");
 
 const CALL_TYPE = {
   StaticCall: 0,
