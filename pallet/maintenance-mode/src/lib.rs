@@ -41,9 +41,17 @@ mod weights;
 
 pub use weights::WeightInfo;
 
+pub trait BlacklistedPallets {
+	fn can_blacklist() -> bool {
+		return true
+	}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::{WrapperTypeDecode, WrapperTypeEncode};
+	use frame_support::traits::{PalletInfo, PalletsInfoAccess};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
@@ -70,8 +78,14 @@ pub mod pallet {
 		// The sudo pallet to prevent blocking of sudo calls
 		type SudoPallet: PalletInfoAccess;
 
-		// The sudo pallet to prevent blocking of sudo calls
+		// The sudo pallet to prevent blocking of timestamp calls
 		type TimestampPallet: PalletInfoAccess;
+
+		// The ImOnline pallet to prevent blocking of imOnline calls
+		type ImOnlinePallet: PalletInfoAccess;
+
+		// The Ethy pallet to prevent blocking of ethy calls
+		type EthyPallet: PalletInfoAccess;
 	}
 
 	/// Determines whether maintenance mode is currently active
@@ -203,21 +217,7 @@ pub mod pallet {
 			let pallet_name = BoundedVec::truncate_from(pallet_name.to_ascii_lowercase());
 			let pallet_name_string =
 				core::str::from_utf8(&pallet_name).map_err(|_| Error::<T>::InvalidPalletName)?;
-			// Ensure this pallet cannot be blocked
-			ensure!(
-				pallet_name_string != <Self as PalletInfoAccess>::name().to_ascii_lowercase(),
-				Error::<T>::CannotBlock
-			);
-			// Ensure the sudo pallet cannot be blocked
-			ensure!(
-				pallet_name_string != T::SudoPallet::name().to_ascii_lowercase(),
-				Error::<T>::CannotBlock
-			);
-			// Ensure the timestamp pallet cannot be blocked
-			ensure!(
-				pallet_name_string != T::TimestampPallet::name().to_ascii_lowercase(),
-				Error::<T>::CannotBlock
-			);
+			ensure!(Self::is_pallet_blockable(pallet_name_string), Error::<T>::CannotBlock);
 
 			// Validate call name
 			ensure!(!call_name.is_empty(), Error::<T>::InvalidCallName);
@@ -248,21 +248,7 @@ pub mod pallet {
 			let pallet_name = BoundedVec::truncate_from(pallet_name.to_ascii_lowercase());
 			let pallet_name_string =
 				core::str::from_utf8(&pallet_name).map_err(|_| Error::<T>::InvalidPalletName)?;
-			// Ensure this pallet cannot be blocked
-			ensure!(
-				pallet_name_string != <Self as PalletInfoAccess>::name().to_ascii_lowercase(),
-				Error::<T>::CannotBlock
-			);
-			// Ensure the sudo pallet cannot be blocked
-			ensure!(
-				pallet_name_string != T::SudoPallet::name().to_ascii_lowercase(),
-				Error::<T>::CannotBlock
-			);
-			// Ensure the timestamp pallet cannot be blocked
-			ensure!(
-				pallet_name_string != T::TimestampPallet::name().to_ascii_lowercase(),
-				Error::<T>::CannotBlock
-			);
+			ensure!(Self::is_pallet_blockable(pallet_name_string), Error::<T>::CannotBlock);
 
 			match blocked {
 				true => BlockedPallets::<T>::insert(&pallet_name, true),
@@ -273,6 +259,31 @@ pub mod pallet {
 
 			Ok(())
 		}
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	/// Checks whether a certain pallet can be blocked. Pallets that cannot be blocked are
+	/// defined in the Config individually. This is to prevent the chain from being blocked
+	/// These will be checked in the call filter to allow these pallet calls to be executed
+	fn is_pallet_blockable(pallet_name: &str) -> bool {
+		if pallet_name == <Self as PalletInfoAccess>::name().to_ascii_lowercase() {
+			return false
+		}
+		if pallet_name == T::SudoPallet::name().to_ascii_lowercase() {
+			return false
+		}
+		if pallet_name == T::TimestampPallet::name().to_ascii_lowercase() {
+			return false
+		}
+		if pallet_name == T::ImOnlinePallet::name().to_ascii_lowercase() {
+			return false
+		}
+		if pallet_name == T::EthyPallet::name().to_ascii_lowercase() {
+			return false
+		}
+
+		true
 	}
 }
 
@@ -293,9 +304,8 @@ where
 	fn call_paused(call: &<T as frame_system::Config>::RuntimeCall) -> bool {
 		let CallMetadata { function_name, pallet_name } = call.get_call_metadata();
 
-		// Check whether this is a sudo call, we want to enable all sudo calls
-		// Regardless of maintenance mode
-		if pallet_name == <T as Config>::SudoPallet::name() {
+		// Ensure this pallet is not part of the excluded pallets specified in Config
+		if !Pallet::<T>::is_pallet_blockable(&pallet_name.to_ascii_lowercase()) {
 			return false
 		}
 
@@ -367,10 +377,10 @@ where
 	) -> TransactionValidity {
 		let pallet_name = call.get_call_metadata().pallet_name;
 
-		// Check whether this is a sudo call, we want to enable all sudo calls
-		// Regardless of maintenance mode
-		// This check is needed here in case we accidentally block the sudo account
-		if pallet_name == <T as Config>::SudoPallet::name() {
+		let pallet_name = pallet_name.to_ascii_lowercase();
+
+		// Ensure this pallet is not part of the excluded pallets specified in Config
+		if !Pallet::<T>::is_pallet_blockable(&pallet_name) {
 			return Ok(ValidTransaction::default())
 		}
 
