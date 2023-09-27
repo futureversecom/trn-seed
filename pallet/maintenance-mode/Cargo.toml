@@ -26,9 +26,13 @@ pallet-ethereum = { default-features = false, git = "https://github.com/futureve
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets-ext = { path = "../assets-ext" }
+pallet-ethy = { path = "../ethy" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-assets = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+pallet-im-online = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.30" }
+
 
 [features]
 default = ["std"]

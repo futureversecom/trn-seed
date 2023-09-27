@@ -26,7 +26,6 @@ use codec::{Decode, Encode};
 use core::ops::Mul;
 use fp_rpc::TransactionStatus;
 use frame_election_provider_support::{generate_solution_type, onchain, SequentialPhragmen};
-use frame_support::traits::{PalletInfoAccess, PalletInfoData, PalletsInfoAccess};
 use pallet_dex::TradingPairStatus;
 use pallet_ethereum::{
 	Call::transact, InvalidTransactionWrapper, Transaction as EthereumTransaction,

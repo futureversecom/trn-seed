@@ -23,6 +23,7 @@ pub use pallet::*;
 use frame_support::{
 	dispatch::{CallMetadata, Dispatchable, GetCallMetadata, GetDispatchInfo, PostDispatchInfo},
 	pallet_prelude::*,
+	traits::{PalletInfo, PalletsInfoAccess},
 };
 use frame_system::pallet_prelude::*;
 use seed_pallet_common::{MaintenanceCheck, MaintenanceCheckEVM};
@@ -32,26 +33,19 @@ use sp_std::{fmt::Debug, prelude::*};
 
 #[cfg(test)]
 mod mock;
-#[cfg(test)]
-mod test;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+#[cfg(test)]
+mod test;
+
 mod weights;
 
 pub use weights::WeightInfo;
 
-pub trait BlacklistedPallets {
-	fn can_blacklist() -> bool {
-		return true
-	}
-}
-
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use codec::{WrapperTypeDecode, WrapperTypeEncode};
-	use frame_support::traits::{PalletInfo, PalletsInfoAccess};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub (super) trait Store)]
