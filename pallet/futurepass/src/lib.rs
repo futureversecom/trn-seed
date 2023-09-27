@@ -98,7 +98,7 @@ where
 pub mod pallet {
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(0);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -163,12 +163,12 @@ pub mod pallet {
 
 	/// Futurepass holders (account -> futurepass)
 	#[pallet::storage]
-	pub type Holders<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
+	pub type Holders<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
 
 	/// Accounts which have set futurepass as default proxied on-chain account (delegate ->
 	/// futurepass)
 	#[pallet::storage]
-	pub type DefaultProxy<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, T::AccountId>;
+	pub type DefaultProxy<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId>;
 
 	/// Migration data for user (root) and collections they can migrate
 	#[pallet::storage]

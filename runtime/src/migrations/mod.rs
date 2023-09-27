@@ -13,6 +13,7 @@
 // limitations under the License.
 // You may obtain a copy of the License at the root of this project source code
 
+mod futurepass;
 mod nft;
 
 use codec::{Decode, Encode, FullCodec, FullEncode};
@@ -33,21 +34,21 @@ impl OnRuntimeUpgrade for AllMigrations {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
 		let data = nft::Upgrade::pre_upgrade()?;
-
+		let _ = futurepass::Upgrade::pre_upgrade()?;
 		Ok(data)
 	}
 
 	fn on_runtime_upgrade() -> Weight {
 		let mut weight = Weight::from_ref_time(0_u64);
 		weight += nft::Upgrade::on_runtime_upgrade();
-
+		weight += futurepass::Upgrade::on_runtime_upgrade();
 		weight
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: Vec<u8>) -> Result<(), &'static str> {
-		nft::Upgrade::post_upgrade(state)?;
-
+		nft::Upgrade::post_upgrade(state.clone())?;
+		futurepass::Upgrade::post_upgrade(state)?;
 		Ok(())
 	}
 }
