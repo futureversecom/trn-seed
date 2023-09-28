@@ -58,7 +58,7 @@ mod test;
 mod weights;
 
 pub use imbalances::*;
-pub use impls::{AssetCurrency};
+pub use impls::AssetCurrency;
 pub use weights::WeightInfo;
 
 /// The inner value of a `PalletId`, extracted for convenience as `PalletId` is missing trait
