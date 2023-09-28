@@ -27,7 +27,7 @@ describe("NetworkFee", () => {
   before(async () => {
     node = await startNode();
 
-    const wsProvider = new WsProvider(`ws://localhost:${node.wsPort}`);
+    const wsProvider = new WsProvider(`ws://127.0.0.1:${node.wsPort}`);
     api = await ApiPromise.create({
       provider: wsProvider,
       types: typedefs,
@@ -71,28 +71,51 @@ describe("NetworkFee", () => {
     const bobLPBalanceBefore =
       ((await api.query.assets.account(LP_TOKEN_ID, bob.address)).toJSON() as any)?.balance ?? 0;
 
+    // get the total supply before swapping
+    const totalSupply = ((await api.query.assets.asset(LP_TOKEN_ID)).toJSON() as any)?.supply;
+
+    // get the last k value before swapping
+    const lastK = (await api.query.dex.liquidityPoolLastK(LP_TOKEN_ID)).toJSON() as any;
+
     // alith makes a swap
     await finalizeTx(
       alith,
       api.tx.dex.swapWithExactSupply(utils.parseEther("100").toString(), 0, [TOKEN_ID, GAS_TOKEN_ID], null, null),
     );
 
-    // get the last k value
-    const lastK = (await api.query.dex.liquidityPoolLastK(LP_TOKEN_ID)).toJSON() as any;
-    const totalSupply = ((await api.query.assets.asset(LP_TOKEN_ID)).toJSON() as any)?.supply;
+    // get the reserves after swapping
     const reserves = (await api.query.dex.liquidityPool([GAS_TOKEN_ID, TOKEN_ID])).toJSON() as any;
     const kSqrtLast = Math.sqrt(lastK);
     const kSqrt = Math.sqrt(reserves[0] * reserves[1]);
 
-    // alith withdraws some LP tokens to trigger the network fee distribution
-    await finalizeTx(alith, api.tx.dex.removeLiquidity(TOKEN_ID, GAS_TOKEN_ID, 3000000, 0, 0, null, null));
-
-    // get bob's lp balance after lp removal
+    // get bob's lp balance after swapping
     const bobLPBalanceAfter = ((await api.query.assets.account(LP_TOKEN_ID, bob.address)).toJSON() as any).balance;
 
     // calculate the expected network fee
     const networkFeeAmountExpected = totalSupply * ((kSqrt - kSqrtLast) / (5 * kSqrt + kSqrtLast));
     const networkFeeAmountActual = bobLPBalanceAfter - bobLPBalanceBefore;
     expect(networkFeeAmountActual).to.eq(Math.floor(networkFeeAmountExpected));
+
+    // alith adds some LP tokens
+    await finalizeTx(alith, api.tx.dex.removeLiquidity(TOKEN_ID, GAS_TOKEN_ID, 3000000, 0, 0, null, null));
+
+    // check if the last k value has been updated
+    const lastKAfterAddingLiquidity: number = (await api.query.dex.liquidityPoolLastK(LP_TOKEN_ID)).toJSON() as any;
+    const reservesAfterAddingLiquidity = (await api.query.dex.liquidityPool([GAS_TOKEN_ID, TOKEN_ID])).toJSON() as any;
+    expect(BigInt(lastKAfterAddingLiquidity)).to.eq(
+      BigInt(reservesAfterAddingLiquidity[0]) * BigInt(reservesAfterAddingLiquidity[1]),
+    );
+
+    // alith withdraws some LP tokens
+    await finalizeTx(alith, api.tx.dex.removeLiquidity(TOKEN_ID, GAS_TOKEN_ID, 3000000, 0, 0, null, null));
+
+    // check if the last k value has been updated
+    const lastKAfterRemovingLiquidity = (await api.query.dex.liquidityPoolLastK(LP_TOKEN_ID)).toJSON() as any;
+    const reservesAfterRemovingLiquidity = (
+      await api.query.dex.liquidityPool([GAS_TOKEN_ID, TOKEN_ID])
+    ).toJSON() as any;
+    expect(BigInt(lastKAfterRemovingLiquidity)).to.eq(
+      BigInt(reservesAfterRemovingLiquidity[0]) * BigInt(reservesAfterRemovingLiquidity[1]),
+    );
   });
 });

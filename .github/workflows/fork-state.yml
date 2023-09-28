@@ -21,12 +21,11 @@ on:
 
 env:
   REGISTRY: "ghcr.io"
-  IMAGE_NAME: "futureversecom/fork-state-${{ github.event.inputs.network }}"
   CARGO_TERM_COLOR: always
 
 jobs:
   fork-state:
-    runs-on: [seed-builder]
+    runs-on: [dev-box]
     name: Fork the current state and run runtime upgrade
     permissions:
       contents: read
@@ -42,15 +41,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create output folder
-        run: mkdir -p output
-
       - name: Set up Python 3.9
+        if: ${{ github.event.inputs.runtime-upgrade }}
         uses: actions/setup-python@v4
         with:
           python-version: 3.9
 
       - name: Check out the correct version
+        if: ${{ github.event.inputs.runtime-upgrade }}
         run: |
           python3 -m venv ./scripts/penv
           source ./scripts/penv/bin/activate
@@ -66,59 +64,33 @@ jobs:
           path: ./output/seed_runtime.compact.compressed.wasm
           if-no-files-found: warn
 
-      - name: Build 🛠 & Publish 🐳
-        # build and tag an image with commit hash and 'latest', additionally:
-        # if the commit is tagged, tag the image also e.g. 1.0.0
-        # if the branch name is release/x.x.x tag the image
+      - name: Deploy cluster 🐳
         run: |
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          echo "commit hash: $COMMIT_HASH"
-          COMMIT_TAG=$((git describe --exact-match --tags HEAD) || true)
-          echo "commit tag(?): $COMMIT_TAG"
-          RELEASE_TAG=$(echo -n $GITHUB_REF | grep -oP '(?<=release/).*' || true)
+          export NETWORK=${{ github.event.inputs.network }}
 
-          echo "github ref: $GITHUB_REF"
-          echo "release tag(?): $RELEASE_TAG"
-
-          # set DOCKER_BUILDKIT to use fork-state.Dockerfile.dockerignore
-          DOCKER_BUILDKIT=1
-          docker build -t "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" -t "$REGISTRY/$IMAGE_NAME":latest -f ./dockerimages/fork-state.Dockerfile --build-arg network=${{ github.event.inputs.network }} .
-
-          docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH"
-          docker push "$REGISTRY/$IMAGE_NAME:latest"
-
-          # commit was tagged
-          if [ -n "$COMMIT_TAG" ]; then
-            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$COMMIT_TAG"
-            docker push "$REGISTRY/$IMAGE_NAME:$COMMIT_TAG"
-          fi
-          # branch is a release branch
-          if [ -n "$RELEASE_TAG" ]; then
-            docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
-            docker push "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
-          fi
-          # clean up images
-          docker image prune --filter label=stage=build -f
+          docker compose down --remove-orphans
+          docker compose pull
+          docker compose up -d
 
   poll-service-status:
-    runs-on: [seed-builder]
+    runs-on: [dev-box]
     needs: fork-state
-    name: Poll the service status on Kubernetes till the service is up
+    name: Poll the service status until the service is up
     steps:
-      - name: Wait till the Kubernetes runner reacts
-        run: sleep 10s
+      - name: Wait till the runner reacts
+        run: sleep 20
         shell: bash
       - name: Fetch the service status
         uses: nev7n/wait_for_response@v1
         with:
-          url: "https://forkednet.au.cicd.rootnet.app/"
+          url: "https://devnet.cicd.rootnet.app:9933/"
           responseCode: 405
           timeout: 300
           interval: 20
 
   runtime-upgrade:
     if: ${{ github.event.inputs.runtime-upgrade }}
-    runs-on: [seed-builder]
+    runs-on: [dev-box]
     needs: poll-service-status
     defaults:
       run:

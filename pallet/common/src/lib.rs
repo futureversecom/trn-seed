@@ -20,13 +20,13 @@ use codec::{Decode, Encode};
 pub use frame_support::log as logger;
 use frame_support::{
 	dispatch::{DispatchError, DispatchResult},
-	sp_runtime::traits::AccountIdConversion,
+	sp_runtime::{traits::AccountIdConversion, Perbill},
 	traits::{fungibles::Transfer, Get},
 	weights::{constants::RocksDbWeight as DbWeight, Weight},
 	PalletId,
 };
 use scale_info::TypeInfo;
-use sp_core::H160;
+use sp_core::{H160, U256};
 use sp_std::{fmt::Debug, vec::Vec};
 
 use seed_primitives::{
@@ -346,6 +346,27 @@ pub trait Xls20MintRequest {
 		serial_numbers: Vec<SerialNumber>,
 		metadata_scheme: MetadataScheme,
 	) -> DispatchResult;
+}
+
+pub trait FeeConfig {
+	fn evm_base_fee_per_gas() -> U256;
+	fn weight_multiplier() -> Perbill;
+	fn length_multiplier() -> Balance;
+}
+
+impl FeeConfig for () {
+	fn evm_base_fee_per_gas() -> U256 {
+		// Floor network base fee per gas
+		// 0.000015 XRP per gas, 15000 GWEI
+		U256::from(15_000_000_000_000u128)
+	}
+	fn weight_multiplier() -> Perbill {
+		Perbill::from_parts(125)
+	}
+
+	fn length_multiplier() -> Balance {
+		Balance::from(2_500u32)
+	}
 }
 
 // Code used for futurepass V2
