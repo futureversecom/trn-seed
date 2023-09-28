@@ -240,7 +240,7 @@ macro_rules! impl_pallet_fee_control_config {
 		impl pallet_fee_control::Config for $test {
 			type RuntimeEvent = RuntimeEvent;
 			type WeightInfo = ();
-			type DefaultValues = ();
+			type FeeConfig = ();
 		}
 	};
 }
@@ -369,6 +369,7 @@ macro_rules! impl_pallet_fee_proxy_config {
 			type FeeAssetId = XrpAssetId;
 			type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, ()>;
 			type ErcIdConversion = Self;
+			type EVMBaseFeeProvider = FeeControl;
 		}
 	};
 }

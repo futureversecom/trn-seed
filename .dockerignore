@@ -1,5 +1,8 @@
+.vscode/
 data/
 docs/
 target/
+dockerimages/
+output/
 .git
 .github

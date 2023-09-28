@@ -99,10 +99,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type ChallengePeriod: Get<u32>;
 
-		/// Clear Period to wait for a transaction to be cleared from settled storages
-		#[pallet::constant]
-		type ClearTxPeriod: Get<u32>;
-
 		/// Unix time
 		type UnixTime: UnixTime;
 
@@ -113,6 +109,9 @@ pub mod pallet {
 		/// single block in the temporary storage and the maximum number of XRPL transactions that
 		/// can be stored in the settled transaction details storage for each block.
 		type XRPTransactionLimit: Get<u32>;
+
+		/// Maximum XRPL transactions within a single ledger
+		type XRPLTransactionLimitPerLedger: Get<u32>;
 	}
 
 	#[pallet::error]
@@ -137,6 +136,10 @@ pub mod pallet {
 		TicketSequenceParamsInvalid,
 		/// Cannot process more transactions at that block
 		CannotProcessMoreTransactionsAtThatBlock,
+		/// Transaction submitted is outside the submission window
+		OutSideSubmissionWindow,
+		/// Too Many transactions per ledger
+		TooManyTransactionsPerLedger,
 	}
 
 	#[pallet::event]
@@ -178,8 +181,10 @@ pub mod pallet {
 		<T as frame_system::Config>::AccountId: From<sp_core::H160>,
 	{
 		fn on_initialize(n: T::BlockNumber) -> Weight {
+			let submission_window_end = HighestSettledLedgerIndex::<T>::get()
+				.saturating_sub(SubmissionWindowWidth::<T>::get());
 			let weights = Self::process_xrp_tx(n);
-			weights + Self::clear_storages(n)
+			weights + Self::clear_storages(submission_window_end)
 		}
 	}
 
@@ -202,15 +207,23 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn process_xrp_transaction_details)]
 	/// Stores submitted transactions from XRPL waiting to be processed
-	/// Transactions will be cleared `ClearTxPeriod` blocks after processing
+	/// Transactions will be cleared according to the submission window after processing
 	pub type ProcessXRPTransactionDetails<T: Config> =
 		StorageMap<_, Identity, XrplTxHash, (LedgerIndex, XrpTransaction, T::AccountId)>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn settled_xrp_transaction_details)]
-	/// Settled xrp transactions stored as history for a specific period
+	/// Settled xrp transactions stored against XRPL ledger index
 	pub type SettledXRPTransactionDetails<T: Config> =
-		StorageMap<_, Twox64Concat, T::BlockNumber, BoundedVec<XrplTxHash, T::XRPTransactionLimit>>;
+		StorageMap<_, Twox64Concat, u32, BoundedVec<XrplTxHash, T::XRPLTransactionLimitPerLedger>>;
+
+	#[pallet::storage]
+	/// Highest settled XRPL ledger index
+	pub type HighestSettledLedgerIndex<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	#[pallet::storage]
+	/// XRPL transactions submission window width in ledger indexes
+	pub type SubmissionWindowWidth<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn challenge_xrp_transaction_list)]
@@ -301,6 +314,14 @@ pub mod pallet {
 			let relayer = ensure_signed(origin)?;
 			let active_relayer = <Relayer<T>>::get(&relayer).unwrap_or(false);
 			ensure!(active_relayer, Error::<T>::NotPermitted);
+			// Check within the submission window
+			let submission_window_end = HighestSettledLedgerIndex::<T>::get()
+				.saturating_sub(SubmissionWindowWidth::<T>::get());
+			ensure!(
+				(ledger_index as u32).ge(&submission_window_end),
+				Error::<T>::OutSideSubmissionWindow
+			);
+			// If within the submission window, check against ProcessXRPTransactionDetails
 			ensure!(
 				Self::process_xrp_transaction_details(transaction_hash).is_none(),
 				Error::<T>::TxReplay
@@ -441,6 +462,33 @@ pub mod pallet {
 			});
 			Ok(())
 		}
+
+		#[pallet::weight(T::WeightInfo::reset_settled_xrpl_tx_data(settled_tx_data.as_ref().unwrap_or(&vec![]).len() as u32))]
+		#[transactional]
+		pub fn reset_settled_xrpl_tx_data(
+			origin: OriginFor<T>,
+			highest_settled_ledger_index: u32,
+			submission_window_width: u32,
+			settled_tx_data: Option<Vec<(XrplTxHash, u32, XrpTransaction, T::AccountId)>>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			HighestSettledLedgerIndex::<T>::put(highest_settled_ledger_index);
+			SubmissionWindowWidth::<T>::put(submission_window_width);
+
+			if let Some(settled_txs) = settled_tx_data {
+				for (xrpl_tx_hash, ledger_index, tx, account) in settled_txs {
+					<ProcessXRPTransactionDetails<T>>::insert(
+						xrpl_tx_hash,
+						(ledger_index as LedgerIndex, tx, account),
+					);
+
+					<SettledXRPTransactionDetails<T>>::try_append(ledger_index, xrpl_tx_hash)
+						.map_err(|_| Error::<T>::TooManyTransactionsPerLedger)?;
+				}
+			}
+
+			Ok(())
+		}
 	}
 }
 
@@ -470,6 +518,9 @@ impl<T: Config> Pallet<T> {
 		reads += tx_items.len() as u64 * 2;
 		let tx_details = tx_details.filter_map(|x| Some((x.0, x.1?)));
 
+		reads += 1;
+		let mut highest_settled_ledger_index = HighestSettledLedgerIndex::<T>::get();
+
 		for (transaction_hash, (ledger_index, ref tx, _relayer)) in tx_details {
 			match tx.transaction {
 				XrplTxData::Payment { amount, address } => {
@@ -489,34 +540,51 @@ impl<T: Config> Pallet<T> {
 				},
 			}
 
-			let clear_block_number =
-				<frame_system::Pallet<T>>::block_number() + T::ClearTxPeriod::get().into();
+			// Add to SettledXRPTransactionDetails
 			<SettledXRPTransactionDetails<T>>::try_append(
-				&clear_block_number,
+				ledger_index as u32,
 				transaction_hash.clone(),
-			).expect("Should not happen since both ProcessXRPTransaction and SettledXRPTransactionDetails have the same limit");
+			)
+			.expect("Should not happen since XRPLTransactionLimitPerLedger >= XRPTransactionLimit");
+
+			// Update HighestSettledLedgerIndex
+			if highest_settled_ledger_index < ledger_index as u32 {
+				highest_settled_ledger_index = ledger_index as u32;
+			}
+
 			writes += 2;
 			reads += 2;
 			Self::deposit_event(Event::ProcessingOk(ledger_index, transaction_hash.clone()));
 		}
 
+		writes += 1;
+		HighestSettledLedgerIndex::<T>::put(highest_settled_ledger_index);
+
 		DbWeight::get().reads_writes(reads, writes)
 	}
 
 	/// Prune settled transaction data from storage
-	/// if it was scheduled to do so at block `n`
-	pub fn clear_storages(n: T::BlockNumber) -> Weight {
+	pub fn clear_storages(end_ledger_index: u32) -> Weight {
 		let mut reads = 0u64;
 		let mut writes = 0u64;
-		reads += 1;
-		if <SettledXRPTransactionDetails<T>>::contains_key(n) {
-			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(n) {
+		reads += 2;
+		let previous_end = end_ledger_index;
+		let current_end =
+			HighestSettledLedgerIndex::<T>::get().saturating_sub(SubmissionWindowWidth::<T>::get());
+
+		for ledger_index in previous_end..current_end {
+			reads += 1;
+			if !SettledXRPTransactionDetails::<T>::contains_key(ledger_index) {
+				continue
+			}
+			if let Some(tx_hashes) = <SettledXRPTransactionDetails<T>>::take(ledger_index) {
 				writes += 1 + tx_hashes.len() as u64;
 				for tx_hash in tx_hashes {
 					<ProcessXRPTransactionDetails<T>>::remove(tx_hash);
 				}
 			}
 		}
+
 		DbWeight::get().reads_writes(reads, writes)
 	}
 

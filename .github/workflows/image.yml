@@ -4,6 +4,15 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  workflow_dispatch:
+    inputs:
+      network:
+        type: choice
+        description: "The network to be forked"
+        options:
+          - porcini
+          - root
+        required: true
   workflow_run:
     workflows:
       - Release
@@ -13,7 +22,6 @@ on:
       - "release/*"
   push:
     branches:
-      - "main"
       - "release/*"
     paths:
       - "**.rs"
@@ -28,6 +36,7 @@ on:
 env:
   REGISTRY: "ghcr.io"
   IMAGE_NAME: "futureversecom/seed"
+  FORK_STATE_IMAGE_NAME: "futureversecom/fork-release-state"
 
 jobs:
   build-image:
@@ -75,5 +84,119 @@ jobs:
             docker tag "$REGISTRY/$IMAGE_NAME:$COMMIT_HASH" "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
             docker push "$REGISTRY/$IMAGE_NAME:$RELEASE_TAG"
           fi
+          # clean up images
+          docker image prune --filter label=stage=build -f
+
+  build-root-fork-image:
+    if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'release')
+    # only run if release branch CI build passes
+    runs-on: [seed-builder]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: ghcr.io login
+        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build 🛠 & Publish 🐳
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          NETWORK="root"
+          TAG_NAME=${FORK_STATE_IMAGE_NAME}-${NETWORK}
+
+          # remove git from .dockerignore (script switches git branches/tags)
+          sed -i '/git$/d' .dockerignore
+
+          # use DOCKER_BUILDKIT
+          DOCKER_BUILDKIT=1
+          docker build -t "$REGISTRY/$TAG_NAME:latest" -t "$REGISTRY/$TAG_NAME:$COMMIT_HASH" -f ./dockerimages/fork-state.Dockerfile --build-arg network=$NETWORK .
+
+          docker push "$REGISTRY/$TAG_NAME:latest"
+          docker push "$REGISTRY/$TAG_NAME:$COMMIT_HASH"
+
+          # clean up images
+          docker image prune --filter label=stage=build -f
+
+  build-porcini-fork-image:
+    if: github.event.workflow_run.conclusion == 'success' || contains(github.ref_name, 'release')
+    # only run if release branch CI build passes
+    runs-on: [seed-builder]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: ghcr.io login
+        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build 🛠 & Publish 🐳
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          NETWORK="porcini"
+          TAG_NAME=${FORK_STATE_IMAGE_NAME}-${NETWORK}
+
+          # remove git from .dockerignore (script switches git branches/tags)
+          sed -i '/git$/d' .dockerignore
+
+          # use DOCKER_BUILDKIT
+          DOCKER_BUILDKIT=1
+          docker build -t "$REGISTRY/$TAG_NAME:latest" -t "$REGISTRY/$TAG_NAME:$COMMIT_HASH" -f ./dockerimages/fork-state.Dockerfile --build-arg network=$NETWORK .
+
+          docker push "$REGISTRY/$TAG_NAME:latest"
+          docker push "$REGISTRY/$TAG_NAME:$COMMIT_HASH"
+
+          # clean up images
+          docker image prune --filter label=stage=build -f
+
+  build-release-state-image-on-demand:
+    # ensure the job only runs for workflow_dispatch event
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [seed-builder]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: ghcr.io login
+        uses: docker/login-action@49ed152c8eca782a232dede0303416e8f356c37b
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build 🛠 & Publish 🐳
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          NETWORK=${{ github.event.inputs.network }}
+          TAG_NAME=${FORK_STATE_IMAGE_NAME}-${NETWORK}
+
+          # remove git from .dockerignore (script switches git branches/tags)
+          sed -i '/git$/d' .dockerignore
+
+          # use DOCKER_BUILDKIT
+          DOCKER_BUILDKIT=1
+          docker build -t "$REGISTRY/$TAG_NAME:latest" -t "$REGISTRY/$TAG_NAME:$COMMIT_HASH" -f ./dockerimages/fork-state.Dockerfile --build-arg network=$NETWORK .
+
+          docker push "$REGISTRY/$TAG_NAME:latest"
+          docker push "$REGISTRY/$TAG_NAME:$COMMIT_HASH"
+
           # clean up images
           docker image prune --filter label=stage=build -f
