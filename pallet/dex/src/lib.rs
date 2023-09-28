@@ -752,8 +752,6 @@ where
 
 		ensure!(token_a != token_b, Error::<T>::IdenticalTokenAddress);
 
-		let (reserve_a, reserve_b) = LiquidityPool::<T>::get(trading_pair);
-
 		// transfer lp tokens to dex
 		let pool_address = trading_pair.pool_address();
 		T::MultiCurrency::transfer(lp_share_asset_id, &who, &pool_address, liquidity, false)?;

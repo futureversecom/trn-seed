@@ -39,9 +39,13 @@ mod precompile_addresses {
 	/// The decoded location for the fee proxy function selector
 	/// 0x04BB = 00000100 10111011
 	pub const FEE_PROXY_ADDRESS: u64 = 1211; // 0x04BB
-	/// Function selector for call_with_fee_preferences
+	/// Function selector for call_with_fee_preferences (deprecated)
 	/// bytes4(keccak256(bytes("callWithFeePreferences(address,uint128,address,bytes)")));
-	pub const FEE_FUNCTION_SELECTOR: [u8; 4] = [0x25, 0x5a, 0x34, 0x32];
+	#[deprecated(note = "Use `callWithFeePreferences(address,address,bytes)` instead")]
+	pub const FEE_FUNCTION_SELECTOR_DEPRECATED: [u8; 4] = [0x25, 0x5a, 0x34, 0x32];
+	/// Function selector for call_with_fee_preferences
+	/// bytes4(keccak256(bytes("callWithFeePreferences(address,address,bytes)")));
+	pub const FEE_FUNCTION_SELECTOR: [u8; 4] = [0xf6, 0x09, 0x82, 0x86];
 	/// Precompile address for futurepass registar
 	pub const FUTUREPASS_REGISTRAR_PRECOMPILE: u64 = 65_535; // 0xFFFF
 	/// Precompile address for marketplace

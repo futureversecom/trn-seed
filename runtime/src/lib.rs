@@ -94,7 +94,7 @@ pub use pallet_staking::{Forcing, StakerStatus};
 pub mod keys {
 	pub use super::{BabeId, EthBridgeId, GrandpaId, ImOnlineId};
 }
-
+pub use seed_pallet_common::FeeConfig;
 pub use seed_primitives::{
 	ethy::{crypto::AuthorityId as EthBridgeId, ValidatorSet},
 	AccountId, Address, AssetId, BabeId, Balance, BlockNumber, CollectionUuid, Hash, Index,
@@ -494,6 +494,7 @@ impl pallet_fee_proxy::Config for Runtime {
 	type FeeAssetId = XrpAssetId;
 	type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<XrpCurrency, TxFeePot>;
 	type ErcIdConversion = Self;
+	type EVMBaseFeeProvider = FeeControl;
 }
 
 parameter_types! {
@@ -1131,27 +1132,10 @@ impl pallet_nft_peg::Config for Runtime {
 	type MaxSerialsPerWithdraw = MaxSerialsPerWithdraw;
 }
 
-pub struct FeeControlDefaultValues;
-
-impl pallet_fee_control::DefaultValues for FeeControlDefaultValues {
-	fn evm_base_fee_per_gas() -> U256 {
-		// Floor network base fee per gas
-		// 0.000015 XRP per gas, 15000 GWEI
-		U256::from(15_000_000_000_000u128)
-	}
-	fn weight_multiplier() -> Perbill {
-		Perbill::from_parts(125)
-	}
-
-	fn length_multiplier() -> Balance {
-		Balance::from(2_500u32)
-	}
-}
-
 impl pallet_fee_control::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = weights::pallet_fee_control::WeightInfo<Runtime>;
-	type DefaultValues = FeeControlDefaultValues;
+	type FeeConfig = ();
 }
 
 parameter_types! {
@@ -1837,23 +1821,28 @@ fn transaction_asset_check(
 	let fee_proxy = TransactionAction::Call(H160::from_low_u64_be(FEE_PROXY_ADDRESS));
 
 	if action == fee_proxy {
-		let (input, gas_limit, gas_price, max_fee_per_gas, max_priority_fee_per_gas) = match eth_tx
-		{
-			EthereumTransaction::Legacy(t) => (t.input, t.gas_limit, Some(t.gas_price), None, None),
-			EthereumTransaction::EIP2930(t) =>
-				(t.input, t.gas_limit, Some(t.gas_price), None, None),
-			EthereumTransaction::EIP1559(t) => (
-				t.input,
-				t.gas_limit,
-				None,
-				Some(t.max_fee_per_gas),
-				Some(t.max_priority_fee_per_gas),
-			),
+		let (input, gas_limit, max_fee_per_gas, max_priority_fee_per_gas) = match eth_tx {
+			EthereumTransaction::EIP1559(t) =>
+				(t.input, t.gas_limit, t.max_fee_per_gas, t.max_priority_fee_per_gas),
+			_ => Err(TransactionValidityError::Invalid(InvalidTransaction::Call))?,
 		};
 
-		let (payment_asset_id, max_payment, _target, _input) =
+		let (payment_asset_id, _max_payment, _target, _input) =
 			FeePreferencesRunner::<Runtime, Runtime, Futurepass>::decode_input(input)?;
-		// ensure user owns max payment amount
+
+		let FeePreferencesData { max_fee_scaled, path, .. } =
+			get_fee_preferences_data::<Runtime, Runtime, Futurepass>(
+				gas_limit.as_u64(),
+				<Runtime as pallet_fee_proxy::Config>::EVMBaseFeeProvider::evm_base_fee_per_gas(),
+				Some(max_fee_per_gas),
+				Some(max_priority_fee_per_gas),
+				payment_asset_id,
+			)?;
+
+		let amounts_in = Dex::get_amounts_in(max_fee_scaled, &path)
+			.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+
+		// ensure user owns max payment amount (in tokens) - once converted from max_fee_per_gas
 		let user_asset_balance = <pallet_assets_ext::Pallet<Runtime> as Inspect<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::reducible_balance(
@@ -1862,28 +1851,11 @@ fn transaction_asset_check(
 			false,
 		);
 		ensure!(
-			user_asset_balance >= max_payment,
+			amounts_in[0] <= user_asset_balance,
 			TransactionValidityError::Invalid(InvalidTransaction::Payment)
 		);
-		let FeePreferencesData { path, total_fee_scaled } =
-			get_fee_preferences_data::<Runtime, Runtime, Futurepass>(
-				gas_limit.as_u64(),
-				gas_price,
-				max_fee_per_gas,
-				max_priority_fee_per_gas,
-				payment_asset_id,
-			)?;
-
-		if total_fee_scaled > 0 {
-			let amounts = Dex::get_amounts_in(total_fee_scaled, &path)
-				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
-			ensure!(
-				amounts[0] <= max_payment,
-				TransactionValidityError::Invalid(InvalidTransaction::Payment)
-			);
-			return Ok(())
-		}
 	}
+
 	Ok(())
 }
 
