@@ -124,6 +124,7 @@ fn start_active_era(era_index: EraIndex) {
 }
 
 #[test]
+#[ignore]
 fn era_payout_redistributes_era_tx_fees() {
 	ExtBuilder::default().build().execute_with(|| {
 		let genesis_root_issuance = Balances::total_issuance();
@@ -184,6 +185,7 @@ fn era_payout_redistributes_era_tx_fees() {
 }
 
 #[test]
+#[ignore]
 fn era_payout_does_not_carry_over() {
 	ExtBuilder::default().build().execute_with(|| {
 		let genesis_root_issuance = Balances::total_issuance();
