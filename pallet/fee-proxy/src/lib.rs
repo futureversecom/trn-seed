@@ -28,7 +28,7 @@ use frame_support::{
 	traits::IsSubType,
 };
 use frame_system::pallet_prelude::*;
-use seed_pallet_common::MaintenanceCheckEVM;
+use seed_pallet_common::{FeeConfig, MaintenanceCheckEVM};
 use seed_primitives::{AssetId, Balance};
 use sp_std::prelude::*;
 
@@ -78,6 +78,8 @@ pub mod pallet {
 		type OnChargeTransaction: OnChargeTransaction<Self>;
 		/// Convert EVM addresses into Runtime Id identifiers and vice versa
 		type ErcIdConversion: ErcIdConversion<AssetId, EvmId = Address>;
+		/// Base fee data provider for EVM transactions
+		type EVMBaseFeeProvider: seed_pallet_common::FeeConfig;
 		// Maintenance mode checker
 		type MaintenanceChecker: MaintenanceCheckEVM<Self>;
 	}

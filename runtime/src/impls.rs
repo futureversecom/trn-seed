@@ -51,6 +51,7 @@ use precompile_utils::{
 	keccak256, Address, ErcIdConversion,
 };
 use seed_pallet_common::{
+	utils::{scale_decimals_to_wei, scale_wei_to_correct_decimals},
 	EthereumEventRouter as EthereumEventRouterT, EthereumEventSubscriber, EventRouterError,
 	EventRouterResult, FinalSessionTracker, OnNewAssetSubscriber,
 };
@@ -68,19 +69,12 @@ const XRP_UNIT_VALUE: Balance = 10_u128.pow(12);
 /// Convert 18dp wei values to 6dp equivalents (XRP)
 /// fractional amounts < `XRP_UNIT_VALUE` are rounded up by adding 1 / 0.000001 xrp
 pub fn scale_wei_to_6dp(value: Balance) -> Balance {
-	let (quotient, remainder) = (value / XRP_UNIT_VALUE, value % XRP_UNIT_VALUE);
-	if remainder.is_zero() {
-		quotient
-	} else {
-		// if value has a fractional part < CPAY unit value
-		// it is lost in this divide operation
-		quotient + 1
-	}
+	scale_wei_to_correct_decimals(value.into(), 6)
 }
 
 /// convert 6dp (XRP) to 18dp (wei)
 pub fn scale_6dp_to_wei(value: Balance) -> Balance {
-	value * XRP_UNIT_VALUE
+	scale_decimals_to_wei(value.into(), 6)
 }
 
 /// Wraps spending currency (XRP) for use by the EVM
@@ -888,7 +882,10 @@ where
 			WithdrawReasons::FEE,
 			ExistenceRequirement::AllowDeath,
 		)
-		.map_err(|_| pallet_evm::Error::<T>::BalanceLow)?;
+		.map_err(|e| {
+			log::error!(target: "assets", "failed to withdraw fee {:?}; amount (XRP): {}", e, fee.as_u128());
+			pallet_evm::Error::<T>::BalanceLow
+		})?;
 		Ok(Some(imbalance)) // Imbalance returned here is 6DP
 	}
 
@@ -969,18 +966,18 @@ mod tests {
 	#[test]
 	fn wei_to_xrp_units_scaling() {
 		let amounts_18 = vec![
-			1000000500000000000u128, // fractional bits <  0.0001
-			1000000000000000001u128, // fractional bits <  0.0001
-			1000001000000000000u128, // fractional bits at 0.0001
-			1000000000000000000u128, // no fractional bits < 0.0001
-			999u128,                 // entirely < 0.0001
-			1u128,
-			0u128,
+			0_u128,
+			1_u128,
+			999_u128,                       // entirely < 0.0001
+			1_000_000_000_000_000_000_u128, // no fractional bits < 0.0001
+			1_000_000_000_000_000_001_u128, // fractional bits <  0.0001
+			1_000_000_500_000_000_000_u128, // fractional bits <  0.0001
+			1_000_001_000_000_000_000_u128, // fractional bits at 0.0001
 		];
-		let amounts_4 = vec![1000001_u128, 1000001, 1000001, 1000000, 1, 1, 0];
-		for (amount_18, amount_4) in amounts_18.into_iter().zip(amounts_4.into_iter()) {
-			println!("{:?}/{:?}", amount_18, amount_4);
-			assert_eq!(scale_wei_to_6dp(amount_18), amount_4);
+		let amounts_6 = vec![0, 1, 1, 1_000_000, 1_000_001, 1_000_001, 1_000_001];
+		for (amount_18, amount_6) in amounts_18.into_iter().zip(amounts_6.into_iter()) {
+			println!("{:?}/{:?}", amount_18, amount_6);
+			assert_eq!(scale_wei_to_6dp(amount_18), amount_6);
 		}
 	}
 }
