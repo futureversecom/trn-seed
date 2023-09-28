@@ -30,9 +30,6 @@ use core::ops::Mul;
 mod mock;
 #[cfg(test)]
 mod test;
-pub mod types;
-
-pub use types::*;
 
 mod weights;
 
