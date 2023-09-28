@@ -14,7 +14,6 @@ use frame_support::{
 	dispatch::GetStorageVersion,
 	traits::{OnRuntimeUpgrade, StorageVersion},
 };
-use sp_std::vec::Vec;
 
 pub struct Upgrade;
 

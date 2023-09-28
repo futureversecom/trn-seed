@@ -20,34 +20,38 @@ use fp_evm::{PrecompileFailure, PrecompileHandle, PrecompileOutput, PrecompileRe
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	ensure,
-	serde::__private::de::Content::U32,
-	traits::OriginTrait,
 };
-use pallet_erc20_peg::*;
 use pallet_evm::{GasWeightMapping, Precompile};
 use pallet_marketplace::{
 	types::{AuctionClosureReason, FixedPriceClosureReason, Listing, MarketplaceId, OfferId},
 	weights::WeightInfo,
-	Error::NotForFixedPriceSale,
 };
 use precompile_utils::{
 	constants::{ERC20_PRECOMPILE_ADDRESS_PREFIX, ERC721_PRECOMPILE_ADDRESS_PREFIX},
 	prelude::*,
 };
-use seed_primitives::{
-	AccountId, AssetId, Balance, BlockNumber, CollectionUuid, ListingId, SerialNumber, TokenId,
-};
+use seed_primitives::{AssetId, Balance, BlockNumber, CollectionUuid, SerialNumber, TokenId};
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::SaturatedConversion, BoundedVec, Permill};
 use sp_std::{marker::PhantomData, vec::Vec};
 use std::u128;
 
+fn convert_u128_to_h256(u128_value: u128) -> H256 {
+	let mut h256_value = H256::default();
+	// Convert the u128 to a big-endian byte array
+	let u128_bytes: [u8; 16] = u128_value.to_be_bytes();
+
+	// Copy the u128 bytes into the first 16 bytes of the H256 value
+	h256_value.as_mut()[0..16].copy_from_slice(&u128_bytes);
+	h256_value
+}
+
 /// Solidity selector of the Marketplace register log, which is the Keccak of the Log signature.
 pub const SELECTOR_LOG_MARKETPLACE_REGISTER: [u8; 32] =
-	keccak256!("MarketplaceRegister(address,uint256,uint256)");
+	keccak256!("MarketplaceRegister(address,uint256)"); // caller_id, marketplace_id
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_LIST: [u8; 32] =
-	keccak256!("FixedPriceSaleList(address,uint256,uint256)");
+	keccak256!("FixedPriceSaleList(address,uint256,uint256)"); // seller_id, listing_id, fixed_price
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_UPDATE: [u8; 32] =
 	keccak256!("FixedPriceSaleUpdate(uint256,uint256,uint256)"); // collection_id, listing_id, new_price
@@ -57,19 +61,19 @@ pub const SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE: [u8; 32] =
 
 pub const SELECTOR_LOG_AUCTION_OPEN: [u8; 32] = keccak256!("AuctionOpen(uint256,uint256,uint256)"); // collection_id, listing_id, reserve_price
 
-pub const SELECTOR_LOG_BID: [u8; 32] = keccak256!("Bid(address,uint256,uint256)");
+pub const SELECTOR_LOG_BID: [u8; 32] = keccak256!("Bid(address,uint256,uint256)"); // bidder, listing_id, amount
 
 pub const SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE: [u8; 32] =
-	keccak256!("FixedPriceSaleClose(address,uint256)");
+	keccak256!("FixedPriceSaleClose(address,uint256)"); // caller, listing_id
 
-pub const SELECTOR_LOG_AUCTION_CLOSE: [u8; 32] = keccak256!("AuctionClose(address,uint256)");
+pub const SELECTOR_LOG_AUCTION_CLOSE: [u8; 32] = keccak256!("AuctionClose(address,uint256)"); // caller, listing_id
 
-pub const SELECTOR_LOG_OFFER: [u8; 32] = keccak256!("Offer(uint256,address,uint256)");
+pub const SELECTOR_LOG_OFFER: [u8; 32] = keccak256!("Offer(uint256,address,uint256)"); // offer_id, caller, token_id
 
-pub const SELECTOR_LOG_OFFER_CANCEL: [u8; 32] = keccak256!("OfferCancel(uint256, uint256)");
+pub const SELECTOR_LOG_OFFER_CANCEL: [u8; 32] = keccak256!("OfferCancel(uint256, uint256)"); // offer_id, token_id
 
 pub const SELECTOR_LOG_OFFER_ACCEPT: [u8; 32] =
-	keccak256!("OfferCancel(uint256, uint256, uint256)");
+	keccak256!("OfferCancel(uint256, uint256, uint256)"); // offer_id, amount, token_id
 
 /// Saturated conversion from EVM uint256 to Blocknumber
 fn saturated_convert_blocknumber(input: U256) -> Result<BlockNumber, PrecompileFailure> {
@@ -92,6 +96,7 @@ pub enum Action {
 	MakeSimpleOffer = "makeSimpleOffer(uint256,uint32,address,uint32)",
 	CancelOffer = "cancelOffer(uint64)",
 	AcceptOffer = "acceptOffer(uint64)",
+	GetMarketPlaceAccount = "getMarketPlaceAccount(uintu32)",
 }
 
 /// Provides access to the Marketplace pallet
@@ -121,7 +126,19 @@ where
 				Err(e) => return Err(e.into()),
 			};
 
-			if let Err(err) = handle.check_function_modifier(FunctionModifier::NonPayable) {
+			if let Err(err) = handle.check_function_modifier(match selector {
+				Action::RegisterMarketplace |
+				Action::SellNft |
+				Action::UpdateFixedPrice |
+				Action::AuctionNft |
+				Action::Bid |
+				Action::CancelSale |
+				Action::MakeSimpleOffer |
+				Action::CancelOffer |
+				Action::AcceptOffer => FunctionModifier::NonPayable,
+				Action::Buy => FunctionModifier::Payable, // user would need to pay to buy nft
+				_ => FunctionModifier::View,
+			}) {
 				return Err(err.into())
 			}
 
@@ -136,6 +153,7 @@ where
 				Action::MakeSimpleOffer => Self::make_simple_offer(handle),
 				Action::CancelOffer => Self::cancel_offer(handle),
 				Action::AcceptOffer => Self::accept_offer(handle),
+				Action::GetMarketPlaceAccount => Self::get_marketplace_account(handle),
 			}
 		};
 		return result
@@ -187,6 +205,10 @@ where
 		);
 		let entitlement: Permill = Permill::from_parts(entitlement);
 		let caller: Runtime::AccountId = handle.context().caller.into();
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::register_marketplace(),
+		))?;
 		let marketplace_id = pallet_marketplace::Pallet::<Runtime>::do_register_marketplace(
 			caller,
 			marketplace_account_h160,
@@ -231,28 +253,36 @@ where
 			}
 		);
 		// Parse beneficiary
-		let beneficiary: H160 = beneficiary.into();
+		let _beneficiary: H160 = beneficiary.into();
 		// Parse asset_id
 		let payment_asset: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
 			payment_asset,
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		)
 		.ok_or_else(|| revert("MARKETPLACE: Invalid payment asset address"))?;
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^32")
+		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		ensure!(
+			fixed_price <= u128::MAX.into(),
+			revert("Marketplace: Expected fixed price <= 2^128")
+		);
 		let fixed_price: Balance = fixed_price.saturated_into();
 		let collection_id: CollectionUuid =
 			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
 				collection_address,
 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
 			)
-			.ok_or_else(|| revert("MARKETPLACE: Invalid collection address"))?;
+			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
 
 		let serials_unbounded = serial_numbers
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("MARKETPLACE: Expected serial_number <= 2^128").into())
+					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
@@ -265,7 +295,6 @@ where
 		let buyer: H160 = buyer.into();
 		let buyer: Option<Runtime::AccountId> =
 			if buyer == H160::default() { None } else { Some(buyer.into()) };
-		let marketplace_id: u32 = marketplace_id.saturated_into();
 		ensure!(
 			marketplace_id <= u32::MAX.into(),
 			revert("Marketplace: Expected marketplace id <= 2^32")
@@ -274,6 +303,10 @@ where
 			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
 
 		let caller: Runtime::AccountId = handle.context().caller.into();
+		// Manually record gas
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::sell(),
+		))?;
 		let listing_id = pallet_marketplace::Pallet::<Runtime>::do_sell_nft(
 			caller,
 			collection_id,
@@ -292,8 +325,9 @@ where
 			revert("Marketplace: Expected listing id <= 2^128")
 		);
 
-		let listing_id = H256::from_low_u64_be(listing_id as u64);
-		let fixed_price = H256::from_low_u64_be(fixed_price as u64);
+		let listing_id: H256 = convert_u128_to_h256(listing_id);
+
+		let fixed_price = convert_u128_to_h256(fixed_price);
 		log4(
 			handle.code_address(),
 			SELECTOR_LOG_FIXED_PRICE_SALE_LIST,
@@ -319,19 +353,20 @@ where
 				new_price: U256
 			}
 		);
-		let listing_id: u128 = listing_id.saturated_into();
 		ensure!(
 			listing_id <= u128::MAX.into(),
 			revert("Marketplace: Expected listing id <= 2^128")
 		);
+		let listing_id: u128 = listing_id.saturated_into();
 
+		ensure!(new_price <= u128::MAX.into(), revert("Marketplace: Expected new price <= 2^128"));
 		let new_price: Balance = new_price.saturated_into();
 		let caller: Runtime::AccountId = handle.context().caller.into();
 		let _ = pallet_marketplace::Pallet::<Runtime>::do_update_fixed_price(
 			caller, listing_id, new_price,
 		);
 		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
-			.or_else(|_| Err(revert("MARKETPLACE: NotForFixedPriceSale")))?;
+			.or_else(|_| Err(revert("Marketplace: NotForFixedPriceSale")))?;
 		let listing = match listing {
 			Listing::FixedPrice(listing) => listing,
 			_ => return Err(revert("Not fixed price")),
@@ -343,7 +378,7 @@ where
 			pallet_marketplace::Call::<Runtime>::update_fixed_price { listing_id, new_price },
 		)?;
 		let collection_id = H256::from_low_u64_be(listing.collection_id as u64);
-		let listing_id = H256::from_low_u64_be(listing_id as u64);
+		let listing_id = convert_u128_to_h256(listing_id);
 
 		log4(
 			handle.code_address(),
@@ -364,28 +399,25 @@ where
 
 		// Parse input.
 		read_args!(handle, { listing_id: U256 });
-		let listing_id: u128 = listing_id.saturated_into();
 		ensure!(
 			listing_id <= u128::MAX.into(),
 			revert("Marketplace: Expected listing id <= 2^128")
 		);
+		let listing_id: u128 = listing_id.saturated_into();
+
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			None.into(),
 			pallet_marketplace::Call::<Runtime>::buy { listing_id },
 		)?;
 		let caller: Runtime::AccountId = handle.context().caller.into(); // caller is the buyer
-		let _ = pallet_marketplace::Pallet::<Runtime>::do_buy(caller, listing_id);
-		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
-			.or_else(|_| Err(revert("MARKETPLACE: NotForFixedPriceSale")))?;
-		let listing = match listing {
-			Listing::FixedPrice(listing) => listing,
-			_ => return Err(revert("Not fixed price")),
-		};
-		let collection_id = H256::from_low_u64_be(listing.collection_id as u64);
-		let listing_id = H256::from_low_u64_be(listing_id as u64);
+		let listing = pallet_marketplace::Pallet::<Runtime>::do_buy(caller, listing_id)
+			.or_else(|_| Err(revert("Marketplace: NotForFixedPriceSale")))?;
 
-		let seller = listing.seller;
+		let collection_id = H256::from_low_u64_be(listing.collection_id as u64);
+		let listing_id = convert_u128_to_h256(listing_id);
+
+		let _seller = listing.seller;
 		log4(
 			handle.code_address(),
 			SELECTOR_LOG_FIXED_PRICE_SALE_COMPLETE,
@@ -415,19 +447,23 @@ where
 				marketplace_id: U256
 			}
 		);
-		let marketplace_id: u32 = marketplace_id.saturated_into();
 		ensure!(
 			marketplace_id <= u32::MAX.into(),
 			revert("Marketplace: Expected marketplace id <= 2^32")
 		);
+		let marketplace_id: u32 = marketplace_id.saturated_into();
 		let duration = Some(saturated_convert_blocknumber(duration)?.into());
+		ensure!(
+			reserve_price <= Balance::MAX.into(),
+			revert("Marketplace: Expected reserve_price <= 2^128")
+		);
 		let reserve_price: Balance = reserve_price.saturated_into();
 		let collection_id: CollectionUuid =
 			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
 				collection_address,
 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
 			)
-			.ok_or_else(|| revert("MARKETPLACE: Invalid collection address"))?;
+			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
 		ensure!(
 			collection_id <= u32::MAX.into(),
 			revert("Marketplace: Expected collection id <= 2^32")
@@ -436,7 +472,7 @@ where
 			.into_iter()
 			.map(|serial_number| {
 				if serial_number > SerialNumber::MAX.into() {
-					return Err(revert("MARKETPLACE: Expected serial_number <= 2^128").into())
+					return Err(revert("Marketplace: Expected serial_number <= 2^32").into())
 				}
 				let serial_number: SerialNumber = serial_number.saturated_into();
 				Ok(serial_number)
@@ -446,7 +482,10 @@ where
 		let serial_numbers = BoundedVec::try_from(serials_unbounded).unwrap();
 
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
-
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace_id <= 2^32")
+		);
 		let marketplace_id: u32 = marketplace_id.saturated_into();
 		let marketplace_id: Option<u32> =
 			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
@@ -455,7 +494,11 @@ where
 			payment_asset,
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		)
-		.ok_or_else(|| revert("MARKETPLACE: Invalid payment asset address"))?;
+		.ok_or_else(|| revert("Marketplace: Invalid payment asset address"))?;
+
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::auction(),
+		))?;
 
 		let caller: Runtime::AccountId = handle.context().caller.into();
 		let listing_id = pallet_marketplace::Pallet::<Runtime>::do_auction_nft(
@@ -470,15 +513,9 @@ where
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
-		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id)
-			.or_else(|_| Err(revert("MARKETPLACE: NotForFixedPriceSale")))?;
-		let listing = match listing {
-			Listing::Auction(listing) => listing,
-			_ => return Err(revert("Not fixed price")),
-		};
-		let seller = listing.seller;
+		// let seller = caller;
 		let collection_id = H256::from_low_u64_be(collection_id as u64);
-		let listing_id = H256::from_low_u64_be(listing_id as u64);
+		let listing_id = convert_u128_to_h256(listing_id);
 		log4(
 			handle.code_address(),
 			SELECTOR_LOG_AUCTION_OPEN,
@@ -494,6 +531,7 @@ where
 	}
 
 	fn bid(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(4, 32)?;
 		// Parse input.
 		read_args!(
 			handle,
@@ -502,12 +540,12 @@ where
 				amount: U256
 			}
 		);
-
-		let listing_id: u128 = listing_id.saturated_into();
 		ensure!(
 			listing_id <= u128::MAX.into(),
-			revert("Marketplace: Expected listing id <= 2^128")
+			revert("Marketplace: Expected listing_id <= 2^128")
 		);
+		let listing_id: u128 = listing_id.saturated_into();
+		ensure!(amount <= u128::MAX.into(), revert("Marketplace: Expected amount <= 2^128"));
 		let amount: Balance = amount.saturated_into();
 
 		RuntimeHelper::<Runtime>::try_dispatch(
@@ -516,8 +554,8 @@ where
 			pallet_marketplace::Call::<Runtime>::bid { listing_id, amount },
 		)?;
 
-		let caller: Runtime::AccountId = handle.context().caller.into(); // caller is the bidder
-		let listing_id = H256::from_low_u64_be(listing_id as u64);
+		let _caller: Runtime::AccountId = handle.context().caller.into(); // caller is the bidder
+		let listing_id = convert_u128_to_h256(listing_id);
 		log4(
 			handle.code_address(),
 			SELECTOR_LOG_BID,
@@ -532,26 +570,27 @@ where
 	}
 
 	fn cancel_sale(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		handle.record_log_costs_manual(3, 32)?;
 		// Parse input.
 		read_args!(handle, { listing_id: U256 });
 
-		let caller: Runtime::AccountId = handle.context().caller.into();
-
-		let listing_id: u128 = listing_id.saturated_into();
+		let _caller: Runtime::AccountId = handle.context().caller.into();
 		ensure!(
 			listing_id <= u128::MAX.into(),
 			revert("Marketplace: Expected listing id <= 2^128")
 		);
+		let listing_id: u128 = listing_id.saturated_into();
+
 		let listing = pallet_marketplace::Pallet::<Runtime>::get_listing_detail(listing_id);
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
 			None.into(),
 			pallet_marketplace::Call::<Runtime>::cancel_sale { listing_id },
 		)?;
-		let listing_id = H256::from_low_u64_be(listing_id as u64);
+		let listing_id = convert_u128_to_h256(listing_id);
 		match listing {
-			Ok(Listing::FixedPrice(sale)) => {
-				let reason = FixedPriceClosureReason::VendorCancelled;
+			Ok(Listing::FixedPrice(_sale)) => {
+				let _reason = FixedPriceClosureReason::VendorCancelled;
 				log3(
 					handle.code_address(),
 					SELECTOR_LOG_FIXED_PRICE_SALE_CLOSE,
@@ -562,8 +601,8 @@ where
 				)
 				.record(handle)?;
 			},
-			Ok(Listing::Auction(auction)) => {
-				let reason = AuctionClosureReason::VendorCancelled;
+			Ok(Listing::Auction(_auction)) => {
+				let _reason = AuctionClosureReason::VendorCancelled;
 				log3(
 					handle.code_address(),
 					SELECTOR_LOG_AUCTION_CLOSE,
@@ -602,31 +641,35 @@ where
 		);
 		let marketplace_id: Option<u32> =
 			if marketplace_id == u32::default() { None } else { Some(marketplace_id) };
-
+		ensure!(amount <= u128::MAX.into(), revert("Marketplace: Expected amount <= 2^128"));
 		let amount: Balance = amount.saturated_into();
 		let collection_id: CollectionUuid =
 			<Runtime as ErcIdConversion<CollectionUuid>>::evm_id_to_runtime_id(
 				collection_address,
 				ERC721_PRECOMPILE_ADDRESS_PREFIX,
 			)
-			.ok_or_else(|| revert("MARKETPLACE: Invalid collection address"))?;
+			.ok_or_else(|| revert("Marketplace: Invalid collection address"))?;
 		ensure!(
 			collection_id <= u32::MAX.into(),
 			revert("Marketplace: Expected collection_id <= 2^32")
 		);
-		let serial_number: SerialNumber = serial_number.saturated_into();
 		ensure!(
 			serial_number <= u32::MAX.into(),
 			revert("Marketplace: Expected serial_number <= 2^32")
 		);
+		let serial_number: SerialNumber = serial_number.saturated_into();
 		let token_id: TokenId = (collection_id, serial_number);
 		// Parse asset_id
 		let asset_id: AssetId = <Runtime as ErcIdConversion<AssetId>>::evm_id_to_runtime_id(
 			asset_id,
 			ERC20_PRECOMPILE_ADDRESS_PREFIX,
 		)
-		.ok_or_else(|| revert("MARKETPLACE: Invalid asset address"))?;
+		.ok_or_else(|| revert("Marketplace: Invalid asset address"))?;
 		ensure!(asset_id <= u32::MAX.into(), revert("Marketplace: Expected asset_id <= 2^32"));
+
+		handle.record_cost(Runtime::GasWeightMapping::weight_to_gas(
+			<Runtime as pallet_marketplace::Config>::WeightInfo::make_simple_offer(),
+		))?;
 
 		let caller: Runtime::AccountId = handle.context().caller.into(); // caller is the buyer
 		let offer_id = pallet_marketplace::Pallet::<Runtime>::do_make_simple_offer(
@@ -639,7 +682,7 @@ where
 		.map_err(|e| {
 			revert(alloc::format!("Marketplace: Dispatched call failed with error: {:?}", e))
 		})?;
-		let offer_id = H256::from_low_u64_be(offer_id as u64);
+		let offer_id = H256::from_low_u64_be(offer_id);
 
 		log3(
 			handle.code_address(),
@@ -660,10 +703,9 @@ where
 		// Parse input.
 		read_args!(handle, { offer_id: U256 });
 
-		let offer_id: OfferId = offer_id.saturated_into();
 		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
+		let offer_id: OfferId = offer_id.saturated_into();
 
-		// Return either the approved account or zero address if no account is approved
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
 		RuntimeHelper::<Runtime>::try_dispatch(
 			handle,
@@ -671,7 +713,7 @@ where
 			pallet_marketplace::Call::<Runtime>::cancel_offer { offer_id },
 		)?;
 		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id);
-		let offer_id = H256::from_low_u64_be(offer_id as u64);
+		let offer_id = H256::from_low_u64_be(offer_id);
 		log2(
 			handle.code_address(),
 			SELECTOR_LOG_OFFER_CANCEL,
@@ -688,8 +730,8 @@ where
 		// Parse input.
 		read_args!(handle, { offer_id: U256 });
 
-		let offer_id: OfferId = offer_id.saturated_into();
 		ensure!(offer_id <= u64::MAX.into(), revert("Marketplace: Expected offer_id <= 2^64"));
+		let offer_id: OfferId = offer_id.saturated_into();
 
 		// Return either the approved account or zero address if no account is approved
 		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
@@ -699,7 +741,7 @@ where
 			pallet_marketplace::Call::<Runtime>::accept_offer { offer_id },
 		)?;
 		let offer = pallet_marketplace::Pallet::<Runtime>::get_offer_detail(offer_id).unwrap();
-		let offer_id = H256::from_low_u64_be(offer_id as u64);
+		let offer_id = H256::from_low_u64_be(offer_id);
 		log3(
 			handle.code_address(),
 			SELECTOR_LOG_OFFER_ACCEPT,
@@ -709,5 +751,22 @@ where
 		)
 		.record(handle)?;
 		Ok(succeed([]))
+	}
+
+	fn get_marketplace_account(handle: &mut impl PrecompileHandle) -> EvmResult<PrecompileOutput> {
+		// Parse input.
+		read_args!(handle, { marketplace_id: U256 });
+
+		handle.record_cost(RuntimeHelper::<Runtime>::db_read_gas_cost())?;
+		ensure!(
+			marketplace_id <= u32::MAX.into(),
+			revert("Marketplace: Expected marketplace id <= 2^64")
+		);
+		let marketplace_id: MarketplaceId = marketplace_id.saturated_into();
+		let Some(marketplace_account) = pallet_marketplace::RegisteredMarketplaces::<Runtime>::get(marketplace_id) else {
+			return Err(revert("Marketplace: The account_id hasn't been registered as a marketplace"));
+		};
+		let marketplace_account_h160: H160 = marketplace_account.account.into();
+		Ok(succeed(EvmDataWriter::new().write(Address::from(marketplace_account_h160)).build()))
 	}
 }

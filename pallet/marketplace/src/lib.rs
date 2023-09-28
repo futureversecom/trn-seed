@@ -21,11 +21,7 @@
 //! Allows users to buy or sell tokens, register as a marketplace and distribute royalties
 //! per sale.
 //! Also allows for offers on these tokens, which can be accepted by the owner of the token.
-//use sp_runtime::{
-// 	traits::{AccountIdConversion, Zero},
-// 	ArithmeticError, DispatchError, DispatchResult, FixedU128, RuntimeDebug, SaturatedConversion,
-// };
-// use sp_std::{cmp::min, convert::TryInto, prelude::*, vec};
+
 use frame_support::{
 	dispatch::{Dispatchable, GetDispatchInfo, PostDispatchInfo},
 	traits::fungibles::{Mutate, Transfer},
@@ -347,7 +343,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			marketplace_account: Option<T::AccountId>,
 			entitlement: Permill,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_register_marketplace(who, marketplace_account, entitlement)?;
 			Ok(().into())
@@ -372,7 +368,7 @@ pub mod pallet {
 			fixed_price: Balance,
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_sell_nft(
 				who,
@@ -407,7 +403,8 @@ pub mod pallet {
 		#[transactional]
 		pub fn buy(origin: OriginFor<T>, listing_id: ListingId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_buy(who, listing_id)
+			Self::do_buy(who, listing_id)?;
+			Ok(().into())
 		}
 
 		/// Auction a bundle of tokens on the open market to the highest bidder
@@ -427,7 +424,7 @@ pub mod pallet {
 			reserve_price: Balance,
 			duration: Option<T::BlockNumber>,
 			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_auction_nft(
 				who,
@@ -473,7 +470,7 @@ pub mod pallet {
 			amount: Balance,
 			asset_id: AssetId,
 			marketplace_id: Option<MarketplaceId>,
-		) -> DispatchResultWithPostInfo {
+		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			Self::do_make_simple_offer(who, token_id, amount, asset_id, marketplace_id)?;
 			Ok(().into())

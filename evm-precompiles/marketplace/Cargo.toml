@@ -25,8 +25,6 @@ pallet-evm = { default-features = false, git = "https://github.com/futureverseco
 precompile-utils = { path = "../utils", default-features = false }
 seed-primitives = { path = "../../primitives", default-features = false }
 pallet-marketplace = { path = "../../pallet/marketplace", default-features = false }
-pallet-erc20-peg = { path = "../../pallet/erc20-peg", default-features = false }
-pallet-nft = { path = "../../pallet/nft", default-features = false }
 
 [features]
 default = ["std"]
@@ -43,5 +41,4 @@ std = [
     "precompile-utils/std",
     "seed-primitives/std",
     "pallet-marketplace/std",
-    "pallet-erc20-peg/std",
 ]

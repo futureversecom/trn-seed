@@ -135,7 +135,10 @@ impl<T: Config> Pallet<T> {
 		Ok(offer)
 	}
 
-	pub fn do_buy(who: T::AccountId, listing_id: ListingId) -> DispatchResult {
+	pub fn do_buy(
+		who: T::AccountId,
+		listing_id: ListingId,
+	) -> Result<FixedPriceListing<T>, DispatchError> {
 		let Some(Listing::FixedPrice(listing)) = Listings::<T>::get(listing_id) else {
 			return Err(Error::<T>::NotForFixedPriceSale.into());
 		};
@@ -149,7 +152,7 @@ impl<T: Config> Pallet<T> {
 
 		let payouts = Self::calculate_royalty_payouts(
 			listing.seller.clone(),
-			listing.royalties_schedule,
+			listing.royalties_schedule.clone(),
 			listing.fixed_price,
 		);
 		// Make split transfer
@@ -165,14 +168,14 @@ impl<T: Config> Pallet<T> {
 
 		Self::deposit_event(Event::<T>::FixedPriceSaleComplete {
 			collection_id: listing.collection_id,
-			serial_numbers: listing.serial_numbers.into_inner(),
+			serial_numbers: listing.serial_numbers.clone().into_inner(),
 			listing_id,
 			price: listing.fixed_price,
 			payment_asset: listing.payment_asset,
 			buyer: who,
 			seller: listing.seller,
 		});
-		Ok(())
+		Ok(listing)
 	}
 
 	pub fn do_auction_nft(
@@ -322,7 +325,7 @@ impl<T: Config> Pallet<T> {
 		amount: Balance,
 		asset_id: AssetId,
 		marketplace_id: Option<MarketplaceId>,
-	) -> sp_std::result::Result<OfferId, DispatchError> {
+	) -> Result<OfferId, DispatchError> {
 		ensure!(!amount.is_zero(), Error::<T>::ZeroOffer);
 		let collection_info = T::NFTExt::get_collection_info(token_id.0)?;
 		ensure!(!collection_info.is_token_owner(&who, token_id.1), Error::<T>::IsTokenOwner);
